@@ -1,8 +1,8 @@
 import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
-import { useProjectDetail } from "@/hooks/useProjectDetail";
-import { fetchProjectDetail, getCachedProjectDetail } from "@/lib/cache/projectDetailCache";
+import { useLearningDetail } from "@/hooks/useLearningDetail";
+import { fetchLearningDetail, getCachedLearningDetail } from "@/lib/cache/projectDetailCache";
 let mockSession = 1;
 let mockToken = "token";
 jest.mock("expo-router", () => ({
@@ -12,13 +12,13 @@ jest.mock("expo-router", () => ({
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/lib/cache/projectDetailCache", () => ({
-  fetchProjectDetail: jest.fn(),
-  getCachedProjectDetail: jest.fn(),
-  subscribeProjectDetailCache: () => () => {},
+  fetchLearningDetail: jest.fn(),
+  getCachedLearningDetail: jest.fn(),
+  subscribeLearningDetailCache: () => () => {},
 }));
-let current: ReturnType<typeof useProjectDetail>;
+let current: ReturnType<typeof useLearningDetail>;
 function Probe({ id = "p1" }: { id?: string }) {
-  const value = useProjectDetail(id);
+  const value = useLearningDetail(id);
   useLayoutEffect(() => {
     current = value;
   });
@@ -35,11 +35,11 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockSession += 1;
   mockToken = "token";
-  (getCachedProjectDetail as jest.Mock).mockReturnValue(undefined);
+  (getCachedLearningDetail as jest.Mock).mockReturnValue(undefined);
 });
 it("preserves cached content and exposes failed refresh for retry", async () => {
-  (getCachedProjectDetail as jest.Mock).mockReturnValue({ id: "p1", title: "Cached" });
-  (fetchProjectDetail as jest.Mock)
+  (getCachedLearningDetail as jest.Mock).mockReturnValue({ id: "p1", title: "Cached" });
+  (fetchLearningDetail as jest.Mock)
     .mockResolvedValueOnce(null)
     .mockResolvedValueOnce({ id: "p1", title: "Fresh" });
   await render(<Probe />);
@@ -51,7 +51,7 @@ it("preserves cached content and exposes failed refresh for retry", async () => 
 });
 it("masks the prior project on account change and ignores its late result and callback", async () => {
   const old = deferred<unknown>();
-  (fetchProjectDetail as jest.Mock)
+  (fetchLearningDetail as jest.Mock)
     .mockReturnValueOnce(old.promise)
     .mockResolvedValueOnce({ id: "p1", title: "New account" });
   const screen = await render(<Probe />);
@@ -64,21 +64,21 @@ it("masks the prior project on account change and ignores its late result and ca
   });
   expect(current.project?.title).toBe("New account");
   await act(() => oldLoad());
-  expect(fetchProjectDetail).toHaveBeenCalledTimes(2);
+  expect(fetchLearningDetail).toHaveBeenCalledTimes(2);
 });
 it("token refresh keeps the current owner and uses the latest token for retry", async () => {
-  (fetchProjectDetail as jest.Mock).mockResolvedValue({ id: "p1", title: "Class" });
+  (fetchLearningDetail as jest.Mock).mockResolvedValue({ id: "p1", title: "Class" });
   const screen = await render(<Probe />);
   const load = current.load;
   mockToken = "refreshed";
   await screen.rerender(<Probe />);
-  expect(fetchProjectDetail).toHaveBeenCalledTimes(1);
+  expect(fetchLearningDetail).toHaveBeenCalledTimes(1);
   await act(() => load({ force: true }));
-  expect(fetchProjectDetail).toHaveBeenLastCalledWith("refreshed", "p1", { force: true });
+  expect(fetchLearningDetail).toHaveBeenLastCalledWith("refreshed", "p1", { force: true });
 });
 it("ignores a response after leaving the view", async () => {
   const old = deferred<unknown>();
-  (fetchProjectDetail as jest.Mock).mockReturnValue(old.promise);
+  (fetchLearningDetail as jest.Mock).mockReturnValue(old.promise);
   const screen = await render(<Probe />);
   const load = current.load;
   await screen.unmount();
@@ -86,5 +86,5 @@ it("ignores a response after leaving the view", async () => {
     old.resolve({ title: "Late" });
     await load();
   });
-  expect(fetchProjectDetail).toHaveBeenCalledTimes(1);
+  expect(fetchLearningDetail).toHaveBeenCalledTimes(1);
 });

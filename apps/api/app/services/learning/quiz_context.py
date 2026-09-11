@@ -9,22 +9,22 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.models.orm import ProjectItem
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
-from app.services.learning.path import items_in_chapter, up_next_chapter
-from app.services.projects.common import (
+from app.models.orm import LearningItem
+from app.repositories import learning as learning_repo
+from app.repositories import learning_items as learning_items_repo
+from app.services.learning.common import (
     _is_language_project,
     _item_status,
     language_display_name,
 )
-from app.services.projects.prompts import (
+from app.services.learning.path import items_in_chapter, up_next_chapter
+from app.services.learning.prompts import (
     VOCAB_LEARNING_FORMATS_BLOCK,
 )
 from app.services.vocab_quiz import QuizAnswerGrade
 
 
-def _format_missed_quiz_lines(items: list[ProjectItem], *, limit: int = 30) -> list[str]:
+def _format_missed_quiz_lines(items: list[LearningItem], *, limit: int = 30) -> list[str]:
     learning = [item for item in items if _item_status(item) == "learning"]
     if not learning:
         return []
@@ -50,10 +50,10 @@ def _format_missed_quiz_lines(items: list[ProjectItem], *, limit: int = 30) -> l
 _FAILED_REVIEW_FALLBACK_MIN_AGE = timedelta(hours=12)
 
 
-def _format_failed_review_lines(items: list[ProjectItem], *, limit: int = 12) -> list[str]:
+def _format_failed_review_lines(items: list[LearningItem], *, limit: int = 12) -> list[str]:
     """Session-start nudge: bring back due failed items first (not same-session misses)."""
     now = datetime.now(UTC)
-    failed: list[ProjectItem] = []
+    failed: list[LearningItem] = []
     for item in items:
         if _item_status(item) != "learning":
             continue
@@ -72,7 +72,7 @@ def _format_failed_review_lines(items: list[ProjectItem], *, limit: int = 12) ->
     if not failed:
         return []
 
-    def _miss_key(item: ProjectItem) -> datetime:
+    def _miss_key(item: LearningItem) -> datetime:
         missed = getattr(item, "last_incorrect_at", None)
         if isinstance(missed, datetime):
             return missed.astimezone(UTC) if missed.tzinfo else missed.replace(tzinfo=UTC)
@@ -144,7 +144,7 @@ def _format_covered_quiz_lines(
     return lines
 
 
-async def load_project_quiz_context(
+async def load_learning_quiz_context(
     session: AsyncSession,
     user_id: UUID,
     project_id: UUID,
@@ -155,7 +155,7 @@ async def load_project_quiz_context(
     """Lightweight tutor slice for quiz answer turns — level, pool, and card format."""
     from app.services.vocab_quiz import MAX_QUIZ_TRIES_PER_QUESTION
 
-    project = await projects_repo.get_by_id(session, project_id, user_id)
+    project = await learning_repo.get_by_id(session, project_id, user_id)
     if project is None:
         return ""
 
@@ -176,7 +176,7 @@ async def load_project_quiz_context(
 
     if not _is_language_project(project):
         return ""
-    items = await project_items_repo.list_for_user(
+    items = await learning_items_repo.list_for_user(
         session,
         user_id,
         project_id=project_id,

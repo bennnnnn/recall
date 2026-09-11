@@ -9,16 +9,16 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import engine
-from app.models.orm import LearningPracticeEvent, Project, ProjectItem, User
+from app.models.orm import Learning, LearningItem, LearningPracticeEvent, User
 from app.models.schemas.learning import LearningPracticeIn
+from app.services.learning.crud import LearningError
 from app.services.learning.practice import record_practice
-from app.services.projects.crud import ProjectsError
 
 
 def rows():
     user = User(id=uuid4(), email=f"{uuid4()}@example.com")
-    project = Project(id=uuid4(), user_id=user.id, title="English", kind="language")
-    item = ProjectItem(
+    project = Learning(id=uuid4(), user_id=user.id, title="English", kind="language")
+    item = LearningItem(
         id=uuid4(), user_id=user.id, project_id=project.id, content="hello", list_title="Greetings"
     )
     return user, project, item
@@ -39,8 +39,8 @@ async def test_locked_row_refresh_preserves_intervening_counts(db_session):
     db_session.add_all([user, project, item])
     await db_session.flush()
     await db_session.execute(
-        update(ProjectItem)
-        .where(ProjectItem.id == item.id)
+        update(LearningItem)
+        .where(LearningItem.id == item.id)
         .values(quiz_attempts=8, quiz_correct=6, review_count=3)
         .execution_options(synchronize_session=False)
     )
@@ -62,7 +62,7 @@ async def test_foreign_owner_and_mismatched_project_never_find_item(db_session):
     # Expected authorization failures roll back and expire ORM instances.
     user_id, item_id = user.id, item.id
     for owner, project_id in [(other.id, project.id), (user.id, uuid4())]:
-        with pytest.raises(ProjectsError) as error:
+        with pytest.raises(LearningError) as error:
             await record_practice(db_session, owner, project_id, item_id, body())
         assert error.value.status_code == 404
     assert (
@@ -121,7 +121,7 @@ async def test_concurrent_questions_do_not_double_count_retries_or_lose_outcomes
             timeout=10,
         )
         async with AsyncSession(engine) as verify:
-            saved = await verify.get(ProjectItem, item_id)
+            saved = await verify.get(LearningItem, item_id)
             count = await verify.scalar(
                 select(func.count())
                 .select_from(LearningPracticeEvent)
@@ -139,7 +139,7 @@ async def test_concurrent_questions_do_not_double_count_retries_or_lose_outcomes
 @pytest.mark.asyncio
 async def test_attempt_identity_is_unique_per_owner_across_items(db_session):
     user, project, item = rows()
-    another = ProjectItem(
+    another = LearningItem(
         id=uuid4(),
         user_id=user.id,
         project_id=project.id,
@@ -150,7 +150,7 @@ async def test_attempt_identity_is_unique_per_owner_across_items(db_session):
     await db_session.commit()
     attempt = body()
     await record_practice(db_session, user.id, project.id, item.id, attempt)
-    with pytest.raises(ProjectsError) as error:
+    with pytest.raises(LearningError) as error:
         await record_practice(db_session, user.id, project.id, another.id, attempt)
     assert error.value.status_code == 409
 

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.services.projects.items import create_item
+from app.services.learning.items import create_item
 
 
 @pytest.mark.asyncio
@@ -15,11 +15,11 @@ async def test_create_item_does_not_look_up_pronunciation():
 
     with (
         patch(
-            "app.services.projects.items.project_items_repo.get_by_list_content",
+            "app.services.learning.items.learning_items_repo.get_by_list_content",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.projects.items.project_items_repo.create",
+            "app.services.learning.items.learning_items_repo.create",
             new=AsyncMock(return_value=created),
         ) as create_mock,
     ):
@@ -40,11 +40,11 @@ async def test_create_item_returns_existing_duplicate():
     existing = MagicMock()
     with (
         patch(
-            "app.services.projects.items.project_items_repo.get_by_list_content",
+            "app.services.learning.items.learning_items_repo.get_by_list_content",
             new=AsyncMock(return_value=existing),
         ),
         patch(
-            "app.services.projects.items.project_items_repo.create",
+            "app.services.learning.items.learning_items_repo.create",
             new=AsyncMock(),
         ) as create_mock,
     ):

@@ -1,4 +1,4 @@
-"""Tests for app.repositories.project_items."""
+"""Tests for app.repositories.learning_items."""
 
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.repositories import project_items as repo
+from app.repositories import learning_items as repo
 
 
 def _item(
@@ -134,8 +134,8 @@ async def test_count_for_project_returns_scalar_count(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_list_for_projects_returns_empty_without_querying(fake_session):
-    result = await repo.list_for_projects(fake_session, [])
+async def test_list_for_learning_returns_empty_without_querying(fake_session):
+    result = await repo.list_for_learning(fake_session, [])
 
     assert result == []
     fake_session.execute.assert_not_called()
@@ -268,7 +268,7 @@ async def test_delete_by_list_empty_title_returns_zero(fake_session):
 
 @pytest.mark.asyncio
 async def test_update_item_records_review_on_status_change(fake_session):
-    from app.services.projects.items import update_item
+    from app.services.learning.items import update_item
 
     item = _item(status="new")
     item.review_count = 0
@@ -290,7 +290,7 @@ async def test_update_item_records_review_on_status_change(fake_session):
 async def test_update_item_learning_registers_miss_for_failed_count(fake_session):
     """Manual Needs review / Failed must stamp a miss so missed_today is not stuck at 0."""
     from app.models.orm import QuizMissEvent
-    from app.services.projects.items import update_item
+    from app.services.learning.items import update_item
 
     item = _item(status="mastered")
     item.mastered = True

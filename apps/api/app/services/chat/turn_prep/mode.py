@@ -11,7 +11,7 @@ from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
 from app.services import day_planning as day_planning_service
 from app.services import email as email_service
-from app.services import projects as projects_service
+from app.services import learning as learning_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
@@ -153,7 +153,7 @@ def _turn_needs_rich_context(
         return True
     # Do not pass chat.project_id — that helper treats any linked project as
     # "always sync", which would force memory theater on casual chitchat.
-    if projects_service.transcript_implies_project_sync(content):
+    if learning_service.transcript_implies_learning_sync(content):
         return True
     return False
 

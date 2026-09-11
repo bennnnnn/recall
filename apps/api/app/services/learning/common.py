@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from uuid import UUID
 
-from app.models.orm import Project, ProjectItem
-from app.models.schemas import ProjectActionItem
+from app.models.orm import Learning, LearningItem
+from app.models.schemas import LearningActionItem
 
 
 async def _invalidate_home_for_user(user_id: UUID) -> None:
@@ -105,28 +105,28 @@ def infer_target_language(title: str, explicit: str | None = None) -> str:
     return "en"
 
 
-def normalize_project_kind(kind: str) -> str:
+def normalize_learning_kind(kind: str) -> str:
     """Map write aliases (vocabulary → language); leave unknown kinds unchanged."""
     return LEARNING_KIND_ALIASES.get(kind, kind)
 
 
 def is_learning_product_kind(kind: str) -> bool:
-    return normalize_project_kind(kind) in LEARNING_PRODUCT_KINDS
+    return normalize_learning_kind(kind) in LEARNING_PRODUCT_KINDS
 
 
-def _resolve_list_title(project: Project, action: ProjectActionItem) -> str:
+def _resolve_list_title(project: Learning, action: LearningActionItem) -> str:
     return action.list_title.strip() or DEFAULT_LIST
 
 
-def _item_status(item: ProjectItem) -> str:
+def _item_status(item: LearningItem) -> str:
     if item.status:
         return item.status
     return "mastered" if item.mastered else "new"
 
 
 def _find_item_by_content(
-    items: list[ProjectItem], project_id: UUID, content: str
-) -> ProjectItem | None:
+    items: list[LearningItem], project_id: UUID, content: str
+) -> LearningItem | None:
     needle = _normalize(content)
     for item in items:
         if item.project_id == project_id and _normalize(item.content) == needle:
@@ -134,7 +134,7 @@ def _find_item_by_content(
     return None
 
 
-def _is_language_project(project: Project) -> bool:
+def _is_language_project(project: Learning) -> bool:
     return project.kind in ("language", "vocabulary")
 
 
@@ -147,9 +147,9 @@ def _list_key(list_title: str) -> str:
 
 
 def _find_language_project(
-    projects: list[Project],
+    projects: list[Learning],
     target_language: str = "en",
-) -> Project | None:
+) -> Learning | None:
     lang = (target_language or "en").strip().lower()
     for project in projects:
         if (
@@ -160,7 +160,7 @@ def _find_language_project(
     return None
 
 
-def _find_project(projects: list[Project], title: str) -> Project | None:
+def _find_project(projects: list[Learning], title: str) -> Learning | None:
     # BUG FIX (was silent): dropped the substring fallback (`needle in title
     # or title in needle`) — it could resolve a mutating action (delete/set_*
     # /add target, etc.) against the wrong project by title fragment (e.g.
@@ -179,13 +179,13 @@ def _find_project(projects: list[Project], title: str) -> Project | None:
 
 
 def _find_item(
-    items: list[ProjectItem],
+    items: list[LearningItem],
     project_id: UUID,
     list_title: str,
     content: str,
     *,
     mastered_only: bool | None = None,
-) -> ProjectItem | None:
+) -> LearningItem | None:
     # BUG FIX (was silent): dropped the substring fallback (`needle in
     # content or content in needle`) after an exact-match miss. It let e.g.
     # "cat" match an existing "category" item — wrongly hitting
@@ -214,7 +214,7 @@ def _find_item(
 DEFAULT_DAILY_VOCAB_GOAL = 10
 
 
-def _language_daily_goal(project: Project) -> int:
+def _language_daily_goal(project: Learning) -> int:
     goal = getattr(project, "daily_goal", None)
     if isinstance(goal, int) and goal >= 1:
         return goal

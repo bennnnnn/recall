@@ -7,13 +7,13 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.core.config import Settings
-from app.models.orm import LearningPracticeEvent, Project
-from app.models.schemas import ProjectStats
-from app.services.home.project_starters import completed_today, project_highlight
+from app.models.orm import Learning, LearningPracticeEvent
+from app.models.schemas import LearningStats
+from app.services.home.learning_starters import completed_today, project_highlight
 from app.services.learning.insights import pick_learning_nudge
 from app.services.learning.practice_context import load_activity_context
 from app.services.learning.practice_history import merge_practice_history, merge_practice_items
-from app.services.projects.prompt_context import load_projects_for_prompt
+from app.services.learning.prompt_context import load_learning_classes_for_prompt
 
 NOW = datetime(2026, 9, 6, 12, tzinfo=UTC)
 YESTERDAY = NOW - timedelta(days=1)
@@ -126,7 +126,7 @@ def test_old_history_is_retained_without_new_events_and_timezone_is_applied():
 
 def test_home_partial_practice_does_not_complete_goal_or_claim_inactivity():
     now = datetime.now(UTC)
-    stats = ProjectStats(
+    stats = LearningStats(
         total=10,
         mastered_today=0,
         missed_today=1,
@@ -135,7 +135,7 @@ def test_home_partial_practice_does_not_complete_goal_or_claim_inactivity():
         last_study_at=now,
         last_mastery_at=now - timedelta(days=5),
     )
-    project = Project(id=uuid4(), title="English", kind="language", daily_goal=1, created_at=now)
+    project = Learning(id=uuid4(), title="English", kind="language", daily_goal=1, created_at=now)
     highlight = project_highlight(project, stats, home_tz=ZoneInfo("UTC"))
     assert completed_today(stats) == 0
     assert highlight.cue == "continue"
@@ -144,7 +144,7 @@ def test_home_partial_practice_does_not_complete_goal_or_claim_inactivity():
 
 
 def test_nudge_uses_partial_activity_and_due_mastered_reviews():
-    project = Project(id=uuid4(), title="English", kind="language")
+    project = Learning(id=uuid4(), title="English", kind="language")
     base = dict(
         total=10,
         completed_today=0,
@@ -168,15 +168,15 @@ def test_nudge_uses_partial_activity_and_due_mastered_reviews():
 
 @pytest.mark.asyncio
 async def test_no_active_class_is_explicit_in_ordinary_chat_context():
-    with patch("app.repositories.projects.list_for_user", AsyncMock(return_value=[])):
-        result = await load_projects_for_prompt(AsyncMock(), uuid4(), Settings())
+    with patch("app.repositories.learning.list_for_user", AsyncMock(return_value=[])):
+        result = await load_learning_classes_for_prompt(AsyncMock(), uuid4(), Settings())
     assert "no active Learning class" in result
 
 
 @pytest.mark.asyncio
 async def test_chat_uses_saved_partial_activity_for_skipped_days():
     now = datetime.now(UTC)
-    project = Project(
+    project = Learning(
         id=uuid4(),
         title="English",
         kind="language",
@@ -188,7 +188,7 @@ async def test_chat_uses_saved_partial_activity_for_skipped_days():
     with (
         patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[saved])),
         patch(
-            "app.repositories.project_items.list_miss_events_for_items", AsyncMock(return_value={})
+            "app.repositories.learning_items.list_miss_events_for_items", AsyncMock(return_value={})
         ),
     ):
         text = await load_activity_context(AsyncMock(), [project], [word], timezone_name="UTC")

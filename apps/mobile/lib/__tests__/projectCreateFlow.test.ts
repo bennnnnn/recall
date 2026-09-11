@@ -5,7 +5,7 @@ import {
   resolveProjectTitle,
   languageClassTitle,
 } from "@/lib/projects/projectCreateFlow";
-import type { Project } from "@/lib/api";
+import type { Learning } from "@/lib/api";
 
 const t = (key: string) => key;
 
@@ -34,7 +34,7 @@ describe("projectCreateFlow", () => {
   });
 
   it("allows add learning until English and Spanish exist", () => {
-    const english: Project = {
+    const english: Learning = {
       id: "1",
       title: "English",
       description: "",
@@ -46,7 +46,7 @@ describe("projectCreateFlow", () => {
       created_at: "",
       updated_at: "",
     };
-    const spanish: Project = { ...english, id: "2", title: "Spanish", target_language: "es" };
+    const spanish: Learning = { ...english, id: "2", title: "Spanish", target_language: "es" };
     expect(canAddLearningProject([])).toBe(true);
     expect(canAddLearningProject([english])).toBe(true);
     expect(canAddLearningProject([english, spanish])).toBe(false);

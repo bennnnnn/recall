@@ -1,4 +1,4 @@
-import type { ProjectItem } from "@/lib/api";
+import type { LearningItem } from "@/lib/api";
 import type { ParsedVocabQuiz, QuizChoice } from "@/lib/parseVocabQuiz";
 
 import { wholeWordIndex } from "@/lib/projects/wordBoundary";
@@ -126,8 +126,8 @@ export function isLastStepForWord(drills: Pick<DrillStep, "itemId">[], index: nu
 }
 
 export function buildChapterDrills(
-  items: ProjectItem[],
-  pool: ProjectItem[],
+  items: LearningItem[],
+  pool: LearningItem[],
   labels: DrillLabels,
 ): DrillStep[] {
   const meaningPool = pool.map((item) => cardMeaning(itemToCard(item))).filter(Boolean);

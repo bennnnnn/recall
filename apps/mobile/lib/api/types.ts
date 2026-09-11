@@ -104,7 +104,7 @@ export type Todo = {
 };
 
 /** Product learning kinds: one class per target language. */
-export type ProjectKind = "language";
+export type LearningKind = "language";
 export type VocabStatus = "new" | "learning" | "mastered";
 
 export type PathChapterProgress = {
@@ -115,11 +115,11 @@ export type PathChapterProgress = {
   complete: boolean;
 };
 
-export type Project = {
+export type Learning = {
   id: string;
   title: string;
   description: string | null;
-  kind: ProjectKind;
+  kind: LearningKind;
   target_language: string;
   native_language: string | null;
   daily_goal: number | null;
@@ -128,10 +128,10 @@ export type Project = {
   updated_at: string;
   learning_path?: string[];
   /** Present on list responses for language projects. */
-  stats?: ProjectStats;
+  stats?: LearningStats;
 };
 
-export type ProjectItem = {
+export type LearningItem = {
   id: string;
   list_title: string;
   content: string;
@@ -154,7 +154,7 @@ export type ProjectItem = {
   created_at: string;
 };
 
-export type ProjectStats = {
+export type LearningStats = {
   total: number;
   new_count: number;
   learning_count: number;
@@ -174,7 +174,7 @@ export type ProjectStats = {
   quiz_accuracy_pct?: number | null;
 };
 
-export type ProjectDailyHistoryDay = {
+export type LearningDailyHistoryDay = {
   date: string;
   weekday: number;
   mastered_count: number;
@@ -184,19 +184,19 @@ export type ProjectDailyHistoryDay = {
   status: "complete" | "partial" | "skipped" | "today" | "inactive";
 };
 
-export type ProjectListGroup = {
+export type LearningListGroup = {
   list_title: string;
-  items: ProjectItem[];
+  items: LearningItem[];
 };
 
-export type ProjectDetail = Project & {
+export type LearningDetail = Learning & {
   mastered_count: number;
   total_count: number;
-  stats: ProjectStats;
-  daily_history: ProjectDailyHistoryDay[];
-  daily_items_by_date: Record<string, ProjectItem[]>;
-  daily_missed_by_date?: Record<string, ProjectItem[]>;
-  lists: ProjectListGroup[];
+  stats: LearningStats;
+  daily_history: LearningDailyHistoryDay[];
+  daily_items_by_date: Record<string, LearningItem[]>;
+  daily_missed_by_date?: Record<string, LearningItem[]>;
+  lists: LearningListGroup[];
   path_progress?: PathChapterProgress[];
   up_next?: string | null;
 };

@@ -1,12 +1,12 @@
 import { api } from "@/lib/api";
 import {
-  updateProjectDetailCache,
-  fetchProjectDetail,
-  getCachedProjectDetail,
-  invalidateProjectDetail,
-  isProjectDetailFresh,
-  prefetchProjectDetail,
-  setProjectDetailCache,
+  updateLearningDetailCache,
+  fetchLearningDetail,
+  getCachedLearningDetail,
+  invalidateLearningDetail,
+  isLearningDetailFresh,
+  prefetchLearningDetail,
+  setLearningDetailCache,
 } from "@/lib/cache/projectDetailCache";
 
 jest.mock("@/lib/api", () => ({
@@ -55,15 +55,15 @@ describe("projectDetailCache", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSession += 1;
-    invalidateProjectDetail("proj-1");
+    invalidateLearningDetail("proj-1");
   });
 
   it("returns cached detail without refetching when fresh", async () => {
-    setProjectDetailCache("proj-1", detail);
-    expect(isProjectDetailFresh("proj-1")).toBe(true);
-    expect(getCachedProjectDetail("proj-1")).toEqual(detail);
+    setLearningDetailCache("proj-1", detail);
+    expect(isLearningDetailFresh("proj-1")).toBe(true);
+    expect(getCachedLearningDetail("proj-1")).toEqual(detail);
 
-    const result = await fetchProjectDetail("token", "proj-1");
+    const result = await fetchLearningDetail("token", "proj-1");
     expect(result).toEqual(detail);
     expect(getProject).not.toHaveBeenCalled();
   });
@@ -76,8 +76,8 @@ describe("projectDetailCache", () => {
       }),
     );
 
-    const first = fetchProjectDetail("token", "proj-1", { force: true });
-    const second = fetchProjectDetail("token", "proj-1", { force: true });
+    const first = fetchLearningDetail("token", "proj-1", { force: true });
+    const second = fetchLearningDetail("token", "proj-1", { force: true });
     resolveFetch(detail);
 
     const [a, b] = await Promise.all([first, second]);
@@ -88,8 +88,8 @@ describe("projectDetailCache", () => {
   });
 
   it("prefetch skips when cache is already fresh", () => {
-    setProjectDetailCache("proj-1", detail);
-    prefetchProjectDetail("token", "proj-1");
+    setLearningDetailCache("proj-1", detail);
+    prefetchLearningDetail("token", "proj-1");
     expect(getProject).not.toHaveBeenCalled();
   });
 });
@@ -109,30 +109,30 @@ function deferred<T>() {
 it("rejects an old account result even before a new account fetch", async () => {
   const request = deferred<typeof detail>();
   getProject.mockReturnValue(request.promise);
-  const task = fetchProjectDetail("token", "account-race", { force: true });
+  const task = fetchLearningDetail("token", "account-race", { force: true });
   mockSession += 1;
   request.resolve(detail);
   expect(await task).toBeNull();
-  expect(getCachedProjectDetail("account-race")).toBeUndefined();
+  expect(getCachedLearningDetail("account-race")).toBeUndefined();
 });
 it("invalidating a pending response keeps it from repopulating the entry", async () => {
   const request = deferred<typeof detail>();
   getProject.mockReturnValue(request.promise);
-  const task = fetchProjectDetail("token", "invalidated", { force: true });
-  invalidateProjectDetail("invalidated");
+  const task = fetchLearningDetail("token", "invalidated", { force: true });
+  invalidateLearningDetail("invalidated");
   request.resolve(detail);
   expect(await task).toBeNull();
-  expect(isProjectDetailFresh("invalidated")).toBe(false);
+  expect(isLearningDetailFresh("invalidated")).toBe(false);
 });
 it("replays confirmed item edits over a pending GET and recovers after that GET", async () => {
   const request = deferred<typeof detail>();
   getProject
     .mockReturnValueOnce(request.promise)
     .mockResolvedValueOnce({ ...detail, total_count: 8 });
-  setProjectDetailCache("replay", detail);
-  const task = fetchProjectDetail("token", "replay", { force: true });
-  updateProjectDetailCache("replay", (row) => ({ ...row, total_count: 7 }));
-  const recovery = fetchProjectDetail("token", "replay", { afterPending: true });
+  setLearningDetailCache("replay", detail);
+  const task = fetchLearningDetail("token", "replay", { force: true });
+  updateLearningDetailCache("replay", (row) => ({ ...row, total_count: 7 }));
+  const recovery = fetchLearningDetail("token", "replay", { afterPending: true });
   request.resolve(detail);
   expect(await task).toMatchObject({ total_count: 7 });
   expect(await recovery).toMatchObject({ total_count: 8 });
@@ -141,8 +141,8 @@ it("replays confirmed item edits over a pending GET and recovers after that GET"
 it("an account change while waiting for recovery cannot issue a new request", async () => {
   const request = deferred<typeof detail>();
   getProject.mockReturnValue(request.promise);
-  const task = fetchProjectDetail("token", "recover-old", { force: true });
-  const recovery = fetchProjectDetail("token", "recover-old", { afterPending: true });
+  const task = fetchLearningDetail("token", "recover-old", { force: true });
+  const recovery = fetchLearningDetail("token", "recover-old", { afterPending: true });
   mockSession += 1;
   request.resolve(detail);
   await task;

@@ -2,7 +2,7 @@ import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { ProjectsProvider, useProjects } from "@/contexts/ProjectsContext";
-import { api, type Project } from "@/lib/api";
+import { api, type Learning } from "@/lib/api";
 let mockSession = 1;
 let mockToken: string | null = "token";
 jest.mock("@/contexts/AuthContext", () => ({ useAuthOptional: () => ({ token: mockToken }) }));
@@ -24,7 +24,7 @@ const tree = () => (
     <Probe />
   </ProjectsProvider>
 );
-const row = (title: string) => ({ id: "p", title, daily_goal: 5 }) as Project;
+const row = (title: string) => ({ id: "p", title, daily_goal: 5 }) as Learning;
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {
@@ -41,7 +41,7 @@ beforeEach(() => {
 it("replays independent local edits over an older GET and forces recovery after it settles", async () => {
   fetch.mockResolvedValueOnce([row("Original")]);
   await render(tree());
-  const pending = deferred<Project[]>();
+  const pending = deferred<Learning[]>();
   fetch
     .mockReturnValueOnce(pending.promise)
     .mockResolvedValueOnce([{ ...row("Server"), daily_goal: 10 }]);
@@ -65,7 +65,7 @@ it("hides old rows and rejects old responses, mutations and refresh callbacks af
   fetch.mockResolvedValueOnce([row("Old")]);
   const screen = await render(tree());
   const old = current;
-  const pending = deferred<Project[]>();
+  const pending = deferred<Learning[]>();
   fetch.mockReturnValueOnce(pending.promise).mockResolvedValueOnce([row("New")]);
   let read!: Promise<void>;
   await act(() => {

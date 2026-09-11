@@ -9,7 +9,7 @@ import { LearningPathList } from "@/components/projects/LearningPathList";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProjectDetail } from "@/hooks/useProjectDetail";
+import { useLearningDetail } from "@/hooks/useLearningDetail";
 import { LessonMapOverflowMenu } from "./LessonMapOverflowMenu";
 import { openLearningLesson } from "@/lib/lessonLaunch";
 import { isLanguageProject } from "@/lib/languageLevels";
@@ -36,7 +36,7 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = typeof id === "string" ? id : undefined;
-  const { project, loading, loadError, load, isCurrentOwner } = useProjectDetail(projectId);
+  const { project, loading, loadError, load, isCurrentOwner } = useLearningDetail(projectId);
 
   useLayoutEffect(() => {
     navigation.setOptions({

@@ -8,20 +8,20 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import ProjectItem
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
-from app.services.projects.common import (
+from app.models.orm import LearningItem
+from app.repositories import learning as learning_repo
+from app.repositories import learning_items as learning_items_repo
+from app.services.learning.common import (
     DEFAULT_LIST,
     _find_item_by_content,
     _is_language_project,
 )
-from app.services.projects.items import create_item
+from app.services.learning.items import create_item
 from app.services.sm2 import apply_sm2, quality_for_status
 from app.services.vocab_quiz import QuizAnswerGrade
 
 
-def _item_status_label(item: ProjectItem) -> str:
+def _item_status_label(item: LearningItem) -> str:
     if item.status:
         return item.status
     return "mastered" if item.mastered else "new"
@@ -29,11 +29,11 @@ def _item_status_label(item: ProjectItem) -> str:
 
 async def apply_quiz_result(
     session: AsyncSession,
-    item: ProjectItem,
+    item: LearningItem,
     *,
     is_correct: bool,
     commit: bool = True,
-) -> ProjectItem:
+) -> LearningItem:
     """Derive status + SM-2 schedule, then persist via the repository."""
     now = datetime.now(UTC)
     prior_status = _item_status_label(item)
@@ -61,7 +61,7 @@ async def apply_quiz_result(
         review_count=int(item.review_count or 0),
         now=now,
     )
-    return await project_items_repo.apply_quiz_result(
+    return await learning_items_repo.apply_quiz_result(
         session,
         item,
         is_correct=is_correct,
@@ -76,7 +76,7 @@ async def apply_quiz_result(
     )
 
 
-def _missed_on_local_today(item: ProjectItem, *, timezone_name: str) -> bool:
+def _missed_on_local_today(item: LearningItem, *, timezone_name: str) -> bool:
     """True when last_incorrect_at is on the user's local calendar day.
 
     Same midnight as ``count_today_vocab_stats`` — not UTC date.
@@ -90,12 +90,12 @@ def _missed_on_local_today(item: ProjectItem, *, timezone_name: str) -> bool:
     return missed_utc >= start_of_today_utc(timezone_name)
 
 
-def _recently_missed_quiz(item: ProjectItem, *, timezone_name: str = "UTC") -> bool:
+def _recently_missed_quiz(item: LearningItem, *, timezone_name: str = "UTC") -> bool:
     """Block sync-master after a fail on the user's local today."""
     return _missed_on_local_today(item, timezone_name=timezone_name)
 
 
-def _failed_quiz_today(item: ProjectItem, *, timezone_name: str = "UTC") -> bool:
+def _failed_quiz_today(item: LearningItem, *, timezone_name: str = "UTC") -> bool:
     """True when last_incorrect_at is already on today's local calendar day."""
     return _missed_on_local_today(item, timezone_name=timezone_name)
 
@@ -106,7 +106,7 @@ async def _persist_quiz_outcome(
     user_id: UUID,
     project_id: UUID,
     chat_id: UUID,
-    existing: ProjectItem | None,
+    existing: LearningItem | None,
     content: str,
     list_title: str,
     is_correct: bool,
@@ -137,7 +137,7 @@ async def _persist_quiz_outcome(
     # Lock the item row so concurrent quiz submits can't both read the same
     # SM-2 fields and clobber each other's updates (LANG-BE-011).
     if existing is not None:
-        locked = await project_items_repo.lock_for_update(session, item.id)
+        locked = await learning_items_repo.lock_for_update(session, item.id)
         if locked is not None:
             item = locked
     await apply_quiz_result(session, item, is_correct=is_correct, commit=False)
@@ -166,11 +166,11 @@ async def _apply_deterministic_quiz_answer(
     if project_id is None:
         return None
 
-    project = await projects_repo.get_by_id(session, project_id, user_id)
+    project = await learning_repo.get_by_id(session, project_id, user_id)
     if project is None:
         return None
 
-    # Project kind is authoritative — the quiz fence's quiz_type must not
+    # Learning kind is authoritative — the quiz fence's quiz_type must not
     # override it. A vocabulary project with a quiz_type:"trivia" fence is
     # still graded as vocabulary.
     if not quiz.correct:
@@ -215,13 +215,13 @@ async def _apply_deterministic_quiz_answer(
     word = quiz.word.strip()
     if not word:
         return None
-    items = await project_items_repo.find_quiz_candidates(session, user_id, project.id, word)
+    items = await learning_items_repo.find_quiz_candidates(session, user_id, project.id, word)
     existing = _find_item_by_content(items, project.id, word)
     list_title = (existing.list_title.strip() if existing else "") or DEFAULT_LIST
     if should_persist and existing is None:
-        from app.services.projects.path import resolve_add_list_title
+        from app.services.learning.path import resolve_add_list_title
 
-        deck_items = await project_items_repo.list_for_user(
+        deck_items = await learning_items_repo.list_for_user(
             session, user_id, project_id=project.id, limit=500
         )
         list_title = resolve_add_list_title(project, DEFAULT_LIST, deck_items)
@@ -239,7 +239,7 @@ async def _apply_deterministic_quiz_answer(
     elif existing is not None and not is_correct:
         # Record the wrong attempt (tries 1-2) without SM-2 scheduling so
         # missed_today counts it toward the daily goal. (LANG-TEACH-011)
-        await project_items_repo.record_quiz_attempt(
+        await learning_items_repo.record_quiz_attempt(
             session, existing, now=datetime.now(UTC), commit=False
         )
     return vocab_quiz_service.QuizAnswerGrade(

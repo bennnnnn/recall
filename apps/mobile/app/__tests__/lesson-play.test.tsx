@@ -59,8 +59,8 @@ jest.mock("@/contexts/AuthContext", () => ({
 }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
 jest.mock("@/contexts/ProjectsContext", () => ({ useProjects: () => ({ refresh: mockRefresh }) }));
-jest.mock("@/hooks/useProjectDetail", () => ({
-  useProjectDetail: () => ({
+jest.mock("@/hooks/useLearningDetail", () => ({
+  useLearningDetail: () => ({
     project: mockProject,
     loading: false,
     loadError: false,
@@ -71,8 +71,8 @@ jest.mock("@/hooks/useProjectDetail", () => ({
 jest.mock("@/lib/api", () => ({ api: { recordProjectPractice: jest.fn() } }));
 jest.mock("expo-crypto", () => ({ randomUUID: () => `attempt-${++mockId}` }));
 jest.mock("@/lib/cache/projectDetailCache", () => ({
-  updateProjectDetailCache: jest.fn(),
-  fetchProjectDetail: jest.fn(),
+  updateLearningDetailCache: jest.fn(),
+  fetchLearningDetail: jest.fn(),
 }));
 jest.mock("@/hooks/useLessonFeedback", () => ({
   useLessonFeedback: () => ({

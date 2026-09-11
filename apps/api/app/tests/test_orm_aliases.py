@@ -1,17 +1,9 @@
-"""Learning aliases and Schedule models preserve their existing DB contracts."""
+"""Learning and Schedule models preserve their existing DB contracts."""
 
-from app.models.orm import (
-    Learning,
-    LearningItem,
-    Project,
-    ProjectItem,
-    TodoItem,
-)
+from app.models.orm import Learning, LearningItem, TodoItem
 
 
-def test_learning_aliases_and_tablenames() -> None:
-    assert Project is Learning
-    assert ProjectItem is LearningItem
+def test_learning_tablenames() -> None:
     assert Learning.__tablename__ == "projects"
     assert LearningItem.__tablename__ == "project_items"
 

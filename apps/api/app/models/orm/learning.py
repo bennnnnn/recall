@@ -113,7 +113,7 @@ class Learning(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    user: Mapped[User] = relationship(back_populates="projects")
+    user: Mapped[User] = relationship(back_populates="learning")
     items: Mapped[list[LearningItem]] = relationship(back_populates="project", passive_deletes=True)
 
 

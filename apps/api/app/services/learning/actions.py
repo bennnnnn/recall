@@ -9,12 +9,12 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Project, ProjectItem
-from app.models.schemas import ProjectActionItem
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
+from app.models.orm import Learning, LearningItem
+from app.models.schemas import LearningActionItem
+from app.repositories import learning as learning_repo
+from app.repositories import learning_items as learning_items_repo
 from app.services.action_dispatch import ActionHandler, apply_action_batch
-from app.services.projects.common import (
+from app.services.learning.common import (
     DEFAULT_LIST,
     _find_item,
     _find_item_by_content,
@@ -27,14 +27,14 @@ from app.services.projects.common import (
     _resolve_list_title,
     infer_target_language,
     locale_language,
-    normalize_project_kind,
+    normalize_learning_kind,
 )
-from app.services.projects.path import (
+from app.services.learning.path import (
     append_chapter,
     enqueue_language_path_job,
     resolve_add_list_title,
 )
-from app.services.projects.quiz_grading import _failed_quiz_today, _recently_missed_quiz
+from app.services.learning.quiz_grading import _failed_quiz_today, _recently_missed_quiz
 
 logger = logging.getLogger(__name__)
 
@@ -42,19 +42,19 @@ _ACTION_RELOAD_LIMIT = 500
 
 
 # Defensive caps for LLM-inferred project mutations applied from a transcript.
-MAX_PROJECT_ACTIONS_PER_TURN = 3
+MAX_LEARNING_ACTIONS_PER_TURN = 3
 
 
 # Whole-project / whole-deck deletes are too destructive to apply from a model's
 # interpretation of chat text — the user must remove those explicitly.
-PROJECT_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_project", "delete_list"})
+LEARNING_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_project", "delete_list"})
 
 
-# BUG FIX: `add` was only bounded by MAX_PROJECT_ACTIONS_PER_TURN + content
+# BUG FIX: `add` was only bounded by MAX_LEARNING_ACTIONS_PER_TURN + content
 # dedup, so a deck could grow unbounded over many turns. No documented
 # product limit on deck size exists (FEATURES.md) — pick a generous but
 # bounded cap.
-MAX_PROJECT_ITEMS_PER_PROJECT = 2000
+MAX_LEARNING_ITEMS_PER_CLASS = 2000
 
 
 @dataclass
@@ -62,14 +62,14 @@ class _ProjectApplyState:
     session: AsyncSession
     user_id: UUID
     chat_id: UUID | None
-    projects: list[Project]
-    items: list[ProjectItem]
+    projects: list[Learning]
+    items: list[LearningItem]
     timezone_name: str = "UTC"
     native_language: str = "en"
     language_path_project_ids: list[UUID] | None = None
 
 
-def _prepare_project_action(action: ProjectActionItem) -> ProjectActionItem | None:
+def _prepare_project_action(action: LearningActionItem) -> LearningActionItem | None:
     title = action.project_title.strip()
     if not title:
         return None
@@ -79,10 +79,10 @@ def _prepare_project_action(action: ProjectActionItem) -> ProjectActionItem | No
 
 
 async def _project_action_create_project(
-    state: _ProjectApplyState, action: ProjectActionItem
+    state: _ProjectApplyState, action: LearningActionItem
 ) -> int:
     title = action.project_title
-    kind = normalize_project_kind(action.kind or "language")
+    kind = normalize_learning_kind(action.kind or "language")
     if kind != "language":
         return 0
     target_language = infer_target_language(title, action.target_language)
@@ -97,7 +97,7 @@ async def _project_action_create_project(
         # session.rollback() would discard earlier commit=False writes in
         # the same batch (e.g. start_learning then create_project).
         async with state.session.begin_nested():
-            project = await projects_repo.create(
+            project = await learning_repo.create(
                 state.session,
                 user_id=state.user_id,
                 title=title,
@@ -121,7 +121,7 @@ async def _project_action_create_project(
         )
         return 0
     applied = 1
-    state.projects = await projects_repo.list_for_user(state.session, state.user_id, limit=200)
+    state.projects = await learning_repo.list_for_user(state.session, state.user_id, limit=200)
     if kind == "language" and state.language_path_project_ids is not None:
         state.language_path_project_ids.append(project.id)
     if action.content.strip():
@@ -130,7 +130,7 @@ async def _project_action_create_project(
             if kind == "language"
             else (action.list_title.strip() or DEFAULT_LIST)
         )
-        from app.services.projects.items import create_item
+        from app.services.learning.items import create_item
 
         new_item = await create_item(
             state.session,
@@ -150,12 +150,12 @@ async def _project_action_create_project(
 
 
 async def _project_action_delete_project(
-    state: _ProjectApplyState, action: ProjectActionItem
+    state: _ProjectApplyState, action: LearningActionItem
 ) -> int:
     matched = _find_project(state.projects, action.project_title)
     if not matched:
         return 0
-    await projects_repo.delete_by_id(
+    await learning_repo.delete_by_id(
         state.session,
         matched.id,
         state.user_id,
@@ -167,17 +167,17 @@ async def _project_action_delete_project(
 
 
 async def _project_action_set_description(
-    state: _ProjectApplyState, action: ProjectActionItem
+    state: _ProjectApplyState, action: LearningActionItem
 ) -> int:
     matched = _find_project(state.projects, action.project_title)
     if not matched:
         return 0
     desc = (action.description or "").strip() or None
-    await projects_repo.update(state.session, matched, commit=False, description=desc)
+    await learning_repo.update(state.session, matched, commit=False, description=desc)
     return 1
 
 
-async def _project_action_add(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+async def _project_action_add(state: _ProjectApplyState, action: LearningActionItem) -> int:
     matched = _find_project(state.projects, action.project_title)
     if not matched:
         return 0
@@ -190,18 +190,18 @@ async def _project_action_add(state: _ProjectApplyState, action: ProjectActionIt
         return 0
     if _find_item(state.items, project.id, list_title, content):
         return 0
-    item_count = await project_items_repo.count_for_project(
+    item_count = await learning_items_repo.count_for_project(
         state.session, project.id, state.user_id
     )
-    if item_count >= MAX_PROJECT_ITEMS_PER_PROJECT:
+    if item_count >= MAX_LEARNING_ITEMS_PER_CLASS:
         logger.info(
             "Skipping add: project_id=%s at item cap (%d) for user_id=%s",
             project.id,
-            MAX_PROJECT_ITEMS_PER_PROJECT,
+            MAX_LEARNING_ITEMS_PER_CLASS,
             state.user_id,
         )
         return 0
-    from app.services.projects.items import create_item
+    from app.services.learning.items import create_item
 
     new_item = await create_item(
         state.session,
@@ -223,7 +223,7 @@ async def _project_action_add(state: _ProjectApplyState, action: ProjectActionIt
 
 
 async def _project_action_start_learning(
-    state: _ProjectApplyState, action: ProjectActionItem
+    state: _ProjectApplyState, action: LearningActionItem
 ) -> int:
     # Record a failed/incorrect quiz outcome (open-ended or exhausted).
     # Stamps last_incorrect_at so failed_today / day lists stay accurate.
@@ -241,7 +241,7 @@ async def _project_action_start_learning(
         item = _find_item_by_content(state.items, project.id, action.content)
     content = action.content.strip()
     if not item and content and not _is_language_project(project):
-        from app.services.projects.items import create_item
+        from app.services.learning.items import create_item
 
         item = await create_item(
             state.session,
@@ -259,19 +259,19 @@ async def _project_action_start_learning(
         state.items.append(item)
     if item and _item_status(item) != "mastered":
         if not _failed_quiz_today(item, timezone_name=state.timezone_name):
-            from app.services.projects.quiz_grading import apply_quiz_result
+            from app.services.learning.quiz_grading import apply_quiz_result
 
             await apply_quiz_result(state.session, item, is_correct=False, commit=False)
             return 1
         if _item_status(item) == "new":
-            from app.services.projects.items import update_item
+            from app.services.learning.items import update_item
 
             await update_item(state.session, item, status="learning", commit=False)
             return 1
     return 0
 
 
-async def _project_action_master(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+async def _project_action_master(state: _ProjectApplyState, action: LearningActionItem) -> int:
     matched = _find_project(state.projects, action.project_title)
     if not matched:
         return 0
@@ -288,14 +288,14 @@ async def _project_action_master(state: _ProjectApplyState, action: ProjectActio
                 action.content,
             )
             return 0
-        from app.services.projects.items import update_item
+        from app.services.learning.items import update_item
 
         await update_item(state.session, item, status="mastered", commit=False)
         return 1
     return 0
 
 
-async def _project_action_unmaster(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+async def _project_action_unmaster(state: _ProjectApplyState, action: LearningActionItem) -> int:
     matched = _find_project(state.projects, action.project_title)
     if not matched:
         return 0
@@ -303,7 +303,7 @@ async def _project_action_unmaster(state: _ProjectApplyState, action: ProjectAct
     list_title = _resolve_list_title(project, action)
     item = _find_item(state.items, project.id, list_title, action.content, mastered_only=True)
     if item and _item_status(item) == "mastered":
-        from app.services.projects.items import update_item
+        from app.services.learning.items import update_item
 
         # skip_miss=True: unmaster is a manual "review again" request, not a
         # quiz miss — must not stamp last_incorrect_at / QuizMissEvent / SM-2 penalty.
@@ -312,7 +312,7 @@ async def _project_action_unmaster(state: _ProjectApplyState, action: ProjectAct
     return 0
 
 
-async def _project_action_delete(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+async def _project_action_delete(state: _ProjectApplyState, action: LearningActionItem) -> int:
     matched = _find_project(state.projects, action.project_title)
     if not matched:
         return 0
@@ -321,18 +321,18 @@ async def _project_action_delete(state: _ProjectApplyState, action: ProjectActio
     item = _find_item(state.items, project.id, list_title, action.content)
     if not item:
         return 0
-    await project_items_repo.delete_by_id(state.session, item.id, state.user_id, commit=False)
+    await learning_items_repo.delete_by_id(state.session, item.id, state.user_id, commit=False)
     state.items = [i for i in state.items if i.id != item.id]
     return 1
 
 
-async def _project_action_delete_list(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+async def _project_action_delete_list(state: _ProjectApplyState, action: LearningActionItem) -> int:
     matched = _find_project(state.projects, action.project_title)
     if not matched:
         return 0
     project = matched
     list_title = _resolve_list_title(project, action)
-    removed = await project_items_repo.delete_by_list(
+    removed = await learning_items_repo.delete_by_list(
         state.session, state.user_id, project.id, list_title, commit=False
     )
     if not removed:
@@ -345,7 +345,7 @@ async def _project_action_delete_list(state: _ProjectApplyState, action: Project
     return 1
 
 
-_PROJECT_ACTION_HANDLERS: dict[str, ActionHandler[_ProjectApplyState, ProjectActionItem]] = {
+_PROJECT_ACTION_HANDLERS: dict[str, ActionHandler[_ProjectApplyState, LearningActionItem]] = {
     "create_project": _project_action_create_project,
     "delete_project": _project_action_delete_project,
     "set_description": _project_action_set_description,
@@ -358,11 +358,11 @@ _PROJECT_ACTION_HANDLERS: dict[str, ActionHandler[_ProjectApplyState, ProjectAct
 }
 
 
-async def apply_project_actions(
+async def apply_learning_actions(
     session: AsyncSession,
     *,
     user_id: UUID,
-    actions: list[ProjectActionItem],
+    actions: list[LearningActionItem],
     chat_id: UUID | None = None,
     from_transcript: bool = True,
 ) -> int:
@@ -385,10 +385,10 @@ async def apply_project_actions(
         # BUG FIX (was silent): this guard used to live only in
         # _apply_project_extraction_result, this function's one caller —
         # nothing stopped a future second caller from invoking
-        # apply_project_actions directly and bypassing it entirely. Enforce
+        # apply_learning_actions directly and bypassing it entirely. Enforce
         # it here instead.
         for action in actions:
-            if action.action in PROJECT_BLOCKED_FROM_TRANSCRIPT:
+            if action.action in LEARNING_BLOCKED_FROM_TRANSCRIPT:
                 logger.warning(
                     "Refused destructive project action %s from transcript for "
                     "user_id=%s project=%s (requires explicit user action)",
@@ -396,14 +396,14 @@ async def apply_project_actions(
                     user_id,
                     action.project_title,
                 )
-        actions = [a for a in actions if a.action not in PROJECT_BLOCKED_FROM_TRANSCRIPT]
+        actions = [a for a in actions if a.action not in LEARNING_BLOCKED_FROM_TRANSCRIPT]
         if not actions:
             return 0
-    projects = await projects_repo.list_for_user(session, user_id, limit=200)
+    projects = await learning_repo.list_for_user(session, user_id, limit=200)
     # One batched query with a per-project recency window (was N+1: one query
     # per project). A busy deck still cannot push another project's items out
     # of the in-memory dedup snapshot — row_number() caps per project.
-    items = await project_items_repo.list_recent_for_projects(
+    items = await learning_items_repo.list_recent_for_learning(
         session,
         user_id,
         [project.id for project in projects],
@@ -430,7 +430,7 @@ async def apply_project_actions(
         language_path_project_ids=[],
     )
 
-    def _on_error(action: ProjectActionItem) -> None:
+    def _on_error(action: LearningActionItem) -> None:
         logger.exception(
             "Failed project action %s for user_id=%s project=%s",
             action.action,
@@ -448,8 +448,8 @@ async def apply_project_actions(
 
     async def _invalidate_home() -> None:
         # Resolve via common so tests can patch
-        # app.services.projects.common._invalidate_home_for_user.
-        from app.services.projects.common import _invalidate_home_for_user
+        # app.services.learning.common._invalidate_home_for_user.
+        from app.services.learning.common import _invalidate_home_for_user
 
         await _invalidate_home_for_user(user_id)
 

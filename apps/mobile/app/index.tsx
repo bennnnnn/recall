@@ -48,7 +48,7 @@ import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } fr
 import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
-import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
+import { invalidateLearningDetail } from "@/lib/cache/projectDetailCache";
 import { openLearningLesson } from "@/lib/lessonLaunch";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
@@ -467,7 +467,7 @@ function ChatScreen() {
   const onOpenLesson = useCallback(
     (projectId: string) => {
       if (!projectId) return;
-      invalidateProjectDetail(projectId);
+      invalidateLearningDetail(projectId);
       openLearningLesson(router, { projectId });
     },
     [router],

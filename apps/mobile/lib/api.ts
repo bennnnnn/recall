@@ -6,7 +6,7 @@ import { discoverApi } from "@/lib/api/discover";
 import { imagesApi } from "@/lib/api/images";
 import { integrationsApi } from "@/lib/api/integrations";
 import { memoriesApi } from "@/lib/api/memories";
-import { projectsApi } from "@/lib/api/projects";
+import { learningApi } from "@/lib/api/learning";
 import { speechApi } from "@/lib/api/speech";
 import { todosApi } from "@/lib/api/todos";
 
@@ -36,7 +36,7 @@ export const api = {
   ...memoriesApi,
   ...discoverApi,
   ...todosApi,
-  ...projectsApi,
+  ...learningApi,
   ...integrationsApi,
   ...attachmentsApi,
   ...imagesApi,

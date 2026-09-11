@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
-import type { Project } from "@/lib/api";
+import type { Learning } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { IconSize, type IoniconName } from "@/lib/icons";
 import { isLanguageProject } from "@/lib/languageLevels";
@@ -11,7 +11,7 @@ import { learningProjectTitle } from "@/lib/projects/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
-  project: Project;
+  project: Learning;
   icon: IoniconName;
   onOpen: (projectId: string) => void;
   dailyLabel: string;

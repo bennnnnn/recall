@@ -420,10 +420,10 @@ def _extract_quiz_answer(transcript: str) -> str | None:
 
 
 async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
-    from app.models.schemas import ProjectActionItem, ProjectExtractionResult, ProjectKind
+    from app.models.schemas import LearningActionItem, LearningExtractionResult, LearningKind
 
     text = user_message.lower()
-    actions: list[ProjectActionItem] = []
+    actions: list[LearningActionItem] = []
     projects = snapshot.get("projects") or []
     if not isinstance(projects, list):
         projects = []
@@ -434,7 +434,7 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
                 continue
             title = str(proj.get("title") or "")
             if title and title.lower() in text:
-                actions.append(ProjectActionItem(action="delete_project", project_title=title))
+                actions.append(LearningActionItem(action="delete_project", project_title=title))
                 break
 
     if "create" in text and "project" in text:
@@ -442,9 +442,9 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
             if line.lower().startswith("user:"):
                 content = line.split(":", 1)[-1].strip()
                 if len(content) > 3:
-                    kind: ProjectKind = "language"
+                    kind: LearningKind = "language"
                     actions.append(
-                        ProjectActionItem(
+                        LearningActionItem(
                             action="create_project",
                             project_title=content[:120],
                             kind=kind,
@@ -464,7 +464,7 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
     if should_add and project_title:
         for term in _extract_vocab_terms(user_message):
             actions.append(
-                ProjectActionItem(
+                LearningActionItem(
                     action="add",
                     project_title=project_title,
                     list_title="General",
@@ -496,7 +496,7 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
         and project_title
     ):
         actions.append(
-            ProjectActionItem(
+            LearningActionItem(
                 action="master",
                 project_title=project_title,
                 list_title="General",
@@ -510,7 +510,7 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
             if open_items:
                 first = open_items[0]
                 actions.append(
-                    ProjectActionItem(
+                    LearningActionItem(
                         action="master",
                         project_title=str(first.get("project_title") or ""),
                         list_title=str(first.get("list_title") or "General"),
@@ -520,7 +520,7 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
 
     if not actions:
         return None
-    return ProjectExtractionResult(actions=actions)
+    return LearningExtractionResult(actions=actions)
 
 
 async def mock_summary(prior_summary: str | None, messages: list[dict[str, str]]) -> str:

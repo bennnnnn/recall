@@ -1,4 +1,4 @@
-"""Project-item stats aggregation (pure + load wrappers)."""
+"""Learning-item stats aggregation (pure + load wrappers)."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.learning_policy import start_of_today_utc
-from app.models.orm import ProjectItem
-from app.repositories import project_items as project_items_repo
+from app.models.orm import LearningItem
+from app.repositories import learning_items as learning_items_repo
 
 REVIEW_INTERVAL = timedelta(hours=24)  # legacy fallback when due_at is unset
 
 
 def stats_from_items(
-    items: list[ProjectItem],
+    items: list[LearningItem],
     *,
     timezone_name: str = "UTC",
 ) -> dict[str, int]:
@@ -115,12 +115,12 @@ async def count_stats(
     (LANG-FLOW-002) Replaces the load-all-then-count pattern that capped at
     5k items and silently under-counted large decks.
     """
-    return await project_items_repo.count_stats_sql(
+    return await learning_items_repo.count_stats_sql(
         session, project_id, user_id, timezone_name=timezone_name
     )
 
 
-async def count_stats_by_project(
+async def count_stats_by_learning(
     session: AsyncSession,
     project_ids: list[UUID],
     *,
@@ -131,6 +131,6 @@ async def count_stats_by_project(
     (LANG-FLOW-001) Replaces the batched load-all pattern that capped at 20k
     across all projects with no per-project window.
     """
-    return await project_items_repo.count_stats_by_project_sql(
+    return await learning_items_repo.count_stats_by_learning_sql(
         session, project_ids, timezone_by_project=timezone_by_project
     )

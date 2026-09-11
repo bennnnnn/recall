@@ -3,12 +3,12 @@ import { useFocusEffect } from "expo-router";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { getSessionGeneration } from "@/lib/auth";
 import {
-  fetchProjectDetail,
-  getCachedProjectDetail,
-  subscribeProjectDetailCache,
+  fetchLearningDetail,
+  getCachedLearningDetail,
+  subscribeLearningDetailCache,
 } from "@/lib/cache/projectDetailCache";
 
-export function useProjectDetail(projectId: string | undefined) {
+export function useLearningDetail(projectId: string | undefined) {
   const token = useAuthToken();
   const tokenRef = useRef(token);
   tokenRef.current = token;
@@ -19,7 +19,7 @@ export function useProjectDetail(projectId: string | undefined) {
   ownerRef.current = owner;
   const active = useRef(false);
   const request = useRef(0);
-  const initial = signedIn && projectId ? (getCachedProjectDetail(projectId) ?? null) : null;
+  const initial = signedIn && projectId ? (getCachedLearningDetail(projectId) ?? null) : null;
   const [state, setState] = useState({
     owner,
     project: initial,
@@ -47,7 +47,7 @@ export function useProjectDetail(projectId: string | undefined) {
         loading: prev.owner !== owner || !prev.project,
         loadError: false,
       }));
-      const data = await fetchProjectDetail(tokenRef.current, owner.projectId, options);
+      const data = await fetchLearningDetail(tokenRef.current, owner.projectId, options);
       if (!isCurrentOwner() || request.current !== ticket) return;
       setState((prev) => ({
         owner,
@@ -60,9 +60,9 @@ export function useProjectDetail(projectId: string | undefined) {
   );
   useEffect(
     () =>
-      subscribeProjectDetailCache(() => {
+      subscribeLearningDetailCache(() => {
         if (!owner.projectId || !isCurrentOwner()) return;
-        const project = getCachedProjectDetail(owner.projectId);
+        const project = getCachedLearningDetail(owner.projectId);
         if (project) setState((prev) => ({ ...prev, owner, project, loading: false }));
       }),
     [owner, isCurrentOwner],

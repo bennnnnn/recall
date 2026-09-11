@@ -86,7 +86,7 @@ class User(Base):
 
     chats: Mapped[list[Chat]] = relationship(back_populates="user")
     memories: Mapped[list[Memory]] = relationship(back_populates="user")
-    projects: Mapped[list[Learning]] = relationship(back_populates="user")
+    learning: Mapped[list[Learning]] = relationship(back_populates="user")
     calendar_connection: Mapped[UserCalendarConnection | None] = relationship(
         back_populates="user",
         uselist=False,

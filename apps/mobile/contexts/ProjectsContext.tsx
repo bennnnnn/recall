@@ -12,25 +12,25 @@ import {
 } from "react";
 import { AppState } from "react-native";
 import { useAuthOptional } from "@/contexts/AuthContext";
-import { api, type Project } from "@/lib/api";
+import { api, type Learning } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
 import { isContextFresh } from "@/lib/cache/contextRefresh";
 
 type Options = { silent?: boolean; force?: boolean; afterPending?: boolean };
-type Update = (rows: Project[]) => Project[];
+type Update = (rows: Learning[]) => Learning[];
 type Owner = {
   session: number;
   signedIn: boolean;
-  rows: Project[];
+  rows: Learning[];
   fetchedAt?: number;
   pending?: { task: Promise<void>; updates: Update[] };
 };
 type Value = {
-  projects: Project[];
+  projects: Learning[];
   loading: boolean;
   error: boolean;
   refresh: (opts?: Options) => Promise<void>;
-  setProjects: Dispatch<SetStateAction<Project[]>>;
+  setProjects: Dispatch<SetStateAction<Learning[]>>;
 };
 const ProjectsContext = createContext<Value | null>(null);
 export function ProjectsProvider({ children }: { children: ReactNode }) {
@@ -71,7 +71,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     },
     [owner, isCurrent],
   );
-  const setProjects = useCallback<Dispatch<SetStateAction<Project[]>>>(
+  const setProjects = useCallback<Dispatch<SetStateAction<Learning[]>>>(
     (action) => {
       if (!isCurrent() || !owner.signedIn) return;
       const update: Update = typeof action === "function" ? action : () => action;

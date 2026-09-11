@@ -18,11 +18,11 @@ from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
 from app.services import chat_tools as chat_tools_service
 from app.services import email as email_service
+from app.services import learning as learning_service
 from app.services import locale as locale_service
 from app.services import math_tools as math_tools_service
 from app.services import memory as memory_service
 from app.services import profile as profile_service
-from app.services import projects as projects_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
 from app.services import todos as todos_service
@@ -498,14 +498,14 @@ async def _load_context_blocks(
     async def _projects_block() -> str:
         async with db_slots, SessionLocal() as s:
             if is_day_plan:
-                return await projects_service.load_daily_learning_summary_for_prompt(
+                return await learning_service.load_daily_learning_summary_for_prompt(
                     s,
                     user,
                     settings,
                     client_timezone=client_timezone,
                 )
             if chat and chat.project_id:
-                block = await projects_service.load_project_for_prompt(
+                block = await learning_service.load_learning_for_prompt(
                     s,
                     user.id,
                     chat.project_id,
@@ -514,9 +514,11 @@ async def _load_context_blocks(
                     client_timezone=client_timezone,
                 )
             else:
-                block = await projects_service.load_projects_for_prompt(s, user.id, settings)
+                block = await learning_service.load_learning_classes_for_prompt(
+                    s, user.id, settings
+                )
             if query_text and is_learning_progress_question(query_text):
-                today = await projects_service.load_today_learning_words_for_prompt(
+                today = await learning_service.load_today_learning_words_for_prompt(
                     s,
                     user,
                     settings,
@@ -623,7 +625,7 @@ async def _quiz_hints(
             if chat is None:
                 chat = await chats_repo.get_by_id(session, chat_id, user.id)
             if chat and chat.project_id:
-                quiz_ctx = await projects_service.load_project_quiz_context(
+                quiz_ctx = await learning_service.load_learning_quiz_context(
                     session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
                 )
                 if quiz_ctx:
@@ -822,7 +824,7 @@ def _integration_hints(
     if gmail_todos_section:
         parts.append(wrap_untrusted("gmail reminders", gmail_todos_section))
     if not is_day_plan:
-        parts.append(projects_service.PROJECT_HINT)
+        parts.append(learning_service.LEARNING_HINT)
     if projects_block:
         parts.append(projects_block)
     if chat_history_rag_block:

@@ -11,11 +11,11 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.models.schemas import ProjectExtractionResult
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
-from app.services.projects.actions import MAX_PROJECT_ACTIONS_PER_TURN
-from app.services.projects.common import _item_status
+from app.models.schemas import LearningExtractionResult
+from app.repositories import learning as learning_repo
+from app.repositories import learning_items as learning_items_repo
+from app.services.learning.actions import MAX_LEARNING_ACTIONS_PER_TURN
+from app.services.learning.common import _item_status
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ _PROJECT_SYNC_TRANSCRIPT = re.compile(
 )
 
 
-def transcript_implies_project_sync(
+def transcript_implies_learning_sync(
     transcript: str,
     *,
     chat_project_id: UUID | None = None,
@@ -54,15 +54,15 @@ class _ProjectSyncSnapshot:
     snapshot: dict[str, Any]
 
 
-async def _load_project_sync_snapshot(
+async def _load_learning_sync_snapshot(
     session: AsyncSession,
     user_id: UUID,
     settings: Settings,
 ) -> _ProjectSyncSnapshot:
-    projects = await projects_repo.list_for_user(
+    projects = await learning_repo.list_for_user(
         session, user_id, limit=settings.project_inject_limit
     )
-    items = await project_items_repo.list_for_user(
+    items = await learning_items_repo.list_for_user(
         session, user_id, limit=settings.project_item_inject_limit
     )
     titles_by_id = {p.id: p.title for p in projects}
@@ -100,19 +100,19 @@ async def _apply_project_extraction_result(
     *,
     user_id: UUID,
     chat_id: UUID,
-    result: ProjectExtractionResult | None,
+    result: LearningExtractionResult | None,
 ) -> int:
     if not result or not result.actions:
         return 0
     # Defensive per-turn cap on how many actions an LLM extraction can apply.
     # The destructive-action block (delete_project/delete_list) now lives in
-    # apply_project_actions itself (from_transcript=True, the default) —
+    # apply_learning_actions itself (from_transcript=True, the default) —
     # this caller no longer needs to filter those out before calling it.
-    # Resolve via package so tests can patch projects_service.apply_project_actions.
-    from app.services.projects import apply_project_actions
+    # Resolve via package so tests can patch learning_service.apply_learning_actions.
+    from app.services.learning import apply_learning_actions
 
-    capped_actions = result.actions[:MAX_PROJECT_ACTIONS_PER_TURN]
-    applied = await apply_project_actions(
+    capped_actions = result.actions[:MAX_LEARNING_ACTIONS_PER_TURN]
+    applied = await apply_learning_actions(
         session,
         user_id=user_id,
         actions=capped_actions,
@@ -121,7 +121,7 @@ async def _apply_project_extraction_result(
     )
     if result.actions and applied == 0:
         logger.warning(
-            "Project sync extracted %d action(s) but applied 0 for user_id=%s",
+            "Learning sync extracted %d action(s) but applied 0 for user_id=%s",
             len(result.actions),
             user_id,
         )
@@ -134,21 +134,21 @@ async def _run_extracted_project_actions(
     user_id: UUID,
     chat_id: UUID,
     transcript: str,
-) -> ProjectExtractionResult | None:
+) -> LearningExtractionResult | None:
     from app.core.db import SessionLocal
-    from app.services.projects.extract import extract_project_actions
+    from app.services.learning.extract import extract_learning_actions
 
     async with SessionLocal() as session:
-        loaded = await _load_project_sync_snapshot(session, user_id, settings)
+        loaded = await _load_learning_sync_snapshot(session, user_id, settings)
 
     try:
-        result = await extract_project_actions(
+        result = await extract_learning_actions(
             settings,
             transcript,
             loaded.snapshot,
         )
     except Exception:
-        logger.exception("Project action extraction failed for user_id=%s", user_id)
+        logger.exception("Learning action extraction failed for user_id=%s", user_id)
         return None
 
     async with SessionLocal() as session:
@@ -161,13 +161,13 @@ async def _run_extracted_project_actions(
     return result
 
 
-async def sync_projects_from_transcript(
+async def sync_learning_from_transcript(
     settings: Settings,
     *,
     user_id: UUID,
     chat_id: UUID,
     transcript: str,
-) -> ProjectExtractionResult | None:
+) -> LearningExtractionResult | None:
     try:
         return await _run_extracted_project_actions(
             settings,
@@ -176,5 +176,5 @@ async def sync_projects_from_transcript(
             transcript=transcript,
         )
     except Exception:
-        logger.exception("Project sync failed for user_id=%s", user_id)
+        logger.exception("Learning sync failed for user_id=%s", user_id)
         return None

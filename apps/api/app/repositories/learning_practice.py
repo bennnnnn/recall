@@ -6,12 +6,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import LearningPracticeEvent, Project, ProjectItem, User
+from app.models.orm import Learning, LearningItem, LearningPracticeEvent, User
 
 
 async def lock_owned_item(
     session: AsyncSession, user_id: UUID, project_id: UUID, item_id: UUID
-) -> ProjectItem | None:
+) -> LearningItem | None:
     # Match account deletion's User-before-item lock order. Key-share permits
     # simultaneous practice while preventing deletion during the event insert.
     owner = await session.scalar(
@@ -20,16 +20,16 @@ async def lock_owned_item(
     if owner is None:
         return None
     stmt = (
-        select(ProjectItem)
-        .join(Project, Project.id == ProjectItem.project_id)
+        select(LearningItem)
+        .join(Learning, Learning.id == LearningItem.project_id)
         .where(
-            ProjectItem.id == item_id,
-            ProjectItem.user_id == user_id,
-            ProjectItem.project_id == project_id,
-            Project.user_id == user_id,
-            Project.archived.is_(False),
+            LearningItem.id == item_id,
+            LearningItem.user_id == user_id,
+            LearningItem.project_id == project_id,
+            Learning.user_id == user_id,
+            Learning.archived.is_(False),
         )
-        .with_for_update(of=ProjectItem)
+        .with_for_update(of=LearningItem)
         .execution_options(populate_existing=True)
     )
     return (await session.execute(stmt)).scalar_one_or_none()

@@ -1,4 +1,4 @@
-import type { ProjectDetail, ProjectItem } from "@/lib/api";
+import type { LearningDetail, LearningItem } from "@/lib/api";
 import {
   cardMeaning,
   chapterIsComplete,
@@ -13,7 +13,7 @@ import {
   resolveLessonChapter,
 } from "@/lib/projects/chapterLesson";
 
-function item(content: string, status: ProjectItem["status"] = "new"): ProjectItem {
+function item(content: string, status: LearningItem["status"] = "new"): LearningItem {
   return {
     id: content,
     list_title: "Greetings",
@@ -40,7 +40,7 @@ const project = {
     { list_title: "Greetings", items: [item("hola"), item("adios", "mastered")] },
     { list_title: "Hotel", items: [item("llave")] },
   ],
-} as ProjectDetail;
+} as LearningDetail;
 
 describe("chapterLesson", () => {
   it("picks items for a chapter and queues unmastered words first", () => {

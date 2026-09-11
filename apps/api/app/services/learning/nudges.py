@@ -11,11 +11,11 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Project, User
-from app.repositories import projects as projects_repo
+from app.models.orm import Learning, User
+from app.repositories import learning as learning_repo
 from app.services.learning import daily as daily_learning
 from app.services.learning import insights as learning_insights
-from app.services.projects import stats as project_stats
+from app.services.learning import stats as learning_stats
 from app.services.reminder_timing import learning_dedupe_key, user_day_key, user_local_hour
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class LearningNudgePick:
     redis_key: str
     body: str
     payload: dict[str, str]
-    project: Project
+    project: Learning
     nudge_type: learning_insights.NudgeType
     score: float
 
@@ -59,16 +59,16 @@ async def claim_learning_candidates(
 async def load_learning_stats_for_candidates(
     session: AsyncSession,
     candidates: list[tuple[User, str]],
-) -> tuple[dict[UUID, list[Project]], dict[UUID, dict[str, Any]]]:
+) -> tuple[dict[UUID, list[Learning]], dict[UUID, dict[str, Any]]]:
     """Batch-load learning projects + enriched stats for claimed candidates."""
     user_by_id = {user.id: user for user, _ in candidates}
     user_ids = list(user_by_id)
 
-    projects = await projects_repo.list_for_users(session, user_ids, include_archived=False)
+    projects = await learning_repo.list_for_users(session, user_ids, include_archived=False)
     learning_projects = [
         project for project in projects if learning_insights.is_learning_project_kind(project.kind)
     ]
-    projects_by_user: dict[UUID, list[Project]] = {}
+    projects_by_user: dict[UUID, list[Learning]] = {}
     for project in learning_projects:
         projects_by_user.setdefault(project.user_id, []).append(project)
 
@@ -77,7 +77,7 @@ async def load_learning_stats_for_candidates(
         for project in learning_projects
         if project.user_id in user_by_id
     }
-    stats_by_project = await project_stats.count_stats_by_project(
+    stats_by_project = await learning_stats.count_stats_by_learning(
         session,
         [project.id for project in learning_projects],
         timezone_by_project=timezone_by_project,

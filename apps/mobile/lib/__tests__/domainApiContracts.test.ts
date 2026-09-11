@@ -1,7 +1,7 @@
 import { attachmentRecordExists, attachmentsApi } from "@/lib/api/attachments";
 import { request } from "@/lib/api/client";
 import { removeCachedAttachmentFiles } from "@/lib/downloadChatAttachment";
-import { projectsApi } from "@/lib/api/projects";
+import { learningApi } from "@/lib/api/learning";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/downloadChatAttachment", () => ({
@@ -23,7 +23,7 @@ describe("domain API contracts", () => {
   });
 
   it("encodes project detail list and timezone options", async () => {
-    await projectsApi.getProject("token", "p 1", { includeLists: true });
+    await learningApi.getProject("token", "p 1", { includeLists: true });
     expect(mockRequest).toHaveBeenCalledWith(
       "/projects/p 1?client_timezone=America%2FLos_Angeles&include_lists=true",
       "token",
@@ -31,7 +31,7 @@ describe("domain API contracts", () => {
   });
 
   it("encodes daily item paging and bucket options", async () => {
-    await projectsApi.getProjectDailyItems("token", "p1", "2026-08-21", {
+    await learningApi.getProjectDailyItems("token", "p1", "2026-08-21", {
       limit: 25,
       offset: 50,
       bucket: "missed",
@@ -94,7 +94,7 @@ describe("domain API contracts", () => {
   });
 
   it("records an idempotent question outcome instead of directly changing mastery", async () => {
-    await projectsApi.recordProjectPractice("token", "p1", "i1", {
+    await learningApi.recordProjectPractice("token", "p1", "i1", {
       attempt_id: "attempt",
       was_correct: true,
       completes_word: true,

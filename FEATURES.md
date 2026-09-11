@@ -92,7 +92,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   See [review and release checks](docs/CHAT_MANAGEMENT_REVIEW_2026-09-04.md).
 - 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
 - 🔜 Folders.
-- ✅ **Project-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
+- ✅ **Learning-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
 
 ## 3. Messaging behaviour
 - ✅ **Streaming** — token-by-token over WebSocket; the reply appears as it's generated.
@@ -640,12 +640,13 @@ were removed. Programming help lives in main chat.
 - ✅ **`projects` table** — title, description, `kind` (`language` only; `vocabulary` is
   still coerced to `language` on write), archive flag. DB CHECK rejects `general` /
   `trivia` / `learning` / `programming`. Class CEFR `level` is not in the API.
-- ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`. Practice is
+- ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}` (Python modules
+  are `learning`; the wire path is unchanged). Practice is
   `POST /projects/{id}/items/{item_id}/practice`. There is no item PATCH.
 - ✅ **Mobile** — drawer **Learning** → list → create → **lesson map** (detail redirects
   there). Compact stats, daily goals, and PDF export live on the lesson map ⋯ menu.
   Recall manages lesson content; there are no manual content edit/delete controls.
-- ✅ **Project kinds** — create only offers `en` / `es` (English and Spanish vocab catalogs). Legacy kinds (`trivia`,
+- ✅ **Learning kinds** — create only offers `en` / `es` (English and Spanish vocab catalogs). Legacy kinds (`trivia`,
   `programming`, `math`, …) are rejected on create. Other languages and Anki SM-2 due-queue UI are not shipped.
 
 ### Phase 2 — Vocabulary (language learning)
@@ -1068,7 +1069,7 @@ drawer FTS search ✅.
 |---------|----------|
 | Language (`language`) — **en/es catalog only**, teach-then-A/D lesson cards, SM-2 fields | Other target languages; trivia; Anki-style SM-2 due-queue UI |
 | Domain → branch lesson map; create opens the map | Review queue, Settings deck browse, typed answers |
-| Project-scoped chats, home highlight (Learning only) | In-app code runner (later) |
+| Learning-scoped chats, home highlight (Learning only) | In-app code runner (later) |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | ~~Hidden chat `vocab_quiz` as the lesson path~~ **removed** |
 
 ### Rich rendering (§4 summary)

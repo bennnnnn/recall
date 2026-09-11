@@ -19,23 +19,23 @@ from app.core.db import SessionLocal
 from app.gateways.storage_gateway import StorageGateway, get_storage_gateway
 from app.models.orm import (
     Chat,
+    Learning,
+    LearningItem,
     LearningPracticeEvent,
     Memory,
     Message,
     ProductEvent,
-    Project,
-    ProjectItem,
     TodoItem,
     User,
 )
 from app.repositories import attachments as attachments_repo
 from app.repositories import chats as chats_repo
+from app.repositories import learning as learning_repo
 from app.repositories import learning_export as learning_export_repo
+from app.repositories import learning_items as learning_items_repo
 from app.repositories import memories as memories_repo
 from app.repositories import messages as messages_repo
 from app.repositories import product_events as product_events_repo
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
 from app.repositories import todos as todos_repo
 
 logger = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ def _todo_payload(todo: TodoItem) -> dict[str, Any]:
     }
 
 
-def _project_header(project: Project) -> dict[str, Any]:
+def _project_header(project: Learning) -> dict[str, Any]:
     return {
         "id": str(project.id),
         "title": project.title,
@@ -123,7 +123,7 @@ def _project_header(project: Project) -> dict[str, Any]:
     }
 
 
-def _project_item_payload(item: ProjectItem) -> dict[str, Any]:
+def _project_item_payload(item: LearningItem) -> dict[str, Any]:
     return {
         "id": str(item.id),
         "list_title": item.list_title,
@@ -345,7 +345,7 @@ async def _iter_export_json(
 
     yield '],"projects":['
     async with session_factory() as session:
-        projects = await projects_repo.list_for_user(
+        projects = await learning_repo.list_for_user(
             session,
             user.id,
             include_archived=True,
@@ -354,7 +354,7 @@ async def _iter_export_json(
         project_rows = [(_project_header(project), project.id) for project in projects]
         items_by_project: dict[UUID, list[dict[str, Any]]] = defaultdict(list)
         if project_rows:
-            items = await project_items_repo.list_for_projects(
+            items = await learning_items_repo.list_for_learning(
                 session,
                 [project_id for _, project_id in project_rows],
                 limit=EXPORT_MAX_PROJECT_ITEMS,

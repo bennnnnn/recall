@@ -20,11 +20,11 @@ from app.routers import (
     home,
     images,
     integrations,
+    learning,
     legal,
     link_preview,
     memories,
     models,
-    projects,
     search,
     speech,
     speech_realtime,
@@ -101,7 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(memories.router)
     app.include_router(models.router)
     app.include_router(todos.router)
-    app.include_router(projects.router)
+    app.include_router(learning.router)
     app.include_router(search.router)
     app.include_router(suggestions.router)
     app.include_router(attachments.router)

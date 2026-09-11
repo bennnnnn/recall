@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from app.models.orm import LearningPracticeEvent, ProjectItem
+from app.models.orm import LearningItem, LearningPracticeEvent
 
 
 def _timezone(name: str) -> ZoneInfo:
@@ -26,7 +26,7 @@ def _local_day(value: datetime, timezone: ZoneInfo) -> str:
 
 def merge_practice_history(
     history: list[dict[str, Any]],
-    items: list[ProjectItem],
+    items: list[LearningItem],
     events: list[LearningPracticeEvent],
     *,
     timezone_name: str,
@@ -87,14 +87,14 @@ def merge_practice_history(
 
 
 def merge_practice_items(
-    grouped: dict[str, list[ProjectItem]],
-    items: list[ProjectItem],
+    grouped: dict[str, list[LearningItem]],
+    items: list[LearningItem],
     events: list[LearningPracticeEvent],
     *,
     timezone_name: str,
     allowed_days: set[str],
     missed: bool = False,
-) -> dict[str, list[ProjectItem]]:
+) -> dict[str, list[LearningItem]]:
     """Add completed reviews and actual wrong answers to their original day."""
     timezone = _timezone(timezone_name)
     by_id = {item.id: item for item in items}

@@ -1,14 +1,14 @@
 import { useCallback } from "react";
 
 import { useAuthToken } from "@/contexts/AuthContext";
-import { api, type Project, type ProjectKind } from "@/lib/api";
+import { api, type Learning, type LearningKind } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
-import { invalidateProjectDetail } from "@/lib/cache/projectDetailCache";
+import { invalidateLearningDetail } from "@/lib/cache/projectDetailCache";
 
 type CreateProjectInput = {
   title: string;
   description?: string | null;
-  kind?: ProjectKind;
+  kind?: LearningKind;
   target_language?: string;
   native_language?: string | null;
   daily_goal?: number | null;
@@ -16,7 +16,7 @@ type CreateProjectInput = {
 
 type UpdateProjectInput = Partial<
   Pick<
-    Project,
+    Learning,
     | "title"
     | "description"
     | "kind"
@@ -54,7 +54,7 @@ export function useProjectActions() {
     async (projectId: string, patch: UpdateProjectInput) => {
       const updated = await api.updateProject(requireToken(), projectId, patch);
       requireSession();
-      invalidateProjectDetail(projectId, session);
+      invalidateLearningDetail(projectId, session);
       return updated;
     },
     [requireToken, requireSession, session],

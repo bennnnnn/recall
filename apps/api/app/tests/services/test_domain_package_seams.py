@@ -30,10 +30,6 @@ def test_learning_compatibility_modules_share_patchable_module_objects() -> None
         "app.services.daily_learning": "app.services.learning.daily",
         "app.services.vocab_quiz": "app.services.learning.quiz",
         "app.services.sm2": "app.services.learning.spaced_repetition",
-        "app.services.learning_nudges": "app.services.learning.nudges",
-        "app.services.learning_insights": "app.services.learning.insights",
-        "app.services.projects.path": "app.services.learning.path",
-        "app.services.projects.path_seed": "app.services.learning.path_seed",
     }
 
     for legacy_name, canonical_name in aliases.items():

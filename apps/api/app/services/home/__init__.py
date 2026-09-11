@@ -25,9 +25,12 @@ from app.repositories import suggestions as suggestions_repo
 from app.repositories import todos as todos_repo
 from app.services import memory as memory_service
 from app.services import reminder_timing
-from app.services.home import project_starters as project_starters_mod
+from app.services.home import learning_starters as learning_starters_mod
 from app.services.home.integration_starters import (
     integration_starters as _integration_starters_impl,
+)
+from app.services.home.learning_starters import (
+    load_learning_home_content as _load_learning_home_content_impl,
 )
 from app.services.home.memory_starters import (
     chat_starter,
@@ -39,13 +42,10 @@ from app.services.home.memory_starters import (
     pick_home_memory,
     urgent_subtitle,
 )
-from app.services.home.project_starters import (
-    load_project_home_content as _load_project_home_content_impl,
-)
 from app.services.home.time_starters import greeting, time_starters, welcome_starters
 from app.services.home.util import (
     MAX_STARTERS,
-    ProjectHomeContent,
+    LearningHomeContent,
     day_seed,
     looks_internal,
     looks_like_language_learning,
@@ -55,14 +55,14 @@ from app.services.home.util import (
     texts_overlap,
 )
 
-# Re-exported for tests that patch home_service.projects_repo / project_items_repo.
-projects_repo = project_starters_mod.projects_repo
-project_items_repo = project_starters_mod.project_items_repo
+# Re-exported for tests that patch home_service.learning_repo / learning_items_repo.
+learning_repo = learning_starters_mod.learning_repo
+learning_items_repo = learning_starters_mod.learning_items_repo
 
 logger = logging.getLogger(__name__)
 
 # Patchable names used by build_home_screen (and underscore aliases for tests).
-load_project_home_content = _load_project_home_content_impl
+load_learning_home_content = _load_learning_home_content_impl
 integration_starters = _integration_starters_impl
 _resolve_home_tz = resolve_home_tz
 _time_starters = time_starters
@@ -73,7 +73,7 @@ _texts_overlap = texts_overlap
 _urgent_subtitle = urgent_subtitle
 _looks_internal = looks_internal
 _integration_starters = integration_starters
-_load_project_home_content = load_project_home_content
+_load_learning_home_content = load_learning_home_content
 
 
 async def build_home_screen(
@@ -116,8 +116,8 @@ async def build_home_screen(
             recent = await chats_repo.list_for_user(s, user.id, limit=5)
             return [(c.title or "", c.id) for c in recent]
 
-    async def load_project_content() -> ProjectHomeContent:
-        return await load_project_home_content(session, user.id, home_tz=home_tz)
+    async def load_project_content() -> LearningHomeContent:
+        return await load_learning_home_content(session, user.id, home_tz=home_tz)
 
     async def load_integrations() -> list[HomeStarter]:
         async with SessionLocal() as s:
@@ -127,7 +127,7 @@ async def build_home_screen(
         async with SessionLocal() as s:
             return await suggestions_repo.list_active(s, user.id)
 
-    # Project highlight is the common path — load it with the always-needed
+    # Learning highlight is the common path — load it with the always-needed
     # loaders first, then only fetch memories/recent chats when there is no
     # highlight (those starters are skipped when a highlight is present).
     (

@@ -1,4 +1,4 @@
-"""Real-Postgres tests for app.repositories.projects — specifically the
+"""Real-Postgres tests for app.repositories.learning — specifically the
 partial unique indexes (one active language project per target language).
 A mocked `AsyncSession` can't exercise a real DB constraint, so these use
 the `db_session` fixture from conftest.py.
@@ -11,11 +11,11 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.models.orm import Project
-from app.models.schemas import ProjectOut
-from app.repositories import projects as projects_repo
+from app.models.orm import Learning
+from app.models.schemas import LearningOut
+from app.repositories import learning as learning_repo
 from app.repositories import users as users_repo
-from app.services.projects.crud import get_project_detail
+from app.services.learning.crud import get_learning_detail
 
 
 async def _make_user(session):
@@ -31,13 +31,13 @@ async def _make_user(session):
 @pytest.mark.asyncio
 async def test_one_active_language_project_per_target_enforced_by_db(db_session):
     """Two active language rows for the same (user, target_language) must
-    fail at the DB (migration 0065), not only in apply_project_actions."""
+    fail at the DB (migration 0065), not only in apply_learning_actions."""
     user = await _make_user(db_session)
     user_id = user.id
-    await projects_repo.create(db_session, user_id=user_id, title="English", kind="language")
+    await learning_repo.create(db_session, user_id=user_id, title="English", kind="language")
 
     with pytest.raises(IntegrityError):
-        await projects_repo.create(
+        await learning_repo.create(
             db_session, user_id=user_id, title="English (dup)", kind="language"
         )
     # rollback() expires previously loaded ORM objects (e.g. `user`); use the
@@ -47,7 +47,7 @@ async def test_one_active_language_project_per_target_enforced_by_db(db_session)
     await db_session.rollback()
 
     rows = (
-        (await db_session.execute(select(Project).where(Project.user_id == user_id)))
+        (await db_session.execute(select(Learning).where(Learning.user_id == user_id)))
         .scalars()
         .all()
     )
@@ -58,10 +58,10 @@ async def test_one_active_language_project_per_target_enforced_by_db(db_session)
 @pytest.mark.asyncio
 async def test_same_user_can_have_two_target_languages(db_session):
     user = await _make_user(db_session)
-    await projects_repo.create(
+    await learning_repo.create(
         db_session, user_id=user.id, title="English", kind="language", target_language="en"
     )
-    second = await projects_repo.create(
+    second = await learning_repo.create(
         db_session, user_id=user.id, title="Spanish", kind="language", target_language="es"
     )
     assert second.target_language == "es"
@@ -72,9 +72,9 @@ async def test_different_users_can_each_have_their_own_language_project(db_sessi
     """The unique index is scoped per user_id — it must not block other users."""
     user_a = await _make_user(db_session)
     user_b = await _make_user(db_session)
-    await projects_repo.create(db_session, user_id=user_a.id, title="English A", kind="language")
+    await learning_repo.create(db_session, user_id=user_a.id, title="English A", kind="language")
     # Must not raise.
-    await projects_repo.create(db_session, user_id=user_b.id, title="English B", kind="language")
+    await learning_repo.create(db_session, user_id=user_b.id, title="English B", kind="language")
 
 
 @pytest.mark.asyncio
@@ -82,13 +82,13 @@ async def test_archiving_frees_up_the_kind_for_a_new_active_project(db_session):
     """The unique index is scoped to non-archived rows — archiving the old
     project must free up the kind again for a new active one."""
     user = await _make_user(db_session)
-    old = await projects_repo.create(
+    old = await learning_repo.create(
         db_session, user_id=user.id, title="Old English", kind="language"
     )
-    await projects_repo.update(db_session, old, archived=True)
+    await learning_repo.update(db_session, old, archived=True)
 
     # Must not raise — the old row is archived, so this is the only active one.
-    new = await projects_repo.create(
+    new = await learning_repo.create(
         db_session, user_id=user.id, title="New English", kind="language"
     )
     assert new.id != old.id
@@ -100,35 +100,35 @@ async def test_legacy_project_kinds_rejected_by_check_constraint(db_session):
     user = await _make_user(db_session)
     user_id = user.id
     with pytest.raises(IntegrityError):
-        await projects_repo.create(
+        await learning_repo.create(
             db_session, user_id=user_id, title="TypeScript · Programming", kind="general"
         )
     await db_session.rollback()
     with pytest.raises(IntegrityError):
-        await projects_repo.create(
+        await learning_repo.create(
             db_session, user_id=user_id, title="General knowledge", kind="trivia"
         )
     await db_session.rollback()
 
 
 @pytest.mark.asyncio
-async def test_get_project_detail_does_not_greenlet_after_catalog_titles(db_session):
-    """Assigning learning_path on GET autoflushes; updated_at expires; ProjectOut 500s."""
+async def test_get_learning_detail_does_not_greenlet_after_catalog_titles(db_session):
+    """Assigning learning_path on GET autoflushes; updated_at expires; LearningOut 500s."""
     from app.content.vocab_catalog import path_decks_for_language
 
     user = await _make_user(db_session)
-    project = await projects_repo.create(
+    project = await learning_repo.create(
         db_session, user_id=user.id, title="English", kind="language", target_language="en"
     )
     stored = list(project.learning_path or [])
     with patch(
-        "app.services.projects.crud.enqueue_language_path_job",
+        "app.services.learning.crud.enqueue_language_path_job",
         AsyncMock(),
     ):
-        detail = await get_project_detail(db_session, user, project.id)
+        detail = await get_learning_detail(db_session, user, project.id)
 
     assert detail is not None
-    ProjectOut.model_validate(project)
+    LearningOut.model_validate(project)
     assert list(project.learning_path or []) == stored
     catalog = [deck.title for deck in path_decks_for_language("en")]
     assert detail["learning_path"] == catalog

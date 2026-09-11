@@ -47,7 +47,7 @@ def active_catalog_items(decks: Sequence[CatalogDeck], items: Sequence[_Item]) -
 
 def plan_catalog_changes(decks: Sequence[CatalogDeck], items: Sequence[Any]) -> list[CatalogChange]:
     """Refresh current identities; never adopt retired or unrecognized rows."""
-    from app.services.projects.common import _list_key
+    from app.services.learning.common import _list_key
 
     by_catalog: dict[Any, list[Any]] = defaultdict(list)
     pairs: dict[tuple[str, str], Any] = {}

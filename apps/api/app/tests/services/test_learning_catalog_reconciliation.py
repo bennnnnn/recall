@@ -13,16 +13,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.content.vocab_catalog import CatalogDeck, CatalogWord, word_id
-from app.models.orm import Project, ProjectItem, QuizMissEvent, User, VocabDeck, VocabEntry
+from app.models.orm import Learning, LearningItem, QuizMissEvent, User, VocabDeck, VocabEntry
 from app.repositories import learning_catalog as catalog_repo
-from app.services.learning import catalog_items, catalog_sync
-from app.services.projects import path_seed
+from app.services.learning import catalog_items, catalog_sync, path_seed
 
 
 @pytest.fixture
 def catalog_sql(monkeypatch):
     engine = create_engine("sqlite://")
-    for model in (User, Project, VocabDeck, VocabEntry, ProjectItem, QuizMissEvent):
+    for model in (User, Learning, VocabDeck, VocabEntry, LearningItem, QuizMissEvent):
         for column in model.__table__.c:
             if isinstance(column.type, JSONB):
                 monkeypatch.setattr(column, "type", JSON())
@@ -156,14 +155,14 @@ def test_same_catalog_id_keeps_both_practice_rows_when_target_pair_occupied():
 
 def _saved_item(sync, deck):
     user = User(id=uuid4(), email=f"{uuid4()}@example.com")
-    project = Project(
+    project = Learning(
         id=uuid4(),
         user_id=user.id,
         title="Spanish",
         target_language="es",
         learning_path=[deck.title],
     )
-    item = ProjectItem(
+    item = LearningItem(
         id=uuid4(),
         user_id=user.id,
         project_id=project.id,
@@ -198,8 +197,8 @@ async def test_content_update_preserves_intervening_practice_and_history(catalog
         pronunciation_url="https://example.com/audio.mp3",
     )
     sync.execute(
-        update(ProjectItem)
-        .where(ProjectItem.id == item.id)
+        update(LearningItem)
+        .where(LearningItem.id == item.id)
         .values(**practice)
         .execution_options(synchronize_session=False)
     )
@@ -246,8 +245,8 @@ async def test_content_write_does_not_adopt_null_catalog_row(catalog_sql):
     item.catalog_entry_id = None
     sync.commit()
     sync.execute(
-        update(ProjectItem)
-        .where(ProjectItem.id == item.id)
+        update(LearningItem)
+        .where(LearningItem.id == item.id)
         .values(definition="Personal revision")
         .execution_options(synchronize_session=False)
     )

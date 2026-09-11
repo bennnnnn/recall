@@ -12,7 +12,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import { getSessionGeneration } from "@/lib/auth";
-import { type Project } from "@/lib/api";
+import { type Learning } from "@/lib/api";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { exportProjectAsPdf, projectHasExportableItems } from "@/lib/exportProjectPdf";
 import {
@@ -25,7 +25,7 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
-  project: Project;
+  project: Learning;
   isCurrent: () => boolean;
 };
 

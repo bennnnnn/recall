@@ -12,11 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.types import TypeDecorator
 
-from app.models.orm import LearningPracticeEvent, Project, ProjectItem, QuizMissEvent, User
+from app.models.orm import Learning, LearningItem, LearningPracticeEvent, QuizMissEvent, User
 from app.models.schemas.learning import LearningPracticeIn
-from app.repositories.project_items import count_stats_sql
+from app.repositories.learning_items import count_stats_sql
+from app.services.learning.crud import LearningError
 from app.services.learning.practice import record_practice
-from app.services.projects.crud import ProjectsError
 
 NOW = datetime(2026, 9, 6, 12, tzinfo=UTC)
 
@@ -33,8 +33,8 @@ class _UTCDateTime(TypeDecorator):
 def practice_sql():
     tables = [
         User.__table__,
-        Project.__table__,
-        ProjectItem.__table__,
+        Learning.__table__,
+        LearningItem.__table__,
         QuizMissEvent.__table__,
         LearningPracticeEvent.__table__,
     ]
@@ -73,8 +73,8 @@ def practice_sql():
 
             session.begin_nested.side_effect = nested
             user = User(id=uuid4(), email=f"{uuid4()}@example.com", name="Ada")
-            project = Project(id=uuid4(), user_id=user.id, title="English", kind="language")
-            item = ProjectItem(
+            project = Learning(id=uuid4(), user_id=user.id, title="English", kind="language")
+            item = LearningItem(
                 id=uuid4(),
                 user_id=user.id,
                 project_id=project.id,
@@ -149,7 +149,7 @@ async def test_reused_attempt_cannot_apply_to_another_outcome(practice_sql, chan
     body = outcome()
     await record(practice_sql, body)
     if change == "item":
-        item = ProjectItem(
+        item = LearningItem(
             id=uuid4(),
             user_id=user.id,
             project_id=project.id,
@@ -160,7 +160,7 @@ async def test_reused_attempt_cannot_apply_to_another_outcome(practice_sql, chan
         real.commit()
     else:
         body = outcome(correct=False, attempt_id=body.attempt_id)
-    with pytest.raises(ProjectsError) as error:
+    with pytest.raises(LearningError) as error:
         await record_practice(session, user.id, project.id, item.id, body, now=NOW)
     assert error.value.status_code == 409
     assert real.scalar(select(func.count()).select_from(LearningPracticeEvent)) == 1
@@ -187,7 +187,7 @@ async def test_review_and_late_wrong_answer_preserve_first_mastery_and_schedule(
 @pytest.mark.parametrize("other", ["user", "project"])
 async def test_practice_never_crosses_ownership(practice_sql, other):
     real, session, user, project, item = practice_sql
-    with pytest.raises(ProjectsError) as error:
+    with pytest.raises(LearningError) as error:
         await record_practice(
             session,
             uuid4() if other == "user" else user.id,
@@ -218,7 +218,7 @@ async def test_sql_stats_count_reviewed_words_without_counting_them_as_new(pract
     await record(practice_sql, outcome(complete=True), now=NOW - timedelta(days=8))
     await record(practice_sql, outcome(complete=True))
     with patch(
-        "app.repositories.project_items.start_of_today_utc", return_value=NOW.replace(hour=0)
+        "app.repositories.learning_items.start_of_today_utc", return_value=NOW.replace(hour=0)
     ):
         stats = await count_stats_sql(session, project.id, user.id, now=NOW)
     assert stats["completed_today"] == 1
@@ -271,7 +271,7 @@ async def test_replay_heals_cache_after_committed_response_failure(practice_sql)
 
 @pytest.mark.asyncio
 async def test_actual_sql_daily_items_keep_completed_reviews_on_original_day(practice_sql):
-    from app.repositories.project_items import list_by_activity_date, list_missed_by_activity_date
+    from app.repositories.learning_items import list_by_activity_date, list_missed_by_activity_date
 
     _, session, user, project, item = practice_sql
     await record(practice_sql, outcome(complete=True), now=NOW - timedelta(days=9))

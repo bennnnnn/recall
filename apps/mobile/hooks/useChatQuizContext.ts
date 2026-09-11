@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 
-import type { Project } from "@/lib/api";
+import type { Learning } from "@/lib/api";
 import { findLanguageProject } from "@/lib/projects/languageProject";
-import { quizVariantForProjectKind, type QuizVariant } from "@/lib/quizVariant";
+import { quizVariantForLearningKind, type QuizVariant } from "@/lib/quizVariant";
 
 type Params = {
-  projects: Project[];
+  projects: Learning[];
   draftProjectIdRef: React.MutableRefObject<string | null>;
 };
 
@@ -17,7 +17,7 @@ export function useChatQuizContext({ projects, draftProjectIdRef }: Params) {
     (projectId: string | null | undefined): QuizVariant => {
       if (!projectId) return "vocab";
       const project = projects.find((item) => item.id === projectId);
-      return quizVariantForProjectKind(project?.kind);
+      return quizVariantForLearningKind(project?.kind);
     },
     [projects],
   );

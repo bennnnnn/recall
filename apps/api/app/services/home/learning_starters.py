@@ -9,37 +9,38 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import LearningPracticeEvent, Project
-from app.models.schemas import HomeProjectHighlight, ProjectStats
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
-from app.services import daily_learning, learning_insights
-from app.services.home.util import CompletedDaily, ProjectHomeContent
-from app.services.projects import stats as project_stats
-from app.services.projects.common import normalize_target_language
+from app.models.orm import Learning, LearningPracticeEvent
+from app.models.schemas import HomeProjectHighlight, LearningStats
+from app.repositories import learning as learning_repo
+from app.repositories import learning_items as learning_items_repo
+from app.services import daily_learning
+from app.services.home.util import CompletedDaily, LearningHomeContent
+from app.services.learning import insights as learning_insights
+from app.services.learning import stats as learning_stats
+from app.services.learning.common import normalize_target_language
 
 
-def is_language_project(project: Project) -> bool:
+def is_language_project(project: Learning) -> bool:
     return project.kind in ("language", "vocabulary")
 
 
-def is_daily_home_project(project: Project) -> bool:
+def is_daily_home_project(project: Learning) -> bool:
     return is_language_project(project)
 
 
-def daily_home_kind(project: Project) -> Literal["language"]:
+def daily_home_kind(project: Learning) -> Literal["language"]:
     return "language"
 
 
-def completed_today(stats: ProjectStats) -> int:
+def completed_today(stats: LearningStats) -> int:
     if "completed_today" in stats.model_fields_set:
         return stats.completed_today
     return max(0, int(stats.mastered_today) + int(getattr(stats, "missed_today", 0) or 0))
 
 
 def project_highlight(
-    project: Project,
-    stats: ProjectStats,
+    project: Learning,
+    stats: LearningStats,
     *,
     home_tz: ZoneInfo,
     project_items: list | None = None,
@@ -110,16 +111,16 @@ def project_highlight(
     )
 
 
-async def load_project_home_content(
+async def load_learning_home_content(
     session: AsyncSession,
     user_id: UUID,
     *,
     home_tz: ZoneInfo,
-) -> ProjectHomeContent:
-    projects = await projects_repo.list_for_user(session, user_id, limit=20)
+) -> LearningHomeContent:
+    projects = await learning_repo.list_for_user(session, user_id, limit=20)
     has_language = any(is_language_project(p) for p in projects)
     if not projects:
-        return ProjectHomeContent([], None, None, [], False)
+        return LearningHomeContent([], None, None, [], False)
 
     daily_projects = sorted(
         [p for p in projects if is_daily_home_project(p)],
@@ -130,12 +131,12 @@ async def load_project_home_content(
     if daily_projects:
         project_ids = [candidate.id for candidate in daily_projects]
         # One item fetch for all daily projects — reuse for stats + highlight enrich.
-        all_items = await project_items_repo.list_for_projects(session, project_ids)
+        all_items = await learning_items_repo.list_for_learning(session, project_ids)
         items_by_project: dict[UUID, list] = {pid: [] for pid in project_ids}
         for row in all_items:
             items_by_project.setdefault(row.project_id, []).append(row)
         stats_by_project = {
-            pid: project_stats.stats_from_items(
+            pid: learning_stats.stats_from_items(
                 items_by_project.get(pid, []),
                 timezone_name=tz_name,
             )
@@ -143,7 +144,7 @@ async def load_project_home_content(
         }
         completed_daily: list[CompletedDaily] = []
         for candidate in daily_projects:
-            stats = ProjectStats.model_validate(stats_by_project.get(candidate.id, {}))
+            stats = LearningStats.model_validate(stats_by_project.get(candidate.id, {}))
             daily_goal = daily_learning.resolve_daily_goal(candidate)
             if completed_today(stats) >= daily_goal:
                 completed_daily.append((candidate.title.strip(), daily_home_kind(candidate)))
@@ -168,7 +169,7 @@ async def load_project_home_content(
             # Load miss events so daily history attributes misses to every day
             # they occurred on, including items later mastered (LANG-BE-005/007).
             item_ids = [it.id for it in project_items if hasattr(it, "id")]
-            miss_events = await project_items_repo.list_miss_events_for_items(session, item_ids)
+            miss_events = await learning_items_repo.list_miss_events_for_items(session, item_ids)
             from app.repositories import learning_practice as practice_repo
 
             practice_events = await practice_repo.list_events(
@@ -183,11 +184,11 @@ async def load_project_home_content(
                 practice_events=practice_events,
             )
             if highlight is not None:
-                # Project chip starters were removed — highlight card is the only
+                # Learning chip starters were removed — highlight card is the only
                 # learning CTA on home (do not reintroduce Start/Continue chips).
-                return ProjectHomeContent([], None, highlight, completed_daily, has_language)
-        return ProjectHomeContent([], None, None, completed_daily, has_language)
+                return LearningHomeContent([], None, highlight, completed_daily, has_language)
+        return LearningHomeContent([], None, None, completed_daily, has_language)
 
     # No English daily cue — do not fall back to legacy project kinds
     # (old programming topics used to show up as "Continue TypeScript · …").
-    return ProjectHomeContent([], None, None, [], has_language)
+    return LearningHomeContent([], None, None, [], has_language)

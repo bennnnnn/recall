@@ -6,9 +6,9 @@ import logging
 from collections.abc import Sequence
 from uuid import UUID
 
-from app.models.orm import Project, ProjectItem
-from app.models.schemas.projects import PathChapterProgress
-from app.services.projects.common import (
+from app.models.orm import Learning, LearningItem
+from app.models.schemas.learning import PathChapterProgress
+from app.services.learning.common import (
     DEFAULT_LIST,
     _item_status,
     _list_key,
@@ -78,7 +78,7 @@ def chapter_is_complete(*, mastered: int, total: int, daily_goal: int) -> bool:
 
 def build_path_progress(
     project: object,
-    items: list[ProjectItem],
+    items: list[LearningItem],
 ) -> list[PathChapterProgress]:
     from app.services.learning.daily import resolve_daily_goal
 
@@ -98,7 +98,7 @@ def build_path_progress(
     # lookup, and the `title` fallback below turned each one into its own
     # ungrouped top-level "domain" instead of nesting it under its real one.
     domain_by_title = catalog_domain_by_title(lang, include_sat=True)
-    by_list: dict[str, list[ProjectItem]] = {}
+    by_list: dict[str, list[LearningItem]] = {}
     for item in items:
         item_project = getattr(item, "project_id", None)
         if project_id is not None and item_project not in (None, project_id):
@@ -122,7 +122,7 @@ def build_path_progress(
     return progress
 
 
-def items_in_chapter(items: list[ProjectItem], chapter: str | None) -> list[ProjectItem]:
+def items_in_chapter(items: list[LearningItem], chapter: str | None) -> list[LearningItem]:
     """Filter items to one chapter; ``None`` keeps the full list."""
     if not chapter:
         return list(items)
@@ -132,7 +132,7 @@ def items_in_chapter(items: list[ProjectItem], chapter: str | None) -> list[Proj
     ]
 
 
-def up_next_chapter(project: object, items: list[ProjectItem]) -> str | None:
+def up_next_chapter(project: object, items: list[LearningItem]) -> str | None:
     progress = build_path_progress(project, items)
     for chapter in progress:
         if not chapter.complete:
@@ -154,7 +154,7 @@ def sort_list_titles(titles: list[str], learning_path: list[str] | None) -> list
     )
 
 
-def append_chapter(project: Project, title: str) -> bool:
+def append_chapter(project: Learning, title: str) -> bool:
     if is_unspecified_list(title):
         return False
     path = parse_learning_path(project)
@@ -170,7 +170,7 @@ def append_chapter(project: Project, title: str) -> bool:
 def resolve_add_list_title(
     project: object,
     action_list_title: str,
-    items: list[ProjectItem],
+    items: list[LearningItem],
 ) -> str:
     title = (action_list_title or "").strip()
     if title and not is_unspecified_list(title):
@@ -179,7 +179,7 @@ def resolve_add_list_title(
     return current or DEFAULT_LIST
 
 
-def format_path_prompt_lines(project: object, items: list[ProjectItem]) -> list[str]:
+def format_path_prompt_lines(project: object, items: list[LearningItem]) -> list[str]:
     path = parse_learning_path(project)
     if not path:
         return []

@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy import case, func, or_
 
-from app.models.orm import ProjectItem
+from app.models.orm import LearningItem
 
 
 def _latest(left: Any, right: Any) -> Any:
@@ -16,20 +16,20 @@ def _latest(left: Any, right: Any) -> Any:
 
 def activity_columns(start: datetime, mastered_cond: Any) -> tuple[Any, ...]:
     completed = or_(
-        ProjectItem.last_completed_at >= start,
-        mastered_cond & (func.coalesce(ProjectItem.mastered_at, ProjectItem.created_at) >= start),
+        LearningItem.last_completed_at >= start,
+        mastered_cond & (func.coalesce(LearningItem.mastered_at, LearningItem.created_at) >= start),
     )
     mastery = case(
-        (mastered_cond, func.coalesce(ProjectItem.mastered_at, ProjectItem.created_at)),
-        else_=ProjectItem.mastered_at,
+        (mastered_cond, func.coalesce(LearningItem.mastered_at, LearningItem.created_at)),
+        else_=LearningItem.mastered_at,
     )
     last_study = _latest(
-        _latest(ProjectItem.last_reviewed_at, mastery), ProjectItem.last_incorrect_at
+        _latest(LearningItem.last_reviewed_at, mastery), LearningItem.last_incorrect_at
     )
     return (
         func.count().filter(completed).label("completed_today"),
         func.count().filter(last_study >= start).label("attempted_today"),
-        func.count().filter(ProjectItem.last_incorrect_at >= start).label("incorrect_today"),
+        func.count().filter(LearningItem.last_incorrect_at >= start).label("incorrect_today"),
         func.max(last_study).label("last_study_at"),
     )
 

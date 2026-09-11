@@ -17,7 +17,7 @@ from app.services.learning.catalog_sync import ensure_catalog_rows
 from app.services.learning.path import parse_learning_path
 
 if TYPE_CHECKING:
-    from app.models.orm import ProjectItem
+    from app.models.orm import LearningItem
 
 logger = logging.getLogger(__name__)
 _CATALOG_LANGUAGES = frozenset({"en", "es"})
@@ -39,7 +39,7 @@ def apply_full_catalog_path(project: object) -> list[str]:
 
     Persistence is the ``language_path`` job. Assigning ``learning_path`` here
     dirties the ORM on GET; the next query autoflushes, ``updated_at`` expires,
-    and ``ProjectOut.model_validate`` raises MissingGreenlet.
+    and ``LearningOut.model_validate`` raises MissingGreenlet.
     """
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
     if lang not in _CATALOG_LANGUAGES:
@@ -47,14 +47,14 @@ def apply_full_catalog_path(project: object) -> list[str]:
     return [deck.title for deck in path_decks_for_language(lang)]
 
 
-def current_catalog_items(project: object, items: Sequence[ProjectItem]) -> list[ProjectItem]:
+def current_catalog_items(project: object, items: Sequence[LearningItem]) -> list[LearningItem]:
     """Hide retired rows and project retained identities into current chapters.
 
     A duplicate current identity can retain its old physical chapter to preserve
     history under the database's unique word/chapter constraint. Return detached
     read copies when needed; assigning an ORM title here could autoflush a conflict.
     """
-    from app.models.orm import ProjectItem
+    from app.models.orm import LearningItem
 
     lang = (getattr(project, "target_language", None) or "en").strip().lower()
     if (
@@ -73,10 +73,10 @@ def current_catalog_items(project: object, items: Sequence[ProjectItem]) -> list
         result.append(
             item
             if item.list_title == title
-            else ProjectItem(
+            else LearningItem(
                 **{
                     column.key: title if column.key == "list_title" else getattr(item, column.key)
-                    for column in ProjectItem.__table__.columns
+                    for column in LearningItem.__table__.columns
                 }
             )
         )
@@ -100,7 +100,7 @@ async def seed_language_path(settings: Any, *, user_id: UUID, project_id: UUID) 
     """Commit content-only reconciliation, then invalidate dependent caches."""
     from app.core.db import SessionLocal
     from app.repositories import learning_catalog as catalog_repo
-    from app.services.projects.common import _invalidate_home_for_user
+    from app.services.learning.common import _invalidate_home_for_user
 
     del settings
     try:

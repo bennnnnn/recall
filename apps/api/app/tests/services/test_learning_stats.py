@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.services.projects import stats as stats_service
+from app.services.learning import stats as stats_service
 
 
 def _item(
@@ -55,7 +55,7 @@ async def test_count_stats_aggregates_statuses(monkeypatch):
         return expected
 
     monkeypatch.setattr(
-        "app.services.projects.stats.project_items_repo.count_stats_sql",
+        "app.services.learning.stats.learning_items_repo.count_stats_sql",
         _count_stats_sql,
     )
 
@@ -64,8 +64,8 @@ async def test_count_stats_aggregates_statuses(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_count_stats_by_project_groups_items_per_project(monkeypatch):
-    """count_stats_by_project delegates to the SQL repo function."""
+async def test_count_stats_by_learning_groups_items_per_project(monkeypatch):
+    """count_stats_by_learning delegates to the SQL repo function."""
     project_a = uuid4()
     project_b = uuid4()
     expected = {
@@ -80,11 +80,11 @@ async def test_count_stats_by_project_groups_items_per_project(monkeypatch):
         return expected
 
     monkeypatch.setattr(
-        "app.services.projects.stats.project_items_repo.count_stats_by_project_sql",
+        "app.services.learning.stats.learning_items_repo.count_stats_by_learning_sql",
         _by_project_sql,
     )
 
-    stats = await stats_service.count_stats_by_project(fake_session, [project_a, project_b])
+    stats = await stats_service.count_stats_by_learning(fake_session, [project_a, project_b])
     assert stats[project_a]["total"] == 1
     assert stats[project_a]["new_count"] == 1
     assert stats[project_b]["total"] == 2
@@ -92,7 +92,7 @@ async def test_count_stats_by_project_groups_items_per_project(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_count_stats_by_project_includes_projects_with_no_items(monkeypatch):
+async def test_count_stats_by_learning_includes_projects_with_no_items(monkeypatch):
     project_id = uuid4()
     expected = {project_id: {"total": 0}}
     fake_session = AsyncMock()
@@ -101,11 +101,11 @@ async def test_count_stats_by_project_includes_projects_with_no_items(monkeypatc
         return expected
 
     monkeypatch.setattr(
-        "app.services.projects.stats.project_items_repo.count_stats_by_project_sql",
+        "app.services.learning.stats.learning_items_repo.count_stats_by_learning_sql",
         _by_project_sql,
     )
 
-    stats = await stats_service.count_stats_by_project(fake_session, [project_id])
+    stats = await stats_service.count_stats_by_learning(fake_session, [project_id])
     assert stats[project_id]["total"] == 0
 
 

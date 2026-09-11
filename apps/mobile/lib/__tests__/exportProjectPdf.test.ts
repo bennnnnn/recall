@@ -1,7 +1,7 @@
-import type { ProjectDetail } from "@/lib/api";
+import type { LearningDetail } from "@/lib/api";
 import { projectHasExportableItems } from "@/lib/exportProjectPdf";
 
-function baseDetail(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
+function baseDetail(overrides: Partial<LearningDetail> = {}): LearningDetail {
   return {
     id: "proj-1",
     title: "Words",

@@ -12,9 +12,9 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from app.content.vocab_catalog import path_decks_for_language, word_id
 from app.models.orm import (
+    Learning,
+    LearningItem,
     LearningPracticeEvent,
-    Project,
-    ProjectItem,
     QuizMissEvent,
     User,
     VocabDeck,
@@ -87,7 +87,7 @@ async def test_retirement_deletes_old_rows_and_keeps_active_progress_and_goals(
         VocabEntry(id=uuid4(), deck_id=deck_id, content=f"old-{uuid4()}", definition="Old word")
         for deck_id in [old_deck.id, active_deck.id]
     ]
-    project = Project(
+    project = Learning(
         id=uuid4(),
         user_id=user.id,
         title="Saved class",
@@ -115,7 +115,7 @@ async def test_retirement_deletes_old_rows_and_keeps_active_progress_and_goals(
         due_at=now + timedelta(days=12),
         note="Keep my note",
     )
-    kept = ProjectItem(
+    kept = LearningItem(
         id=uuid4(),
         user_id=user.id,
         project_id=project.id,
@@ -123,7 +123,7 @@ async def test_retirement_deletes_old_rows_and_keeps_active_progress_and_goals(
         **progress,
     )
     retired = [
-        ProjectItem(
+        LearningItem(
             id=uuid4(),
             user_id=user.id,
             project_id=project.id,
@@ -143,7 +143,7 @@ async def test_retirement_deletes_old_rows_and_keeps_active_progress_and_goals(
 
     for _ in range(2):
         await run_retirement(session)
-        assert await remaining_ids(session, ProjectItem, item_ids) == {kept.id}
+        assert await remaining_ids(session, LearningItem, item_ids) == {kept.id}
         assert await remaining_ids(session, QuizMissEvent, miss_ids) == {miss_ids[0]}
         assert await remaining_ids(session, LearningPracticeEvent, practice_ids) == {
             practice_ids[0]
@@ -174,7 +174,7 @@ async def test_retirement_leaves_unsupported_language_class_catalog_and_history_
     session.add_all([user, deck])
     await session.flush()
     entry = VocabEntry(id=uuid4(), deck_id=deck.id, content="bonjour", definition="French greeting")
-    project = Project(
+    project = Learning(
         id=uuid4(),
         user_id=user.id,
         title="French",
@@ -185,7 +185,7 @@ async def test_retirement_leaves_unsupported_language_class_catalog_and_history_
     session.add_all([entry, project])
     await session.flush()
     items = [
-        ProjectItem(
+        LearningItem(
             id=uuid4(),
             user_id=user.id,
             project_id=project.id,
@@ -203,7 +203,7 @@ async def test_retirement_leaves_unsupported_language_class_catalog_and_history_
 
     await run_retirement(session)
 
-    assert await remaining_ids(session, ProjectItem, ids) == ids
+    assert await remaining_ids(session, LearningItem, ids) == ids
     assert await remaining_ids(session, VocabEntry, [entry.id]) == {entry.id}
     assert await remaining_ids(session, VocabDeck, [deck.id]) == {deck.id}
     assert await remaining_ids(session, QuizMissEvent, miss_ids) == set(miss_ids)

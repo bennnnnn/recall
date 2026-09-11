@@ -1,6 +1,6 @@
 """Learning, quiz, and vocabulary prompt hints."""
 
-from app.services.projects.prompts import VOCAB_LEARNING_FORMATS_BLOCK
+from app.services.learning.prompts import VOCAB_LEARNING_FORMATS_BLOCK
 
 DAY_LEARNING_SNAPSHOT_HINT = (
     "When 'Today's learning progress' is in context, those lines are authoritative for the "

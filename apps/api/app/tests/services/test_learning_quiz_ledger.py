@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.services import projects as projects_service
+from app.services import learning as learning_service
 
 VOCAB_FENCE = (
     "```vocab_quiz\n"
@@ -21,12 +21,12 @@ VOCAB_FENCE = (
 
 @pytest.mark.asyncio
 async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning():
-    from app.models.orm import Project, ProjectItem
+    from app.models.orm import Learning, LearningItem
 
     session = AsyncMock()
     user_id = uuid.uuid4()
     project_id = uuid.uuid4()
-    project = Project(
+    project = Learning(
         id=project_id,
         user_id=user_id,
         title="English",
@@ -34,7 +34,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
         level="level2",
         target_language="en",
     )
-    existing = ProjectItem(
+    existing = LearningItem(
         id=uuid.uuid4(),
         user_id=user_id,
         project_id=project_id,
@@ -50,15 +50,15 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
 
     with (
         patch(
-            "app.repositories.projects.get_by_id",
+            "app.repositories.learning.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.repositories.project_items.find_quiz_candidates",
+            "app.repositories.learning_items.find_quiz_candidates",
             new=AsyncMock(return_value=[existing]),
         ),
         patch(
-            "app.services.projects.quiz_grading.apply_quiz_result",
+            "app.services.learning.quiz_grading.apply_quiz_result",
             new=AsyncMock(return_value=existing),
         ) as apply_mock,
         # Keep the fence's correct=A — verified_correct_letter can call the
@@ -68,7 +68,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
             new=AsyncMock(return_value=None),
         ),
     ):
-        grade = await projects_service.apply_deterministic_quiz_answer(
+        grade = await learning_service.apply_deterministic_quiz_answer(
             session,
             user_id=user_id,
             chat_id=uuid.uuid4(),
@@ -90,12 +90,12 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
 
 @pytest.mark.asyncio
 async def test_apply_deterministic_quiz_answer_rolls_back_failed_ledger_write():
-    from app.models.orm import Project, ProjectItem
+    from app.models.orm import Learning, LearningItem
 
     session = AsyncMock()
     user_id = uuid.uuid4()
     project_id = uuid.uuid4()
-    project = Project(
+    project = Learning(
         id=project_id,
         user_id=user_id,
         title="English",
@@ -103,7 +103,7 @@ async def test_apply_deterministic_quiz_answer_rolls_back_failed_ledger_write():
         level="level2",
         target_language="en",
     )
-    existing = ProjectItem(
+    existing = LearningItem(
         id=uuid.uuid4(),
         user_id=user_id,
         project_id=project_id,
@@ -118,13 +118,13 @@ async def test_apply_deterministic_quiz_answer_rolls_back_failed_ledger_write():
     )
 
     with (
-        patch("app.repositories.projects.get_by_id", AsyncMock(return_value=project)),
+        patch("app.repositories.learning.get_by_id", AsyncMock(return_value=project)),
         patch(
-            "app.repositories.project_items.find_quiz_candidates",
+            "app.repositories.learning_items.find_quiz_candidates",
             AsyncMock(return_value=[existing]),
         ),
         patch(
-            "app.services.projects.quiz_grading.apply_quiz_result",
+            "app.services.learning.quiz_grading.apply_quiz_result",
             AsyncMock(side_effect=RuntimeError("ledger failed")),
         ) as apply_mock,
         patch(
@@ -133,7 +133,7 @@ async def test_apply_deterministic_quiz_answer_rolls_back_failed_ledger_write():
         ),
     ):
         with pytest.raises(RuntimeError, match="ledger failed"):
-            await projects_service.apply_deterministic_quiz_answer(
+            await learning_service.apply_deterministic_quiz_answer(
                 session,
                 user_id=user_id,
                 chat_id=uuid.uuid4(),
@@ -155,12 +155,12 @@ async def test_apply_deterministic_verifier_disagreement_still_persists():
     answer key. Abstaining drops progress (LANG-GRAD-001/002) with no recovery
     path. The grade returned to the model still uses quiz.correct.
     """
-    from app.models.orm import Project, ProjectItem
+    from app.models.orm import Learning, LearningItem
 
     session = AsyncMock()
     user_id = uuid.uuid4()
     project_id = uuid.uuid4()
-    project = Project(
+    project = Learning(
         id=project_id,
         user_id=user_id,
         title="English",
@@ -168,7 +168,7 @@ async def test_apply_deterministic_verifier_disagreement_still_persists():
         level="level2",
         target_language="en",
     )
-    existing = ProjectItem(
+    existing = LearningItem(
         id=uuid.uuid4(),
         user_id=user_id,
         project_id=project_id,
@@ -184,15 +184,15 @@ async def test_apply_deterministic_verifier_disagreement_still_persists():
 
     with (
         patch(
-            "app.repositories.projects.get_by_id",
+            "app.repositories.learning.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.repositories.project_items.find_quiz_candidates",
+            "app.repositories.learning_items.find_quiz_candidates",
             new=AsyncMock(return_value=[existing]),
         ),
         patch(
-            "app.services.projects.quiz_grading.apply_quiz_result",
+            "app.services.learning.quiz_grading.apply_quiz_result",
             new=AsyncMock(return_value=existing),
         ) as apply_mock,
         patch(
@@ -200,7 +200,7 @@ async def test_apply_deterministic_verifier_disagreement_still_persists():
             new=AsyncMock(return_value="C"),
         ),
     ):
-        grade = await projects_service.apply_deterministic_quiz_answer(
+        grade = await learning_service.apply_deterministic_quiz_answer(
             session,
             user_id=user_id,
             chat_id=uuid.uuid4(),
@@ -220,12 +220,12 @@ async def test_apply_deterministic_verifier_disagreement_still_persists():
 
 @pytest.mark.asyncio
 async def test_apply_deterministic_verifier_agreement_persists():
-    from app.models.orm import Project, ProjectItem
+    from app.models.orm import Learning, LearningItem
 
     session = AsyncMock()
     user_id = uuid.uuid4()
     project_id = uuid.uuid4()
-    project = Project(
+    project = Learning(
         id=project_id,
         user_id=user_id,
         title="English",
@@ -233,7 +233,7 @@ async def test_apply_deterministic_verifier_agreement_persists():
         level="level2",
         target_language="en",
     )
-    existing = ProjectItem(
+    existing = LearningItem(
         id=uuid.uuid4(),
         user_id=user_id,
         project_id=project_id,
@@ -249,15 +249,15 @@ async def test_apply_deterministic_verifier_agreement_persists():
 
     with (
         patch(
-            "app.repositories.projects.get_by_id",
+            "app.repositories.learning.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.repositories.project_items.find_quiz_candidates",
+            "app.repositories.learning_items.find_quiz_candidates",
             new=AsyncMock(return_value=[existing]),
         ),
         patch(
-            "app.services.projects.quiz_grading.apply_quiz_result",
+            "app.services.learning.quiz_grading.apply_quiz_result",
             new=AsyncMock(return_value=existing),
         ) as apply_mock,
         patch(
@@ -265,7 +265,7 @@ async def test_apply_deterministic_verifier_agreement_persists():
             new=AsyncMock(return_value="A"),
         ),
     ):
-        grade = await projects_service.apply_deterministic_quiz_answer(
+        grade = await learning_service.apply_deterministic_quiz_answer(
             session,
             user_id=user_id,
             chat_id=uuid.uuid4(),
@@ -288,12 +288,12 @@ async def test_apply_deterministic_records_wrong_attempt_without_sm2():
     attempt (increment quiz_attempts, set last_incorrect_at, log miss event)
     so missed_today counts them toward the daily goal — but without SM-2
     scheduling (ease_factor/interval/due_at unchanged)."""
-    from app.models.orm import Project, ProjectItem
+    from app.models.orm import Learning, LearningItem
 
     session = AsyncMock()
     user_id = uuid.uuid4()
     project_id = uuid.uuid4()
-    project = Project(
+    project = Learning(
         id=project_id,
         user_id=user_id,
         title="English",
@@ -301,7 +301,7 @@ async def test_apply_deterministic_records_wrong_attempt_without_sm2():
         level="level2",
         target_language="en",
     )
-    existing = ProjectItem(
+    existing = LearningItem(
         id=uuid.uuid4(),
         user_id=user_id,
         project_id=project_id,
@@ -321,19 +321,19 @@ async def test_apply_deterministic_records_wrong_attempt_without_sm2():
 
     with (
         patch(
-            "app.repositories.projects.get_by_id",
+            "app.repositories.learning.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.repositories.project_items.find_quiz_candidates",
+            "app.repositories.learning_items.find_quiz_candidates",
             new=AsyncMock(return_value=[existing]),
         ),
         patch(
-            "app.services.projects.quiz_grading.apply_quiz_result",
+            "app.services.learning.quiz_grading.apply_quiz_result",
             new=AsyncMock(),
         ) as apply_mock,
         patch(
-            "app.repositories.project_items.record_quiz_attempt",
+            "app.repositories.learning_items.record_quiz_attempt",
             new=AsyncMock(),
         ) as record_mock,
         patch(
@@ -341,7 +341,7 @@ async def test_apply_deterministic_records_wrong_attempt_without_sm2():
             new=AsyncMock(return_value=None),
         ),
     ):
-        grade = await projects_service.apply_deterministic_quiz_answer(
+        grade = await learning_service.apply_deterministic_quiz_answer(
             session,
             user_id=user_id,
             chat_id=uuid.uuid4(),
@@ -362,12 +362,12 @@ async def test_apply_deterministic_records_wrong_attempt_without_sm2():
 
 @pytest.mark.asyncio
 async def test_new_vocab_quiz_word_lands_in_current_path_chapter():
-    from app.models.orm import Project
+    from app.models.orm import Learning
 
     session = AsyncMock()
     user_id = uuid.uuid4()
     project_id = uuid.uuid4()
-    project = Project(
+    project = Learning(
         id=project_id,
         user_id=user_id,
         title="Español",
@@ -380,23 +380,23 @@ async def test_new_vocab_quiz_word_lands_in_current_path_chapter():
 
     with (
         patch(
-            "app.repositories.projects.get_by_id",
+            "app.repositories.learning.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.repositories.project_items.find_quiz_candidates",
+            "app.repositories.learning_items.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "app.repositories.project_items.list_for_user",
+            "app.repositories.learning_items.list_for_user",
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.quiz_grading.create_item",
+            "app.services.learning.quiz_grading.create_item",
             new=AsyncMock(return_value=created),
         ) as create_mock,
         patch(
-            "app.services.projects.quiz_grading.apply_quiz_result",
+            "app.services.learning.quiz_grading.apply_quiz_result",
             new=AsyncMock(return_value=created),
         ),
         patch(
@@ -404,7 +404,7 @@ async def test_new_vocab_quiz_word_lands_in_current_path_chapter():
             new=AsyncMock(return_value="A"),
         ),
     ):
-        grade = await projects_service.apply_deterministic_quiz_answer(
+        grade = await learning_service.apply_deterministic_quiz_answer(
             session,
             user_id=user_id,
             chat_id=uuid.uuid4(),

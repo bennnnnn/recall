@@ -1,5 +1,5 @@
 export type QuizVariant = "vocab" | "trivia";
 
-export function quizVariantForProjectKind(kind: string | undefined): QuizVariant {
+export function quizVariantForLearningKind(kind: string | undefined): QuizVariant {
   return "vocab";
 }
