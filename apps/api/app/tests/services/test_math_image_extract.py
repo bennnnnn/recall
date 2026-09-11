@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,13 +11,28 @@ from app.services import math_image_extract as mie
 from app.services.math_tools import needs_symbolic_math
 
 
+def _ts_exported_string(source: str, name: str) -> str:
+    needle = f"export const {name} = "
+    start = source.find(needle)
+    assert start >= 0, f"missing {name}"
+    quote = source.find('"', start)
+    assert quote >= 0
+    end = source.find('"', quote + 1)
+    assert end > quote
+    return source[quote + 1 : end]
+
+
 def test_math_camera_prompt_matches_mobile_constant():
     """MATH_CAMERA_PROMPT must stay byte-for-byte identical to
     apps/mobile/lib/mathCameraPrompt.ts's MATH_CAMERA_PROMPT — it's an
     exact-match trigger phrase, not translated copy, so a drift on either
     side silently disables the camera-math verified augmentation."""
-    assert mie.MATH_CAMERA_PROMPT == "Solve the math problem in this image step by step."
-    assert mie.MATH_CAMERA_CONFIRMED_PREFIX == "I read this as:"
+    ts_path = Path(__file__).resolve().parents[4] / "mobile" / "lib" / "mathCameraPrompt.ts"
+    source = ts_path.read_text(encoding="utf-8")
+    assert mie.MATH_CAMERA_PROMPT == _ts_exported_string(source, "MATH_CAMERA_PROMPT")
+    assert mie.MATH_CAMERA_CONFIRMED_PREFIX == _ts_exported_string(
+        source, "MATH_CAMERA_CONFIRMED_PREFIX"
+    )
 
 
 def test_is_math_camera_prompt():
