@@ -45,10 +45,8 @@ export type AssistantMessageContentInput = {
 
 export type AssistantMessageContent = {
   hasContent: boolean;
-  isQuizFeedback: boolean;
   showActionSlot: boolean;
   actionsReady: boolean;
-  quizForStrip: ParsedVocabQuiz | null;
   showLiveClock: boolean;
   clockTimezone: string;
   searchSources: SearchSource[];
@@ -129,8 +127,7 @@ export function deriveAssistantMessageContent(
   } = input;
 
   const hasContent = content.trim().length > 0;
-  const isQuizFeedback = messageId.startsWith("local-quiz-");
-  const showActionSlot = !isUser && hasContent && !isQuizFeedback;
+  const showActionSlot = !isUser && hasContent;
   // Mount only after generation ends. While streaming, composer-gap pad holds
   // the same height so the prose does not move when icons appear (ChatGPT).
   const actionsReady = showActionSlot && !isGenerating;
@@ -207,10 +204,8 @@ export function deriveAssistantMessageContent(
 
   return {
     hasContent,
-    isQuizFeedback,
     showActionSlot,
     actionsReady,
-    quizForStrip,
     showLiveClock,
     clockTimezone,
     searchSources,

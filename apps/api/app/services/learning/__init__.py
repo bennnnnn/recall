@@ -43,20 +43,9 @@ from app.services.learning.prompts import (
     CHAT_LEARNING_HANDOFF_HINT,
     DAILY_GOAL_COMPLETE_BEHAVIOR,
     LEARNING_HINT,
-    VOCAB_CARD_FENCE_EXAMPLE,
-    VOCAB_LEARNING_FORMATS_BLOCK,
-    VOCAB_QUIZ_FENCE_EXAMPLE,
-    VOCAB_QUIZ_FORMAT_BLOCK,
     language_tutor_hint,
 )
-from app.services.learning.quiz_context import (
-    load_learning_quiz_context,
-    looks_like_vocab_question,
-)
-from app.services.learning.quiz_grading import (
-    apply_deterministic_quiz_answer,
-    apply_quiz_result,
-)
+from app.services.learning.quiz_grading import apply_quiz_result
 from app.services.learning.stats import (
     count_stats,
     count_stats_by_learning,
@@ -79,11 +68,6 @@ __all__ = [
     "LEARNING_TARGET_LANGUAGES",
     "MAX_LEARNING_ACTIONS_PER_TURN",
     "MAX_LEARNING_ITEMS_PER_CLASS",
-    "VOCAB_CARD_FENCE_EXAMPLE",
-    "VOCAB_LEARNING_FORMATS_BLOCK",
-    "VOCAB_QUIZ_FENCE_EXAMPLE",
-    "VOCAB_QUIZ_FORMAT_BLOCK",
-    "apply_deterministic_quiz_answer",
     "apply_learning_actions",
     "apply_quiz_result",
     "build_stats",
@@ -102,9 +86,7 @@ __all__ = [
     "load_daily_learning_summary_for_prompt",
     "load_learning_classes_for_prompt",
     "load_learning_for_prompt",
-    "load_learning_quiz_context",
     "load_today_learning_words_for_prompt",
-    "looks_like_vocab_question",
     "normalize_learning_kind",
     "normalize_target_language",
     "stats_from_items",

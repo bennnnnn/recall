@@ -401,47 +401,20 @@ def test_mock_reply_for_messages():
     reply = mock_reply_for_messages([{"role": "user", "content": "What is 2+2?"}])
     assert isinstance(reply, str)
     assert len(reply) > 0
+    assert "```vocab_quiz" not in reply
 
 
-def test_mock_reply_grades_quiz_letter_against_prior_fence():
-    from app.gateways.mock_llm import MOCK_QUIZ_QUESTION, mock_reply_for_messages
+def test_mock_reply_does_not_emit_vocab_quiz_fences():
+    from app.gateways.mock_llm import mock_reply_for_messages
 
-    wrong = mock_reply_for_messages(
+    reply = mock_reply_for_messages(
         [
-            {"role": "assistant", "content": MOCK_QUIZ_QUESTION},
-            {"role": "user", "content": "A"},
-        ]
-    )
-    assert "Not quite" in wrong
-    assert "```vocab_quiz" not in wrong
-    assert "Tap another choice" in wrong
-
-    right = mock_reply_for_messages(
-        [
-            {"role": "assistant", "content": MOCK_QUIZ_QUESTION},
+            {"role": "assistant", "content": "Let's practice."},
             {"role": "user", "content": "B"},
         ]
     )
-    assert "correct" in right.lower()
-    assert "ephemeral" in right
-    assert "```vocab_quiz" in right
-
-
-def test_mock_reply_exhausts_after_three_wrong_tries():
-    from app.gateways.mock_llm import MOCK_QUIZ_QUESTION, mock_reply_for_messages
-
-    messages = [
-        {"role": "assistant", "content": MOCK_QUIZ_QUESTION},
-        {"role": "user", "content": "A"},
-        {"role": "assistant", "content": "Not quite — tap another choice."},
-        {"role": "user", "content": "C"},
-        {"role": "assistant", "content": "Still wrong — another hint."},
-        {"role": "user", "content": "D"},
-    ]
-    reply = mock_reply_for_messages(messages)
-    assert "Out of tries" in reply
-    assert "```vocab_quiz" in reply
-    assert "ephemeral" in reply
+    assert "```vocab_quiz" not in reply
+    assert "Tap another choice" not in reply
 
 
 @pytest.mark.asyncio
@@ -463,14 +436,6 @@ async def test_mock_project_actions_delete_project():
     result = await mock_project_actions(transcript, snapshot)
     assert result is not None
     assert any(a.action == "delete_project" for a in result.actions)
-
-
-def test_extract_quiz_word_and_answer():
-    from app.gateways.mock_llm import _extract_quiz_answer, _extract_quiz_word
-
-    transcript = "Assistant: **Word:** apple\nUser: B\nAssistant: correct!"
-    assert _extract_quiz_word(transcript) == "apple"
-    assert _extract_quiz_answer(transcript) == "B"
 
 
 # ── access JWT ──────────────────────────────────────────────────────────────────

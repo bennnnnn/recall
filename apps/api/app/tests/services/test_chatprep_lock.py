@@ -260,16 +260,12 @@ async def test_regenerate_acquires_chatprep_lock():
             AsyncMock(
                 return_value=MagicMock(
                     max_out=100,
-                    minimal_quiz=False,
                     prompt_messages=[],
                     meta={},
                     instant_reply=None,
                     search_sources=[],
                     local_places=False,
                     fallback_models=[],
-                    minimal_vocab_answer=False,
-                    active_vocab_turn=False,
-                    quiz_grade=None,
                     geo=MagicMock(),
                     local_tz="UTC",
                     verified_math=None,

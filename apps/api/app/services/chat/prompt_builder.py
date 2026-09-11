@@ -54,7 +54,6 @@ from app.services.chat.prompt_constants import (
     MERMAID_FORMAT_HINT,
     PRIVACY_HINT,
     PROSE_WRITING_HINT,
-    QUIZ_ANSWER_HINT,
     QUOTE_FORMAT_HINT,
     SEQUENCE_FORMAT_HINT,
     SHORT_MATH_SAFETY_HINT,
@@ -65,9 +64,7 @@ from app.services.chat.prompt_constants import (
     TRANSLATION_FORMAT_HINT,
     UNIVERSAL_FORMAT_BASELINE,
     VISUALIZATION_HINTS,
-    VOCAB_CHAT_ANSWER_HINT,
     WRITING_LINE_HINT,
-    format_quiz_grading_hint,
     is_bare_writing_line,
     is_brevity_request,
     is_callout_question,
@@ -101,7 +98,6 @@ from app.services.prompt_safety import (
     wrap_untrusted,
     wrap_user_preferences,
 )
-from app.services.vocab_quiz import QuizAnswerGrade
 
 _PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places")
 _ADVICE_MEMORY_MAX_CHARS = 1000
@@ -585,54 +581,6 @@ async def _load_context_blocks(
     )
 
 
-async def _quiz_hints(
-    user: User,
-    chat_id: UUID,
-    settings: Settings,
-    *,
-    chat: Chat | None,
-    quiz_grade: QuizAnswerGrade | None,
-    minimal_quiz_context: bool,
-    minimal_vocab_answer_context: bool,
-) -> tuple[list[str], Chat | None]:
-    """Quiz grading + minimal quiz/vocab answer system hints (and project quiz context)."""
-    parts: list[str] = []
-    if quiz_grade is not None:
-        parts.append(
-            format_quiz_grading_hint(
-                is_correct=quiz_grade.is_correct,
-                user_letter=quiz_grade.user_letter,
-                correct_letter=quiz_grade.correct_letter,
-                word=quiz_grade.word,
-                quiz_type=quiz_grade.quiz_type,
-                question=quiz_grade.question,
-                attempt=quiz_grade.attempt,
-                tries_exhausted=quiz_grade.tries_exhausted,
-            )
-        )
-    needs_project_ctx = (minimal_quiz_context or minimal_vocab_answer_context) and (
-        chat is None or chat.project_id is not None
-    )
-    if minimal_quiz_context:
-        parts.extend([UNIVERSAL_FORMAT_BASELINE, QUIZ_ANSWER_HINT, PRIVACY_HINT])
-    elif minimal_vocab_answer_context:
-        parts.extend([UNIVERSAL_FORMAT_BASELINE, VOCAB_CHAT_ANSWER_HINT, PRIVACY_HINT])
-    else:
-        return parts, chat
-
-    if needs_project_ctx:
-        async with SessionLocal() as session:
-            if chat is None:
-                chat = await chats_repo.get_by_id(session, chat_id, user.id)
-            if chat and chat.project_id:
-                quiz_ctx = await learning_service.load_learning_quiz_context(
-                    session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
-                )
-                if quiz_ctx:
-                    parts.append(quiz_ctx)
-    return parts, chat
-
-
 def _layout_format_hint(query_text: str | None) -> str | None:
     """Turn-specific layout that must win over compact prose."""
     if not query_text:
@@ -842,12 +790,9 @@ async def build_prompt_messages(
     out: dict[str, object] | None = None,
     query_text: str | None = None,
     minimal_personal_context: bool = False,
-    minimal_quiz_context: bool = False,
-    minimal_vocab_answer_context: bool = False,
     lightweight: bool = False,
     rich_context: bool = True,
     advice_memory: bool = False,
-    quiz_grade: QuizAnswerGrade | None = None,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
     on_status: StreamStatusFn | None = None,
@@ -860,10 +805,6 @@ async def build_prompt_messages(
     Context loading uses short-lived sessions so embeds cannot pin a caller
     connection across the concurrent gather.
     """
-    # M9: quiz/vocab turns used a smaller recent window (12) than compaction
-    # (20), so messages 13-20 were neither in the quiz prompt's recent window
-    # nor in the summary — dropped entirely on long quiz threads. Align the
-    # quiz limit with the compaction window so the boundary agrees.
     recent_limit = settings.recent_message_window
     # Opt-in rich context: casual chat skips memory embed / todos / projects.
     # ``lightweight`` is only the ultra-brief social reply style (hi/thanks).
@@ -881,29 +822,11 @@ async def build_prompt_messages(
         except Exception:
             logger.debug("has_chunks_for_chat probe failed for chat_id=%s", chat_id, exc_info=True)
     load_memory = (
-        (rich_context or advice_memory)
-        and not lightweight
-        and not minimal_personal_context
-        and not minimal_quiz_context
-        and not minimal_vocab_answer_context
+        (rich_context or advice_memory) and not lightweight and not minimal_personal_context
     )
-    slim_context = (
-        minimal_personal_context
-        or minimal_quiz_context
-        or minimal_vocab_answer_context
-        or lightweight
-        or not rich_context
-    )
-    # M9: enable chat-history RAG for quiz/vocab turns too — grading a quiz
-    # answer may need the original quiz context from older messages that
-    # fell out of the recent window. ``lightweight`` and ``not rich_context``
-    # stay excluded (ultra-brief / casual turns don't need RAG).
-    quiz_rag_eligible = minimal_quiz_context or minimal_vocab_answer_context
+    slim_context = minimal_personal_context or lightweight or not rich_context
     history_rag = bool(
-        (not slim_context or quiz_rag_eligible)
-        and settings.chat_history_rag_enabled
-        and query_text
-        and query_text.strip()
+        not slim_context and settings.chat_history_rag_enabled and query_text and query_text.strip()
     )
     blocks = await _load_context_blocks(
         user,
@@ -957,17 +880,6 @@ async def build_prompt_messages(
         ),
         STYLE_HINTS["short"] if lightweight else STYLE_HINTS[style],
     ]
-    # Grade hint (if any) then quiz/vocab path — same order as the prior inline assembly.
-    quiz_parts, chat = await _quiz_hints(
-        user,
-        chat_id,
-        settings,
-        chat=chat,
-        quiz_grade=quiz_grade,
-        minimal_quiz_context=minimal_quiz_context,
-        minimal_vocab_answer_context=minimal_vocab_answer_context,
-    )
-    system_parts.extend(quiz_parts)
     compact_format = bool(query_text and is_bare_writing_line(query_text))
     if query_text and is_short_confirmation(query_text) and not lightweight:
         compact_format = True
@@ -978,7 +890,7 @@ async def build_prompt_messages(
         # so incidental `$...$` rendered as raw ```latex. A two-line fence
         # safety hint is enough — not the full math pack.
         system_parts.append(MATH_FENCE_SAFETY_HINT)
-    elif not minimal_quiz_context and not minimal_vocab_answer_context:
+    else:
         system_parts.extend(
             _style_format_hints(
                 query_text=query_text,
@@ -989,11 +901,6 @@ async def build_prompt_messages(
                 image_generation_enabled=settings.image_generation_enabled,
             )
         )
-    else:
-        # Quiz / vocab answer turns skipped _style_format_hints entirely, so
-        # any math in a quiz explanation rendered as raw LaTeX. Keep a short
-        # fence-safety hint so incidental `$...$` still renders.
-        system_parts.append(MATH_FENCE_SAFETY_HINT)
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
     system_parts.append(TONE_FORMAT_GUARD)
     custom_block = _custom_instructions_block(user)

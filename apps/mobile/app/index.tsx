@@ -68,11 +68,7 @@ function ChatScreen() {
 
   const [chatId, setChatId] = useState<string | null>(null);
   const draft = useDraftChat({ token, chatId });
-  const {
-    setQuizVariant,
-    resolveQuizVariant,
-    resolveQuizProjectId,
-  } = useChatQuizContext({
+  const { resolveQuizProjectId } = useChatQuizContext({
     projects,
     draftProjectIdRef: draft.draftProjectIdRef,
   });
@@ -163,8 +159,6 @@ function ChatScreen() {
     streaming: llmBusy,
     imageGeneratingRef,
     stopGeneration: stopTurn,
-    setQuizVariant,
-    resolveQuizVariant,
     listRef: scroll.listRef,
     showActionBanner: (message, icon) => showActionBannerRef.current(message, icon),
     t,

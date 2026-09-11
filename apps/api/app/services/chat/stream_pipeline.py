@@ -288,9 +288,9 @@ async def enrich_final_content(
         if ctx.math_unverified is True:
             assistant_text = seams.math_fence_service.append_unverified_math_note(assistant_text)
 
-        from app.services.vocab_quiz import strip_vocab_session_metadata
+        from app.services.chat.learning_fences import strip_learning_chat_fences
 
-        assistant_text = strip_vocab_session_metadata(assistant_text)
+        assistant_text = strip_learning_chat_fences(assistant_text)
         if settings.chemistry_enabled and (
             "```smiles" in assistant_text.lower() or "```chemistry" in assistant_text.lower()
         ):

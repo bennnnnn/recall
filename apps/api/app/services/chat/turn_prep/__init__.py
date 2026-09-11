@@ -41,11 +41,9 @@ from app.services.chat.turn_prep.mode import (
     _resolve_instant_reply,
     _should_augment_web_and_tools,
     _should_fetch_integrations,
-    _should_minimal_quiz_context,
     _TurnMode,
 )
 from app.services.chat.turn_prep.prepare import (
-    _grade_quiz_answer,
     prepare_chat_turn,
 )
 
@@ -59,7 +57,6 @@ __all__ = [
     "_AttachmentProcessResult",
     "_TurnMode",
     "_classify_turn_mode",
-    "_grade_quiz_answer",
     "_inject_integration_blocks",
     "_load_calendar_prompt_block",
     "_load_gmail_context_block",
@@ -71,7 +68,6 @@ __all__ = [
     "_resolve_instant_reply",
     "_should_augment_web_and_tools",
     "_should_fetch_integrations",
-    "_should_minimal_quiz_context",
     "_timed_integration_load",
     "await_user_message_persist",
     "build_stream_prompt_context",

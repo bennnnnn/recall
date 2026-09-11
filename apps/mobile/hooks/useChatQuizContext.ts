@@ -1,8 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
 import type { Learning } from "@/lib/api";
 import { findLanguageProject } from "@/lib/projects/languageProject";
-import { quizVariantForLearningKind, type QuizVariant } from "@/lib/quizVariant";
 
 type Params = {
   projects: Learning[];
@@ -10,35 +9,11 @@ type Params = {
 };
 
 export function useChatQuizContext({ projects, draftProjectIdRef }: Params) {
-  const [quizLanguage, setQuizLanguage] = useState("en");
-  const [quizVariant, setQuizVariant] = useState<QuizVariant>("vocab");
-
-  const resolveQuizVariant = useCallback(
-    (projectId: string | null | undefined): QuizVariant => {
-      if (!projectId) return "vocab";
-      const project = projects.find((item) => item.id === projectId);
-      return quizVariantForLearningKind(project?.kind);
-    },
-    [projects],
-  );
-
   const resolveQuizProjectId = useCallback((): string | null => {
     const fromDraft = draftProjectIdRef.current;
     if (fromDraft) return fromDraft;
-    if (quizVariant === "vocab") {
-      // LANG-UI-003: use the active quiz language, not a hardcoded "en" —
-      // users learning Spanish, French, etc. would never match an English project.
-      return findLanguageProject(projects, quizLanguage)?.id ?? null;
-    }
-    return null;
-  }, [projects, quizVariant, quizLanguage, draftProjectIdRef]);
+    return findLanguageProject(projects)?.id ?? null;
+  }, [projects, draftProjectIdRef]);
 
-  return {
-    quizLanguage,
-    setQuizLanguage,
-    quizVariant,
-    setQuizVariant,
-    resolveQuizVariant,
-    resolveQuizProjectId,
-  };
+  return { resolveQuizProjectId };
 }

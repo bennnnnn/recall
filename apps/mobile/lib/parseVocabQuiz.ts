@@ -1,44 +1,17 @@
 export type QuizChoice = { letter: "A" | "B" | "C" | "D"; text: string };
 
-export type QuizAnswerMeta = {
-  topic: string;
-  question: string;
-  isCorrect: boolean | null;
-};
-
 export type ParsedVocabQuiz = {
   word: string;
   question?: string;
   correct?: QuizChoice["letter"];
   choices: QuizChoice[];
-  quizType?: "vocab" | "trivia";
+  quizType?: "vocab";
   dailyProgress?: { done: number; goal: number };
 };
 
 export function isRenderableVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is ParsedVocabQuiz {
   if (quiz == null || quiz.choices.length !== 4) return false;
-  if (quiz.quizType === "trivia") {
-    return Boolean(quiz.question?.trim() || quiz.word.trim());
-  }
   return Boolean(quiz.word.trim());
-}
-
-/** Single-letter reply sent when the user taps a quiz choice. */
-export function isVocabQuizAnswer(content: string): boolean {
-  return parseQuizAnswerLetter(content) != null;
-}
-
-export function parseQuizAnswerLetter(
-  content: string,
-): QuizChoice["letter"] | null {
-  const trimmed = content.trim();
-  const strict = trimmed.match(/^([A-D])\.?$/i);
-  if (strict) return strict[1].toUpperCase() as QuizChoice["letter"];
-  if (trimmed.length > 24) return null;
-  const loose = trimmed.match(
-    /^(?:is\s+it\s+|option\s+|answer\s*(?:is\s+)?|i\s+(?:think|say|choose|pick)\s+)?([A-D])\.?[?!.]*$/i,
-  );
-  return loose ? (loose[1].toUpperCase() as QuizChoice["letter"]) : null;
 }
 
 const CHOICE_LINE = /^(?:\*\*)?([A-D])[\).:](?:\*\*)?\s*(.+)$/i;
@@ -82,21 +55,12 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
       word?: string;
       question?: string;
       correct?: string;
-      quiz_type?: string;
-      quizType?: string;
       daily_progress?: { done?: number; goal?: number };
       choices?: Array<{ letter?: string; text?: string }>;
     };
-    const quizTypeRaw = String(data.quiz_type ?? data.quizType ?? "").toLowerCase();
-    const quizType =
-      quizTypeRaw === "trivia" ? "trivia" : quizTypeRaw === "vocab" ? "vocab" : undefined;
     const word = cleanQuizWord(String(data.word ?? ""));
     const question = data.question?.trim() || undefined;
-    if (quizType === "trivia") {
-      if (!question && !word) return null;
-    } else if (!word) {
-      return null;
-    }
+    if (!word) return null;
     if (!Array.isArray(data.choices)) return null;
     const choices: QuizChoice[] = [];
     for (const item of data.choices) {
@@ -116,11 +80,11 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
         ? { done: progressRaw.done, goal: progressRaw.goal }
         : undefined;
     return {
-      word: word || question?.slice(0, 40) || "Trivia",
+      word,
       question,
       correct,
       choices,
-      quizType,
+      quizType: "vocab",
       dailyProgress,
     };
   } catch {
@@ -201,75 +165,17 @@ function parseVocabQuizMarkdown(content: string): ParsedVocabQuiz | null {
 
   const block = blocks[blocks.length - 1];
   const wordInfo = extractWordAbove(lines, block.startLine);
-  if (wordInfo) {
-    return {
-      word: wordInfo.word,
-      question: extractQuestion(lines, wordInfo.headerLine, block.startLine),
-      choices: block.choices,
-    };
-  }
-
-  const trivia = extractTriviaAboveChoices(lines, block.startLine);
-  if (!trivia) return null;
-
+  if (!wordInfo) return null;
   return {
-    word: trivia.topic,
-    question: trivia.question,
+    word: wordInfo.word,
+    question: extractQuestion(lines, wordInfo.headerLine, block.startLine),
     choices: block.choices,
-    quizType: "trivia",
+    quizType: "vocab",
   };
 }
 
 export function hasVocabQuizFence(content: string): boolean {
   return /```vocab_quiz/i.test(content);
-}
-
-function extractTriviaAboveChoices(
-  lines: string[],
-  choiceStartLine: number,
-): { topic: string; question: string; stripFromLine: number } | null {
-  let topic = "Trivia";
-  let question: string | null = null;
-  let stripFromLine = choiceStartLine;
-  let hasNextLine = false;
-
-  for (let i = choiceStartLine - 1; i >= Math.max(0, choiceStartLine - 15); i--) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    const nextMatch = line.match(/^Next:\s*\*\*([^*]+)\*\*/i);
-    if (nextMatch) {
-      topic = cleanQuizWord(nextMatch[1]);
-      stripFromLine = Math.min(stripFromLine, i);
-      hasNextLine = true;
-      continue;
-    }
-
-    if (QUIZ_ANSWER_PROMPT_LINE.test(line)) {
-      stripFromLine = Math.min(stripFromLine, i);
-      continue;
-    }
-
-    const boldLine = line.match(/^\*\*([^*\n]+)\*\*$/);
-    if (boldLine) {
-      const text = cleanQuizWord(boldLine[1]);
-      if (/[?？]$/.test(text) || /^(which|what|who|where|when|how|name)\b/i.test(text)) {
-        question = text;
-        stripFromLine = Math.min(stripFromLine, i);
-        continue;
-      }
-    }
-
-    const plain = cleanQuizWord(line.replace(/\*\*/g, ""));
-    if (/[?？]$/.test(plain) && plain.length >= 12) {
-      question = plain;
-      stripFromLine = Math.min(stripFromLine, i);
-      continue;
-    }
-  }
-
-  if (!question || !hasNextLine) return null;
-  return { topic, question, stripFromLine };
 }
 
 export function parseVocabQuiz(content: string): ParsedVocabQuiz | null {
@@ -304,23 +210,21 @@ function isQuizIntroLine(line: string, quiz: ParsedVocabQuiz): boolean {
   if (QUIZ_ANSWER_PROMPT_LINE.test(trimmed)) return true;
   const questionNorm = quiz.question ? normalizeQuizText(quiz.question) : null;
   if (questionNorm && lineMatchesQuizQuestion(trimmed, questionNorm)) return true;
-  if (quiz.quizType !== "trivia") {
-    const wordMatch = trimmed.match(
-      /(?:\*\*Word:\*\*|Word:)\s*([^[\n]+?)(?:\s*\[([^\]]+)\])?\s*$/i,
-    );
-    if (wordMatch && cleanQuizWord(wordMatch[1]) === cleanQuizWord(quiz.word)) {
+  const wordMatch = trimmed.match(
+    /(?:\*\*Word:\*\*|Word:)\s*([^[\n]+?)(?:\s*\[([^\]]+)\])?\s*$/i,
+  );
+  if (wordMatch && cleanQuizWord(wordMatch[1]) === cleanQuizWord(quiz.word)) {
+    return true;
+  }
+  if (QUESTION_LINE.test(trimmed)) return true;
+  const word = cleanQuizWord(quiz.word).toLowerCase();
+  if (word) {
+    const lineNorm = normalizeQuizText(trimmed);
+    if (/what does .+ mean/.test(lineNorm) && lineNorm.includes(word)) {
       return true;
     }
-    if (QUESTION_LINE.test(trimmed)) return true;
-    const word = cleanQuizWord(quiz.word).toLowerCase();
-    if (word) {
-      const lineNorm = normalizeQuizText(trimmed);
-      if (/what does .+ mean/.test(lineNorm) && lineNorm.includes(word)) {
-        return true;
-      }
-      if (quiz.choices.some((c) => normalizeQuizText(c.text) === lineNorm)) {
-        return true;
-      }
+    if (quiz.choices.some((c) => normalizeQuizText(c.text) === lineNorm)) {
+      return true;
     }
   }
   return false;
@@ -330,7 +234,7 @@ function stripQuizIntroLines(lines: string[], quiz: ParsedVocabQuiz): string[] {
   return lines.filter((line) => !isQuizIntroLine(line, quiz));
 }
 
-/** Remove prose that duplicates an embedded ```vocab_quiz block before rendering A–D. */
+/** Remove prose that duplicates an embedded leftover ```vocab_quiz block. */
 export function stripVocabQuizPrologue(content: string, quiz: ParsedVocabQuiz): string {
   const word = cleanQuizWord(quiz.word).toLowerCase();
   const lines = content.split("\n");
@@ -380,7 +284,7 @@ export function stripVocabSessionMetadata(content: string): string {
   return stripped.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-/** Intro/feedback text without the interactive quiz block (incl. partial fences while streaming). */
+/** Intro/feedback text without the leftover quiz block (incl. partial fences while streaming). */
 export function stripVocabQuizBlock(content: string): string {
   let stripped = stripVocabSessionMetadata(content);
   const fromFence = hasVocabQuizFence(stripped);
@@ -400,13 +304,6 @@ export function stripVocabQuizBlock(content: string): string {
   if (blocks.length === 0) return stripped.trim();
 
   const block = blocks[blocks.length - 1];
-  if (parsed && isRenderableVocabQuiz(parsed) && parsed.quizType === "trivia") {
-    const trivia = extractTriviaAboveChoices(lines, block.startLine);
-    const stripFrom = trivia?.stripFromLine ?? block.startLine;
-    const kept = lines.slice(0, stripFrom);
-    return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-  }
-
   const wordInfo = extractWordAbove(lines, block.startLine);
   const stripFrom = wordInfo?.headerLine ?? block.startLine;
 

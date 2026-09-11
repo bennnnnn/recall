@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -38,10 +38,6 @@ from app.services.learning.prompts import (
     _language_tutor_hint,
     _quiz_mode_banner,
 )
-from app.services.learning.quiz_context import (
-    _format_covered_quiz_lines,
-    _format_failed_review_lines,
-)
 
 # Progress reads need the full catalog; prompt inject must not dump it.
 _PROGRESS_ITEM_LIMIT = 2000
@@ -73,12 +69,12 @@ def format_learning_block(projects: list[Learning], items: list[LearningItem]) -
                     f"The user is a {language_display_name(native_lang)} speaker "
                     f"learning {name}. Give brief explanations in the user's "
                     f"native language when helpful, but teach words, examples, "
-                    f"and quizzes in {name}.\n"
+                    f"and lesson practice in {name}.\n"
                 )
             else:
                 skill_line += (
                     f"Teach {name} vocabulary. Use {name} for words, examples, "
-                    f"and quizzes; use English for brief explanations when helpful.\n"
+                    f"and lesson practice; use English for brief explanations when helpful.\n"
                 )
         lines.append(
             f"\n### {project.title} (id={project.id}, {meta}){desc}\n"
@@ -260,6 +256,94 @@ def _format_today_session_line(project: Learning, stats: dict[str, int]) -> str:
 def _quiz_pool_items(items: list[LearningItem]) -> tuple[list[LearningItem], int]:
     pool = [i for i in items if _item_status(i) != "mastered"]
     return pool, len(items) - len(pool)
+
+
+# Fails stay out of the due-review list until SM-2 due (usually next day).
+_FAILED_REVIEW_FALLBACK_MIN_AGE = timedelta(hours=12)
+
+
+def _format_failed_review_lines(items: list[LearningItem], *, limit: int = 12) -> list[str]:
+    """Lesson-handoff nudge: due failed items belong in the lesson, not in chat."""
+    now = datetime.now(UTC)
+    failed: list[LearningItem] = []
+    for item in items:
+        if _item_status(item) != "learning":
+            continue
+        missed = getattr(item, "last_incorrect_at", None)
+        if not isinstance(missed, datetime):
+            continue
+        missed_utc = missed.astimezone(UTC) if missed.tzinfo else missed.replace(tzinfo=UTC)
+        due = getattr(item, "due_at", None)
+        if isinstance(due, datetime):
+            due_utc = due.astimezone(UTC) if due.tzinfo else due.replace(tzinfo=UTC)
+            if due_utc > now:
+                continue
+        elif now - missed_utc < _FAILED_REVIEW_FALLBACK_MIN_AGE:
+            continue
+        failed.append(item)
+    if not failed:
+        return []
+
+    def _miss_key(item: LearningItem) -> datetime:
+        missed = getattr(item, "last_incorrect_at", None)
+        if isinstance(missed, datetime):
+            return missed.astimezone(UTC) if missed.tzinfo else missed.replace(tzinfo=UTC)
+        return datetime.min.replace(tzinfo=UTC)
+
+    failed.sort(key=_miss_key, reverse=True)
+    lines = [
+        "\n**Due for review in the lesson** — if they want to practice these, "
+        "emit ```learning_launch; do not quiz here:"
+    ]
+    for item in failed[:limit]:
+        lines.append(f"- {item.content}")
+    return lines
+
+
+def _format_covered_quiz_lines(
+    contents: list[str],
+    *,
+    just_answered: str | None = None,
+    max_chars: int,
+) -> list[str]:
+    """Format a DB-backed exclusion list for the Learning prompt.
+
+    Budget is characters (the only seam that bounds tokens here); the first
+    item is always kept even if it alone exceeds ``max_chars``.
+    """
+    covered: list[str] = []
+    seen: set[str] = set()
+    used = 0
+
+    def _add(text: str) -> bool:
+        """Add text; return True when the next item would exceed the budget."""
+        nonlocal used
+        cleaned = text.strip()
+        key = cleaned.lower()
+        if not cleaned or key in seen:
+            return False
+        line_len = len(cleaned) + 3
+        if covered and used + line_len > max_chars:
+            return True
+        seen.add(key)
+        covered.append(cleaned)
+        used += line_len
+        return False
+
+    truncated = False
+    if just_answered:
+        _add(just_answered)
+    for text in contents:
+        if _add(text):
+            truncated = True
+            break
+    if not covered:
+        return []
+    lines = ["\n**Already mastered** (do not quiz these in chat — study is the lesson screen):"]
+    lines.extend(f"- {text}" for text in covered)
+    if truncated:
+        lines.append("- …and more mastered items not listed — still do not quiz them in chat.")
+    return lines
 
 
 async def load_learning_for_prompt(

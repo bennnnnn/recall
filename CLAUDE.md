@@ -76,7 +76,7 @@ app/
   gateways/            # external IO (LiteLLM, Google, storage, speech, search, …)
     mcp/               # tool adapters + registry (flag-gated at runtime)
   repositories/        # Neon access
-  models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools, learning_quiz)
+  models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools)
   background/          # job handlers + periodic schedulers
     handlers.py        # job-type → handler register (imported at startup)
   core/                # config, db, redis, jobs stream (no domain imports)
@@ -116,7 +116,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `settings/models.tsx` |
 | Search | `routers/search.py`, `services/search.py` | drawer search (`useDrawerSearch`) |
 | Todos / reminders | `routers/todos.py`, `services/todos/` | `app/todos.tsx`, `components/todos/` |
-| Learning classes | `routers/learning.py` (HTTP `/projects`), `services/learning/`, `schemas/learning.py` + `learning_quiz.py` | `app/projects/`, lesson play |
+| Learning classes | `routers/learning.py` (HTTP `/projects`), `services/learning/`, `schemas/learning.py` | `app/projects/`, lesson play |
 | Home starters | `routers/home.py`, `services/home/` | home cards on chat empty / index |
 | Attachments + RAG | `routers/attachments.py`, `attachment_*.py`, `background/attachment_*.py` | `lib/api/attachments.ts`, composer attach |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |

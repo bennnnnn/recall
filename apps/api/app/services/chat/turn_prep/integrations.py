@@ -120,7 +120,6 @@ async def fetch_integration_blocks(
     instant_reply: str | None,
     lightweight: bool,
     minimal_personal: bool,
-    minimal_quiz: bool,
     day_reflection: bool,
     has_calendar_write: bool | None = None,
     gmail_context: tuple[str, list[Any], list[Any], str | None] | None = None,
@@ -137,7 +136,7 @@ async def fetch_integration_blocks(
     ``has_calendar_write=None`` loads write access in that same gather when a
     create-event hint can apply. Callers that already know the flag pass it.
     """
-    if instant_reply is not None or minimal_personal or minimal_quiz or lightweight:
+    if instant_reply is not None or minimal_personal or lightweight:
         return []
 
     load_calendar = calendar_service.should_inject_calendar_block(content)
@@ -254,7 +253,6 @@ async def _inject_integration_blocks(
     instant_reply: str | None,
     lightweight: bool,
     minimal_personal: bool,
-    minimal_quiz: bool,
     day_reflection: bool,
     has_calendar_write: bool,
     gmail_context: tuple[str, list[Any], list[Any], str | None] | None,
@@ -271,7 +269,6 @@ async def _inject_integration_blocks(
         instant_reply=instant_reply,
         lightweight=lightweight,
         minimal_personal=minimal_personal,
-        minimal_quiz=minimal_quiz,
         day_reflection=day_reflection,
         has_calendar_write=has_calendar_write,
         gmail_context=gmail_context,

@@ -28,7 +28,6 @@ def test_chemistry_context_and_fence_alias_canonical_modules() -> None:
 def test_learning_compatibility_modules_share_patchable_module_objects() -> None:
     aliases = {
         "app.services.daily_learning": "app.services.learning.daily",
-        "app.services.vocab_quiz": "app.services.learning.quiz",
         "app.services.sm2": "app.services.learning.spaced_repetition",
     }
 

@@ -32,7 +32,6 @@ import {
 } from "@/lib/chatDraftLogic";
 import { shouldInsertDrawerRowOnLeave } from "@/lib/chatTitleRefresh";
 import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/lib/drawer";
-import type { QuizVariant } from "@/lib/quizVariant";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/hooks/useChatHighlightScroll";
 import { useChatTitlePolling } from "@/hooks/useChatTitlePolling";
@@ -54,8 +53,6 @@ type Options = {
   /** Latest image-gen in-flight flag — AppState/focus closures must not snapshot it. */
   imageGeneratingRef?: React.MutableRefObject<boolean>;
   stopGeneration: () => void;
-  setQuizVariant: React.Dispatch<React.SetStateAction<QuizVariant>>;
-  resolveQuizVariant: (projectId: string | null | undefined) => QuizVariant;
   listRef: React.RefObject<FlashListRef<Message> | null>;
   showActionBanner: (message: string, icon?: IoniconName) => void;
   t: (key: string) => string;
@@ -74,8 +71,6 @@ export function useChatRouteLoader({
   streaming,
   imageGeneratingRef,
   stopGeneration,
-  setQuizVariant,
-  resolveQuizVariant,
   listRef,
   showActionBanner,
   t,
@@ -135,8 +130,7 @@ export function useChatRouteLoader({
     setPinned(chat.pinned);
     setArchived(Boolean(chat.archived));
     draftProjectIdRef.current = chat.project_id ?? null;
-    setQuizVariant(resolveQuizVariant(chat.project_id));
-  }, [draftProjectIdRef, setQuizVariant, resolveQuizVariant]);
+  }, [draftProjectIdRef]);
   const olderRequestRef = useRef<object | null>(null);
   useEffect(() => () => {
     viewRef.current.version += 1;

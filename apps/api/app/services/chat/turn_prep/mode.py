@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Chat, Message
+from app.models.orm import Chat
 from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
 from app.services import day_planning as day_planning_service
@@ -32,8 +32,6 @@ def _should_augment_web_and_tools(
     instant_reply: str | None,
     lightweight: bool,
     minimal_personal: bool,
-    minimal_quiz: bool,
-    active_vocab_turn: bool,
     day_planning: bool,
     ambiguous_nearby: bool,
     is_external_calendar_question: bool,
@@ -48,13 +46,6 @@ def _should_augment_web_and_tools(
     Evaluated at both call sites (not cached) so mid-turn ``instant_reply``
     updates still suppress augmentation the same way as before.
 
-    Active vocab turns (an answer following an in-chat quiz/vocab prompt) are
-    learning turns: they need project context (rich_context stays on) but not
-    web search or calendar/gmail context. ``minimal_quiz`` covers the
-    letter-answer path; ``active_vocab_turn`` also covers the open-ended
-    answer path (``minimal_vocab_answer``), which sets neither
-    ``minimal_quiz`` nor ``lightweight``.
-
     Slim/casual chat (not ``rich_context``) still augments when the turn
     actually needs math, web search, or chemistry — otherwise skip prior
     messages, calendar-write, Tavily/SymPy, and PubChem.
@@ -63,8 +54,6 @@ def _should_augment_web_and_tools(
         instant_reply is None
         and not lightweight
         and not minimal_personal
-        and not minimal_quiz
-        and not active_vocab_turn
         and not day_planning
         and not ambiguous_nearby
         and not is_external_calendar_question
@@ -79,8 +68,6 @@ def _should_fetch_integrations(
     instant_reply: str | None,
     lightweight: bool,
     minimal_personal: bool,
-    minimal_quiz: bool,
-    active_vocab_turn: bool,
     rich_context: bool,
     load_calendar: bool,
     load_gmail: bool,
@@ -90,28 +77,9 @@ def _should_fetch_integrations(
     Casual coaching (Help me think) must not pay the Gmail-nudge query.
     Calendar/gmail questions still fetch even when ``rich_context`` is false.
     """
-    if instant_reply is not None or lightweight or minimal_personal or minimal_quiz:
-        return False
-    if active_vocab_turn:
+    if instant_reply is not None or lightweight or minimal_personal:
         return False
     return rich_context or load_calendar or load_gmail
-
-
-async def _should_minimal_quiz_context(
-    session: AsyncSession,
-    chat_id: UUID,
-    content: str,
-) -> bool:
-    """Letter/choice-text answers after an in-chat ```vocab_quiz use the quiz prompt path."""
-    from app.services import vocab_quiz as vocab_quiz_service
-    from app.services.chat.quiz_messages import get_last_quiz_assistant
-
-    prior = await get_last_quiz_assistant(session, chat_id)
-    if prior is None:
-        return False
-    quiz = vocab_quiz_service.parse_vocab_quiz(prior.content)
-    choices = quiz.choices if quiz is not None else None
-    return vocab_quiz_service.is_vocab_quiz_answer(content, choices=choices)
 
 
 @dataclass
@@ -119,19 +87,14 @@ class _TurnMode:
     lightweight: bool
     rich_context: bool
     minimal_personal: bool
-    minimal_quiz: bool
-    minimal_vocab_answer: bool
-    active_vocab_turn: bool
     day_planning: bool
     day_reflection: bool
-    quiz_assistant: Message | None = None
     advice_memory: bool = False
 
 
 def _turn_needs_rich_context(
     content: str,
     *,
-    active_vocab_turn: bool,
     day_planning: bool,
     day_reflection: bool,
 ) -> bool:
@@ -140,7 +103,6 @@ def _turn_needs_rich_context(
 
     if needs_rich_context(
         content,
-        active_vocab_turn=active_vocab_turn,
         day_planning=day_planning,
         day_reflection=day_reflection,
     ):
@@ -180,12 +142,9 @@ async def _classify_turn_mode(
         prior = await messages_repo.get_last_assistant(session, chat.id)
         if prior is not None:
             prior_assistant = prior.content
-    lightweight = is_lightweight_chat_turn(
-        content, active_vocab_turn=False, prior_assistant=prior_assistant
-    )
+    lightweight = is_lightweight_chat_turn(content, prior_assistant=prior_assistant)
     rich_context = _turn_needs_rich_context(
         content,
-        active_vocab_turn=False,
         day_planning=day_planning,
         day_reflection=day_reflection,
     )
@@ -203,12 +162,8 @@ async def _classify_turn_mode(
         lightweight=lightweight,
         rich_context=rich_context,
         minimal_personal=minimal_personal,
-        minimal_quiz=False,
-        minimal_vocab_answer=False,
-        active_vocab_turn=False,
         day_planning=day_planning,
         day_reflection=day_reflection,
-        quiz_assistant=None,
         advice_memory=advice_memory,
     )
 
