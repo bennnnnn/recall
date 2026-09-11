@@ -1,4 +1,5 @@
 import {
+  closeInterruptedMathFences,
   isHeavyInlineMath,
   looksLikeLatexFence,
   retagMathAndDiagramFences,
@@ -325,5 +326,25 @@ describe("mathFenceRetag", () => {
     expect(out).toContain("2. Take the square root of both sides:");
     // The step label/prose must never end up re-tagged as its own math fence.
     expect(out).not.toContain("```math\n2. Take the square root");
+  });
+
+  it("closes an unclosed ```math fence before the next step label", () => {
+    const input = [
+      "```math",
+      String.raw`\frac{4x}{4} = \frac{4}{4}`,
+      "",
+      "2. **Simplify:**",
+      "",
+      "```math",
+      "x = 1",
+      "```",
+    ].join("\n");
+    const out = closeInterruptedMathFences(input);
+    const beforeStep = out.slice(0, out.indexOf("2. **Simplify:**"));
+    expect(beforeStep).toContain(String.raw`\frac{4x}{4} = \frac{4}{4}`);
+    expect(beforeStep.trimEnd().endsWith("```")).toBe(true);
+    expect(beforeStep).not.toContain("Simplify");
+    expect(out).toContain("2. **Simplify:**");
+    expect(out).toContain("```math\nx = 1\n```");
   });
 });

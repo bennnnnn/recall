@@ -1,3 +1,5 @@
+import { readFenceMarker } from "@/lib/mdFenceScan";
+
 // Trailing (?=[^a-zA-Z]|$) instead of \b: \b treats `_` as a word char, so it
 // would not match the boundary between a command and a subscript
 // (`\log_2`, `\lim_{x\to0}`, `\sum_{i=1}^n` are all extremely common LaTeX).
@@ -157,6 +159,68 @@ export function shouldRenderMathFenceInline(body: string): boolean {
  */
 export function shouldInlineMathFenceOnBareListMarker(body: string): boolean {
   return isOneLineMathFenceBody(body, LIST_MATH_FENCE_MAX) != null;
+}
+
+function mathFenceLang(info: string): boolean {
+  const lang = info.split(/\s/)[0]?.toLowerCase() ?? "";
+  return lang === "math" || lang === "latex" || lang === "tex";
+}
+
+/** Step labels / headings that must not live inside a ```math body. */
+export function isMathFenceInterruptLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  return (
+    /^#{1,6}\s/.test(t) ||
+    /^\d+\.\s+\*\*/.test(t) ||
+    /^[-*]\s+\*\*/.test(t) ||
+    /^\d+\.\s+[A-Z]/.test(t)
+  );
+}
+
+/**
+ * Models open ```math for step 1 and forget the closer, then open another
+ * ```math for step 2. CommonMark (and `[\s\S]*?``` regexes) treat the second
+ * opener's backticks as a closer, so the next step becomes a code card and
+ * `\frac` paints as prose. Close the first fence before the interrupt.
+ */
+export function closeInterruptedMathFences(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const open = readFenceMarker(lines[i]!);
+    if (!open || !mathFenceLang(open.info) || open.info.includes("|")) {
+      out.push(lines[i]!);
+      i += 1;
+      continue;
+    }
+    out.push(lines[i]!);
+    i += 1;
+    while (i < lines.length) {
+      const line = lines[i]!;
+      const inner = readFenceMarker(line);
+      if (
+        inner &&
+        inner.char === open.char &&
+        inner.len >= open.len &&
+        inner.info === ""
+      ) {
+        out.push(line);
+        i += 1;
+        break;
+      }
+      const nextOpener = Boolean(inner && inner.info !== "");
+      if (nextOpener || isMathFenceInterruptLine(line)) {
+        out.push(open.char.repeat(open.len));
+        out.push("");
+        break;
+      }
+      out.push(line);
+      i += 1;
+    }
+  }
+  return out.join("\n");
 }
 
 /**

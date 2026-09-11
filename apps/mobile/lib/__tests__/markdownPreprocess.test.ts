@@ -594,6 +594,39 @@ represents`;
     expect(asText).not.toContain("\\frac");
   });
 
+  it("BUG FIX regression: unclosed step ```math does not dump the next step in a code card", () => {
+    // Live: "isolate x: ```math" then \frac, then "2. **Simplify:**" and
+    // another ```math. A /```math[\s\S]*?```/ closer ate the second opener,
+    // so \frac painted as prose and Simplify landed in a gray code block.
+    const input =
+      "1. **Divide both sides by 4** to isolate x: ```math\n" +
+      String.raw`\frac{4x}{4} = \frac{4}{4}` +
+      "\n\n2. **Simplify:**\n\n```math\nx = 1\n```";
+    const out = preprocessMarkdown(input);
+    expect(out).not.toMatch(/x: ```math/);
+    expect(out).toContain("2. **Simplify:**");
+    const tokens = markdownItInstance.parse(out, {});
+    const fences = tokens.filter((t) => t.type === "fence");
+    expect(fences.some((t) => (t.info ?? "").trim() === "math" && t.content.includes("\\frac"))).toBe(
+      true,
+    );
+    expect(fences.some((t) => (t.info ?? "").trim() === "math" && /x\s*=\s*1/.test(t.content))).toBe(
+      true,
+    );
+    expect(
+      fences.some(
+        (t) => t.content.includes("Simplify") || t.content.includes("```math"),
+      ),
+    ).toBe(false);
+    const asText = tokens
+      .filter((t) => t.type === "inline")
+      .map((t) => t.content)
+      .join("\n");
+    expect(asText).toContain("**Simplify:**");
+    expect(asText).not.toContain("```math");
+    expect(asText).not.toMatch(/\\frac\{4x\}/);
+  });
+
   it("BUG FIX regression: lifts glued code fence openers for all langs, not just math", () => {
     // The model also glues code fence openers to prose
     // ("Here's the code: ```python print('hello')```"). The old

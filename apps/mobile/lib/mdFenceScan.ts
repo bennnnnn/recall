@@ -173,6 +173,52 @@ export function stripClosedLangFence(text: string, lang: string): string {
   return mapClosedLangFence(text, lang, () => "");
 }
 
+/**
+ * Walk closed fences with CommonMark closer rules (a ```math line is an
+ * opener, never a closer). Unclosed openers are copied line-by-line so a
+ * following tagged fence is not eaten.
+ */
+export function mapClosedFences(
+  text: string,
+  replace: (info: string, body: string, original: string) => string,
+): string {
+  if (!text) return text;
+  const lines = text.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const marker = readFenceMarker(lines[i]!);
+    if (!marker || marker.info.includes("|")) {
+      out.push(lines[i]!);
+      i += 1;
+      continue;
+    }
+    let end = -1;
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const inner = readFenceMarker(lines[j]!);
+      if (
+        inner &&
+        inner.char === marker.char &&
+        inner.len >= marker.len &&
+        inner.info === ""
+      ) {
+        end = j;
+        break;
+      }
+    }
+    if (end === -1) {
+      out.push(lines[i]!);
+      i += 1;
+      continue;
+    }
+    const body = lines.slice(i + 1, end).join("\n");
+    const original = lines.slice(i, end + 1).join("\n");
+    out.push(replace(marker.info, body, original));
+    i = end + 1;
+  }
+  return out.join("\n");
+}
+
 /** Closed fences whose opener is bare ``` (no language tag). */
 export function mapUnlabeledClosedFences(
   text: string,

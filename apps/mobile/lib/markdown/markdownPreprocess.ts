@@ -2,6 +2,7 @@ import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
 import { collapseAdjacentMoleculeFences, dropRedundantMolecule3dFences } from "@/lib/moleculePair";
 import {
   retagMathAndDiagramFences,
+  closeInterruptedMathFences,
   shouldInlineMathFenceOnBareListMarker,
   shouldRenderMathFenceInline,
   stripRedundantDollarWrap,
@@ -20,7 +21,7 @@ import {
 import { shouldLiftFenceOutOfList } from "@/lib/fenceRegistry";
 import { allowsContentHeuristic } from "@/lib/fenceDispatch";
 import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
-import { applyOutsideFences, readFenceMarker } from "@/lib/mdFenceScan";
+import { applyOutsideFences, mapClosedFences, readFenceMarker } from "@/lib/mdFenceScan";
 import {
   PROTECTED_ESCAPE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
@@ -239,7 +240,6 @@ const DETAILS_HTML_RE =
   /<details>\s*<summary>([\s\S]*?)<\/summary>\s*([\s\S]*?)<\/details>/gim;
 const FENCED_TABLE_RE =
   /```(?:markdown|md|table)\s*\n((?:[^\n]*\|[^\n]*\n){2,})```/gi;
-const FENCE_BLOCK_RE = /```([^\n]*)\n([\s\S]*?)```/g;
 
 /**
  * The model glues a fence opener to the end of a sentence
@@ -771,11 +771,11 @@ function splitCodeFenceAroundPipeTable(lang: string, body: string): string | nul
  * fence render rules (that caused stack overflows and stripped formatting).
  */
 function unwrapNonCodeFences(content: string): string {
-  return content.replace(FENCE_BLOCK_RE, (full, info: string, body: string) => {
+  return mapClosedFences(content, (info, body, original) => {
     const lang = parseFenceLang((info || "").trim());
     const l = lang.toLowerCase();
     if (isStructuredFenceLang(l) || l === "details" || l === "math" || isHtmlFenceLang(l)) {
-      return full;
+      return original;
     }
 
     const trimmed = body.replace(/\n$/, "").trim();
@@ -798,7 +798,7 @@ function unwrapNonCodeFences(content: string): string {
       isAnswerLang(lang) ||
       (allowsContentHeuristic(lang) && looksLikeMathAnswer(trimmed))
     ) {
-      return full;
+      return original;
     }
 
     const taggedLiteral = l === "text" || l === "plain";
@@ -808,16 +808,16 @@ function unwrapNonCodeFences(content: string): string {
     }
 
     if (isExplicitCodeLang(lang) || looksLikeCode(trimmed)) {
-      return full;
+      return original;
     }
 
     if (isPipeTable(trimmed)) {
-      if (taggedLiteral) return full;
+      if (taggedLiteral) return original;
       return `\n${normalizeMarkdownTables(trimmed)}\n`;
     }
 
     if (taggedLiteral && /^\+[-=+]+\+$/m.test(trimmed)) {
-      return full;
+      return original;
     }
 
     if (shouldRenderAsPlainProseFence(lang, trimmed)) {
@@ -828,7 +828,7 @@ function unwrapNonCodeFences(content: string): string {
       return `\n\n${trimmed}\n\n`;
     }
 
-    return full;
+    return original;
   });
 }
 
@@ -883,7 +883,9 @@ const PRICE_TIER_ARTIFACT_STRIP_RE = /^\$\)?\s*\n?/;
 
 /** Undo mistaken ```math fences that contain markdown lists or price-tier debris. */
 function unwrapCorruptedMathFences(content: string): string {
-  return content.replace(/```math\n([\s\S]*?)```/gi, (full, body: string) => {
+  return mapClosedFences(content, (info, body, original) => {
+    const lang = (info.split(/\s/)[0] ?? "").toLowerCase();
+    if (lang !== "math") return original;
     const trimmed = body.trim();
     if (!trimmed) return "";
     if (
@@ -895,7 +897,7 @@ function unwrapCorruptedMathFences(content: string): string {
     ) {
       return `\n\n${trimmed.replace(PRICE_TIER_ARTIFACT_STRIP_RE, "")}\n\n`;
     }
-    return full;
+    return original;
   });
 }
 
@@ -1574,6 +1576,8 @@ export function preprocessMarkdown(
     });
   });
   out = restorePriceTiers(blockMathOut);
+  out = breakAttachedMathFences(out);
+  out = closeInterruptedMathFences(out);
   out = unwrapCorruptedMathFences(out);
 
   out = normalizeMarkdownTables(out);
@@ -1592,6 +1596,7 @@ export function preprocessMarkdown(
   out = mergeStrandedColons(out);
   out = breakMidlineAtxHeadings(out);
   out = breakAttachedMathFences(out);
+  out = closeInterruptedMathFences(out);
   out = liftMathFencesOutOfLists(out);
   out = inlineShortMathFences(out);
   out = unwrapProseMathBackticks(out);
