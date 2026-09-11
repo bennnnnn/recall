@@ -14,97 +14,139 @@ text is kept.
 from __future__ import annotations
 
 import logging
-import re
 
 from app.services import chemistry as chemistry_service
+from app.services.md_fence_scan import map_closed_fences
 
 logger = logging.getLogger(__name__)
 
-# ```smiles or ```chemistry fence — captures the body (non-greedy).
-_SMILES_FENCE_RE = re.compile(
-    r"```(?:smiles|chemistry)\s*\n([\s\S]*?)```",
-    re.IGNORECASE,
-)
 # Limit how many fences we process to bound the work.
 _MAX_SMILES_FENCES = 20
+# 3D embed is expensive; validate all fences first, then attach 3D to a few.
+_MAX_3D_FENCES = 2
 
 
-def _extract_smiles_from_fence(body: str) -> str | None:
-    """Extract the SMILES line from a fence body (last non-empty, non-comment line)."""
-    lines = [line.strip() for line in body.split("\n") if line.strip() and not line.startswith("#")]
+def _candidate_lines(body: str) -> list[str]:
+    return [
+        line.strip()
+        for line in body.split("\n")
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
+    """Pick a SMILES line from the bottom (mobile's parseChemistryFence).
+
+    Returns ``(smiles, caption)``. Caption is every other non-comment line.
+    If nothing validates, the last line is still returned so the caller can
+    fail-closed.
+    """
+    lines = _candidate_lines(body)
     if not lines:
-        return None
-    # The SMILES is the last line (caption may precede it).
-    raw = lines[-1].replace("smiles:", "", 1).strip()
-    if not raw or len(raw) > 500:
-        return None
-    return raw
+        return None, ""
+    for idx in range(len(lines) - 1, -1, -1):
+        raw = lines[idx].replace("smiles:", "", 1).strip()
+        if not raw or len(raw) > 500:
+            continue
+        try:
+            props = chemistry_service.validate_smiles(raw)
+        except Exception:
+            logger.info("chemistry fence line validation failed for %r", raw, exc_info=True)
+            continue
+        if props.valid:
+            caption = "\n".join(lines[:idx] + lines[idx + 1 :]).strip()
+            return raw, caption
+    last = lines[-1].replace("smiles:", "", 1).strip()
+    if not last or len(last) > 500:
+        return None, ""
+    caption = "\n".join(lines[:-1]).strip()
+    return last, caption
+
+
+def _canonicalize_smiles_fence(body: str) -> str:
+    """Validate and rewrite a fence body. Never generate 3D."""
+    smiles, caption = _extract_smiles_from_fence(body)
+    if smiles is None:
+        return f"```smiles\n{body}```\n"
+    try:
+        props = chemistry_service.validate_smiles(smiles)
+    except Exception:
+        logger.info("chemistry fence validation failed for %r", smiles, exc_info=True)
+        return "*Could not render that structure.*\n"
+    if not props.valid:
+        logger.info("replacing invalid SMILES fence: %r", smiles)
+        return "*Could not render that structure.*\n"
+    if not caption and props.formula and props.molecular_weight > 0:
+        caption = f"{props.formula} · {props.molecular_weight:.2f} g/mol"
+    if caption:
+        return f"```smiles\n{caption}\n{props.smiles}\n```\n"
+    return f"```smiles\n{props.smiles}\n```\n"
+
+
+def _attach_molecule3d(body: str) -> tuple[str, bool]:
+    """Return (```smiles fence + optional molecule3d, whether 3D was attached)."""
+    smiles, caption = _extract_smiles_from_fence(body)
+    if smiles is None:
+        return f"```smiles\n{body}```\n", False
+    try:
+        props = chemistry_service.validate_smiles(smiles)
+    except Exception:
+        logger.info("chemistry fence validation failed for %r", smiles, exc_info=True)
+        return "*Could not render that structure.*\n", False
+    if not props.valid:
+        return f"```smiles\n{body}```\n", False
+    if caption:
+        smiles_fence = f"```smiles\n{caption}\n{props.smiles}\n```"
+    else:
+        smiles_fence = f"```smiles\n{props.smiles}\n```"
+    try:
+        coords = chemistry_service.generate_3d_coordinates(props.smiles)
+        if coords.sdf:
+            title = props.formula or caption or "Molecule"
+            mol3d_fence = f"\n```molecule3d\n{coords.sdf.rstrip()}\n{title}\n```\n"
+            return smiles_fence + mol3d_fence, True
+    except Exception:
+        logger.info("3D SDF generation failed for %r", props.smiles, exc_info=True)
+    return smiles_fence + "\n", False
 
 
 def enrich_chemistry_fences(content: str) -> str:
-    """Validate and enrich all ```smiles fences in the content.
+    """Validate and enrich all ```smiles / ```chemistry fences.
 
-    - Valid SMILES: replace with canonical SMILES (RDKit-normalized) and
-      append a ```molecule3d fence with a 3D SDF for interactive viewing.
-    - Invalid SMILES: strip the fence entirely (the renderer would show
-      a broken card).
-
-    This is synchronous (RDKit is C-bound and fast for small molecules).
-    The caller should run it in the process pool if latency matters.
+    Closed fences only (bare-backtick closer). Invalid SMILES become an
+    italic note. Every closed fence is validated first; 3D SDF is attached
+    only for the first ``_MAX_3D_FENCES`` valid molecules so one slow embed
+    cannot skip stripping later invalid fences.
     """
-    count = 0
+    content = map_closed_fences(
+        content,
+        "smiles",
+        _canonicalize_smiles_fence,
+        max_count=_MAX_SMILES_FENCES,
+    )
+    content = map_closed_fences(
+        content,
+        "chemistry",
+        _canonicalize_smiles_fence,
+        max_count=_MAX_SMILES_FENCES,
+    )
+    mol3d_left = _MAX_3D_FENCES
 
-    def _replace(match: re.Match[str]) -> str:
-        nonlocal count
-        count += 1
-        if count > _MAX_SMILES_FENCES:
-            return match.group(0)  # stop processing beyond the limit
-        body = match.group(1)
-        smiles = _extract_smiles_from_fence(body)
-        if smiles is None:
-            return match.group(0)  # leave as-is if we can't parse
-        try:
-            props = chemistry_service.validate_smiles(smiles)
-        except Exception:
-            logger.info("chemistry fence validation failed for %r", smiles, exc_info=True)
-            return "*Could not render that structure.*"
-        if not props.valid:
-            # Replace invalid SMILES fence with a one-liner so the renderer
-            # doesn't show a broken molecule card or a silent gap.
-            logger.info("replacing invalid SMILES fence: %r", smiles)
-            return "*Could not render that structure.*"
-        # Replace with canonical SMILES (RDKit-normalized). Keep any
-        # caption lines from the original fence.
-        lines = [line for line in body.split("\n") if line.strip() and not line.startswith("#")]
-        # Drop the last line (the old SMILES) and re-append canonical.
-        caption_lines = lines[:-1] if len(lines) > 1 else []
-        caption = "\n".join(caption_lines).strip()
-        # If no caption was provided, synthesize one with verified properties
-        # (formula + MW) so the mobile card surfaces the verified data.
-        if not caption and props.formula and props.molecular_weight > 0:
-            caption = f"{props.formula} · {props.molecular_weight:.2f} g/mol"
-        if caption:
-            smiles_fence = f"```smiles\n{caption}\n{props.smiles}\n```"
-        else:
-            smiles_fence = f"```smiles\n{props.smiles}\n```"
+    def _attach(body: str) -> str:
+        nonlocal mol3d_left
+        if mol3d_left <= 0:
+            return f"```smiles\n{body.rstrip()}\n```\n"
+        rewritten, used_3d = _attach_molecule3d(body)
+        if used_3d:
+            mol3d_left -= 1
+        return rewritten
 
-        # Generate a 3D SDF for the molecule3d fence (best-effort —
-        # skip if 3D embedding fails for complex molecules).
-        mol3d_fence = ""
-        try:
-            coords = chemistry_service.generate_3d_coordinates(props.smiles)
-            if coords.sdf:
-                # Caption after M END — never prepend it. An extra line before
-                # the RDKit molblock shifts the V2000 counts off line 4 and
-                # 3Dmol.js parses 0 atoms (blank viewer).
-                title = props.formula or caption or "Molecule"
-                mol3d_fence = f"\n```molecule3d\n{coords.sdf.rstrip()}\n{title}\n```"
-        except Exception:
-            logger.info("3D SDF generation failed for %r", props.smiles, exc_info=True)
-
-        return smiles_fence + mol3d_fence
-
-    return _SMILES_FENCE_RE.sub(_replace, content)
+    return map_closed_fences(
+        content,
+        "smiles",
+        _attach,
+        max_count=_MAX_SMILES_FENCES,
+    )
 
 
 def enrich_chemistry_fences_worker(content: str) -> str:

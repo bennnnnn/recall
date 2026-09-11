@@ -170,11 +170,57 @@ def test_balance_equation_iron_oxide() -> None:
     """Fe + O2 -> Fe2O3 should balance to 4 Fe + 3 O2 -> 2 Fe2O3."""
     result = chemistry_service.balance_equation("Fe + O2 -> Fe2O3")
     assert result.balanced is True
-    # Coefficients should be in the ratio 4:3:2
-    r = result.reactants
-    p = result.products
-    assert r["Fe"] / r["O2"] == pytest.approx(4 / 3)
-    assert p["Fe2O3"] / r["O2"] == pytest.approx(2 / 3)
+    assert result.reactants["Fe"] == 4
+    assert result.reactants["O2"] == 3
+    assert result.products["Fe2O3"] == 2
+
+
+@pytest.mark.parametrize(
+    "equation,reactants,products",
+    [
+        ("H2 + O2 -> H2O", {"H2": 2, "O2": 1}, {"H2O": 2}),
+        ("CH4 + O2 -> CO2 + H2O", {"CH4": 1, "O2": 2}, {"CO2": 1, "H2O": 2}),
+        ("C2H6 + O2 -> CO2 + H2O", {"C2H6": 2, "O2": 7}, {"CO2": 4, "H2O": 6}),
+        ("Al + HCl -> AlCl3 + H2", {"Al": 2, "HCl": 6}, {"AlCl3": 2, "H2": 3}),
+        (
+            "KMnO4 + HCl -> KCl + MnCl2 + H2O + Cl2",
+            {"KMnO4": 2, "HCl": 16},
+            {"KCl": 2, "MnCl2": 2, "H2O": 8, "Cl2": 5},
+        ),
+        ("Ca(OH)2 + HCl -> CaCl2 + H2O", {"Ca(OH)2": 1, "HCl": 2}, {"CaCl2": 1, "H2O": 2}),
+        (
+            "Fe2(SO4)3 + NaOH -> Fe(OH)3 + Na2SO4",
+            {"Fe2(SO4)3": 1, "NaOH": 6},
+            {"Fe(OH)3": 2, "Na2SO4": 3},
+        ),
+        (
+            "NaCl(aq) + AgNO3(aq) -> AgCl(s) + NaNO3(aq)",
+            {"NaCl(aq)": 1, "AgNO3(aq)": 1},
+            {"AgCl(s)": 1, "NaNO3(aq)": 1},
+        ),
+    ],
+)
+def test_balance_equation_standard(
+    equation: str, reactants: dict[str, int], products: dict[str, int]
+) -> None:
+    result = chemistry_service.balance_equation(equation)
+    assert result.balanced is True, result.error
+    assert result.reactants == reactants
+    assert result.products == products
+
+
+@pytest.mark.parametrize(
+    "equation",
+    [
+        "H2 + O2 + N2 -> H2O",
+        "Fe + Cl2 -> FeCl3 + NaCl",
+        "H2 + O2 -> H2O2 + H2O",
+    ],
+)
+def test_balance_equation_impossible_or_underdetermined(equation: str) -> None:
+    result = chemistry_service.balance_equation(equation)
+    assert result.balanced is False
+    assert result.error is not None
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +267,45 @@ def test_molar_mass_glucose() -> None:
 def test_molar_mass_invalid() -> None:
     with pytest.raises(ValueError):
         chemistry_service.molar_mass("not_a_formula")
+
+
+@pytest.mark.parametrize(
+    "formula,expected",
+    [
+        ("CO", 28.01),
+        ("NO", 30.01),
+        ("C", 12.011),
+        ("N", 14.007),
+        ("O", 15.999),
+        ("S", 32.06),
+        ("P", 30.974),
+        ("H2O", 18.02),
+        ("CO2", 44.01),
+        ("CH4", 16.04),
+        ("NH3", 17.03),
+        ("NaCl", 58.44),
+    ],
+)
+def test_molar_mass_formulas_are_not_hydrides(formula: str, expected: float) -> None:
+    assert chemistry_service.molar_mass(formula) == pytest.approx(expected, abs=0.05)
+
+
+def test_molar_mass_hydrate() -> None:
+    mass = chemistry_service.molar_mass("CuSO4.5H2O")
+    assert mass == pytest.approx(249.68, abs=0.2)
+
+
+def test_parse_formula_hydrate_atoms() -> None:
+    from app.services.chemistry.equations import _parse_formula_atoms
+
+    assert _parse_formula_atoms("CuSO4.5H2O") == {"Cu": 1, "S": 1, "O": 9, "H": 10}
+    assert _parse_formula_atoms("KAl(SO4)2.12H2O") == {
+        "K": 1,
+        "Al": 1,
+        "S": 2,
+        "O": 20,
+        "H": 24,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +467,18 @@ def test_get_element_info_carbon() -> None:
 def test_get_element_info_unknown() -> None:
     info = chemistry_service.get_element_info("Xx")
     assert info is None
+
+
+def test_get_element_info_helium_has_no_zero_electronegativity() -> None:
+    info = chemistry_service.get_element_info("He")
+    assert info is not None
+    assert "electronegativity" not in info
+
+
+def test_get_element_info_covers_extended_symbols() -> None:
+    assert chemistry_service.get_element_info("Ba") is not None
+    assert chemistry_service.get_element_info("Hg") is not None
+    assert chemistry_service.get_element_info("U") is not None
 
 
 # ---------------------------------------------------------------------------
