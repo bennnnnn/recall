@@ -191,7 +191,6 @@
   "chat.math_scan_read_as": "Lo leí como",
   "chat.math_scan_read_failed": "No pude leerlo. Revisa la foto o vuelve a tomarla.",
   "chat.math_scan_reading": "Leyendo el problema…",
-  "chat.math_scan_reset_a11y": "Restablecer marco de escaneo",
   "chat.math_scan_retake": "Volver a tomar",
   "chat.math_scan_solve": "Resolver",
   "chat.math_scan_torch_off_a11y": "Encender linterna",

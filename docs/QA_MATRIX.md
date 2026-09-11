@@ -135,8 +135,8 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 10.1 | Image generation (Pro) — composer send → inline image | ☐ | ☐ | No prompt sheet; sends immediately. Daily cap enforced (free blocked) |
 | 10.2 | Image gen intent detected from plain prompt (no attach-menu row) | ☐ | ☐ | Intent → `/images/generate`; no second modal |
 | 10.3 | Web search — source chips under reply, open source URL | ☐ | ☐ | `WEB_SEARCH_ENABLED=true`; MCP tool path wraps hits + chips; one Tavily reservation per turn; Redis reserve fail → DuckDuckGo (uncapped); no Tavily key → DDG |
-| 10.4 | Math scanner — open, torch, pinch-zoom, tap-focus, photos, corner-resize, pan | ☐ | ☐ | Dev build (camera). Close + cancel + reset (after move) work. No front camera. |
-| 10.5 | Math scanner — capture → “I read this as” → Edit → Solve | ☐ | ☐ | OCR starts on preview; Solve sends; Retake works. Confirmed equation is what gets solved. |
+| 10.4 | Math scanner — open, torch, pinch-zoom, tap-focus, photos, corner-resize, pan | ☐ | ☐ | Dev build (camera). Close + cancel work. Tap inside the crop to focus. No front camera. |
+| 10.5 | Math scanner — capture → adjust crop → Solve | ☐ | ☐ | Crop overlay stays on the captured photo; Solve sends the cropped image (no “Reading the problem” OCR). Retake works. |
 
 ---
 

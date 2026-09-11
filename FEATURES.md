@@ -757,7 +757,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → crop + torch / pinch-zoom / photos → OCR preview (“I read this as”) → **Solve**. Mathpix transcribes when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); Gemini vision interprets word problems / low-confidence reads; SymPy verifies. Confirmed readings are not re-OCR’d on send. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`).
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** sends the cropped image to chat (no pre-send OCR). Mathpix/Gemini still run on the chat turn when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`).
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).

@@ -191,7 +191,6 @@
   "chat.math_scan_read_as": "Я прочитал это как",
   "chat.math_scan_read_failed": "Не удалось прочитать. Проверьте фото или снимите снова.",
   "chat.math_scan_reading": "Читаю задачу…",
-  "chat.math_scan_reset_a11y": "Сбросить рамку сканирования",
   "chat.math_scan_retake": "Снять снова",
   "chat.math_scan_solve": "Решить",
   "chat.math_scan_torch_off_a11y": "Включить фонарик",

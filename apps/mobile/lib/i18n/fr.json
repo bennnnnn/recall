@@ -191,7 +191,6 @@
   "chat.math_scan_read_as": "Je lis ceci comme",
   "chat.math_scan_read_failed": "Lecture impossible. Vérifiez la photo ou reprenez-la.",
   "chat.math_scan_reading": "Lecture du problème…",
-  "chat.math_scan_reset_a11y": "Réinitialiser le cadre de scan",
   "chat.math_scan_retake": "Reprendre",
   "chat.math_scan_solve": "Résoudre",
   "chat.math_scan_torch_off_a11y": "Allumer la lampe",

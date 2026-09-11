@@ -1,7 +1,9 @@
 import {
+  FOCUS_SQUARE_SIZE,
   MAX_REGION_RATIO,
   MIN_REGION_RATIO,
   clampCameraZoom,
+  clampFocusInRegion,
   clampScanRegion,
   defaultScanRegion,
   regionIsDefault,
@@ -132,6 +134,27 @@ describe("clampCameraZoom / zoomFromPinch", () => {
     expect(zoomFromPinch(0, 1.4)).toBeCloseTo(0.2, 5);
     expect(zoomFromPinch(0.8, 0.2)).toBe(0.4);
     expect(zoomFromPinch(0.9, 3)).toBe(1);
+  });
+});
+
+describe("clampFocusInRegion", () => {
+  it("keeps the focus-square center inside the crop", () => {
+    const next = clampFocusInRegion(10, 12, 300, 160);
+    expect(next).toEqual({ x: FOCUS_SQUARE_SIZE / 2, y: FOCUS_SQUARE_SIZE / 2, size: FOCUS_SQUARE_SIZE });
+  });
+
+  it("ignores taps outside the crop", () => {
+    expect(clampFocusInRegion(-1, 10, 300, 160)).toBeNull();
+    expect(clampFocusInRegion(10, 400, 300, 160)).toBeNull();
+  });
+
+  it("shrinks the square when the crop is narrower than the default", () => {
+    const next = clampFocusInRegion(20, 20, 40, 200);
+    expect(next).not.toBeNull();
+    expect(next?.size).toBe(40);
+    expect(next?.x).toBe(20);
+    expect((next?.x ?? 0) - (next?.size ?? 0) / 2).toBeGreaterThanOrEqual(0);
+    expect((next?.x ?? 0) + (next?.size ?? 0) / 2).toBeLessThanOrEqual(40);
   });
 });
 
