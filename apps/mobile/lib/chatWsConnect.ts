@@ -1,10 +1,13 @@
 /**
  * Max wait for the WebSocket handshake before latching SSE.
- * Enterprise proxies that drop WS packets without a TCP reset used to
- * burn 8s before the first token. 1.5s still prefers WS on a healthy
- * path; a handshake that would have opened at 3s now uses SSE.
+ * A healthy socket should open well inside this budget; a proxy/network path
+ * that silently drops WS must not add a multi-second penalty before SSE.
  */
-export const WS_CONNECT_TIMEOUT_MS = 1_500;
+export const WS_CONNECT_TIMEOUT_MS = 900;
 
-/** Debounce eager connect so flicking the chat list does not open+auth+close per row. */
-export const EAGER_CONNECT_DEBOUNCE_MS = 300;
+/**
+ * Start the eager socket almost immediately after a chat becomes active so
+ * navigation/typing time hides the handshake, while keeping a small debounce
+ * to avoid opening a socket for every row during a fast list fling.
+ */
+export const EAGER_CONNECT_DEBOUNCE_MS = 100;
