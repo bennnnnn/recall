@@ -210,14 +210,6 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             if slot is not None:
                 self._free_queue().put_nowait(slot)
 
-    def _schedule_warm(self) -> None:
-        """Import SymPy in a fresh worker so the next request is not cold."""
-        try:
-            pool = self._ensure_pool()
-            pool.submit(_sympy_worker, _warmup_import_sympy)
-        except Exception:
-            logger.debug("sympy re-warm submit failed", exc_info=True)
-
     def shutdown(self) -> None:
         self._kill_all_slots()
 

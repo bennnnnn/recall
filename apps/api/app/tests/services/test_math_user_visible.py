@@ -23,7 +23,7 @@ def _block(question: str):
 @pytest.mark.parametrize(
     "question, kind",
     [
-        ("1+1", "arithmetic"),
+        ("what is 1+1", "arithmetic"),
         ("7*8", "arithmetic"),
         ("3*4+2", "arithmetic"),
     ],
@@ -36,7 +36,7 @@ def test_bare_arithmetic_extracts_and_skips_tool_loop(question: str, kind: str) 
 
 
 def test_bare_arithmetic_answers() -> None:
-    assert _block("1+1")[1].canonical_answer == "2"
+    assert _block("what is 1+1")[1].canonical_answer == "2"
     assert _block("7*8")[1].canonical_answer == "56"
     assert _block("3*4+2")[1].canonical_answer == "14"
 

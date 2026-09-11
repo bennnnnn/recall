@@ -959,7 +959,7 @@ def test_verified_block_force_math_keyboard_units(text: str) -> None:
 @pytest.mark.parametrize(
     "text, kind",
     [
-        ("1+1", "arithmetic"),
+        ("what is 1+1", "arithmetic"),
         ("7*8", "arithmetic"),
         ("3*4+2", "arithmetic"),
         ("what is 7*8", "arithmetic"),

@@ -245,7 +245,9 @@ def convert_unit(value: float, src: str, dest: str) -> str:
             try:
                 result = quantity.to(dest_cand)
                 mag = float(result.magnitude)
-                if abs(mag) < 1e-9:
+                # Offset units (32 F → C) land at 0 ± 1e-14. Do not snap
+                # microscopic energy conversions (eV → J) to zero.
+                if abs(mag) < 1e-9 and quantity.check("[temperature]"):
                     mag = 0.0
                 return f"{mag:.10g}"
             except Exception as exc:

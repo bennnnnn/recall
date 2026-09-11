@@ -260,8 +260,6 @@ def looks_like_bare_arithmetic(text: str) -> bool:
 def school_homework_cue(cleaned: str) -> bool:
     """Bare arithmetic / percent / coord / vectors / convert / binomial / ODE."""
     lower = cleaned.lower()
-    if looks_like_bare_arithmetic(cleaned):
-        return True
     if "% of " in lower and any(ch.isdigit() for ch in cleaned):
         return True
     if "convert" in lower and " to " in lower and any(ch.isdigit() for ch in cleaned):
