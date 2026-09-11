@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Icon } from "@/components/Icon";
+import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { type IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -214,6 +215,7 @@ export function SettingsInlinePicker({
   styles: SettingsStyles;
   theme: Theme;
 }) {
+  // Popup only — never render options under this row (see chat-ux-bans §13).
   return (
     <View>
       <Pressable
@@ -228,49 +230,20 @@ export function SettingsInlinePicker({
           title={title}
           subtitle={subtitle}
           value={value}
-          chevron={expanded ? "up" : "down"}
+          chevron="down"
           busy={busy}
           styles={styles}
           theme={theme}
         />
       </Pressable>
-      {expanded ? (
-        <View style={styles.inlineOptionWell}>
-          {options.map((option) => {
-            const active = option.key === selectedKey;
-            return (
-              <Pressable
-                key={option.key}
-                style={({ pressed }) => [
-                  styles.inlineOption,
-                  active && styles.inlineOptionActive,
-                  pressed && styles.rowPressed,
-                ]}
-                disabled={disabled}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={option.label}
-                onPress={() => {
-                  if (!active) onSelect(option.key);
-                  onToggle();
-                }}
-              >
-                <Text
-                  style={[
-                    styles.inlineOptionText,
-                    active && styles.inlineOptionTextActive,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-                {active ? (
-                  <Icon name="checkmark" size={18} color={theme.primary} />
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
+      <SettingsPickerSheet
+        visible={expanded}
+        options={options}
+        selectedKey={selectedKey}
+        disabled={disabled}
+        onClose={onToggle}
+        onSelect={onSelect}
+      />
     </View>
   );
 }
@@ -518,33 +491,6 @@ export function makeSettingsStyles(t: Theme) {
       textTransform: "uppercase",
       letterSpacing: 0.6,
       marginBottom: Space.xs,
-    },
-    inlineOptionWell: {
-      marginHorizontal: 14,
-      marginBottom: Space.sm,
-      backgroundColor: t.bg,
-      borderRadius: Radius.md,
-      overflow: "hidden",
-    },
-    inlineOption: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: Space.sm,
-      minHeight: 44,
-      paddingVertical: 10,
-      paddingHorizontal: Space.sm,
-    },
-    inlineOptionActive: { backgroundColor: t.primaryLight },
-    inlineOptionText: {
-      flex: 1,
-      ...Type.secondary,
-      fontWeight: "500",
-      color: t.text,
-    },
-    inlineOptionTextActive: {
-      fontWeight: "600",
-      color: t.primary,
     },
     pickerOption: {
       flexDirection: "row",

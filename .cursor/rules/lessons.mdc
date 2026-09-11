@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Settings tone/style still expanded in the gray card.** The ChatGPT-style
+  popup was committed on `feat/memory-v2-atomic` and never merged; FEATURES
+  still said “expand inline”, so later work kept `SettingsInlinePicker` as an
+  accordion. `SettingsPickerSheet` on main; do not expand in the card.
 - **Leftover SSE reported the next chat's TTFT.** Leave must not abort SSE, and
   `parseChatWsPayload` used to record first token before the active-view filter.
   Key the sample by optimistic turn id; mark transport/token only for that id
