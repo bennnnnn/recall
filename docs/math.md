@@ -60,12 +60,12 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 
 | Band | Covered as verified | How |
 |------|---------------------|-----|
-| Arithmetic (1–6) | Only if it parses as an **equation** (`1/2+1/3 = x`) or **simplify/factor** | `_extract_equation_intent`, calculus `simplify`. Bare “what is 7×8” often never hits SymPy. |
+| Arithmetic (1–6) | Bare digits+ops when `bare_arithmetic_expr` agrees (`7*8`, `8-8*2`, cued `what is 9/9`). A lone `-`/`/` (`9/9`, `10-3`, phone/date) is not verified unless a cue word is present. | `arithmetic` |
 | Pre-algebra | Fractions/exponents in equations; gcd/lcm/primes/mod | `equation`, `number_theory` |
 | Algebra I–II | One equation, systems (≤4), inequalities + shaded region | `equation`, `system`, `inequality` + `number_line` graph |
 | Geometry (2D) | Rectangle, square, triangle (base/height), right triangle, SSS, trap, para, circle, sector | geometry fences |
 | Geometry (3D) | Cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area). Numbers only — no 3D SVG fence. | `solid` |
-| Arithmetic / percent / ratio | Bare `7*8`, `15% of 80`, simplify `6:8` | `arithmetic` |
+| Arithmetic / percent / ratio | Bare `7*8` / `8-8*2`; `15% of 80`; simplify `6:8` | `arithmetic` |
 | Trig (evaluate) | `sin(30°)` etc. Equations like `sin(x)=1/2` stay `equation`. Identities stay LLM. AAA triangles use law of sines (relative units). | `trig`, `triangle_sides` |
 | Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
 | Vectors | Magnitude, dot, cross | `vector` |

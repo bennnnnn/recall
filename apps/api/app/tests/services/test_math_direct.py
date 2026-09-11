@@ -90,3 +90,16 @@ async def test_explain_keeps_llm_path(thread_sympy_executor: None) -> None:
     _block, verified = await build_math_augmentation(content, settings)
     assert verified is not None
     assert maybe_direct_math_reply(verified, content) is None
+
+
+@pytest.mark.asyncio
+async def test_bare_arithmetic_returns_direct_reply(thread_sympy_executor: None) -> None:
+    """``8-8*2`` must verify (not stamp Couldn't verify) and skip the LLM."""
+    settings = Settings(math_tools_enabled=True)
+    note, verified = await build_math_augmentation("8-8*2", settings)
+    assert verified is not None
+    assert note is not None
+    assert "could not produce a verified result" not in note.lower()
+    reply = maybe_direct_math_reply(verified, "8-8*2")
+    assert reply is not None
+    assert "-8" in reply.replace(" ", "")
