@@ -564,6 +564,8 @@ def _strip_math_delims_and_fix_superscripts(raw: str) -> str:
 def _extract_graph_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
+    if mtm.calc_op(cleaned) in {"derivative", "differentiate"}:
+        return None
     g_expr = mtm.graph_expr(cleaned)
     if g_expr is None:
         return None

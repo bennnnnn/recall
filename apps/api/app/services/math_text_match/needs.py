@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from app.services.math_text_match.calculus import calc_op, parse_limit, parse_series
+from app.services.math_text_match.calculus import (
+    calc_op,
+    parse_limit,
+    parse_series,
+    y_prime_math_cue,
+)
 from app.services.math_text_match.discrete import (
     combinatorics_signal,
     matrix_signal,
@@ -32,6 +37,7 @@ from app.services.math_text_match.scan import (
     number_after,
     prepare,
     two_numbers_after,
+    word_index,
 )
 
 _SUPPORTED_PHYSICS_CUES = (
@@ -191,7 +197,11 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if parse_series(cleaned) is not None:
         return True
-    if "newton" in lower or "numerically" in lower or "root of" in lower:
+    if any(ch.isdigit() for ch in cleaned) and (
+        word_index(lower, "newton") != -1
+        or word_index(lower, "numerically") != -1
+        or word_index(lower, "root of") != -1
+    ):
         return True
     if "solve" in lower and has_equation(cleaned):
         return True
@@ -237,26 +247,6 @@ def supported_physics_cue(cleaned: str) -> bool:
     return any(cue in lower for cue in _SUPPORTED_PHYSICS_CUES)
 
 
-def looks_like_bare_arithmetic(text: str) -> bool:
-    """Digits plus + - * / ^ and unicode times/divide. Rejects date-like ``9/7/2026``."""
-    times, divide = "\u00d7", "\u00f7"
-    s = text.strip()
-    if not s or any(ch.isalpha() for ch in s):
-        return False
-    if not any(ch.isdigit() for ch in s):
-        return False
-    if "," in s:
-        return False
-    other_ops = ("+", "*", "^", times, divide)
-    if s.count("/") >= 2 and not any(op in s for op in other_ops):
-        return False
-    allowed = set("0123456789.+-*/^() \t") | {times, divide}
-    if any(ch not in allowed for ch in s):
-        return False
-    body = s[1:] if s.startswith("-") else s
-    return any(op in body for op in ("+", "-", "*", "/", "^", times, divide))
-
-
 def school_homework_cue(cleaned: str) -> bool:
     """Bare arithmetic / percent / coord / vectors / convert / binomial / ODE."""
     lower = cleaned.lower()
@@ -274,7 +264,7 @@ def school_homework_cue(cleaned: str) -> bool:
         return True
     if "partial of " in lower or "partial derivative" in lower or " wrt" in lower:
         return True
-    if "dy/dx" in lower or "day/dx" in lower or "y'" in cleaned:
+    if "dy/dx" in lower or "day/dx" in lower or y_prime_math_cue(cleaned):
         return True
     if "modulus" in lower or "imaginary" in lower or "complex number" in lower:
         return True

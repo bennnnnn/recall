@@ -60,6 +60,8 @@ class TestNeedsSymbolic:
             "8-8*2",
             "7*8",
             "what is 9/9",
+            "y'' of y = x^3 - 3x",
+            "f(x) = x^3 - 3x, find f''(x)",
         ],
     )
     def test_needs_symbolic_math_triggers(self, text):
@@ -98,6 +100,10 @@ class TestNeedsSymbolic:
             "9/9",
             "10-3",
             "555-1234",
+            "9/7/2026",
+            "1-800-273-8255",
+            "y'all coming to class",
+            "Who was Newton",
         ],
     )
     def test_needs_symbolic_math_does_not_trigger(self, text):
@@ -667,6 +673,8 @@ class TestBareArithmetic:
             "8 by 5",
             "hello",
             "what is a trapezoid",
+            "9/7/2026",
+            "1-800-273-8255",
         ],
     )
     def test_rejects(self, text: str) -> None:
@@ -677,3 +685,21 @@ class TestBareArithmetic:
         assert mtm.first_dim_pair("8-8*2") == (8.0, 2.0, "cm")
         assert mtm.geometry_dim_context("8-8*2") is False
         assert mtm.geometry_dim_context("a rectangle is 8×5 cm") is True
+
+
+class TestLagrangePrimes:
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "y'' of y = x^3 - 3x",
+            "f(x) = x^3 - 3x, find f''(x)",
+        ],
+    )
+    def test_calc_op_is_derivative(self, text: str) -> None:
+        assert mtm.calc_op(text) == "derivative"
+
+    def test_ode_assignment_is_not_a_derivative_op(self) -> None:
+        assert mtm.calc_op("y' = 2x") is None
+
+    def test_yall_is_not_a_derivative_op(self) -> None:
+        assert mtm.calc_op("y'all coming to class") is None

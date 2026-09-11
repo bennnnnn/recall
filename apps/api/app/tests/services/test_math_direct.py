@@ -103,3 +103,11 @@ async def test_bare_arithmetic_returns_direct_reply(thread_sympy_executor: None)
     reply = maybe_direct_math_reply(verified, "8-8*2")
     assert reply is not None
     assert "-8" in reply.replace(" ", "")
+
+
+@pytest.mark.asyncio
+async def test_date_does_not_skip_the_llm(thread_sympy_executor: None) -> None:
+    settings = Settings(math_tools_enabled=True)
+    _note, verified = await build_math_augmentation("9/7/2026", settings)
+    assert verified is None
+    assert maybe_direct_math_reply(verified, "9/7/2026") is None

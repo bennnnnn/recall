@@ -486,6 +486,14 @@ def _to_ascii_arith(expr: str) -> str:
     return out
 
 
+def _binary_ops_only_minus_or_slash(compact: str) -> bool:
+    """True when every binary operator is ``-`` or ``/`` (dates, phone numbers)."""
+    for ch in compact:
+        if ch in "+*^":
+            return False
+    return True
+
+
 def _count_binary_arith_ops(compact: str) -> int:
     """Binary ``+ - * / ^`` in an ASCII expression. Leading/unary ``-`` is not an op."""
     ops = 0
@@ -551,6 +559,10 @@ def bare_arithmetic_expr(text: str) -> str | None:
         return None
     unambiguous = any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)
     if not (unambiguous or ops >= 2 or had_cue):
+        return None
+    # Dates / phones: every binary op is ``-`` or ``/`` and there is no
+    # times/power cue. Keep ``8-8*2``, ``1+2+3``, and cued ``what is 9/9``.
+    if not had_cue and not unambiguous and _binary_ops_only_minus_or_slash(compact):
         return None
     return collapse_ws(_to_ascii_arith(stripped))
 

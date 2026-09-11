@@ -7,12 +7,108 @@ from dataclasses import dataclass
 from app.services.math_text_match.scan import _CALC_OP, _parse_unsigned_number, ddx_cue_at
 
 
+def _skip_optional_paren_var(text: str, start: int) -> int:
+    """Advance past an optional ``(x)`` / ``(t)`` after Lagrange primes."""
+    n = len(text)
+    k = start
+    if k >= n or text[k] != "(":
+        return start
+    k += 1
+    while k < n and text[k].isspace():
+        k += 1
+    if k >= n or not text[k].isalpha():
+        return start
+    k += 1
+    while k < n and text[k].isspace():
+        k += 1
+    if k >= n or text[k] != ")":
+        return start
+    return k + 1
+
+
+def _lagrange_prime_run(text: str, prime_at: int) -> tuple[int, int] | None:
+    """Return ``(after_primes, order)`` when ``'`` at ``prime_at`` is a math prime.
+
+    Rejects contractions (``y'all``) and primes not attached to a letter or ``)``.
+    """
+    if prime_at <= 0:
+        return None
+    prev = text[prime_at - 1]
+    if not (prev.isalpha() or prev == ")"):
+        return None
+    n = len(text)
+    j = prime_at
+    while j < n and text[j] == "'":
+        j += 1
+    if j < n and text[j].isalpha():
+        return None
+    return j, min(j - prime_at, 3)
+
+
+def lagrange_prime_order(text: str) -> int:
+    """Highest Lagrange prime count (``''`` → 2, ``'''`` → 3). 0 if none."""
+    best = 0
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] != "'":
+            i += 1
+            continue
+        run = _lagrange_prime_run(text, i)
+        if run is None:
+            i += 1
+            continue
+        after, order = run
+        if order > best:
+            best = order
+        i = after
+    return best
+
+
+def _lagrange_derivative_cue(text: str) -> bool:
+    """True for ``y'`` / ``f''(x)`` that are not an ODE assignment (not followed by ``=``)."""
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] != "'":
+            i += 1
+            continue
+        run = _lagrange_prime_run(text, i)
+        if run is None:
+            i += 1
+            continue
+        after, _order = run
+        k = _skip_optional_paren_var(text, after)
+        while k < n and text[k].isspace():
+            k += 1
+        if k < n and text[k] == "=":
+            i = after
+            continue
+        return True
+    return False
+
+
+def y_prime_math_cue(text: str) -> bool:
+    """``y'`` / ``y''`` as calculus or ODE, not the contraction ``y'all``."""
+    start = 0
+    while True:
+        idx = text.find("y'", start)
+        if idx == -1:
+            return False
+        run = _lagrange_prime_run(text, idx + 1)
+        if run is not None:
+            return True
+        start = idx + 2
+
+
 def calc_op(text: str) -> str | None:
     m = _CALC_OP.search(text)
     if m:
         return m.group(1).lower()
     if ddx_cue_at(text) is not None:
         return "differentiate"
+    if _lagrange_derivative_cue(text):
+        return "derivative"
     return None
 
 

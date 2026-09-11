@@ -2,24 +2,11 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import Any
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
 VERIFIED_MATH_END = "[END VERIFIED MATH]"
-
-# Stable system-hint copy — not mixed into the per-turn data block.
-SOLVER_OWNED_FENCES_NOTE = "Do NOT emit ```answer, ```graph, or ```geometry fences."
-
-DIAGRAM_OWNED_NOTE = (
-    "Do not mention attaching, fences, JSON, or the app. "
-    "Do NOT emit ```geometry or ```graph. One short sentence about the figure, "
-    "using $...$ where helpful. Do not ask which domain or format. Do not offer "
-    "Python, Colab, or plotting code. Do not say you cannot plot. "
-    "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
-    "diagram for a function plot."
-)
 
 
 @dataclass(frozen=True)
@@ -39,10 +26,6 @@ class VerifiedMathBlock:
     canonical_fence: dict[str, Any] | None = None
     canonical_answer: str | None = None
     canonical_fences: list[dict[str, Any]] = field(default_factory=list)
-
-
-def _fence(kind: str, spec: Any) -> str:
-    return f"```{kind}\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
 
 
 def _answer_canonical(content: str) -> dict[str, str]:

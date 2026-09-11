@@ -110,8 +110,8 @@ COPY_DELIVERABLE_HINT = (
     "Never use ```copy or ```text for explanations, notes, advice, comparisons, "
     "articles, paragraphs, essays, or math/numeric final answers — those belong in "
     "plain markdown with `$...$` "
-    "(pipe tables for X vs Y; bullets otherwise). Recall attaches verified math "
-    "answers; do not emit ```answer / ```graph / ```geometry. "
+    "(pipe tables for X vs Y; bullets otherwise). Do not emit ```answer / "
+    "```graph / ```geometry. "
     "For emails include To:/Subject: lines when known; omit To if unknown rather than "
     "guessing an address."
 )

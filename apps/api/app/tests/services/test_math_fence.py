@@ -360,14 +360,29 @@ def test_rewrites_answer_fence_from_canonical() -> None:
     assert "x = 99" not in out
 
 
-def test_result_fence_is_not_rewritten_as_math_answer() -> None:
-    content = "```result\nAll 12 tests passed\n```"
+@pytest.mark.parametrize("lang", ["result", "final"])
+def test_result_and_final_fences_rewrite_like_answer(lang: str) -> None:
+    content = f"Worked steps…\n```{lang}\nx = 99\n```"
     out = validate_math_fences(
         content,
-        verified=_verified({"type": "answer", "content": "x = 4"}),
+        verified=_verified({"type": "answer", "content": "x = \\pm 2"}),
     )
-    assert "All 12 tests passed" in out
-    assert "```result" in out
+    assert "```answer\nx = \\pm 2\n```" in out
+    assert "x = 99" not in out
+    assert f"```{lang}" not in out
+
+
+def test_unverified_answer_fence_demotes_to_prose_not_a_pill() -> None:
+    content = (
+        "The area is 12.\n"
+        "```answer\n12\n```\n"
+        '```geometry\n{"type":"rectangle","width":8,"height":5}\n```'
+    )
+    out = validate_math_fences(content, verified=None)
+    assert "```answer" not in out
+    assert "12" in out
+    assert "Could not render that diagram" in out
+    assert "```geometry" not in out
 
 
 def test_unclosed_graph_does_not_swallow_following_python_fence() -> None:
@@ -382,13 +397,14 @@ def test_unclosed_graph_does_not_swallow_following_python_fence() -> None:
 
 
 def test_leaves_answer_fence_when_canonical_is_geometry() -> None:
-    """Wrong-kind canonical must not clobber an ```answer body; geometry is appended."""
+    """Wrong-kind canonical must not keep an unverified answer pill; geometry is appended."""
     content = "```answer\nx = 2\n```"
     out = validate_math_fences(
         content,
         verified=_verified({"type": "rectangle", "width": 8, "height": 5}),
     )
-    assert "```answer\nx = 2\n```" in out
+    assert "```answer" not in out
+    assert "x = 2" in out
     assert "```geometry" in out
     assert '"type":"rectangle"' in out.replace(" ", "")
 
@@ -641,6 +657,22 @@ def test_strips_model_chart_when_verified_graph_exists() -> None:
     assert "```chart" not in out
     assert "```graph" in out
     assert json.loads(out.split("```graph")[1].split("```")[0].strip())["expr"] == "x**2"
+
+
+@pytest.mark.parametrize("lang", ["vega", "vega-lite", "plot"])
+def test_strips_chart_aliases_when_verified_graph_exists(lang: str) -> None:
+    spec = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -2,
+        "x_max": 2,
+        "points": [[-2, 4], [0, 0], [2, 4]],
+    }
+    content = f'Here is the parabola.\n```{lang}\n{{"mark":"line"}}\n```\n'
+    out = validate_math_fences(content, verified=_verified(spec))
+    assert f"```{lang}" not in out
+    assert "```graph" in out
 
 
 def test_strips_sample_point_table_when_verified_graph_exists() -> None:

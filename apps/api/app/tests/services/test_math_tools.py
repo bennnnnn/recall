@@ -1111,12 +1111,11 @@ def test_garbled_graph_ask_does_not_become_equation() -> None:
 
 def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
     from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
-    from app.services.math_tools.block.common import DIAGRAM_OWNED_NOTE
     from app.services.math_tools.prompt import _unverified_math_note
 
-    assert GRAPH_NO_SUBSTITUTE_CLAUSE in _unverified_math_note("graph")
-    assert GRAPH_NO_SUBSTITUTE_CLAUSE in DIAGRAM_OWNED_NOTE
-    assert "Do not offer Python" in DIAGRAM_OWNED_NOTE
+    note = _unverified_math_note("graph")
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in note
+    assert "Do NOT emit ```answer, ```geometry, or ```graph" in note
 
 
 def test_verified_block_graph_duplicated_graph_y_prefix() -> None:
