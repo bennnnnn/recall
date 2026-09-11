@@ -26,15 +26,56 @@ def _skip_optional_paren_var(text: str, start: int) -> int:
     return k + 1
 
 
+# Multi-letter names that can carry Lagrange primes (``sin'``, ``ln'``).
+# One-letter variables (``y'``, ``f''``) are accepted separately. Long English
+# words (``teachers' lounge``) must not look like a derivative.
+_MATH_PRIME_NAMES = frozenset(
+    {
+        "sin",
+        "cos",
+        "tan",
+        "cot",
+        "sec",
+        "csc",
+        "log",
+        "ln",
+        "lg",
+        "exp",
+        "sinh",
+        "cosh",
+        "tanh",
+    }
+)
+_MAX_PRIME_BASE = 8
+
+
+def _math_prime_base(text: str, prime_at: int) -> bool:
+    """True when the token before ``'`` is a variable or function, not English."""
+    prev = text[prime_at - 1]
+    if prev == ")":
+        return True
+    if not prev.isalpha():
+        return False
+    start = prime_at - 1
+    while start > 0 and text[start - 1].isalpha():
+        start -= 1
+        if prime_at - start > _MAX_PRIME_BASE:
+            return False
+    base = text[start:prime_at]
+    if len(base) == 1:
+        return True
+    return base.lower() in _MATH_PRIME_NAMES
+
+
 def _lagrange_prime_run(text: str, prime_at: int) -> tuple[int, int] | None:
     """Return ``(after_primes, order)`` when ``'`` at ``prime_at`` is a math prime.
 
-    Rejects contractions (``y'all``) and primes not attached to a letter or ``)``.
+    Rejects contractions (``y'all``), plural possessives (``teachers'``), and
+    primes not attached to a letter or ``)``.
     """
     if prime_at <= 0:
         return None
-    prev = text[prime_at - 1]
-    if not (prev.isalpha() or prev == ")"):
+    if not _math_prime_base(text, prime_at):
         return None
     n = len(text)
     j = prime_at

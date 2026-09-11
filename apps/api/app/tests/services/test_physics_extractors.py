@@ -79,7 +79,15 @@ def test_kinematics_thrown_upward() -> None:
     assert intent.physics_params["v0"] == 15.0
 
 
-def test_kinematics_free_fall_velocity_after() -> None:
+def test_kinematics_free_fall_distance_without_from_keyword() -> None:
+    """``free fall 20 m`` has no from/height keyword; still a drop height."""
+    intent = _extract_kinematics_intent("How long does an object free fall 20 m?")
+    assert intent is not None
+    assert intent.kind == "kinematics"
+    assert intent.physics_op == "time_to_ground"
+    assert intent.physics_params is not None
+    assert intent.physics_params["h0"] == 20.0
+    assert intent.physics_params["v0"] == 0.0
     intent = _extract_kinematics_intent(
         "An object falls from 100 m. What is its velocity after 3 seconds?"
     )

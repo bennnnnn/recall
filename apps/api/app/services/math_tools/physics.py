@@ -224,7 +224,6 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
         cleaned,
         _LENGTH_UNIT_PATTERN,
         ("from", "initial height", "height of", "high", "above", "cliff"),
-        require_keyword=True,
     )
     if hu is not None:
         h0, h0_unit = hu

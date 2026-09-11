@@ -60,6 +60,8 @@ class TestNeedsSymbolic:
             "8-8*2",
             "7*8",
             "what is 9/9",
+            "10-3-2",
+            "100/5/2",
             "y'' of y = x^3 - 3x",
             "f(x) = x^3 - 3x, find f''(x)",
         ],
@@ -103,6 +105,7 @@ class TestNeedsSymbolic:
             "9/7/2026",
             "1-800-273-8255",
             "y'all coming to class",
+            "Where is the teachers' lounge?",
             "Who was Newton",
         ],
     )
@@ -656,6 +659,8 @@ class TestBareArithmetic:
             ("what is 9/9", "9/9"),
             ("what is 10-3", "10-3"),
             ("calculate 1+1", "1+1"),
+            ("10-3-2", "10-3-2"),
+            ("100/5/2", "100/5/2"),
         ],
     )
     def test_accepts(self, text: str, expected: str) -> None:
@@ -703,3 +708,10 @@ class TestLagrangePrimes:
 
     def test_yall_is_not_a_derivative_op(self) -> None:
         assert mtm.calc_op("y'all coming to class") is None
+
+    def test_plural_possessive_is_not_a_derivative_op(self) -> None:
+        assert mtm.calc_op("Where is the teachers' lounge?") is None
+        assert mtm.calc_op("the students' essays") is None
+
+    def test_function_name_prime_is_still_a_derivative(self) -> None:
+        assert mtm.calc_op("sin'(x)") == "derivative"

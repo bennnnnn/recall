@@ -38,6 +38,8 @@ def test_bare_arithmetic_extracts_and_skips_tool_loop(question: str, kind: str) 
 def test_bare_arithmetic_answers() -> None:
     assert _block("what is 1+1")[1].canonical_answer == "2"
     assert _block("7*8")[1].canonical_answer == "56"
+    assert _block("10-3-2")[1].canonical_answer == "5"
+    assert _block("100/5/2")[1].canonical_answer == "10"
     assert _block("3*4+2")[1].canonical_answer == "14"
 
 
@@ -193,7 +195,15 @@ def test_y_prime_ode_is_not_stolen_as_derivative() -> None:
 
 
 def test_dates_and_phones_are_not_verified_arithmetic() -> None:
-    for text in ("9/7/2026", "1-800-273-8255"):
+    for text in ("9/7/2026", "1-800-273-8255", "800-273-8255"):
         assert math_text_match.bare_arithmetic_expr(text) is None
         assert math_text_match.needs_symbolic(text) is False
         assert extract_math_intent(text) is None
+
+
+def test_chained_minus_and_slash_still_verify() -> None:
+    for text in ("10-3-2", "100/5/2"):
+        assert math_text_match.bare_arithmetic_expr(text) == text
+        intent = extract_math_intent(text)
+        assert intent is not None
+        assert intent.kind == "arithmetic"
