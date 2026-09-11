@@ -22,7 +22,6 @@ from app.routers import (
     integrations,
     legal,
     link_preview,
-    math_scan,
     memories,
     models,
     projects,
@@ -101,7 +100,6 @@ def create_app() -> FastAPI:
     app.include_router(chat_stream.router)
     app.include_router(memories.router)
     app.include_router(models.router)
-    app.include_router(math_scan.router)
     app.include_router(todos.router)
     app.include_router(projects.router)
     app.include_router(search.router)

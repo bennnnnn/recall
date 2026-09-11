@@ -45,8 +45,10 @@ from app.services.math_text_match.scan import (
     _NUM as _NUM,
 )
 from app.services.math_text_match.scan import (
+    bare_arithmetic_expr,
     first_dim_pair,
     first_dim_triple,
+    geometry_dim_context,
     has_draw_shape,
     has_equation,
     has_math_keyword,
@@ -69,6 +71,7 @@ __all__ = [
     "NumberTheoryOp",
     "SolidShape",
     "StatsOp",
+    "bare_arithmetic_expr",
     "bare_coord",
     "calc_op",
     "classify_solid_shape",
@@ -76,6 +79,7 @@ __all__ = [
     "first_dim_pair",
     "first_dim_triple",
     "geometry_deferred_for_algebra",
+    "geometry_dim_context",
     "graph_domain",
     "graph_expr",
     "graph_expr_pair",

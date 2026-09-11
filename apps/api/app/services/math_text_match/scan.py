@@ -20,6 +20,48 @@ _CALC_OP = re.compile(
 _DIM_SEPS = ("\u00d7", "by", "x", "*")
 _DIM_UNITS = ("units", "unit", "cm", "mm", "ft", "in", "m")
 
+# Whole-message arithmetic cues. Longer phrases first so "what is" does not
+# leave "the value of" behind.
+_ARITH_CUES: tuple[str, ...] = (
+    "the value of",
+    "what is",
+    "what's",
+    "whats",
+    "calculate",
+    "compute",
+    "evaluate",
+    "please",
+)
+# OCR / keyboard glyphs → ASCII before SymPy. Keep ÷ unambiguous *before* this
+# map so a lone ASCII `/` can still look like a date.
+_ARITH_OP_ASCII: tuple[tuple[str, str], ...] = (
+    ("\u00d7", "*"),
+    ("\u22c5", "*"),
+    ("\u00b7", "*"),
+    ("\u2217", "*"),
+    ("\u00f7", "/"),
+    ("\u2215", "/"),
+    ("\u2044", "/"),
+    ("\u2212", "-"),
+    ("\u2013", "-"),
+    ("\u2014", "-"),
+)
+_UNAMBIGUOUS_ARITH = frozenset("*^" + "".join(src for src, dst in _ARITH_OP_ASCII if dst in "*/"))
+_ARITH_ALLOWED = frozenset("0123456789.+-*/^() " + "".join(src for src, _ in _ARITH_OP_ASCII))
+_GEOMETRY_DIM_WORDS = (
+    "rectangle",
+    "triangle",
+    "square",
+    "circle",
+    "trapezoid",
+    "trapezium",
+    "parallelogram",
+    "diagonal",
+    "sector",
+    "prism",
+    "cuboid",
+)
+
 # Multi-letter tokens SymPy already treats as one name. Any other 3+ letter
 # run is English or a command — never g*r*a*p*h, and never ``squared``/``plus``
 # slipping into letter-products.
@@ -414,6 +456,115 @@ def prepare(text: str) -> str | None:
     if len(cleaned) > _MAX:
         return None
     return collapse_repeated_si_unit_powers(fold_match_superscripts(cleaned))
+
+
+def _strip_arith_cues(lower: str) -> tuple[str, bool]:
+    """Remove whole-word compute cues. Linear ``word_index``, no regex."""
+    had = False
+    s = lower
+    changed = True
+    while changed:
+        changed = False
+        for cue in _ARITH_CUES:
+            idx = word_index(s, cue)
+            if idx == -1:
+                continue
+            s = s[:idx] + " " + s[idx + len(cue) :]
+            had = True
+            changed = True
+            break
+    s = s.strip()
+    while s and s[-1] in "?.!":
+        s = s[:-1].rstrip()
+    return collapse_ws(s), had
+
+
+def _to_ascii_arith(expr: str) -> str:
+    out = expr
+    for src, dst in _ARITH_OP_ASCII:
+        out = out.replace(src, dst)
+    return out
+
+
+def _count_binary_arith_ops(compact: str) -> int:
+    """Binary ``+ - * / ^`` in an ASCII expression. Leading/unary ``-`` is not an op."""
+    ops = 0
+    prev_was_op = True
+    for ch in compact:
+        if ch in "+*/^":
+            ops += 1
+            prev_was_op = True
+            continue
+        if ch == "-":
+            if not prev_was_op:
+                ops += 1
+            prev_was_op = True
+            continue
+        if ch == "(":
+            prev_was_op = True
+            continue
+        if ch == ")":
+            prev_was_op = False
+            continue
+        prev_was_op = False
+    return ops
+
+
+def _arith_parens_ok(compact: str) -> bool:
+    depth = 0
+    for ch in compact:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth < 0:
+                return False
+    return depth == 0
+
+
+def bare_arithmetic_expr(text: str) -> str | None:
+    """Whole-message numeric arithmetic, or None.
+
+    Shared by the SymPy gate and the arithmetic extractor so ``8-8*2`` cannot
+    be gated as a dimension pair (``8*2``) and then fail extract.
+
+    Conservative on a single ``-`` / ``/`` (dates, phone numbers, scores).
+    Auto-accept only with ``*``, ``^``, times/divide glyphs, two or
+    more operators, or a cue word (``what is``, ``calculate``, ...).
+    """
+    if not text or len(text) > _MAX:
+        return None
+    stripped, had_cue = _strip_arith_cues(text.lower())
+    if not stripped or not any(ch.isdigit() for ch in stripped):
+        return None
+    if any(ch not in _ARITH_ALLOWED for ch in stripped):
+        return None
+    compact = _to_ascii_arith(stripped).replace(" ", "")
+    if not compact or not _arith_parens_ok(compact):
+        return None
+    if compact[-1] not in "0123456789)":
+        return None
+    if compact[0] not in "0123456789.(+-":
+        return None
+    ops = _count_binary_arith_ops(compact)
+    if ops < 1:
+        return None
+    unambiguous = any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)
+    if not (unambiguous or ops >= 2 or had_cue):
+        return None
+    return collapse_ws(_to_ascii_arith(stripped))
+
+
+def geometry_dim_context(lower: str) -> bool:
+    """Shape / diagonal words that geometry extractors actually require.
+
+    ``first_dim_pair`` alone matches ``8*2`` inside ``8-8*2``. The gate must
+    not treat that as verified geometry.
+    """
+    padded = f" {lower} "
+    if " rect " in padded:
+        return True
+    return any(word_index(lower, cue) != -1 for cue in _GEOMETRY_DIM_WORDS)
 
 
 def has_draw_shape(lower: str, shape: str) -> bool:

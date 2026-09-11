@@ -224,30 +224,9 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     percent = _extract_percent_or_ratio(cleaned)
     if percent is not None:
         return percent
-    lower = cleaned.lower()
-    if not any(cue in lower for cue in ("what is", "calculate", "compute", "evaluate", "what's")):
+    expr = mtm.bare_arithmetic_expr(cleaned)
+    if expr is None:
         return None
-    cues = (
-        "what is",
-        "what's",
-        "calculate",
-        "compute",
-        "evaluate",
-        "the value of",
-        "please",
-        "?",
-    )
-    stripped = lower
-    for w in cues:
-        stripped = stripped.replace(w, " ")
-    if any(ch.isalpha() for ch in stripped):
-        return None
-    if not any(ch.isdigit() for ch in stripped):
-        return None
-    times, divide = "\u00d7", "\u00f7"
-    if not any(op in stripped for op in ("+", "-", "*", "/", times, divide, "^")):
-        return None
-    expr = stripped.replace(times, "*").replace(divide, "/").strip()
     return MathIntent(kind="arithmetic", school_op="eval", expr=expr, operation="solve")
 
 

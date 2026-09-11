@@ -165,14 +165,6 @@ _LONG_MESSAGE_CHARS = 800
 # can't consume `\n`, so each line's whitespace run is only ever scanned
 # once — linear in input length regardless of how many blank lines it has.
 _CODE_FENCE = re.compile(r"(?:^|\n)[ \t]*```")
-# Bare "3+0" / "2 * 2" — no variable, not a word problem. Whole message only.
-_BARE_ARITH = re.compile(
-    r"^\s*-?\d+(?:\.\d+)?\s*[-+*/\u00d7\u00f7^]\s*-?\d+(?:\.\d+)?\s*[.?!]?\s*$"
-)
-_WHAT_IS_ARITH = re.compile(
-    r"^\s*what\s+is\s+-?\d+(?:\.\d+)?\s*[-+*/\u00d7\u00f7^]\s*-?\d+(?:\.\d+)?\s*[.?!]?\s*$",
-    re.IGNORECASE,
-)
 
 
 def _looks_like_physics_homework(content: str) -> bool:
@@ -354,7 +346,7 @@ def _verified_math_stays_fast(content: str) -> bool:
     "what is 1+1" style arithmetic stay on the fast model.
     """
     from app.services.math_text_match.discrete import combinatorics_signal
-    from app.services.math_text_match.scan import prepare
+    from app.services.math_text_match.scan import bare_arithmetic_expr, prepare
 
     cleaned = prepare(content)
     if not cleaned:
@@ -362,10 +354,9 @@ def _verified_math_stays_fast(content: str) -> bool:
     sig = combinatorics_signal(cleaned)
     if sig is not None and sig[0] == "factorial":
         return True
-    if _BARE_ARITH.fullmatch(cleaned):
-        return True
-    # "what is 1+1" stays fast only when that is the whole message.
-    return _WHAT_IS_ARITH.fullmatch(cleaned) is not None
+    # Same whole-message helper as the SymPy gate — a lone "1+1" inside a
+    # harder question must not keep the turn on the fast model.
+    return bare_arithmetic_expr(cleaned) is not None
 
 
 def resolve_alias(

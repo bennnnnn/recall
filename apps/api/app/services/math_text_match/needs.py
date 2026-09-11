@@ -21,7 +21,9 @@ from app.services.math_text_match.graph import (
     vertical_line_x,
 )
 from app.services.math_text_match.scan import (
+    bare_arithmetic_expr,
     first_dim_pair,
+    geometry_dim_context,
     has_algebraic_equation,
     has_draw_shape,
     has_equation,
@@ -143,7 +145,13 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # single-letter variable so prose with an '=' ("meeting = 3pm") is excluded.
     if has_algebraic_equation(cleaned):
         return True
-    if first_dim_pair(cleaned) is not None:
+    # Digits + operators with no leftover English — same helper the arithmetic
+    # extractor uses. Without this, ``first_dim_pair`` treated ``8*2`` inside
+    # ``8-8*2`` as a rectangle size, extract returned None, and the reply
+    # stamped *Couldn't verify this with SymPy.* under a correct -8.
+    if bare_arithmetic_expr(cleaned) is not None:
+        return True
+    if first_dim_pair(cleaned) is not None and geometry_dim_context(lower):
         return True
     if (
         "circle" in lower
@@ -246,11 +254,8 @@ def school_homework_cue(cleaned: str) -> bool:
         return True
     if "complex" in lower or "modulus" in lower:
         return True
-    times = "\u00d7"
-    divide = "\u00f7"
-    if "what is" in lower and any(op in cleaned for op in ("+", "-", "*", "/", times, divide, "^")):
-        if any(ch.isdigit() for ch in cleaned):
-            return True
+    if bare_arithmetic_expr(cleaned) is not None:
+        return True
     has_trig_call = any(f"{fn}(" in lower or f"{fn} " in lower for fn in ("sin", "cos", "tan"))
     if has_trig_call and ("\u00b0" in cleaned or any(ch.isdigit() for ch in cleaned)):
         return True

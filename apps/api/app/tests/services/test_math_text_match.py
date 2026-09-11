@@ -57,6 +57,9 @@ class TestNeedsSymbolic:
             "Calculate the kinetic energy of a 2 kg object moving at 10 m/s.",
             "Draw a right triangle with legs 3 and 4. Label the sides including the hypotenuse.",
             "area of a right triangle with legs 3 and 4",
+            "8-8*2",
+            "7*8",
+            "what is 9/9",
         ],
     )
     def test_needs_symbolic_math_triggers(self, text):
@@ -92,6 +95,9 @@ class TestNeedsSymbolic:
             "tell me about y=x^2",
             "the answer key says x=5 but i got 6",
             "chart of rainfall",
+            "9/9",
+            "10-3",
+            "555-1234",
         ],
     )
     def test_needs_symbolic_math_does_not_trigger(self, text):
@@ -624,3 +630,50 @@ class TestLooksLikeMathExpr:
     )
     def test_english(self, text: str) -> None:
         assert not mtm.looks_like_math_expr(text)
+
+
+class TestBareArithmetic:
+    """Gate and extractor share ``bare_arithmetic_expr`` so dim-pair false
+    matches (``8*2`` inside ``8-8*2``) cannot stamp Couldn't verify."""
+
+    @pytest.mark.parametrize(
+        "text, expected",
+        [
+            ("8-8*2", "8-8*2"),
+            ("7*8", "7*8"),
+            ("8 × 5", "8 * 5"),
+            ("8÷2", "8/2"),
+            ("2^3", "2^3"),
+            ("1+2+3", "1+2+3"),
+            ("(8-8)*2", "(8-8)*2"),
+            ("what is 7*8", "7*8"),
+            ("what is 9/9", "9/9"),
+            ("what is 10-3", "10-3"),
+            ("calculate 1+1", "1+1"),
+        ],
+    )
+    def test_accepts(self, text: str, expected: str) -> None:
+        assert mtm.bare_arithmetic_expr(text) == expected
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "9/9",
+            "10-3",
+            "555-1234",
+            "9/11",
+            "1+1",
+            "8x5",
+            "8 by 5",
+            "hello",
+            "what is a trapezoid",
+        ],
+    )
+    def test_rejects(self, text: str) -> None:
+        assert mtm.bare_arithmetic_expr(text) is None
+
+    def test_dim_pair_still_sees_multiply_inside_arithmetic(self) -> None:
+        # The matcher is unchanged — the gate must not use it alone.
+        assert mtm.first_dim_pair("8-8*2") == (8.0, 2.0, "cm")
+        assert mtm.geometry_dim_context("8-8*2") is False
+        assert mtm.geometry_dim_context("a rectangle is 8×5 cm") is True

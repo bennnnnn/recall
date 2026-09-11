@@ -1,4 +1,4 @@
-import { ReactElement, RefObject, useMemo } from "react";
+import { ReactElement, RefObject, useCallback, useEffect, useMemo } from "react";
 import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type AnimatedStyle } from "react-native-reanimated";
@@ -171,6 +171,17 @@ export function ChatScreenBody({
     () => messagesLookLikeMath(messages.map((m) => m.content)),
     [messages],
   );
+  const handleComposerSend = useCallback(
+    (text?: string) => {
+      liveTalkSession?.onYield();
+      onSend(text);
+    },
+    [liveTalkSession, onSend],
+  );
+
+  useEffect(() => {
+    if (drawerOpen && mathScannerOpen) onCloseMathScanner();
+  }, [drawerOpen, mathScannerOpen, onCloseMathScanner]);
 
   return (
     <View style={s.container}>
@@ -238,10 +249,7 @@ export function ChatScreenBody({
         onRemoveAttachment={onRemoveAttachment}
         onCloseAttachSheet={onCloseAttachSheet}
         onPickAttachment={onPickAttachment}
-        onSend={(text) => {
-          liveTalkSession?.onYield();
-          onSend(text);
-        }}
+        onSend={handleComposerSend}
         onStop={onStop}
         isOffline={isOffline}
         voiceAvailable={voiceAvailable}
@@ -270,7 +278,7 @@ export function ChatScreenBody({
       />
 
       <MathEquationScanner
-        visible={mathScannerOpen && !drawerOpen}
+        visible={mathScannerOpen}
         onClose={onCloseMathScanner}
         onCaptured={onMathScanCaptured}
       />
