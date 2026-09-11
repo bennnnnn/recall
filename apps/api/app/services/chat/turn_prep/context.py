@@ -338,8 +338,9 @@ async def build_stream_prompt_context(
     async def _resolve_instant_reply_task() -> str | None:
         # Time/location answers are CPU-only. Don't checkout Neon unless
         # calendar/email needs a connection check.
-        if time_context_service.is_time_question(content):
-            return time_context_service.format_time_answer(local_tz, user_locale)
+        now_reply = time_context_service.maybe_local_now_reply(content, local_tz, user_locale)
+        if now_reply is not None:
+            return now_reply
         if time_context_service.is_location_question(content):
             return time_context_service.format_location_answer(geo.user_location, local_tz)
         reply: str | None = None

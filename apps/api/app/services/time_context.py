@@ -148,6 +148,112 @@ def is_scheduled_event_time_question(text: str) -> bool:
     return _EVENT_WHEN.search(cleaned) is not None
 
 
+def _normalize_now_ask(text: str) -> str:
+    """Lowercased, punctuation-stripped ask. Linear — no regex."""
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return ""
+    cleaned = cleaned.replace("\u2019", "'").replace("\u2018", "'")
+    while cleaned and cleaned[-1] in ".!?":
+        cleaned = cleaned[:-1].rstrip()
+    return cleaned.lower()
+
+
+_YEAR_ASKS = frozenset(
+    {
+        "what year is it",
+        "what's the year",
+        "whats the year",
+        "what is the year",
+        "what year is it now",
+        "what year now",
+        "what year",
+        "current year",
+        "what year is this",
+        "what year are we in",
+        "what year is it today",
+        "what's the current year",
+        "whats the current year",
+        "what is the current year",
+        "tell me the year",
+        "tell me the current year",
+    }
+)
+
+_DATE_ASKS = frozenset(
+    {
+        "what's the date",
+        "whats the date",
+        "what is the date",
+        "what's today's date",
+        "whats today's date",
+        "whats todays date",
+        "what is today's date",
+        "what is todays date",
+        "today's date",
+        "todays date",
+        "what date is it",
+        "what date is it today",
+        "what date is it now",
+        "what's the date today",
+        "whats the date today",
+        "what is the date today",
+        "what's the date now",
+        "whats the date now",
+        "what is the date now",
+        "what's todays date",
+        "current date",
+        "what day is it",
+        "what day is it today",
+        "what day is today",
+        "what's the day",
+        "what day",
+    }
+)
+
+
+def is_year_question(text: str) -> bool:
+    """True for the user's *current* year question only (not 'what year did …')."""
+    return _normalize_now_ask(text) in _YEAR_ASKS
+
+
+def is_current_date_question(text: str) -> bool:
+    """True for today's date / what day is it — not 'what date is Christmas'."""
+    return _normalize_now_ask(text) in _DATE_ASKS
+
+
+def is_local_now_question(text: str) -> bool:
+    """Current local time, year, or date — facts we already know without the LLM."""
+    return is_time_question(text) or is_year_question(text) or is_current_date_question(text)
+
+
+def format_year_answer(timezone: str | None) -> str:
+    tz = resolve_timezone(timezone)
+    now = datetime.now(tz)
+    return f"It's {now.year}."
+
+
+def format_date_answer(timezone: str | None) -> str:
+    tz = resolve_timezone(timezone)
+    now = datetime.now(tz)
+    return f"{now.strftime('%A, %B')} {now.day}, {now.year}."
+
+
+def maybe_local_now_reply(
+    text: str,
+    timezone: str | None,
+    locale: str | None = None,
+) -> str | None:
+    """Server-owned answers for current time / year / date. Skip the LLM."""
+    if is_time_question(text):
+        return format_time_answer(timezone, locale)
+    if is_year_question(text):
+        return format_year_answer(timezone)
+    if is_current_date_question(text):
+        return format_date_answer(timezone)
+    return None
+
+
 def is_time_question(text: str) -> bool:
     """True for the user's *local* current-time question only."""
     cleaned = collapse_ws(text)

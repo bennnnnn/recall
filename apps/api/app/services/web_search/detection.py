@@ -54,7 +54,7 @@ def web_search_skip(
         return True
     if is_vocab_quiz_answer(cleaned):
         return True
-    if time_context_service.is_time_question(cleaned):
+    if time_context_service.is_local_now_question(cleaned):
         return True
     if time_context_service.is_location_question(cleaned):
         return True

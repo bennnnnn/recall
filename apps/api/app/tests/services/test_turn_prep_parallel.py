@@ -18,6 +18,7 @@ import pytest
 from app.core.config import Settings
 from app.services.chat.turn_prep.context import build_stream_prompt_context
 from app.services.chat.turn_prep.mode import _TurnMode
+from app.services.time_context import format_date_answer, format_year_answer
 
 
 class _FakeSessionCM:
@@ -72,7 +73,13 @@ def _slim_turn_mode() -> _TurnMode:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "content,expected_instant_reply",
-    [("Again", None), ("tell me again", None), ("what time is it", "```clock\n```")],
+    [
+        ("Again", None),
+        ("tell me again", None),
+        ("what time is it", "```clock\n```"),
+        ("what year is it", format_year_answer(None)),
+        ("what's the date", format_date_answer(None)),
+    ],
 )
 async def test_followup_keeps_conversation_context_instead_of_instant_clock(
     content, expected_instant_reply, fake_redis

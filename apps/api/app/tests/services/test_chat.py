@@ -1784,6 +1784,8 @@ def test_instant_reply_needs_db_only_for_calendar_and_email():
     assert _instant_reply_needs_db("check my calendar") is True
     assert _instant_reply_needs_db("check my email") is True
     assert _instant_reply_needs_db("what time is it") is False
+    assert _instant_reply_needs_db("what year is it") is False
+    assert _instant_reply_needs_db("what's the date") is False
     assert _instant_reply_needs_db("help me think through this") is False
     assert _instant_reply_needs_db("solve 2x + 3 = 7") is False
 
