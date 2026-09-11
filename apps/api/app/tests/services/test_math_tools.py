@@ -963,6 +963,8 @@ def test_verified_block_force_math_keyboard_units(text: str) -> None:
     "text, kind",
     [
         ("what is 7*8", "arithmetic"),
+        ("7*8", "arithmetic"),
+        ("8-8*2", "arithmetic"),
         ("what is 15% of 80", "arithmetic"),
         ("simplify the ratio 6:8", "arithmetic"),
         ("sin 30", "trig"),
@@ -981,6 +983,50 @@ def test_extract_school_homework_kinds(text: str, kind: str) -> None:
     intent = math_tools.extract_math_intent(text)
     assert intent is not None
     assert intent.kind == kind
+
+
+@pytest.mark.parametrize(
+    "text, gated, kind",
+    [
+        ("8-8*2", True, "arithmetic"),
+        ("7*8", True, "arithmetic"),
+        ("what is 9/9", True, "arithmetic"),
+        ("9/9", False, None),
+        ("10-3", False, None),
+        ("555-1234", False, None),
+        ("8x5", False, None),
+        ("8 by 5", False, None),
+        ("A rectangle is 8×5 cm. Find the diagonal angle.", True, "rectangle"),
+    ],
+)
+def test_gate_and_extractor_agree_on_bare_arithmetic(
+    text: str, gated: bool, kind: str | None
+) -> None:
+    """``8-8*2`` used to gate via first_dim_pair then fail extract → disclaimer."""
+    assert math_tools.needs_symbolic_math(text) is gated
+    intent = math_tools.extract_math_intent(text)
+    if kind is None:
+        assert intent is None
+    else:
+        assert intent is not None
+        assert intent.kind == kind
+
+
+def test_bare_arithmetic_verifies_pemdas() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("8-8*2")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer is not None
+    compact = block.canonical_answer.replace(" ", "")
+    assert "-8" in compact
+    times = math_tools.extract_math_intent("7*8")
+    assert times is not None
+    tblock = math_tools._build_verified_block(times, settings)
+    assert tblock is not None
+    assert tblock.canonical_answer is not None
+    assert "56" in tblock.canonical_answer.replace(" ", "")
 
 
 def test_verified_percent_and_distance() -> None:

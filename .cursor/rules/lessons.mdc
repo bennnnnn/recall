@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`8-8*2` got the right answer plus Couldn't verify.** `first_dim_pair`
+  treats `8*2` as a rectangle size so the gate fired, then extract returned
+  None (no shape word) and stamped the disclaimer — plus a ~6s tool-loop.
+  Shared `bare_arithmetic_expr` is the gate and the arithmetic extractor
+  (`*`/`^`/`×`/`÷` or 2+ ops; a lone `-`/`/` is a date/phone unless "what is").
+  Do not use dim-pair alone as the math gate.
 - **Math scanner close froze; Photos then died for the whole session.**
   `if (!visible) return null` above `<Modal>` skips RN’s iOS dismiss path and
   can tear down the picker presenter so `nativePickerActive` never clears.
