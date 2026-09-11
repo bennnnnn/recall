@@ -167,14 +167,18 @@ def _detect_gravity(text: str) -> float:
 
 
 _PARAM_ASSIGN_RE = re.compile(
-    r"\b(?:gravity|theta|angle|h0|v0|h|v|d|t|a|F|m|g)\s*=\s*(?=-?\d)",
+    r"\b(?:gravity|theta|angle|h0|v0|h|F|m|g)\s*=\s*(?=-?\d)",
     re.IGNORECASE,
 )
+_T_ASSIGN_RE = re.compile(r"\bt\s*=\s*(?=-?\d)", re.IGNORECASE)
 
 
 def _strip_param_assignments(text: str) -> str:
     """Remove ``h0 =`` / ``v0 =`` / ``g =`` labels so has_equation does not
     treat textbook knowns as algebra. The number and unit stay for scanners.
+
+    Do not strip ``t`` / ``v`` / ``a`` / ``d`` — those are often the unknown
+    (``find v when t = 1 s``) and stripping them silently solves the wrong op.
     """
     return _PARAM_ASSIGN_RE.sub("", text)
 
@@ -208,6 +212,7 @@ _KINEMATICS_CUES = (
     "time to reach",
     "velocity after",
     "speed after",
+    "speed when",
     "height after",
     "position after",
     "acceleration of",
@@ -227,24 +232,52 @@ _H0_KEYWORDS = (
 )
 
 
+def _asks_speed(lower: str) -> bool:
+    return "speed after" in lower or "speed when" in lower
+
+
+def _asks_velocity(lower: str) -> bool:
+    if "velocity after" in lower or "velocity when" in lower:
+        return True
+    if "what is its velocity" in lower or "what is the velocity" in lower:
+        return True
+    if "v when" in lower:
+        return True
+    return re.search(r"\b(?:find|what is)\s+v\b", lower) is not None
+
+
+def _asks_position(lower: str) -> bool:
+    return "height after" in lower or "position after" in lower
+
+
 def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     # Must have a kinematics cue AND at least one number.
     if not any(cue in lower for cue in _KINEMATICS_CUES):
         return None
+    asks_speed = _asks_speed(lower)
+    asks_velocity = _asks_velocity(lower)
+    asks_position = _asks_position(lower)
     # Defer to the equation extractor if there's an explicit "=" equation —
     # but strip "g = 1.6" parameter specs first (those are knowns, not algebra).
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    # When they asked for v/speed/position at a time, ``t = 1`` is a given,
+    # not the problem to solve.
+    stripped = _strip_param_assignments(cleaned)
+    if asks_speed or asks_velocity or asks_position:
+        stripped = _T_ASSIGN_RE.sub("", stripped)
+    if mtm.has_equation(stripped):
         return None
 
     # Initial height (h0): length units only so "5 kg" is not a drop height.
+    # Unlabeled ``free fall 20 m`` still binds; projectile keeps require_keyword
+    # so a wall ``15 m away`` is not a launch height.
     h0: float | None = None
     h0_unit = "m"
     hu = _find_value_with_specific_unit(
         cleaned,
         _LENGTH_UNIT_PATTERN,
         _H0_KEYWORDS,
-        require_keyword=True,
+        require_keyword=False,
     )
     if hu is not None:
         h0, h0_unit = hu
@@ -279,11 +312,11 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     op: Literal["position", "velocity", "speed", "acceleration", "time_to_ground"] = (
         "time_to_ground"
     )
-    if "speed after" in lower:
+    if asks_speed:
         op = "speed"
-    elif "velocity after" in lower:
+    elif asks_velocity:
         op = "velocity"
-    elif "height after" in lower or "position after" in lower:
+    elif asks_position:
         op = "position"
     elif "acceleration" in lower:
         if not any(cue in lower for cue in _GRAVITY_MOTION_CUES):

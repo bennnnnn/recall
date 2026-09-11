@@ -84,6 +84,16 @@ def _answer_number(answer: str) -> float:
             ("-9.81 m/s", -9.81),
         ),
         (
+            "A ball is dropped from 20 m; find v when t = 1 s",
+            "kinematics",
+            ("-9.81 m/s", -9.81),
+        ),
+        (
+            "How long does an object free fall 20 m?",
+            "kinematics",
+            ("2.02 s", math.sqrt(2 * 20 / 9.81)),
+        ),
+        (
             "What is the range of a ball launched at 20 m/s at 30°?",
             "projectile",
             ("35.31 m", 20.0**2 * math.sin(math.radians(60)) / 9.81),

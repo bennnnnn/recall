@@ -157,6 +157,24 @@ def test_kinematics_speed_after_is_speed_op() -> None:
     assert intent.physics_params["t"] == 1.0
 
 
+def test_kinematics_find_v_when_t_is_velocity_not_impact_time() -> None:
+    """``t = 1 s`` is a given; do not strip it and default to time_to_ground."""
+    intent = _extract_kinematics_intent("A ball is dropped from 20 m; find v when t = 1 s")
+    assert intent is not None
+    assert intent.physics_op == "velocity"
+    assert intent.physics_params is not None
+    assert intent.physics_params["t"] == 1.0
+    assert intent.physics_params["h0"] == 20.0
+
+
+def test_kinematics_unlabeled_free_fall_height() -> None:
+    intent = _extract_kinematics_intent("How long does an object free fall 20 m?")
+    assert intent is not None
+    assert intent.physics_op == "time_to_ground"
+    assert intent.physics_params is not None
+    assert intent.physics_params["h0"] == 20.0
+
+
 def test_kinematics_textbook_h_assignment_is_not_algebra() -> None:
     intent = _extract_kinematics_intent(
         "A ball is dropped from h = 20 m. How long until it hits the ground?"

@@ -165,7 +165,9 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
         v_val = float(v0 - g * t_val)
         if op == "speed":
             v_val = abs(v_val)
-        answer_latex = rf"v = v_0 - g \cdot t \approx {v_val:.2f} \text{{ m/s}}"
+            answer_latex = rf"v = \lvert v_0 - g \cdot t\rvert \approx {v_val:.2f} \text{{ m/s}}"
+        else:
+            answer_latex = rf"v = v_0 - g \cdot t \approx {v_val:.2f} \text{{ m/s}}"
         answer_value = f"{v_val:.2f} m/s"
     elif op == "position":
         t_param = p.get("t")

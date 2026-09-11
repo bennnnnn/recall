@@ -82,6 +82,7 @@ def test_kinematics_speed_op_is_magnitude() -> None:
     result = physics_solver.solve_kinematics(intent)
     assert abs(float(result.answer_value.split()[0]) - 9.81) < 0.01
     assert float(result.answer_value.split()[0]) > 0
+    assert r"\lvert v_0 - g \cdot t\rvert" in result.answer
 
 
 def test_kinematics_thrown_down_latex_parenthesises_negative_v0() -> None:
