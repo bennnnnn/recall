@@ -159,7 +159,7 @@ async def test_sympy_adapter_rejects_rce_payload_via_solve():
     ],
 )
 async def test_sympy_adapter_dispatches_simplify_diff_integrate(action, expr, variable):
-    """BUG FIX: tool_schemas.py declared "simplify"/"diff"/"integrate" as
+    """BUG FIX: schemas/tools.py declared "simplify"/"diff"/"integrate" as
     valid actions, but invoke() had no branch for them — a model call with
     one of these actions fell through to the free-text intent-extraction
     fallback instead of calling the already-implemented math_service

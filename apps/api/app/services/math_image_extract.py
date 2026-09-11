@@ -8,7 +8,7 @@ import logging
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
-from app.models.math_schemas import MathImageExtract
+from app.models.schemas.math import MathImageExtract
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.math_schemas import GraphBlockSpec
+from app.models.schemas.math import GraphBlockSpec
 from app.services import math_fence, math_text_match, math_tools
 
 

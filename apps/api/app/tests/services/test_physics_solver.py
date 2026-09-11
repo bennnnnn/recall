@@ -8,7 +8,7 @@ import math
 import pytest
 
 from app.core.config import Settings
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 from app.services import physics_solver
 from app.services.math_service import MathServiceError
 from app.services.math_tools.block import physics as physics_block

@@ -15,7 +15,7 @@ from app.core.db import SessionLocal
 from app.gateways.google_calendar_gateway import CalendarEvent
 from app.gateways.mcp.base import ToolResult
 from app.models.orm import User
-from app.models.tool_schemas import CalendarConflictsInput
+from app.models.schemas.tools import CalendarConflictsInput
 from app.services import calendar as calendar_service
 from app.services.prompt_safety import wrap_untrusted
 

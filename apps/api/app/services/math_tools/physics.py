@@ -13,7 +13,7 @@ import re
 from collections.abc import Callable
 from typing import Literal
 
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 from app.services import math_text_match as mtm
 
 logger = logging.getLogger(__name__)

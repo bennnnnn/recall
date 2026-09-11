@@ -18,7 +18,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.models.orm import User
-from app.models.tool_schemas import GenerateImageToolInput
+from app.models.schemas.tools import GenerateImageToolInput
 from app.services import image_generation as image_generation_service
 from app.services import plan as plan_service
 

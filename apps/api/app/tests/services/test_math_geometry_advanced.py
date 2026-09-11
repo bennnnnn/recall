@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.math_schemas import (
+from app.models.schemas.math import (
     ParallelogramInput,
     SectorInput,
     TrapezoidInput,

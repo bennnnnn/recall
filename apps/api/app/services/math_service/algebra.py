@@ -25,7 +25,7 @@ from sympy import (
 )
 
 from app.core.config import get_settings
-from app.models.math_schemas import (
+from app.models.schemas.math import (
     EquationInput,
     MathExprResult,
     MathLimitResult,

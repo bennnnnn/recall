@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.math_schemas import (
+from app.models.schemas.math import (
     CombinatoricsInput,
     MatrixInput,
     NumberTheoryInput,
@@ -210,7 +210,7 @@ class TestAugmentPromptMessagesForNewKinds:
         """nan/inf would propagate silently through max-min/fsum and produce
         a meaningless verified result — reject at the Pydantic boundary so
         the service never sees them."""
-        from app.models.math_schemas import StatisticsInput
+        from app.models.schemas.math import StatisticsInput
 
         StatisticsInput(numbers=[1, 2, 3])  # finite is fine
         with pytest.raises(ValueError):

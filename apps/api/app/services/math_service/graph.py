@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from sympy import Symbol
 
-from app.models.math_schemas import (
+from app.models.schemas.math import (
     GraphBlockSpec,
     GraphSampleInput,
     GraphSampleResult,

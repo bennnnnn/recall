@@ -4,7 +4,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mathpix_gateway import MathpixOcrResult
-from app.models.math_schemas import MathImageExtract
+from app.models.schemas.math import MathImageExtract
 from app.services import math_ocr
 
 

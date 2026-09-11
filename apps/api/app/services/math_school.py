@@ -24,7 +24,7 @@ from sympy import (
     tan,
 )
 
-from app.models.math_schemas import MathExprResult
+from app.models.schemas.math import MathExprResult
 from app.services.math_service import MathServiceError, _parse_expression
 
 # Pint unit registry (singleton — 50-80ms init, paid once at first use).

@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.math_schemas import MathImageExtract
+from app.models.schemas.math import MathImageExtract
 from app.services import math_tools
 
 
