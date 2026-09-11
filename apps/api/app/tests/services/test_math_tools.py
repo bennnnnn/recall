@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 from app.services import math_tools
 
 
@@ -571,7 +571,7 @@ async def test_augment_prompt_newton_reports_non_convergence() -> None:
     text = "use newton's method to find the root of x^3 - 2x - 5 = 0 starting at x0 = 2"
     intent = math_tools.extract_math_intent(text)
     assert intent is not None
-    from app.models.math_schemas import NewtonMethodResult
+    from app.models.schemas.math import NewtonMethodResult
 
     with patch(
         "app.services.math_tools.math_service.newton_method",

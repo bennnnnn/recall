@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 
 from app.core.config import Settings
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 from app.services import math_school
 from app.services import math_text_match as mtm
 from app.services.math_tools.block import VerifiedMathBlock, _finish_with_answer

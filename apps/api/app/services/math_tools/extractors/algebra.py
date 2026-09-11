@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 from app.services import math_service
 from app.services.math_tools.helpers import (
     _parse_newton_guess,

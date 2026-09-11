@@ -8,7 +8,7 @@ import statistics as _stats
 
 from sympy import latex
 
-from app.models.math_schemas import (
+from app.models.schemas.math import (
     CombinatoricsInput,
     CombinatoricsResult,
     MatrixInput,

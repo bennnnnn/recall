@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from app.core.config import get_settings
-from app.models.math_schemas import (
+from app.models.schemas.math import (
     GraphBlockSpec,
     GraphSampleInput,
 )

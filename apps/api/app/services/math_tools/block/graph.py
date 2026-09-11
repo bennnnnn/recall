@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.core.config import Settings
-from app.models.math_schemas import GraphBlockSpec, GraphSampleInput, MathIntent
+from app.models.schemas.math import GraphBlockSpec, GraphSampleInput, MathIntent
 from app.services import math_service
 from app.services.math_tools.block.common import (
     VerifiedMathBlock,

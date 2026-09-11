@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 from sympy import Eq, Symbol, solve
 
-from app.models.math_schemas import GraphBlockSpec, MathIntent
+from app.models.schemas.math import GraphBlockSpec, MathIntent
 from app.services.math_service import MathServiceError
 
 

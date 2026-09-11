@@ -13,8 +13,8 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
-from app.models.math_schemas import MathImageExtract
 from app.models.orm import Chat, User
+from app.models.schemas.math import MathImageExtract
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services import calendar as calendar_service

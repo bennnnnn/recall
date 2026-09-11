@@ -10,8 +10,8 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import AttachmentValidationError, ChatBusyError, ChatNotFoundError
 from app.gateways.storage_gateway import StorageUnavailableError
-from app.models.math_schemas import MathImageExtract
 from app.models.orm import Attachment, User
+from app.models.schemas.math import MathImageExtract
 from app.repositories import users as users_repo
 from app.services.attachment_quota import has_current_upload_reservation
 from app.services.chat.stream_status import StreamStatusFn

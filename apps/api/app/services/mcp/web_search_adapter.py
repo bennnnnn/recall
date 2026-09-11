@@ -12,7 +12,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.models.orm import User
-from app.models.tool_schemas import WebSearchToolInput
+from app.models.schemas.tools import WebSearchToolInput
 from app.services.prompt_safety import wrap_untrusted
 from app.services.web_search.formatting import sources_payload
 from app.services.web_search.search_cache import bind_tavily_turn_budget, run_cached_search

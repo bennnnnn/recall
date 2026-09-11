@@ -76,7 +76,7 @@ app/
   gateways/            # external IO (LiteLLM, Google, storage, speech, search, …)
     mcp/               # tool adapters + registry (flag-gated at runtime)
   repositories/        # Neon access
-  models/              # Pydantic + ORM
+  models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic, including math + tools)
   background/          # job handlers + periodic schedulers
     handlers.py        # job-type → handler register (imported at startup)
   core/                # config, db, redis, jobs stream (no domain imports)

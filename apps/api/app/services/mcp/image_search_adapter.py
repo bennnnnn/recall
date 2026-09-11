@@ -22,7 +22,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.models.orm import User
-from app.models.tool_schemas import ImageSearchToolInput
+from app.models.schemas.tools import ImageSearchToolInput
 from app.services import image_search as image_search_service
 
 _search_user: ContextVar[User | None] = ContextVar("mcp_image_search_user", default=None)

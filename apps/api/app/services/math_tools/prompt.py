@@ -6,7 +6,7 @@ import logging
 from typing import Literal, cast
 
 from app.core.config import Settings
-from app.models.math_schemas import (
+from app.models.schemas.math import (
     MathImageExtract,
     MathIntent,
 )

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 
 
 def _extract_statistics_intent(cleaned: str) -> MathIntent | None:

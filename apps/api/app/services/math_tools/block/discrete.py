@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.core.config import Settings
-from app.models.math_schemas import (
+from app.models.schemas.math import (
     CombinatoricsInput,
     MathIntent,
     MatrixInput,

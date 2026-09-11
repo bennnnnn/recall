@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models.math_schemas.algebra import (
+from app.models.schemas.math.algebra import (
     EquationInput,
     MathExprResult,
     MathImageExtract,
@@ -15,7 +15,7 @@ from app.models.math_schemas.algebra import (
     NewtonMethodResult,
     SystemOfEquationsInput,
 )
-from app.models.math_schemas.discrete import (
+from app.models.schemas.math.discrete import (
     CombinatoricsInput,
     CombinatoricsResult,
     MatrixInput,
@@ -25,7 +25,7 @@ from app.models.math_schemas.discrete import (
     StatisticsInput,
     StatisticsResult,
 )
-from app.models.math_schemas.geometry import (
+from app.models.schemas.math.geometry import (
     CircleGeometryBlockSpec,
     CircleGeometryInput,
     CircleGeometryResult,
@@ -55,13 +55,13 @@ from app.models.math_schemas.geometry import (
     TriangleSidesInput,
     TriangleSidesResult,
 )
-from app.models.math_schemas.graph import (
+from app.models.schemas.math.graph import (
     GraphBlockSpec,
     GraphSampleInput,
     GraphSampleResult,
     NumberLineInterval,
 )
-from app.models.math_schemas.intent import MathIntent
+from app.models.schemas.math.intent import MathIntent
 
 __all__ = [
     "CircleGeometryBlockSpec",

@@ -11,7 +11,7 @@ from typing import Literal
 
 from app.core.config import Settings
 from app.gateways import mathpix_gateway, mock_llm
-from app.models.math_schemas import MathImageExtract
+from app.models.schemas.math import MathImageExtract
 from app.services import math_image_extract as mie
 from app.services.math_service.discrete import guess_variables
 from app.services.math_service.extract_eq import (

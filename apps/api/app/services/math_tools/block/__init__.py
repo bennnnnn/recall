@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 
 from app.core.config import Settings
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 from app.services import math_service
 from app.services.math_tools.block.algebra import (
     _verified_block_equation,

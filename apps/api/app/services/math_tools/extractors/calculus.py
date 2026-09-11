@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 from app.services.math_tools.helpers import (
     _calc_expr_tail,
     _normalize_latex_expr,

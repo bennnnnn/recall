@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 from app.services.math_text_match.scan import MATH_MULTI_LETTER
 from app.services.math_tools.helpers import _strip_trailing_filler, math_expr_or_none
 

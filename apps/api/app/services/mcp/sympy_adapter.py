@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
-from app.models.math_schemas import (
+from app.models.schemas.math import (
     CircleGeometryBlockSpec,
     CircleGeometryInput,
     EquationInput,
@@ -21,7 +21,7 @@ from app.models.math_schemas import (
     SquareGeometryInput,
     SystemOfEquationsInput,
 )
-from app.models.tool_schemas import SympyToolInput
+from app.models.schemas.tools import SympyToolInput
 from app.services import math_service, math_tools
 
 logger = logging.getLogger(__name__)

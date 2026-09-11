@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from itertools import pairwise
 
-from app.models.math_schemas import EquationInput
+from app.models.schemas.math import EquationInput
 from app.services.math_service.discrete import guess_variables
 from app.services.math_service.parse import _normalize_latex_to_sympy
 from app.services.math_text_match.scan import MATH_MULTI_LETTER, peel_edge_english

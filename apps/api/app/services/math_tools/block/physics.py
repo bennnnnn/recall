@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from app.core.config import Settings
-from app.models.math_schemas import MathIntent
+from app.models.schemas.math import MathIntent
 from app.services.math_service import MathServiceError
 from app.services.math_tools.block.common import (
     VerifiedMathBlock,
