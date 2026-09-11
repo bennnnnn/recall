@@ -9,7 +9,7 @@ jest.mock("react-native", () => ({
 }));
 
 jest.mock("expo-haptics", () => ({
-  ImpactFeedbackStyle: { Light: "light" },
+  ImpactFeedbackStyle: { Light: "light", Medium: "medium" },
   NotificationFeedbackType: { Success: "success", Warning: "warning" },
   impactAsync: mockImpactAsync,
   selectionAsync: mockSelectionAsync,
@@ -18,7 +18,7 @@ jest.mock("expo-haptics", () => ({
 
 import { Platform } from "react-native";
 
-import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
+import { impactMedium, notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
 
 describe("haptics", () => {
   beforeEach(() => {
@@ -41,6 +41,12 @@ describe("haptics", () => {
     Platform.OS = "ios";
     selection();
     expect(mockSelectionAsync).toHaveBeenCalled();
+  });
+
+  it("impactMedium uses medium impact on ios", () => {
+    Platform.OS = "ios";
+    impactMedium();
+    expect(mockImpactAsync).toHaveBeenCalledWith("medium");
   });
 
   it("notifySuccess and notifyWarning map to notification feedback", () => {

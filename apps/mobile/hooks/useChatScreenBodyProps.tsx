@@ -90,7 +90,7 @@ export type UseChatScreenBodyPropsParams = {
     handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
     mathScannerOpen: boolean;
     closeMathScanner: () => void;
-    handleMathScanCaptured: (pending: PendingAttachment, options?: { confirmedReading?: string }) => void;
+    handleMathScanCaptured: (pending: PendingAttachment) => void;
     onOpenMathScanner?: () => void;
     onMathChromeHeightChange?: (height: number) => void;
   };

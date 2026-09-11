@@ -191,7 +191,6 @@
   "chat.math_scan_read_as": "I read this as",
   "chat.math_scan_read_failed": "Couldn't read that. Check the photo or retake.",
   "chat.math_scan_reading": "Reading the problem…",
-  "chat.math_scan_reset_a11y": "Reset scan frame",
   "chat.math_scan_retake": "Retake",
   "chat.math_scan_solve": "Solve",
   "chat.math_scan_torch_off_a11y": "Turn flashlight on",

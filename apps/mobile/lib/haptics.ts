@@ -40,6 +40,23 @@ export function selection(): void {
   tap();
 }
 
+/** Camera shutter / other medium impacts. */
+export function impactMedium(): void {
+  if (Platform.OS === "ios") {
+    void runIosHaptic(() =>
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium),
+    );
+    return;
+  }
+  if (Platform.OS === "android") {
+    try {
+      Vibration.vibrate(18);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 /** Positive confirmation — copy succeeded, thumbs up, etc. */
 export function notifySuccess(): void {
   if (Platform.OS === "ios") {

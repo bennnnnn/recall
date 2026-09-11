@@ -107,6 +107,45 @@ export function clampCameraZoom(zoom: number): number {
   return Math.min(1, Math.max(0, zoom));
 }
 
+export const FOCUS_SQUARE_SIZE = 72;
+
+export type FocusInRegion = { x: number; y: number; size: number };
+
+/**
+ * Map a tap that is already in crop-local pixels to a focus-square center
+ * that stays fully inside the rectangle. Null when the tap is outside.
+ * The square shrinks if the crop is smaller than `squareSize`.
+ */
+export function clampFocusInRegion(
+  localX: number,
+  localY: number,
+  regionWidth: number,
+  regionHeight: number,
+  squareSize = FOCUS_SQUARE_SIZE,
+): FocusInRegion | null {
+  if (
+    !Number.isFinite(localX) ||
+    !Number.isFinite(localY) ||
+    !Number.isFinite(regionWidth) ||
+    !Number.isFinite(regionHeight) ||
+    regionWidth <= 0 ||
+    regionHeight <= 0 ||
+    localX < 0 ||
+    localY < 0 ||
+    localX > regionWidth ||
+    localY > regionHeight
+  ) {
+    return null;
+  }
+  const size = Math.min(squareSize, regionWidth, regionHeight);
+  const half = size / 2;
+  return {
+    x: Math.min(Math.max(localX, half), regionWidth - half),
+    y: Math.min(Math.max(localY, half), regionHeight - half),
+    size,
+  };
+}
+
 /** Map a pinch `scale` onto CameraView zoom. Scale 1 keeps `startZoom`. */
 export function zoomFromPinch(startZoom: number, scale: number): number {
   const nextScale = Number.isFinite(scale) ? scale : 1;

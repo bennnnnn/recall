@@ -40,7 +40,7 @@ import {
   defaultMathCameraPrompt,
   type PendingAttachment,
 } from "@/lib/attachments";
-import { composerTextAfterMathScan, composerTextAfterMathScanConfirm } from "@/lib/mathCameraPrompt";
+import { composerTextAfterMathScan } from "@/lib/mathCameraPrompt";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -611,14 +611,9 @@ export function useChatSend({
     [attachBusy, composerThread, feedback, router, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
   );
 
-  const handleMathScanCaptured = useCallback((
-    pending: PendingAttachment,
-    options?: { confirmedReading?: string },
-  ) => {
+  const handleMathScanCaptured = useCallback((pending: PendingAttachment) => {
     setPendingAttachment(pending);
-    const text = options && "confirmedReading" in options
-      ? composerTextAfterMathScanConfirm(options.confirmedReading ?? "")
-      : composerTextAfterMathScan(inputRef.current, defaultMathCameraPrompt());
+    const text = composerTextAfterMathScan(inputRef.current, defaultMathCameraPrompt());
     setInput(text);
     setMathScannerOpen(false);
     void handleSend(text);

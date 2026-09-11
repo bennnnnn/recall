@@ -75,7 +75,7 @@ export type ChatScreenBodyProps = {
   onAttachmentSource: (source: AttachmentSource) => void;
   mathScannerOpen: boolean;
   onCloseMathScanner: () => void;
-  onMathScanCaptured: (pending: PendingAttachment, options?: { confirmedReading?: string }) => void;
+  onMathScanCaptured: (pending: PendingAttachment) => void;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
   onSend: (text?: string) => void;
@@ -271,7 +271,6 @@ export function ChatScreenBody({
 
       <MathEquationScanner
         visible={mathScannerOpen && !drawerOpen}
-        token={token}
         onClose={onCloseMathScanner}
         onCaptured={onMathScanCaptured}
       />
