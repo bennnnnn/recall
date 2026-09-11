@@ -107,7 +107,6 @@ def prior_looks_like_offer(prior_assistant: str | None) -> bool:
 def is_lightweight_chat_turn(
     text: str,
     *,
-    active_vocab_turn: bool = False,
     prior_assistant: str | None = None,
 ) -> bool:
     """Ultra-brief social turns (hi / thanks / ok) — short reply style only.
@@ -116,8 +115,6 @@ def is_lightweight_chat_turn(
     do not grow this allowlist for every casual phrase ("how is ur day", etc.).
     A short yes/go after an offer is follow-through, not a greeting.
     """
-    if active_vocab_turn:
-        return False
     cleaned = collapse_ws(text)
     if not cleaned:
         return True
@@ -185,19 +182,18 @@ def is_learning_progress_question(text: str) -> bool:
 def needs_rich_context(
     text: str,
     *,
-    active_vocab_turn: bool = False,
     day_planning: bool = False,
     day_reflection: bool = False,
 ) -> bool:
     """True when this turn should load personal context (memory/todos/projects).
 
-    Systemic default: casual chat is slim. Opt in via personal/retrieval cues,
-    day-planning, or vocab turns — not via an ever-growing greeting list.
+    Systemic default: casual chat is slim. Opt in via personal/retrieval cues
+    or day-planning — not via an ever-growing greeting list.
     Callers may OR in calendar/email/todo classifiers from ``turn_prep.mode``.
     """
-    if active_vocab_turn or day_planning or day_reflection:
+    if day_planning or day_reflection:
         return True
-    if is_lightweight_chat_turn(text, active_vocab_turn=active_vocab_turn):
+    if is_lightweight_chat_turn(text):
         return False
     cleaned = collapse_ws(text)
     if not cleaned:

@@ -54,12 +54,8 @@ def _rich_turn_mode() -> _TurnMode:
         lightweight=False,
         rich_context=True,
         minimal_personal=False,
-        minimal_quiz=False,
-        minimal_vocab_answer=False,
-        active_vocab_turn=False,
         day_planning=False,
         day_reflection=False,
-        quiz_assistant=None,
     )
 
 
@@ -68,12 +64,8 @@ def _slim_turn_mode() -> _TurnMode:
         lightweight=False,
         rich_context=False,
         minimal_personal=False,
-        minimal_quiz=False,
-        minimal_vocab_answer=False,
-        active_vocab_turn=False,
         day_planning=False,
         day_reflection=False,
-        quiz_assistant=None,
     )
 
 
@@ -568,7 +560,6 @@ async def test_calendar_write_check_overlaps_calendar_fetch():
             instant_reply=None,
             lightweight=False,
             minimal_personal=False,
-            minimal_quiz=False,
             day_reflection=False,
             gmail_context=None,
             on_status=None,
@@ -613,7 +604,6 @@ async def test_non_create_turn_skips_calendar_write_session():
             instant_reply=None,
             lightweight=False,
             minimal_personal=False,
-            minimal_quiz=False,
             day_reflection=False,
             gmail_context=None,
             on_status=None,

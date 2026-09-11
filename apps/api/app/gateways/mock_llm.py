@@ -15,68 +15,6 @@ MOCK_REPLY = (
     "to get real responses. Memory, history, and quotas still work end-to-end."
 )
 
-MOCK_QUIZ_QUESTION = (
-    "**Word:** ubiquitous\n\n"
-    "Cafés are _____ in this city — you see one on every corner.\n\n"
-    "A) Extremely rare and hard to find\n"
-    "B) Present or found everywhere\n"
-    "C) Related to transportation\n"
-    "D) A type of musical instrument\n\n"
-    "Tap A, B, C, or D — I'll wait for your answer before revealing it.\n\n"
-    "```vocab_quiz\n"
-    '{"word":"ubiquitous","question":"Cafés are _____ in this city — you see one on every corner.",'
-    '"correct":"B",'
-    '"choices":[{"letter":"A","text":"Extremely rare and hard to find"},'
-    '{"letter":"B","text":"Present or found everywhere"},'
-    '{"letter":"C","text":"Related to transportation"},'
-    '{"letter":"D","text":"A type of musical instrument"}]}\n'
-    "```"
-)
-
-MOCK_QUIZ_RETRY = (
-    "Not quite — think about something you see *everywhere*. "
-    "Tap another choice on the question above."
-)
-
-MOCK_QUIZ_EXHAUSTED = (
-    "Out of tries — **ubiquitous** means present or found everywhere (B). "
-    "We'll revisit it later.\n\n"
-    "Next word:\n\n"
-    "**Word:** ephemeral\n\n"
-    "Rainbows are _____ — they fade almost as soon as they appear.\n\n"
-    "A) Lasting a very short time\n"
-    "B) Extremely large\n"
-    "C) Very noisy\n"
-    "D) Deeply emotional\n\n"
-    "```vocab_quiz\n"
-    '{"word":"ephemeral","question":"Rainbows are _____ — they fade almost as soon as they appear.",'
-    '"correct":"A",'
-    '"choices":[{"letter":"A","text":"Lasting a very short time"},'
-    '{"letter":"B","text":"Extremely large"},'
-    '{"letter":"C","text":"Very noisy"},'
-    '{"letter":"D","text":"Deeply emotional"}]}\n'
-    "```"
-)
-
-MOCK_QUIZ_CORRECT_NEXT = (
-    "Nice work — **correct!** *Ubiquitous* means present or found everywhere.\n\n"
-    "Next word:\n\n"
-    "**Word:** ephemeral\n\n"
-    "Rainbows are _____ — they fade almost as soon as they appear.\n\n"
-    "A) Lasting a very short time\n"
-    "B) Extremely large\n"
-    "C) Very noisy\n"
-    "D) Deeply emotional\n\n"
-    "```vocab_quiz\n"
-    '{"word":"ephemeral","question":"Rainbows are _____ — they fade almost as soon as they appear.",'
-    '"correct":"A",'
-    '"choices":[{"letter":"A","text":"Lasting a very short time"},'
-    '{"letter":"B","text":"Extremely large"},'
-    '{"letter":"C","text":"Very noisy"},'
-    '{"letter":"D","text":"Deeply emotional"}]}\n'
-    "```"
-)
-
 
 def should_mock_llm(settings: Settings) -> bool:
     has_key = bool(settings.openrouter_api_key)
@@ -104,64 +42,8 @@ def _last_user_text(messages: list[dict[str, str]] | None) -> str:
     return ""
 
 
-def _quiz_attempt_number(messages: list[dict[str, str]] | None) -> int:
-    """Count A-D user answers since the most recent quiz fence in the prompt history."""
-    from app.models.schemas.learning_quiz import parse_vocab_quiz, quiz_answer_letter
-
-    if not messages:
-        return 1
-    quiz_idx = -1
-    choices: tuple[tuple[str, str], ...] | None = None
-    for i in range(len(messages) - 1, -1, -1):
-        msg = messages[i]
-        if msg.get("role") == "assistant":
-            parsed = parse_vocab_quiz(str(msg.get("content") or ""))
-            if parsed is not None:
-                quiz_idx = i
-                choices = parsed.choices
-                break
-    if quiz_idx < 0:
-        return 1
-    count = 0
-    for msg in messages[quiz_idx + 1 :]:
-        if msg.get("role") == "user" and quiz_answer_letter(
-            str(msg.get("content") or ""), choices=choices
-        ):
-            count += 1
-    return max(1, count)
-
-
 def mock_reply_for_messages(messages: list[dict[str, str]] | None) -> str:
-    from app.models.schemas.learning_quiz import (
-        MAX_QUIZ_TRIES_PER_QUESTION,
-        parse_vocab_quiz,
-        quiz_answer_letter,
-    )
-
-    last_user = _last_user_text(messages)
-    lower = last_user.lower()
-    # Prefer the open quiz fence (may not be the last assistant after a hint-only miss).
-    prior = None
-    if messages:
-        for msg in reversed(messages):
-            if msg.get("role") != "assistant":
-                continue
-            parsed = parse_vocab_quiz(str(msg.get("content") or ""))
-            if parsed is not None:
-                prior = parsed
-                break
-    choices = prior.choices if prior is not None else None
-    letter = quiz_answer_letter(last_user, choices=choices)
-    if letter:
-        if prior and prior.correct:
-            if letter == prior.correct.upper():
-                return MOCK_QUIZ_CORRECT_NEXT
-            if _quiz_attempt_number(messages) >= MAX_QUIZ_TRIES_PER_QUESTION:
-                return MOCK_QUIZ_EXHAUSTED
-            return MOCK_QUIZ_RETRY
-        return MOCK_QUIZ_RETRY
-    if "quiz" in lower or "multiple-choice" in lower or "vocabulary quiz" in lower:
-        return MOCK_QUIZ_QUESTION
+    _ = messages
     return MOCK_REPLY
 
 
@@ -397,28 +279,6 @@ def _extract_vocab_terms(transcript: str) -> list[str]:
     return terms[:20]
 
 
-def _extract_quiz_word(transcript: str) -> str | None:
-    matches = re.findall(r"(?:\*\*Word:\*\*|Word:)\s*([^\n\[]+)", transcript, flags=re.I)
-    if not matches:
-        return None
-    return matches[-1].strip()
-
-
-def _extract_quiz_answer(transcript: str) -> str | None:
-    from app.models.schemas.learning_quiz import parse_vocab_quiz, quiz_answer_letter
-
-    parsed = parse_vocab_quiz(transcript)
-    choices = parsed.choices if parsed is not None else None
-    for line in reversed(transcript.splitlines()):
-        if not line.lower().startswith("user:"):
-            continue
-        answer = line.split(":", 1)[-1].strip()
-        letter = quiz_answer_letter(answer, choices=choices)
-        if letter:
-            return letter
-    return None
-
-
 async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
     from app.models.schemas import LearningActionItem, LearningExtractionResult, LearningKind
 
@@ -472,38 +332,7 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
                 )
             )
 
-    quiz_word = _extract_quiz_word(user_message)
-    user_answer = _extract_quiz_answer(user_message)
-    assistant_said_correct = any(
-        phrase in text
-        for phrase in (
-            "correct!",
-            "nice work",
-            "you got it",
-            "well done",
-            "exactly",
-            "1 for 1",
-        )
-    )
-    assistant_said_wrong = any(
-        phrase in text for phrase in ("not quite", "wrong", "try again", "incorrect")
-    )
-    if (
-        quiz_word
-        and user_answer
-        and assistant_said_correct
-        and not assistant_said_wrong
-        and project_title
-    ):
-        actions.append(
-            LearningActionItem(
-                action="master",
-                project_title=project_title,
-                list_title="General",
-                content=quiz_word.strip(),
-            )
-        )
-    elif "master" in text or "learned" in text or "know" in text:
+    if "master" in text or "learned" in text or "know" in text:
         items = snapshot.get("items") or []
         if isinstance(items, list):
             open_items = [i for i in items if isinstance(i, dict) and not i.get("mastered")]

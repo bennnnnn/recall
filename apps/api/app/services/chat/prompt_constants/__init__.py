@@ -35,13 +35,7 @@ from app.services.chat.prompt_constants.format import (
     is_sequence_diagram_question,
     is_structured_comparison_question,
 )
-from app.services.chat.prompt_constants.learning import (
-    DAY_LEARNING_SNAPSHOT_HINT,
-    QUIZ_ANSWER_HINT,
-    QUIZ_RECENT_MESSAGE_LIMIT,
-    VOCAB_CHAT_ANSWER_HINT,
-    format_quiz_grading_hint,
-)
+from app.services.chat.prompt_constants.learning import DAY_LEARNING_SNAPSHOT_HINT
 from app.services.chat.prompt_constants.math import (
     GRAPH_NO_SUBSTITUTE_CLAUSE,
     MATH_FENCE_SAFETY_HINT,
@@ -125,8 +119,6 @@ __all__ = [
     "MERMAID_FORMAT_HINT",
     "PRIVACY_HINT",
     "PROSE_WRITING_HINT",
-    "QUIZ_ANSWER_HINT",
-    "QUIZ_RECENT_MESSAGE_LIMIT",
     "QUOTE_FORMAT_HINT",
     "RESPONSE_FORMAT_HINT",
     "SEQUENCE_FORMAT_HINT",
@@ -138,10 +130,8 @@ __all__ = [
     "TRANSLATION_FORMAT_HINT",
     "UNIVERSAL_FORMAT_BASELINE",
     "VISUALIZATION_HINTS",
-    "VOCAB_CHAT_ANSWER_HINT",
     "WRITING_LINE_HINT",
     "attach_chemistry_fence_hint",
-    "format_quiz_grading_hint",
     "is_bare_writing_line",
     "is_brevity_request",
     "is_broad_self_question",

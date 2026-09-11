@@ -86,3 +86,9 @@ If a plan or FEATURES item asks for these, **push back and skip** — they are e
   **floating popup** (`SettingsPickerSheet`). Do **not** expand options inside
   the gray card (`inlineOptionWell` / accordion). FEATURES must not say
   “expand inline”. Do not revive PR #707’s in-list picker.
+
+## 14. No in-chat A–D quiz chips
+- Study is the lesson window (`LessonQuizCards`). Chat must **not** render A–D
+  chips, intercept letter answers, or grade ```vocab_quiz.
+- Leftover fences in old messages are **strip for display** only. Do not parse
+  them back into chips, a quiz dock, or a second lesson path.

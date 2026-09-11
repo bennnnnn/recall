@@ -73,17 +73,6 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownResetKey).toBe("stream-42:2");
   });
 
-  it("hides action slot for local quiz feedback rows", () => {
-    const result = deriveAssistantMessageContent({
-      ...base,
-      messageId: "local-quiz-1",
-      content: "Correct!",
-    });
-
-    expect(result.isQuizFeedback).toBe(true);
-    expect(result.showActionSlot).toBe(false);
-  });
-
   it("parses assistant image markers and strips them from markdown", () => {
     const attachmentId = "11111111-1111-1111-1111-111111111111";
     const result = deriveAssistantMessageContent({

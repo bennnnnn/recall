@@ -49,7 +49,6 @@ from app.services.chat.turn_prep.mode import (
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.math_tools import VerifiedMathBlock, needs_symbolic_math
 from app.services.settings_intent import extract_settings_changes
-from app.services.vocab_quiz import QuizAnswerGrade
 from app.services.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
 )
@@ -134,12 +133,8 @@ class TurnPromptBundle:
     local_places: bool
     max_out: int
     fallback_models: list[str]
-    minimal_quiz: bool
-    minimal_vocab_answer: bool
-    active_vocab_turn: bool
     lightweight: bool
     rich_context: bool
-    quiz_grade: QuizAnswerGrade | None
     geo: ClientGeoContext
     local_tz: str
     verified_math: VerifiedMathBlock | None = None
@@ -162,20 +157,13 @@ def stream_context_from_bundle(
     skip_memory_jobs: bool | None = None,
     regenerate_backup: RegenerateBackup | None = None,
     indexable_attachment_ids: list[str] | None = None,
-    is_letter_answer: bool = False,
     user_message_persist: asyncio.Task[list[str]] | None = None,
 ) -> StreamContext:
     """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics."""
     if run_title is None:
         run_title = prior_count == 0
     if skip_memory_jobs is None:
-        # Graded MCQ answers are already persisted — skip background sync.
-        # Open-ended vocab answers still need project sync to record mastery.
-        # If a letter answer failed to grade (missing fence / no project), keep
-        # jobs so project sync can still record progress.
-        skip_memory_jobs = bundle.minimal_quiz and not (
-            is_letter_answer and bundle.quiz_grade is None
-        )
+        skip_memory_jobs = False
     return StreamContext(
         user_id=user_id,
         chat_id=chat_id,
@@ -202,7 +190,7 @@ def stream_context_from_bundle(
         timing=timing,
         # Trust turn-mode: re-running is_lightweight_chat_turn without the
         # prior assistant would mark "yes"/"go" as greetings again.
-        lightweight_turn=bundle.lightweight or bundle.active_vocab_turn,
+        lightweight_turn=bundle.lightweight,
         rich_context_turn=bundle.rich_context,
         indexable_attachment_ids=list(indexable_attachment_ids or []),
         user_message_persist=user_message_persist,
@@ -280,7 +268,6 @@ async def build_stream_prompt_context(
     user: User | None = None,
     chat: Chat | None = None,
     timing: TurnTimingTracker | None = None,
-    quiz_grade: QuizAnswerGrade | None = None,
     omit_message_ids: set[UUID] | None = None,
     force_rich_context: bool = False,
     turn_mode: _TurnMode | None = None,
@@ -367,7 +354,7 @@ async def build_stream_prompt_context(
                     user_id=user.id,
                 )
                 await session.commit()
-        if reply is None and not mode.minimal_vocab_answer and not mode.minimal_quiz:
+        if reply is None:
             settings_changes = extract_settings_changes(content)
             if settings_changes:
                 reply = await settings_proposal_service.materialize_settings_reply(
@@ -398,12 +385,9 @@ async def build_stream_prompt_context(
             out=meta,
             query_text=content,
             minimal_personal_context=mode.minimal_personal,
-            minimal_quiz_context=mode.minimal_quiz,
-            minimal_vocab_answer_context=mode.minimal_vocab_answer,
             lightweight=mode.lightweight,
             rich_context=mode.rich_context,
             advice_memory=mode.advice_memory,
-            quiz_grade=quiz_grade,
             client_timezone=client_timezone,
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
             on_status=None,
@@ -437,8 +421,6 @@ async def build_stream_prompt_context(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
         minimal_personal=mode.minimal_personal,
-        minimal_quiz=mode.minimal_quiz,
-        active_vocab_turn=mode.active_vocab_turn,
         day_planning=mode.day_planning,
         ambiguous_nearby=geo.ambiguous_nearby,
         is_external_calendar_question=is_external_calendar,
@@ -454,8 +436,6 @@ async def build_stream_prompt_context(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
         minimal_personal=mode.minimal_personal,
-        minimal_quiz=mode.minimal_quiz,
-        active_vocab_turn=mode.active_vocab_turn,
         rich_context=mode.rich_context,
         load_calendar=load_calendar,
         load_gmail=load_gmail,
@@ -483,7 +463,6 @@ async def build_stream_prompt_context(
             instant_reply=instant_reply,
             lightweight=mode.lightweight,
             minimal_personal=mode.minimal_personal,
-            minimal_quiz=mode.minimal_quiz,
             day_reflection=mode.day_reflection,
             gmail_context=None,
             on_status=on_status,
@@ -612,12 +591,8 @@ async def build_stream_prompt_context(
         local_places=local_places,
         max_out=max_out,
         fallback_models=fallback_models,
-        minimal_quiz=mode.minimal_quiz,
-        minimal_vocab_answer=mode.minimal_vocab_answer,
-        active_vocab_turn=mode.active_vocab_turn,
         lightweight=mode.lightweight,
         rich_context=mode.rich_context,
-        quiz_grade=quiz_grade,
         geo=geo,
         local_tz=local_tz,
         verified_math=verified_math,

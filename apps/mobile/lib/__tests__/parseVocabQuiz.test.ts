@@ -1,7 +1,5 @@
 import {
   cleanQuizWord,
-  isVocabQuizAnswer,
-  parseQuizAnswerLetter,
   parseVocabQuiz,
   hasVocabQuizFence,
   stripVocabQuizBlock,
@@ -92,16 +90,6 @@ describe("parseVocabQuiz", () => {
   it("strips stray asterisks from partial bold", () => {
     expect(cleanQuizWord("** Rain")).toBe("Rain");
     expect(cleanQuizWord("**Rain**")).toBe("Rain");
-  });
-
-  it("detects single-letter quiz answers", () => {
-    expect(isVocabQuizAnswer("A")).toBe(true);
-    expect(isVocabQuizAnswer("b.")).toBe(true);
-    expect(parseQuizAnswerLetter("C")).toBe("C");
-    expect(parseQuizAnswerLetter("Is it a?")).toBe("A");
-    expect(isVocabQuizAnswer("Is it a?")).toBe(true);
-    expect(isVocabQuizAnswer("A bit more help")).toBe(false);
-    expect(isVocabQuizAnswer("Hi")).toBe(false);
   });
 
   it("strips a partial vocab_quiz fence while streaming", () => {

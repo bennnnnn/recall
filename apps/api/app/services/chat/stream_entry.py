@@ -478,7 +478,7 @@ async def stream_regenerate_response(
             chat_project_id=chat.project_id,
             timing=timing,
             run_title=False,
-            skip_memory_jobs=bundle.minimal_quiz,
+            skip_memory_jobs=False,
             regenerate_backup=regenerate_backup,
         )
         await seams._top_up_reserve_for_prompt(

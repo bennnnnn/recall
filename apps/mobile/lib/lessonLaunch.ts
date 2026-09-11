@@ -1,13 +1,10 @@
 /** Queued lesson opener — avoids long prompts in expo-router params. */
 import { getSessionGeneration } from "@/lib/auth";
-import type { QuizVariant } from "@/lib/quizVariant";
 
 export type QueuedLessonLaunch = {
   projectId: string;
   chapter?: string;
   prompt?: string;
-  quizLanguage?: string;
-  quizVariant?: QuizVariant;
 };
 
 let queued: QueuedLessonLaunch | null = null;
@@ -31,8 +28,6 @@ export function queueLessonLaunch(launch: QueuedLessonLaunch): boolean {
     projectId,
     ...(chapter ? { chapter } : {}),
     ...(prompt ? { prompt } : {}),
-    ...(launch.quizLanguage ? { quizLanguage: launch.quizLanguage } : {}),
-    ...(launch.quizVariant ? { quizVariant: launch.quizVariant } : {}),
   };
   return true;
 }

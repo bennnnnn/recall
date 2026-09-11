@@ -675,8 +675,11 @@ were removed. Programming help lives in main chat.
   schedule, retaining first mastery.
   Wrong answers stay on device until the learner picks the right choice; they are not
   saved and they do not demote a mastered word. No per-word illustration. The next group stays locked until every word in the
-  current chapter is mastered. Chat must not render A–D quiz chips, `vocab_card` study
-  cards, or grade letter answers. Regular chat must not quiz in-bubble. Chat tutor prompts
+  current chapter is mastered.   Chat must not render A–D quiz chips, `vocab_card` study
+  cards, or grade letter answers. Regular chat must not quiz in-bubble. New assistant
+  turns drop leftover `vocab_quiz` / `vocab_card` fences before persist; old stored
+  fences are stripped for display only. The backend no longer parses or grades them.
+  Chat tutor prompts
   must not invent words.
 - ✅ **Lesson choice-card check after teaching** — restored `LessonQuizCards` (tappable
   answer cards, no letter badges). Typed-answer lessons and chat MCQ chips are not the study path.

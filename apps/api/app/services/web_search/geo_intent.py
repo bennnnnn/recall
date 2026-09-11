@@ -82,11 +82,24 @@ def is_ambiguous_local_places_query(text: str) -> bool:
     return _AMBIGUOUS_NEARBY_SUBJECT.search(subject) is not None
 
 
-def is_vocab_quiz_answer(text: str, *, choices: tuple[tuple[str, str], ...] | None = None) -> bool:
-    """Multiple-choice reply (A-D), including short phrases like 'Is it a?'."""
-    from app.services.vocab_quiz import is_vocab_quiz_answer as _is_vocab_quiz_answer
+_LETTER_ANSWER = re.compile(
+    r"^(?:is\s+it\s+|option\s+|answer\s*(?:is\s+)?|i\s+(?:think|say|choose|pick)\s+)?"
+    r"([A-D])\.?[?!.]*$",
+    re.IGNORECASE,
+)
+_MAX_LETTER_ANSWER_LEN = 24
 
-    return _is_vocab_quiz_answer(text, choices=choices)
+
+def is_vocab_quiz_answer(text: str, *, choices: tuple[tuple[str, str], ...] | None = None) -> bool:
+    """Letter-only A–D replies should not trigger web search.
+
+    Chat no longer grades these; leftover stored answers still look like this.
+    """
+    del choices
+    cleaned = text.strip()
+    if not cleaned or len(cleaned) > _MAX_LETTER_ANSWER_LEN:
+        return False
+    return _LETTER_ANSWER.fullmatch(cleaned) is not None
 
 
 def _geo_is_active(*texts: str) -> bool:

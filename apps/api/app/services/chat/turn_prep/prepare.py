@@ -10,7 +10,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.ids import uuid7
 from app.exceptions import ChatBusyError, ChatNotFoundError
-from app.models.orm import Chat, Message, User
+from app.models.orm import Chat, User
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
@@ -26,10 +26,8 @@ from app.services.chat.turn_prep.context import (
 from app.services.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens
-from app.services.learning.common import _invalidate_home_for_user
 from app.services.prompt_safety import messages_have_attachment_marker
 from app.services.routing import last_user_turn
-from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
 
@@ -49,37 +47,6 @@ def _should_use_vision_chat(
     from app.services.attachment_content import history_has_image_marker
 
     return history_has_image_marker(recent_messages)
-
-
-async def _grade_quiz_answer(
-    *,
-    user: User,
-    chat_id: UUID,
-    chat_project_id: UUID | None,
-    content: str,
-    prior_assistant: Message | None = None,
-) -> tuple[bool, QuizAnswerGrade | None]:
-    """Chat does not grade A-D. Lesson play records mastery."""
-    _ = (user, chat_id, chat_project_id, content, prior_assistant)
-    return False, None
-
-
-async def _maybe_invalidate_home_after_quiz(
-    *,
-    user_id: UUID,
-    chat_project_id: UUID | None,
-    is_letter_answer: bool,
-    quiz_grade: QuizAnswerGrade | None,
-    quiz_assistant: Message | None,
-) -> None:
-    if quiz_grade is not None:
-        await _invalidate_home_for_user(user_id)
-    elif chat_project_id is not None and is_letter_answer and quiz_assistant is not None:
-        # LANG-CACHE-001: even when deterministic grading returned None (e.g.
-        # open-ended vocab answer, missing fence, or no project match), the
-        # background project sync may still record mastery/learning. Invalidate
-        # home cache now so the next home fetch is fresh after the turn.
-        await _invalidate_home_for_user(user_id)
 
 
 async def prepare_chat_turn(
@@ -254,20 +221,6 @@ async def prepare_chat_turn(
             or messages_have_attachment_marker(prompt_recent)
             or prior_count >= window
         )
-        is_letter_answer, quiz_grade = await _grade_quiz_answer(
-            user=user,
-            chat_id=chat_id,
-            chat_project_id=chat_project_id,
-            content=content,
-            prior_assistant=turn_mode.quiz_assistant,
-        )
-        await _maybe_invalidate_home_after_quiz(
-            user_id=user.id,
-            chat_project_id=chat_project_id,
-            is_letter_answer=is_letter_answer,
-            quiz_grade=quiz_grade,
-            quiz_assistant=turn_mode.quiz_assistant,
-        )
 
         async def _prompt() -> TurnPromptBundle:
             return await build_stream_prompt_context(
@@ -288,7 +241,6 @@ async def prepare_chat_turn(
                 user=user,
                 chat=chat,
                 timing=timing,
-                quiz_grade=quiz_grade,
                 force_rich_context=attachments.has_document_attachment,
                 turn_mode=turn_mode,
                 probe_attachment_rag=probe,
@@ -311,20 +263,6 @@ async def prepare_chat_turn(
         indexable_attachment_ids = await _persist_user_message()
         if user is None or model is None:
             raise ChatNotFoundError("User not found.")
-        is_letter_answer, quiz_grade = await _grade_quiz_answer(
-            user=user,
-            chat_id=chat_id,
-            chat_project_id=chat_project_id,
-            content=content,
-            prior_assistant=turn_mode.quiz_assistant if turn_mode is not None else None,
-        )
-        await _maybe_invalidate_home_after_quiz(
-            user_id=user.id,
-            chat_project_id=chat_project_id,
-            is_letter_answer=is_letter_answer,
-            quiz_grade=quiz_grade,
-            quiz_assistant=turn_mode.quiz_assistant if turn_mode is not None else None,
-        )
         bundle = await build_stream_prompt_context(
             user_id,
             chat_id,
@@ -343,7 +281,6 @@ async def prepare_chat_turn(
             user=user,
             chat=chat,
             timing=timing,
-            quiz_grade=quiz_grade,
             force_rich_context=attachments.has_document_attachment,
             turn_mode=turn_mode,
             probe_attachment_rag=bool(attachment_ids) or (prior_count or 0) > 0,
@@ -405,7 +342,6 @@ async def prepare_chat_turn(
         prior_count=prior_count,
         chat_project_id=chat_project_id,
         timing=timing,
-        is_letter_answer=is_letter_answer,
         indexable_attachment_ids=indexable_attachment_ids,
         user_message_persist=persist_task,
     )

@@ -163,12 +163,8 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             local_places=False,
             max_out=100,
             fallback_models=[],
-            minimal_quiz=False,
-            minimal_vocab_answer=False,
-            active_vocab_turn=False,
             lightweight=False,
             rich_context=True,
-            quiz_grade=None,
             verified_math=None,
         )
 
@@ -220,10 +216,6 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
         patch(
             "app.services.chat.turn_prep.prepare.build_stream_prompt_context",
             AsyncMock(side_effect=_fake_build_stream_prompt_context),
-        ),
-        patch(
-            "app.services.chat.quiz_messages.get_last_quiz_assistant",
-            AsyncMock(return_value=None),
         ),
     ):
         if linked_count == 0:
@@ -311,12 +303,8 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             local_places=False,
             max_out=100,
             fallback_models=[],
-            minimal_quiz=False,
-            minimal_vocab_answer=False,
-            active_vocab_turn=False,
             lightweight=False,
             rich_context=True,
-            quiz_grade=None,
             verified_math=None,
         )
 
@@ -368,10 +356,6 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
         patch(
             "app.services.chat.turn_prep.prepare.build_stream_prompt_context",
             AsyncMock(side_effect=_fake_build_stream_prompt_context),
-        ),
-        patch(
-            "app.services.chat.quiz_messages.get_last_quiz_assistant",
-            AsyncMock(return_value=None),
         ),
     ):
         await prepare_chat_turn(
@@ -669,12 +653,8 @@ def _prompt_bundle() -> SimpleNamespace:
         local_places=False,
         max_out=100,
         fallback_models=[],
-        minimal_quiz=False,
-        minimal_vocab_answer=False,
-        active_vocab_turn=False,
         lightweight=True,
         rich_context=False,
-        quiz_grade=None,
         verified_math=None,
     )
 
@@ -706,9 +686,6 @@ async def test_prepare_overlap_returns_before_persist_commit():
         lightweight=True,
         rich_context=False,
         minimal_personal=False,
-        minimal_quiz=False,
-        minimal_vocab_answer=False,
-        active_vocab_turn=False,
         day_planning=False,
         day_reflection=False,
     )
@@ -726,10 +703,6 @@ async def test_prepare_overlap_returns_before_persist_commit():
         patch(
             "app.services.chat.turn_prep.prepare.build_stream_prompt_context",
             AsyncMock(return_value=_prompt_bundle()),
-        ),
-        patch(
-            "app.services.chat.quiz_messages.get_last_quiz_assistant",
-            AsyncMock(return_value=None),
         ),
     ):
         ctx = await asyncio.wait_for(

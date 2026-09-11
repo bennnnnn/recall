@@ -38,49 +38,6 @@ LEARNING_HINT = (
 )
 
 
-VOCAB_QUIZ_FENCE_EXAMPLE = (
-    "```vocab_quiz\n"
-    '{"word":"see you later",'
-    '"question":"Which word completes this sentence? _____ — I have a meeting now.",'
-    '"correct":"A",'
-    '"choices":[{"letter":"A","text":"see you later"},{"letter":"B","text":"water"},'
-    '{"letter":"C","text":"yesterday"},{"letter":"D","text":"expensive"}]}\n'
-    "```"
-)
-
-
-VOCAB_QUIZ_FORMAT_BLOCK = (
-    "Emit ONLY the ```vocab_quiz fence below — do NOT also write a markdown Q:/A: block "
-    "or repeat the question/choices in plain text. The fence renders as tappable chips.\n"
-    f"{VOCAB_QUIZ_FENCE_EXAMPLE}"
-)
-
-
-VOCAB_CARD_FENCE_EXAMPLE = (
-    '```vocab_card\n{"word":"serendipity","definition":"finding something good by accident"}\n```'
-)
-
-
-# Learning-oriented rotation for vocabulary.
-VOCAB_LEARNING_FORMATS_BLOCK = (
-    "Rotate these formats across turns (vary; do **not** default to MCQ every time):\n"
-    "1) **Teach → use:** show a ```vocab_card``` with **word + short L1 gloss** "
-    "and one example sentence. Then ask the user to pick or write a sentence that uses it. "
-    "Example card:\n"
-    f"{VOCAB_CARD_FENCE_EXAMPLE}\n"
-    "Then: *Which sentence uses **serendipity** correctly?* "
-    'Do **not** ask "what does X mean?".\n'
-    "2) **Use in context:** give one clear example with the target word blanked (_____), "
-    "then ask which word belongs in the blank (open-ended or A–D lemmas). "
-    "Do **not** show the definition until after they answer.\n"
-    "3) **Quick check (MCQ):** about **one turn in three**, use A–D tap chips for a "
-    "**situation or gapped sentence**, never a bare dictionary prompt:\n"
-    f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
-    "One word per turn. Prefer teach→use and gapped sentences; MCQ is a quick check only. "
-    'Never ask "What does [word] mean?" for high-frequency words.'
-)
-
-
 DAILY_GOAL_COMPLETE_BEHAVIOR = (
     "**When today's daily goal is already complete** (the Today: line says "
     "'daily goal complete'): FIRST acknowledge they're done for today and "

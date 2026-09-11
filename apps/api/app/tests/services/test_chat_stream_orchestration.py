@@ -12,9 +12,6 @@ from app.tests.services.chat_test_support import (
 from app.tests.services.chat_test_support import (
     offline_session_patches as _offline_session_patches,
 )
-from app.tests.services.chat_test_support import (
-    quiz_message_repo_patches as _quiz_message_repo_patches,
-)
 from app.tests.services.chat_test_support import stub_recent
 
 pytest_plugins = ("app.tests.services.chat_test_support",)
@@ -1837,8 +1834,6 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
     with ExitStack() as stack:
         for patcher in _offline_session_patches():
             stack.enter_context(patcher)
-        for patcher in _quiz_message_repo_patches():
-            stack.enter_context(patcher)
         stack.enter_context(
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
@@ -1972,12 +1967,8 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
             local_places=False,
             max_out=100,
             fallback_models=[],
-            minimal_quiz=False,
-            minimal_vocab_answer=False,
-            active_vocab_turn=False,
             lightweight=False,
             rich_context=True,
-            quiz_grade=None,
             geo=ClientGeoContext(
                 user_location=None,
                 client_lat=None,
@@ -1999,8 +1990,6 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
 
     with ExitStack() as stack:
         for patcher in _offline_session_patches():
-            stack.enter_context(patcher)
-        for patcher in _quiz_message_repo_patches():
             stack.enter_context(patcher)
         stack.enter_context(
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
@@ -2099,8 +2088,6 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
 
     with ExitStack() as stack:
         for patcher in _offline_session_patches():
-            stack.enter_context(patcher)
-        for patcher in _quiz_message_repo_patches():
             stack.enter_context(patcher)
         stack.enter_context(
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))

@@ -90,7 +90,7 @@ type Props = {
     onMutePress: () => void;
     onYield: () => void;
   } | null;
-  /** When true, parent owns absolute bottom positioning (e.g. quiz dock). */
+  /** When true, parent owns absolute bottom positioning (e.g. math keypad). */
   docked?: boolean;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;

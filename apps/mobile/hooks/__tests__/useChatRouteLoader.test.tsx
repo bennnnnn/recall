@@ -60,7 +60,6 @@ jest.mock("@/hooks/useChatHighlightScroll", () => ({
 const mockHandleFirstReply = jest.fn();
 const setChatId = jest.fn();
 const setMessages = jest.fn();
-const setQuizVariant = jest.fn();
 
 function Probe() {
   const result = useChatRouteLoader({
@@ -84,8 +83,6 @@ function Probe() {
     messages: [],
     streaming: false,
     stopGeneration: jest.fn(),
-    setQuizVariant,
-    resolveQuizVariant: () => "vocab",
     listRef: { current: null },
     showActionBanner: jest.fn(),
     t: (key) => key,
@@ -162,7 +159,6 @@ describe("useChatRouteLoader", () => {
       expect(api.getChat).toHaveBeenCalledWith("token", "chat-1");
       expect(api.listMessages).toHaveBeenCalledWith("token", "chat-1", { limit: 40 });
       expect(setChatId).toHaveBeenCalledWith("chat-1");
-      expect(setQuizVariant).toHaveBeenCalledWith("vocab");
     });
   });
 
@@ -207,8 +203,6 @@ describe("useChatRouteLoader", () => {
         ],
         streaming: true,
         stopGeneration,
-        setQuizVariant,
-        resolveQuizVariant: () => "vocab",
         listRef: { current: null },
         showActionBanner: jest.fn(),
         t: (key) => key,
@@ -262,8 +256,6 @@ describe("useChatRouteLoader", () => {
         ],
         streaming: true,
         stopGeneration,
-        setQuizVariant,
-        resolveQuizVariant: () => "vocab",
         listRef: { current: null },
         showActionBanner: jest.fn(),
         t: (key) => key,
@@ -302,7 +294,6 @@ const routeDraft = {
   discardEmptyChat: jest.fn(),
   clearDraftChat: jest.fn(),
 };
-const resolveVariant = () => "vocab" as const;
 const banner = jest.fn();
 const translate = (key: string) => key;
 function RouteProbe({ routeId, token = "token" }: { routeId: string; token?: string }) {
@@ -313,8 +304,7 @@ function RouteProbe({ routeId, token = "token" }: { routeId: string; token?: str
     router: { setParams: jest.fn() } as never,
     draft: routeDraft as never,
     chatId, setChatId: updateChatId, messages, setMessages: updateMessages,
-    streaming: false, stopGeneration: jest.fn(), setQuizVariant,
-    resolveQuizVariant: resolveVariant, listRef: { current: null },
+    streaming: false, stopGeneration: jest.fn(), listRef: { current: null },
     showActionBanner: banner, t: translate,
   });
   useLayoutEffect(() => { routeState = result; visibleMessages = messages; });

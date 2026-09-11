@@ -946,11 +946,6 @@ def test_is_lightweight_chat_turn(text, expected):
     assert is_lightweight_chat_turn(text) is expected
 
 
-def test_is_lightweight_skipped_during_vocab_answer():
-    assert is_lightweight_chat_turn("k", active_vocab_turn=True) is False
-    assert is_lightweight_chat_turn("ok", active_vocab_turn=True) is False
-
-
 def test_short_confirmation_after_offer_is_not_lightweight():
     from app.services.chat.prompt_constants import (
         is_short_confirmation,
@@ -1641,326 +1636,6 @@ async def test_build_prompt_learning_progress_injects_today_words():
 
 
 @pytest.mark.asyncio
-async def test_build_prompt_minimal_for_vocab_quiz_answer():
-    user = MagicMock()
-    user.name = "Binalfew Mecuriaw"
-    user.email = "secret@example.com"
-    user.location = "San Francisco, CA"
-    user.location_enabled = True
-    user.response_style = "balanced"
-    user.response_tone = "funny"
-    user.memory_enabled = True
-    user.locale = "en"
-    user.timezone = "UTC"
-
-    with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
-        patch(
-            "app.repositories.chats.get_by_id",
-            AsyncMock(return_value=None),
-        ),
-    ):
-        messages = await build_prompt_messages(
-            user,
-            uuid4(),
-            Settings(),
-            minimal_quiz_context=True,
-        )
-
-    system = messages[0]["content"]
-    assert "Vocabulary format rotation" in system
-    assert "vocab_quiz" in system
-    assert "Recall has two features" not in system
-    assert "Recall has two todo features" not in system
-    assert "Web search results" not in system
-    assert "Google Calendar" not in system
-    assert "Known facts about the user" not in system
-    # MATH-BE-034: quiz turns skipped the math guardrails entirely, so any
-    # math in a quiz explanation rendered as raw ```latex/```copy. The
-    # compact math safety hint now ships on quiz/vocab turns too.
-    assert "Do NOT emit ```answer" in system
-    assert "```latex" in system
-
-
-@pytest.mark.asyncio
-async def test_build_prompt_minimal_quiz_includes_project_context():
-    from uuid import uuid4
-
-    user = MagicMock()
-    user.id = uuid4()
-    user.name = "Dev User"
-    user.email = "dev@example.com"
-    user.location = None
-    user.response_style = "balanced"
-    user.response_tone = "funny"
-    user.memory_enabled = False
-    user.locale = "en"
-    user.timezone = "UTC"
-
-    chat_id = uuid4()
-    project_id = uuid4()
-    chat = MagicMock()
-    chat.project_id = project_id
-
-    with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
-        patch(
-            "app.repositories.chats.get_by_id",
-            AsyncMock(return_value=chat),
-        ),
-        patch(
-            "app.services.learning.load_learning_quiz_context",
-            AsyncMock(return_value="Active vocabulary quiz — project: English"),
-        ) as quiz_ctx_mock,
-    ):
-        messages = await build_prompt_messages(
-            user,
-            chat_id,
-            Settings(),
-            minimal_quiz_context=True,
-        )
-
-    quiz_ctx_mock.assert_awaited_once()
-    assert "Active vocabulary quiz" in messages[0]["content"]
-
-
-@pytest.mark.asyncio
-async def test_should_minimal_quiz_context_after_vocab_quiz_fence():
-    from app.services.chat.turn_prep import _should_minimal_quiz_context
-
-    chat_id = uuid4()
-    session = AsyncMock()
-    quiz_msg = MagicMock()
-    quiz_msg.content = (
-        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
-        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
-        '{"letter":"B","text":"Pyramid"}]}\n```'
-    )
-
-    with patch(
-        "app.services.chat.quiz_messages.get_last_quiz_assistant",
-        AsyncMock(return_value=quiz_msg),
-    ):
-        assert await _should_minimal_quiz_context(session, chat_id, "B") is True
-        assert await _should_minimal_quiz_context(session, chat_id, "more please") is False
-
-
-@pytest.mark.asyncio
-async def test_should_minimal_quiz_context_false_without_prior_quiz():
-    from app.services.chat.turn_prep import _should_minimal_quiz_context
-
-    chat_id = uuid4()
-    session = AsyncMock()
-
-    with patch(
-        "app.services.chat.quiz_messages.get_last_quiz_assistant",
-        AsyncMock(return_value=None),
-    ):
-        assert await _should_minimal_quiz_context(session, chat_id, "A") is False
-
-
-@pytest.mark.asyncio
-async def test_grade_quiz_answer_is_noop_even_for_letter_on_quiz():
-    """Chat no longer grades A-D; mastery is recorded on the lesson screen."""
-    from app.services.chat.turn_prep.prepare import _grade_quiz_answer
-
-    user = MagicMock()
-    user.id = uuid4()
-    quiz_msg = MagicMock()
-    quiz_msg.content = (
-        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
-        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
-        '{"letter":"B","text":"Pyramid"}]}\n```'
-    )
-    session_local = MagicMock()
-
-    with patch("app.services.chat.turn_prep.prepare.SessionLocal", session_local):
-        is_letter, grade = await _grade_quiz_answer(
-            user=user,
-            chat_id=uuid4(),
-            chat_project_id=uuid4(),
-            content="A",
-            prior_assistant=quiz_msg,
-        )
-
-    assert is_letter is False
-    assert grade is None
-    session_local.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_grade_quiz_answer_skips_session_when_not_a_letter():
-    from app.services.chat.turn_prep.prepare import _grade_quiz_answer
-
-    user = MagicMock()
-    user.id = uuid4()
-    quiz_msg = MagicMock()
-    quiz_msg.content = (
-        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
-        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
-        '{"letter":"B","text":"Pyramid"}]}\n```'
-    )
-    session_local = MagicMock()
-
-    with patch("app.services.chat.turn_prep.prepare.SessionLocal", session_local):
-        is_letter, grade = await _grade_quiz_answer(
-            user=user,
-            chat_id=uuid4(),
-            chat_project_id=uuid4(),
-            content="what does that word mean",
-            prior_assistant=quiz_msg,
-        )
-
-    assert is_letter is False
-    assert grade is None
-    session_local.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_classify_turn_mode_returns_quiz_assistant_row():
-    from app.services.chat.turn_prep.mode import _classify_turn_mode
-
-    chat = MagicMock()
-    chat.id = uuid4()
-    chat.project_id = uuid4()
-    chat.quiz_mode = None
-    quiz_msg = MagicMock()
-    quiz_msg.content = (
-        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
-        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
-        '{"letter":"B","text":"Pyramid"},{"letter":"C","text":"Hanging Gardens"},'
-        '{"letter":"D","text":"Lighthouse"}]}\n```'
-    )
-
-    with patch(
-        "app.services.chat.quiz_messages.get_last_quiz_assistant",
-        AsyncMock(return_value=quiz_msg),
-    ):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "A")
-
-    assert mode.quiz_assistant is None
-    assert mode.minimal_quiz is False
-
-
-@pytest.mark.asyncio
-async def test_classify_turn_mode_open_ended_vocab_answer_flags_active_vocab_turn():
-    """An open-ended vocab answer (sentence/definition, no letter) on a
-    project chat whose prior assistant was a vocab prompt must set
-    ``active_vocab_turn`` and ``minimal_vocab_answer`` — but NOT
-    ``minimal_quiz`` (no letter/fence). This is the gap R-API-012 closes:
-    without ``active_vocab_turn`` in the web-search/integration gates, such a
-    turn would fire Tavily + calendar/gmail context for a learning answer."""
-    from app.services.chat.turn_prep.mode import _classify_turn_mode
-
-    chat = MagicMock()
-    chat.id = uuid4()
-    chat.project_id = uuid4()
-    chat.quiz_mode = None
-    # Prior assistant was an open-ended vocab prompt (vocab_card, no fence).
-    quiz_msg = MagicMock()
-    quiz_msg.content = (
-        "```vocab_card\n**ephemeral** — lasting a very short time.\n\n"
-        "Write your own sentence using *ephemeral*.\n```"
-    )
-
-    with patch(
-        "app.services.chat.quiz_messages.get_last_quiz_assistant",
-        AsyncMock(return_value=quiz_msg),
-    ):
-        mode = await _classify_turn_mode(
-            AsyncMock(), chat, "the sunset was ephemeral but beautiful"
-        )
-
-    assert mode.active_vocab_turn is False
-    assert mode.minimal_vocab_answer is False
-    assert mode.minimal_quiz is False
-    assert mode.quiz_assistant is None
-
-
-@pytest.mark.asyncio
-async def test_classify_turn_mode_letter_on_open_ended_prompt_uses_vocab_answer_path():
-    """A letter answer ("A") on an open-ended vocab prompt (no vocab_quiz
-    fence) must NOT be classified as ``minimal_quiz`` — QUIZ_ANSWER_HINT
-    assumes a fence with choices to grade against, which an open-ended prompt
-    lacks. Use the vocab-answer path (``minimal_vocab_answer``) instead:
-    VOCAB_CHAT_ANSWER_HINT explicitly treats "random single letters" as wrong.
-    R-API-013."""
-    from app.services.chat.turn_prep.mode import _classify_turn_mode
-
-    chat = MagicMock()
-    chat.id = uuid4()
-    chat.project_id = uuid4()
-    chat.quiz_mode = None
-    quiz_msg = MagicMock()
-    quiz_msg.content = (
-        "```vocab_card\n**ephemeral** — lasting a very short time.\n\n"
-        "Write your own sentence using *ephemeral*.\n```"
-    )
-
-    with patch(
-        "app.services.chat.quiz_messages.get_last_quiz_assistant",
-        AsyncMock(return_value=quiz_msg),
-    ):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "A")
-
-    assert mode.active_vocab_turn is False
-    assert mode.minimal_vocab_answer is False
-    assert mode.minimal_quiz is False
-    assert mode.quiz_assistant is None
-
-
-@pytest.mark.asyncio
-async def test_classify_turn_mode_letter_on_mcq_fence_stays_minimal_quiz():
-    """A letter answer on an MCQ prompt (with vocab_quiz fence) must stay
-    ``minimal_quiz`` — QUIZ_ANSWER_HINT is correct here because the fence
-    has choices and a correct letter. R-API-013 regression guard."""
-    from app.services.chat.turn_prep.mode import _classify_turn_mode
-
-    chat = MagicMock()
-    chat.id = uuid4()
-    chat.project_id = uuid4()
-    chat.quiz_mode = None
-    quiz_msg = MagicMock()
-    quiz_msg.content = (
-        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
-        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
-        '{"letter":"B","text":"Pyramid"},{"letter":"C","text":"Hanging Gardens"},'
-        '{"letter":"D","text":"Lighthouse"}]}\n```'
-    )
-
-    with patch(
-        "app.services.chat.quiz_messages.get_last_quiz_assistant",
-        AsyncMock(return_value=quiz_msg),
-    ):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "A")
-
-    assert mode.minimal_quiz is False
-    assert mode.minimal_vocab_answer is False
-    assert mode.active_vocab_turn is False
-    assert mode.quiz_assistant is None
-
-
-@pytest.mark.asyncio
-async def test_classify_turn_mode_skips_quiz_lookup_without_project():
-    """Ordinary chats have no Learning project — don't scan recent assistants."""
-    from app.services.chat.turn_prep.mode import _classify_turn_mode
-
-    chat = MagicMock()
-    chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
-    get_last = AsyncMock(return_value=MagicMock())
-
-    with patch("app.services.chat.quiz_messages.get_last_quiz_assistant", get_last):
-        mode = await _classify_turn_mode(AsyncMock(), chat, "hello there")
-
-    get_last.assert_not_awaited()
-    assert mode.active_vocab_turn is False
-    assert mode.minimal_quiz is False
-    assert mode.quiz_assistant is None
-
-
-@pytest.mark.asyncio
 async def test_classify_turn_mode_hi_is_lightweight():
     from app.services.chat.turn_prep.mode import _classify_turn_mode
 
@@ -2113,51 +1788,11 @@ def test_instant_reply_needs_db_only_for_calendar_and_email():
     assert _instant_reply_needs_db("solve 2x + 3 = 7") is False
 
 
-def test_should_augment_web_and_tools_skips_active_vocab_turn():
-    """``active_vocab_turn`` must suppress web/tools augmentation even when
-    the turn is not lightweight and not minimal_quiz (open-ended vocab
-    answer path). R-API-012."""
-    from app.services.chat.turn_prep.mode import _should_augment_web_and_tools
-
-    assert (
-        _should_augment_web_and_tools(
-            instant_reply=None,
-            lightweight=False,
-            minimal_personal=False,
-            minimal_quiz=False,
-            active_vocab_turn=True,
-            day_planning=False,
-            ambiguous_nearby=False,
-            is_external_calendar_question=False,
-            is_external_email_question=False,
-        )
-        is False
-    )
-    # Sanity: a normal rich turn still augments.
-    assert (
-        _should_augment_web_and_tools(
-            instant_reply=None,
-            lightweight=False,
-            minimal_personal=False,
-            minimal_quiz=False,
-            active_vocab_turn=False,
-            day_planning=False,
-            ambiguous_nearby=False,
-            is_external_calendar_question=False,
-            is_external_email_question=False,
-            rich_context=True,
-        )
-        is True
-    )
-
-
 def _augment_kwargs(**overrides: object) -> dict[str, object]:
     base: dict[str, object] = {
         "instant_reply": None,
         "lightweight": False,
         "minimal_personal": False,
-        "minimal_quiz": False,
-        "active_vocab_turn": False,
         "day_planning": False,
         "ambiguous_nearby": False,
         "is_external_calendar_question": False,
@@ -2189,8 +1824,6 @@ def test_should_fetch_integrations_skips_slim_without_calendar_or_gmail():
         "instant_reply": None,
         "lightweight": False,
         "minimal_personal": False,
-        "minimal_quiz": False,
-        "active_vocab_turn": False,
         "rich_context": False,
         "load_calendar": False,
         "load_gmail": False,
@@ -2209,8 +1842,6 @@ def test_should_fetch_integrations_false_on_advice_only():
             instant_reply=None,
             lightweight=False,
             minimal_personal=False,
-            minimal_quiz=False,
-            active_vocab_turn=False,
             rich_context=False,
             load_calendar=False,
             load_gmail=False,
@@ -2279,6 +1910,36 @@ def test_is_vocab_quiz_answer():
     assert is_vocab_quiz_answer("c.") is True
     assert is_vocab_quiz_answer("Is it a?") is True
     assert is_vocab_quiz_answer("hello") is False
+
+
+def test_strip_vocab_session_metadata():
+    from app.services.chat.learning_fences import strip_learning_chat_fences
+
+    content = (
+        "You've mastered all 5 words today.\n\n"
+        "```json\n"
+        '{"session_complete":true,"words_learned":5,"streak":1}\n'
+        "```"
+    )
+    assert strip_learning_chat_fences(content) == "You've mastered all 5 words today."
+    keep = '```json\n{"foo": 1}\n```'
+    assert strip_learning_chat_fences(keep) == keep.strip()
+
+
+def test_strip_learning_chat_fences_drops_vocab_quiz():
+    from app.services.chat.learning_fences import strip_learning_chat_fences
+
+    content = (
+        "Let's check this word.\n\n"
+        "```vocab_quiz\n"
+        '{"word":"hola","correct":"A","choices":['
+        '{"letter":"A","text":"hello"},{"letter":"B","text":"bye"},'
+        '{"letter":"C","text":"please"},{"letter":"D","text":"thanks"}]}\n'
+        "```"
+    )
+    assert strip_learning_chat_fences(content) == "Let's check this word."
+    partial = 'Great — try this one:\n\n```vocab_quiz\n{"word":"slow"'
+    assert strip_learning_chat_fences(partial) == "Great — try this one:"
 
 
 def test_format_user_profile_block_includes_fields():

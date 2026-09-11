@@ -31,7 +31,7 @@ export function useAssistantMessageContent({
 }: Options): AssistantMessageContent & { content: string } {
   const content = liveContent ?? message.content;
 
-  // Draft publishes ~rAF; fence strip/parse (quiz/calendar/places/images) is
+  // Draft publishes ~rAF; fence strip/parse (calendar/places/images) is
   // far heavier than painting tokens. Throttle derive inputs to the shared
   // stream UI cadence while generating, and flush immediately when the
   // stream ends so the final reply is never stuck on a stale strip.
