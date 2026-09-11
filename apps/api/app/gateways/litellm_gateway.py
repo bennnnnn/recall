@@ -168,7 +168,12 @@ def resolve_route(alias: str) -> ChatModel:
     return model_catalog.get(alias)
 
 
-def _litellm_kwargs(settings: Settings, route: ChatModel) -> dict[str, Any]:
+def _litellm_kwargs(
+    settings: Settings,
+    route: ChatModel,
+    *,
+    latency_sensitive: bool = False,
+) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     api_key = getattr(settings, route.api_key_field, "")
     if not api_key:
@@ -187,6 +192,12 @@ def _litellm_kwargs(settings: Settings, route: ChatModel) -> dict[str, Any]:
                 "X-Title": "Recall",
             },
         )
+        # OpenRouter's default route is price-weighted. The user-visible token
+        # stream values TTFT more than small provider-price differences, so ask
+        # OpenRouter to prefer the endpoint with the lowest observed latency.
+        # Background jobs and tool-selection calls keep the default routing.
+        if latency_sensitive:
+            kwargs["extra_body"] = {"provider": {"sort": "latency"}}
     return kwargs
 
 
@@ -404,7 +415,7 @@ async def _stream_chat_once(
     stream_meta: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
-    kwargs = _litellm_kwargs(settings, route)
+    kwargs = _litellm_kwargs(settings, route, latency_sensitive=True)
     stripper = _ThinkStripper()
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
