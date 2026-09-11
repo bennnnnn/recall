@@ -42,6 +42,67 @@ async def test_record_batch_persists_allowlisted_metadata() -> None:
 
 
 @pytest.mark.asyncio
+async def test_record_batch_accepts_bucketed_chat_ttft_only() -> None:
+    session = AsyncMock()
+    batch = ProductEventBatchIn.model_validate(
+        {
+            "events": [
+                {
+                    "name": "chat_ttft",
+                    "properties": {
+                        "latency_bucket": "2000_3999",
+                        "transport": "sse",
+                        "has_attachment": "no",
+                    },
+                }
+            ]
+        }
+    )
+
+    with patch(
+        "app.services.product_analytics.product_events_repo.create_batch",
+        AsyncMock(),
+    ) as create_batch:
+        await product_analytics.record_batch(session, uuid4(), batch)
+
+    rows = create_batch.await_args.args[1]
+    assert rows[0].name == "chat_ttft"
+    assert rows[0].properties == {
+        "latency_bucket": "2000_3999",
+        "transport": "sse",
+        "has_attachment": "no",
+    }
+
+
+@pytest.mark.asyncio
+async def test_record_batch_rejects_raw_chat_latency_value() -> None:
+    session = AsyncMock()
+    batch = ProductEventBatchIn.model_validate(
+        {
+            "events": [
+                {
+                    "name": "chat_ttft",
+                    "properties": {
+                        "latency_bucket": "4821",
+                        "transport": "ws",
+                        "has_attachment": "no",
+                    },
+                }
+            ]
+        }
+    )
+
+    with patch(
+        "app.services.product_analytics.product_events_repo.create_batch",
+        AsyncMock(),
+    ) as create_batch:
+        with pytest.raises(ValueError, match="Invalid latency_bucket"):
+            await product_analytics.record_batch(session, uuid4(), batch)
+
+    create_batch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_record_batch_rejects_unexpected_properties() -> None:
     session = AsyncMock()
     batch = ProductEventBatchIn.model_validate(
