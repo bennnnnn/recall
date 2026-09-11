@@ -41,7 +41,9 @@ class TurnTimingTracker:
         content_chars: int = 0,
     ) -> None:
         prompt_ready = (
-            round(self._prompt_ready_ms, 1) if self._prompt_ready_ms is not None else None
+            round(self._prompt_ready_ms, 1)
+            if self._prompt_ready_ms is not None
+            else None
         )
         first_token = (
             round(self._first_token_ms, 1) if self._first_token_ms is not None else None
