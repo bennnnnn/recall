@@ -1,28 +1,18 @@
 /** Turn model output like `( x^2 = 6 )` into renderable LaTeX. Bare `12+3`
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
+import { applyOutsideFences } from "@/lib/mdFenceScan";
+
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
 const MATH_IN_PARENS_RE = /\(\s*([^()\n]{1,180}?)\s*\)/g;
-// Triple-backtick fences, LaTeX's own already-delimited display-math spans
-// (`$$...$$`, `\[...\]`), AND its inline-math delimiter (`\(...\)`) —
-// markdownPreprocess.ts's BLOCK_MATH_RE/BLOCK_MATH_BRACKET_RE convert the
-// display forms into ```math fences right after this module runs, and
-// splitInlineMath (markdownPreprocess.ts) already recognizes `\(...\)`
-// directly as inline math, same as `$...$`. Without protecting `\(...\)`
-// here, MATH_IN_PARENS_RE below matches the bare `(`/`)` characters INSIDE
-// it (ignoring the leading/trailing backslash as unrelated adjacent text)
-// and re-wraps the captured span — which includes that stray trailing
-// backslash — in its own `$...$`, corrupting a perfectly valid delimiter
-// into e.g. `\$\frac{5}{7}\$`. Any of these spans containing a nested
-// LaTeX command (\left, \right, \approx, ...) fares even worse: the later
-// wrapInlineLatexCommands heuristic then wraps each stranded command in
-// its own separate `$...$`, shattering one expression (e.g.
-// `\left(\frac{5}{7}\right)^2`) into disconnected, individually-broken
-// fragments with `\left`/`\right` missing the delimiter each requires and
-// `^2` left as literal unrendered text outside any math span. So these
-// spans get skipped here exactly like a code fence, not touched line-by-line
-// by the heuristics below.
-const PROTECTED_SPAN_RE = /```[\s\S]*?```|\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)/g;
+// Line-start ``` fences are skipped via applyOutsideFences (a following
+// ```math is an opener, never a closer). Mid-line ```math is still prose, so
+// a glued `isolate x: ```math` + `\frac` still gets `$...$` wrapping.
+//
+// Display math (`$$...$$`, `\[...\]`) and `\(...\)` stay protected: without
+// that, MATH_IN_PARENS_RE matches the bare `(`/`)` inside `\(...\)` and
+// wrapInlineLatexCommands shatters `\left(\frac{5}{7}\right)^2`.
+const DISPLAY_MATH_SPAN_RE = /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)/g;
 
 // A LaTeX command (\frac, \sqrt, \boxed, ...) embedded mid-sentence with no
 // $...$ wrap at all — e.g. "simplifying\frac{8!}{6!}?" — is distinct from
@@ -403,20 +393,30 @@ export function normalizeImplicitMathInProse(
   return text.split("\n").map((line) => normalizeMathLine(line, format)).join("\n");
 }
 
-export function normalizeImplicitMath(
-  content: string,
+function normalizeOutsideDisplayMath(
+  text: string,
   format?: (expr: string) => string,
 ): string {
+  DISPLAY_MATH_SPAN_RE.lastIndex = 0;
   const chunks: string[] = [];
   let last = 0;
   let match: RegExpExecArray | null;
-  while ((match = PROTECTED_SPAN_RE.exec(content)) !== null) {
+  while ((match = DISPLAY_MATH_SPAN_RE.exec(text)) !== null) {
     if (match.index > last) {
-      chunks.push(normalizeImplicitMathInProse(content.slice(last, match.index), format));
+      chunks.push(normalizeImplicitMathInProse(text.slice(last, match.index), format));
     }
     chunks.push(match[0]);
     last = match.index + match[0].length;
   }
-  chunks.push(normalizeImplicitMathInProse(content.slice(last), format));
+  chunks.push(normalizeImplicitMathInProse(text.slice(last), format));
   return chunks.join("");
+}
+
+export function normalizeImplicitMath(
+  content: string,
+  format?: (expr: string) => string,
+): string {
+  return applyOutsideFences(content, (prose) =>
+    normalizeOutsideDisplayMath(prose, format),
+  );
 }

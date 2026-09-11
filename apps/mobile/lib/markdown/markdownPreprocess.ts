@@ -3,6 +3,7 @@ import { collapseAdjacentMoleculeFences, dropRedundantMolecule3dFences } from "@
 import {
   retagMathAndDiagramFences,
   closeInterruptedMathFences,
+  isMathFenceInterruptLine,
   shouldInlineMathFenceOnBareListMarker,
   shouldRenderMathFenceInline,
   stripRedundantDollarWrap,
@@ -21,7 +22,12 @@ import {
 import { shouldLiftFenceOutOfList } from "@/lib/fenceRegistry";
 import { allowsContentHeuristic } from "@/lib/fenceDispatch";
 import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
-import { applyOutsideFences, mapClosedFences, readFenceMarker } from "@/lib/mdFenceScan";
+import {
+  applyOutsideFences,
+  mapClosedFences,
+  readFenceMarker,
+  readFenceMarkerLoose,
+} from "@/lib/mdFenceScan";
 import {
   PROTECTED_ESCAPE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
@@ -259,11 +265,13 @@ export function breakAttachedMathFences(content: string): string {
 
   const takeLang = (afterTicks: string): { lang: string; rest: string } | null => {
     let i = 0;
+    while (i < afterTicks.length && /[ \t]/.test(afterTicks[i]!)) i += 1;
+    const start = i;
     // Read letters, digits, and hyphens — fence langs like "vega-lite",
     // "callout-note", and "molecule3d" contain hyphens/digits. Without
     // digits, "molecule3d" was split into lang "molecule" + body "3d".
     while (i < afterTicks.length && /[\w-]/.test(afterTicks[i]!)) i += 1;
-    const lang = afterTicks.slice(0, i);
+    const lang = afterTicks.slice(start, i);
     // Accept any recognized fence lang: structured (math, graph, geometry,
     // mermaid, …), answer, or explicit code (python, javascript, …). This
     // lifts glued fence openers for ALL langs, not just math ones — the
@@ -283,13 +291,15 @@ export function breakAttachedMathFences(content: string): string {
   };
 
   for (const line of lines) {
-    const tick = line.indexOf("```");
+    const tick = line.search(/`{3,}/);
     if (tick === -1) {
       out.push(line);
       continue;
     }
+    let tickLen = 0;
+    while (line[tick + tickLen] === "`") tickLen += 1;
     const prefix = line.slice(0, tick);
-    const parsed = takeLang(line.slice(tick + 3));
+    const parsed = takeLang(line.slice(tick + tickLen));
     if (!parsed) {
       out.push(line);
       continue;
@@ -401,6 +411,45 @@ export function liftMathFencesOutOfLists(content: string): string {
     // indented body lines as indented code blocks, not fence content.
     if (inFence === "math") {
       out.push(trimmed);
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+/**
+ * CommonMark treats 4+ space (or tab) indented lines as a code block.
+ * After an unclosed ```math, the next `2. **Simplify:**` often lands in
+ * that indent — a gray Prism card of markdown source. Pull those steps
+ * (and only those) back to column 0. Real fenced bodies are left alone.
+ */
+export function dedentMisindentedMarkdownSteps(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let open: { char: "`" | "~"; len: number } | null = null;
+  for (const line of lines) {
+    if (open) {
+      out.push(line);
+      const closer = readFenceMarkerLoose(line);
+      if (
+        closer &&
+        closer.char === open.char &&
+        closer.len >= open.len &&
+        closer.info === ""
+      ) {
+        open = null;
+      }
+      continue;
+    }
+    const marker = readFenceMarkerLoose(line);
+    if (marker && !marker.info.includes("|")) {
+      open = { char: marker.char, len: marker.len };
+      out.push(line);
+      continue;
+    }
+    if (/^(?:[ \t]{4,}|\t+)/.test(line) && isMathFenceInterruptLine(line)) {
+      out.push(line.trimStart());
       continue;
     }
     out.push(line);
@@ -1578,6 +1627,7 @@ export function preprocessMarkdown(
   out = restorePriceTiers(blockMathOut);
   out = breakAttachedMathFences(out);
   out = closeInterruptedMathFences(out);
+  out = dedentMisindentedMarkdownSteps(out);
   out = unwrapCorruptedMathFences(out);
 
   out = normalizeMarkdownTables(out);
@@ -1597,6 +1647,7 @@ export function preprocessMarkdown(
   out = breakMidlineAtxHeadings(out);
   out = breakAttachedMathFences(out);
   out = closeInterruptedMathFences(out);
+  out = dedentMisindentedMarkdownSteps(out);
   out = liftMathFencesOutOfLists(out);
   out = inlineShortMathFences(out);
   out = unwrapProseMathBackticks(out);

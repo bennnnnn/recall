@@ -60,6 +60,11 @@ describe("classifyFence — explicit tags win", () => {
     expect(classifyFence("sms", leaked).kind).toBe("prose");
   });
 
+  it("does not render an indented solve-step as a code card", () => {
+    const body = ["2. **Simplify:**", "", "```math", "x = 1", "```"].join("\n");
+    expect(classifyFence("", body).kind).toBe("prose");
+  });
+
   it.each(["email", "message", "sms", "reply", "linkedin", "social", "facebook", "instagram", "copy"])(
     "streams an open %s fence as prose, never as code",
     (lang) => {

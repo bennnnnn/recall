@@ -1,4 +1,4 @@
-import { readFenceMarker } from "@/lib/mdFenceScan";
+import { readFenceMarker, readFenceMarkerLoose } from "@/lib/mdFenceScan";
 
 // Trailing (?=[^a-zA-Z]|$) instead of \b: \b treats `_` as a word char, so it
 // would not match the boundary between a command and a subscript
@@ -189,7 +189,7 @@ export function closeInterruptedMathFences(content: string): string {
   const out: string[] = [];
   let i = 0;
   while (i < lines.length) {
-    const open = readFenceMarker(lines[i]!);
+    const open = readFenceMarkerLoose(lines[i]!);
     if (!open || !mathFenceLang(open.info) || open.info.includes("|")) {
       out.push(lines[i]!);
       i += 1;
@@ -197,9 +197,10 @@ export function closeInterruptedMathFences(content: string): string {
     }
     out.push(lines[i]!);
     i += 1;
+    let closed = false;
     while (i < lines.length) {
       const line = lines[i]!;
-      const inner = readFenceMarker(line);
+      const inner = readFenceMarkerLoose(line);
       if (
         inner &&
         inner.char === open.char &&
@@ -208,16 +209,22 @@ export function closeInterruptedMathFences(content: string): string {
       ) {
         out.push(line);
         i += 1;
+        closed = true;
         break;
       }
       const nextOpener = Boolean(inner && inner.info !== "");
       if (nextOpener || isMathFenceInterruptLine(line)) {
         out.push(open.char.repeat(open.len));
         out.push("");
+        closed = true;
         break;
       }
       out.push(line);
       i += 1;
+    }
+    if (!closed) {
+      out.push(open.char.repeat(open.len));
+      out.push("");
     }
   }
   return out.join("\n");

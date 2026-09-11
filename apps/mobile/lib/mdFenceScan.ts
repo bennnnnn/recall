@@ -17,6 +17,13 @@ export function readFenceMarker(
   return { char, len, info: line.slice(i).trim() };
 }
 
+/** Fence even when indented 4+ spaces (CommonMark would treat that as code). */
+export function readFenceMarkerLoose(
+  line: string,
+): { char: "`" | "~"; len: number; info: string } | null {
+  return readFenceMarker(line) ?? readFenceMarker(line.trimStart());
+}
+
 /**
  * Apply `fn` only to prose between fenced regions. Fence openers, bodies, and
  * closers are copied byte-for-byte (including `$$` inside a Python string).

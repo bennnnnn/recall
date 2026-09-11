@@ -347,4 +347,28 @@ describe("mathFenceRetag", () => {
     expect(out).toContain("2. **Simplify:**");
     expect(out).toContain("```math\nx = 1\n```");
   });
+
+  it("closes an unclosed ```math fence before a 4-space-indented step label", () => {
+    const input = [
+      "```math",
+      String.raw`\frac{4x}{4} = \frac{4}{4}`,
+      "",
+      "    2. **Simplify:**",
+      "",
+      "    ```math",
+      "    x = 1",
+      "    ```",
+    ].join("\n");
+    const out = closeInterruptedMathFences(input);
+    const beforeStep = out.slice(0, out.indexOf("2. **Simplify:**"));
+    expect(beforeStep).toContain(String.raw`\frac{4x}{4} = \frac{4}{4}`);
+    expect(beforeStep.trimEnd().endsWith("```")).toBe(true);
+    expect(beforeStep).not.toContain("Simplify");
+  });
+
+  it("closes an unclosed ```math fence at end of input", () => {
+    const out = closeInterruptedMathFences("```math\n" + String.raw`\frac{1}{2}`);
+    expect(out.trimEnd().endsWith("```")).toBe(true);
+    expect(out).toContain(String.raw`\frac{1}{2}`);
+  });
 });

@@ -1,4 +1,4 @@
-import { mapClosedFences, replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
+import { mapClosedFences, readFenceMarker, readFenceMarkerLoose, replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
 
 describe("replaceFirstClosedFenceBody", () => {
   it("rewrites the first closed fence and keeps surrounding prose", () => {
@@ -29,5 +29,17 @@ describe("mapClosedFences", () => {
     expect(seen).toEqual([]);
     expect(out).toContain("```math\na");
     expect(out).toContain("```math\nb");
+  });
+});
+
+describe("readFenceMarkerLoose", () => {
+  it("sees a 4-space-indented ```math that readFenceMarker rejects", () => {
+    const line = "    ```math";
+    expect(readFenceMarker(line)).toBeNull();
+    expect(readFenceMarkerLoose(line)).toEqual({
+      char: "`",
+      len: 3,
+      info: "math",
+    });
   });
 });

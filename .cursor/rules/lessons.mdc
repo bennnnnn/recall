@@ -12,6 +12,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`4x=4` still showed raw `\\frac` plus a gray Simplify card after closing interrupted fences.** CommonMark 4-space indent of `2. **Simplify:**` + nested ` ```math ` is an indented `code_block` (Prism), and ` ```[\\s\\S]*?``` ` in `normalizeImplicitMath` treated the next ` ```math ` as a closer so `\\frac` never got `$...$`. Dedent those step labels; skip whitespace/` ````` ` in glued openers; don't protect mid-line ` ```math `; untagged walkthrough bodies are prose not code.
 - **Solve steps showed raw `\\frac` plus a code card.** Model glued ` ```math ` to the sentence and skipped the closer; `/```math[\\s\\S]*?```/` treated the next ` ```math ` as a closer (even when the callback returned the match), so step 2 became code. Close interrupted math fences with CommonMark closer rules (` ```math ` is never a closer).
 
 - **Settings tone/style still expanded in the gray card.** The ChatGPT-style

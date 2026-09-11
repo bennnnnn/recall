@@ -176,6 +176,15 @@ describe("normalizeImplicitMath", () => {
     expect(out).toContain("$x2=4$");
   });
 
+  it("BUG FIX regression: mid-line ```math does not skip wrapping \\frac", () => {
+    const input =
+      "1. **Divide both sides by 4** to isolate x: ```math\n" +
+      String.raw`\frac{4x}{4} = \frac{4}{4}` +
+      "\n\n2. **Simplify:**\n\n```math\nx = 1\n```";
+    const out = normalizeImplicitMath(input);
+    expect(out).toMatch(/\$\\frac\{4x\}/);
+  });
+
   it("BUG FIX regression: does not wrap LaTeX commands inside a \\[...\\] display-math span in $...$", () => {
     // Reported live (screenshots): "x = \\pm \\sqrt{4}" inside \\[...\\]
     // rendered in red. wrapInlineLatexCommands used to treat \\[ ... \\] as
