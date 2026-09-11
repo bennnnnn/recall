@@ -24,9 +24,6 @@ from app.services.math_tools.block.common import (
     _diagram_block as _diagram_block,
 )
 from app.services.math_tools.block.common import (
-    _fence as _fence,
-)
-from app.services.math_tools.block.common import (
     _finish_with_answer as _finish_with_answer,
 )
 from app.services.math_tools.block.common import (

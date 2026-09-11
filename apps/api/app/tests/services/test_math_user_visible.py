@@ -38,12 +38,9 @@ def test_bare_arithmetic_extracts_and_skips_tool_loop(question: str, kind: str) 
 def test_bare_arithmetic_answers() -> None:
     assert _block("what is 1+1")[1].canonical_answer == "2"
     assert _block("7*8")[1].canonical_answer == "56"
+    assert _block("10-3-2")[1].canonical_answer == "5"
+    assert _block("100/5/2")[1].canonical_answer == "10"
     assert _block("3*4+2")[1].canonical_answer == "14"
-
-
-def test_looks_like_bare_arithmetic_rejects_dates() -> None:
-    assert math_text_match.looks_like_bare_arithmetic("7*8") is True
-    assert math_text_match.looks_like_bare_arithmetic("9/7/2026") is False
 
 
 def test_quadratic_discriminant_parenthesizes_negative_b() -> None:
@@ -168,3 +165,45 @@ def test_complex_decision_is_not_symbolic_math() -> None:
 def test_turn_needs_tool_loop_false_after_arithmetic_extract() -> None:
     assert extract_math_intent("7*8") is not None
     assert turn_needs_tool_loop("7*8", has_verified_math=True, settings=_SETTINGS) is False
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "y'' of y = x^3 - 3x",
+        "f(x) = x^3 - 3x, find f''(x)",
+    ],
+)
+def test_lagrange_primes_are_calculus_not_algebra(question: str) -> None:
+    intent, block = _block(question)
+    assert intent.kind == "calculus"
+    assert intent.operation == "differentiate"
+    assert intent.derivative_order == 2
+    compact = (block.canonical_answer or "").replace(" ", "").replace("\\", "")
+    assert "6x" in compact or "6*x" in compact
+
+
+def test_y_prime_ode_is_not_stolen_as_derivative() -> None:
+    intent = extract_math_intent("y' = 2x")
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "dsolve"
+    block = math_tools._build_verified_block(intent, _SETTINGS)
+    if block is not None:
+        compact = (block.canonical_answer or "").replace(" ", "")
+        assert "6x" not in compact.replace("\\", "")
+
+
+def test_dates_and_phones_are_not_verified_arithmetic() -> None:
+    for text in ("9/7/2026", "1-800-273-8255", "800-273-8255"):
+        assert math_text_match.bare_arithmetic_expr(text) is None
+        assert math_text_match.needs_symbolic(text) is False
+        assert extract_math_intent(text) is None
+
+
+def test_chained_minus_and_slash_still_verify() -> None:
+    for text in ("10-3-2", "100/5/2"):
+        assert math_text_match.bare_arithmetic_expr(text) == text
+        intent = extract_math_intent(text)
+        assert intent is not None
+        assert intent.kind == "arithmetic"

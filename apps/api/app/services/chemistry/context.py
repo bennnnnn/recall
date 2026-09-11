@@ -10,10 +10,14 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Any
+
+from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.gateways import pubchem_gateway
 from app.services import chemistry as chemistry_service
+from app.services.chemistry.stoichiometry import PERIODIC_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -60,16 +64,20 @@ _PH_CUE = re.compile(
     r"\[H\+?\]|\[OH-?\]|hydrogen\s+ion)",
 )
 
-# Detect gas law questions: "PV=nRT", "ideal gas", "Boyle", "Charles", "Gay-Lussac"
+# Detect gas law questions. No pressure.*volume — that stole PubChem lookups.
 _GAS_LAW_CUE = re.compile(
-    r"\b(?:pv\s*=\s*nrt|ideal\s+gas|boyle|charles|gay[-\s]?lussac|"
-    r"pressure.*volume|volume.*pressure|gas\s+law)\b",
+    r"\b(?:pv\s*=\s*nrt|ideal\s+gas|boyle|charles|gay[-\s]?lussac|gas\s+law)\b",
     re.IGNORECASE,
 )
 
 # Detect solution chemistry: "molarity", "molality", "dilution", "M1V1"
 _SOLUTION_CUE = re.compile(
-    r"\b(?:molarity|molality|dilut|M1V1|concentration\s+of\s+solution)\b",
+    r"\b(?:molarity|molality|dilut\w*|M1V1|concentration\s+of\s+solution)\b",
+    re.IGNORECASE,
+)
+
+_ELEMENT_CUE = re.compile(
+    r"\b(?:atomic\s+mass|atomic\s+number|electronegativity|periodic\s+table|element)\b",
     re.IGNORECASE,
 )
 
@@ -117,9 +125,59 @@ _FALSE_POSITIVES = frozenset(
     }
 )
 
+_MOL_AMOUNT_RE = re.compile(
+    r"(-?\d+(?:\.\d+)?)\s*mol(?:e|es)?(?:\s+of)?\s+([A-Z][A-Za-z0-9\(\)\.]*)"
+)
+_ATOMIC_MASS_PHRASE = re.compile(r"\batomic\s+mass\b", re.IGNORECASE)
+_H_CONC_RE = re.compile(r"\[H\+?\]\s*=\s*([\d.eE+\-]+)")
+_POH_EQ_RE = re.compile(r"\bpOH\s*=\s*(-?\d+(?:\.\d+)?)")
+_PH_EQ_RE = re.compile(r"\bpH\s*=\s*(-?\d+(?:\.\d+)?)")
+_ATM_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*atm\b", re.IGNORECASE)
+_VOLUME_L_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*(?:L|liters?|litres?)\b")
+_MOLES_BARE_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*mol(?:e|es)?\b", re.IGNORECASE)
+_KELVIN_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*K\b")
+_M1_RE = re.compile(r"\bM1\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+_VOLUME_UNIT = r"(mL|ml|L|liters?|litres?)?"
+_V1_RE = re.compile(
+    rf"\bV1\s*=\s*(-?\d+(?:\.\d+)?)\s*{_VOLUME_UNIT}",
+    re.IGNORECASE,
+)
+_M2_RE = re.compile(r"\bM2\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+_V2_RE = re.compile(
+    rf"\bV2\s*=\s*(-?\d+(?:\.\d+)?)\s*{_VOLUME_UNIT}",
+    re.IGNORECASE,
+)
+
+_ELEMENT_NAMES = tuple(
+    sorted(
+        ((str(info["name"]).lower(), symbol) for symbol, info in PERIODIC_TABLE.items()),
+        key=lambda pair: len(pair[0]),
+        reverse=True,
+    )
+)
+
 
 def is_chemistry_question(content: str) -> bool:
-    """True when the user message looks like a chemistry question."""
+    """True when the user message is chemistry compute or compound lookup."""
+    if not content.strip():
+        return False
+    eq_match = _EQUATION_RE.search(content)
+    if eq_match is not None and _BALANCE_CUE.search(content):
+        return True
+    if _MOLAR_MASS_RE.search(content):
+        return True
+    if _STOICH_CUE.search(content) and eq_match is not None:
+        return True
+    if _DESCRIPTOR_CUE.search(content):
+        return True
+    if _PH_CUE.search(content):
+        return True
+    if _SOLUTION_CUE.search(content):
+        return True
+    if _GAS_LAW_CUE.search(content):
+        return True
+    if _ELEMENT_CUE.search(content):
+        return True
     if not _COMPOUND_CUES.search(content):
         return False
     # Must also have a molecule-ish word or a compound name.
@@ -153,15 +211,124 @@ def extract_compound_name(content: str) -> str | None:
     return name
 
 
+def _format_balanced(balanced: Any) -> str:
+    r_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.reactants.items()))
+    p_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.products.items()))
+    return f"{r_str} -> {p_str}"
+
+
+def _mol_amounts(content: str) -> list[tuple[str, float]]:
+    found: list[tuple[str, float]] = []
+    for match in _MOL_AMOUNT_RE.finditer(content):
+        formula = match.group(2).strip()
+        if formula:
+            found.append((formula, float(match.group(1))))
+    return found
+
+
+def _question_without_equation(content: str) -> str:
+    """Drop the chemical equation so product matching cannot hit the RHS."""
+    eq_match = _EQUATION_RE.search(content)
+    if eq_match is None:
+        return content
+    return f"{content[: eq_match.start()]} {content[eq_match.end() :]}".strip()
+
+
+def _formula_mentioned(formula: str, question: str) -> bool:
+    """True when ``formula`` appears in the question, not as a prefix of a longer one."""
+    needle = formula.lower()
+    haystack = question.lower()
+    start = 0
+    while True:
+        found = haystack.find(needle, start)
+        if found < 0:
+            return False
+        after = found + len(needle)
+        if after < len(haystack) and haystack[after].isalnum():
+            start = found + 1
+            continue
+        return True
+
+
+def _target_formula(content: str, products: dict[str, int]) -> str | None:
+    """Named product in the question only — never default to the first RHS species."""
+    question = _question_without_equation(content)
+    matches = [
+        formula
+        for formula in sorted(products, key=len, reverse=True)
+        if _formula_mentioned(formula, question)
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def _first_float(pattern: re.Pattern[str], content: str) -> float | None:
+    match = pattern.search(content)
+    if match is None:
+        return None
+    return float(match.group(1))
+
+
+def _normalize_volume_unit(raw: str | None) -> str:
+    if raw is None or not raw.strip():
+        return "L"
+    if raw.strip().lower() == "ml":
+        return "mL"
+    return "L"
+
+
+def _volume_assignment(pattern: re.Pattern[str], content: str) -> tuple[float, str] | None:
+    match = pattern.search(content)
+    if match is None:
+        return None
+    return float(match.group(1)), _normalize_volume_unit(match.group(2))
+
+
+def _to_liters(value: float, unit: str) -> float:
+    return value / 1000.0 if unit == "mL" else value
+
+
+def _element_info(content: str) -> dict[str, float | int | str] | None:
+    if _ELEMENT_CUE.search(content) is None:
+        return None
+    lower = f" {content.lower()} "
+    for name, symbol in _ELEMENT_NAMES:
+        if f" {name} " in lower or lower.strip().endswith(name):
+            return chemistry_service.get_element_info(symbol)
+    padded = f" {content} "
+    for symbol in PERIODIC_TABLE:
+        if f" {symbol} " in padded or f" {symbol}?" in padded:
+            return chemistry_service.get_element_info(symbol)
+    return None
+
+
+def _format_element_block(info: dict[str, float | int | str]) -> str:
+    name = info.get("name", "element")
+    lines = [f"[Verified element data for {name}]"]
+    if "mass" in info:
+        lines.append(f"Atomic mass: {info['mass']} g/mol")
+    if "group" in info:
+        lines.append(f"Group: {info['group']}")
+    if "period" in info:
+        lines.append(f"Period: {info['period']}")
+    if "electronegativity" in info:
+        lines.append(f"Electronegativity: {info['electronegativity']}")
+    lines.append("Use these values verbatim in your answer.")
+    return "\n".join(lines)
+
+
 async def build_chemistry_context(
     content: str,
     settings: Settings,
+    redis: Redis | None = None,
 ) -> str | None:
     """Fetch chemistry context for a user message.
 
     Returns a context block string to inject into the prompt, or None
     when no chemistry context is needed or the fetch fails.
     """
+    _ = settings
     # Check for equation balancing first (no PubChem needed).
     eq_match = _EQUATION_RE.search(content)
     if eq_match and _BALANCE_CUE.search(content):
@@ -169,19 +336,17 @@ async def build_chemistry_context(
         try:
             balanced = chemistry_service.balance_equation(equation)
             if balanced.balanced:
-                r_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.reactants.items()))
-                p_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.products.items()))
                 return (
                     f"[Verified balanced equation]\n"
-                    f"{r_str} -> {p_str}\n"
+                    f"{_format_balanced(balanced)}\n"
                     f"Use this balanced equation verbatim."
                 )
         except Exception:
             logger.info("equation balancing failed for %r", equation, exc_info=True)
 
-    # Check for molar mass questions.
+    # Check for molar mass questions. "atomic mass of Fe" is element lookup.
     mm_match = _MOLAR_MASS_RE.search(content)
-    if mm_match:
+    if mm_match and _ATOMIC_MASS_PHRASE.search(content) is None:
         formula = mm_match.group(1).strip()
         try:
             mass = chemistry_service.molar_mass(formula)
@@ -193,17 +358,37 @@ async def build_chemistry_context(
         except Exception:
             logger.info("molar mass failed for %r", formula, exc_info=True)
 
-    # Check for stoichiometry questions (with an equation).
+    # Stoichiometry / limiting reagent (with an equation).
     if _STOICH_CUE.search(content) and eq_match:
         equation = eq_match.group(1).strip()
+        amounts = _mol_amounts(content)
         try:
+            if "limiting" in content.lower() and len(amounts) >= 2:
+                limit_result = chemistry_service.limiting_reagent(
+                    equation,
+                    {formula: amt for formula, amt in amounts},
+                )
+                if limit_result.error is None:
+                    return (
+                        f"[Verified limiting reagent]\n{limit_result.answer}\n"
+                        f"Use this value verbatim."
+                    )
+            elif amounts:
+                known, amount = amounts[0]
+                balanced = chemistry_service.balance_equation(equation)
+                target = _target_formula(content, balanced.products) if balanced.balanced else None
+                if target is not None:
+                    stoich_result = chemistry_service.stoichiometry(equation, known, amount, target)
+                    if stoich_result.error is None:
+                        return (
+                            f"[Verified stoichiometry]\n{stoich_result.answer}\n"
+                            f"Use this value verbatim."
+                        )
             balanced = chemistry_service.balance_equation(equation)
             if balanced.balanced:
-                r_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.reactants.items()))
-                p_str = " + ".join(f"{c} {s}" for s, c in sorted(balanced.products.items()))
                 return (
                     f"[Verified stoichiometry]\n"
-                    f"Balanced equation: {r_str} -> {p_str}\n"
+                    f"Balanced equation: {_format_balanced(balanced)}\n"
                     f"Use mole ratios from the balanced coefficients for your calculation."
                 )
         except Exception:
@@ -234,8 +419,7 @@ async def build_chemistry_context(
 
     # Check for pH questions.
     if _PH_CUE.search(content):
-        # Try to extract [H+] concentration.
-        h_match = re.search(r"\[H\+?\]\s*=\s*([\d\.eE\-]+)", content)
+        h_match = _H_CONC_RE.search(content)
         if h_match:
             try:
                 h_conc = float(h_match.group(1))
@@ -246,22 +430,69 @@ async def build_chemistry_context(
                     )
             except Exception:
                 logger.info("pH context failed", exc_info=True)
+        poh_val = _first_float(_POH_EQ_RE, content)
+        if poh_val is not None:
+            ph_result = chemistry_service.ph_from_poh(poh_val)
+            if ph_result.error is None:
+                return f"[Verified pH calculation]\n{ph_result.answer}\nUse this value verbatim."
+        ph_val = _first_float(_PH_EQ_RE, content)
+        if ph_val is not None and ("[H" in content or "hydrogen ion" in content.lower()):
+            ph_result = chemistry_service.h_from_ph(ph_val)
+            if ph_result.error is None:
+                return f"[Verified pH calculation]\n{ph_result.answer}\nUse this value verbatim."
 
-    # Check for gas law questions.
+    # Gas law — only when exactly one of P,V,n,T is missing.
     if _GAS_LAW_CUE.search(content):
-        return (
-            "[Gas law hint]\n"
-            "Use PV=nRT with R=0.0821 L·atm/(mol·K). "
-            "State the known variables and solve for the unknown."
-        )
+        pressure = _first_float(_ATM_RE, content)
+        volume = _first_float(_VOLUME_L_RE, content)
+        moles = _first_float(_MOLES_BARE_RE, content)
+        temperature = _first_float(_KELVIN_RE, content)
+        given = [pressure, volume, moles, temperature]
+        if sum(1 for v in given if v is None) == 1:
+            try:
+                gas = chemistry_service.ideal_gas_law(
+                    pressure=pressure,
+                    volume=volume,
+                    moles=moles,
+                    temperature=temperature,
+                )
+            except ZeroDivisionError:
+                logger.info("gas-law context hit a zero denominator", exc_info=True)
+            else:
+                if gas.error is None:
+                    return f"[Verified gas law]\n{gas.answer}\nUse this value verbatim."
 
-    # Check for solution chemistry questions.
+    # Solution chemistry — molarity / dilution when numbers are present.
     if _SOLUTION_CUE.search(content):
-        return (
-            "[Solution chemistry hint]\n"
-            "Molarity M = moles / volume (L). Dilution: M1V1 = M2V2. "
-            "State the known values and solve for the unknown."
-        )
+        m1 = _first_float(_M1_RE, content)
+        v1_parsed = _volume_assignment(_V1_RE, content)
+        m2 = _first_float(_M2_RE, content)
+        v2_parsed = _volume_assignment(_V2_RE, content)
+        v1 = v1_parsed[0] if v1_parsed is not None else None
+        v2 = v2_parsed[0] if v2_parsed is not None else None
+        volume_unit = "L"
+        if v1_parsed is not None and v2_parsed is not None and v1_parsed[1] != v2_parsed[1]:
+            v1 = _to_liters(*v1_parsed)
+            v2 = _to_liters(*v2_parsed)
+            volume_unit = "L"
+        elif v1_parsed is not None:
+            volume_unit = v1_parsed[1]
+        elif v2_parsed is not None:
+            volume_unit = v2_parsed[1]
+        if m1 is not None and v1 is not None and (m2 is None) != (v2 is None):
+            dil = chemistry_service.dilution(m1, v1, v2=v2, m2=m2, volume_unit=volume_unit)
+            if dil.error is None:
+                return f"[Verified dilution]\n{dil.answer}\nUse this value verbatim."
+        moles = _first_float(_MOLES_BARE_RE, content)
+        volume = _first_float(_VOLUME_L_RE, content)
+        if moles is not None and volume is not None:
+            mol = chemistry_service.molarity(moles, volume)
+            if mol.error is None:
+                return f"[Verified molarity]\n{mol.answer}\nUse this value verbatim."
+
+    element = _element_info(content)
+    if element is not None:
+        return _format_element_block(element)
 
     # Compound lookup via PubChem.
     if not is_chemistry_question(content):
@@ -271,12 +502,12 @@ async def build_chemistry_context(
     if name is None:
         return None
 
-    result = await pubchem_gateway.lookup_by_name(name)
-    if result.error is not None or result.compound is None:
-        logger.info("PubChem lookup failed for %r: %s", name, result.error)
+    lookup = await pubchem_gateway.lookup_by_name(name, redis=redis)
+    if lookup.error is not None or lookup.compound is None:
+        logger.info("PubChem lookup failed for %r: %s", name, lookup.error)
         return None
 
-    compound = result.compound
+    compound = lookup.compound
     # Build a context block that tells the model the verified SMILES and
     # properties, so it can emit a ```smiles fence and discuss real data.
     lines = [

@@ -81,7 +81,15 @@ def test_kinematics_thrown_upward() -> None:
     assert intent.physics_params["v0"] == 15.0
 
 
-def test_kinematics_free_fall_velocity_after() -> None:
+def test_kinematics_free_fall_distance_without_from_keyword() -> None:
+    """``free fall 20 m`` has no from/height keyword; still a drop height."""
+    intent = _extract_kinematics_intent("How long does an object free fall 20 m?")
+    assert intent is not None
+    assert intent.kind == "kinematics"
+    assert intent.physics_op == "time_to_ground"
+    assert intent.physics_params is not None
+    assert intent.physics_params["h0"] == 20.0
+    assert intent.physics_params["v0"] == 0.0
     intent = _extract_kinematics_intent(
         "An object falls from 100 m. What is its velocity after 3 seconds?"
     )
@@ -305,6 +313,65 @@ def test_projectile_missing_speed_returns_none() -> None:
         _extract_projectile_intent("A projectile is launched at 45 degrees. What is its range?")
         is None
     )
+
+
+def test_projectile_wall_distance_is_not_launch_height() -> None:
+    from app.core.config import Settings
+    from app.services import math_tools
+    from app.services.math_tools.extract import extract_math_intent
+
+    text = (
+        "A projectile is launched at 20 m/s at 30 degrees. The wall is 15 m away. "
+        "What is its range?"
+    )
+    intent = extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "projectile"
+    assert intent.physics_params is not None
+    assert "h0" not in intent.physics_params
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    answer = block.canonical_answer or ""
+    assert "52.72" not in answer
+
+
+def test_projectile_without_wall_still_verifies() -> None:
+    from app.core.config import Settings
+    from app.services import math_tools
+    from app.services.math_tools.extract import extract_math_intent
+
+    text = "A projectile is launched at 20 m/s at 30 degrees. What is its range?"
+    intent = extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "projectile"
+    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.canonical_answer
+
+
+def test_miles_per_hour_is_not_parsed_as_metres() -> None:
+    from app.services.math_tools.physics import _VALUE_UNIT_RE
+
+    hit = _VALUE_UNIT_RE.match("5 miles per hour")
+    if hit is not None:
+        assert (hit.group(2) or "").lower() != "m"
+
+
+def test_downward_throw_mph_does_not_verify_as_five_metres_per_second() -> None:
+    from app.core.config import Settings
+    from app.services import math_tools
+    from app.services.math_tools.extract import extract_math_intent
+
+    text = "A ball is thrown down at 5 miles per hour from 20 m, how long to hit the ground?"
+    intent = extract_math_intent(text)
+    if intent is not None:
+        units = intent.physics_units or {}
+        params = intent.physics_params or {}
+        if "v0" in params:
+            assert units.get("v0", "").lower() not in {"m", "meter", "meters", "metres"}
+        block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+        if block is not None:
+            assert "1.57" not in (block.canonical_answer or "")
 
 
 # ---------------------------------------------------------------------------

@@ -16,8 +16,24 @@ from app.services.math_tools.helpers import (
 )
 
 
+def _split_find_clause(s: str) -> str:
+    """``f(x) = x^3 - 3x, find f''(x)`` → the definition before ``, find``."""
+    lower = s.lower()
+    cut: int | None = None
+    for token in (", find ", ", what is ", ", what's "):
+        idx = lower.find(token)
+        if idx != -1 and (cut is None or idx < cut):
+            cut = idx
+    return s[:cut] if cut is not None else s
+
+
 def _derivative_order(cleaned: str) -> int:
-    """1-3 from phrasing. Linear scans — no regex."""
+    """1-3 from Lagrange primes, then phrasing. Linear scans — no regex."""
+    from app.services.math_text_match.calculus import lagrange_prime_order
+
+    primes = lagrange_prime_order(cleaned)
+    if primes:
+        return primes
     low = cleaned.lower()
     for phrase, order in (
         ("third derivative", 3),
@@ -81,6 +97,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         calc_op = "expand"
     tail = _calc_expr_tail(cleaned)
     raw = _strip_trailing_filler(tail) if tail is not None else cleaned
+    raw = _split_find_clause(raw)
     raw = peel_function_definition(raw)
     # ``simplify 4x+2x=18`` is an equation, not a simplify-of-equality. Fall
     # through so the algebra extractor can solve it. Explicit factor/expand

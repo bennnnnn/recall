@@ -34,6 +34,7 @@ _G_DEFAULT = 9.81
 # A number followed by an optional unit word. Captures the numeric value and
 # the trailing unit (m, cm, km, ft, mi, m/s, m/s^2, kg, g, N, J, W, ...).
 # The unit is matched loosely — we validate via Pint in the solver.
+# Trailing boundary so ``m`` cannot bind inside ``miles`` / ``min``.
 _VALUE_UNIT_RE = re.compile(
     r"(-?\d+(?:\.\d+)?)\s*"
     r"(m/s\^?2|m/s2|m/s|m\^?2/s\^?2|km/h|mph|miles\s+per\s+hour|cm/s|mm/s|"
@@ -43,8 +44,7 @@ _VALUE_UNIT_RE = re.compile(
     r"km|cm|mm|mi|ft|yd|in|"
     r"kg|mg|lb|lbs|oz|"
     r"N|J|W|Pa|Hz|"
-    r"ms|secs?|sec|mins?|min|hrs?|hr|"
-    r"m|g|s|h|"
+    r"s|ms|sec|min|hr|h|"
     r"deg|degrees|°|rad|radians)?"
     r"(?![A-Za-z0-9/^])",
     re.IGNORECASE,
@@ -107,8 +107,12 @@ def _find_value_with_specific_unit(
     """Find a number followed by a specific unit (e.g. "20 N", "5 kg").
 
     When keywords are present in the text, prefer the unit-bearing value
-    nearest one of them. If ``require_keyword`` is set and no keyword appears,
-    return None — do not bind an unlabeled length as launch height.
+    nearest one of them; otherwise use the first matching value. This avoids
+    binding an earlier unrelated quantity to the requested mass/force/etc.
+
+    ``require_keyword`` (projectile h0): if none of the keywords appear, return
+    None instead of the first unlabeled length (``wall is 15 m away``).
+    Kinematics unlabeled ``free fall 20 m`` still binds.
     """
     matches = list(
         re.finditer(
@@ -129,6 +133,8 @@ def _find_value_with_specific_unit(
             while (idx := lower.find(keyword.lower(), start)) != -1:
                 keyword_spans.append((idx, idx + len(keyword)))
                 start = idx + len(keyword)
+        if require_keyword and not keyword_spans:
+            return None
         if keyword_spans:
 
             def distance_to_keyword(candidate: re.Match[str]) -> int:

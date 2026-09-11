@@ -209,6 +209,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   force and energy are numbers. The solver gate is the union of those extractor cues.
   Moon/Mars gravity is a whole-token match (`marsh` stays Earth). See
   [docs/math.md](./docs/math.md).
+- ✅ **Chemistry (verified kinds)** — server-side RDKit / SymPy + PubChem. Balancing,
+  molar mass (Hill formulas vs organic SMILES — `CO` is 28 g/mol, `CCO` is ethanol),
+  hydrates, stoich / limiting reagent, pH, ideal gas, molarity / dilution, element
+  lookup, descriptors, and compound lookup. Structures: model ` ```smiles `
+  (alias ` ```chemistry `); the server attaches ` ```molecule3d ` (first two valid
+  molecules). Buffers, Ka, thermo, and a `ChemIntent` registry stay deferred. See
+  [docs/chemistry.md](./docs/chemistry.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
   triangle, trapezoid, sector, …) via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays
@@ -846,7 +853,12 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **One molecule card** — adjacent `smiles`/`chemistry` + `molecule3d` collapse
   in the client to one card (2D default, optional 3D). Persist still stores both
   fences. Standalone `molecule3d` stays 3D-only. Web slice 1 skips the second
-  “Chemical structure” label for that pair.
+  “Chemical structure” label for that pair. Verified compute coverage is
+  [docs/chemistry.md](./docs/chemistry.md); do not treat SMILES rendering as the
+  whole chemistry product.
+- 🔜 **ChemIntent extractor registry** — wire new verified kinds through
+  `build_chemistry_context` extractors for now. A math-style `ChemIntent` table is
+  deferred; do not implement buffers / Ka / thermo as fake `[Verified]` blocks.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching, full duplex live voice (later).
 - 🔜 **Math scanner capture-quality** — on-device blur/glare/perspective correction and a

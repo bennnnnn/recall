@@ -107,7 +107,7 @@ def test_params_in_si_rejects_length_as_velocity() -> None:
         physics_units={"h0": "m", "v0": "miles", "g": "m/s^2"},
         operation="solve",
     )
-    with pytest.raises(MathServiceError, match="not a m/s"):
+    with pytest.raises(MathServiceError, match="does not match expected dimension"):
         physics_solver.solve_kinematics(intent)
 
 
@@ -364,6 +364,20 @@ def test_physics_block_logs_expected_solver_rejection(
     assert block is None
     assert "physics verification skipped" in caplog.text
     assert "position requires a time t" in caplog.text
+
+
+def test_velocity_unit_metres_raises_dimension_error() -> None:
+    intent = MathIntent(
+        kind="kinematics",
+        physics_op="time_to_ground",
+        physics_params={"h0": 20.0, "v0": 5.0, "g": 9.81},
+        physics_units={"h0": "m", "v0": "m", "g": "m/s^2"},
+        operation="solve",
+    )
+    with pytest.raises(MathServiceError):
+        physics_solver.solve_kinematics(intent)
+    block = physics_block._build_physics_block(intent, Settings(), [])
+    assert block is None
 
 
 def test_physics_block_logs_unexpected_solver_failure(

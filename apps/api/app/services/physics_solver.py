@@ -36,17 +36,17 @@ def _latex_num(value: float, *, square: bool = False) -> str:
     return text
 
 
-_PARAM_SI_UNIT = {
-    "h0": "m",
-    "h": "m",
-    "d": "m",
-    "v0": "m/s",
-    "v": "m/s",
-    "t": "s",
-    "g": "m/s**2",
-    "a": "m/s**2",
-    "F": "N",
-    "m": "kg",
+_PARAM_SI_DIMENSIONS: dict[str, str] = {
+    "h0": "meter",
+    "h": "meter",
+    "d": "meter",
+    "v0": "meter / second",
+    "v": "meter / second",
+    "m": "kilogram",
+    "F": "newton",
+    "t": "second",
+    "a": "meter / second ** 2",
+    "g": "meter / second ** 2",
 }
 
 _UNIT_ALIASES = {
@@ -60,12 +60,11 @@ _UNIT_ALIASES = {
 }
 
 
-def _to_si(value: float, unit: str, expected_si: str | None = None) -> float:
+def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
     """Convert a value with a unit string to its SI base using Pint.
 
     Returns the value unchanged if the unit is empty (assumed already SI).
-    When ``expected_si`` is set, a dimensionality mismatch raises
-    ``MathServiceError`` instead of silently converting length-as-velocity.
+    Raises when ``expected_key`` has a known dimension and the unit does not match.
     """
     if not unit:
         return value
@@ -75,11 +74,11 @@ def _to_si(value: float, unit: str, expected_si: str | None = None) -> float:
     alias = _UNIT_ALIASES.get(unit.lower(), unit)
     try:
         quantity = value * ureg(alias)
-        if expected_si:
-            expected = ureg(expected_si)
-            if quantity.dimensionality != expected.dimensionality:
-                raise MathServiceError(f"unit {unit!r} is not a {expected_si}")
-            return float(quantity.to(expected).magnitude)
+        dim_spec = _PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
+        if dim_spec is not None and quantity.dimensionality != ureg(dim_spec).dimensionality:
+            raise MathServiceError(
+                f"unit {unit} does not match expected dimension for {expected_key}"
+            )
         base = quantity.to_base_units()
         return float(base.magnitude)
     except MathServiceError:
@@ -102,7 +101,7 @@ def _params_in_si(intent: MathIntent) -> dict[str, float]:
             else:
                 out[key] = math.radians(val) if lower_unit in ("deg", "degrees", "°", "") else val
         else:
-            out[key] = _to_si(val, unit, _PARAM_SI_UNIT.get(key))
+            out[key] = _to_si(val, unit, expected_key=key)
     return out
 
 

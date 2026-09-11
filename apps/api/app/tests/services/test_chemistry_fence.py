@@ -52,8 +52,10 @@ def test_enrich_no_smiles_fences_unchanged() -> None:
 def test_enrich_empty_fence_left_as_is() -> None:
     content = "```smiles\n\n```"
     result = chemistry_fence.enrich_chemistry_fences(content)
-    # Empty fence body — no SMILES to validate, leave as-is
-    assert result == content
+    # Empty fence body — no SMILES to validate. A trailing newline after the
+    # closer is ok (keeps the next fence from gluing onto the closer).
+    assert result.count("```smiles") == 1
+    assert "Could not render" not in result
 
 
 def test_enrich_smiles_with_comment_lines() -> None:
@@ -112,8 +114,29 @@ def test_enrich_chemistry_fences_worker_passthrough() -> None:
 
 
 def test_enrich_multiple_fences_all_get_3d() -> None:
-    """Multiple valid SMILES fences should each get a molecule3d fence."""
+    """Two valid SMILES fences should each get a molecule3d fence."""
     content = "```smiles\nCCO\n```\n\nSome text.\n\n```smiles\nO=O\n```"
     result = chemistry_fence.enrich_chemistry_fences(content)
-    # Both should be canonicalized and get 3D fences.
+    assert result.count("```molecule3d") == 2
+
+
+def test_enrich_unclosed_smiles_does_not_swallow_python() -> None:
+    content = "```smiles\nCCO\n```python\nprint(1)\n```"
+    result = chemistry_fence.enrich_chemistry_fences(content)
+    assert "```python" in result
+    assert "print(1)" in result
+
+
+def test_enrich_smiles_then_caption_still_validates() -> None:
+    content = "```smiles\nCCO\nethanol\n```"
+    result = chemistry_fence.enrich_chemistry_fences(content)
+    assert "```smiles" in result
+    assert "Could not render" not in result
+    assert "ethanol" in result
+
+
+def test_enrich_third_molecule_skips_3d() -> None:
+    content = "```smiles\nCCO\n```\n```smiles\nO=O\n```\n```smiles\nO=C=O\n```"
+    result = chemistry_fence.enrich_chemistry_fences(content)
+    assert result.count("```smiles") == 3
     assert result.count("```molecule3d") == 2

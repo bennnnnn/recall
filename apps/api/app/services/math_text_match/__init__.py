@@ -41,7 +41,6 @@ from app.services.math_text_match.graph import (
     vertical_line_x,
 )
 from app.services.math_text_match.needs import (
-    looks_like_bare_arithmetic,
     needs_symbolic,
     school_homework_cue,
 )
@@ -91,7 +90,6 @@ __all__ = [
     "has_equation",
     "has_math_keyword",
     "integral_bounds",
-    "looks_like_bare_arithmetic",
     "looks_like_math_expr",
     "matrix_signal",
     "needs_symbolic",
