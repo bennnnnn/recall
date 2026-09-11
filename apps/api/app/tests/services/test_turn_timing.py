@@ -20,5 +20,8 @@ def test_turn_timing_tracker_records_phases_and_logs(caplog):
     assert str(user_id) in caplog.text
     assert "lightweight=True" in caplog.text
     assert "content_chars=2" in caplog.text
+    assert "prompt_ready_ms=" in caplog.text
+    assert "first_token_ms=" in caplog.text
+    assert "post_prompt_first_token_ms=" in caplog.text
     assert tracker._first_token_ms is not None
     assert tracker._prompt_ready_ms is not None
