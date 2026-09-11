@@ -106,7 +106,7 @@ def _last_user_text(messages: list[dict[str, str]] | None) -> str:
 
 def _quiz_attempt_number(messages: list[dict[str, str]] | None) -> int:
     """Count A-D user answers since the most recent quiz fence in the prompt history."""
-    from app.models.vocab_quiz import parse_vocab_quiz, quiz_answer_letter
+    from app.models.schemas.learning_quiz import parse_vocab_quiz, quiz_answer_letter
 
     if not messages:
         return 1
@@ -132,7 +132,7 @@ def _quiz_attempt_number(messages: list[dict[str, str]] | None) -> int:
 
 
 def mock_reply_for_messages(messages: list[dict[str, str]] | None) -> str:
-    from app.models.vocab_quiz import (
+    from app.models.schemas.learning_quiz import (
         MAX_QUIZ_TRIES_PER_QUESTION,
         parse_vocab_quiz,
         quiz_answer_letter,
@@ -405,7 +405,7 @@ def _extract_quiz_word(transcript: str) -> str | None:
 
 
 def _extract_quiz_answer(transcript: str) -> str | None:
-    from app.models.vocab_quiz import parse_vocab_quiz, quiz_answer_letter
+    from app.models.schemas.learning_quiz import parse_vocab_quiz, quiz_answer_letter
 
     parsed = parse_vocab_quiz(transcript)
     choices = parsed.choices if parsed is not None else None

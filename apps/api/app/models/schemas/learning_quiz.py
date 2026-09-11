@@ -1,4 +1,8 @@
-"""Parse in-chat vocab/trivia quiz blocks and validate user answers."""
+"""Parse leftover ```vocab_quiz fences and validate letter answers.
+
+HTTP Learning types live in ``learning.py``. Chat no longer renders A-D chips;
+this module still parses fences so grading and mock LLM stay deterministic.
+"""
 
 from __future__ import annotations
 

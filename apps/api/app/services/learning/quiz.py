@@ -4,7 +4,7 @@ import re
 
 from app.core.config import get_settings
 from app.gateways import litellm_gateway
-from app.models.vocab_quiz import (
+from app.models.schemas.learning_quiz import (
     MAX_QUIZ_TRIES_PER_QUESTION,
     ParsedVocabQuiz,
     QuizAnswerGrade,
