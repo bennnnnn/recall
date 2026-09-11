@@ -24,6 +24,7 @@ import {
   inHeading,
   immediateAncestorType,
   listItemDisplayNumber,
+  listItemHasNestedList,
   parentHasType,
   shouldNumberListItem,
   taskChecked,
@@ -379,7 +380,13 @@ function makeSharedRules(
       if (immediateAncestorType(parent) === "bullet_list") {
         return (
           <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-            <View style={mdMath.listBullet} accessible={false} />
+            {listItemHasNestedList(node) ? null : (
+              <View
+                style={mdMath.listBullet}
+                accessible={false}
+                testID="md-list-bullet"
+              />
+            )}
             <View style={[styles._VIEW_SAFE_bullet_list_content as object, mdMath.listContent]}>
               {children}
             </View>

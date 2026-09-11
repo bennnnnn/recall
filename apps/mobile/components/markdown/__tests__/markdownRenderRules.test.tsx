@@ -245,6 +245,18 @@ describe("markdown render rules", () => {
     expect(queryByText("3.")).toBeNull();
   });
 
+  it("does not put a disc on a parent topic that already has sub-bullets", async () => {
+    const md = `- **Strengths**
+  - Personalized
+  - Task-focused
+- Pricing: Free`;
+    const { getByText, getAllByTestId } = await render(<MarkdownContent content={md} />);
+    expect(getByText("Strengths")).toBeOnTheScreen();
+    expect(getByText(/Personalized/)).toBeOnTheScreen();
+    expect(getByText(/Pricing/)).toBeOnTheScreen();
+    expect(getAllByTestId("md-list-bullet")).toHaveLength(3);
+  });
+
   it("renders a facebook fence as a post draft, not highlighted code", async () => {
     const md = "```facebook\nHey everyone,\n\nJust wanted to share a quick update on my healing.\n```";
     const { getByText, queryByText } = await render(<MarkdownContent content={md} />);

@@ -2,6 +2,7 @@ import {
   ancestorTypeCount,
   immediateAncestorType,
   listItemDisplayNumber,
+  listItemHasNestedList,
   shouldNumberListItem,
 } from "@/components/markdown/markdownAstHelpers";
 
@@ -32,5 +33,30 @@ describe("nested list numbering", () => {
     ];
     expect(shouldNumberListItem(parent)).toBe(true);
     expect(listItemDisplayNumber(parent, 0)).toBe(3);
+  });
+});
+
+describe("listItemHasNestedList", () => {
+  it("is false for a leaf bullet", () => {
+    expect(
+      listItemHasNestedList({
+        key: "a",
+        type: "list_item",
+        children: [{ key: "p", type: "paragraph", content: "Personalized" }],
+      }),
+    ).toBe(false);
+  });
+
+  it("is true when a topic item contains a nested bullet list", () => {
+    expect(
+      listItemHasNestedList({
+        key: "a",
+        type: "list_item",
+        children: [
+          { key: "p", type: "paragraph", content: "Strengths" },
+          { key: "l", type: "bullet_list", children: [] },
+        ],
+      }),
+    ).toBe(true);
   });
 });
