@@ -20,13 +20,12 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
     },
     # Bucketed only: no prompt text, chat id, URL, provider error, or arbitrary
     # millisecond string enters product analytics. Server chat timing remains the
-    # detailed diagnostic source; this event measures tap -> first received token.
+    # detailed diagnostic source; this event measures user-bubble -> first token.
     "chat_ttft": {
         "latency_bucket": frozenset(
             {"lt500", "500_999", "1000_1999", "2000_3999", "4000_5999", "6000_plus"}
         ),
         "transport": frozenset({"ws", "sse"}),
-        "new_chat": frozenset({"yes", "no"}),
         "has_attachment": frozenset({"yes", "no"}),
     },
 }
