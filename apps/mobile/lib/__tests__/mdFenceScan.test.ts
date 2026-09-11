@@ -1,4 +1,4 @@
-import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
+import { mapClosedFences, replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
 
 describe("replaceFirstClosedFenceBody", () => {
   it("rewrites the first closed fence and keeps surrounding prose", () => {
@@ -15,5 +15,19 @@ describe("replaceFirstClosedFenceBody", () => {
 
   it("returns null when the language fence is missing", () => {
     expect(replaceFirstClosedFenceBody("plain", "email", "Hi")).toBeNull();
+  });
+});
+
+describe("mapClosedFences", () => {
+  it("does not treat a following ```math opener as the previous fence's closer", () => {
+    const text = ["```math", "a", "```math", "b"].join("\n");
+    const seen: string[] = [];
+    const out = mapClosedFences(text, (_info, body, original) => {
+      seen.push(body.trim());
+      return original;
+    });
+    expect(seen).toEqual([]);
+    expect(out).toContain("```math\na");
+    expect(out).toContain("```math\nb");
   });
 });

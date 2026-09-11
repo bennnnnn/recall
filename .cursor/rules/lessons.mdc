@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Solve steps showed raw `\\frac` plus a code card.** Model glued ` ```math ` to the sentence and skipped the closer; `/```math[\\s\\S]*?```/` treated the next ` ```math ` as a closer (even when the callback returned the match), so step 2 became code. Close interrupted math fences with CommonMark closer rules (` ```math ` is never a closer).
+
 - **Settings tone/style still expanded in the gray card.** The ChatGPT-style
   popup was committed on `feat/memory-v2-atomic` and never merged; FEATURES
   still said “expand inline”, so later work kept `SettingsInlinePicker` as an
