@@ -176,11 +176,14 @@ async def _resolve_instant_reply(
     user_locale: str | None,
     geo: ClientGeoContext,
     user_id: UUID,
+    has_image_attachment: bool = False,
 ) -> str | None:
     """Time/location/calendar/email short-circuits that skip the LLM."""
-    now_reply = time_context_service.maybe_local_now_reply(content, local_tz, user_locale)
-    if now_reply is not None:
-        return now_reply
+    # A photo may be the actual question (clock, calendar, document year).
+    if not has_image_attachment:
+        now_reply = time_context_service.maybe_local_now_reply(content, local_tz, user_locale)
+        if now_reply is not None:
+            return now_reply
     if time_context_service.is_location_question(content):
         return time_context_service.format_location_answer(geo.user_location, local_tz)
     if calendar_service.is_external_calendar_question(content):

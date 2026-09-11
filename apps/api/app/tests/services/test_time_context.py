@@ -77,7 +77,7 @@ def test_is_time_question(text, expected):
         ("what year is it", True),
         ("What year is it?", True),
         ("what year is it now", True),
-        ("what year", True),
+        ("what year", False),
         ("current year", True),
         ("what's the current year", True),
         ("What’s the year", True),  # curly apostrophe
@@ -104,7 +104,7 @@ def test_is_year_question(text, expected):
         ("current date", True),
         ("what day is it", True),
         ("what day is it today", True),
-        ("what day", True),
+        ("what day", False),
         ("what's today", False),
         ("what is today", False),
         ("what date is Christmas", False),
@@ -141,6 +141,8 @@ def test_maybe_local_now_reply_dispatches():
         f"{now.strftime('%A, %B')} {now.day}, {now.year}."
     )
     assert maybe_local_now_reply("what year did WWII end", "UTC") is None
+    assert maybe_local_now_reply("what year", "UTC") is None
+    assert maybe_local_now_reply("what day", "UTC") is None
 
 
 @pytest.mark.parametrize(

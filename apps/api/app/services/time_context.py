@@ -167,7 +167,6 @@ _YEAR_ASKS = frozenset(
         "what is the year",
         "what year is it now",
         "what year now",
-        "what year",
         "current year",
         "what year is this",
         "what year are we in",
@@ -207,7 +206,6 @@ _DATE_ASKS = frozenset(
         "what day is it today",
         "what day is today",
         "what's the day",
-        "what day",
     }
 )
 
