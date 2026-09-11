@@ -45,9 +45,7 @@ class TurnTimingTracker:
             if self._prompt_ready_ms is not None
             else None
         )
-        first_token = (
-            round(self._first_token_ms, 1) if self._first_token_ms is not None else None
-        )
+        first_token = round(self._first_token_ms, 1) if self._first_token_ms is not None else None
         # This includes any tool-loop work between prompt assembly and the
         # visible stream, so do not label it "provider latency". For non-tool
         # turns it is the closest existing server-side measure of provider TTFT.
