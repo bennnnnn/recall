@@ -120,6 +120,17 @@ _NON_IMAGE_WORDS = frozenset(
         "assignments",
         "step",
         "steps",
+        # How-to / listicle heads — "show me the stops of becoming smart"
+        # (typo of steps) must not become a stock infographic.
+        "stops",
+        "ways",
+        "tips",
+        "tip",
+        "secrets",
+        "habits",
+        "tricks",
+        "stages",
+        "phases",
         "graph",
         "graphs",
         "chart",
@@ -197,6 +208,7 @@ _EXPLANATION_CUES = frozenset(
         "works",
         "mean",
         "means",
+        "becoming",
     }
 )
 

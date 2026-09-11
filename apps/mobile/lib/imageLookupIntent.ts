@@ -30,6 +30,10 @@ const NON_IMAGE_WORDS = new Set([
   "equation", "equations", "question", "questions", "exercise", "exercises",
   "homework", "solution", "solutions", "answer", "answers", "proof", "proofs",
   "worksheet", "worksheets", "assignment", "assignments", "step", "steps",
+  // How-to / listicle heads — not stock infographics. Do not add "way"
+  // (milky way) or "guide" (tour-guide photos).
+  "stops", "ways", "tips", "tip", "secrets", "habits", "tricks", "stages",
+  "phases",
   "graph", "graphs", "chart", "charts", "diagram", "diagrams",
   "flowchart", "flowcharts",
   "table",
@@ -46,7 +50,7 @@ const NON_IMAGE_WORDS = new Set([
 
 const EXPLANATION_CUES = new Set([
   "how", "why", "when", "where", "what", "solve", "explain", "prove",
-  "calculate", "compute", "work", "works", "mean", "means",
+  "calculate", "compute", "work", "works", "mean", "means", "becoming",
 ]);
 
 const MAX_SUBJECT_WORDS = 8;
