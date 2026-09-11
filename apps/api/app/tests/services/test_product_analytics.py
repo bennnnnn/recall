@@ -65,7 +65,9 @@ async def test_record_batch_accepts_bucketed_chat_ttft_only() -> None:
     ) as create_batch:
         await product_analytics.record_batch(session, uuid4(), batch)
 
-    rows = create_batch.await_args.args[1]
+    call = create_batch.await_args
+    assert call is not None
+    rows = call.args[1]
     assert rows[0].name == "chat_ttft"
     assert rows[0].properties == {
         "latency_bucket": "2000_3999",
