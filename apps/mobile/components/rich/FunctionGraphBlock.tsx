@@ -286,6 +286,7 @@ function TrajectoryChart({ spec, chartWidth, styles, theme }: TrajectoryChartPro
           gridColor={theme.border}
           xName={xLabel}
           yName={yLabel}
+          fractionalTicks
         />
         <G clipPath={`url(#${clipId})`}>
           <Polyline
