@@ -83,7 +83,7 @@ describe("renderKatexHtml", () => {
 describe("buildKatexStaticWebHtml", () => {
   it("measures intrinsic formula content after fonts resize, independent of viewport height", () => {
     const html = buildKatexStaticWebHtml(String.raw`\int_0^1 x^2\,dx=\frac{1}{3}`, { displayMode: true });
-    const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+    const script = html.match(/<script>([\s\S]*?)<\/script>/i)?.[1];
     expect(script).toBeDefined();
     let contentHeight = 72;
     let resized: (() => void) | undefined;
