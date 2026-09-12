@@ -831,13 +831,9 @@
   "settings.sign_out_all_confirm": "Tout déconnecter ? Vous devrez aussi vous reconnecter sur cet appareil.",
   "settings.support": "Assistance",
   "settings.this_device": "Cet appareil",
-  "settings.tts_device_voice": "Voix de l’appareil",
-  "settings.tts_enhanced_voice": "Voix améliorée",
   "settings.unknown_device": "Appareil inconnu",
   "settings.usage_daily": "Utilisation quotidienne",
   "settings.use_current_location": "Utiliser la position actuelle",
   "settings.use_current_location_desc": "Pour les réponses locales à proximité. La position n’est pas enregistrée comme adresse.",
-  "settings.voice": "Voix et lecture à voix haute",
-  "settings.voice_summary": "Voix de l’appareil ou améliorée",
   "settings.your_data": "Vos données"
 }

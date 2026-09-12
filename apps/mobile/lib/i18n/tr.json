@@ -831,13 +831,9 @@
   "settings.sign_out_all_confirm": "Her yerden çıkış yapılsın mı? Bu cihazda da yeniden giriş gerekir.",
   "settings.support": "Destek",
   "settings.this_device": "Bu cihaz",
-  "settings.tts_device_voice": "Cihaz sesi",
-  "settings.tts_enhanced_voice": "Gelişmiş ses",
   "settings.unknown_device": "Bilinmeyen cihaz",
   "settings.usage_daily": "Günlük kullanım",
   "settings.use_current_location": "Mevcut konumu kullan",
   "settings.use_current_location_desc": "Yakındaki ve yerel yanıtlar için. Konum ev adresi olarak saklanmaz.",
-  "settings.voice": "Ses ve sesli okuma",
-  "settings.voice_summary": "Cihaz sesi veya gelişmiş ses",
   "settings.your_data": "Verilerin"
 }

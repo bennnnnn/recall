@@ -5,13 +5,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Avatar } from "@/components/Avatar";
-import { Icon } from "@/components/Icon";
+import { AccountSettingsSection } from "@/components/settings/AccountSettingsSection";
+import { AppearanceSettingsRow } from "@/components/settings/AppearanceSettingsRow";
 import {
   makeSettingsStyles,
   SettingsGroup,
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
-import { useAppearance } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
 import { prefetchMemories } from "@/lib/cache/memoryListCache";
@@ -29,7 +29,6 @@ export default function SettingsScreen() {
   const { token, user, signOut } = useAuth();
   const { t } = useTranslation();
   const { isPro, autoEnabled, modelEnabledSet } = useModels();
-  const { preference: appearancePreference } = useAppearance();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
@@ -91,12 +90,7 @@ export default function SettingsScreen() {
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
-        <Pressable
-          style={({ pressed }) => [s.profileHeader, pressed && s.rowPressed]}
-          onPress={() => router.push("/settings/profile")}
-          accessibilityRole="button"
-          accessibilityLabel={t("settings.account")}
-        >
+        <View style={s.profileHeader}>
           <View style={s.profileAvatarWrap}>
             <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={60} />
           </View>
@@ -113,19 +107,12 @@ export default function SettingsScreen() {
               <Text style={s.planPillText}>{planLabel}</Text>
             </View>
           </View>
-          <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
-        </Pressable>
+        </View>
+
+        <AccountSettingsSection styles={s} theme={theme} isPro={isPro} />
 
         <SettingsGroup label={t("settings.experience")} styles={s}>
-          <SettingsLinkRow
-            icon="contrast-outline"
-            title={t("settings.appearance")}
-            subtitle={t("settings.appearance_summary")}
-            value={t(`settings.appearance_${appearancePreference}`)}
-            onPress={() => router.push("/settings/appearance")}
-            styles={s}
-            theme={theme}
-          />
+          <AppearanceSettingsRow />
           <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
           <SettingsLinkRow
             icon="color-palette-outline"
@@ -145,15 +132,6 @@ export default function SettingsScreen() {
               if (token) prefetchMemories(token);
               router.push("/settings/memory-settings");
             }}
-            styles={s}
-            theme={theme}
-          />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
-            icon="volume-high-outline"
-            title={t("settings.voice")}
-            subtitle={t("settings.voice_summary")}
-            onPress={() => router.push("/settings/voice")}
             styles={s}
             theme={theme}
           />

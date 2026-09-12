@@ -831,13 +831,9 @@
   "settings.sign_out_all_confirm": "Sair de todos os lugares? Você também precisará entrar de novo neste dispositivo.",
   "settings.support": "Suporte",
   "settings.this_device": "Este dispositivo",
-  "settings.tts_device_voice": "Voz do dispositivo",
-  "settings.tts_enhanced_voice": "Voz aprimorada",
   "settings.unknown_device": "Dispositivo desconhecido",
   "settings.usage_daily": "Uso diário",
   "settings.use_current_location": "Usar localização atual",
   "settings.use_current_location_desc": "Para respostas próximas e locais. A localização não é salva como endereço.",
-  "settings.voice": "Voz e leitura em voz alta",
-  "settings.voice_summary": "Voz do dispositivo ou aprimorada",
   "settings.your_data": "Seus dados"
 }

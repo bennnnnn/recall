@@ -831,13 +831,9 @@
   "settings.sign_out_all_confirm": "Überall abmelden? Du musst dich auch auf diesem Gerät erneut anmelden.",
   "settings.support": "Support",
   "settings.this_device": "Dieses Gerät",
-  "settings.tts_device_voice": "Geräte-Stimme",
-  "settings.tts_enhanced_voice": "Erweiterte Stimme",
   "settings.unknown_device": "Unbekanntes Gerät",
   "settings.usage_daily": "Tagesnutzung",
   "settings.use_current_location": "Aktuellen Standort verwenden",
   "settings.use_current_location_desc": "Für lokale Antworten in der Nähe. Der Standort wird nicht als Adresse gespeichert.",
-  "settings.voice": "Stimme und Vorlesen",
-  "settings.voice_summary": "Geräte- oder erweiterte Stimme",
   "settings.your_data": "Deine Daten"
 }

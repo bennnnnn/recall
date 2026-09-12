@@ -831,13 +831,9 @@
   "settings.sign_out_all_confirm": "¿Cerrar sesión en todas partes? También tendrás que iniciar sesión de nuevo en este dispositivo.",
   "settings.support": "Soporte",
   "settings.this_device": "Este dispositivo",
-  "settings.tts_device_voice": "Voz del dispositivo",
-  "settings.tts_enhanced_voice": "Voz mejorada",
   "settings.unknown_device": "Dispositivo desconocido",
   "settings.usage_daily": "Uso diario",
   "settings.use_current_location": "Usar ubicación actual",
   "settings.use_current_location_desc": "Para respuestas cercanas y locales. La ubicación no se guarda como dirección.",
-  "settings.voice": "Voz y lectura en voz alta",
-  "settings.voice_summary": "Voz del dispositivo o mejorada",
   "settings.your_data": "Tus datos"
 }

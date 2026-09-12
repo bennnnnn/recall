@@ -371,19 +371,22 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
-- ✅ **Account header** — tappable row (avatar, name, email, Pro/Free) opens Account
-  (name, email, sign-in method, plan). Age / country / job live under Personalization →
+- ✅ **Account settings** — avatar, name, email, and Pro/Free form a display-only header.
+  Name, email, sign-in method, plan, and subscription controls are visible in an Account
+  section on the Settings page. Age / country / job live under Personalization →
   About you. Persisted on `users` and injected into the chat system prompt
   (see [§6](#6-memory-remembering-the-user)).
-- ✅ **Settings chrome** — Experience / Connections / Advanced / Data & privacy / Support.
+- ✅ **Settings chrome** — Account / Experience / Connections / Advanced / Data & privacy / Support.
   Sentence-case group labels; nested screens omit row icons except connected-app marks
   and danger/status rows. Learning settings are not on this list (lesson map ⋯).
   Choice rows (appearance, style, tone, language, reminder lead, daily goal) open a
   floating popup — they do **not** expand inside the gray card.
-- ✅ **Appearance** — System / Light / Dark (on-device).
+- ✅ **Appearance** — System / Light / Dark (on-device), opening a floating popup directly
+  from Settings without navigating to another page.
 - ✅ **Personalization** — response length, tone labels, language sheet, custom
   instructions, About you. Stored tone ids stay `soft` / `casual` / `professional` / `funny`.
-- ✅ **Voice & read aloud** — Device voice vs Enhanced voice.
+- 🔜 **Live voice settings** — accent choices are deferred. The former Voice & read aloud
+  settings menu has been removed; message read-aloud and live voice remain available.
 - ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
 - ✅ **Connected apps** — Calendar and Gmail list + detail (connect / disconnect / sync).
 - ✅ **Notifications** — push (On only if pref and OS permission), email reminders,
@@ -812,6 +815,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   after success (#535).
 
 ### Later / future (not the current coding backlog)
+- 🔜 **Live voice accents** — design a dedicated live voice menu with accent choices.
+  Deferred until a later UI pass; do not restore the old Device / Enhanced read-aloud menu.
 - ✅ **Push-token re-bind hardening** — cross-user Expo token moves require a matching
   install `device_id` (stable id persisted on device; Expo removed `installationId`).
   Mismatched device → 403; successful rebinds log + Sentry breadcrumb. Residual risk:

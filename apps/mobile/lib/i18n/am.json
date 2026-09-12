@@ -831,13 +831,9 @@
   "settings.sign_out_all_confirm": "ከሁሉም ቦታ ይውጡ? በዚህ መሣሪያም እንደገና መግባት ያስፈልጋል።",
   "settings.support": "ድጋፍ",
   "settings.this_device": "ይህ መሣሪያ",
-  "settings.tts_device_voice": "የመሣሪያ ድምጽ",
-  "settings.tts_enhanced_voice": "የተሻሻለ ድምጽ",
   "settings.unknown_device": "ያልታወቀ መሣሪያ",
   "settings.usage_daily": "ዕለታዊ አጠቃቀም",
   "settings.use_current_location": "የአሁኑን ቦታ ተጠቀም",
   "settings.use_current_location_desc": "ለአቅራቢያ እና የአካባቢ መልሶች። ቦታ እንደ የቤት አድራሻ አይቀመጥም።",
-  "settings.voice": "ድምጽ እና ጮክ ብሎ ማንበብ",
-  "settings.voice_summary": "የመሣሪያ ወይም የተሻሻለ ድምጽ",
   "settings.your_data": "የእርስዎ ውሂብ"
 }

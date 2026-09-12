@@ -1,25 +1,21 @@
-import { useMemo, useRef, useState } from "react";
-import { Alert, Linking, Platform, ScrollView, View } from "react-native";
-import { Redirect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRef, useState } from "react";
+import { Alert, Linking, Platform, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
 import {
-  makeSettingsStyles,
   SettingsGroup,
   SettingsLinkRow,
   SettingsValueRow,
+  type SettingsStyles,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { useModels } from "@/hooks/useModels";
 import { type User } from "@/lib/api";
 import { getDisplayName, sanitizeDisplayName } from "@/lib/profile";
 import { restorePurchases } from "@/lib/purchases";
-import { Space } from "@/lib/space";
-import { useTheme } from "@/lib/theme";
+import { type Theme } from "@/lib/theme";
 
 function manageSubscriptionUrl(): string {
   return Platform.OS === "ios"
@@ -36,13 +32,17 @@ function signInLabel(
   return t("settings.sign_in_dev");
 }
 
-export default function AccountSettingsScreen() {
-  const { token, user, updateUser } = useAuth();
+export function AccountSettingsSection({
+  styles: s,
+  theme,
+  isPro,
+}: {
+  styles: SettingsStyles;
+  theme: Theme;
+  isPro: boolean;
+}) {
+  const { user, updateUser } = useAuth();
   const { t } = useTranslation();
-  const { isPro } = useModels();
-  const theme = useTheme();
-  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
   const feedback = useActionFeedbackOptional();
 
   const [upgradeVisible, setUpgradeVisible] = useState(false);
@@ -100,76 +100,67 @@ export default function AccountSettingsScreen() {
     }
   };
 
-  if (!token) return <Redirect href="/login" />;
-
   const displayName = getDisplayName(user?.name, t("common.you"));
   const planLabel = isPro ? t("settings.account_pro") : t("settings.account_free");
 
   return (
-    <View style={s.root}>
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-      >
-        <SettingsGroup styles={s}>
-          <SettingsLinkRow
-            title={t("settings.name_label")}
-            value={displayName}
-            onPress={openName}
-            styles={s}
-            theme={theme}
-          />
-          <View style={s.menuSeparator} />
-          <SettingsValueRow
-            title={t("settings.email")}
-            value={user?.email ?? ""}
-            styles={s}
-            theme={theme}
-          />
-          <View style={s.menuSeparator} />
-          <SettingsValueRow
-            title={t("settings.sign_in_method")}
-            value={signInLabel(user?.sign_in_provider, t)}
-            styles={s}
-            theme={theme}
-          />
-        </SettingsGroup>
-
-        <SettingsGroup styles={s}>
-          {isPro ? (
-            <>
-              <SettingsValueRow
-                title={t("settings.plan_label")}
-                value={planLabel}
-                styles={s}
-                theme={theme}
-              />
-              <View style={s.menuSeparator} />
-              <SettingsLinkRow
-                title={t("settings.manage_subscription")}
-                onPress={() => void Linking.openURL(manageSubscriptionUrl())}
-                styles={s}
-                theme={theme}
-              />
-              <View style={s.menuSeparator} />
-              <SettingsLinkRow
-                title={t("settings.restore_purchases")}
-                onPress={() => void restore()}
-                styles={s}
-                theme={theme}
-              />
-            </>
-          ) : (
-            <SettingsLinkRow
+    <>
+      <SettingsGroup label={t("settings.account")} styles={s}>
+        <SettingsLinkRow
+          title={t("settings.name_label")}
+          value={displayName}
+          onPress={openName}
+          styles={s}
+          theme={theme}
+        />
+        <View style={s.menuSeparator} />
+        <SettingsValueRow
+          title={t("settings.email")}
+          value={user?.email ?? ""}
+          styles={s}
+          theme={theme}
+        />
+        <View style={s.menuSeparator} />
+        <SettingsValueRow
+          title={t("settings.sign_in_method")}
+          value={signInLabel(user?.sign_in_provider, t)}
+          styles={s}
+          theme={theme}
+        />
+        <View style={s.menuSeparator} />
+        {isPro ? (
+          <>
+            <SettingsValueRow
               title={t("settings.plan_label")}
               value={planLabel}
-              onPress={() => setUpgradeVisible(true)}
               styles={s}
               theme={theme}
             />
-          )}
-        </SettingsGroup>
-      </ScrollView>
+            <View style={s.menuSeparator} />
+            <SettingsLinkRow
+              title={t("settings.manage_subscription")}
+              onPress={() => void Linking.openURL(manageSubscriptionUrl())}
+              styles={s}
+              theme={theme}
+            />
+            <View style={s.menuSeparator} />
+            <SettingsLinkRow
+              title={t("settings.restore_purchases")}
+              onPress={() => void restore()}
+              styles={s}
+              theme={theme}
+            />
+          </>
+        ) : (
+          <SettingsLinkRow
+            title={t("settings.plan_label")}
+            value={planLabel}
+            onPress={() => setUpgradeVisible(true)}
+            styles={s}
+            theme={theme}
+          />
+        )}
+      </SettingsGroup>
 
       <SettingsFieldSheet
         visible={editName}
@@ -187,6 +178,6 @@ export default function AccountSettingsScreen() {
         source="settings"
         onClose={() => setUpgradeVisible(false)}
       />
-    </View>
+    </>
   );
 }

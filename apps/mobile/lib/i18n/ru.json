@@ -831,13 +831,9 @@
   "settings.sign_out_all_confirm": "Выйти везде? На этом устройстве тоже нужно будет войти снова.",
   "settings.support": "Поддержка",
   "settings.this_device": "Это устройство",
-  "settings.tts_device_voice": "Голос устройства",
-  "settings.tts_enhanced_voice": "Улучшенный голос",
   "settings.unknown_device": "Неизвестное устройство",
   "settings.usage_daily": "Использование за день",
   "settings.use_current_location": "Использовать текущее местоположение",
   "settings.use_current_location_desc": "Для местных ответов поблизости. Местоположение не сохраняется как адрес.",
-  "settings.voice": "Голос и чтение вслух",
-  "settings.voice_summary": "Голос устройства или улучшенный",
   "settings.your_data": "Ваши данные"
 }

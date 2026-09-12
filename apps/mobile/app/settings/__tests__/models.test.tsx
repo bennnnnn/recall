@@ -43,12 +43,6 @@ jest.mock("@/hooks/useModels", () => ({
     modelEnabledSet: new Set(["free-chat"]),
   }),
 }));
-jest.mock("@/hooks/useTtsPreference", () => ({
-  useTtsPreference: () => ({
-    ttsModel: "speech-tts-model",
-    selectTtsModel: jest.fn(),
-  }),
-}));
 jest.mock("@/hooks/useUsage", () => ({
   useUsage: () => ({
     date: "2026-09-09",
