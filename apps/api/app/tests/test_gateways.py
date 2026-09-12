@@ -1087,3 +1087,200 @@ async def test_embed_text_mock_mode_pads_to_embedding_dim():
     result = await embedding_gateway.embed_text(settings, "hello")
     assert result is not None
     assert len(result) == EMBEDDING_DIM
+
+
+# --- Tool-call probe streaming -------------------------------------------
+# The tool-selection round sits in front of the user's first token. Streaming
+# it lets a no-tool turn stop at the first token of prose instead of paying
+# for a whole discarded generation.
+
+
+def _probe_chunk(*, content=None, tool_calls=None, finish_reason=None):
+    delta = SimpleNamespace(content=content, tool_calls=tool_calls)
+    choice = SimpleNamespace(delta=delta, finish_reason=finish_reason)
+    return SimpleNamespace(choices=[choice], usage=None)
+
+
+class _ProbeStream:
+    """Async-iterable stand-in for a litellm streaming response."""
+
+    def __init__(self, chunks):
+        self._chunks = list(chunks)
+        self.consumed = 0
+        self.closed = False
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self._chunks:
+            raise StopAsyncIteration
+        self.consumed += 1
+        return self._chunks.pop(0)
+
+    async def aclose(self):
+        self.closed = True
+
+
+def _tool_delta(index, *, call_id=None, name=None, arguments=None):
+    return [
+        SimpleNamespace(
+            index=index,
+            id=call_id,
+            function=SimpleNamespace(name=name, arguments=arguments),
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_tool_probe_stops_at_first_prose_token():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    # A long answer follows, but the probe must not read past the first token.
+    stream = _ProbeStream(
+        [_probe_chunk(content="The"), *[_probe_chunk(content=" more") for _ in range(50)]]
+    )
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=stream),
+    ):
+        result = await litellm_gateway.complete_with_tools(
+            settings=settings,
+            model_alias="free-chat",
+            messages=[{"role": "user", "content": "explain gravity"}],
+            tools=[{"type": "function", "function": {"name": "web_search"}}],
+            max_tokens=640,
+            timeout_seconds=8.0,
+        )
+
+    assert result["tool_calls"] == []
+    assert result["finish_reason"] == "content"
+    assert stream.consumed == 1, "probe should abort on the first prose token"
+    assert stream.closed is True
+
+
+@pytest.mark.asyncio
+async def test_tool_probe_assembles_tool_call_deltas():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    stream = _ProbeStream(
+        [
+            _probe_chunk(tool_calls=_tool_delta(0, call_id="c1", name="web_search")),
+            _probe_chunk(tool_calls=_tool_delta(0, arguments='{"query": ')),
+            _probe_chunk(tool_calls=_tool_delta(0, arguments='"cup final"}')),
+            _probe_chunk(finish_reason="tool_calls"),
+        ]
+    )
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=stream),
+    ):
+        result = await litellm_gateway.complete_with_tools(
+            settings=settings,
+            model_alias="free-chat",
+            messages=[{"role": "user", "content": "who won the cup final"}],
+            tools=[{"type": "function", "function": {"name": "web_search"}}],
+            max_tokens=640,
+            timeout_seconds=8.0,
+        )
+
+    assert result["tool_calls"] == [
+        {
+            "id": "c1",
+            "type": "function",
+            "function": {"name": "web_search", "arguments": '{"query": "cup final"}'},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_tool_probe_reads_through_a_think_block_to_reach_tool_calls():
+    """A brief <think> preamble is not an answer — tool calls may still follow."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    stream = _ProbeStream(
+        [
+            _probe_chunk(content="<think>"),
+            _probe_chunk(content="needs a lookup</think>"),
+            _probe_chunk(
+                tool_calls=_tool_delta(
+                    0, call_id="c1", name="web_search", arguments='{"query": "x"}'
+                )
+            ),
+        ]
+    )
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=stream),
+    ):
+        result = await litellm_gateway.complete_with_tools(
+            settings=settings,
+            model_alias="free-chat",
+            messages=[{"role": "user", "content": "latest news"}],
+            tools=[{"type": "function", "function": {"name": "web_search"}}],
+            max_tokens=640,
+            timeout_seconds=8.0,
+        )
+
+    assert [c["function"]["name"] for c in result["tool_calls"]] == ["web_search"]
+
+
+@pytest.mark.asyncio
+async def test_tool_probe_falls_back_to_blocking_round_when_disabled():
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        mcp_tool_loop_stream_probe_enabled=False,
+    )
+    message = SimpleNamespace(content="plain answer", tool_calls=None)
+    response = SimpleNamespace(
+        choices=[SimpleNamespace(message=message, finish_reason="stop")], usage=None
+    )
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=response),
+    ) as call:
+        result = await litellm_gateway.complete_with_tools(
+            settings=settings,
+            model_alias="free-chat",
+            messages=[{"role": "user", "content": "hi"}],
+            tools=[{"type": "function", "function": {"name": "web_search"}}],
+            max_tokens=640,
+            timeout_seconds=8.0,
+        )
+
+    assert call.await_args.kwargs["stream"] is False
+    assert result["tool_calls"] == []
+    assert result["content"] == "plain answer"
+
+
+@pytest.mark.asyncio
+async def test_tool_probe_stops_at_prose_after_a_closed_think_block():
+    """Once </think> closes, the next prose token is the answer — abort there."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    stream = _ProbeStream(
+        [
+            _probe_chunk(content="<think>"),
+            _probe_chunk(content="no tool needed</think>"),
+            _probe_chunk(content="Gravity is"),
+            *[_probe_chunk(content=" more") for _ in range(50)],
+        ]
+    )
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=stream),
+    ):
+        result = await litellm_gateway.complete_with_tools(
+            settings=settings,
+            model_alias="free-chat",
+            messages=[{"role": "user", "content": "explain gravity"}],
+            tools=[{"type": "function", "function": {"name": "web_search"}}],
+            max_tokens=640,
+            timeout_seconds=8.0,
+        )
+
+    assert result["tool_calls"] == []
+    assert result["finish_reason"] == "content"
+    assert stream.consumed == 3, "should abort on the first token after </think>"

@@ -81,6 +81,16 @@ class Settings(BaseSettings):
     mcp_tool_loop_timeout_seconds: float = 8.0
     mcp_tool_loop_max_calls_per_round: int = 4
     mcp_tool_loop_invoke_timeout_seconds: float = 20.0
+    # Tool-selection rounds are non-streaming and sit in front of the visible
+    # stream. Their prose is ALWAYS discarded (the loop reads `tool_calls`
+    # only, and the caller re-streams), so generating a full-length answer
+    # here buys nothing and costs that whole generation in TTFT. Cap it at
+    # roughly what the widest tool-call argument list needs.
+    mcp_tool_loop_probe_max_tokens: int = 640
+    # Stream the tool-selection round so a turn that wants no tool stops at
+    # its first token of prose instead of generating a whole answer that is
+    # then thrown away. Flip off to fall back to the blocking round.
+    mcp_tool_loop_stream_probe_enabled: bool = True
 
     # Attachment RAG (chunk + embed PDF/doc text; retrieve into prompt).
     attachment_rag_enabled: bool = True

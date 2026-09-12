@@ -97,19 +97,24 @@ async def run_tool_loop_path(
         user=ctx.user,
     ):
         if settings.web_search_enabled and not sources:
-            from app.services.web_search.detection import should_web_search
-            from app.services.web_search.subject import (
-                _prior_user_messages,
-                last_assistant_content,
-            )
+            if ctx.web_search_classified is not None:
+                # Resolved during prompt assembly (turn_prep/context.py), so
+                # the classifier round is already paid for off the TTFT path.
+                web_search_flag = ctx.web_search_classified
+            else:
+                from app.services.web_search.detection import should_web_search
+                from app.services.web_search.subject import (
+                    _prior_user_messages,
+                    last_assistant_content,
+                )
 
-            prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-            web_search_flag = await should_web_search(
-                content,
-                settings,
-                prior_user_messages=_prior_user_messages(prompt, content) or None,
-                prior_assistant=last_assistant_content(prompt),
-            )
+                prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
+                web_search_flag = await should_web_search(
+                    content,
+                    settings,
+                    prior_user_messages=_prior_user_messages(prompt, content) or None,
+                    prior_assistant=last_assistant_content(prompt),
+                )
         if not tool_loop_service.turn_needs_tool_loop(
             content,
             lightweight=lightweight,
@@ -479,6 +484,12 @@ async def stream_and_finalize(
                 ):
                     yield token
             else:
+                # Marked separately: everything between prompt_ready and the
+                # first token is tool-loop work, so without these the phase is
+                # invisible in chat_stream_timing and shows up as "provider
+                # latency" instead.
+                if ctx.timing is not None:
+                    ctx.timing.mark_phase("tool_loop_start")
                 await run_tool_loop_path(
                     seams,
                     redis,
@@ -488,6 +499,8 @@ async def stream_and_finalize(
                     on_status=on_status,
                     should_cancel=should_cancel,
                 )
+                if ctx.timing is not None:
+                    ctx.timing.mark_phase("tool_loop_done")
                 if ctx.terminal_image_content and ctx.terminal_image_message_id:
                     if result is not None:
                         result["message_id"] = ctx.terminal_image_message_id

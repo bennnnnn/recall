@@ -897,6 +897,8 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
     ctx.chat_id = uuid4()
     ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
     ctx.model = "free-chat"
+    # Nothing precomputed during prompt assembly — the gate classifies itself.
+    ctx.web_search_classified = None
     with (
         patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
         patch(
@@ -917,6 +919,53 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
             should_cancel=None,
         )
     classify.assert_awaited_once()
+    run.assert_awaited_once()
+    assert run.await_args.kwargs["web_search"] is True
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_path_reuses_precomputed_classifier_verdict():
+    """The classifier is a serial LLM round in front of the first token.
+
+    turn_prep resolves it alongside the other prompt fetches, so the gate must
+    consume that verdict instead of paying for a second one here.
+    """
+    from uuid import uuid4
+
+    from app.services.chat.stream import _run_tool_loop_path
+
+    ctx = MagicMock()
+    ctx.instant_reply = None
+    ctx.lightweight_turn = False
+    ctx.verified_math = None
+    ctx.user_message_content = "Who is the CEO of Anthropic?"
+    ctx.search_sources = []
+    ctx.user = None
+    ctx.user_id = uuid4()
+    ctx.chat_id = uuid4()
+    ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
+    ctx.model = "free-chat"
+    ctx.web_search_classified = True
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
+        patch(
+            "app.services.tool_loop.run_tool_rounds",
+            AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
+        ) as run,
+        patch(
+            "app.services.web_search.detection.should_web_search",
+            AsyncMock(return_value=True),
+        ) as classify,
+    ):
+        await _run_tool_loop_path(
+            AsyncMock(),
+            _settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            ctx,
+            usage={},
+            on_status=None,
+            should_cancel=None,
+        )
+    classify.assert_not_awaited()
     run.assert_awaited_once()
     assert run.await_args.kwargs["web_search"] is True
 

@@ -117,6 +117,10 @@ class StreamContext:
     # finalize and stream teardown await it so the assistant insert cannot
     # commit first and so a failed prompt still keeps what the user sent.
     user_message_persist: asyncio.Task[list[str]] | None = None
+    # Web-search classifier verdict, resolved concurrently with prompt
+    # assembly so the tool-loop gate never pays for it serially. None = not
+    # resolved (the gate falls back to running the classifier itself).
+    web_search_classified: bool | None = None
     # Set when the tool loop's generate_image persisted the assistant row —
     # stream_and_finalize skips the LLM + second insert.
     terminal_image_message_id: str | None = None
@@ -139,6 +143,7 @@ class TurnPromptBundle:
     local_tz: str
     verified_math: VerifiedMathBlock | None = None
     math_unverified: bool = False
+    web_search_classified: bool | None = None
 
 
 def stream_context_from_bundle(
@@ -192,6 +197,7 @@ def stream_context_from_bundle(
         # prior assistant would mark "yes"/"go" as greetings again.
         lightweight_turn=bundle.lightweight,
         rich_context_turn=bundle.rich_context,
+        web_search_classified=getattr(bundle, "web_search_classified", None),
         indexable_attachment_ids=list(indexable_attachment_ids or []),
         user_message_persist=user_message_persist,
     )
@@ -485,6 +491,29 @@ async def build_stream_prompt_context(
     ) = None
     chem_coro: Awaitable[str | None] | None = None
     write_coro: Awaitable[bool] | None = None
+    # The tool-loop gate consults the LLM web-search classifier for turns the
+    # sync heuristic left ambiguous. Awaited there it is pure serial TTFT
+    # (up to web_search_classifier_timeout_seconds in front of the first
+    # token), so resolve it here instead, alongside the other fetches. Gate it
+    # to exactly the turns that gate would have classified, so this overlaps
+    # work rather than adding it.
+    classify_coro: Awaitable[bool] | None = None
+    if (
+        settings.web_search_enabled
+        and settings.web_search_classifier_enabled
+        and not needs_search
+        and not needs_math
+        and not mode.lightweight
+        and instant_reply is None
+    ):
+        from app.services.web_search.detection import should_web_search
+
+        classify_coro = should_web_search(
+            content,
+            settings,
+            prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
+            prior_assistant=last_assistant_content(prompt_messages),
+        )
     if augment:
 
         async def _fetch_web_with_priors() -> tuple[
@@ -518,6 +547,7 @@ async def build_stream_prompt_context(
             write_coro = _load_has_calendar_write(user.id)
 
     integration_blocks: list[str] = []
+    web_search_classified: bool | None = None
     web_block: str | None = None
     math_block: str | None = None
     chem_block: str | None = None
@@ -535,6 +565,9 @@ async def build_stream_prompt_context(
     if write_coro is not None:
         fetch_jobs.append(write_coro)
         fetch_keys.append("cal_write")
+    if classify_coro is not None:
+        fetch_jobs.append(classify_coro)
+        fetch_keys.append("classify")
     if fetch_jobs:
         fetched = await asyncio.gather(*fetch_jobs)
         by_key = dict(zip(fetch_keys, fetched, strict=True))
@@ -548,6 +581,8 @@ async def build_stream_prompt_context(
             chem_block = by_key["chem"]
         if "cal_write" in by_key:
             has_calendar_write = by_key["cal_write"]
+        if "classify" in by_key:
+            web_search_classified = by_key["classify"]
 
     # Phase C: inject in the stable order (integration -> web -> math) so the
     # final prompt is byte-identical to the prior serial pipeline.
@@ -603,4 +638,5 @@ async def build_stream_prompt_context(
         local_tz=local_tz,
         verified_math=verified_math,
         math_unverified=math_unverified,
+        web_search_classified=web_search_classified,
     )

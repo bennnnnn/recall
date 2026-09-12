@@ -431,7 +431,11 @@ async def _run_tool_rounds_bound(
                 model_alias=_tool_loop_completion_alias(model_alias),
                 messages=working,
                 tools=tools,
-                max_tokens=settings.max_output_tokens,
+                # Probe cap, not an answer budget: this round's prose is
+                # always thrown away (see the `not tool_calls` break below),
+                # so letting it run to max_output_tokens spends a whole
+                # generation in front of the user's first token.
+                max_tokens=max(1, settings.mcp_tool_loop_probe_max_tokens),
                 usage=usage,
                 timeout_seconds=settings.mcp_tool_loop_timeout_seconds,
             )
@@ -444,9 +448,13 @@ async def _run_tool_rounds_bound(
 
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
-            # Round produced a final answer without tools. Do not dump it as
-            # one chunk and do not complete_with_tools again — the caller
-            # streams (ordinary TTFT when this is round 1).
+            # Round wanted no tools. Its prose is discarded either way — the
+            # caller streams the real answer — so a `length` finish here just
+            # means the probe cap did its job and saved that generation.
+            if msg.get("finish_reason") == "length":
+                logger.debug(
+                    "Tool-loop probe hit the token cap with no tool calls; streaming directly"
+                )
             break
 
         assistant_msg: dict[str, Any] = {
