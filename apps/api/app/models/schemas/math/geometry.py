@@ -209,6 +209,7 @@ class RightTriangleGeometryBlockSpec(BaseModel):
     show_angle: bool = True
     hypotenuse: float | None = None
     area: float | None = None
+    perimeter: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
 
@@ -224,6 +225,7 @@ class TriangleSidesGeometryBlockSpec(BaseModel):
     show_median: bool = False
     show_angle: bool = True
     area: float | None = None
+    perimeter: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")

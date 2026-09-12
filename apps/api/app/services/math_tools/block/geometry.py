@@ -104,9 +104,9 @@ def _verified_block_square(
         width=square_geo.side,
         height=square_geo.side,
         unit=square_geo.unit,
-        show_diagonal=True,
-        show_area=True,
-        show_perimeter=True,
+        show_diagonal=intent.wants_diagonal or not (intent.wants_area or intent.wants_perimeter),
+        show_area=intent.wants_area or not (intent.wants_diagonal or intent.wants_perimeter),
+        show_perimeter=intent.wants_perimeter or not (intent.wants_area or intent.wants_diagonal),
         show_ticks=True,
         diagonal=square_geo.diagonal,
         area=square_geo.area,
@@ -253,12 +253,15 @@ def _verified_block_right_triangle(
         show_angle=True,
         hypotenuse=rt_geo.hypotenuse,
         area=rt_geo.area,
+        perimeter=rt_geo.base + rt_geo.height + rt_geo.hypotenuse,
         labels=rt_geo.labels,
     )
     lines.append("Interior-angle labels: all three vertices (not only the 90° square).")
     # Draw-and-label asks are the diagram — do not attach a leftover area pill
     # (6x4 default used to dump a gray "12" under a 3-4-5 request).
     answer = f"{rt_geo.area:g}" if intent.wants_area else None
+    if intent.wants_hypotenuse and not (intent.wants_area or intent.wants_perimeter):
+        answer = f"{rt_geo.hypotenuse:g}"
     if intent.wants_perimeter:
         answer = f"{rt_geo.base + rt_geo.height + rt_geo.hypotenuse:g}"
     return _diagram_block(lines, rt_spec, answer)
@@ -295,6 +298,7 @@ def _verified_block_triangle_sides(
         show_median=isosceles,
         show_angle=True,
         area=tri_geo.area,
+        perimeter=tri_geo.perimeter,
         labels=tri_geo.labels,
     )
     if intent.unit == "units":

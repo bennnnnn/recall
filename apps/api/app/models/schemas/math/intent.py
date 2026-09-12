@@ -107,6 +107,7 @@ class MathIntent(BaseModel):
     # lets the rectangle augmentation only annotate the diagram with what was
     # requested instead of always drawing a diagonal + angle.
     wants_diagonal: bool = False
+    wants_hypotenuse: bool = False
     wants_angle: bool = False
     wants_area: bool = False
     wants_perimeter: bool = False

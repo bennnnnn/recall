@@ -379,9 +379,15 @@ def can_direct_verified_math_reply(
         return False
     if wants_math_explanation(user_text):
         return False
-    from app.services.math_tools.direct_geometry import can_direct_rectangle
+    from app.services.math_tools.direct_geometry import (
+        can_direct_rectangle,
+        can_direct_square_or_triangle,
+    )
 
-    if can_direct_rectangle(verified, user_text, _solver_fences(verified)):
+    geometry_fences = _solver_fences(verified)
+    if can_direct_rectangle(verified, user_text, geometry_fences) or can_direct_square_or_triangle(
+        verified, user_text, geometry_fences
+    ):
         return True
     if _can_direct_point_or_vertical(verified, user_text):
         return True
@@ -396,7 +402,21 @@ def can_direct_verified_math_reply(
         has_coordinate_vector_request,
         is_closed_coordinate_vector_request,
     )
+    from app.services.math_tools.direct_statistics import statistics_direct_request
+    from app.services.math_tools.direct_units import unit_direct_request
 
+    statistics_request = statistics_direct_request(user_text)
+    unit_request = unit_direct_request(user_text)
+    if statistics_request is False or unit_request is False:
+        return False
+    if statistics_request or unit_request:
+        fences = _solver_fences(verified)
+        if (
+            len(fences) != 1
+            or fences[0].get("type") != "answer"
+            or fences[0].get("content") != verified.canonical_answer
+        ):
+            return False
     lower = user_text.lower()
     coordinate_vector_request = has_coordinate_vector_request(user_text)
     if coordinate_vector_request and not is_closed_coordinate_vector_request(user_text):
@@ -404,9 +424,9 @@ def can_direct_verified_math_reply(
     factorization_request = "prime factor" in lower or "factorize" in lower
     if factorization_request and not _plain_prime_factorization_request(user_text):
         return False
-    if not (factorization_request or coordinate_vector_request) and leftover_non_math_request(
-        user_text
-    ):
+    if not (
+        factorization_request or coordinate_vector_request or statistics_request or unit_request
+    ) and leftover_non_math_request(user_text):
         return False
     answer = (verified.canonical_answer or "").strip()
     if not answer or len(answer) > _MAX_DIRECT_ANSWER_CHARS:
@@ -428,7 +448,13 @@ def format_direct_math_reply(verified: VerifiedMathBlock) -> str:
         if answer:
             return f"```answer\n{answer}\n```\n\n{graph_reply}"
         return graph_reply
-    if len(fences) == 1 and fences[0].get("type") == "rectangle":
+    if len(fences) == 1 and fences[0].get("type") in {
+        "rectangle",
+        "square",
+        "triangle",
+        "right_triangle",
+        "triangle_sides",
+    }:
         return (
             f"```answer\n{answer}\n```\n\n"
             f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"

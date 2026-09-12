@@ -208,6 +208,7 @@ def _right_triangle_named_legs(cleaned: str) -> tuple[float, float, str] | None:
 
 def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
+    from app.services.math_text_match.literal_geometry import literal_hypotenuse_legs
 
     lower = cleaned.lower()
     if "right triangle" not in lower:
@@ -225,6 +226,7 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
             height=height,
             unit=unit,
             operation="solve",
+            wants_hypotenuse=literal_hypotenuse_legs(cleaned) == (base, height),
             wants_perimeter="perimeter" in cleaned.lower(),
             wants_area=wants_area,
             wants_angle=_wants_geometry_angles(lower),

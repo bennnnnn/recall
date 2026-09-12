@@ -1,14 +1,22 @@
-"""Whole-request guards for already verified rectangle measurements."""
+"""Whole-request guards for already verified geometry measurements."""
 
 from __future__ import annotations
 
 import math
 import re
 
+from app.services.math_text_match.literal_geometry import (
+    GEOMETRY_DECIMAL as _DECIMAL,
+)
+from app.services.math_text_match.literal_geometry import (
+    RIGHT_TRIANGLE_LEGS as _RIGHT_LEGS,
+)
+from app.services.math_text_match.literal_geometry import (
+    measurement_request as _measurement_request,
+)
 from app.services.math_text_match.units import solid_length_unit, strip_geometry_length_units
 from app.services.math_tools.block.common import VerifiedMathBlock
 
-_DECIMAL = r"(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
 _DIMENSIONS = re.compile(rf"({_DECIMAL})\s*(?:by|x|\u00d7|\*)\s*({_DECIMAL})")
 
 
@@ -29,22 +37,12 @@ def can_direct_rectangle(
     """
     if len(user_text) > 1000 or len(fences) != 1 or fences[0].get("type") != "rectangle":
         return False
-    request = " ".join(user_text.lower().split()).rstrip(".?")
-    if request.startswith("please "):
-        request = request[7:]
-    for prefix in ("find ", "calculate ", "compute ", "determine ", "what is ", "what's "):
-        if request.startswith(prefix):
-            request = request[len(prefix) :]
-            break
-    if request.startswith("the "):
-        request = request[4:]
-    quantity, separator, request = request.partition(" of ")
-    if not separator or quantity not in {"area", "perimeter", "diagonal"}:
+    parsed = _measurement_request(user_text)
+    if parsed is None:
         return False
-    for article in ("a ", "the "):
-        if request.startswith(article):
-            request = request[len(article) :]
-            break
+    quantity, request = parsed
+    if quantity not in {"area", "perimeter", "diagonal"}:
+        return False
     if not request.startswith("rectangle "):
         return False
     dimensions = request[10:]
@@ -68,6 +66,79 @@ def can_direct_rectangle(
     for flag in ("area", "perimeter", "diagonal"):
         if geometry.get(f"show_{flag}") is not (flag == quantity):
             return False
+    value = _finite_number(geometry.get(quantity))
+    answer = (verified.canonical_answer or "").strip()
+    if value is None or value <= 0 or not answer or len(answer) > 64:
+        return False
+    try:
+        return float(answer) == value
+    except ValueError:
+        return False
+
+
+_SQUARE_SIDE = re.compile(rf"side\s+({_DECIMAL})")
+_BASE_HEIGHT = re.compile(rf"base\s+({_DECIMAL})\s+(?:and\s+)?height\s+({_DECIMAL})")
+_THREE_SIDES = re.compile(
+    rf"sides\s+({_DECIMAL})\s*,\s*({_DECIMAL})\s*(?:,\s*(?:and\s+)?|and\s+)({_DECIMAL})"
+)
+
+
+def can_direct_square_or_triangle(
+    verified: VerifiedMathBlock, user_text: str, fences: list[dict[str, object]]
+) -> bool:
+    """Recognize only a complete literal single-measure square/triangle request."""
+    if len(user_text) > 1000 or len(fences) != 1:
+        return False
+    geometry = fences[0]
+    kind = geometry.get("type")
+    parsed = _measurement_request(user_text)
+    if parsed is None:
+        return False
+    quantity, request = parsed
+    keys: tuple[str, ...]
+    if kind == "square":
+        shape, pattern, keys = "square ", _SQUARE_SIDE, ("side",)
+        quantities = {"area", "perimeter", "diagonal"}
+    elif kind == "triangle":
+        shape, pattern, keys = "triangle ", _BASE_HEIGHT, ("base", "height")
+        quantities = {"area"}
+    elif kind == "right_triangle":
+        shape, pattern, keys = "right triangle ", _RIGHT_LEGS, ("base", "height")
+        quantities = {"area", "perimeter", "hypotenuse"}
+    elif kind == "triangle_sides":
+        shape, pattern, keys = "triangle ", _THREE_SIDES, ("a", "b", "c")
+        quantities = {"area", "perimeter"}
+    else:
+        return False
+    if quantity not in quantities or not request.startswith(shape):
+        return False
+    dimensions = request[len(shape) :]
+    if dimensions.startswith("with "):
+        dimensions = dimensions[5:]
+    unit = solid_length_unit(dimensions)
+    if unit is None or geometry.get("unit") != unit:
+        return False
+    match = pattern.fullmatch(strip_geometry_length_units(dimensions).strip())
+    if match is None:
+        return False
+    values = tuple(float(value) for value in match.groups())
+    if any(not 0 < value <= 1_000_000 for value in values):
+        return False
+    if any(
+        _finite_number(geometry.get(key)) != value for key, value in zip(keys, values, strict=True)
+    ):
+        return False
+    if kind == "square":
+        side = values[0]
+        if any(_finite_number(geometry.get(key)) != side for key in ("width", "height")):
+            return False
+        for flag in ("area", "perimeter", "diagonal"):
+            if geometry.get(f"show_{flag}") is not (flag == quantity):
+                return False
+    elif kind == "triangle" and (
+        geometry.get("show_angle") is not False or geometry.get("show_ticks") is not False
+    ):
+        return False
     value = _finite_number(geometry.get(quantity))
     answer = (verified.canonical_answer or "").strip()
     if value is None or value <= 0 or not answer or len(answer) > 64:
