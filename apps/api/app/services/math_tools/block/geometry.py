@@ -72,7 +72,11 @@ def _verified_block_rectangle(
         perimeter=rect_geo.perimeter,
         labels=rect_geo.labels,
     )
-    if intent.wants_perimeter:
+    if intent.wants_angle and intent.wants_diagonal:
+        # “Angle made by the diagonal” mentions the diagonal as a reference,
+        # not as a request to substitute its length for the angle.
+        answer = rf"{rect_geo.angle_deg:g}^\circ"
+    elif intent.wants_perimeter:
         answer = f"{rect_geo.perimeter:g}"
     elif intent.wants_diagonal and not intent.wants_area:
         answer = f"{rect_geo.diagonal:g}"
