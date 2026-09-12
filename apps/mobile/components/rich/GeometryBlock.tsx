@@ -14,6 +14,7 @@ import {
   diagonalAngleArcPath,
   equalSideTickCounts,
   footOfPerpendicular,
+  geometryLabelInset,
   isIsoscelesSides,
   isRightAngleDeg,
   midpoint,
@@ -191,14 +192,15 @@ function VertexAngleGraphic({
 function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; screenWidth: number; theme: Theme }) {
   const colors = diagramColors(theme);
   const labels = computeRectangleLabels(spec);
-  const layout = scaleToFit(spec.width, spec.height, screenWidth - 48);
-  const offsetX = 40;
+  const offsetX = geometryLabelInset(spec.type === "square" ? labels.side : labels.height);
+  const rightPad = spec.show_diagonal ? geometryLabelInset(labels.diagonal, 12) : 40;
+  const layout = scaleToFit(spec.width, spec.height, screenWidth - 48, offsetX + rightPad);
   const offsetY = 36;
   const x = offsetX;
   const y = offsetY;
   const w = layout.w;
   const h = layout.h;
-  const svgW = w + offsetX + 40;
+  const svgW = w + offsetX + rightPad;
   const svgH = h + offsetY + (spec.show_area || spec.show_perimeter ? 56 : 40);
   const isSquare = spec.type === "square";
   const corner = 12;
@@ -301,8 +303,9 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
 function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; screenWidth: number; theme: Theme }) {
   const colors = diagramColors(theme);
   const labels = computeTriangleLabels(spec);
-  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48);
   const offsetX = 48;
+  const rightPad = spec.show_labels !== false ? geometryLabelInset(labels.height, 12, 10, 48) : 48;
+  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48, offsetX + rightPad);
   const offsetY = 28;
   const b = layout.w;
   const h = layout.h;
@@ -313,7 +316,7 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
   const y1 = offsetY + raw.y1;
   const x2 = offsetX + raw.x2;
   const y2 = offsetY + raw.y2;
-  const svgW = b + offsetX + 48;
+  const svgW = b + offsetX + rightPad;
   const svgH = h + offsetY + 36;
   const showLabels = spec.show_labels !== false;
   const showAltitude = spec.show_altitude !== false;
@@ -386,8 +389,10 @@ function RightTriangleDiagram({
 }) {
   const colors = diagramColors(theme);
   const labels = computeRightTriangleLabels(spec);
-  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48);
-  const offsetX = 48;
+  const offsetX = spec.show_labels !== false ? geometryLabelInset(labels.height, 12, 10, 48) : 48;
+  const rightPad = spec.show_labels !== false && spec.show_hypotenuse !== false
+    ? geometryLabelInset(labels.hypotenuse, 12, 8, 48) : 48;
+  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48, offsetX + rightPad);
   const offsetY = 28;
   const b = layout.w;
   const h = layout.h;
@@ -395,7 +400,7 @@ function RightTriangleDiagram({
   const y0 = offsetY;
   const x1 = offsetX + b;
   const y1 = offsetY + h;
-  const svgW = b + offsetX + 48;
+  const svgW = b + offsetX + rightPad;
   // Side-length labels sit below the base (y+18) and left of the height —
   // angle-label padding does not include them, so "6 cm" used to clip.
   const svgH = h + offsetY + 56;
@@ -542,9 +547,10 @@ function TriangleSidesDiagram({
   const maxX = Math.max(raw.x0, raw.x1, raw.x2);
   const spanX = maxX - minX;
   const maxY = Math.max(raw.y0, raw.y1, raw.y2, 1);
-  const inner = Math.max(screenWidth - 48 - 80, 120);
+  const offsetX = spec.show_labels !== false ? geometryLabelInset(labels.c) : 40;
+  const rightPad = spec.show_labels !== false ? geometryLabelInset(labels.b) : 40;
+  const inner = Math.max(screenWidth - 48 - offsetX - rightPad, 1);
   const scale = inner / Math.max(spanX, maxY, 1);
-  const offsetX = 40;
   const offsetY = 28;
   // SVG y grows downward \u2014 flip so the apex draws above the base.
   const toSvg = (x: number, y: number) => ({
@@ -555,7 +561,7 @@ function TriangleSidesDiagram({
   const p1raw = toSvg(raw.x1, raw.y1);
   const p2raw = toSvg(raw.x2, raw.y2);
   const showLabels = spec.show_labels !== false;
-  const svgW0 = spanX * scale + offsetX * 2;
+  const svgW0 = spanX * scale + offsetX + rightPad;
   const labelBelow = showLabels ? 52 : 16;
   const svgH0 = maxY * scale + offsetY + labelBelow;
   const tickCounts = equalSideTickCounts(spec.a, spec.b, spec.c);
@@ -677,12 +683,13 @@ function TrapezoidDiagram({
   theme: Theme;
 }) {
   const labels = computeTrapezoidLabels(spec);
-  const inner = Math.max(screenWidth - 48 - 80, 120);
+  const offsetX = spec.show_labels !== false ? geometryLabelInset(labels.height, 12) : 40;
+  const rightPad = 40;
+  const inner = Math.max(screenWidth - 48 - offsetX - rightPad, 1);
   const scale = inner / Math.max(spec.top, spec.bottom, spec.height, 1);
   const topW = spec.top * scale;
   const bottomW = spec.bottom * scale;
   const h = spec.height * scale;
-  const offsetX = 40;
   const offsetY = 28;
   const bx0 = offsetX;
   const bx1 = offsetX + bottomW;
@@ -690,7 +697,7 @@ function TrapezoidDiagram({
   const tx0 = offsetX + (bottomW - topW) / 2;
   const tx1 = tx0 + topW;
   const ty = offsetY;
-  const svgW = bottomW + offsetX * 2;
+  const svgW = bottomW + offsetX + rightPad;
   const svgH = h + offsetY + 40;
   const showLabels = spec.show_labels !== false;
   const showAngle = spec.show_angle === true;
@@ -752,7 +759,10 @@ function ParallelogramDiagram({
   theme: Theme;
 }) {
   const labels = computeParallelogramLabels(spec);
-  const { svgW, svgH, bx0, bx1, by, tx0, tx1, ty } = parallelogramLayout(spec, screenWidth);
+  const padding = spec.show_labels !== false
+    ? { left: geometryLabelInset(labels.height, 12), right: geometryLabelInset(labels.side, 12) }
+    : { left: 40, right: 40 };
+  const { svgW, svgH, bx0, bx1, by, tx0, tx1, ty } = parallelogramLayout(spec, screenWidth, padding);
   const showLabels = spec.show_labels !== false;
   const showAngle = spec.show_angle === true;
   let verts = [

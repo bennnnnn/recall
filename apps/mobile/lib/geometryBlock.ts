@@ -831,13 +831,18 @@ export function polygonInteriorAngleMarks(
   });
 }
 
+/** Reserve the entire SVG dimension label plus its gap and a small ink margin. */
+export function geometryLabelInset(label: string, fontSize = 13, gap = 8, minimum = 40): number {
+  return Math.max(minimum, Math.ceil(Array.from(label).length * fontSize * 0.65) + gap + 4);
+}
+
 export function scaleToFit(
   width: number,
   height: number,
   maxWidth: number,
   padding = 80,
 ): { w: number; h: number; scale: number } {
-  const inner = Math.max(maxWidth - padding, 120);
+  const inner = Math.max(maxWidth - padding, 1);
   const scale = inner / Math.max(width, height, 1);
   return { w: width * scale, h: height * scale, scale };
 }
@@ -873,19 +878,20 @@ export type ParallelogramLayout = {
 export function parallelogramLayout(
   spec: Pick<ParallelogramSpec, "base" | "height" | "side">,
   screenWidth: number,
+  padding: { left: number; right: number } = { left: 40, right: 40 },
 ): ParallelogramLayout {
-  const inner = Math.max(screenWidth - 48 - 80, 120);
+  const inner = Math.max(screenWidth - 48 - padding.left - padding.right, 1);
   const span = parallelogramSpan(spec.base, spec.height, spec.side);
   const scale = inner / Math.max(span, spec.height, 1);
   const b = spec.base * scale;
   const h = spec.height * scale;
   const s = spec.side * scale;
   const shear = Math.sqrt(Math.max(0, s * s - h * h));
-  const offsetX = 40 + shear;
+  const offsetX = padding.left + shear;
   const offsetY = 28;
-  // Leftmost point is tx0 = offsetX - shear = 40; rightmost is bx1 = offsetX + b.
+  // Leftmost point is tx0 = padding.left; rightmost is bx1 = offsetX + b.
   // Do not add shear again — offsetX already contains it.
-  const svgW = b + shear + 80;
+  const svgW = b + shear + padding.left + padding.right;
   const svgH = h + offsetY + 40;
   const bx0 = offsetX;
   const bx1 = offsetX + b;

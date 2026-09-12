@@ -309,7 +309,7 @@ function wrapInlineLatexCommands(line: string): string {
   return applyOutsideInlineMath(line, wrapInlineLatexCommandsInSegment);
 }
 
-function normalizeMathLine(line: string, format?: (expr: string) => string): string {
+function normalizeMathLine(line: string, format?: (expr: string) => string, wholeLine = true): string {
   if (/\]\(https?:\/\//.test(line) || /\[places\s*\n/i.test(line)) {
     return line;
   }
@@ -318,7 +318,7 @@ function normalizeMathLine(line: string, format?: (expr: string) => string): str
   const equationLabel = out.match(
     /^(\s*(?:\*\*)?(?:Given\s+)?(?:Equation|equation)(?:\*\*)?\s*:\s*)(.+)$/i,
   );
-  if (equationLabel) {
+  if (wholeLine && equationLabel) {
     const expr = equationLabel[2].trim();
     if (isMathLike(expr) || looksLikeBareEquation(expr)) {
       return `${equationLabel[1]}${wrapMath(expr, format)}`;
@@ -330,7 +330,7 @@ function normalizeMathLine(line: string, format?: (expr: string) => string): str
   const verifyLabel = out.match(
     /^(\s*(?:[-*]\s+)?(?:(?:For|Let)\s+)?[a-zA-Z]\s*=\s*-?\d+\s*:\s*)(.+)$/i,
   );
-  if (verifyLabel) {
+  if (wholeLine && verifyLabel) {
     const expr = verifyLabel[2].replace(/\s*[✓✔✅]\s*$/u, "").trim();
     if (isMathLike(expr) || looksLikeBareEquation(expr)) {
       const mark = verifyLabel[2].match(/[✓✔✅]\s*$/u)?.[0] ?? "";
@@ -341,7 +341,7 @@ function normalizeMathLine(line: string, format?: (expr: string) => string): str
   const discourseLead = out.match(
     /^(\s*(?:So|Thus|Hence|Then|Therefore|Now|Also|Finally|And|But),?\s+)(.+)$/i,
   );
-  if (discourseLead) {
+  if (wholeLine && discourseLead) {
     const expr = discourseLead[2].trim();
     if (looksLikeBareEquation(expr) || isMathLike(expr)) {
       return `${discourseLead[1]}${wrapMath(expr, format)}`;
@@ -349,7 +349,7 @@ function normalizeMathLine(line: string, format?: (expr: string) => string): str
   }
 
   const listLead = out.match(/^(\s*(?:[-*•]|\d+[.)])\s+)(.*)$/);
-  if (listLead && !listLead[2].includes("$")) {
+  if (wholeLine && listLead && !listLead[2].includes("$")) {
     const expr = listLead[2].trim();
     if (looksLikeBareEquation(expr)) {
       return `${listLead[1]}${wrapMath(expr, format)}`;
@@ -357,7 +357,7 @@ function normalizeMathLine(line: string, format?: (expr: string) => string): str
   }
 
   const trimmed = out.trim();
-  if (looksLikeBareEquation(trimmed) && !trimmed.includes("$") && !/^[-*•]\s/.test(trimmed)) {
+  if (wholeLine && looksLikeBareEquation(trimmed) && !trimmed.includes("$") && !/^[-*•]\s/.test(trimmed)) {
     return out.replace(trimmed, wrapMath(trimmed, format));
   }
 
@@ -389,8 +389,14 @@ function normalizeMathLine(line: string, format?: (expr: string) => string): str
 export function normalizeImplicitMathInProse(
   text: string,
   format?: (expr: string) => string,
+  partialLines: { first?: boolean; last?: boolean } = {},
 ): string {
-  return text.split("\n").map((line) => normalizeMathLine(line, format)).join("\n");
+  const lines = text.split("\n");
+  return lines.map((line, i) => normalizeMathLine(
+    line,
+    format,
+    !((partialLines.first && i === 0) || (partialLines.last && i === lines.length - 1)),
+  )).join("\n");
 }
 
 function normalizeOutsideDisplayMath(
@@ -403,12 +409,17 @@ function normalizeOutsideDisplayMath(
   let match: RegExpExecArray | null;
   while ((match = DISPLAY_MATH_SPAN_RE.exec(text)) !== null) {
     if (match.index > last) {
-      chunks.push(normalizeImplicitMathInProse(text.slice(last, match.index), format));
+      // These edge lines abut protected math, so they are fragments rather
+      // than standalone equations (e.g. the ") = " in "Mean (\\(mu\\)) = …").
+      chunks.push(normalizeImplicitMathInProse(text.slice(last, match.index), format, {
+        first: last > 0,
+        last: true,
+      }));
     }
     chunks.push(match[0]);
     last = match.index + match[0].length;
   }
-  chunks.push(normalizeImplicitMathInProse(text.slice(last), format));
+  chunks.push(normalizeImplicitMathInProse(text.slice(last), format, { first: last > 0 }));
   return chunks.join("");
 }
 

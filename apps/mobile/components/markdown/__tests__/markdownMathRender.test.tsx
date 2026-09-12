@@ -44,6 +44,17 @@ jest.mock("@/components/CodeBlock", () => {
 });
 
 describe("MarkdownContent math rendering", () => {
+  it("renders the exact S04 mean line without stray dollar delimiters", async () => {
+    const { getByText, queryByText, getByTestId } = await render(
+      <MarkdownContent content={String.raw`- Mean (\(\mu\)) = \( \frac{1+2+3}{3} = 2 \),`} />,
+    );
+    expect(getByText(/Mean \(μ\) =/)).toBeOnTheScreen();
+    expect(getByText("(1+2+3)")).toBeOnTheScreen();
+    expect(getByText("= 2,")).toBeOnTheScreen();
+    expect(getByTestId("math-frac")).toBeOnTheScreen();
+    expect(queryByText(/\$/)).toBeNull();
+  });
+
   it("does not flash an unfinished inline fraction as raw LaTeX", async () => {
     const { queryByText, getByText } = await render(
       <MarkdownContent content={String.raw`Result: $\frac{1}`} streaming />,
