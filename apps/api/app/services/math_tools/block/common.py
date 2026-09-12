@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.models.schemas.math import MathIntent
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
 VERIFIED_MATH_END = "[END VERIFIED MATH]"
@@ -31,6 +34,9 @@ class VerifiedMathBlock:
     # MATH_SOLVER_HINT can name the symbol. Geometry stays on the model path;
     # plain, explicit function plots may return their canonical graph directly.
     allow_direct: bool = True
+    # The verified-block wrapper binds the exact solved physics intent here.
+    # Includes average speed; guards compare every parameter/unit without re-solving.
+    physics_intent: MathIntent | None = None
 
 
 def _answer_canonical(content: str) -> dict[str, str]:

@@ -395,9 +395,13 @@ def can_direct_verified_math_reply(
     """
     if has_image_attachment:
         return False
-    if not verified.allow_direct:
-        return False
     if wants_math_explanation(user_text):
+        return False
+    if verified.physics_intent is not None:
+        from app.services.math_tools.direct_physics import can_direct_physics
+
+        return can_direct_physics(verified, user_text, _solver_fences(verified))
+    if not verified.allow_direct:
         return False
     if _underdetermined_triangle_measurement(verified, user_text) is not None:
         return True
@@ -480,7 +484,12 @@ def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -
     answer = (verified.canonical_answer or "").strip()
     if len(fences) == 1 and fences[0].get("relative_lengths") is True:
         return f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
-    if len(fences) == 1 and fences[0].get("type") in {"function", "inequality", "vertical"}:
+    if len(fences) == 1 and fences[0].get("type") in {
+        "function",
+        "inequality",
+        "vertical",
+        "trajectory",
+    }:
         # The mobile stream scanner needs the newline after the closing fence
         # to render the graph immediately, before the done event arrives.
         graph_reply = f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
@@ -525,4 +534,11 @@ def maybe_direct_math_reply(
         verified, user_text, has_image_attachment=has_image_attachment
     ):
         return None
-    return format_direct_math_reply(verified, user_text)
+    reply = format_direct_math_reply(verified, user_text)
+    if (
+        verified.physics_intent is not None
+        and verified.physics_intent.kind == "kinematics"
+        and verified.physics_intent.physics_op in {"velocity", "acceleration"}
+    ):
+        return f"Upward is positive.\n\n{reply}"
+    return reply

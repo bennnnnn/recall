@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
@@ -112,13 +113,10 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             return None
         from app.services.math_tools.block.common import wrap_verified_math
 
-        return VerifiedMathBlock(
-            text=wrap_verified_math(block.text),
-            canonical_fence=block.canonical_fence,
-            canonical_answer=block.canonical_answer,
-            canonical_fences=block.canonical_fences,
-            allow_direct=block.allow_direct,
-        )
+        physics_intent = None
+        if intent.kind in PHYSICS_BLOCK_BUILDERS or intent.school_op == "average_speed":
+            physics_intent = intent.model_copy(deep=True)
+        return replace(block, text=wrap_verified_math(block.text), physics_intent=physics_intent)
     except math_service.MathServiceError as exc:
         logger.info("math_tools skipped: %s", exc)
         return None
