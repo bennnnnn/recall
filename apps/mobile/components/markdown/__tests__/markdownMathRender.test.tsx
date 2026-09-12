@@ -69,6 +69,15 @@ describe("MarkdownContent math rendering", () => {
     expect(queryByText(/^\.$/)).toBeNull();
   });
 
+  it.each([",", ";"])("keeps leading %s with a heavy formula while retaining the following prose", async (punctuation) => {
+    const { getByText, queryByText } = await render(
+      <MarkdownContent content={String.raw`Evaluate $\int_0^1 x\,dx$${punctuation} then compare.`} />,
+    );
+    expect(getByText(`x dx${punctuation}`)).toBeOnTheScreen();
+    expect(getByText("then compare.")).toBeOnTheScreen();
+    expect(queryByText(/^[,;]\s*then compare\./)).toBeNull();
+  });
+
   it("typesets the exact cube-root callout note without raw LaTeX", async () => {
     const { getByTestId, queryByText } = await render(
       <MarkdownContent content={String.raw`> [!NOTE]

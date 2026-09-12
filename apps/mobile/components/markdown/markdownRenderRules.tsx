@@ -175,12 +175,19 @@ function renderTextWithMath(
       }
       flushInline();
       const next = parts[i + 1];
-      const punctuation = next?.type === "text" && /^[,.;:!?]+$/.test(next.value.trim())
-        ? next.value.trim() : "";
+      const punctuationMatch = next?.type === "text"
+        ? /^[ \t]*([,.;:!?]+)/.exec(next.value) : null;
+      const punctuation = punctuationMatch?.[1] ?? "";
       runs.push(<MathBlock key={`${node.key}-m-${i}`} latex={
         part.value + (punctuation ? `\\text{${punctuation}}` : "")
       } />);
-      if (punctuation) i += 1;
+      if (punctuationMatch && next?.type === "text") {
+        // Keep punctuation with the display formula even when the same text
+        // token continues with prose (", then compare"), retaining that prose.
+        const remainder = next.value.slice(punctuationMatch[0].length).trimStart();
+        if (remainder) inline.push({ type: "text", value: remainder });
+        i += 1;
+      }
     }
     flushInline();
     return (
