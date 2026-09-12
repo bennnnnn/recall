@@ -7,7 +7,9 @@ import re
 from app.services.text_normalize import collapse_ws
 
 _MAX = 1000
-_NUM = re.compile(r"-?\d+(?:\.\d+)?")
+# Keep a leading decimal point (and its sign) in the numeric token. Skipping
+# it used to turn a sector/circle radius of .5 into a verified radius of 5.
+_NUM = re.compile(r"-?(?:\d+(?:\.\d+)?|\.\d+)")
 # Math keyboard / Unicode units: m/s² and m/s^{2} must match m/s^2.
 _SUP_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 _SUP_ASCII = "0123456789"
