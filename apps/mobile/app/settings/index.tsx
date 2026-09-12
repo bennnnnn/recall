@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,7 @@ import { Avatar } from "@/components/Avatar";
 import { StackBackButton } from "@/components/StackBackButton";
 import { AccountSettingsSection } from "@/components/settings/AccountSettingsSection";
 import { AppearanceSettingsRow } from "@/components/settings/AppearanceSettingsRow";
+import { SettingsProfileName } from "@/components/settings/SettingsProfileName";
 import {
   SettingsOverviewGroup,
   SettingsOverviewRow,
@@ -20,11 +21,9 @@ import {
   fetchIntegrationStatus,
   getCachedConnectedCount,
 } from "@/lib/cache/integrationStatusCache";
-import { getDisplayName } from "@/lib/profile";
 import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 
 export default function SettingsScreen() {
   const { token, user, signOut } = useAuth();
@@ -66,7 +65,6 @@ export default function SettingsScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
-  const displayName = getDisplayName(user?.name, t("common.you"));
   const memoryValue = user?.memory_enabled ? t("settings.on") : t("settings.off");
   const modelsValue = autoEnabled
     ? t("settings.model_auto")
@@ -99,9 +97,7 @@ export default function SettingsScreen() {
             style={s.backButton}
           />
           <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={88} />
-          <Text style={s.profileName} accessibilityRole="header">
-            {displayName}
-          </Text>
+          <SettingsProfileName />
         </View>
 
         <SettingsOverviewGroup label={t("settings.experience")}>
@@ -207,14 +203,6 @@ function makeStyles(theme: Theme) {
     profileHeader: {
       alignItems: "center",
       paddingBottom: Space.xs,
-    },
-    profileName: {
-      ...Type.h1,
-      fontWeight: "600",
-      color: theme.text,
-      textAlign: "center",
-      marginTop: Space.md,
-      paddingHorizontal: Space.md,
     },
     backButton: {
       position: "absolute",

@@ -90,7 +90,8 @@ describe("settings home", () => {
     expect(queryByText("settings.profile")).toBeNull();
     expect(getByText("settings.experience")).toBeTruthy();
     expect(getByText("settings.account")).toBeTruthy();
-    expect(getByText("settings.name_label")).toBeTruthy();
+    expect(queryByText("settings.name_label")).toBeNull();
+    expect(getByText("bini")).toBeTruthy();
     expect(getByText("settings.email")).toBeTruthy();
     expect(getByText("settings.sign_in_method")).toBeTruthy();
     expect(getByText("settings.plan_label")).toBeTruthy();
@@ -100,12 +101,12 @@ describe("settings home", () => {
     expect(queryByText("settings.voice")).toBeNull();
   });
 
-  it("edits the name in a popup on Settings", async () => {
+  it("edits the name from beneath the profile picture in a popup on Settings", async () => {
     const { getByText, getByDisplayValue, getByLabelText, queryByText } =
       await render(<SettingsScreen />);
 
     expect(queryByText("settings.your_name")).toBeNull();
-    await fireEvent.press(getByText("settings.name_label"));
+    await fireEvent.press(getByText("bini"));
     expect(getByText("settings.your_name")).toBeTruthy();
     await fireEvent.changeText(getByDisplayValue("bini"), "  Bini  ");
     await fireEvent.press(getByLabelText("settings.save"));

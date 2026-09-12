@@ -1,9 +1,8 @@
-import { useRef, useState } from "react";
-import { Alert, Linking, Platform } from "react-native";
+import { useState } from "react";
+import { Linking, Platform } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { UpgradeSheet } from "@/components/UpgradeSheet";
-import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
 import {
   SettingsOverviewGroup,
   SettingsOverviewRow,
@@ -11,7 +10,6 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { type User } from "@/lib/api";
-import { getDisplayName, sanitizeDisplayName } from "@/lib/profile";
 import { restorePurchases } from "@/lib/purchases";
 
 function manageSubscriptionUrl(): string {
@@ -30,47 +28,12 @@ function signInLabel(
 }
 
 export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
-  const { user, updateUser } = useAuth();
+  const { user } = useAuth();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
 
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const [editName, setEditName] = useState(false);
-  const [fieldText, setFieldText] = useState("");
-  const [fieldSaving, setFieldSaving] = useState(false);
   const [restoreBusy, setRestoreBusy] = useState(false);
-  const fieldSavingRef = useRef(false);
-
-  const openName = () => {
-    if (!user) return;
-    setFieldText(user.name ?? "");
-    setEditName(true);
-  };
-
-  const saveName = async () => {
-    if (fieldSavingRef.current || !user) return;
-    const name = sanitizeDisplayName(fieldText);
-    if (!name) {
-      if (fieldText.trim()) Alert.alert(t("common.error"), t("settings.name_invalid"));
-      return;
-    }
-    if (name === user.name) {
-      setEditName(false);
-      return;
-    }
-    fieldSavingRef.current = true;
-    setFieldSaving(true);
-    try {
-      await updateUser({ name });
-      setEditName(false);
-    } catch {
-      if (feedback) feedback.error(t("common.error"));
-      else Alert.alert(t("common.error"), t("common.error"));
-    } finally {
-      fieldSavingRef.current = false;
-      setFieldSaving(false);
-    }
-  };
 
   const restore = async () => {
     if (restoreBusy) return;
@@ -89,18 +52,11 @@ export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
     }
   };
 
-  const displayName = getDisplayName(user?.name, t("common.you"));
   const planLabel = isPro ? t("settings.account_pro") : t("settings.account_free");
 
   return (
     <>
       <SettingsOverviewGroup label={t("settings.account")}>
-        <SettingsOverviewRow
-          icon="person-outline"
-          title={t("settings.name_label")}
-          value={displayName}
-          onPress={openName}
-        />
         <SettingsOverviewRow
           icon="mail-outline"
           title={t("settings.email")}
@@ -139,17 +95,6 @@ export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
           />
         )}
       </SettingsOverviewGroup>
-
-      <SettingsFieldSheet
-        visible={editName}
-        title={t("settings.your_name")}
-        value={fieldText}
-        onChangeText={setFieldText}
-        onClose={() => setEditName(false)}
-        onSave={() => void saveName()}
-        saving={fieldSaving}
-        maxLength={80}
-      />
 
       <UpgradeSheet
         visible={upgradeVisible}
