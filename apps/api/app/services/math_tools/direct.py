@@ -380,12 +380,15 @@ def can_direct_verified_math_reply(
     if wants_math_explanation(user_text):
         return False
     from app.services.math_tools.direct_geometry import (
+        can_direct_curved_or_slanted_geometry,
         can_direct_rectangle,
         can_direct_square_or_triangle,
         can_direct_triangle_angles,
     )
 
     geometry_fences = _solver_fences(verified)
+    if can_direct_curved_or_slanted_geometry(verified, user_text, geometry_fences):
+        return True
     if can_direct_triangle_angles(user_text, geometry_fences):
         return True
     if can_direct_rectangle(verified, user_text, geometry_fences) or can_direct_square_or_triangle(
@@ -459,6 +462,10 @@ def format_direct_math_reply(verified: VerifiedMathBlock) -> str:
         "triangle",
         "right_triangle",
         "triangle_sides",
+        "parallelogram",
+        "trapezoid",
+        "circle",
+        "sector",
     }:
         return (
             f"```answer\n{answer}\n```\n\n"

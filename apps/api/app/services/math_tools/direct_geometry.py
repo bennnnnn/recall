@@ -82,6 +82,98 @@ _BASE_HEIGHT = re.compile(rf"base\s+({_DECIMAL})\s+(?:and\s+)?height\s+({_DECIMA
 _THREE_SIDES = re.compile(
     rf"sides\s+({_DECIMAL})\s*,\s*({_DECIMAL})\s*(?:,\s*(?:and\s+)?|and\s+)({_DECIMAL})"
 )
+_PARALLELOGRAM = re.compile(
+    rf"base\s+({_DECIMAL})\s+(?:and\s+)?height\s+({_DECIMAL})\s+(?:and\s+)?side\s+({_DECIMAL})"
+)
+_TRAPEZOID = re.compile(
+    rf"top\s+({_DECIMAL})\s+(?:and\s+)?bottom\s+({_DECIMAL})\s+(?:and\s+)?height\s+({_DECIMAL})"
+)
+_CIRCLE = re.compile(rf"(radius|diameter)\s+({_DECIMAL})")
+_DEGREE_ANGLE = re.compile(rf"{_DECIMAL}(?:\s*(?:degrees|degree|°))?")
+_SECTOR = re.compile(
+    rf"radius\s+({_DECIMAL})\s+(?:and\s+)?angle\s+({_DECIMAL})(?:\s*(?:degrees|degree|°))?"
+)
+
+
+def can_direct_curved_or_slanted_geometry(
+    verified: VerifiedMathBlock, user_text: str, fences: list[dict[str, object]]
+) -> bool:
+    """One complete measurement with literal dimensions and canonical precision."""
+    if len(user_text) > 1000 or len(fences) != 1:
+        return False
+    geometry = fences[0]
+    parsed = _measurement_request(user_text)
+    if parsed is None:
+        return False
+    quantity, request = parsed
+    kind = geometry.get("type")
+    shapes: tuple[str, ...]
+    keys: tuple[str, ...]
+    if kind == "parallelogram":
+        shapes, pattern, keys = ("parallelogram",), _PARALLELOGRAM, ("base", "height", "side")
+        quantities = {"area", "perimeter"}
+    elif kind == "trapezoid":
+        shapes, pattern, keys = ("trapezoid", "trapezium"), _TRAPEZOID, ("top", "bottom", "height")
+        quantities = {"area"}
+    elif kind == "circle":
+        shapes, pattern, keys = ("circle",), _CIRCLE, ("radius",)
+        quantities = {"area", "circumference", "diameter"}
+    elif kind == "sector":
+        shapes, pattern, keys = ("circle sector", "sector"), _SECTOR, ("radius", "angle_deg")
+        quantities = {"area", "arc length"}
+    else:
+        return False
+    if quantity not in quantities:
+        return False
+    shape = next((shape for shape in shapes if request.startswith(shape + " ")), None)
+    if shape is None:
+        return False
+    dimensions = request[len(shape) + 1 :]
+    if dimensions.startswith("with "):
+        dimensions = dimensions[5:]
+    if kind == "sector" and _DEGREE_ANGLE.fullmatch(dimensions.partition(" angle ")[2]) is None:
+        return False
+    unit = solid_length_unit(dimensions)
+    if unit is None or geometry.get("unit") != unit:
+        return False
+    match = pattern.fullmatch(strip_geometry_length_units(dimensions).strip())
+    if match is None:
+        return False
+    values: tuple[float, ...]
+    if kind == "circle":
+        dimension, literal = match.groups()
+        amount = float(literal)
+        if not 0 < amount <= 1_000_000:
+            return False
+        values = (amount / 2 if dimension == "diameter" else amount,)
+        for flag in ("area", "circumference", "diameter"):
+            expected = flag == quantity or (flag == "diameter" and dimension == "diameter")
+            if geometry.get(f"show_{flag}") is not expected:
+                return False
+    else:
+        values = tuple(float(value) for value in match.groups())
+    if any(not 0 < value <= 1_000_000 for value in values):
+        return False
+    if any(
+        _finite_number(geometry.get(key)) != value for key, value in zip(keys, values, strict=True)
+    ):
+        return False
+    if kind == "parallelogram" and values[2] < values[1]:
+        return False
+    if kind in {"parallelogram", "trapezoid"} and geometry.get("show_angle") is not False:
+        return False
+    if kind == "sector" and values[1] > 360:
+        return False
+    field = "arc_length" if quantity == "arc length" else quantity
+    value = _finite_number(geometry.get(field))
+    if value is None or value <= 0:
+        return False
+    # These blocks already round circle measures/arc lengths to two places;
+    # compare their existing presentation, without tolerances or recomputation.
+    precision = (
+        ".2f" if (kind == "circle" and quantity != "diameter") or field == "arc_length" else "g"
+    )
+    return (verified.canonical_answer or "").strip() == format(value, precision)
 
 
 def can_direct_triangle_angles(user_text: str, fences: list[dict[str, object]]) -> bool:
