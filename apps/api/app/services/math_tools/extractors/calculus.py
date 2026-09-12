@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from app.models.schemas.math import MathIntent
@@ -14,6 +15,24 @@ from app.services.math_tools.helpers import (
     math_expr_or_none,
     peel_function_definition,
 )
+
+_WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
+_LEIBNIZ_VARIABLE = re.compile(r"/\s*d\s*([a-zA-Z])\b")
+_INTEGRAL_VARIABLE = re.compile(r"\bd\s*([a-zA-Z])(?=\s+from\b|\s*$)")
+
+
+def _calculus_variable(cleaned: str, raw: str, expr: str, *, integrate: bool) -> str:
+    from app.services.math_service import guess_variables
+
+    explicit = _WRT_VARIABLE.search(cleaned) or _LEIBNIZ_VARIABLE.search(cleaned)
+    if explicit is not None:
+        return explicit.group(1)
+    if integrate:
+        differential = _INTEGRAL_VARIABLE.search(raw)
+        if differential is not None:
+            return differential.group(1)
+    variables = guess_variables(expr)
+    return variables[0] if len(variables) == 1 else "x"
 
 
 def _split_find_clause(s: str) -> str:
@@ -115,6 +134,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
             raw = pairs[0][0]
     integral_lower: str | None = None
     integral_upper: str | None = None
+    raw_with_differential = raw
     if calc_op == "integrate":
         raw = _strip_trailing_differential(raw)
         bounds = mtm.integral_bounds(raw)
@@ -127,6 +147,9 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         kind="calculus",
         expr=expr,
         operation=calc_op,
+        variable=_calculus_variable(
+            cleaned, raw_with_differential, expr, integrate=calc_op == "integrate"
+        ),
         integral_lower=integral_lower,
         integral_upper=integral_upper,
         derivative_order=_derivative_order(cleaned) if calc_op == "differentiate" else 1,
@@ -149,6 +172,7 @@ def _extract_limit_intent(cleaned: str) -> MathIntent | None:
         expr=guarded,
         variable=limit_hit.var,
         limit_point=limit_point,
+        limit_direction=limit_hit.direction,
         operation="limit",
     )
 

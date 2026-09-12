@@ -10,6 +10,7 @@ import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   label: string;
+  labelContent?: ReactNode;
   copyText?: string;
   icon?: IoniconName;
   iconColor?: string;
@@ -23,6 +24,7 @@ type Props = {
 
 export function CardShell({
   label,
+  labelContent,
   copyText,
   icon,
   iconColor,
@@ -45,7 +47,7 @@ export function CardShell({
       <View style={s.header}>
         <View style={s.labelRow}>
           {icon ? <Icon name={icon} size={18} color={iconColor} /> : null}
-          <Text style={s.label}>{label}</Text>
+          {labelContent ?? <Text style={s.label}>{label}</Text>}
         </View>
         <View style={s.headerActions}>
           {headerActions ??

@@ -111,6 +111,11 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # stamped *Couldn't verify this with SymPy.* under a correct -8.
     if bare_arithmetic_expr(cleaned) is not None:
         return True
+    if "=" in cleaned:
+        from app.services.math_tools.helpers import substituted_eval_expr
+
+        if substituted_eval_expr(cleaned) is not None:
+            return True
     if first_dim_pair(cleaned) is not None and geometry_dim_context(lower):
         return True
     if (

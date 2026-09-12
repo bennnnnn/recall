@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import math
 import re
 
-from app.services.math_text_match.scan import _NUM, word_index
+from app.services.math_text_match.scan import word_index
 from app.services.math_text_match.types import CombinatoricsOp, MatrixOp, NumberTheoryOp, StatsOp
 
 # Longest/most-specific phrase first so e.g. "standard deviation" is found
@@ -31,12 +32,48 @@ _STATS_WORDS: tuple[tuple[str, StatsOp], ...] = (
     ("mean", "mean"),
 )
 
+_DATA_NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
+_DATA_VALUE = re.compile(rf"{_DATA_NUMBER}(?:\s*/\s*{_DATA_NUMBER})?")
+
+
+def numeric_data_values(text: str) -> list[float] | None:
+    """Read whole numeric data items, never the digits inside a fraction."""
+    if len(text) > 1000:
+        return None
+    matches = list(_DATA_VALUE.finditer(text))
+    if len(matches) < 2 or len(matches) > 200:
+        return None
+    values: list[float] = []
+    last = matches[0].start()
+    for match in matches:
+        if values and match.start() == last:
+            return None
+        gap = text[last : match.start()].strip(" ,;{}[]()")
+        if gap not in {"", "and"}:
+            return None
+        parts = match.group(0).split("/")
+        try:
+            value = float(parts[0])
+            if len(parts) == 2:
+                value /= float(parts[1])
+        except (ValueError, ZeroDivisionError):
+            return None
+        if not math.isfinite(value):
+            return None
+        values.append(value)
+        last = match.end()
+    if text[last:].strip(" ,;{}[]().?!") not in {"", "please"}:
+        return None
+    return values
+
 
 def stats_signal(text: str) -> tuple[StatsOp, list[float]] | None:
     """ "mean/median/mode/standard deviation/variance of <numbers>" — requires
     BOTH the keyword AND 2+ numbers after it, so plain prose ("what do you
     mean by X") without any data list never matches."""
     lower = text.lower()
+    if "weight" in lower:
+        return None
     best: tuple[int, StatsOp, str] | None = None
     for phrase, op in _STATS_WORDS:
         idx = word_index(lower, phrase)
@@ -47,17 +84,19 @@ def stats_signal(text: str) -> tuple[StatsOp, list[float]] | None:
             best = (idx, op, phrase)
     if best is None:
         return None
-    idx, op, _phrase = best
-    numbers = [float(m.group(0)) for m in _NUM.finditer(text, idx)]
-    if len(numbers) < 2:
+    idx, op, phrase = best
+    numbers = numeric_data_values(text[idx + len(phrase) :])
+    if numbers is None:
         return None
-    return op, numbers[:200]
+    return op, numbers
 
 
 def _digits_immediately_before(text: str, idx: int) -> int | None:
     j = idx
     while j > 0 and text[j - 1].isdigit():
         j -= 1
+    if j > 0 and text[j - 1] in ".-/":
+        return None
     return int(text[j:idx]) if j < idx else None
 
 
@@ -67,6 +106,8 @@ def _digits_immediately_after(text: str, idx: int) -> tuple[int, int] | None:
     n = len(text)
     while j < n and text[j].isdigit():
         j += 1
+    if j < n and (text[j] == "/" or (text[j] == "." and j + 1 < n and text[j + 1].isdigit())):
+        return None
     return (int(text[idx:j]), j) if j > idx else None
 
 
@@ -167,8 +208,13 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
     for word, op in _GCD_LCM_WORDS:
         idx = lower.find(word)
         if idx != -1:
-            nums = [float(m.group(0)) for m in _NUM.finditer(text, idx + len(word))]
-            if len(nums) >= 2:
+            nums = numeric_data_values(text[idx + len(word) :])
+            if (
+                nums is not None
+                and len(nums) == 2
+                and nums[0].is_integer()
+                and nums[1].is_integer()
+            ):
                 return op, int(nums[0]), int(nums[1])
     for prefix in _FACTORIZE_PREFIXES:
         idx = lower.find(prefix)

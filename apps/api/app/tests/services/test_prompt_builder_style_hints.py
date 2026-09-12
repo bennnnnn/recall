@@ -50,10 +50,10 @@ def test_short_style_still_includes_math_safety_guardrails():
     assert "```latex" in joined
 
 
-def test_short_style_math_query_gets_numbered_steps_bundle():
+def test_short_style_math_query_respects_brevity_and_explicit_explanations():
     from app.services.chat.prompt_constants import (
         MATH_INTENT_HINT,
-        MATH_SHORT_STEPS_HINT,
+        MATH_SHORT_RESPONSE_HINT,
         MATH_SOLVER_HINT,
         MATH_TUTORING_HINT,
         STYLE_HINTS,
@@ -64,15 +64,17 @@ def test_short_style_math_query_gets_numbered_steps_bundle():
     assert MATH_SOLVER_HINT not in parts
     assert MATH_TUTORING_HINT not in parts
     assert SHORT_MATH_SAFETY_HINT in parts
-    assert MATH_SHORT_STEPS_HINT in parts
-    assert "does not apply to multi-step math" in MATH_SHORT_STEPS_HINT
-    assert "Multi-step math is exempt" in STYLE_HINTS["short"]
+    assert MATH_SHORT_RESPONSE_HINT in parts
+    assert "honor the user's brevity preference" in MATH_SHORT_RESPONSE_HINT
+    assert "for steps, explanation, or a proof" in MATH_SHORT_RESPONSE_HINT
+    assert "give a focused hint" in MATH_SHORT_RESPONSE_HINT
+    assert "Math follows this brevity preference" in STYLE_HINTS["short"]
 
 
 def test_compact_math_query_gets_step_hints_not_just_safety():
     from app.services.chat.prompt_constants import (
         MATH_INTENT_HINT,
-        MATH_SHORT_STEPS_HINT,
+        MATH_SHORT_RESPONSE_HINT,
         MATH_SOLVER_HINT,
     )
 
@@ -86,7 +88,7 @@ def test_compact_math_query_gets_step_hints_not_just_safety():
     assert MATH_INTENT_HINT not in parts
     assert MATH_SOLVER_HINT not in parts
     assert SHORT_MATH_SAFETY_HINT in parts
-    assert MATH_SHORT_STEPS_HINT in parts
+    assert MATH_SHORT_RESPONSE_HINT in parts
 
 
 def test_balanced_style_injects_universal_format_baseline():

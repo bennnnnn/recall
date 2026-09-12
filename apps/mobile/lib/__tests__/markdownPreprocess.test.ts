@@ -32,6 +32,30 @@ const RESTAURANT_LIST = `Here are some top-rated restaurants in San Francisco th
 4. **Tartine Manufactory** – Bakery meets Californian fare ($$)`;
 
 describe("preprocessMarkdown", () => {
+  it("preserves a chart fence after a math caption and leaves following prose outside it", () => {
+    const source = [
+      String.raw`Here’s the graph of \( y = x^{3} \):`,
+      "",
+      "```chart",
+      "type: line",
+      "labels: [-3, -2, -1, 0, 1, 2, 3]",
+      "series:",
+      "  - title: y = x³",
+      "    data: [-27, -8, -1, 0, 1, 8, 27]",
+      "```",
+      "",
+      "**Key points**:",
+      "- It’s a cubic curve that passes through the origin (0, 0).",
+    ].join("\n");
+    const tokens = markdownItInstance.parse(preprocessMarkdown(source), {});
+    const fences = tokens.filter((token) => token.type === "fence");
+    expect(fences).toHaveLength(1);
+    expect(fences[0].info).toBe("chart");
+    expect(fences[0].content).toContain("data: [-27, -8, -1, 0, 1, 8, 27]");
+    expect(fences[0].content).not.toContain("Key points");
+    expect(tokens.some((token) => token.type === "inline" && token.content.includes("Key points"))).toBe(true);
+  });
+
   it("does not split restaurant price tiers ($$$) into math fences", () => {
     const out = preprocessMarkdown(RESTAURANT_LIST);
 

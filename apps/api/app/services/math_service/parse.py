@@ -210,8 +210,14 @@ def _rewrite_latex_sqrts(s: str) -> str:
     i = 0
     n = len(s)
     while i < n:
-        if s.startswith("\\sqrt", i) and (i + 5 >= n or not s[i + 5].isalpha()):
-            j = i + 5
+        root_start = i + 1 if s[i] == "\\" else i
+        if (
+            s.startswith("sqrt", root_start)
+            and (i == 0 or not s[i - 1].isalpha())
+            and (root_start + 4 >= n or not s[root_start + 4].isalpha())
+            and (s[i] == "\\" or s[root_start + 4 : root_start + 5] in {"[", "{"})
+        ):
+            j = root_start + 4
             degree: str | None = None
             if j < n and s[j] == "[":
                 close = s.find("]", j + 1)
@@ -411,7 +417,11 @@ def _normalize_latex_to_sympy(expr: str) -> str:
         s = s.replace(glyph, repl)
     s = _rewrite_unicode_sqrts(s)
     s = _rewrite_unicode_script_runs(s)
-    s = _rewrite_latex_sqrts(s)
+    for _ in range(8):
+        nxt = _rewrite_latex_sqrts(s)
+        if nxt == s:
+            break
+        s = nxt
     s = _implicit_mul_before_sqrt(s)
     s = _LATEX_ABS_LEFT_RIGHT_RE.sub(r"Abs(\1)", s)
     s = _LATEX_ABS_VERT_RE.sub("", s)
@@ -424,7 +434,7 @@ def _normalize_latex_to_sympy(expr: str) -> str:
 
     s = _LATEX_FUNCTION_RE.sub(_func_repl, s)
     for _ in range(8):
-        nxt = _LATEX_FRAC_RE.sub(r"(\1)/(\2)", s)
+        nxt = _LATEX_FRAC_RE.sub(r"((\1)/(\2))", s)
         if nxt == s:
             break
         s = nxt

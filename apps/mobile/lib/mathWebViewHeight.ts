@@ -15,7 +15,7 @@ export const MAX_HEIGHT = 320;
  * pill that pushes the message action footer off screen.
  */
 export const COMPACT_MAX_HEIGHT = 96;
-/** Ignore sub-pixel / font-settle chatter so the chat list doesn't bounce. */
+/** Ignore tiny downward font-settle changes so the chat list doesn't bounce. */
 export const HEIGHT_EPSILON_PX = 4;
 
 export type HeightClampOpts = {
@@ -46,9 +46,10 @@ export function clampMathWebViewHeight(
   const lower = opts.minHeight ?? opts.initialHeight;
   const clamped = Math.min(max, Math.max(lower, reported));
   if (opts.compact) {
-    if (Math.abs(clamped - current) <= HEIGHT_EPSILON_PX) return null;
+    if (clamped <= current && current - clamped <= HEIGHT_EPSILON_PX) return null;
   } else {
-    if (clamped <= current + HEIGHT_EPSILON_PX) return null;
+    // Even one newly measured pixel can contain a denominator or lower limit.
+    if (clamped <= current) return null;
   }
   return clamped;
 }

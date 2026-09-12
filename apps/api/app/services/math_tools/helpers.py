@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from string import ascii_letters
 
 from app.services.math_text_match.scan import ddx_cue_at, ddx_expr_after, looks_like_math_expr
 from app.services.text_normalize import collapse_ws
@@ -127,7 +128,7 @@ def _strip_trailing_differential(expr: str) -> str:
     if len(s) > _MAX_MATH_INPUT:
         s = s[:_MAX_MATH_INPUT]
     lower = s.lower()
-    for token in (" dx", " dy", " d x", " d y"):
+    for token in (f" d{space}{var}" for var in ascii_letters for space in ("", " ")):
         if lower.endswith(token):
             return s[: -len(token)].rstrip()
         marker = token + " from "
@@ -221,9 +222,10 @@ def _strip_expr_leadins(expr: str) -> str:
                 break
         else:
             break
-    wrt = s.lower().find(" with respect to ")
-    if wrt != -1:
-        s = s[:wrt].rstrip()
+    for cue in (" with respect to ", " wrt "):
+        wrt = s.lower().find(cue)
+        if wrt != -1:
+            s = s[:wrt].rstrip()
     return s
 
 
@@ -292,7 +294,8 @@ def substituted_eval_expr(cleaned: str) -> str | None:
         expr = expr[:-1].rstrip()
     if not expr:
         return None
-    replacement = sign + compact_rhs
+    # A substituted negative base must keep its grouping under powers.
+    replacement = f"({sign}{compact_rhs})" if sign else compact_rhs
     var = left.lower()
     out: list[str] = []
     i = 0
@@ -303,7 +306,10 @@ def substituted_eval_expr(cleaned: str) -> str | None:
             i + 1 >= len(expr) or not expr[i + 1].isalpha()
         )
         if ch.lower() == var and isolated:
-            out.append(replacement)
+            adjacent_factor = (i > 0 and (expr[i - 1].isdigit() or expr[i - 1] == ")")) or (
+                i + 1 < len(expr) and (expr[i + 1].isdigit() or expr[i + 1] == "(")
+            )
+            out.append(f"({replacement})" if adjacent_factor else replacement)
             saw_var = True
             i += 1
             continue

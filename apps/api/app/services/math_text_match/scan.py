@@ -589,9 +589,15 @@ def bare_arithmetic_expr(text: str) -> str | None:
     stripped, had_cue = _strip_arith_cues(text.lower())
     if not stripped or not any(ch.isdigit() for ch in stripped):
         return None
-    if any(ch not in _ARITH_ALLOWED for ch in stripped):
+    from app.services.math_service.parse import _normalize_latex_to_sympy
+
+    normalized = _normalize_latex_to_sympy(stripped)
+    # Numeric radicals and keyboard braced powers use the same normalization
+    # as the solver. Only sqrt is admitted here; symbols/prose stay excluded.
+    numeric = normalized.replace("sqrt(", "(")
+    if any(ch not in _ARITH_ALLOWED for ch in numeric):
         return None
-    compact = _to_ascii_arith(stripped).replace(" ", "")
+    compact = _to_ascii_arith(numeric).replace(" ", "")
     if not compact or not _arith_parens_ok(compact):
         return None
     if compact[-1] not in "0123456789)":
@@ -599,9 +605,11 @@ def bare_arithmetic_expr(text: str) -> str | None:
     if compact[0] not in "0123456789.(+-":
         return None
     ops = _count_binary_arith_ops(compact)
-    if ops < 1:
+    has_root = "sqrt(" in normalized
+    if ops < 1 and not has_root:
         return None
-    unambiguous = any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)
+    unambiguous = has_root or any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)
+    unambiguous = unambiguous or "**" in normalized
     if not (unambiguous or ops >= 2 or had_cue):
         return None
     # Dates / phones: structural ``9/7/2026`` / ``1-800-273-8255``, not
@@ -613,7 +621,7 @@ def bare_arithmetic_expr(text: str) -> str | None:
         and _looks_like_date_or_phone(compact)
     ):
         return None
-    return collapse_ws(_to_ascii_arith(stripped))
+    return collapse_ws(_to_ascii_arith(normalized))
 
 
 def geometry_dim_context(lower: str) -> bool:

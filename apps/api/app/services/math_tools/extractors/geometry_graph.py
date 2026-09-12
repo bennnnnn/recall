@@ -9,6 +9,21 @@ from app.services.math_text_match.scan import MATH_MULTI_LETTER
 from app.services.math_tools.helpers import _strip_trailing_filler, math_expr_or_none
 
 
+def _requests_geometry_measurement(lower: str) -> bool:
+    """Illustration defaults cannot answer a request for a measured quantity."""
+    return any(
+        word in lower
+        for word in (
+            "area",
+            "perimeter",
+            "circumference",
+            "diagonal",
+            "hypotenuse",
+            "arc length",
+        )
+    )
+
+
 def _wants_geometry_angles(lower: str) -> bool:
     return any(w in lower for w in ("angle", "angles", "degree", "degrees"))
 
@@ -61,7 +76,7 @@ def _extract_rectangle_intent(cleaned: str) -> MathIntent | None:
             wants_perimeter=" perimeter" in padded or padded.startswith("perimeter "),
         )
 
-    if mtm.has_draw_shape(lower, "rectangle"):
+    if mtm.has_draw_shape(lower, "rectangle") and not _requests_geometry_measurement(lower):
         return MathIntent(kind="rectangle", width=6, height=4, unit="cm", operation="solve")
     return None
 
@@ -94,12 +109,30 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
         side = dims[0]
     if side is not None:
         return MathIntent(
-            kind="square", side=side, width=side, height=side, unit="cm", operation="solve"
+            kind="square",
+            side=side,
+            width=side,
+            height=side,
+            unit="cm",
+            operation="solve",
+            wants_perimeter="perimeter" in lower,
+            wants_diagonal="diagonal" in lower,
+            wants_area="area" in lower,
         )
     # Default dimensions only when the user asked to draw/show the shape —
     # never invent a square for bare prose that merely contains "square".
-    if mtm.has_draw_shape(lower, "square"):
-        return MathIntent(kind="square", side=5, width=5, height=5, unit="cm", operation="solve")
+    if mtm.has_draw_shape(lower, "square") and not _requests_geometry_measurement(lower):
+        return MathIntent(
+            kind="square",
+            side=5,
+            width=5,
+            height=5,
+            unit="cm",
+            operation="solve",
+            wants_perimeter="perimeter" in lower,
+            wants_diagonal="diagonal" in lower,
+            wants_area="area" in lower,
+        )
     return None
 
 
@@ -146,7 +179,7 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     # Default radius only on an explicit draw/show/sketch — never invent a
     # 5 cm circle for "what is a circle?" / "unit circle" / algebra that
     # merely mentions the word (those used to ship as SymPy-verified).
-    if mtm.has_draw_shape(lower, "circle"):
+    if mtm.has_draw_shape(lower, "circle") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="circle",
             radius=5,
@@ -188,16 +221,18 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
             height=height,
             unit=unit,
             operation="solve",
+            wants_perimeter="perimeter" in cleaned.lower(),
             wants_area=wants_area,
             wants_angle=_wants_geometry_angles(lower),
         )
-    if mtm.has_draw_shape(lower, "right triangle"):
+    if mtm.has_draw_shape(lower, "right triangle") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="right_triangle",
             base=6,
             height=4,
             unit="cm",
             operation="solve",
+            wants_perimeter="perimeter" in cleaned.lower(),
             wants_area=wants_area,
             wants_angle=_wants_geometry_angles(lower),
         )
@@ -224,6 +259,7 @@ def _extract_triangle_sides_intent(cleaned: str) -> MathIntent | None:
         tri_c=c,
         unit="cm",
         operation="solve",
+        wants_perimeter="perimeter" in cleaned.lower(),
         wants_angle=_wants_geometry_angles(cleaned.lower()),
     )
 
@@ -232,6 +268,8 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
     lower = cleaned.lower()
+    if "perimeter" in lower:
+        return None
     if "trapezoid" not in lower and "trapezium" not in lower:
         return None
     if mtm.geometry_deferred_for_algebra(lower):
@@ -250,7 +288,7 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
             wants_angle=_wants_geometry_angles(lower),
         )
     shape = "trapezoid" if "trapezoid" in lower else "trapezium"
-    if mtm.has_draw_shape(lower, shape):
+    if mtm.has_draw_shape(lower, shape) and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="trapezoid",
             trapezoid_top=4,
@@ -274,6 +312,8 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
     base = mtm.number_after(cleaned, "base")
     height = mtm.number_after(cleaned, "height")
     side = mtm.number_after(cleaned, "side")
+    if "perimeter" in lower and side is None:
+        return None
     if base is not None and height is not None:
         # Side is only needed for the slanted diagram. When the user gave
         # base+height (enough for area) but no side, use a right parallelogram
@@ -285,9 +325,10 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
             side=side if side is not None else height,
             unit="cm",
             operation="solve",
+            wants_perimeter="perimeter" in cleaned.lower(),
             wants_angle=_wants_geometry_angles(lower),
         )
-    if mtm.has_draw_shape(lower, "parallelogram"):
+    if mtm.has_draw_shape(lower, "parallelogram") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="parallelogram",
             base=8,
@@ -295,6 +336,7 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
             side=5,
             unit="cm",
             operation="solve",
+            wants_perimeter="perimeter" in cleaned.lower(),
             wants_angle=_wants_geometry_angles(lower),
         )
     return None
@@ -336,7 +378,9 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
         )
     # Defaults only when the user asked to draw the shape — never invent a
     # 90° / 5 cm sector for "sector of a circle with radius 5" alone.
-    if mtm.has_draw_shape(lower, "sector") or mtm.has_draw_shape(lower, "pie slice"):
+    if (
+        mtm.has_draw_shape(lower, "sector") or mtm.has_draw_shape(lower, "pie slice")
+    ) and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="sector",
             radius=radius if radius is not None else 5,
@@ -380,6 +424,8 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
     lower = cleaned.lower()
+    if "perimeter" in lower:
+        return None
     if mtm.geometry_deferred_for_algebra(lower):
         return None
     base_n = mtm.number_after(cleaned, "base")
@@ -396,7 +442,7 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
 
     # "area of a triangle" is a definition question — do not invent base/height.
     # Defaults only for an explicit draw/show/sketch/visualize request.
-    if mtm.has_draw_shape(lower, "triangle"):
+    if mtm.has_draw_shape(lower, "triangle") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="triangle",
             base=8,

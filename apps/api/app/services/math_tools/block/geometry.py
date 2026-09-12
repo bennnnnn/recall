@@ -108,7 +108,16 @@ def _verified_block_square(
         perimeter=square_geo.perimeter,
         labels=square_geo.labels,
     )
-    return _diagram_block(lines, spec, f"{square_geo.area:g}")
+    answer = (
+        square_geo.perimeter
+        if intent.wants_perimeter
+        else (
+            square_geo.diagonal
+            if intent.wants_diagonal and not intent.wants_area
+            else square_geo.area
+        )
+    )
+    return _diagram_block(lines, spec, f"{answer:g}")
 
 
 def _verified_block_solid(
@@ -243,6 +252,8 @@ def _verified_block_right_triangle(
     # Draw-and-label asks are the diagram — do not attach a leftover area pill
     # (6x4 default used to dump a gray "12" under a 3-4-5 request).
     answer = f"{rt_geo.area:g}" if intent.wants_area else None
+    if intent.wants_perimeter:
+        answer = f"{rt_geo.base + rt_geo.height + rt_geo.hypotenuse:g}"
     return _diagram_block(lines, rt_spec, answer)
 
 
@@ -290,7 +301,8 @@ def _verified_block_triangle_sides(
         )
         return _diagram_block(lines, tri_spec, answer)
     lines.append("Area via Heron's formula; angles via the law of cosines.")
-    return _diagram_block(lines, tri_spec, f"{tri_geo.area:g}")
+    quantity = tri_geo.perimeter if intent.wants_perimeter else tri_geo.area
+    return _diagram_block(lines, tri_spec, f"{quantity:g}")
 
 
 def _verified_block_trapezoid(
@@ -353,7 +365,8 @@ def _verified_block_parallelogram(
         perimeter=para_geo.perimeter,
         labels=para_geo.labels,
     )
-    return _diagram_block(lines, para_spec, f"{para_geo.area:g}")
+    answer = para_geo.perimeter if intent.wants_perimeter else para_geo.area
+    return _diagram_block(lines, para_spec, f"{answer:g}")
 
 
 def _verified_block_sector(

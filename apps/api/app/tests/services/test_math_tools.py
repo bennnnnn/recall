@@ -1628,16 +1628,16 @@ async def test_augment_prompt_unsolved_integral_has_no_answer_fence() -> None:
 
 
 @pytest.mark.asyncio
-async def test_augment_prompt_flags_diverging_limit_as_infinite() -> None:
-    """BUG FIX target: a limit that diverges (e.g. 1/x as x -> 0) must be
-    flagged as infinite, not presented as an ordinary finite value."""
+async def test_augment_prompt_distinguishes_nonexistent_two_sided_limit() -> None:
+    """Opposite one-sided infinities are not a positive-infinity answer."""
     settings = Settings(math_tools_enabled=True)
     text = "what is the limit of 1/x as x approaches 0"
     _out, verified = await math_tools.augment_prompt_messages(
         [{"role": "user", "content": text}], text, settings
     )
     assert verified is not None
-    assert "infinite" in verified.text.lower()
+    assert "does not exist" in verified.text.lower()
+    assert verified.canonical_answer is None
 
 
 @pytest.mark.asyncio

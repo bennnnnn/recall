@@ -231,9 +231,8 @@ class MathExprResult(BaseModel):
 class MathLimitResult(BaseModel):
     result: str
     latex: str
-    # True for oo/-oo (diverges) or zoo (two-sided limit doesn't exist
-    # because the sides disagree) — lets the verified block render this as
-    # \infty explicitly instead of leaving an opaque symbol name.
+    # True for oo/-oo or zoo. Presentation must distinguish a signed infinite
+    # limit from zoo (opposite one-sided limits), which has no two-sided value.
     is_infinite: bool
 
 
@@ -241,6 +240,7 @@ class MathSeriesResult(BaseModel):
     result: str
     latex: str
     is_infinite: bool
+    solved: bool = True
     # None when SymPy can't determine convergence (rare); otherwise a
     # definite True/False for whether the (typically infinite) series
     # converges, and separately whether it converges absolutely.

@@ -474,18 +474,20 @@ def test_math_formula_shape_rule_is_unified():
         # Must not tell the model to put step formulas in ```math fences.
         assert "NEVER indent a ```math fence inside that list item" not in blob
     assert "numbered" in MATH_INTENT_HINT.lower() and "steps" in MATH_INTENT_HINT.lower()
-    assert "integrate" in MATH_INTENT_HINT.lower()
+    assert "integral" in MATH_INTENT_HINT.lower()
     assert "closed-form asks" in MATH_INTENT_HINT.lower()
     assert "4! = 4" in MATH_INTENT_HINT
     assert "Do NOT emit ```answer" in MATH_INTENT_HINT
     assert "both sides" in MATH_INTENT_HINT.lower()
-    assert "F + 3 - 3 = 3 - 3" in MATH_INTENT_HINT
+    assert "Every equality must remain valid" in MATH_INTENT_HINT
+    assert "Honor Short mode" in MATH_INTENT_HINT
+    assert "full derivation when the user asks" in MATH_INTENT_HINT
     assert "empty bullet" in MATH_INTENT_HINT
     assert "SAME line as the `-`" in MATH_INTENT_HINT
     assert "never omit the colon" not in MATH_INTENT_HINT
     assert "You can check" not in MATH_INTENT_HINT
     assert r"\pm" in MATH_INTENT_HINT
-    assert "finished" in MATH_INTENT_HINT
+    assert "Simplify both branches" in MATH_INTENT_HINT
 
 
 def test_math_solver_hint_does_not_overclaim_unverified_scope():

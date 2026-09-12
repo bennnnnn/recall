@@ -5,7 +5,7 @@ import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
-import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT, splitMathLines } from "@/lib/mathText";
+import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT, restoreMathEscapes, splitMathLines } from "@/lib/mathText";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
 import { useTheme } from "@/lib/theme";
@@ -18,7 +18,7 @@ export function MathInline({ latex }: { latex: string }) {
 export const MathBlock = React.memo(function MathBlock({ latex }: { latex: string }) {
   const theme = useTheme();
   const trimmed = rewriteSolutionSeparatorBars(
-    stripEmbeddedDollarWraps(stripRedundantDollarWrap(latex.trim())),
+    stripEmbeddedDollarWraps(stripRedundantDollarWrap(restoreMathEscapes(latex.trim()))),
   );
   if (!trimmed) return null;
 
@@ -90,6 +90,7 @@ const styles = StyleSheet.create({
   wrap: {
     marginVertical: 8,
     alignSelf: "stretch",
+    width: "100%",
   },
   fallbackBox: {
     paddingVertical: 10,
@@ -111,6 +112,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
   },
 });

@@ -1,6 +1,6 @@
 import katex from "katex";
 
-import { readableLatexFallback } from "@/lib/mathText";
+import { readableLatexFallback, restoreMathEscapes } from "@/lib/mathText";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { injectPreviewCsp, PREVIEW_VIEWPORT } from "@/lib/previewSandbox";
@@ -18,7 +18,7 @@ export type KatexRenderOptions = {
 };
 
 export function renderKatexHtml(latex: string, options: KatexRenderOptions = {}): string {
-  const trimmed = stripEmbeddedDollarWraps(stripRedundantDollarWrap(latex.trim()));
+  const trimmed = stripEmbeddedDollarWraps(stripRedundantDollarWrap(restoreMathEscapes(latex.trim())));
   if (!trimmed) return "";
 
   let body = "";
@@ -40,7 +40,7 @@ export function renderKatexHtml(latex: string, options: KatexRenderOptions = {})
   }
 
   const pad = options.compact
-    ? "0"
+    ? "4px 2px"
     : options.displayMode
       ? "8px 4px"
       : "4px 2px";
@@ -53,8 +53,8 @@ export function renderKatexHtml(latex: string, options: KatexRenderOptions = {})
   // display math) but grows with content so long expressions aren't clipped
   // — the outer scroller is what the user pans horizontally.
   return `<div><style>${KATEX_CSS}
-.math-root{padding:${pad};background:${bg};color:${color};max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
-.katex{color:${color};}
+.math-root{padding:${pad};background:${bg};color:${color};font-size:20px;max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
+.katex{color:${color};font-size:1em;}
 .math-wrap{display:flex;justify-content:${align};align-items:center;min-width:100%;width:max-content;box-sizing:border-box;}
 .katex-display{margin:${displayMargin};}
 </style><div class="math-root"><div class="math-wrap">${body}</div></div></div>`;
@@ -81,19 +81,29 @@ export function buildKatexStaticWebHtml(
 ${inner}
 <script>
 (function () {
+  var root = document.querySelector('.math-root');
+  var lastHeight = 0;
   function postHeight() {
-    var h = Math.ceil(document.documentElement.scrollHeight || document.body.scrollHeight || 24);
-    if (window.ReactNativeWebView) {
+    // Measure content, not the initial viewport. A short viewport can hide
+    // the denominator while document.scrollHeight still reports its height.
+    var h = root
+      ? Math.ceil(Math.max(root.getBoundingClientRect().height, root.scrollHeight)) + 2
+      : Math.ceil(document.body.scrollHeight || 24);
+    if (window.ReactNativeWebView && h !== lastHeight) {
+      lastHeight = h;
       window.ReactNativeWebView.postMessage(JSON.stringify({ h: h }));
     }
   }
+  if (root && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(postHeight).observe(root);
+  }
+  window.addEventListener('load', postHeight);
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(postHeight).catch(postHeight);
   } else {
     setTimeout(postHeight, 40);
   }
-  // One late settle for CDN font swap — avoid the old 40/250/800 triple-post
-  // which resized the chat bubble three times and looked like shaking.
+  // One late settle for bundled font loading; duplicate reports are ignored.
   setTimeout(postHeight, 300);
 })();
 </script>

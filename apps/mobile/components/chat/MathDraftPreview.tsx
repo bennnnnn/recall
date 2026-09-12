@@ -202,6 +202,8 @@ function DraftPiece({
               caret={caret}
               testID="math-slot-nroot-index"
               onMoveCaret={onMoveCaret}
+              fontSize={12}
+              compact
             />
           </View>
         ) : null}
@@ -276,6 +278,7 @@ function EditSlot({
   testID,
   onMoveCaret,
   compact = false,
+  fontSize,
 }: {
   text: string;
   group: LatexGroup;
@@ -285,6 +288,7 @@ function EditSlot({
   /** Radicand slot: the bar is this slot's top border, so the content needs a
    * tight line box or the digits hang well below it. */
   compact?: boolean;
+  fontSize?: number;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -316,7 +320,7 @@ function EditSlot({
       <View style={s.slotRow}>
         {inner && atStart ? <MathComposerCaret testID={`${testID}-caret-start`} /> : null}
         {inner ? (
-          <MathText latex={inner} textColor={theme.text} compact={compact} />
+          <MathText latex={inner} textColor={theme.text} compact={compact} fontSize={fontSize} />
         ) : active ? (
           <View style={s.placeholderActive}>
             <MathComposerCaret testID={`${testID}-caret`} />
@@ -381,7 +385,9 @@ const makeStyles = (theme: Theme) =>
       paddingTop: 1,
       marginLeft: 1,
     },
-    index: { marginRight: 0, marginTop: -2, transform: [{ scale: 0.72 }] },
+    // Place the degree above the root hook. Scaling a full-height edit slot
+    // around its centre left the old degree looking like a coefficient.
+    index: { marginRight: -4, marginTop: -6 },
     sup: { marginBottom: 10 },
     sub: { marginTop: 10 },
     slot: {

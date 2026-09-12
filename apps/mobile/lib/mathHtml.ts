@@ -5,6 +5,7 @@
  * `pickMathEngine` returns "mathjax" — keeps it off the chat cold start. */
 
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
+import { restoreMathEscapes } from "@/lib/mathText";
 
 export type MathEngine = "katex" | "mathjax";
 
@@ -20,7 +21,7 @@ export type MathEngine = "katex" | "mathjax";
 const HEAVY_MATH_RE = /\\begin\{(multline|eqnarray)\}/i;
 
 export function isHeavyMath(latex: string): boolean {
-  const trimmed = latex.trim();
+  const trimmed = restoreMathEscapes(latex.trim());
   if (!trimmed) return false;
   // Length and newlines alone used to also route here — but a multi-step
   // \begin{aligned}...\end{aligned} derivation is exactly the kind of

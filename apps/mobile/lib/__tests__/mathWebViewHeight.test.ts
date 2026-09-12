@@ -28,8 +28,9 @@ describe("clampMathWebViewHeight", () => {
       expect(clampMathWebViewHeight(40, 96, opts)).toBe(40);
     });
 
-    it("ignores sub-pixel chatter", () => {
-      expect(clampMathWebViewHeight(37, 36, opts)).toBeNull();
+    it("makes room for small content growth but ignores tiny shrink chatter", () => {
+      expect(clampMathWebViewHeight(37, 36, opts)).toBe(37);
+      expect(clampMathWebViewHeight(36, 37, opts)).toBeNull();
     });
 
     it("clamps to minHeight instead of going below it when shrinking from above", () => {
@@ -53,8 +54,9 @@ describe("clampMathWebViewHeight", () => {
       expect(clampMathWebViewHeight(50, 200, opts)).toBeNull();
     });
 
-    it("ignores chatter at the current height", () => {
-      expect(clampMathWebViewHeight(201, 200, opts)).toBeNull();
+    it("never clips small measured growth at the current height", () => {
+      expect(clampMathWebViewHeight(201, 200, opts)).toBe(201);
+      expect(clampMathWebViewHeight(200, 200, opts)).toBeNull();
     });
   });
 

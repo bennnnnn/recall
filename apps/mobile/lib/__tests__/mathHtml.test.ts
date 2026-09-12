@@ -2,8 +2,16 @@ import { PREVIEW_CSP, MATH_PREVIEW_CSP, PREVIEW_VIEWPORT } from "@/lib/previewSa
 import { buildMathWebHtml, isHeavyMath, pickMathEngine } from "@/lib/mathHtml";
 import { buildMathjaxWebHtml } from "@/lib/mathHtmlMathjax";
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
+import { PROTECTED_ESCAPE_MARKER, PROTECTED_MATH_UNDERSCORE_MARKER } from "@/lib/mathText";
 
 describe("math WebView HTML", () => {
+  it("restores protected source before selecting and rendering MathJax", () => {
+    const latex = String.raw`\begin{multline}x_1=2\\x_2=3\end{multline}`;
+    const protectedLatex = latex.replace(/\\/g, PROTECTED_ESCAPE_MARKER).replace(/_/g, PROTECTED_MATH_UNDERSCORE_MARKER);
+    const options = { displayMode: true, textColor: "#111", bgColor: "transparent" };
+    expect(pickMathEngine(protectedLatex)).toBe("mathjax");
+    expect(buildMathjaxWebHtml(protectedLatex, options)).toBe(buildMathjaxWebHtml(latex, options));
+  });
   it("injects the math CSP (no network egress — MathJax is vendored inline) into MathJax HTML", () => {
     const html = buildMathjaxWebHtml("\\frac{1}{2}", {
       displayMode: true,
