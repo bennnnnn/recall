@@ -362,6 +362,26 @@ def _can_direct_number_line(verified: VerifiedMathBlock, user_text: str) -> bool
     return compact(request) == compact(expr.rstrip(".?"))
 
 
+def _underdetermined_triangle_measurement(
+    verified: VerifiedMathBlock, user_text: str
+) -> str | None:
+    """A complete AAA measurement has a known shape, but no physical scale."""
+    from app.services.math_text_match.literal_geometry import measurement_request
+    from app.services.math_tools.direct_geometry import can_direct_triangle_angles
+
+    if verified.canonical_answer is not None:
+        return None
+    parsed = measurement_request(user_text)
+    if parsed is None or parsed[0] not in {"area", "perimeter"}:
+        return None
+    quantity, triangle = parsed
+    # The existing whole-draw grammar validates all three literal angles and
+    # their agreement with the one relative diagram; extra clauses cannot pass.
+    if not can_direct_triangle_angles(f"Draw a {triangle}", _solver_fences(verified)):
+        return None
+    return quantity
+
+
 def can_direct_verified_math_reply(
     verified: VerifiedMathBlock,
     user_text: str,
@@ -379,6 +399,8 @@ def can_direct_verified_math_reply(
         return False
     if wants_math_explanation(user_text):
         return False
+    if _underdetermined_triangle_measurement(verified, user_text) is not None:
+        return True
     from app.services.math_tools.direct_geometry import (
         can_direct_curved_or_slanted_geometry,
         can_direct_rectangle,
@@ -449,8 +471,11 @@ def can_direct_verified_math_reply(
     return all(fence.get("type") == "answer" for fence in fences)
 
 
-def format_direct_math_reply(verified: VerifiedMathBlock) -> str:
-    """Display a verified value or the existing canonical function plot."""
+def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -> str:
+    """Display a verified value, diagram, or the missing scale for an AAA request."""
+    quantity = _underdetermined_triangle_measurement(verified, user_text)
+    if quantity is not None:
+        return f"The {quantity} cannot be determined from angles alone. What is one side length?"
     fences = _solver_fences(verified)
     answer = (verified.canonical_answer or "").strip()
     if len(fences) == 1 and fences[0].get("relative_lengths") is True:
@@ -500,4 +525,4 @@ def maybe_direct_math_reply(
         verified, user_text, has_image_attachment=has_image_attachment
     ):
         return None
-    return format_direct_math_reply(verified)
+    return format_direct_math_reply(verified, user_text)
