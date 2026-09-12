@@ -371,12 +371,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
-- ✅ **Account settings** — avatar, name, email, and Pro/Free form a display-only header.
+- ✅ **Account settings** — a centered, display-only avatar and name lead Settings.
   Name, email, sign-in method, plan, and subscription controls are visible in an Account
   section on the Settings page. Age / country / job live under Personalization →
   About you. Persisted on `users` and injected into the chat system prompt
   (see [§6](#6-memory-remembering-the-user)).
-- ✅ **Settings chrome** — Account / Experience / Connections / Advanced / Data & privacy / Support.
+- ✅ **Settings chrome** — Experience / Account / Connections / Advanced / Data & privacy / Support.
+  The overview uses roomy, softly rounded gray cards, large outline icons, regular-weight
+  labels, and current values beneath row titles. Explanatory text stays in accessibility hints.
   Sentence-case group labels; nested screens omit row icons except connected-app marks
   and danger/status rows. Learning settings are not on this list (lesson map ⋯).
   Choice rows (appearance, style, tone, language, reminder lead, daily goal) open a

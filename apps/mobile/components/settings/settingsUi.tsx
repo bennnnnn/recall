@@ -433,54 +433,6 @@ export function makeSettingsStyles(t: Theme) {
 
     rowPressed: { opacity: 0.55 },
 
-    profileHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: 72,
-      marginBottom: Space.sm,
-      paddingVertical: Space.sm,
-      paddingHorizontal: 4,
-    },
-    profileAvatarWrap: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      overflow: "hidden",
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: t.surface,
-    },
-    profileMeta: { flex: 1, minWidth: 0, gap: 2 },
-    profileName: {
-      ...Type.callout,
-      color: t.text,
-    },
-    profileEmail: {
-      ...Type.compact,
-      color: t.textSecondary,
-    },
-    profilePlan: {
-      ...Type.label,
-      color: t.textSecondary,
-    },
-    planPill: {
-      alignSelf: "flex-start",
-      marginTop: 2,
-      paddingHorizontal: 10,
-      paddingVertical: Space.xxs,
-      borderRadius: Radius.full,
-      backgroundColor: t.primaryLight,
-    },
-    planPillPro: {
-      backgroundColor: t.primaryLight,
-    },
-    planPillText: {
-      ...Type.caption,
-      fontWeight: "700",
-      color: t.primary,
-    },
-    planPillTextPro: { color: t.primary },
     accountPro: { color: t.primary },
     section: { marginTop: Space.lg },
     sectionLabel: {

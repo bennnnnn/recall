@@ -1,21 +1,18 @@
 import { useRef, useState } from "react";
-import { Alert, Linking, Platform, View } from "react-native";
+import { Alert, Linking, Platform } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
 import {
-  SettingsGroup,
-  SettingsLinkRow,
-  SettingsValueRow,
-  type SettingsStyles,
-} from "@/components/settings/settingsUi";
+  SettingsOverviewGroup,
+  SettingsOverviewRow,
+} from "@/components/settings/SettingsOverview";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { type User } from "@/lib/api";
 import { getDisplayName, sanitizeDisplayName } from "@/lib/profile";
 import { restorePurchases } from "@/lib/purchases";
-import { type Theme } from "@/lib/theme";
 
 function manageSubscriptionUrl(): string {
   return Platform.OS === "ios"
@@ -32,15 +29,7 @@ function signInLabel(
   return t("settings.sign_in_dev");
 }
 
-export function AccountSettingsSection({
-  styles: s,
-  theme,
-  isPro,
-}: {
-  styles: SettingsStyles;
-  theme: Theme;
-  isPro: boolean;
-}) {
+export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
   const { user, updateUser } = useAuth();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -105,62 +94,51 @@ export function AccountSettingsSection({
 
   return (
     <>
-      <SettingsGroup label={t("settings.account")} styles={s}>
-        <SettingsLinkRow
+      <SettingsOverviewGroup label={t("settings.account")}>
+        <SettingsOverviewRow
+          icon="person-outline"
           title={t("settings.name_label")}
           value={displayName}
           onPress={openName}
-          styles={s}
-          theme={theme}
         />
-        <View style={s.menuSeparator} />
-        <SettingsValueRow
+        <SettingsOverviewRow
+          icon="mail-outline"
           title={t("settings.email")}
           value={user?.email ?? ""}
-          styles={s}
-          theme={theme}
         />
-        <View style={s.menuSeparator} />
-        <SettingsValueRow
+        <SettingsOverviewRow
+          icon="key-outline"
           title={t("settings.sign_in_method")}
           value={signInLabel(user?.sign_in_provider, t)}
-          styles={s}
-          theme={theme}
         />
-        <View style={s.menuSeparator} />
         {isPro ? (
           <>
-            <SettingsValueRow
+            <SettingsOverviewRow
+              icon="card-outline"
               title={t("settings.plan_label")}
               value={planLabel}
-              styles={s}
-              theme={theme}
             />
-            <View style={s.menuSeparator} />
-            <SettingsLinkRow
+            <SettingsOverviewRow
+              icon="wallet-outline"
               title={t("settings.manage_subscription")}
               onPress={() => void Linking.openURL(manageSubscriptionUrl())}
-              styles={s}
-              theme={theme}
             />
-            <View style={s.menuSeparator} />
-            <SettingsLinkRow
+            <SettingsOverviewRow
+              icon="refresh-outline"
               title={t("settings.restore_purchases")}
               onPress={() => void restore()}
-              styles={s}
-              theme={theme}
             />
           </>
         ) : (
-          <SettingsLinkRow
+          <SettingsOverviewRow
+            icon="sparkles-outline"
             title={t("settings.plan_label")}
             value={planLabel}
             onPress={() => setUpgradeVisible(true)}
-            styles={s}
-            theme={theme}
+            accent
           />
         )}
-      </SettingsGroup>
+      </SettingsOverviewGroup>
 
       <SettingsFieldSheet
         visible={editName}

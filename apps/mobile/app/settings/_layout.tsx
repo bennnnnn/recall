@@ -36,7 +36,7 @@ export default function SettingsLayout() {
         headerLeft: () => <StackBackButton fallback="/" />,
       }}
     >
-      <Stack.Screen name="index" options={{ title: t("settings.title") }} />
+      <Stack.Screen name="index" options={{ title: t("settings.title"), headerShown: false }} />
       <Stack.Screen
         name="models"
         options={subScreen(t("settings.model"), header)}

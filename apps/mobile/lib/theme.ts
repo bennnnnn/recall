@@ -27,6 +27,8 @@ export type Theme = {
   // Surfaces — `bg` is the page; `surface` / `inputBg` are raised planes
   bg: string;
   surface: string;
+  /** Segmented cards on the Settings overview. */
+  settingsSurface: string;
   surfaceAlt: string;
   border: string;
 
@@ -105,6 +107,7 @@ export const lightTheme: Theme = {
 
   bg: "#FFFFFF",
   surface: "#F7F7F8",
+  settingsSurface: "#F3F3F3",
   surfaceAlt: "#EBEBED",
   border: "#D9D9DE",
 
@@ -158,6 +161,7 @@ export const darkTheme: Theme = {
 
   bg: "#0F0F10",
   surface: "#202023",
+  settingsSurface: "#202023",
   surfaceAlt: "#171719",
   border: "#3A3A42",
 
