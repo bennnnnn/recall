@@ -434,6 +434,7 @@ def can_direct_verified_math_reply(
         has_coordinate_vector_request,
         is_closed_coordinate_vector_request,
     )
+    from app.services.math_tools.direct_calculus import calculus_direct_request
     from app.services.math_tools.direct_solids import solid_direct_request
     from app.services.math_tools.direct_statistics import statistics_direct_request
     from app.services.math_tools.direct_units import unit_direct_request
@@ -441,9 +442,15 @@ def can_direct_verified_math_reply(
     statistics_request = statistics_direct_request(user_text)
     unit_request = unit_direct_request(user_text)
     solid_request = solid_direct_request(user_text)
-    if statistics_request is False or unit_request is False or solid_request is False:
+    calculus_request = calculus_direct_request(user_text, answer=verified.canonical_answer)
+    if (
+        statistics_request is False
+        or unit_request is False
+        or solid_request is False
+        or calculus_request is False
+    ):
         return False
-    if statistics_request or unit_request or solid_request:
+    if statistics_request or unit_request or solid_request or calculus_request:
         fences = _solver_fences(verified)
         if (
             len(fences) != 1
@@ -464,9 +471,15 @@ def can_direct_verified_math_reply(
         or statistics_request
         or unit_request
         or solid_request
+        or calculus_request
     ) and leftover_non_math_request(user_text):
         return False
     answer = (verified.canonical_answer or "").strip()
+    if calculus_request and any(
+        token in answer
+        for token in (r"\lim", r"\int", r"\sum", r"\frac{d}{d", r"\langle", "Derivative", "NaN")
+    ):
+        return False
     if not answer or len(answer) > _MAX_DIRECT_ANSWER_CHARS:
         return False
     fences = _solver_fences(verified)
