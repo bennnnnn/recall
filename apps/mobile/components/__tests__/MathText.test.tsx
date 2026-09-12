@@ -56,7 +56,7 @@ describe("MathText", () => {
     expect(getAllByText("m")).toHaveLength(2);
   });
 
-  it("renders a complex fraction stacked, with the multi-term numerator parenthesized", async () => {
+  it("renders a complex fraction with the vinculum grouping its complete numerator", async () => {
     const { getByTestId, getByText } = await render(
       <MathText latex={"\\frac{-b + \\sqrt{2}}{2a}"} />,
     );
@@ -65,6 +65,33 @@ describe("MathText", () => {
     expect(getByTestId("math-sqrt")).toBeOnTheScreen();
     expect(getByText("2")).toBeOnTheScreen();
     expect(getByText("2a")).toBeOnTheScreen();
+  });
+
+  it("does not invent parentheses or extra width around a Greek fraction numerator", async () => {
+    const { getByText, queryByText, getByTestId } = await render(
+      <MathText latex={String.raw`\frac{\pi}{2}`} />,
+    );
+    expect(getByText("π")).toBeOnTheScreen();
+    expect(getByText("2")).toBeOnTheScreen();
+    expect(queryByText(/[()]/)).toBeNull();
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 23, height: 44 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 29, height: 44 });
+  });
+
+  it("groups sums and scripts using the fraction bar without adding source characters", async () => {
+    const { getByText, queryByText, getByTestId } = await render(
+      <MathText latex={String.raw`\frac{x^2+1}{a+b}`} />,
+    );
+    expect(getByText("²")).toBeOnTheScreen();
+    expect(getByText("a+b")).toBeOnTheScreen();
+    expect(queryByText(/[()]/)).toBeNull();
+    expect(getByTestId("math-vinculum")).toBeOnTheScreen();
+  });
+
+  it("preserves parentheses explicitly included on either fraction side", async () => {
+    const { getByText } = await render(<MathText latex={String.raw`\frac{(a+b)}{(c-d)}`} />);
+    expect(getByText("(a+b)")).toBeOnTheScreen();
+    expect(getByText("(c-d)")).toBeOnTheScreen();
   });
 
   it("BUG FIX regression: sqrt inside a fraction keeps one bar over b^2 - 4ac", async () => {

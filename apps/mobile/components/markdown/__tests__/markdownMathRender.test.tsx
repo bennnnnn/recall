@@ -44,12 +44,25 @@ jest.mock("@/components/CodeBlock", () => {
 });
 
 describe("MarkdownContent math rendering", () => {
+  it("renders the exact H22 explanation fractions without invented pi parentheses", async () => {
+    const { getByText, getAllByText, getAllByTestId, queryByText } = await render(
+      <MarkdownContent content={String.raw`- Convert angle: $90^\circ = \frac{\pi}{2}$ radians
+- Calculation: $4 \times \frac{\pi}{2} = 2\pi \approx 6.28$`} />,
+    );
+    expect(getByText("Convert angle:")).toBeOnTheScreen();
+    expect(getByText("radians")).toBeOnTheScreen();
+    expect(getByText(/= 2π ≈ 6.28/)).toBeOnTheScreen();
+    expect(getAllByText("π")).toHaveLength(2);
+    expect(getAllByTestId("math-frac")).toHaveLength(2);
+    expect(queryByText(/\(π\)|\\frac|\\pi/)).toBeNull();
+  });
+
   it("renders the exact S04 mean line without stray dollar delimiters", async () => {
     const { getByText, queryByText, getByTestId } = await render(
       <MarkdownContent content={String.raw`- Mean (\(\mu\)) = \( \frac{1+2+3}{3} = 2 \),`} />,
     );
     expect(getByText(/Mean \(μ\) =/)).toBeOnTheScreen();
-    expect(getByText("(1+2+3)")).toBeOnTheScreen();
+    expect(getByText("1+2+3")).toBeOnTheScreen();
     expect(getByText("= 2,")).toBeOnTheScreen();
     expect(getByTestId("math-frac")).toBeOnTheScreen();
     expect(queryByText(/\$/)).toBeNull();
@@ -177,8 +190,8 @@ describe("MarkdownContent math rendering", () => {
     );
     expect(getAllByTestId("md-math-inline-wrap").length).toBeGreaterThan(0);
     expect(getAllByTestId("math-frac").length).toBeGreaterThanOrEqual(4);
-    expect(getByText("(5+1)")).toBeOnTheScreen();
-    expect(getByText("(5-1)")).toBeOnTheScreen();
+    expect(getByText("5+1")).toBeOnTheScreen();
+    expect(getByText("5-1")).toBeOnTheScreen();
     expect(queryByText(/\\frac/)).toBeNull();
   });
 
