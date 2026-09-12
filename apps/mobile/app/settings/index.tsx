@@ -4,11 +4,10 @@ import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Avatar } from "@/components/Avatar";
 import { StackBackButton } from "@/components/StackBackButton";
 import { AccountSettingsSection } from "@/components/settings/AccountSettingsSection";
 import { AppearanceSettingsRow } from "@/components/settings/AppearanceSettingsRow";
-import { SettingsProfileName } from "@/components/settings/SettingsProfileName";
+import { SettingsProfile } from "@/components/settings/SettingsProfile";
 import {
   SettingsOverviewGroup,
   SettingsOverviewRow,
@@ -96,8 +95,7 @@ export default function SettingsScreen() {
             icon="arrow-back"
             style={s.backButton}
           />
-          <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={88} />
-          <SettingsProfileName />
+          <SettingsProfile />
         </View>
 
         <SettingsOverviewGroup label={t("settings.experience")}>

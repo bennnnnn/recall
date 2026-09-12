@@ -371,8 +371,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
-- ✅ **Account settings** — a centered, display-only avatar leads Settings, with the name
-  beneath it opening a name-edit popup. Email, sign-in method, plan, and subscription
+- ✅ **Account settings** — a centered avatar with a pencil badge opens a profile editor
+  for the display name and photo. A camera badge picks and previews a photo; Save profile
+  persists both changes. The name beneath the avatar is display-only; there is no username.
+  Email, sign-in method, plan, and subscription
   controls are visible in an Account section on the Settings page. Age / country / job
   live under Personalization → About you. Persisted on `users` and injected into the chat system prompt
   (see [§6](#6-memory-remembering-the-user)).

@@ -17,6 +17,8 @@ export type PendingAttachment = {
   contentType: string;
   fileName: string;
   kind: AttachmentKind;
+  /** Dimensions of a square-crop library selection before profile preparation. */
+  imageSize?: { width: number; height: number };
   /** Library item already on the server — skip re-upload; the API clones if linked. */
   existingAttachmentId?: string;
 };
@@ -209,7 +211,9 @@ export function messageTextForSend(
   return defaultAttachmentPrompt(attached);
 }
 
-export async function pickFromPhotoLibrary(): Promise<PendingAttachment | null> {
+export async function pickFromPhotoLibrary(
+  options: { squareCrop?: boolean } = {},
+): Promise<PendingAttachment | null> {
   return withNativePicker(async () => {
     let permission = await ImagePicker.getMediaLibraryPermissionsAsync();
     if (!permission.granted && !cameraPermissionNeedsSettings(permission)) {
@@ -222,16 +226,30 @@ export async function pickFromPhotoLibrary(): Promise<PendingAttachment | null> 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       quality: 0.85,
-      allowsEditing: false,
+      allowsEditing: options.squareCrop ?? false,
+      ...(options.squareCrop ? { aspect: [1, 1] as [number, number] } : {}),
     });
 
     if (result.canceled || !result.assets[0]) return null;
 
     const asset = result.assets[0];
+    const fileName = asset.fileName ?? `photo-${Date.now()}.jpg`;
+    if (options.squareCrop) {
+      // Profile preparation validates size and performs the final JPEG conversion.
+      // Avoid a separate full-size HEIC conversion before those checks.
+      const contentType = normalizeContentType(asset.mimeType, fileName || asset.uri);
+      return {
+        localUri: asset.uri,
+        contentType,
+        fileName,
+        kind: guessKind(contentType),
+        imageSize: { width: asset.width, height: asset.height },
+      };
+    }
     return await assetToPending(
       asset.uri,
       asset.mimeType ?? "",
-      asset.fileName ?? `photo-${Date.now()}.jpg`,
+      fileName,
     );
   });
 }

@@ -71,11 +71,19 @@ async def login_with_google(
             avatar_url=avatar_url,
         )
     else:
+        # Decide against the current locked row: a profile save may have
+        # finished after the identity lookup above. This flow locks no photos.
+        await users_repo.refresh_for_update(session, user)
+        # A selected profile photo belongs to Recall; subsequent Google login
+        # may refresh a provider picture but must not replace a custom upload.
+        current_avatar = user.avatar_url
+        if isinstance(current_avatar, str) and current_avatar.startswith("/attachments/"):
+            avatar_url = current_avatar
         user = await users_repo.update(
             session,
             user,
             email=email or user.email,
-            name=name or user.name,
+            name=user.name if isinstance(user.name, str) and user.name.strip() else name,
             avatar_url=avatar_url or user.avatar_url,
         )
 
@@ -145,13 +153,15 @@ async def login_with_apple(
             avatar_url=None,
         )
     else:
+        if name:
+            await users_repo.refresh_for_update(session, user)
         updates: dict[str, str | None] = {}
         if email:
             updates["email"] = email
-        if name:
+        if name and not (isinstance(user.name, str) and user.name.strip()):
             updates["name"] = name
         if updates:
-            user = await users_repo.update(session, user, **updates)
+            user = await users_repo.update(session, user, commit=True, **updates)
 
     if is_new_user and settings.email_enabled:
         await jobs.enqueue_welcome_email(redis, user.id)

@@ -42,6 +42,14 @@ async def test_get_by_id_returns_none(fake_session):
     assert result is None
 
 
+async def test_refresh_for_update_locks_and_reloads_profile(fake_session):
+    from app.repositories.users import refresh_for_update
+
+    user = MagicMock()
+    await refresh_for_update(fake_session, user)
+    fake_session.refresh.assert_awaited_once_with(user, with_for_update=True)
+
+
 @pytest.mark.asyncio
 async def test_create_user(fake_session):
     """create should add, commit, refresh, and return the user."""

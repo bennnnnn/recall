@@ -96,6 +96,26 @@ it("converts a HEIC photo when the picker omits MIME metadata", async () => {
   jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({ canceled: false, assets: [{ uri: "file:///photo.HEIC", fileName: "photo.HEIC", width: 10, height: 10 }] });
   await expect(pickFromPhotoLibrary()).resolves.toMatchObject({ contentType: "image/jpeg", localUri: "file:///converted.jpg" });
   expect(ImageManipulator.manipulateAsync).toHaveBeenCalled();
+  expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith({
+    mediaTypes: ["images"], quality: 0.85, allowsEditing: false,
+  });
+});
+
+it("uses square editing and preserves source dimensions for profile preparation", async () => {
+  jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({
+    canceled: false,
+    assets: [{ uri: "file:///photo.HEIC", fileName: "photo.HEIC", width: 1000, height: 1000 }],
+  });
+  await expect(pickFromPhotoLibrary({ squareCrop: true })).resolves.toMatchObject({
+    localUri: "file:///photo.HEIC",
+    contentType: "image/heic",
+    kind: "image",
+    imageSize: { width: 1000, height: 1000 },
+  });
+  expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith({
+    mediaTypes: ["images"], quality: 0.85, allowsEditing: true, aspect: [1, 1],
+  });
+  expect(ImageManipulator.manipulateAsync).not.toHaveBeenCalled();
 });
 
 it("throws when the photo library permission is permanently denied", async () => {
