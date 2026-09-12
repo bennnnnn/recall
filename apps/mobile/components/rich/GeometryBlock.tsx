@@ -316,28 +316,16 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
   const svgW = b + offsetX + 48;
   const svgH = h + offsetY + 36;
   const showLabels = spec.show_labels !== false;
-  const showTicks = shouldShowTicks(spec.show_ticks, false);
   const showAltitude = spec.show_altitude !== false;
-  const showAngle = spec.show_angle !== false;
-  let verts = [
+  const verts = [
     { x: x0, y: y0 },
     { x: x1, y: y1 },
     { x: x2, y: y2 },
   ];
-  let outW = svgW;
-  let outH = svgH;
-  if (showAngle) {
-    const padded = padDiagramForAngleLabels(verts, svgW, svgH);
-    verts = padded.vertices;
-    outW = padded.svgW;
-    outH = padded.svgH;
-  }
-  const tickSegments = showTicks
-    ? [...sideTickMarks(verts[0].x, verts[0].y, verts[2].x, verts[2].y, 1), ...sideTickMarks(verts[1].x, verts[1].y, verts[2].x, verts[2].y, 1)]
-    : [];
+  // Base and height do not determine side equality or interior angles.
 
   return (
-    <Svg width={outW} height={outH}>
+    <Svg width={svgW} height={svgH}>
       <Polygon
         points={`${verts[0].x},${verts[0].y} ${verts[1].x},${verts[1].y} ${verts[2].x},${verts[2].y}`}
         fill={theme.contentSurface}
@@ -356,10 +344,6 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
           strokeDasharray="5,4"
           accessible={false}
         />
-      ) : null}
-      {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
-      {showAngle ? (
-        <InteriorAngleMarks vertices={verts} color={theme.textSecondary} fill={theme.contentSurface} />
       ) : null}
       {showLabels ? (
         <>
@@ -554,22 +538,24 @@ function TriangleSidesDiagram({
   const colors = diagramColors(theme);
   const labels = computeTriangleSidesLabels(spec);
   const raw = triangleSidesVertices(spec.a, spec.b, spec.c);
+  const minX = Math.min(raw.x0, raw.x1, raw.x2);
   const maxX = Math.max(raw.x0, raw.x1, raw.x2);
+  const spanX = maxX - minX;
   const maxY = Math.max(raw.y0, raw.y1, raw.y2, 1);
   const inner = Math.max(screenWidth - 48 - 80, 120);
-  const scale = inner / Math.max(maxX, maxY, 1);
+  const scale = inner / Math.max(spanX, maxY, 1);
   const offsetX = 40;
   const offsetY = 28;
   // SVG y grows downward \u2014 flip so the apex draws above the base.
   const toSvg = (x: number, y: number) => ({
-    x: offsetX + x * scale,
+    x: offsetX + (x - minX) * scale,
     y: offsetY + (maxY - y) * scale,
   });
   const p0raw = toSvg(raw.x0, raw.y0);
   const p1raw = toSvg(raw.x1, raw.y1);
   const p2raw = toSvg(raw.x2, raw.y2);
   const showLabels = spec.show_labels !== false;
-  const svgW0 = maxX * scale + offsetX * 2;
+  const svgW0 = spanX * scale + offsetX * 2;
   const labelBelow = showLabels ? 52 : 16;
   const svgH0 = maxY * scale + offsetY + labelBelow;
   const tickCounts = equalSideTickCounts(spec.a, spec.b, spec.c);

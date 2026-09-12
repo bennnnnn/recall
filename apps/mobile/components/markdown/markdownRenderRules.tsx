@@ -197,9 +197,8 @@ function renderTextWithMath(
     );
   }
 
-  // Nested math Views (frac / sqrt) must be direct children of the paragraph
-  // Text. Wrapping this run in another Text is what made neighboring
-  // sentences paint on top of each other.
+  // Keep each nested math View outside Text, while prose and simple math
+  // share a Text run so native line wrapping can break between words.
   if (parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))) {
     // A trailing text part that is only a colon (e.g. "Use the product rule
     // $\sqrt{ab}=\sqrt{a}\sqrt{b}$:") strands onto its own line here: the math
@@ -213,19 +212,42 @@ function renderTextWithMath(
       if (i !== parts.length - 1) return true;
       return p.value.trim() !== ":";
     });
-    return (
-      <Fragment key={node.key}>
-        {trimmed.map((part, i) =>
-          part.type === "math" ? (
-            <MathText key={`${node.key}-m-${i}`} latex={part.value} />
-          ) : (
-            <Text key={`${node.key}-t-${i}`} style={base} selectable>
-              {withGreenTicks(part.value, tickColor, `${node.key}-t-${i}`)}
-            </Text>
-          ),
-        )}
-      </Fragment>
-    );
+    const runs: ReactNode[] = [];
+    let inline: typeof parts = [];
+    const flushInline = () => {
+      if (!inline.length) return;
+      const key = `${node.key}-inline-${runs.length}`;
+      runs.push(
+        <Text key={key} style={base} selectable>
+          {inline.map((part, i) => part.type === "math"
+            ? <MathText key={`${key}-${i}`} latex={part.value} />
+            : withGreenTicks(part.value, tickColor, `${key}-${i}`))}
+        </Text>,
+      );
+      inline = [];
+    };
+    for (let i = 0; i < trimmed.length; i += 1) {
+      const part = trimmed[i];
+      if (part.type !== "math" || !latexHasNestedMathView(part.value)) {
+        inline.push(part);
+        continue;
+      }
+      flushInline();
+      const next = trimmed[i + 1];
+      const punctuationMatch = next?.type === "text"
+        ? /^[ \t]*([,.;:!?]+)/.exec(next.value) : null;
+      const punctuation = punctuationMatch?.[1] ?? "";
+      runs.push(<MathText key={`${node.key}-m-${i}`} latex={
+        part.value + (punctuation ? `\\text{${punctuation}}` : "")
+      } />);
+      if (punctuationMatch && next?.type === "text") {
+        const remainder = next.value.slice(punctuationMatch[0].length);
+        if (remainder) inline.push({ type: "text", value: remainder });
+        i += 1;
+      }
+    }
+    flushInline();
+    return <Fragment key={node.key}>{runs}</Fragment>;
   }
 
   return (

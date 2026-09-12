@@ -449,8 +449,9 @@ export function triangleSidesVertices(
   b: number,
   c: number,
 ): { x0: number; y0: number; x1: number; y1: number; x2: number; y2: number } {
-  const cx = (b * b + a * a - c * c) / (2 * a);
-  const cy = Math.sqrt(Math.max(0, b * b - cx * cx));
+  // The renderer labels p0–p1 as a, p1–p2 as b, and p2–p0 as c.
+  const cx = (c * c + a * a - b * b) / (2 * a);
+  const cy = Math.sqrt(Math.max(0, c * c - cx * cx));
   return { x0: 0, y0: 0, x1: a, y1: 0, x2: cx, y2: cy };
 }
 

@@ -116,8 +116,11 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
 
         if substituted_eval_expr(cleaned) is not None:
             return True
-    if first_dim_pair(cleaned) is not None and geometry_dim_context(lower):
-        return True
+    if geometry_dim_context(lower):
+        from app.services.math_text_match.units import strip_geometry_length_units
+
+        if first_dim_pair(strip_geometry_length_units(cleaned)) is not None:
+            return True
     if (
         "circle" in lower
         and "sector" not in lower

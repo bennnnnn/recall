@@ -742,8 +742,8 @@ def test_draw_right_triangle_does_not_attach_area_answer_pill() -> None:
     assert block.canonical_fence["base"] == 3
     assert block.canonical_fence["height"] == 4
     assert block.canonical_answer is None
-    assert "Opposite the base (3 cm) is 36.9°" in block.text
-    assert "opposite the height (4 cm) is 53.1°" in block.text
+    assert "Opposite the base (3 units) is 36.9°" in block.text
+    assert "opposite the height (4 units) is 53.1°" in block.text
 
 
 def test_area_of_right_triangle_with_legs_still_answers_area() -> None:

@@ -73,6 +73,15 @@ _DIMENSION_GLUE = {
     "radius",
     "diameter",
     "base",
+    "top",
+    "bottom",
+    "angle",
+    "degree",
+    "degrees",
+    "diagonal",
+    "area",
+    "perimeter",
+    "circumference",
     "please",
     "units",
     "unit",
@@ -96,9 +105,42 @@ def solid_length_unit(cleaned: str) -> str | None:
         name = word.group(0).lower()
         if name in _DIMENSION_GLUE:
             continue
-        if name not in LENGTH_UNITS or after[word.end() :].startswith(("/", "^")):
+        suffix = after[word.end() :]
+        if (
+            name not in LENGTH_UNITS
+            or suffix.lstrip().startswith(("/", "^", "²", "³"))
+            or (suffix and suffix[0].isdigit())
+        ):
             return None
+        if name == "in":
+            # "in the plane" / "in meters" is prose, not an inch measure.
+            # Terminal "4 in" and repeated "3 in by 4 in" stay supported.
+            following = re.match(r"[A-Za-z]+", suffix.lstrip())
+            if following is not None and following.group(0).lower() not in (
+                _DIMENSION_GLUE - {"unit", "units"}
+            ):
+                return None
         found.add(LENGTH_UNITS[name])
     if len(found) > 1:
         return None
     return next(iter(found), "units")
+
+
+def strip_geometry_length_units(cleaned: str) -> str:
+    """Let existing dimension scanners read both ``3 by 4 cm`` and ``3 cm by 4 cm``.
+
+    The caller separately validates the single common unit. Strip only recognized
+    scalar length tokens, never arbitrary words or compound units.
+    """
+    from app.services.math_text_match.scan import _NUM
+
+    chunks: list[str] = []
+    start = 0
+    for number in _NUM.finditer(cleaned):
+        unit = unit_after_quantity(cleaned, number.end())
+        if unit is None or unit[0].lower() not in {*LENGTH_UNITS, "unit", "units"}:
+            continue
+        chunks.append(cleaned[start : number.end()])
+        start = unit[1]
+    chunks.append(cleaned[start:])
+    return "".join(chunks)

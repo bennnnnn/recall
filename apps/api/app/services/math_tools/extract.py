@@ -91,5 +91,26 @@ def extract_math_intent(text: str) -> MathIntent | None:
                 f"{intent.lhs or ''} {intent.rhs or ''}", text
             ):
                 return None
+            if intent.kind in {
+                "rectangle",
+                "square",
+                "triangle",
+                "right_triangle",
+                "triangle_sides",
+                "circle",
+                "trapezoid",
+                "parallelogram",
+                "sector",
+            }:
+                # A natural-language measurement must not inherit the public
+                # structured-input schema's legacy centimetre default. AAA
+                # triangles already carry relative side lengths in generic units.
+                from app.services.math_text_match.units import solid_length_unit
+
+                if intent.kind != "triangle_sides" or intent.unit != "units":
+                    unit = solid_length_unit(cleaned)
+                    if unit is None:
+                        return None
+                    intent = intent.model_copy(update={"unit": unit})
             return intent
     return None

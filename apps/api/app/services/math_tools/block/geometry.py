@@ -214,9 +214,9 @@ def _verified_block_triangle(
         height=tri_geo.height,
         unit=tri_geo.unit,
         show_labels=True,
-        show_ticks=True,
+        show_ticks=False,
         show_altitude=True,
-        show_angle=True,
+        show_angle=False,
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
@@ -299,14 +299,10 @@ def _verified_block_triangle_sides(
     )
     if intent.unit == "units":
         lines.append(
-            "The user gave interior angles only. Sides are relative (law of sines) "
-            "with unit 'units' — do NOT call them centimetres or invent a side in cm. "
-            "Do not invent a side length in centimetres."
+            "Lengths use generic units, not centimetres. When the user supplied only "
+            "interior angles, these side lengths express relative proportions "
+            "(law of sines), not a known physical size."
         )
-        answer = (
-            f"{tri_geo.labels['angle_a']}, {tri_geo.labels['angle_b']}, {tri_geo.labels['angle_c']}"
-        )
-        return _diagram_block(lines, tri_spec, answer)
     lines.append("Area via Heron's formula; angles via the law of cosines.")
     if intent.wants_angle and not (intent.wants_area or intent.wants_perimeter):
         answer = (

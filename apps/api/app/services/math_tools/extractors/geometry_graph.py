@@ -61,7 +61,9 @@ def _extract_rectangle_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if mtm.classify_solid_shape(lower) is not None:
         return None
-    dims = mtm.first_dim_pair(cleaned)
+    from app.services.math_text_match.units import strip_geometry_length_units
+
+    dims = mtm.first_dim_pair(strip_geometry_length_units(cleaned))
     padded = f" {lower} "
     if dims is not None and ("rectangle" in lower or " rect " in padded or "diagonal" in lower):
         width, height, unit = dims

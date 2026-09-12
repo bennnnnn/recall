@@ -379,6 +379,10 @@ def can_direct_verified_math_reply(
         return False
     if wants_math_explanation(user_text):
         return False
+    from app.services.math_tools.direct_geometry import can_direct_rectangle
+
+    if can_direct_rectangle(verified, user_text, _solver_fences(verified)):
+        return True
     if _can_direct_point_or_vertical(verified, user_text):
         return True
     if _can_direct_graph(verified, user_text):
@@ -424,6 +428,11 @@ def format_direct_math_reply(verified: VerifiedMathBlock) -> str:
         if answer:
             return f"```answer\n{answer}\n```\n\n{graph_reply}"
         return graph_reply
+    if len(fences) == 1 and fences[0].get("type") == "rectangle":
+        return (
+            f"```answer\n{answer}\n```\n\n"
+            f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
+        )
     if len(fences) == 1 and fences[0].get("type") == "number_line":
         return (
             f"```answer\n{answer}\n```\n\n"
