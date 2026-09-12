@@ -8,8 +8,8 @@ import { StateView } from "@/components/StateView";
 import {
   ConnectedAppMark,
   makeSettingsStyles,
-  SettingsActionButton,
   SettingsGroup,
+  SettingsLinkRow,
   SettingsValueRow,
 } from "@/components/settings/settingsUi";
 import { useSettingsIntegrations } from "@/hooks/useSettingsIntegrations";
@@ -51,6 +51,12 @@ export default function ConnectedAppDetailScreen() {
   const connected = isGmail ? gmailStatus?.connected : calendarStatus?.connected;
   const email = isGmail ? gmailStatus?.email : calendarStatus?.email;
   const busy = isGmail ? gmailBusy : calendarBusy;
+  const lastSync =
+    isGmail && gmailStatus?.connected && gmailStatus.last_sync_at
+      ? t("settings.gmail_last_sync", {
+          when: new Date(gmailStatus.last_sync_at).toLocaleString(),
+        })
+      : null;
 
   return (
     <ScrollView
@@ -83,64 +89,69 @@ export default function ConnectedAppDetailScreen() {
         />
       </SettingsGroup>
       <SettingsGroup styles={s}>
-        <View style={s.menuRow}>
-          <View style={s.rowBody}>
-            {isGmail && gmailStatus?.connected && gmailStatus.last_sync_at ? (
-              <Text style={s.meta}>
-                {t("settings.gmail_last_sync", {
-                  when: new Date(gmailStatus.last_sync_at).toLocaleString(),
-                })}
-              </Text>
-            ) : null}
-            <View style={s.rowActions}>
-              {busy ? null : isGmail ? (
-                gmailStatus?.connected ? (
-                  <>
-                    <SettingsActionButton
-                      label={t("settings.gmail_sync")}
-                      onPress={() => void syncGmail()}
-                      styles={s}
-                    />
-                    <SettingsActionButton
-                      label={t("settings.gmail_disconnect")}
-                      onPress={disconnectGmail}
-                      danger
-                      styles={s}
-                    />
-                  </>
-                ) : (
-                  <SettingsActionButton
-                    label={t("settings.gmail_connect")}
-                    onPress={connectGmail}
-                    styles={s}
-                  />
-                )
-              ) : calendarStatus?.connected ? (
-                <>
-                  {calendarStatus.can_write ? null : (
-                    <SettingsActionButton
-                      label={t("settings.calendar_upgrade_write")}
-                      onPress={() => void connectCalendar(true)}
-                      styles={s}
-                    />
-                  )}
-                  <SettingsActionButton
-                    label={t("settings.calendar_disconnect")}
-                    onPress={disconnectCalendar}
-                    danger
-                    styles={s}
-                  />
-                </>
-              ) : (
-                <SettingsActionButton
-                  label={t("settings.calendar_connect")}
-                  onPress={() => void connectCalendar(false)}
-                  styles={s}
-                />
-              )}
+        {lastSync ? (
+          <View style={s.menuRow}>
+            <View style={s.rowBody}>
+              <Text style={s.meta}>{lastSync}</Text>
             </View>
           </View>
-        </View>
+        ) : null}
+        {lastSync && !busy ? <View style={s.menuSeparator} /> : null}
+        {busy ? null : isGmail ? (
+          gmailStatus?.connected ? (
+            <>
+              <SettingsLinkRow
+                title={t("settings.gmail_sync")}
+                onPress={() => void syncGmail()}
+                styles={s}
+                theme={theme}
+              />
+              <View style={s.menuSeparator} />
+              <SettingsLinkRow
+                title={t("settings.gmail_disconnect")}
+                onPress={disconnectGmail}
+                danger
+                styles={s}
+                theme={theme}
+              />
+            </>
+          ) : (
+            <SettingsLinkRow
+              title={t("settings.gmail_connect")}
+              onPress={connectGmail}
+              styles={s}
+              theme={theme}
+            />
+          )
+        ) : calendarStatus?.connected ? (
+          <>
+            {calendarStatus.can_write ? null : (
+              <>
+                <SettingsLinkRow
+                  title={t("settings.calendar_upgrade_write")}
+                  onPress={() => void connectCalendar(true)}
+                  styles={s}
+                  theme={theme}
+                />
+                <View style={s.menuSeparator} />
+              </>
+            )}
+            <SettingsLinkRow
+              title={t("settings.calendar_disconnect")}
+              onPress={disconnectCalendar}
+              danger
+              styles={s}
+              theme={theme}
+            />
+          </>
+        ) : (
+          <SettingsLinkRow
+            title={t("settings.calendar_connect")}
+            onPress={() => void connectCalendar(false)}
+            styles={s}
+            theme={theme}
+          />
+        )}
       </SettingsGroup>
     </ScrollView>
   );

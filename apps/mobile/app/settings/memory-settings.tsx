@@ -158,7 +158,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
           styles={s}
           theme={theme}
         />
-        <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+        <View style={s.menuSeparator} />
         <SettingsSwitchRow
           icon="shield-outline"
           title={t("settings.memory_include_sensitive")}
@@ -169,7 +169,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
           styles={s}
           theme={theme}
         />
-        <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+        <View style={s.menuSeparator} />
         <SettingsLinkRow
           icon="book-outline"
           title={t("settings.memory_view")}
@@ -197,7 +197,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
           styles={s}
           theme={theme}
         />
-        <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+        <View style={s.menuSeparator} />
         <SettingsLinkRow
           icon="close-circle-outline"
           title={t("settings.memory_delete_and_off")}

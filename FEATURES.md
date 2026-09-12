@@ -377,8 +377,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   live under Personalization → About you. Persisted on `users` and injected into the chat system prompt
   (see [§6](#6-memory-remembering-the-user)).
 - ✅ **Settings chrome** — Experience / Account / Connections / Advanced / Data & privacy / Support.
-  The overview uses roomy, softly rounded gray cards, large outline icons, regular-weight
-  labels, and current values beneath row titles. Explanatory text stays in accessibility hints.
+  The overview and submenus share roomy, softly rounded gray cards, regular-weight labels,
+  and current values beneath row titles. Choice popups and field editors use matching
+  surfaces and spacing. Overview icons are large outlines; overview explanations stay in accessibility hints.
   Sentence-case group labels; nested screens omit row icons except connected-app marks
   and danger/status rows. Learning settings are not on this list (lesson map ⋯).
   Choice rows (appearance, style, tone, language, reminder lead, daily goal) open a

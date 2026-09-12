@@ -1,11 +1,10 @@
 import { useMemo, type ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { Icon } from "@/components/Icon";
+import { makeSettingsStyles } from "@/components/settings/settingsStyles";
 import { type IoniconName } from "@/lib/icons";
-import { Space } from "@/lib/space";
-import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { useTheme } from "@/lib/theme";
 
 type SettingsOverviewGroupProps = {
   label?: string;
@@ -25,12 +24,12 @@ type SettingsOverviewRowProps = {
 
 export function SettingsOverviewGroup({ label, children }: SettingsOverviewGroupProps) {
   const theme = useTheme();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeSettingsStyles(theme), [theme]);
 
   return (
-    <View style={styles.group}>
-      {label ? <Text style={styles.groupLabel}>{label}</Text> : null}
-      <View style={styles.card}>{children}</View>
+    <View style={styles.section}>
+      {label ? <Text style={styles.sectionLabel}>{label}</Text> : null}
+      <View style={[styles.footerGroup, styles.overviewCard]}>{children}</View>
     </View>
   );
 }
@@ -46,7 +45,7 @@ export function SettingsOverviewRow({
   accent,
 }: SettingsOverviewRowProps) {
   const theme = useTheme();
-  const styles = useMemo(() => makeStyles(theme), [theme]);
+  const styles = useMemo(() => makeSettingsStyles(theme), [theme]);
   const color = danger ? theme.danger : accent ? theme.primary : theme.text;
   const accessibilityLabel = value ? `${title}, ${value}` : title;
   const content = (
@@ -55,8 +54,8 @@ export function SettingsOverviewRow({
         <Icon name={icon} size={26} color={color} />
       </View>
       <View style={styles.rowBody}>
-        <Text style={[styles.title, { color }]}>{title}</Text>
-        {value ? <Text style={styles.value}>{value}</Text> : null}
+        <Text style={[styles.rowTitle, { color }]}>{title}</Text>
+        {value ? <Text style={styles.linkValue}>{value}</Text> : null}
       </View>
     </>
   );
@@ -64,7 +63,7 @@ export function SettingsOverviewRow({
   if (!onPress) {
     return (
       <View
-        style={styles.row}
+        style={styles.menuRow}
         accessible
         accessibilityRole="text"
         accessibilityLabel={accessibilityLabel}
@@ -77,7 +76,7 @@ export function SettingsOverviewRow({
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+      style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -87,51 +86,4 @@ export function SettingsOverviewRow({
       {content}
     </Pressable>
   );
-}
-
-function makeStyles(theme: Theme) {
-  return StyleSheet.create({
-    group: {
-      marginTop: Space.xl,
-    },
-    groupLabel: {
-      ...Type.body,
-      fontSize: 17,
-      color: theme.textSecondary,
-      marginHorizontal: Space.gutter,
-      marginBottom: Space.sm,
-    },
-    card: {
-      borderRadius: 28,
-      overflow: "hidden",
-      backgroundColor: theme.bg,
-      gap: 2,
-    },
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      minHeight: 68,
-      paddingHorizontal: Space.gutter,
-      paddingVertical: Space.gutter,
-      gap: Space.gutter,
-      borderRadius: 4,
-      backgroundColor: theme.settingsSurface,
-    },
-    rowPressed: {
-      opacity: 0.65,
-    },
-    rowBody: {
-      flex: 1,
-      gap: 2,
-    },
-    title: {
-      ...Type.body,
-      fontSize: 18,
-    },
-    value: {
-      ...Type.callout,
-      fontWeight: "400",
-      color: theme.textSecondary,
-    },
-  });
 }

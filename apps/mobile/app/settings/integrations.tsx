@@ -62,7 +62,7 @@ export default function ConnectedAppsScreen() {
           styles={s}
           theme={theme}
         />
-        <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
+        <View style={s.menuSeparator} />
         <SettingsLinkRow
           leading={<ConnectedAppMark name="mail" color={theme.brand.gmail} />}
           title={t("settings.gmail_title")}
