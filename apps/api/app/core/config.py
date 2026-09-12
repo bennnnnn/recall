@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     mcp_tool_loop_enabled: bool = True
     mcp_tool_loop_max_rounds: int = 2
     mcp_tool_loop_timeout_seconds: float = 8.0
+    # Tool selection returns calls or a no-tool decision, not the final answer.
+    mcp_tool_loop_probe_max_tokens: int = 1024
     mcp_tool_loop_max_calls_per_round: int = 4
     mcp_tool_loop_invoke_timeout_seconds: float = 20.0
 

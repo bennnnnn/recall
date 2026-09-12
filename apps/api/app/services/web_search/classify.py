@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from app.core.config import Settings
@@ -20,14 +21,22 @@ async def classify_web_search_need(
     prior_user_messages: list[str] | None = None,
 ) -> WebSearchClassification | None:
     """Cheap structured gate for ambiguous turns — regex handles obvious cases."""
-    if mock_llm.should_mock_llm(settings):
-        return await mock_llm.mock_web_search_classification(
-            user_message,
-            prior_user_messages=prior_user_messages,
-        )
-
-    redis = get_redis_client()
-    if await quota_service.global_spend_exceeded(redis, settings):
+    budget = settings.web_search_classifier_timeout_seconds
+    if budget <= 0:
+        return None
+    deadline = asyncio.get_running_loop().time() + budget
+    try:
+        async with asyncio.timeout_at(deadline):
+            if mock_llm.should_mock_llm(settings):
+                return await mock_llm.mock_web_search_classification(
+                    user_message,
+                    prior_user_messages=prior_user_messages,
+                )
+            redis = get_redis_client()
+            if await quota_service.global_spend_exceeded(redis, settings):
+                return None
+    except TimeoutError:
+        logger.debug("Web-search classifier spend check exceeded its foreground budget")
         return None
 
     context_lines: list[str] = []
@@ -65,19 +74,29 @@ async def classify_web_search_need(
             ),
         },
     ]
-    result = await litellm_gateway.complete_structured(
-        settings=settings,
-        model_alias="memory-model",
-        messages=messages,
-        schema=WebSearchClassification,
-        max_tokens=64,
-        timeout_seconds=settings.web_search_classifier_timeout_seconds,
-        allow_fallback=False,
-    )
     try:
-        await quota_service.record_global_spend(
-            redis, quota_service.WEB_SEARCH_CLASSIFIER_SPEND_USD
-        )
+        async with asyncio.timeout_at(deadline):
+            result = await litellm_gateway.complete_structured(
+                settings=settings,
+                model_alias="memory-model",
+                messages=messages,
+                schema=WebSearchClassification,
+                max_tokens=64,
+                timeout_seconds=settings.web_search_classifier_timeout_seconds,
+                allow_fallback=False,
+            )
+    except TimeoutError:
+        logger.debug("Web-search classifier exceeded its foreground budget")
+        return None
+    try:
+        # All IO shares one deadline. A valid verdict survives an accounting
+        # timeout; bookkeeping must not turn a known live-search need into no.
+        async with asyncio.timeout_at(deadline):
+            await quota_service.record_global_spend(
+                redis, quota_service.WEB_SEARCH_CLASSIFIER_SPEND_USD
+            )
+    except TimeoutError:
+        logger.warning("Web-search classifier accounting exceeded its foreground budget")
     except Exception:
         logger.exception("record_global_spend failed after web-search classifier")
     return result

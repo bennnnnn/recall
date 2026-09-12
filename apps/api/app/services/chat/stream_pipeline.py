@@ -12,6 +12,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
+from app.services.chat.tool_gate import should_classify_tool_web_search
 from app.services.chat.turn_prep import StreamContext, await_user_message_persist
 
 logger = logging.getLogger(__name__)
@@ -96,20 +97,31 @@ async def run_tool_loop_path(
         settings=settings,
         user=ctx.user,
     ):
-        if settings.web_search_enabled and not sources:
-            from app.services.web_search.detection import should_web_search
-            from app.services.web_search.subject import (
-                _prior_user_messages,
-                last_assistant_content,
-            )
+        if should_classify_tool_web_search(
+            content,
+            settings,
+            lightweight=lightweight,
+            has_instant_reply=has_instant,
+            has_verified_math=has_verified,
+            has_search_sources=has_sources,
+            user=ctx.user,
+        ):
+            if isinstance(ctx.web_search_classified, bool):
+                web_search_flag = ctx.web_search_classified
+            else:
+                from app.services.web_search.detection import should_web_search
+                from app.services.web_search.subject import (
+                    _prior_user_messages,
+                    last_assistant_content,
+                )
 
-            prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
-            web_search_flag = await should_web_search(
-                content,
-                settings,
-                prior_user_messages=_prior_user_messages(prompt, content) or None,
-                prior_assistant=last_assistant_content(prompt),
-            )
+                prompt = ctx.prompt_messages if isinstance(ctx.prompt_messages, list) else []
+                web_search_flag = await should_web_search(
+                    content,
+                    settings,
+                    prior_user_messages=_prior_user_messages(prompt, content) or None,
+                    prior_assistant=last_assistant_content(prompt),
+                )
         if not tool_loop_service.turn_needs_tool_loop(
             content,
             lightweight=lightweight,
@@ -164,6 +176,10 @@ async def run_llm_token_stream(
     requested_model = ctx.model
     started = time.perf_counter()
     stream_ok = False
+    if ctx.timing is not None:
+        # Reserve top-up and the tool loop have finished. The interval from
+        # here includes gateway routing/retries, not only upstream inference.
+        ctx.timing.mark_phase("gateway_request_start")
     llm_stream = seams.litellm_gateway.stream_chat_completion(
         settings=settings,
         model_alias=ctx.model,
@@ -479,15 +495,21 @@ async def stream_and_finalize(
                 ):
                     yield token
             else:
-                await run_tool_loop_path(
-                    seams,
-                    redis,
-                    settings,
-                    ctx,
-                    usage=usage,
-                    on_status=on_status,
-                    should_cancel=should_cancel,
-                )
+                if ctx.timing is not None:
+                    ctx.timing.mark_phase("tool_loop_start")
+                try:
+                    await run_tool_loop_path(
+                        seams,
+                        redis,
+                        settings,
+                        ctx,
+                        usage=usage,
+                        on_status=on_status,
+                        should_cancel=should_cancel,
+                    )
+                finally:
+                    if ctx.timing is not None:
+                        ctx.timing.mark_phase("tool_loop_done")
                 if ctx.terminal_image_content and ctx.terminal_image_message_id:
                     if result is not None:
                         result["message_id"] = ctx.terminal_image_message_id

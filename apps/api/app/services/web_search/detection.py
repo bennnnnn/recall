@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
 from app.services import calendar as calendar_service
@@ -34,6 +36,8 @@ from app.services.web_search.subject import (
     _prior_searchable_topic,
     resolve_search_subject,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def web_search_skip(
@@ -146,11 +150,16 @@ async def classify_web_search(
         return None
     from app.services.web_search.classify import classify_web_search_need
 
-    return await classify_web_search_need(
-        settings,
-        text,
-        prior_user_messages=prior_user_messages,
-    )
+    try:
+        return await classify_web_search_need(
+            settings,
+            text,
+            prior_user_messages=prior_user_messages,
+        )
+    except Exception:
+        logger.warning("Web-search classifier failed; using heuristic", exc_info=True)
+    # CancelledError intentionally propagates: stopping a turn cancels its IO.
+    return None
 
 
 async def should_web_search(

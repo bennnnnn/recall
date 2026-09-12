@@ -32,6 +32,7 @@ from app.services.chat.prompt_builder import (
 )
 from app.services.chat.prompt_constants import attach_chemistry_fence_hint
 from app.services.chat.stream_status import StreamStatusFn
+from app.services.chat.tool_gate import should_classify_tool_web_search
 from app.services.chat.turn_prep.integrations import (
     _load_has_calendar_write,
     _load_prior_user_messages,
@@ -117,6 +118,8 @@ class StreamContext:
     # finalize and stream teardown await it so the assistant insert cannot
     # commit first and so a failed prompt still keeps what the user sent.
     user_message_persist: asyncio.Task[list[str]] | None = None
+    # None means no verdict was prefetched; False is a completed negative.
+    web_search_classified: bool | None = None
     # Set when the tool loop's generate_image persisted the assistant row —
     # stream_and_finalize skips the LLM + second insert.
     terminal_image_message_id: str | None = None
@@ -139,6 +142,7 @@ class TurnPromptBundle:
     local_tz: str
     verified_math: VerifiedMathBlock | None = None
     math_unverified: bool = False
+    web_search_classified: bool | None = None
 
 
 def stream_context_from_bundle(
@@ -192,6 +196,7 @@ def stream_context_from_bundle(
         # prior assistant would mark "yes"/"go" as greetings again.
         lightweight_turn=bundle.lightweight,
         rich_context_turn=bundle.rich_context,
+        web_search_classified=getattr(bundle, "web_search_classified", None),
         indexable_attachment_ids=list(indexable_attachment_ids or []),
         user_message_persist=user_message_persist,
     )
@@ -518,6 +523,7 @@ async def build_stream_prompt_context(
             write_coro = _load_has_calendar_write(user.id)
 
     integration_blocks: list[str] = []
+    web_search_classified: bool | None = None
     web_block: str | None = None
     math_block: str | None = None
     chem_block: str | None = None
@@ -535,8 +541,45 @@ async def build_stream_prompt_context(
     if write_coro is not None:
         fetch_jobs.append(write_coro)
         fetch_keys.append("cal_write")
+    if (
+        fetch_jobs
+        and not needs_math
+        and settings.web_search_classifier_enabled
+        and should_classify_tool_web_search(
+            content,
+            settings,
+            lightweight=mode.lightweight,
+            has_instant_reply=instant_reply is not None,
+            has_verified_math=False,
+            has_search_sources=False,
+            user=user,
+        )
+    ):
+        from app.services.web_search.detection import should_web_search
+
+        # Only overlap existing Phase B work. Math may still produce a direct
+        # reply, so defer its eligibility until the final gate sees that result.
+        # This remains on the critical path when it outlasts the other fetches.
+        fetch_jobs.append(
+            should_web_search(
+                content,
+                settings,
+                prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
+                prior_assistant=last_assistant_content(prompt_messages),
+            )
+        )
+        fetch_keys.append("classify")
     if fetch_jobs:
-        fetched = await asyncio.gather(*fetch_jobs)
+        fetch_tasks = [asyncio.ensure_future(job) for job in fetch_jobs]
+        try:
+            fetched = await asyncio.gather(*fetch_tasks)
+        except BaseException:
+            # gather does not cancel siblings when one fetch raises. Own all
+            # Phase B work so paid classification cannot outlive failed prep.
+            for task in fetch_tasks:
+                task.cancel()
+            await asyncio.gather(*fetch_tasks, return_exceptions=True)
+            raise
         by_key = dict(zip(fetch_keys, fetched, strict=True))
         if "integration" in by_key:
             integration_blocks = by_key["integration"]
@@ -548,6 +591,8 @@ async def build_stream_prompt_context(
             chem_block = by_key["chem"]
         if "cal_write" in by_key:
             has_calendar_write = by_key["cal_write"]
+        if "classify" in by_key:
+            web_search_classified = by_key["classify"]
 
     # Phase C: inject in the stable order (integration -> web -> math) so the
     # final prompt is byte-identical to the prior serial pipeline.
@@ -603,4 +648,5 @@ async def build_stream_prompt_context(
         local_tz=local_tz,
         verified_math=verified_math,
         math_unverified=math_unverified,
+        web_search_classified=web_search_classified,
     )

@@ -52,10 +52,16 @@ class TurnTimingTracker:
             if self._first_token_ms is not None and self._prompt_ready_ms is not None
             else None
         )
+        gateway_start = self._phases_ms.get("gateway_request_start")
+        gateway_to_first_token = (
+            round(max(0.0, self._first_token_ms - gateway_start), 1)
+            if self._first_token_ms is not None and gateway_start is not None
+            else None
+        )
         logger.info(
             "chat_stream_timing user_id=%s chat_id=%s model=%s lightweight=%s "
             "content_chars=%s prompt_ready_ms=%s first_token_ms=%s "
-            "post_prompt_first_token_ms=%s phases_ms=%s",
+            "post_prompt_first_token_ms=%s gateway_to_first_token_ms=%s phases_ms=%s",
             user_id,
             chat_id,
             model,
@@ -64,5 +70,6 @@ class TurnTimingTracker:
             prompt_ready,
             first_token,
             post_prompt_first_token,
+            gateway_to_first_token,
             {phase: round(ms, 1) for phase, ms in self._phases_ms.items()},
         )
