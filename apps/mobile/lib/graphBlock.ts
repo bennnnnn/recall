@@ -504,6 +504,34 @@ export function schoolViewBounds(
   };
 }
 
+/** Expand a chosen window so one x unit and one y unit occupy equal pixels. */
+export function equalScaleGraphBounds(
+  bounds: ReturnType<typeof graphBounds>,
+  plotAspect: number,
+): ReturnType<typeof graphBounds> {
+  const xSpan = bounds.xMax - bounds.xMin;
+  const ySpan = bounds.yMax - bounds.yMin;
+  if (!(plotAspect > 0) || !Number.isFinite(plotAspect) ||
+    !(xSpan > 0) || !(ySpan > 0) ||
+    !Number.isFinite(xSpan) || !Number.isFinite(ySpan)) return bounds;
+  if (xSpan / ySpan < plotAspect) {
+    const extra = (ySpan * plotAspect - xSpan) / 2;
+    const xMin = bounds.xMin - extra;
+    const xMax = bounds.xMax + extra;
+    if (Number.isFinite(xMin) && Number.isFinite(xMax) && Number.isFinite(xMax - xMin)) {
+      return { ...bounds, xMin, xMax };
+    }
+  } else {
+    const extra = (xSpan / plotAspect - ySpan) / 2;
+    const yMin = bounds.yMin - extra;
+    const yMax = bounds.yMax + extra;
+    if (Number.isFinite(yMin) && Number.isFinite(yMax) && Number.isFinite(yMax - yMin)) {
+      return { ...bounds, yMin, yMax };
+    }
+  }
+  return bounds;
+}
+
 /** Even ticks inside a view window (e.g. −6, −4, …, 6). */
 export function graphAxisTicks(min: number, max: number, maxCount = 7, fractional = false): number[] {
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return [];

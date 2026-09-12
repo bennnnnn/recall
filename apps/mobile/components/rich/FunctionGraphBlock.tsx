@@ -7,6 +7,7 @@ import { CartesianAxes } from "@/components/rich/CartesianAxes";
 import { NumberLineChart } from "@/components/rich/NumberLineChart";
 import { InequalityGraphChart } from "@/components/rich/InequalityGraphChart";
 import {
+  equalScaleGraphBounds,
   expandBoundsForAxes,
   formatGraphExpr,
   formatInequalityExpr,
@@ -104,8 +105,11 @@ export function FunctionGraphBlock({ content }: Props) {
         },
         { pad: false },
       )
-    : schoolViewBounds(
-        graphBounds(spec.points, hasCurve2 ? spec.points2 : undefined),
+    : equalScaleGraphBounds(
+        schoolViewBounds(
+          graphBounds(spec.points, hasCurve2 ? spec.points2 : undefined),
+          plotAspect,
+        ),
         plotAspect,
       );
   // A single point (or points sharing an x) has no line to draw — a
@@ -158,14 +162,6 @@ export function FunctionGraphBlock({ content }: Props) {
           mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT),
         )
       : [];
-  const origin = mapGraphPoint(0, 0, bounds, chartWidth, CHART_HEIGHT);
-  const showVertex =
-    !isVerticalLine &&
-    bounds.xMin <= 0 &&
-    bounds.xMax >= 0 &&
-    bounds.yMin <= 0 &&
-    bounds.yMax >= 0 &&
-    spec.points.some(([x, y]) => Math.abs(x) < 0.35 && Math.abs(y) < 0.35);
   const curveColor2 = theme.text;
   const clip = `url(#${clipId})`;
 
@@ -200,6 +196,7 @@ export function FunctionGraphBlock({ content }: Props) {
           gridColor={theme.border}
           xName={spec.variable ?? "x"}
           yName="y"
+          fractionalTicks
         />
         <G clipPath={clip}>
         {segmentPolylines ? (
@@ -253,16 +250,6 @@ export function FunctionGraphBlock({ content }: Props) {
         {markers2.map(({ px, py }, i) => (
           <Circle key={`c2-${i}`} cx={px} cy={py} r={4} fill={curveColor2} />
         ))}
-        {showVertex ? (
-          <Circle
-            cx={origin.px}
-            cy={origin.py}
-            r={5}
-            fill={theme.surface}
-            stroke={theme.primary}
-            strokeWidth={2}
-          />
-        ) : null}
       </Svg>
     </View>
   );
