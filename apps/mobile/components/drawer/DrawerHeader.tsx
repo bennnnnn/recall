@@ -46,7 +46,7 @@ export function DrawerHeader({
       <View style={s.header}>
         {searchOpen ? (
           <View style={s.searchBar}>
-            <Icon name="search-outline" size={18} color={theme.textSecondary} />
+            <Icon name="search-outline" size={18} color={theme.text} />
             <TextInput
               ref={searchInputRef}
               style={s.searchInput}
@@ -115,7 +115,7 @@ export function DrawerHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("search.open_accessibility")}
               >
-                <Icon name="search-outline" size={IconSize.sm} color={theme.textSecondary} />
+                <Icon name="search-outline" size={IconSize.sm} color={theme.text} />
               </Pressable>
             </View>
           </View>

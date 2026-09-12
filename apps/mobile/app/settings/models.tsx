@@ -7,21 +7,12 @@ import { useTranslation } from "react-i18next";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import {
   makeSettingsStyles,
-  SettingsDisclosureRow,
   SettingsGroup,
   SettingsSwitchRow,
-  SettingsValueRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
-import { useUsage } from "@/hooks/useUsage";
-import {
-  formatTokenCount,
-  promptWindowMessages,
-  promptWindowTokens,
-  usageUsedTokens,
-} from "@/lib/quota";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
@@ -48,8 +39,6 @@ export default function ModelsSettingsScreen() {
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const usage = useUsage();
   const [draft, setDraft] = useState<DraftPrefs | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const savingRef = useRef(false);
@@ -105,39 +94,12 @@ export default function ModelsSettingsScreen() {
     patchPreferences(effectiveAuto, next, modelId);
   };
 
-  const used = usage ? usageUsedTokens(usage) : 0;
-  const limit = usage?.daily_limit ?? 0;
-  const usagePct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-
   return (
     <>
       <ScrollView
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
-        <SettingsGroup label={t("settings.usage_group")} styles={s}>
-          <View style={s.menuRow}>
-            <View style={s.rowBody}>
-              <Text style={s.rowTitle}>{t("settings.usage_daily")}</Text>
-              <Text style={s.meta}>
-                {usage
-                  ? t("settings.usage_today_value", {
-                      used: formatTokenCount(used),
-                      limit: formatTokenCount(limit),
-                    })
-                  : " "}
-              </Text>
-              <View
-                style={s.usageTrack}
-                accessibilityRole="progressbar"
-                accessibilityValue={{ min: 0, max: 100, now: usagePct }}
-              >
-                <View style={[s.usageFill, { width: `${usagePct}%` }]} />
-              </View>
-            </View>
-          </View>
-        </SettingsGroup>
-
         <SettingsGroup styles={s}>
           <SettingsSwitchRow
             title={t("settings.model_auto")}
@@ -203,63 +165,6 @@ export default function ModelsSettingsScreen() {
             );
           })}
         </SettingsGroup>
-
-        {__DEV__ ? (
-          <SettingsGroup styles={s}>
-            <SettingsDisclosureRow
-              title={t("settings.advanced")}
-              expanded={advancedOpen}
-              onToggle={() => setAdvancedOpen((open) => !open)}
-              styles={s}
-              theme={theme}
-            />
-            {advancedOpen ? (
-              <>
-                <View style={s.menuSeparator} />
-                <SettingsValueRow
-                  title={t("settings.usage_split")}
-                  value={
-                    usage
-                      ? t("settings.usage_today_split", {
-                          input: formatTokenCount(usage.input_tokens),
-                          output: formatTokenCount(usage.output_tokens),
-                        })
-                      : undefined
-                  }
-                  styles={s}
-                  theme={theme}
-                />
-                <View style={s.menuSeparator} />
-                <SettingsValueRow
-                  title={t("settings.prompt_window")}
-                  value={t("settings.prompt_window_value", {
-                    tokens: formatTokenCount(promptWindowTokens(usage)),
-                  })}
-                  subtitle={t("settings.prompt_window_summary", {
-                    count: promptWindowMessages(usage),
-                  })}
-                  styles={s}
-                  theme={theme}
-                />
-                {models.map((option) =>
-                  option.latency_p50_ms != null && option.latency_p50_ms > 0 ? (
-                    <View key={`latency-${option.id}`}>
-                      <View style={s.menuSeparator} />
-                      <SettingsValueRow
-                        title={option.label}
-                        value={t("settings.model_latency", {
-                          ms: option.latency_p50_ms,
-                        })}
-                        styles={s}
-                        theme={theme}
-                      />
-                    </View>
-                  ) : null,
-                )}
-              </>
-            ) : null}
-          </SettingsGroup>
-        ) : null}
       </ScrollView>
       <UpgradeSheet
         visible={upgradeVisible}

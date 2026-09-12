@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Avatar } from "@/components/Avatar";
-import { Icon } from "@/components/Icon";
+import { StackBackButton } from "@/components/StackBackButton";
+import { AccountSettingsSection } from "@/components/settings/AccountSettingsSection";
+import { AppearanceSettingsRow } from "@/components/settings/AppearanceSettingsRow";
+import { SettingsProfile } from "@/components/settings/SettingsProfile";
 import {
-  makeSettingsStyles,
-  SettingsGroup,
-  SettingsLinkRow,
-} from "@/components/settings/settingsUi";
-import { useAppearance } from "@/contexts/AppearanceContext";
+  SettingsOverviewGroup,
+  SettingsOverviewRow,
+} from "@/components/settings/SettingsOverview";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
 import { prefetchMemories } from "@/lib/cache/memoryListCache";
@@ -20,18 +20,16 @@ import {
   fetchIntegrationStatus,
   getCachedConnectedCount,
 } from "@/lib/cache/integrationStatusCache";
-import { getDisplayName } from "@/lib/profile";
 import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 import { Space } from "@/lib/space";
-import { useTheme } from "@/lib/theme";
+import { type Theme, useTheme } from "@/lib/theme";
 
 export default function SettingsScreen() {
   const { token, user, signOut } = useAuth();
   const { t } = useTranslation();
   const { isPro, autoEnabled, modelEnabledSet } = useModels();
-  const { preference: appearancePreference } = useAppearance();
   const theme = useTheme();
-  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -66,8 +64,6 @@ export default function SettingsScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
-  const planLabel = isPro ? t("settings.account_pro") : t("settings.account_free");
-  const displayName = getDisplayName(user?.name, t("common.you"));
   const memoryValue = user?.memory_enabled ? t("settings.on") : t("settings.off");
   const modelsValue = autoEnabled
     ? t("settings.model_auto")
@@ -89,163 +85,141 @@ export default function SettingsScreen() {
     <View style={s.root}>
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
+        contentContainerStyle={[
+          s.content,
+          { paddingTop: insets.top + Space.md, paddingBottom: insets.bottom + Space.xl },
+        ]}
       >
-        <Pressable
-          style={({ pressed }) => [s.profileHeader, pressed && s.rowPressed]}
-          onPress={() => router.push("/settings/profile")}
-          accessibilityRole="button"
-          accessibilityLabel={t("settings.account")}
-        >
-          <View style={s.profileAvatarWrap}>
-            <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={60} />
-          </View>
-          <View style={s.profileMeta}>
-            <Text style={s.profileName} numberOfLines={1}>
-              {displayName}
-            </Text>
-            {user?.email ? (
-              <Text style={s.profileEmail} numberOfLines={1}>
-                {user.email}
-              </Text>
-            ) : null}
-            <View style={s.planPill}>
-              <Text style={s.planPillText}>{planLabel}</Text>
-            </View>
-          </View>
-          <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
-        </Pressable>
+        <View style={s.profileHeader}>
+          <StackBackButton
+            icon="arrow-back"
+            style={s.backButton}
+          />
+          <SettingsProfile />
+        </View>
 
-        <SettingsGroup label={t("settings.experience")} styles={s}>
-          <SettingsLinkRow
-            icon="contrast-outline"
-            title={t("settings.appearance")}
-            subtitle={t("settings.appearance_summary")}
-            value={t(`settings.appearance_${appearancePreference}`)}
-            onPress={() => router.push("/settings/appearance")}
-            styles={s}
-            theme={theme}
-          />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
-            icon="color-palette-outline"
+        <SettingsOverviewGroup label={t("settings.experience")}>
+          <AppearanceSettingsRow />
+          <SettingsOverviewRow
+            icon="person-circle-outline"
             title={t("settings.personalization")}
-            subtitle={t("settings.personalization_summary")}
+            accessibilityHint={t("settings.personalization_summary")}
             onPress={() => router.push("/settings/preferences")}
-            styles={s}
-            theme={theme}
           />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
+          <SettingsOverviewRow
             icon="cube-outline"
             title={t("settings.memory")}
-            subtitle={t("settings.memory_desc")}
+            accessibilityHint={t("settings.memory_desc")}
             value={memoryValue}
             onPress={() => {
               if (token) prefetchMemories(token);
               router.push("/settings/memory-settings");
             }}
-            styles={s}
-            theme={theme}
           />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
-            icon="volume-high-outline"
-            title={t("settings.voice")}
-            subtitle={t("settings.voice_summary")}
-            onPress={() => router.push("/settings/voice")}
-            styles={s}
-            theme={theme}
-          />
-        </SettingsGroup>
+        </SettingsOverviewGroup>
 
-        <SettingsGroup label={t("settings.connections")} styles={s}>
-          <SettingsLinkRow
+        <AccountSettingsSection isPro={isPro} />
+
+        <SettingsOverviewGroup label={t("settings.connections")}>
+          <SettingsOverviewRow
             icon="notifications-outline"
             title={t("settings.notifications")}
-            subtitle={t("settings.notifications_summary")}
+            accessibilityHint={t("settings.notifications_summary")}
             value={notificationsValue}
             onPress={() => router.push("/settings/notifications")}
-            styles={s}
-            theme={theme}
           />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
+          <SettingsOverviewRow
             icon="link-outline"
             title={t("settings.connected_apps")}
-            subtitle={t("settings.connected_apps_summary")}
+            accessibilityHint={t("settings.connected_apps_summary")}
             value={integrationsValue}
             onPress={() => router.push("/settings/integrations")}
-            styles={s}
-            theme={theme}
           />
-        </SettingsGroup>
+        </SettingsOverviewGroup>
 
-        <SettingsGroup label={t("settings.advanced")} styles={s}>
-          <SettingsLinkRow
+        <SettingsOverviewGroup label={t("settings.models_and_usage")}>
+          <SettingsOverviewRow
             icon="sparkles-outline"
             title={t("settings.model")}
-            subtitle={t("settings.model_summary")}
+            accessibilityHint={t("settings.model_summary")}
             value={modelsValue}
             onPress={() => router.push("/settings/models")}
-            styles={s}
-            theme={theme}
           />
-        </SettingsGroup>
+          <SettingsOverviewRow
+            icon="bar-chart-outline"
+            title={t("settings.usage_group")}
+            onPress={() => router.push("/settings/usage")}
+          />
+        </SettingsOverviewGroup>
 
-        <SettingsGroup label={t("settings.data_and_privacy")} styles={s}>
-          <SettingsLinkRow
+        <SettingsOverviewGroup label={t("settings.data_and_privacy")}>
+          <SettingsOverviewRow
             icon="shield-outline"
             title={t("settings.data_controls")}
-            subtitle={t("settings.data_controls_summary")}
+            accessibilityHint={t("settings.data_controls_summary")}
             onPress={() => router.push("/settings/data-controls")}
-            styles={s}
-            theme={theme}
           />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
+          <SettingsOverviewRow
             icon="lock-closed-outline"
             title={t("settings.security")}
-            subtitle={t("settings.security_summary")}
+            accessibilityHint={t("settings.security_summary")}
             onPress={() => router.push("/settings/security")}
-            styles={s}
-            theme={theme}
           />
-        </SettingsGroup>
+        </SettingsOverviewGroup>
 
-        <SettingsGroup label={t("settings.support")} styles={s}>
-          <SettingsLinkRow
+        <SettingsOverviewGroup label={t("settings.support")}>
+          <SettingsOverviewRow
             icon="help-circle-outline"
             title={t("settings.help")}
-            subtitle={t("settings.help_summary")}
+            accessibilityHint={t("settings.help_summary")}
             onPress={() => router.push("/settings/help")}
-            styles={s}
-            theme={theme}
           />
-          <View style={[s.menuSeparator, s.menuSeparatorWithIcon]} />
-          <SettingsLinkRow
+          <SettingsOverviewRow
             icon="information-circle-outline"
             title={t("settings.about")}
-            subtitle={t("settings.about_summary")}
+            accessibilityHint={t("settings.about_summary")}
             onPress={() => router.push("/settings/about")}
-            styles={s}
-            theme={theme}
           />
-        </SettingsGroup>
+        </SettingsOverviewGroup>
 
-        <View style={[s.footerGroup, s.signOut]}>
-          <Pressable
-            style={({ pressed }) => [s.signOutRow, pressed && s.rowPressed]}
+        <SettingsOverviewGroup>
+          <SettingsOverviewRow
+            icon="log-out-outline"
+            title={t("settings.sign_out")}
+            danger
             onPress={async () => {
               await signOut();
               router.replace("/login");
             }}
-            accessibilityRole="button"
-          >
-            <Text style={s.signOutText}>{t("settings.sign_out")}</Text>
-          </Pressable>
-        </View>
+          />
+        </SettingsOverviewGroup>
       </ScrollView>
     </View>
   );
+}
+
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: theme.bg },
+    scroll: { flex: 1 },
+    content: { paddingHorizontal: Space.gutter },
+    profileHeader: {
+      alignItems: "center",
+      paddingBottom: Space.xs,
+    },
+    backButton: {
+      position: "absolute",
+      left: 0,
+      marginLeft: 0,
+      top: 0,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: theme.bg,
+      shadowColor: theme.text,
+      shadowOffset: { width: 0, height: Space.xs },
+      shadowOpacity: 0.04,
+      shadowRadius: Space.xl,
+    },
+  });
 }

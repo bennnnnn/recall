@@ -15,7 +15,7 @@ function subScreen(
   return {
     ...header,
     title,
-    headerLeft: () => <StackBackButton fallback="/settings" />,
+    headerLeft: () => <StackBackButton icon="arrow-back" fallback="/settings" />,
   };
 }
 
@@ -33,29 +33,21 @@ export default function SettingsLayout() {
         headerShown: true,
         contentStyle: { backgroundColor: theme.bg },
         headerBackVisible: false,
-        headerLeft: () => <StackBackButton fallback="/" />,
+        headerLeft: () => <StackBackButton icon="arrow-back" fallback="/" />,
       }}
     >
-      <Stack.Screen name="index" options={{ title: t("settings.title") }} />
-      <Stack.Screen
-        name="profile"
-        options={subScreen(t("settings.account"), header)}
-      />
-      <Stack.Screen
-        name="appearance"
-        options={subScreen(t("settings.appearance"), header)}
-      />
+      <Stack.Screen name="index" options={{ title: t("settings.title"), headerShown: false }} />
       <Stack.Screen
         name="models"
         options={subScreen(t("settings.model"), header)}
       />
       <Stack.Screen
-        name="preferences"
-        options={subScreen(t("settings.personalization"), header)}
+        name="usage"
+        options={subScreen(t("settings.usage_group"), header)}
       />
       <Stack.Screen
-        name="voice"
-        options={subScreen(t("settings.voice"), header)}
+        name="preferences"
+        options={subScreen(t("settings.personalization"), header)}
       />
       <Stack.Screen
         name="memory-settings"
@@ -67,10 +59,6 @@ export default function SettingsLayout() {
       />
       <Stack.Screen
         name="integrations"
-        options={subScreen(t("settings.connected_apps"), header)}
-      />
-      <Stack.Screen
-        name="connected-app"
         options={subScreen(t("settings.connected_apps"), header)}
       />
       <Stack.Screen

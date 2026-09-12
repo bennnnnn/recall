@@ -3,16 +3,37 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import String, and_, literal, or_, select
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
+from sqlalchemy.sql.elements import ColumnElement
 
-from app.models.orm import Attachment, Chat, Message
+from app.models.orm import Attachment, Chat, Message, User
 
 # Library is the user's archive. Reference-photo lookup copies (`search`)
 # stay on the chat and are never listed.
 _LIBRARY_SOURCES = ("upload", "generated")
+
+
+def _referenced_as_avatar() -> ColumnElement[bool]:
+    return (
+        select(User.id)
+        .where(
+            User.id == Attachment.user_id,
+            User.avatar_url
+            == literal("/attachments/") + sql_cast(Attachment.id, String) + literal("/file"),
+        )
+        .correlate(Attachment)
+        .exists()
+    )
+
+
+async def hide_from_gallery(session: AsyncSession, row: Attachment) -> None:
+    """The profile-save transaction owns the commit after claiming this photo."""
+    row.library_visible = False
+    await session.flush()
 
 
 def _contains(column: Any, query: str) -> Any:
@@ -132,6 +153,14 @@ async def link_to_message(
         return 0
     from sqlalchemy import update as sql_update
 
+    # Profile saves lock the photo before changing the user's reference. Take
+    # the same lock, then use a fresh statement snapshot to see that reference.
+    await session.execute(
+        select(Attachment.id)
+        .where(Attachment.id.in_(attachment_ids), Attachment.user_id == user_id)
+        .order_by(Attachment.id)
+        .with_for_update()
+    )
     result = cast(
         CursorResult[Any],
         await session.execute(
@@ -140,6 +169,7 @@ async def link_to_message(
                 Attachment.id.in_(attachment_ids),
                 Attachment.user_id == user_id,
                 Attachment.message_id.is_(None),
+                ~_referenced_as_avatar(),
             )
             .values(message_id=message_id)
         ),
@@ -300,6 +330,7 @@ async def list_orphans(
         select(Attachment)
         .where(
             Attachment.message_id.is_(None),
+            ~_referenced_as_avatar(),
             or_(
                 and_(
                     Attachment.verified_at.is_(None),
@@ -379,9 +410,19 @@ async def delete_unlinked_returning(
         return []
     from sqlalchemy import delete as sql_delete
 
+    # Wait for any in-flight profile save before checking the user's avatar in
+    # the DELETE's fresh snapshot. A WHERE subquery alone can see the old user
+    # row while waiting on an attachment lock and delete a newly claimed photo.
+    await session.execute(
+        select(Attachment.id)
+        .where(Attachment.id.in_(ids))
+        .order_by(Attachment.id)
+        .with_for_update()
+    )
     statement = sql_delete(Attachment).where(
         Attachment.id.in_(ids),
         Attachment.message_id.is_(None),
+        ~_referenced_as_avatar(),
     )
     if orphan_only:
         statement = statement.where(

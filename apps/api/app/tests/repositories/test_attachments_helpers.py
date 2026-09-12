@@ -23,7 +23,10 @@ async def test_link_to_message_updates_owned_rows():
     )
 
     assert linked == 2
-    session.execute.assert_awaited_once()
+    assert session.execute.await_count == 2
+    lock_statement, update_statement = [call.args[0] for call in session.execute.await_args_list]
+    assert "FOR UPDATE" in str(lock_statement)
+    assert "users.avatar_url" in str(update_statement)
     session.commit.assert_awaited_once()
 
 

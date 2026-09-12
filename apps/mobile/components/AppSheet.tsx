@@ -39,11 +39,15 @@ type Props = {
   keyboardAvoiding?: boolean;
   /** Render the grabber handle at the top of a bottom sheet. */
   withHandle?: boolean;
+  /** Override the grabber color when using a different sheet surface. */
+  handleColor?: string;
   /**
    * Scrim tap, hardware back, and pan-down all honor this. Defaults to true.
    * Pass false for a blocking sheet — onRequestClose is still wired.
    */
   backdropDismiss?: boolean;
+  /** Optional tint for sheets that soften the background instead of dimming it. */
+  backdropColor?: string;
   /** Extra bottom padding on top of the safe-area inset (e.g. 12 for action sheets). */
   minBottomPadding?: number;
   /**
@@ -63,7 +67,9 @@ export function AppSheet({
   animation,
   keyboardAvoiding = false,
   withHandle,
+  handleColor,
   backdropDismiss = true,
+  backdropColor,
   minBottomPadding = 0,
   floating = false,
   contentContainerStyle,
@@ -120,7 +126,12 @@ export function AppSheet({
     children
   );
 
-  const handle = showHandle ? <View style={s.handle} testID="app-sheet-handle" /> : null;
+  const handle = showHandle ? (
+    <View
+      style={[s.handle, handleColor ? { backgroundColor: handleColor } : undefined]}
+      testID="app-sheet-handle"
+    />
+  ) : null;
 
   const panel = (
     <View
@@ -181,7 +192,7 @@ export function AppSheet({
           testID={keyboardAvoiding ? "app-sheet-keyboard-host" : undefined}
         >
           <Pressable
-            style={s.backdrop}
+            style={[s.backdrop, backdropColor ? { backgroundColor: backdropColor } : undefined]}
             onPress={dismissible ? requestClose : undefined}
             accessibilityLabel={dismissible ? t("common.close") : undefined}
             accessibilityRole={dismissible ? "button" : undefined}

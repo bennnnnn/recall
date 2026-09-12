@@ -1,10 +1,13 @@
 import type { ReactNode } from "react";
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import SettingsScreen from "@/app/settings/index";
-import ProfileSettingsScreen from "@/app/settings/profile";
 
 const mockPush = jest.fn();
+const mockSetPreference = jest.fn();
+const mockUpdateUser = jest.fn();
+const mockPickProfilePhoto = jest.fn();
+const mockUploadPhoto = jest.fn();
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
@@ -22,6 +25,7 @@ jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     token: "tok",
     user: {
+      id: "22222222-2222-4222-8222-222222222222",
       name: "bini",
       email: "dev@recall.local",
       age: 54,
@@ -33,7 +37,7 @@ jest.mock("@/contexts/AuthContext", () => ({
       sign_in_provider: "dev",
     },
     signOut: jest.fn(),
-    updateUser: jest.fn(),
+    updateUser: mockUpdateUser,
   }),
 }));
 jest.mock("@/hooks/useModels", () => ({
@@ -44,7 +48,7 @@ jest.mock("@/hooks/useModels", () => ({
   }),
 }));
 jest.mock("@/contexts/AppearanceContext", () => ({
-  useAppearance: () => ({ preference: "system" }),
+  useAppearance: () => ({ preference: "system", setPreference: mockSetPreference }),
 }));
 jest.mock("@/lib/pushNotifications", () => ({
   getNotificationPermissionGranted: jest.fn(async () => true),
@@ -66,39 +70,134 @@ jest.mock("@/components/UpgradeSheet", () => ({
 jest.mock("@/lib/purchases", () => ({
   restorePurchases: jest.fn(),
 }));
+jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
+jest.mock("@/lib/api", () => ({ api: { cancelAttachment: jest.fn() } }));
+jest.mock("@/lib/profilePhoto", () => ({
+  pickProfilePhoto: (...args: unknown[]) => mockPickProfilePhoto(...args),
+  discardProfilePhoto: jest.fn(),
+}));
+jest.mock("@/lib/attachments", () => ({
+  uploadChatAttachment: (...args: unknown[]) => mockUploadPhoto(...args),
+  PhotoLibraryPermissionError: class extends Error {},
+  NativePickerBusyError: class extends Error {},
+  NativePickerTimeoutError: class extends Error {},
+}));
 jest.mock("@/components/AppSheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
-    AppSheet: ({ children }: { children: ReactNode }) => <RNView>{children}</RNView>,
+    AppSheet: ({ children, visible }: { children: ReactNode; visible: boolean }) =>
+      visible ? <RNView>{children}</RNView> : null,
   };
 });
 
 describe("settings home", () => {
-  it("keeps age, country, and job off the root list", async () => {
-    const { queryByText, getByText, getByLabelText } = await render(<SettingsScreen />);
-    expect(queryByText("settings.age_label")).toBeNull();
-    expect(queryByText("settings.job_label")).toBeNull();
-    expect(queryByText("settings.profile")).toBeNull();
-    expect(getByText("settings.experience")).toBeTruthy();
-    expect(getByLabelText("settings.account")).toBeTruthy();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUpdateUser.mockResolvedValue(undefined);
+    mockSetPreference.mockResolvedValue(undefined);
+    mockPickProfilePhoto.mockResolvedValue(null);
+    mockUploadPhoto.mockResolvedValue("11111111-1111-4111-8111-111111111111");
   });
 
-  it("opens Account from the tappable header", async () => {
-    const { getByLabelText } = await render(<SettingsScreen />);
-    await fireEvent.press(getByLabelText("settings.account"));
-    expect(mockPush).toHaveBeenCalledWith("/settings/profile");
-  });
-});
-
-describe("settings account", () => {
-  it("lists account identity, not about-you fields", async () => {
-    const { getByText, queryByText } = await render(<ProfileSettingsScreen />);
-    expect(getByText("settings.name_label")).toBeTruthy();
-    expect(getByText("settings.email")).toBeTruthy();
-    expect(getByText("settings.sign_in_method")).toBeTruthy();
-    expect(getByText("settings.plan_label")).toBeTruthy();
+  it("keeps account controls outside the profile editor and shows the name once", async () => {
+    const { queryByText, getByText, queryByRole } = await render(<SettingsScreen />);
     expect(queryByText("settings.age_label")).toBeNull();
     expect(queryByText("settings.country_label")).toBeNull();
     expect(queryByText("settings.job_label")).toBeNull();
+    expect(queryByText("settings.profile")).toBeNull();
+    expect(getByText("settings.experience")).toBeTruthy();
+    expect(getByText("settings.account")).toBeTruthy();
+    expect(queryByText("settings.name_label")).toBeNull();
+    expect(getByText("bini")).toBeTruthy();
+    expect(getByText("settings.email")).toBeTruthy();
+    expect(getByText("settings.sign_in_method")).toBeTruthy();
+    expect(getByText("settings.plan_label")).toBeTruthy();
+    expect(getByText("settings.manage_subscription")).toBeTruthy();
+    expect(getByText("settings.restore_purchases")).toBeTruthy();
+    expect(queryByRole("button", { name: "settings.account" })).toBeNull();
+    expect(queryByRole("button", { name: "settings.edit_profile" })).toBeTruthy();
+    expect(queryByRole("button", { name: "bini" })).toBeNull();
+    expect(queryByText("settings.voice")).toBeNull();
+  });
+
+  it("opens the profile editor from the avatar and saves the name without a username field", async () => {
+    const { getByDisplayValue, getByLabelText, queryByTestId, queryByText } =
+      await render(<SettingsScreen />);
+
+    expect(queryByTestId("settings-profile-sheet")).toBeNull();
+    await fireEvent.press(getByLabelText("settings.edit_profile"));
+    expect(queryByTestId("settings-profile-sheet")).toBeTruthy();
+    expect(queryByText("settings.username")).toBeNull();
+    expect(getByLabelText("settings.change_photo")).toBeTruthy();
+    await fireEvent.changeText(getByDisplayValue("bini"), "  Bini  ");
+    await fireEvent.press(getByLabelText("settings.save_profile"));
+
+    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ name: "Bini" }));
+    expect(queryByTestId("settings-profile-sheet")).toBeNull();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("groups Models and Usage together outside Account and opens both directly", async () => {
+    const view = await render(<SettingsScreen />);
+    const modelGroup = view.getByText("settings.models_and_usage").parent!;
+    const accountGroup = view.getByText("settings.account").parent!;
+
+    expect(within(accountGroup).queryByText("settings.usage_group")).toBeNull();
+    expect(view.queryByText("settings.advanced")).toBeNull();
+    await fireEvent.press(within(modelGroup).getByText("settings.model"));
+    expect(mockPush).toHaveBeenCalledWith("/settings/models");
+    await fireEvent.press(within(modelGroup).getByText("settings.usage_group"));
+    expect(mockPush).toHaveBeenCalledWith("/settings/usage");
+  });
+
+  it("previews a chosen photo and uploads it only when Save profile is pressed", async () => {
+    const photo = { localUri: "file:///profile-preview.jpg", contentType: "image/jpeg", fileName: "profile.jpg", kind: "image" };
+    mockPickProfilePhoto.mockResolvedValue(photo);
+    const { getByLabelText, getByTestId } = await render(<SettingsScreen />);
+
+    await fireEvent.press(getByLabelText("settings.edit_profile"));
+    await fireEvent.press(getByLabelText("settings.change_photo"));
+    await waitFor(() => expect(getByTestId("avatar-image", { includeHiddenElements: true }).props.source.uri).toBe(photo.localUri));
+    expect(mockUploadPhoto).not.toHaveBeenCalled();
+    await fireEvent.press(getByLabelText("settings.save_profile"));
+    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({
+      name: "bini",
+      avatar_url: "/attachments/11111111-1111-4111-8111-111111111111/file",
+    }));
+  });
+
+  it("cancels a profile draft without updating the account", async () => {
+    const { getByLabelText, getByDisplayValue, getByText, queryByTestId } = await render(<SettingsScreen />);
+    await fireEvent.press(getByLabelText("settings.edit_profile"));
+    await fireEvent.changeText(getByDisplayValue("bini"), "Another name");
+    await fireEvent.press(getByText("settings.cancel"));
+    expect(queryByTestId("settings-profile-sheet")).toBeNull();
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockUploadPhoto).not.toHaveBeenCalled();
+  });
+
+  it("opens and selects Appearance without navigating to another page", async () => {
+    const { getByText, getByLabelText, queryByTestId } = await render(<SettingsScreen />);
+    expect(queryByTestId("settings-picker-sheet")).toBeNull();
+
+    await fireEvent.press(getByText("settings.appearance"));
+    expect(queryByTestId("settings-picker-sheet")).toBeTruthy();
+    expect(getByLabelText("settings.appearance_system").props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(getByLabelText("settings.appearance_dark"));
+
+    expect(mockSetPreference).toHaveBeenCalledWith("dark");
+    expect(queryByTestId("settings-picker-sheet")).toBeNull();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("closes Appearance when choosing the current option", async () => {
+    const { getByText, getByLabelText, queryByTestId } = await render(<SettingsScreen />);
+    await fireEvent.press(getByText("settings.appearance"));
+    await fireEvent.press(getByLabelText("settings.appearance_system"));
+
+    expect(mockSetPreference).not.toHaveBeenCalled();
+    expect(queryByTestId("settings-picker-sheet")).toBeNull();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

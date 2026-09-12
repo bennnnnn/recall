@@ -2,14 +2,17 @@
 
 import logging
 from typing import Any
+from uuid import UUID
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.jobs import enqueue
+from app.core.validation import normalize_avatar_url
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
+from app.repositories import attachments as attachments_repo
 from app.repositories import users as users_repo
 from app.services import attachment_lifecycle
 from app.services import google_integrations as google_integrations_service
@@ -17,6 +20,7 @@ from app.services import home as home_service
 from app.services import memory as memory_service
 from app.services import plan as plan_service
 from app.services import tokens as tokens_service
+from app.services.attachment_content import MAX_ATTACHMENT_SIZE, is_image_content_type
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +42,34 @@ async def update_account(
             settings,
         )
     memory_toggled = "memory_enabled" in fields and fields["memory_enabled"] != user.memory_enabled
-    updated = await users_repo.update(session, user, **fields)
+    if fields.get("avatar_url"):
+        try:
+            avatar_url = normalize_avatar_url(fields["avatar_url"])
+            if avatar_url is None:
+                raise ValueError("Choose an uploaded photo that has finished uploading.")
+            attachment_id = UUID(avatar_url.split("/")[2])
+            photo = await attachments_repo.get_by_id(
+                session, attachment_id, user.id, for_update=True
+            )
+            if (
+                photo is None
+                or photo.verified_at is None
+                or photo.message_id is not None
+                or photo.source != "upload"
+                or not is_image_content_type(photo.content_type)
+                or not 0 < photo.size_bytes <= MAX_ATTACHMENT_SIZE
+            ):
+                raise ValueError("Choose an uploaded photo that has finished uploading.")
+            fields["avatar_url"] = avatar_url
+            await attachments_repo.hide_from_gallery(session, photo)
+            updated = await users_repo.update(session, user, commit=False, **fields)
+            await session.commit()
+            await session.refresh(updated)
+        except BaseException:
+            await session.rollback()
+            raise
+    else:
+        updated = await users_repo.update(session, user, **fields)
     if memory_toggled:
         await memory_service.invalidate_memory_block(user.id)
     await home_service.invalidate_home_cache(user.id)

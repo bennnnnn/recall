@@ -273,7 +273,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and price; the picker shows available models with a per-1M-token cost hint.
 - ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
   `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded on the model list;
-  p50 latency is under **Advanced**.
+  detailed timing remains available through the API.
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
@@ -349,10 +349,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Slim casual turns** — coaching / chit-chat uses a compact format + math-safety hint (not
   the full visualization/math-solver pack) and skips calendar/gmail-nudge and web/math/chem
   prefetch unless the turn is rich or actually needs search, math, chemistry, or calendar/gmail.
-- ✅ **Prompt token budgeting UI** — Settings → Models shows today's used / daily
-  limit. Input · output split, the server prompt window
-  (`context_token_budget`, last `recent_message_window` messages), and p50
-  latency sit behind **Advanced**. The composer
+- ✅ **Prompt token budgeting UI** — Settings → Usage shows today's used / daily
+  limit. The composer
   shows a local draft estimate when the text is large enough to matter.
 - 🔜 Response caching.
 
@@ -366,36 +364,48 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   bypassed by parallel requests). Free tier default **100k**/day; Pro tier **500k**/day
   (`DAILY_TOKEN_LIMIT` / `DAILY_TOKEN_LIMIT_PRO`).
 - ✅ **Plan-aware enforcement** — quota service reads the user's subscription plan before reserving.
-- ✅ **Usage meter** — today's tokens vs. daily limit shown in Settings.
+- ✅ **Usage meter** — today's tokens vs. daily limit shown in Settings → Models & usage → Usage.
 - ✅ **Real token accounting** — uses the provider's reported usage when available.
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
-- ✅ **Account header** — tappable row (avatar, name, email, Pro/Free) opens Account
-  (name, email, sign-in method, plan). Age / country / job live under Personalization →
-  About you. Persisted on `users` and injected into the chat system prompt
+- ✅ **Account settings** — a centered avatar with a pencil badge opens a profile editor
+  for the display name and photo. A camera badge picks and previews a photo; Save profile
+  persists both changes. The name beneath the avatar is display-only; there is no username.
+  Email, sign-in method, plan, and subscription
+  controls are visible in an Account section on the Settings page. Age / country / job
+  live under Personalization → About you. Persisted on `users` and injected into the chat system prompt
   (see [§6](#6-memory-remembering-the-user)).
-- ✅ **Settings chrome** — Experience / Connections / Advanced / Data & privacy / Support.
+- ✅ **Settings chrome** — Experience / Account / Connections / Models & usage / Data & privacy / Support.
+  The overview and submenus share roomy, softly rounded gray cards, regular-weight labels,
+  and current values beneath row titles. Choice popups and field editors use matching
+  surfaces and spacing. Overview icons are large outlines; overview explanations stay in accessibility hints.
   Sentence-case group labels; nested screens omit row icons except connected-app marks
   and danger/status rows. Learning settings are not on this list (lesson map ⋯).
   Choice rows (appearance, style, tone, language, reminder lead, daily goal) open a
   floating popup — they do **not** expand inside the gray card.
-- ✅ **Appearance** — System / Light / Dark (on-device).
+- ✅ **Appearance** — System / Light / Dark (on-device), opening a floating popup directly
+  from Settings without navigating to another page.
 - ✅ **Personalization** — response length, tone labels, language sheet, custom
   instructions, About you. Stored tone ids stay `soft` / `casual` / `professional` / `funny`.
-- ✅ **Voice & read aloud** — Device voice vs Enhanced voice.
+- 🔜 **Live voice settings** — accent choices are deferred. The former Voice & read aloud
+  settings menu has been removed; message read-aloud and live voice remain available.
 - ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
-- ✅ **Connected apps** — Calendar and Gmail list + detail (connect / disconnect / sync).
+- ✅ **Connected apps** — Calendar and Gmail each show status and Connect / Disconnect
+  directly on one page. Calendar permissions and Gmail sync stay in the same cards;
+  there is no provider detail page. Connect opens Google authorization directly;
+  disconnect retains confirmation because it can also disconnect the other Google service.
 - ✅ **Notifications** — push (On only if pref and OS permission), email reminders,
   quiet hours, reminder lead.
-- ✅ **Models** — Auto, model toggles, daily used/limit bar. Token-window / p50 under
-  Advanced in `__DEV__` only.
+- ✅ **Models** — Auto and model toggles. Developer diagnostics are omitted from this screen.
 - ✅ **Data controls** — archived chats, archive all, delete all chats (Library stays),
   export, use current location, delete account.
 - ✅ **Security** — session list + revoke + sign out of all devices. No MFA.
 - ✅ **Help & feedback** — Report a problem / Send feedback via the OS share sheet
   (version, plan, locale). No fake Help Center URL.
-- ✅ **Usage** — today's token meter on Models.
+- ✅ **Usage** — a sibling menu entry beside Models opens today's token meter and daily limit.
+- ✅ **Sidebar controls** — search uses a translucent white surface and border; the
+  user's profile photo or initials open Settings beside New chat.
 - ✅ **Sign out.**
 - ✅ **Data export** — exports profile + chats + messages + memories + todos + learning projects
   (with items) as JSON via the native share sheet (`GET /auth/me/export`). Shows a progress
@@ -812,6 +822,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   after success (#535).
 
 ### Later / future (not the current coding backlog)
+- 🔜 **Live voice accents** — design a dedicated live voice menu with accent choices.
+  Deferred until a later UI pass; do not restore the old Device / Enhanced read-aloud menu.
 - ✅ **Push-token re-bind hardening** — cross-user Expo token moves require a matching
   install `device_id` (stable id persisted on device; Expo removed `installationId`).
   Mismatched device → 403; successful rebinds log + Sentry breadcrumb. Residual risk:
@@ -878,9 +890,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   `Alert.alert` sweep, and unused UI file cleanup. Do not restyle or
   reintroduce banned UX.
 - ✅ **Mobile consumer polish (audit 2026-09)** — generic `StateView` errors use
-  an alert icon (cloud-offline only for real connectivity); Models diagnostics
-  behind Advanced; quieter chat-header chrome; drawer Settings is a ghost
-  control; Home overdue uses warning, not danger; starter chips have distinct
+  an alert icon (cloud-offline only for real connectivity); a separate Usage page;
+  quieter chat-header chrome; drawer profile opens Settings; Home overdue uses warning,
+  not danger; starter chips have distinct
   icons; composer send/stop/dismiss use `Icon`. Web remains a later project.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:

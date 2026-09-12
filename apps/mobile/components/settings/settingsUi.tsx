@@ -2,20 +2,17 @@ import { ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Switch,
   Text,
   View,
 } from "react-native";
 import { Icon } from "@/components/Icon";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
+import { type SettingsStyles } from "@/components/settings/settingsStyles";
 import { type IoniconName } from "@/lib/icons";
-import { Radius } from "@/lib/radius";
-import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 
-export type SettingsStyles = ReturnType<typeof makeSettingsStyles>;
+export { makeSettingsStyles, type SettingsStyles } from "@/components/settings/settingsStyles";
 
 export function SettingsGroup({
   label,
@@ -40,7 +37,6 @@ function SettingsRowChrome({
   title,
   subtitle,
   value,
-  chevron,
   busy,
   danger,
   styles,
@@ -51,7 +47,6 @@ function SettingsRowChrome({
   title: string;
   subtitle?: string;
   value?: string;
-  chevron?: "forward" | "down" | "up";
   busy?: boolean;
   danger?: boolean;
   styles: SettingsStyles;
@@ -59,25 +54,27 @@ function SettingsRowChrome({
 }) {
   return (
     <>
-      {leading ?? (icon ? <Icon name={icon} danger={danger} /> : null)}
+      {leading || icon ? (
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {leading ?? (icon ? <Icon name={icon} size={26} danger={danger} /> : null)}
+        </View>
+      ) : null}
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>
           {title}
         </Text>
+        {value ? <Text style={styles.linkValue}>{value}</Text> : null}
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
       </View>
-      <View style={styles.linkTrailing}>
-        {value ? (
-          <Text style={styles.linkValue} numberOfLines={1}>
-            {value}
-          </Text>
-        ) : null}
-        {busy ? (
+      {busy ? (
+        <View
+          style={styles.linkTrailing}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
           <ActivityIndicator size="small" color={theme.primary} />
-        ) : chevron ? (
-          <Icon name={`chevron-${chevron}`} size={18} color={theme.textTertiary} />
-        ) : null}
-      </View>
+        </View>
+      ) : null}
     </>
   );
 }
@@ -89,6 +86,8 @@ export function SettingsLinkRow({
   icon,
   leading,
   danger,
+  busy,
+  disabled,
   onPress,
   styles,
   theme,
@@ -99,6 +98,8 @@ export function SettingsLinkRow({
   icon?: IoniconName;
   leading?: ReactNode;
   danger?: boolean;
+  busy?: boolean;
+  disabled?: boolean;
   onPress: () => void;
   styles: SettingsStyles;
   theme: Theme;
@@ -107,7 +108,9 @@ export function SettingsLinkRow({
     <Pressable
       style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
       onPress={onPress}
+      disabled={disabled || busy}
       accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled || busy), busy: Boolean(busy) }}
     >
       <SettingsRowChrome
         icon={icon}
@@ -115,8 +118,8 @@ export function SettingsLinkRow({
         title={title}
         subtitle={subtitle}
         value={value}
-        chevron={danger ? undefined : "forward"}
         danger={danger}
+        busy={busy}
         styles={styles}
         theme={theme}
       />
@@ -153,42 +156,6 @@ export function SettingsValueRow({
         theme={theme}
       />
     </View>
-  );
-}
-
-export function SettingsDisclosureRow({
-  title,
-  subtitle,
-  icon,
-  expanded,
-  onToggle,
-  styles,
-  theme,
-}: {
-  title: string;
-  subtitle?: string;
-  icon?: IoniconName;
-  expanded: boolean;
-  onToggle: () => void;
-  styles: SettingsStyles;
-  theme: Theme;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
-      onPress={onToggle}
-      accessibilityRole="button"
-      accessibilityState={{ expanded }}
-    >
-      <SettingsRowChrome
-        icon={icon}
-        title={title}
-        subtitle={subtitle}
-        chevron={expanded ? "up" : "down"}
-        styles={styles}
-        theme={theme}
-      />
-    </Pressable>
   );
 }
 
@@ -236,7 +203,6 @@ export function SettingsInlinePicker({
           title={title}
           subtitle={subtitle}
           value={value}
-          chevron="down"
           busy={busy}
           styles={styles}
           theme={theme}
@@ -277,7 +243,11 @@ export function SettingsSwitchRow({
 }) {
   const body = (
     <>
-      {icon ? <Icon name={icon} /> : null}
+      {icon ? (
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Icon name={icon} size={26} />
+        </View>
+      ) : null}
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle}>{title}</Text>
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
@@ -311,7 +281,7 @@ export function SettingsSwitchRow({
 
   return (
     <Pressable
-      style={styles.menuRow}
+      style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
       accessibilityRole="switch"
       accessibilityLabel={title}
       accessibilityHint={subtitle}
@@ -324,74 +294,6 @@ export function SettingsSwitchRow({
   );
 }
 
-export function IntegrationPanel({
-  icon,
-  title,
-  subtitle,
-  summary,
-  busy,
-  children,
-  styles,
-  theme,
-  showDivider = true,
-}: {
-  icon: IoniconName;
-  title: string;
-  subtitle?: string;
-  summary: string;
-  busy: boolean;
-  children: ReactNode;
-  styles: SettingsStyles;
-  theme: Theme;
-  showDivider?: boolean;
-}) {
-  return (
-    <View style={showDivider ? styles.integrationPanel : styles.integrationPanelFirst}>
-      <View style={styles.integrationHeader}>
-        <Icon name={icon} />
-        <View style={styles.rowBody}>
-          <Text style={styles.rowTitle}>{title}</Text>
-          {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
-        </View>
-        <View style={styles.linkTrailing}>
-          <Text style={styles.linkValue} numberOfLines={1}>
-            {summary}
-          </Text>
-          {busy ? <ActivityIndicator color={theme.primary} /> : null}
-        </View>
-      </View>
-      <View style={styles.integrationBody}>{children}</View>
-    </View>
-  );
-}
-
-export function SettingsActionButton({
-  label,
-  onPress,
-  danger,
-  disabled,
-  styles,
-}: {
-  label: string;
-  onPress: () => void;
-  danger?: boolean;
-  disabled?: boolean;
-  styles: SettingsStyles;
-}) {
-  return (
-    <Pressable
-      style={styles.linkBtn}
-      onPress={onPress}
-      disabled={disabled}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled) }}
-    >
-      <Text style={danger ? styles.linkBtnDanger : styles.linkBtnText}>{label}</Text>
-    </Pressable>
-  );
-}
-
 export function ConnectedAppMark({
   name,
   color,
@@ -399,283 +301,5 @@ export function ConnectedAppMark({
   name: IoniconName;
   color: string;
 }) {
-  return <Icon name={name} color={color} />;
-}
-
-export function makeSettingsStyles(t: Theme) {
-  return StyleSheet.create({
-    center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: t.bg },
-    root: { flex: 1, backgroundColor: t.bg },
-    scroll: { flex: 1 },
-    content: { padding: Space.md, paddingBottom: Space.xl + Space.xs },
-
-    stickyProfile: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
-      backgroundColor: t.bg,
-    },
-    stickyName: {
-      flex: 1,
-      ...Type.body,
-      fontWeight: "700",
-      color: t.text,
-    },
-    stickyAccount: {
-      ...Type.caption,
-      fontWeight: "700",
-      color: t.textSecondary,
-    },
-
-    rowPressed: { opacity: 0.55 },
-
-    profileHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: 72,
-      marginBottom: Space.sm,
-      paddingVertical: Space.sm,
-      paddingHorizontal: 4,
-    },
-    profileAvatarWrap: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      overflow: "hidden",
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: t.surface,
-    },
-    profileMeta: { flex: 1, minWidth: 0, gap: 2 },
-    profileName: {
-      ...Type.callout,
-      color: t.text,
-    },
-    profileEmail: {
-      ...Type.compact,
-      color: t.textSecondary,
-    },
-    profilePlan: {
-      ...Type.label,
-      color: t.textSecondary,
-    },
-    planPill: {
-      alignSelf: "flex-start",
-      marginTop: 2,
-      paddingHorizontal: 10,
-      paddingVertical: Space.xxs,
-      borderRadius: Radius.full,
-      backgroundColor: t.primaryLight,
-    },
-    planPillPro: {
-      backgroundColor: t.primaryLight,
-    },
-    planPillText: {
-      ...Type.caption,
-      fontWeight: "700",
-      color: t.primary,
-    },
-    planPillTextPro: { color: t.primary },
-    accountPro: { color: t.primary },
-    section: { marginTop: Space.lg },
-    sectionLabel: {
-      ...Type.compact,
-      fontWeight: "600",
-      color: t.textTertiary,
-      marginLeft: Space.xxs,
-      marginBottom: Space.xs,
-    },
-    sectionHint: {
-      ...Type.caption,
-      fontWeight: "400",
-      color: t.textSecondary,
-      marginLeft: Space.xxs,
-      marginBottom: Space.xs,
-    },
-    group: {
-      backgroundColor: t.surface,
-      borderRadius: Radius.lg,
-      padding: Space.sm,
-      gap: Space.xs,
-    },
-
-    subLabel: { ...Type.caption, fontWeight: "400", color: t.textSecondary, marginTop: Space.xs },
-
-    dropdown: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      backgroundColor: t.bg,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: t.border,
-      paddingHorizontal: Space.sm,
-      paddingVertical: 14,
-    },
-    dropdownText: { ...Type.body, fontWeight: "600", color: t.text },
-
-    pickerSheet: {
-      backgroundColor: t.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      paddingHorizontal: Space.md,
-      paddingTop: Space.md,
-      gap: Space.xxs,
-    },
-    pickerTitle: {
-      ...Type.compact,
-      fontWeight: "600",
-      color: t.textTertiary,
-      marginBottom: Space.xs,
-    },
-    pickerOption: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      paddingVertical: 14,
-      paddingHorizontal: Space.xs,
-      borderRadius: Radius.md,
-    },
-    pickerOptionActive: { backgroundColor: t.primaryLight },
-    pickerOptionMain: { flex: 1, gap: 2 },
-    pickerOptionMeta: { ...Type.caption, fontWeight: "400", color: t.textSecondary, lineHeight: 18 },
-    pickerOptionText: { flex: 1, ...Type.body, fontWeight: "600", color: t.text },
-    pickerOptionTextActive: { color: t.primary },
-    pickerOptionDisabled: { opacity: 0.45 },
-    pickerSheetScroll: { maxHeight: "70%" },
-
-    menuRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: Space.sm,
-      minHeight: 52,
-      paddingHorizontal: 14,
-      paddingVertical: 13,
-    },
-    linkTrailing: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      flexShrink: 1,
-      maxWidth: "55%",
-    },
-    linkValue: {
-      ...Type.compact,
-      color: t.textTertiary,
-    },
-    rowBody: { flex: 1 },
-    rowTitle: { ...Type.callout, color: t.text },
-    meta: {
-      ...Type.compact,
-      color: t.textTertiary,
-      marginTop: 1,
-    },
-    usageTrack: {
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: t.border,
-      overflow: "hidden",
-      marginTop: Space.xs,
-    },
-    usageFill: {
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: t.primary,
-    },
-    linkBtn: {
-      minHeight: 44,
-      justifyContent: "center",
-      paddingHorizontal: Space.xxs,
-      paddingVertical: Space.xs,
-    },
-    rowActions: { alignItems: "flex-end", gap: 2 },
-    linkBtnText: { ...Type.secondary, fontWeight: "600", color: t.primary },
-    linkBtnDanger: { ...Type.secondary, fontWeight: "600", color: t.danger },
-
-    integrationPanel: {
-      paddingTop: 10,
-      marginTop: 6,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: t.border,
-    },
-    integrationPanelFirst: {
-      paddingTop: 2,
-    },
-    integrationHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: 52,
-      paddingHorizontal: 14,
-      paddingVertical: 13,
-    },
-    integrationBody: {
-      marginTop: Space.xxs,
-      paddingLeft: 46,
-      paddingRight: 14,
-      paddingBottom: Space.sm,
-      gap: Space.xs,
-    },
-    integrationActions: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "flex-end",
-    },
-
-    signOut: {
-      marginTop: Space.lg,
-    },
-    signOutRow: {
-      paddingVertical: Space.md,
-      alignItems: "center",
-    },
-    signOutText: { ...Type.secondary, color: t.danger, fontWeight: "700" },
-
-    footerBand: {
-      marginTop: Space.lg,
-      marginHorizontal: -Space.md,
-      paddingHorizontal: Space.md,
-      paddingTop: Space.md,
-      paddingBottom: Space.xs,
-      backgroundColor: t.surfaceAlt,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: t.border,
-    },
-    footerGroup: {
-      backgroundColor: t.surface,
-      borderRadius: Radius.xl,
-      overflow: "hidden",
-    },
-    menuStack: { gap: Space.sm },
-    menuSeparator: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: t.border,
-      marginLeft: 14,
-    },
-    menuSeparatorWithIcon: {
-      marginLeft: 46,
-    },
-
-    mKeyboardAvoider: { flex: 1 },
-    mOverlay: { flex: 1, backgroundColor: t.scrim, justifyContent: "center", padding: Space.lg },
-    mSheet: { backgroundColor: t.bg, borderRadius: Radius.sheet, padding: 20, gap: 14 },
-    mTitle: { ...Type.navTitle, color: t.text },
-    mInput: {
-      backgroundColor: t.surface,
-      borderRadius: Radius.md,
-      padding: Space.sm,
-      ...Type.body,
-      color: t.text,
-      borderWidth: 1.5,
-      borderColor: t.primary,
-    },
-    mActions: { flexDirection: "row", gap: Space.xs },
-    mActionBtn: { flex: 1 },
-  });
+  return <Icon name={name} size={26} color={color} />;
 }

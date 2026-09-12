@@ -26,6 +26,11 @@ async def get_by_id(session: AsyncSession, user_id: UUID) -> User | None:
     return await session.get(User, user_id)
 
 
+async def refresh_for_update(session: AsyncSession, user: User) -> None:
+    """Refresh stale profile fields and lock them until the caller commits."""
+    await session.refresh(user, with_for_update=True)
+
+
 async def get_by_google_sub(session: AsyncSession, google_sub: str) -> User | None:
     result = await session.execute(select(User).where(User.google_sub == google_sub))
     return result.scalar_one_or_none()
@@ -80,7 +85,7 @@ async def create(
     return user
 
 
-async def update(session: AsyncSession, user: User, **fields: Any) -> User:
+async def update(session: AsyncSession, user: User, *, commit: bool = True, **fields: Any) -> User:
     """Apply *fields* onto *user*.
 
     Keys present in *fields* are written as-is, including explicit ``None``
@@ -90,8 +95,11 @@ async def update(session: AsyncSession, user: User, **fields: Any) -> User:
     for key, value in fields.items():
         if hasattr(user, key):
             setattr(user, key, value)
-    await session.commit()
-    await session.refresh(user)
+    if commit:
+        await session.commit()
+        await session.refresh(user)
+    else:
+        await session.flush()
     return user
 
 

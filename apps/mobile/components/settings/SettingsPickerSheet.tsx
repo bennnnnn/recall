@@ -7,7 +7,6 @@ import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
 import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -49,6 +48,7 @@ export function SettingsPickerSheet({
     >
       <ScrollView
         style={s.scroll}
+        contentContainerStyle={s.options}
         bounces={false}
         showsVerticalScrollIndicator={false}
         testID="settings-picker-sheet"
@@ -70,7 +70,7 @@ export function SettingsPickerSheet({
               }}
             >
               <Text style={s.optionText}>{option.label}</Text>
-              {active ? <Icon name="checkmark" size={18} color={theme.text} /> : null}
+              {active ? <Icon name="checkmark" size={22} color={theme.primary} /> : null}
             </Pressable>
           );
         })}
@@ -83,31 +83,34 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     sheet: {
       backgroundColor: t.bg,
-      borderRadius: Radius.xl,
+      borderRadius: 28,
       width: "86%",
       maxWidth: 340,
-      paddingVertical: Space.xs,
-      paddingHorizontal: Space.xxs,
+      padding: 0,
     },
     scroll: {
       maxHeight: 360,
+    },
+    options: {
+      gap: 2,
     },
     option: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      gap: Space.sm,
-      minHeight: Space.minTouch,
-      paddingHorizontal: Space.md,
-      paddingVertical: 12,
+      gap: Space.gutter,
+      minHeight: 68,
+      padding: Space.gutter,
+      borderRadius: 4,
+      backgroundColor: t.settingsSurface,
     },
     optionPressed: {
-      opacity: 0.55,
+      opacity: 0.65,
     },
     optionText: {
       flex: 1,
       ...Type.body,
-      fontWeight: "400",
+      fontSize: 18,
       color: t.text,
     },
   });
