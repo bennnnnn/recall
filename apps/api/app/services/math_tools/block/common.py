@@ -27,8 +27,8 @@ class VerifiedMathBlock:
     canonical_answer: str | None = None
     canonical_fences: list[dict[str, Any]] = field(default_factory=list)
     # Force/energy answers are unlabeled quantities — keep the LLM so
-    # MATH_SOLVER_HINT can name the symbol. Geometry/graph already skip
-    # direct reply via their fence type.
+    # MATH_SOLVER_HINT can name the symbol. Geometry stays on the model path;
+    # plain, explicit function plots may return their canonical graph directly.
     allow_direct: bool = True
 
 
