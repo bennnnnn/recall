@@ -193,6 +193,50 @@ def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
     return request.replace(" ", "").replace("^", "**") == expr.replace(" ", "").replace("^", "**")
 
 
+def _can_direct_number_line(verified: VerifiedMathBlock, user_text: str) -> bool:
+    """A whole inequality solve can display its answer and solution set directly."""
+    from app.services.math_service.parse import _rewrite_bare_abs_bars
+    from app.services.math_text_match import prepare
+
+    answer = (verified.canonical_answer or "").strip()
+    fences = _solver_fences(verified)
+    if (
+        len(user_text) > 1000
+        or not answer
+        or len(answer) > _MAX_DIRECT_ANSWER_CHARS
+        or len(fences) != 1
+        or fences[0].get("type") != "number_line"
+    ):
+        return False
+    expr = fences[0].get("expr")
+    request = prepare(user_text)
+    if not isinstance(expr, str) or not expr.strip() or not request:
+        return False
+    if request.lower().startswith("please "):
+        request = request[7:].lstrip()
+    if not request.lower().startswith("solve "):
+        return False
+    request = request[6:].strip()
+    if request.lower().startswith("the inequality "):
+        request = request[15:].lstrip()
+    # Keep factorials and all remaining prose/domain clauses intact. Only
+    # spelling-equivalent operators and whitespace can differ from the exact
+    # inequality the solver used; no new symbolic parsing or prose whitelist.
+    request = request.rstrip(".?")
+
+    def compact(value: str) -> str:
+        return (
+            _rewrite_bare_abs_bars(value)
+            .replace(" ", "")
+            .replace("^", "**")
+            .replace("≤", "<=")
+            .replace("≥", ">=")
+            .replace("\u2212", "-")
+        )
+
+    return compact(request) == compact(expr.rstrip(".?"))
+
+
 def can_direct_verified_math_reply(
     verified: VerifiedMathBlock,
     user_text: str,
@@ -211,6 +255,8 @@ def can_direct_verified_math_reply(
     if wants_math_explanation(user_text):
         return False
     if _can_direct_graph(verified, user_text):
+        return True
+    if _can_direct_number_line(verified, user_text):
         return True
     # Prime factorization has two operation words, which the generic prose
     # counter rejects. Require a whole-request match instead of whitelisting
@@ -238,6 +284,11 @@ def format_direct_math_reply(verified: VerifiedMathBlock) -> str:
         # to render the graph immediately, before the done event arrives.
         return f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
     answer = (verified.canonical_answer or "").strip()
+    if len(fences) == 1 and fences[0].get("type") == "number_line":
+        return (
+            f"```answer\n{answer}\n```\n\n"
+            f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
+        )
     # The answer fence already typesets the result. Emitting a second math
     # paragraph repeats the same answer on the phone. The final newline also
     # lets the streaming client close and render this fence immediately.

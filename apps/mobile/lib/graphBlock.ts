@@ -532,14 +532,33 @@ export function formatAxisNumber(n: number, fractional = false): string {
   return Object.is(rounded, -0) ? "0" : String(rounded);
 }
 
-/** Turn SymPy/Python ``3*x**2 - 12`` into a readable ``3x² - 12``. */
+/** Turn integer ``x**2`` / ``x^2`` powers into readable ``x²`` titles. */
 export function formatGraphExpr(expr: string): string {
   const src = expr.trim();
   let out = "";
   let i = 0;
   while (i < src.length) {
-    if (src[i] === "*" && src[i + 1] === "*") {
-      let j = i + 2;
+    if (src.startsWith("Abs(", i) && (i === 0 || !/[A-Za-z0-9_]/.test(src[i - 1]))) {
+      let depth = 1;
+      let end = i + 4;
+      while (end < src.length && depth > 0) {
+        if (src[end] === "(") depth += 1;
+        else if (src[end] === ")") depth -= 1;
+        end += 1;
+      }
+      const body = src.slice(i + 4, end - 1);
+      // Keep nested calls, existing bars, and incomplete syntax verbatim;
+      // simple arithmetic inside Abs has an unambiguous bar equivalent.
+      if (depth === 0 && body.trim() && /^[A-Za-z0-9_+\-*/^.\s]+$/.test(body)) {
+        out += `|${formatGraphExpr(body)}|`;
+      } else {
+        out += src.slice(i, end);
+      }
+      i = end;
+      continue;
+    }
+    if (src[i] === "^" || (src[i] === "*" && src[i + 1] === "*")) {
+      let j = i + (src[i] === "^" ? 1 : 2);
       let exp = "";
       if (src[j] === "-") {
         exp = "-";
@@ -549,7 +568,9 @@ export function formatGraphExpr(expr: string): string {
         exp += src[j];
         j += 1;
       }
-      const sup = exp && !exp.endsWith("-") ? toSuperscript(exp) : null;
+      const simpleInteger = exp && !exp.endsWith("-") && src[j] !== "." &&
+        src[j] !== "^" && src.slice(j, j + 2) !== "**" && !/^[eE][+-]?\d/.test(src.slice(j));
+      const sup = simpleInteger ? toSuperscript(exp) : null;
       if (sup) {
         out += sup;
         i = j;

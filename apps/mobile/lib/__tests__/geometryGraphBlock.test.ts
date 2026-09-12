@@ -634,6 +634,30 @@ describe("graphBlock", () => {
     expect(formatGraphExpr("y = 3*x**2")).toBe("y = 3x²");
   });
 
+  it("formats integer caret powers in graph and inequality titles", () => {
+    expect(formatGraphExpr("x^2 < 4")).toBe("x² < 4");
+    expect(formatGraphExpr("y = 3*x^2")).toBe("y = 3x²");
+    expect(formatGraphExpr("x^-12 + x^0")).toBe("x⁻¹² + x⁰");
+    expect(formatInequalityExpr(formatGraphExpr("x^2 <= 4"))).toBe("x² ≤ 4");
+  });
+
+  it("formats simple absolute values without losing their expression grouping", () => {
+    expect(formatGraphExpr("Abs(x-2) < 5")).toBe("|x-2| < 5");
+    expect(formatGraphExpr("Abs(2*x-1) <= 3")).toBe("|2x-1| <= 3");
+    expect(formatGraphExpr("Abs(x^2-1)")).toBe("|x²-1|");
+    expect(formatGraphExpr("Abs(x) + Abs(y)")).toBe("|x| + |y|");
+  });
+
+  it.each(["Abs(sin(x))", "Abs((x-2)/3)", "Abs(Abs(x)-2)", "Abs(|x|-2)", "Abs()", "Abs(x-2", "myAbs(x)"])(
+    "preserves unsupported or nonfunction absolute-value syntax: %s",
+    (expr) => expect(formatGraphExpr(expr)).toBe(expr),
+  );
+
+  it.each(["x^2.5", "x^-2.5", "x^2e3", "x^(1/2)", "x^{2}", "x^", "x^-"])(
+    "does not partially typeset an unsupported caret exponent: %s",
+    (expr) => expect(formatGraphExpr(expr)).toBe(expr),
+  );
+
   it("composes formatGraphExpr then formatInequalityExpr for inequality titles", () => {
     expect(formatInequalityExpr(formatGraphExpr("3*x - 6 >= 0"))).toBe("3x - 6 ≥ 0");
   });
