@@ -195,6 +195,10 @@ def test_accumulation_bounds_are_not_a_closed_scalar_limit(query):
 )
 def test_undefined_or_divergent_improper_integrals_keep_explanation(query):
     block = _verified(query)
-    assert block.canonical_answer is not None
-    assert "NaN" in block.canonical_answer or r"\infty" in block.canonical_answer
+    if "1/x^2" in query:
+        assert block.canonical_answer == r"\infty"
+        assert "diverges to positive infinity" in block.text
+    else:
+        assert block.canonical_answer is None
+        assert "did not establish a defined value" in block.text
     assert maybe_direct_math_reply(block, query) is None

@@ -114,6 +114,10 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         calc_op = "factor"
     elif op_word == "expand":
         calc_op = "expand"
+    if calc_op == "integrate" and re.search(r"\bprincipal[\s-]+value\b", cleaned, re.I):
+        # The ordinary integrator does not compute a Cauchy principal value.
+        # Do not strip this qualifier and certify a different mathematical request.
+        return None
     tail = _calc_expr_tail(cleaned)
     raw = _strip_trailing_filler(tail) if tail is not None else cleaned
     raw = _split_find_clause(raw)

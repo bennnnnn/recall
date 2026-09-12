@@ -23,6 +23,7 @@ from app.models.schemas.math import (
 )
 from app.models.schemas.tools import SympyToolInput
 from app.services import math_service, math_tools
+from app.services.math_tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +164,12 @@ class SympyAdapter:
                 expr_result = await self._run_off_loop(fn, expr, variable)
         if expr_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
+        integral_note = None
+        if action == "integrate":
+            undefined_note = undefined_integral_note(expr_result.result)
+            if undefined_note is not None:
+                return ToolResult(name=self.name, content=undefined_note)
+            integral_note = infinite_integral_note(expr_result.result)
         # Parity with the heuristic _verified_block_calculus path: an integral
         # that SymPy couldn't close (it hands back a literal Integral(...) rather
         # than raising) must NOT be asserted as a verified answer. Emit an
@@ -185,9 +192,10 @@ class SympyAdapter:
         answer = expr_result.latex
         if indefinite:
             answer += " + C"
+        prefix = f"{integral_note}\n" if integral_note else ""
         return ToolResult(
             name=self.name,
-            content=_verified_content(f"Result: {answer}\nVerified result: {answer}"),
+            content=_verified_content(f"{prefix}Result: {answer}\nVerified result: {answer}"),
             data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
         )
 
