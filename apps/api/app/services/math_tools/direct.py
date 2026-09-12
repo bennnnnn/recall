@@ -408,14 +408,16 @@ def can_direct_verified_math_reply(
         has_coordinate_vector_request,
         is_closed_coordinate_vector_request,
     )
+    from app.services.math_tools.direct_solids import solid_direct_request
     from app.services.math_tools.direct_statistics import statistics_direct_request
     from app.services.math_tools.direct_units import unit_direct_request
 
     statistics_request = statistics_direct_request(user_text)
     unit_request = unit_direct_request(user_text)
-    if statistics_request is False or unit_request is False:
+    solid_request = solid_direct_request(user_text)
+    if statistics_request is False or unit_request is False or solid_request is False:
         return False
-    if statistics_request or unit_request:
+    if statistics_request or unit_request or solid_request:
         fences = _solver_fences(verified)
         if (
             len(fences) != 1
@@ -431,7 +433,11 @@ def can_direct_verified_math_reply(
     if factorization_request and not _plain_prime_factorization_request(user_text):
         return False
     if not (
-        factorization_request or coordinate_vector_request or statistics_request or unit_request
+        factorization_request
+        or coordinate_vector_request
+        or statistics_request
+        or unit_request
+        or solid_request
     ) and leftover_non_math_request(user_text):
         return False
     answer = (verified.canonical_answer or "").strip()
