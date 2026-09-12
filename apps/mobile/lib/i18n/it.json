@@ -513,6 +513,7 @@
   "rich.answer_a11y": "Risposta: {{text}}",
   "rich.arc_length": "Lunghezza dell’arco:",
   "rich.area": "Area:",
+  "rich.relative_side_lengths": "Lunghezze relative dei lati",
   "rich.callout_important": "Importante",
   "rich.callout_info": "Info",
   "rich.callout_note": "Nota",

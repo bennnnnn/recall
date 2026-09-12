@@ -513,6 +513,7 @@
   "rich.answer_a11y": "Yanıt: {{text}}",
   "rich.arc_length": "Yay uzunluğu:",
   "rich.area": "Alan:",
+  "rich.relative_side_lengths": "Göreli kenar uzunlukları",
   "rich.callout_important": "Önemli",
   "rich.callout_info": "Bilgi",
   "rich.callout_note": "Not",

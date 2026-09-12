@@ -7,6 +7,21 @@ import { GeometryBlock } from "@/components/rich/GeometryBlock";
 // components, not RN's built-in Text — RTL's getByText only matches the
 // latter, so diagram labels are asserted via the serialized render tree.
 describe("GeometryBlock", () => {
+  it("labels angles-only side lengths as relative and omits an invented area", async () => {
+    const content = JSON.stringify({
+      type: "triangle_sides", a: 1, b: 1.7321, c: 2,
+      relative_lengths: true, unit: "units", area: 0.866,
+      labels: { a: "1 cm", b: "1.7321 cm", c: "2 cm", area: "0.87 cm²" },
+    });
+    const { toJSON, queryByTestId, getByTestId } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(getByTestId("sss-relative-label")).toBeOnTheScreen();
+    expect(queryByTestId("sss-area-label")).toBeNull();
+    expect(tree).toContain("Relative side lengths");
+    expect(tree).not.toContain("cm");
+    expect(tree).not.toContain("units²");
+  });
+
   it("renders a rectangle diagram with computed width/height labels", async () => {
     const content = JSON.stringify({ type: "rectangle", width: 6, height: 4, unit: "cm" });
     const { toJSON } = await render(<GeometryBlock content={content} />);

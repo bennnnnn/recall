@@ -663,9 +663,11 @@ function TriangleSidesDiagram({
             fill={theme.textSecondary}
             fontSize={12}
             textAnchor="middle"
-            testID="sss-area-label"
+            testID={spec.relative_lengths ? "sss-relative-label" : "sss-area-label"}
           >
-            {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+            {spec.relative_lengths
+              ? i18n.t("rich.relative_side_lengths")
+              : `${i18n.t("rich.area")}\u00A0${labels.area}`}
           </SvgText>
         </>
       ) : null}

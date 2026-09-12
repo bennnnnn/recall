@@ -406,6 +406,7 @@ def _extract_triangle_angles_intent(cleaned: str) -> MathIntent | None:
     """
     from app.services import math_service
     from app.services import math_text_match as mtm
+    from app.services.math_text_match.literal_geometry import literal_triangle_angles_draw
 
     if mtm.geometry_deferred_for_algebra(cleaned.lower()):
         return None
@@ -421,9 +422,12 @@ def _extract_triangle_angles_intent(cleaned: str) -> MathIntent | None:
         tri_a=side_a,
         tri_b=side_b,
         tri_c=side_c,
+        triangle_relative_lengths=True,
         unit="units",
         operation="solve",
-        wants_angle=True,
+        wants_angle=literal_triangle_angles_draw(cleaned) is None,
+        wants_area=word_index(cleaned.lower(), "area") != -1,
+        wants_perimeter=word_index(cleaned.lower(), "perimeter") != -1,
     )
 
 
@@ -449,6 +453,12 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
 
     # "area of a triangle" is a definition question — do not invent base/height.
     # Defaults only for an explicit draw/show/sketch/visualize request.
+    # A supplied angle list that failed AAA parsing/validation cannot turn
+    # into an unrelated default triangle and its invented area.
+    if (_wants_geometry_angles(lower) or "°" in cleaned) and any(
+        char.isdigit() for char in cleaned
+    ):
+        return None
     if mtm.has_draw_shape(lower, "triangle") and not _requests_geometry_measurement(lower):
         return MathIntent(
             kind="triangle",

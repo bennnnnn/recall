@@ -11,6 +11,7 @@ from app.services.math_text_match.literal_geometry import (
 from app.services.math_text_match.literal_geometry import (
     RIGHT_TRIANGLE_LEGS as _RIGHT_LEGS,
 )
+from app.services.math_text_match.literal_geometry import literal_triangle_angles_draw
 from app.services.math_text_match.literal_geometry import (
     measurement_request as _measurement_request,
 )
@@ -81,6 +82,40 @@ _BASE_HEIGHT = re.compile(rf"base\s+({_DECIMAL})\s+(?:and\s+)?height\s+({_DECIMA
 _THREE_SIDES = re.compile(
     rf"sides\s+({_DECIMAL})\s*,\s*({_DECIMAL})\s*(?:,\s*(?:and\s+)?|and\s+)({_DECIMAL})"
 )
+
+
+def can_direct_triangle_angles(user_text: str, fences: list[dict[str, object]]) -> bool:
+    """Draw one fully specified angle triple, with relative lengths only."""
+    if len(user_text) > 1000 or len(fences) != 1:
+        return False
+    spec = fences[0]
+    if (
+        spec.get("type") != "triangle_sides"
+        or spec.get("relative_lengths") is not True
+        or spec.get("unit") != "units"
+        or spec.get("area") is not None
+        or spec.get("perimeter") is not None
+    ):
+        return False
+    angles = literal_triangle_angles_draw(user_text)
+    if angles is None:
+        return False
+    sides = [_finite_number(spec.get(key)) for key in ("a", "b", "c")]
+    if any(value is None or not 0 < value <= 1_000_000 for value in sides):
+        return False
+    a, b, c = (float(value) for value in sides if value is not None)
+    for opposite, adjacent_a, adjacent_b, angle in (
+        (a, b, c, angles[0]),
+        (b, a, c, angles[1]),
+        (c, a, b, angles[2]),
+    ):
+        cosine = (adjacent_a**2 + adjacent_b**2 - opposite**2) / (2 * adjacent_a * adjacent_b)
+        if not -1 < cosine < 1:
+            return False
+        # Canonical side lengths are rounded to four decimal places.
+        if abs(math.degrees(math.acos(cosine)) - angle) > 0.01:
+            return False
+    return True
 
 
 def can_direct_square_or_triangle(

@@ -513,6 +513,7 @@
   "rich.answer_a11y": "መልስ፦ {{text}}",
   "rich.arc_length": "የቅስት ርዝመት፦",
   "rich.area": "ስፋት፦",
+  "rich.relative_side_lengths": "የጎኖች አንጻራዊ ርዝመቶች",
   "rich.callout_important": "አስፈላጊ",
   "rich.callout_info": "መረጃ",
   "rich.callout_note": "ማስታወሻ",

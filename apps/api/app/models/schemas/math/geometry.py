@@ -218,6 +218,7 @@ class TriangleSidesGeometryBlockSpec(BaseModel):
     a: float = Field(gt=0, le=1_000_000)
     b: float = Field(gt=0, le=1_000_000)
     c: float = Field(gt=0, le=1_000_000)
+    relative_lengths: bool = False
     unit: str = "cm"
     show_labels: bool = True
     show_ticks: bool = True

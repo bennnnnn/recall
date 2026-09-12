@@ -65,6 +65,7 @@ export type TriangleSidesSpec = {
   a: number;
   b: number;
   c: number;
+  relative_lengths?: boolean;
   unit?: string;
   show_labels?: boolean;
   /** Congruence ticks on equal sides (default on when any sides match). */
@@ -280,6 +281,7 @@ function parseTriangleSides(row: Record<string, unknown>): TriangleSidesSpec | n
   if (!a || !b || !c) return null;
   if (a + b <= c || a + c <= b || b + c <= a) return null;
   const spec: TriangleSidesSpec = { type: "triangle_sides", a, b, c };
+  copyFlag(spec, row, "relative_lengths");
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
   copyFlag(spec, row, "show_labels");
@@ -430,6 +432,9 @@ export function computeCircleLabels(spec: CircleSpec): Record<string, string> {
 }
 
 export function computeTriangleSidesLabels(spec: TriangleSidesSpec): Record<string, string> {
+  if (spec.relative_lengths) {
+    return { a: String(spec.a), b: String(spec.b), c: String(spec.c), area: "" };
+  }
   const unit = spec.unit ?? "cm";
   const s = (spec.a + spec.b + spec.c) / 2;
   const area = spec.area ?? Math.sqrt(s * (s - spec.a) * (s - spec.b) * (s - spec.c));

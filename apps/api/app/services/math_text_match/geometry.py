@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import pairwise
 
 from app.services.math_text_match.scan import (
     _NUM,
@@ -273,19 +274,24 @@ def triangle_angles_signal(text: str) -> tuple[float, float, float] | None:
     )
     if not has_angle_cue:
         return None
-    candidates: list[float] = []
-    for match in _NUM.finditer(text):
-        try:
-            value = float(match.group(0))
-        except ValueError:
-            continue
-        if 0 < value < 180:
-            candidates.append(value)
-        if len(candidates) >= 3:
-            break
-    if len(candidates) < 3:
+    matches = list(_NUM.finditer(text))
+    if len(matches) != 3:
         return None
-    angle_a, angle_b, angle_c = candidates[0], candidates[1], candidates[2]
+    for left, right in pairwise(matches):
+        gap = "".join(text[left.end() : right.start()].lower().split())
+        for degree in ("degrees", "degree", "°"):
+            if gap.startswith(degree):
+                gap = gap[len(degree) :]
+                break
+        for label in ("anglea=", "angleb=", "anglec=", "a=", "b=", "c="):
+            if gap.endswith(label):
+                gap = gap[: -len(label)]
+                break
+        if gap not in {"", ",", ";", "and", ",and"}:
+            return None
+    angle_a, angle_b, angle_c = (float(match.group(0)) for match in matches)
+    if any(not 0 < angle < 180 for angle in (angle_a, angle_b, angle_c)):
+        return None
     if abs(angle_a + angle_b + angle_c - 180.0) > 0.6:
         return None
     return angle_a, angle_b, angle_c

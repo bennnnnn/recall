@@ -275,12 +275,19 @@ def _verified_block_triangle_sides(
     tri_geo = math_service.triangle_sides_geometry(
         TriangleSidesInput(a=intent.tri_a, b=intent.tri_b, c=intent.tri_c, unit=intent.unit)
     )
-    lines.append(
-        f"Triangle: a={tri_geo.a:g} {tri_geo.unit} b={tri_geo.b:g} {tri_geo.unit} "
-        f"c={tri_geo.c:g} {tri_geo.unit} area={tri_geo.area:g} {tri_geo.unit}² "
-        f"perimeter={tri_geo.perimeter:g} {tri_geo.unit} "
-        f"angles={tri_geo.angle_a_deg:g}°/{tri_geo.angle_b_deg:g}°/{tri_geo.angle_c_deg:g}°"
-    )
+    relative = intent.triangle_relative_lengths
+    if relative:
+        lines.append(
+            f"Relative side ratio a:b:c={tri_geo.a:g}:{tri_geo.b:g}:{tri_geo.c:g}. "
+            "Only angles were supplied; physical lengths, area and perimeter are undetermined."
+        )
+    else:
+        lines.append(
+            f"Triangle: a={tri_geo.a:g} {tri_geo.unit} b={tri_geo.b:g} {tri_geo.unit} "
+            f"c={tri_geo.c:g} {tri_geo.unit} area={tri_geo.area:g} {tri_geo.unit}² "
+            f"perimeter={tri_geo.perimeter:g} {tri_geo.unit} "
+            f"angles={tri_geo.angle_a_deg:g}°/{tri_geo.angle_b_deg:g}°/{tri_geo.angle_c_deg:g}°"
+        )
     isosceles = (
         abs(tri_geo.a - tri_geo.b) < 1e-9
         or abs(tri_geo.a - tri_geo.c) < 1e-9
@@ -291,15 +298,20 @@ def _verified_block_triangle_sides(
         a=tri_geo.a,
         b=tri_geo.b,
         c=tri_geo.c,
+        relative_lengths=relative,
         unit=tri_geo.unit,
         show_labels=True,
         show_ticks=True,
         show_altitude=False,
         show_median=isosceles,
         show_angle=True,
-        area=tri_geo.area,
-        perimeter=tri_geo.perimeter,
-        labels=tri_geo.labels,
+        area=None if relative else tri_geo.area,
+        perimeter=None if relative else tri_geo.perimeter,
+        labels=(
+            {key: value for key, value in tri_geo.labels.items() if key.startswith("angle_")}
+            if relative
+            else tri_geo.labels
+        ),
     )
     if intent.unit == "units":
         lines.append(
@@ -307,7 +319,17 @@ def _verified_block_triangle_sides(
             "interior angles, these side lengths express relative proportions "
             "(law of sines), not a known physical size."
         )
-    lines.append("Area via Heron's formula; angles via the law of cosines.")
+    lines.append(
+        "Angles via the law of cosines."
+        if relative
+        else "Area via Heron's formula; angles via the law of cosines."
+    )
+    if relative and (intent.wants_area or intent.wants_perimeter):
+        return _diagram_block(lines, tri_spec)
+    if relative and not (intent.wants_angle or intent.wants_area or intent.wants_perimeter):
+        # Pure AAA drawings already label the supplied angles. Retaining a
+        # canonical answer would make finalization append a redundant card.
+        return _diagram_block(lines, tri_spec)
     if intent.wants_angle and not (intent.wants_area or intent.wants_perimeter):
         answer = (
             f"{tri_geo.labels['angle_a']}, {tri_geo.labels['angle_b']}, {tri_geo.labels['angle_c']}"

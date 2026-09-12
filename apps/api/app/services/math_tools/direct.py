@@ -382,9 +382,12 @@ def can_direct_verified_math_reply(
     from app.services.math_tools.direct_geometry import (
         can_direct_rectangle,
         can_direct_square_or_triangle,
+        can_direct_triangle_angles,
     )
 
     geometry_fences = _solver_fences(verified)
+    if can_direct_triangle_angles(user_text, geometry_fences):
+        return True
     if can_direct_rectangle(verified, user_text, geometry_fences) or can_direct_square_or_triangle(
         verified, user_text, geometry_fences
     ):
@@ -441,6 +444,8 @@ def format_direct_math_reply(verified: VerifiedMathBlock) -> str:
     """Display a verified value or the existing canonical function plot."""
     fences = _solver_fences(verified)
     answer = (verified.canonical_answer or "").strip()
+    if len(fences) == 1 and fences[0].get("relative_lengths") is True:
+        return f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
     if len(fences) == 1 and fences[0].get("type") in {"function", "inequality", "vertical"}:
         # The mobile stream scanner needs the newline after the closing fence
         # to render the graph immediately, before the done event arrives.

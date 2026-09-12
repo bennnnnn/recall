@@ -138,6 +138,7 @@ class MathIntent(BaseModel):
     tri_a: float | None = None
     tri_b: float | None = None
     tri_c: float | None = None
+    triangle_relative_lengths: bool = False
     # Trapezoid — reuses `height` above; top/bottom are new.
     trapezoid_top: float | None = None
     trapezoid_bottom: float | None = None
