@@ -2,6 +2,8 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import ModelsSettingsScreen from "@/app/settings/models";
 
+const mockUpdateUser = jest.fn();
+
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -17,11 +19,11 @@ jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     token: "tok",
     user: { name: "bini" },
-    updateUser: jest.fn(),
+    updateUser: mockUpdateUser,
   }),
 }));
 jest.mock("@/hooks/useModels", () => ({
-  buildModelPreferences: jest.fn(),
+  buildModelPreferences: () => ["free-chat"],
   useModels: () => ({
     models: [
       {
@@ -43,42 +45,34 @@ jest.mock("@/hooks/useModels", () => ({
     modelEnabledSet: new Set(["free-chat"]),
   }),
 }));
-jest.mock("@/hooks/useUsage", () => ({
-  useUsage: () => ({
-    date: "2026-09-09",
-    input_tokens: 8000,
-    output_tokens: 4000,
-    daily_limit: 100000,
-    remaining: 88000,
-    context_token_budget: 6000,
-    recent_message_window: 20,
-  }),
-}));
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
-}));
-jest.mock("@/lib/ttsPreference", () => ({
-  TTS_DEVICE_MODEL: "device",
-  TTS_QUALITY_MODEL: "speech-tts-model",
 }));
 jest.mock("@/components/UpgradeSheet", () => ({
   UpgradeSheet: () => null,
 }));
 
 describe("models settings", () => {
-  it("shows usage used/limit and hides diagnostics until Advanced is opened", async () => {
+  beforeEach(() => {
+    mockUpdateUser.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("keeps model controls without Usage or Advanced diagnostics", async () => {
     const { getByText, queryByText } = await render(<ModelsSettingsScreen />);
 
-    expect(getByText("settings.usage_daily")).toBeTruthy();
+    expect(getByText("settings.model_auto")).toBeTruthy();
+    expect(getByText("Flash")).toBeTruthy();
+    expect(queryByText("settings.usage_daily")).toBeNull();
+    expect(queryByText("settings.usage_group")).toBeNull();
+    expect(queryByText("settings.advanced")).toBeNull();
     expect(queryByText("settings.usage_split")).toBeNull();
     expect(queryByText("settings.prompt_window")).toBeNull();
     expect(queryByText("settings.model_latency")).toBeNull();
-    expect(queryByText("settings.tts_cloud")).toBeNull();
+  });
 
-    await fireEvent.press(getByText("settings.advanced"));
-
-    expect(getByText("settings.usage_split")).toBeTruthy();
-    expect(getByText("settings.prompt_window")).toBeTruthy();
-    expect(getByText("settings.model_latency")).toBeTruthy();
+  it("still saves model preferences when Auto is toggled", async () => {
+    const { getByText } = await render(<ModelsSettingsScreen />);
+    await fireEvent.press(getByText("settings.model_auto"));
+    expect(mockUpdateUser).toHaveBeenCalledWith({ enabled_models: ["free-chat"] });
   });
 });

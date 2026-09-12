@@ -7,14 +7,16 @@ let mockSession = 0;
 let mockToken = "token";
 let mockDrawerOpen = true;
 const mockSetParams = jest.fn();
+const mockPush = jest.fn();
 const mockCloseDrawer = jest.fn();
 const mockClearHighlight = jest.fn();
 let mockHeader: { onOpenSearch: () => void; onSearchChange: (value: string) => void };
+let mockFooter: { onSettings: () => void };
 let mockList: { onOpenChat: (id: string, messageId?: string | null) => void; onOpenSearchResult?: (id: string, messageId?: string | null) => void };
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
 jest.mock("@/contexts/DrawerContext", () => ({ useDrawer: () => ({ isOpen: mockDrawerOpen }) }));
-jest.mock("expo-router", () => ({ useRouter: () => ({ setParams: mockSetParams }) }));
+jest.mock("expo-router", () => ({ useRouter: () => ({ setParams: mockSetParams, push: mockPush }) }));
 jest.mock("expo-linear-gradient", () => ({ LinearGradient: () => null }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ bg: "#ffffff" }), withAlpha: (color: string) => color }));
@@ -34,7 +36,7 @@ jest.mock("@/components/ActionBanner", () => ({ ActionBanner: () => null }));
 jest.mock("@/components/ChatActionsSheet", () => ({ ChatActionsSheet: () => null }));
 jest.mock("@/components/ChatRenameSheet", () => ({ ChatRenameSheet: () => null }));
 jest.mock("@/components/drawer/DrawerListHeader", () => ({ DrawerListHeader: () => null }));
-jest.mock("@/components/drawer/DrawerFooter", () => ({ DrawerFooter: () => null }));
+jest.mock("@/components/drawer/DrawerFooter", () => ({ DrawerFooter: (props: typeof mockFooter) => { mockFooter = props; return null; } }));
 jest.mock("@/components/drawer/DrawerNavLinks", () => ({ DrawerNavLinks: () => null }));
 jest.mock("@/components/drawer/DrawerSelectionBar", () => ({ DrawerSelectionBar: () => null }));
 jest.mock("@/components/drawer/DrawerHeader", () => ({ DrawerHeader: (props: typeof mockHeader) => { mockHeader = props; return null; } }));
@@ -54,6 +56,14 @@ async function search() {
   await act(async () => { jest.advanceTimersByTime(300); });
   return { view, press: mockList.onOpenSearchResult ?? mockList.onOpenChat };
 }
+
+it("closes the drawer before opening settings from the profile control", async () => {
+  await render(<ConversationList />);
+  await act(async () => { mockFooter.onSettings(); });
+  expect(mockCloseDrawer).toHaveBeenCalledTimes(1);
+  expect(mockPush).toHaveBeenCalledWith("/settings");
+  expect(mockCloseDrawer.mock.invocationCallOrder[0]).toBeLessThan(mockPush.mock.invocationCallOrder[0]);
+});
 
 it("rejects a retained result press immediately after account invalidation", async () => {
   const { press } = await search();

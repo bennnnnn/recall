@@ -2,7 +2,7 @@ import { StyleSheet } from "react-native";
 
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import type { Theme } from "@/lib/theme";
+import { type Theme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 export const TOP_CHROME = 58;
@@ -10,6 +10,15 @@ export const FOOTER_CHROME = 54;
 export const FADE_EXTRA = 40;
 
 export function makeConversationListStyles(theme: Theme) {
+  const searchChrome = {
+    backgroundColor: withAlpha(theme.onMedia, theme.isDark ? 0.08 : 0.6),
+    borderColor: withAlpha(theme.onMedia, theme.isDark ? 0.24 : 0.85),
+    borderWidth: 1,
+    shadowColor: theme.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: theme.isDark ? 0 : 0.06,
+    shadowRadius: Space.xs,
+  };
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg, overflow: "visible" },
     center: {
@@ -54,7 +63,14 @@ export function makeConversationListStyles(theme: Theme) {
       alignItems: "center",
       gap: Space.xxs,
     },
-    searchBtn: { padding: Space.xxs },
+    searchBtn: {
+      ...searchChrome,
+      width: Space.minTouch,
+      height: Space.minTouch,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: Radius.full,
+    },
     selectionHeader: {
       flexDirection: "row",
       alignItems: "center",
@@ -77,11 +93,12 @@ export function makeConversationListStyles(theme: Theme) {
       color: theme.primary,
     },
     searchBar: {
+      ...searchChrome,
       flexDirection: "row",
       alignItems: "center",
       gap: Space.xs,
-      backgroundColor: theme.surfaceAlt,
-      borderRadius: Radius.md,
+      minHeight: Space.minTouch,
+      borderRadius: Radius.full,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
     },
@@ -165,14 +182,14 @@ export function makeConversationListStyles(theme: Theme) {
       backgroundColor: theme.primary,
     },
     footerNewChatText: { ...Type.label, color: theme.onPrimary },
-    settingsBtn: {
+    profileBtn: {
       marginLeft: "auto",
       minWidth: 44,
       minHeight: 44,
       alignItems: "center",
       justifyContent: "center",
-      padding: Space.xs,
-      borderRadius: Radius.sm,
+      padding: Space.xxs,
+      borderRadius: Radius.full,
     },
     selectionBar: {
       position: "absolute",

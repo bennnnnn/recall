@@ -138,6 +138,12 @@ describe("settings home", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  it("opens Usage directly from the account menu", async () => {
+    const { getByText } = await render(<SettingsScreen />);
+    await fireEvent.press(getByText("settings.usage_group"));
+    expect(mockPush).toHaveBeenCalledWith("/settings/usage");
+  });
+
   it("previews a chosen photo and uploads it only when Save profile is pressed", async () => {
     const photo = { localUri: "file:///profile-preview.jpg", contentType: "image/jpeg", fileName: "profile.jpg", kind: "image" };
     mockPickProfilePhoto.mockResolvedValue(photo);

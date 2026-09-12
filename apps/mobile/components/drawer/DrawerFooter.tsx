@@ -1,10 +1,10 @@
 import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Avatar } from "@/components/Avatar";
 import { NewChatIcon } from "@/components/NewChatIcon";
+import { useAuth } from "@/contexts/AuthContext";
 import { tap } from "@/lib/haptics";
-import { IconSize } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -25,6 +25,7 @@ export function DrawerFooter({
   onSettings,
 }: Props) {
   const { t } = useTranslation();
+  const { user, token } = useAuth();
 
   return (
     <View style={[s.footer, { paddingBottom }]} pointerEvents="box-none">
@@ -41,7 +42,7 @@ export function DrawerFooter({
         <Text style={s.footerNewChatText}>{t("drawer.new_chat")}</Text>
       </Pressable>
       <Pressable
-        style={s.settingsBtn}
+        style={s.profileBtn}
         onPress={() => {
           tap();
           onSettings();
@@ -49,7 +50,7 @@ export function DrawerFooter({
         accessibilityRole="button"
         accessibilityLabel={t("settings.title")}
       >
-        <Icon name="settings-outline" size={IconSize.md} color={theme.text} />
+        <Avatar name={user?.name ?? null} uri={user?.avatar_url} token={token} size={36} />
       </Pressable>
     </View>
   );

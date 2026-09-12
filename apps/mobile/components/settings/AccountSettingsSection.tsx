@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Linking, Platform } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
 
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import {
@@ -30,6 +31,7 @@ function signInLabel(
 export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const router = useRouter();
   const feedback = useActionFeedbackOptional();
 
   const [upgradeVisible, setUpgradeVisible] = useState(false);
@@ -94,6 +96,11 @@ export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
             accent
           />
         )}
+        <SettingsOverviewRow
+          icon="bar-chart-outline"
+          title={t("settings.usage_group")}
+          onPress={() => router.push("/settings/usage")}
+        />
       </SettingsOverviewGroup>
 
       <UpgradeSheet

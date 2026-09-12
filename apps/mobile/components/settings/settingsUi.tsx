@@ -37,7 +37,6 @@ function SettingsRowChrome({
   title,
   subtitle,
   value,
-  chevron,
   busy,
   danger,
   styles,
@@ -48,7 +47,6 @@ function SettingsRowChrome({
   title: string;
   subtitle?: string;
   value?: string;
-  chevron?: "down" | "up";
   busy?: boolean;
   danger?: boolean;
   styles: SettingsStyles;
@@ -68,17 +66,13 @@ function SettingsRowChrome({
         {value ? <Text style={styles.linkValue}>{value}</Text> : null}
         {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
       </View>
-      {busy || chevron ? (
+      {busy ? (
         <View
           style={styles.linkTrailing}
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
-          {busy ? (
-            <ActivityIndicator size="small" color={theme.primary} />
-          ) : chevron ? (
-            <Icon name={`chevron-${chevron}`} size={18} color={theme.textTertiary} />
-          ) : null}
+          <ActivityIndicator size="small" color={theme.primary} />
         </View>
       ) : null}
     </>
@@ -155,42 +149,6 @@ export function SettingsValueRow({
         theme={theme}
       />
     </View>
-  );
-}
-
-export function SettingsDisclosureRow({
-  title,
-  subtitle,
-  icon,
-  expanded,
-  onToggle,
-  styles,
-  theme,
-}: {
-  title: string;
-  subtitle?: string;
-  icon?: IoniconName;
-  expanded: boolean;
-  onToggle: () => void;
-  styles: SettingsStyles;
-  theme: Theme;
-}) {
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
-      onPress={onToggle}
-      accessibilityRole="button"
-      accessibilityState={{ expanded }}
-    >
-      <SettingsRowChrome
-        icon={icon}
-        title={title}
-        subtitle={subtitle}
-        chevron={expanded ? "up" : "down"}
-        styles={styles}
-        theme={theme}
-      />
-    </Pressable>
   );
 }
 

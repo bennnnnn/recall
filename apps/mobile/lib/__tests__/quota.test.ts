@@ -3,8 +3,6 @@ import {
   formatUsageSummary,
   isQuotaErrorMessage,
   isQuotaErrorPayload,
-  promptWindowMessages,
-  promptWindowTokens,
   quotaAlertTitle,
   usageRemainingPercent,
   usageUsedPercent,
@@ -57,11 +55,7 @@ describe("quota helpers", () => {
     expect(quotaAlertTitle(true, t)).toBe("chat.quota_title_pro");
   });
 
-  it("formats token counts and prompt-window defaults", () => {
+  it("formats token counts", () => {
     expect(formatTokenCount(12400)).toBe("12,400");
-    expect(promptWindowTokens(null)).toBe(6000);
-    expect(promptWindowMessages(null)).toBe(20);
-    expect(promptWindowTokens({ ...usage, context_token_budget: 4000 })).toBe(4000);
-    expect(promptWindowMessages({ ...usage, recent_message_window: 12 })).toBe(12);
   });
 });

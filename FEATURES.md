@@ -273,7 +273,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and price; the picker shows available models with a per-1M-token cost hint.
 - ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
   `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded on the model list;
-  p50 latency is under **Advanced**.
+  detailed timing remains available through the API.
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
@@ -349,10 +349,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Slim casual turns** — coaching / chit-chat uses a compact format + math-safety hint (not
   the full visualization/math-solver pack) and skips calendar/gmail-nudge and web/math/chem
   prefetch unless the turn is rich or actually needs search, math, chemistry, or calendar/gmail.
-- ✅ **Prompt token budgeting UI** — Settings → Models shows today's used / daily
-  limit. Input · output split, the server prompt window
-  (`context_token_budget`, last `recent_message_window` messages), and p50
-  latency sit behind **Advanced**. The composer
+- ✅ **Prompt token budgeting UI** — Settings → Usage shows today's used / daily
+  limit. The composer
   shows a local draft estimate when the text is large enough to matter.
 - 🔜 Response caching.
 
@@ -366,7 +364,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   bypassed by parallel requests). Free tier default **100k**/day; Pro tier **500k**/day
   (`DAILY_TOKEN_LIMIT` / `DAILY_TOKEN_LIMIT_PRO`).
 - ✅ **Plan-aware enforcement** — quota service reads the user's subscription plan before reserving.
-- ✅ **Usage meter** — today's tokens vs. daily limit shown in Settings.
+- ✅ **Usage meter** — today's tokens vs. daily limit shown in Settings → Account → Usage.
 - ✅ **Real token accounting** — uses the provider's reported usage when available.
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
@@ -396,14 +394,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Connected apps** — Calendar and Gmail list + detail (connect / disconnect / sync).
 - ✅ **Notifications** — push (On only if pref and OS permission), email reminders,
   quiet hours, reminder lead.
-- ✅ **Models** — Auto, model toggles, daily used/limit bar. Token-window / p50 under
-  Advanced in `__DEV__` only.
+- ✅ **Models** — Auto and model toggles. Developer diagnostics are omitted from this screen.
 - ✅ **Data controls** — archived chats, archive all, delete all chats (Library stays),
   export, use current location, delete account.
 - ✅ **Security** — session list + revoke + sign out of all devices. No MFA.
 - ✅ **Help & feedback** — Report a problem / Send feedback via the OS share sheet
   (version, plan, locale). No fake Help Center URL.
-- ✅ **Usage** — today's token meter on Models.
+- ✅ **Usage** — a separate Account menu entry opens today's token meter and daily limit.
+- ✅ **Sidebar controls** — search uses a translucent white surface and border; the
+  user's profile photo or initials open Settings beside New chat.
 - ✅ **Sign out.**
 - ✅ **Data export** — exports profile + chats + messages + memories + todos + learning projects
   (with items) as JSON via the native share sheet (`GET /auth/me/export`). Shows a progress
@@ -888,9 +887,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   `Alert.alert` sweep, and unused UI file cleanup. Do not restyle or
   reintroduce banned UX.
 - ✅ **Mobile consumer polish (audit 2026-09)** — generic `StateView` errors use
-  an alert icon (cloud-offline only for real connectivity); Models diagnostics
-  behind Advanced; quieter chat-header chrome; drawer Settings is a ghost
-  control; Home overdue uses warning, not danger; starter chips have distinct
+  an alert icon (cloud-offline only for real connectivity); a separate Usage page;
+  quieter chat-header chrome; drawer profile opens Settings; Home overdue uses warning,
+  not danger; starter chips have distinct
   icons; composer send/stop/dismiss use `Icon`. Web remains a later project.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
