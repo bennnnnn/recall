@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from app.services.math_tools.block.common import VerifiedMathBlock
 
 # Linear phrase scan — do not put user text through nested-optional regex
@@ -118,16 +120,65 @@ def _solver_fences(verified: VerifiedMathBlock) -> list[dict[str, object]]:
     return fences
 
 
+def _can_direct_function_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
+    """Match the whole plot request, not an expression extracted from one clause."""
+    from app.services.math_text_match import graph_domain, prepare
+
+    if len(user_text) > 1000 or verified.canonical_answer:
+        return False
+    fences = _solver_fences(verified)
+    if len(fences) != 1 or fences[0].get("type") != "function":
+        return False
+    graph = fences[0]
+    points, expr = graph.get("points"), graph.get("expr")
+    if (
+        not isinstance(points, list)
+        or len(points) < 2
+        or not isinstance(expr, str)
+        or not expr.strip()
+        or graph.get("expr2")
+        or graph.get("points2")
+        or graph.get("variable", "x") != "x"
+    ):
+        return False
+    request = prepare(user_text)
+    if not request:
+        return False
+    if request.lower().startswith("please "):
+        request = request[7:].lstrip()
+    for prefix in ("graph ", "plot ", "draw ", "sketch ", "visualize ", "visualise "):
+        if request.lower().startswith(prefix):
+            # Keep !: it may be a factorial that extraction did not preserve.
+            request = request[len(prefix) :].strip().rstrip(".?")
+            break
+    else:
+        return False
+    domain = graph_domain(request)
+    if domain is not None:
+        lo, hi, request = domain
+        # A range ignored by extraction or narrowed by sampling needs language.
+        if graph.get("x_min") != lo or graph.get("x_max") != hi:
+            return False
+    if "=" in request:
+        lhs, _, request = request.partition("=")
+        if lhs.strip().lower() != "y":
+            return False
+    # The verified sampler preserves its input expr. Requiring the entire
+    # remaining request to match it keeps "and solve/explain/tell me..." and
+    # additional formulas on the model path, without another SymPy parse.
+    return request.replace(" ", "").replace("^", "**") == expr.replace(" ", "").replace("^", "**")
+
+
 def can_direct_verified_math_reply(
     verified: VerifiedMathBlock,
     user_text: str,
     *,
     has_image_attachment: bool = False,
 ) -> bool:
-    """Skip the LLM when SymPy already owns a short closed answer.
+    """Skip the LLM for a short closed answer or an explicit verified function plot.
 
-    Geometry/graph still need a one-line description. Camera homework is
-    usually "show the work". Explanation cues keep the current inject+stream.
+    Geometry, camera homework, explanations, and mixed requests keep the
+    current inject+stream path.
     """
     if has_image_attachment:
         return False
@@ -135,6 +186,8 @@ def can_direct_verified_math_reply(
         return False
     if wants_math_explanation(user_text):
         return False
+    if _can_direct_function_graph(verified, user_text):
+        return True
     if leftover_non_math_request(user_text):
         return False
     answer = (verified.canonical_answer or "").strip()
@@ -147,7 +200,12 @@ def can_direct_verified_math_reply(
 
 
 def format_direct_math_reply(verified: VerifiedMathBlock) -> str:
-    """Display the verified value in ``$...$`` (or `` ```math ``) plus `` ```answer ``."""
+    """Display a verified value or the existing canonical function plot."""
+    fences = _solver_fences(verified)
+    if len(fences) == 1 and fences[0].get("type") == "function":
+        # The mobile stream scanner needs the newline after the closing fence
+        # to render the graph immediately, before the done event arrives.
+        return f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
     answer = (verified.canonical_answer or "").strip()
     if "\\begin{aligned}" in answer or "\n" in answer:
         display = f"```math\n{answer}\n```"

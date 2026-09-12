@@ -10,6 +10,7 @@ Guards the refactor that split fetch from inject in ``build_stream_prompt_contex
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -667,17 +668,28 @@ async def test_non_create_turn_skips_calendar_write_session():
 
 
 @pytest.mark.asyncio
-async def test_verified_closed_math_sets_instant_reply(fake_redis) -> None:
+@pytest.mark.parametrize("graph", [False, True], ids=["closed-answer", "cubic-graph"])
+async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> None:
+    from app.models.schemas.math import GraphBlockSpec
+    from app.services.chat.stream_pipeline import stream_and_finalize
+    from app.services.chat.turn_prep.context import StreamContext
     from app.services.math_tools.block.common import VerifiedMathBlock
 
     user = _make_user()
     chat = _make_chat()
+    content = "graph y = x^3" if graph else "1+1=x"
+    model = "smart-chat" if graph else "free-chat"
+    fence = (
+        GraphBlockSpec(expr="x**3", points=[[-1, -1], [0, 0], [1, 1]]).model_dump()
+        if graph
+        else {"type": "answer", "content": "x = 2"}
+    )
     verified = VerifiedMathBlock(
         text="verified",
-        canonical_fence={"type": "answer", "content": "x = 2"},
-        canonical_answer="x = 2",
+        canonical_fence=fence,
+        canonical_answer=None if graph else "x = 2",
     )
-    messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "1+1=x"}]
+    messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
     with (
         patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
         patch(
@@ -713,8 +725,8 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis) -> None:
         bundle = await build_stream_prompt_context(
             user.id,
             chat.id,
-            "1+1=x",
-            "free-chat",
+            content,
+            model,
             Settings(
                 mcp_tool_loop_enabled=False,
                 mcp_tools_enabled=False,
@@ -735,8 +747,38 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis) -> None:
 
     assert bundle.verified_math is verified
     assert bundle.instant_reply is not None
-    assert "x = 2" in bundle.instant_reply
-    assert "```answer" in bundle.instant_reply
+    assert ("```graph" if graph else "```answer") in bundle.instant_reply
+    if graph:
+        # Mobile's streaming fence scanner needs the closing line terminated.
+        assert bundle.instant_reply.endswith("```\n")
+    else:
+        assert "x = 2" in bundle.instant_reply
+
+    ctx = StreamContext(
+        user_id=user.id,
+        chat_id=chat.id,
+        model=model,
+        prompt_messages=bundle.prompt_messages,
+        run_title=False,
+        user_message_content=content,
+        reserved_tokens=100,
+        max_output_tokens=bundle.max_out,
+        instant_reply=bundle.instant_reply,
+        verified_math=verified,
+    )
+    with (
+        patch("app.services.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,
+        patch("app.services.chat.stream_pipeline.run_llm_token_stream") as llm,
+    ):
+        stream = stream_and_finalize(MagicMock(), fake_redis, Settings(), ctx, should_cancel=None)
+        assert isinstance(stream, AsyncGenerator)
+        try:
+            # Available before finalization/DB persistence and with no model call.
+            assert await anext(stream) == bundle.instant_reply
+            tools.assert_not_awaited()
+            llm.assert_not_called()
+        finally:
+            await stream.aclose()
 
 
 @pytest.mark.asyncio

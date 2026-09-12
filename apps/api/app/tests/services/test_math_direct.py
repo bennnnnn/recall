@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import json
+from dataclasses import replace
+
 import pytest
 
 from app.core.config import Settings
+from app.models.schemas.math import GraphBlockSpec
 from app.services.math_tools.block.common import VerifiedMathBlock
 from app.services.math_tools.direct import (
     can_direct_verified_math_reply,
@@ -20,6 +24,15 @@ def _answer_block(answer: str) -> VerifiedMathBlock:
         text="verified",
         canonical_fence={"type": "answer", "content": answer},
         canonical_answer=answer,
+    )
+
+
+def _graph_block(*, x_min: float = -10, x_max: float = 10) -> VerifiedMathBlock:
+    return VerifiedMathBlock(
+        text="Function samples for x**3: 3 points.",
+        canonical_fence=GraphBlockSpec(
+            expr="x**3", points=[[-1, -1], [0, 0], [1, 1]], x_min=x_min, x_max=x_max
+        ).model_dump(),
     )
 
 
@@ -59,13 +72,13 @@ def test_can_direct_skips_force_energy_unlabeled_quantity() -> None:
     assert maybe_direct_math_reply(block, "A force of 10 N on 2 kg") is None
 
 
-def test_can_direct_skips_graphs_and_camera() -> None:
-    graph = VerifiedMathBlock(
-        text="plot",
-        canonical_fence={"type": "graph", "expr": "x"},
-        canonical_answer="y = x",
+def test_can_direct_skips_geometry_and_camera() -> None:
+    geometry = VerifiedMathBlock(
+        text="rectangle",
+        canonical_fence={"type": "rectangle", "width": 3, "height": 4},
+        canonical_answer="12",
     )
-    assert can_direct_verified_math_reply(graph, "graph y=x") is False
+    assert can_direct_verified_math_reply(geometry, "draw a rectangle") is False
     assert (
         can_direct_verified_math_reply(
             _answer_block("x = 2"),
@@ -74,6 +87,127 @@ def test_can_direct_skips_graphs_and_camera() -> None:
         )
         is False
     )
+    assert maybe_direct_math_reply(_graph_block(), "graph y=x^3", has_image_attachment=True) is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "graph y = x^3",
+        "Graph y = x³",
+        "plot x^3",
+        "please graph $y = x^{3}$",
+        "draw y=x^3",
+        "sketch x^3.",
+        "visualize x^3",
+    ],
+)
+def test_plain_explicit_graph_returns_complete_canonical_fence(query: str) -> None:
+    verified = _graph_block()
+    assert can_direct_verified_math_reply(verified, query) is True
+    reply = maybe_direct_math_reply(verified, query)
+    assert reply is not None
+    assert reply.startswith("```graph\n")
+    assert reply.endswith("\n```\n")  # Required to render before mobile receives done.
+    assert json.loads(reply.removeprefix("```graph\n").removesuffix("\n```\n")) == (
+        verified.canonical_fence
+    )
+    assert "```answer" not in reply
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "graph y=x^3 and explain it",
+        "explain the graph y=x^3",
+        "graph y=x^3 and solve x+1=2",
+        "graph y=x^3 and 1+1",
+        "graph y=x^3 then factor x^2-1",
+        "graph y=x^3 and tell me a joke",
+        "graph y=x^3, describe its shape",
+        "graph y=x^3; 2+2",
+        "graph y=x^3\nshow your work",
+        "solve 2+2 then graph y=x^3",
+        "graph y=x^3 and y=x^2",
+        "graph y=x^3 from -1 to 1 and solve 2+2",
+        "graph y=x^3 from 0 to 1",
+        "graph y=x^3 from 1 to 0",
+        "graph y=x^2",
+        "graph y=x^3!",
+        "y=x^3",
+        "what does y=x^3 look like?",
+    ],
+)
+def test_graph_request_must_be_complete_and_match_verified_plot(query: str) -> None:
+    assert maybe_direct_math_reply(_graph_block(), query) is None
+
+
+@pytest.mark.parametrize("domain", ["from -1 to 1", "on [-1, 1]"])
+def test_graph_domain_must_match_verified_bounds(domain: str) -> None:
+    query = f"graph y=x^3 {domain}"
+    assert maybe_direct_math_reply(_graph_block(x_min=-1, x_max=1), query) is not None
+    assert maybe_direct_math_reply(_graph_block(), query) is None
+
+
+def test_graph_requires_one_complete_function_and_allows_no_other_answer() -> None:
+    block = _graph_block()
+    assert maybe_direct_math_reply(replace(block, allow_direct=False), "graph y=x^3") is None
+    assert maybe_direct_math_reply(replace(block, canonical_answer="x = 3"), "graph y=x^3") is None
+    assert (
+        maybe_direct_math_reply(
+            replace(block, canonical_fences=[{"type": "answer", "content": "3"}]),
+            "graph y=x^3",
+        )
+        is None
+    )
+    invalid_changes: tuple[dict[str, object], ...] = (
+        {"type": "trajectory"},
+        {"type": "number_line"},
+        {"type": "vertical"},
+        {"points": []},
+        {"points": [[0, 0]]},
+        {"expr2": "x**2", "points2": [[0, 0], [1, 1]]},
+    )
+    for changes in invalid_changes:
+        graph = {**(block.canonical_fence or {}), **changes}
+        assert maybe_direct_math_reply(replace(block, canonical_fence=graph), "graph y=x^3") is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "x_min", "x_max"),
+    [
+        ("graph y = x^3", -10, 10),
+        ("graph y = x^3 from -1 to 1", -1, 1),
+        ("graph y = x^3 on [-1, 1]", -1, 1),
+    ],
+)
+async def test_exact_cubic_returns_verified_graph_without_model(
+    thread_sympy_executor: None, query: str, x_min: int, x_max: int
+) -> None:
+    from app.services.math_fence import validate_math_fences_worker
+
+    _note, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    assert verified is not None
+    reply = maybe_direct_math_reply(verified, query)
+    assert reply is not None
+    graph = json.loads(reply.removeprefix("```graph\n").removesuffix("\n```\n"))
+    assert graph == verified.canonical_fence
+    assert graph["expr"] == "x**3"
+    assert len(graph["points"]) == 96
+    assert (graph["x_min"], graph["x_max"]) == (x_min, x_max)
+    final = validate_math_fences_worker(reply, verified)
+    assert final.count("```graph") == 1
+    assert json.loads(final.split("```graph\n")[1].split("\n```")[0]) == graph
+
+
+@pytest.mark.asyncio
+async def test_factorial_suffix_cannot_be_silently_dropped_by_direct_graph(
+    thread_sympy_executor: None,
+) -> None:
+    query = "graph y=x^3!"
+    _note, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    assert maybe_direct_math_reply(verified, query) is None
 
 
 def test_format_direct_math_reply_includes_answer_fence() -> None:

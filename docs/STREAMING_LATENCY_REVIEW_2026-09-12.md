@@ -75,3 +75,21 @@ Use client latency measurements for the user-visible goal, since the server time
 does not include client upload, transport, and rendering. The current scorecard
 remains non-tool chat below 2 seconds p50 and 6 seconds p95; this patch does not
 claim those targets have been achieved in production.
+
+## Follow-up: first-token delay on a plain cubic graph
+
+The exact request `graph y = x^3` selects `smart-chat` under Auto. Its verified
+graph already exists before streaming, but the original direct-math policy
+excluded graphs, so it still waited for a model answer. A local synthetic check
+produced the 96-point graph in 11–49 ms after imports; this excludes DB, network,
+and process startup and does not explain every millisecond of the reported turn.
+Using the actual spawned-worker path on the same machine took 0.38–1.34 seconds
+for the first three requests, then about 11 ms warm. Existing startup warmup only
+warms one of three worker slots; calls after that warmup took 0.21–0.38 seconds
+before settling to about 11 ms. Those timings still exclude DB and provider IO.
+
+Plain, fully matched single-function plot requests now emit the existing canonical
+graph through the direct-reply path. No tool-selection or visible-answer model call
+is needed. A trailing newline closes the mobile streaming fence immediately.
+Explanations, additional tasks, unmatched ranges, and image requests retain model
+handling. Model aliases are unchanged.
