@@ -147,6 +147,7 @@ def _plain_prime_factorization_request(text: str) -> bool:
 def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
     """Match the whole plot request, not an expression extracted from one clause."""
     from app.services.math_text_match import graph_domain, prepare
+    from app.services.math_text_match.graph import _GRAPH_PAIR_TRAILING_FILLER
 
     if len(user_text) > 1000 or verified.canonical_answer:
         return False
@@ -155,15 +156,20 @@ def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
         return False
     graph = fences[0]
     points, expr = graph.get("points"), graph.get("expr")
-    if (
-        not isinstance(expr, str)
-        or not expr.strip()
-        or graph.get("expr2")
-        or graph.get("points2")
-        or graph.get("variable", "x") != "x"
-    ):
+    expr2, points2 = graph.get("expr2"), graph.get("points2")
+    paired = bool(expr2 or points2)
+    if not isinstance(expr, str) or not expr.strip() or graph.get("variable", "x") != "x":
         return False
     if graph.get("type") == "function" and (not isinstance(points, list) or len(points) < 2):
+        return False
+    if paired and (
+        graph.get("type") != "function"
+        or not isinstance(expr2, str)
+        or not expr2.strip()
+        or not isinstance(points2, list)
+        or len(points2) < 2
+        or graph.get("variable2") != "x"
+    ):
         return False
     request = prepare(user_text)
     if not request:
@@ -183,6 +189,27 @@ def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
         # A range ignored by extraction or narrowed by sampling needs language.
         if graph.get("x_min") != lo or graph.get("x_max") != hi:
             return False
+    if paired:
+        for suffix in _GRAPH_PAIR_TRAILING_FILLER:
+            if request.lower().endswith(suffix):
+                request = request[: -len(suffix)].rstrip()
+                break
+        split_at = request.lower().find(" and ")
+        if split_at < 0:
+            return False
+        clauses = (request[:split_at].strip(), request[split_at + 5 :].strip())
+        for clause, sampled_expr in zip(clauses, (expr, expr2), strict=True):
+            if "=" in clause:
+                lhs, _, clause = clause.partition("=")
+                if lhs.strip().lower() != "y":
+                    return False
+            # Reuse the exact sampled expressions, preserving any extra
+            # request, third curve, factorial, or ignored domain as a mismatch.
+            if clause.replace(" ", "").replace("^", "**") != str(sampled_expr).replace(
+                " ", ""
+            ).replace("^", "**"):
+                return False
+        return True
     if graph.get("type") == "function" and "=" in request:
         lhs, _, request = request.partition("=")
         if lhs.strip().lower() != "y":

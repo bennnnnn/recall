@@ -166,7 +166,7 @@ export function FunctionGraphBlock({ content }: Props) {
     bounds.yMin <= 0 &&
     bounds.yMax >= 0 &&
     spec.points.some(([x, y]) => Math.abs(x) < 0.35 && Math.abs(y) < 0.35);
-  const curveColor2 = theme.accent;
+  const curveColor2 = theme.text;
   const clip = `url(#${clipId})`;
 
   return (
