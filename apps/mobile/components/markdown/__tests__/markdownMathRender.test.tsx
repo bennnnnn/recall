@@ -44,6 +44,24 @@ jest.mock("@/components/CodeBlock", () => {
 });
 
 describe("MarkdownContent math rendering", () => {
+  it("keeps the exact B12 explanation chain inside a scrollable list viewport", async () => {
+    const { getAllByTestId, getByText, queryByText } = await render(
+      <MarkdownContent content={"The surface area of a square pyramid is found by adding the area of the base to the area of the four triangular faces. Here's the step-by-step process for a square pyramid with a base side of 6 and a height of 4:\n\n1. **Calculate the area of the base**  \n   The base is a square, so its area is side length squared:  \n   $ \\text{Base Area} = 6^2 = 36 $.  \n\n2. **Calculate the slant height**  \n   The slant height is the height of the triangular faces. Use the Pythagorean theorem:  \n   $ \\text{Slant Height} = \\sqrt{ \\left( \\frac{6}{2} \\right)^2 + 4^2 } = \\sqrt{3^2 + 4^2} = \\sqrt{9 + 16} = \\sqrt{25} = 5 $.  \n\n3. **Calculate the area of the triangular faces**  \n   Each triangle has an area of $\\frac{1}{2} \\times \\text{base} \\times \\text{slant height}$:  \n   $ \\text{Triangle Area} = \\frac{1}{2} \\times 6 \\times 5 = 15 $.  \n   Since there are four triangles:  \n   $ \\text{Total Triangle Area} = 4 \\times 15 = 60 $.  \n\n4. **Add the base and triangular areas**  \n   $ \\text{Surface Area} = \\text{Base Area} + \\text{Total Triangle Area} = 36 + 60 = 96 $.  \n\nThe total surface area is **96**."} />,
+    );
+    const chain = getAllByTestId("math-text-scroll").find(
+      (node) => node.props.accessibilityLabel.includes("Slant Height"),
+    )!;
+    expect(chain).toBeDefined();
+    expect(chain).toHaveStyle({ maxWidth: "100%", flexShrink: 1 });
+    expect(chain.props.horizontal).toBe(true);
+    expect(chain.props.accessibilityLabel).toMatch(/Slant Height.*= 5\./);
+    expect(getByText(/Use the Pythagorean theorem/)).toBeOnTheScreen();
+    expect(getByText(/= 5\./)).toBeOnTheScreen();
+    expect(getByText(/Since there are four triangles/)).toBeOnTheScreen();
+    expect(queryByText(/\\sqrt|\\frac|\\text/)).toBeNull();
+  });
+
+
   it("renders the exact H22 explanation fractions without invented pi parentheses", async () => {
     const { getByText, getAllByText, getAllByTestId, queryByText } = await render(
       <MarkdownContent content={String.raw`- Convert angle: $90^\circ = \frac{\pi}{2}$ radians

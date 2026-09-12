@@ -1,10 +1,11 @@
 import { useMemo, type ReactNode } from "react";
-import { Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
 import {
   parseSimpleLatex,
+  readableLatexFallback,
   type MathSegment,
 } from "@/lib/mathText";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
@@ -19,6 +20,9 @@ type Props = {
   compact?: boolean;
   /** Used by editable root degrees; layout scales with the actual text size. */
   fontSize?: number;
+  /** Markdown's View host can constrain tall runs and scroll their full width.
+   * Leave this off in editable math slots and hosts with their own viewport. */
+  scrollOverflow?: boolean;
 };
 
 type Styles = ReturnType<typeof makeStyles>;
@@ -264,7 +268,7 @@ function renderSegments(
 }
 
 /** Native math: simple runs stay Text; stacked or raised structures own their bounds. */
-export function MathText({ latex, textColor, compact = false, fontSize = 16 }: Props) {
+export function MathText({ latex, textColor, compact = false, fontSize = 16, scrollOverflow = false }: Props) {
   const theme = useTheme();
   const { fontScale } = useWindowDimensions();
   const layoutScale = (fontSize / 16) * fontScale;
@@ -285,14 +289,40 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16 }: P
   // Text > View is what iOS lays out as 0×0 and paints over the next line.
   if (tall) {
     const size = estimateMathTextSize(segments);
-    return (
+    const content = (
       <View
         testID="math-text-tall"
         collapsable={false}
-        style={[styles.tallRoot, { width: size.width * layoutScale, height: size.height * layoutScale }]}
+        style={[styles.tallRoot, {
+          ...(scrollOverflow ? { minWidth: size.width * layoutScale } : { width: size.width * layoutScale }),
+          height: size.height * layoutScale,
+        }]}
       >
         {renderSegments(segments, "m", { styles, layoutScale })}
       </View>
+    );
+    if (!scrollOverflow) return content;
+    // Keep short fractions at their intrinsic size. A longer run is limited
+    // by its actual paragraph/list width, while its inner row never shrinks.
+    return (
+      <ScrollView
+        testID="math-text-scroll"
+        horizontal
+        nestedScrollEnabled
+        directionalLockEnabled
+        showsHorizontalScrollIndicator
+        bounces={false}
+        contentInsetAdjustmentBehavior="never"
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={readableLatexFallback(latex)}
+        style={[
+          styles.inlineViewport,
+          { width: size.width * layoutScale, height: size.height * layoutScale },
+        ]}
+      >
+        {content}
+      </ScrollView>
     );
   }
 
@@ -322,6 +352,11 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
         android: "sans-serif",
         default: undefined,
       }),
+    },
+    inlineViewport: {
+      maxWidth: "100%",
+      flexGrow: 0,
+      flexShrink: 1,
     },
     tallRoot: {
       flexDirection: "row",

@@ -160,7 +160,7 @@ function renderTextWithMath(
       if (!inline.length) return;
       const key = `${node.key}-inline-${runs.length}`;
       const children = inline.map((part, i) => part.type === "math"
-        ? <MathText key={`${key}-${i}`} latex={part.value} />
+        ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} />
         : <Text key={`${key}-${i}`} style={base} selectable>{withGreenTicks(part.value, tickColor, key)}</Text>);
       runs.push(inline.some((part) => part.type === "math" && latexHasNestedMathView(part.value))
         ? <View key={key} style={_mdMath.inlineWrap}>{children}</View>
@@ -220,7 +220,7 @@ function renderTextWithMath(
       runs.push(
         <Text key={key} style={base} selectable>
           {inline.map((part, i) => part.type === "math"
-            ? <MathText key={`${key}-${i}`} latex={part.value} />
+            ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} />
             : withGreenTicks(part.value, tickColor, `${key}-${i}`))}
         </Text>,
       );
@@ -237,7 +237,7 @@ function renderTextWithMath(
       const punctuationMatch = next?.type === "text"
         ? /^[ \t]*([,.;:!?]+)/.exec(next.value) : null;
       const punctuation = punctuationMatch?.[1] ?? "";
-      runs.push(<MathText key={`${node.key}-m-${i}`} latex={
+      runs.push(<MathText scrollOverflow key={`${node.key}-m-${i}`} latex={
         part.value + (punctuation ? `\\text{${punctuation}}` : "")
       } />);
       if (punctuationMatch && next?.type === "text") {
@@ -254,7 +254,7 @@ function renderTextWithMath(
     <Text key={node.key} style={base} selectable>
       {parts.map((part, i) =>
         part.type === "math" ? (
-          <MathText key={`${node.key}-m-${i}`} latex={part.value} />
+          <MathText scrollOverflow key={`${node.key}-m-${i}`} latex={part.value} />
         ) : (
           withGreenTicks(part.value, tickColor, `${node.key}-t-${i}`)
         ),
