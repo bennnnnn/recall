@@ -689,7 +689,7 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
             messages=messages,
             usage={},
         )
-    assert out == messages
+    assert out == [*messages, tool_loop._tool_selection_unavailable_message()]
     assert verified is None
     assert terminal is None
 

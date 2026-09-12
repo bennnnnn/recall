@@ -272,6 +272,75 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "has_chunks,query_vec",
+    [
+        pytest.param(False, None, id="empty-history"),
+        pytest.param(True, None, id="embed-timeout"),
+        pytest.param(True, [0.2] * 1536, id="embedded-history"),
+    ],
+)
+async def test_build_prompt_uses_gathered_history_embedding_once(has_chunks, query_vec):
+    """Empty results stay empty; successful gathered vectors still retrieve context."""
+    from app.services.chat.prompt_builder import build_prompt_messages
+
+    query = "which couch did we pick last year?"
+    chat_id = uuid4()
+    user = MagicMock(
+        id=uuid4(),
+        email="test@example.com",
+        location_enabled=False,
+        response_style="balanced",
+        response_tone="casual",
+        locale="en",
+        timezone="UTC",
+        custom_instructions=None,
+    )
+    user.name = "Test User"
+    chat = MagicMock(id=chat_id, project_id=None, summary=None, summary_message_count=0)
+    probe = AsyncMock(return_value=has_chunks)
+    # The gateway returns None after its foreground embedding timeout.
+    embed = AsyncMock(return_value=query_vec)
+    row = MagicMock(text="User: We chose the blue couch.")
+    with (
+        patch("app.services.chat.prompt_builder.SessionLocal", _session_cm()),
+        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch("app.services.memory.get_memory_block", AsyncMock(return_value="")),
+        patch("app.services.todos.build_todos_system_section", AsyncMock(return_value=None)),
+        patch(
+            "app.services.learning.load_learning_classes_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch("app.services.chat_history_rag.chunks_repo.has_chunks_for_user", probe),
+        patch("app.services.chat_history_rag.embedding_gateway.get_or_embed_query", embed),
+        patch(
+            "app.services.chat_history_rag.chunks_repo.search_semantic",
+            AsyncMock(return_value=[row]),
+        ) as search,
+    ):
+        messages = await build_prompt_messages(
+            user,
+            chat_id,
+            Settings(chat_history_rag_enabled=True, attachment_rag_enabled=False),
+            query_text=query,
+            chat=chat,
+            rich_context=True,
+            recent_messages=[],
+        )
+
+    probe.assert_awaited_once()
+    assert embed.await_count == int(has_chunks)
+    assert messages[0]["role"] == "system"
+    if query_vec is None:
+        search.assert_not_awaited()
+        assert row.text not in messages[0]["content"]
+    else:
+        search.assert_awaited_once()
+        assert search.await_args.args[2] == query_vec
+        assert row.text in messages[0]["content"]
+
+
+@pytest.mark.asyncio
 async def test_index_message_uses_short_lived_session():
     settings = Settings(chat_history_rag_enabled=True, mock_llm_enabled=True)
     message = MagicMock()

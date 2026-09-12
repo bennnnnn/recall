@@ -850,7 +850,9 @@ async def build_prompt_messages(
     keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
     recent = recent_source[-keep:] if keep else []
     chat_history_rag_block = ""
-    if history_rag:
+    # The context gather already attempted the history embed. None means no
+    # chunks or a failed/timed-out embed; do not repeat that work serially.
+    if history_rag and blocks.history_rag_query_vec is not None:
         from app.services import chat_history_rag as chat_history_rag_service
 
         exclude = {m.id for m in recent}

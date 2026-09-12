@@ -431,27 +431,33 @@ async def _run_tool_rounds_bound(
                 model_alias=_tool_loop_completion_alias(model_alias),
                 messages=working,
                 tools=tools,
-                max_tokens=settings.max_output_tokens,
+                max_tokens=max(1, settings.mcp_tool_loop_probe_max_tokens),
                 usage=usage,
                 timeout_seconds=settings.mcp_tool_loop_timeout_seconds,
+                should_cancel=should_cancel,
             )
         except ModelUnavailableError:
             logger.warning("Tool-loop completion failed; falling through to stream")
+            working.append(_tool_selection_unavailable_message())
             break
         except Exception:
             logger.exception("Tool-loop completion failed; falling through to stream")
+            working.append(_tool_selection_unavailable_message())
             break
 
+        if should_cancel and should_cancel():
+            break
+        if msg.get("finish_reason") in ("length", "content_filter", "error"):
+            working.append(_tool_selection_unavailable_message())
+            break
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
-            # Round produced a final answer without tools. Do not dump it as
-            # one chunk and do not complete_with_tools again — the caller
-            # streams (ordinary TTFT when this is round 1).
+            # Explicit no-tool decision; the caller streams the answer.
             break
 
         assistant_msg: dict[str, Any] = {
             "role": "assistant",
-            "content": msg.get("content") or None,
+            "content": None,
             "tool_calls": tool_calls,
         }
         working.append(assistant_msg)
@@ -538,6 +544,17 @@ async def _run_tool_rounds_bound(
         else None
     )
     return working, verified, terminal_image, search_hits
+
+
+def _tool_selection_unavailable_message() -> dict[str, Any]:
+    return {
+        "role": "system",
+        "content": (
+            "Tool selection was unavailable for this turn. No actions were performed by it. "
+            "Use only tool results actually provided; if the request still requires an "
+            "unavailable tool, briefly explain that it could not be completed."
+        ),
+    }
 
 
 def _first_unanswered_assistant_idx(msgs: list[dict[str, Any]]) -> int | None:
