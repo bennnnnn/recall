@@ -257,6 +257,7 @@ class ParallelogramGeometryBlockSpec(BaseModel):
     unit: str = "cm"
     show_labels: bool = True
     show_angle: bool = False
+    show_perimeter: bool = False
     area: float | None = None
     perimeter: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)

@@ -99,6 +99,7 @@ export type ParallelogramSpec = {
   unit?: string;
   show_labels?: boolean;
   show_angle?: boolean;
+  show_perimeter?: boolean;
   area?: number;
   perimeter?: number;
   labels?: Record<string, string>;
@@ -327,6 +328,7 @@ function parseParallelogram(row: Record<string, unknown>): ParallelogramSpec | n
   if (unit) spec.unit = unit;
   copyFlag(spec, row, "show_labels");
   copyFlag(spec, row, "show_angle");
+  copyFlag(spec, row, "show_perimeter");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   const perimeter = Number(row.perimeter);

@@ -395,6 +395,7 @@ def _verified_block_parallelogram(
         unit=para_geo.unit,
         show_labels=True,
         show_angle=bool(intent.wants_angle),
+        show_perimeter=intent.wants_perimeter and not intent.wants_area,
         area=para_geo.area,
         perimeter=para_geo.perimeter,
         labels=para_geo.labels,
