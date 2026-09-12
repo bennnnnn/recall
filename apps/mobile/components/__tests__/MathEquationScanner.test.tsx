@@ -1,4 +1,8 @@
 import React from "react";
+import { Dimensions, Image } from "react-native";
+import * as ImageManipulator from "expo-image-manipulator";
+
+import { pickFromPhotoLibrary } from "@/lib/attachments";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/components/MathEquationScanner";
@@ -124,5 +128,57 @@ describe("MathEquationScanner", () => {
     expect(mockTakePictureAsync).toHaveBeenCalled();
     expect(getByTestId("math-scanner-camera")).toBeTruthy();
     expect(getByLabelText("chat.math_scan_retake")).toBeTruthy();
+  });
+});
+
+
+describe("imported math scanner photos", () => {
+  beforeEach(() => {
+    mockPermission.granted = true;
+    mockPermission.canAskAgain = true;
+    jest.spyOn(Dimensions, "get").mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
+    jest.spyOn(Image, "getSize").mockImplementation(async (_uri, success) => {
+      success?.(1200, 700);
+      return { width: 1200, height: 700 };
+    });
+    jest.mocked(pickFromPhotoLibrary).mockResolvedValue({
+      localUri: "file:///landscape.png", contentType: "image/png", fileName: "landscape.png", kind: "image",
+    });
+    jest.mocked(ImageManipulator.manipulateAsync).mockClear();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([true, false])("shows and sends the whole imported image with camera permission=%s", async (granted) => {
+    mockPermission.granted = granted;
+    const onCaptured = jest.fn();
+    const { getByLabelText, getByTestId, queryByTestId } = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={onCaptured} />,
+    );
+    await act(async () => {
+      fireEvent.press(getByLabelText("chat.math_scan_photos_a11y"));
+    });
+    const preview = getByTestId("math-scanner-preview");
+    expect(preview.props.resizeMode).toBe("contain");
+    expect(preview.props.style.width / preview.props.style.height).toBeCloseTo(1200 / 700, 10);
+    expect(queryByTestId("math-scanner-permission")).toBeNull();
+    await act(async () => {
+      fireEvent.press(getByLabelText("chat.math_scan_solve"));
+    });
+    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
+      "file:///landscape.png",
+      [{ crop: { originX: 0, originY: 0, width: 1200, height: 700 } }],
+      { compress: 0.9, format: "jpeg" },
+    );
+    expect(onCaptured).toHaveBeenCalledWith(expect.objectContaining({ localUri: "file:///cropped.jpg" }));
+  });
+
+  it("keeps a captured camera photo on the existing cover preview", async () => {
+    const { getByLabelText, getByTestId } = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await act(async () => {
+      fireEvent.press(getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    expect(getByTestId("math-scanner-preview").props.resizeMode).toBe("cover");
   });
 });
