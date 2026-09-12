@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 
 from app.services.math_tools.block.common import VerifiedMathBlock
 
@@ -76,6 +77,95 @@ _MATH_REQUEST_GLUE = frozenset(
 )
 
 _MAX_DIRECT_ANSWER_CHARS = 400
+
+
+def _plot_number(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        return None
+    if isinstance(value, str) and len(value) > 64:
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _literal_plot_point(text: str) -> tuple[float, float] | None:
+    value = text.strip()
+    if value.startswith("(") and value.endswith(")"):
+        value = value[1:-1]
+    parts = value.split(",")
+    if len(parts) != 2:
+        return None
+    x, y = (_plot_number(part.strip()) for part in parts)
+    return (x, y) if x is not None and y is not None else None
+
+
+def _can_direct_point_or_vertical(verified: VerifiedMathBlock, user_text: str) -> bool:
+    """Match a complete literal plot request, never a coordinate substring."""
+    if len(user_text) > 1000:
+        return False
+    fences = _solver_fences(verified)
+    if len(fences) != 1:
+        return False
+    graph = fences[0]
+    if graph.get("expr2") or graph.get("points2") or graph.get("variable", "x") != "x":
+        return False
+    request = " ".join(user_text.split()).replace("\u2212", "-")
+    if request.lower().startswith("please "):
+        request = request[7:].lstrip()
+    for prefix in ("plot ", "graph ", "mark ", "show ", "draw ", "sketch "):
+        if request.lower().startswith(prefix):
+            request = request[len(prefix) :].strip().rstrip(".?")
+            break
+    else:
+        return False
+    if request.lower().startswith("the "):
+        request = request[4:]
+    if graph.get("type") == "vertical":
+        if verified.canonical_answer:
+            return False
+        for prefix in ("vertical line ", "line "):
+            if request.lower().startswith(prefix):
+                request = request[len(prefix) :]
+                break
+        lhs, separator, rhs = request.partition("=")
+        x = _plot_number(graph.get("x"))
+        expr_lhs, expr_separator, expr_rhs = str(graph.get("expr") or "").partition("=")
+        low, high = _plot_number(graph.get("y_min")), _plot_number(graph.get("y_max"))
+        return bool(
+            separator
+            and lhs.strip().lower() == "x"
+            and x is not None
+            and _plot_number(rhs.strip()) == x
+            and expr_separator
+            and expr_lhs.strip().lower() == "x"
+            and _plot_number(expr_rhs.strip()) == x
+            and low is not None
+            and high is not None
+            and low < high
+        )
+    if graph.get("type") != "function" or not request.lower().startswith("point "):
+        return False
+    points = graph.get("points")
+    if not isinstance(points, list) or len(points) != 1:
+        return False
+    point = points[0]
+    if not isinstance(point, list) or len(point) != 2:
+        return False
+    x, y = (_plot_number(value) for value in point)
+    if x is None or y is None:
+        return False
+    expected = (x, y)
+    # All three canonical representations must describe the requested point.
+    # Extra prose, a second coordinate, expressions, or unpaired brackets do
+    # not parse as one numeric comma pair and retain the model path.
+    return (
+        _literal_plot_point(request[6:]) == expected
+        and _literal_plot_point(str(graph.get("expr") or "")) == expected
+        and _literal_plot_point(verified.canonical_answer or "") == expected
+    )
 
 
 def wants_math_explanation(text: str) -> bool:
@@ -210,6 +300,14 @@ def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
             ).replace("^", "**"):
                 return False
         return True
+    if (
+        graph.get("type") == "function"
+        and "=" in expr
+        and request.replace(" ", "").replace("^", "**") == expr.replace(" ", "").replace("^", "**")
+    ):
+        # The verified circle/ellipse sampler preserves the whole relation
+        # and closes its parametric loop; it is not a y=f(x) expression.
+        return isinstance(points, list) and len(points) >= 3 and points[0] == points[-1]
     if graph.get("type") == "function" and "=" in request:
         lhs, _, request = request.partition("=")
         if lhs.strip().lower() != "y":
@@ -281,6 +379,8 @@ def can_direct_verified_math_reply(
         return False
     if wants_math_explanation(user_text):
         return False
+    if _can_direct_point_or_vertical(verified, user_text):
+        return True
     if _can_direct_graph(verified, user_text):
         return True
     if _can_direct_number_line(verified, user_text):
@@ -306,11 +406,14 @@ def can_direct_verified_math_reply(
 def format_direct_math_reply(verified: VerifiedMathBlock) -> str:
     """Display a verified value or the existing canonical function plot."""
     fences = _solver_fences(verified)
-    if len(fences) == 1 and fences[0].get("type") in {"function", "inequality"}:
+    answer = (verified.canonical_answer or "").strip()
+    if len(fences) == 1 and fences[0].get("type") in {"function", "inequality", "vertical"}:
         # The mobile stream scanner needs the newline after the closing fence
         # to render the graph immediately, before the done event arrives.
-        return f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
-    answer = (verified.canonical_answer or "").strip()
+        graph_reply = f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
+        if answer:
+            return f"```answer\n{answer}\n```\n\n{graph_reply}"
+        return graph_reply
     if len(fences) == 1 and fences[0].get("type") == "number_line":
         return (
             f"```answer\n{answer}\n```\n\n"
