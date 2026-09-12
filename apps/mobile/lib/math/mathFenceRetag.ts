@@ -1,4 +1,5 @@
-import { readFenceMarker, readFenceMarkerLoose } from "@/lib/mdFenceScan";
+import { readFenceMarkerLoose } from "@/lib/mdFenceScan";
+import { restoreMathEscapes } from "@/lib/mathText";
 
 // Trailing (?=[^a-zA-Z]|$) instead of \b: \b treats `_` as a word char, so it
 // would not match the boundary between a command and a subscript
@@ -122,7 +123,9 @@ export function looksLikeLatexFence(content: string): boolean {
  * (`\sum` / `\prod` / `\int` / `\binom`) that native MathText paints tiny.
  */
 export function isHeavyInlineMath(latex: string): boolean {
-  return /\\begin\{[\w*]+\}/.test(latex) || /\\(sum|prod|int|binom)(?![A-Za-z])/.test(latex);
+  const source = restoreMathEscapes(latex);
+  return /\\begin\{[\w*]+\}/.test(source) ||
+    /\\(?:sum|prod|int|iint|iiint|oint|oiint|oiiint|[dt]?binom|lim|limsup|liminf)(?![A-Za-z])/.test(source);
 }
 
 const INLINE_MATH_FENCE_MAX = 48;

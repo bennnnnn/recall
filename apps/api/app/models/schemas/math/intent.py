@@ -90,6 +90,7 @@ class MathIntent(BaseModel):
     # valid bound alongside a plain number (see
     # math_service._parse_infinity_aware_point).
     limit_point: str | None = None
+    limit_direction: Literal["+", "-", "+-"] = "+-"
     series_start: str | None = None
     series_end: str | None = None
     # Definite-integral bounds — strings (infinity-aware, like limit_point).

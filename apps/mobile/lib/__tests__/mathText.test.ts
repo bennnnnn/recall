@@ -4,6 +4,7 @@ import {
   MATH_SCRIPT_LINE_HEIGHT,
   PROTECTED_ESCAPE_MARKER,
   latexHasStackedFrac,
+  latexHasNestedMathView,
   latexNeedsTallLine,
   mathRunLineHeight,
   parseSimpleLatex,
@@ -12,6 +13,10 @@ import {
 } from "@/lib/mathText";
 
 describe("parseSimpleLatex", () => {
+  it("puts fractional exponents in a View-capable host", () => {
+    expect(latexHasNestedMathView("x^{1/6}")).toBe(true);
+    expect(latexHasNestedMathView("x^2")).toBe(false);
+  });
   it("parses superscripts", () => {
     const segs = parseSimpleLatex("x^2 + 2 = 6");
     expect(segmentsToPlain(segs)).toBe("x^2 + 2 = 6");
@@ -138,14 +143,26 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\lim_{x \to 0}`))).toBe("lim_x → 0");
   });
 
-  it("degrades an unknown command by dropping a braced name, keeping the argument", () => {
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).toBe("x");
+  it("keeps an unknown operation and its argument in readable notation", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).toBe("varinjlim(x)");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).not.toContain("\\");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\operatorname{lcm}(4,6)`))).toBe(
       "lcm(4,6)",
     );
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\overbrace{a+b}^{s}`))).toBe("a+b^s");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\underbrace{a+b}`))).toBe("a+b");
+  });
+
+  it("preserves braced trigonometric and logarithmic function arguments", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\sin{x} + \log{y}`))).toBe("sin(x) + log(y)");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\cos {\frac{x}{2}}`))).toBe("cos(x/2)");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\mathbf{x}`))).toBe("x");
+  });
+
+  it("matches complete relation commands instead of corrupting their suffixes", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`A \subseteq B \supseteq C`))).toBe("A ⊆ B ⊇ C");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \simeq b \cong c`))).toBe("a ≃ b ≅ c");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\int_0^1 x\,dx`))).toBe("∫_0^1 x dx");
   });
 
   it("BUG FIX regression: \\left/\\right render as bare delimiters, not literal backslash text", () => {

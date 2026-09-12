@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { CardShell } from "@/components/rich/CardShell";
-import { RichBodyText } from "@/components/rich/RichBodyText";
+import { RichMathBody } from "@/components/rich/RichMathBody";
 import { CalloutKind } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -51,13 +51,12 @@ export function CalloutBlock({ kind, content }: Props) {
   return (
     <CardShell
       label={title}
+      labelContent={<RichMathBody content={title} style={s.title} />}
       icon={meta.icon}
       accentColor={meta.color}
       iconColor={meta.color}
     >
-      <RichBodyText style={s.body} selectable>
-        {body}
-      </RichBodyText>
+      <RichMathBody content={body} style={s.body} />
     </CardShell>
   );
 }
@@ -65,5 +64,6 @@ export function CalloutBlock({ kind, content }: Props) {
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     body: { fontSize: 16, lineHeight: 24, color: t.text },
+    title: { fontSize: 13, fontWeight: "600", color: t.textSecondary, flexShrink: 1 },
   });
 }

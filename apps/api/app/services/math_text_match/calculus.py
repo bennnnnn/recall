@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from app.services.math_text_match.scan import _CALC_OP, _parse_unsigned_number, ddx_cue_at
 
@@ -181,6 +182,32 @@ class LimitHit:
     expr: str
     var: str
     point: str
+    direction: Literal["+", "-", "+-"] = "+-"
+
+
+def _limit_direction(rest: str) -> tuple[Literal["+", "-", "+-"], str]:
+    """Consume a direction without dropping an unrecognized expression tail."""
+    attached = bool(rest) and not rest[0].isspace()
+    rest = rest.lstrip()
+    for token, direction in (
+        ("from the left", "-"),
+        ("from the right", "+"),
+        ("from below", "-"),
+        ("from above", "+"),
+        ("^{-}", "-"),
+        ("^{+}", "+"),
+        ("^-", "-"),
+        ("^+", "+"),
+        ("-", "-"),
+        ("+", "+"),
+    ):
+        if token in {"-", "+"} and not attached:
+            continue
+        if rest.lower().startswith(token):
+            tail = rest[len(token) :]
+            if not tail or tail[0].isspace() or tail[0] in "}?.":
+                return ("-" if direction == "-" else "+"), tail.lstrip()
+    return "+-", rest
 
 
 def _parse_latex_limit(text: str) -> LimitHit | None:
@@ -215,13 +242,13 @@ def _parse_latex_limit(text: str) -> LimitHit | None:
         point, plen = "\\infty", 6
     else:
         return None
-    rest = rest[plen:].lstrip(" ")
+    direction, rest = _limit_direction(rest[plen:])
     if rest.startswith("}"):
         rest = rest[1:].lstrip(" ")
     expr = rest.strip()
     if not expr:
         return None
-    return LimitHit(expr=expr, var=var, point=point)
+    return LimitHit(expr=expr, var=var, point=point, direction=direction)
 
 
 def parse_limit(text: str) -> LimitHit | None:
@@ -247,11 +274,11 @@ def parse_limit(text: str) -> LimitHit | None:
         if not point_hit:
             return None
         point, pend = point_hit
-        expr = rest_l[pend:].strip()
+        direction, expr = _limit_direction(rest_l[pend:])
         if expr.lower().startswith("of "):
             expr = expr[3:].strip()
         if expr:
-            return LimitHit(expr=expr, var=var, point=point)
+            return LimitHit(expr=expr, var=var, point=point, direction=direction)
     # Prose: ... as x approaches 0
     as_idx = lower.find(" as ")
     if as_idx != -1 and ("limit" in lower or "lim" in lower):
@@ -264,6 +291,7 @@ def parse_limit(text: str) -> LimitHit | None:
             "determine ",
             "the ",
             "limit of ",
+            "limit ",
         ):
             low = before.lower()
             if low.startswith(lead):
@@ -288,7 +316,10 @@ def parse_limit(text: str) -> LimitHit | None:
                     break
         if not point_hit or not before:
             return None
-        return LimitHit(expr=before, var=var, point=point_hit[0])
+        direction, tail = _limit_direction(rest[point_hit[1] :])
+        if tail.strip(" .?!"):
+            return None
+        return LimitHit(expr=before, var=var, point=point_hit[0], direction=direction)
     return _parse_latex_limit(text)
 
 

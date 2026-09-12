@@ -642,9 +642,8 @@ def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -
     except Exception as exc:
         raise MathServiceError(f"Could not compute limit of: {expr}") from exc
     # A limit can legitimately evaluate to oo/-oo (diverges) or zoo (the
-    # two-sided limit doesn't exist because the two sides disagree) — render
-    # these explicitly via latex() ("\infty" etc.) rather than leaving an
-    # opaque symbol name for the model to describe incorrectly.
+    # two-sided limit doesn't exist because the two sides disagree). Keep
+    # the symbolic result so presentation can distinguish these statuses.
     return MathLimitResult(
         result=str(result), latex=latex(result), is_infinite=bool(result.is_infinite)
     )
@@ -672,6 +671,7 @@ def evaluate_series_sum(expr: str, variable: str, start: str, end: str) -> MathS
         result=str(result),
         latex=latex(result),
         is_infinite=bool(result.is_infinite),
+        solved=not result.has(Sum),
         is_convergent=None if is_convergent is None else bool(is_convergent),
         is_absolutely_convergent=(
             None if is_absolutely_convergent is None else bool(is_absolutely_convergent)

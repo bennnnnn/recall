@@ -94,11 +94,18 @@ def percent_of(rate: float, base: float) -> str:
     return f"{value:g}"
 
 
-def simplify_ratio(a: int, b: int) -> str:
+def simplify_ratio(a: float, b: float) -> str:
     from math import gcd
 
-    g = gcd(a, b)
-    return f"{a // g}:{b // g}"
+    from sympy import Rational, ilcm
+
+    if not math.isfinite(a) or not math.isfinite(b) or (a == 0 and b == 0):
+        raise MathServiceError("Ratio needs finite values that are not both zero")
+    left, right = Rational(str(a)), Rational(str(b))
+    scale = ilcm(left.q, right.q)
+    numerator, denominator = int(left * scale), int(right * scale)
+    divisor = gcd(numerator, denominator)
+    return f"{numerator // divisor}:{denominator // divisor}"
 
 
 def evaluate_trig_degrees(func: str, degrees: float) -> str:
@@ -328,6 +335,8 @@ def critical_points(expr: str, variable: str = "x") -> MathExprResult:
 
 def evaluate_trig_expr(expr: str) -> str:
     parsed = _parse_expression(expr.replace("\u00b0", "*pi/180"), ["x"])
+    if parsed.free_symbols:
+        raise MathServiceError("trig evaluation still has variables")
     from app.services.math_service.parse import format_verified_latex
 
     return format_verified_latex(simplify(parsed))

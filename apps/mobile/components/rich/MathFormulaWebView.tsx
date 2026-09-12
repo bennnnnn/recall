@@ -18,6 +18,7 @@ import {
 } from "@/lib/mathHtml";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { MathText } from "@/components/rich/MathText";
+import { restoreMathEscapes } from "@/lib/mathText";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import {
   getPreviewWebView,
@@ -62,16 +63,17 @@ function estimateInitialHeight(
   compact: boolean,
   minHeight: number | undefined,
 ): number {
-  if (minHeight != null) return minHeight;
-  if (compact) return 28;
+  if (compact) return Math.max(minHeight ?? 0, 28);
   const lines = Math.max(1, latex.trim().split("\n").length);
   if (displayMode) {
     // Fractions / matrices need more vertical room; prefer overestimate so we
     // grow less often (growth causes list shake; shrink almost never helps).
-    if (/\\frac|\\begin\{|\\sqrt/.test(latex)) return Math.min(MAX_HEIGHT, 72 + lines * 12);
-    return Math.min(MAX_HEIGHT, 52 + lines * 10);
+    if (/\\frac|\\begin\{|\\sqrt|\\(?:int|sum|prod|lim)/.test(restoreMathEscapes(latex))) {
+      return Math.min(MAX_HEIGHT, Math.max(minHeight ?? 0, 72 + lines * 12));
+    }
+    return Math.min(MAX_HEIGHT, Math.max(minHeight ?? 0, 52 + lines * 10));
   }
-  return 32;
+  return Math.max(minHeight ?? 0, 32);
 }
 
 export const MathFormulaWebView = React.memo(function MathFormulaWebView({
@@ -199,6 +201,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
   return (
     <View style={[s.wrap, compact ? s.wrapCompact : null, displayMode ? s.wrapBlock : null]}>
       <WebView
+        testID="math-formula-webview"
         originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
         source={source}
         style={{ height, backgroundColor: "transparent" }}

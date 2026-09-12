@@ -3,19 +3,39 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
+from fractions import Fraction
 
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
 from app.services import math_school
 from app.services import math_text_match as mtm
 from app.services.math_tools.block import VerifiedMathBlock, _finish_with_answer
-from app.services.math_tools.helpers import substituted_eval_expr
+from app.services.math_tools.helpers import math_expr_or_none, substituted_eval_expr
 
 logger = logging.getLogger(__name__)
 
 _TRIG_FUNCS = ("sine", "cosine", "tangent", "sin", "cos", "tan")
 _TRIG_CANON = {"sine": "sin", "cosine": "cos", "tangent": "tan"}
+_TRIG_PREFIXES = (
+    "what is",
+    "what's",
+    "whats",
+    "evaluate",
+    "compute",
+    "calculate",
+    "find",
+    "the value of",
+    "please",
+    "can you",
+    "could you",
+)
+_PROB_NUMBER = r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)"
+_BINOMIAL_PARAM = re.compile(
+    rf"\b([nkp])\s*=\s*({_PROB_NUMBER}(?:\s*/\s*{_PROB_NUMBER})?)(?=\s|[,;.!?]|$)",
+    re.IGNORECASE,
+)
 
 
 def _extract_unit_intent(cleaned: str) -> MathIntent | None:
@@ -166,52 +186,69 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
         if "identity" in lower:
             return None
     idx = lower.find(func)
-    rest = cleaned[idx + len(func) :].lstrip()
+    prefix = lower[:idx].strip()
+    while prefix:
+        for cue in _TRIG_PREFIXES:
+            if prefix == cue or prefix.startswith(cue + " "):
+                prefix = prefix[len(cue) :].strip()
+                break
+        else:
+            break
+    if prefix:
+        return None
+    rest = cleaned[idx + len(func) :].strip().rstrip(".?!")
     # "sin of 30 degrees" / "sine of 30" — English, not sin(30).
     if rest.lower().startswith("of"):
         rest = rest[2:].lstrip()
     if rest.startswith("("):
-        rest = rest[1:].lstrip()
-    rest_low = rest.lower()
-    radian_arg = None
-    if rest_low.startswith("pi"):
-        radian_arg = "pi"
-        rest_after = rest_low[2:].lstrip()
-        if rest_after.startswith("/"):
-            den = rest_after[1:].lstrip()
-            digits = 0
-            while digits < len(den) and den[digits].isdigit():
-                digits += 1
-            if digits:
-                radian_arg = f"pi/{den[:digits]}"
-    elif rest_low.startswith("e") and (len(rest_low) == 1 or not rest_low[1].isalpha()):
-        radian_arg = "e"
-    if radian_arg is not None:
-        canon = _TRIG_CANON.get(func, func)
+        depth = 0
+        close = None
+        for i, char in enumerate(rest):
+            depth += (char == "(") - (char == ")")
+            if depth == 0:
+                close = i
+                break
+        if close is None:
+            return None
+        suffix = rest[close + 1 :].strip()
+        if suffix and suffix.lower() not in {
+            "degrees",
+            "degree",
+            "deg",
+            "radians",
+            "radian",
+            "rad",
+            "°",
+        }:
+            # Do not certify the first call after dropping +cos(...) etc.
+            return None
+        rest = (rest[1:close] + " " + suffix).strip()
+    angle_unit = None
+    for unit in ("degrees", "degree", "deg", "radians", "radian", "rad", "°"):
+        if rest.lower().endswith(unit):
+            angle_unit = "degrees" if unit in {"degrees", "degree", "deg", "°"} else "radians"
+            rest = rest[: -len(unit)].strip()
+            break
+    arg = math_expr_or_none(rest)
+    if arg is None:
+        return None
+    canon = _TRIG_CANON.get(func, func)
+    numeric = mtm._NUM.fullmatch(arg)
+    if angle_unit == "degrees" or (angle_unit is None and numeric is not None):
+        # Keep the established school shorthand sin 30 = sin(30 degrees).
         return MathIntent(
             kind="trig",
             school_op=canon,
-            expr=f"{canon}({radian_arg})",
+            percent_base=float(arg) if numeric is not None else None,
+            expr=f"{canon}(({arg})*pi/180)",
             operation="solve",
         )
-    if not rest or not rest[0].isdigit():
+    if angle_unit is None and "pi" not in arg and arg != "e":
         return None
-    num = mtm._NUM.search(cleaned, idx)
-    if num is None:
-        return None
-    after_num = cleaned[num.end() :].lstrip()
-    if after_num.startswith(")"):
-        after_num = after_num[1:].lstrip()
-    # ``sin(2x)`` is an expression, not a degree evaluation.
-    if after_num and after_num[0].isalpha() and not after_num.lower().startswith("deg"):
-        return None
-    degrees = float(num.group(0))
-    canon = _TRIG_CANON.get(func, func)
     return MathIntent(
         kind="trig",
         school_op=canon,
-        percent_base=degrees,
-        expr=f"{canon}({degrees}*pi/180)",
+        expr=f"{canon}({arg})",
         operation="solve",
     )
 
@@ -283,10 +320,21 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
 def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "binomial" in lower or ("n=" in lower.replace(" ", "") and "p=" in lower.replace(" ", "")):
-        n = mtm.number_after(cleaned, "n")
-        k = mtm.number_after(cleaned, "k")
-        p = mtm.number_after(cleaned, "p")
+        empty = MathIntent(kind="probability", school_op="binomial", operation="solve")
+        matches = list(_BINOMIAL_PARAM.finditer(cleaned))
+        if len(matches) != 3 or {match.group(1).lower() for match in matches} != {"n", "k", "p"}:
+            return empty
+        try:
+            params = {
+                match.group(1).lower(): float(Fraction(match.group(2).replace(" ", "")))
+                for match in matches
+            }
+        except (ValueError, ZeroDivisionError, OverflowError):
+            return empty
+        n, k, p = params["n"], params["k"], params["p"]
         if n is not None and k is not None and p is not None:
+            if not n.is_integer() or not k.is_integer():
+                return empty
             return MathIntent(
                 kind="probability",
                 school_op="binomial",
@@ -296,8 +344,14 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
                 operation="solve",
             )
     if "expected value" in lower or "expected value of" in lower:
-        nums = [float(m.group(0)) for m in mtm._NUM.finditer(cleaned)]
-        if len(nums) >= 2:
+        if any(cue in lower for cue in ("probabilit", "weight", "p(", "p=")):
+            # Explicit weighted distributions need a separate parser; never
+            # average outcomes and probabilities together as a raw list.
+            return MathIntent(kind="probability", school_op="expected", operation="solve")
+        from app.services.math_text_match.discrete import numeric_data_values
+
+        nums = numeric_data_values(cleaned[lower.index("expected value") + len("expected value") :])
+        if nums is not None:
             return MathIntent(
                 kind="probability",
                 school_op="expected",
@@ -443,7 +497,7 @@ def _verified_block_arithmetic(
         and intent.percent_rate is not None
         and intent.percent_base is not None
     ):
-        answer = math_school.simplify_ratio(int(intent.percent_rate), int(intent.percent_base))
+        answer = math_school.simplify_ratio(intent.percent_rate, intent.percent_base)
         lines.append(f"Simplified ratio: {answer}")
         return _finish_with_answer(lines, answer)
     if not intent.expr:

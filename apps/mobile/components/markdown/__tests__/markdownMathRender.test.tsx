@@ -44,6 +44,58 @@ jest.mock("@/components/CodeBlock", () => {
 });
 
 describe("MarkdownContent math rendering", () => {
+  it("does not flash an unfinished inline fraction as raw LaTeX", async () => {
+    const { queryByText, getByText } = await render(
+      <MarkdownContent content={String.raw`Result: $\frac{1}`} streaming />,
+    );
+    expect(getByText("Result:")).toBeOnTheScreen();
+    expect(queryByText(/\\frac|\$|frac/)).toBeNull();
+  });
+
+  it("gives a heavy inline integral full width outside a Text parent", async () => {
+    const { getByTestId } = await render(
+      <MarkdownContent content={String.raw`Evaluate $\int_0^1 x^2\,dx$.`} />,
+    );
+    expect(getByTestId("md-math-inline-wrap")).toBeOnTheScreen();
+    expect(getByTestId("md-heavy-math-run")).toHaveStyle({ width: "100%" });
+  });
+
+  it("keeps prose and punctuation together beside a heavy limit", async () => {
+    const { getByTestId, queryByText } = await render(
+      <MarkdownContent content={String.raw`For $A \subseteq B$, use $\lim_{x\to0} x=0$.`} />,
+    );
+    expect(getByTestId("md-heavy-math-run")).toHaveStyle({ width: "100%" });
+    expect(queryByText(/^,$/)).toBeNull();
+    expect(queryByText(/^\.$/)).toBeNull();
+  });
+
+  it("typesets the exact cube-root callout note without raw LaTeX", async () => {
+    const { getByTestId, queryByText } = await render(
+      <MarkdownContent content={String.raw`> [!NOTE]
+> The expression doesn’t simplify to a whole number or a simpler radical, so $\sqrt[3]{3}$ is the exact form.`} />,
+    );
+    expect(getByTestId("rich-math-body")).toBeOnTheScreen();
+    expect(queryByText(/\\sqrt|\$\\/)).toBeNull();
+  });
+
+  it("typesets math in a callout title and preserves source examples in code", async () => {
+    const { getAllByTestId, getByText, queryByText } = await render(
+      <MarkdownContent content={'```callout-note\nExact $x^2$\nUse $\\frac{1}{2}$; code: `x_1` costs $5 and $10.\n```'} />,
+    );
+    expect(getAllByTestId("rich-math-body")).toHaveLength(2);
+    expect(getByText("x_1")).toBeOnTheScreen();
+    expect(getByText("$5")).toBeOnTheScreen();
+    expect(getByText("$10.")).toBeOnTheScreen();
+    expect(queryByText(/\\frac/)).toBeNull();
+  });
+
+  it("keeps explicit LaTeX source code literal inside a callout", async () => {
+    const { getByText } = await render(
+      <MarkdownContent content={'```callout-note\nWrite `$\\frac{1}{2}$` to display $x^2$.\n```'} />,
+    );
+    expect(getByText('$\\frac{1}{2}$')).toBeOnTheScreen();
+  });
+
   it("typesets inline math in a numbered step, not raw \\frac", async () => {
     const { getByTestId, queryByText } = await render(
       <MarkdownContent content={"1. So $m = \\frac{1}{2}$."} />,

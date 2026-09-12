@@ -5,7 +5,7 @@ Server-side SymPy verifies and samples; the mobile app only renders. Do not add 
 ## Default product path (heuristic SymPy, always)
 
 1. **Heuristic pre-stream** ([`math_tools/`](../apps/api/app/services/math_tools/)) — if `needs_symbolic_math`, SymPy runs in isolated worker slots (default 3; interactive slot wait 2s, then the 5s solve timeout). A verified system block is injected (numbers + `canonical_fence` / `canonical_answer` for ` ```geometry` / ` ```graph` / ` ```answer `). The hint tells the model **not** to emit those fences.
-2. **Direct verified reply** — if that block is a short closed ` ```answer ` and the user did not ask to explain / show work / teach, Recall returns `$…$` plus the answer fence and **skips the LLM** (same instant-reply seam as time/location). Geometry/graph, camera homework, and force/energy physics still stream.
+2. **Direct verified reply** — if that block is a short closed ` ```answer ` and the user did not ask to explain / show work / teach, Recall returns `$…$` plus the answer fence and **skips the LLM** (same instant-reply seam as time/location). Plain requests for one verified function graph also return the canonical plot directly. Graph explanations, geometry, camera homework, and force/energy physics still stream.
 3. **LLM stream** (when language adds value) — model explains in Markdown + `$...$`.
 4. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — rewrite any leftover geometry/graph/`answer` fences from the model with the canonical body; append missing solver-owned fences so the client always gets the answer pill and diagram; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget. Direct replies run this rewrite in-process (they already carry the fence).
 5. **Mobile** — preprocess delimiters, then render: inline `$...$` → native `MathText`; display ` ```math` → KaTeX/MathJax WebView (dev build; tall blocks offer Expand → fullscreen scroll); diagrams → SVG. Crash fallback still draws geometry/graph as SVG (not raw JSON).
@@ -20,6 +20,8 @@ Heuristic pre-solve and web-search injection **still run**. The model may also c
 
 ## Formula emit rule (prompts must agree)
 
+- **Answer length:** give the result once with only the key reasoning needed. Short mode applies to math too. Full derivations follow explicit requests for steps, explanation, or proof; a hint/practice request should not reveal the full answer. Brevity must preserve domains, branches, units, and constants of integration.
+- **Simple roots/powers:** one exact equality chain and an optional approximation are usually enough. Group fractional exponents (`9^{1/6}`); avoid duplicated answer headings and Note/Tip cards that restate the result.
 - **Steps / intermediates:** inline `$...$` only (no backticks around `$`, no ` ```math` inside numbered steps).
 - **Standalone display:** ` ```math` OK for a final equation on its own lines.
 - **Diagrams:** Recall attaches ` ```geometry` / ` ```graph` from `canonical_fence`. The model describes the figure in words (`$...$`); it must not emit diagram JSON.
@@ -104,3 +106,23 @@ Still not a verified kind (the model may answer; it must **not** claim a verifie
 5. **Physics beyond the verified templates** — friction, tension, normal-force systems, momentum/collisions, rotation, circuits, waves, thermodynamics, relativity, coupled ODEs, and free-body diagrams remain LLM-only.
 
 New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math_tools` is a package (`extract.py` registry, `block/` builders, `school.py` extra kinds) — do not add a second kind table.
+
+## Math quality review — September 12, 2026
+
+This pass checked the path from user notation through extraction and verified answers, plus native rendering and streaming. The regression matrix lives in `test_math_category_regressions.py` and `test_math_review_geometry_calculus.py`; these tests use no model calls.
+
+| Part | Representative checks and corrections |
+|------|----------------------------------------|
+| Arithmetic, fractions, roots, powers | Order of operations, percentages, sixth root of 9, nested radicals, grouping a fraction under division/powers, negative substitution, decimal ratios. |
+| Algebra | Linear and quadratic equations, both roots, systems; readable fractions and fractional exponents. |
+| Trigonometry | Preserve the entire argument and explicit radians. Reject extraction that would drop a leading multiplier or second trig term. |
+| Calculus | Respect the requested variable/differential; include `+ C` for indefinite integrals; preserve one-sided limit direction; distinguish a nonexistent two-sided limit from positive infinity; do not certify an unevaluated or oscillating divergent series as a sum. |
+| Geometry | Canonical area/perimeter/diagonal matches the requested quantity for supported shapes. Base and height alone cannot certify a general triangle or trapezoid perimeter. |
+| Statistics and probability | Fractions and scientific notation remain whole data values; sample/population variance, binomial probability, raw-list expected value. Weighted data and fractional discrete parameters cannot silently become a different calculation. |
+| Discrete and matrices | Factorial, combinations, integer number theory, exact determinant/inverse; singular inverses and invalid counts cannot become numeric answers. |
+| Graphs | Preserve the direct verified function-graph path and its existing regression coverage. |
+| Rendering | Callout math uses the same notation parser; complete streamed formulas keep their escapes; unfinished explicit math is held until renderable. Fractional powers and root indices are readable; heavy calculus/matrix notation gets a full-width typesetting host. |
+
+The verified extractor is deliberately narrower than general mathematical language. Combined/prefixed trig expressions, weighted expectations/statistics, some natural-language geometry forms, and the school-homework gaps above still use the language-model path. Bare numeric trig shorthand such as `sin(30)` retains the existing degrees convention; specify radians explicitly when intended. The separate Vite web client does not yet have parity with the mobile math renderer.
+
+Prompt tests verify that brevity and formatting instructions reach the model; they do not establish how every live provider will follow those instructions. Visual verification used the iOS simulator with representative formulas, not an exhaustive proof of every possible LaTeX expression or an Android device run.

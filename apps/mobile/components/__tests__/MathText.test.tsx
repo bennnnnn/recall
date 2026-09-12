@@ -1,9 +1,16 @@
-import { StyleSheet } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
 
 describe("MathText", () => {
+  beforeEach(() => {
+    jest.spyOn(Dimensions, "get").mockReturnValue({
+      width: 390, height: 844, scale: 3, fontScale: 1,
+    });
+  });
+
+  afterEach(() => jest.restoreAllMocks());
   it("renders plain text with no math markup unchanged", async () => {
     const { getByText } = await render(<MathText latex="x + 1" />);
     expect(getByText("x + 1")).toBeOnTheScreen();
@@ -35,8 +42,9 @@ describe("MathText", () => {
     // Root is a sized View (not Text wrapping a View) so the paragraph Text
     // can treat it as a character. Nested Text>View was 0×0 on iOS and the
     // next sentence painted on top of this one (live: part (b) smudge).
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 29, height: 40 });
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 23, height: 40 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 29, height: 44 });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 23, height: 44 });
+    expect(getByText("1")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
   });
 
   it("renders letter fractions stacked the same way (m over m)", async () => {
@@ -150,5 +158,57 @@ describe("MathText", () => {
     expect(getAllByText("9")).toHaveLength(2);
     expect(queryByText("√[9]9̅")).toBeNull();
     expect(queryByText(/√\[9\]/)).toBeNull();
+  });
+
+  it.each(["9^{1/6}", String.raw`9^{\frac{1}{6}}`])(
+    "keeps fractional exponent %s readable and raised in a sized native View",
+    async (latex) => {
+      const { getByTestId, getByText, queryByText } = await render(<MathText latex={latex} />);
+      expect(getByText("1/6")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
+      expect(getByTestId("math-fractional-sup")).toHaveStyle({ paddingBottom: 12 });
+      expect(getByTestId("math-text-tall")).toHaveStyle({ height: 30 });
+      expect(queryByText("¹⁄⁶")).toBeNull();
+    },
+  );
+
+  it("preserves scripts in fraction sides instead of flattening to literal carets", async () => {
+    const { queryByText, getByText } = await render(<MathText latex={String.raw`\frac{x^2}{y_1}`} />);
+    expect(queryByText(/\^|_/)).toBeNull();
+    expect(getByText("²")).toBeOnTheScreen();
+    expect(getByText("₁")).toBeOnTheScreen();
+  });
+
+  it("reserves the full height of nested fraction stacks", async () => {
+    const { getAllByTestId, getByTestId } = await render(
+      <MathText latex={String.raw`\frac{\frac{1}{2}}{\frac{3}{4}}`} />,
+    );
+    const stacks = getAllByTestId("math-frac");
+    const outer = StyleSheet.flatten(stacks[0].props.style);
+    const inner = StyleSheet.flatten(stacks[1].props.style);
+    expect(outer.height).toBeGreaterThanOrEqual(2 * inner.height + 6);
+    expect(getByTestId("math-text-tall")).toHaveStyle({ height: outer.height });
+  });
+
+  it("scales the native attachment bounds with the requested text size", async () => {
+    const { getByTestId, getByText } = await render(
+      <MathText latex={String.raw`\frac{1}{2}`} fontSize={24} />,
+    );
+    expect(getByText("1")).toHaveStyle({ fontSize: 21, lineHeight: 27 });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 34.5, height: 66 });
+  });
+
+  it("reserves more space when the device increases its font scale", async () => {
+    jest.spyOn(Dimensions, "get").mockReturnValue({
+      width: 390, height: 844, scale: 3, fontScale: 1.5,
+    });
+    const { getByTestId } = await render(<MathText latex={String.raw`\frac{1}{2}`} />);
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 34.5, height: 66 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 43.5, height: 66 });
+  });
+
+  it("raises the root degree above the hook without shrinking the radicand", async () => {
+    const { getByText } = await render(<MathText latex={String.raw`\sqrt[6]{9}`} />);
+    expect(getByText("6")).toHaveStyle({ fontSize: 12, marginTop: -4 });
+    expect(getByText("9")).toHaveStyle({ fontSize: 16 });
   });
 });

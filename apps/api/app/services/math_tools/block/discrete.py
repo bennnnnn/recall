@@ -53,14 +53,19 @@ def _verified_block_calculus(
     if not out.solved:
         lines.append(f"No closed-form result (got: {out.latex}).")
         return VerifiedMathBlock(text="\n".join(lines))
+    answer = out.latex
+    if intent.operation == "integrate" and intent.integral_lower is None:
+        # The service computes one antiderivative; the user's indefinite
+        # integral asks for the family, including on the direct reply path.
+        answer += " + C"
     # Verified worked steps (differentiation): copy these verbatim instead of
     # inventing a derivation — the model's self-derived steps were often wrong
     # even with a verified final answer.
     if out.steps:
         lines.extend(out.steps)
-        return _finish_with_answer(lines, out.latex)
-    lines.append(f"Result: {out.latex}")
-    return _finish_with_answer(lines, out.latex)
+        return _finish_with_answer(lines, answer)
+    lines.append(f"Result: {answer}")
+    return _finish_with_answer(lines, answer)
 
 
 def _verified_block_limit(
@@ -68,12 +73,18 @@ def _verified_block_limit(
 ) -> VerifiedMathBlock | None:
     if not (intent.expr and intent.limit_point is not None):
         return None
-    limit_out = math_service.compute_limit(intent.expr, intent.variable, intent.limit_point)
+    limit_out = math_service.compute_limit(
+        intent.expr, intent.variable, intent.limit_point, intent.limit_direction
+    )
+    if limit_out.result == "zoo":
+        lines.append(
+            "The two-sided limit does not exist: the sides disagree. Do not call it infinity."
+        )
+        return VerifiedMathBlock(text="\n".join(lines))
     lines.append(f"Result: {limit_out.latex}")
     if limit_out.is_infinite:
         lines.append(
-            "This limit is infinite (or does not exist as a finite two-sided "
-            "value) — render it as \\infty, do not treat it as an ordinary "
+            "This limit is infinite — preserve its sign, do not treat it as an ordinary "
             "finite number."
         )
     return _finish_with_answer(lines, limit_out.latex)
@@ -98,9 +109,15 @@ def _verified_block_series(
             )
             + "."
         )
+    if series_out.is_convergent is False and not series_out.is_infinite:
+        lines.append("This series diverges; it has no ordinary sum. Do not present a finite value.")
+        return VerifiedMathBlock(text="\n".join(lines))
+    if not series_out.solved:
+        lines.append("The sum was not evaluated. Do not claim a closed-form answer.")
+        return VerifiedMathBlock(text="\n".join(lines))
     if series_out.is_infinite:
         lines.append(
-            "This series diverges to infinity — render it as \\infty, do not "
+            "This series diverges to infinity — preserve its sign, do not "
             "treat it as an ordinary finite number."
         )
     return _finish_with_answer(lines, series_out.latex)

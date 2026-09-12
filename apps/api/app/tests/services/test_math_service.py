@@ -33,9 +33,11 @@ def test_solve_equation(lhs: str, rhs: str, expected_count: int) -> None:
 
 
 def test_normalize_latex_frac_and_abs() -> None:
-    assert math_service._normalize_latex_to_sympy(r"\frac{1}{2}x") == "(1)/(2)x"
+    assert math_service._normalize_latex_to_sympy(r"\frac{1}{2}x") == "((1)/(2))x"
     assert math_service._normalize_latex_to_sympy(r"\left|x-1\right|") == "Abs(x-1)"
-    assert math_service._normalize_latex_to_sympy(r"\frac{a}{b}+\frac{c}{d}") == "(a)/(b)+(c)/(d)"
+    assert (
+        math_service._normalize_latex_to_sympy(r"\frac{a}{b}+\frac{c}{d}") == "((a)/(b))+((c)/(d))"
+    )
     assert math_service._normalize_latex_to_sympy("|x-2|") == "Abs(x-2)"
     assert math_service._normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
 
@@ -110,7 +112,7 @@ def test_sample_ellipse_closes_the_polyline() -> None:
 def test_extract_equation_from_latex_frac() -> None:
     """Pasted homework with \\frac used to fail the ASCII-only equation walker."""
     pairs = math_service.try_extract_equations_from_text(r"solve \frac{1}{2}x = 3")
-    assert pairs == [("(1)/(2)x", "3")]
+    assert pairs == [("((1)/(2))x", "3")]
     result = math_service.solve_equation(EquationInput(lhs="(1)/(2)x", rhs="3", variables=["x"]))
     assert len(result.solutions_latex) == 1
 
@@ -583,8 +585,8 @@ def test_compute_limit_marks_a_diverging_limit_as_infinite() -> None:
     result = math_service.compute_limit("1/x", "x", "0")
     assert result.is_infinite is True
     # A two-sided limit at 0 doesn't exist as a finite value (the sides
-    # disagree) — SymPy represents that as complex infinity (zoo), which
-    # must still render as \infty, not an opaque symbol.
+    # disagree) — preserve SymPy's zoo status for the presentation layer.
+    assert result.result == "zoo"
     assert "infty" in result.latex
 
 

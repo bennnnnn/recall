@@ -127,13 +127,23 @@ class SympyAdapter:
         expr = str(args.get("expr") or "")
         variable = str(args.get("variable") or "x")
         expr_result: MathExprResult | None = None
+        indefinite = action == "integrate"
         if action == "integrate":
             lower = str(args.get("lower") or args.get("start") or "").strip()
             upper = str(args.get("upper") or args.get("end") or "").strip()
+            if bool(lower) != bool(upper):
+                return ToolResult(
+                    name=self.name, content="Math error: both integral bounds are required."
+                )
             if lower and upper:
+                indefinite = False
                 expr_result = await self._run_off_loop(
                     math_service.integrate_definite, expr, variable, lower, upper
                 )
+                if expr_result is None:
+                    # A failed definite integral is not an indefinite-integral
+                    # request. Do not silently solve a different problem.
+                    return ToolResult(name=self.name, content="Math error: timed out.")
         if expr_result is None:
             if action == "diff":
                 try:
@@ -173,9 +183,11 @@ class SympyAdapter:
         # verified SymPy value — same invariant _action_solve/_action_inequality
         # already enforce for their kinds.
         answer = expr_result.latex
+        if indefinite:
+            answer += " + C"
         return ToolResult(
             name=self.name,
-            content=_verified_content(f"Result: {expr_result.latex}\nVerified result: {answer}"),
+            content=_verified_content(f"Result: {answer}\nVerified result: {answer}"),
             data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
         )
 
@@ -248,6 +260,14 @@ class SympyAdapter:
         )
         if limit_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
+        if limit_result.result == "zoo":
+            return ToolResult(
+                name=self.name,
+                content=(
+                    "The two-sided limit does not exist: the sides disagree. "
+                    "Do not call it infinity."
+                ),
+            )
         # Parity with _verified_block_limit: attach a canonical ```answer
         # fence (the verified limit value) so validate_math_fences corrects
         # the model's final answer; flag an infinite limit so the model
@@ -255,8 +275,7 @@ class SympyAdapter:
         content = f"Result: {limit_result.latex}"
         if limit_result.is_infinite:
             content += (
-                "\nThis limit is infinite (or does not exist as a finite two-sided "
-                "value) — render it as \\infty, do not treat it as an ordinary "
+                "\nThis limit is infinite — preserve its sign, do not treat it as an ordinary "
                 "finite number."
             )
         answer = limit_result.latex
@@ -285,9 +304,20 @@ class SympyAdapter:
             if series_result.is_absolutely_convergent is not None:
                 content += f" (absolutely convergent: {series_result.is_absolutely_convergent})"
             content += "."
+        if series_result.is_convergent is False and not series_result.is_infinite:
+            return ToolResult(
+                name=self.name,
+                content=content
+                + "\nThis series diverges; it has no ordinary sum. Do not present a finite value.",
+            )
+        if not series_result.solved:
+            return ToolResult(
+                name=self.name,
+                content=content + "\nThe sum was not evaluated. Do not claim a closed-form answer.",
+            )
         if series_result.is_infinite:
             content += (
-                "\nThis series diverges to infinity — render it as \\infty, do "
+                "\nThis series diverges to infinity — preserve its sign, do "
                 "not treat it as an ordinary finite number."
             )
         answer = series_result.latex

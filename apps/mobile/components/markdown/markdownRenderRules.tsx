@@ -95,7 +95,7 @@ function wrapInlineChildren(
   textStyle: StyleProp<TextStyle>,
   wrapStyle: StyleProp<ViewStyle>,
 ): React.ReactElement {
-  if (latexHasNestedMathView(astText(node))) {
+  if (latexHasNestedMathView(astText(node)) || isHeavyInlineMath(astText(node))) {
     return (
       <View key={node.key} testID="md-math-inline-wrap" style={wrapStyle}>
         {children}
@@ -154,26 +154,38 @@ function renderTextWithMath(
     (p) => p.type === "math" && isHeavyInlineMath(p.value),
   );
   if (hasHeavy) {
+    const runs: ReactNode[] = [];
+    let inline: typeof parts = [];
+    const flushInline = () => {
+      if (!inline.length) return;
+      const key = `${node.key}-inline-${runs.length}`;
+      const children = inline.map((part, i) => part.type === "math"
+        ? <MathText key={`${key}-${i}`} latex={part.value} />
+        : <Text key={`${key}-${i}`} style={base} selectable>{withGreenTicks(part.value, tickColor, key)}</Text>);
+      runs.push(inline.some((part) => part.type === "math" && latexHasNestedMathView(part.value))
+        ? <View key={key} style={_mdMath.inlineWrap}>{children}</View>
+        : <Text key={key} style={base} selectable>{children}</Text>);
+      inline = [];
+    };
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = parts[i];
+      if (part.type !== "math" || !isHeavyInlineMath(part.value)) {
+        inline.push(part);
+        continue;
+      }
+      flushInline();
+      const next = parts[i + 1];
+      const punctuation = next?.type === "text" && /^[,.;:!?]+$/.test(next.value.trim())
+        ? next.value.trim() : "";
+      runs.push(<MathBlock key={`${node.key}-m-${i}`} latex={
+        part.value + (punctuation ? `\\text{${punctuation}}` : "")
+      } />);
+      if (punctuation) i += 1;
+    }
+    flushInline();
     return (
-      <View key={node.key}>
-        {parts.map((part, i) => {
-          const key = `${node.key}-m-${i}`;
-          if (part.type === "math" && isHeavyInlineMath(part.value)) {
-            return <MathBlock key={key} latex={part.value} />;
-          }
-          if (part.type === "math") {
-            return (
-              <Text key={key} style={base} selectable>
-                <MathText latex={part.value} />
-              </Text>
-            );
-          }
-          return (
-            <Text key={key} style={base} selectable>
-              {withGreenTicks(part.value, tickColor, key)}
-            </Text>
-          );
-        })}
+      <View key={node.key} testID="md-heavy-math-run" style={{ width: "100%" }}>
+        {runs}
       </View>
     );
   }

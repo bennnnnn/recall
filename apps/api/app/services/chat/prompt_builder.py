@@ -48,7 +48,7 @@ from app.services.chat.prompt_constants import (
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
     MATH_INTENT_HINT,
-    MATH_SHORT_STEPS_HINT,
+    MATH_SHORT_RESPONSE_HINT,
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
     MERMAID_FORMAT_HINT,
@@ -711,7 +711,7 @@ def _style_format_hints(
     if math_intent:
         if style == "short" or compact:
             parts.append(SHORT_MATH_SAFETY_HINT)
-            parts.append(MATH_SHORT_STEPS_HINT)
+            parts.append(MATH_SHORT_RESPONSE_HINT)
         else:
             parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
     else:

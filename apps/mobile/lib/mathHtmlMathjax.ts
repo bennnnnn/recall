@@ -3,11 +3,12 @@
  * `pickMathEngine` routes to mathjax (multline / eqnarray). */
 
 import { escapeForHtmlTemplate, type MathHtmlOptions } from "@/lib/mathHtml";
+import { restoreMathEscapes } from "@/lib/mathText";
 import { injectPreviewCsp, MATH_PREVIEW_CSP, PREVIEW_VIEWPORT, inlineScript } from "@/lib/previewSandbox";
 import { MATHJAX_TEX_SVG_JS } from "@/lib/vendor/mathjaxTexSvgJs";
 
 export function buildMathjaxWebHtml(latex: string, options: MathHtmlOptions): string {
-  const safeLatex = escapeForHtmlTemplate(latex.trim());
+  const safeLatex = escapeForHtmlTemplate(restoreMathEscapes(latex.trim()));
   const display = options.displayMode ? "true" : "false";
   const pad = options.compact ? "0" : options.displayMode ? "8px 4px" : "4px 2px";
   // Prefer theme.danger from callers; keep a mode-agnostic CSS red as last resort

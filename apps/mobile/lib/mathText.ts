@@ -29,14 +29,27 @@ export const PROTECTED_MATH_UNDERSCORE_MARKER = String.fromCharCode(0xe002);
 /** Bare `*` inside `$...$` — markdown-it would otherwise start emphasis. */
 export const PROTECTED_MATH_STAR_MARKER = String.fromCharCode(0xe003);
 
+/** Restore source characters after markdown tokenization, before math parsing. */
+export function restoreMathEscapes(latex: string): string {
+  return latex
+    .split(PROTECTED_ESCAPE_MARKER).join("\\")
+    .split(PROTECTED_MATH_UNDERSCORE_MARKER).join("_")
+    .split(PROTECTED_MATH_STAR_MARKER).join("*");
+}
+
 /** Cap nested \\frac / \\sqrt recursion on pathological model latex. */
 const MAX_MATH_NEST_DEPTH = 12;
+
+// These commands change typography, not the operation applied to an argument.
+const TEXT_STYLE_COMMANDS = new Set([
+  "mathbf", "mathit", "mathsf", "mathtt", "mathcal", "mathscr", "boldsymbol", "bm",
+]);
 
 /**
  * Stacked frac/sqrt need a taller parent `lineHeight` than body prose (16/23).
  * Nested RN Text often keeps the outer line box, so the vinculum kisses the
  * line above unless both MathText and the wrapping markdown Text use this.
- * Must stay ≥ MathText's 40px frac stack or the numerator is clipped.
+ * Must stay ≥ MathText's 44px simple frac stack or the numerator is clipped.
  */
 export const MATH_TALL_LINE_HEIGHT = 46;
 /** Superscripts (`a^2`, a²) need more leading than body 23 or they clip the line above. */
@@ -44,7 +57,7 @@ export const MATH_SCRIPT_LINE_HEIGHT = 34;
 
 /** True when native/inline layout must leave room above/below the run. */
 export function latexNeedsTallLine(latex: string): boolean {
-  return /\\(?:d|t|c)?frac|\\sqrt/.test(latex);
+  return /\\(?:d|t|c)?frac|\\sqrt/.test(restoreMathEscapes(latex));
 }
 
 /** LaTeX superscript/subscript only — Unicode ² / CO₂ in prose must not inflate the paragraph. */
@@ -59,7 +72,7 @@ export function mathRunLineHeight(latex: string): number | undefined {
     // numerator ("the above numbers can't be seen").
     return MATH_TALL_LINE_HEIGHT;
   }
-  if (SUPER_OR_SUB_RE.test(latex)) return MATH_SCRIPT_LINE_HEIGHT;
+  if (SUPER_OR_SUB_RE.test(restoreMathEscapes(latex))) return MATH_SCRIPT_LINE_HEIGHT;
   return undefined;
 }
 
@@ -69,17 +82,17 @@ export function mathRunLineHeight(latex: string): number | undefined {
  * neighboring words (the "smudged" line) unless it leaves the text run.
  */
 export function latexHasStackedFrac(latex: string): boolean {
-  return /\\(?:d|t|c)?frac/.test(latex);
+  return /\\(?:d|t|c)?frac/.test(restoreMathEscapes(latex));
 }
 
 export function latexHasNestedMathView(latex: string): boolean {
-  return latexHasStackedFrac(latex) || /\\sqrt/.test(latex);
+  return latexHasStackedFrac(latex) || /\\sqrt|\^\{[^{}]*\/[^{}]*\}/.test(restoreMathEscapes(latex));
 }
 
 const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\pm(?![a-zA-Z])/g, "±"],
-  [/\\mp/g, "∓"],
-  [/\\times/g, "×"],
+  [/\\mp(?![a-zA-Z])/g, "∓"],
+  [/\\times(?![a-zA-Z])/g, "×"],
   // Longest-first: `\cdot` is a prefix of `\cdots`. Without these, a
   // factorial step `$n \times (n-1) \times \cdots \times 1$` rendered as `·s`.
   [/\\cdots(?![a-zA-Z])/g, "⋯"],
@@ -89,9 +102,9 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   // Function composition (f ∘ g) — without this, "$ (f \circ g)(2) $" leaks
   // the literal backslash command in MathText / compact answer pills.
   [/\\circ(?![a-zA-Z])/g, "∘"],
-  [/\\div/g, "÷"],
-  [/\\leq/g, "≤"],
-  [/\\geq/g, "≥"],
+  [/\\div(?![a-zA-Z])/g, "÷"],
+  [/\\leq(?![a-zA-Z])/g, "≤"],
+  [/\\geq(?![a-zA-Z])/g, "≥"],
   // Short forms — common in homework; without these "$x \le 2$" leaks "\le".
   [/\\le(?![a-zA-Z])/g, "≤"],
   [/\\ge(?![a-zA-Z])/g, "≥"],
@@ -99,8 +112,8 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   // Short form — models write `$a \ne 0$` as often as `\neq`.
   [/\\ne(?![a-zA-Z])/g, "≠"],
   [/\\not=/g, "≠"],
-  [/\\approx/g, "≈"],
-  [/\\infty/g, "∞"],
+  [/\\approx(?![a-zA-Z])/g, "≈"],
+  [/\\infty(?![a-zA-Z])/g, "∞"],
   [/\\cup(?![a-zA-Z])/g, "∪"],
   [/\\cap(?![a-zA-Z])/g, "∩"],
   // Logical or/and — inequality unions use `\lor` (prompt asks for
@@ -109,8 +122,8 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\vee(?![a-zA-Z])/g, "∨"],
   [/\\land(?![a-zA-Z])/g, "∧"],
   [/\\wedge(?![a-zA-Z])/g, "∧"],
-  [/\\setminus/g, "∖"],
-  [/\\emptyset/g, "∅"],
+  [/\\setminus(?![a-zA-Z])/g, "∖"],
+  [/\\emptyset(?![a-zA-Z])/g, "∅"],
   // Blackboard bold — docs claim native support; without this, steps leak
   // "\mathbb{R}" as raw text (display KaTeX never sees inline $...$).
   [/\\mathbb\{R\}/g, "ℝ"],
@@ -125,93 +138,93 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   // \sum/\prod/\int are big-operator SYMBOLS (Σ ∏ ∫), not roman-text
   // function names like \log/\sin — they used to render as the literal
   // words "sum"/"prod"/"int" instead of the actual glyph.
-  [/\\sum/g, "Σ"],
-  [/\\prod/g, "∏"],
-  [/\\int/g, "∫"],
+  [/\\sum(?![a-zA-Z])/g, "Σ"],
+  [/\\prod(?![a-zA-Z])/g, "∏"],
+  [/\\int(?![a-zA-Z])/g, "∫"],
   // Big operators — the "big" variants and the rest of the big-operator family.
   // Without these, \bigcup_{i=1}^n / \oint_C / \iint leaked as the
   // literal words "bigcup"/"oint"/"iint" in inline math.
-  [/\\bigcup/g, "∪"],
-  [/\\bigcap/g, "∩"],
-  [/\\bigvee/g, "∨"],
-  [/\\bigwedge/g, "∧"],
-  [/\\bigoplus/g, "⊕"],
-  [/\\bigotimes/g, "⊗"],
-  [/\\bigodot/g, "⊙"],
-  [/\\biguplus/g, "⊎"],
-  [/\\oint/g, "∮"],
-  [/\\iint/g, "∬"],
-  [/\\iiint/g, "∭"],
-  [/\\oiint/g, "∯"],
-  [/\\oiiint/g, "⨒"],
+  [/\\bigcup(?![a-zA-Z])/g, "∪"],
+  [/\\bigcap(?![a-zA-Z])/g, "∩"],
+  [/\\bigvee(?![a-zA-Z])/g, "∨"],
+  [/\\bigwedge(?![a-zA-Z])/g, "∧"],
+  [/\\bigoplus(?![a-zA-Z])/g, "⊕"],
+  [/\\bigotimes(?![a-zA-Z])/g, "⊗"],
+  [/\\bigodot(?![a-zA-Z])/g, "⊙"],
+  [/\\biguplus(?![a-zA-Z])/g, "⊎"],
+  [/\\oint(?![a-zA-Z])/g, "∮"],
+  [/\\iint(?![a-zA-Z])/g, "∬"],
+  [/\\iiint(?![a-zA-Z])/g, "∭"],
+  [/\\oiint(?![a-zA-Z])/g, "∯"],
+  [/\\oiiint(?![a-zA-Z])/g, "⨒"],
   // Base operators not previously handled — leaked as literal names inline.
-  [/\\oplus/g, "⊕"],
-  [/\\otimes/g, "⊗"],
-  [/\\odot/g, "⊙"],
-  [/\\uplus/g, "⊎"],
-  [/\\amalg/g, "⨿"],
+  [/\\oplus(?![a-zA-Z])/g, "⊕"],
+  [/\\otimes(?![a-zA-Z])/g, "⊗"],
+  [/\\odot(?![a-zA-Z])/g, "⊙"],
+  [/\\uplus(?![a-zA-Z])/g, "⊎"],
+  [/\\amalg(?![a-zA-Z])/g, "⨿"],
   // Logic symbols — routine in derivations; leaked as the English words.
-  [/\\therefore/g, "∴"],
-  [/\\because/g, "∵"],
-  [/\\lnot/g, "¬"],
+  [/\\therefore(?![a-zA-Z])/g, "∴"],
+  [/\\because(?![a-zA-Z])/g, "∵"],
+  [/\\lnot(?![a-zA-Z])/g, "¬"],
   [/\\neg(?![a-zA-Z])/g, "¬"],
   // \bmod renders as "mod" with math spacing; in plain text use a spaced "mod".
   [/\\bmod(?![a-zA-Z])/g, " mod "],
   // Lowercase Greek letters — matches mathFenceRetag.ts's LATEX_CMD_RE list.
   // Only alpha/beta/gamma/theta/pi were handled here; the rest leaked as
   // raw "\delta"/"\sigma"/etc. backslash text once actually rendered.
-  [/\\alpha/g, "α"],
-  [/\\beta/g, "β"],
-  [/\\gamma/g, "γ"],
-  [/\\delta/g, "δ"],
-  [/\\varepsilon/g, "ε"],
-  [/\\epsilon/g, "ε"],
-  [/\\zeta/g, "ζ"],
-  [/\\eta/g, "η"],
-  [/\\theta/g, "θ"],
-  [/\\iota/g, "ι"],
-  [/\\kappa/g, "κ"],
-  [/\\lambda/g, "λ"],
-  [/\\mu/g, "μ"],
-  [/\\nu/g, "ν"],
-  [/\\xi/g, "ξ"],
-  [/\\omicron/g, "ο"],
-  [/\\pi/g, "π"],
-  [/\\rho/g, "ρ"],
-  [/\\sigma/g, "σ"],
-  [/\\tau/g, "τ"],
-  [/\\upsilon/g, "υ"],
-  [/\\phi/g, "φ"],
-  [/\\chi/g, "χ"],
-  [/\\psi/g, "ψ"],
-  [/\\omega/g, "ω"],
-  [/\\Delta/g, "Δ"],
+  [/\\alpha(?![a-zA-Z])/g, "α"],
+  [/\\beta(?![a-zA-Z])/g, "β"],
+  [/\\gamma(?![a-zA-Z])/g, "γ"],
+  [/\\delta(?![a-zA-Z])/g, "δ"],
+  [/\\varepsilon(?![a-zA-Z])/g, "ε"],
+  [/\\epsilon(?![a-zA-Z])/g, "ε"],
+  [/\\zeta(?![a-zA-Z])/g, "ζ"],
+  [/\\eta(?![a-zA-Z])/g, "η"],
+  [/\\theta(?![a-zA-Z])/g, "θ"],
+  [/\\iota(?![a-zA-Z])/g, "ι"],
+  [/\\kappa(?![a-zA-Z])/g, "κ"],
+  [/\\lambda(?![a-zA-Z])/g, "λ"],
+  [/\\mu(?![a-zA-Z])/g, "μ"],
+  [/\\nu(?![a-zA-Z])/g, "ν"],
+  [/\\xi(?![a-zA-Z])/g, "ξ"],
+  [/\\omicron(?![a-zA-Z])/g, "ο"],
+  [/\\pi(?![a-zA-Z])/g, "π"],
+  [/\\rho(?![a-zA-Z])/g, "ρ"],
+  [/\\sigma(?![a-zA-Z])/g, "σ"],
+  [/\\tau(?![a-zA-Z])/g, "τ"],
+  [/\\upsilon(?![a-zA-Z])/g, "υ"],
+  [/\\phi(?![a-zA-Z])/g, "φ"],
+  [/\\chi(?![a-zA-Z])/g, "χ"],
+  [/\\psi(?![a-zA-Z])/g, "ψ"],
+  [/\\omega(?![a-zA-Z])/g, "ω"],
+  [/\\Delta(?![a-zA-Z])/g, "Δ"],
   // Arrow/implication commands — matches mathFenceRetag.ts's LATEX_CMD_RE
   // list. Only the 4 short arrows were handled; the rest (routine in
   // step-by-step derivations and limit notation \lim_{x \to 0}) leaked as
   // raw backslash text.
-  [/\\longrightarrow/g, "⟶"],
-  [/\\rightarrow/g, "→"],
-  [/\\longleftarrow/g, "⟵"],
-  [/\\leftarrow/g, "←"],
-  [/\\Longrightarrow/g, "⟹"],
-  [/\\Rightarrow/g, "⇒"],
-  [/\\Longleftarrow/g, "⟸"],
-  [/\\Leftarrow/g, "⇐"],
-  [/\\longleftrightarrow/g, "⟷"],
-  [/\\leftrightarrow/g, "↔"],
-  [/\\Longleftrightarrow/g, "⟺"],
-  [/\\Leftrightarrow/g, "⇔"],
-  [/\\implies/g, "⇒"],
-  [/\\iff/g, "⇔"],
+  [/\\longrightarrow(?![a-zA-Z])/g, "⟶"],
+  [/\\rightarrow(?![a-zA-Z])/g, "→"],
+  [/\\longleftarrow(?![a-zA-Z])/g, "⟵"],
+  [/\\leftarrow(?![a-zA-Z])/g, "←"],
+  [/\\Longrightarrow(?![a-zA-Z])/g, "⟹"],
+  [/\\Rightarrow(?![a-zA-Z])/g, "⇒"],
+  [/\\Longleftarrow(?![a-zA-Z])/g, "⟸"],
+  [/\\Leftarrow(?![a-zA-Z])/g, "⇐"],
+  [/\\longleftrightarrow(?![a-zA-Z])/g, "⟷"],
+  [/\\leftrightarrow(?![a-zA-Z])/g, "↔"],
+  [/\\Longleftrightarrow(?![a-zA-Z])/g, "⟺"],
+  [/\\Leftrightarrow(?![a-zA-Z])/g, "⇔"],
+  [/\\implies(?![a-zA-Z])/g, "⇒"],
+  [/\\iff(?![a-zA-Z])/g, "⇔"],
   [/\\to(?![a-zA-Z])/g, "→"],
-  [/\\longmapsto/g, "⟼"],
-  [/\\mapsto/g, "↦"],
-  [/\\quad/g, "  "],
-  [/\\qquad/g, "    "],
-  [/\\displaystyle/g, ""],
-  [/\\textstyle/g, ""],
-  [/\\scriptstyle/g, ""],
+  [/\\longmapsto(?![a-zA-Z])/g, "⟼"],
+  [/\\mapsto(?![a-zA-Z])/g, "↦"],
+  [/\\quad(?![a-zA-Z])/g, "  "],
+  [/\\qquad(?![a-zA-Z])/g, "    "],
+  [/\\displaystyle(?![a-zA-Z])/g, ""],
+  [/\\textstyle(?![a-zA-Z])/g, ""],
+  [/\\scriptstyle(?![a-zA-Z])/g, ""],
   [/\\,/g, " "],
   [/\\;/g, " "],
   [/\\!/g, ""],
@@ -224,49 +237,52 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\\}/g, "}"],
   // Uppercase Greek — only \Delta was handled; the rest (\Gamma, \Theta, …)
   // leaked as raw "\Gamma" inline. Matches mathFenceRetag's LATEX_CMD_RE list.
-  [/\\Gamma/g, "Γ"],
-  [/\\Theta/g, "Θ"],
-  [/\\Lambda/g, "Λ"],
-  [/\\Sigma/g, "Σ"],
-  [/\\Omega/g, "Ω"],
-  [/\\Pi/g, "Π"],
-  [/\\Phi/g, "Φ"],
-  [/\\Psi/g, "Ψ"],
-  [/\\Xi/g, "Ξ"],
-  [/\\Upsilon/g, "Υ"],
+  [/\\Gamma(?![a-zA-Z])/g, "Γ"],
+  [/\\Theta(?![a-zA-Z])/g, "Θ"],
+  [/\\Lambda(?![a-zA-Z])/g, "Λ"],
+  [/\\Sigma(?![a-zA-Z])/g, "Σ"],
+  [/\\Omega(?![a-zA-Z])/g, "Ω"],
+  [/\\Pi(?![a-zA-Z])/g, "Π"],
+  [/\\Phi(?![a-zA-Z])/g, "Φ"],
+  [/\\Psi(?![a-zA-Z])/g, "Ψ"],
+  [/\\Xi(?![a-zA-Z])/g, "Ξ"],
+  [/\\Upsilon(?![a-zA-Z])/g, "Υ"],
   // Calculus / set-theory / relation symbols that previously showed raw.
-  [/\\partial/g, "∂"],
-  [/\\nabla/g, "∇"],
+  [/\\partial(?![a-zA-Z])/g, "∂"],
+  [/\\nabla(?![a-zA-Z])/g, "∇"],
   [/\\in(?![a-zA-Z])/g, "∈"],
   [/\\notin(?![a-zA-Z])/g, "∉"],
-  [/\\subset/g, "⊂"],
-  [/\\subseteq/g, "⊆"],
-  [/\\supset/g, "⊃"],
-  [/\\equiv/g, "≡"],
-  [/\\propto/g, "∝"],
-  [/\\sim/g, "∼"],
-  [/\\forall/g, "∀"],
-  [/\\exists/g, "∃"],
-  [/\\emptyset/g, "∅"],
-  [/\\angle/g, "∠"],
+  [/\\subset(?![a-zA-Z])/g, "⊂"],
+  [/\\subseteq(?![a-zA-Z])/g, "⊆"],
+  [/\\supset(?![a-zA-Z])/g, "⊃"],
+  [/\\supseteq(?![a-zA-Z])/g, "⊇"],
+  [/\\simeq(?![a-zA-Z])/g, "≃"],
+  [/\\cong(?![a-zA-Z])/g, "≅"],
+  [/\\equiv(?![a-zA-Z])/g, "≡"],
+  [/\\propto(?![a-zA-Z])/g, "∝"],
+  [/\\sim(?![a-zA-Z])/g, "∼"],
+  [/\\forall(?![a-zA-Z])/g, "∀"],
+  [/\\exists(?![a-zA-Z])/g, "∃"],
+  [/\\emptyset(?![a-zA-Z])/g, "∅"],
+  [/\\angle(?![a-zA-Z])/g, "∠"],
   [/\\degree(?![a-zA-Z])/g, "°"],
-  [/\\perp/g, "⊥"],
-  [/\\parallel/g, "∥"],
+  [/\\perp(?![a-zA-Z])/g, "⊥"],
+  [/\\parallel(?![a-zA-Z])/g, "∥"],
   // Angle brackets for vectors / inner products — homework dumps
   // `\langle 2,3,4\rangle` constantly; without these MathText leaks raw cmds.
-  [/\\langle/g, "⟨"],
-  [/\\rangle/g, "⟩"],
-  [/\\lvert/g, "|"],
-  [/\\rvert/g, "|"],
-  [/\\lVert/g, "‖"],
-  [/\\rVert/g, "‖"],
+  [/\\langle(?![a-zA-Z])/g, "⟨"],
+  [/\\rangle(?![a-zA-Z])/g, "⟩"],
+  [/\\lvert(?![a-zA-Z])/g, "|"],
+  [/\\rvert(?![a-zA-Z])/g, "|"],
+  [/\\lVert(?![a-zA-Z])/g, "‖"],
+  [/\\rVert(?![a-zA-Z])/g, "‖"],
   // Vertical / bidirectional arrows (rightward/implies already handled).
-  [/\\uparrow/g, "↑"],
-  [/\\downarrow/g, "↓"],
-  [/\\updownarrow/g, "↕"],
-  [/\\Updownarrow/g, "⇕"],
-  [/\\Uparrow/g, "⇑"],
-  [/\\Downarrow/g, "⇓"],
+  [/\\uparrow(?![a-zA-Z])/g, "↑"],
+  [/\\downarrow(?![a-zA-Z])/g, "↓"],
+  [/\\updownarrow(?![a-zA-Z])/g, "↕"],
+  [/\\Updownarrow(?![a-zA-Z])/g, "⇕"],
+  [/\\Uparrow(?![a-zA-Z])/g, "⇑"],
+  [/\\Downarrow(?![a-zA-Z])/g, "⇓"],
 ];
 
 // Accent commands, mapped to the Unicode combining mark that reproduces them
@@ -400,18 +416,9 @@ function expandLatexEnvironments(latex: string): string {
 }
 
 function preprocessLatex(latex: string): string {
-  let s = latex.trim();
+  let s = restoreMathEscapes(latex.trim());
   // Undo markdownPreprocess.ts's PROTECTED_ESCAPE_MARKER substitution first,
   // before any command table below runs — see the marker's own doc comment.
-  if (s.includes(PROTECTED_ESCAPE_MARKER)) {
-    s = s.split(PROTECTED_ESCAPE_MARKER).join("\\");
-  }
-  if (s.includes(PROTECTED_MATH_UNDERSCORE_MARKER)) {
-    s = s.split(PROTECTED_MATH_UNDERSCORE_MARKER).join("_");
-  }
-  if (s.includes(PROTECTED_MATH_STAR_MARKER)) {
-    s = s.split(PROTECTED_MATH_STAR_MARKER).join("*");
-  }
   s = rewriteSolutionSeparatorBars(s);
   // OCR / models often emit Unicode supers/subs (`x²`, `a₁₀`) instead of
   // caret form. Rewrite to `^`/`_` so the segment parser builds real scripts.
@@ -666,18 +673,23 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
       const rest = input.slice(i + 1);
       const cmd = rest.match(/^[a-zA-Z]+/)?.[0];
       if (cmd) {
-        // Unknown commands must not paint as raw `\cmd`. If a `{…}` group
-        // follows, drop the name and keep the argument (`\foo{x}` → `x`).
-        // Bare names (`\log`, `\sin`) stay as the function word.
+        // Preserve the operation as readable function notation. Dropping a
+        // braced command name made \sin{x} and \log{x} silently become x.
         i += cmd.length + 1;
-        if (input[i] === "{") {
-          const group = readGroup(input, i);
+        let argStart = i;
+        while (input[argStart] === " ") argStart += 1;
+        if (input[argStart] === "{") {
+          const group = readGroup(input, argStart);
           if (group) {
+            if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(`${cmd}(`);
             for (const seg of parseSimpleLatex(group.value, depth + 1)) {
               if (seg.type === "text") pushText(seg.value);
               else out.push(seg);
             }
+            if (!TEXT_STYLE_COMMANDS.has(cmd)) pushText(")");
             i = group.next;
+          } else {
+            pushText(cmd);
           }
         } else {
           pushText(cmd);

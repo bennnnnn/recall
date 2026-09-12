@@ -75,4 +75,10 @@ describe("MathBlock", () => {
     expect(queryByTestId("math-block-nested")).toBeNull();
     expect(getByText("x + 1 = 2")).toBeOnTheScreen();
   });
+
+  it("hosts fractional exponents outside Text so the raised run is not clipped on iOS", async () => {
+    const { getByTestId } = await render(<MathBlock latex="9^{1/6}" />);
+    expect(getByTestId("math-block-nested")).toBeOnTheScreen();
+    expect(getByTestId("math-fractional-sup")).toBeOnTheScreen();
+  });
 });

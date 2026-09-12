@@ -1,3 +1,5 @@
+import { splitInlineMath } from "@/lib/markdown/inlineMath";
+
 import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
 import { collapseAdjacentMoleculeFences, dropRedundantMolecule3dFences } from "@/lib/moleculePair";
 import {
@@ -33,6 +35,7 @@ import {
   PROTECTED_MATH_STAR_MARKER,
   PROTECTED_MATH_UNDERSCORE_MARKER,
 } from "@/lib/mathText";
+export { splitInlineMath } from "@/lib/markdown/inlineMath";
 
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
 const CALLOUT_RE =
@@ -985,7 +988,9 @@ export function layoutCheckVerificationLines(content: string): string {
     /\$([^$\n]*?=\s*-?\d+)\s*:\s*([^$\n]+)\$/g,
     (_m, label: string, formula: string) => `$${label.trim()}$: $${formula.trim()}$`,
   );
-  out = out.replace(/\$:\s*/g, "$: ");
+  // Horizontal spacing only: consuming newlines glues the next ```chart
+  // opener to a math caption and turns its closer into a new code block.
+  out = out.replace(/\$:[ \t]*/g, "$: ");
   out = out
     .split("\n")
     .map((line) => splitPackedCheckLine(normalizeCheckLabelLine(line)))
@@ -1587,7 +1592,7 @@ export function preprocessMarkdown(
   // markdown renders as inline CODE → raw literal `$...$`. Un-wrap backtick-
   // wrapped `$...$` so it renders as math inline with the prose (in sync with
   // the text, no late fence pop-in).
-  out = out.replace(/`(\$[^`\n]+?\$)`/g, "$1");
+  out = applyOutsideFences(out, (prose) => prose.replace(/`(\$[^`\n]+?\$)`/g, "$1"));
 
   out = flattenIntegrationConnectNotes(out);
   out = promoteCalloutBlockquotes(out);
@@ -1701,43 +1706,4 @@ export function normalizeBoldInlineMath(content: string): string {
     }
     return out.trim() ? out : full;
   });
-}
-
-/**
- * Models dump a recap sentence in `$...$` ("Since 9 = 3^2, the 2 and 8 cancel
- * down…"). Math mode drops spaces, so it paints as italic glue that runs off
- * the bubble. Two+ real English words → leave it as prose.
- */
-function looksLikeEnglishMathSpan(inner: string): boolean {
-  // `\begin{Bmatrix}` etc. still have English-looking env names after cmds
-  // are stripped. Real LaTeX stays math; recaps have no backslash commands.
-  if (/\\[a-zA-Z]+/.test(inner)) return false;
-  const words = inner.match(/[A-Za-z]{3,}/g) ?? [];
-  return words.length >= 2;
-}
-
-/** Split paragraph text into plain + inline math segments ($...$ or \\(...\\)). */
-export function splitInlineMath(
-  text: string,
-): Array<{ type: "text" | "math"; value: string }> {
-  const parts: Array<{ type: "text" | "math"; value: string }> = [];
-  const pattern = /\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g;
-  let last = 0;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > last) {
-      parts.push({ type: "text", value: text.slice(last, match.index) });
-    }
-    const inner = (match[1] ?? match[2] ?? "").trim();
-    if (looksLikeEnglishMathSpan(inner)) {
-      parts.push({ type: "text", value: inner });
-    } else {
-      parts.push({ type: "math", value: inner });
-    }
-    last = match.index + match[0].length;
-  }
-  if (last < text.length) {
-    parts.push({ type: "text", value: text.slice(last) });
-  }
-  return parts.length ? parts : [{ type: "text", value: text }];
 }

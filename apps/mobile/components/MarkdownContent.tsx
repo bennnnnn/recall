@@ -19,6 +19,7 @@ import {
 } from "@/lib/markdown/markdownStreamBlocks";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
 import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
+import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streamingMath";
 import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,
@@ -117,7 +118,7 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
   // mathText.ts requires both \begin and \end), then snaps to the correct
   // layout when \end{…} arrives — a visible blank-then-jump. Hold a quiet
   // box until the environment closes, matching StreamingDiagramPlaceholder.
-  if (hasUnclosedMathEnv(trimmed)) {
+  if (hasIncompleteStreamingLatex(trimmed)) {
     return <StreamingPlaceholder height={48} />;
   }
   return (
@@ -126,13 +127,6 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
     </View>
   );
 });
-
-/** True when the body has a \begin{…} without a matching \end{…}. */
-function hasUnclosedMathEnv(s: string): boolean {
-  const begins = (s.match(/\\begin\{[\w*]+\}/g) ?? []).length;
-  const ends = (s.match(/\\end\{[\w*]+\}/g) ?? []).length;
-  return begins > ends;
-}
 
 /** Open ```geometry / ```graph — hold a quiet box, never dump JSON into Codeblock. */
 const StreamingDiagramPlaceholder = React.memo(function StreamingDiagramPlaceholder() {
@@ -206,6 +200,7 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
     const unsettledStable = prepared.slice(settledEnd, safeLen);
     const liveRaw = prepared.slice(safeLen);
     const openRegion = classifyOpenStreamTail(liveRaw, cache?.scanState);
+    const liveText = openRegion.kind === "other" ? prepareStreamingMathText(openRegion.text) : null;
     const fencePreview =
       openRegion.kind === "fence"
         ? classifyOpenFencePreview(openRegion.lang, openRegion.body)
@@ -246,10 +241,13 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
           )
         ) : openRegion.kind === "math" ? (
           <StreamingMathPreview body={openRegion.body} />
-        ) : openRegion.text ? (
-          <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
-            {openRegion.text}
-          </Markdown>
+        ) : liveText ? (
+          <>
+            {liveText.text ? <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
+              {liveText.text}
+            </Markdown> : null}
+            {liveText.pending ? <StreamingPlaceholder height={32} /> : null}
+          </>
         ) : null}
       </HtmlPreviewFilesProvider>
     );
