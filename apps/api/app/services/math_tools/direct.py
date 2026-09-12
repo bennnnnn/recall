@@ -388,11 +388,21 @@ def can_direct_verified_math_reply(
     # Prime factorization has two operation words, which the generic prose
     # counter rejects. Require a whole-request match instead of whitelisting
     # them globally; even "factorize 60 and 2+2" must retain the model path.
+    from app.services.math_text_match.coordinate_vector import (
+        has_coordinate_vector_request,
+        is_closed_coordinate_vector_request,
+    )
+
     lower = user_text.lower()
+    coordinate_vector_request = has_coordinate_vector_request(user_text)
+    if coordinate_vector_request and not is_closed_coordinate_vector_request(user_text):
+        return False
     factorization_request = "prime factor" in lower or "factorize" in lower
     if factorization_request and not _plain_prime_factorization_request(user_text):
         return False
-    if not factorization_request and leftover_non_math_request(user_text):
+    if not (factorization_request or coordinate_vector_request) and leftover_non_math_request(
+        user_text
+    ):
         return False
     answer = (verified.canonical_answer or "").strip()
     if not answer or len(answer) > _MAX_DIRECT_ANSWER_CHARS:

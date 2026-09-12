@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.models.schemas.math import MathIntent
 from app.services import math_school
 from app.services import math_text_match as mtm
+from app.services.math_text_match.coordinate_vector import literal_math_tuples
 from app.services.math_tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.math_tools.block.common import format_quantity
 from app.services.math_tools.helpers import math_expr_or_none, substituted_eval_expr
@@ -93,6 +94,10 @@ def _extract_coord_intent(cleaned: str) -> MathIntent | None:
         op = "slope"
     if op is None:
         return None
+    # Literal pairs use Euclidean geometry; spherical/geodesic requests
+    # require domain information that these operands do not contain.
+    if op == "distance" and re.search(r"\b(?:sphere|spherical|geodesic)\b", lower):
+        return None
     pts = _two_points(cleaned)
     if pts is None:
         return None
@@ -109,22 +114,10 @@ def _extract_coord_intent(cleaned: str) -> MathIntent | None:
 
 
 def _two_points(text: str) -> tuple[tuple[float, float], tuple[float, float]] | None:
-    found: list[tuple[float, float]] = []
-    start = 0
-    while len(found) < 2:
-        i = text.find("(", start)
-        if i == -1:
-            break
-        j = text.find(")", i)
-        if j == -1:
-            break
-        pair = mtm._parse_xy_pair(text[i : j + 1])
-        if pair is not None:
-            found.append(pair)
-        start = j + 1
-    if len(found) < 2:
+    found = literal_math_tuples(text, "(", ")")
+    if found is None or len(found) != 2 or any(len(point) != 2 for point in found):
         return None
-    return found[0], found[1]
+    return (found[0][0], found[0][1]), (found[1][0], found[1][1])
 
 
 def _extract_vector_intent(cleaned: str) -> MathIntent | None:
@@ -142,32 +135,16 @@ def _extract_vector_intent(cleaned: str) -> MathIntent | None:
     if not vecs:
         return None
     if op == "magnitude":
+        if len(vecs) != 1:
+            return None
         return MathIntent(kind="vector", school_op=op, vec_a=vecs[0], operation="solve")
-    if len(vecs) < 2:
+    if len(vecs) != 2 or len(vecs[0]) != len(vecs[1]):
         return None
     return MathIntent(kind="vector", school_op=op, vec_a=vecs[0], vec_b=vecs[1], operation="solve")
 
 
 def _angle_vectors(text: str) -> list[list[float]]:
-    out: list[list[float]] = []
-    start = 0
-    while True:
-        i = text.find("<", start)
-        if i == -1:
-            break
-        j = text.find(">", i)
-        if j == -1:
-            break
-        body = text[i + 1 : j]
-        try:
-            nums = [float(p.strip()) for p in body.split(",") if p.strip()]
-        except ValueError:
-            start = i + 1
-            continue
-        if 2 <= len(nums) <= 3:
-            out.append(nums)
-        start = j + 1
-    return out
+    return literal_math_tuples(text, "<", ">") or []
 
 
 def _extract_trig_intent(cleaned: str) -> MathIntent | None:
