@@ -58,6 +58,8 @@ export function prepareStreamingMathText(text: string): { text: string; pending:
     const span = readInlineMathSpan(text, i, true);
     if (span) {
       const body = span.value
+        // Keep a multiline explicit formula inside one single-dollar span.
+        .split(/\r?\n/).map((line) => line.trim()).join(" ")
         .replace(/\\/g, PROTECTED_ESCAPE_MARKER)
         .replace(/_/g, PROTECTED_MATH_UNDERSCORE_MARKER)
         .replace(/\*/g, PROTECTED_MATH_STAR_MARKER);
