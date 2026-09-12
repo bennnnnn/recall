@@ -22,6 +22,7 @@ not duplicated as a result card).
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
@@ -73,7 +74,7 @@ _GEOMETRY_TYPES = frozenset(
         "sector",
     }
 )
-_GRAPH_TYPES = frozenset({"function", "vertical", "number_line", "trajectory"})
+_GRAPH_TYPES = frozenset({"function", "vertical", "number_line", "trajectory", "inequality"})
 
 
 def _canonical_replacement(
@@ -105,6 +106,8 @@ def _canonical_replacement(
     # Model often emits a y=f(x) step for "graph x > 3"; replace any graph
     # fence with the verified number line.
     for fence in fences:
+        if fence.get("type") == "inequality" and data_type in _GRAPH_TYPES:
+            return json.dumps(fence, separators=(",", ":"))
         if fence.get("type") == "number_line" and data_type in {
             "function",
             "vertical",
@@ -220,7 +223,9 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     when curve 1 was already dense left a sparse ``points2`` as a jagged
     polyline, and densifying curve 1 preserved but never resampled curve 2.
     """
-    if spec.type in {"vertical", "number_line", "trajectory"} or _is_point_marker(spec):
+    if spec.type in {"vertical", "number_line", "trajectory", "inequality"} or _is_point_marker(
+        spec
+    ):
         return spec
 
     var2 = (spec.variable2 or spec.variable).strip() or "x"
@@ -314,6 +319,7 @@ def _replace_unclosed_graph_fence(
         "vertical",
         "number_line",
         "trajectory",
+        "inequality",
     }:
         note = _DIAGRAM_FAIL_NOTE
         return head + note + rest
@@ -471,18 +477,28 @@ def _answer_numeric_core(answer_body: str) -> str:
 
 
 def _math_spans(prose: str) -> list[str]:
-    """Return bodies of ``$...$`` spans using linear ``find`` (no nested regex)."""
+    """Read complete dollar or TeX-delimited formulas in one forward scan."""
     spans: list[str] = []
     index = 0
-    while True:
-        start = prose.find("$", index)
-        if start < 0:
-            break
-        end = prose.find("$", start + 1)
+    while index < len(prose):
+        if prose.startswith((r"\(", r"\["), index):
+            closer = r"\)" if prose[index + 1] == "(" else r"\]"
+            start = index + 2
+        elif prose[index] == "\\":
+            # Escaped dollars and literal backslashes are not math openers.
+            index += 2
+            continue
+        elif prose[index] == "$":
+            closer = "$$" if prose.startswith("$$", index) else "$"
+            start = index + len(closer)
+        else:
+            index += 1
+            continue
+        end = prose.find(closer, start)
         if end < 0:
             break
-        spans.append(prose[start + 1 : end])
-        index = end + 1
+        spans.append(prose[start:end])
+        index = end + len(closer)
     return spans
 
 
@@ -544,6 +560,29 @@ def _prose_states_conflicting_var_equals(content: str, answer_body: str) -> bool
     return any(value != solver for value in stated)
 
 
+def _normalize_math_answer_expression(text: str) -> str:
+    """Compare harmless TeX spelling differences, preserving grouped powers."""
+    # Remove spacing commands before whitespace/command slashes are stripped.
+    # Word boundaries keep \quad from binding inside a different command name.
+    spaced = re.sub(r"\\(?:qquad|quad)(?![A-Za-z])", "", text)
+    for spacing in (r"\,", r"\;", r"\:", r"\!", "\\ "):
+        spaced = spaced.replace(spacing, "")
+    # Upright unit lettering is presentation only, but unit case is semantic:
+    # mJ and MJ must never compare equal. Keep this fallback case-sensitive.
+    spaced = re.sub(r"\\mathrm\{([A-Za-z°]{1,24})\}", r"\1", spaced)
+    cleaned = (
+        spaced.replace(r"\left", "")
+        .replace(r"\right", "")
+        .replace("$", "")
+        .replace("\u2212", "-")
+        .replace("\\", "")
+    )
+    compact = "".join(cleaned.split())
+    # Only one literal atom: x^{12} and x^12 are different TeX expressions,
+    # as are x^{1/6} and x^1/6. Never remove arbitrary grouping braces.
+    return re.sub(r"\^\{([A-Za-z0-9])\}", r"^\1", compact)
+
+
 def _prose_already_states_answer(content: str, answer_body: str) -> bool:
     """True when the verified value is already visible in the assistant prose.
 
@@ -560,7 +599,16 @@ def _prose_already_states_answer(content: str, answer_body: str) -> bool:
     needle = _normalize_answer_token(body)
     if len(needle) < 2:
         return False
-    return needle in _normalize_answer_token(content)
+    if r"\mathrm{" not in body and needle in _normalize_answer_token(content):
+        return True
+    # Formatting equivalence applies to complete math results only. A looser
+    # substring check would find canonical x^{1} inside the different x^12.
+    expression = _normalize_math_answer_expression(body)
+    for span in _math_spans(content):
+        stated = _normalize_math_answer_expression(span)
+        if stated == expression or stated.endswith("=" + expression):
+            return True
+    return False
 
 
 def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock | None) -> str:

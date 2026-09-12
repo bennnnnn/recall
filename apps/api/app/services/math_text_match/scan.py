@@ -488,7 +488,7 @@ def _to_ascii_arith(expr: str) -> str:
 
 def _binary_ops_only_minus_or_slash(compact: str) -> bool:
     """True when every binary operator is ``-`` or ``/`` (dates, phone numbers)."""
-    for ch in compact:
+    for ch in compact.removeprefix("+"):
         if ch in "+*^":
             return False
     return True
@@ -500,8 +500,11 @@ def _looks_like_date_or_phone(compact: str) -> bool:
     Linear scan — not a blanket reject of every ``-``/``/`` chain, so
     ``10-3-2`` and ``100/5/2`` stay calculator arithmetic.
     """
+    compact = compact.removeprefix("+")
     if not compact or compact[0] == "-":
         return False
+    if re.fullmatch(r"(?:\+?1-?)?\(\d{3}\)\d{3}-\d{4}", compact):
+        return True
     groups: list[int] = []
     seps: list[str] = []
     i = 0
@@ -526,6 +529,11 @@ def _looks_like_date_or_phone(compact: str) -> bool:
     all_minus = all(sep == "-" for sep in seps)
     if not (all_slash or all_minus):
         return False
+    if len(groups) == 2:
+        # Seven-digit phone and year-month date. A bare short subtraction
+        # such as 2-6 is arithmetic; prose ranges never pass the allowlist.
+        a, b = groups
+        return all_minus and ((a == 3 and b == 4) or (a == 4 and b == 2))
     if len(groups) == 3:
         a, b, c = groups
         if a <= 2 and b <= 2 and c in (2, 4):
@@ -578,8 +586,8 @@ def bare_arithmetic_expr(text: str) -> str | None:
     Shared by the SymPy gate and the arithmetic extractor so ``8-8*2`` cannot
     be gated as a dimension pair (``8*2``) and then fail extract.
 
-    Conservative on a single ``-`` / ``/`` (dates, phone numbers, scores).
-    Auto-accept only with ``*``, ``^``, times/divide glyphs, two or
+    Bare subtraction is arithmetic; a single ``/`` still needs a cue.
+    Auto-accept with a single subtraction, ``*``, ``^``, times/divide glyphs, two or
     more operators, or a cue word (``what is``, ``calculate``, ...).
     Uncued ``-``/``/`` chains that look like a date or phone are rejected;
     chained arithmetic such as ``10-3-2`` is not.
@@ -610,7 +618,8 @@ def bare_arithmetic_expr(text: str) -> str | None:
         return None
     unambiguous = has_root or any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)
     unambiguous = unambiguous or "**" in normalized
-    if not (unambiguous or ops >= 2 or had_cue):
+    subtraction = ops == 1 and "-" in compact and not any(ch in "+*/^" for ch in compact)
+    if not (unambiguous or subtraction or ops >= 2 or had_cue):
         return None
     # Dates / phones: structural ``9/7/2026`` / ``1-800-273-8255``, not
     # every minus-or-slash chain (``10-3-2``). Keep ``8-8*2`` and cued ``9/9``.

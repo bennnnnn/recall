@@ -5,9 +5,9 @@ Server-side SymPy verifies and samples; the mobile app only renders. Do not add 
 ## Default product path (heuristic SymPy, always)
 
 1. **Heuristic pre-stream** ([`math_tools/`](../apps/api/app/services/math_tools/)) — if `needs_symbolic_math`, SymPy runs in isolated worker slots (default 3; interactive slot wait 2s, then the 5s solve timeout). A verified system block is injected (numbers + `canonical_fence` / `canonical_answer` for ` ```geometry` / ` ```graph` / ` ```answer `). The hint tells the model **not** to emit those fences.
-2. **Direct verified reply** — if that block is a short closed ` ```answer ` and the user did not ask to explain / show work / teach, Recall returns `$…$` plus the answer fence and **skips the LLM** (same instant-reply seam as time/location). Plain requests for one verified function graph also return the canonical plot directly. Graph explanations, geometry, camera homework, and force/energy physics still stream.
-3. **LLM stream** (when language adds value) — model explains in Markdown + `$...$`.
-4. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — rewrite any leftover geometry/graph/`answer` fences from the model with the canonical body; append missing solver-owned fences so the client always gets the answer pill and diagram; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget. Direct replies run this rewrite in-process (they already carry the fence).
+2. **Direct verified reply** — if that block is a short closed ` ```answer ` and the user did not ask to explain / show work / teach, Recall returns one typeset answer fence and **skips the LLM** (same instant-reply seam as time/location). Plain requests for one verified function graph or affine inequality region also return the canonical plot directly. Graph explanations, geometry, camera homework, and force/energy physics still stream.
+3. **LLM stream** (when language adds value) — model answers briefly in Markdown + `$...$`. A reply instruction immediately after the verified working distinguishes supporting solver data from a user request for teaching.
+4. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — rewrite any leftover geometry/graph/`answer` fences from the model with the canonical body; append missing solver-owned results, avoiding an extra answer card when equivalent math is already visible; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget. Direct replies run this rewrite in-process (they already carry the fence).
 5. **Mobile** — preprocess delimiters, then render: inline `$...$` → native `MathText`; display ` ```math` → KaTeX/MathJax WebView (dev build; tall blocks offer Expand → fullscreen scroll); diagrams → SVG. Crash fallback still draws geometry/graph as SVG (not raw JSON).
 
 Camera math is a specialization of step 1: fixed prompt → vision extract → same SymPy equation path.
@@ -32,7 +32,8 @@ Heuristic pre-solve and web-search injection **still run**. The model may also c
 The API persists and forwards the user's message **verbatim**. Capture happens in the composer:
 
 - **Symbol toolbar** (`MathKeyboardBar` / `mathKeyboardSymbols.ts`) inserts LaTeX snippets (`$...$` when the caret is outside math).
-- **Paste** (`mathPasteNormalize.ts`) maps Unicode math glyphs to LaTeX when a change looks like a paste (same glyph set spirit as `_UNICODE_OP_SUBS` in `math_service/parse.py`). Image-only clipboard → existing camera OCR, not a second recognizer.
+- **Ordinary typing and native paste** preserve the exact input and native caret. Autocorrect and spellcheck stay disabled so notation such as `sqrt` and assignment expressions cannot be rewritten while typing.
+- **Explicit math keypad / Paste controls** opt into formatted math editing. `mathPasteNormalize.ts` maps pasted Unicode math glyphs to LaTeX (the same glyph set spirit as `_UNICODE_OP_SUBS` in `math_service/parse.py`). Image-only clipboard → existing camera OCR, not a second recognizer.
 - Bare `_` / `*` inside `$...$` are protected in `markdownPreprocess.ts` so markdown-it cannot turn subscripts/multiplication into emphasis.
 
 ## Key files
@@ -52,7 +53,7 @@ The API persists and forwards the user's message **verbatim**. Capture happens i
 
 ## Curriculum coverage (K–12 through undergrad homework)
 
-The LLM can **talk** about almost any homework. **Verified** work (pre-stream SymPy + canonical fences) only covers the `MathIntent.kind` list in [`schemas/math/`](../apps/api/app/models/schemas/math/) (~25 kinds). Anything else is unverified prose. That is intentional: Golden Rule 7 — the app renders; the server verifies what SymPy can close. Proof-based analysis and abstract algebra stay LLM-only.
+The LLM can **talk** about almost any homework. **Verified** work (pre-stream SymPy + canonical fences) only covers the `MathIntent.kind` list in [`schemas/math/`](../apps/api/app/models/schemas/math/) (36 kinds). Anything else is unverified prose. That is intentional: Golden Rule 7 — the app renders; the server verifies what SymPy can close. Proof-based analysis and abstract algebra stay LLM-only.
 
 [`math_tools/`](../apps/api/app/services/math_tools/) is the feature split: ordered `_INTENT_EXTRACTORS` in `extract.py` plus `kind → _verified_block_*` in `block/`. Do **not** add a second kind table. Do **not** add Skia; display math stays KaTeX/MathJax WebView, inline `MathText`, diagrams `react-native-svg`.
 
@@ -62,13 +63,13 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 
 | Band | Covered as verified | How |
 |------|---------------------|-----|
-| Arithmetic (1–6) | Bare digits+ops when `bare_arithmetic_expr` agrees (`7*8`, `8-8*2`, cued `what is 9/9`). A lone `-`/`/` (`9/9`, `10-3`, phone/date) is not verified unless a cue word is present. Equations (`1/2+1/3 = x`) and simplify/factor too. | `arithmetic`, `_extract_equation_intent`, calculus `simplify` |
+| Arithmetic (1–6) | Bare digits+ops when `bare_arithmetic_expr` agrees (`7*8`, `8-8*2`, cued `what is 9/9`). Standalone subtraction such as `2-6` is verified. Lone-slash input (`9/9`) still needs a compute cue; phone/date shapes and ranges in prose stay outside this shortcut. Equations (`1/2+1/3 = x`) and simplify/factor too. | `arithmetic`, `_extract_equation_intent`, calculus `simplify` |
 | Pre-algebra | Fractions/exponents in equations; gcd/lcm/primes/mod | `equation`, `number_theory` |
-| Algebra I–II | One equation, systems (≤4), inequalities + shaded region | `equation`, `system`, `inequality` + `number_line` graph |
+| Algebra I–II | One equation, systems (≤4), inequalities + number-line intervals; affine two-variable shaded half-planes | `equation`, `system`, `inequality` + `number_line` / `inequality` graph |
 | Geometry (2D) | Rectangle, square, triangle (base/height), right triangle, SSS, trap, para, circle, sector | geometry fences |
 | Geometry (3D) | Cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area). Numbers only — no 3D SVG fence. | `solid` |
 | Arithmetic / percent / ratio | Bare `7*8` / `8-8*2`; `15% of 80`; simplify `6:8` | `arithmetic` |
-| Trig (evaluate) | `sin(30°)` etc. Equations like `sin(x)=1/2` stay `equation`. Identities stay LLM. AAA triangles use law of sines (relative units). | `trig`, `triangle_sides` |
+| Trig (evaluate / equations) | `sin(30°)` etc. Equations like `sin(x)=1/2` return every real periodic branch with an integer parameter. Unsupported explicit domains and unresolved solution sets stay on the model path. Identities stay LLM. AAA triangles use law of sines (relative units). | `trig`, `equation`, `triangle_sides` |
 | Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
 | Vectors | Magnitude, dot, cross | `vector` |
 | Physics (narrow) | 1D gravity kinematics, projectile range/max height (vacuum formula when no height; quadratic time-of-flight when `h0` is given), scalar F=ma, kinetic/potential energy, work, power | `kinematics`, `projectile`, `force`, `energy`; trajectory `graph` fences only for kinematics/projectile. Gate = union of those extractor cues. `moon`/`mars` are whole tokens. Unlabeled lengths are not launch height. Force/energy skip the unlabeled direct-reply seam. |

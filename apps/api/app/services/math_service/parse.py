@@ -497,6 +497,7 @@ def _parse_expression(
     variable_names: list[str] | None = None,
     *,
     real: bool = False,
+    evaluate: bool = True,
 ):
     normalized = _normalize_expr(expr)
     if len(normalized) > get_settings().math_max_expr_length:
@@ -511,7 +512,7 @@ def _parse_expression(
             normalized,
             local_dict=local_dict,
             transformations=_TRANSFORMATIONS,
-            evaluate=True,
+            evaluate=evaluate,
         )
     except Exception as exc:
         raise MathServiceError(f"Could not parse expression: {expr}") from exc

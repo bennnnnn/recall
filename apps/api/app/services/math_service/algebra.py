@@ -130,12 +130,12 @@ def compact_root_answer_lines(variable: str, values: list[Any]) -> list[str]:
                 continue
             real, imag = v.as_real_imag()
             real, imag_abs = simplify(real), simplify(Abs(simplify(imag)))
+            imag_l = "i" if imag_abs == 1 else f"{_solution_value_latex(imag_abs)} i"
             if real == 0:
-                lines.append(f"{var_l} = \\pm {_solution_value_latex(imag_abs)} i")
+                lines.append(f"{var_l} = \\pm {imag_l}")
             else:
                 real_l = _solution_value_latex(real)
-                imag_l = _solution_value_latex(imag_abs)
-                lines.append(f"{var_l} = {real_l} \\pm {imag_l} i")
+                lines.append(f"{var_l} = {real_l} \\pm {imag_l}")
             used[i] = used[j] = True
             break
 
@@ -324,6 +324,12 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
     _reject_high_degree(lhs, rhs, data.variables)
     real = _expr_needs_real_domain(data.lhs, data.rhs)
     syms = [Symbol(v, real=True) if real else Symbol(v) for v in data.variables]
+    if len(syms) == 1:
+        from app.services.math_service.trig_equations import solve_real_trig_equation
+
+        trig_result = solve_real_trig_equation(lhs, rhs, syms[0])
+        if trig_result is not None:
+            return trig_result
     try:
         raw_solutions = solve(equation, syms, dict=True)
     except Exception as exc:
@@ -496,14 +502,16 @@ def factor_expression(expr: str, variable: str = "x") -> MathExprResult:
     """Factor a polynomial/expression into a product of irreducible factors."""
     parsed = _parse_expression(expr, [variable])
     result = factor(parsed)
-    return MathExprResult(result=str(result), latex=format_verified_latex(result))
+    # General display simplification can expand a product again. Preserve
+    # the requested factor form, including exact symbolic coefficients.
+    return MathExprResult(result=str(result), latex=latex(result))
 
 
 def expand_expression(expr: str, variable: str = "x") -> MathExprResult:
     """Expand a factored expression into a sum of terms."""
     parsed = _parse_expression(expr, [variable])
     result = expand(parsed)
-    return MathExprResult(result=str(result), latex=format_verified_latex(result))
+    return MathExprResult(result=str(result), latex=latex(result))
 
 
 def _term_derivative_step(term: Any, sym: Any) -> str:

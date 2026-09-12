@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -34,6 +35,23 @@ class VerifiedMathBlock:
 
 def _answer_canonical(content: str) -> dict[str, str]:
     return {"type": "answer", "content": content}
+
+
+def format_quantity(answer: str, unit: str) -> str:
+    """Keep a unit upright in the answer's existing math renderer."""
+    # Unit strings have already passed a solver or the measurement vocabulary.
+    # Normalize common unit powers; escape text-only TeX metacharacters.
+    unit = unit.replace("**", "^").replace("²", "^{2}").replace("³", "^{3}")
+    if unit in {"C", "F"}:
+        unit = "°" + unit
+    # Keep powers outside \mathrm: the native text fallback also understands
+    # \mathrm{cm}^{3}, while nested braces inside \mathrm are not portable.
+    unit = re.sub(
+        r"[A-Za-zµμ°_][A-Za-z0-9µμ°_-]*",
+        lambda match: r"\mathrm{" + match.group(0).replace("_", r"\_") + "}",
+        unit,
+    ).replace("%", r"\%")
+    return rf"{answer}\ {unit}"
 
 
 def wrap_verified_math(text: str) -> str:

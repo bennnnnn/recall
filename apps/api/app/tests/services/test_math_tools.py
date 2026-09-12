@@ -469,7 +469,8 @@ async def test_build_math_augmentation_verifies_kinematics_trajectory() -> None:
     )
 
     assert verified is not None
-    assert note == verified.text
+    assert note is not None and note.startswith(verified.text + "\n\n")
+    assert "Reply guidance for this request:" in note
     assert verified.canonical_answer == "2.02 s"
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "trajectory"
@@ -882,7 +883,7 @@ def test_verified_block_cube_volume() -> None:
     assert intent is not None
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
-    assert block.canonical_answer == "125"
+    assert block.canonical_answer == r"125\ \mathrm{cm}^{3}"
     assert "```answer\n" not in block.text
     assert block.canonical_answer is not None
     assert block.canonical_fence is not None
@@ -895,7 +896,7 @@ def test_verified_block_prism_volume() -> None:
     assert intent is not None
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
-    assert block.canonical_answer == "60"
+    assert block.canonical_answer == r"60\ \mathrm{units}^{3}"
 
 
 def test_verified_block_prism_volume_sentence_period() -> None:
@@ -904,7 +905,7 @@ def test_verified_block_prism_volume_sentence_period() -> None:
     assert intent is not None
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
-    assert block.canonical_answer == "60"
+    assert block.canonical_answer == r"60\ \mathrm{units}^{3}"
 
 
 def test_verified_block_integral_of_2x_sentence_period() -> None:
@@ -995,7 +996,7 @@ def test_extract_school_homework_kinds(text: str, kind: str) -> None:
         ("100/5/2", True, "arithmetic"),
         ("9/9", False, None),
         ("9/9", False, None),
-        ("10-3", False, None),
+        ("10-3", True, "arithmetic"),
         ("555-1234", False, None),
         ("8x5", False, None),
         ("8 by 5", False, None),

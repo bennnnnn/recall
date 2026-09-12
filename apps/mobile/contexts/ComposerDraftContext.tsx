@@ -33,6 +33,8 @@ type ComposerDraftApi = {
 
 type ComposerDraftValue = {
   input: string;
+  /** Changes only when another draft/session becomes active, not on typing. */
+  revision: number;
 };
 
 const ComposerDraftApiContext = createContext<ComposerDraftApi | null>(null);
@@ -41,6 +43,7 @@ const ComposerDraftValueContext = createContext<ComposerDraftValue | null>(null)
 /** Owns composer text so keystrokes do not re-render ChatScreen / the message list. */
 export function ComposerDraftProvider({ children }: { children: ReactNode }) {
   const [input, setInput] = useState("");
+  const [revision, setRevision] = useState(0);
   const inputRef = useRef(input);
   inputRef.current = input;
   const draftsRef = useRef(new Map<string, string>());
@@ -53,6 +56,7 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
     // setInput("") does not update this ref until the next render.
     inputRef.current = "";
     setInput("");
+    setRevision((value) => value + 1);
   }, []);
 
   useEffect(() => subscribeComposerDraftReset(resetForNewSession), [resetForNewSession]);
@@ -72,6 +76,7 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
         if (fromKey === nextKey) return;
         threadKeyRef.current = nextKey;
         setInput(nextText);
+        setRevision((value) => value + 1);
       },
       adoptComposerThread: (nextKey: string) => {
         threadKeyRef.current = adoptNewComposerThread(
@@ -90,7 +95,7 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
     }),
     [resetForNewSession],
   );
-  const value = useMemo<ComposerDraftValue>(() => ({ input }), [input]);
+  const value = useMemo<ComposerDraftValue>(() => ({ input, revision }), [input, revision]);
 
   return (
     <ComposerDraftApiContext.Provider value={api}>

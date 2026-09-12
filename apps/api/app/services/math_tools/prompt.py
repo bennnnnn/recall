@@ -12,10 +12,23 @@ from app.models.schemas.math import (
 )
 from app.services import math_service
 from app.services.math_tools.block import VerifiedMathBlock
-from app.services.math_tools.extract import extract_math_intent
+from app.services.math_tools.extract import extract_math_intent, trig_domain_would_be_dropped
 from app.services.prompt_inject import inject_before_last_user
 
 logger = logging.getLogger(__name__)
+
+VERIFIED_MATH_REPLY_HINT = (
+    "Reply guidance for this request: The solver working above is supporting data, "
+    "not a request to explain every step. Unless the user requested steps, an explanation, "
+    "a proof, examples, or hints, give one concise answer with at most the key transformation. "
+    "Do not add unsolicited headings, tutorial bullets, sample substitutions, examples, "
+    "or repeat the result in equivalent forms. If the user requests a derivation, explanation, "
+    "proof, or examples, provide the requested reasoning or examples; use only the detail "
+    "needed. For hints or practice, give a focused hint without revealing the full solution "
+    "unless requested. Honor explicit requests for just the answer or no steps. Always "
+    "preserve necessary domains, excluded endpoints or values, all solution branches, units, "
+    "constants of integration, and every requested part of the problem."
+)
 
 
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
@@ -151,6 +164,12 @@ async def build_math_augmentation(
         # to MathIntent (do not re-parse through the text regex, which mangles
         # unicode ops / abs bars a photographed problem can contain).
         intent = _intent_from_image_extract(image_math_extract)
+        if (
+            intent is not None
+            and intent.kind == "equation"
+            and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
+        ):
+            intent = None
     else:
         intent = extract_math_intent(user_content)
     if intent is None and has_image_attachment:
@@ -173,7 +192,10 @@ async def build_math_augmentation(
         # Intent matched but SymPy timed out / rejected / had no builder result.
         # Inject honesty so the model does not reuse the same "verified" UX.
         return _unverified_math_note(intent.kind), None
-    return verified.text, verified
+    # Keep presentation guidance adjacent to the result, after any worked
+    # steps, so the model does not treat solver data as a tutorial request.
+    # The canonical block remains data-only for direct replies/fence validation.
+    return f"{verified.text}\n\n{VERIFIED_MATH_REPLY_HINT}", verified
 
 
 def _unverified_math_note(kind: str) -> str:

@@ -7,15 +7,24 @@ GRAPH_NO_SUBSTITUTE_CLAUSE = (
     "diagram for a function plot."
 )
 
+MATH_NOTATION_CLARIFICATION_HINT = (
+    "If mathematical notation is unclear, unrecognized, or malformed, ask one brief "
+    "clarification instead of guessing its meaning. Do not invent a named mathematical "
+    "concept or silently change the expression. Standard, unambiguous notation aliases "
+    "are fine."
+)
+
 MATH_FENCE_SAFETY_HINT = (
     "If you write math, use inline `$...$` (never backticks around `$...$`). "
     "A ```math fence is only for a standalone display equation. "
     "Do NOT emit ```answer, ```graph, or ```geometry. NEVER ```latex or an untagged "
-    "code fence for LaTeX."
+    "code fence for LaTeX. "
+    f"{MATH_NOTATION_CLARIFICATION_HINT}"
 )
 
 MATH_INTENT_HINT = (
     "Math / algebra / numeric answers:\n"
+    f"  - {MATH_NOTATION_CLARIFICATION_HINT}\n"
     "  - Formula shape (one rule): numbered steps and intermediate algebra use "
     "INLINE `$x^2 + 2 = 6$` or `$20 - 10 = 10$` only — never wrap `$...$` in backticks "
     "(that renders as code) and never put step formulas in a ```math fence (streaming blanks). "
@@ -134,7 +143,8 @@ SHORT_MATH_SAFETY_HINT = (
     f"{GRAPH_NO_SUBSTITUTE_CLAUSE} "
     "Closed-form (n!, 2+2): one-line instance, no lecture. Use braced fractional "
     "exponents such as `9^{1/6}`. Preserve domains, units, all solution branches, "
-    "and constants of integration. Never use a step-card fence."
+    "and constants of integration. Never use a step-card fence. "
+    f"{MATH_NOTATION_CLARIFICATION_HINT}"
 )
 
 # Math should respect the user's selected length without dropping correctness.

@@ -232,20 +232,3 @@ export function extractInsertedDelta(prev: string, next: string): string | null 
   }
   return inserted;
 }
-
-export function applyComposerTextChange(prev: string, next: string): string {
-  const delta = extractInsertedDelta(prev, next);
-  if (delta == null) return next;
-  const converted = normalizePastedMath(delta);
-  if (converted === delta) return next;
-  let i = 0;
-  const minLen = Math.min(prev.length, next.length);
-  while (i < minLen && prev[i] === next[i]) i += 1;
-  let pe = prev.length;
-  let ne = next.length;
-  while (pe > i && ne > i && prev[pe - 1] === next[ne - 1]) {
-    pe -= 1;
-    ne -= 1;
-  }
-  return next.slice(0, i) + converted + next.slice(ne);
-}

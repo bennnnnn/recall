@@ -138,13 +138,13 @@ def test_projectile_cliff_range_is_not_vacuum() -> None:
 def test_average_speed_is_not_mean() -> None:
     intent, block = _block("average speed 120 km in 2 hours")
     assert intent.kind == "arithmetic"
-    assert float(block.canonical_answer or "0") == 60.0
+    assert block.canonical_answer == r"60.0\ \mathrm{km}/\mathrm{h}"
 
 
 def test_convert_32_f_to_c_string_is_zero() -> None:
     intent, block = _block("convert 32 F to C")
     assert intent.kind == "unit"
-    assert block.canonical_answer == "0"
+    assert block.canonical_answer == r"0\ \mathrm{°C}"
     assert math_school.convert_unit(32.0, "F", "C") == "0"
 
 

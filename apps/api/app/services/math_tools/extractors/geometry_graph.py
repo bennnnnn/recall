@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.math import MathIntent
-from app.services.math_text_match.scan import MATH_MULTI_LETTER
+from app.services.math_text_match.scan import MATH_MULTI_LETTER, word_index
 from app.services.math_tools.helpers import _strip_trailing_filler, math_expr_or_none
 
 
@@ -25,7 +25,8 @@ def _requests_geometry_measurement(lower: str) -> bool:
 
 
 def _wants_geometry_angles(lower: str) -> bool:
-    return any(w in lower for w in ("angle", "angles", "degree", "degrees"))
+    # "triangle" and "rectangle" contain "angle" but are not angle requests.
+    return any(word_index(lower, w) != -1 for w in ("angle", "angles", "degree", "degrees"))
 
 
 def _extract_solid_intent(cleaned: str) -> MathIntent | None:
@@ -164,6 +165,7 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
             operation="solve",
             wants_area=wants_area,
             wants_circumference=wants_circumference,
+            wants_diameter="diameter" in lower,
         )
     diameter = mtm.number_after(cleaned, "diameter")
     if diameter is not None:
@@ -261,6 +263,7 @@ def _extract_triangle_sides_intent(cleaned: str) -> MathIntent | None:
         operation="solve",
         wants_perimeter="perimeter" in cleaned.lower(),
         wants_angle=_wants_geometry_angles(cleaned.lower()),
+        wants_area="area" in cleaned.lower(),
     )
 
 

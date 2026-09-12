@@ -120,26 +120,50 @@ def _solver_fences(verified: VerifiedMathBlock) -> list[dict[str, object]]:
     return fences
 
 
-def _can_direct_function_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
+def _plain_prime_factorization_request(text: str) -> bool:
+    """Match the complete one-integer ask; extra clauses still need language."""
+    if len(text) > 1000:
+        return False
+    request = " ".join(text.lower().split()).rstrip(".?")
+    for prefix in ("please ", "can you ", "could you "):
+        if request.startswith(prefix):
+            request = request[len(prefix) :]
+            break
+    for prefix in ("find ", "calculate ", "compute ", "determine ", "what is ", "what's "):
+        if request.startswith(prefix):
+            request = request[len(prefix) :]
+            break
+    if request.startswith("the "):
+        request = request[4:]
+    for prefix in ("prime factorization of ", "prime factors of ", "factorize "):
+        if request.startswith(prefix):
+            number = request[len(prefix) :]
+            if number.endswith(" please"):
+                number = number[:-7]
+            return bool(number and number.isascii() and number.isdecimal())
+    return False
+
+
+def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
     """Match the whole plot request, not an expression extracted from one clause."""
     from app.services.math_text_match import graph_domain, prepare
 
     if len(user_text) > 1000 or verified.canonical_answer:
         return False
     fences = _solver_fences(verified)
-    if len(fences) != 1 or fences[0].get("type") != "function":
+    if len(fences) != 1 or fences[0].get("type") not in {"function", "inequality"}:
         return False
     graph = fences[0]
     points, expr = graph.get("points"), graph.get("expr")
     if (
-        not isinstance(points, list)
-        or len(points) < 2
-        or not isinstance(expr, str)
+        not isinstance(expr, str)
         or not expr.strip()
         or graph.get("expr2")
         or graph.get("points2")
         or graph.get("variable", "x") != "x"
     ):
+        return False
+    if graph.get("type") == "function" and (not isinstance(points, list) or len(points) < 2):
         return False
     request = prepare(user_text)
     if not request:
@@ -159,7 +183,7 @@ def _can_direct_function_graph(verified: VerifiedMathBlock, user_text: str) -> b
         # A range ignored by extraction or narrowed by sampling needs language.
         if graph.get("x_min") != lo or graph.get("x_max") != hi:
             return False
-    if "=" in request:
+    if graph.get("type") == "function" and "=" in request:
         lhs, _, request = request.partition("=")
         if lhs.strip().lower() != "y":
             return False
@@ -186,9 +210,16 @@ def can_direct_verified_math_reply(
         return False
     if wants_math_explanation(user_text):
         return False
-    if _can_direct_function_graph(verified, user_text):
+    if _can_direct_graph(verified, user_text):
         return True
-    if leftover_non_math_request(user_text):
+    # Prime factorization has two operation words, which the generic prose
+    # counter rejects. Require a whole-request match instead of whitelisting
+    # them globally; even "factorize 60 and 2+2" must retain the model path.
+    lower = user_text.lower()
+    factorization_request = "prime factor" in lower or "factorize" in lower
+    if factorization_request and not _plain_prime_factorization_request(user_text):
+        return False
+    if not factorization_request and leftover_non_math_request(user_text):
         return False
     answer = (verified.canonical_answer or "").strip()
     if not answer or len(answer) > _MAX_DIRECT_ANSWER_CHARS:
@@ -202,17 +233,15 @@ def can_direct_verified_math_reply(
 def format_direct_math_reply(verified: VerifiedMathBlock) -> str:
     """Display a verified value or the existing canonical function plot."""
     fences = _solver_fences(verified)
-    if len(fences) == 1 and fences[0].get("type") == "function":
+    if len(fences) == 1 and fences[0].get("type") in {"function", "inequality"}:
         # The mobile stream scanner needs the newline after the closing fence
         # to render the graph immediately, before the done event arrives.
         return f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
     answer = (verified.canonical_answer or "").strip()
-    if "\\begin{aligned}" in answer or "\n" in answer:
-        display = f"```math\n{answer}\n```"
-    else:
-        inner = answer.strip("$")
-        display = f"${inner}$"
-    return f"{display}\n\n```answer\n{answer}\n```"
+    # The answer fence already typesets the result. Emitting a second math
+    # paragraph repeats the same answer on the phone. The final newline also
+    # lets the streaming client close and render this fence immediately.
+    return f"```answer\n{answer}\n```\n"
 
 
 def maybe_direct_math_reply(

@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.core.config import Settings
 from app.models.schemas.math import GraphBlockSpec, GraphSampleInput, MathIntent
 from app.services import math_service
+from app.services.math_service.inequality_graph import affine_inequality_graph_spec
 from app.services.math_tools.block.common import (
     VerifiedMathBlock,
     _diagram_block,
@@ -85,6 +86,17 @@ def _verified_block_graph(
     # model emitted its own (often wrong) spec.
     x_min = intent.graph_x_min if intent.graph_x_min is not None else -10
     x_max = intent.graph_x_max if intent.graph_x_max is not None else 10
+    region = affine_inequality_graph_spec(intent.expr, x_min=x_min, x_max=x_max)
+    if region is not None:
+        boundary = (
+            "dashed (not included)" if region.comparator in {"<", ">"} else "solid (included)"
+        )
+        lines.append(
+            f"Verified shaded half-plane: {region.expr}. Boundary is {boundary}. "
+            "Shade the side satisfying the inequality; this is a two-dimensional region, "
+            "not a number line or only a function curve."
+        )
+        return _diagram_block(lines, region)
     sample = math_service.sample_function(
         GraphSampleInput(
             expr=intent.expr[: settings.math_max_expr_length],

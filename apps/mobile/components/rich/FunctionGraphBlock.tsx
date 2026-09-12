@@ -5,6 +5,7 @@ import Svg, { Circle, G, Polyline } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
 import { NumberLineChart } from "@/components/rich/NumberLineChart";
+import { InequalityGraphChart } from "@/components/rich/InequalityGraphChart";
 import {
   expandBoundsForAxes,
   formatGraphExpr,
@@ -65,6 +66,10 @@ export function FunctionGraphBlock({ content }: Props) {
         />
       </View>
     );
+  }
+
+  if (spec.type === "inequality") {
+    return <InequalityGraphChart spec={spec} width={chartWidth} />;
   }
 
   if (spec.type === "trajectory") {

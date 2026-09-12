@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -50,7 +51,7 @@ class NumberLineInterval(BaseModel):
 
 
 class GraphBlockSpec(BaseModel):
-    type: Literal["function", "vertical", "number_line", "trajectory"] = "function"
+    type: Literal["function", "vertical", "number_line", "trajectory", "inequality"] = "function"
     # Same bounds as every other math input model in this file (EquationInput,
     # GraphSampleInput, MathImageExtract) — this one was missing them, an
     # inconsistency worth closing even though this field is currently
@@ -64,6 +65,12 @@ class GraphBlockSpec(BaseModel):
     x: float | None = None
     y_min: float | None = None
     y_max: float | None = None
+    # Affine half-plane: a*x + b*y comparator c. These coefficients come
+    # from the solver; the renderer never evaluates an expression string.
+    a: float | None = None
+    b: float | None = None
+    c: float | None = None
+    comparator: Literal["<", "<=", ">", ">="] | None = None
     title: str | None = None
     # Matches GraphSampleInput.n's upper bound (le=500) — the model never
     # legitimately needs more points than the canonical sample it was given.
@@ -97,6 +104,27 @@ class GraphBlockSpec(BaseModel):
 
     @model_validator(mode="after")
     def vertical_or_function_shape(self) -> GraphBlockSpec:
+        if self.type == "inequality":
+            if not self.expr.strip() or self.comparator is None:
+                raise ValueError("inequality graph requires expr and comparator")
+            if self.y_min is None or self.y_max is None:
+                raise ValueError("inequality graph requires y bounds")
+            values = (self.a, self.b, self.c, self.x_min, self.x_max, self.y_min, self.y_max)
+            if any(value is None or not math.isfinite(value) for value in values):
+                raise ValueError("inequality graph requires finite coefficients and bounds")
+            if self.a == 0 and self.b == 0:
+                raise ValueError("inequality graph requires a nonconstant boundary")
+            if self.x_max <= self.x_min or self.y_max <= self.y_min:
+                raise ValueError("inequality graph requires ordered bounds")
+            if not all(
+                math.isfinite(span) for span in (self.x_max - self.x_min, self.y_max - self.y_min)
+            ):
+                raise ValueError("inequality graph requires finite spans")
+            if not self.title:
+                self.title = self.expr
+            self.points = []
+            self.segments = []
+            return self
         if self.type == "number_line":
             if not self.expr.strip():
                 raise ValueError("number_line requires expr")

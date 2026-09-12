@@ -20,7 +20,6 @@ import { VoiceMicButton } from "@/components/chat/VoiceMicButton";
 import {
   MathDraftPreview,
   MATH_DRAFT_PREVIEW_HEIGHT,
-  draftShowsMathPreview,
 } from "@/components/chat/MathDraftPreview";
 import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathKeyboardBar } from "@/components/chat/MathKeyboardBar";
@@ -142,10 +141,11 @@ export const ChatComposer = memo(function ChatComposer({
   const inputRef = useRef<TextInput>(null);
   const math = useMathKeyboardInsert({
     input,
+    draftRevision: draft?.revision,
     setInput: onChangeInput,
     onImageOnlyPaste: onOpenMathScanner ? () => setScanHint(true) : undefined,
   });
-  const showMathPreview = draftShowsMathPreview(input);
+  const showMathPreview = math.showMathPreview;
   const showMathChip =
     !math.mathBarOpen && (mathContext || textLooksLikeMath(input));
   const draftTokens = estimateTokens(input);
@@ -307,6 +307,11 @@ export const ChatComposer = memo(function ChatComposer({
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
                     placeholderTextColor={theme.textDisabled}
                     value={input}
+                    // Keep native input traits stable for the whole session:
+                    // toggling correction midword races controlled math edits.
+                    autoCorrect={false}
+                    spellCheck={false}
+                    autoCapitalize="none"
                     onChangeText={math.onChangeText}
                     onSelectionChange={math.onSelectionChange}
                     selection={

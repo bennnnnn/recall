@@ -29,6 +29,7 @@ from app.services.math_tools.block.common import (
     VerifiedMathBlock,
     _diagram_block,
     _finish_with_answer,
+    format_quantity,
 )
 
 
@@ -145,10 +146,10 @@ def _verified_block_solid(
             continue
         lines.append(f"{key}={value}")
     if intent.wants_surface_area and not intent.wants_volume:
-        answer = geo.labels["surface_area"].rsplit(" ", 1)[0]
+        answer, unit = geo.labels["surface_area"].rsplit(" ", 1)
     else:
-        answer = geo.labels["volume"].rsplit(" ", 1)[0]
-    return _finish_with_answer(lines, answer)
+        answer, unit = geo.labels["volume"].rsplit(" ", 1)
+    return _finish_with_answer(lines, format_quantity(answer, unit))
 
 
 def _verified_block_circle(
@@ -180,10 +181,12 @@ def _verified_block_circle(
     # The verified final answer must match what the user asked for —
     # "circumference of circle r=4" used to return the area (≈50.27)
     # because the canonical answer was unconditionally the area. Honor an
-    # explicit circumference request; fall back to area (the default
-    # illustration) when only area or nothing specific was asked.
+    # explicit circumference or diameter request; fall back to area when
+    # only area or nothing specific was asked.
     if intent.wants_circumference:
         answer = f"{circle_geo.circumference:.2f}"
+    elif intent.wants_diameter and not intent.wants_area:
+        answer = f"{circle_geo.diameter:g}"
     else:
         answer = f"{circle_geo.area:.2f}"
     return _diagram_block(lines, circle_spec, answer)
@@ -301,6 +304,11 @@ def _verified_block_triangle_sides(
         )
         return _diagram_block(lines, tri_spec, answer)
     lines.append("Area via Heron's formula; angles via the law of cosines.")
+    if intent.wants_angle and not (intent.wants_area or intent.wants_perimeter):
+        answer = (
+            f"{tri_geo.labels['angle_a']}, {tri_geo.labels['angle_b']}, {tri_geo.labels['angle_c']}"
+        )
+        return _diagram_block(lines, tri_spec, answer)
     quantity = tri_geo.perimeter if intent.wants_perimeter else tri_geo.area
     return _diagram_block(lines, tri_spec, f"{quantity:g}")
 

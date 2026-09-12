@@ -107,6 +107,9 @@ def _solid_complete(parsed: SolidParse) -> bool:
 
 def parse_solid(cleaned: str) -> SolidParse | None:
     """Volume/surface-area homework with printed measures — never invent dims."""
+    from app.services.math_text_match.units import normalize_leading_decimals, solid_length_unit
+
+    cleaned = normalize_leading_decimals(cleaned)
     lower = cleaned.lower()
     shape = classify_solid_shape(lower)
     if shape is None:
@@ -121,7 +124,9 @@ def parse_solid(cleaned: str) -> SolidParse | None:
     if not wants_volume and not wants_sa:
         wants_volume = True
 
-    unit = "cm"
+    unit = solid_length_unit(cleaned)
+    if unit is None:
+        return None
     triple = first_dim_triple(cleaned)
     pair = first_dim_pair(cleaned)
     side = number_after(cleaned, "side") or number_after(cleaned, "edge")
@@ -134,11 +139,6 @@ def parse_solid(cleaned: str) -> SolidParse | None:
     base = number_after(cleaned, "base")
     if diameter is not None and radius is None:
         radius = diameter / 2.0
-    if triple is not None:
-        unit = triple[3]
-    elif pair is not None:
-        unit = pair[2]
-
     width_v = width
     height_v = height
     depth_v = depth
