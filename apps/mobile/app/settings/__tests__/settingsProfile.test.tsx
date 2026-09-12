@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import SettingsScreen from "@/app/settings/index";
 
@@ -138,9 +138,16 @@ describe("settings home", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("opens Usage directly from the account menu", async () => {
-    const { getByText } = await render(<SettingsScreen />);
-    await fireEvent.press(getByText("settings.usage_group"));
+  it("groups Models and Usage together outside Account and opens both directly", async () => {
+    const view = await render(<SettingsScreen />);
+    const modelGroup = view.getByText("settings.models_and_usage").parent!;
+    const accountGroup = view.getByText("settings.account").parent!;
+
+    expect(within(accountGroup).queryByText("settings.usage_group")).toBeNull();
+    expect(view.queryByText("settings.advanced")).toBeNull();
+    await fireEvent.press(within(modelGroup).getByText("settings.model"));
+    expect(mockPush).toHaveBeenCalledWith("/settings/models");
+    await fireEvent.press(within(modelGroup).getByText("settings.usage_group"));
     expect(mockPush).toHaveBeenCalledWith("/settings/usage");
   });
 

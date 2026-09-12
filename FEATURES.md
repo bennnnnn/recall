@@ -364,7 +364,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   bypassed by parallel requests). Free tier default **100k**/day; Pro tier **500k**/day
   (`DAILY_TOKEN_LIMIT` / `DAILY_TOKEN_LIMIT_PRO`).
 - ✅ **Plan-aware enforcement** — quota service reads the user's subscription plan before reserving.
-- ✅ **Usage meter** — today's tokens vs. daily limit shown in Settings → Account → Usage.
+- ✅ **Usage meter** — today's tokens vs. daily limit shown in Settings → Models & usage → Usage.
 - ✅ **Real token accounting** — uses the provider's reported usage when available.
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
@@ -376,7 +376,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   controls are visible in an Account section on the Settings page. Age / country / job
   live under Personalization → About you. Persisted on `users` and injected into the chat system prompt
   (see [§6](#6-memory-remembering-the-user)).
-- ✅ **Settings chrome** — Experience / Account / Connections / Advanced / Data & privacy / Support.
+- ✅ **Settings chrome** — Experience / Account / Connections / Models & usage / Data & privacy / Support.
   The overview and submenus share roomy, softly rounded gray cards, regular-weight labels,
   and current values beneath row titles. Choice popups and field editors use matching
   surfaces and spacing. Overview icons are large outlines; overview explanations stay in accessibility hints.
@@ -391,7 +391,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔜 **Live voice settings** — accent choices are deferred. The former Voice & read aloud
   settings menu has been removed; message read-aloud and live voice remain available.
 - ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
-- ✅ **Connected apps** — Calendar and Gmail list + detail (connect / disconnect / sync).
+- ✅ **Connected apps** — Calendar and Gmail each show status and Connect / Disconnect
+  directly on one page. Calendar permissions and Gmail sync stay in the same cards;
+  there is no provider detail page. Connect opens Google authorization directly;
+  disconnect retains confirmation because it can also disconnect the other Google service.
 - ✅ **Notifications** — push (On only if pref and OS permission), email reminders,
   quiet hours, reminder lead.
 - ✅ **Models** — Auto and model toggles. Developer diagnostics are omitted from this screen.
@@ -400,7 +403,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Security** — session list + revoke + sign out of all devices. No MFA.
 - ✅ **Help & feedback** — Report a problem / Send feedback via the OS share sheet
   (version, plan, locale). No fake Help Center URL.
-- ✅ **Usage** — a separate Account menu entry opens today's token meter and daily limit.
+- ✅ **Usage** — a sibling menu entry beside Models opens today's token meter and daily limit.
 - ✅ **Sidebar controls** — search uses a translucent white surface and border; the
   user's profile photo or initials open Settings beside New chat.
 - ✅ **Sign out.**

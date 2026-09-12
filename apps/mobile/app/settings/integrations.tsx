@@ -1,14 +1,14 @@
 import { useMemo } from "react";
-import { ScrollView, View } from "react-native";
-import { Redirect, useRouter } from "expo-router";
+import { ScrollView, Text, View } from "react-native";
+import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/components/StateView";
+import { ConnectedAppCard } from "@/components/settings/ConnectedAppCard";
 import {
   ConnectedAppMark,
   makeSettingsStyles,
-  SettingsGroup,
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
 import { useSettingsIntegrations } from "@/hooks/useSettingsIntegrations";
@@ -22,19 +22,23 @@ export default function ConnectedAppsScreen() {
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { calendarStatus, gmailStatus, loadError, refresh } = useSettingsIntegrations();
+  const {
+    calendarStatus, calendarBusy, gmailStatus, gmailBusy, loading, loadError,
+    connectCalendar, disconnectCalendar, connectGmail, disconnectGmail, syncGmail, refresh,
+  } = useSettingsIntegrations();
 
   if (!token) return <Redirect href="/login" />;
 
-  const calendarValue =
-    calendarStatus?.connected && calendarStatus.email
-      ? calendarStatus.email
+  const statusLabel = (status: { connected: boolean; email?: string | null } | null) =>
+    !status ? undefined : status.connected
+      ? status.email || t("settings.integration_connected")
       : t("settings.integration_not_connected");
-  const gmailValue =
-    gmailStatus?.connected && gmailStatus.email
-      ? gmailStatus.email
-      : t("settings.integration_not_connected");
+  const actionsDisabled = loading || calendarBusy || gmailBusy;
+  const calendarPending = calendarBusy || (!calendarStatus && !loadError);
+  const gmailPending = gmailBusy || (!gmailStatus && !loadError);
+  const lastSync = gmailStatus?.connected && gmailStatus.last_sync_at
+    ? t("settings.gmail_last_sync", { when: new Date(gmailStatus.last_sync_at).toLocaleString() })
+    : undefined;
 
   return (
     <ScrollView
@@ -50,31 +54,63 @@ export default function ConnectedAppsScreen() {
           retryLabel={t("common.retry")}
         />
       ) : null}
-      <SettingsGroup styles={s}>
-        <SettingsLinkRow
-          leading={<ConnectedAppMark name="logo-google" color={theme.brand.google} />}
-          title={t("settings.calendar_title")}
-          subtitle={t("settings.calendar_desc")}
-          value={calendarValue}
-          onPress={() =>
-            router.push({ pathname: "/settings/connected-app", params: { id: "calendar" } })
-          }
-          styles={s}
-          theme={theme}
-        />
-        <View style={s.menuSeparator} />
-        <SettingsLinkRow
-          leading={<ConnectedAppMark name="mail" color={theme.brand.gmail} />}
-          title={t("settings.gmail_title")}
-          subtitle={t("settings.gmail_desc")}
-          value={gmailValue}
-          onPress={() =>
-            router.push({ pathname: "/settings/connected-app", params: { id: "gmail" } })
-          }
-          styles={s}
-          theme={theme}
-        />
-      </SettingsGroup>
+      <ConnectedAppCard
+        leading={<ConnectedAppMark name="logo-google" color={theme.brand.google} />}
+        title={t("settings.calendar_title")}
+        description={!calendarStatus?.connected ? t("settings.calendar_desc") : undefined}
+        value={statusLabel(calendarStatus)}
+        actionLabel={t(calendarStatus?.connected ? "settings.calendar_disconnect" : "settings.calendar_connect")}
+        onAction={calendarStatus?.connected ? disconnectCalendar : () => void connectCalendar(false)}
+        busy={calendarPending}
+        disabled={actionsDisabled || !calendarStatus}
+        styles={s}
+        theme={theme}
+      >
+        {calendarStatus?.connected && !calendarStatus.can_write ? (
+          <>
+            <View style={s.menuSeparator} />
+            <SettingsLinkRow
+              title={t("settings.calendar_upgrade_write")}
+              onPress={() => void connectCalendar(true)}
+              disabled={actionsDisabled}
+              styles={s}
+              theme={theme}
+            />
+          </>
+        ) : null}
+      </ConnectedAppCard>
+      <ConnectedAppCard
+        leading={<ConnectedAppMark name="mail" color={theme.brand.gmail} />}
+        title={t("settings.gmail_title")}
+        description={!gmailStatus?.connected ? t("settings.gmail_desc") : undefined}
+        value={statusLabel(gmailStatus)}
+        actionLabel={t(gmailStatus?.connected ? "settings.gmail_disconnect" : "settings.calendar_connect")}
+        onAction={gmailStatus?.connected ? disconnectGmail : connectGmail}
+        busy={gmailPending}
+        disabled={actionsDisabled || !gmailStatus}
+        styles={s}
+        theme={theme}
+      >
+        {gmailStatus?.connected ? (
+          <>
+            {lastSync ? (
+              <View style={s.menuRow}>
+                <View style={s.rowBody}>
+                  <Text style={s.meta}>{lastSync}</Text>
+                </View>
+              </View>
+            ) : null}
+            <View style={s.menuSeparator} />
+            <SettingsLinkRow
+              title={t("settings.gmail_sync")}
+              onPress={() => void syncGmail()}
+              disabled={actionsDisabled}
+              styles={s}
+              theme={theme}
+            />
+          </>
+        ) : null}
+      </ConnectedAppCard>
     </ScrollView>
   );
 }

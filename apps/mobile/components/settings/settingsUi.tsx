@@ -86,6 +86,8 @@ export function SettingsLinkRow({
   icon,
   leading,
   danger,
+  busy,
+  disabled,
   onPress,
   styles,
   theme,
@@ -96,6 +98,8 @@ export function SettingsLinkRow({
   icon?: IoniconName;
   leading?: ReactNode;
   danger?: boolean;
+  busy?: boolean;
+  disabled?: boolean;
   onPress: () => void;
   styles: SettingsStyles;
   theme: Theme;
@@ -104,7 +108,9 @@ export function SettingsLinkRow({
     <Pressable
       style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
       onPress={onPress}
+      disabled={disabled || busy}
       accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled || busy), busy: Boolean(busy) }}
     >
       <SettingsRowChrome
         icon={icon}
@@ -113,6 +119,7 @@ export function SettingsLinkRow({
         subtitle={subtitle}
         value={value}
         danger={danger}
+        busy={busy}
         styles={styles}
         theme={theme}
       />

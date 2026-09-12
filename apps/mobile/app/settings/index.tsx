@@ -137,13 +137,18 @@ export default function SettingsScreen() {
           />
         </SettingsOverviewGroup>
 
-        <SettingsOverviewGroup label={t("settings.advanced")}>
+        <SettingsOverviewGroup label={t("settings.models_and_usage")}>
           <SettingsOverviewRow
             icon="sparkles-outline"
             title={t("settings.model")}
             accessibilityHint={t("settings.model_summary")}
             value={modelsValue}
             onPress={() => router.push("/settings/models")}
+          />
+          <SettingsOverviewRow
+            icon="bar-chart-outline"
+            title={t("settings.usage_group")}
+            onPress={() => router.push("/settings/usage")}
           />
         </SettingsOverviewGroup>
 

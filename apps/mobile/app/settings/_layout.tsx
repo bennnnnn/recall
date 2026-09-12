@@ -62,10 +62,6 @@ export default function SettingsLayout() {
         options={subScreen(t("settings.connected_apps"), header)}
       />
       <Stack.Screen
-        name="connected-app"
-        options={subScreen(t("settings.connected_apps"), header)}
-      />
-      <Stack.Screen
         name="data-controls"
         options={subScreen(t("settings.data_controls"), header)}
       />
