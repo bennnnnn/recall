@@ -497,7 +497,9 @@ async def test_augment_prompt_no_intent_forbids_invented_geometry(
         needs_math=True,
     )
     assert verified is None
-    assert note is None
+    assert note is not None
+    assert "Do not claim verification or invent missing measures" in note
+    assert "ask at most one necessary clarification question" in note
 
 
 @pytest.mark.asyncio

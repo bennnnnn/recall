@@ -90,6 +90,7 @@ from app.services.chat.prompt_constants.visuals import (
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
+from app.services.math_reply_policy import MATH_REPLY_POLICY
 from app.services.math_tools import VerifiedMathBlock
 from app.services.md_fence_scan import strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
@@ -725,6 +726,9 @@ def _style_format_hints(
         parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
+    if math_intent:
+        # Keep requested detail last, after general layout and tutoring hints.
+        parts.append(MATH_REPLY_POLICY)
     return parts
 
 

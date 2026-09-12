@@ -34,6 +34,7 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
+from app.services.math_reply_policy import MATH_REPLY_POLICY
 from app.services.math_tools import VerifiedMathBlock
 from app.services.math_tools.extract import trig_domain_would_be_dropped
 from app.services.mcp.calendar_adapter import bind_calendar_context
@@ -576,6 +577,16 @@ async def _run_tool_rounds_bound(
         if all_fences or canonical_answer
         else None
     )
+    if any(
+        (call.get("function") or {}).get("name") == "sympy"
+        for message in working[len(messages) :]
+        if message.get("role") == "assistant"
+        for call in message.get("tool_calls") or []
+        if isinstance(call, dict)
+    ):
+        # Tool content is supporting data, not a request for a worked tutorial.
+        # Append after completed results; cancelled/unanswered rounds were trimmed.
+        working.append({"role": "system", "content": MATH_REPLY_POLICY})
     return working, verified, terminal_image, search_hits
 
 

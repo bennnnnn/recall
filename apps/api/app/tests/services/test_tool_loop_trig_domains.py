@@ -8,6 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.services import tool_loop
+from app.services.math_reply_policy import MATH_REPLY_POLICY
 
 
 def _call(call_id: str, name: str, args: dict) -> dict:
@@ -59,8 +60,9 @@ async def test_unrestricted_trig_retry_cannot_attach_canonical_answer(query: str
     )
     invoke.assert_not_awaited()
     assert verified is None and terminal is None and not hits
-    assert messages[-1]["role"] == "tool" and messages[-1]["tool_call_id"] == "trig"
-    assert "No solution was certified" in messages[-1]["content"]
+    assert messages[-2]["role"] == "tool" and messages[-2]["tool_call_id"] == "trig"
+    assert "No solution was certified" in messages[-2]["content"]
+    assert messages[-1] == {"role": "system", "content": MATH_REPLY_POLICY}
     assert tool_loop._first_unanswered_assistant_idx(messages) is None
 
 
