@@ -1,7 +1,8 @@
 import React from "react";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/hooks/useChat";
-import { streamChatMessageSse } from "@/lib/chatSse";
+import { streamChatMessageSse, streamChatRegenerateSse } from "@/lib/chatSse";
+import { WS_FIRST_EVENT_TIMEOUT_MS } from "@/lib/chatWsConnect";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
 
 jest.mock("react-i18next", () => {
@@ -77,6 +78,186 @@ describe("useChat transport lifecycle", () => {
     jest.clearAllTimers();
     jest.useRealTimers();
     global.WebSocket = originalSocket;
+  });
+
+  it("surfaces an SSE transport AbortError without replaying uncertain delivery", async () => {
+    const timeout = Object.assign(new Error("request timeout"), { name: "AbortError" });
+    (streamChatMessageSse as jest.Mock).mockRejectedValueOnce(timeout);
+    await render(<Probe chatId="a" />);
+    await act(async () => {
+      const sending = current.sendMessage("possibly received");
+      FakeSocket.instances[0].onerror();
+      await sending;
+    });
+    const options = (streamChatMessageSse as jest.Mock).mock.calls[0][0];
+    expect(options.signal.aborted).toBe(false);
+    expect(current.streaming).toBe(false);
+    expect(current.finalizing).toBe(false);
+    expect(current.messages.map((message) => message.content)).toEqual(["possibly received"]);
+    expect(current.rejectedSend).toBeNull();
+    expect(await current.retryRejectedSend()).toBe(false);
+    expect(onError).toHaveBeenCalledWith("chat.error_unreachable", undefined);
+    // Even a misbehaving transport cannot revive the failed stream.
+    await act(async () => {
+      options.onEvent({ type: "start" });
+      options.onEvent({ type: "done", message_id: "late", final_content: "late answer" });
+      jest.advanceTimersByTime(5 * 60_000);
+    });
+    expect(current.messages.map((message) => message.content)).toEqual(["possibly received"]);
+    expect(streamChatMessageSse).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores the previous answer after an SSE regeneration transport AbortError", async () => {
+    (streamChatRegenerateSse as jest.Mock).mockRejectedValueOnce(
+      Object.assign(new Error("request timeout"), { name: "AbortError" }),
+    );
+    await render(<Probe chatId="a" />);
+    const previous = { id: "saved", role: "assistant" as const, content: "previous answer", model: null, created_at: "now" };
+    await act(async () => { current.setMessages([previous]); });
+    await act(async () => {
+      const sending = current.regenerateResponse();
+      FakeSocket.instances[0].onerror();
+      await sending;
+    });
+    expect(current.streaming).toBe(false);
+    expect(current.finalizing).toBe(false);
+    expect(current.messages).toEqual([previous]);
+    expect(current.rejectedSend).toBeNull();
+    expect(onError).toHaveBeenCalledWith("chat.error_unreachable", undefined);
+    const options = (streamChatRegenerateSse as jest.Mock).mock.calls[0][0];
+    await act(async () => { options.onEvent({ type: "token", content: "late answer" }); });
+    expect(current.messages).toEqual([previous]);
+  });
+
+  it.each(["send", "regenerate"] as const)("keeps a real SSE Stop silent for %s", async (kind) => {
+    const stream = kind === "send" ? streamChatMessageSse : streamChatRegenerateSse;
+    (stream as jest.Mock).mockImplementationOnce(({ signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(Object.assign(new Error("stopped"), { name: "AbortError" })));
+    }));
+    await render(<Probe chatId="a" />);
+    let sending!: Promise<void>;
+    await act(async () => {
+      sending = kind === "send" ? current.sendMessage("question") : current.regenerateResponse();
+      FakeSocket.instances[0].onerror();
+    });
+    const options = (stream as jest.Mock).mock.calls[0][0];
+    await act(async () => { current.stopGeneration(); await sending; });
+    expect(options.signal.aborted).toBe(true);
+    expect(current.streaming).toBe(false);
+    expect(current.rejectedSend).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("bounds an OPEN silent socket without replaying or deleting an uncertain send", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("possibly received");
+      jest.advanceTimersByTime(WS_FIRST_EVENT_TIMEOUT_MS - 1);
+    });
+    expect(current.streaming).toBe(true);
+    await act(async () => { jest.advanceTimersByTime(1); });
+    expect(current.streaming).toBe(false);
+    expect(current.finalizing).toBe(false);
+    expect(current.messages.map((message) => message.content)).toEqual(["possibly received"]);
+    expect(current.rejectedSend).toBeNull();
+    expect(await current.retryRejectedSend()).toBe(false);
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    expect(streamChatMessageSse).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith("chat.error_unreachable", undefined);
+    await act(async () => {
+      socket.emit({ type: "start" });
+      socket.emit({ type: "token", content: "late" });
+      socket.emit({ type: "done", message_id: "late", final_content: "late" });
+      socket.onerror();
+      socket.onclose();
+    });
+    expect(current.messages.map((message) => message.content)).toEqual(["possibly received"]);
+    expect(current.streaming).toBe(false);
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores the old answer when regeneration's OPEN socket stays silent", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    const previous = { id: "saved", role: "assistant" as const, content: "previous answer", model: null, created_at: "now" };
+    await act(async () => { current.setMessages([previous]); });
+    await act(async () => {
+      await current.regenerateResponse();
+      jest.advanceTimersByTime(WS_FIRST_EVENT_TIMEOUT_MS);
+    });
+    expect(current.messages).toEqual([previous]);
+    expect(current.streaming).toBe(false);
+    expect(current.rejectedSend).toBeNull();
+    expect(streamChatRegenerateSse).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith("chat.error_unreachable", undefined);
+    await act(async () => { socket.emit({ type: "done", message_id: "late", final_content: "late" }); });
+    expect(current.messages).toEqual([previous]);
+  });
+
+  it.each(["start", "status"] as const)("allows slow acknowledged work after the first %s event", async (type) => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("slow math");
+      socket.emit(type === "status" ? { type, phase: "solving_math" } : { type });
+      jest.advanceTimersByTime(5 * 60_000);
+    });
+    expect(current.streaming).toBe(true);
+    expect(socket.close).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+    await act(async () => { socket.emit({ type: "done", message_id: "saved", final_content: "complete" }); });
+    expect(current.streaming).toBe(false);
+    expect(current.messages.some((message) => message.content === "complete")).toBe(true);
+  });
+
+  it.each(["not-json", "{}", '{"type":"ping"}'])("ignores a non-turn socket frame %s while awaiting acknowledgment", async (data) => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("question");
+      socket.onmessage({ data });
+      jest.advanceTimersByTime(WS_FIRST_EVENT_TIMEOUT_MS);
+    });
+    expect(current.streaming).toBe(false);
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels the first-event deadline when a WS turn is stopped", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("question");
+      current.stopGeneration();
+      jest.advanceTimersByTime(5 * 60_000);
+    });
+    expect(current.streaming).toBe(false);
+    expect(onError).not.toHaveBeenCalled();
+    expect(socket.send.mock.calls.map(([data]) => JSON.parse(data).type)).toContain("cancel");
+  });
+
+  it.each(["navigate", "signout", "unmount"] as const)("detaches a waiting socket deadline on %s", async (change) => {
+    const view = await render(<Probe chatId="a" />);
+    const old = await openSocket();
+    await act(async () => { await current.sendMessage("old question"); });
+    if (change === "unmount") await view.unmount();
+    else {
+      if (change === "signout") mockSessionGeneration++;
+      await view.rerender(<Probe chatId={change === "navigate" ? "b" : "a"} />);
+      const active = await openSocket();
+      await sendAndStream(active, "active answer");
+    }
+    await act(async () => {
+      jest.advanceTimersByTime(WS_FIRST_EVENT_TIMEOUT_MS);
+      old.onclose();
+      old.emit({ type: "done", message_id: "old", final_content: "old answer" });
+    });
+    expect(onError).not.toHaveBeenCalled();
+    if (change !== "unmount") {
+      expect(current.streaming).toBe(true);
+      expect(getStreamingDraft()?.content).toBe("active answer");
+    }
   });
 
   it("ignores a departed chat's late socket failure while the next chat streams", async () => {

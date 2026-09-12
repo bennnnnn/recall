@@ -493,3 +493,22 @@ it.each(["json", "export"])("discards an old account's %s body that finishes aft
   body.resolve("previous account data" as never);
   await expect(pending).rejects.toMatchObject({ name: "SessionChangedError" });
 });
+
+
+it("SSE headers timeout aborts the fetch without marking the caller as canceled", async () => {
+  jest.useFakeTimers();
+  try {
+    const caller = new AbortController();
+    mockFetch.mockImplementationOnce((_url, { signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(Object.assign(new Error("timeout"), { name: "AbortError" })));
+    }));
+    const outcome = requestSse("/chats/c1/messages/stream", "access", {}, caller.signal)
+      .catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(30_000);
+    await expect(outcome).resolves.toMatchObject({ name: "AbortError" });
+    expect(caller.signal.aborted).toBe(false);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
+});
