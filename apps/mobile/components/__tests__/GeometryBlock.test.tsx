@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react-native";
+import { Dimensions } from "react-native";
 
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
 
@@ -6,6 +7,21 @@ import { GeometryBlock } from "@/components/rich/GeometryBlock";
 // components, not RN's built-in Text — RTL's getByText only matches the
 // latter, so diagram labels are asserted via the serialized render tree.
 describe("GeometryBlock", () => {
+  it("labels angles-only side lengths as relative and omits an invented area", async () => {
+    const content = JSON.stringify({
+      type: "triangle_sides", a: 1, b: 1.7321, c: 2,
+      relative_lengths: true, unit: "units", area: 0.866,
+      labels: { a: "1 cm", b: "1.7321 cm", c: "2 cm", area: "0.87 cm²" },
+    });
+    const { toJSON, queryByTestId, getByTestId } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(getByTestId("sss-relative-label")).toBeOnTheScreen();
+    expect(queryByTestId("sss-area-label")).toBeNull();
+    expect(tree).toContain("Relative side lengths");
+    expect(tree).not.toContain("cm");
+    expect(tree).not.toContain("units²");
+  });
+
   it("renders a rectangle diagram with computed width/height labels", async () => {
     const content = JSON.stringify({ type: "rectangle", width: 6, height: 4, unit: "cm" });
     const { toJSON } = await render(<GeometryBlock content={content} />);
@@ -38,6 +54,27 @@ describe("GeometryBlock", () => {
     expect(tree).toContain("90°");
     expect(tree).toContain("36.9°");
     expect(tree).toContain("53.1°");
+  });
+
+  it.each([false, true])("keeps an obtuse 3,5,3 triangle inside the chart with angle labels=%s", async (showAngle) => {
+    const content = JSON.stringify({
+      type: "triangle_sides", a: 3, b: 5, c: 3, unit: "cm",
+      show_angle: showAngle, show_altitude: false, show_median: false,
+    });
+    const { toJSON, getByTestId } = await render(<GeometryBlock content={content} />);
+    const svg = getByTestId("sss-svg");
+    const width = Number(svg.props.width);
+    const height = Number(svg.props.height);
+    const path = JSON.stringify(toJSON()).match(/"d":"M([^\"]+)z"/);
+    expect(path).not.toBeNull();
+    const coordinates = path![1].trim().split(/[ ,]+/).map(Number);
+    for (let i = 0; i < coordinates.length; i += 2) {
+      expect(coordinates[i]).toBeGreaterThanOrEqual(0);
+      expect(coordinates[i]).toBeLessThanOrEqual(width);
+      expect(coordinates[i + 1]).toBeGreaterThanOrEqual(0);
+      expect(coordinates[i + 1]).toBeLessThanOrEqual(height);
+    }
+    expect(width).toBeLessThanOrEqual(Dimensions.get("window").width - 28);
   });
 
   it("falls back for an impossible triangle (sides that can't close)", async () => {
@@ -89,6 +126,23 @@ describe("GeometryBlock", () => {
     const { toJSON } = await render(<GeometryBlock content={content} />);
 
     expect(JSON.stringify(toJSON())).toContain("90");
+  });
+
+  it("shows only known measurements for a base-and-height triangle", async () => {
+    const content = JSON.stringify({
+      type: "triangle", base: 3, height: 4, unit: "cm",
+      show_ticks: true, show_angle: true, show_altitude: true,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain("3 cm");
+    expect(tree).toContain("4 cm");
+    expect(tree).toContain("6 cm²");
+    expect(tree).not.toContain("°");
+    // Polygon renders as a native Path; no extra interior-angle arcs.
+    expect((tree.match(/"RNSVGPath"/g) ?? []).length).toBe(1);
+    // The single known perpendicular height remains; no congruence ticks.
+    expect((tree.match(/"RNSVGLine"/g) ?? []).length).toBe(1);
   });
 
   it("draws a right-angle mark and 90° label on a right triangle", async () => {

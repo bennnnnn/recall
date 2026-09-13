@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-19T19:43:10.503Z",
+  "generatedAt": "2026-09-12T20:08:33.929Z",
   "versions": {
-    "katex": "0.17.0",
+    "katex": "0.18.4",
     "mathjax": "3.2.1",
     "mermaid": "10",
     "vega": "5",
@@ -11,7 +11,7 @@
     "smilesDrawer": "2.1.7"
   },
   "sha256": {
-    "katexCss": "498aeedca2e99374",
+    "katexCss": "e449da720739183c",
     "mathjaxTexSvgJs": "d4295dc337448369",
     "mermaidMinJs": "eda3a0ad572bbe69",
     "vegaMinJs": "463f3db6a40b20e9",

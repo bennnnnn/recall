@@ -1,11 +1,11 @@
 import { useMemo, type ReactNode } from "react";
-import { Platform, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
 import {
   parseSimpleLatex,
-  segmentsToPlain,
+  readableLatexFallback,
   type MathSegment,
 } from "@/lib/mathText";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
@@ -20,15 +20,12 @@ type Props = {
   compact?: boolean;
   /** Used by editable root degrees; layout scales with the actual text size. */
   fontSize?: number;
+  /** Markdown's View host can constrain tall runs and scroll their full width.
+   * Leave this off in editable math slots and hosts with their own viewport. */
+  scrollOverflow?: boolean;
 };
 
 type Styles = ReturnType<typeof makeStyles>;
-
-/** A single atomic token ("11", "-4", "2a") needs no disambiguating
- * parens in a stacked numerator/denominator; multi-term sides get parens. */
-function isAtomicToken(plain: string): boolean {
-  return /^[±+\-]?[a-zA-Z0-9]+$/.test(plain);
-}
 
 const FRAC_CHAR_PX = 9;
 const FRAC_PAD_PX = 14;
@@ -106,13 +103,10 @@ function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width:
 }
 
 function fracStackSize(num: MathSegment[], den: MathSegment[]): { width: number; height: number } {
-  const sideSize = (side: MathSegment[]) => {
-    const plain = segmentsToPlain(side).replace(/[\u0300-\u036f]/g, "");
-    const size = estimateSegmentsSize(side, true);
-    return { ...size, width: size.width + (isAtomicToken(plain) ? 0 : 2 * FRAC_CHAR_PX) };
-  };
-  const numerator = sideSize(num);
-  const denominator = sideSize(den);
+  // The vinculum already groups each complete side. Only parentheses in the
+  // source belong here; invented ones also inflate the inline attachment.
+  const numerator = estimateSegmentsSize(num, true);
+  const denominator = estimateSegmentsSize(den, true);
   return {
     width: Math.max(numerator.width, denominator.width, FRAC_CHAR_PX) + FRAC_PAD_PX,
     // Nested fractions must contribute their full height to the outer stack.
@@ -154,7 +148,6 @@ function renderFracSide(
   segments: MathSegment[],
   keyPrefix: string,
   ctx: RenderCtx,
-  paren: boolean,
 ): ReactNode {
   const { styles } = ctx;
   // Nested fraction OR a radical: keep real Views. Flattening `\sqrt{b^2 - 4ac}`
@@ -162,17 +155,13 @@ function renderFracSide(
   if (hasTallMath(segments)) {
     return (
       <View style={styles.fracSideRow}>
-        {paren ? <Text style={styles.fracPart}>(</Text> : null}
         {renderSegments(segments, keyPrefix, { ...ctx, inFrac: true })}
-        {paren ? <Text style={styles.fracPart}>)</Text> : null}
       </View>
     );
   }
   return (
     <Text style={styles.fracPart}>
-      {paren ? "(" : null}
       {renderSegments(segments, keyPrefix, { ...ctx, inFrac: true })}
-      {paren ? ")" : null}
     </Text>
   );
 }
@@ -243,8 +232,6 @@ function renderSegments(
     if (seg.type === "frac") {
       // True stacked fraction with a vinculum. Sized View — the paragraph
       // Text treats it as a character. Do not wrap this in another Text.
-      const numPlain = segmentsToPlain(seg.num).replace(/[\u0300-\u036f]/g, "");
-      const denPlain = segmentsToPlain(seg.den).replace(/[\u0300-\u036f]/g, "");
       const box = fracStackSize(seg.num, seg.den);
       return (
         <View
@@ -253,9 +240,9 @@ function renderSegments(
           testID="math-frac"
           collapsable={false}
         >
-          {renderFracSide(seg.num, `${key}-n`, ctx, !isAtomicToken(numPlain))}
+          {renderFracSide(seg.num, `${key}-n`, ctx)}
           <View style={styles.vinculum} testID="math-vinculum" />
-          {renderFracSide(seg.den, `${key}-d`, ctx, !isAtomicToken(denPlain))}
+          {renderFracSide(seg.den, `${key}-d`, ctx)}
         </View>
       );
     }
@@ -281,7 +268,7 @@ function renderSegments(
 }
 
 /** Native math: simple runs stay Text; stacked or raised structures own their bounds. */
-export function MathText({ latex, textColor, compact = false, fontSize = 16 }: Props) {
+export function MathText({ latex, textColor, compact = false, fontSize = 16, scrollOverflow = false }: Props) {
   const theme = useTheme();
   const { fontScale } = useWindowDimensions();
   const layoutScale = (fontSize / 16) * fontScale;
@@ -302,14 +289,40 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16 }: P
   // Text > View is what iOS lays out as 0×0 and paints over the next line.
   if (tall) {
     const size = estimateMathTextSize(segments);
-    return (
+    const content = (
       <View
         testID="math-text-tall"
         collapsable={false}
-        style={[styles.tallRoot, { width: size.width * layoutScale, height: size.height * layoutScale }]}
+        style={[styles.tallRoot, {
+          ...(scrollOverflow ? { minWidth: size.width * layoutScale } : { width: size.width * layoutScale }),
+          height: size.height * layoutScale,
+        }]}
       >
         {renderSegments(segments, "m", { styles, layoutScale })}
       </View>
+    );
+    if (!scrollOverflow) return content;
+    // Keep short fractions at their intrinsic size. A longer run is limited
+    // by its actual paragraph/list width, while its inner row never shrinks.
+    return (
+      <ScrollView
+        testID="math-text-scroll"
+        horizontal
+        nestedScrollEnabled
+        directionalLockEnabled
+        showsHorizontalScrollIndicator
+        bounces={false}
+        contentInsetAdjustmentBehavior="never"
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={readableLatexFallback(latex)}
+        style={[
+          styles.inlineViewport,
+          { width: size.width * layoutScale, height: size.height * layoutScale },
+        ]}
+      >
+        {content}
+      </ScrollView>
     );
   }
 
@@ -339,6 +352,11 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
         android: "sans-serif",
         default: undefined,
       }),
+    },
+    inlineViewport: {
+      maxWidth: "100%",
+      flexGrow: 0,
+      flexShrink: 1,
     },
     tallRoot: {
       flexDirection: "row",

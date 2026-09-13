@@ -209,6 +209,10 @@ class NewtonIterationStep(BaseModel):
 
 
 class NewtonMethodResult(BaseModel):
+    # Derived from the same parsed function/derivative used by the iteration.
+    function_latex: str | None = None
+    derivative_latex: str | None = None
+    recurrence_latex: str | None = None
     iterations: list[NewtonIterationStep] = Field(default_factory=list)
     converged: bool
     root: float | None = None

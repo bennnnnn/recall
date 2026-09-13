@@ -1,9 +1,10 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
+import { splitAnswerBranches } from "@/lib/math/answerLayout";
 import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
@@ -14,6 +15,9 @@ import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
+
+// Match standalone KaTeX and the answer text role, including nested native math.
+const ANSWER_FONT_SIZE = 20;
 
 function normalizeAnswerContent(raw: string): string {
   const text = stripTrailingFenceCloser(raw.trim());
@@ -54,6 +58,7 @@ export function AnswerBlock({ content }: Props) {
   const hasNestedView = hasInlineMath
     ? parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))
     : latexHasNestedMathView(text);
+  const nativeLines = hasInlineMath ? [text] : splitAnswerBranches(text);
 
   // Drop a trailing lone ":" when nested math Views are present — the colon
   // can't share the math View's line box and strands as a lone "two dots".
@@ -72,7 +77,7 @@ export function AnswerBlock({ content }: Props) {
       accessibilityRole="text"
       accessibilityLabel={t("rich.answer_a11y", { text: readableLatexFallback(text) })}
     >
-      <View style={[s.box, useKatex ? s.boxStretch : null]}>
+      <View style={[s.box, useKatex || hasNestedView ? s.boxStretch : null]}>
         {useKatex ? (
           <MathFormulaWebView
             latex={text}
@@ -81,26 +86,39 @@ export function AnswerBlock({ content }: Props) {
             bgColor={theme.surfaceAlt}
           />
         ) : hasNestedView ? (
-          <View style={s.answerRow} testID="answer-row">
-            {hasInlineMath
-              ? trimmedParts.map((part, i) =>
-                  part.type === "math" ? (
-                    <MathText key={i} latex={part.value} textColor={theme.text} />
-                  ) : (
-                    <Text key={i} style={s.answer} selectable>
-                      {part.value}
-                    </Text>
-                  ),
-                )
-              : (
-                <MathText latex={text} textColor={theme.text} />
-              )}
+          <View style={s.answerLines}>
+            {nativeLines.map((line, lineIndex) => (
+              <ScrollView
+                key={lineIndex}
+                testID={`answer-line-scroll-${lineIndex}`}
+                horizontal
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator
+                bounces={false}
+                style={s.lineViewport}
+                contentContainerStyle={s.lineScroll}
+              >
+                <View style={s.answerRow} testID={lineIndex === 0 ? "answer-row" : `answer-row-${lineIndex}`}>
+                  {hasInlineMath
+                    ? trimmedParts.map((part, i) =>
+                        part.type === "math" ? (
+                          <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
+                        ) : (
+                          <Text key={i} style={s.answer} selectable>
+                            {part.value}
+                          </Text>
+                        ),
+                      )
+                    : <MathText latex={line} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />}
+                </View>
+              </ScrollView>
+            ))}
           </View>
         ) : hasInlineMath ? (
           <Text style={s.answer} selectable>
             {parts.map((part, i) =>
               part.type === "math" ? (
-                <MathText key={i} latex={part.value} textColor={theme.text} />
+                <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
               ) : (
                 <Text key={i} style={s.answer}>
                   {part.value}
@@ -110,7 +128,7 @@ export function AnswerBlock({ content }: Props) {
           </Text>
         ) : (
           <Text style={s.answer} selectable>
-            <MathText latex={text} textColor={theme.text} />
+            <MathText latex={text} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
           </Text>
         )}
       </View>
@@ -150,10 +168,25 @@ const makeStyles = (t: Theme) =>
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      flexWrap: "wrap",
+      flexWrap: "nowrap",
+      flexShrink: 0,
+    },
+    answerLines: {
+      alignSelf: "stretch",
+      gap: 8,
+    },
+    lineViewport: {
+      alignSelf: "stretch",
+    },
+    lineScroll: {
+      minWidth: "100%",
+      flexGrow: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 4,
     },
     answer: {
-      fontSize: 20,
+      fontSize: ANSWER_FONT_SIZE,
       lineHeight: 28,
       fontWeight: "500",
       color: t.text,

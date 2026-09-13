@@ -11,11 +11,18 @@ from app.models.schemas.math import (
     MathIntent,
 )
 from app.services import math_service
+from app.services.math_reply_policy import MATH_REPLY_POLICY
 from app.services.math_tools.block import VerifiedMathBlock
-from app.services.math_tools.extract import extract_math_intent
+from app.services.math_tools.extract import extract_math_intent, trig_domain_would_be_dropped
 from app.services.prompt_inject import inject_before_last_user
 
 logger = logging.getLogger(__name__)
+
+VERIFIED_MATH_REPLY_HINT = (
+    "Reply guidance for this request: The solver working above is supporting data, "
+    "not a request to explain every step. "
+    f"{MATH_REPLY_POLICY}"
+)
 
 
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
@@ -151,20 +158,32 @@ async def build_math_augmentation(
         # to MathIntent (do not re-parse through the text regex, which mangles
         # unicode ops / abs bars a photographed problem can contain).
         intent = _intent_from_image_extract(image_math_extract)
+        if (
+            intent is not None
+            and intent.kind == "equation"
+            and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
+        ):
+            intent = None
     else:
         intent = extract_math_intent(user_content)
     if intent is None and has_image_attachment:
         lines = [
             "The user attached an image that may contain a math problem. "
-            "Extract the equation as lhs/rhs if possible, then explain carefully. "
+            "Extract the equation as lhs/rhs only if the notation and measures are legible. "
             "Do NOT claim SymPy verification unless a verified system block is present. "
             "Use $...$ for formulas. Do not emit ```geometry / ```graph. "
-            "Never invent measures."
+            "Never invent measures.",
+            MATH_REPLY_POLICY,
         ]
         return "\n".join(lines), None
 
     if intent is None:
-        return None, None
+        return (
+            "No verified solver result is available for this request. "
+            "Do not claim verification or invent missing measures.\n\n"
+            f"{MATH_REPLY_POLICY}",
+            None,
+        )
 
     from app.services import math_tools as mt
 
@@ -173,7 +192,10 @@ async def build_math_augmentation(
         # Intent matched but SymPy timed out / rejected / had no builder result.
         # Inject honesty so the model does not reuse the same "verified" UX.
         return _unverified_math_note(intent.kind), None
-    return verified.text, verified
+    # Keep presentation guidance adjacent to the result, after any worked
+    # steps, so the model does not treat solver data as a tutorial request.
+    # The canonical block remains data-only for direct replies/fence validation.
+    return f"{verified.text}\n\n{VERIFIED_MATH_REPLY_HINT}", verified
 
 
 def _unverified_math_note(kind: str) -> str:
@@ -182,12 +204,13 @@ def _unverified_math_note(kind: str) -> str:
         "Math note: a symbolic problem was detected "
         f"(kind={kind}), but a verified result could not be produced "
         "(timeout, unsupported expression, or incomplete extract).\n"
-        "Explain carefully and show your work. Do NOT claim the answer was "
+        "Do NOT claim the answer was "
         "verified. Write the result in `$...$` and mark uncertainty when "
         "you are unsure. Do NOT emit ```answer, ```geometry, or ```graph. "
         "Do not invent geometry/graph dimensions or point lists. "
         "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
-        "diagram for a function plot."
+        "diagram for a function plot.\n\n"
+        f"{MATH_REPLY_POLICY}"
     )
 
 

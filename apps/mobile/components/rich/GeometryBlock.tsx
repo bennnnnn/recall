@@ -14,6 +14,7 @@ import {
   diagonalAngleArcPath,
   equalSideTickCounts,
   footOfPerpendicular,
+  geometryLabelInset,
   isIsoscelesSides,
   isRightAngleDeg,
   midpoint,
@@ -191,14 +192,15 @@ function VertexAngleGraphic({
 function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; screenWidth: number; theme: Theme }) {
   const colors = diagramColors(theme);
   const labels = computeRectangleLabels(spec);
-  const layout = scaleToFit(spec.width, spec.height, screenWidth - 48);
-  const offsetX = 40;
+  const offsetX = geometryLabelInset(spec.type === "square" ? labels.side : labels.height);
+  const rightPad = spec.show_diagonal ? geometryLabelInset(labels.diagonal, 12) : 40;
+  const layout = scaleToFit(spec.width, spec.height, screenWidth - 48, offsetX + rightPad);
   const offsetY = 36;
   const x = offsetX;
   const y = offsetY;
   const w = layout.w;
   const h = layout.h;
-  const svgW = w + offsetX + 40;
+  const svgW = w + offsetX + rightPad;
   const svgH = h + offsetY + (spec.show_area || spec.show_perimeter ? 56 : 40);
   const isSquare = spec.type === "square";
   const corner = 12;
@@ -301,8 +303,9 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
 function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; screenWidth: number; theme: Theme }) {
   const colors = diagramColors(theme);
   const labels = computeTriangleLabels(spec);
-  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48);
   const offsetX = 48;
+  const rightPad = spec.show_labels !== false ? geometryLabelInset(labels.height, 12, 10, 48) : 48;
+  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48, offsetX + rightPad);
   const offsetY = 28;
   const b = layout.w;
   const h = layout.h;
@@ -313,31 +316,19 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
   const y1 = offsetY + raw.y1;
   const x2 = offsetX + raw.x2;
   const y2 = offsetY + raw.y2;
-  const svgW = b + offsetX + 48;
+  const svgW = b + offsetX + rightPad;
   const svgH = h + offsetY + 36;
   const showLabels = spec.show_labels !== false;
-  const showTicks = shouldShowTicks(spec.show_ticks, false);
   const showAltitude = spec.show_altitude !== false;
-  const showAngle = spec.show_angle !== false;
-  let verts = [
+  const verts = [
     { x: x0, y: y0 },
     { x: x1, y: y1 },
     { x: x2, y: y2 },
   ];
-  let outW = svgW;
-  let outH = svgH;
-  if (showAngle) {
-    const padded = padDiagramForAngleLabels(verts, svgW, svgH);
-    verts = padded.vertices;
-    outW = padded.svgW;
-    outH = padded.svgH;
-  }
-  const tickSegments = showTicks
-    ? [...sideTickMarks(verts[0].x, verts[0].y, verts[2].x, verts[2].y, 1), ...sideTickMarks(verts[1].x, verts[1].y, verts[2].x, verts[2].y, 1)]
-    : [];
+  // Base and height do not determine side equality or interior angles.
 
   return (
-    <Svg width={outW} height={outH}>
+    <Svg width={svgW} height={svgH}>
       <Polygon
         points={`${verts[0].x},${verts[0].y} ${verts[1].x},${verts[1].y} ${verts[2].x},${verts[2].y}`}
         fill={theme.contentSurface}
@@ -356,10 +347,6 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
           strokeDasharray="5,4"
           accessible={false}
         />
-      ) : null}
-      {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
-      {showAngle ? (
-        <InteriorAngleMarks vertices={verts} color={theme.textSecondary} fill={theme.contentSurface} />
       ) : null}
       {showLabels ? (
         <>
@@ -402,8 +389,10 @@ function RightTriangleDiagram({
 }) {
   const colors = diagramColors(theme);
   const labels = computeRightTriangleLabels(spec);
-  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48);
-  const offsetX = 48;
+  const offsetX = spec.show_labels !== false ? geometryLabelInset(labels.height, 12, 10, 48) : 48;
+  const rightPad = spec.show_labels !== false && spec.show_hypotenuse !== false
+    ? geometryLabelInset(labels.hypotenuse, 12, 8, 48) : 48;
+  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48, offsetX + rightPad);
   const offsetY = 28;
   const b = layout.w;
   const h = layout.h;
@@ -411,7 +400,7 @@ function RightTriangleDiagram({
   const y0 = offsetY;
   const x1 = offsetX + b;
   const y1 = offsetY + h;
-  const svgW = b + offsetX + 48;
+  const svgW = b + offsetX + rightPad;
   // Side-length labels sit below the base (y+18) and left of the height —
   // angle-label padding does not include them, so "6 cm" used to clip.
   const svgH = h + offsetY + 56;
@@ -554,22 +543,25 @@ function TriangleSidesDiagram({
   const colors = diagramColors(theme);
   const labels = computeTriangleSidesLabels(spec);
   const raw = triangleSidesVertices(spec.a, spec.b, spec.c);
+  const minX = Math.min(raw.x0, raw.x1, raw.x2);
   const maxX = Math.max(raw.x0, raw.x1, raw.x2);
+  const spanX = maxX - minX;
   const maxY = Math.max(raw.y0, raw.y1, raw.y2, 1);
-  const inner = Math.max(screenWidth - 48 - 80, 120);
-  const scale = inner / Math.max(maxX, maxY, 1);
-  const offsetX = 40;
+  const offsetX = spec.show_labels !== false ? geometryLabelInset(labels.c) : 40;
+  const rightPad = spec.show_labels !== false ? geometryLabelInset(labels.b) : 40;
+  const inner = Math.max(screenWidth - 48 - offsetX - rightPad, 1);
+  const scale = inner / Math.max(spanX, maxY, 1);
   const offsetY = 28;
   // SVG y grows downward \u2014 flip so the apex draws above the base.
   const toSvg = (x: number, y: number) => ({
-    x: offsetX + x * scale,
+    x: offsetX + (x - minX) * scale,
     y: offsetY + (maxY - y) * scale,
   });
   const p0raw = toSvg(raw.x0, raw.y0);
   const p1raw = toSvg(raw.x1, raw.y1);
   const p2raw = toSvg(raw.x2, raw.y2);
   const showLabels = spec.show_labels !== false;
-  const svgW0 = maxX * scale + offsetX * 2;
+  const svgW0 = spanX * scale + offsetX + rightPad;
   const labelBelow = showLabels ? 52 : 16;
   const svgH0 = maxY * scale + offsetY + labelBelow;
   const tickCounts = equalSideTickCounts(spec.a, spec.b, spec.c);
@@ -671,9 +663,11 @@ function TriangleSidesDiagram({
             fill={theme.textSecondary}
             fontSize={12}
             textAnchor="middle"
-            testID="sss-area-label"
+            testID={spec.relative_lengths ? "sss-relative-label" : "sss-area-label"}
           >
-            {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+            {spec.relative_lengths
+              ? i18n.t("rich.relative_side_lengths")
+              : `${i18n.t("rich.area")}\u00A0${labels.area}`}
           </SvgText>
         </>
       ) : null}
@@ -691,12 +685,13 @@ function TrapezoidDiagram({
   theme: Theme;
 }) {
   const labels = computeTrapezoidLabels(spec);
-  const inner = Math.max(screenWidth - 48 - 80, 120);
+  const offsetX = spec.show_labels !== false ? geometryLabelInset(labels.height, 12) : 40;
+  const rightPad = 40;
+  const inner = Math.max(screenWidth - 48 - offsetX - rightPad, 1);
   const scale = inner / Math.max(spec.top, spec.bottom, spec.height, 1);
   const topW = spec.top * scale;
   const bottomW = spec.bottom * scale;
   const h = spec.height * scale;
-  const offsetX = 40;
   const offsetY = 28;
   const bx0 = offsetX;
   const bx1 = offsetX + bottomW;
@@ -704,7 +699,7 @@ function TrapezoidDiagram({
   const tx0 = offsetX + (bottomW - topW) / 2;
   const tx1 = tx0 + topW;
   const ty = offsetY;
-  const svgW = bottomW + offsetX * 2;
+  const svgW = bottomW + offsetX + rightPad;
   const svgH = h + offsetY + 40;
   const showLabels = spec.show_labels !== false;
   const showAngle = spec.show_angle === true;
@@ -766,7 +761,10 @@ function ParallelogramDiagram({
   theme: Theme;
 }) {
   const labels = computeParallelogramLabels(spec);
-  const { svgW, svgH, bx0, bx1, by, tx0, tx1, ty } = parallelogramLayout(spec, screenWidth);
+  const padding = spec.show_labels !== false
+    ? { left: geometryLabelInset(labels.height, 12), right: geometryLabelInset(labels.side, 12) }
+    : { left: 40, right: 40 };
+  const { svgW, svgH, bx0, bx1, by, tx0, tx1, ty } = parallelogramLayout(spec, screenWidth, padding);
   const showLabels = spec.show_labels !== false;
   const showAngle = spec.show_angle === true;
   let verts = [
@@ -809,7 +807,9 @@ function ParallelogramDiagram({
             {labels.side}
           </SvgText>
           <SvgText x={(bl.x + br.x) / 2} y={bl.y + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
-            {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+            {spec.show_perimeter
+              ? `${i18n.t("rich.perimeter")}\u00A0${labels.perimeter}`
+              : `${i18n.t("rich.area")}\u00A0${labels.area}`}
           </SvgText>
         </>
       ) : null}
@@ -829,24 +829,39 @@ function SectorDiagram({
   const labels = computeSectorLabels(spec);
   const layout = scaleToFit(spec.radius * 2, spec.radius * 2, screenWidth - 48);
   const r = layout.w / 2;
-  const offsetX = 40;
-  const offsetY = 36;
-  const cx = offsetX + r;
-  const cy = offsetY + r;
-  // Sweep clockwise from straight up (12 o'clock) by angle_deg.
+  const svgW = r * 2 + 80;
+  const showLabels = spec.show_labels !== false;
+  // Sweep clockwise from straight up (12 o'clock) by angle_deg. Include
+  // the center and every cardinal point reached by the arc in its bounds.
   const startRad = (-90 * Math.PI) / 180;
   const endRad = ((-90 + spec.angle_deg) * Math.PI) / 180;
-  const x1 = cx + r * Math.cos(startRad);
-  const y1 = cy + r * Math.sin(startRad);
-  const x2 = cx + r * Math.cos(endRad);
-  const y2 = cy + r * Math.sin(endRad);
-  const largeArc = spec.angle_deg > 180 ? 1 : 0;
-  const path = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`;
   const midRad = (startRad + endRad) / 2;
   const labelR = r * 0.55;
-  const svgW = r * 2 + offsetX * 2;
-  const svgH = r * 2 + offsetY * 2 + 40;
-  const showLabels = spec.show_labels !== false;
+  const endX = r * Math.cos(endRad);
+  const endY = r * Math.sin(endRad);
+  let minX = spec.angle_deg >= 270 ? -r : Math.min(0, endX);
+  let maxX = spec.angle_deg >= 90 ? r : Math.max(0, endX);
+  const maxY = spec.angle_deg >= 180 ? r : Math.max(0, endY);
+  if (showLabels) {
+    minX = Math.min(minX, -geometryLabelInset(labels.radius, 12, 6, 0));
+    const angleHalfWidth = geometryLabelInset(labels.angle, 12, 0, 0) / 2;
+    const angleX = labelR * Math.cos(midRad);
+    minX = Math.min(minX, angleX - angleHalfWidth);
+    maxX = Math.max(maxX, angleX + angleHalfWidth);
+  }
+  const cx = (svgW - (maxX - minX)) / 2 - minX;
+  const cy = 36 + r;
+  const plotBottom = cy + maxY;
+  const svgH = plotBottom + (showLabels ? 62 : 16);
+  const x1 = cx;
+  const y1 = cy - r;
+  const x2 = cx + endX;
+  const y2 = cy + endY;
+  const largeArc = spec.angle_deg > 180 ? 1 : 0;
+  // A single SVG arc with coincident endpoints cannot draw a full circle.
+  const path = spec.angle_deg === 360
+    ? `M${cx},${cy} L${x1},${y1} A${r},${r} 0 1 1 ${cx},${cy + r} A${r},${r} 0 1 1 ${x1},${y1} Z`
+    : `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`;
 
   return (
     <Svg width={svgW} height={svgH}>
@@ -866,10 +881,10 @@ function SectorDiagram({
           <SvgText x={(cx + x1) / 2 - 6} y={(cy + y1) / 2} fill={theme.accent} fontSize={12} fontWeight="600" textAnchor="end">
             {labels.radius}
           </SvgText>
-          <SvgText x={cx} y={cy + r + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+          <SvgText x={svgW / 2} y={plotBottom + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
             {`${i18n.t("rich.area")}\u00A0${labels.area}`}
           </SvgText>
-          <SvgText x={cx} y={cy + r + 50} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+          <SvgText x={svgW / 2} y={plotBottom + 50} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
             {`${i18n.t("rich.arc_length")}\u00A0${labels.arc_length}`}
           </SvgText>
         </>

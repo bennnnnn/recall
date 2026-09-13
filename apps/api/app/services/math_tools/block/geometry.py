@@ -29,6 +29,7 @@ from app.services.math_tools.block.common import (
     VerifiedMathBlock,
     _diagram_block,
     _finish_with_answer,
+    format_quantity,
 )
 
 
@@ -71,7 +72,11 @@ def _verified_block_rectangle(
         perimeter=rect_geo.perimeter,
         labels=rect_geo.labels,
     )
-    if intent.wants_perimeter:
+    if intent.wants_angle and intent.wants_diagonal:
+        # “Angle made by the diagonal” mentions the diagonal as a reference,
+        # not as a request to substitute its length for the angle.
+        answer = rf"{rect_geo.angle_deg:g}^\circ"
+    elif intent.wants_perimeter:
         answer = f"{rect_geo.perimeter:g}"
     elif intent.wants_diagonal and not intent.wants_area:
         answer = f"{rect_geo.diagonal:g}"
@@ -99,9 +104,9 @@ def _verified_block_square(
         width=square_geo.side,
         height=square_geo.side,
         unit=square_geo.unit,
-        show_diagonal=True,
-        show_area=True,
-        show_perimeter=True,
+        show_diagonal=intent.wants_diagonal or not (intent.wants_area or intent.wants_perimeter),
+        show_area=intent.wants_area or not (intent.wants_diagonal or intent.wants_perimeter),
+        show_perimeter=intent.wants_perimeter or not (intent.wants_area or intent.wants_diagonal),
         show_ticks=True,
         diagonal=square_geo.diagonal,
         area=square_geo.area,
@@ -145,10 +150,10 @@ def _verified_block_solid(
             continue
         lines.append(f"{key}={value}")
     if intent.wants_surface_area and not intent.wants_volume:
-        answer = geo.labels["surface_area"].rsplit(" ", 1)[0]
+        answer, unit = geo.labels["surface_area"].rsplit(" ", 1)
     else:
-        answer = geo.labels["volume"].rsplit(" ", 1)[0]
-    return _finish_with_answer(lines, answer)
+        answer, unit = geo.labels["volume"].rsplit(" ", 1)
+    return _finish_with_answer(lines, format_quantity(answer, unit))
 
 
 def _verified_block_circle(
@@ -180,10 +185,12 @@ def _verified_block_circle(
     # The verified final answer must match what the user asked for —
     # "circumference of circle r=4" used to return the area (≈50.27)
     # because the canonical answer was unconditionally the area. Honor an
-    # explicit circumference request; fall back to area (the default
-    # illustration) when only area or nothing specific was asked.
+    # explicit circumference or diameter request; fall back to area when
+    # only area or nothing specific was asked.
     if intent.wants_circumference:
         answer = f"{circle_geo.circumference:.2f}"
+    elif intent.wants_diameter and not intent.wants_area:
+        answer = f"{circle_geo.diameter:g}"
     else:
         answer = f"{circle_geo.area:.2f}"
     return _diagram_block(lines, circle_spec, answer)
@@ -207,9 +214,9 @@ def _verified_block_triangle(
         height=tri_geo.height,
         unit=tri_geo.unit,
         show_labels=True,
-        show_ticks=True,
+        show_ticks=False,
         show_altitude=True,
-        show_angle=True,
+        show_angle=False,
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
@@ -246,12 +253,15 @@ def _verified_block_right_triangle(
         show_angle=True,
         hypotenuse=rt_geo.hypotenuse,
         area=rt_geo.area,
+        perimeter=rt_geo.base + rt_geo.height + rt_geo.hypotenuse,
         labels=rt_geo.labels,
     )
     lines.append("Interior-angle labels: all three vertices (not only the 90° square).")
     # Draw-and-label asks are the diagram — do not attach a leftover area pill
     # (6x4 default used to dump a gray "12" under a 3-4-5 request).
     answer = f"{rt_geo.area:g}" if intent.wants_area else None
+    if intent.wants_hypotenuse and not (intent.wants_area or intent.wants_perimeter):
+        answer = f"{rt_geo.hypotenuse:g}"
     if intent.wants_perimeter:
         answer = f"{rt_geo.base + rt_geo.height + rt_geo.hypotenuse:g}"
     return _diagram_block(lines, rt_spec, answer)
@@ -265,12 +275,19 @@ def _verified_block_triangle_sides(
     tri_geo = math_service.triangle_sides_geometry(
         TriangleSidesInput(a=intent.tri_a, b=intent.tri_b, c=intent.tri_c, unit=intent.unit)
     )
-    lines.append(
-        f"Triangle: a={tri_geo.a:g} {tri_geo.unit} b={tri_geo.b:g} {tri_geo.unit} "
-        f"c={tri_geo.c:g} {tri_geo.unit} area={tri_geo.area:g} {tri_geo.unit}² "
-        f"perimeter={tri_geo.perimeter:g} {tri_geo.unit} "
-        f"angles={tri_geo.angle_a_deg:g}°/{tri_geo.angle_b_deg:g}°/{tri_geo.angle_c_deg:g}°"
-    )
+    relative = intent.triangle_relative_lengths
+    if relative:
+        lines.append(
+            f"Relative side ratio a:b:c={tri_geo.a:g}:{tri_geo.b:g}:{tri_geo.c:g}. "
+            "Only angles were supplied; physical lengths, area and perimeter are undetermined."
+        )
+    else:
+        lines.append(
+            f"Triangle: a={tri_geo.a:g} {tri_geo.unit} b={tri_geo.b:g} {tri_geo.unit} "
+            f"c={tri_geo.c:g} {tri_geo.unit} area={tri_geo.area:g} {tri_geo.unit}² "
+            f"perimeter={tri_geo.perimeter:g} {tri_geo.unit} "
+            f"angles={tri_geo.angle_a_deg:g}°/{tri_geo.angle_b_deg:g}°/{tri_geo.angle_c_deg:g}°"
+        )
     isosceles = (
         abs(tri_geo.a - tri_geo.b) < 1e-9
         or abs(tri_geo.a - tri_geo.c) < 1e-9
@@ -281,26 +298,43 @@ def _verified_block_triangle_sides(
         a=tri_geo.a,
         b=tri_geo.b,
         c=tri_geo.c,
+        relative_lengths=relative,
         unit=tri_geo.unit,
         show_labels=True,
         show_ticks=True,
         show_altitude=False,
         show_median=isosceles,
         show_angle=True,
-        area=tri_geo.area,
-        labels=tri_geo.labels,
+        area=None if relative else tri_geo.area,
+        perimeter=None if relative else tri_geo.perimeter,
+        labels=(
+            {key: value for key, value in tri_geo.labels.items() if key.startswith("angle_")}
+            if relative
+            else tri_geo.labels
+        ),
     )
     if intent.unit == "units":
         lines.append(
-            "The user gave interior angles only. Sides are relative (law of sines) "
-            "with unit 'units' — do NOT call them centimetres or invent a side in cm. "
-            "Do not invent a side length in centimetres."
+            "Lengths use generic units, not centimetres. When the user supplied only "
+            "interior angles, these side lengths express relative proportions "
+            "(law of sines), not a known physical size."
         )
+    lines.append(
+        "Angles via the law of cosines."
+        if relative
+        else "Area via Heron's formula; angles via the law of cosines."
+    )
+    if relative and (intent.wants_area or intent.wants_perimeter):
+        return _diagram_block(lines, tri_spec)
+    if relative and not (intent.wants_angle or intent.wants_area or intent.wants_perimeter):
+        # Pure AAA drawings already label the supplied angles. Retaining a
+        # canonical answer would make finalization append a redundant card.
+        return _diagram_block(lines, tri_spec)
+    if intent.wants_angle and not (intent.wants_area or intent.wants_perimeter):
         answer = (
             f"{tri_geo.labels['angle_a']}, {tri_geo.labels['angle_b']}, {tri_geo.labels['angle_c']}"
         )
         return _diagram_block(lines, tri_spec, answer)
-    lines.append("Area via Heron's formula; angles via the law of cosines.")
     quantity = tri_geo.perimeter if intent.wants_perimeter else tri_geo.area
     return _diagram_block(lines, tri_spec, f"{quantity:g}")
 
@@ -361,6 +395,7 @@ def _verified_block_parallelogram(
         unit=para_geo.unit,
         show_labels=True,
         show_angle=bool(intent.wants_angle),
+        show_perimeter=intent.wants_perimeter and not intent.wants_area,
         area=para_geo.area,
         perimeter=para_geo.perimeter,
         labels=para_geo.labels,

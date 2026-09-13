@@ -107,13 +107,14 @@ export function restoreCopiedFractions(raw: string): string {
   return s;
 }
 
-function rewriteUnicodeSqrts(s: string): string {
+function rewriteUnicodeSqrts(s: string, nesting = 0): string {
+  if (nesting >= 12) return s;
   // Convert √9 / ∛8 / √{9} / √(x) before leftover √ becomes \sqrt{}.
   let out = "";
   let i = 0;
   const n = s.length;
   while (i < n) {
-    const cmd = RADICAL_PREFIX[s[i] ?? ""];
+    let cmd = RADICAL_PREFIX[s[i] ?? ""];
     if (!cmd) {
       out += s[i];
       i += 1;
@@ -121,6 +122,14 @@ function rewriteUnicodeSqrts(s: string): string {
     }
     i += 1;
     while (i < n && (s[i] === " " || s[i] === "\t")) i += 1;
+    if (cmd === "\\sqrt" && s[i] === "[") {
+      const end = s.indexOf("]", i + 1);
+      if (end >= 0) {
+        cmd += s.slice(i, end + 1);
+        i = end + 1;
+        while (i < n && /\s/.test(s[i]!)) i += 1;
+      }
+    }
     if (i >= n) {
       out += `${cmd}{}`;
       break;
@@ -128,12 +137,18 @@ function rewriteUnicodeSqrts(s: string): string {
     if (s[i] === "(" || s[i] === "{") {
       const closer = s[i] === "(" ? ")" : "}";
       const start = i + 1;
-      const close = s.indexOf(closer, start);
-      if (close < 0) {
+      let close = start;
+      let depth = 1;
+      while (close < n && depth > 0) {
+        if (s[close] === s[i]) depth += 1;
+        else if (s[close] === closer) depth -= 1;
+        if (depth > 0) close += 1;
+      }
+      if (depth !== 0) {
         out += `${cmd}{}`;
         continue;
       }
-      out += `${cmd}{${s.slice(start, close)}}`;
+      out += `${cmd}{${rewriteUnicodeSqrts(s.slice(start, close), nesting + 1)}}`;
       i = close + 1;
       continue;
     }
@@ -231,21 +246,4 @@ export function extractInsertedDelta(prev: string, next: string): string | null 
     return null;
   }
   return inserted;
-}
-
-export function applyComposerTextChange(prev: string, next: string): string {
-  const delta = extractInsertedDelta(prev, next);
-  if (delta == null) return next;
-  const converted = normalizePastedMath(delta);
-  if (converted === delta) return next;
-  let i = 0;
-  const minLen = Math.min(prev.length, next.length);
-  while (i < minLen && prev[i] === next[i]) i += 1;
-  let pe = prev.length;
-  let ne = next.length;
-  while (pe > i && ne > i && prev[pe - 1] === next[ne - 1]) {
-    pe -= 1;
-    ne -= 1;
-  }
-  return next.slice(0, i) + converted + next.slice(ne);
 }

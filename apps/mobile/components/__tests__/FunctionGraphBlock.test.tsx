@@ -146,14 +146,40 @@ describe("FunctionGraphBlock", () => {
       label: "y = x^2",
       label2: "y = 2x",
     });
-    const { getByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
+    const { getByText, getAllByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
 
-    expect(getByText("y = x^2")).toBeOnTheScreen();
+    expect(getAllByText("y = x²")).toHaveLength(2);
     expect(getByText("y = 2x")).toBeOnTheScreen();
     // Polyline renders as RNSVGPath in this native mock (see the segmented
     // discontinuity test above) — one per curve.
     const pathCount = (JSON.stringify(toJSON()).match(/"RNSVGPath"/g) ?? []).length;
     expect(pathCount).toBe(2);
+  });
+
+  it("typesets the exponent in the exact x^2 < 4 number-line title", async () => {
+    const content = JSON.stringify({
+      type: "number_line",
+      expr: "x^2 < 4",
+      title: "x^2 < 4",
+      intervals: [{ start: -2, end: 2, start_inclusive: false, end_inclusive: false }],
+      points: [],
+    });
+    const { getByText, queryByText } = await render(<FunctionGraphBlock content={content} />);
+    expect(getByText("x² < 4")).toBeOnTheScreen();
+    expect(queryByText("x^2 < 4")).toBeNull();
+  });
+
+  it("renders the exact E07 number-line title with absolute-value bars", async () => {
+    const content = JSON.stringify({
+      type: "number_line",
+      expr: "Abs(x-2) < 5",
+      title: "Abs(x-2) < 5",
+      intervals: [{ start: -3, end: 7, start_inclusive: false, end_inclusive: false }],
+      points: [],
+    });
+    const { getByText, queryByText } = await render(<FunctionGraphBlock content={content} />);
+    expect(getByText("|x-2| < 5")).toBeOnTheScreen();
+    expect(queryByText("Abs(x-2) < 5")).toBeNull();
   });
 
   it("renders a single curve (no legend) when expr2 is absent", async () => {

@@ -13,3 +13,7 @@ export const markdownItInstance = MarkdownIt(mdOptions).use(taskLists, {
   enabled: true,
   label: true,
 });
+
+// Preserve literal variable labels like (c) and math shorthand like +/-.
+// Smart quotes remain available independently of symbol substitutions.
+markdownItInstance.core.ruler.disable("replacements");

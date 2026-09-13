@@ -278,6 +278,7 @@ async def build_stream_prompt_context(
     turn_mode: _TurnMode | None = None,
     probe_attachment_rag: bool = True,
     recent_messages: list[Any] | None = None,
+    current_user_message_id: UUID | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     if timing is not None:
@@ -403,6 +404,7 @@ async def build_stream_prompt_context(
             omit_message_ids=omit_message_ids,
             probe_attachment_rag=probe_attachment_rag,
             recent_messages=recent_messages,
+            current_user_message_id=current_user_message_id,
         ),
         _resolve_instant_reply_task(),
         _fallback_models(),

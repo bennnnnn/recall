@@ -49,7 +49,7 @@ def _strip_series_prefix(expr: str) -> str:
 
 
 _DEFAULT_NEWTON_GUESS = 1.0
-_NEWTON_NUM = re.compile(r"-?\d+(?:\.\d+)?")
+_NEWTON_NUM = re.compile(r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)")
 
 _TRAILING_FILLER_SUFFIXES = (
     " please",
@@ -251,6 +251,24 @@ _EVAL_AFTER_GIVEN_CUES = (
     "evaluate ",
     "calculate ",
 )
+
+_ASSIGNMENT_START_RE = re.compile(r"\b[a-zA-Z]\s*=")
+_EVALUATION_REQUEST_RE = re.compile(
+    r"\b(?:evaluate|compute|calculate|what\s+is|what's|whats)\b", re.IGNORECASE
+)
+
+
+def has_assignment_evaluation_request(text: str) -> bool:
+    """Recognize a requested evaluation even if its expression cannot parse.
+
+    Inspect raw text: removing math delimiters can join ``Evaluate$x`` into
+    ``Evaluatex`` and hide the cue. A binding is context for the later ask,
+    not a standalone equation whose solution completes that ask.
+    """
+    if len(text) > _MAX_MATH_INPUT:
+        return False
+    assignment = _ASSIGNMENT_START_RE.search(text)
+    return bool(assignment and _EVALUATION_REQUEST_RE.search(text, assignment.end()))
 
 
 def substituted_eval_expr(cleaned: str) -> str | None:

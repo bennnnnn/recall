@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from app.core.config import Settings
 from app.models.schemas.math import (
     EquationInput,
@@ -123,10 +125,18 @@ def _verified_block_numerical_method(
             "(the derivative may have vanished, or more iterations are needed)."
         )
         # No ```answer — post-stream must not force a root that was not found.
-        return VerifiedMathBlock(text="\n".join(lines))
+        return VerifiedMathBlock(
+            text="\n".join(lines),
+            newton_input=newton_input.model_copy(deep=True),
+            newton_result=newton_result.model_copy(deep=True),
+        )
 
     lines.append(
         f"Converged after {newton_result.iterations_used} iterations: root ≈ {newton_result.root}"
     )
     answer = f"{newton_result.root:g}"
-    return _finish_with_answer(lines, answer)
+    return replace(
+        _finish_with_answer(lines, answer),
+        newton_input=newton_input.model_copy(deep=True),
+        newton_result=newton_result.model_copy(deep=True),
+    )

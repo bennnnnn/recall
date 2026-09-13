@@ -7,7 +7,7 @@ export type NumberLineInterval = {
   end_inclusive: boolean;
 };
 
-export type GraphSpec = {
+type SampledGraphSpec = {
   type: "function" | "vertical" | "number_line" | "trajectory";
   expr: string;
   variable?: string;
@@ -39,6 +39,21 @@ export type GraphSpec = {
   y_label?: string;
   trajectory_type?: "position_vs_time" | "velocity_vs_time" | "parametric";
 };
+
+export type InequalityGraphSpec = Omit<SampledGraphSpec, "type"> & {
+  type: "inequality";
+  /** Verified affine relation: a*x + b*y comparator c. */
+  a: number;
+  b: number;
+  c: number;
+  comparator: "<" | "<=" | ">" | ">=";
+  x_min: number;
+  x_max: number;
+  y_min: number;
+  y_max: number;
+};
+
+export type GraphSpec = SampledGraphSpec | InequalityGraphSpec;
 
 /** Match backend `GraphBlockSpec.points` max; chat samples default lower. */
 export const MAX_GRAPH_POINTS = 500;
@@ -174,6 +189,32 @@ function parseTrajectoryGraph(row: Record<string, unknown>): GraphSpec | null {
   };
 }
 
+function parseInequalityGraph(row: Record<string, unknown>): InequalityGraphSpec | null {
+  const { a, b, c, comparator } = row;
+  if (typeof a !== "number" || !Number.isFinite(a) ||
+      typeof b !== "number" || !Number.isFinite(b) ||
+      typeof c !== "number" || !Number.isFinite(c) || (a === 0 && b === 0)) return null;
+  if (comparator !== "<" && comparator !== "<=" && comparator !== ">" && comparator !== ">=") return null;
+  const expr = typeof row.expr === "string" ? row.expr.trim() : "";
+  if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
+  const xMin = row.x_min === undefined ? -10 : row.x_min;
+  const xMax = row.x_max === undefined ? 10 : row.x_max;
+  const yMin = row.y_min === undefined ? -10 : row.y_min;
+  const yMax = row.y_max === undefined ? 10 : row.y_max;
+  if (typeof xMin !== "number" || !Number.isFinite(xMin) ||
+      typeof xMax !== "number" || !Number.isFinite(xMax) ||
+      typeof yMin !== "number" || !Number.isFinite(yMin) ||
+      typeof yMax !== "number" || !Number.isFinite(yMax) ||
+      xMin >= xMax || yMin >= yMax ||
+      !Number.isFinite(xMax - xMin) || !Number.isFinite(yMax - yMin)) return null;
+  return {
+    type: "inequality", expr, a, b, c, comparator,
+    x_min: xMin, x_max: xMax, y_min: yMin, y_max: yMax,
+    title: typeof row.title === "string" && row.title.trim() ? row.title.trim() : expr,
+    points: [],
+  };
+}
+
 function parsePoints(raw: unknown): [number, number][] {
   if (!Array.isArray(raw)) return [];
   return downsamplePoints(
@@ -198,6 +239,9 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     const data = JSON.parse(raw.trim()) as unknown;
     if (!data || typeof data !== "object") return null;
     const row = data as Record<string, unknown>;
+    if (row.type === "inequality") {
+      return parseInequalityGraph(row);
+    }
     if (row.type === "vertical") {
       return parseVerticalGraph(row);
     }
@@ -460,17 +504,48 @@ export function schoolViewBounds(
   };
 }
 
+/** Expand a chosen window so one x unit and one y unit occupy equal pixels. */
+export function equalScaleGraphBounds(
+  bounds: ReturnType<typeof graphBounds>,
+  plotAspect: number,
+): ReturnType<typeof graphBounds> {
+  const xSpan = bounds.xMax - bounds.xMin;
+  const ySpan = bounds.yMax - bounds.yMin;
+  if (!(plotAspect > 0) || !Number.isFinite(plotAspect) ||
+    !(xSpan > 0) || !(ySpan > 0) ||
+    !Number.isFinite(xSpan) || !Number.isFinite(ySpan)) return bounds;
+  if (xSpan / ySpan < plotAspect) {
+    const extra = (ySpan * plotAspect - xSpan) / 2;
+    const xMin = bounds.xMin - extra;
+    const xMax = bounds.xMax + extra;
+    if (Number.isFinite(xMin) && Number.isFinite(xMax) && Number.isFinite(xMax - xMin)) {
+      return { ...bounds, xMin, xMax };
+    }
+  } else {
+    const extra = (xSpan / plotAspect - ySpan) / 2;
+    const yMin = bounds.yMin - extra;
+    const yMax = bounds.yMax + extra;
+    if (Number.isFinite(yMin) && Number.isFinite(yMax) && Number.isFinite(yMax - yMin)) {
+      return { ...bounds, yMin, yMax };
+    }
+  }
+  return bounds;
+}
+
 /** Even ticks inside a view window (e.g. −6, −4, …, 6). */
-export function graphAxisTicks(min: number, max: number, maxCount = 7): number[] {
+export function graphAxisTicks(min: number, max: number, maxCount = 7, fractional = false): number[] {
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return [];
   const step = niceStep((max - min) / Math.max(1, maxCount - 1));
+  if (!Number.isFinite(step) || step <= 0) return [];
   const start = Math.ceil((min - 1e-12) / step) * step;
   const ticks: number[] = [];
   const seen = new Set<string>();
-  for (let v = start; v <= max + step * 1e-9; v += step) {
+  // Extreme finite viewports can round v + step back to v. Keep drawing
+  // bounded even when floating-point precision cannot resolve another tick.
+  for (let v = start, count = 0; count < 64 && v <= max + step * 1e-9; v += step, count += 1) {
     const n = Math.abs(v) < step * 1e-9 ? 0 : Number(v.toPrecision(12));
     if (n < min - 1e-9 || n > max + 1e-9) continue;
-    const key = formatAxisNumber(n);
+    const key = formatAxisNumber(n, fractional);
     if (seen.has(key)) continue;
     seen.add(key);
     ticks.push(n);
@@ -478,20 +553,40 @@ export function graphAxisTicks(min: number, max: number, maxCount = 7): number[]
   return ticks;
 }
 
-/** Axis tick label — always a whole number (no ``-11.6``). */
-export function formatAxisNumber(n: number): string {
+/** School plots use whole labels; explicit fractional viewports retain precision. */
+export function formatAxisNumber(n: number, fractional = false): string {
+  if (fractional) return Object.is(n, -0) ? "0" : String(Number(n.toPrecision(12)));
   const rounded = Math.round(n);
   return Object.is(rounded, -0) ? "0" : String(rounded);
 }
 
-/** Turn SymPy/Python ``3*x**2 - 12`` into a readable ``3x² - 12``. */
+/** Turn integer ``x**2`` / ``x^2`` powers into readable ``x²`` titles. */
 export function formatGraphExpr(expr: string): string {
   const src = expr.trim();
   let out = "";
   let i = 0;
   while (i < src.length) {
-    if (src[i] === "*" && src[i + 1] === "*") {
-      let j = i + 2;
+    if (src.startsWith("Abs(", i) && (i === 0 || !/[A-Za-z0-9_]/.test(src[i - 1]))) {
+      let depth = 1;
+      let end = i + 4;
+      while (end < src.length && depth > 0) {
+        if (src[end] === "(") depth += 1;
+        else if (src[end] === ")") depth -= 1;
+        end += 1;
+      }
+      const body = src.slice(i + 4, end - 1);
+      // Keep nested calls, existing bars, and incomplete syntax verbatim;
+      // simple arithmetic inside Abs has an unambiguous bar equivalent.
+      if (depth === 0 && body.trim() && /^[A-Za-z0-9_+\-*/^.\s]+$/.test(body)) {
+        out += `|${formatGraphExpr(body)}|`;
+      } else {
+        out += src.slice(i, end);
+      }
+      i = end;
+      continue;
+    }
+    if (src[i] === "^" || (src[i] === "*" && src[i + 1] === "*")) {
+      let j = i + (src[i] === "^" ? 1 : 2);
       let exp = "";
       if (src[j] === "-") {
         exp = "-";
@@ -501,7 +596,9 @@ export function formatGraphExpr(expr: string): string {
         exp += src[j];
         j += 1;
       }
-      const sup = exp && !exp.endsWith("-") ? toSuperscript(exp) : null;
+      const simpleInteger = exp && !exp.endsWith("-") && src[j] !== "." &&
+        src[j] !== "^" && src.slice(j, j + 2) !== "**" && !/^[eE][+-]?\d/.test(src.slice(j));
+      const sup = simpleInteger ? toSuperscript(exp) : null;
       if (sup) {
         out += sup;
         i = j;

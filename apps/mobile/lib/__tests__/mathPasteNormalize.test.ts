@@ -1,5 +1,4 @@
 import {
-  applyComposerTextChange,
   extractInsertedDelta,
   MATH_GLYPH_RE,
   normalizePastedMath,
@@ -65,48 +64,39 @@ describe("restoreCopiedFractions", () => {
   });
 });
 
-describe("extractInsertedDelta / applyComposerTextChange", () => {
+describe("extractInsertedDelta", () => {
   it("ignores short typing bursts", () => {
     expect(extractInsertedDelta("ab", "abc")).toBeNull();
     expect("x".repeat(PASTE_GROWTH_MIN - 1).length).toBeLessThan(PASTE_GROWTH_MIN);
   });
+});
 
+describe("normalizePastedMath edge cases", () => {
   it("rewrites a short math paste, not only long ones", () => {
-    expect(applyComposerTextChange("", "½")).toBe("$\\frac{1}{2}$");
-    expect(applyComposerTextChange("", "x=4")).toBe("$x = 4$");
-    expect(applyComposerTextChange("", "x²")).toBe("$x^2$");
+    expect(normalizePastedMath("½")).toBe("$\\frac{1}{2}$");
+    expect(normalizePastedMath("x=4")).toBe("$x = 4$");
+    expect(normalizePastedMath("x²")).toBe("$x^2$");
   });
 
   it("keeps existing $ delimiters and formats the inside", () => {
-    expect(applyComposerTextChange("", "$x=4$")).toBe("$x = 4$");
-  });
-
-  it("rewrites a pasted math delta in the middle of existing text", () => {
-    const prev = "see ";
-    const next = "see x² + 1";
-    expect(applyComposerTextChange(prev, next)).toBe("see $x^2 + 1$");
+    expect(normalizePastedMath("$x=4$")).toBe("$x = 4$");
   });
 
   it("does not wrap a long prose paste", () => {
-    const prev = "";
     const next = "please read notes_draft.txt later";
-    expect(applyComposerTextChange(prev, next)).toBe(next);
+    expect(normalizePastedMath(next)).toBe(next);
   });
 
   it("leaves a pasted physics word problem verbatim, including m/s²", () => {
     const pasted =
       "A car starts from rest and accelerates at a constant rate of 1.2 m/s². How long does it take the car to travel a distance of 500 meters?";
     expect(normalizePastedMath(pasted)).toBe(pasted);
-    expect(applyComposerTextChange("", pasted)).toBe(pasted);
-    expect(applyComposerTextChange("", pasted)).not.toContain("\\frac");
-    expect(applyComposerTextChange("", pasted)).not.toContain("$");
   });
 
   it("does not wrap a \\[...\\] homework paste in one $...$", () => {
     const pasted =
       "\\[ 2x^2-7x+3=0 \\]\nFactor it:\n\\[ 2x-1=0 \\]\nor\n\\[ x-3=0 \\]";
     expect(normalizePastedMath(pasted)).toBe(pasted);
-    expect(applyComposerTextChange("", pasted)).toBe(pasted);
   });
 });
 

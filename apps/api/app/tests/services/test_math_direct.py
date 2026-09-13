@@ -61,6 +61,49 @@ def test_compound_prompt_keeps_llm() -> None:
     assert maybe_direct_math_reply(block, "Solve 1+1=x and show me your work") is None
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Find the prime factorization of 60",
+        "What is the prime factorization of 60?",
+        "Please find the prime factors of 60.",
+        "Could you compute the prime factorization of 60",
+        "prime factorization of 60 please",
+        "factorize 60",
+    ],
+)
+@pytest.mark.asyncio
+async def test_plain_prime_factorization_returns_one_canonical_answer(query: str) -> None:
+    _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    assert verified is not None
+    answer = r"2^{2} \times 3 \times 5"
+    assert verified.canonical_answer == answer
+    assert maybe_direct_math_reply(verified, query) == f"```answer\n{answer}\n```\n"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Find the prime factorization of 60 and explain it",
+        "Find the prime factorization of 60 with steps",
+        "Find the prime factorization of 60; show your work",
+        "Give me a hint for the prime factorization of 60",
+        "Prime factorization of 60, hint only",
+        "Prove the prime factorization of 60",
+        "Find the prime factorization of 60 and 72",
+        "Find the prime factorization of 60 and solve 2+2",
+        "Find the prime factorization of 60 and tell me a joke",
+        "factorize 60 and 2+2",
+        "factorize 60 then 72",
+        "prime factorization of 60!",
+        "prime factorization of 60.5",
+        "prime factorization of 60/2",
+    ],
+)
+def test_prime_factorization_keeps_steps_hints_and_extra_requests_on_model_path(query: str) -> None:
+    assert maybe_direct_math_reply(_answer_block(r"2^{2} \times 3 \times 5"), query) is None
+
+
 def test_can_direct_skips_force_energy_unlabeled_quantity() -> None:
     block = VerifiedMathBlock(
         text="verified",
@@ -210,11 +253,31 @@ async def test_factorial_suffix_cannot_be_silently_dropped_by_direct_graph(
     assert maybe_direct_math_reply(verified, query) is None
 
 
-def test_format_direct_math_reply_includes_answer_fence() -> None:
-    text = format_direct_math_reply(_answer_block("x = 2"))
-    assert "$x = 2$" in text
-    assert "```answer" in text
-    assert "x = 2" in text
+@pytest.mark.parametrize(
+    "answer", ["x = 2", r"\frac{5}{6}", r"\begin{aligned}x&=1\\y&=2\end{aligned}"]
+)
+def test_format_direct_math_reply_displays_answer_once(answer: str) -> None:
+    text = format_direct_math_reply(_answer_block(answer))
+    assert text == f"```answer\n{answer}\n```\n"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["graph y < 2x", "graph y >= 2x", "plot y < 2x from -3 to 3"])
+async def test_affine_region_returns_direct_verified_graph(
+    query: str, thread_sympy_executor: None
+) -> None:
+    _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    assert verified is not None
+    reply = maybe_direct_math_reply(verified, query)
+    assert reply is not None
+    assert reply.startswith("```graph\n")
+    assert reply.endswith("\n```\n")
+    graph = json.loads(reply.removeprefix("```graph\n").removesuffix("\n```\n"))
+    assert graph["type"] == "inequality"
+    assert graph["a"] == -2 and graph["b"] == 1 and graph["c"] == 0
+    assert "SymPy" not in reply
+    assert maybe_direct_math_reply(verified, query + " and explain the shading") is None
+    assert maybe_direct_math_reply(verified, query + " and solve x+1=2") is None
 
 
 @pytest.mark.asyncio

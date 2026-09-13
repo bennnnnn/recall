@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.models.schemas.math import MathIntent, NewtonMethodInput, NewtonMethodResult
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
 VERIFIED_MATH_END = "[END VERIFIED MATH]"
@@ -30,10 +34,33 @@ class VerifiedMathBlock:
     # MATH_SOLVER_HINT can name the symbol. Geometry stays on the model path;
     # plain, explicit function plots may return their canonical graph directly.
     allow_direct: bool = True
+    # The verified-block wrapper binds the exact solved physics intent here.
+    # Includes average speed; guards compare every parameter/unit without re-solving.
+    physics_intent: MathIntent | None = None
+    # Paired snapshots of the actual Newton solve; never reconstruct iterations.
+    newton_input: NewtonMethodInput | None = None
+    newton_result: NewtonMethodResult | None = None
 
 
 def _answer_canonical(content: str) -> dict[str, str]:
     return {"type": "answer", "content": content}
+
+
+def format_quantity(answer: str, unit: str) -> str:
+    """Keep a unit upright in the answer's existing math renderer."""
+    # Unit strings have already passed a solver or the measurement vocabulary.
+    # Normalize common unit powers; escape text-only TeX metacharacters.
+    unit = unit.replace("**", "^").replace("²", "^{2}").replace("³", "^{3}")
+    if unit in {"C", "F"}:
+        unit = "°" + unit
+    # Keep powers outside \mathrm: the native text fallback also understands
+    # \mathrm{cm}^{3}, while nested braces inside \mathrm are not portable.
+    unit = re.sub(
+        r"[A-Za-zµμ°_][A-Za-z0-9µμ°_-]*",
+        lambda match: r"\mathrm{" + match.group(0).replace("_", r"\_") + "}",
+        unit,
+    ).replace("%", r"\%")
+    return rf"{answer}\ {unit}"
 
 
 def wrap_verified_math(text: str) -> str:

@@ -1,4 +1,4 @@
-import { splitInlineMath } from "@/lib/markdown/inlineMath";
+import { readInlineMathSpan, splitInlineMath } from "@/lib/markdown/inlineMath";
 
 import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
 import { collapseAdjacentMoleculeFences, dropRedundantMolecule3dFences } from "@/lib/moleculePair";
@@ -32,6 +32,7 @@ import {
 } from "@/lib/mdFenceScan";
 import {
   PROTECTED_ESCAPE_MARKER,
+  PROTECTED_MATH_APOSTROPHE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
   PROTECTED_MATH_UNDERSCORE_MARKER,
 } from "@/lib/mathText";
@@ -582,13 +583,20 @@ function isLoosePipeRow(line: string): boolean {
   return cells.length >= 2;
 }
 
-/** GFM tables split on `|`; abs-bars inside `$...$` must not count as columns. */
+/** GFM tables split on `|`; bars inside explicit math must not count as columns. */
 function splitPipesOutsideMath(line: string): string[] {
   const cells: string[] = [];
   let buf = "";
   let inMath = false;
   for (let i = 0; i < line.length; i += 1) {
+    const span = readInlineMathSpan(line, i, true);
+    if (span) {
+      buf += line.slice(i, span.end);
+      i = span.end - 1;
+      continue;
+    }
     const ch = line[i];
+    // Preserve the existing unfinished-dollar guard for streaming text.
     if (ch === "$") {
       inMath = !inMath;
       buf += ch;
@@ -1428,28 +1436,74 @@ const MATH_ESCAPE_BACKSLASH_RE = /\\(?=[!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g;
  *
  * Bare `_` and `*` inside the same spans are swapped for PUA markers so
  * markdown-it's emphasis tokenizer cannot turn `$x_1 * y_2$` into nested
- * em/strong. mathText.ts restores them before parsing subscripts.
+ * em/strong. Apostrophes are protected from smartquotes in the same spans.
+ * mathText.ts restores the original source before math parsing.
  */
 function protectMathEscapes(content: string): string {
-  return content.replace(
-    /\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g,
-    (_full: string, dollarBody: string | undefined, parenBody: string | undefined) => {
-      const body = (dollarBody ?? parenBody ?? "")
-        // Protect the LaTeX row separator "\\" (TWO backslashes) before the
-        // single-backslash rule below runs. markdown-it treats a trailing
-        // "\\" as a hard line break and silently drops both backslashes
-        // during inline tokenization, collapsing every row of an inline
-        // `\begin{matrix}…\\…\end{matrix}` into one run. split/join on the
-        // two-backslash literal is unambiguous — it never touches the single
-        // backslash of a command like "\frac".
+  return applyOutsideFences(content, (prose) => {
+    let out = "";
+    for (let i = 0; i < prose.length;) {
+      if (prose[i] === "\\" && prose[i + 1] !== "(") {
+        // Escaped ticks/dollars cannot open code/math. Copy slash pairs too,
+        // so a tick after an even number of backslashes stays unescaped.
+        out += prose.slice(i, i + 2);
+        i += 2;
+        continue;
+      }
+      if (prose[i] === "`") {
+        let openerEnd = i + 1;
+        while (prose[openerEnd] === "`") openerEnd += 1;
+        const ticks = prose.slice(i, openerEnd);
+        const end = prose.indexOf(ticks, openerEnd);
+        const next = end < 0 ? openerEnd : end + ticks.length;
+        out += prose.slice(i, next);
+        i = next;
+        continue;
+      }
+      const span = readInlineMathSpan(prose, i);
+      if (!span) {
+        out += prose[i];
+        i += 1;
+        continue;
+      }
+      const delimiterLength = prose[i] === "$" ? 1 : 2;
+      const rawBody = prose.slice(i + delimiterLength, span.end - delimiterLength);
+      // Explicit \(...\) may span source lines. Single-dollar inline math
+      // cannot: keep its body in one Markdown token, retaining TeX \\ rows.
+      const inlineBody = rawBody.includes("\n")
+        ? rawBody.split(/\r?\n/).map((line) => line.trim()).join(" ")
+        : rawBody;
+      const body = inlineBody
+        // Preserve LaTeX row separators before CommonMark can consume them.
         .split("\\\\")
         .join(`${PROTECTED_ESCAPE_MARKER}${PROTECTED_ESCAPE_MARKER}`)
         .replace(MATH_ESCAPE_BACKSLASH_RE, PROTECTED_ESCAPE_MARKER)
         .replace(/_/g, PROTECTED_MATH_UNDERSCORE_MARKER)
-        .replace(/\*/g, PROTECTED_MATH_STAR_MARKER);
-      return `$${body}$`;
-    },
-  );
+        .replace(/\*/g, PROTECTED_MATH_STAR_MARKER)
+        .replace(/'/g, PROTECTED_MATH_APOSTROPHE_MARKER);
+      out += `$${body}$`;
+      i = span.end;
+    }
+    return out;
+  });
+}
+
+/** Consecutive calculation lines are separate steps, not wrapped prose.
+ * Run after math-code unwrapping; complete fences and inline formula bodies
+ * keep their own line semantics. */
+function separateConsecutiveMathLines(content: string): string {
+  return applyOutsideFences(content, (prose) => {
+    const lines = prose.split("\n");
+    let previousIsMath = false;
+    for (let i = 0; i < lines.length; i += 1) {
+      const trimmed = lines[i].trim();
+      const span = readInlineMathSpan(trimmed, 0);
+      const isMath = span != null && span.end === trimmed.length;
+      if (previousIsMath && isMath) lines[i - 1] = `${lines[i - 1].trimEnd()}  `;
+      previousIsMath = isMath;
+    }
+    return lines.join("\n");
+  });
 }
 
 /** GitHub callouts, block math, and HTML details → fenced blocks the app understands. */
@@ -1656,6 +1710,7 @@ export function preprocessMarkdown(
   out = liftMathFencesOutOfLists(out);
   out = inlineShortMathFences(out);
   out = unwrapProseMathBackticks(out);
+  out = separateConsecutiveMathLines(out);
   out = collapseAdjacentMoleculeFences(out);
   out = dropRedundantMolecule3dFences(out);
   // After fence inlining: a trailing ✓ used to abort the = split, and

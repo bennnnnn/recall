@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { StyleSheet } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/components/chat/ChatComposer";
+import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 
 jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(),
@@ -75,6 +76,90 @@ const baseProps = {
 describe("ChatComposer math keyboard", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it.each([
+    "What is sqrt{81}?",
+    "Let x=-5. Evaluate x^2",
+    "Use $x^2$ with a $5 example",
+  ])("keeps ordinary typing literal and the native caret active: %s", async (text) => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByTestId } = await render(<Harness />);
+    for (let i = 1; i <= text.length; i += 1) {
+      const next = text.slice(0, i);
+      await fireEvent.changeText(getByTestId("chat-composer-input"), next);
+      const native = getByTestId("chat-composer-input");
+      expect(native.props.value).toBe(next);
+      expect(native.props.autoCorrect).toBe(false);
+      expect(native.props.spellCheck).toBe(false);
+      expect(native.props.autoCapitalize).toBe("none");
+      expect(native.props.selection).toBeUndefined();
+      expect(native.props.caretHidden).toBe(false);
+      expect(native.props.pointerEvents).toBe("auto");
+      expect(queryByTestId("math-draft-preview")).toBeNull();
+    }
+  });
+
+  it("keeps native keyboard traits stable when opening and leaving the math pad", async () => {
+    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
+    const expectStableTraits = () => {
+      const native = getByTestId("chat-composer-input");
+      expect(native.props.autoCorrect).toBe(false);
+      expect(native.props.spellCheck).toBe(false);
+      expect(native.props.autoCapitalize).toBe("none");
+    };
+    expectStableTraits();
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expectStableTraits();
+    await fireEvent.press(getByTestId("math-keyboard-abc"));
+    expectStableTraits();
+  });
+
+  it("does not enable preview just by opening and closing an empty math pad", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+    const { getByTestId, queryByTestId } = await render(<Harness />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-abc"));
+    const text = "The price is $5.00";
+    for (let i = 1; i <= text.length; i += 1) {
+      await fireEvent.changeText(getByTestId("chat-composer-input"), text.slice(0, i));
+      expect(getByTestId("chat-composer-input").props.selection).toBeUndefined();
+      expect(queryByTestId("math-draft-preview")).toBeNull();
+    }
+  });
+
+  it("keeps a saved native draft literal after switching away from a math draft", async () => {
+    let api: ReturnType<typeof useComposerDraftApi>;
+    function ApiProbe() {
+      api = useComposerDraftApi();
+      return null;
+    }
+    const { getByTestId, queryByTestId } = await render(
+      <ComposerDraftProvider>
+        <ApiProbe />
+        <ChatComposer {...baseProps} input={undefined} onChangeInput={undefined} />
+      </ComposerDraftProvider>,
+    );
+    await act(() => api.switchThread("literal"));
+    await fireEvent.changeText(getByTestId("chat-composer-input"), "The price is $5");
+    await act(() => api.switchThread("math"));
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-key-frac"));
+    expect(getByTestId("math-draft-preview")).toBeTruthy();
+    await act(() => api.switchThread("literal"));
+    expect(getByTestId("chat-composer-input").props.value).toBe("The price is $5");
+    expect(getByTestId("chat-composer-input").props.selection).toBeUndefined();
+    expect(queryByTestId("math-draft-preview")).toBeNull();
+    expect(queryByTestId("math-keyboard-pad")).toBeNull();
+    await fireEvent.changeText(getByTestId("chat-composer-input"), "The price is $50");
+    expect(getByTestId("chat-composer-input").props.value).toBe("The price is $50");
+    expect(queryByTestId("math-draft-preview")).toBeNull();
   });
 
   it("shows a guarded busy send control before streaming starts", async () => {

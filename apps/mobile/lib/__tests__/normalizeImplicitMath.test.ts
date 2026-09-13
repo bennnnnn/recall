@@ -6,6 +6,19 @@ import {
 } from "@/lib/normalizeImplicitMath";
 
 describe("normalizeImplicitMath", () => {
+  it("preserves the exact S04 explicit mean formula without wrapping its intervening text", () => {
+    const source = String.raw`Mean (\(\mu\)) = \( \frac{1+2+3}{3} = 2 \),`;
+    expect(normalizeImplicitMath(source)).toBe(source);
+    expect(normalizeImplicitMath(`  - ${source}`)).toBe(`  - ${source}`);
+    expect(normalizeImplicitMath(String.raw`x = \(2\)`)).toBe(String.raw`x = \(2\)`);
+  });
+
+  it("still normalizes complete equation lines beside an explicit math span", () => {
+    const middle = String.raw`Mean (\(\mu\)) = \(2\)`;
+    expect(normalizeImplicitMath(`x^2 = 4\n${middle}\nz = 5`)).toBe(`$x^2 = 4$\n${middle}\n$z = 5$`);
+    expect(normalizeImplicitMath(String.raw`Use \(x\), then \sqrt{2}.`)).toBe(String.raw`Use \(x\), then $\sqrt{2}$.`);
+  });
+
   it("wraps parenthesized algebra from model output", () => {
     const input = "Given equation: ( x^2 + 2 = 6 )\nStep 2: ( x = \\pm \\sqrt{4} )";
     const out = normalizeImplicitMathInProse(input);

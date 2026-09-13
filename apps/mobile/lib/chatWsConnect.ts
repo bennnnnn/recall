@@ -11,3 +11,7 @@ export const WS_CONNECT_TIMEOUT_MS = 900;
  * to avoid opening a socket for every row during a fast list fling.
  */
 export const EAGER_CONNECT_DEBOUNCE_MS = 100;
+
+/** Server sends start before turn preparation. This bounds an OPEN but silent
+ * connection without imposing a deadline on acknowledged model/tool work. */
+export const WS_FIRST_EVENT_TIMEOUT_MS = 30_000;

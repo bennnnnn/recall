@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 
@@ -42,6 +43,29 @@ describe("AnswerBlock", () => {
       <AnswerBlock content={String.raw`x = \frac{1}{2} \text{ or } x = 3`} />,
     );
     expect(getByLabelText(/x = 3/)).toBeOnTheScreen();
+    expect(mockFormula).not.toHaveBeenCalled();
+  });
+
+  it("keeps both T05 solution branches reachable at their normal math size", async () => {
+    const latex = String.raw`x = 2 \pi k + \frac{\pi}{6} \text{ or } x = 2 \pi k + \frac{5 \pi}{6},\quad k \in \mathbb{Z}`;
+    const { getByTestId, getAllByTestId, getByLabelText } = await render(<AnswerBlock content={latex} />);
+    expect(getByLabelText(/Answer: x = 2 π k.*or.*k ∈ ℤ/)).toBeOnTheScreen();
+    expect(getAllByTestId("math-text-tall")).toHaveLength(2);
+    for (const index of [0, 1]) {
+      const viewport = getByTestId(`answer-line-scroll-${index}`);
+      expect(viewport.props.horizontal).toBe(true);
+      expect(viewport.props.showsHorizontalScrollIndicator).toBe(true);
+      expect(StyleSheet.flatten(viewport.props.style).alignSelf).toBe("stretch");
+      expect(StyleSheet.flatten(viewport.props.contentContainerStyle).minWidth).toBe("100%");
+    }
+    expect(mockFormula).not.toHaveBeenCalled();
+  });
+
+  it("provides horizontal overflow for a long native answer without an OR separator", async () => {
+    const latex = String.raw`x = \frac{1}{2} + \frac{3}{4} + \frac{5}{6} + \frac{7}{8} + \frac{9}{10}`;
+    const { getByTestId, queryByTestId } = await render(<AnswerBlock content={latex} />);
+    expect(getByTestId("answer-line-scroll-0").props.horizontal).toBe(true);
+    expect(queryByTestId("answer-line-scroll-1")).toBeNull();
     expect(mockFormula).not.toHaveBeenCalled();
   });
 

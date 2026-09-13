@@ -469,7 +469,8 @@ async def test_build_math_augmentation_verifies_kinematics_trajectory() -> None:
     )
 
     assert verified is not None
-    assert note == verified.text
+    assert note is not None and note.startswith(verified.text + "\n\n")
+    assert "Reply guidance for this request:" in note
     assert verified.canonical_answer == "2.02 s"
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "trajectory"
@@ -496,7 +497,9 @@ async def test_augment_prompt_no_intent_forbids_invented_geometry(
         needs_math=True,
     )
     assert verified is None
-    assert note is None
+    assert note is not None
+    assert "Do not claim verification or invent missing measures" in note
+    assert "ask at most one necessary clarification question" in note
 
 
 @pytest.mark.asyncio
@@ -741,8 +744,8 @@ def test_draw_right_triangle_does_not_attach_area_answer_pill() -> None:
     assert block.canonical_fence["base"] == 3
     assert block.canonical_fence["height"] == 4
     assert block.canonical_answer is None
-    assert "Opposite the base (3 cm) is 36.9°" in block.text
-    assert "opposite the height (4 cm) is 53.1°" in block.text
+    assert "Opposite the base (3 units) is 36.9°" in block.text
+    assert "opposite the height (4 units) is 53.1°" in block.text
 
 
 def test_area_of_right_triangle_with_legs_still_answers_area() -> None:
@@ -882,7 +885,7 @@ def test_verified_block_cube_volume() -> None:
     assert intent is not None
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
-    assert block.canonical_answer == "125"
+    assert block.canonical_answer == r"125\ \mathrm{cm}^{3}"
     assert "```answer\n" not in block.text
     assert block.canonical_answer is not None
     assert block.canonical_fence is not None
@@ -895,7 +898,7 @@ def test_verified_block_prism_volume() -> None:
     assert intent is not None
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
-    assert block.canonical_answer == "60"
+    assert block.canonical_answer == r"60\ \mathrm{units}^{3}"
 
 
 def test_verified_block_prism_volume_sentence_period() -> None:
@@ -904,7 +907,7 @@ def test_verified_block_prism_volume_sentence_period() -> None:
     assert intent is not None
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
-    assert block.canonical_answer == "60"
+    assert block.canonical_answer == r"60\ \mathrm{units}^{3}"
 
 
 def test_verified_block_integral_of_2x_sentence_period() -> None:
@@ -995,7 +998,7 @@ def test_extract_school_homework_kinds(text: str, kind: str) -> None:
         ("100/5/2", True, "arithmetic"),
         ("9/9", False, None),
         ("9/9", False, None),
-        ("10-3", False, None),
+        ("10-3", True, "arithmetic"),
         ("555-1234", False, None),
         ("8x5", False, None),
         ("8 by 5", False, None),

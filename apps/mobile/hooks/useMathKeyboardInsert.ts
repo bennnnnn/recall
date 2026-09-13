@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Keyboard,
   type NativeSyntheticEvent,
@@ -18,10 +18,10 @@ import {
   type MathKeyboardSymbol,
   type TextSelection,
 } from "@/lib/mathKeyboardSymbols";
-import { applyPinnedTextChange, caretAfterMathBarClose } from "@/lib/math/mathComposerChange";
+import { applyPinnedTextChange, caretAfterMathBarClose, nativeEditRange } from "@/lib/math/mathComposerChange";
 import {
-  applyComposerTextChange,
   extractInsertedDelta,
+  isMostlyProsePaste,
   shouldProbeClipboardForImagePaste,
   normalizePastedMath,
 } from "@/lib/mathPasteNormalize";
@@ -29,21 +29,52 @@ import { spliceMathBackspace, stepMathCaret } from "@/lib/mathDraftSlots";
 
 export const MATH_PAD_FALLBACK_HEIGHT = 320;
 
+function hasEditableMath(text: string): boolean {
+  return text.includes("$") && !isMostlyProsePaste(text);
+}
+
 export function useMathKeyboardInsert(options: {
   input: string;
+  draftRevision?: number;
   setInput: (text: string) => void;
   onImageOnlyPaste?: () => void;
 }) {
-  const { input, setInput, onImageOnlyPaste } = options;
+  const { input, setInput, onImageOnlyPaste, draftRevision = 0 } = options;
   const [mathBarOpen, setMathBarOpen] = useState(false);
   const [mathGroup, setMathGroup] = useState<MathKeyboardGroup>("basics");
   const [padHeight, setPadHeight] = useState(MATH_PAD_FALLBACK_HEIGHT);
   const [selection, setSelection] = useState<TextSelection>({ start: 0, end: 0 });
   const [forcedSelection, setForcedSelection] = useState<TextSelection | undefined>();
+  const [previewEnabled, setPreviewEnabled] = useState(false);
+  const previewEnabledRef = useRef(false);
+  const draftRevisionRef = useRef(draftRevision);
   const pinRef = useRef<TextSelection | null>(null);
   const mathBarOpenRef = useRef(false);
   const textRef = useRef(input);
   textRef.current = input;
+
+  const enablePreview = useCallback(() => {
+    previewEnabledRef.current = true;
+    setPreviewEnabled(true);
+  }, []);
+
+  useEffect(() => {
+    if (input) return;
+    previewEnabledRef.current = false;
+    setPreviewEnabled(false);
+  }, [input]);
+
+  useLayoutEffect(() => {
+    if (draftRevisionRef.current === draftRevision) return;
+    draftRevisionRef.current = draftRevision;
+    previewEnabledRef.current = false;
+    setPreviewEnabled(false);
+    mathBarOpenRef.current = false;
+    setMathBarOpen(false);
+    pinRef.current = null;
+    setSelection({ start: input.length, end: input.length });
+    setForcedSelection(undefined);
+  }, [draftRevision, input]);
 
   const pinSelection = useCallback((sel: TextSelection) => {
     pinRef.current = sel;
@@ -55,9 +86,10 @@ export function useMathKeyboardInsert(options: {
     (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
       const next = event.nativeEvent.selection;
       const pinned = pinRef.current;
-      // Preview caret is the source of truth whenever `$` is in the draft.
+      // Only explicit math edits use the preview caret. Ordinary typing,
+      // including dollar signs and formulas, keeps the native caret.
       // The parked TextInput keeps the OS caret in the last LaTeX slot.
-      if (pinned && textRef.current.includes("$")) {
+      if (pinned && previewEnabledRef.current && hasEditableMath(textRef.current)) {
         if (next.start !== pinned.start || next.end !== pinned.end) {
           setForcedSelection({ ...pinned });
         }
@@ -72,24 +104,37 @@ export function useMathKeyboardInsert(options: {
 
   const onChangeText = useCallback(
     (next: string) => {
+      const previous = textRef.current;
       const pin = pinRef.current ?? selection;
-      const replayed = applyPinnedTextChange(input, next, pin);
-      const converted = applyComposerTextChange(input, replayed.text);
-      const caret =
-        converted === replayed.text
-          ? replayed.caret
-          : replayed.caret + (converted.length - replayed.text.length);
-      textRef.current = converted;
-      setInput(converted);
-      pinSelection({ start: caret, end: caret });
-      const delta = extractInsertedDelta(input, next);
+      const parked = previewEnabledRef.current && hasEditableMath(previous);
+      // onChangeText does not identify a paste. Rewriting its delta can
+      // corrupt ordinary/coalesced typing and race the native selection.
+      const range = nativeEditRange(previous, next);
+      const changed = parked
+        ? applyPinnedTextChange(previous, next, pin)
+        : { text: next, caret: range ? range.at + range.added.length : pin.start };
+      textRef.current = changed.text;
+      setInput(changed.text);
+      const nextSelection = { start: changed.caret, end: changed.caret };
+      if (parked) {
+        pinSelection(nextSelection);
+      } else {
+        pinRef.current = nextSelection;
+        setSelection(nextSelection);
+        setForcedSelection(undefined);
+      }
+      if (!changed.text) {
+        previewEnabledRef.current = false;
+        setPreviewEnabled(false);
+      }
+      const delta = extractInsertedDelta(previous, next);
       if (delta && onImageOnlyPaste && shouldProbeClipboardForImagePaste(delta)) {
         void clipboardIsImageOnly().then((imageOnly) => {
           if (imageOnly) onImageOnlyPaste();
         });
       }
     },
-    [input, onImageOnlyPaste, pinSelection, selection, setInput],
+    [onImageOnlyPaste, pinSelection, selection, setInput],
   );
 
   const closeMathBar = useCallback(() => {
@@ -99,6 +144,7 @@ export function useMathKeyboardInsert(options: {
 
   const insertSymbol = useCallback(
     (spec: MathKeyboardSymbol) => {
+      enablePreview();
       const sel = pinRef.current ?? selection;
       const text = textRef.current;
       const jump = tapAdvancesToNextSlot(text, sel.start, spec.id);
@@ -118,7 +164,7 @@ export function useMathKeyboardInsert(options: {
       setInput(result.text);
       pinSelection({ start: caret, end: caret });
     },
-    [pinSelection, selection, setInput],
+    [enablePreview, pinSelection, selection, setInput],
   );
 
   const nextSlot = useCallback(() => {
@@ -155,6 +201,7 @@ export function useMathKeyboardInsert(options: {
   const pasteText = useCallback(
     async (text: string) => {
       if (!text) return;
+      enablePreview();
       const sel = pinRef.current ?? selection;
       const before = textRef.current.slice(0, sel.start);
       const after = textRef.current.slice(sel.end);
@@ -165,7 +212,7 @@ export function useMathKeyboardInsert(options: {
       setInput(spliced);
       pinSelection({ start: caret, end: caret });
     },
-    [pinSelection, selection, setInput],
+    [enablePreview, pinSelection, selection, setInput],
   );
 
   const moveCaret = useCallback(
@@ -186,14 +233,16 @@ export function useMathKeyboardInsert(options: {
       return;
     }
     const measured = Keyboard.metrics()?.height ?? 0;
+    if (hasEditableMath(textRef.current)) enablePreview();
     if (measured >= 200) setPadHeight(measured);
     Keyboard.dismiss();
     mathBarOpenRef.current = true;
     setMathBarOpen(true);
-  }, [mathBarOpen, pinSelection]);
+  }, [enablePreview, mathBarOpen, pinSelection]);
 
   return {
     mathBarOpen,
+    showMathPreview: draftRevisionRef.current === draftRevision && previewEnabled && hasEditableMath(input),
     padHeight,
     toggleMathBar,
     closeMathBar,

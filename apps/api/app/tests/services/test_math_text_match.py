@@ -100,7 +100,6 @@ class TestNeedsSymbolic:
             "the answer key says x=5 but i got 6",
             "chart of rainfall",
             "9/9",
-            "10-3",
             "555-1234",
             "9/7/2026",
             "1-800-273-8255",
@@ -658,6 +657,7 @@ class TestBareArithmetic:
             ("what is 7*8", "7*8"),
             ("what is 9/9", "9/9"),
             ("what is 10-3", "10-3"),
+            ("10-3", "10-3"),
             ("calculate 1+1", "1+1"),
             ("10-3-2", "10-3-2"),
             ("100/5/2", "100/5/2"),
@@ -670,7 +670,6 @@ class TestBareArithmetic:
         "text",
         [
             "9/9",
-            "10-3",
             "555-1234",
             "9/11",
             "1+1",

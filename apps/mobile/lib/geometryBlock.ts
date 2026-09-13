@@ -65,6 +65,7 @@ export type TriangleSidesSpec = {
   a: number;
   b: number;
   c: number;
+  relative_lengths?: boolean;
   unit?: string;
   show_labels?: boolean;
   /** Congruence ticks on equal sides (default on when any sides match). */
@@ -98,6 +99,7 @@ export type ParallelogramSpec = {
   unit?: string;
   show_labels?: boolean;
   show_angle?: boolean;
+  show_perimeter?: boolean;
   area?: number;
   perimeter?: number;
   labels?: Record<string, string>;
@@ -280,6 +282,7 @@ function parseTriangleSides(row: Record<string, unknown>): TriangleSidesSpec | n
   if (!a || !b || !c) return null;
   if (a + b <= c || a + c <= b || b + c <= a) return null;
   const spec: TriangleSidesSpec = { type: "triangle_sides", a, b, c };
+  copyFlag(spec, row, "relative_lengths");
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
   copyFlag(spec, row, "show_labels");
@@ -325,6 +328,7 @@ function parseParallelogram(row: Record<string, unknown>): ParallelogramSpec | n
   if (unit) spec.unit = unit;
   copyFlag(spec, row, "show_labels");
   copyFlag(spec, row, "show_angle");
+  copyFlag(spec, row, "show_perimeter");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   const perimeter = Number(row.perimeter);
@@ -430,6 +434,9 @@ export function computeCircleLabels(spec: CircleSpec): Record<string, string> {
 }
 
 export function computeTriangleSidesLabels(spec: TriangleSidesSpec): Record<string, string> {
+  if (spec.relative_lengths) {
+    return { a: String(spec.a), b: String(spec.b), c: String(spec.c), area: "" };
+  }
   const unit = spec.unit ?? "cm";
   const s = (spec.a + spec.b + spec.c) / 2;
   const area = spec.area ?? Math.sqrt(s * (s - spec.a) * (s - spec.b) * (s - spec.c));
@@ -449,8 +456,9 @@ export function triangleSidesVertices(
   b: number,
   c: number,
 ): { x0: number; y0: number; x1: number; y1: number; x2: number; y2: number } {
-  const cx = (b * b + a * a - c * c) / (2 * a);
-  const cy = Math.sqrt(Math.max(0, b * b - cx * cx));
+  // The renderer labels p0–p1 as a, p1–p2 as b, and p2–p0 as c.
+  const cx = (c * c + a * a - b * b) / (2 * a);
+  const cy = Math.sqrt(Math.max(0, c * c - cx * cx));
   return { x0: 0, y0: 0, x1: a, y1: 0, x2: cx, y2: cy };
 }
 
@@ -830,13 +838,18 @@ export function polygonInteriorAngleMarks(
   });
 }
 
+/** Reserve the entire SVG dimension label plus its gap and a small ink margin. */
+export function geometryLabelInset(label: string, fontSize = 13, gap = 8, minimum = 40): number {
+  return Math.max(minimum, Math.ceil(Array.from(label).length * fontSize * 0.65) + gap + 4);
+}
+
 export function scaleToFit(
   width: number,
   height: number,
   maxWidth: number,
   padding = 80,
 ): { w: number; h: number; scale: number } {
-  const inner = Math.max(maxWidth - padding, 120);
+  const inner = Math.max(maxWidth - padding, 1);
   const scale = inner / Math.max(width, height, 1);
   return { w: width * scale, h: height * scale, scale };
 }
@@ -872,19 +885,20 @@ export type ParallelogramLayout = {
 export function parallelogramLayout(
   spec: Pick<ParallelogramSpec, "base" | "height" | "side">,
   screenWidth: number,
+  padding: { left: number; right: number } = { left: 40, right: 40 },
 ): ParallelogramLayout {
-  const inner = Math.max(screenWidth - 48 - 80, 120);
+  const inner = Math.max(screenWidth - 48 - padding.left - padding.right, 1);
   const span = parallelogramSpan(spec.base, spec.height, spec.side);
   const scale = inner / Math.max(span, spec.height, 1);
   const b = spec.base * scale;
   const h = spec.height * scale;
   const s = spec.side * scale;
   const shear = Math.sqrt(Math.max(0, s * s - h * h));
-  const offsetX = 40 + shear;
+  const offsetX = padding.left + shear;
   const offsetY = 28;
-  // Leftmost point is tx0 = offsetX - shear = 40; rightmost is bx1 = offsetX + b.
+  // Leftmost point is tx0 = padding.left; rightmost is bx1 = offsetX + b.
   // Do not add shear again — offsetX already contains it.
-  const svgW = b + shear + 80;
+  const svgW = b + shear + padding.left + padding.right;
   const svgH = h + offsetY + 40;
   const bx0 = offsetX;
   const bx1 = offsetX + b;

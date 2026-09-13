@@ -9,10 +9,14 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ChatServiceError, QuotaExceededError
 from app.models.orm import User
-from app.services.attachment_content import strip_attachment_from_content
+from app.services.attachment_content import (
+    image_attachment_ids_from_text,
+    strip_attachment_from_content,
+)
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
+from app.services.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.routing import last_user_turn
 
@@ -440,12 +444,22 @@ async def stream_regenerate_response(
             ),
         ):
             return
+        # Persisted image markers identify the current input on regeneration;
+        # unlike a new send, this path does not run prepare_chat_turn.
+        current_image_ids = (
+            image_attachment_ids_from_text(user_message_content)
+            if settings.attachments_enabled
+            else []
+        )
+        if current_image_ids:
+            model = "vision-chat"
         await res.reserve(
             user=user,
             content=user_message_content,
             model=model,
             settings=settings,
             max_output=settings.max_output_tokens,
+            vision_extra=seams.vision_reserve_tokens(settings, len(current_image_ids)),
             seed=True,
         )
         bundle = await seams.build_stream_prompt_context(
@@ -465,7 +479,15 @@ async def stream_regenerate_response(
             timing=timing,
             omit_message_ids=omit_message_ids,
             turn_mode=turn_mode,
+            has_image_attachment=bool(current_image_ids),
         )
+        if current_image_ids:
+            await inject_regenerated_image_content(
+                bundle.prompt_messages,
+                settings=settings,
+                user_id=user_id,
+                attachment_ids=current_image_ids,
+            )
         ctx = seams.stream_context_from_bundle(
             bundle,
             user_id=user_id,

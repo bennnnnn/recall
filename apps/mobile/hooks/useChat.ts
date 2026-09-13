@@ -25,6 +25,7 @@ import { replaceStreamingMessageWithPartial } from "@/lib/chatPartialStream";
 import {
   EAGER_CONNECT_DEBOUNCE_MS,
   WS_CONNECT_TIMEOUT_MS,
+  WS_FIRST_EVENT_TIMEOUT_MS,
 } from "@/lib/chatWsConnect";
 
 import type { ComposerSendDraft } from "@/lib/chat/chatSendLogic";
@@ -55,6 +56,10 @@ type PendingSend = {
 
 type RejectedSend = PendingSend & { reason: "send_rejected" | "attachment_rejected" };
 
+const WS_TURN_EVENT_TYPES = new Set([
+  "start", "status", "token", "reasoning", "stream_end", "done", "error",
+]);
+
 type UseChatOptions = {
   /** Called with the new title when the server sends one after first reply */
   onFirstReply?: () => void;
@@ -78,6 +83,10 @@ export function useChat(
   const [sendingMessageId, setSendingMessageId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const wsTurnRef = useRef<WebSocket | null>(null);
+  const wsFirstEventTimerRef = useRef<{
+    socket: WebSocket;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
   const wsAuthFallbackRef = useRef<{ socket: WebSocket; retry: () => Promise<void> } | null>(null);
   const sendAttemptRef = useRef(0);
   const pendingSendRef = useRef<PendingSend | null>(null);
@@ -158,6 +167,13 @@ export function useChat(
   onFirstReplyRef.current = options.onFirstReply;
   onErrorRef.current = options.onError;
   onTodosSyncRef.current = options.onTodosSync;
+
+  const clearWsFirstEventTimer = useCallback((socket?: WebSocket) => {
+    const pending = wsFirstEventTimerRef.current;
+    if (!pending || (socket && pending.socket !== socket)) return;
+    clearTimeout(pending.timer);
+    wsFirstEventTimerRef.current = null;
+  }, []);
 
   const reportError = useCallback((message: string, code?: string) => {
     onErrorRef.current?.(message, code);
@@ -244,17 +260,19 @@ export function useChat(
         cancelAnimationFrame(draftRafRef.current);
       }
       clearTodoSyncTimers();
+      clearWsFirstEventTimer();
       updateStreamingDraft(null);
       // Do not abort SSE on unmount — New chat / leave must drain like WS.
       const socket = wsRef.current;
       wsRef.current = null;
       socket?.close();
     };
-  }, [clearTodoSyncTimers, updateStreamingDraft]);
+  }, [clearTodoSyncTimers, clearWsFirstEventTimer, updateStreamingDraft]);
 
   // Close and reset socket when chat changes. Do not abort SSE — Stop is the
   // only hard cancel. Leftover SSE events are ignored via viewingChatIdRef.
   useEffect(() => {
+    clearWsFirstEventTimer();
     const socket = wsRef.current;
     wsRef.current = null;
     socket?.close();
@@ -290,7 +308,7 @@ export function useChat(
     streamingRef.current = false;
     finalizingRef.current = false;
     setSendingMessageId(null);
-  }, [viewIdentity, chatId, sessionGeneration, updateStreamingDraft, clearTodoSyncTimers]);
+  }, [viewIdentity, chatId, sessionGeneration, updateStreamingDraft, clearTodoSyncTimers, clearWsFirstEventTimer]);
 
   const handleChatPayload = useCallback(
     (payload: ChatSsePayload, ttftTurnId?: string | null) => {
@@ -478,6 +496,33 @@ export function useChat(
     return true;
   }, [updateStreamingDraft]);
 
+  // OPEN only proves the socket handshake succeeded. Bound the wait for a
+  // turn's first server event; once acknowledged, long-running work is allowed.
+  const waitForWsFirstEvent = useCallback((socket: WebSocket) => {
+    clearWsFirstEventTimer();
+    const timer = setTimeout(() => {
+      if (wsFirstEventTimerRef.current?.timer !== timer) return;
+      wsFirstEventTimerRef.current = null;
+      if (!isCurrentView() || wsRef.current !== socket || wsTurnRef.current !== socket) return;
+      // No event does not prove the server missed the request. Detach late
+      // frames, retain the user bubble, and never replay this uncertain turn.
+      wsRef.current = null;
+      wsTurnRef.current = null;
+      wsAuthFallbackRef.current = null;
+      connectingRef.current = null;
+      preferSseRef.current = true;
+      pendingSendRef.current = null;
+      clearPendingChatTtft(ttftTurnIdRef.current);
+      ttftTurnIdRef.current = null;
+      setSendingMessageId(null);
+      assistantBuffer.current = "";
+      restoreRegenerateBackup();
+      socket.close();
+      reportError(t("chat.error_unreachable"));
+    }, WS_FIRST_EVENT_TIMEOUT_MS);
+    wsFirstEventTimerRef.current = { socket, timer };
+  }, [clearWsFirstEventTimer, isCurrentView, restoreRegenerateBackup, reportError, t]);
+
   const connect = useCallback((): Promise<void> => {
     if (!token || !chatId || !isCurrentView()) return Promise.resolve();
     if (preferSseRef.current) return Promise.resolve();
@@ -522,6 +567,7 @@ export function useChat(
       };
 
       const disconnect = () => {
+        clearWsFirstEventTimer(ws);
         clearTimeout(timer);
         resolve();
         if (!isCurrentSocket()) return;
@@ -594,6 +640,7 @@ export function useChat(
         if (!isCurrentSocket()) return;
         const payload = parseChatWsPayload(String(event.data));
         if (!payload) return;
+        if (WS_TURN_EVENT_TYPES.has(payload.type)) clearWsFirstEventTimer(ws);
         // The server rejects auth before accepting the turn. Only this
         // explicit rejection is safe to replay through REST's token refresh.
         if (payload.type === "error" && payload.message === "Unauthorized") {
@@ -630,6 +677,7 @@ export function useChat(
     reportError,
     handleChatPayloadForChat,
     queueUnsavedSend,
+    clearWsFirstEventTimer,
     updateStreamingDraft,
     isCurrentView,
     t,
@@ -678,7 +726,9 @@ export function useChat(
           },
         });
       } catch (err) {
-        if (!isCurrentView() || signal.aborted || sseAbortRef.current?.signal !== signal || isSseAbortError(err)) return;
+        if (!isCurrentView() || signal.aborted || sseAbortRef.current?.signal !== signal) return;
+        sseAbortRef.current = null;
+        sseAbortChatIdRef.current = null;
         const pending = pendingSendRef.current;
         pendingSendRef.current = null;
         clearPendingChatTtft(ttftTurnId ?? pending?.messageId);
@@ -690,7 +740,10 @@ export function useChat(
         finalizingRef.current = false;
         if (!preservePartialStream()) {
           clearStreamingBubble();
-          if (pending) {
+          // A private HTTP timeout may happen after the server received the
+          // turn. Only caller cancellation is silent; keep uncertain delivery
+          // out of the definitely-unsaved retry queue.
+          if (pending && !isSseAbortError(err)) {
             queueUnsavedSend(pending, "send_rejected");
             reportError(t("chat.error_unreachable"), "send_rejected");
             return;
@@ -730,8 +783,10 @@ export function useChat(
             }
           },
         });
-      } catch (err) {
-        if (!isCurrentView() || signal.aborted || sseAbortRef.current?.signal !== signal || isSseAbortError(err)) return;
+      } catch {
+        if (!isCurrentView() || signal.aborted || sseAbortRef.current?.signal !== signal) return;
+        sseAbortRef.current = null;
+        sseAbortChatIdRef.current = null;
         setStreaming(false);
         setFinalizing(false);
         streamingRef.current = false;
@@ -868,6 +923,7 @@ export function useChat(
           ttftTurnId: trackedId,
         }),
       };
+      waitForWsFirstEvent(wsRef.current);
       wsRef.current.send(
         JSON.stringify({
           type: "message",
@@ -878,7 +934,7 @@ export function useChat(
         }),
       );
     },
-    [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft, sendViaSse, isCurrentView],
+    [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft, sendViaSse, isCurrentView, waitForWsFirstEvent],
   );
 
   const sendMessage = useCallback((content: string, options?: SendMessageOptions) =>
@@ -964,6 +1020,7 @@ export function useChat(
         socket: wsRef.current,
         retry: () => regenerateViaSse(model, clientGeo),
       };
+      waitForWsFirstEvent(wsRef.current);
       wsRef.current.send(
         JSON.stringify({
           type: "regenerate",
@@ -972,11 +1029,12 @@ export function useChat(
         }),
       );
     },
-    [token, chatId, ensureConnected, beginRegenerateUi, regenerateViaSse, isCurrentView],
+    [token, chatId, ensureConnected, beginRegenerateUi, regenerateViaSse, isCurrentView, waitForWsFirstEvent],
   );
 
   const stopGeneration = useCallback(() => {
     if (!isCurrentView()) return;
+    clearWsFirstEventTimer();
     sendAttemptRef.current += 1;
     const pendingRetry = pendingSendRef.current;
     if (pendingRetry?.retryingRejected && !pendingRetry.dispatched) {
@@ -1029,7 +1087,7 @@ export function useChat(
     // Track the committed bubble id so the server's late `done` reconciles
     // it (real message_id + final_content) instead of appending a duplicate.
     stoppedStreamedIdRef.current = stoppedId;
-  }, [updateStreamingDraft, isCurrentView, chatId]);
+  }, [updateStreamingDraft, isCurrentView, chatId, clearWsFirstEventTimer]);
 
   return {
     messages,

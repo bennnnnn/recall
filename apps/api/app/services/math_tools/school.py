@@ -11,7 +11,9 @@ from app.core.config import Settings
 from app.models.schemas.math import MathIntent
 from app.services import math_school
 from app.services import math_text_match as mtm
+from app.services.math_text_match.coordinate_vector import literal_math_tuples
 from app.services.math_tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.math_tools.block.common import format_quantity
 from app.services.math_tools.helpers import math_expr_or_none, substituted_eval_expr
 
 logger = logging.getLogger(__name__)
@@ -39,24 +41,34 @@ _BINOMIAL_PARAM = re.compile(
 
 
 def _extract_unit_intent(cleaned: str) -> MathIntent | None:
+    from app.services.math_text_match.units import QUANTITY_NUMBER
+
     lower = cleaned.lower()
     if "convert" not in lower and " to " not in lower:
         return None
     if "convert" not in lower:
         return None
-    value = mtm._first_positive_number(cleaned)
-    if value is None:
+    after = QUANTITY_NUMBER.search(cleaned)
+    if after is None:
+        return None
+    value = float(after.group(0))
+    # Temperature conversions allow zero and negative quantities. Retain
+    # the sign instead of skipping to a later positive number.
+    if abs(value) == float("inf"):
         return None
     idx = lower.find(" to ")
     if idx == -1:
         return None
-    dest = cleaned[idx + 4 :].strip().split()[0].strip("?.")
-    # source unit: word immediately after the number
-    after = mtm._NUM.search(cleaned)
-    if after is None:
+    destination = cleaned[idx + 4 :].strip().split()
+    if not destination or (len(destination) > 1 and destination[1:] != ["please"]):
         return None
-    rest = cleaned[after.end() :].strip()
-    src = rest.split()[0] if rest else ""
+    dest = destination[0].strip("?.")
+    # The complete source/destination must be one conversion. Dropping a
+    # second request could otherwise turn it into a partial direct answer.
+    source = cleaned[after.end() : idx].strip().split()
+    if len(source) != 1:
+        return None
+    src = source[0]
     if src.lower() in {"to"}:
         return None
     if not src or not dest:
@@ -82,6 +94,10 @@ def _extract_coord_intent(cleaned: str) -> MathIntent | None:
         op = "slope"
     if op is None:
         return None
+    # Literal pairs use Euclidean geometry; spherical/geodesic requests
+    # require domain information that these operands do not contain.
+    if op == "distance" and re.search(r"\b(?:sphere|spherical|geodesic)\b", lower):
+        return None
     pts = _two_points(cleaned)
     if pts is None:
         return None
@@ -98,22 +114,10 @@ def _extract_coord_intent(cleaned: str) -> MathIntent | None:
 
 
 def _two_points(text: str) -> tuple[tuple[float, float], tuple[float, float]] | None:
-    found: list[tuple[float, float]] = []
-    start = 0
-    while len(found) < 2:
-        i = text.find("(", start)
-        if i == -1:
-            break
-        j = text.find(")", i)
-        if j == -1:
-            break
-        pair = mtm._parse_xy_pair(text[i : j + 1])
-        if pair is not None:
-            found.append(pair)
-        start = j + 1
-    if len(found) < 2:
+    found = literal_math_tuples(text, "(", ")")
+    if found is None or len(found) != 2 or any(len(point) != 2 for point in found):
         return None
-    return found[0], found[1]
+    return (found[0][0], found[0][1]), (found[1][0], found[1][1])
 
 
 def _extract_vector_intent(cleaned: str) -> MathIntent | None:
@@ -131,32 +135,16 @@ def _extract_vector_intent(cleaned: str) -> MathIntent | None:
     if not vecs:
         return None
     if op == "magnitude":
+        if len(vecs) != 1:
+            return None
         return MathIntent(kind="vector", school_op=op, vec_a=vecs[0], operation="solve")
-    if len(vecs) < 2:
+    if len(vecs) != 2 or len(vecs[0]) != len(vecs[1]):
         return None
     return MathIntent(kind="vector", school_op=op, vec_a=vecs[0], vec_b=vecs[1], operation="solve")
 
 
 def _angle_vectors(text: str) -> list[list[float]]:
-    out: list[list[float]] = []
-    start = 0
-    while True:
-        i = text.find("<", start)
-        if i == -1:
-            break
-        j = text.find(">", i)
-        if j == -1:
-            break
-        body = text[i + 1 : j]
-        try:
-            nums = [float(p.strip()) for p in body.split(",") if p.strip()]
-        except ValueError:
-            start = i + 1
-            continue
-        if 2 <= len(nums) <= 3:
-            out.append(nums)
-        start = j + 1
-    return out
+    return literal_math_tuples(text, "<", ">") or []
 
 
 def _extract_trig_intent(cleaned: str) -> MathIntent | None:
@@ -288,13 +276,45 @@ def _extract_average_speed_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "average speed" not in lower and "average velocity" not in lower:
         return None
-    nums = [float(m.group(0)) for m in mtm._NUM.finditer(cleaned)]
-    if len(nums) < 2 or nums[1] == 0:
+    from app.services.math_text_match.units import (
+        LENGTH_UNITS,
+        QUANTITY_NUMBER,
+        TIME_UNITS,
+        unit_after_quantity,
+    )
+
+    nums = list(QUANTITY_NUMBER.finditer(cleaned))
+    if len(nums) != 2:
+        return None
+    measures: list[tuple[float, str, int]] = []
+    for number in nums:
+        unit_hit = unit_after_quantity(cleaned, number.end())
+        if unit_hit is None:
+            return None
+        measures.append((float(number.group(0)), unit_hit[0].lower(), unit_hit[1]))
+    # A second request or requested output unit needs the model; do not certify
+    # the first two numbers as an answer to an unparsed compound instruction.
+    if cleaned[measures[-1][2] :].strip(" .?!").lower() not in {"", "please"}:
+        return None
+    distance: tuple[float, str] | None = None
+    duration: tuple[float, str] | None = None
+    for value, unit, _end in measures:
+        if unit in LENGTH_UNITS:
+            distance = value, LENGTH_UNITS[unit]
+        elif unit in TIME_UNITS:
+            duration = value, TIME_UNITS[unit]
+        else:
+            return None
+    if distance is None or duration is None or duration[0] <= 0:
+        return None
+    if "average speed" in lower and distance[0] < 0:
         return None
     return MathIntent(
         kind="arithmetic",
-        school_op="eval",
-        expr=f"{nums[0]}/{nums[1]}",
+        school_op="average_speed",
+        expr=f"{distance[0]}/{duration[0]}",
+        unit_from=distance[1],
+        unit_to=duration[1],
         operation="solve",
     )
 
@@ -368,10 +388,17 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
             return None
     if mtm.has_equation(cleaned) and "solve" in lower:
         return None
-    expr = cleaned
-    for w in ("simplify", "evaluate", "compute", "modulus of", "modulus", "complex"):
-        expr = expr.replace(w, " ")
-    return MathIntent(kind="complex", school_op="eval", expr=expr.strip(), operation="solve")
+    expr = cleaned.strip()
+    # Prefixes are prose and case-insensitive; retain the expression's case
+    # (notably I, pi, and function names) and never erase interior substrings.
+    while True:
+        for prefix in ("simplify", "evaluate", "compute", "modulus of", "modulus", "complex"):
+            if expr.lower().startswith(prefix + " "):
+                expr = expr[len(prefix) :].lstrip()
+                break
+        else:
+            break
+    return MathIntent(kind="complex", school_op="eval", expr=expr, operation="solve")
 
 
 def _first_order_ode_equation(cleaned: str) -> str | None:
@@ -503,6 +530,8 @@ def _verified_block_arithmetic(
     if not intent.expr:
         return None
     answer = math_school.evaluate_arithmetic(intent.expr)
+    if intent.school_op == "average_speed" and intent.unit_from and intent.unit_to:
+        answer = format_quantity(answer, f"{intent.unit_from}/{intent.unit_to}")
     lines.append(f"Result: {answer}")
     return _finish_with_answer(lines, answer)
 
@@ -592,7 +621,7 @@ def _verified_block_unit(
         return None
     answer = math_school.convert_unit(intent.percent_base, intent.unit_from, intent.unit_to)
     lines.append(f"{intent.percent_base:g} {intent.unit_from} = {answer} {intent.unit_to}")
-    return _finish_with_answer(lines, answer)
+    return _finish_with_answer(lines, format_quantity(answer, intent.unit_to))
 
 
 def apply_calculus_extension(

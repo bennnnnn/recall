@@ -34,7 +34,9 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
+from app.services.math_reply_policy import MATH_REPLY_POLICY
 from app.services.math_tools import VerifiedMathBlock
+from app.services.math_tools.extract import trig_domain_would_be_dropped
 from app.services.mcp.calendar_adapter import bind_calendar_context
 from app.services.mcp.image_gen_adapter import bind_image_gen_context
 from app.services.mcp.image_search_adapter import bind_image_search_context
@@ -104,6 +106,20 @@ def _last_user_content(messages: list[dict[str, Any]]) -> str:
             content = msg.get("content")
             return content.strip() if isinstance(content, str) else ""
     return ""
+
+
+def _sympy_solve_drops_trig_domain(name: str, raw_args: Any, user_text: str) -> bool:
+    if name != "sympy":
+        return False
+    try:
+        args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+    except (TypeError, ValueError):
+        return False  # Let the registry report malformed arguments normally.
+    if not isinstance(args, dict) or str(args.get("action") or "solve").strip().lower() != "solve":
+        return False
+    return trig_domain_would_be_dropped(
+        f"{args.get('lhs') or ''} {args.get('rhs') or ''}", user_text
+    )
 
 
 def _web_search_was_called(messages: list[dict[str, Any]]) -> bool:
@@ -414,6 +430,7 @@ async def _run_tool_rounds_bound(
     list[WebSearchHit],
 ]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
+    user_text = _last_user_content(messages)
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
     # Collect canonical fences across rounds keyed by type so a geometry
     # fence from round 1 isn't lost when round 2 produces a graph fence.
@@ -489,6 +506,23 @@ async def _run_tool_rounds_bound(
                     }
                 )
                 continue
+            if _sympy_solve_drops_trig_domain(name, raw_args, user_text):
+                # This solver owns all-real trig solutions. The tool schema
+                # cannot express the requested interval or alternative domain;
+                # do not reintroduce an answer rejected during turn preparation.
+                # Other computations and tool calls remain available.
+                working.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": (
+                            "This trig solve cannot verify the domain requested by the user. "
+                            "No solution was certified. Preserve the requested domain when "
+                            "answering; do not substitute an unrestricted real solution."
+                        ),
+                    }
+                )
+                continue
             phase = _status_for_tool(name) if name else None
             if on_status is not None and phase is not None:
                 await on_status(phase, _status_detail_for_tool(name, raw_args))
@@ -543,6 +577,16 @@ async def _run_tool_rounds_bound(
         if all_fences or canonical_answer
         else None
     )
+    if any(
+        (call.get("function") or {}).get("name") == "sympy"
+        for message in working[len(messages) :]
+        if message.get("role") == "assistant"
+        for call in message.get("tool_calls") or []
+        if isinstance(call, dict)
+    ):
+        # Tool content is supporting data, not a request for a worked tutorial.
+        # Append after completed results; cancelled/unanswered rounds were trimmed.
+        working.append({"role": "system", "content": MATH_REPLY_POLICY})
     return working, verified, terminal_image, search_hits
 
 

@@ -32,6 +32,8 @@ import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
 import { impactMedium, selection } from "@/lib/haptics";
 import { useReduceMotion } from "@/lib/motion";
 import {
+  containedPhotoRegion,
+  regionToContainedImageCrop,
   regionToImageCrop,
   scanChromeInset,
   type ScanRegion,
@@ -49,7 +51,7 @@ type Props = {
   onCaptured: (pending: PendingAttachment) => void;
 };
 
-type ScanShot = PendingAttachment & { width: number; height: number };
+type ScanShot = PendingAttachment & { width: number; height: number; fromLibrary: boolean };
 
 const ANDROID_DISMISS_MS = 400;
 
@@ -88,6 +90,17 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     onZoom: setZoom,
   });
 
+  const previewFrame = useMemo(
+    () => preview?.fromLibrary
+      ? containedPhotoRegion(preview.width, preview.height, windowWidth, windowHeight, inset)
+      : null,
+    [inset, preview, windowHeight, windowWidth],
+  );
+  const resetCropRegion = crop.resetRegion;
+  useEffect(() => {
+    if (previewFrame) resetCropRegion(previewFrame);
+  }, [previewFrame, resetCropRegion]);
+
   useEffect(() => {
     if (visible) {
       setHosted(true);
@@ -106,11 +119,11 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   }, [visible]);
 
   const showShot = useCallback(
-    async (pending: PendingAttachment, width = 0, height = 0) => {
+    async (pending: PendingAttachment, width = 0, height = 0, fromLibrary = false) => {
       try {
         const size =
           width > 0 && height > 0 ? { width, height } : await measureImageSize(pending.localUri);
-        setPreview({ ...pending, ...size });
+        setPreview({ ...pending, ...size, fromLibrary });
       } catch {
         setError(t("chat.math_scan_failed"));
       }
@@ -155,14 +168,14 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const cropped = await cropShotToRegion(preview, crop.readRegion(), windowWidth, windowHeight);
+      const cropped = await cropShotToRegion(preview, crop.readRegion(), windowWidth, windowHeight, previewFrame);
       onCaptured(cropped);
     } catch {
       setError(t("chat.math_scan_failed"));
     } finally {
       setBusy(false);
     }
-  }, [busy, crop, onCaptured, preview, t, windowWidth, windowHeight]);
+  }, [busy, crop, onCaptured, preview, previewFrame, t, windowWidth, windowHeight]);
 
   const openLibrary = useCallback(async () => {
     if (busy) return;
@@ -171,7 +184,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     try {
       await scheduleIdlePromise();
       const picked = await pickFromPhotoLibrary();
-      if (picked) await showShot(picked);
+      if (picked) await showShot(picked, 0, 0, true);
     } catch (caught) {
       if (caught instanceof HeicUnsupportedError) {
         setError(t("chat.heic_unsupported_body"));
@@ -203,11 +216,11 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       testID="math-scanner-modal"
     >
       <GestureHandlerRootView style={s.root}>
-        {!permission ? (
+        {!permission && !preview ? (
           <View style={s.center}>
             <ActivityIndicator color={theme.onMedia} />
           </View>
-        ) : !granted ? (
+        ) : !granted && !preview ? (
           <View style={s.center}>
             <Text style={s.permissionText}>{t("chat.math_scan_permission")}</Text>
             <Pressable
@@ -244,7 +257,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           </View>
         ) : (
           <View style={StyleSheet.absoluteFill} collapsable={false}>
-            <View style={StyleSheet.absoluteFill} testID="math-scanner-camera" pointerEvents="none">
+            {granted ? <View style={StyleSheet.absoluteFill} testID="math-scanner-camera" pointerEvents="none">
               <CameraView
                 ref={cameraRef}
                 style={StyleSheet.absoluteFill}
@@ -259,13 +272,22 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
                 onCameraReady={handleCameraReady}
                 onMountError={() => setError(t("chat.math_scan_camera_unavailable"))}
               />
-            </View>
+            </View> : null}
             {preview ? (
-              <Image
-                source={{ uri: preview.localUri }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-              />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.mediaScrim }]}>
+                <Image
+                  source={{ uri: preview.localUri }}
+                  testID="math-scanner-preview"
+                  style={previewFrame ? {
+                    position: "absolute",
+                    left: previewFrame.x * windowWidth,
+                    top: previewFrame.y * windowHeight,
+                    width: previewFrame.width * windowWidth,
+                    height: previewFrame.height * windowHeight,
+                  } : StyleSheet.absoluteFill}
+                  resizeMode={previewFrame ? "contain" : "cover"}
+                />
+              </View>
             ) : null}
             <MathScannerCropOverlay
               regionGesture={crop.regionGesture}
@@ -296,7 +318,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           error={error}
           lastPhotoUri={lastPhotoUri}
           onClose={onClose}
-          onResetFrame={crop.resetRegion}
+          onResetFrame={() => crop.resetRegion(previewFrame ?? undefined)}
           onToggleTorch={() => {
             selection();
             setTorchOn((on) => !on);
@@ -304,6 +326,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           onOpenLibrary={() => void openLibrary()}
           onCapture={() => void capture()}
           onRetake={() => {
+            if (preview?.fromLibrary) crop.resetRegion();
             setPreview(null);
             setError(null);
           }}
@@ -373,8 +396,11 @@ async function cropShotToRegion(
   region: ScanRegion,
   windowWidth: number,
   windowHeight: number,
+  imageRegion: ScanRegion | null,
 ): Promise<PendingAttachment> {
-  const crop = regionToImageCrop(region, shot.width, shot.height, windowWidth, windowHeight);
+  const crop = imageRegion
+    ? regionToContainedImageCrop(region, imageRegion, shot.width, shot.height)
+    : regionToImageCrop(region, shot.width, shot.height, windowWidth, windowHeight);
   const result = await ImageManipulator.manipulateAsync(
     shot.localUri,
     [{ crop }],

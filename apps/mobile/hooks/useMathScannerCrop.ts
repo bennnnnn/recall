@@ -245,10 +245,10 @@ export function useMathScannerCrop({
     };
   });
 
-  const resetRegion = useCallback(() => {
-    runOnUI(() => {
+  const resetRegion = useCallback((next?: ScanRegion) => {
+    runOnUI((requested?: ScanRegion) => {
       region.value = clampScanRegion(
-        {
+        requested ?? {
           x: (1 - DEFAULT_REGION_WIDTH) / 2,
           y: (1 - DEFAULT_REGION_HEIGHT) / 2,
           width: DEFAULT_REGION_WIDTH,
@@ -256,7 +256,7 @@ export function useMathScannerCrop({
         },
         insetSv.value,
       );
-    })();
+    })(next);
   }, [insetSv, region]);
 
   const growRegion = useCallback(() => {

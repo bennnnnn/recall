@@ -16,6 +16,7 @@ from app.services.math_tools.block.common import (
     VerifiedMathBlock,
     _finish_with_answer,
 )
+from app.services.math_tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
 
 def _verified_block_calculus(
@@ -50,6 +51,14 @@ def _verified_block_calculus(
         out = math_service.expand_expression(intent.expr, intent.variable)
     else:
         return None
+    if intent.operation == "integrate":
+        undefined_note = undefined_integral_note(out.result)
+        if undefined_note is not None:
+            lines.append(undefined_note)
+            return VerifiedMathBlock(text="\n".join(lines))
+        infinite_note = infinite_integral_note(out.result)
+        if infinite_note is not None:
+            lines.append(infinite_note)
     if not out.solved:
         lines.append(f"No closed-form result (got: {out.latex}).")
         return VerifiedMathBlock(text="\n".join(lines))

@@ -209,6 +209,7 @@ class RightTriangleGeometryBlockSpec(BaseModel):
     show_angle: bool = True
     hypotenuse: float | None = None
     area: float | None = None
+    perimeter: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
 
@@ -217,6 +218,7 @@ class TriangleSidesGeometryBlockSpec(BaseModel):
     a: float = Field(gt=0, le=1_000_000)
     b: float = Field(gt=0, le=1_000_000)
     c: float = Field(gt=0, le=1_000_000)
+    relative_lengths: bool = False
     unit: str = "cm"
     show_labels: bool = True
     show_ticks: bool = True
@@ -224,6 +226,7 @@ class TriangleSidesGeometryBlockSpec(BaseModel):
     show_median: bool = False
     show_angle: bool = True
     area: float | None = None
+    perimeter: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -254,6 +257,7 @@ class ParallelogramGeometryBlockSpec(BaseModel):
     unit: str = "cm"
     show_labels: bool = True
     show_angle: bool = False
+    show_perimeter: bool = False
     area: float | None = None
     perimeter: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)

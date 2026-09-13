@@ -214,3 +214,47 @@ export function regionToImageCrop(
   const height = Math.max(1, Math.min(imageHeight - originY, Math.round(imgH)));
   return { originX, originY, width, height };
 }
+
+
+/** Fit an imported photo inside the scanner chrome without cropping its edges. */
+export function containedPhotoRegion(
+  imageWidth: number,
+  imageHeight: number,
+  windowWidth: number,
+  windowHeight: number,
+  inset: ScanChromeInset = ZERO_INSET,
+): ScanRegion {
+  if (![imageWidth, imageHeight, windowWidth, windowHeight].every((n) => Number.isFinite(n) && n > 0)) {
+    throw new Error("Invalid photo dimensions");
+  }
+  const availableWidth = Math.min(MAX_REGION_RATIO, 1 - inset.left - inset.right);
+  const availableHeight = Math.min(MAX_REGION_RATIO, 1 - inset.top - inset.bottom);
+  const scale = Math.min(windowWidth * availableWidth / imageWidth, windowHeight * availableHeight / imageHeight);
+  const width = imageWidth * scale / windowWidth;
+  const height = imageHeight * scale / windowHeight;
+  return {
+    x: (1 + inset.left - inset.right - width) / 2,
+    y: (1 + inset.top - inset.bottom - height) / 2,
+    width,
+    height,
+  };
+}
+
+/** Intersect a screen crop with the imported image, excluding letterbox space. */
+export function regionToContainedImageCrop(
+  region: ScanRegion,
+  imageRegion: ScanRegion,
+  imageWidth: number,
+  imageHeight: number,
+): { originX: number; originY: number; width: number; height: number } {
+  const left = Math.max(region.x, imageRegion.x);
+  const top = Math.max(region.y, imageRegion.y);
+  const right = Math.min(region.x + region.width, imageRegion.x + imageRegion.width);
+  const bottom = Math.min(region.y + region.height, imageRegion.y + imageRegion.height);
+  if (!(right > left && bottom > top)) throw new Error("Crop does not overlap the photo");
+  const originX = Math.max(0, Math.min(imageWidth - 1, Math.round((left - imageRegion.x) / imageRegion.width * imageWidth)));
+  const originY = Math.max(0, Math.min(imageHeight - 1, Math.round((top - imageRegion.y) / imageRegion.height * imageHeight)));
+  const endX = Math.max(originX + 1, Math.min(imageWidth, Math.round((right - imageRegion.x) / imageRegion.width * imageWidth)));
+  const endY = Math.max(originY + 1, Math.min(imageHeight, Math.round((bottom - imageRegion.y) / imageRegion.height * imageHeight)));
+  return { originX, originY, width: endX - originX, height: endY - originY };
+}

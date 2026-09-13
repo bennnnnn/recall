@@ -24,6 +24,10 @@ type Props = {
   gridColor: string;
   xName: string;
   yName: string;
+  /** Viewports that exclude zero still need visible axis labels at the edge. */
+  keepAxesInView?: boolean;
+  /** Explicit viewports may require noninteger tick labels. */
+  fractionalTicks?: boolean;
 };
 
 const TICK_FONT = 11;
@@ -40,14 +44,16 @@ export function CartesianAxes({
   gridColor,
   xName,
   yName,
+  keepAxesInView = false,
+  fractionalTicks = false,
 }: Props) {
   const innerW = width - pad * 2;
   const innerH = height - pad * 2;
   const origin = mapGraphPoint(0, 0, bounds, width, height);
-  const yAxisX = origin.px;
-  const xAxisY = origin.py;
-  const xTicks = graphAxisTicks(bounds.xMin, bounds.xMax);
-  const yTicks = graphAxisTicks(bounds.yMin, bounds.yMax);
+  const yAxisX = keepAxesInView ? Math.max(pad, Math.min(width - pad, origin.px)) : origin.px;
+  const xAxisY = keepAxesInView ? Math.max(pad, Math.min(height - pad, origin.py)) : origin.py;
+  const xTicks = graphAxisTicks(bounds.xMin, bounds.xMax, 7, fractionalTicks);
+  const yTicks = graphAxisTicks(bounds.yMin, bounds.yMax, 7, fractionalTicks);
 
   return (
     <>
@@ -114,7 +120,7 @@ export function CartesianAxes({
             fontSize={TICK_FONT}
             textAnchor="middle"
           >
-            {formatAxisNumber(n)}
+            {formatAxisNumber(n, fractionalTicks)}
           </SvgText>
         );
       })}
@@ -131,7 +137,7 @@ export function CartesianAxes({
             fontSize={TICK_FONT}
             textAnchor="end"
           >
-            {formatAxisNumber(n)}
+            {formatAxisNumber(n, fractionalTicks)}
           </SvgText>
         );
       })}

@@ -7,15 +7,24 @@ GRAPH_NO_SUBSTITUTE_CLAUSE = (
     "diagram for a function plot."
 )
 
+MATH_NOTATION_CLARIFICATION_HINT = (
+    "If mathematical notation is unclear, unrecognized, or malformed, ask one brief "
+    "clarification instead of guessing its meaning. Do not invent a named mathematical "
+    "concept or silently change the expression. Standard, unambiguous notation aliases "
+    "are fine."
+)
+
 MATH_FENCE_SAFETY_HINT = (
     "If you write math, use inline `$...$` (never backticks around `$...$`). "
     "A ```math fence is only for a standalone display equation. "
     "Do NOT emit ```answer, ```graph, or ```geometry. NEVER ```latex or an untagged "
-    "code fence for LaTeX."
+    "code fence for LaTeX. "
+    f"{MATH_NOTATION_CLARIFICATION_HINT}"
 )
 
 MATH_INTENT_HINT = (
     "Math / algebra / numeric answers:\n"
+    f"  - {MATH_NOTATION_CLARIFICATION_HINT}\n"
     "  - Formula shape (one rule): numbered steps and intermediate algebra use "
     "INLINE `$x^2 + 2 = 6$` or `$20 - 10 = 10$` only — never wrap `$...$` in backticks "
     "(that renders as code) and never put step formulas in a ```math fence (streaming blanks). "
@@ -25,7 +34,7 @@ MATH_INTENT_HINT = (
     "NEVER ```latex, ```tex, ```copy, or an untagged ``` code fence for arithmetic / LaTeX.\n"
     "  - Do NOT emit ```answer, ```graph, or ```geometry fences. Do not tell the "
     "user a diagram will be attached. Closed-form and one-line arithmetic: the "
-    "`$...$` line is the answer — do not restate it. Multi-step: show steps in "
+    "`$...$` line is the answer — do not restate it. When steps are requested, show them in "
     "`$...$` and do not add a boxed final-answer section.\n"
     "  - ALWAYS use caret exponents (`x^2`, never `x2`). Use LaTeX: \\pm, \\sqrt{}, "
     "\\frac{a}{b}. "
@@ -95,8 +104,8 @@ MATH_SOLVER_HINT = (
     "- Physics problems (kinematics, projectile motion, forces, energy): when a "
     "verified physics block is present, use its exact numbers — do NOT recompute "
     "the time, velocity, range, or energy. Always include units in the setup "
-    "(e.g. g = 9.81 m/s^2 on Earth, with the given h0 and v0). Start with the "
-    "general equation, then substitute the known values. State the numeric "
+    "(e.g. g = 9.81 m/s^2 on Earth, with the given h0 and v0). When working is "
+    "requested, start with the general equation, then substitute the known values. State the numeric "
     "result once in `$...$` (no extra boxed restatement). Do NOT re-list sampled "
     "points in prose. Do NOT emit ```graph. Trajectory graphs are only for kinematics "
     "(height vs time) and projectile motion (x-y path). Force and energy answers "
@@ -114,11 +123,11 @@ MATH_TUTORING_HINT = (
     "'correct' or re-ask the same question — point to the specific step where "
     "it went wrong and give a small hint toward the right method, then let "
     "them try again.\n"
-    "- Only give the full worked solution when the user asks for it, is "
-    "stuck after a hint, or has a deadline (homework due / exam prep). For "
+    "- Only give the full worked solution when the user asks for it. For "
     "practice, prefer one leading question over the full answer.\n"
     "- Never invent a 'verified' result when no verified math block is "
-    "present — say you're working it out and show the steps in $...$.\n"
+    "present. Missing verification does not call for a worked solution; "
+    "match the detail the user requested and state uncertainty only when needed.\n"
 )
 
 # Compact fence + step rules for Short/compact math turns (not the full pack).
@@ -134,7 +143,8 @@ SHORT_MATH_SAFETY_HINT = (
     f"{GRAPH_NO_SUBSTITUTE_CLAUSE} "
     "Closed-form (n!, 2+2): one-line instance, no lecture. Use braced fractional "
     "exponents such as `9^{1/6}`. Preserve domains, units, all solution branches, "
-    "and constants of integration. Never use a step-card fence."
+    "and constants of integration. Never use a step-card fence. "
+    f"{MATH_NOTATION_CLARIFICATION_HINT}"
 )
 
 # Math should respect the user's selected length without dropping correctness.

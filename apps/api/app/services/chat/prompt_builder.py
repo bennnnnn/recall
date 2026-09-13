@@ -90,6 +90,12 @@ from app.services.chat.prompt_constants.visuals import (
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
+from app.services.math_followup import (
+    MATH_FOLLOWUP_HINT,
+    is_math_followup,
+    readable_standalone_answer,
+)
+from app.services.math_reply_policy import MATH_REPLY_POLICY
 from app.services.math_tools import VerifiedMathBlock
 from app.services.md_fence_scan import strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
@@ -725,6 +731,9 @@ def _style_format_hints(
         parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
+    if math_intent:
+        # Keep requested detail last, after general layout and tutoring hints.
+        parts.append(MATH_REPLY_POLICY)
     return parts
 
 
@@ -799,6 +808,7 @@ async def build_prompt_messages(
     omit_message_ids: set[UUID] | None = None,
     probe_attachment_rag: bool = True,
     recent_messages: list[Any] | None = None,
+    current_user_message_id: UUID | None = None,
 ) -> list[dict[str, str]]:
     """Assemble system + recent messages for a chat turn.
 
@@ -849,6 +859,32 @@ async def build_prompt_messages(
         recent_source = [m for m in recent_source if m.id not in omit_message_ids]
     keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
     recent = recent_source[-keep:] if keep else []
+    followup_exchange = recent
+    # New-turn preparation includes its current user in history, sometimes
+    # before persistence completes. Only the caller's explicit ID proves that
+    # it is the current turn, rather than an incomplete previous exchange.
+    if (
+        current_user_message_id is not None
+        and recent
+        and recent[-1].id == current_user_message_id
+        and recent[-1].role == "user"
+        and recent[-1].content == query_text
+    ):
+        followup_exchange = recent[:-1]
+    # Regeneration retains the persisted current user while omitting its newest
+    # assistant. Classify the preceding completed exchange only with that proof.
+    elif (
+        omit_message_ids
+        and len(blocks.recent_all) >= 2
+        and blocks.recent_all[-1].role == "assistant"
+        and blocks.recent_all[-1].id in omit_message_ids
+        and recent
+        and recent[-1] is blocks.recent_all[-2]
+        and recent[-1].role == "user"
+        and recent[-1].content == query_text
+    ):
+        followup_exchange = recent[:-1]
+    math_followup = is_math_followup(query_text, followup_exchange)
     chat_history_rag_block = ""
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
@@ -945,12 +981,20 @@ async def build_prompt_messages(
         if advice_memory and not (query_text and is_capabilities_question(query_text)):
             system_parts.append(ADVICE_PERSONALIZE_HINT)
 
+    if math_followup:
+        system_parts.extend([MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT])
+
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
     for msg in recent:
         content = msg.content
         if msg.role == "user":
             content = wrap_persisted_attachment_excerpts(content)
         elif msg.role == "assistant":
-            content = _strip_prompt_owned_fences(content)
+            prior_result = (
+                readable_standalone_answer(content)
+                if math_followup and msg is followup_exchange[-1]
+                else None
+            )
+            content = prior_result or _strip_prompt_owned_fences(content)
         messages.append({"role": msg.role, "content": content})
     return messages

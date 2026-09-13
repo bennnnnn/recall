@@ -481,6 +481,8 @@ _FORCE_CUES = (
     "force required",
     "what is the force",
     "what's the force",
+    "find the force",
+    "find the mass",
     "acceleration given",
     "given force",
 )

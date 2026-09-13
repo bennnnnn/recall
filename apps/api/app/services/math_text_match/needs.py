@@ -116,8 +116,11 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
 
         if substituted_eval_expr(cleaned) is not None:
             return True
-    if first_dim_pair(cleaned) is not None and geometry_dim_context(lower):
-        return True
+    if geometry_dim_context(lower):
+        from app.services.math_text_match.units import strip_geometry_length_units
+
+        if first_dim_pair(strip_geometry_length_units(cleaned)) is not None:
+            return True
     if (
         "circle" in lower
         and "sector" not in lower
@@ -132,6 +135,11 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         number_after(cleaned, "base") is not None and number_after(cleaned, "height") is not None
     ):
         return True
+    if word_index(lower, "square") != -1:
+        from app.services.math_tools.extractors.geometry_graph import _extract_square_intent
+
+        if _extract_square_intent(cleaned) is not None:
+            return True
     if "right triangle" in lower and (
         first_dim_pair(cleaned) is not None
         or two_numbers_after(cleaned, "legs") is not None
@@ -152,6 +160,12 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if calc_op(cleaned) is not None:
         return True
+    if any(cue in lower for cue in ("critical point", "extrema", "local max", "local min")):
+        from app.services.math_tools.extractors.calculus import _extract_critical_points_intent
+
+        critical = _extract_critical_points_intent(cleaned)
+        if critical is not None and critical.expr:
+            return True
     if parse_limit(cleaned) is not None:
         return True
     if parse_series(cleaned) is not None:
@@ -212,6 +226,11 @@ def school_homework_cue(cleaned: str) -> bool:
     lower = cleaned.lower()
     if "% of " in lower and any(ch.isdigit() for ch in cleaned):
         return True
+    if "average speed" in lower or "average velocity" in lower:
+        from app.services.math_tools.school import _extract_average_speed_intent
+
+        if _extract_average_speed_intent(cleaned) is not None:
+            return True
     if "convert" in lower and " to " in lower and any(ch.isdigit() for ch in cleaned):
         return True
     if any(w in lower for w in ("midpoint", "distance between", "slope of")) and "(" in cleaned:
