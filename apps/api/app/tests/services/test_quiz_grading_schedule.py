@@ -138,7 +138,7 @@ async def test_apply_quiz_result_remaster_after_demotion_refreshes_mastered_at(
     item.mastered = True
     assert item.mastered_at == day10
 
-    from app.services import daily_learning
+    from app.services.learning import daily as daily_learning
 
     monkeypatch.setattr(
         daily_learning,
@@ -164,7 +164,7 @@ def test_failed_quiz_today_uses_user_timezone_not_utc(monkeypatch):
         def now(cls, tz=None):
             return now_utc.astimezone(tz) if tz is not None else now_utc
 
-    monkeypatch.setattr("app.services.daily_learning.datetime", _Frozen)
+    monkeypatch.setattr("app.services.learning.daily.datetime", _Frozen)
 
     assert quiz_grading._failed_quiz_today(item, timezone_name="UTC") is False
     assert quiz_grading._failed_quiz_today(item, timezone_name="America/Los_Angeles") is True

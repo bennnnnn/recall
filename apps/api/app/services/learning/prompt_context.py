@@ -233,7 +233,7 @@ def _stats_for_items(items: list[LearningItem]) -> dict[str, int]:
 
 
 def _format_today_session_line(project: Learning, stats: dict[str, int]) -> str:
-    from app.services import daily_learning
+    from app.services.learning import daily as daily_learning
 
     daily_goal = daily_learning.resolve_daily_goal(project)
     mastered_today = int(stats.get("mastered_today") or 0)
@@ -474,8 +474,8 @@ async def load_daily_learning_summary_for_prompt(
     client_timezone: str | None = None,
 ) -> str:
     """Compact today-only stats for day-planning turns (not full word lists)."""
-    from app.services import daily_learning
     from app.services import time_context as time_context_service
+    from app.services.learning import daily as daily_learning
 
     projects = await learning_repo.list_for_user(
         session, user.id, limit=settings.project_inject_limit

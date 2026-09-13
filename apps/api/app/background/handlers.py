@@ -32,10 +32,10 @@ from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
 from app.services import attachment_lifecycle, suggestion_generation
 from app.services import quota as quota_service
-from app.services import transactional_email as transactional_email_service
 from app.services.chat import compaction
 from app.services.memory import consolidation_workflow as memory_consolidation
 from app.services.memory import extraction_workflow as memory_extraction
+from app.services.notifications import transactional_email as transactional_email_service
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import LearningItem
 from app.repositories import learning_items as learning_items_repo
-from app.services.sm2 import apply_sm2, quality_for_status
+from app.services.learning.spaced_repetition import apply_sm2, quality_for_status
 
 
 def _item_status_label(item: LearningItem) -> str:
@@ -71,7 +71,7 @@ def _missed_on_local_today(item: LearningItem, *, timezone_name: str) -> bool:
 
     Same midnight as ``count_today_vocab_stats`` — not UTC date.
     """
-    from app.services.daily_learning import start_of_today_utc
+    from app.services.learning.daily import start_of_today_utc
 
     missed = getattr(item, "last_incorrect_at", None)
     if not isinstance(missed, datetime):

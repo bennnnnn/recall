@@ -93,7 +93,7 @@ def _build_enriched_stats(
     daily_goal_history: list[dict[str, int | str]] | None = None,
     daily_history: list[dict[str, object]] | None = None,
 ) -> LearningStats:
-    from app.services import daily_learning
+    from app.services.learning import daily as daily_learning
     from app.services.learning import insights as learning_insights
 
     raw = learning_stats.stats_from_items(items, timezone_name=timezone_name)
@@ -129,7 +129,7 @@ async def _resolve_daily_goal_history(
     unreachable. Removed rather than wired up — caching here would mean writing on a
     GET, which the caller's own comment says a read path must not do.
     """
-    from app.services import daily_learning
+    from app.services.learning import daily as daily_learning
 
     return daily_learning.ensure_daily_goal_history(
         project,
@@ -237,8 +237,8 @@ async def update_learning_project(
     *,
     client_timezone: str | None = None,
 ) -> Learning:
-    from app.services import daily_learning
     from app.services import time_context as time_context_service
+    from app.services.learning import daily as daily_learning
 
     item = await learning_repo.get_by_id(session, project_id, user.id)
     if item is None or not is_learning_product_kind(item.kind):
@@ -307,8 +307,8 @@ async def get_learning_detail(
     stay omitted unless ``include_lists=True`` (PDF export).
     """
     from app.models.schemas import LearningDailyHistoryDay, LearningItemOut, LearningOut
-    from app.services import daily_learning
     from app.services import time_context as time_context_service
+    from app.services.learning import daily as daily_learning
 
     user_id = user.id
     item = await learning_repo.get_by_id(session, project_id, user_id)
