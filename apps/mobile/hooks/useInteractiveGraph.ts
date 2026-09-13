@@ -5,8 +5,10 @@ import { runOnJS } from "react-native-reanimated";
 import { unmapGraphPoint } from "@/lib/graphBlock";
 import {
   displayGraphExpr,
-  parseGraphExpr,
+  formatSeriesExpr,
+  parseGraphRelation,
   sampleGraphExpr,
+  type GraphCmp,
 } from "@/lib/graphExpr";
 import {
   defaultInteractiveBounds,
@@ -21,6 +23,7 @@ const SCATTER_MAX_POINTS = 20;
 export type SampledCurve = {
   points: [number, number][];
   segments?: [number, number][][];
+  cmp?: GraphCmp;
 };
 
 export type GraphSeriesState = {
@@ -38,6 +41,7 @@ export type DrawnSeries = GraphSeriesState & {
   points: [number, number][];
   segments?: [number, number][][];
   invalid: boolean;
+  cmp: GraphCmp;
 };
 
 export function sampleInView(
@@ -45,10 +49,11 @@ export function sampleInView(
   variable: string,
   bounds: GraphView,
 ): SampledCurve | null {
-  const node = parseGraphExpr(expr, variable);
-  if (!node) return null;
+  const rel = parseGraphRelation(expr, variable);
+  if (!rel) return null;
   const padX = (bounds.xMax - bounds.xMin) * 0.02;
-  return sampleGraphExpr(node, bounds.xMin - padX, bounds.xMax + padX, 160);
+  const sampled = sampleGraphExpr(rel.node, bounds.xMin - padX, bounds.xMax + padX, 160);
+  return { ...sampled, cmp: rel.cmp };
 }
 
 export function seedGraphSeries(
@@ -61,10 +66,10 @@ export function seedGraphSeries(
     if (!raw && i > 0) continue;
     out.push({
       id: String(i),
-      expr: displayGraphExpr(raw),
+      expr: formatSeriesExpr(raw),
       visible: true,
       locked: i === 0,
-      seedExpr: displayGraphExpr(raw),
+      seedExpr: formatSeriesExpr(raw),
       fallback: fallbacks[i],
     });
   }
@@ -92,11 +97,12 @@ export function drawGraphSeries(
     (fallback.points.length <= SCATTER_MAX_POINTS || sampled == null);
   const points = useFallback ? fallback.points : (sampled?.points ?? []);
   const segments = useFallback ? fallback.segments : sampled?.segments;
+  const cmp = sampled?.cmp ?? "=";
   const invalid =
     series.expr.trim().length > 0 &&
     !useFallback &&
     !(sampled != null && sampled.points.length > 0);
-  return { ...series, color, points, segments, invalid };
+  return { ...series, color, points, segments, invalid, cmp };
 }
 
 export function useGraphSeries(

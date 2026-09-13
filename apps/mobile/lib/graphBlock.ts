@@ -803,10 +803,11 @@ export function graphPolylinePoints(
   // of the same curve, so every segment maps against the same shared axis
   // scale instead of each one being (re)bounded to just its own points.
   bounds: ReturnType<typeof graphBounds> = graphBounds(points),
+  pad = 28,
 ): string {
   return points
     .map(([x, y]) => {
-      const { px, py } = mapGraphPoint(x, y, bounds, width, height);
+      const { px, py } = mapGraphPoint(x, y, bounds, width, height, pad);
       return `${px},${py}`;
     })
     .join(" ");

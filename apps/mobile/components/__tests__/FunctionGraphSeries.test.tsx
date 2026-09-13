@@ -33,15 +33,15 @@ describe("comparison graph series", () => {
     const strokes = mockPolyline.mock.calls.map(([props]) => props.stroke);
     expect(strokes).toEqual([theme.graphSeries[0], theme.graphSeries[1]]);
     expect(strokes[0]).not.toBe(strokes[1]);
-    expect(getByDisplayValue("x^2")).toBeOnTheScreen();
-    expect(getByDisplayValue("2*x")).toBeOnTheScreen();
+    expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
+    expect(getByDisplayValue("y = 2*x")).toBeOnTheScreen();
     for (const color of [theme.graphSeries[0], theme.graphSeries[1]]) {
       const marker = mockPolyline.mock.calls
         .map(([props]) => props)
         .find((props) => props.stroke === color);
       expect(marker).toBeTruthy();
     }
-    const tree = getByDisplayValue("x^2").parent;
+    const tree = getByDisplayValue("y = x^2").parent;
     expect(tree).toBeTruthy();
     const swatch = tree?.children.find(
       (child) => typeof child !== "string" && StyleSheet.flatten(child.props.style)?.backgroundColor,

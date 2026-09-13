@@ -50,7 +50,7 @@ export function CartesianAxes({
 }: Props) {
   const innerW = width - pad * 2;
   const innerH = height - pad * 2;
-  const origin = mapGraphPoint(0, 0, bounds, width, height);
+  const origin = mapGraphPoint(0, 0, bounds, width, height, pad);
   const yAxisX = keepAxesInView ? Math.max(pad, Math.min(width - pad, origin.px)) : origin.px;
   const xAxisY = keepAxesInView ? Math.max(pad, Math.min(height - pad, origin.py)) : origin.py;
   const xTicks = graphAxisTicks(
@@ -75,7 +75,7 @@ export function CartesianAxes({
       </Defs>
       {xTicks.map((n) => {
         if (Math.abs(n) < 1e-9) return null;
-        const { px } = mapGraphPoint(n, 0, bounds, width, height);
+        const { px } = mapGraphPoint(n, 0, bounds, width, height, pad);
         return (
           <Line
             key={`gx-${n}`}
@@ -90,7 +90,7 @@ export function CartesianAxes({
       })}
       {yTicks.map((n) => {
         if (Math.abs(n) < 1e-9) return null;
-        const { py } = mapGraphPoint(0, n, bounds, width, height);
+        const { py } = mapGraphPoint(0, n, bounds, width, height, pad);
         return (
           <Line
             key={`gy-${n}`}
@@ -121,7 +121,7 @@ export function CartesianAxes({
       />
       {xTicks.map((n) => {
         if (Math.abs(n) < 1e-9) return null;
-        const { px } = mapGraphPoint(n, 0, bounds, width, height);
+        const { px } = mapGraphPoint(n, 0, bounds, width, height, pad);
         return (
           <SvgText
             key={`lx-${n}`}
@@ -137,7 +137,7 @@ export function CartesianAxes({
       })}
       {yTicks.map((n) => {
         if (Math.abs(n) < 1e-9) return null;
-        const { py } = mapGraphPoint(0, n, bounds, width, height);
+        const { py } = mapGraphPoint(0, n, bounds, width, height, pad);
         if (py < pad + 12) return null;
         return (
           <SvgText

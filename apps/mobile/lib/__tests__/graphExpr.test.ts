@@ -1,7 +1,10 @@
 import {
   evalGraphExpr,
+  formatSeriesExpr,
+  inequalityFillPoints,
   normalizePlotExpr,
   parseGraphExpr,
+  parseGraphRelation,
   sampleGraphExpr,
 } from "@/lib/graphExpr";
 
@@ -43,5 +46,44 @@ describe("graphExpr", () => {
 
   it("evaluates x^2/3 as (x^2)/3", () => {
     expect(evalGraphExpr(parseGraphExpr("x^2/3")!, 3)).toBe(3);
+  });
+
+  it("parses y < 2x and y > x^2 as relations", () => {
+    const below = parseGraphRelation("y < 2x");
+    expect(below?.cmp).toBe("<");
+    expect(evalGraphExpr(below!.node, 1)).toBe(2);
+    const above = parseGraphRelation("y > x^2");
+    expect(above?.cmp).toBe(">");
+    expect(evalGraphExpr(above!.node, 2)).toBe(4);
+    expect(parseGraphRelation("y <= 2x")?.cmp).toBe("<=");
+    expect(parseGraphRelation("y ≥ 2x")?.cmp).toBe(">=");
+    expect(parseGraphRelation("x^2")?.cmp).toBe("=");
+  });
+
+  it("seeds the editor with a full relation so = can become <", () => {
+    expect(formatSeriesExpr("x**2")).toBe("y = x^2");
+    expect(formatSeriesExpr("y < 2x")).toBe("y < 2x");
+    expect(formatSeriesExpr("4x^2-5x-12=0")).toBe("y = 4x^2-5x-12");
+    expect(formatSeriesExpr("x^2 + y^2 = 1")).toBe("x^2 + y^2 = 1");
+  });
+
+  it("closes an inequality fill against the matching y edge", () => {
+    const curve: [number, number][] = [
+      [0, 0],
+      [2, 4],
+    ];
+    expect(inequalityFillPoints(curve, -3, 5, "<")).toEqual([
+      [0, 0],
+      [2, 4],
+      [2, -3],
+      [0, -3],
+    ]);
+    expect(inequalityFillPoints(curve, -3, 5, ">")).toEqual([
+      [0, 0],
+      [2, 4],
+      [2, 5],
+      [0, 5],
+    ]);
+    expect(inequalityFillPoints(curve, -3, 5, "=")).toEqual([]);
   });
 });

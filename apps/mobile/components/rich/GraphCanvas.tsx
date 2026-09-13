@@ -1,4 +1,4 @@
-import Svg, { Circle, G, Polyline } from "react-native-svg";
+import Svg, { Circle, G, Polygon, Polyline } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
 import { type DrawnSeries } from "@/hooks/useInteractiveGraph";
@@ -10,11 +10,13 @@ import {
   SHIFTED_VERTEX_MIN,
   type GraphSpec,
 } from "@/lib/graphBlock";
+import { inequalityFillPoints, type GraphCmp } from "@/lib/graphExpr";
 import { type GraphView } from "@/lib/graphViewport";
 import { Theme } from "@/lib/theme";
 
-export const GRAPH_AXIS_PAD = 28;
+export const GRAPH_AXIS_PAD = 16;
 const MAX_MARKED_POINTS = 20;
+const INEQUALITY_DASH = "6 5";
 
 type Props = {
   spec: GraphSpec;
@@ -46,7 +48,7 @@ export function GraphCanvas({
     !isVerticalLine &&
     visibleSeries.length === 1 &&
     primary.points.length <= MAX_MARKED_POINTS
-      ? primary.points.filter(inView).map(([x, y]) => mapGraphPoint(x, y, bounds, width, height))
+      ? primary.points.filter(inView).map(([x, y]) => mapGraphPoint(x, y, bounds, width, height, GRAPH_AXIS_PAD))
       : [];
   const vertex =
     !isVerticalLine && visibleSeries.length === 1 ? interiorVertex(primary.points) : null;
@@ -55,7 +57,7 @@ export function GraphCanvas({
       ? graphXIntercepts(primary.points)
           .filter((x) => x >= bounds.xMin && x <= bounds.xMax)
           .slice(0, 3)
-          .map((x) => mapGraphPoint(x, 0, bounds, width, height))
+          .map((x) => mapGraphPoint(x, 0, bounds, width, height, GRAPH_AXIS_PAD))
       : [];
   const clip = `url(#${clipId})`;
 
@@ -85,6 +87,7 @@ export function GraphCanvas({
               width,
               height,
               bounds,
+              GRAPH_AXIS_PAD,
             )}
             fill="none"
             stroke={theme.primary}
@@ -108,6 +111,10 @@ export function GraphCanvas({
   );
 }
 
+function isStrictInequality(cmp: GraphCmp): boolean {
+  return cmp === "<" || cmp === ">";
+}
+
 function SeriesPolylines({
   row,
   width,
@@ -120,32 +127,36 @@ function SeriesPolylines({
   bounds: GraphView;
 }) {
   const segs = row.segments?.filter((seg) => seg.length >= 2);
-  if (segs && segs.length > 1) {
-    return (
-      <>
-        {segs.map((seg, i) => (
-          <Polyline
-            key={`${row.id}-${i}`}
-            points={graphPolylinePoints(seg, width, height, bounds)}
-            fill="none"
-            stroke={row.color}
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
-      </>
-    );
-  }
-  if (row.points.length < 2) return null;
+  const curves = segs && segs.length > 1 ? segs : row.points.length >= 2 ? [row.points] : [];
+  if (curves.length === 0) return null;
+  const dashed = isStrictInequality(row.cmp);
   return (
-    <Polyline
-      points={graphPolylinePoints(row.points, width, height, bounds)}
-      fill="none"
-      stroke={row.color}
-      strokeWidth={2.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <>
+      {curves.map((seg, i) => {
+        const fill = inequalityFillPoints(seg, bounds.yMin, bounds.yMax, row.cmp);
+        return (
+          <G key={`${row.id}-${i}`}>
+            {fill.length > 0 ? (
+              <Polygon
+                testID={`graph-shade-${row.id}`}
+                points={graphPolylinePoints(fill, width, height, bounds, GRAPH_AXIS_PAD)}
+                fill={row.color}
+                fillOpacity={0.16}
+                stroke="none"
+              />
+            ) : null}
+            <Polyline
+              points={graphPolylinePoints(seg, width, height, bounds, GRAPH_AXIS_PAD)}
+              fill="none"
+              stroke={row.color}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray={dashed ? INEQUALITY_DASH : undefined}
+            />
+          </G>
+        );
+      })}
+    </>
   );
 }

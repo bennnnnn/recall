@@ -1,16 +1,19 @@
-import { useId, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   useWindowDimensions,
   View,
+  type LayoutChangeEvent,
 } from "react-native";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,13 +25,18 @@ import {
   useGraphSeries,
   useGraphViewport,
 } from "@/hooks/useInteractiveGraph";
+import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
 import { CODE_FONT } from "@/lib/fonts";
 import { formatGraphExpr, type GraphSpec } from "@/lib/graphBlock";
 import { defaultInteractiveBounds } from "@/lib/graphViewport";
 import { IconSize } from "@/lib/icons";
+import { useReduceMotion } from "@/lib/reduceMotion";
+import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
 
 const CHART_HEIGHT = 220;
+const MODAL_LIST_MAX = 220;
+const MODAL_PLOT_MIN = 200;
 
 type Props = {
   spec: GraphSpec;
@@ -45,6 +53,8 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const [open, setOpen] = useState(false);
+  const [plotWidth, setPlotWidth] = useState(chartWidth);
+  const closeModal = useCallback(() => setOpen(false), []);
   const cardClipId = useId().replace(/:/g, "");
   const modalClipId = useId().replace(/:/g, "");
   const explorerStyles = useMemo(() => makeExplorerStyles(theme), [theme]);
@@ -64,15 +74,33 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
   );
   const palette = theme.graphSeries;
   const variable = spec.variable ?? "x";
-  const cardAspect = (chartWidth - GRAPH_AXIS_PAD * 2) / (CHART_HEIGHT - GRAPH_AXIS_PAD * 2 || 1);
+  const cardWidth = Math.max(1, plotWidth);
+  const cardAspect = (cardWidth - GRAPH_AXIS_PAD * 2) / (CHART_HEIGHT - GRAPH_AXIS_PAD * 2 || 1);
   const cardBounds = useMemo(() => defaultInteractiveBounds(cardAspect), [cardAspect]);
   const cardDrawn = useMemo(
     () => series.map((row, i) => drawGraphSeries(row, palette[i % palette.length], variable, cardBounds)),
     [cardBounds, palette, series, variable],
   );
-  const modalWidth = Math.max(1, screenW - 24);
-  const modalHeight = Math.max(240, screenH - insets.top - insets.bottom - 200);
-  const viewport = useGraphViewport({ width: modalWidth, height: modalHeight, pad: GRAPH_AXIS_PAD });
+  const modalWidth = Math.max(1, screenW - insets.left - insets.right);
+  const fallbackModalH = Math.max(MODAL_PLOT_MIN, screenH - insets.top - insets.bottom - 200);
+  const [modalPlot, setModalPlot] = useState({ width: modalWidth, height: fallbackModalH });
+  const viewport = useGraphViewport({
+    width: modalPlot.width,
+    height: modalPlot.height,
+    pad: GRAPH_AXIS_PAD,
+  });
+  const onCardLayout = (e: LayoutChangeEvent) => {
+    const w = Math.round(e.nativeEvent.layout.width);
+    if (w > 0 && w !== plotWidth) setPlotWidth(w);
+  };
+  const onModalPlotLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    const w = Math.round(width);
+    const h = Math.round(height);
+    if (w > 0 && h > 0 && (w !== modalPlot.width || h !== modalPlot.height)) {
+      setModalPlot({ width: w, height: h });
+    }
+  };
   const modalDrawn = useMemo(
     () =>
       series.map((row, i) =>
@@ -84,37 +112,30 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
     spec.title != null && spec.title.trim() !== "" && spec.title.trim() !== spec.expr
       ? formatGraphExpr(spec.title)
       : null;
-  const seriesEditor = (rows: DrawnSeries[]) =>
+  const seriesListRef = useRef<ScrollView>(null);
+  const addSeriesAndReveal = () => {
+    addSeries();
+    requestAnimationFrame(() => {
+      seriesListRef.current?.scrollToEnd({ animated: true });
+    });
+  };
+  const seriesEditor = (rows: DrawnSeries[], mode: "card" | "modal") =>
     editable ? (
-      <View style={explorerStyles.list}>
-        {rows.map((row) => (
-          <SeriesRow
-            key={row.id}
-            row={row}
-            theme={theme}
-            styles={explorerStyles}
-            onChangeExpr={(text) => setExpr(row.id, text)}
-            onToggle={() => toggleVisible(row.id)}
-            onRemove={() => removeSeries(row.id)}
-          />
-        ))}
-        {canAdd ? (
-          <Pressable
-            onPress={addSeries}
-            testID="graph-add-function"
-            accessibilityRole="button"
-            accessibilityLabel={t("rich.graph_add_function")}
-            style={explorerStyles.addBtn}
-          >
-            <Icon name="add-outline" size={16} color={theme.primary} />
-            <Text style={explorerStyles.addText}>{t("rich.graph_add_function")}</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <SeriesList
+        rows={rows}
+        theme={theme}
+        styles={explorerStyles}
+        canAdd={canAdd}
+        scrollRef={mode === "modal" ? seriesListRef : undefined}
+        onChangeExpr={setExpr}
+        onToggle={toggleVisible}
+        onRemove={removeSeries}
+        onAdd={mode === "modal" ? addSeriesAndReveal : addSeries}
+      />
     ) : null;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, explorerStyles.card]} onLayout={onCardLayout}>
       {customTitle ? <Text style={styles.title}>{customTitle}</Text> : null}
       {isVerticalLine ? (
         <Text style={styles.title}>{formatGraphExpr(spec.title ?? spec.expr)}</Text>
@@ -124,13 +145,13 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
         testID="graph-expand"
         accessibilityRole="button"
         accessibilityLabel={t("rich.expand")}
-        style={[explorerStyles.plotPress, { width: chartWidth, height: CHART_HEIGHT }]}
+        style={[explorerStyles.plotPress, { width: cardWidth, height: CHART_HEIGHT }]}
       >
         <GraphCanvas
           spec={spec}
           theme={theme}
           clipId={cardClipId}
-          width={chartWidth}
+          width={cardWidth}
           height={CHART_HEIGHT}
           bounds={cardBounds}
           drawn={cardDrawn}
@@ -140,71 +161,199 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
           <Icon name="expand-outline" size={16} color={theme.textSecondary} />
         </View>
       </Pressable>
-      {open ? null : seriesEditor(cardDrawn)}
-      <Modal
-        visible={open}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => setOpen(false)}
-      >
-        {open ? (
-          <GestureHandlerRootView
-            style={[
-              explorerStyles.modalRoot,
-              {
-                backgroundColor: theme.bg,
-                paddingTop: insets.top,
-                paddingBottom: insets.bottom,
-              },
-            ]}
-          >
-            <KeyboardAvoidingView
-              style={explorerStyles.modalRoot}
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
-            >
-              <View style={explorerStyles.modalToolbar}>
-                <Pressable
-                  onPress={() => setOpen(false)}
-                  testID="graph-close"
-                  accessibilityRole="button"
-                  accessibilityLabel={t("preview.close")}
-                  hitSlop={8}
-                  style={explorerStyles.iconBtn}
-                >
-                  <Icon name="close-outline" size={IconSize.lg} color={theme.text} />
-                </Pressable>
-              </View>
-              <GestureDetector gesture={viewport.gesture}>
-                <View
-                  collapsable={false}
-                  pointerEvents="box-only"
-                  accessible
-                  accessibilityLabel={t("rich.graph_plot_a11y")}
-                  style={{ width: modalWidth, height: modalHeight }}
-                >
-                  <GraphCanvas
-                    spec={spec}
-                    theme={theme}
-                    clipId={modalClipId}
-                    width={modalWidth}
-                    height={modalHeight}
-                    bounds={viewport.bounds}
-                    drawn={modalDrawn}
-                    verticalX={verticalX}
-                  />
-                </View>
-              </GestureDetector>
-              {seriesEditor(modalDrawn)}
-            </KeyboardAvoidingView>
-          </GestureHandlerRootView>
-        ) : null}
-      </Modal>
+      {open ? null : seriesEditor(cardDrawn, "card")}
+      <ExplorerModal
+        open={open}
+        onClose={closeModal}
+        theme={theme}
+        styles={explorerStyles}
+        insets={insets}
+        spec={spec}
+        clipId={modalClipId}
+        plot={modalPlot}
+        onPlotLayout={onModalPlotLayout}
+        bounds={viewport.bounds}
+        gesture={viewport.gesture}
+        drawn={modalDrawn}
+        verticalX={verticalX}
+        editor={seriesEditor(modalDrawn, "modal")}
+      />
     </View>
   );
 }
 
 function hasCurve2(spec: GraphSpec): boolean {
   return spec.type === "function" && !!spec.expr2 && !!spec.points2?.length;
+}
+
+function ExplorerModal({
+  open,
+  onClose,
+  theme,
+  styles,
+  insets,
+  spec,
+  clipId,
+  plot,
+  onPlotLayout,
+  bounds,
+  gesture,
+  drawn,
+  verticalX,
+  editor,
+}: {
+  open: boolean;
+  onClose: () => void;
+  theme: Theme;
+  styles: ReturnType<typeof makeExplorerStyles>;
+  insets: { top: number; bottom: number };
+  spec: GraphSpec;
+  clipId: string;
+  plot: { width: number; height: number };
+  onPlotLayout: (e: LayoutChangeEvent) => void;
+  bounds: ReturnType<typeof defaultInteractiveBounds>;
+  gesture: ReturnType<typeof useGraphViewport>["gesture"];
+  drawn: DrawnSeries[];
+  verticalX?: number;
+  editor: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const reduceMotion = useReduceMotion();
+  const { pan, panStyle } = useSheetPanDismiss(open, reduceMotion, onClose);
+
+  return (
+    <Modal
+      visible={open}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      {open ? (
+        <GestureHandlerRootView style={styles.modalRoot}>
+          <KeyboardAvoidingView
+            style={styles.modalRoot}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+          >
+            <Animated.View
+              style={[
+                styles.modalSheet,
+                {
+                  backgroundColor: theme.bg,
+                  paddingTop: insets.top,
+                  paddingBottom: insets.bottom,
+                },
+                panStyle,
+              ]}
+            >
+              <GestureDetector gesture={pan}>
+                <View style={styles.modalToolbar} testID="graph-sheet-handle">
+                  <View style={styles.handle} />
+                  <Pressable
+                    onPress={onClose}
+                    testID="graph-close"
+                    accessibilityRole="button"
+                    accessibilityLabel={t("preview.close")}
+                    hitSlop={8}
+                    style={styles.closeBtn}
+                  >
+                    <Icon name="close-outline" size={IconSize.lg} color={theme.text} />
+                  </Pressable>
+                </View>
+              </GestureDetector>
+              <GestureDetector gesture={gesture}>
+                <View
+                  collapsable={false}
+                  pointerEvents="box-only"
+                  accessible
+                  accessibilityLabel={t("rich.graph_plot_a11y")}
+                  onLayout={onPlotLayout}
+                  style={styles.modalPlot}
+                >
+                  <GraphCanvas
+                    spec={spec}
+                    theme={theme}
+                    clipId={clipId}
+                    width={plot.width}
+                    height={plot.height}
+                    bounds={bounds}
+                    drawn={drawn}
+                    verticalX={verticalX}
+                  />
+                </View>
+              </GestureDetector>
+              {editor}
+            </Animated.View>
+          </KeyboardAvoidingView>
+        </GestureHandlerRootView>
+      ) : null}
+    </Modal>
+  );
+}
+
+function SeriesList({
+  rows,
+  theme,
+  styles,
+  canAdd,
+  scrollRef,
+  onChangeExpr,
+  onToggle,
+  onRemove,
+  onAdd,
+}: {
+  rows: DrawnSeries[];
+  theme: Theme;
+  styles: ReturnType<typeof makeExplorerStyles>;
+  canAdd: boolean;
+  scrollRef?: RefObject<ScrollView | null>;
+  onChangeExpr: (id: string, text: string) => void;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
+  onAdd: () => void;
+}) {
+  const { t } = useTranslation();
+  const body = (
+    <>
+      {rows.map((row) => (
+        <SeriesRow
+          key={row.id}
+          row={row}
+          theme={theme}
+          styles={styles}
+          onChangeExpr={(text) => onChangeExpr(row.id, text)}
+          onToggle={() => onToggle(row.id)}
+          onRemove={() => onRemove(row.id)}
+        />
+      ))}
+      {canAdd ? (
+        <Pressable
+          onPress={onAdd}
+          testID="graph-add-function"
+          accessibilityRole="button"
+          accessibilityLabel={t("rich.graph_add_function")}
+          style={styles.addBtn}
+        >
+          <Icon name="add-outline" size={16} color={theme.primary} />
+          <Text style={styles.addText}>{t("rich.graph_add_function")}</Text>
+        </Pressable>
+      ) : null}
+    </>
+  );
+  if (scrollRef) {
+    return (
+      <ScrollView
+        ref={scrollRef}
+        testID="graph-series-scroll"
+        style={styles.modalList}
+        contentContainerStyle={styles.modalListContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        {body}
+      </ScrollView>
+    );
+  }
+  return <View style={styles.list}>{body}</View>;
 }
 
 function SeriesRow({
@@ -227,7 +376,6 @@ function SeriesRow({
   return (
     <View style={styles.row}>
       <View style={[styles.swatch, { backgroundColor: row.color, opacity: row.visible ? 1 : 0.35 }]} />
-      <Text style={[styles.prefix, !row.visible && styles.dim]}>y = </Text>
       <TextInput
         value={row.expr}
         onChangeText={onChangeExpr}
@@ -236,7 +384,7 @@ function SeriesRow({
         spellCheck={false}
         accessibilityLabel={t("rich.graph_expr_a11y")}
         testID={inputId}
-        placeholder="x^2"
+        placeholder="y = x^2"
         placeholderTextColor={theme.textSecondary}
         style={[
           styles.input,
@@ -268,7 +416,7 @@ function SeriesRow({
             hitSlop={8}
             style={styles.iconBtn}
           >
-            <Icon name="close-outline" size={18} color={theme.textSecondary} />
+            <Icon name="trash-outline" size={18} color={theme.textSecondary} />
           </Pressable>
         </>
       )}
@@ -278,12 +426,18 @@ function SeriesRow({
 
 const makeExplorerStyles = (theme: Theme) =>
   StyleSheet.create({
+    card: {
+      alignSelf: "stretch",
+      alignItems: "stretch",
+      width: "100%",
+    },
     plotPress: {
       position: "relative",
+      alignSelf: "stretch",
     },
     expandBadge: {
       position: "absolute",
-      top: 8,
+      bottom: 8,
       right: 8,
       width: 32,
       height: 32,
@@ -297,17 +451,45 @@ const makeExplorerStyles = (theme: Theme) =>
     modalRoot: {
       flex: 1,
     },
+    modalSheet: {
+      flex: 1,
+    },
     modalToolbar: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      alignSelf: "stretch",
+    },
+    handle: {
+      alignSelf: "center",
+      width: 36,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: theme.border,
+      marginTop: Space.xs,
+      marginBottom: Space.xxs,
+    },
+    closeBtn: {
+      alignSelf: "flex-start",
+      padding: Space.xs,
+      marginLeft: Space.xs,
+    },
+    modalPlot: {
+      flex: 1,
+      minHeight: MODAL_PLOT_MIN,
+    },
+    modalList: {
+      flexGrow: 0,
+      flexShrink: 1,
+      maxHeight: MODAL_LIST_MAX,
+    },
+    modalListContent: {
+      paddingHorizontal: Space.md,
+      paddingTop: Space.xs,
+      paddingBottom: Space.sm,
+      gap: 8,
     },
     list: {
       alignSelf: "stretch",
       marginTop: 8,
       gap: 8,
-      paddingHorizontal: 16,
     },
     row: {
       flexDirection: "row",
@@ -319,11 +501,6 @@ const makeExplorerStyles = (theme: Theme) =>
       height: 8,
       borderRadius: 4,
     },
-    prefix: {
-      fontSize: 15,
-      fontWeight: "600",
-      color: theme.text,
-    },
     input: {
       flex: 1,
       margin: 0,
@@ -332,12 +509,9 @@ const makeExplorerStyles = (theme: Theme) =>
       fontSize: 15,
       fontWeight: "600",
       color: theme.text,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.border,
     },
     inputInvalid: {
       color: theme.danger,
-      borderBottomColor: theme.danger,
     },
     dim: {
       opacity: 0.4,

@@ -62,6 +62,14 @@ function preprocess(src: string): string {
       s += "-";
       continue;
     }
+    if (ch === "≤" || ch === "⩽") {
+      s += "<=";
+      continue;
+    }
+    if (ch === "≥" || ch === "⩾") {
+      s += ">=";
+      continue;
+    }
     s += ch;
   }
   return s;
@@ -119,6 +127,67 @@ function stripLeadingAssign(s: string): string {
     if (s[i] === "=") return s.slice(i + 1).trim();
   }
   return s;
+}
+
+export type GraphCmp = "=" | "<" | "<=" | ">" | ">=";
+
+type CmpTok = { op: GraphCmp; end: number };
+
+function readCmp(s: string, i: number): CmpTok | null {
+  const two = s.slice(i, i + 2);
+  if (two === "<=" || two === "=<") return { op: "<=", end: i + 2 };
+  if (two === ">=" || two === "=>") return { op: ">=", end: i + 2 };
+  if (s[i] === "<") return { op: "<", end: i + 1 };
+  if (s[i] === ">") return { op: ">", end: i + 1 };
+  if (s[i] === "=") return { op: "=", end: i + 1 };
+  return null;
+}
+
+/** `y = x^2` / `y < 2x` → comparator + rhs. Bare `x^2` is not a relation. */
+export function splitYRelation(raw: string): { cmp: GraphCmp; rhs: string } | null {
+  const s = preprocess(raw).trim();
+  let i = skipSpaces(s, 0);
+  if (s[i] !== "y" && s[i] !== "Y") return null;
+  i = skipSpaces(s, i + 1);
+  const cmp = readCmp(s, i);
+  if (!cmp) return null;
+  return { cmp: cmp.op, rhs: s.slice(cmp.end).trim() };
+}
+
+export function parseGraphRelation(
+  src: string,
+  variable = "x",
+): { node: GraphExprNode; cmp: GraphCmp } | null {
+  const rel = splitYRelation(src);
+  const node = parseGraphExpr(rel ? rel.rhs : src, variable);
+  if (!node) return null;
+  return { node, cmp: rel?.cmp ?? "=" };
+}
+
+/** Seed the series field so the user can change `=` into `<` / `>`. */
+export function formatSeriesExpr(raw: string): string {
+  const s = displayGraphExpr(raw);
+  if (!s) return "";
+  const rel = splitYRelation(s);
+  if (rel) return `y ${rel.cmp} ${displayGraphExpr(rel.rhs)}`;
+  if (parseGraphExpr(s)) {
+    return `y = ${displayGraphExpr(normalizePlotExpr(s))}`;
+  }
+  return s;
+}
+
+export function inequalityFillPoints(
+  curve: [number, number][],
+  yMin: number,
+  yMax: number,
+  cmp: GraphCmp,
+): [number, number][] {
+  if (cmp === "=" || curve.length < 2) return [];
+  const below = cmp === "<" || cmp === "<=";
+  const x0 = curve[0][0];
+  const x1 = curve[curve.length - 1][0];
+  const yEdge = below ? yMin : yMax;
+  return [...curve, [x1, yEdge], [x0, yEdge]];
 }
 
 /** Strip `y=` / `f(x)=` and a trailing `=0` so a plotted polynomial is y=f(x). */
