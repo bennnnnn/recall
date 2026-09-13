@@ -18,7 +18,6 @@ from app.models.schemas.math import MathImageExtract
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services import calendar as calendar_service
-from app.services import chemistry_context as chemistry_context_service
 from app.services import email as email_service
 from app.services import plan as plan_service
 from app.services import profile as profile_service
@@ -48,6 +47,7 @@ from app.services.chat.turn_prep.mode import (
     _TurnMode,
 )
 from app.services.chat.turn_timing import TurnTimingTracker
+from app.services.chemistry import context as chemistry_context_service
 from app.services.math_tools import VerifiedMathBlock, needs_symbolic_math
 from app.services.settings_intent import extract_settings_changes
 from app.services.web_search.subject import (

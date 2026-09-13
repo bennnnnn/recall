@@ -4,25 +4,35 @@ from __future__ import annotations
 
 import importlib
 
+import pytest
 
-def test_chemistry_service_aliases_canonical_package() -> None:
-    legacy = importlib.import_module("app.services.chemistry_service")
-    canonical = importlib.import_module("app.services.chemistry")
+# Flat `services/<domain>_<thing>.py` modules that were folded into a domain
+# package. The compatibility aliases are gone; importing the old name must fail
+# so a future edit cannot quietly reintroduce the split-brain layout.
+RETIRED_FLAT_MODULES = (
+    "app.services.chemistry_service",
+    "app.services.chemistry_context",
+    "app.services.chemistry_fence",
+)
 
-    assert legacy is canonical
-    assert legacy.validate_smiles is canonical.validate_smiles
-    assert legacy.balance_equation is canonical.balance_equation
-    assert legacy.stoichiometry is canonical.stoichiometry
-    assert legacy.molarity is canonical.molarity
+
+@pytest.mark.parametrize("legacy_name", RETIRED_FLAT_MODULES)
+def test_retired_flat_modules_are_gone(legacy_name: str) -> None:
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module(legacy_name)
 
 
-def test_chemistry_context_and_fence_alias_canonical_modules() -> None:
-    assert importlib.import_module("app.services.chemistry_context") is importlib.import_module(
-        "app.services.chemistry.context"
+def test_chemistry_package_exposes_its_public_api() -> None:
+    chemistry = importlib.import_module("app.services.chemistry")
+
+    assert callable(chemistry.validate_smiles)
+    assert callable(chemistry.balance_equation)
+    assert callable(chemistry.stoichiometry)
+    assert callable(chemistry.molarity)
+    assert callable(
+        importlib.import_module("app.services.chemistry.context").build_chemistry_context
     )
-    assert importlib.import_module("app.services.chemistry_fence") is importlib.import_module(
-        "app.services.chemistry.fence"
-    )
+    assert callable(importlib.import_module("app.services.chemistry.fence").enrich_chemistry_fences)
 
 
 def test_learning_compatibility_modules_share_patchable_module_objects() -> None:

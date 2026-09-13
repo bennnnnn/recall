@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services import chemistry_context
+from app.services.chemistry import context as chemistry_context
 
 # ---------------------------------------------------------------------------
 # is_chemistry_question
