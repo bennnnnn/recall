@@ -11,13 +11,14 @@ import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/mathText";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
 
-// Match standalone KaTeX and the answer text role, including nested native math.
-const ANSWER_FONT_SIZE = 20;
+const ANSWER_FONT_SIZE = Type.title.fontSize;
+const ANSWER_FONT_WEIGHT = Type.h1.fontWeight;
 
 function normalizeAnswerContent(raw: string): string {
   const text = stripTrailingFenceCloser(raw.trim());
@@ -34,13 +35,13 @@ function answerNeedsKatex(text: string): boolean {
 }
 
 /**
- * Final answer — same gray surface as other math blocks, no Copy affordance.
+ * Final answer — bold type on the chat canvas, no gray chip.
  * (```answer / short numeric or simplified-expression finals only.)
  *
  * Light answers stay on native `MathText`. Heavy LaTeX environments
  * (`\begin{cases|matrix|aligned|…}`) use the KaTeX WebView in **stretch
  * displayMode** — never `compact` + centered zero-width wrap, which used to
- * collapse into a thin vertical sliver / tall pill inside this gray box.
+ * collapse into a thin vertical sliver / tall pill.
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
@@ -53,8 +54,8 @@ export function AnswerBlock({ content }: Props) {
   const useKatex = answerNeedsKatex(text) && supportsInlineHtmlMathWebView(preview?.mode);
   // A nested math View (stacked frac / sqrt) must be a direct child of the box,
   // NOT wrapped in a Text. iOS clips a View nested inside a Text to the line
-  // box — which cut the radicand's bottom (the digit under √ lost its baseline)
-  // in this gray answer box. Mirrors markdownRenderRules' nested-View guard.
+  // box — which cut the radicand's bottom (the digit under √ lost its baseline).
+  // Mirrors markdownRenderRules' nested-View guard.
   const hasNestedView = hasInlineMath
     ? parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))
     : latexHasNestedMathView(text);
@@ -77,13 +78,12 @@ export function AnswerBlock({ content }: Props) {
       accessibilityRole="text"
       accessibilityLabel={t("rich.answer_a11y", { text: readableLatexFallback(text) })}
     >
-      <View style={[s.box, useKatex || hasNestedView ? s.boxStretch : null]}>
+      <View style={[s.box, useKatex || hasNestedView ? s.boxStretch : null]} testID="answer-box">
         {useKatex ? (
           <MathFormulaWebView
             latex={text}
             displayMode
             textColor={theme.text}
-            bgColor={theme.surfaceAlt}
           />
         ) : hasNestedView ? (
           <View style={s.answerLines}>
@@ -102,14 +102,27 @@ export function AnswerBlock({ content }: Props) {
                   {hasInlineMath
                     ? trimmedParts.map((part, i) =>
                         part.type === "math" ? (
-                          <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
+                          <MathText
+                            key={i}
+                            latex={part.value}
+                            textColor={theme.text}
+                            fontSize={ANSWER_FONT_SIZE}
+                            fontWeight={ANSWER_FONT_WEIGHT}
+                          />
                         ) : (
                           <Text key={i} style={s.answer} selectable>
                             {part.value}
                           </Text>
                         ),
                       )
-                    : <MathText latex={line} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />}
+                    : (
+                      <MathText
+                        latex={line}
+                        textColor={theme.text}
+                        fontSize={ANSWER_FONT_SIZE}
+                        fontWeight={ANSWER_FONT_WEIGHT}
+                      />
+                    )}
                 </View>
               </ScrollView>
             ))}
@@ -118,7 +131,13 @@ export function AnswerBlock({ content }: Props) {
           <Text style={s.answer} selectable>
             {parts.map((part, i) =>
               part.type === "math" ? (
-                <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
+                <MathText
+                  key={i}
+                  latex={part.value}
+                  textColor={theme.text}
+                  fontSize={ANSWER_FONT_SIZE}
+                  fontWeight={ANSWER_FONT_WEIGHT}
+                />
               ) : (
                 <Text key={i} style={s.answer}>
                   {part.value}
@@ -128,7 +147,12 @@ export function AnswerBlock({ content }: Props) {
           </Text>
         ) : (
           <Text style={s.answer} selectable>
-            <MathText latex={text} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
+            <MathText
+              latex={text}
+              textColor={theme.text}
+              fontSize={ANSWER_FONT_SIZE}
+              fontWeight={ANSWER_FONT_WEIGHT}
+            />
           </Text>
         )}
       </View>
@@ -146,12 +170,7 @@ const makeStyles = (t: Theme) =>
     box: {
       alignSelf: "center",
       maxWidth: "100%",
-      paddingVertical: 10,
-      paddingHorizontal: 18,
-      // One step stronger than contentSurface so finals read on the chat
-      // canvas / assistant bubble without introducing a new hue.
-      backgroundColor: t.surfaceAlt,
-      borderRadius: 10,
+      paddingVertical: 4,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -188,7 +207,7 @@ const makeStyles = (t: Theme) =>
     answer: {
       fontSize: ANSWER_FONT_SIZE,
       lineHeight: 28,
-      fontWeight: "500",
+      fontWeight: ANSWER_FONT_WEIGHT,
       color: t.text,
       textAlign: "center",
     },

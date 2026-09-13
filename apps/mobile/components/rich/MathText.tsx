@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View, type TextStyle } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
@@ -20,6 +20,8 @@ type Props = {
   compact?: boolean;
   /** Used by editable root degrees; layout scales with the actual text size. */
   fontSize?: number;
+  /** Finals (AnswerBlock) pass 700 so the result reads without a gray chip. */
+  fontWeight?: TextStyle["fontWeight"];
   /** Markdown's View host can constrain tall runs and scroll their full width.
    * Leave this off in editable math slots and hosts with their own viewport. */
   scrollOverflow?: boolean;
@@ -268,13 +270,13 @@ function renderSegments(
 }
 
 /** Native math: simple runs stay Text; stacked or raised structures own their bounds. */
-export function MathText({ latex, textColor, compact = false, fontSize = 16, scrollOverflow = false }: Props) {
+export function MathText({ latex, textColor, compact = false, fontSize = 16, fontWeight, scrollOverflow = false }: Props) {
   const theme = useTheme();
   const { fontScale } = useWindowDimensions();
   const layoutScale = (fontSize / 16) * fontScale;
   const styles = useMemo(
-    () => makeStyles(theme, textColor, compact, fontSize, fontScale),
-    [theme, textColor, compact, fontSize, fontScale],
+    () => makeStyles(theme, textColor, compact, fontSize, fontScale, fontWeight),
+    [theme, textColor, compact, fontSize, fontScale, fontWeight],
   );
   const segments = useMemo(
     () => parseSimpleLatex(fixImplicitExponents(latex.trim())),
@@ -333,10 +335,18 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16, scr
   );
 }
 
-const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize = 16, fontScale = 1) => {
+const makeStyles = (
+  theme: Theme,
+  textColor?: string,
+  compact = false,
+  fontSize = 16,
+  fontScale = 1,
+  fontWeight?: TextStyle["fontWeight"],
+) => {
   const color = textColor ?? theme.text;
   const scale = fontSize / 16;
   const layoutScale = scale * fontScale;
+  const weight = fontWeight ? { fontWeight } : null;
   return StyleSheet.create({
     base: {
       fontSize,
@@ -344,6 +354,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       // wrap onto its own line inside list items ("Slope (" / "m" / "): 3").
       lineHeight: (compact ? SQRT_LINE_HEIGHT : Type.body.lineHeight) * scale,
       color,
+      ...weight,
     },
     glyph: {
       // Nested Text inherits SpaceMono unless we name a UI face that has ≠.
@@ -368,11 +379,13 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       fontSize: 11,
       lineHeight: 14,
       color,
+      ...weight,
     },
     sub: {
       fontSize: 11,
       lineHeight: 14,
       color,
+      ...weight,
     },
     fractionalSup: {
       paddingBottom: 12 * layoutScale,
@@ -381,6 +394,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       fontSize: 14 * scale,
       lineHeight: FRAC_LINE_HEIGHT * scale,
       color,
+      ...weight,
     },
     fracStack: {
       alignItems: "center",
@@ -400,6 +414,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       lineHeight: FRAC_LINE_HEIGHT * scale,
       color,
       textAlign: "center",
+      ...weight,
     },
     // Tops share an edge: sign and radicand have the same line box, so the
     // hook meets the bar. `flex-end` bottom-aligned a shorter radicand box and
@@ -419,18 +434,21 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       color,
       marginRight: layoutScale,
       marginTop: -4 * layoutScale,
+      ...weight,
     },
     sqrtSign: {
       fontFamily: CODE_FONT,
       fontSize,
       lineHeight: SQRT_LINE_HEIGHT * scale,
       color,
+      ...weight,
     },
     sqrtBody: {
       fontFamily: CODE_FONT,
       fontSize,
       lineHeight: SQRT_LINE_HEIGHT * scale,
       color,
+      ...weight,
     },
     sqrtRadicand: {
       borderTopWidth: StyleSheet.hairlineWidth * 2,
