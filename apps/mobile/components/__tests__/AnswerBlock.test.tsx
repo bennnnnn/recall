@@ -89,8 +89,8 @@ describe("AnswerBlock", () => {
 
   it("BUG FIX regression: a \\sqrt answer hosts MathText as a direct View (not clipped by a Text)", async () => {
     // iOS clips a View nested inside a Text to the line box — the radicand's
-    // bottom (the digit under √) was cut off in this gray box. A sqrt must
-    // render inside the answerRow View, never wrapped in a Text.
+    // bottom (the digit under √) was cut off. A sqrt must render inside the
+    // answerRow View, never wrapped in a Text.
     const { getByTestId } = await render(
       <AnswerBlock content={String.raw`2\sqrt{2}`} />,
     );
@@ -103,5 +103,14 @@ describe("AnswerBlock", () => {
     const latex = String.raw`\begin{matrix}a&b\\c&d\end{matrix}`;
     await render(<AnswerBlock content={latex} />);
     expect(mockFormula).toHaveBeenCalled();
+    expect(mockFormula.mock.calls[0][0].bgColor).toBeUndefined();
+  });
+
+  it("renders the final in bold with no gray chip", async () => {
+    const { getByTestId, getByText } = await render(<AnswerBlock content="3" />);
+    const box = StyleSheet.flatten(getByTestId("answer-box").props.style);
+    expect(box.backgroundColor).toBeUndefined();
+    expect(box.borderRadius).toBeUndefined();
+    expect(getByText("3")).toHaveStyle({ fontWeight: "700", fontSize: 20 });
   });
 });
