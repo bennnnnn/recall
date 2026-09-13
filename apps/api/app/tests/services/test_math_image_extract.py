@@ -24,10 +24,10 @@ def _ts_exported_string(source: str, name: str) -> str:
 
 def test_math_camera_prompt_matches_mobile_constant():
     """MATH_CAMERA_PROMPT must stay byte-for-byte identical to
-    apps/mobile/lib/mathCameraPrompt.ts's MATH_CAMERA_PROMPT — it's an
+    apps/mobile/lib/math/cameraPrompt.ts's MATH_CAMERA_PROMPT — it's an
     exact-match trigger phrase, not translated copy, so a drift on either
     side silently disables the camera-math verified augmentation."""
-    ts_path = Path(__file__).resolve().parents[4] / "mobile" / "lib" / "mathCameraPrompt.ts"
+    ts_path = Path(__file__).resolve().parents[4] / "mobile" / "lib" / "math" / "cameraPrompt.ts"
     source = ts_path.read_text(encoding="utf-8")
     assert mie.MATH_CAMERA_PROMPT == _ts_exported_string(source, "MATH_CAMERA_PROMPT")
     assert mie.MATH_CAMERA_CONFIRMED_PREFIX == _ts_exported_string(
