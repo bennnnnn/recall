@@ -1,4 +1,4 @@
-import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyStreamEndModel, parseChatWsPayload, shouldIgnoreStoppedStreamEvent } from "@/lib/chatSocketReduce";
+import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyStreamEndModel, parseChatWsPayload, shouldIgnoreStoppedStreamEvent } from "@/lib/chat/socketReduce";
 import type { Message } from "@/lib/api";
 
 describe("chatSocketReduce", () => {

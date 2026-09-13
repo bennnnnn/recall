@@ -1,8 +1,8 @@
 import React from "react";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/hooks/useChat";
-import { streamChatMessageSse, streamChatRegenerateSse } from "@/lib/chatSse";
-import { WS_FIRST_EVENT_TIMEOUT_MS } from "@/lib/chatWsConnect";
+import { streamChatMessageSse, streamChatRegenerateSse } from "@/lib/chat/sse";
+import { WS_FIRST_EVENT_TIMEOUT_MS } from "@/lib/chat/wsConnect";
 import { getStreamingDraft, resetStreamingDraftStore } from "@/lib/streamingDraftStore";
 
 jest.mock("react-i18next", () => {
@@ -11,7 +11,7 @@ jest.mock("react-i18next", () => {
 });
 jest.mock("@/lib/api", () => ({ chatWebSocketUrl: (id: string) => `wss://test/${id}` }));
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "UTC" }));
-jest.mock("@/lib/chatSse", () => ({
+jest.mock("@/lib/chat/sse", () => ({
   streamChatMessageSse: jest.fn(),
   streamChatRegenerateSse: jest.fn(),
   shouldAbortPriorSse: (previous: string, next: string) => previous === next,

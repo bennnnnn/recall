@@ -1,7 +1,7 @@
 import {
   chatSuggestionLoadAction,
   shouldFetchChatSuggestions,
-} from "@/lib/chatTurnRefresh";
+} from "@/lib/chat/turnRefresh";
 
 describe("chatSuggestionLoadAction", () => {
   it("clears when signed out or the thread is empty", () => {

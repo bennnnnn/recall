@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { type IoniconName } from "@/lib/icons";
 
 import { api, type Message } from "@/lib/api";
-import { patchCachedChatMessage } from "@/lib/chatMessageCache";
+import { patchCachedChatMessage } from "@/lib/chat/messageCache";
 import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";

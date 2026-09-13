@@ -1,5 +1,5 @@
 import type { Chat } from "@/lib/api";
-import { chatNeedsGeneratedTitle, provisionalAttachmentTitle } from "@/lib/chat/chatTitle";
+import { chatNeedsGeneratedTitle, provisionalAttachmentTitle } from "@/lib/chat/title";
 
 export type FirstReplyTitlePlan = {
   insert: Chat | null;

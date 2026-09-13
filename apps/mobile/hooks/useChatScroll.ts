@@ -10,7 +10,7 @@ import {
   resolveScrollAtBottom,
   shouldSchedulePostStreamScroll,
   shouldScrollToEndWhenPinned,
-} from "@/lib/chatScrollLogic";
+} from "@/lib/chat/scrollLogic";
 import { STREAM_AUTOSCROLL_RESUME_MS } from "@/lib/messageListLayout";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";

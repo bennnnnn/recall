@@ -5,7 +5,7 @@ import {
   resolveScrollAtBottom,
   shouldSchedulePostStreamScroll,
   shouldScrollToEndWhenPinned,
-} from "@/lib/chatScrollLogic";
+} from "@/lib/chat/scrollLogic";
 
 describe("chatScrollLogic", () => {
   it("getScrollThresholds scales with viewport and composer pad", () => {

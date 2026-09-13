@@ -2,7 +2,7 @@ import type { Message } from "@/lib/api";
 import { messageTextForSend, type PendingAttachment } from "@/lib/attachments";
 
 import type { ClientGeo } from "@/lib/clientGeo";
-import { markChatTtftStart } from "@/lib/chatLatency";
+import { markChatTtftStart } from "@/lib/chat/latency";
 
 export type ComposerSendDraft = {
   text: string;

@@ -11,7 +11,7 @@ import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
 import type { Message } from "@/lib/api";
-import { clearPendingChatTtft } from "@/lib/chatLatency";
+import { clearPendingChatTtft } from "@/lib/chat/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import {
@@ -19,7 +19,7 @@ import {
   buildPendingSendAfterCreate,
   shouldBlockSend,
   type ComposerSendDraft,
-} from "@/lib/chat/chatSendLogic";
+} from "@/lib/chat/sendLogic";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/lib/chat/composerThreadDraft";
 import { flushEmailDrafts } from "@/lib/emailDraftFlush";
 import {

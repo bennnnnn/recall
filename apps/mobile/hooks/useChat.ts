@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { chatWebSocketUrl, Message } from "@/lib/api";
-import { streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, shouldAbortPriorSse, type ChatSsePayload } from "@/lib/chatSse";
-import { clearPendingChatTtft, markChatFirstToken } from "@/lib/chatLatency";
+import { streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, shouldAbortPriorSse, type ChatSsePayload } from "@/lib/chat/sse";
+import { clearPendingChatTtft, markChatFirstToken } from "@/lib/chat/latency";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { getSessionGeneration } from "@/lib/auth";
@@ -12,7 +12,7 @@ import {
   mergeDoneIntoMessages,
   parseChatWsPayload,
   shouldIgnoreStoppedStreamEvent,
-} from "@/lib/chatSocketReduce";
+} from "@/lib/chat/socketReduce";
 import {
   publishStreamingDraft,
   type StreamingDraft,
@@ -20,15 +20,15 @@ import {
 import {
   popLastAssistantMessage,
   restoreAssistantMessage,
-} from "@/lib/chatRegenerateLogic";
-import { replaceStreamingMessageWithPartial } from "@/lib/chatPartialStream";
+} from "@/lib/chat/regenerateLogic";
+import { replaceStreamingMessageWithPartial } from "@/lib/chat/partialStream";
 import {
   EAGER_CONNECT_DEBOUNCE_MS,
   WS_CONNECT_TIMEOUT_MS,
   WS_FIRST_EVENT_TIMEOUT_MS,
-} from "@/lib/chatWsConnect";
+} from "@/lib/chat/wsConnect";
 
-import type { ComposerSendDraft } from "@/lib/chat/chatSendLogic";
+import type { ComposerSendDraft } from "@/lib/chat/sendLogic";
 
 export type { StreamingDraft };
 

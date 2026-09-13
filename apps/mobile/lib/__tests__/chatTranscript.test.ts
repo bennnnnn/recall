@@ -1,4 +1,4 @@
-import { conversationMarkdownBody } from "@/lib/chatTranscript";
+import { conversationMarkdownBody } from "@/lib/chat/transcript";
 import type { Message } from "@/lib/api";
 
 jest.mock("@/lib/i18n", () => ({

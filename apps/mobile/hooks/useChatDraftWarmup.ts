@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { shouldWarmDraftSocket } from "@/lib/chatDraftLogic";
+import { shouldWarmDraftSocket } from "@/lib/chat/draftLogic";
 
 type Options = {
   token: string | null;

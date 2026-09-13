@@ -1,5 +1,5 @@
 import type { Message } from "@/lib/api";
-import { replaceStreamingMessageWithPartial } from "@/lib/chatPartialStream";
+import { replaceStreamingMessageWithPartial } from "@/lib/chat/partialStream";
 
 const userMessage: Message = {
   id: "user-1",

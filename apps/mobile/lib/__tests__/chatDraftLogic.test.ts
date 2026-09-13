@@ -8,7 +8,7 @@ import {
   shouldWarmDraftSocket,
   markChatHasAssistant,
   clearKnownAssistantChats,
-} from "@/lib/chatDraftLogic";
+} from "@/lib/chat/draftLogic";
 
 describe("chatDraftLogic", () => {
   it("shouldDiscardOnNewChat only when the route effect will not", () => {

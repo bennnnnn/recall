@@ -1,4 +1,4 @@
-import { parseApiErrorDetail, resolveChatError } from "@/lib/chatErrorMessage";
+import { parseApiErrorDetail, resolveChatError } from "@/lib/chat/errorMessage";
 
 describe("chatErrorMessage", () => {
   const t = (key: string) => key;

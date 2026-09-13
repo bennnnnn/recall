@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/lib/attachments";
-import type { ResolvedChatError } from "@/lib/chatErrorMessage";
+import type { ResolvedChatError } from "@/lib/chat/errorMessage";
 import { type IoniconName } from "@/lib/icons";
 import { messagesLookLikeMath } from "@/lib/math/composerIntent";
 import type { Theme } from "@/lib/theme";

@@ -30,7 +30,7 @@ import {
 } from "@/contexts/ComposerDraftContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
-import { composerShowsMic, composerShowsSend } from "@/lib/chatComposerLogic";
+import { composerShowsMic, composerShowsSend } from "@/lib/chat/composerLogic";
 import { liveTalkShowsSideChrome } from "@/lib/liveTalkLogic";
 import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/composerIntent";

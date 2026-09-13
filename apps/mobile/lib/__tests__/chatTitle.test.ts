@@ -4,7 +4,7 @@ import {
   provisionalAttachmentTitle,
   provisionalChatTitle,
   sanitizeManualChatTitle,
-} from "@/lib/chat/chatTitle";
+} from "@/lib/chat/title";
 
 const t = (key: string) =>
   ({

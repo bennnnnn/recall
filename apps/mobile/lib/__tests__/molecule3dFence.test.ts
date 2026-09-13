@@ -1,4 +1,4 @@
-import { parseMolGeometry, parseMolecule3DFence } from "@/lib/molecule3dFence";
+import { parseMolGeometry, parseMolecule3DFence } from "@/lib/chemistry/molecule3dFence";
 
 const VALID_SDF = `Ethanol
      RDKit          3D

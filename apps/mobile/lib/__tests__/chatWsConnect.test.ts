@@ -1,4 +1,4 @@
-import { EAGER_CONNECT_DEBOUNCE_MS, WS_CONNECT_TIMEOUT_MS } from "@/lib/chatWsConnect";
+import { EAGER_CONNECT_DEBOUNCE_MS, WS_CONNECT_TIMEOUT_MS } from "@/lib/chat/wsConnect";
 
 describe("chatWsConnect", () => {
   it("fails over quickly when WebSocket handshakes stall", () => {

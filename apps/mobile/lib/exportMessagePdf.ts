@@ -2,7 +2,7 @@ import type { Message } from "@/lib/api";
 import { printHtmlToSharedPdf } from "@/lib/exportPdf";
 import i18n from "@/lib/i18n";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
-import { conversationMarkdownBody } from "@/lib/chatTranscript";
+import { conversationMarkdownBody } from "@/lib/chat/transcript";
 
 export async function exportMessageAsPdf(title: string, markdown: string): Promise<void> {
   const html = markdownToStructuredPrintHtml(title, markdown);

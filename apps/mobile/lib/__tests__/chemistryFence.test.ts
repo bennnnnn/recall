@@ -2,7 +2,7 @@ import {
   normalizeMoleculeFormulaToSmiles,
   parseChemistryFence,
   retagMoleculeMathToSmiles,
-} from "@/lib/chemistryFence";
+} from "@/lib/chemistry/fence";
 import { isStructuredFenceLang } from "@/lib/richBlocks";
 
 describe("parseChemistryFence", () => {

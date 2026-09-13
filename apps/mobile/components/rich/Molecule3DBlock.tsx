@@ -14,7 +14,7 @@ import {
   parseMolecule3DFence,
   type MolAtom,
   type MolGeometry,
-} from "@/lib/molecule3dFence";
+} from "@/lib/chemistry/molecule3dFence";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { content: string };

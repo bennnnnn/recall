@@ -1,9 +1,9 @@
 import type { ClientGeo } from "@/lib/clientGeo";
 import { clientGeoWsFields } from "@/lib/clientGeo";
-import { markChatTtftTransport } from "@/lib/chatLatency";
+import { markChatTtftTransport } from "@/lib/chat/latency";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { requestSse } from "@/lib/api/client";
-import { parseChatWsPayload } from "@/lib/chatSocketReduce";
+import { parseChatWsPayload } from "@/lib/chat/socketReduce";
 
 export type ChatSsePayload = NonNullable<ReturnType<typeof parseChatWsPayload>>;
 

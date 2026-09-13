@@ -31,7 +31,7 @@ jest.mock("@/lib/drawer", () => ({
   removeChatGlobal: jest.fn(),
 }));
 
-jest.mock("@/lib/chatMessageCache", () => ({
+jest.mock("@/lib/chat/messageCache", () => ({
   clearCachedChatMessages: jest.fn(),
   writeCachedChatMessages: jest.fn(async () => undefined),
   patchCachedChatMessage: jest.fn(async () => undefined),

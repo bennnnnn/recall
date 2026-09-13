@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 
 import { analyticsApi } from "@/lib/api/analytics";
 import { getToken } from "@/lib/auth";
-import type { ChatTransport, ChatTtftBucket } from "@/lib/chatLatency";
+import type { ChatTransport, ChatTtftBucket } from "@/lib/chat/latency";
 import { getInstallationId } from "@/lib/installationId";
 
 type Sample = {

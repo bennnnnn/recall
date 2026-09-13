@@ -5,7 +5,7 @@
  * ```smiles). The markdown preprocessor collapses an adjacent closed pair
  * into one ```molecule JSON fence so the UI mounts a single card.
  */
-import { parseChemistryFence } from "@/lib/chemistryFence";
+import { parseChemistryFence } from "@/lib/chemistry/fence";
 
 const CHEM_LANGS = new Set(["smiles", "chemistry"]);
 const MOL3D_LANGS = new Set(["molecule3d", "mol3d", "3dmol"]);

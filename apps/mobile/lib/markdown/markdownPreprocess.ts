@@ -1,7 +1,7 @@
 import { readInlineMathSpan, splitInlineMath } from "@/lib/markdown/inlineMath";
 
-import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
-import { collapseAdjacentMoleculeFences, dropRedundantMolecule3dFences } from "@/lib/moleculePair";
+import { retagMoleculeMathToSmiles } from "@/lib/chemistry/fence";
+import { collapseAdjacentMoleculeFences, dropRedundantMolecule3dFences } from "@/lib/chemistry/moleculePair";
 import {
   retagMathAndDiagramFences,
   closeInterruptedMathFences,

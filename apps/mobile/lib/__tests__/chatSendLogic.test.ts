@@ -7,16 +7,16 @@ jest.mock("@/lib/attachments", () => ({
   },
 }));
 
-jest.mock("@/lib/chatLatency", () => ({
+jest.mock("@/lib/chat/latency", () => ({
   markChatTtftStart: jest.fn(),
 }));
 
-import { markChatTtftStart } from "@/lib/chatLatency";
+import { markChatTtftStart } from "@/lib/chat/latency";
 import {
   buildOptimisticUserMessage,
   buildPendingSendAfterCreate,
   shouldBlockSend,
-} from "@/lib/chat/chatSendLogic";
+} from "@/lib/chat/sendLogic";
 
 describe("chatSendLogic", () => {
   beforeEach(() => {

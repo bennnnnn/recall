@@ -79,7 +79,7 @@ export function markChatFirstToken(
   // Reporter is intentionally lazy and fire-and-forget: loading analytics,
   // SecureStore, app metadata, and installation id happens only after the first
   // token is already on its way to the UI, so telemetry cannot worsen TTFT.
-  void import("@/lib/chatLatencyReporter")
+  void import("@/lib/chat/latencyReporter")
     .then(({ reportChatTtft }) =>
       reportChatTtft({
         latencyBucket: chatTtftBucket(elapsedMs),

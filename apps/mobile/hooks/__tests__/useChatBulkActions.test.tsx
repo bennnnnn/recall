@@ -4,7 +4,7 @@ import { act, render } from "@testing-library/react-native";
 import { useChatBulkActions } from "@/hooks/useChatBulkActions";
 import { api, type Chat } from "@/lib/api";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
-import { clearCachedChatMessages } from "@/lib/chatMessageCache";
+import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { getCachedChat } from "@/lib/cache/chatListCache";
 import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 
@@ -16,7 +16,7 @@ jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
 jest.mock("@/lib/api", () => ({ api: { setArchive: jest.fn(), deleteChat: jest.fn() } }));
 jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
-jest.mock("@/lib/chatMessageCache", () => ({ clearCachedChatMessages: jest.fn() }));
+jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: jest.fn() }));
 jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 const first: Chat = {
