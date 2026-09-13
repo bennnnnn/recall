@@ -65,6 +65,8 @@ export type Theme = {
   success: string;
   successLight: string;
   onPrimary: string;
+  /** Up to four function-graph series (ChatGPT-style overlay). */
+  graphSeries: [string, string, string, string];
 
   // Code blocks
   codeBg: string;
@@ -134,6 +136,7 @@ export const lightTheme: Theme = {
   success: "#16845B",
   successLight: "#EAF7F3",
   onPrimary: "#FFFFFF",
+  graphSeries: ["#4F56E5", "#16845B", "#B54708", "#7C3AED"],
 
   codeBg: "#F7F7F8",
   codeText: "#111113",
@@ -188,6 +191,7 @@ export const darkTheme: Theme = {
   success: "#32C48D",
   successLight: "rgba(50, 196, 141, 0.18)",
   onPrimary: "#0F0F10",
+  graphSeries: ["#B4B8FF", "#32C48D", "#F5A524", "#C4B5FD"],
 
   codeBg: "#171719",
   codeText: "#F5F5F6",

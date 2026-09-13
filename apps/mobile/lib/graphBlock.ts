@@ -444,6 +444,8 @@ export function expandBoundsForAxes(
 
 /** API default sample is ±10. ChatGPT-style school graphs zoom to about ±6. */
 const TEXTBOOK_HALF_X = 6;
+/** Vertex |y| at or above this (e.g. 4x²−5x−12) gets a root-zoomed window. */
+export const SHIFTED_VERTEX_MIN = 4;
 
 function niceStep(raw: number): number {
   if (!(raw > 0) || !Number.isFinite(raw)) return 1;
@@ -454,6 +456,75 @@ function niceStep(raw: number): number {
   return nf * mag;
 }
 
+/** Zero crossings of a sampled y=f(x) curve, interpolated between samples. */
+export function graphXIntercepts(points: [number, number][]): number[] {
+  const xs: number[] = [];
+  for (let i = 1; i < points.length; i += 1) {
+    const [x0, y0] = points[i - 1];
+    const [x1, y1] = points[i];
+    if (!Number.isFinite(y0) || !Number.isFinite(y1) || !Number.isFinite(x0) || !Number.isFinite(x1)) {
+      continue;
+    }
+    if (y0 === 0) {
+      if (xs.length === 0 || xs[xs.length - 1] !== x0) xs.push(x0);
+      continue;
+    }
+    if (y0 * y1 < 0) {
+      const t = y0 / (y0 - y1);
+      xs.push(x0 + t * (x1 - x0));
+    } else if (y1 === 0 && i === points.length - 1) {
+      xs.push(x1);
+    }
+  }
+  return xs;
+}
+
+/** Interior min/max of a dense sample — the vertex of a U, not an arm at the window edge. */
+export function interiorVertex(
+  points: [number, number][],
+): { x: number; y: number } | null {
+  if (points.length < 8) return null;
+  let minI = 0;
+  let maxI = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    if (points[i][1] < points[minI][1]) minI = i;
+    if (points[i][1] > points[maxI][1]) maxI = i;
+  }
+  const lo = Math.max(1, Math.floor(points.length * 0.08));
+  const hi = points.length - 1 - lo;
+  const minInterior = minI >= lo && minI <= hi;
+  const maxInterior = maxI >= lo && maxI <= hi;
+  if (minInterior && (!maxInterior || Math.abs(points[minI][1]) >= Math.abs(points[maxI][1]))) {
+    return { x: points[minI][0], y: points[minI][1] };
+  }
+  if (maxInterior) return { x: points[maxI][0], y: points[maxI][1] };
+  return null;
+}
+
+function featureWindowAroundVertex(
+  points: [number, number][],
+): ReturnType<typeof graphBounds> | null {
+  const vertex = interiorVertex(points);
+  if (!vertex || !(Math.abs(vertex.y) >= SHIFTED_VERTEX_MIN)) return null;
+  const intercepts = graphXIntercepts(points);
+  if (intercepts.length < 1 || intercepts.length > 3) return null;
+  let xLo = Math.min(vertex.x, 0, ...intercepts);
+  let xHi = Math.max(vertex.x, 0, ...intercepts);
+  const pad = Math.max(1.5, (xHi - xLo) * 0.45);
+  xLo -= pad;
+  xHi += pad;
+  let yLo = Math.min(0, vertex.y);
+  let yHi = 0;
+  for (const [x, y] of points) {
+    if (x >= xLo && x <= xHi && Number.isFinite(y)) {
+      yLo = Math.min(yLo, y);
+      yHi = Math.max(yHi, y);
+    }
+  }
+  if (!(yHi > 0) || yLo >= yHi) return null;
+  return { xMin: xLo, xMax: xHi, yMin: yLo, yMax: yHi };
+}
+
 /**
  * View window for a function plot — origin in frame, integer edges.
  *
@@ -461,11 +532,27 @@ function niceStep(raw: number): number {
  * vertex is a spike and 8% pad labels the frame as −12 / 108 / −8.
  * When y is much taller than a 1:1 scale, zoom to a textbook x of ±6
  * and a matching y (about −1…6) so (±1,1) / (±2,4) stay readable.
+ *
+ * A shifted quadratic (4x²-5x-12, vertex at y≈-13) is different: crop x
+ * to the roots and let y run from the vertex up the arms (to ~30), so the
+ * U fills the card instead of a ±10 needle with the x-axis at the top.
  */
 export function schoolViewBounds(
   data: ReturnType<typeof graphBounds>,
   plotAspect: number,
+  points?: [number, number][],
 ): ReturnType<typeof graphBounds> {
+  if (points && points.length >= 8) {
+    const feature = featureWindowAroundVertex(points);
+    if (feature) {
+      return {
+        xMin: Math.floor(feature.xMin),
+        xMax: Math.ceil(feature.xMax),
+        yMin: Math.floor(feature.yMin),
+        yMax: Math.ceil(feature.yMax),
+      };
+    }
+  }
   let xMin = Math.min(data.xMin, 0);
   let xMax = Math.max(data.xMax, 0);
   let yMin = Math.min(data.yMin, 0);
@@ -492,10 +579,6 @@ export function schoolViewBounds(
       yMax = 1;
       yMin = yMax - spanY;
     } else {
-      // Crosses the x-axis. A symmetric ±y crop around 0 is right for
-      // y=x²-1 (vertex near the origin). A shifted parabola
-      // (4x²-5x-12, vertex at y≈-13) must keep that vertex: clipping it
-      // leaves two near-vertical arms through the roots.
       yMin = -spanY / 2;
       yMax = spanY / 2;
       const clip = Math.max(48, spanY * 4);
@@ -515,6 +598,32 @@ export function schoolViewBounds(
     yMin: Math.floor(yMin),
     yMax: Math.ceil(yMax),
   };
+}
+
+/** Skip 1:1 scale when a tall feature window would expand x into a needle. */
+function isTallFeatureWindow(
+  bounds: ReturnType<typeof graphBounds>,
+  plotAspect: number,
+): boolean {
+  const xSpan = bounds.xMax - bounds.xMin;
+  const ySpan = bounds.yMax - bounds.yMin;
+  return xSpan > 0 && ySpan > xSpan * plotAspect * 1.25;
+}
+
+/** School crop, then equal-scale — unless that would hide a steep parabola. */
+export function functionPlotBounds(
+  points: [number, number][],
+  extraPoints: [number, number][] | undefined,
+  plotAspect: number,
+): ReturnType<typeof graphBounds> {
+  const data = graphBounds(points, extraPoints);
+  const school = schoolViewBounds(
+    data,
+    plotAspect,
+    extraPoints ? undefined : points,
+  );
+  if (isTallFeatureWindow(school, plotAspect)) return school;
+  return equalScaleGraphBounds(school, plotAspect);
 }
 
 /** Expand a chosen window so one x unit and one y unit occupy equal pixels. */
@@ -543,6 +652,13 @@ export function equalScaleGraphBounds(
     }
   }
   return bounds;
+}
+
+/** Enough ticks that a ±6 window still labels every integer. */
+export function graphTickCount(min: number, max: number): number {
+  const span = max - min;
+  if (!(span > 0) || !Number.isFinite(span)) return 7;
+  return Math.min(13, Math.max(7, Math.ceil(span) + 1));
 }
 
 /** Even ticks inside a view window (e.g. −6, −4, …, 6). */
@@ -660,6 +776,23 @@ export function mapGraphPoint(
     innerH -
     ((y - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * innerH;
   return { px, py };
+}
+
+export function unmapGraphPoint(
+  px: number,
+  py: number,
+  bounds: ReturnType<typeof graphBounds>,
+  width: number,
+  height: number,
+  pad = 28,
+): { x: number; y: number } {
+  const innerW = width - pad * 2;
+  const innerH = height - pad * 2;
+  const x =
+    bounds.xMin + ((px - pad) / (innerW || 1)) * (bounds.xMax - bounds.xMin);
+  const y =
+    bounds.yMax - ((py - pad) / (innerH || 1)) * (bounds.yMax - bounds.yMin);
+  return { x, y };
 }
 
 export function graphPolylinePoints(

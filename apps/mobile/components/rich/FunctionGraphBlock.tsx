@@ -1,21 +1,19 @@
 import { useId, useMemo } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import Svg, { Circle, G, Polyline } from "react-native-svg";
+import Svg, { G, Polyline } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
 import { NumberLineChart } from "@/components/rich/NumberLineChart";
 import { InequalityGraphChart } from "@/components/rich/InequalityGraphChart";
+import { InteractiveFunctionPlot } from "@/components/rich/InteractiveFunctionPlot";
 import {
-  equalScaleGraphBounds,
   expandBoundsForAxes,
   formatGraphExpr,
   formatInequalityExpr,
   graphBounds,
   graphPolylinePoints,
-  mapGraphPoint,
   parseGraphSpec,
-  schoolViewBounds,
   type GraphSpec,
 } from "@/lib/graphBlock";
 import { CODE_FONT } from "@/lib/fonts";
@@ -26,11 +24,6 @@ type Props = { content: string };
 const CHART_HEIGHT = 220;
 const NUMBER_LINE_HEIGHT = 80;
 
-// A handful of explicit points ("plot (2,3) and (5,1)") are individually
-// meaningful and should each be visible as a marker; a dense function
-// sample (up to 300 points) is a curve, not a set of markers to dot.
-const MAX_MARKED_POINTS = 20;
-
 export function FunctionGraphBlock({ content }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -38,7 +31,6 @@ export function FunctionGraphBlock({ content }: Props) {
   const spec = useMemo(() => parseGraphSpec(content), [content]);
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const chartWidth = Math.min(screenWidth - 48, 360);
-  const clipId = useId().replace(/:/g, "");
 
   if (!spec) {
     return (
@@ -84,174 +76,14 @@ export function FunctionGraphBlock({ content }: Props) {
     );
   }
 
-  const hasCurve2 = spec.type === "function" && !!spec.expr2 && !!spec.points2?.length;
-  const verticalX = spec.type === "vertical" ? spec.x : undefined;
-  const isVerticalLine = verticalX != null;
-  const title = formatGraphExpr(
-    spec.title ??
-      (spec.type === "vertical" ? spec.expr : `y = ${formatGraphExpr(spec.expr)}`),
-  );
-  const pad = 28;
-  const innerW = chartWidth - pad * 2;
-  const innerH = CHART_HEIGHT - pad * 2;
-  const plotAspect = innerW / innerH;
-  const bounds = isVerticalLine
-    ? expandBoundsForAxes(
-        {
-          xMin: spec.x_min ?? 0,
-          xMax: spec.x_max ?? Math.max(Math.abs(2 * verticalX), 10),
-          yMin: spec.y_min ?? Math.min(...spec.points.map((p) => p[1])),
-          yMax: spec.y_max ?? Math.max(...spec.points.map((p) => p[1])),
-        },
-        { pad: false },
-      )
-    : equalScaleGraphBounds(
-        schoolViewBounds(
-          graphBounds(spec.points, hasCurve2 ? spec.points2 : undefined),
-          plotAspect,
-        ),
-        plotAspect,
-      );
-  // A single point (or points sharing an x) has no line to draw — a
-  // Polyline needs 2+ points to render anything visible. Vertical lines
-  // run the full axis height so they read as x = c, not a capped segment.
-  const linePoints: [number, number][] = isVerticalLine
-    ? [
-        [verticalX, bounds.yMin],
-        [verticalX, bounds.yMax],
-      ]
-    : spec.points;
-  const polyline =
-    linePoints.length >= 2
-      ? graphPolylinePoints(linePoints, chartWidth, CHART_HEIGHT, bounds)
-      : null;
-  // When the backend detected a discontinuity (e.g. a tan(x) vertical
-  // asymptote), render each segment as its own Polyline against the SAME
-  // shared bounds — otherwise a naive single Polyline draws a near-vertical
-  // line straight across the gap. Bounds must come from the full point set
-  // (not per-segment) so all segments stay on one consistent axis scale.
-  const segmentPolylines = spec.segments?.length
-    ? spec.segments
-        .filter((seg) => seg.length >= 2)
-        .map((seg) =>
-          graphPolylinePoints(seg, chartWidth, CHART_HEIGHT, bounds),
-        )
-    : null;
-  const points2 = hasCurve2 ? spec.points2! : [];
-  const polyline2 =
-    hasCurve2 && points2.length >= 2
-      ? graphPolylinePoints(points2, chartWidth, CHART_HEIGHT, bounds)
-      : null;
-  const segmentPolylines2 =
-    hasCurve2 && spec.segments2?.length
-      ? spec.segments2
-          .filter((seg) => seg.length >= 2)
-          .map((seg) => graphPolylinePoints(seg, chartWidth, CHART_HEIGHT, bounds))
-      : null;
-  const inView = ([x, y]: [number, number]) =>
-    x >= bounds.xMin && x <= bounds.xMax && y >= bounds.yMin && y <= bounds.yMax;
-  const markers =
-    isVerticalLine || spec.points.length > MAX_MARKED_POINTS
-      ? []
-      : spec.points.filter(inView).map(([x, y]) =>
-          mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT),
-        );
-  const markers2 =
-    hasCurve2 && points2.length <= MAX_MARKED_POINTS
-      ? points2.filter(inView).map(([x, y]) =>
-          mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT),
-        )
-      : [];
-  const curveColor2 = theme.text;
-  const clip = `url(#${clipId})`;
-
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.title}>{title}</Text>
-      {hasCurve2 ? (
-        <View style={styles.legendRow}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: theme.primary }]} />
-            <Text style={styles.legendText}>
-              {formatGraphExpr(spec.label ?? `y = ${formatGraphExpr(spec.expr)}`)}
-            </Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: curveColor2 }]} />
-            <Text style={styles.legendText}>
-              {formatGraphExpr(spec.label2 ?? `y = ${formatGraphExpr(spec.expr2 ?? "")}`)}
-            </Text>
-          </View>
-        </View>
-      ) : null}
-      <Svg width={chartWidth} height={CHART_HEIGHT}>
-        <CartesianAxes
-          width={chartWidth}
-          height={CHART_HEIGHT}
-          pad={pad}
-          bounds={bounds}
-          clipId={clipId}
-          axisColor={theme.textSecondary}
-          labelColor={theme.textSecondary}
-          gridColor={theme.border}
-          xName={spec.variable ?? "x"}
-          yName="y"
-          fractionalTicks
-        />
-        <G clipPath={clip}>
-        {segmentPolylines ? (
-          segmentPolylines.map((pts, i) => (
-            <Polyline
-              key={i}
-              points={pts}
-              fill="none"
-              stroke={theme.primary}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ))
-        ) : polyline ? (
-          <Polyline
-            points={polyline}
-            fill="none"
-            stroke={theme.primary}
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ) : null}
-        {segmentPolylines2 ? (
-          segmentPolylines2.map((pts, i) => (
-            <Polyline
-              key={`c2-${i}`}
-              points={pts}
-              fill="none"
-              stroke={curveColor2}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ))
-        ) : polyline2 ? (
-          <Polyline
-            points={polyline2}
-            fill="none"
-            stroke={curveColor2}
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ) : null}
-        </G>
-        {markers.map(({ px, py }, i) => (
-          <Circle key={i} cx={px} cy={py} r={4} fill={theme.primary} />
-        ))}
-        {markers2.map(({ px, py }, i) => (
-          <Circle key={`c2-${i}`} cx={px} cy={py} r={4} fill={curveColor2} />
-        ))}
-      </Svg>
-    </View>
+    <InteractiveFunctionPlot
+      key={spec.expr}
+      spec={spec}
+      chartWidth={chartWidth}
+      styles={styles}
+      theme={theme}
+    />
   );
 }
 

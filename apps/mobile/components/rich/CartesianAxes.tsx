@@ -3,6 +3,7 @@ import { ClipPath, Defs, Line, Rect, Text as SvgText } from "react-native-svg";
 import {
   formatAxisNumber,
   graphAxisTicks,
+  graphTickCount,
   mapGraphPoint,
 } from "@/lib/graphBlock";
 
@@ -52,8 +53,18 @@ export function CartesianAxes({
   const origin = mapGraphPoint(0, 0, bounds, width, height);
   const yAxisX = keepAxesInView ? Math.max(pad, Math.min(width - pad, origin.px)) : origin.px;
   const xAxisY = keepAxesInView ? Math.max(pad, Math.min(height - pad, origin.py)) : origin.py;
-  const xTicks = graphAxisTicks(bounds.xMin, bounds.xMax, 7, fractionalTicks);
-  const yTicks = graphAxisTicks(bounds.yMin, bounds.yMax, 7, fractionalTicks);
+  const xTicks = graphAxisTicks(
+    bounds.xMin,
+    bounds.xMax,
+    graphTickCount(bounds.xMin, bounds.xMax),
+    fractionalTicks,
+  );
+  const yTicks = graphAxisTicks(
+    bounds.yMin,
+    bounds.yMax,
+    graphTickCount(bounds.yMin, bounds.yMax),
+    fractionalTicks,
+  );
 
   return (
     <>
@@ -141,6 +152,17 @@ export function CartesianAxes({
           </SvgText>
         );
       })}
+      {bounds.xMin <= 0 && bounds.xMax >= 0 && bounds.yMin <= 0 && bounds.yMax >= 0 ? (
+        <SvgText
+          x={origin.px + 10}
+          y={origin.py + 16}
+          fill={labelColor}
+          fontSize={TICK_FONT}
+          textAnchor="start"
+        >
+          0
+        </SvgText>
+      ) : null}
       <SvgText
         x={width - pad}
         y={xAxisY - 6}

@@ -1,5 +1,6 @@
 import {
   equalScaleGraphBounds,
+  functionPlotBounds,
   graphBounds,
   mapGraphPoint,
   schoolViewBounds,
@@ -64,6 +65,28 @@ describe("equal graph units", () => {
     const vertex = mapGraphPoint(0.625, -13.56, bounds, 406, 256);
     expect(vertex.py).toBeGreaterThanOrEqual(28);
     expect(vertex.py).toBeLessThanOrEqual(228);
+  });
+
+  it("does not flatten 4x²-5x-12 into a ±10 needle", () => {
+    const points: [number, number][] = Array.from({ length: 97 }, (_, i) => {
+      const x = -10 + (20 * i) / 96;
+      return [x, 4 * x * x - 5 * x - 12];
+    });
+    const bounds = functionPlotBounds(points, undefined, 1.75);
+    expect(bounds.xMin).toBeGreaterThanOrEqual(-4);
+    expect(bounds.xMax).toBeLessThanOrEqual(6);
+    expect(bounds.yMax).toBeGreaterThanOrEqual(25);
+    for (const [x, y] of [
+      [0.625, -13.56],
+      [-1.22, 0],
+      [2.47, 0],
+    ] as const) {
+      const { px, py } = mapGraphPoint(x, y, bounds, 406, 256);
+      expect(px).toBeGreaterThanOrEqual(28);
+      expect(px).toBeLessThanOrEqual(378);
+      expect(py).toBeGreaterThanOrEqual(28);
+      expect(py).toBeLessThanOrEqual(228);
+    }
   });
 
   it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])("keeps valid bounds when aspect is invalid: %s", (aspect) => {

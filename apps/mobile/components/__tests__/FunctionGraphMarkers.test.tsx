@@ -2,6 +2,11 @@ import { render } from "@testing-library/react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 
+jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 const mockCircle = jest.fn((_props: Record<string, unknown>) => null);
 jest.mock("react-native-svg", () => ({
   ...jest.requireActual("react-native-svg"),
@@ -38,5 +43,24 @@ describe("function graph point markers", () => {
     }
     expect(markers[0].cx).toBeLessThan(markers[1].cx as number);
     expect(markers[0].cy).toBeGreaterThan(markers[1].cy as number);
+  });
+
+  it("marks the two roots of a shifted quadratic on the x-axis", async () => {
+    const points = Array.from({ length: 97 }, (_, i) => {
+      const x = -10 + (20 * i) / 96;
+      return [x, 4 * x * x - 5 * x - 12];
+    });
+    const content = JSON.stringify({
+      type: "function",
+      expr: "4*x**2-5*x-12",
+      points,
+      x_min: -10,
+      x_max: 10,
+    });
+    await render(<FunctionGraphBlock content={content} />);
+    const roots = mockCircle.mock.calls.map(([props]) => props);
+    expect(roots).toHaveLength(2);
+    const xs = roots.map((m) => m.cx as number).sort((a, b) => a - b);
+    expect(xs[1] - xs[0]).toBeGreaterThan(20);
   });
 });

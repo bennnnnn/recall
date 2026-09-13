@@ -10,6 +10,10 @@ const mockPolyline = jest.fn((_props: Record<string, unknown>) => null);
 jest.mock("@/hooks/useResolvedColorScheme", () => ({
   useResolvedColorScheme: () => mockScheme,
 }));
+jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 jest.mock("react-native-svg", () => ({
   ...jest.requireActual("react-native-svg"),
   __esModule: true,
@@ -17,7 +21,7 @@ jest.mock("react-native-svg", () => ({
 }));
 
 describe("comparison graph series", () => {
-  it.each([lightTheme, darkTheme])("distinguishes curves and matching legend dots in $scheme mode", async (theme) => {
+  it.each([lightTheme, darkTheme])("distinguishes curves and matching series dots in $scheme mode", async (theme) => {
     mockScheme = theme.scheme;
     mockPolyline.mockClear();
     const content = JSON.stringify({
@@ -25,14 +29,25 @@ describe("comparison graph series", () => {
       points: [[-2, 4], [0, 0], [2, 4]], points2: [[-2, -4], [0, 0], [2, 4]],
       label: "Parabola", label2: "Line",
     });
-    const { getByText } = await render(<FunctionGraphBlock content={content} />);
+    const { getByDisplayValue } = await render(<FunctionGraphBlock content={content} />);
     const strokes = mockPolyline.mock.calls.map(([props]) => props.stroke);
-    expect(strokes).toEqual([theme.primary, theme.text]);
+    expect(strokes).toEqual([theme.graphSeries[0], theme.graphSeries[1]]);
     expect(strokes[0]).not.toBe(strokes[1]);
-    for (const [label, color] of [["Parabola", strokes[0]], ["Line", strokes[1]]] as const) {
-      const item = getByText(label).parent!;
-      const marker = item.children.find((child) => typeof child !== "string" && StyleSheet.flatten(child.props.style)?.backgroundColor);
-      expect(marker && typeof marker !== "string" && StyleSheet.flatten(marker.props.style).backgroundColor).toBe(color);
+    expect(getByDisplayValue("x^2")).toBeOnTheScreen();
+    expect(getByDisplayValue("2*x")).toBeOnTheScreen();
+    for (const color of [theme.graphSeries[0], theme.graphSeries[1]]) {
+      const marker = mockPolyline.mock.calls
+        .map(([props]) => props)
+        .find((props) => props.stroke === color);
+      expect(marker).toBeTruthy();
     }
+    const tree = getByDisplayValue("x^2").parent;
+    expect(tree).toBeTruthy();
+    const swatch = tree?.children.find(
+      (child) => typeof child !== "string" && StyleSheet.flatten(child.props.style)?.backgroundColor,
+    );
+    expect(
+      swatch && typeof swatch !== "string" && StyleSheet.flatten(swatch.props.style).backgroundColor,
+    ).toBe(theme.graphSeries[0]);
   });
 });

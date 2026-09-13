@@ -29,6 +29,9 @@ jest.mock("expo-file-system/legacy", () => ({
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 // WebPreviewCodeBlock pulls in expo-file-system (via HtmlPreviewModal ->
 // openHtmlPreview) transitively — none of this file's fence bodies are
 // html/css/js, so the real component is never actually rendered; a stub
@@ -200,9 +203,12 @@ describe("renderFence geometry/graph dispatch", () => {
         [1, 1],
       ],
     });
-    const { getByText } = await render(<>{renderFence(node(content, "graph"))}</>);
+    const { getByDisplayValue, getByTestId } = await render(
+      <>{renderFence(node(content, "graph"))}</>,
+    );
     await waitFor(() => {
-      expect(getByText("y = x²")).toBeOnTheScreen();
+      expect(getByDisplayValue("x^2")).toBeOnTheScreen();
+      expect(getByTestId("graph-expand")).toBeOnTheScreen();
     });
   });
 
@@ -226,9 +232,12 @@ describe("renderFence geometry/graph dispatch", () => {
         [1, 0.84],
       ],
     });
-    const { getByText } = await render(<>{renderFence(node(content))}</>);
+    const { getByDisplayValue, getByTestId } = await render(
+      <>{renderFence(node(content))}</>,
+    );
     await waitFor(() => {
-      expect(getByText("y = sin(x)")).toBeOnTheScreen();
+      expect(getByDisplayValue("sin(x)")).toBeOnTheScreen();
+      expect(getByTestId("graph-expand")).toBeOnTheScreen();
     });
   });
 });

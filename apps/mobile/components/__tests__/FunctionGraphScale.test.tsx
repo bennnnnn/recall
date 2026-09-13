@@ -2,6 +2,11 @@ import { render } from "@testing-library/react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 
+jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 const mockPolyline = jest.fn((_props: Record<string, unknown>) => null);
 jest.mock("react-native-svg", () => ({
   ...jest.requireActual("react-native-svg"),
@@ -32,8 +37,8 @@ describe("sampled conic graph rendering", () => {
     expect(width / height).toBeCloseTo(radiusX / radiusY, 3);
     if (radiusX === 1) {
       const tree = JSON.stringify(toJSON());
-      expect(tree).toContain('"content":"-0.5"');
-      expect(tree).toContain('"content":"0.5"');
+      expect(tree).toContain('"content":"-3"');
+      expect(tree).toContain('"content":"3"');
     }
   });
 });
