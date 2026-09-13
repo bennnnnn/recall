@@ -11,7 +11,7 @@ from app.services.image_gen_intent import (
     image_gen_revision_context,
     is_image_only_assistant_content,
 )
-from app.services.math_image_extract import MATH_CAMERA_PROMPT
+from app.services.math.image_extract import MATH_CAMERA_PROMPT
 
 
 @pytest.mark.parametrize(

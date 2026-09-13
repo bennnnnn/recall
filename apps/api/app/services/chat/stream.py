@@ -34,7 +34,6 @@ from app.services import (
     calendar,
     image_generation,
     image_search,
-    math_fence,
     plan,
     quota,
     todos,
@@ -114,6 +113,7 @@ from app.services.image_gen_intent import (
 from app.services.image_lookup_intent import (
     extract_image_lookup_query as extract_image_lookup_query,
 )
+from app.services.math import fence as math_fence
 
 chats_repo = chats
 messages_repo = messages

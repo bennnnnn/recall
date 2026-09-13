@@ -9,9 +9,9 @@ from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.services.chat.prompt_builder import _style_format_hints
 from app.services.chat.prompt_constants import MATH_TUTORING_HINT
-from app.services.math_reply_policy import MATH_REPLY_POLICY
-from app.services.math_tools.extract import extract_math_intent
-from app.services.math_tools.prompt import augment_prompt_messages, needs_symbolic_math
+from app.services.math.reply_policy import MATH_REPLY_POLICY
+from app.services.math.tools.extract import extract_math_intent
+from app.services.math.tools.prompt import augment_prompt_messages, needs_symbolic_math
 from app.services.tool_loop import run_tool_rounds
 
 
@@ -52,7 +52,7 @@ async def test_detected_but_unextractable_problem_has_final_local_clarification_
     query = "Draw a triangle with angles 60,60,70"
     assert needs_symbolic_math(query) and extract_math_intent(query) is None
     initial = _messages(query)
-    with patch("app.services.math_tools._build_verified_block_async", AsyncMock()) as solve:
+    with patch("app.services.math.tools._build_verified_block_async", AsyncMock()) as solve:
         prepared, verified = await augment_prompt_messages(
             initial, query, Settings(math_tools_enabled=True)
         )
@@ -94,7 +94,7 @@ async def test_verified_result_keeps_request_aware_policy_after_the_solver_work(
 @pytest.mark.asyncio
 async def test_failed_solver_ends_with_concise_guidance_and_preserves_honesty() -> None:
     query = "Solve x^2 < 4"
-    with patch("app.services.math_tools._build_verified_block_async", AsyncMock(return_value=None)):
+    with patch("app.services.math.tools._build_verified_block_async", AsyncMock(return_value=None)):
         prepared, verified = await augment_prompt_messages(
             _messages(query), query, Settings(math_tools_enabled=True)
         )
@@ -108,7 +108,7 @@ async def test_failed_solver_ends_with_concise_guidance_and_preserves_honesty() 
 @pytest.mark.asyncio
 async def test_unreadable_camera_extract_ends_with_same_policy() -> None:
     query = "Solve the math in this image"
-    with patch("app.services.math_tools.prompt.extract_math_intent", return_value=None):
+    with patch("app.services.math.tools.prompt.extract_math_intent", return_value=None):
         prepared, verified = await augment_prompt_messages(
             _messages(query), query, Settings(math_tools_enabled=True), has_image_attachment=True
         )

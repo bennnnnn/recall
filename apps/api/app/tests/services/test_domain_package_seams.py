@@ -57,7 +57,7 @@ def test_notification_compatibility_modules_share_patchable_module_objects() -> 
 
 
 def test_math_extraction_public_seam_uses_focused_extractors() -> None:
-    extract = importlib.import_module("app.services.math_tools.extract")
+    extract = importlib.import_module("app.services.math.tools.extract")
 
     assert extract.extract_math_intent("solve x + 2 = 5").kind == "equation"
     assert extract.extract_math_intent("draw a square with side 4").kind == "square"

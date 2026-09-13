@@ -12,7 +12,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import MathImageExtract
-from app.services import math_tools
+from app.services.math import tools as math_tools
 
 
 class TestMathImageExtractSchema:

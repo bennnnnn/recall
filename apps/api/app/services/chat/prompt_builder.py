@@ -20,7 +20,6 @@ from app.services import chat_tools as chat_tools_service
 from app.services import email as email_service
 from app.services import learning as learning_service
 from app.services import locale as locale_service
-from app.services import math_tools as math_tools_service
 from app.services import memory as memory_service
 from app.services import profile as profile_service
 from app.services import response_tone as response_tone_service
@@ -90,13 +89,14 @@ from app.services.chat.prompt_constants.visuals import (
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
-from app.services.math_followup import (
+from app.services.math import tools as math_tools_service
+from app.services.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
     readable_standalone_answer,
 )
-from app.services.math_reply_policy import MATH_REPLY_POLICY
-from app.services.math_tools import VerifiedMathBlock
+from app.services.math.reply_policy import MATH_REPLY_POLICY
+from app.services.math.tools import VerifiedMathBlock
 from app.services.md_fence_scan import strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import (

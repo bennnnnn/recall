@@ -88,7 +88,7 @@ class MathIntent(BaseModel):
     derivative_order: int = 1
     # Limit/series bounds — strings, not float, since "infinity"/"oo" is a
     # valid bound alongside a plain number (see
-    # math_service._parse_infinity_aware_point).
+    # math_solve._parse_infinity_aware_point).
     limit_point: str | None = None
     limit_direction: Literal["+", "-", "+-"] = "+-"
     series_start: str | None = None

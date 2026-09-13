@@ -15,8 +15,8 @@ from app.models.schemas.math import (
     RectangleGeometryInput,
     SystemOfEquationsInput,
 )
-from app.services import math_service
-from app.services.math_service import MathServiceError
+from app.services.math import solve as math_solve
+from app.services.math.solve import MathServiceError
 
 
 @pytest.mark.parametrize(
@@ -27,53 +27,51 @@ from app.services.math_service import MathServiceError
     ],
 )
 def test_solve_equation(lhs: str, rhs: str, expected_count: int) -> None:
-    result = math_service.solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
     assert len(result.solutions_latex) == expected_count
     assert "x" in result.solutions_latex[0]
 
 
 def test_normalize_latex_frac_and_abs() -> None:
-    assert math_service._normalize_latex_to_sympy(r"\frac{1}{2}x") == "((1)/(2))x"
-    assert math_service._normalize_latex_to_sympy(r"\left|x-1\right|") == "Abs(x-1)"
-    assert (
-        math_service._normalize_latex_to_sympy(r"\frac{a}{b}+\frac{c}{d}") == "((a)/(b))+((c)/(d))"
-    )
-    assert math_service._normalize_latex_to_sympy("|x-2|") == "Abs(x-2)"
-    assert math_service._normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
+    assert math_solve._normalize_latex_to_sympy(r"\frac{1}{2}x") == "((1)/(2))x"
+    assert math_solve._normalize_latex_to_sympy(r"\left|x-1\right|") == "Abs(x-1)"
+    assert math_solve._normalize_latex_to_sympy(r"\frac{a}{b}+\frac{c}{d}") == "((a)/(b))+((c)/(d))"
+    assert math_solve._normalize_latex_to_sympy("|x-2|") == "Abs(x-2)"
+    assert math_solve._normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
 
 
 def test_normalize_latex_inline_math_and_braced_power() -> None:
     """Composer ``$x^{6}=1$`` used to fail the ASCII equation walker (``$``/``{}``)."""
-    assert math_service._normalize_latex_to_sympy("$x^{6}=1$") == "x^6=1"
-    assert math_service._normalize_latex_to_sympy(r"^{x}^{2}") == "x^2"
-    assert math_service.try_extract_equations_from_text("$x^{6}=1$") == [("x^6", "1")]
+    assert math_solve._normalize_latex_to_sympy("$x^{6}=1$") == "x^6=1"
+    assert math_solve._normalize_latex_to_sympy(r"^{x}^{2}") == "x^2"
+    assert math_solve.try_extract_equations_from_text("$x^{6}=1$") == [("x^6", "1")]
 
 
 def test_normalize_unicode_ops_to_ascii() -> None:
     """OCR/homework glyphs must ascii-ize before the allowlist — not widen it."""
     mul = "2\u00d7x+3"
-    assert math_service._normalize_latex_to_sympy(mul) == "2*x+3"
-    assert math_service._normalize_latex_to_sympy("6\u00f72") == "6/2"
-    assert math_service._normalize_latex_to_sympy("2\u2212x") == "2-x"
-    assert math_service._SAFE_EXPR_CHARS.match("2\u00d73") is None
-    result = math_service.solve_equation(EquationInput(lhs=mul, rhs="7", variables=["x"]))
+    assert math_solve._normalize_latex_to_sympy(mul) == "2*x+3"
+    assert math_solve._normalize_latex_to_sympy("6\u00f72") == "6/2"
+    assert math_solve._normalize_latex_to_sympy("2\u2212x") == "2-x"
+    assert math_solve._SAFE_EXPR_CHARS.match("2\u00d73") is None
+    result = math_solve.solve_equation(EquationInput(lhs=mul, rhs="7", variables=["x"]))
     assert len(result.solutions_latex) == 1
     assert "2" in result.solutions_latex[0]
 
 
 def test_normalize_unicode_scripts_and_glyphs() -> None:
     """Superscript/subscript digits, √, π, vulgar fractions → ASCII/SymPy."""
-    assert math_service._normalize_latex_to_sympy("x\u00b2") == "x**2"
-    assert math_service._normalize_latex_to_sympy("a\u2081") == "a_1"
-    assert math_service._normalize_latex_to_sympy("x\u00b9\u2070") == "x**(10)"
-    assert math_service._normalize_latex_to_sympy("\u03c0") == "pi"
-    assert math_service._normalize_latex_to_sympy("\u221a(4)") == "sqrt(4)"
-    assert math_service._normalize_latex_to_sympy("\u221a9") == "sqrt(9)"
-    assert math_service._normalize_latex_to_sympy("\u221ax") == "sqrt(x)"
-    assert math_service._normalize_latex_to_sympy("\u00bd") == "(1)/(2)"
-    assert math_service._normalize_latex_to_sympy(r"6\sqrt{4}") == "6*sqrt(4)"
-    assert math_service._normalize_latex_to_sympy(r"\sqrt[6]{4}") == "(4)**(1/(6))"
-    parsed = math_service._parse_expression("x\u00b2 + 1", ["x"])
+    assert math_solve._normalize_latex_to_sympy("x\u00b2") == "x**2"
+    assert math_solve._normalize_latex_to_sympy("a\u2081") == "a_1"
+    assert math_solve._normalize_latex_to_sympy("x\u00b9\u2070") == "x**(10)"
+    assert math_solve._normalize_latex_to_sympy("\u03c0") == "pi"
+    assert math_solve._normalize_latex_to_sympy("\u221a(4)") == "sqrt(4)"
+    assert math_solve._normalize_latex_to_sympy("\u221a9") == "sqrt(9)"
+    assert math_solve._normalize_latex_to_sympy("\u221ax") == "sqrt(x)"
+    assert math_solve._normalize_latex_to_sympy("\u00bd") == "(1)/(2)"
+    assert math_solve._normalize_latex_to_sympy(r"6\sqrt{4}") == "6*sqrt(4)"
+    assert math_solve._normalize_latex_to_sympy(r"\sqrt[6]{4}") == "(4)**(1/(6))"
+    parsed = math_solve._parse_expression("x\u00b2 + 1", ["x"])
     assert parsed is not None
 
 
@@ -90,7 +88,7 @@ def test_normalize_unicode_scripts_and_glyphs() -> None:
     ],
 )
 def test_parse_ellipse_relation(expr: str, expected: tuple[float, float] | None) -> None:
-    got = math_service.parse_ellipse_relation(expr)
+    got = math_solve.parse_ellipse_relation(expr)
     if expected is None:
         assert got is None
     else:
@@ -100,7 +98,7 @@ def test_parse_ellipse_relation(expr: str, expected: tuple[float, float] | None)
 
 
 def test_sample_ellipse_closes_the_polyline() -> None:
-    sample = math_service.sample_ellipse(1.0, 1.0, 48)
+    sample = math_solve.sample_ellipse(1.0, 1.0, 48)
     assert len(sample.points) == 49  # 48 samples + close
     assert sample.points[0] == sample.points[-1]
     assert abs(sample.points[0][0] - 1.0) < 1e-3 or abs(sample.points[12][1] - 1.0) < 1e-3
@@ -111,9 +109,9 @@ def test_sample_ellipse_closes_the_polyline() -> None:
 
 def test_extract_equation_from_latex_frac() -> None:
     """Pasted homework with \\frac used to fail the ASCII-only equation walker."""
-    pairs = math_service.try_extract_equations_from_text(r"solve \frac{1}{2}x = 3")
+    pairs = math_solve.try_extract_equations_from_text(r"solve \frac{1}{2}x = 3")
     assert pairs == [("((1)/(2))x", "3")]
-    result = math_service.solve_equation(EquationInput(lhs="(1)/(2)x", rhs="3", variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs="(1)/(2)x", rhs="3", variables=["x"]))
     assert len(result.solutions_latex) == 1
 
 
@@ -128,7 +126,7 @@ def test_solve_equation_identifies_infinite_solutions(lhs: str, rhs: str) -> Non
     """BUG FIX: a tautology (true for every value of x) used to collapse
     into the same ambiguous "No solutions found (or infinite solution set)."
     string as a genuine contradiction."""
-    result = math_service.solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
     assert result.solutions_latex == []
     assert result.solution_kind == "infinite"
     assert any("infinitely many" in step.lower() for step in result.steps)
@@ -145,19 +143,19 @@ def test_solve_equation_identifies_no_solution(lhs: str, rhs: str) -> None:
     """BUG FIX: a genuine contradiction used to collapse into the same
     ambiguous "No solutions found (or infinite solution set)." string as a
     tautology with infinitely many solutions."""
-    result = math_service.solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
     assert result.solutions_latex == []
     assert result.solution_kind == "none"
     assert any("contradiction" in step.lower() for step in result.steps)
 
 
 def test_solve_equation_finite_solutions_kind() -> None:
-    result = math_service.solve_equation(EquationInput(lhs="2*x + 4", rhs="10", variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs="2*x + 4", rhs="10", variables=["x"]))
     assert result.solution_kind == "finite"
 
 
 def test_solve_x_squared_plus_two() -> None:
-    result = math_service.solve_equation(EquationInput(lhs="x**2 + 2", rhs="6", variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs="x**2 + 2", rhs="6", variables=["x"]))
     joined = " ".join(result.solutions_latex)
     assert "-2" in joined
     assert "2" in joined
@@ -167,7 +165,7 @@ def test_solve_quadratic_includes_worked_isolation_steps() -> None:
     """The user's x^2 + 2 = 6 case: SymPy must emit the verified intermediate
     steps (isolate x^2 = 4, take square root x = ±2) so the model copies them
     instead of inventing wrong steps like 'x^2 = 6 - 2x^2'."""
-    result = math_service.solve_equation(EquationInput(lhs="x**2 + 2", rhs="6", variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs="x**2 + 2", rhs="6", variables=["x"]))
     steps_text = "\n".join(result.steps)
     # Isolation step: x^2 = 4
     assert "x^{2} = 4" in steps_text
@@ -179,7 +177,7 @@ def test_solve_quadratic_includes_worked_isolation_steps() -> None:
 
 
 def test_canonical_sixth_roots_group_conjugates() -> None:
-    result = math_service.solve_equation(EquationInput(lhs="x**6", rhs="1", variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs="x**6", rhs="1", variables=["x"]))
     assert len(result.solutions_latex) == 6
     assert len(result.canonical_solutions_latex) == 3
     joined = " ".join(result.canonical_solutions_latex)
@@ -190,7 +188,7 @@ def test_canonical_sixth_roots_group_conjugates() -> None:
 
 def test_solve_rejects_polynomial_above_degree_cap() -> None:
     with pytest.raises(MathServiceError, match="degree"):
-        math_service.solve_equation(EquationInput(lhs="x**40", rhs="1", variables=["x"]))
+        math_solve.solve_equation(EquationInput(lhs="x**40", rhs="1", variables=["x"]))
 
 
 def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
@@ -198,7 +196,7 @@ def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
     to get NO worked steps (only the pure-quadratic b=0 case had them), so the
     model re-derived the discriminant/quadratic-formula algebra and could
     corrupt it. Now SymPy emits the discriminant + quadratic-formula steps."""
-    result = math_service.solve_equation(
+    result = math_solve.solve_equation(
         EquationInput(lhs="x**2 + 4*x + 1", rhs="0", variables=["x"])
     )
     steps_text = "\n".join(result.steps)
@@ -212,7 +210,7 @@ def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
 def test_solve_quadratic_negative_b_parenthesizes_discriminant() -> None:
     """``x^2 - 5x + 6`` used to emit ``\\Delta = -5^{2} - 4(1)(6) = 1`` (false:
     -5^2 is -25) and ``--5`` in the formula. Parenthesize b and use latex(-b)."""
-    result = math_service.solve_equation(
+    result = math_solve.solve_equation(
         EquationInput(lhs="x**2 - 5*x + 6", rhs="0", variables=["x"])
     )
     steps_text = "\n".join(result.steps)
@@ -227,7 +225,7 @@ def test_solve_quadratic_negative_b_parenthesizes_discriminant() -> None:
 
 
 def test_solve_quadratic_negative_b_and_c_no_false_precedence() -> None:
-    result = math_service.solve_equation(
+    result = math_solve.solve_equation(
         EquationInput(lhs="2*x**2 - 4*x - 6", rhs="0", variables=["x"])
     )
     steps_text = "\n".join(result.steps)
@@ -237,7 +235,7 @@ def test_solve_quadratic_negative_b_and_c_no_false_precedence() -> None:
 
 
 def test_solve_quadratic_negative_linear_coeff_parenthesizes_b() -> None:
-    result = math_service.solve_equation(
+    result = math_solve.solve_equation(
         EquationInput(lhs="x**2 - 5*x + 6", rhs="0", variables=["x"])
     )
     steps_text = "\n".join(result.steps)
@@ -247,7 +245,7 @@ def test_solve_quadratic_negative_linear_coeff_parenthesizes_b() -> None:
 
 
 def test_solve_linear_includes_worked_isolation_steps() -> None:
-    result = math_service.solve_equation(EquationInput(lhs="2*x + 4", rhs="10", variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs="2*x + 4", rhs="10", variables=["x"]))
     steps_text = "\n".join(result.steps)
     # 2*x = 6  →  x = 3
     assert "2" in steps_text
@@ -257,7 +255,7 @@ def test_solve_linear_includes_worked_isolation_steps() -> None:
 
 def test_solve_linear_shows_subtract_on_both_sides() -> None:
     """F + 3 = 3 must show F + 3 - 3 = 3 - 3, not jump to F = 3 - 3."""
-    result = math_service.solve_equation(EquationInput(lhs="F + 3", rhs="3", variables=["F"]))
+    result = math_solve.solve_equation(EquationInput(lhs="F + 3", rhs="3", variables=["F"]))
     steps_text = "\n".join(result.steps)
     assert "F + 3 - 3 = 3 - 3" in steps_text
     assert "F = 0" in steps_text
@@ -265,7 +263,7 @@ def test_solve_linear_shows_subtract_on_both_sides() -> None:
 
 def test_solve_linear_multiplies_by_reciprocal_for_half_x() -> None:
     """x/2 + 1 = 4 should multiply by 2, not divide by 1/2."""
-    result = math_service.solve_equation(EquationInput(lhs="x/2 + 1", rhs="4", variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs="x/2 + 1", rhs="4", variables=["x"]))
     steps_text = "\n".join(result.steps)
     assert "Multiply" in steps_text
     assert "2" in steps_text
@@ -277,13 +275,13 @@ def test_solve_linear_multiplies_by_reciprocal_for_half_x() -> None:
 def test_worked_steps_empty_for_unrecognized_form() -> None:
     """A multi-variable or higher-degree form gets no worked steps (caller
     still has the equation + solutions)."""
-    result = math_service.solve_equation(EquationInput(lhs="x**3 + x", rhs="2", variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs="x**3 + x", rhs="2", variables=["x"]))
     # Only the Equation: line + Solutions: line — no Isolate/Solve steps.
     assert not any(s.startswith("Isolate:") for s in result.steps)
 
 
 def test_rectangle_geometry() -> None:
-    result = math_service.rectangle_geometry(RectangleGeometryInput(width=8, height=5))
+    result = math_solve.rectangle_geometry(RectangleGeometryInput(width=8, height=5))
     assert result.diagonal == pytest.approx(math.sqrt(89), rel=1e-3)
     assert result.angle_deg == pytest.approx(math.degrees(math.atan2(5, 8)), rel=1e-2)
     assert result.area == 40.0
@@ -294,7 +292,7 @@ def test_rectangle_geometry() -> None:
 def test_square_geometry() -> None:
     from app.models.schemas.math import SquareGeometryInput
 
-    result = math_service.square_geometry(SquareGeometryInput(side=5))
+    result = math_solve.square_geometry(SquareGeometryInput(side=5))
     assert result.area == 25.0
     assert result.perimeter == 20.0
     assert result.diagonal == pytest.approx(5 * math.sqrt(2), rel=1e-3)
@@ -303,11 +301,11 @@ def test_square_geometry() -> None:
 def test_solid_geometry_cube_and_prism() -> None:
     from app.models.schemas.math import SolidGeometryInput
 
-    cube = math_service.solid_geometry(SolidGeometryInput(shape="cube", side=5))
+    cube = math_solve.solid_geometry(SolidGeometryInput(shape="cube", side=5))
     assert cube.volume == 125.0
     assert cube.surface_area == 150.0
 
-    prism = math_service.solid_geometry(
+    prism = math_solve.solid_geometry(
         SolidGeometryInput(shape="rectangular_prism", width=3, depth=4, height=5)
     )
     assert prism.volume == 60.0
@@ -317,7 +315,7 @@ def test_solid_geometry_cube_and_prism() -> None:
 def test_solid_geometry_sphere() -> None:
     from app.models.schemas.math import SolidGeometryInput
 
-    sphere = math_service.solid_geometry(SolidGeometryInput(shape="sphere", radius=3))
+    sphere = math_solve.solid_geometry(SolidGeometryInput(shape="sphere", radius=3))
     assert sphere.volume == pytest.approx((4.0 / 3.0) * math.pi * 27, rel=1e-3)
     assert sphere.surface_area == pytest.approx(4 * math.pi * 9, rel=1e-3)
 
@@ -325,14 +323,14 @@ def test_solid_geometry_sphere() -> None:
 def test_triangle_geometry() -> None:
     from app.models.schemas.math import TriangleGeometryInput
 
-    result = math_service.triangle_geometry(TriangleGeometryInput(base=8, height=5))
+    result = math_solve.triangle_geometry(TriangleGeometryInput(base=8, height=5))
     assert result.area == 20.0
 
 
 def test_right_triangle_geometry() -> None:
     from app.models.schemas.math import RightTriangleGeometryInput
 
-    result = math_service.right_triangle_geometry(RightTriangleGeometryInput(base=6, height=4))
+    result = math_solve.right_triangle_geometry(RightTriangleGeometryInput(base=6, height=4))
     assert result.hypotenuse == pytest.approx(7.2111, rel=1e-3)
     assert result.area == 12.0
     assert "7.21" in result.labels["hypotenuse"]
@@ -343,7 +341,7 @@ def test_right_triangle_geometry() -> None:
 def test_circle_geometry() -> None:
     from app.models.schemas.math import CircleGeometryInput
 
-    result = math_service.circle_geometry(CircleGeometryInput(radius=4))
+    result = math_solve.circle_geometry(CircleGeometryInput(radius=4))
     assert result.diameter == 8.0
     assert result.area == pytest.approx(math.pi * 16, rel=1e-4)
     assert result.circumference == pytest.approx(8 * math.pi, rel=1e-4)
@@ -351,7 +349,7 @@ def test_circle_geometry() -> None:
 
 
 def test_sample_function_quadratic() -> None:
-    result = math_service.sample_function(
+    result = math_solve.sample_function(
         GraphSampleInput(expr="x**2", variable="x", x_min=-2, x_max=2, n=10)
     )
     assert len(result.points) == 10
@@ -361,8 +359,8 @@ def test_sample_function_quadratic() -> None:
 
 
 def test_sample_function_rejects_relational_expr() -> None:
-    with pytest.raises(math_service.MathServiceError, match="number lines"):
-        math_service.sample_function(
+    with pytest.raises(math_solve.MathServiceError, match="number lines"):
+        math_solve.sample_function(
             GraphSampleInput(expr="x > 3", variable="x", x_min=-10, x_max=10, n=20)
         )
 
@@ -370,14 +368,14 @@ def test_sample_function_rejects_relational_expr() -> None:
 def test_sample_function_free_symbols_are_math_service_error() -> None:
     """Leftover letters (``Graph`` → G·a·h·p·r) used to TypeError at np.asarray
     and log as ``math_tools failed`` instead of a clean MathServiceError skip."""
-    with pytest.raises(math_service.MathServiceError, match="Could not sample"):
-        math_service.sample_function(
+    with pytest.raises(math_solve.MathServiceError, match="Could not sample"):
+        math_solve.sample_function(
             GraphSampleInput(expr="x**2/(G*a*h*p*r)", variable="x", x_min=-2, x_max=2, n=10)
         )
 
 
 def test_number_line_from_x_gt_3() -> None:
-    spec = math_service.number_line_spec_from_expr("x > 3")
+    spec = math_solve.number_line_spec_from_expr("x > 3")
     assert spec is not None
     assert spec.type == "number_line"
     assert len(spec.intervals) == 1
@@ -388,7 +386,7 @@ def test_number_line_from_x_gt_3() -> None:
 
 
 def test_number_line_from_compound() -> None:
-    spec = math_service.number_line_spec_from_expr("1 < x < 5")
+    spec = math_solve.number_line_spec_from_expr("1 < x < 5")
     assert spec is not None
     assert len(spec.intervals) == 1
     iv = spec.intervals[0]
@@ -399,7 +397,7 @@ def test_number_line_from_compound() -> None:
 
 
 def test_number_line_from_quadratic_split() -> None:
-    spec = math_service.number_line_spec_from_expr("x**2 - 1 > 0")
+    spec = math_solve.number_line_spec_from_expr("x**2 - 1 > 0")
     assert spec is not None
     assert len(spec.intervals) == 2
     assert any(iv.start is None and iv.end == pytest.approx(-1.0) for iv in spec.intervals)
@@ -407,7 +405,7 @@ def test_number_line_from_quadratic_split() -> None:
 
 
 def test_number_line_skips_two_variable_half_plane() -> None:
-    assert math_service.number_line_spec_from_expr("y > 2*x") is None
+    assert math_solve.number_line_spec_from_expr("y > 2*x") is None
 
 
 def test_sample_function_splits_segments_at_a_vertical_asymptote() -> None:
@@ -416,7 +414,7 @@ def test_sample_function_splits_segments_at_a_vertical_asymptote() -> None:
     every finite sample crosses straight through the discontinuity. There
     are 6 real tan(x) asymptotes in [-10, 10] (at (n + 0.5)*pi), so a
     correct split produces 7 pieces."""
-    result = math_service.sample_function(
+    result = math_solve.sample_function(
         GraphSampleInput(expr="tan(x)", variable="x", x_min=-10, x_max=10, n=200)
     )
     assert len(result.segments) == 7
@@ -430,7 +428,7 @@ def test_sample_function_does_not_split_a_smooth_function(expr: str) -> None:
     """A smooth function (even one that crosses zero, like sin(x)) must not
     be split — the heuristic only fires on a sign flip where BOTH sides are
     large in magnitude, which a zero-crossing never is."""
-    result = math_service.sample_function(
+    result = math_solve.sample_function(
         GraphSampleInput(expr=expr, variable="x", x_min=-10, x_max=10, n=200)
     )
     assert len(result.segments) == 1
@@ -438,7 +436,7 @@ def test_sample_function_does_not_split_a_smooth_function(expr: str) -> None:
 
 def test_sample_function_zooms_undersampled_sine() -> None:
     """sin(x) on [-1000, 1000] at 96 points aliases (~20 units/sample vs period 2π)."""
-    result = math_service.sample_function(
+    result = math_solve.sample_function(
         GraphSampleInput(expr="sin(x)", variable="x", x_min=-1000, x_max=1000, n=96)
     )
     width = result.x_max - result.x_min
@@ -450,7 +448,7 @@ def test_sample_function_zooms_undersampled_sine() -> None:
 
 
 def test_sample_function_keeps_explicit_count_on_a_short_window() -> None:
-    result = math_service.sample_function(
+    result = math_solve.sample_function(
         GraphSampleInput(expr="x**2", variable="x", x_min=-2, x_max=2, n=10)
     )
     assert len(result.points) == 10
@@ -459,38 +457,38 @@ def test_sample_function_keeps_explicit_count_on_a_short_window() -> None:
 
 
 def test_simplify_expression() -> None:
-    result = math_service.simplify_expression("x + x", "x")
+    result = math_solve.simplify_expression("x + x", "x")
     assert result.result == "2*x"
 
 
 def test_factor_expression() -> None:
-    result = math_service.factor_expression("x**2 - 1", "x")
+    result = math_solve.factor_expression("x**2 - 1", "x")
     # SymPy factors x^2 - 1 into (x - 1)*(x + 1).
     assert result.result == "(x - 1)*(x + 1)"
 
 
 def test_expand_expression() -> None:
-    result = math_service.expand_expression("(x - 1)*(x + 1)", "x")
+    result = math_solve.expand_expression("(x - 1)*(x + 1)", "x")
     assert result.result == "x**2 - 1"
 
 
 def test_integrate_definite_expression() -> None:
     # ∫₀¹ x² dx = 1/3.
-    result = math_service.integrate_definite("x**2", "x", "0", "1")
+    result = math_solve.integrate_definite("x**2", "x", "0", "1")
     assert result.solved is True
     assert result.result == "1/3"
 
 
 def test_integrate_definite_infinity_aware() -> None:
     # ∫₀^∞ e^(-x) dx = 1 — bound "inf" maps to sympy.oo.
-    result = math_service.integrate_definite("exp(-x)", "x", "0", "inf")
+    result = math_solve.integrate_definite("exp(-x)", "x", "0", "inf")
     assert result.solved is True
     assert result.result == "1"
 
 
 def test_solve_inequality_quadratic_split() -> None:
     # x^2 - 1 > 0  →  x < -1 or x > 1.
-    result = math_service.solve_inequality("x**2 - 1", "0", "x", ">")
+    result = math_solve.solve_inequality("x**2 - 1", "0", "x", ">")
     sol = "\n".join(result.steps)
     assert "Inequality" in sol
     # Solution set must reference the split points (-1 and 1).
@@ -498,60 +496,60 @@ def test_solve_inequality_quadratic_split() -> None:
 
 
 def test_try_extract_inequality_from_text() -> None:
-    assert math_service.try_extract_inequality_from_text("solve x**2 - 1 > 0") == (
+    assert math_solve.try_extract_inequality_from_text("solve x**2 - 1 > 0") == (
         "x**2 - 1",
         "0",
         ">",
     )
     # LaTeX \leq and Unicode ≤ canonicalize to "<=".
-    leq = math_service.try_extract_inequality_from_text("solve x \\leq 5")
+    leq = math_solve.try_extract_inequality_from_text("solve x \\leq 5")
     assert leq is not None and leq[2] == "<="
-    le = math_service.try_extract_inequality_from_text("solve x ≤ 5")
+    le = math_solve.try_extract_inequality_from_text("solve x ≤ 5")
     assert le is not None and le[2] == "<="
     # \le must NOT match the \le inside \left(...\right).
-    assert math_service.try_extract_inequality_from_text("solve \\left(x + 1\\right) = 0") is None
+    assert math_solve.try_extract_inequality_from_text("solve \\left(x + 1\\right) = 0") is None
 
 
 def test_abs_inequality_extract_and_solve() -> None:
-    ineq = math_service.try_extract_inequality_from_text("solve |x-2| < 5")
+    ineq = math_solve.try_extract_inequality_from_text("solve |x-2| < 5")
     assert ineq == ("Abs(x-2)", "5", "<")
-    result = math_service.solve_inequality("Abs(x-2)", "5", "x", "<")
+    result = math_solve.solve_inequality("Abs(x-2)", "5", "x", "<")
     assert result.solutions_latex
     joined = " ".join(result.solutions_latex)
     assert "3" in joined or "-3" in joined or "x" in joined
 
 
 def test_abs_equation_extract_and_solve() -> None:
-    pairs = math_service.try_extract_equations_from_text("solve |x-2| = 5")
+    pairs = math_solve.try_extract_equations_from_text("solve |x-2| = 5")
     assert pairs == [("Abs(x-2)", "5")]
-    result = math_service.solve_equation(EquationInput(lhs="Abs(x-2)", rhs="5", variables=["x"]))
+    result = math_solve.solve_equation(EquationInput(lhs="Abs(x-2)", rhs="5", variables=["x"]))
     assert len(result.solutions_latex) == 2
 
 
 def test_compound_inequality_extract_and_solve() -> None:
-    compound = math_service.try_extract_compound_inequality_from_text("solve 1 < x < 5")
+    compound = math_solve.try_extract_compound_inequality_from_text("solve 1 < x < 5")
     assert compound == ("1", "<", "x", "<", "5")
-    closed = math_service.try_extract_compound_inequality_from_text("solve 1 ≤ x ≤ 3")
+    closed = math_solve.try_extract_compound_inequality_from_text("solve 1 ≤ x ≤ 3")
     assert closed == ("1", "<=", "x", "<=", "3")
-    result = math_service.solve_compound_inequality("1", "<", "x", "<", "5", "x")
+    result = math_solve.solve_compound_inequality("1", "<", "x", "<", "5", "x")
     assert result.solutions_latex
     assert "1" in result.solutions_latex[0] or "Interval" in result.steps[1]
 
 
 def test_differentiate_expression() -> None:
-    result = math_service.differentiate_expression("x**2", "x")
+    result = math_solve.differentiate_expression("x**2", "x")
     assert "2" in result.latex
 
 
 def test_differentiate_expression_second_order() -> None:
-    result = math_service.differentiate_expression("x**4 - 3*x**2", "x", 2)
+    result = math_solve.differentiate_expression("x**4 - 3*x**2", "x", 2)
     # SymPy may leave 12x^{2}-6 or factor as 6(2x^{2}-1).
     assert "x^{3}" not in result.latex
     assert "2 x^{2}" in result.latex or "12" in result.latex
 
 
 def test_integrate_expression_marks_closed_form_result_as_solved() -> None:
-    result = math_service.integrate_expression("2*x", "x")
+    result = math_solve.integrate_expression("2*x", "x")
     assert result.result == "x**2"
     assert result.solved is True
 
@@ -561,7 +559,7 @@ def test_integrate_expression_marks_unevaluated_integral_as_not_solved() -> None
     contains a literal unevaluated Integral(...) instead of raising — that
     used to be indistinguishable from a real closed-form answer downstream,
     where it was asserted to the model as "verified, do NOT recompute"."""
-    result = math_service.integrate_expression("x**x", "x")
+    result = math_solve.integrate_expression("x**x", "x")
     assert result.solved is False
     assert "Integral" in result.result
 
@@ -576,13 +574,13 @@ def test_integrate_expression_marks_unevaluated_integral_as_not_solved() -> None
     ],
 )
 def test_compute_limit(expr: str, point: str, expected: str) -> None:
-    result = math_service.compute_limit(expr, "x", point)
+    result = math_solve.compute_limit(expr, "x", point)
     assert result.result == expected
     assert result.is_infinite is False
 
 
 def test_compute_limit_marks_a_diverging_limit_as_infinite() -> None:
-    result = math_service.compute_limit("1/x", "x", "0")
+    result = math_solve.compute_limit("1/x", "x", "0")
     assert result.is_infinite is True
     # A two-sided limit at 0 doesn't exist as a finite value (the sides
     # disagree) — preserve SymPy's zoo status for the presentation layer.
@@ -591,12 +589,12 @@ def test_compute_limit_marks_a_diverging_limit_as_infinite() -> None:
 
 
 def test_compute_limit_negative_infinity_point() -> None:
-    result = math_service.compute_limit("x", "x", "-infinity")
+    result = math_solve.compute_limit("x", "x", "-infinity")
     assert result.is_infinite is True
 
 
 def test_evaluate_series_sum_convergent() -> None:
-    result = math_service.evaluate_series_sum("1/n**2", "n", "1", "infinity")
+    result = math_solve.evaluate_series_sum("1/n**2", "n", "1", "infinity")
     assert result.is_convergent is True
     assert result.is_absolutely_convergent is True
     assert result.is_infinite is False
@@ -607,20 +605,20 @@ def test_evaluate_series_sum_divergent() -> None:
     """BUG FIX target: the harmonic series (sum 1/n) diverges — must be
     flagged as not convergent and as an infinite result, not silently
     presented as a finite value."""
-    result = math_service.evaluate_series_sum("1/n", "n", "1", "infinity")
+    result = math_solve.evaluate_series_sum("1/n", "n", "1", "infinity")
     assert result.is_convergent is False
     assert result.is_infinite is True
     assert result.result == "oo"
 
 
 def test_evaluate_series_sum_finite_bounds() -> None:
-    result = math_service.evaluate_series_sum("n", "n", "1", "10")
+    result = math_solve.evaluate_series_sum("n", "n", "1", "10")
     assert result.result == "55"
     assert result.is_infinite is False
 
 
 def test_try_extract_equation() -> None:
-    eq = math_service.try_extract_equation_from_text("Solve x^2 + 2 = 6")
+    eq = math_solve.try_extract_equation_from_text("Solve x^2 + 2 = 6")
     assert eq is not None
     assert eq.lhs.replace(" ", "") in {"x**2+2", "x^2+2"}
 
@@ -645,11 +643,11 @@ def test_try_extract_equation_strips_leading_trigger_words(text: str, expected_l
     list, producing a confidently wrong "verified" answer. Confirmed live:
     'Solve x^2 + 2 = 6' used to solve for a garbage variable and return
     nonsense like "2.71828182845905 S l o v x^{2} + 2 = 6"."""
-    eq = math_service.try_extract_equation_from_text(text)
+    eq = math_solve.try_extract_equation_from_text(text)
     assert eq is not None
     assert eq.lhs == expected_lhs
     assert eq.variables == ["x"]
-    result = math_service.solve_equation(eq)
+    result = math_solve.solve_equation(eq)
     assert result.solutions_latex == ["x = -2", "x = 2"]
     assert result.canonical_solutions_latex == [r"x = \pm 2"]
 
@@ -658,12 +656,12 @@ def test_try_extract_equations_from_text_finds_every_clause() -> None:
     """BUG FIX (most severe correctness bug found in the audit): this used
     to be a single re.search, so only the FIRST equation was ever extracted
     — "solve x+y=5, x-y=1" silently discarded the second clause."""
-    pairs = math_service.try_extract_equations_from_text("solve x+y=5, x-y=1")
+    pairs = math_solve.try_extract_equations_from_text("solve x+y=5, x-y=1")
     assert pairs == [("x+y", "5"), ("x-y", "1")]
 
 
 def test_try_extract_equations_from_text_strips_system_prefix() -> None:
-    pairs = math_service.try_extract_equations_from_text(
+    pairs = math_solve.try_extract_equations_from_text(
         "solve the system of equations x+2y=8, 3x-y=1"
     )
     assert pairs == [("x+2y", "8"), ("3x-y", "1")]
@@ -671,37 +669,35 @@ def test_try_extract_equations_from_text_strips_system_prefix() -> None:
 
 def test_try_extract_equations_keeps_x_in_spaced_system() -> None:
     """'the system x + y = 5' used to strip the first x as filler."""
-    pairs = math_service.try_extract_equations_from_text(
-        "Solve the system x + y = 5 and x - y = 1."
-    )
+    pairs = math_solve.try_extract_equations_from_text("Solve the system x + y = 5 and x - y = 1.")
     assert pairs == [("x + y", "5"), ("x - y", "1")]
 
 
 def test_try_extract_equations_strips_trailing_sentence_period() -> None:
-    pairs = math_service.try_extract_equations_from_text("Solve 1/2 + 1/3 = x.")
+    pairs = math_solve.try_extract_equations_from_text("Solve 1/2 + 1/3 = x.")
     assert pairs == [("1/2 + 1/3", "x")]
 
 
 def test_try_extract_equations_from_text_single_equation_unaffected() -> None:
-    assert math_service.try_extract_equations_from_text("x + 4 = 10") == [("x + 4", "10")]
+    assert math_solve.try_extract_equations_from_text("x + 4 = 10") == [("x + 4", "10")]
 
 
 def test_try_extract_equations_collapses_chained_equals() -> None:
     """``2x+3=3=7`` (doubled '=') must solve ``2x+3=7``, not ``2x+3=3``."""
-    assert math_service.try_extract_equations_from_text("Solve 2x + 3 = 3 = 7") == [("2x + 3", "7")]
+    assert math_solve.try_extract_equations_from_text("Solve 2x + 3 = 3 = 7") == [("2x + 3", "7")]
 
 
 def test_try_extract_equations_strips_glued_english() -> None:
-    assert math_service.try_extract_equations_from_text("X=6graph") == [("X", "6")]
-    assert math_service.try_extract_equations_from_text("2x+3=7please") == [("2x+3", "7")]
-    assert math_service.try_extract_equations_from_text("velocity=12") == [("velocity", "12")]
-    assert math_service.try_extract_equations_from_text("E=mc^2") == [("E", "mc^2")]
+    assert math_solve.try_extract_equations_from_text("X=6graph") == [("X", "6")]
+    assert math_solve.try_extract_equations_from_text("2x+3=7please") == [("2x+3", "7")]
+    assert math_solve.try_extract_equations_from_text("velocity=12") == [("velocity", "12")]
+    assert math_solve.try_extract_equations_from_text("E=mc^2") == [("E", "mc^2")]
 
 
 def test_try_extract_equations_stops_at_homework_labels() -> None:
     """collapse_ws turns `=0\\nFactor it:` into `=0 Factor it` — do not glue
     the label onto the RHS (that used to make a fake multi-equation system)."""
-    pairs = math_service.try_extract_equations_from_text("2x^2-7x+3=0 Factor it: 2x-1=0 or x-3=0")
+    pairs = math_solve.try_extract_equations_from_text("2x^2-7x+3=0 Factor it: 2x-1=0 or x-3=0")
     assert ("2x^2-7x+3", "0") in pairs
     assert ("2x-1", "0") in pairs
     assert ("x-3", "0") in pairs
@@ -710,21 +706,21 @@ def test_try_extract_equations_stops_at_homework_labels() -> None:
 
 
 def test_guess_variables_does_not_split_unknown_letter_runs() -> None:
-    eq = math_service.try_extract_equation_from_text("X=6graph")
+    eq = math_solve.try_extract_equation_from_text("X=6graph")
     assert eq is not None
     assert eq.lhs == "X"
     assert eq.rhs == "6"
     assert eq.variables == ["X"]
-    assert math_service.guess_variables("X=6graph") == ["X"]
-    assert math_service.guess_variables("6graph") == ["x"]
+    assert math_solve.guess_variables("X=6graph") == ["X"]
+    assert math_solve.guess_variables("6graph") == ["x"]
 
 
 def test_try_extract_equations_from_text_no_equation() -> None:
-    assert math_service.try_extract_equations_from_text("what's the weather") == []
+    assert math_solve.try_extract_equations_from_text("what's the weather") == []
 
 
 def test_solve_system_unique_solution() -> None:
-    result = math_service.solve_system(
+    result = math_solve.solve_system(
         SystemOfEquationsInput(equations=[("x+y", "5"), ("x-y", "1")], variables=["x", "y"])
     )
     assert result.solution_kind == "finite"
@@ -735,7 +731,7 @@ def test_solve_system_no_solution() -> None:
     """BUG FIX target: two parallel-line equations (same slope, different
     intercept) have no solution — must not be silently reported as an empty
     solution set with no explanation."""
-    result = math_service.solve_system(
+    result = math_solve.solve_system(
         SystemOfEquationsInput(equations=[("x+y", "5"), ("x+y", "10")], variables=["x", "y"])
     )
     assert result.solution_kind == "none"
@@ -747,7 +743,7 @@ def test_solve_system_infinite_solutions_dependent_equations() -> None:
     first scaled by 2) has infinitely many solutions along a line — SymPy
     returns a non-empty but parametrized solution ({x: 5 - y}) rather than
     an empty list, which must not be mistaken for a single finite answer."""
-    result = math_service.solve_system(
+    result = math_solve.solve_system(
         SystemOfEquationsInput(equations=[("x+y", "5"), ("2*x+2*y", "10")], variables=["x", "y"])
     )
     assert result.solution_kind == "infinite"
@@ -755,14 +751,14 @@ def test_solve_system_infinite_solutions_dependent_equations() -> None:
 
 
 def test_solve_system_infinite_solutions_independent_tautologies() -> None:
-    result = math_service.solve_system(
+    result = math_solve.solve_system(
         SystemOfEquationsInput(equations=[("x", "x"), ("y", "y")], variables=["x", "y"])
     )
     assert result.solution_kind == "infinite"
 
 
 def test_solve_system_three_by_three() -> None:
-    result = math_service.solve_system(
+    result = math_solve.solve_system(
         SystemOfEquationsInput(
             equations=[("x+y+z", "6"), ("x-y+z", "2"), ("x+y-z", "0")],
             variables=["x", "y", "z"],
@@ -774,7 +770,7 @@ def test_solve_system_three_by_three() -> None:
 
 def test_newton_method_converges_to_known_root() -> None:
     # x^3 - 2x - 5 = 0 has a well-known real root near 2.0945514815.
-    result = math_service.newton_method(
+    result = math_solve.newton_method(
         NewtonMethodInput(expr="x**3 - 2*x - 5", variable="x", initial_guess=2.0)
     )
     assert result.converged is True
@@ -785,7 +781,7 @@ def test_newton_method_converges_to_known_root() -> None:
 
 
 def test_newton_method_records_full_iteration_history() -> None:
-    result = math_service.newton_method(
+    result = math_solve.newton_method(
         NewtonMethodInput(expr="x**2 - 2", variable="x", initial_guess=1.0)
     )
     assert result.converged is True
@@ -798,7 +794,7 @@ def test_newton_method_records_full_iteration_history() -> None:
 def test_newton_method_stops_at_max_iterations_when_not_converged() -> None:
     """A tiny max_iterations with a tolerance the method can't reach in time
     must report converged=False rather than silently returning a root."""
-    result = math_service.newton_method(
+    result = math_solve.newton_method(
         NewtonMethodInput(
             expr="x**3 - 2*x - 5",
             variable="x",
@@ -814,7 +810,7 @@ def test_newton_method_stops_at_max_iterations_when_not_converged() -> None:
 
 def test_newton_method_transcendental_equation() -> None:
     # x = cos(x) — the "Dottie number," ~0.7390851332.
-    result = math_service.newton_method(
+    result = math_solve.newton_method(
         NewtonMethodInput(expr="(x)-(cos(x))", variable="x", initial_guess=1.0)
     )
     assert result.converged is True
@@ -842,7 +838,7 @@ def test_guess_variables_ignores_function_name_letters(text: str, expected_varia
     'x', silently building a verified block that solves for the wrong
     symbol. Also verifies pi is recognized as a constant (not split into
     p/i variables)."""
-    eq = math_service.try_extract_equation_from_text(text)
+    eq = math_solve.try_extract_equation_from_text(text)
     assert eq is not None
     assert eq.variables[0] == expected_variable
 
@@ -908,8 +904,8 @@ def test_graph_block_spec_rejects_more_points_than_the_backend_ever_samples() ->
     ],
 )
 def test_parse_expression_rejects_attribute_and_subscript_gadgets(payload: str) -> None:
-    with pytest.raises(math_service.MathServiceError):
-        math_service._parse_expression(payload, ["x"])
+    with pytest.raises(math_solve.MathServiceError):
+        math_solve._parse_expression(payload, ["x"])
 
 
 @pytest.mark.parametrize(
@@ -926,4 +922,4 @@ def test_parse_expression_rejects_attribute_and_subscript_gadgets(payload: str) 
 )
 def test_parse_expression_still_accepts_ordinary_math(expr: str, variables: list[str]) -> None:
     """The RCE fix must not collateral-damage normal expressions."""
-    math_service._parse_expression(expr, variables)
+    math_solve._parse_expression(expr, variables)

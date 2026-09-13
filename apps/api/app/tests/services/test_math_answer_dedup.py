@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.services.math_fence import validate_math_fences
-from app.services.math_tools import VerifiedMathBlock
+from app.services.math.fence import validate_math_fences
+from app.services.math.tools import VerifiedMathBlock
 
 
 @pytest.mark.parametrize(

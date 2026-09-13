@@ -13,12 +13,14 @@ from app.models.schemas.math import (
     TrapezoidInput,
     TriangleSidesInput,
 )
-from app.services import math_service, math_text_match, math_tools
+from app.services.math import match as math_match
+from app.services.math import solve as math_solve
+from app.services.math import tools as math_tools
 
 
 class TestTriangleSidesGeometry:
     def test_3_4_5_right_triangle(self):
-        result = math_service.triangle_sides_geometry(TriangleSidesInput(a=3, b=4, c=5))
+        result = math_solve.triangle_sides_geometry(TriangleSidesInput(a=3, b=4, c=5))
         assert result.area == 6
         assert result.perimeter == 12
         assert result.angle_c_deg == pytest.approx(90, abs=0.01)
@@ -28,15 +30,13 @@ class TestTriangleSidesGeometry:
             TriangleSidesInput(a=1, b=1, c=10)
 
     def test_format_degree_label_rounds_near_integers(self):
-        assert math_service.format_degree_label(119.9) == "120°"
-        assert math_service.format_degree_label(90.0) == "90°"
-        assert math_service.format_degree_label(36.87) == "36.9°"
+        assert math_solve.format_degree_label(119.9) == "120°"
+        assert math_solve.format_degree_label(90.0) == "90°"
+        assert math_solve.format_degree_label(36.87) == "36.9°"
 
     def test_sides_from_120_40_20_round_trip_angles(self):
-        a, b, c = math_service.sides_from_interior_angles(120, 40, 20)
-        result = math_service.triangle_sides_geometry(
-            TriangleSidesInput(a=a, b=b, c=c, unit="units")
-        )
+        a, b, c = math_solve.sides_from_interior_angles(120, 40, 20)
+        result = math_solve.triangle_sides_geometry(TriangleSidesInput(a=a, b=b, c=c, unit="units"))
         assert result.labels["angle_a"] == "120°"
         assert result.labels["angle_b"] == "40°"
         assert result.labels["angle_c"] == "20°"
@@ -45,13 +45,13 @@ class TestTriangleSidesGeometry:
 
 class TestTrapezoidGeometry:
     def test_area(self):
-        result = math_service.trapezoid_geometry(TrapezoidInput(top=4, bottom=8, height=5))
+        result = math_solve.trapezoid_geometry(TrapezoidInput(top=4, bottom=8, height=5))
         assert result.area == 30
 
 
 class TestParallelogramGeometry:
     def test_area_and_perimeter(self):
-        result = math_service.parallelogram_geometry(ParallelogramInput(base=8, height=4, side=5))
+        result = math_solve.parallelogram_geometry(ParallelogramInput(base=8, height=4, side=5))
         assert result.area == 32
         assert result.perimeter == 26
 
@@ -62,7 +62,7 @@ class TestParallelogramGeometry:
 
 class TestSectorGeometry:
     def test_quarter_circle(self):
-        result = math_service.sector_geometry(SectorInput(radius=4, angle_deg=90))
+        result = math_solve.sector_geometry(SectorInput(radius=4, angle_deg=90))
         # Quarter circle: area = pi * r^2 / 4, arc = 2*pi*r/4
         assert result.area == pytest.approx(12.566, abs=0.01)
         assert result.arc_length == pytest.approx(6.283, abs=0.01)
@@ -70,12 +70,12 @@ class TestSectorGeometry:
 
 class TestNewShapeTextSignals:
     def test_triangle_sides_signal(self):
-        assert math_text_match.triangle_sides_signal("triangle with sides 3, 4, 5") == (
+        assert math_match.triangle_sides_signal("triangle with sides 3, 4, 5") == (
             3.0,
             4.0,
             5.0,
         )
-        assert math_text_match.triangle_sides_signal("draw a triangle") is None
+        assert math_match.triangle_sides_signal("draw a triangle") is None
 
     def test_needs_symbolic_for_new_shapes(self):
         for text in (
@@ -84,13 +84,13 @@ class TestNewShapeTextSignals:
             "sector of a circle with radius 5 and angle 90",
             "triangle with sides 3, 4, 5",
         ):
-            assert math_text_match.needs_symbolic(text) is True
+            assert math_match.needs_symbolic(text) is True
         # "sector" alone (no geometry context) must NOT false-positive on
         # the extremely common non-math usage ("the tech sector").
-        assert math_text_match.needs_symbolic("the tech sector is booming") is False
+        assert math_match.needs_symbolic("the tech sector is booming") is False
         # Partial sector dims used to invent the missing angle as 90° —
         # do not enter the verified path without both radius and angle.
-        assert math_text_match.needs_symbolic("sector of a circle with radius 5") is False
+        assert math_match.needs_symbolic("sector of a circle with radius 5") is False
 
 
 class TestAugmentPromptMessagesForNewShapes:

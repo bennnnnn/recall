@@ -13,7 +13,7 @@ import time
 
 import pytest
 
-from app.services.sympy_executor import (
+from app.services.math.sympy_executor import (
     ProcessPoolSympyExecutor,
     ThreadSympyExecutor,
     run_sympy,

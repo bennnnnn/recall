@@ -5,11 +5,11 @@ import json
 import pytest
 
 from app.models.schemas.math import GraphBlockSpec
-from app.services.math_fence import densify_sparse_graph, validate_math_fences
+from app.services.math.fence import densify_sparse_graph, validate_math_fences
 
 
 def _verified(canonical_fence):
-    from app.services.math_tools import VerifiedMathBlock
+    from app.services.math.tools import VerifiedMathBlock
 
     return VerifiedMathBlock(text="unused", canonical_fence=canonical_fence)
 
@@ -73,7 +73,7 @@ def test_replaces_truncated_unclosed_graph_fence_with_canonical() -> None:
     turn has a verified canonical fence, swap the truncated tail for the
     complete fence."""
     from app.core.config import get_settings
-    from app.services.math_tools.prompt import build_math_augmentation
+    from app.services.math.tools.prompt import build_math_augmentation
 
     settings = get_settings()
     import asyncio
@@ -114,7 +114,7 @@ def test_replace_unclosed_graph_fence_safe_substitutes_canonical_without_sympy()
     """Timeout-fallback path: substitute a verified canonical fence SymPy-free
     (no densify) so a truncated graph fence doesn't leak raw JSON to the client
     when validate_math_fences was killed by the solve timeout."""
-    from app.services.math_fence import replace_unclosed_graph_fence_safe
+    from app.services.math.fence import replace_unclosed_graph_fence_safe
 
     canonical_points: list[list[float]] = [[-10.0, 100.0], [0.0, 0.0], [10.0, 100.0]]
     canonical: dict[str, object] = {
@@ -142,7 +142,7 @@ def test_replace_unclosed_graph_fence_safe_substitutes_canonical_without_sympy()
 
 def test_replace_unclosed_graph_fence_safe_strips_when_no_canonical() -> None:
     """No verified canonical fence → strip the truncated tail to the error note."""
-    from app.services.math_fence import replace_unclosed_graph_fence_safe
+    from app.services.math.fence import replace_unclosed_graph_fence_safe
 
     content = "```graph\n" + '{"type":"function","expr":"x**2","points":[[-10,100],[-9,81'
     out = replace_unclosed_graph_fence_safe(content, None)
@@ -152,7 +152,7 @@ def test_replace_unclosed_graph_fence_safe_strips_when_no_canonical() -> None:
 
 def test_replace_unclosed_graph_fence_safe_noop_when_no_unclosed_fence() -> None:
     """No diagram fence → return content unchanged (no SymPy, no rewrite)."""
-    from app.services.math_fence import replace_unclosed_graph_fence_safe
+    from app.services.math.fence import replace_unclosed_graph_fence_safe
 
     content = "Just prose, no graph fence at all."
     assert replace_unclosed_graph_fence_safe(content, None) == content
@@ -160,7 +160,7 @@ def test_replace_unclosed_graph_fence_safe_noop_when_no_unclosed_fence() -> None
 
 def test_replace_unclosed_graph_fence_safe_degrades_closed_unmatched() -> None:
     """Timeout path must fail-closed on complete invented geometry/graph JSON."""
-    from app.services.math_fence import replace_unclosed_graph_fence_safe
+    from app.services.math.fence import replace_unclosed_graph_fence_safe
 
     geo = '```geometry\n{"type":"rectangle","width":99,"height":1}\n```'
     geo_out = replace_unclosed_graph_fence_safe(geo, None)
@@ -433,7 +433,7 @@ def test_leaves_answer_fence_when_canonical_is_geometry() -> None:
 
 
 def test_rewrites_answer_fence_when_geometry_has_canonical_answer() -> None:
-    from app.services.math_tools import VerifiedMathBlock
+    from app.services.math.tools import VerifiedMathBlock
 
     content = (
         '```geometry\n{"type":"rectangle","width":4,"height":5,"diagonal":99}\n```\n'
@@ -513,7 +513,7 @@ def test_leaves_point_marker_graph_undensified() -> None:
 def test_sample_domain_unions_declared_window_and_key_points() -> None:
     """Default [-10,10] must expand when key points sit outside that window."""
     from app.models.schemas.math import GraphBlockSpec
-    from app.services.math_fence import _sample_domain
+    from app.services.math.fence import _sample_domain
 
     spec = GraphBlockSpec(
         type="function",
@@ -546,7 +546,7 @@ def test_leaves_already_dense_graph_formatting_alone() -> None:
 
 
 def test_validate_math_fences_caps_per_kind() -> None:
-    from app.services.math_fence import _MAX_GEOMETRY_FENCES, _MAX_GRAPH_FENCES
+    from app.services.math.fence import _MAX_GEOMETRY_FENCES, _MAX_GRAPH_FENCES
 
     bad_geo = "```geometry\n{bad json\n```"
     geo = "\n".join([bad_geo] * (_MAX_GEOMETRY_FENCES + 1))
@@ -562,7 +562,7 @@ def test_validate_math_fences_caps_per_kind() -> None:
 
 
 def test_beyond_cap_schema_valid_geometry_and_graph_are_stripped() -> None:
-    from app.services.math_fence import _MAX_GEOMETRY_FENCES, _MAX_GRAPH_FENCES
+    from app.services.math.fence import _MAX_GEOMETRY_FENCES, _MAX_GRAPH_FENCES
 
     geo = '```geometry\n{"type":"rectangle","width":8,"height":5,"area":99}\n```'
     out_geo = validate_math_fences("\n".join([geo] * (_MAX_GEOMETRY_FENCES + 1)))
@@ -774,7 +774,7 @@ def test_strips_mermaid_when_verified_graph_exists() -> None:
 
 
 def test_appends_answer_and_graph_for_physics() -> None:
-    from app.services.math_tools import VerifiedMathBlock
+    from app.services.math.tools import VerifiedMathBlock
 
     spec = {
         "type": "trajectory",
@@ -822,7 +822,7 @@ def test_intermediate_2x_equals_does_not_count_as_conflicting_x() -> None:
 
 
 def test_draw_geometry_without_canonical_answer_does_not_append_pill() -> None:
-    from app.services.math_tools import VerifiedMathBlock
+    from app.services.math.tools import VerifiedMathBlock
 
     verified = VerifiedMathBlock(
         text="unused",
@@ -861,11 +861,11 @@ def test_does_not_duplicate_existing_answer_fence() -> None:
 
 
 def test_needs_math_fence_validate_skips_plain_replies() -> None:
-    from app.services.math_fence import needs_math_fence_validate
+    from app.services.math.fence import needs_math_fence_validate
 
     assert needs_math_fence_validate("hi there", None) is False
     assert needs_math_fence_validate("```answer\nx = 1\n```", None) is True
-    from app.services.math_tools.block.common import VerifiedMathBlock
+    from app.services.math.tools.block.common import VerifiedMathBlock
 
     verified = VerifiedMathBlock(text="x = 1", canonical_answer="1")
     assert needs_math_fence_validate("plain", verified) is True

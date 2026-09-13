@@ -14,8 +14,8 @@ from collections.abc import Callable
 from typing import Literal
 
 from app.models.schemas.math import MathIntent
-from app.services import math_text_match as mtm
-from app.services.math_text_match.scan import word_index
+from app.services.math import match as mtm
+from app.services.math.match.scan import word_index
 
 logger = logging.getLogger(__name__)
 

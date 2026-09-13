@@ -9,14 +9,14 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import GraphBlockSpec
-from app.services.math_tools.block.common import VerifiedMathBlock
-from app.services.math_tools.direct import (
+from app.services.math.tools.block.common import VerifiedMathBlock
+from app.services.math.tools.direct import (
     can_direct_verified_math_reply,
     format_direct_math_reply,
     maybe_direct_math_reply,
     wants_math_explanation,
 )
-from app.services.math_tools.prompt import build_math_augmentation
+from app.services.math.tools.prompt import build_math_augmentation
 
 
 def _answer_block(answer: str) -> VerifiedMathBlock:
@@ -231,7 +231,7 @@ def test_graph_requires_one_complete_function_and_allows_no_other_answer() -> No
 async def test_exact_cubic_returns_verified_graph_without_model(
     thread_sympy_executor: None, query: str, x_min: int, x_max: int
 ) -> None:
-    from app.services.math_fence import validate_math_fences_worker
+    from app.services.math.fence import validate_math_fences_worker
 
     _note, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
     assert verified is not None

@@ -8,7 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import MathImageExtract
-from app.services.math_tools.prompt import (
+from app.services.math.tools.prompt import (
     VERIFIED_MATH_REPLY_HINT,
     augment_prompt_messages,
     build_math_augmentation,
@@ -74,7 +74,7 @@ async def test_verified_camera_math_uses_same_result_adjacent_guidance() -> None
 
 @pytest.mark.asyncio
 async def test_missing_verified_result_keeps_existing_honesty_path() -> None:
-    with patch("app.services.math_tools._build_verified_block_async", AsyncMock(return_value=None)):
+    with patch("app.services.math.tools._build_verified_block_async", AsyncMock(return_value=None)):
         note, verified = await build_math_augmentation(
             "Solve x^2 < 4", Settings(math_tools_enabled=True)
         )

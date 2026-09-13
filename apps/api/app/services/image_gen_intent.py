@@ -391,7 +391,7 @@ def _match_image_noun_message(tokens: list[str]) -> str | None:
 
 def extract_image_gen_prompt(text: str) -> str | None:
     """Return the image subject if ``text`` is a clear image-gen ask, else None."""
-    from app.services.math_image_extract import is_math_camera_prompt
+    from app.services.math.image_extract import is_math_camera_prompt
 
     trimmed = text.strip()
     if not trimmed or len(trimmed) > 500:

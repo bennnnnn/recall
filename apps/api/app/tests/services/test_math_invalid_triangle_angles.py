@@ -3,9 +3,9 @@
 import pytest
 
 from app.core.config import Settings
-from app.services.math_text_match.geometry import triangle_angles_signal
-from app.services.math_tools.extract import extract_math_intent
-from app.services.math_tools.prompt import build_math_augmentation
+from app.services.math.match.geometry import triangle_angles_signal
+from app.services.math.tools.extract import extract_math_intent
+from app.services.math.tools.prompt import build_math_augmentation
 
 
 @pytest.mark.asyncio

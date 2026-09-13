@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from sympy import Eq, Symbol, solve
 
 from app.models.schemas.math import GraphBlockSpec, MathIntent
-from app.services.math_service import MathServiceError
+from app.services.math.solve import MathServiceError
 
 
 @dataclass(frozen=True)
@@ -68,7 +68,7 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     """
     if not unit:
         return value
-    from app.services.math_school import _get_unit_registry
+    from app.services.math.school import _get_unit_registry
 
     ureg = _get_unit_registry()
     alias = _UNIT_ALIASES.get(unit.lower(), unit)

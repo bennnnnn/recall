@@ -7,8 +7,8 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import MathImageExtract
-from app.services import math_image_extract as mie
-from app.services.math_tools import needs_symbolic_math
+from app.services.math import image_extract as mie
+from app.services.math.tools import needs_symbolic_math
 
 
 def _ts_exported_string(source: str, name: str) -> str:
@@ -312,7 +312,7 @@ async def test_augment_prompt_messages_image_math_extract_survives_ocr_chars(
 
     from app.core.config import Settings
     from app.models.schemas.math import MathIntent
-    from app.services.math_tools import VerifiedMathBlock, augment_prompt_messages
+    from app.services.math.tools import VerifiedMathBlock, augment_prompt_messages
 
     settings = Settings(math_tools_enabled=True)
     extract = MathImageExtract(lhs=lhs, rhs=rhs, variables=["x"], found=True)
@@ -329,7 +329,7 @@ async def test_augment_prompt_messages_image_math_extract_survives_ocr_chars(
         return VerifiedMathBlock(text="stub")
 
     with patch(
-        "app.services.math_tools._build_verified_block_async",
+        "app.services.math.tools._build_verified_block_async",
         AsyncMock(side_effect=_fake_build),
     ):
         _, verified = await augment_prompt_messages(
@@ -356,7 +356,7 @@ async def test_augment_prompt_messages_without_image_math_extract_mangles_ocr_te
 
     from app.core.config import Settings
     from app.models.schemas.math import MathIntent
-    from app.services.math_tools import VerifiedMathBlock, augment_prompt_messages
+    from app.services.math.tools import VerifiedMathBlock, augment_prompt_messages
 
     settings = Settings(math_tools_enabled=True)
     user_content = "Solve the math problem in this image step by step.\n\nSolve: f(x,2) = 7"
@@ -372,7 +372,7 @@ async def test_augment_prompt_messages_without_image_math_extract_mangles_ocr_te
         return VerifiedMathBlock(text="stub")
 
     with patch(
-        "app.services.math_tools._build_verified_block_async",
+        "app.services.math.tools._build_verified_block_async",
         AsyncMock(side_effect=_fake_build),
     ):
         await augment_prompt_messages(

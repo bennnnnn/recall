@@ -269,7 +269,7 @@ async def enrich_final_content(
                     user_text=ctx.user_message_content,
                 )
 
-        from app.services.sympy_executor import run_sympy
+        from app.services.math.sympy_executor import run_sympy
 
         try:
             # Direct verified replies already carry ```answer. Running that

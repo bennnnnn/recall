@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services import math_school
+from app.services.math import school as math_school
 
 
 def test_imaginary_unit_mapping_skips_sin_and_pi() -> None:
