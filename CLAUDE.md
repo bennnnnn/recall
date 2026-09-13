@@ -187,6 +187,7 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 - Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,memories,todos,learning,integrations,attachments,images,account,discover,connectivity,types}.ts`
 - Tokens: `expo-secure-store` only
 - Chat logic: `hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — screens stay thin
+- Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `projects/`, `i18n/`. A module belongs in its domain folder, not beside it: `lib/mathHtml.ts` next to `lib/math/` is the split starting, and inside the folder the prefix comes off (`math/html.ts`, not `math/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fenceRegistry.ts` is the lang/id table; `RichFence` renders
 - i18n: `lib/i18n` (9 locales, key parity enforced by test)

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathText } from "@/components/rich/MathText";
-import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
+import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
 import { isMostlyProsePaste } from "@/lib/math/pasteNormalize";
 import {

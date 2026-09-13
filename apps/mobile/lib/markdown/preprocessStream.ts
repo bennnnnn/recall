@@ -1,4 +1,4 @@
-import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
+import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 
 export type StreamingPreprocessCache = {
   /** Raw byte length covered by `preparedStable`. */

@@ -7,7 +7,7 @@ import { MathText } from "@/components/rich/MathText";
 import { splitAnswerBranches } from "@/lib/math/answerLayout";
 import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
-import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
+import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";

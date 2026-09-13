@@ -97,7 +97,7 @@ plus pytest — do not add a second kind table in this round.
 | Post-stream fences | `apps/api/app/services/chemistry/fence.py` |
 | PubChem | `apps/api/app/gateways/pubchem_gateway.py` |
 | Prompt hint | `apps/api/app/services/chat/prompt_constants/visuals.py` |
-| Mobile parse / render | `apps/mobile/lib/chemistryFence.ts`, `components/rich/` |
+| Mobile parse / render | `apps/mobile/lib/chemistry/`, `components/rich/` |
 
 The flat compatibility aliases are gone — `services/chemistry/` is the only
 path in. `test_domain_package_seams.py` asserts the old names no longer import.

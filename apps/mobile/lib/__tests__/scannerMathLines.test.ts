@@ -1,6 +1,6 @@
-import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
-import { markdownItInstance } from "@/lib/markdownIt";
-import { preprocessMarkdownForStream } from "@/lib/markdown/markdownPreprocessStream";
+import { preprocessMarkdown } from "@/lib/markdown/preprocess";
+import { markdownItInstance } from "@/lib/markdown/parser";
+import { preprocessMarkdownForStream } from "@/lib/markdown/preprocessStream";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
 import { restoreMathEscapes } from "@/lib/math/text";
 

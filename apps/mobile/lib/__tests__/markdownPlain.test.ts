@@ -1,9 +1,9 @@
-import * as markdownPlain from "@/lib/markdownPlain";
+import * as markdownPlain from "@/lib/markdown/plain";
 import {
   markdownToCopyText,
   markdownToPlainText,
   markdownToSpeechText,
-} from "@/lib/markdownPlain";
+} from "@/lib/markdown/plain";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
 import { projectLearningToPrintHtml } from "@/lib/exportProjectPdf";
 import type { LearningDetail, LearningItem } from "@/lib/api";
@@ -28,7 +28,7 @@ describe("markdownPlain", () => {
     jest.doMock("@/lib/printDocument", () => {
       throw new Error("markdownPlain must not import printDocument");
     });
-    expect(() => require("@/lib/markdownPlain")).not.toThrow();
+    expect(() => require("@/lib/markdown/plain")).not.toThrow();
     jest.dontMock("@/lib/printDocument");
   });
 

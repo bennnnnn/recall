@@ -10,9 +10,9 @@ import {
   mergeStrandedColons,
   stripBoldListLabelContinuationColons,
   breakMidlineAtxHeadings,
-} from "@/lib/markdown/markdownPreprocess";
+} from "@/lib/markdown/preprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
-import { markdownItInstance } from "@/lib/markdownIt";
+import { markdownItInstance } from "@/lib/markdown/parser";
 import {
   PROTECTED_ESCAPE_MARKER,
   PROTECTED_MATH_STAR_MARKER,

@@ -1,8 +1,8 @@
 import katex from "katex";
-import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
+import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { prepareStreamingMathText } from "@/lib/math/streaming";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
-import { markdownItInstance } from "@/lib/markdownIt";
+import { markdownItInstance } from "@/lib/markdown/parser";
 import { parseSimpleLatex, readableLatexFallback, restoreMathEscapes, segmentsToPlain } from "@/lib/math/text";
 import { renderKatexHtml } from "@/lib/katexRender";
 

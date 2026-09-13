@@ -48,7 +48,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 | Camera OCR | `apps/api/app/services/math/ocr.py`, `math/image_extract.py` |
 | MCP sympy | `apps/api/app/gateways/mcp/sympy_adapter.py` |
 | Prompt hints | `apps/api/app/services/chat/prompt_constants/` (`math.py`, …) |
-| Mobile preprocess | `apps/mobile/lib/markdown/markdownPreprocess.ts`, `apps/mobile/lib/normalizeImplicitMath.ts` |
+| Mobile preprocess | `apps/mobile/lib/markdown/markdownPreprocess.ts`, `apps/mobile/lib/math/normalizeImplicit.ts` |
 | Composer math input | `mathPasteNormalize.ts`, `mathKeyboardSymbols.ts`, `MathKeyboardBar` |
 | Render | `MathText`, `MathView` / `MathFormulaWebView`, `GeometryBlock`, `FunctionGraphBlock` |
 

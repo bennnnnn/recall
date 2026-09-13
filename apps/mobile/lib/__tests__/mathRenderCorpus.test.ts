@@ -3,10 +3,10 @@
  * split → native parse. A leftover `\\command` after this pipeline is what
  * painted as raw LaTeX in chat.
  */
-import { markdownItInstance } from "@/lib/markdownIt";
-import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/markdownPreprocess";
+import { markdownItInstance } from "@/lib/markdown/parser";
+import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
 import { readableLatexFallback, segmentsToPlain, parseSimpleLatex } from "@/lib/math/text";
-import { findStableMarkdownPrefixLen, preprocessMarkdownForStream } from "@/lib/markdown/markdownPreprocessStream";
+import { findStableMarkdownPrefixLen, preprocessMarkdownForStream } from "@/lib/markdown/preprocessStream";
 
 const BACKSLASH_CMD = /\\[a-zA-Z]+/;
 
