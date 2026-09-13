@@ -49,7 +49,7 @@ def _strip_series_prefix(expr: str) -> str:
 
 
 _DEFAULT_NEWTON_GUESS = 1.0
-_NEWTON_NUM = re.compile(r"-?\d+(?:\.\d+)?")
+_NEWTON_NUM = re.compile(r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)")
 
 _TRAILING_FILLER_SUFFIXES = (
     " please",

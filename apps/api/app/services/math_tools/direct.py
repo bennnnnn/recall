@@ -403,6 +403,10 @@ def can_direct_verified_math_reply(
         return can_direct_physics(verified, user_text, _solver_fences(verified))
     if not verified.allow_direct:
         return False
+    from app.services.math_tools.direct_newton import can_direct_newton, has_newton_request
+
+    if verified.newton_input is not None or has_newton_request(user_text):
+        return can_direct_newton(verified, user_text, _solver_fences(verified))
     if _underdetermined_triangle_measurement(verified, user_text) is not None:
         return True
     from app.services.math_tools.direct_geometry import (
@@ -490,6 +494,10 @@ def can_direct_verified_math_reply(
 
 def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -> str:
     """Display a verified value, diagram, or the missing scale for an AAA request."""
+    if verified.newton_input is not None:
+        from app.services.math_tools.direct_newton import format_newton_reply
+
+        return format_newton_reply(verified)
     quantity = _underdetermined_triangle_measurement(verified, user_text)
     if quantity is not None:
         return f"The {quantity} cannot be determined from angles alone. What is one side length?"

@@ -245,6 +245,7 @@ async def prepare_chat_turn(
                 turn_mode=turn_mode,
                 probe_attachment_rag=probe,
                 recent_messages=prompt_recent,
+                current_user_message_id=pending_id,
             )
 
         persist_task = asyncio.create_task(_persist_user_message())
@@ -284,6 +285,7 @@ async def prepare_chat_turn(
             force_rich_context=attachments.has_document_attachment,
             turn_mode=turn_mode,
             probe_attachment_rag=bool(attachment_ids) or (prior_count or 0) > 0,
+            current_user_message_id=pending_id,
         )
 
     prompt_messages = bundle.prompt_messages

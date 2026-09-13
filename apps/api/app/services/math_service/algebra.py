@@ -484,7 +484,17 @@ def newton_method(data: NewtonMethodInput) -> NewtonMethodResult:
             break
         x_n = x_n - fx / fpx
 
+    indexed = Symbol(f"{data.variable}_n")
+    indexed_latex = latex(indexed)
+    recurrence = (
+        rf"{data.variable}_{{n+1}} = {indexed_latex} - "
+        rf"\frac{{{format_verified_latex(parsed.subs(sym, indexed))}}}"
+        rf"{{{format_verified_latex(derivative.subs(sym, indexed))}}}"
+    )
     return NewtonMethodResult(
+        function_latex=format_verified_latex(parsed),
+        derivative_latex=format_verified_latex(derivative),
+        recurrence_latex=recurrence,
         iterations=iterations,
         converged=converged,
         root=round(x_n, 10) if converged else None,

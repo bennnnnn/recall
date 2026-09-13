@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Image,
   ImageSourcePropType,
+  type ImageLoadEvent,
   Pressable,
   StyleSheet,
   useWindowDimensions,
@@ -15,6 +16,7 @@ import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri, attachmentRequestHeaders } from "@/lib/attachmentUri";
 import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
+import { fitAttachmentImage, type ImageSize } from "@/lib/attachmentImageSize";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -33,6 +35,8 @@ type Props = {
    * doesn't flash gray/blur again.
    */
   animatedReveal?: boolean;
+  /** Show the complete user attachment instead of cropping its contents. */
+  previewFit?: "cover" | "contain";
   /** Override the default ~1/3-screen thumb. Used by the multi-image strip. */
   width?: number;
   height?: number;
@@ -53,7 +57,9 @@ type RevealingImageProps = {
   style: ReturnType<typeof makeStyles>["preview"];
   layerStyle: ReturnType<typeof makeStyles>["layer"];
   onError: () => void;
+  onLoad: (event: ImageLoadEvent) => void;
   reduceMotion: boolean;
+  previewFit: "cover" | "contain";
 };
 
 /** Owns the blur→sharp reveal animation for one image load. Keyed by URI at
@@ -64,13 +70,16 @@ function RevealingImage({
   style,
   layerStyle,
   onError,
+  onLoad,
   reduceMotion,
+  previewFit,
 }: RevealingImageProps) {
   const reveal = useSharedValue(reduceMotion ? 1 : 0);
   const sharpStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: 1 - reveal.value }));
 
-  const handleLoad = () => {
+  const handleLoad = (event: ImageLoadEvent) => {
+    onLoad(event);
     // Reanimated shared values are designed to be mutated from any JS-thread
     // callback, including a plain event handler like this one — this isn't
     // the kind of render-purity violation the immutability rule exists to
@@ -88,8 +97,9 @@ function RevealingImage({
       <AnimatedImage
         source={source}
         style={[style, layerStyle]}
-        resizeMode="cover"
+        resizeMode={previewFit}
         onError={onError}
+        onLoad={onLoad}
       />
     );
   }
@@ -101,13 +111,13 @@ function RevealingImage({
       <AnimatedImage
         source={source}
         style={[style, layerStyle, blurStyle]}
-        resizeMode="cover"
+        resizeMode={previewFit}
         blurRadius={REVEAL_BLUR_RADIUS}
       />
       <AnimatedImage
         source={source}
         style={[style, layerStyle, sharpStyle]}
-        resizeMode="cover"
+        resizeMode={previewFit}
         onLoad={handleLoad}
         onError={onError}
       />
@@ -115,30 +125,48 @@ function RevealingImage({
   );
 }
 
-export function ChatMessageImage({
+export function ChatMessageImage(props: Props) {
+  const uri = resolveAttachmentUri({ attachmentId: props.attachmentId, localUri: props.localUri, path: props.path });
+  if (!uri) return null;
+  // A new source owns new load/error state; a late event from the old image
+  // cannot resize the next attachment, including local-to-remote replacement.
+  return <ChatMessageImageContent key={props.localUri || uri} {...props} remoteUri={uri} />;
+}
+
+function ChatMessageImageContent({
   attachmentId,
   localUri,
   path,
   fileName,
   animatedReveal = true,
+  previewFit = "cover",
   width: widthOverride,
   height: heightOverride,
   onOpen,
-}: Props) {
+  remoteUri,
+}: Props & { remoteUri: string }) {
   const { t } = useTranslation();
   const token = useAuthToken();
   const C = useTheme();
   const reduceMotion = useReduceMotion();
   const thumb = useThumbnailSize();
-  const width = widthOverride ?? thumb.width;
-  const height = heightOverride ?? thumb.height;
+  const maxWidth = widthOverride ?? thumb.width;
+  const maxHeight = heightOverride ?? thumb.height;
+  const [decodedSize, setDecodedSize] = useState<ImageSize | null>(null);
+  const fitted = previewFit === "contain" && decodedSize
+    ? fitAttachmentImage(decodedSize, { width: maxWidth, height: maxHeight })
+    : null;
+  const { width, height } = fitted ?? { width: maxWidth, height: maxHeight };
+  const onLoad = (event: ImageLoadEvent) => {
+    if (previewFit !== "contain") return;
+    const size = event.nativeEvent.source;
+    if (fitAttachmentImage(size, { width: maxWidth, height: maxHeight })) {
+      setDecodedSize({ width: size.width, height: size.height });
+    }
+  };
   const s = useMemo(() => makeStyles(C, width, height), [C, width, height]);
   const [failed, setFailed] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
-
-  const remoteUri = useMemo(() => {
-    return resolveAttachmentUri({ attachmentId, localUri, path });
-  }, [attachmentId, localUri, path]);
 
   useEffect(() => {
     setFailed(false);
@@ -183,7 +211,7 @@ export function ChatMessageImage({
         accessibilityLabel={t("chat.image_view_a11y")}
         accessibilityRole="button"
       >
-        <View style={s.wrap}>
+        <View style={s.wrap} testID="chat-image-frame">
           {failed ? (
             // Static broken-image mark — never a spinner (that read as
             // "still generating" when the attachment 404'd).
@@ -197,8 +225,10 @@ export function ChatMessageImage({
             <Image
               source={localUri ? { uri: localUri } : source}
               style={s.preview}
-              resizeMode="cover"
+              resizeMode={previewFit}
               onError={() => setFailed(true)}
+              onLoad={onLoad}
+              testID="chat-image-preview"
             />
           ) : (
             <RevealingImage
@@ -208,6 +238,8 @@ export function ChatMessageImage({
               layerStyle={s.layer}
               onError={() => setFailed(true)}
               reduceMotion={reduceMotion}
+              previewFit={previewFit}
+              onLoad={onLoad}
             />
           )}
         </View>

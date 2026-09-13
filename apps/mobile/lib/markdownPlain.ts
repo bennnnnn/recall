@@ -8,7 +8,7 @@ import {
   isMathFenceLang,
   isVisualDiagramFenceLang,
 } from "@/lib/fenceRegistry";
-import { parseSimpleLatex, segmentsToPlain } from "@/lib/mathText";
+import { parseSimpleLatex, type MathSegment } from "@/lib/mathText";
 
 function mapFenceRegions(
   text: string,
@@ -190,8 +190,60 @@ function speakMath(latex: string): string {
     .trim();
 }
 
+/** Copy needs explicit grouping; visual fraction bars and radical overbars vanish. */
+function copyMathSegments(segments: MathSegment[], depth = 0): string {
+  const fractionSide = (side: MathSegment[]): string => {
+    const text = copyMathSegments(side, depth + 1).trim();
+    return side.length === 1 && side[0]?.type === "text"
+      && /^(?:[+-]?\d+(?:\.\d+)?|\p{L})$/u.test(text)
+      ? text : `(${text})`;
+  };
+  return segments.map((segment, index) => {
+    switch (segment.type) {
+      case "text": return segment.value;
+      case "sup":
+      case "sub": {
+        const value = depth >= 12 ? segment.value : copyMathSegments(parseSimpleLatex(segment.value), depth + 1);
+        return `${segment.type === "sup" ? "^" : "_"}${value.length === 1 ? value : `{${value}}`}`;
+      }
+      case "frac": {
+        const fraction = `${fractionSide(segment.num)}/${fractionSide(segment.den)}`;
+        const next = segments[index + 1];
+        return next?.type === "sup" || next?.type === "sub" ? `(${fraction})` : fraction;
+      }
+      case "sqrt": {
+        const index = segment.degree ? `[${copyMathSegments(parseSimpleLatex(segment.degree), depth + 1)}]` : "";
+        return `√${index}(${copyMathSegments(segment.body, depth + 1)})`;
+      }
+    }
+  }).join("");
+}
+
+/** Native script segment values flatten structure; keep the original formula
+ * when those values cannot be serialized without losing grouping. */
+function hasStructuredScript(latex: string): boolean {
+  for (let i = 0; i < latex.length; i += 1) {
+    if (latex[i] !== "^" && latex[i] !== "_") continue;
+    let open = i + 1;
+    while (/\s/.test(latex[open] ?? "") && open < latex.length) open += 1;
+    if (latex[open] !== "{") continue;
+    let depth = 1;
+    let close = open + 1;
+    for (; close < latex.length; close += 1) {
+      if (latex[close] === "\\") { close += 1; continue; }
+      if (latex[close] === "{") depth += 1;
+      else if (latex[close] === "}") depth -= 1;
+      if (depth === 0) break;
+    }
+    if (depth !== 0 || /\\(?:[dct]?frac|sqrt)\b|[_^]/.test(latex.slice(open + 1, close))) return true;
+    i = close;
+  }
+  return false;
+}
+
 function copyMath(latex: string): string {
-  return segmentsToPlain(parseSimpleLatex(latex)).replace(/\$/g, "").trim();
+  if (hasStructuredScript(latex)) return latex.trim();
+  return copyMathSegments(parseSimpleLatex(latex)).replace(/\$/g, "").trim();
 }
 
 function isMathDollarInner(inner: string): boolean {

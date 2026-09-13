@@ -28,13 +28,18 @@ export const PROTECTED_ESCAPE_MARKER = String.fromCharCode(0xe000);
 export const PROTECTED_MATH_UNDERSCORE_MARKER = String.fromCharCode(0xe002);
 /** Bare `*` inside `$...$` — markdown-it would otherwise start emphasis. */
 export const PROTECTED_MATH_STAR_MARKER = String.fromCharCode(0xe003);
+/** Straight math apostrophes must survive Markdown smartquotes unchanged. */
+export const PROTECTED_MATH_APOSTROPHE_MARKER = String.fromCharCode(0xe004);
+// Native-only literal text/escape preservation across recursive frac parsing.
+const NATIVE_LITERAL_APOSTROPHE_MARKER = String.fromCharCode(0xe005);
 
 /** Restore source characters after markdown tokenization, before math parsing. */
 export function restoreMathEscapes(latex: string): string {
   return latex
     .split(PROTECTED_ESCAPE_MARKER).join("\\")
     .split(PROTECTED_MATH_UNDERSCORE_MARKER).join("_")
-    .split(PROTECTED_MATH_STAR_MARKER).join("*");
+    .split(PROTECTED_MATH_STAR_MARKER).join("*")
+    .split(PROTECTED_MATH_APOSTROPHE_MARKER).join("'");
 }
 
 /** Cap nested \\frac / \\sqrt recursion on pathological model latex. */
@@ -90,6 +95,7 @@ export function latexHasNestedMathView(latex: string): boolean {
 }
 
 const CMD_REPLACEMENTS: [RegExp, string][] = [
+  [/\\prime(?![a-zA-Z])/g, "′"],
   [/\\pm(?![a-zA-Z])/g, "±"],
   [/\\mp(?![a-zA-Z])/g, "∓"],
   [/\\times(?![a-zA-Z])/g, "×"],
@@ -415,8 +421,93 @@ function expandLatexEnvironments(latex: string): string {
   });
 }
 
+/** Native postfix primes are math glyphs, not prose quotation marks.
+ * Keep text-command contents and escaped quotes literal through recursive
+ * fraction/root parsing. KaTeX receives only restoreMathEscapes, never this. */
+function normalizeNativeDerivativePrimes(source: string): string {
+  let out = "";
+  for (let i = 0; i < source.length;) {
+    if (source[i] === "\\") {
+      const textCommand = /^\\(?:text|textrm|textsf|texttt|textnormal|textbf|textit|mathrm|operatorname)(?![A-Za-z])/.exec(source.slice(i));
+      if (textCommand) {
+        let groupAt = i + textCommand[0].length;
+        while (source[groupAt] === " ") groupAt += 1;
+        const group = source[groupAt] === "{" ? readGroup(source, groupAt) : null;
+        if (group) {
+          out += source.slice(i, group.next).replace(/'/g, NATIVE_LITERAL_APOSTROPHE_MARKER);
+          i = group.next;
+          continue;
+        }
+        if (source[groupAt] === "{") {
+          // An incomplete text group stays literal; do not rescan nested
+          // text openers or reinterpret its apostrophes as derivatives.
+          out += source.slice(i).replace(/'/g, NATIVE_LITERAL_APOSTROPHE_MARKER);
+          break;
+        }
+      }
+      if (source[i + 1] && !/[A-Za-z]/.test(source[i + 1])) {
+        out += source.slice(i, i + 2).replace(/'/g, NATIVE_LITERAL_APOSTROPHE_MARKER);
+        i += 2;
+        continue;
+      }
+    }
+    if (source[i] === "'") {
+      let end = i + 1;
+      while (source[end] === "'") end += 1;
+      const previous = source[i - 1] ?? "";
+      let atom = /[0-9)\]}α-ωΑ-Ω]/.test(previous);
+      if (/[A-Za-z]/.test(previous)) {
+        let wordStart = i - 1;
+        while (wordStart > 0 && /[A-Za-z]/.test(source[wordStart - 1])) wordStart -= 1;
+        atom = wordStart === i - 1 || source[wordStart - 1] === "\\";
+      }
+      // A contraction/quoted word is not a mathematical postfix.
+      if (atom && !/[A-Za-z]/.test(source[end] ?? "")) {
+        const count = end - i;
+        out += count === 1 ? "′" : count === 2 ? "″" : count === 3 ? "‴" : "′".repeat(count);
+      } else {
+        out += source.slice(i, end);
+      }
+      i = end;
+      continue;
+    }
+    out += source[i];
+    i += 1;
+  }
+  return out;
+}
+
+/** Unwrap only SymPy's invisible function-argument group, before escaped
+ * set braces lose their backslashes. Ordinary brace groups stay unchanged. */
+function unwrapSympyFunctionArguments(source: string): string {
+  let out = "";
+  for (let i = 0; i < source.length;) {
+    if (source.startsWith("{\\left(", i) && /[A-Za-z]/.test(source[i - 1] ?? "") &&
+      !/[A-Za-z]/.test(source[i - 2] ?? "")) {
+      const group = readGroup(source, i);
+      if (!group) { out += source.slice(i); break; }
+      const body = group.value.trim();
+      if (body.startsWith("\\left(") && body.endsWith("\\right)")) {
+        const argument = `(${body.slice(6, -7).trim()})`;
+        if (isParenthesizedArgument(argument)) {
+          out += argument;
+          i = group.next;
+          continue;
+        }
+      }
+      // A nonmatching complete group remains literal as a whole.
+      out += source.slice(i, group.next);
+      i = group.next;
+      continue;
+    }
+    out += source[i];
+    i += 1;
+  }
+  return out;
+}
+
 function preprocessLatex(latex: string): string {
-  let s = restoreMathEscapes(latex.trim());
+  let s = normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(restoreMathEscapes(latex.trim())));
   // Undo markdownPreprocess.ts's PROTECTED_ESCAPE_MARKER substitution first,
   // before any command table below runs — see the marker's own doc comment.
   s = rewriteSolutionSeparatorBars(s);
@@ -599,6 +690,21 @@ function readBareScript(input: string, i: number): { value: string; next: number
   return { value: input[i] ?? "", next: i + 1 };
 }
 
+/** SymPy emits y{\\left(x \\right)}; these braces group one function
+ * argument and are invisible in TeX. Escaped set braces never enter here. */
+function isParenthesizedArgument(value: string): boolean {
+  const text = value.trim();
+  if (!text.startsWith("(") || !text.endsWith(")")) return false;
+  let depth = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    if (text[i] === "\\") { i += 1; continue; }
+    if (text[i] === "(") depth += 1;
+    if (text[i] === ")") depth -= 1;
+    if (depth === 0 && i < text.length - 1) return false;
+  }
+  return depth === 0;
+}
+
 export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
   if (depth > MAX_MATH_NEST_DEPTH) {
     return [{ type: "text", value: latex }];
@@ -608,6 +714,7 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
   let i = 0;
 
   const pushText = (value: string) => {
+    value = value.split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'");
     if (!value) return;
     const last = out[out.length - 1];
     if (last?.type === "text") last.value += value;

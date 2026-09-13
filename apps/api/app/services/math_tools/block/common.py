@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from app.models.schemas.math import MathIntent
+    from app.models.schemas.math import MathIntent, NewtonMethodInput, NewtonMethodResult
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
 VERIFIED_MATH_END = "[END VERIFIED MATH]"
@@ -37,6 +37,9 @@ class VerifiedMathBlock:
     # The verified-block wrapper binds the exact solved physics intent here.
     # Includes average speed; guards compare every parameter/unit without re-solving.
     physics_intent: MathIntent | None = None
+    # Paired snapshots of the actual Newton solve; never reconstruct iterations.
+    newton_input: NewtonMethodInput | None = None
+    newton_result: NewtonMethodResult | None = None
 
 
 def _answer_canonical(content: str) -> dict[str, str]:

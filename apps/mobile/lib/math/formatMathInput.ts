@@ -96,13 +96,18 @@ function readAtom(s: string, i: number): { atom: string; next: number } | null {
   const slice = s.slice(j);
   const m = slice.match(ATOM);
   if (!m) return null;
-  return { atom: m[0], next: j + m[0].length };
+  const next = j + m[0].length;
+  // A partial denominator (x in x^2, or a in alpha) changes division's scope.
+  if (/^(?:[A-Za-z0-9.(\[]|\s*[_^'′″‴!])/.test(s.slice(next))) return null;
+  return { atom: m[0], next };
 }
 
 function lastAtomStart(s: string): { atom: string; start: number } | null {
   const t = s.replace(/\s+$/, "");
   const m = t.match(/(?:\d+(?:\.\d+)?|[a-zA-Z])$/);
   if (!m || m.index == null) return null;
+  // Do not steal an exponent, subscript, command tail, or product's last letter.
+  if (/[A-Za-z0-9._^/\\]\s*$/.test(t.slice(0, m.index))) return null;
   return { atom: m[0], start: m.index };
 }
 
@@ -291,7 +296,7 @@ function readGroupedLeft(out: string): { text: string; start: number } | null {
         if (depth === 0) break;
       }
     }
-    if (depth !== 0) return null;
+    if (depth !== 0 || /[A-Za-z0-9._^/\\]\s*$/.test(out.slice(0, j))) return null;
     return { text: out.slice(j + 1, i - 1).trim(), start: j };
   }
   const atom = lastAtomStart(out.slice(0, i));
@@ -316,7 +321,7 @@ function readGroupedRight(s: string, start: number): { text: string; next: numbe
         }
       }
     }
-    if (depth !== 0) return null;
+    if (depth !== 0 || /^(?:[A-Za-z0-9.(\[]|\s*[_^'′″‴!])/.test(s.slice(j))) return null;
     return { text: s.slice(i + 1, j - 1).trim(), next: j };
   }
   const atom = readAtom(s, i);

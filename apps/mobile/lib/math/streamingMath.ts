@@ -1,6 +1,7 @@
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import {
   PROTECTED_ESCAPE_MARKER,
+  PROTECTED_MATH_APOSTROPHE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
   PROTECTED_MATH_UNDERSCORE_MARKER,
 } from "@/lib/mathText";
@@ -62,7 +63,8 @@ export function prepareStreamingMathText(text: string): { text: string; pending:
         .split(/\r?\n/).map((line) => line.trim()).join(" ")
         .replace(/\\/g, PROTECTED_ESCAPE_MARKER)
         .replace(/_/g, PROTECTED_MATH_UNDERSCORE_MARKER)
-        .replace(/\*/g, PROTECTED_MATH_STAR_MARKER);
+        .replace(/\*/g, PROTECTED_MATH_STAR_MARKER)
+        .replace(/'/g, PROTECTED_MATH_APOSTROPHE_MARKER);
       out += `$${body}$`;
       i = span.end;
       continue;
@@ -71,7 +73,7 @@ export function prepareStreamingMathText(text: string): { text: string; pending:
       return { text: out, pending: true };
     }
     if (text[i] === "$" && text.indexOf("$", i + 1) < 0 &&
-      /^(?:\\(?:[A-Za-z]|$)|[a-zA-Z](?:[\s_^=]|$)|\d+[_^+*/=-])/.test(text.slice(i + 1))) {
+      /^(?:\\(?:[A-Za-z]|$)|[a-zA-Z](?:[\s_^=']|$)|\d+[_^+*/=-])/.test(text.slice(i + 1))) {
       return { text: out, pending: true };
     }
     if (text[i] === "\\" && i + 1 < text.length) {

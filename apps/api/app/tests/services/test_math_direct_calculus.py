@@ -97,7 +97,6 @@ def test_unsupported_or_partial_calculus_cannot_use_generic_prose_fallback(query
         "Find the limit of 1/x as x approaches 0",
         "Sum (-1)^n from n=0 to infinity",
         "Find the critical points of x^3-3x",
-        "Use Newton method to solve x^2-2=0 starting at 1",
     ],
 )
 def test_outcomes_without_complete_answer_or_method_presentation_keep_model(query):
