@@ -60,7 +60,6 @@ from app.services.math_tools.block.graph import (
     _verified_block_point,
     _verified_block_vertical,
 )
-from app.services.math_tools.block.physics import PHYSICS_BLOCK_BUILDERS
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +96,11 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
 
 def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
     lines: list[str] = []
+
+    # Deferred: physics.block imports this package's shared block primitives, so
+    # importing it at module level would close an import cycle whenever physics
+    # is imported first. Same reason SCHOOL_BLOCK_BUILDERS is imported below.
+    from app.services.physics.block import PHYSICS_BLOCK_BUILDERS
 
     try:
         builder = _BLOCK_BUILDERS.get(intent.kind)

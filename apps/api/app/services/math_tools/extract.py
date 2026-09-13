@@ -19,8 +19,8 @@ from app.services.math_tools.extractors.geometry_graph import (
     SOLID_EXTRACTOR,
 )
 from app.services.math_tools.helpers import has_assignment_evaluation_request, math_expr_or_none
-from app.services.math_tools.physics import PHYSICS_EXTRACTORS
 from app.services.math_tools.school import SCHOOL_EXTRACTORS
+from app.services.physics.extract import PHYSICS_EXTRACTORS
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     SOLID_EXTRACTOR,

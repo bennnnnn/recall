@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.math_tools.physics import (
+from app.services.physics.extract import (
     _VALUE_UNIT_RE,
     _detect_gravity,
     _extract_energy_intent,
@@ -350,7 +350,7 @@ def test_projectile_without_wall_still_verifies() -> None:
 
 
 def test_miles_per_hour_is_not_parsed_as_metres() -> None:
-    from app.services.math_tools.physics import _VALUE_UNIT_RE
+    from app.services.physics.extract import _VALUE_UNIT_RE
 
     hit = _VALUE_UNIT_RE.match("5 miles per hour")
     if hit is not None:

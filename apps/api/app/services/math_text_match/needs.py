@@ -216,7 +216,7 @@ def supported_physics_cue(cleaned: str) -> bool:
     """A numeric problem supported by the narrow verified physics solver."""
     if not any(ch.isdigit() for ch in cleaned):
         return False
-    from app.services.math_tools.physics import has_supported_physics_cue
+    from app.services.physics.extract import has_supported_physics_cue
 
     return has_supported_physics_cue(cleaned.lower())
 

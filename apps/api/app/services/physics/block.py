@@ -17,7 +17,7 @@ from app.services.math_tools.block.common import (
     _diagram_block,
     _finish_with_answer,
 )
-from app.services.physics_solver import PhysicsResult, solve_physics
+from app.services.physics.solver import PhysicsResult, solve_physics
 
 logger = logging.getLogger(__name__)
 

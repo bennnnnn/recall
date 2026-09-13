@@ -15,8 +15,8 @@ from app.services.math_fence import validate_math_fences
 from app.services.math_tools import _build_verified_block, extract_math_intent, needs_symbolic_math
 from app.services.math_tools.block.common import VerifiedMathBlock
 from app.services.math_tools.direct import maybe_direct_math_reply
-from app.services.math_tools.direct_physics import _expected_intent
 from app.services.math_tools.prompt import build_math_augmentation
+from app.services.physics.direct import _expected_intent
 from app.services.tool_loop import turn_needs_tool_loop
 
 _SETTINGS = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)
@@ -266,7 +266,7 @@ def test_direct_guard_does_not_solve_again() -> None:
     query = _CASES[0][0]
     verified = _verified(query)
     with patch(
-        "app.services.physics_solver.solve_physics", side_effect=AssertionError("re-solved")
+        "app.services.physics.solver.solve_physics", side_effect=AssertionError("re-solved")
     ):
         assert maybe_direct_math_reply(verified, query) is not None
 

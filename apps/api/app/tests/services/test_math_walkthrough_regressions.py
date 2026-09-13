@@ -4,7 +4,7 @@ import pytest
 
 from app.core.config import Settings
 from app.services import math_tools
-from app.services.math_tools.physics import _extract_force_intent
+from app.services.physics.extract import _extract_force_intent
 
 
 @pytest.mark.parametrize(

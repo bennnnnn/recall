@@ -173,8 +173,8 @@ class MathIntent(BaseModel):
     taylor_n: int | None = None
     # Physics — kinematics / projectile / force / energy. The model sets up the
     # equation with known values; SymPy solves symbolically; the SVG engine
-    # renders the trajectory. See math_tools/physics.py extractors and
-    # physics_solver.py solvers.
+    # renders the trajectory. See services/physics/extract.py extractors and
+    # services/physics/solver.py solvers.
     physics_op: (
         Literal[
             "position",

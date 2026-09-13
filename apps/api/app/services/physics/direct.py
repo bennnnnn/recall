@@ -12,7 +12,7 @@ from typing import Any
 
 from app.models.schemas.math import MathIntent
 from app.services.math_tools.block.common import VerifiedMathBlock
-from app.services.math_tools.physics import _LENGTH_UNIT_PATTERN, _VELOCITY_UNIT_PATTERN
+from app.services.physics.extract import _LENGTH_UNIT_PATTERN, _VELOCITY_UNIT_PATTERN
 
 _NUMBER = r"-?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
 _TIME = r"seconds?|s|minutes?|min|milliseconds?|ms|hours?|hr|h"

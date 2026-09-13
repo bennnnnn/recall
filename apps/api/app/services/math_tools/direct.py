@@ -416,7 +416,7 @@ def can_direct_verified_math_reply(
     if wants_math_explanation(user_text):
         return False
     if verified.physics_intent is not None:
-        from app.services.math_tools.direct_physics import can_direct_physics
+        from app.services.physics.direct import can_direct_physics
 
         return can_direct_physics(verified, user_text, _solver_fences(verified))
     if not verified.allow_direct:
