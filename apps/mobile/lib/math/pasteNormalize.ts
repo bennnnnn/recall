@@ -4,8 +4,8 @@
  * `apps/api/app/services/math_service/parse.py`.
  */
 
-import { formatMathExpr } from "@/lib/math/formatMathInput";
-import { isMathLike } from "@/lib/normalizeImplicitMath";
+import { formatMathExpr } from "@/lib/math/formatInput";
+import { isMathLike } from "@/lib/math/normalizeImplicit";
 import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 
 export const PASTE_GROWTH_MIN = 6;

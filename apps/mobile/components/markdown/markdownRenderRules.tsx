@@ -47,11 +47,11 @@ import { isAllowedImageUri } from "@/lib/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
 import { parseQuoteAttribution } from "@/lib/richBlocks";
-import { isHeavyInlineMath } from "@/lib/math/mathFenceRetag";
+import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import {
   latexHasNestedMathView,
   mathRunLineHeight,
-} from "@/lib/mathText";
+} from "@/lib/math/text";
 import type { Theme } from "@/lib/theme";
 
 type StyleMap = Record<string, object>;

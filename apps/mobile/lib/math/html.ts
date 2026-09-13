@@ -5,7 +5,7 @@
  * `pickMathEngine` returns "mathjax" — keeps it off the chat cold start. */
 
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
-import { restoreMathEscapes } from "@/lib/mathText";
+import { restoreMathEscapes } from "@/lib/math/text";
 
 export type MathEngine = "katex" | "mathjax";
 

@@ -5,7 +5,7 @@ import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles
 import { MathText } from "@/components/rich/MathText";
 import { MathBlock } from "@/components/rich/MathView";
 import { RichBodyText } from "@/components/rich/RichBodyText";
-import { isHeavyInlineMath } from "@/lib/math/mathFenceRetag";
+import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { parseRichMathText } from "@/lib/markdown/richMathText";
 import { useTheme } from "@/lib/theme";
 

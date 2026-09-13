@@ -23,7 +23,7 @@ import {
   symbolsInGroup,
   symbolRowsForGroup,
   tapAdvancesToNextSlot,
-} from "@/lib/mathKeyboardSymbols";
+} from "@/lib/math/keyboardSymbols";
 
 describe("spliceMathInsert", () => {
   it("wraps a snippet in $...$ when the caret is outside math", () => {

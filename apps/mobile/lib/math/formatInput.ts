@@ -15,7 +15,7 @@ import {
   applyImplicitPowerNotation,
   fixImplicitExponents,
   isMathLike,
-} from "@/lib/normalizeImplicitMath";
+} from "@/lib/math/normalizeImplicit";
 
 export type MathFormatOptions = {
   /** `x2` → `x^2` (OCR's dropped caret). Default true. */

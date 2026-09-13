@@ -37,7 +37,7 @@ import {
   regionToImageCrop,
   scanChromeInset,
   type ScanRegion,
-} from "@/lib/math/mathScannerRegion";
+} from "@/lib/math/scannerRegion";
 import { useLastPhotoThumb } from "@/lib/lastPhotoThumbnail";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import { Radius } from "@/lib/radius";

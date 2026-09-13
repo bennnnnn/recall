@@ -2,12 +2,12 @@ import { useMemo, type ReactNode } from "react";
 import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
-import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
+import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import {
   parseSimpleLatex,
   readableLatexFallback,
   type MathSegment,
-} from "@/lib/mathText";
+} from "@/lib/math/text";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";

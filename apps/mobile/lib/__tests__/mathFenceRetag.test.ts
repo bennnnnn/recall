@@ -7,7 +7,7 @@ import {
   shouldRenderMathFenceInline,
   stripEmbeddedDollarWraps,
   stripRedundantDollarWrap,
-} from "@/lib/math/mathFenceRetag";
+} from "@/lib/math/fenceRetag";
 
 describe("mathFenceRetag", () => {
   it("isHeavyInlineMath: environments and large operators are heavy", () => {

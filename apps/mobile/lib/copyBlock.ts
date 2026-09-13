@@ -1,6 +1,6 @@
 import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import { markdownToCopyText } from "@/lib/markdownPlain";
-import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/mathFenceRetag";
+import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/fenceRetag";
 
 export const COPY_LANGS = new Set([
   "copy",

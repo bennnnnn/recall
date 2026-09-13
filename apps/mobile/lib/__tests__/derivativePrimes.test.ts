@@ -1,9 +1,9 @@
 import katex from "katex";
 import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
-import { prepareStreamingMathText } from "@/lib/math/streamingMath";
+import { prepareStreamingMathText } from "@/lib/math/streaming";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
 import { markdownItInstance } from "@/lib/markdownIt";
-import { parseSimpleLatex, readableLatexFallback, restoreMathEscapes, segmentsToPlain } from "@/lib/mathText";
+import { parseSimpleLatex, readableLatexFallback, restoreMathEscapes, segmentsToPlain } from "@/lib/math/text";
 import { renderKatexHtml } from "@/lib/katexRender";
 
 function formulae(text: string): string[] {

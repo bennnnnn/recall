@@ -2,8 +2,8 @@
  * the ~2MB tex-svg vendor off the chat / KaTeX cold path. Only loaded when
  * `pickMathEngine` routes to mathjax (multline / eqnarray). */
 
-import { escapeForHtmlTemplate, type MathHtmlOptions } from "@/lib/mathHtml";
-import { restoreMathEscapes } from "@/lib/mathText";
+import { escapeForHtmlTemplate, type MathHtmlOptions } from "@/lib/math/html";
+import { restoreMathEscapes } from "@/lib/math/text";
 import { injectPreviewCsp, MATH_PREVIEW_CSP, PREVIEW_VIEWPORT, inlineScript } from "@/lib/previewSandbox";
 import { MATHJAX_TEX_SVG_JS } from "@/lib/vendor/mathjaxTexSvgJs";
 

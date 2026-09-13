@@ -5,7 +5,7 @@ import {
   regionToContainedImageCrop,
   regionToImageCrop,
   scanChromeInset,
-} from "@/lib/math/mathScannerRegion";
+} from "@/lib/math/scannerRegion";
 
 const inset = scanChromeInset(390, 844, { top: 47, bottom: 34 });
 

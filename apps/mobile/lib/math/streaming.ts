@@ -4,7 +4,7 @@ import {
   PROTECTED_MATH_APOSTROPHE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
   PROTECTED_MATH_UNDERSCORE_MARKER,
-} from "@/lib/mathText";
+} from "@/lib/math/text";
 
 /** In-progress commands/groups are not meaningful native-math previews yet. */
 export function hasIncompleteStreamingLatex(body: string): boolean {

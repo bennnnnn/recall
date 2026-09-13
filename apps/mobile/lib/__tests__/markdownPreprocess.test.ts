@@ -19,7 +19,7 @@ import {
   PROTECTED_MATH_UNDERSCORE_MARKER,
   parseSimpleLatex,
   segmentsToPlain,
-} from "@/lib/mathText";
+} from "@/lib/math/text";
 
 const RESTAURANT_LIST = `Here are some top-rated restaurants in San Francisco that might tickle your taste buds 🍽️:
 

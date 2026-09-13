@@ -44,7 +44,7 @@ import {
   defaultMathCameraPrompt,
   type PendingAttachment,
 } from "@/lib/attachments";
-import { composerTextAfterMathScan } from "@/lib/mathCameraPrompt";
+import { composerTextAfterMathScan } from "@/lib/math/cameraPrompt";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,

@@ -1,4 +1,4 @@
-import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
+import { supportsInlineHtmlMathWebView } from "@/lib/math/webViewSupport";
 
 describe("supportsInlineHtmlMathWebView", () => {
   it("allows RNC (dev client) and expo-dom (Expo Go)", () => {

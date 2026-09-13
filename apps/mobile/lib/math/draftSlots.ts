@@ -4,7 +4,7 @@ import {
   readDelimGroup,
   type LatexGroup,
   type TextSelection,
-} from "@/lib/mathKeyboardSymbols";
+} from "@/lib/math/keyboardSymbols";
 
 export type DraftNode =
   | { kind: "text"; start: number; end: number }

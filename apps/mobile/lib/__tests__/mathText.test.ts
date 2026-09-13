@@ -1,4 +1,4 @@
-import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
+import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import {
   MATH_TALL_LINE_HEIGHT,
   MATH_SCRIPT_LINE_HEIGHT,
@@ -10,7 +10,7 @@ import {
   parseSimpleLatex,
   segmentsToPlain,
   splitMathLines,
-} from "@/lib/mathText";
+} from "@/lib/math/text";
 
 describe("parseSimpleLatex", () => {
   it("puts fractional exponents in a View-capable host", () => {

@@ -1,8 +1,8 @@
-import { isMathLike } from "@/lib/normalizeImplicitMath";
+import { isMathLike } from "@/lib/math/normalizeImplicit";
 import {
   isMostlyProsePaste,
   pastedDeltaLooksLikeMath,
-} from "@/lib/mathPasteNormalize";
+} from "@/lib/math/pasteNormalize";
 
 const MATH_FENCE = /```(?:math|geometry|graph|answer)\b/i;
 const MATH_MARKERS = /\$|\\(?:frac|sqrt|sum|int|lim|pi|times|div|leq|geq|neq|sin|cos|tan)|[√π∞≤≥≠×÷]/;

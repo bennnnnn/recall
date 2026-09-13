@@ -9,10 +9,10 @@ import {
   shouldInlineMathFenceOnBareListMarker,
   shouldRenderMathFenceInline,
   stripRedundantDollarWrap,
-} from "@/lib/math/mathFenceRetag";
+} from "@/lib/math/fenceRetag";
 import { flattenIntegrationConnectNotes } from "@/lib/markdown/flattenIntegrationConnectNotes";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
-import { normalizeImplicitMath, isMathLike } from "@/lib/normalizeImplicitMath";
+import { normalizeImplicitMath, isMathLike } from "@/lib/math/normalizeImplicit";
 import { isStructuredFenceLang, splitTrailingAttribution } from "@/lib/richBlocks";
 import {
   isAnswerLang,
@@ -35,7 +35,7 @@ import {
   PROTECTED_MATH_APOSTROPHE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
   PROTECTED_MATH_UNDERSCORE_MARKER,
-} from "@/lib/mathText";
+} from "@/lib/math/text";
 export { splitInlineMath } from "@/lib/markdown/inlineMath";
 
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).

@@ -6,7 +6,7 @@ import {
   parseGraphExpr,
   parseGraphRelation,
   sampleGraphExpr,
-} from "@/lib/graphExpr";
+} from "@/lib/math/graphExpr";
 
 describe("graphExpr", () => {
   it("evaluates 4x^2-5x-12 at the vertex and origin", () => {

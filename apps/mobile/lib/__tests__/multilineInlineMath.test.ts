@@ -1,8 +1,8 @@
 import { preprocessMarkdown } from '@/lib/markdown/markdownPreprocess';
-import { prepareStreamingMathText } from '@/lib/math/streamingMath';
+import { prepareStreamingMathText } from '@/lib/math/streaming';
 import { preprocessMarkdownForStream, type StreamingPreprocessCache } from '@/lib/markdown/markdownPreprocessStream';
 import { splitInlineMath } from '@/lib/markdown/inlineMath';
-import { restoreMathEscapes } from '@/lib/mathText';
+import { restoreMathEscapes } from '@/lib/math/text';
 import { markdownItInstance } from '@/lib/markdownIt';
 
 const C04_RESPONSE = "The partial derivative of \\(x^2 y\\) with respect to \\(y\\) is:  \n**\\(x^2\\)**  \n\n### Explanation\n- When differentiating with respect to \\(y\\), treat \\(x\\) as a constant.  \n- The derivative of \\(y\\) (with respect to \\(y\\)) is 1, so:  \n  \\(\n  \\frac{\\partial}{\\partial y}(x^2 y) = x^2 \\cdot 1 = x^2.\n  \\)";

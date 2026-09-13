@@ -8,7 +8,7 @@ import {
   isMathFenceLang,
   isVisualDiagramFenceLang,
 } from "@/lib/fenceRegistry";
-import { parseSimpleLatex, type MathSegment } from "@/lib/mathText";
+import { parseSimpleLatex, type MathSegment } from "@/lib/math/text";
 
 function mapFenceRegions(
   text: string,

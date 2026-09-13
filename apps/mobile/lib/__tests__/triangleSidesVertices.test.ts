@@ -1,4 +1,4 @@
-import { triangleSidesVertices } from "@/lib/geometryBlock";
+import { triangleSidesVertices } from "@/lib/math/geometryBlock";
 
 describe("triangle side placement", () => {
   it.each([[3, 4, 5], [5, 4, 3], [6, 5, 5], [5, 5, 6]])(

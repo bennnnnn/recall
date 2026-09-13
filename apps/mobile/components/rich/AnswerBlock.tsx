@@ -5,13 +5,13 @@ import { useTranslation } from "react-i18next";
 import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { splitAnswerBranches } from "@/lib/math/answerLayout";
-import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
+import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
-import { latexHasNestedMathView, readableLatexFallback } from "@/lib/mathText";
+import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
-import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
+import { supportsInlineHtmlMathWebView } from "@/lib/math/webViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };

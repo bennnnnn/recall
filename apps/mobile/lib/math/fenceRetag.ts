@@ -1,5 +1,5 @@
 import { readFenceMarkerLoose } from "@/lib/mdFenceScan";
-import { restoreMathEscapes } from "@/lib/mathText";
+import { restoreMathEscapes } from "@/lib/math/text";
 
 // Trailing (?=[^a-zA-Z]|$) instead of \b: \b treats `_` as a word char, so it
 // would not match the boundary between a command and a subscript

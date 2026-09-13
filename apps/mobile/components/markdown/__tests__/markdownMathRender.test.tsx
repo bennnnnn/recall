@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { formatAssistantMathExpr } from "@/lib/math/formatMathInput";
+import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",

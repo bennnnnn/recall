@@ -16,7 +16,7 @@ import {
   type MathKeyboardGroup,
   type MathKeyboardSymbol,
   type PadCell,
-} from "@/lib/mathKeyboardSymbols";
+} from "@/lib/math/keyboardSymbols";
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
 

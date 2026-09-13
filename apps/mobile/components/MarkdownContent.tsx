@@ -19,7 +19,7 @@ import {
 } from "@/lib/markdown/markdownStreamBlocks";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
 import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
-import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streamingMath";
+import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streaming";
 import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,

@@ -1,5 +1,5 @@
 import { isAttachmentBoilerplate, parseUserMessageContent, isPdfContentType, stripLookupSourceCaption } from "@/lib/messageAttachments";
-import { MATH_CAMERA_PROMPT } from "@/lib/mathCameraPrompt";
+import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
 
 describe("messageAttachments", () => {
   it("treats the math-camera prompt as boilerplate — must stay in sync with the backend's exact-match trigger", () => {

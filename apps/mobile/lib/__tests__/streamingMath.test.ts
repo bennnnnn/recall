@@ -1,6 +1,6 @@
-import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streamingMath";
+import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streaming";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
-import { parseSimpleLatex, restoreMathEscapes, segmentsToPlain } from "@/lib/mathText";
+import { parseSimpleLatex, restoreMathEscapes, segmentsToPlain } from "@/lib/math/text";
 
 describe("streaming math preview", () => {
   it.each([String.raw`\fr`, String.raw`\frac{1}`, String.raw`\frac{1}{`, String.raw`\sqrt{3`, String.raw`\begin{cases}x`])(

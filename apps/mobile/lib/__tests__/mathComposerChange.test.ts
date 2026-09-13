@@ -1,4 +1,4 @@
-import { applyPinnedTextChange, caretAfterMathBarClose } from "@/lib/math/mathComposerChange";
+import { applyPinnedTextChange, caretAfterMathBarClose } from "@/lib/math/composerChange";
 
 describe("applyPinnedTextChange", () => {
   const frac = "$\\frac{8}{8}$";

@@ -1,4 +1,4 @@
-import type { TextSelection } from "@/lib/mathKeyboardSymbols";
+import type { TextSelection } from "@/lib/math/keyboardSymbols";
 
 /** Native replace range: prev[at:at+removed] → added. */
 export function nativeEditRange(

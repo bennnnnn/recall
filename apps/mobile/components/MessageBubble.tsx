@@ -24,7 +24,7 @@ import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
-import { formatAssistantMathExpr } from "@/lib/math/formatMathInput";
+import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";

@@ -8,7 +8,7 @@ import {
   numberLineBounds,
   numberLineTicks,
   NumberLineInterval,
-} from "@/lib/graphBlock";
+} from "@/lib/math/graphBlock";
 
 type Props = {
   spec: GraphSpec;

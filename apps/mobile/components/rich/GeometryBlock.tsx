@@ -38,7 +38,7 @@ import {
   type TriangleSidesSpec,
   type TriangleSpec,
   type VertexAngleMark,
-} from "@/lib/geometryBlock";
+} from "@/lib/math/geometryBlock";
 import i18n from "@/lib/i18n";
 import { Theme, useTheme } from "@/lib/theme";
 

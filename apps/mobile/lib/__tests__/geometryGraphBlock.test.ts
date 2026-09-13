@@ -19,7 +19,7 @@ import {
   sideTickMarks,
   parallelogramLayout,
   baseHeightTriangleVertices,
-} from "@/lib/geometryBlock";
+} from "@/lib/math/geometryBlock";
 import {
   expandBoundsForAxes,
   formatAxisNumber,
@@ -32,7 +32,7 @@ import {
   parseGraphSpec,
   schoolViewBounds,
   graphAxisTicks,
-} from "@/lib/graphBlock";
+} from "@/lib/math/graphBlock";
 
 describe("geometryBlock", () => {
   it("parses square spec from side", () => {

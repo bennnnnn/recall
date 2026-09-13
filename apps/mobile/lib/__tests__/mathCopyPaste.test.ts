@@ -1,6 +1,6 @@
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
-import { normalizePastedMath } from "@/lib/mathPasteNormalize";
-import { formatAssistantMathExpr, formatMathExpr } from "@/lib/math/formatMathInput";
+import { normalizePastedMath } from "@/lib/math/pasteNormalize";
+import { formatAssistantMathExpr, formatMathExpr } from "@/lib/math/formatInput";
 
 function copyPaste(latex: string): { copied: string; pasted: string } {
   const copied = extractPrimaryCopyText(`\`\`\`answer\n${latex}\n\`\`\``);

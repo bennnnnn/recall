@@ -5,7 +5,7 @@
  */
 import { markdownItInstance } from "@/lib/markdownIt";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/markdownPreprocess";
-import { readableLatexFallback, segmentsToPlain, parseSimpleLatex } from "@/lib/mathText";
+import { readableLatexFallback, segmentsToPlain, parseSimpleLatex } from "@/lib/math/text";
 import { findStableMarkdownPrefixLen, preprocessMarkdownForStream } from "@/lib/markdown/markdownPreprocessStream";
 
 const BACKSLASH_CMD = /\\[a-zA-Z]+/;
