@@ -597,6 +597,52 @@ def _solve_for_y_as_function_of_x(expr: str) -> str | None:
     return text or None
 
 
+def _equation_as_function_of_x(expr: str) -> str | None:
+    """Plot ``4x^2-5x-12=0`` as ``y = 4x^2-5x-12`` (lhs - rhs).
+
+    ``sample_function`` rejects Equalities, so a graph cue on a one-variable
+    equation used to stamp *Couldn't verify* instead of drawing the parabola.
+    Relations that still contain ``y`` (circles, ``x=2y``) stay on the
+    ellipse / solve-for-y paths — do not rewrite those as a residual in x.
+    """
+    if "=" not in expr:
+        return None
+    lhs_str, _, rhs_str = expr.partition("=")
+    lhs_str, rhs_str = lhs_str.strip(), rhs_str.strip()
+    if not lhs_str or not rhs_str:
+        return None
+    if "y" in lhs_str or "y" in rhs_str:
+        return None
+    if _has_non_math_word(lhs_str) or _has_non_math_word(rhs_str):
+        return None
+    from sympy import sstr
+    from sympy.core.relational import Relational
+
+    from app.services.math_service.parse import _parse_expression
+
+    try:
+        lhs = _parse_expression(lhs_str, ["x"], real=True)
+        rhs = _parse_expression(rhs_str, ["x"], real=True)
+    except Exception:
+        return None
+    if isinstance(lhs, Relational) or isinstance(rhs, Relational):
+        return None
+    diff = lhs - rhs
+    extra = {str(s) for s in diff.free_symbols} - {"x"}
+    if extra:
+        return None
+    if diff == 0:
+        return None
+    lhs_compact = lhs_str.replace(" ", "").replace("^", "**")
+    rhs_compact = rhs_str.replace(" ", "").replace("^", "**")
+    if rhs_compact in {"0", "0.0"}:
+        return lhs_str.replace("^", "**").replace(" ", "")
+    if lhs_compact in {"0", "0.0"}:
+        return rhs_str.replace("^", "**").replace(" ", "")
+    text = sstr(diff).replace(" ", "")
+    return text or None
+
+
 def _strip_math_delims_and_fix_superscripts(raw: str) -> str:
     """Normalize a graph expression the composer/math keyboard may wrap in
     inline-math delimiters or malformed superscripts.
@@ -672,10 +718,16 @@ def _extract_graph_intent(cleaned: str) -> MathIntent | None:
     # y = f(x) (e.g. "x/2") so sample_function can plot it. Without this,
     # sample_function gets an Equality and rejects it, so no verified graph
     # is emitted and the model emits its own (often wrong) spec.
+    # A one-variable equation ("graph 4x^2-5x-12=0") has no y to isolate;
+    # plot lhs - rhs so the parabola's roots sit on the x-axis.
     if "=" in expr:
         solved = _solve_for_y_as_function_of_x(expr)
         if solved is not None:
             expr = solved
+        else:
+            as_fx = _equation_as_function_of_x(expr)
+            if as_fx is not None:
+                expr = as_fx
     return MathIntent(
         kind="graph", expr=expr, operation="graph", graph_x_min=x_min, graph_x_max=x_max
     )

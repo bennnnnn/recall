@@ -1177,6 +1177,75 @@ def test_extract_graph_intent_solves_equation_for_y(text: str, expected_expr: st
     assert intent.expr == expected_expr
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "graph 4x^2-5x-12=0",
+        "Graph 4x^2 - 5x - 12 = 0",
+        "plot 4x²-5x-12=0",
+        "graph 0=4x^2-5x-12",
+    ],
+)
+def test_extract_graph_intent_plots_equation_as_function_of_x(text: str) -> None:
+    """``graph 4x^2-5x-12=0`` is not y=f(x); sample_function rejected the
+    Equality and stamped Couldn't verify. Plot lhs-rhs (the parabola)."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert "=" not in (intent.expr or "")
+    settings = Settings(math_tools_enabled=True)
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_fence is not None
+    assert block.canonical_fence.get("type") == "function"
+    pts = block.canonical_fence.get("points")
+    assert isinstance(pts, list) and len(pts) > 10
+    x, y = pts[len(pts) // 2]
+    assert abs(y - (4.0 * x * x - 5.0 * x - 12.0)) < 1e-3
+
+
+def test_extract_graph_circle_relation_not_rewritten_as_fx() -> None:
+    intent = math_tools.extract_math_intent("graph x^2+y^2=1")
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert "=" in (intent.expr or "")
+
+
+def test_bare_quadratic_equation_stays_solve() -> None:
+    intent = math_tools.extract_math_intent("4x^2-5x-12=0")
+    assert intent is not None
+    assert intent.kind == "equation"
+
+
+@pytest.mark.asyncio
+async def test_graph_it_uses_prior_quadratic_equation() -> None:
+    settings = Settings(math_tools_enabled=True)
+    note, verified = await math_tools.build_math_augmentation(
+        "graph it",
+        settings,
+        prior_user_messages=["4x^2-5x-12=0"],
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence.get("type") == "function"
+    pts = verified.canonical_fence.get("points")
+    assert isinstance(pts, list) and len(pts) > 10
+    x, y = pts[len(pts) // 2]
+    assert abs(y - (4.0 * x * x - 5.0 * x - 12.0)) < 1e-3
+    assert note is not None
+    assert "Couldn't verify" not in note
+
+
+@pytest.mark.asyncio
+async def test_graph_it_without_prior_does_not_stamp_unverified() -> None:
+    note, verified = await math_tools.build_math_augmentation(
+        "graph it",
+        Settings(math_tools_enabled=True),
+    )
+    assert note is None
+    assert verified is None
+
+
 def test_graph_and_solve_does_not_become_vertical_line() -> None:
     """``3x=9`` after a graph cue is not ``x=9``; first-match vertical must lose."""
     text = "graph y=x**2 and also solve 3x=9"

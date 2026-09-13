@@ -54,6 +54,18 @@ describe("equal graph units", () => {
     }
   });
 
+  it("keeps a shifted parabola vertex in the equal-scale window", () => {
+    const bounds = equalScaleGraphBounds(
+      schoolViewBounds({ xMin: -10, xMax: 10, yMin: -13.56, yMax: 338 }, 1.75),
+      1.75,
+    );
+    expect(bounds.yMin).toBeLessThanOrEqual(-13.56);
+    expect(bounds.yMax).toBeGreaterThan(0);
+    const vertex = mapGraphPoint(0.625, -13.56, bounds, 406, 256);
+    expect(vertex.py).toBeGreaterThanOrEqual(28);
+    expect(vertex.py).toBeLessThanOrEqual(228);
+  });
+
   it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])("keeps valid bounds when aspect is invalid: %s", (aspect) => {
     const bounds = { xMin: -1, xMax: 1, yMin: -1, yMax: 1 };
     expect(equalScaleGraphBounds(bounds, aspect)).toBe(bounds);

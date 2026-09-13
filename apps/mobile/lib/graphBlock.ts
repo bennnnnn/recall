@@ -492,8 +492,21 @@ export function schoolViewBounds(
       yMax = 1;
       yMin = yMax - spanY;
     } else {
+      // Crosses the x-axis. A symmetric ±y crop around 0 is right for
+      // y=x²-1 (vertex near the origin). A shifted parabola
+      // (4x²-5x-12, vertex at y≈-13) must keep that vertex: clipping it
+      // leaves two near-vertical arms through the roots.
       yMin = -spanY / 2;
       yMax = spanY / 2;
+      const clip = Math.max(48, spanY * 4);
+      if (data.yMin < yMin && data.yMin > -clip) {
+        yMin = data.yMin;
+        yMax = Math.max(yMax, 1);
+      }
+      if (data.yMax > yMax && data.yMax < clip) {
+        yMax = data.yMax;
+        yMin = Math.min(yMin, -1);
+      }
     }
   }
   return {

@@ -273,6 +273,12 @@ def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
             break
     else:
         return False
+    from app.services.math_tools.extract import is_graph_followup
+
+    # Pronoun follow-ups ("graph it") reuse the verified samples from a prior
+    # equation; the current line has no f(x) to string-match.
+    if is_graph_followup(user_text):
+        return True
     domain = graph_domain(request)
     if domain is not None:
         lo, hi, request = domain
@@ -309,8 +315,20 @@ def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
         # and closes its parametric loop; it is not a y=f(x) expression.
         return isinstance(points, list) and len(points) >= 3 and points[0] == points[-1]
     if graph.get("type") == "function" and "=" in request:
-        lhs, _, request = request.partition("=")
-        if lhs.strip().lower() != "y":
+        original = request
+        lhs, _, rhs = request.partition("=")
+        if lhs.strip().lower() == "y":
+            request = rhs
+        elif "y" not in original.lower():
+            rhs_c = rhs.replace(" ", "").replace("^", "**")
+            lhs_c = lhs.replace(" ", "").replace("^", "**")
+            if rhs_c in {"0", "0.0"}:
+                request = lhs
+            elif lhs_c in {"0", "0.0"}:
+                request = rhs
+            else:
+                return False
+        else:
             return False
     # The verified sampler preserves its input expr. Requiring the entire
     # remaining request to match it keeps "and solve/explain/tell me..." and
