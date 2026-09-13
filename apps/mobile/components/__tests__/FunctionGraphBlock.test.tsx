@@ -1,6 +1,12 @@
-import { render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
+
+jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 
 describe("FunctionGraphBlock", () => {
   it("renders the expression as the chart title", async () => {
@@ -13,9 +19,9 @@ describe("FunctionGraphBlock", () => {
         [2, 4],
       ],
     });
-    const { getByText } = await render(<FunctionGraphBlock content={content} />);
+    const { getByDisplayValue } = await render(<FunctionGraphBlock content={content} />);
 
-    expect(getByText("y = x²")).toBeOnTheScreen();
+    expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
   });
 
   it("renders even ticks for y = x², not padded −12 / 108 / −8", async () => {
@@ -30,16 +36,20 @@ describe("FunctionGraphBlock", () => {
         [10, 100],
       ],
     });
-    const { queryByText, getByText, toJSON } = await render(
+    const { getByDisplayValue, queryByText, toJSON } = await render(
       <FunctionGraphBlock content={content} />,
     );
-    expect(getByText("y = x²")).toBeOnTheScreen();
+    expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
     expect(queryByText("108")).toBeNull();
     expect(queryByText("-12")).toBeNull();
     expect(queryByText("-8")).toBeNull();
     const tree = JSON.stringify(toJSON());
-    expect(tree).not.toContain('"108"');
     expect(tree).not.toContain('"-12"');
+    expect(tree).toContain('"content":"-3"');
+    expect(tree).toContain('"content":"-2"');
+    expect(tree).toContain('"content":"-1"');
+    expect(tree).toContain('"content":"0"');
+    expect(tree).toContain('"content":"1"');
     expect(tree).toContain("RNSVGLine");
     expect(tree).toContain("RNSVGPath");
   });
@@ -146,10 +156,13 @@ describe("FunctionGraphBlock", () => {
       label: "y = x^2",
       label2: "y = 2x",
     });
-    const { getByText, getAllByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
+    const { getByDisplayValue, getByTestId, toJSON } = await render(
+      <FunctionGraphBlock content={content} />,
+    );
 
-    expect(getAllByText("y = x²")).toHaveLength(2);
-    expect(getByText("y = 2x")).toBeOnTheScreen();
+    expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
+    expect(getByDisplayValue("y = 2*x")).toBeOnTheScreen();
+    expect(getByTestId("graph-expand")).toBeOnTheScreen();
     // Polyline renders as RNSVGPath in this native mock (see the segmented
     // discontinuity test above) — one per curve.
     const pathCount = (JSON.stringify(toJSON()).match(/"RNSVGPath"/g) ?? []).length;
@@ -246,9 +259,12 @@ describe("FunctionGraphBlock", () => {
       label: "y = 3*x**2",
       label2: "y = 2*x",
     });
-    const { getByText } = await render(<FunctionGraphBlock content={content} />);
-    expect(getByText("y = 3x²")).toBeOnTheScreen();
-    expect(getByText("y = 2x")).toBeOnTheScreen();
+    const { getByDisplayValue, getByText } = await render(
+      <FunctionGraphBlock content={content} />,
+    );
+    expect(getByText("Comparison")).toBeOnTheScreen();
+    expect(getByDisplayValue("y = 3*x^2")).toBeOnTheScreen();
+    expect(getByDisplayValue("y = 2*x")).toBeOnTheScreen();
   });
 
   it("formats inequality titles including * multiplication", async () => {
@@ -260,5 +276,95 @@ describe("FunctionGraphBlock", () => {
     });
     const { getByText } = await render(<FunctionGraphBlock content={content} />);
     expect(getByText("3x - 6 ≥ 0")).toBeOnTheScreen();
+  });
+
+  it("resamples the curve when the expression is edited", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x",
+      points: [
+        [-1, -1],
+        [1, 1],
+      ],
+    });
+    const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+    await fireEvent.changeText(getByTestId("graph-expr-input"), "x^2/3");
+    expect(getByTestId("graph-expr-input").props.value).toBe("x^2/3");
+  });
+
+  it("opens a pinchable graph when the plot is tapped", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: [
+        [0, 0],
+        [1, 1],
+        [2, 4],
+      ],
+    });
+    const { getByLabelText, getByTestId, queryByTestId } = await render(
+      <FunctionGraphBlock content={content} />,
+    );
+    expect(queryByTestId("graph-close")).toBeNull();
+    await fireEvent.press(getByTestId("graph-expand"));
+    expect(getByTestId("graph-close")).toBeOnTheScreen();
+    expect(getByLabelText("rich.graph_plot_a11y")).toBeOnTheScreen();
+    expect(getByTestId("graph-expr-input")).toBeOnTheScreen();
+  });
+
+  it("scrolls padded series in the expanded graph and shows a drag handle", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: [
+        [0, 0],
+        [1, 1],
+      ],
+    });
+    const { getByTestId, queryByTestId } = await render(<FunctionGraphBlock content={content} />);
+    expect(queryByTestId("graph-sheet-handle")).toBeNull();
+    expect(queryByTestId("graph-series-scroll")).toBeNull();
+    await fireEvent.press(getByTestId("graph-expand"));
+    expect(getByTestId("graph-sheet-handle")).toBeOnTheScreen();
+    expect(getByTestId("graph-close")).toBeOnTheScreen();
+    const list = getByTestId("graph-series-scroll");
+    expect(list).toBeOnTheScreen();
+    const pad = StyleSheet.flatten(list.props.contentContainerStyle);
+    expect(pad.paddingHorizontal).toBe(16);
+    await fireEvent.press(getByTestId("graph-add-function"));
+    expect(getByTestId("graph-expr-input-1")).toBeOnTheScreen();
+  });
+
+  it("adds a second series from Add function", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: Array.from({ length: 97 }, (_, i) => {
+        const x = -6 + (12 * i) / 96;
+        return [x, x * x];
+      }),
+    });
+    const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+    await fireEvent.press(getByTestId("graph-add-function"));
+    await fireEvent.changeText(getByTestId("graph-expr-input-1"), "x^2/3");
+    expect(getByTestId("graph-expr-input-1").props.value).toBe("x^2/3");
+    expect(getByTestId("graph-hide-1")).toBeOnTheScreen();
+    expect(getByTestId("graph-remove-1")).toBeOnTheScreen();
+  });
+
+  it("plots an added inequality such as y < 2x", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: Array.from({ length: 97 }, (_, i) => {
+        const x = -6 + (12 * i) / 96;
+        return [x, x * x];
+      }),
+    });
+    const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+    await fireEvent.press(getByTestId("graph-add-function"));
+    await fireEvent.changeText(getByTestId("graph-expr-input-1"), "y < 2x");
+    expect(getByTestId("graph-expr-input-1").props.value).toBe("y < 2x");
+    expect(getByTestId("graph-shade-1")).toBeOnTheScreen();
   });
 });

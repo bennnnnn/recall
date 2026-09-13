@@ -13,7 +13,11 @@ from app.models.schemas.math import (
 from app.services import math_service
 from app.services.math_reply_policy import MATH_REPLY_POLICY
 from app.services.math_tools.block import VerifiedMathBlock
-from app.services.math_tools.extract import extract_math_intent, trig_domain_would_be_dropped
+from app.services.math_tools.extract import (
+    extract_math_intent,
+    resolve_graph_followup,
+    trig_domain_would_be_dropped,
+)
 from app.services.prompt_inject import inject_before_last_user
 
 logger = logging.getLogger(__name__)
@@ -134,6 +138,7 @@ async def build_math_augmentation(
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
     needs_math: bool | None = None,
+    prior_user_messages: list[str] | None = None,
 ) -> tuple[str | None, VerifiedMathBlock | None]:
     """Compute the verified-math system block (or None) without mutating messages.
 
@@ -145,9 +150,16 @@ async def build_math_augmentation(
     through so the same message isn't scanned twice per turn. When None,
     needs_symbolic_math is evaluated here (the historical behavior, kept for
     any caller that doesn't pre-compute it).
+
+    ``prior_user_messages`` lets ``graph it`` reuse the last plottable
+    equation or curve from this thread.
     """
     if not settings.math_tools_enabled:
         return None, None
+    if image_math_extract is None:
+        user_content, skip_math = resolve_graph_followup(user_content, prior_user_messages)
+        if skip_math:
+            return None, None
     if needs_math is None:
         needs_math = needs_symbolic_math(user_content, has_image_attachment=has_image_attachment)
     if not needs_math:
@@ -221,12 +233,14 @@ async def augment_prompt_messages(
     *,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
+    prior_user_messages: list[str] | None = None,
 ) -> tuple[list[dict[str, str]], VerifiedMathBlock | None]:
     block, verified = await build_math_augmentation(
         user_content,
         settings,
         has_image_attachment=has_image_attachment,
         image_math_extract=image_math_extract,
+        prior_user_messages=prior_user_messages,
     )
     if block is None:
         return messages, None

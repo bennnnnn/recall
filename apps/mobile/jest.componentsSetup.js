@@ -75,3 +75,7 @@ jestGlobals.mock("react-native-gesture-handler", () => {
     Swipeable: RNView,
   };
 });
+
+jestGlobals.mock("@expo/vector-icons", () => ({
+  Ionicons: "Ionicons",
+}));

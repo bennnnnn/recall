@@ -114,3 +114,113 @@ def extract_math_intent(text: str) -> MathIntent | None:
                     intent = intent.model_copy(update={"unit": unit})
             return intent
     return None
+
+
+_GRAPH_FOLLOWUP_VERBS = ("graph", "plot", "sketch", "draw", "visualize", "visualise", "chart")
+_GRAPH_FOLLOWUP_OBJECTS = frozenset(
+    {
+        "",
+        "it",
+        "this",
+        "that",
+        "the equation",
+        "the function",
+        "the curve",
+        "the parabola",
+        "the quadratic",
+        "the polynomial",
+        "this equation",
+        "that equation",
+        "this function",
+        "that function",
+    }
+)
+_POLITE_PREFIXES = ("please ", "can you ", "could you ")
+
+
+def _strip_polite_wrappers(lower: str) -> str:
+    s = lower
+    changed = True
+    while changed:
+        changed = False
+        if s.startswith("please "):
+            s = s[7:].strip()
+            changed = True
+        if s.endswith(" please"):
+            s = s[:-7].strip()
+            changed = True
+        for prefix in _POLITE_PREFIXES:
+            if s.startswith(prefix):
+                s = s[len(prefix) :].strip()
+                changed = True
+                break
+    return s
+
+
+def is_graph_followup(text: str) -> bool:
+    """True for ``graph it`` / ``plot this equation`` with no new formula."""
+    from app.services.math_text_match.scan import prepare
+
+    cleaned = prepare(text)
+    if not cleaned:
+        return False
+    lower = _strip_polite_wrappers(cleaned.lower().rstrip(".!?"))
+    rest: str | None = None
+    for verb in _GRAPH_FOLLOWUP_VERBS:
+        if lower == verb:
+            rest = ""
+            break
+        prefix = f"{verb} "
+        if lower.startswith(prefix):
+            rest = lower[len(prefix) :].strip()
+            break
+    if rest is None:
+        return False
+    return rest in _GRAPH_FOLLOWUP_OBJECTS
+
+
+def _is_plottable_expr(expr: str) -> bool:
+    compact = expr.replace(" ", "")
+    if not compact:
+        return False
+    lower = compact.lower()
+    if lower in {"it", "this", "that"}:
+        return False
+    from app.services.math_text_match.scan import has_unknown_english_run
+
+    if has_unknown_english_run(compact):
+        return False
+    return any(ch.isdigit() for ch in compact) or "x" in lower
+
+
+def _plottable_graph_source(text: str) -> str | None:
+    intent = extract_math_intent(text)
+    if intent is None:
+        return None
+    if intent.kind == "graph" and intent.expr and _is_plottable_expr(intent.expr):
+        return intent.expr
+    if intent.kind == "graph_pair" and intent.expr and intent.expr2:
+        if _is_plottable_expr(intent.expr) and _is_plottable_expr(intent.expr2):
+            return f"{intent.expr} and {intent.expr2}"
+    if intent.kind == "vertical" and intent.point_x is not None:
+        return f"x={intent.point_x:g}"
+    if intent.kind == "equation" and intent.lhs and intent.rhs:
+        if _is_plottable_expr(intent.lhs) or _is_plottable_expr(intent.rhs):
+            return f"{intent.lhs}={intent.rhs}"
+    return None
+
+
+def resolve_graph_followup(text: str, prior_user_messages: list[str] | None) -> tuple[str, bool]:
+    """Rewrite ``graph it`` from a prior equation.
+
+    Returns ``(content, skip_math)``. ``skip_math`` is True only when this
+    *is* a pronoun follow-up with no plottable prior — caller must not stamp
+    *Couldn't verify* (``graph_expr("it")`` looks like math and used to).
+    """
+    if not is_graph_followup(text):
+        return text, False
+    for prior in reversed(prior_user_messages or []):
+        src = _plottable_graph_source(prior)
+        if src:
+            return f"graph {src}", False
+    return text, True

@@ -143,6 +143,9 @@ def test_can_direct_skips_geometry_and_camera() -> None:
         "draw y=x^3",
         "sketch x^3.",
         "visualize x^3",
+        "graph it",
+        "plot this equation",
+        "please graph it",
     ],
 )
 def test_plain_explicit_graph_returns_complete_canonical_fence(query: str) -> None:
@@ -242,6 +245,21 @@ async def test_exact_cubic_returns_verified_graph_without_model(
     final = validate_math_fences_worker(reply, verified)
     assert final.count("```graph") == 1
     assert json.loads(final.split("```graph\n")[1].split("\n```")[0]) == graph
+
+
+@pytest.mark.asyncio
+async def test_quadratic_equation_graph_skips_model(thread_sympy_executor: None) -> None:
+    query = "graph 4x^2-5x-12=0"
+    _note, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
+    assert verified is not None
+    reply = maybe_direct_math_reply(verified, query)
+    assert reply is not None
+    graph = json.loads(reply.removeprefix("```graph\n").removesuffix("\n```\n"))
+    pts = graph["points"]
+    x, y = pts[len(pts) // 2]
+    assert abs(y - (4.0 * x * x - 5.0 * x - 12.0)) < 1e-3
+    follow = maybe_direct_math_reply(verified, "graph it")
+    assert follow == reply
 
 
 @pytest.mark.asyncio

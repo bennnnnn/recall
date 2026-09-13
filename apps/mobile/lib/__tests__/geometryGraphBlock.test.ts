@@ -739,6 +739,20 @@ describe("graphBlock", () => {
     expect(view.yMax).toBe(4);
   });
 
+  it("schoolViewBounds zooms a shifted quadratic to the roots and lets the arms rise", () => {
+    const points: [number, number][] = Array.from({ length: 97 }, (_, i) => {
+      const x = -10 + (20 * i) / 96;
+      return [x, 4 * x * x - 5 * x - 12];
+    });
+    const view = schoolViewBounds(graphBounds(points), 1.75, points);
+    expect(view.xMin).toBeGreaterThanOrEqual(-4);
+    expect(view.xMin).toBeLessThanOrEqual(-2);
+    expect(view.xMax).toBeGreaterThanOrEqual(3);
+    expect(view.xMax).toBeLessThanOrEqual(6);
+    expect(view.yMin).toBeLessThanOrEqual(-13);
+    expect(view.yMax).toBeGreaterThanOrEqual(25);
+  });
+
   it("formatAxisNumber is always a whole number", () => {
     expect(formatAxisNumber(-11.6)).toBe("-12");
     expect(formatAxisNumber(13.6)).toBe("14");
