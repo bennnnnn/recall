@@ -16,6 +16,9 @@ import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
 
+// Match standalone KaTeX and the answer text role, including nested native math.
+const ANSWER_FONT_SIZE = 20;
+
 function normalizeAnswerContent(raw: string): string {
   const text = stripTrailingFenceCloser(raw.trim());
   const boxed = text.match(/^\\boxed\{([\s\S]+)\}$/);
@@ -99,14 +102,14 @@ export function AnswerBlock({ content }: Props) {
                   {hasInlineMath
                     ? trimmedParts.map((part, i) =>
                         part.type === "math" ? (
-                          <MathText key={i} latex={part.value} textColor={theme.text} />
+                          <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
                         ) : (
                           <Text key={i} style={s.answer} selectable>
                             {part.value}
                           </Text>
                         ),
                       )
-                    : <MathText latex={line} textColor={theme.text} />}
+                    : <MathText latex={line} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />}
                 </View>
               </ScrollView>
             ))}
@@ -115,7 +118,7 @@ export function AnswerBlock({ content }: Props) {
           <Text style={s.answer} selectable>
             {parts.map((part, i) =>
               part.type === "math" ? (
-                <MathText key={i} latex={part.value} textColor={theme.text} />
+                <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
               ) : (
                 <Text key={i} style={s.answer}>
                   {part.value}
@@ -125,7 +128,7 @@ export function AnswerBlock({ content }: Props) {
           </Text>
         ) : (
           <Text style={s.answer} selectable>
-            <MathText latex={text} textColor={theme.text} />
+            <MathText latex={text} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
           </Text>
         )}
       </View>
@@ -183,7 +186,7 @@ const makeStyles = (t: Theme) =>
       paddingHorizontal: 4,
     },
     answer: {
-      fontSize: 20,
+      fontSize: ANSWER_FONT_SIZE,
       lineHeight: 28,
       fontWeight: "500",
       color: t.text,
