@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from app.gateways.google_gmail_gateway import GmailMessage
 
 if TYPE_CHECKING:
-    from app.services.email import SuggestedReminderItem
+    from app.services.email.context import SuggestedReminderItem
 
 _PACKAGE_CUES = (
     "delivered",
@@ -135,7 +135,7 @@ def _title_for(kind: _SenderKind, subject: str) -> str:
 
 def extract_from_sender_template(message: GmailMessage) -> SuggestedReminderItem | None:
     """Return a reminder when From + subject/snippet match a known sender cue."""
-    from app.services.email import SuggestedReminderItem
+    from app.services.email.context import SuggestedReminderItem
 
     kind = _match_kind(email_domain(message.from_address))
     if kind is None:

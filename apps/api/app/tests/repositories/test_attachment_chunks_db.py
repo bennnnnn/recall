@@ -10,7 +10,8 @@ from sqlalchemy import delete, select
 from app.core.config import Settings
 from app.models.orm import Attachment, AttachmentChunk, Chat, Message
 from app.repositories import attachment_chunks, chats, users
-from app.services import attachment_lifecycle, attachment_workflow
+from app.services.attachments import lifecycle as attachment_lifecycle
+from app.services.attachments import workflow as attachment_workflow
 
 
 async def _seed(session):

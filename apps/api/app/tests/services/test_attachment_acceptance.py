@@ -10,7 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway, StorageUnavailableError
-from app.services.attachment_quota import has_current_upload_reservation
+from app.services.attachments.quota import has_current_upload_reservation
 from app.services.chat.turn_prep.attachments import _process_attachments
 
 
@@ -29,7 +29,7 @@ async def test_missing_or_foreign_requested_ids_fail_before_reuse(partial):
             "app.repositories.attachments.get_by_ids",
             AsyncMock(return_value=[owned] if partial else []),
         ),
-        patch("app.services.attachment_reuse.ensure_unlinked_copies", AsyncMock()) as copies,
+        patch("app.services.attachments.reuse.ensure_unlinked_copies", AsyncMock()) as copies,
         pytest.raises(AttachmentValidationError, match="no longer available"),
     ):
         await _process_attachments(
@@ -66,7 +66,7 @@ async def test_local_presign_without_upload_cannot_be_sent(tmp_path):
             "app.gateways.storage_gateway.get_storage_gateway",
             return_value=LocalStorageGateway(tmp_path),
         ),
-        patch("app.services.attachment_content.purge_invalid_upload", AsyncMock()),
+        patch("app.services.attachments.content.purge_invalid_upload", AsyncMock()),
         pytest.raises(AttachmentValidationError, match="Upload not found"),
     ):
         await _process_attachments(

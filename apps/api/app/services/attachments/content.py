@@ -428,7 +428,7 @@ async def extract_text_details_async(
     if timed_out:
         return None
     if allow_ocr and content_type == "application/pdf" and settings.attachment_ocr_enabled:
-        from app.services.attachment_ocr import ocr_scanned_pdf
+        from app.services.attachments.ocr import ocr_scanned_pdf
 
         pages_for_ocr = (
             ocr_max_pages
@@ -522,7 +522,7 @@ async def purge_invalid_upload(
     try:
         await gateway.delete_bytes(storage_key)
     except Exception:
-        from app.services.attachment_lifecycle import enqueue_failed_storage_deletes
+        from app.services.attachments.lifecycle import enqueue_failed_storage_deletes
 
         await enqueue_failed_storage_deletes([storage_key])
     return True

@@ -17,7 +17,7 @@ from app.repositories import attachment_chunks as chunks_repo
 from app.repositories import attachments as attachments_repo
 from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
-from app.services.attachment_content import (
+from app.services.attachments.content import (
     GALLERY_THUMB_MAX_EDGE,
     GALLERY_THUMB_MIN_EDGE,
     MAX_ATTACHMENT_SIZE,
@@ -28,9 +28,9 @@ from app.services.attachment_content import (
     resize_image_bytes,
     strip_attachment_from_content,
 )
-from app.services.attachment_lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
-from app.services.attachment_quota import has_current_upload_reservation
-from app.services.attachment_upload import AttachmentUploadError, cancel_pending_upload
+from app.services.attachments.lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
+from app.services.attachments.quota import has_current_upload_reservation
+from app.services.attachments.upload import AttachmentUploadError, cancel_pending_upload
 
 logger = logging.getLogger(__name__)
 

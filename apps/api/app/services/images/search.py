@@ -28,7 +28,7 @@ from app.repositories import attachments as attachments_repo
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
-from app.services.attachment_content import (
+from app.services.attachments.content import (
     MAX_ATTACHMENT_SIZE,
     bytes_match_claimed,
     is_image_content_type,
@@ -267,6 +267,6 @@ async def search_and_attach_for_chat(
 
 def image_search_marker_ids(content: str) -> list[UUID]:
     """Parse ``[Image: /attachments/{uuid}/file]`` markers (reused for revisions/tests)."""
-    from app.services.attachment_content import image_attachment_ids_from_text
+    from app.services.attachments.content import image_attachment_ids_from_text
 
     return image_attachment_ids_from_text(content)

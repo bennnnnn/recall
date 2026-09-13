@@ -57,7 +57,7 @@ async def ensure_unlinked_copies(
         try:
             await session.rollback()
         finally:
-            from app.services.attachment_lifecycle import (
+            from app.services.attachments.lifecycle import (
                 delete_storage_keys,
                 enqueue_failed_storage_deletes,
             )

@@ -13,7 +13,7 @@ from app.gateways.storage_gateway import StorageUnavailableError
 from app.models.orm import Attachment, User
 from app.models.schemas.math import MathImageExtract
 from app.repositories import users as users_repo
-from app.services.attachment_quota import has_current_upload_reservation
+from app.services.attachments.quota import has_current_upload_reservation
 from app.services.chat.stream_status import StreamStatusFn
 
 
@@ -21,7 +21,7 @@ async def count_image_attachments(
     session: AsyncSession, user_id: UUID, attachment_ids: list[UUID]
 ) -> int:
     from app.repositories import attachments as attachments_repo
-    from app.services.attachment_content import IMAGE_CONTENT_TYPES, normalize_content_type
+    from app.services.attachments.content import IMAGE_CONTENT_TYPES, normalize_content_type
 
     rows = await attachments_repo.get_by_ids(session, attachment_ids, user_id)
     return sum(1 for row in rows if normalize_content_type(row.content_type) in IMAGE_CONTENT_TYPES)
@@ -136,7 +136,7 @@ async def _process_attachment_inputs(
             if attachment_id in rows_by_id
         ]
         if attachment_rows:
-            from app.services.attachment_reuse import ensure_unlinked_copies
+            from app.services.attachments.reuse import ensure_unlinked_copies
 
             attachment_rows = await ensure_unlinked_copies(session, settings, attachment_rows)
         resolved_ids = [row.id for row in attachment_rows]
@@ -156,7 +156,7 @@ async def _process_attachment_inputs(
         )
 
     from app.gateways.storage_gateway import get_storage_gateway
-    from app.services import attachment_content as attachment_content_service
+    from app.services.attachments import content as attachment_content_service
 
     if on_status is not None:
         await on_status("reading_files")

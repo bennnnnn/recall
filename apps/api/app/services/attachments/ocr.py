@@ -10,7 +10,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
-from app.services.attachment_content import MAX_EXTRACT_CHARS, ExtractedText
+from app.services.attachments.content import MAX_EXTRACT_CHARS, ExtractedText
 
 logger = logging.getLogger(__name__)
 

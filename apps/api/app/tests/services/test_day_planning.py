@@ -19,7 +19,7 @@ from app.services.day_planning import (
     is_day_reflection_question,
     needs_gmail_for_day_planning,
 )
-from app.services.email import (
+from app.services.email.context import (
     GMAIL_HINT,
     format_not_connected_gmail_block,
     should_inject_gmail_block,

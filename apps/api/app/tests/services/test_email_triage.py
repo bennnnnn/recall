@@ -1,5 +1,5 @@
 from app.gateways.google_gmail_gateway import GmailMessage
-from app.services.email_triage import (
+from app.services.email.triage import (
     InboxBucket,
     classify_message,
     format_triaged_inbox_block,

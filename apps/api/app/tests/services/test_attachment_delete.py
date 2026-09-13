@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.services.attachment_workflow import AttachmentWorkflowError, delete_attachment
+from app.services.attachments.workflow import AttachmentWorkflowError, delete_attachment
 
 
 @pytest.mark.asyncio
@@ -24,35 +24,35 @@ async def test_delete_library_attachment_strips_message_and_does_not_refund():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_workflow.messages_repo.get_for_user",
+            "app.services.attachments.workflow.messages_repo.get_for_user",
             AsyncMock(return_value=message),
         ),
         patch(
-            "app.services.attachment_workflow.chunks_repo.delete_for_attachment_ids",
+            "app.services.attachments.workflow.chunks_repo.delete_for_attachment_ids",
             AsyncMock(),
         ) as chunks,
         patch(
-            "app.services.attachment_workflow.attachments_repo.delete_rows",
+            "app.services.attachments.workflow.attachments_repo.delete_rows",
             AsyncMock(return_value=1),
         ),
         patch(
-            "app.services.attachment_workflow.delete_storage_keys",
+            "app.services.attachments.workflow.delete_storage_keys",
             AsyncMock(return_value=[]),
         ) as storage,
         patch(
-            "app.services.attachment_workflow.enqueue_failed_storage_deletes",
+            "app.services.attachments.workflow.enqueue_failed_storage_deletes",
             AsyncMock(),
         ),
         patch(
-            "app.services.attachment_workflow.cancel_pending_upload",
+            "app.services.attachments.workflow.cancel_pending_upload",
             AsyncMock(),
         ) as cancel,
         patch(
-            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            "app.services.attachments.workflow.quota_service.refund_image_upload",
             AsyncMock(),
         ) as refund,
     ):
@@ -83,27 +83,27 @@ async def test_delete_library_attachment_deletes_empty_message():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_workflow.messages_repo.get_for_user",
+            "app.services.attachments.workflow.messages_repo.get_for_user",
             AsyncMock(return_value=message),
         ),
         patch(
-            "app.services.attachment_workflow.chunks_repo.delete_for_attachment_ids",
+            "app.services.attachments.workflow.chunks_repo.delete_for_attachment_ids",
             AsyncMock(),
         ),
         patch(
-            "app.services.attachment_workflow.attachments_repo.delete_rows",
+            "app.services.attachments.workflow.attachments_repo.delete_rows",
             AsyncMock(return_value=1),
         ),
         patch(
-            "app.services.attachment_workflow.delete_storage_keys",
+            "app.services.attachments.workflow.delete_storage_keys",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.attachment_workflow.enqueue_failed_storage_deletes",
+            "app.services.attachments.workflow.enqueue_failed_storage_deletes",
             AsyncMock(),
         ),
     ):
@@ -118,7 +118,7 @@ async def test_delete_attachment_missing_is_not_found():
     user = MagicMock()
     user.id = uuid4()
     with patch(
-        "app.services.attachment_workflow.attachments_repo.get_by_id",
+        "app.services.attachments.workflow.attachments_repo.get_by_id",
         AsyncMock(return_value=None),
     ):
         with pytest.raises(AttachmentWorkflowError) as exc_info:

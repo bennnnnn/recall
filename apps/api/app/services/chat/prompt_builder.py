@@ -17,7 +17,6 @@ from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
 from app.services import chat_tools as chat_tools_service
-from app.services import email as email_service
 from app.services import learning as learning_service
 from app.services import locale as locale_service
 from app.services import memory as memory_service
@@ -89,6 +88,7 @@ from app.services.chat.prompt_constants.visuals import (
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
+from app.services.email import context as email_service
 from app.services.math import tools as math_tools_service
 from app.services.math.followup import (
     MATH_FOLLOWUP_HINT,
@@ -534,7 +534,7 @@ async def _load_context_blocks(
         # HTTP/embed-bound — do not hold a DB pool slot.
         if not settings.attachment_rag_enabled or not query_text:
             return ""
-        from app.services import attachment_rag as attachment_rag_service
+        from app.services.attachments import rag as attachment_rag_service
 
         return await attachment_rag_service.retrieve_for_prompt(
             settings,

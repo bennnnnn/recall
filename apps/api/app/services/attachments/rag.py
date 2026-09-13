@@ -15,8 +15,8 @@ from app.gateways.storage_gateway import get_storage_gateway
 from app.models.orm import Attachment, AttachmentChunk
 from app.repositories import attachment_chunks as chunks_repo
 from app.repositories import attachments as attachments_repo
-from app.services import attachment_content as attachment_content_service
-from app.services.attachment_content import ExtractedText
+from app.services.attachments import content as attachment_content_service
+from app.services.attachments.content import ExtractedText
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)

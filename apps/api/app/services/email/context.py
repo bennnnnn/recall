@@ -24,9 +24,9 @@ from app.repositories import suggested_reminders as suggested_repo
 from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
 from app.services import day_planning as day_planning_service
-from app.services import email_triage as email_triage_service
 from app.services import home as home_service
 from app.services.chat.prompt_constants.locale_cues import has_locale_cue
+from app.services.email import triage as email_triage_service
 from app.services.ics_parser import parse_ics_invite
 from app.services.time_context import normalize_due_at
 
@@ -368,7 +368,7 @@ async def _extract_reminder_item(
     extracted = _parse_from_ics(message, default_tz=default_tz)
     if extracted is not None:
         return extracted
-    from app.services.email_sender_templates import extract_from_sender_template
+    from app.services.email.sender_templates import extract_from_sender_template
 
     templated = extract_from_sender_template(message)
     if templated is not None:
@@ -427,7 +427,7 @@ async def _write_suggested_reminder(
     due_at = extracted.due_at
     if due_at is not None and due_at.tzinfo is None:
         due_at = due_at.replace(tzinfo=UTC)
-    from app.services.email_sender_templates import display_sender
+    from app.services.email.sender_templates import display_sender
 
     sender = display_sender(message.from_address).strip() or None
     await suggested_repo.create(

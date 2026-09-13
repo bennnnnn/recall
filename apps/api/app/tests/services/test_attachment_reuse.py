@@ -8,7 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError
-from app.services.attachment_reuse import ensure_unlinked_copies
+from app.services.attachments.reuse import ensure_unlinked_copies
 
 
 @pytest.mark.asyncio
@@ -44,11 +44,11 @@ async def test_ensure_unlinked_copies_copies_bytes_for_linked_rows():
 
     with (
         patch(
-            "app.services.attachment_reuse.get_storage_gateway",
+            "app.services.attachments.reuse.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_reuse.attachments_repo.insert_verified_clone",
+            "app.services.attachments.reuse.attachments_repo.insert_verified_clone",
             AsyncMock(return_value=clone),
         ) as insert,
     ):
@@ -72,7 +72,7 @@ async def test_ensure_unlinked_copies_raises_when_bytes_missing():
 
     with (
         patch(
-            "app.services.attachment_reuse.get_storage_gateway",
+            "app.services.attachments.reuse.get_storage_gateway",
             return_value=gateway,
         ),
         pytest.raises(AttachmentValidationError),
@@ -94,10 +94,10 @@ async def test_clone_failure_rolls_back_and_cleans_every_attempted_object(failur
     else:
         gateway.write_bytes.side_effect = [None, RuntimeError("second_write")]
     with (
-        patch("app.services.attachment_reuse.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_reuse.attachments_repo.insert_verified_clone", insert),
+        patch("app.services.attachments.reuse.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.reuse.attachments_repo.insert_verified_clone", insert),
         patch(
-            "app.services.attachment_lifecycle.delete_storage_keys", AsyncMock(return_value=[])
+            "app.services.attachments.lifecycle.delete_storage_keys", AsyncMock(return_value=[])
         ) as cleanup,
         pytest.raises(RuntimeError, match=failure),
     ):

@@ -5,7 +5,7 @@ import pytest
 
 from app.models.schemas import EmailDraftUpdate
 from app.services.chats import ChatsError, update_message_email
-from app.services.email_fence import format_email_fence_body, rewrite_first_email_fence
+from app.services.email.fence import format_email_fence_body, rewrite_first_email_fence
 
 
 def test_email_draft_update_treats_blank_to_as_missing() -> None:

@@ -14,8 +14,8 @@ from app.core.redis import get_redis_client
 from app.gateways.storage_gateway import get_storage_gateway
 from app.repositories import attachments as attachments_repo
 from app.services import quota as quota_service
-from app.services.attachment_content import is_image_content_type
-from app.services.attachment_quota import has_current_upload_reservation
+from app.services.attachments.content import is_image_content_type
+from app.services.attachments.quota import has_current_upload_reservation
 
 logger = logging.getLogger(__name__)
 

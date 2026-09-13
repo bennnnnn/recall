@@ -13,14 +13,14 @@ from app.models.orm import User
 from app.models.schemas import AttachmentPresignOut
 from app.repositories import attachments as attachments_repo
 from app.services import quota as quota_service
-from app.services.attachment_content import (
+from app.services.attachments.content import (
     IMAGE_CONTENT_TYPES,
     MAX_ATTACHMENT_SIZE,
     is_allowed_content_type,
     is_image_content_type,
     normalize_content_type,
 )
-from app.services.attachment_quota import has_current_upload_reservation
+from app.services.attachments.quota import has_current_upload_reservation
 
 
 class AttachmentUploadError(Exception):
@@ -130,7 +130,7 @@ async def cancel_pending_upload(
     removed = await attachments_repo.delete_unlinked_returning(session, [attachment_id])
     if not removed:
         raise AttachmentUploadError("Attachment is no longer pending", status_code=409)
-    from app.services.attachment_lifecycle import (
+    from app.services.attachments.lifecycle import (
         delete_storage_keys,
         enqueue_failed_storage_deletes,
     )

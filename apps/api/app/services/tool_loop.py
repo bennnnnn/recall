@@ -309,8 +309,8 @@ def turn_needs_tool_loop(
     if has_verified_math and not leftover_math_after_verified(text):
         return False
 
-    from app.services.image_gen_intent import extract_image_gen_prompt
-    from app.services.image_lookup_intent import extract_image_lookup_query
+    from app.services.images.gen_intent import extract_image_gen_prompt
+    from app.services.images.lookup_intent import extract_image_lookup_query
     from app.services.math.tools import needs_symbolic_math
     from app.services.web_search.detection import needs_web_search
 

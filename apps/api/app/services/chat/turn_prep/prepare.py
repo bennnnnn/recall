@@ -44,7 +44,7 @@ def _should_use_vision_chat(
         return True
     if not recent_messages:
         return False
-    from app.services.attachment_content import history_has_image_marker
+    from app.services.attachments.content import history_has_image_marker
 
     return history_has_image_marker(recent_messages)
 
@@ -156,7 +156,7 @@ async def prepare_chat_turn(
             )
             if attachment_ids and settings.attachments_enabled:
                 from app.repositories import attachments as attachments_repo
-                from app.services import attachment_rag as attachment_rag_service
+                from app.services.attachments import rag as attachment_rag_service
 
                 linked = await attachments_repo.link_to_message(
                     session,
@@ -289,7 +289,7 @@ async def prepare_chat_turn(
         )
 
     prompt_messages = bundle.prompt_messages
-    from app.services import attachment_content as attachment_content_service
+    from app.services.attachments import content as attachment_content_service
 
     if has_image_attachment and image_attachments and gateway is not None:
         await attachment_content_service.inject_vision_content(
