@@ -16,7 +16,6 @@ from app.models.schemas.math import MathImageExtract
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
-from app.services import chat_tools as chat_tools_service
 from app.services import learning as learning_service
 from app.services import locale as locale_service
 from app.services import memory as memory_service
@@ -25,6 +24,7 @@ from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
 from app.services import todos as todos_service
 from app.services import web_search as web_search_service
+from app.services.chat import tools as chat_tools_service
 from app.services.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
     BREVITY_REQUEST_HINT,
@@ -408,7 +408,7 @@ async def _load_context_blocks(
     async def _history_rag_embed() -> list[float] | None:
         if not history_rag or not query_text or not query_text.strip():
             return None
-        from app.services import chat_history_rag as chat_history_rag_service
+        from app.services.chat import history_rag as chat_history_rag_service
 
         return await chat_history_rag_service.embed_query_for_prompt(
             settings, user_id=user.id, query=query_text
@@ -890,7 +890,7 @@ async def build_prompt_messages(
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
     if history_rag and blocks.history_rag_query_vec is not None:
-        from app.services import chat_history_rag as chat_history_rag_service
+        from app.services.chat import history_rag as chat_history_rag_service
 
         exclude = {m.id for m in recent}
         if omit_message_ids:

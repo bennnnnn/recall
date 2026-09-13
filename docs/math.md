@@ -4,10 +4,10 @@ Server-side SymPy verifies and samples; the mobile app only renders. Do not add 
 
 ## Default product path (heuristic SymPy, always)
 
-1. **Heuristic pre-stream** ([`math_tools/`](../apps/api/app/services/math_tools/)) — if `needs_symbolic_math`, SymPy runs in isolated worker slots (default 3; interactive slot wait 2s, then the 5s solve timeout). A verified system block is injected (numbers + `canonical_fence` / `canonical_answer` for ` ```geometry` / ` ```graph` / ` ```answer `). The hint tells the model **not** to emit those fences.
+1. **Heuristic pre-stream** ([`math/tools/`](../apps/api/app/services/math/tools/)) — if `needs_symbolic_math`, SymPy runs in isolated worker slots (default 3; interactive slot wait 2s, then the 5s solve timeout). A verified system block is injected (numbers + `canonical_fence` / `canonical_answer` for ` ```geometry` / ` ```graph` / ` ```answer `). The hint tells the model **not** to emit those fences.
 2. **Direct verified reply** — short closed answers and supported plain graph requests can **skip the LLM** through the instant-reply seam. Whole literal requests for supported 2D measurements return the requested answer plus the canonical diagram; closed cube, rectangular-prism, cylinder, cone, sphere, and square-pyramid volume/surface-area requests return one answer with units. The guards require the requested dimensions, units, and quantity to agree with the verified result. An exact AAA drawing returns relative lengths only; an area/perimeter request with angles alone asks for a side length instead of inventing a scale. Closed literal physics requests return the canonical quantity and any existing trajectory directly. Explanations, hints, mixed/qualified requests, camera homework, and requests outside these complete grammars retain the model response path.
 3. **LLM stream** (when language adds value) — model answers briefly in Markdown + `$...$`. A reply instruction immediately after the verified working distinguishes supporting solver data from a user request for teaching.
-4. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — rewrite any leftover geometry/graph/`answer` fences from the model with the canonical body; append missing solver-owned results, avoiding an extra answer card when equivalent math is already visible; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget. Direct replies run this rewrite in-process (they already carry the fence).
+4. **Post-stream** ([`math/fence.py`](../apps/api/app/services/math/fence.py)) — rewrite any leftover geometry/graph/`answer` fences from the model with the canonical body; append missing solver-owned results, avoiding an extra answer card when equivalent math is already visible; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget. Direct replies run this rewrite in-process (they already carry the fence).
 5. **Mobile** — preprocess delimiters, then render: ordinary inline `$...$` → native `MathText`; heavy inline calculus/matrices and display ` ```math` → KaTeX/MathJax WebView (`react-native-webview` in dev builds or `@expo/dom-webview` in Expo Go; tall blocks offer Expand → fullscreen scroll); diagrams → SVG. Crash fallback still draws geometry/graph as SVG (not raw JSON).
 
 Camera math is a specialization of step 1: an image with the scanner prompt or another recognized math caption goes through Mathpix when configured, with vision fallback for semantic or uncertain reads, then the supported SymPy extraction path. A plain photo with no math caption does not automatically trigger this verified OCR path. Image turns retain the model response path.
@@ -33,7 +33,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 
 - **Symbol toolbar** (`MathKeyboardBar` / `mathKeyboardSymbols.ts`) inserts LaTeX snippets (`$...$` when the caret is outside math).
 - **Ordinary typing and native paste** preserve the exact input and native caret. Autocorrect and spellcheck stay disabled so notation such as `sqrt` and assignment expressions cannot be rewritten while typing.
-- **Explicit math keypad / Paste controls** opt into formatted math editing. `mathPasteNormalize.ts` maps pasted Unicode math glyphs to LaTeX (the same glyph set spirit as `_UNICODE_OP_SUBS` in `math_service/parse.py`). The in-app Paste button reads clipboard text only; it does not import an image. Use Scan Math or a photo attachment for image input.
+- **Explicit math keypad / Paste controls** opt into formatted math editing. `mathPasteNormalize.ts` maps pasted Unicode math glyphs to LaTeX (the same glyph set spirit as `_UNICODE_OP_SUBS` in `math/solve/parse.py`). The in-app Paste button reads clipboard text only; it does not import an image. Use Scan Math or a photo attachment for image input.
 - **Scan Math** captures a camera frame or imports a photo. Imported photos fit inside the preview so the initial crop contains the full image; camera previews retain their fill/crop behavior. Solve crops and sends immediately, using the existing draft or the default math prompt. There is no OCR text-review step in the current mobile scanner.
 - Backslashes, `_`, and `*` inside math are protected during Markdown preprocessing and restored at the native/KaTeX parser boundary, so Markdown cannot consume math escapes or reinterpret subscripts/multiplication as emphasis.
 
@@ -41,11 +41,11 @@ The stored user text preserves what the composer submitted. Explicit math contro
 
 | Layer | Path |
 |-------|------|
-| SymPy core | `apps/api/app/services/math_service/` |
-| Physics templates and direct guard | `apps/api/app/services/physics_solver.py`, `math_tools/physics.py`, `math_tools/direct_physics.py` |
-| Pre-stream inject | `apps/api/app/services/math_tools/` |
-| Post-stream fences | `apps/api/app/services/math_fence.py` |
-| Camera OCR | `apps/api/app/services/math_ocr.py`, `math_image_extract.py` |
+| SymPy core | `apps/api/app/services/math/solve/` |
+| Physics (peer subject) | `apps/api/app/services/physics/` — `solver.py`, `extract.py`, `direct.py`, `block.py` |
+| Pre-stream inject | `apps/api/app/services/math/tools/` |
+| Post-stream fences | `apps/api/app/services/math/fence.py` |
+| Camera OCR | `apps/api/app/services/math/ocr.py`, `math/image_extract.py` |
 | MCP sympy | `apps/api/app/gateways/mcp/sympy_adapter.py` |
 | Prompt hints | `apps/api/app/services/chat/prompt_constants/` (`math.py`, …) |
 | Mobile preprocess | `apps/mobile/lib/markdown/markdownPreprocess.ts`, `apps/mobile/lib/normalizeImplicitMath.ts` |
@@ -56,7 +56,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 
 The LLM can **talk** about almost any homework. **Verified** work (pre-stream SymPy + canonical fences) only covers the `MathIntent.kind` list in [`schemas/math/`](../apps/api/app/models/schemas/math/) (36 kinds). Anything else is unverified prose. That is intentional: Golden Rule 7 — the app renders; the server verifies what SymPy can close. Proof-based analysis and abstract algebra stay LLM-only.
 
-[`math_tools/`](../apps/api/app/services/math_tools/) is the feature split: ordered `_INTENT_EXTRACTORS` in `extract.py` plus `kind → _verified_block_*` in `block/`. Do **not** add a second kind table. Do **not** add Skia; display math stays KaTeX/MathJax WebView, inline `MathText`, diagrams `react-native-svg`.
+[`math/tools/`](../apps/api/app/services/math/tools/) is the feature split: ordered `_INTENT_EXTRACTORS` in `extract.py` plus `kind → _verified_block_*` in `block/`. Do **not** add a second kind table. Do **not** add Skia; display math stays KaTeX/MathJax WebView, inline `MathText`, diagrams `react-native-svg`.
 
 Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / series / Newton / solid).
 
@@ -109,7 +109,7 @@ Still not a verified kind (the model may answer; it must **not** claim a verifie
 4. **Unit-symbol casing** — Pint already covers energy/force/pressure/etc. Symbols that need uppercase (`J`, `N`, `Pa`) must be passed through with original case (lowercasing before lookup used to drop them). `fl-oz` aliases to Pint `fluid_ounce`.
 5. **Physics beyond the verified templates** — friction, tension, normal-force systems, momentum/collisions, rotation, circuits, waves, thermodynamics, relativity, coupled ODEs, and free-body diagrams remain LLM-only.
 
-New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math_tools` is a package (`extract.py` registry, `block/` builders, `school.py` extra kinds) — do not add a second kind table.
+New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math/tools` is a package (`extract.py` registry, `block/` builders, `school.py` extra kinds) — do not add a second kind table.
 
 ## Math quality review — September 12, 2026
 

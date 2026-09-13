@@ -16,7 +16,7 @@ async def test_index_message_job_calls_index_turn():
     chat_id = uuid4()
     assistant_id = uuid4()
     with patch(
-        "app.services.chat_history_rag.index_turn_messages",
+        "app.services.chat.history_rag.index_turn_messages",
         AsyncMock(return_value=2),
     ) as index:
         await index_message_job(
@@ -70,7 +70,7 @@ async def test_enqueue_post_turn_jobs_includes_message_index():
 @pytest.mark.asyncio
 async def test_index_message_job_skips_when_disabled_or_bad_payload():
     with patch(
-        "app.services.chat_history_rag.index_turn_messages",
+        "app.services.chat.history_rag.index_turn_messages",
         AsyncMock(),
     ) as index:
         await index_message_job(Settings(chat_history_rag_enabled=False), {"user_id": "x"})

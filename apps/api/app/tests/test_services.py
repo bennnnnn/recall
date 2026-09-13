@@ -6,8 +6,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services import chat_titles, memory_llm
+from app.services.chat import titles as chat_titles
 from app.services.memory import embedding_text_hash
+from app.services.memory import llm as memory_llm
 
 
 class _FakeSessionCM:
@@ -212,7 +213,7 @@ async def test_revise_memory_sections_prompt_user_stated_only():
         return None
 
     with patch(
-        "app.services.memory_llm.litellm_gateway.complete_structured",
+        "app.services.memory.llm.litellm_gateway.complete_structured",
         _capture,
     ):
         await memory_llm.revise_memory_sections(

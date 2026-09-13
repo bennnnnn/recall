@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.services import chat_tools
+from app.services.chat import tools as chat_tools
 
 
 @pytest.mark.asyncio
@@ -72,7 +72,7 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
 
     with (
         patch(
-            "app.services.chat_tools.augment_prompt_with_mcp_tools",
+            "app.services.chat.tools.augment_prompt_with_mcp_tools",
             AsyncMock(return_value=after_mcp),
         ) as mcp_mock,
         patch(
