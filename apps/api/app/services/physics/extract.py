@@ -562,6 +562,22 @@ def _ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     ]
 
 
+def _positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, str]]:
+    """Like ``_ordered_values`` but keeps each match's offset.
+
+    Torque balance needs to know *which* force a distance belongs to, which
+    written order alone cannot say.
+    """
+    return [
+        (m.start(), float(m.group(1)), m.group(2))
+        for m in re.finditer(
+            rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            text,
+            re.IGNORECASE,
+        )
+    ]
+
+
 def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _MOMENTUM_CUES):
@@ -1068,6 +1084,91 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
+# Torque and rotational equilibrium
+#   tau = F d (or F d sin(theta)),  balance: F1 d1 = F2 d2
+# ---------------------------------------------------------------------------
+
+# "moment" is ordinary English — "give me a moment", "at the moment" — so it is
+# not a cue on its own. It qualifies only beside a pivot word, which is what the
+# regex below requires. The rest are unambiguous mechanics vocabulary.
+_TORQUE_CUES = (
+    "torque",
+    "pivot",
+    "fulcrum",
+    "lever arm",
+    "see-saw",
+    "seesaw",
+)
+_PIVOT_WORDS = r"pivot|fulcrum|lever|see-?saw|balance"
+_TORQUE_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\bmoments?\b.{{0,80}}?(?:{_PIVOT_WORDS})", re.IGNORECASE),
+    re.compile(rf"(?:{_PIVOT_WORDS}).{{0,80}}?\bmoments?\b", re.IGNORECASE),
+)
+
+# Moment of inertia is a different quantity (kg*m^2) and is not solved here.
+_TORQUE_UNSUPPORTED = ("moment of inertia", "angular momentum", "rotational inertia")
+
+
+def _extract_torque_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _TORQUE_CUES, _TORQUE_CUE_RES):
+        return None
+    if any(word in lower for word in _TORQUE_UNSUPPORTED):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    placed_forces = _positioned_values(cleaned, r"N")
+    placed_distances = _positioned_values(cleaned, _LENGTH_UNIT_PATTERN)
+    if not placed_forces or not placed_distances:
+        return None
+
+    # Two forces and one distance is the classic balance question. Pair the
+    # distance with the force it actually belongs to rather than taking them in
+    # written order: "the distance for a 10 N force to balance a 5 N force at
+    # 2 m" mentions the 10 N first, but the 2 m is the *5 N* force's arm.
+    # Written order answers 4 m there; the true answer is 1 m.
+    balancing = "balance" in lower or "see-saw" in lower or "seesaw" in lower
+    if balancing and len(placed_forces) >= 2:
+        d_pos, d_val, d_unit = placed_distances[0]
+        preceding = [f for f in placed_forces if f[0] < d_pos]
+        # The force nearest *before* the distance owns it; the remaining force
+        # is the one whose arm we are solving for.
+        known = preceding[-1] if preceding else placed_forces[0]
+        others = [f for f in placed_forces if f[0] != known[0]]
+        if not others:
+            return None
+        unknown = others[0]
+        return MathIntent(
+            kind="torque",
+            physics_op="moment_balance",
+            physics_params={"F1": known[1], "d1": d_val, "F2": unknown[1]},
+            physics_units={
+                "F1": known[2] or "N",
+                "d1": d_unit or "m",
+                "F2": unknown[2] or "N",
+            },
+            operation="solve",
+        )
+    forces = [(f[1], f[2]) for f in placed_forces]
+    distances = [(d[1], d[2]) for d in placed_distances]
+
+    angle_match = _INCLINE_ANGLE_RE.search(cleaned)
+    params: dict[str, float] = {"F": forces[0][0], "d": distances[0][0]}
+    units: dict[str, str] = {"F": forces[0][1] or "N", "d": distances[0][1] or "m"}
+    if angle_match:
+        params["angle"] = float(angle_match.group(1))
+        units["angle"] = "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg"
+    return MathIntent(
+        kind="torque",
+        physics_op="torque",
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Force: scalar Newton's second law (F = ma)
 # ---------------------------------------------------------------------------
 
@@ -1397,6 +1498,7 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_circular_intent,
     _extract_spring_intent,
     _extract_circuit_intent,
+    _extract_torque_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
@@ -1411,6 +1513,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_CIRCULAR_CUES,
             *_SPRING_CUES,
             *_CIRCUIT_CUES,
+            *_TORQUE_CUES,
             *_FORCE_CUES,
             *_ENERGY_CUES,
         )
@@ -1425,6 +1528,7 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_CIRCULAR_CUE_RES,
     *_SPRING_CUE_RES,
     *_CIRCUIT_CUE_RES,
+    *_TORQUE_CUE_RES,
     *_FORCE_CUE_RES,
     *_ENERGY_CUE_RES,
 )

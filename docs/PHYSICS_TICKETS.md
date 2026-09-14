@@ -18,8 +18,8 @@ recorded as uncovered only when **no** phrasing of it produced a verified answer
 | P6 | [Circular motion](#p6-circular-motion) | API | ✅ |
 | P7 | [Springs, Hooke's law and SHM](#p7-springs-hookes-law-and-shm) | API | ✅ |
 | P8 | [Ohm's law and resistance networks](#p8-ohms-law-and-resistance-networks) | API | ✅ |
-| P9 | [Torque and rotational equilibrium](#p9-torque-and-rotational-equilibrium) | API | ☐ |
-| P10 | [Declare the physics boundary in the prompt](#p10-declare-the-physics-boundary-in-the-prompt) | API | ☐ |
+| P9 | [Torque and rotational equilibrium](#p9-torque-and-rotational-equilibrium) | API | ✅ |
+| P10 | [Declare the physics boundary in the prompt](#p10-declare-the-physics-boundary-in-the-prompt) | API | ✅ |
 
 ## What is verified today
 
@@ -464,6 +464,22 @@ parallel resistance falls below the smaller resistor, and `P = VI`, `I²R` and
 **Acceptance:** `torque of a 5 N force at 2 m from the pivot` → `10 N·m`;
 a two-force balance solves for the unknown distance.
 
+**Done** in `apps/api/app/tests/services/test_physics_torque.py` (21 tests).
+Baseline 0 of 7 probed phrasings; 7 of 7 now, both acceptance clauses met. Two
+notes:
+
+- **`"moment"` is ordinary English** — *"give me a moment"*, *"at the moment"* —
+  so it is never a cue alone; it qualifies only beside a pivot word. Moment of
+  inertia is named as unsupported rather than left to chance: it shares the word
+  but is a different quantity (kg·m²).
+- **Written order is not ownership.** The balance case reads two forces and one
+  distance, and pairing them in the order written is wrong: in *"the distance
+  for a 10 N force to balance a 5 N force at 2 m"* the 10 N comes first but the
+  2 m is the **5 N force's** arm. That draft answered `4.00 m`; the true answer
+  is `1.00 m`. The distance now binds to the force preceding it, and the force
+  left without an arm is the unknown. Three phrasings of the same see-saw are
+  asserted to give one answer.
+
 ---
 
 ## P10: Declare the physics boundary in the prompt
@@ -489,6 +505,40 @@ file is already long and every line costs prompt budget on every turn.
 
 **Acceptance:** The physics hint names the verified topics; a test asserts the
 constant lists them and that it stays under a sensible length budget.
+
+**Done** in `apps/api/app/tests/services/test_physics_prompt_boundary.py`
+(23 tests). The boundary statement landed as asked — but writing it turned up
+something worse than the missing caution.
+
+**The hint's claims had gone stale, and these tickets are what made them
+stale.** It still described physics as *"kinematics, projectile motion, forces,
+energy"* after P4–P8 added five more kinds, and still said trajectory graphs
+were *"only for kinematics (height vs time) and projectile motion"* after P3
+added velocity-vs-time and P7 added the SHM curve. Measured before the fix:
+**six of ten verified kinds were missing from the prompt**, and nothing failed —
+because no test tied the prompt to the registry.
+
+Worse, the one existing test that touched the sentence
+(`test_chat.py::test_math_solver_hint_does_not_overclaim_unverified_scope`)
+pinned the stale wording *verbatim*, so it was actively **enforcing** the drift.
+It now asserts the constraint rather than the 2026 topic list.
+
+So P10 is three things, not one:
+
+1. Correct the two false claims.
+2. Add the boundary: name the uncovered topics (pressure, thermodynamics,
+   gravitation, waves, optics, pendulum) and instruct caution, in the wording
+   the file already uses for limits/series/statistics.
+3. **Tie the prompt to the registry.** A parametrized test over
+   `PHYSICS_BLOCK_BUILDERS` fails until a new kind is named in the hint, and a
+   second checks every `trajectory_type` the schema admits. A character budget
+   stops the fix for a failing coverage test being "append more prose".
+
+Verified the tests bite: against the old prompt, **15 fail**. Cost: the hint
+grew 1945 → 2062 characters (+117, +6%). I had aimed for no net growth and did
+not get there; six new topic names and a boundary sentence is what the growth
+bought, and trimming useful instruction to hide it would have been the worse
+trade.
 
 ---
 

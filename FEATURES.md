@@ -215,7 +215,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   displacement-vs-time curve, normalised when no amplitude is given), plus
   **circuits** — Ohm's law in all three rearrangements, electrical power, and two
   resistors in series or parallel. Electrical power is a separate op from the
-  mechanical one: same name and same watt, different quantity. Trajectory ` ```graph ` fences only for
+  mechanical one: same name and same watt, different quantity. Torque and
+  see-saw moment balance close the mechanics set. The system prompt names the
+  verified list and states plainly that anything outside it (pressure,
+  thermodynamics, gravitation, waves, optics, pendulum) is **not** checked — and
+  a test ties that list to the solver registry so it cannot drift again. Trajectory ` ```graph ` fences only for
   kinematics and projectile; force and energy are numbers. A speed/velocity ask plots
   `v(t)`, not height. Projectile and kinematics trajectories **play back on tap** — a dot
   walks the sampled points, which the solver spaces by uniform time, so the motion is

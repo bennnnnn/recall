@@ -62,6 +62,9 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "R": "ohm",
     "R1": "ohm",
     "R2": "ohm",
+    "F1": "newton",
+    "F2": "newton",
+    "d1": "meter",
     # "mu" and "angle" are intentionally absent: mu is dimensionless and angle
     # is converted by _params_in_si before any unit check runs.
 }
@@ -793,6 +796,49 @@ def solve_circuit(intent: MathIntent) -> PhysicsResult:
 
 
 # ---------------------------------------------------------------------------
+# Torque: tau = F d sin(theta); balance F1 d1 = F2 d2
+# ---------------------------------------------------------------------------
+
+
+def solve_torque(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or "torque"
+
+    if op == "moment_balance":
+        f1, d1, f2 = p["F1"], p["d1"], p["F2"]
+        if f2 == 0:
+            raise MathServiceError("balancing force must be nonzero")
+        d2 = f1 * d1 / f2
+        return PhysicsResult(
+            answer=(
+                r"F_1 d_1 = F_2 d_2 \Rightarrow d_2 = \frac{F_1 d_1}{F_2} = "
+                rf"\frac{{{f1:g} \cdot {d1:g}}}{{{f2:g}}} \approx {d2:.2f} \text{{ m}}"
+            ),
+            answer_value=f"{d2:.2f} m",
+        )
+
+    if op == "torque":
+        f, d = p["F"], p["d"]
+        theta = p.get("angle")
+        if theta is None:
+            tau = f * d
+            answer = (
+                rf"\tau = F d = {f:g} \cdot {d:g} "
+                rf"\approx {tau:.2f} \text{{ N}}\cdot\text{{m}}"
+            )
+        else:
+            tau = f * d * math.sin(theta)
+            deg = math.degrees(theta)
+            answer = (
+                rf"\tau = F d \sin\theta = {f:g} \cdot {d:g} \cdot \sin({deg:g}^\circ) "
+                rf"\approx {tau:.2f} \text{{ N}}\cdot\text{{m}}"
+            )
+        return PhysicsResult(answer=answer, answer_value=f"{tau:.2f} N*m")
+
+    raise MathServiceError(f"unsupported torque op: {op}")
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -817,4 +863,6 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_spring(intent)
     if intent.kind == "circuit":
         return solve_circuit(intent)
+    if intent.kind == "torque":
+        return solve_torque(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")
