@@ -12,6 +12,13 @@ from app.services.math.tools.block.common import (
 )
 
 
+def _padded_y_bounds(ys: list[float]) -> tuple[float, float]:
+    lo = min(min(ys), 0.0)
+    hi = max(max(ys), 0.0)
+    pad = max(1.0, (hi - lo) * 0.15)
+    return lo - pad, hi + pad
+
+
 def _verified_block_point(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -54,6 +61,50 @@ def _verified_block_graph(
 ) -> VerifiedMathBlock | None:
     if not intent.expr:
         return None
+    max_points = settings.math_graph_max_points
+    if intent.school_op == "polar":
+        sample = math_solve.sample_polar_curve(
+            intent.expr[: settings.math_max_expr_length],
+            intent.variable if intent.variable else "theta",
+            max_points,
+        )
+        ys = [point[1] for point in sample.points]
+        y_min, y_max = _padded_y_bounds(ys)
+        spec = GraphBlockSpec(
+            expr=sample.expr,
+            variable=sample.variable,
+            x_min=sample.x_min,
+            x_max=sample.x_max,
+            y_min=y_min,
+            y_max=y_max,
+            points=sample.points,
+            title=sample.expr,
+        )
+        lines.append(f"Polar samples for {sample.expr}: {len(sample.points)} points.")
+        return _diagram_block(lines, spec)
+    if intent.school_op == "parametric" and intent.expr2:
+        sample = math_solve.sample_parametric_curve(
+            intent.expr[: settings.math_max_expr_length],
+            intent.expr2[: settings.math_max_expr_length],
+            intent.variable if intent.variable else "t",
+            max_points,
+        )
+        ys = [point[1] for point in sample.points]
+        y_min, y_max = _padded_y_bounds(ys)
+        has_discontinuity = len(sample.segments) > 1
+        spec = GraphBlockSpec(
+            expr=sample.expr,
+            variable=sample.variable,
+            x_min=sample.x_min,
+            x_max=sample.x_max,
+            y_min=y_min,
+            y_max=y_max,
+            points=sample.points,
+            segments=sample.segments if has_discontinuity else [],
+            title=sample.expr,
+        )
+        lines.append(f"Parametric samples for {sample.expr}: {len(sample.points)} points.")
+        return _diagram_block(lines, spec)
     # Axis-aligned circle/ellipse relations (x^2+y^2=1, x^2/9+y^2/4=1) are
     # not y=f(x) — sample parametrically into the same ```graph fence.
     ellipse_spec = math_solve.build_ellipse_graph_spec(

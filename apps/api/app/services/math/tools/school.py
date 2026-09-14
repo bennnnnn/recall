@@ -13,7 +13,7 @@ from app.models.schemas.math import MathIntent
 from app.services.math import match as mtm
 from app.services.math import school as math_school
 from app.services.math.match.coordinate_vector import literal_math_tuples
-from app.services.math.match.scan import word_index
+from app.services.math.match.scan import _NUM, word_index
 from app.services.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.math.tools.block.common import format_quantity
 from app.services.math.tools.helpers import math_expr_or_none, substituted_eval_expr
@@ -799,6 +799,94 @@ def _extract_average_speed_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+def _hour_quantities(text: str) -> list[float]:
+    lower = text.lower()
+    found: list[float] = []
+    for match in _NUM.finditer(text):
+        after = lower[match.end() :]
+        k = 0
+        while k < len(after) and after[k].isspace():
+            k += 1
+        if after.startswith("hour", k):
+            found.append(float(match.group(0)))
+    return found
+
+
+def _extract_work_together_intent(cleaned: str, lower: str) -> MathIntent | None:
+    if word_index(lower, "together") == -1 and "combined" not in lower:
+        return None
+    hours = _hour_quantities(cleaned)
+    if len(hours) != 2 or hours[0] <= 0 or hours[1] <= 0:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="work_together",
+        percent_base=hours[0],
+        percent_rate=hours[1],
+        operation="solve",
+    )
+
+
+def _extract_mixture_intent(cleaned: str, lower: str) -> MathIntent | None:
+    if "% of " in lower:
+        return None
+    if not any(word_index(lower, word) != -1 for word in ("mix", "mixed", "mixture")):
+        return None
+    if cleaned.count("%") != 2:
+        return None
+    volumes: list[float] = []
+    percents: list[float] = []
+    for match in _NUM.finditer(cleaned):
+        after = cleaned[match.end() :].lstrip()
+        value = float(match.group(0))
+        if after.startswith("%"):
+            percents.append(value)
+        else:
+            volumes.append(value)
+    if len(volumes) != 2 or len(percents) != 2:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="mixture",
+        vec_a=volumes,
+        vec_b=percents,
+        operation="solve",
+    )
+
+
+def _extract_twice_as_many_intent(cleaned: str, lower: str) -> MathIntent | None:
+    if "twice as many" not in lower and "2 times as many" not in lower:
+        return None
+    if word_index(lower, "together") == -1:
+        return None
+    nums = [float(match.group(0)) for match in _NUM.finditer(cleaned)]
+    total: float | None = None
+    if "twice as many" in lower and len(nums) == 1:
+        total = nums[0]
+    elif len(nums) == 2 and 2.0 in nums:
+        total = nums[0] if nums[1] == 2.0 else nums[1]
+        if total == 2.0:
+            return None
+    if total is None or total <= 0:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="twice_as_many",
+        percent_base=total,
+        operation="solve",
+    )
+
+
+def _extract_word_problem_intent(cleaned: str, lower: str) -> MathIntent | None:
+    work = _extract_work_together_intent(cleaned, lower)
+    if work is not None:
+        return work
+    mix = _extract_mixture_intent(cleaned, lower)
+    if mix is not None:
+        return mix
+    return _extract_twice_as_many_intent(cleaned, lower)
+
+
 def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     substituted = substituted_eval_expr(cleaned)
     if substituted is not None:
@@ -815,6 +903,9 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     sets = _extract_set_intent(cleaned, lower)
     if sets is not None:
         return sets
+    word = _extract_word_problem_intent(cleaned, lower)
+    if word is not None:
+        return word
     sequence = _extract_sequence_intent(cleaned)
     if sequence is not None:
         return sequence
@@ -1089,6 +1180,28 @@ def _verified_block_arithmetic(
             answer = math_school.set_difference(intent.vec_a, intent.vec_b)
         lines.append(f"{intent.school_op}: {answer}")
         return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op == "work_together"
+        and intent.percent_base is not None
+        and intent.percent_rate is not None
+    ):
+        answer = math_school.work_together(intent.percent_base, intent.percent_rate)
+        lines.append(
+            f"Together: {intent.percent_base:g} h and {intent.percent_rate:g} h → {answer}"
+        )
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "mixture" and intent.vec_a and intent.vec_b and len(intent.vec_a) == 2:
+        if len(intent.vec_b) != 2:
+            return None
+        answer = math_school.mixture_percent(
+            intent.vec_a[0], intent.vec_b[0], intent.vec_a[1], intent.vec_b[1]
+        )
+        lines.append(f"Mixture: {answer}%")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "twice_as_many" and intent.percent_base is not None:
+        answer = math_school.twice_as_many(intent.percent_base)
+        lines.append(f"Parts: {answer}")
+        return _finish_with_answer(lines, answer)
     if not intent.expr:
         return None
     answer = math_school.evaluate_arithmetic(intent.expr)
@@ -1207,6 +1320,10 @@ def apply_calculus_extension(
         out = math_school.critical_points(intent.expr, intent.variable)
         lines.append(f"Critical points: {out.latex}")
         return _finish_with_answer(lines, out.latex)
+    if intent.school_op == "identity" and intent.lhs and intent.rhs:
+        answer = math_school.verify_identity(intent.lhs, intent.rhs)
+        lines.append("Identity holds.")
+        return _finish_with_answer(lines, answer)
     return None
 
 

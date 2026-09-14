@@ -494,6 +494,83 @@ def _extract_vertical_intent(cleaned: str) -> MathIntent | None:
     return MathIntent(kind="vertical", point_x=vert_x, operation="graph")
 
 
+def _rhs_after_letter_eq(text: str, letter: str) -> str | None:
+    """RHS of a standalone ``letter = …``, stopping at ``,`` / `` and ``."""
+    lower = text.lower()
+    n = len(lower)
+    i = 0
+    while i < n:
+        if lower[i] == letter and (i == 0 or not lower[i - 1].isalnum()):
+            j = i + 1
+            while j < n and lower[j].isspace():
+                j += 1
+            if j < n and lower[j] == "=":
+                k = j + 1
+                while k < n and lower[k].isspace():
+                    k += 1
+                end = k
+                while end < n:
+                    if lower.startswith(",", end) or lower.startswith(" and ", end):
+                        break
+                    end += 1
+                rhs = text[k:end].strip().rstrip(" .?!")
+                return rhs or None
+        i += 1
+    return None
+
+
+def _is_bare_number(text: str) -> bool:
+    try:
+        float(text.strip())
+    except ValueError:
+        return False
+    return True
+
+
+def _extract_polar_or_parametric_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    compact = lower.replace(" ", "")
+    has_plot = any(
+        word in lower for word in ("graph", "plot", "sketch", "draw", "polar", "parametric")
+    )
+    if not has_plot:
+        return None
+    if "r=" in compact and ("polar" in lower or "theta" in lower or "θ" in cleaned):
+        rhs = _rhs_after_letter_eq(cleaned, "r")
+        if rhs is not None:
+            rhs = rhs.replace("θ", "theta")
+            guarded = math_expr_or_none(rhs.replace("^", "**"))
+            if guarded is not None:
+                var = "theta" if "theta" in guarded.lower() else "t"
+                return MathIntent(
+                    kind="graph",
+                    school_op="polar",
+                    expr=guarded.replace("^", "**"),
+                    variable=var,
+                    operation="graph",
+                )
+    x_rhs = _rhs_after_letter_eq(cleaned, "x")
+    y_rhs = _rhs_after_letter_eq(cleaned, "y")
+    if x_rhs is None or y_rhs is None:
+        return None
+    if _is_bare_number(x_rhs) and _is_bare_number(y_rhs):
+        return None
+    if "parametric" not in lower and "t" not in f"{x_rhs} {y_rhs}".lower():
+        return None
+    gx = math_expr_or_none(x_rhs.replace("^", "**"))
+    gy = math_expr_or_none(y_rhs.replace("^", "**"))
+    if gx is None or gy is None:
+        return None
+    return MathIntent(
+        kind="graph",
+        school_op="parametric",
+        expr=gx.replace("^", "**"),
+        expr2=gy.replace("^", "**"),
+        variable="t",
+        operation="graph",
+    )
+
+
 def _extract_graph_pair_intent(cleaned: str) -> MathIntent | None:
     """Checked BEFORE the single-expression graph extractor below — "graph
     y=x^2 and y=2x" must not fall into graph_expr's single-capture, which
@@ -747,6 +824,7 @@ GEOMETRY_GRAPH_EXTRACTORS = (
     _extract_triangle_intent,
     _extract_point_intent,
     _extract_vertical_intent,
+    _extract_polar_or_parametric_intent,
     _extract_graph_pair_intent,
     _extract_graph_intent,
 )

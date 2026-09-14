@@ -239,34 +239,87 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
     return None
 
 
+def _rows_from_brackets(body: str) -> list[list[float]] | None:
+    inner = body.strip()
+    if not inner.startswith("[[") or not inner.endswith("]]"):
+        return None
+    core = inner[1:-1]
+    rows: list[list[float]] = []
+    for row_text in core.split("],["):
+        cells = [cell.strip() for cell in row_text.strip("[]").split(",") if cell.strip()]
+        if not cells:
+            return None
+        try:
+            rows.append([float(cell) for cell in cells])
+        except ValueError:
+            return None
+    if len(rows) < 2 or len(rows) > 4:
+        return None
+    width = len(rows[0])
+    if width < 1 or width > 4 or any(len(row) != width for row in rows):
+        return None
+    return rows
+
+
+def bracket_matrices(text: str, limit: int = 2) -> list[list[list[float]]] | None:
+    """Parse up to ``limit`` explicit ``[[...],[...]]`` matrices, left to right."""
+    found: list[list[list[float]]] = []
+    search = 0
+    while len(found) < limit:
+        start = text.find("[[", search)
+        if start == -1:
+            break
+        end = text.find("]]", start)
+        if end == -1:
+            return None
+        rows = _rows_from_brackets(text[start : end + 2])
+        if rows is None:
+            return None
+        found.append(rows)
+        search = end + 2
+    return found or None
+
+
+def _matrix_op_from_text(text: str) -> MatrixOp | None:
+    lower = text.lower()
+    if "determinant" in lower or "det(" in lower.replace(" ", ""):
+        return "determinant"
+    if "inverse" in lower:
+        return "inverse"
+    if "rref" in lower or "row echelon" in lower:
+        return "rref"
+    if "eigen" in lower:
+        return "eigenvalues"
+    if (
+        word_index(lower, "multiply") != -1
+        or "product of" in lower
+        or word_index(lower, "times") != -1
+    ):
+        return "multiply"
+    first = text.find("]]")
+    second = text.find("[[", first + 2) if first != -1 else -1
+    if first != -1 and second != -1:
+        mid = text[first + 2 : second].strip()
+        if mid in {"*", "\u00d7"}:
+            return "multiply"
+    return None
+
+
 def matrix_signal(text: str) -> tuple[MatrixOp, list[list[float]]] | None:
     """ "determinant of [[1,2],[3,4]]" / "inverse of [[2,0],[1,3]]" -> (op,
     rows). Only explicit [[...],[...]] bracket notation is recognized — a
     best-effort structural match, not general NL parsing."""
-    lower = text.lower()
-    op: MatrixOp
-    if "determinant" in lower or "det(" in lower.replace(" ", ""):
-        op = "determinant"
-    elif "inverse" in lower:
-        op = "inverse"
-    else:
+    op = _matrix_op_from_text(text)
+    if op is None:
         return None
-    start = text.find("[[")
-    if start == -1:
+    matrices = bracket_matrices(text)
+    if not matrices:
         return None
-    end = text.find("]]", start)
-    if end == -1:
+    rows = matrices[0]
+    if op in {"determinant", "inverse", "eigenvalues"} and any(
+        len(row) != len(rows) for row in rows
+    ):
         return None
-    body = text[start : end + 2].strip("[]")
-    rows: list[list[float]] = []
-    for row_text in body.split("],["):
-        cells = [c.strip() for c in row_text.strip("[]").split(",") if c.strip()]
-        if not cells:
-            return None
-        try:
-            rows.append([float(c) for c in cells])
-        except ValueError:
-            return None
-    if len(rows) < 2 or len(rows) > 4 or any(len(r) != len(rows) for r in rows):
+    if op == "multiply" and len(matrices) != 2:
         return None
     return op, rows

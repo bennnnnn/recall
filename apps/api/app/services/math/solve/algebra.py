@@ -633,6 +633,33 @@ def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> Math
     return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
 
 
+def integrate_double(
+    expr: str,
+    variable: str,
+    lower: str,
+    upper: str,
+    variable2: str,
+    lower2: str,
+    upper2: str,
+) -> MathExprResult:
+    """Definite double integral over a named axis-aligned rectangle."""
+    parsed = _parse_expression(expr, [variable, variable2])
+    a = _parse_infinity_aware_point(lower)
+    b = _parse_infinity_aware_point(upper)
+    c = _parse_infinity_aware_point(lower2)
+    d = _parse_infinity_aware_point(upper2)
+    try:
+        result = integrate(
+            parsed,
+            (Symbol(variable), a, b),
+            (Symbol(variable2), c, d),
+        )
+    except Exception as exc:
+        raise MathServiceError(f"Could not compute double integral of: {expr}") from exc
+    solved = not result.has(Integral)
+    return MathExprResult(result=str(result), latex=format_verified_latex(result), solved=solved)
+
+
 _INFINITY_WORDS = {"infinity", "inf", "oo", "infty"}
 
 

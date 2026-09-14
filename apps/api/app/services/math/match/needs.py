@@ -287,6 +287,44 @@ def school_homework_cue(cleaned: str) -> bool:
         word_index(lower, word) != -1 for word in ("union", "intersection", "difference")
     ):
         return True
+    if has_equation(cleaned) and (
+        "identity" in lower
+        or "show that" in lower
+        or "prove that" in lower
+        or "verify that" in lower
+    ):
+        return True
+    compact = lower.replace(" ", "")
+    polar_plot = any(
+        word_index(lower, word) != -1 for word in ("graph", "plot", "polar", "sketch", "draw")
+    )
+    if "r=" in compact and ("polar" in lower or "theta" in lower or "θ" in cleaned) and polar_plot:
+        return True
+    if (
+        "x=" in compact
+        and "y=" in compact
+        and (
+            "parametric" in lower
+            or word_index(lower, "graph") != -1
+            or word_index(lower, "plot") != -1
+        )
+    ):
+        return True
+    if word_index(lower, "together") != -1 and "hour" in lower and has_digit:
+        return True
+    if (
+        has_digit
+        and cleaned.count("%") == 2
+        and "% of " not in lower
+        and any(word_index(lower, word) != -1 for word in ("mix", "mixed", "mixture"))
+    ):
+        return True
+    if (
+        has_digit
+        and ("twice as many" in lower or "2 times as many" in lower)
+        and (word_index(lower, "together") != -1)
+    ):
+        return True
     if "average speed" in lower or "average velocity" in lower:
         from app.services.math.tools.school import _extract_average_speed_intent
 

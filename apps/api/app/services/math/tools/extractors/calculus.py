@@ -99,6 +99,126 @@ def _extract_critical_points_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+_IDENTITY_CUES = ("show that", "prove that", "verify that")
+_IDENTITY_SKIP_OPS = {
+    "factor",
+    "expand",
+    "differentiate",
+    "derivative",
+    "integrate",
+    "integral",
+    "dsolve",
+}
+
+
+def _extract_identity_intent(cleaned: str) -> MathIntent | None:
+    """Certify an identity equality. Must run before algebra solves for x."""
+    from app.services.math import match as mtm
+
+    lower = cleaned.lower()
+    has_cue = "identity" in lower or any(cue in lower for cue in _IDENTITY_CUES)
+    if not has_cue or not mtm.has_equation(cleaned):
+        return None
+    op_word = mtm.calc_op(cleaned)
+    if op_word in _IDENTITY_SKIP_OPS:
+        return None
+    if "induction" in lower or "contradiction" in lower:
+        return MathIntent(
+            kind="calculus",
+            operation="simplify",
+            school_op="identity",
+            lhs="",
+            rhs="",
+            expr="",
+            variable="x",
+        )
+    eq = cleaned.find("=")
+    if eq <= 0:
+        return None
+    lhs_raw = cleaned[:eq]
+    rhs_raw = cleaned[eq + 1 :]
+    lhs_low = lhs_raw.lower()
+    for cue in (*_IDENTITY_CUES, "the identity", "identity"):
+        idx = lhs_low.find(cue)
+        if idx != -1:
+            lhs_raw = lhs_raw[idx + len(cue) :]
+            break
+    lhs = math_expr_or_none(_normalize_latex_expr(_strip_trailing_filler(lhs_raw)))
+    rhs = math_expr_or_none(_normalize_latex_expr(_strip_trailing_filler(rhs_raw)))
+    return MathIntent(
+        kind="calculus",
+        operation="simplify",
+        school_op="identity",
+        lhs=lhs or "",
+        rhs=rhs or "",
+        expr=f"({lhs or '0'})-({rhs or '0'})",
+        variable="x",
+    )
+
+
+def _named_axis_bounds(text: str, var: str) -> tuple[str, str] | None:
+    """Linear scan for ``var=LO to HI`` — no regex."""
+    lower = text.lower()
+    needle = f"{var}="
+    idx = lower.find(needle)
+    if idx == -1:
+        needle = f"{var} ="
+        idx = lower.find(needle)
+        if idx == -1:
+            return None
+    rest = text[idx + len(needle) :]
+    to_at = rest.lower().find(" to ")
+    if to_at == -1:
+        return None
+    lo = rest[:to_at].strip().rstrip(",")
+    hi_part = rest[to_at + 4 :].strip()
+    end = 0
+    while end < len(hi_part) and not hi_part[end].isspace() and hi_part[end] not in ",;":
+        end += 1
+    hi = hi_part[:end].strip()
+    if not lo or not hi:
+        return None
+    return lo, hi
+
+
+def _extract_double_integral_intent(cleaned: str) -> MathIntent | None:
+    """Intercept ``double integral of … from x=a to b and y=c to d``."""
+    lower = cleaned.lower()
+    x_bounds = _named_axis_bounds(cleaned, "x")
+    y_bounds = _named_axis_bounds(cleaned, "y")
+    if x_bounds is None or y_bounds is None:
+        return None
+    start = lower.find("double integral")
+    if start != -1:
+        rest = cleaned[start + len("double integral") :]
+    else:
+        start = lower.find("integral")
+        if start == -1:
+            return None
+        rest = cleaned[start + len("integral") :]
+    rest = rest.lstrip()
+    if rest.lower().startswith("of "):
+        rest = rest[3:]
+    from_at = rest.lower().find(" from ")
+    if from_at == -1:
+        return None
+    expr = math_expr_or_none(_normalize_latex_expr(rest[:from_at].strip()))
+    if expr is None:
+        return None
+    return MathIntent(
+        kind="calculus",
+        operation="integrate",
+        school_op="double_integral",
+        expr=expr,
+        variable="x",
+        variable2="y",
+        integral_lower=x_bounds[0],
+        integral_upper=x_bounds[1],
+        integral_lower2=y_bounds[0],
+        integral_upper2=y_bounds[1],
+    )
+
+
 def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     from app.services.math import match as mtm
 
@@ -206,6 +326,8 @@ def _extract_series_intent(cleaned: str) -> MathIntent | None:
 
 CALCULUS_EXTRACTORS = (
     _extract_critical_points_intent,
+    _extract_identity_intent,
+    _extract_double_integral_intent,
     _extract_calculus_intent,
     _extract_limit_intent,
     _extract_series_intent,

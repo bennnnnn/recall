@@ -173,28 +173,57 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
     )
 
 
-def compute_matrix(data: MatrixInput) -> MatrixResult:
-    """Determinant / inverse of a small square matrix via sympy.Matrix.
-    Entries are plain floats from Pydantic (never sympified from raw text),
-    so this never touches the untrusted-expression parser either. Converted
-    via Rational(str(v)) rather than left as float — sympy.Matrix keeps
-    float entries as floats, so e.g. an inverse's 1/6 entry would otherwise
-    print as the illegible "0.166666666666667" instead of a clean fraction.
-    """
+def _matrix_from_rows(rows: list[list[float]]):
     from sympy import Matrix, Rational
 
-    mat = Matrix([[Rational(str(v)) for v in row] for row in data.rows])
-    if mat.rows != mat.cols:
-        raise MathServiceError("determinant/inverse need a square matrix")
-    det = mat.det()
+    return Matrix([[Rational(str(value)) for value in row] for row in rows])
+
+
+def compute_matrix(data: MatrixInput) -> MatrixResult:
+    """Small-matrix ops via sympy.Matrix. Entries are plain floats from
+    Pydantic (never sympified from raw text). Converted via Rational(str(v))
+    rather than left as float — sympy.Matrix keeps float entries as floats,
+    so e.g. an inverse's 1/6 entry would otherwise print as the illegible
+    "0.166666666666667" instead of a clean fraction.
+    """
+    from app.services.math.solve.parse import format_verified_latex
+
+    mat = _matrix_from_rows(data.rows)
+    if data.operation in {"determinant", "inverse", "eigenvalues"} and mat.rows != mat.cols:
+        raise MathServiceError("determinant/inverse/eigenvalues need a square matrix")
+
     if data.operation == "determinant":
+        det = mat.det()
         steps = [f"\\det = {latex(det)}"]
         return MatrixResult(operation="determinant", determinant=float(det), steps=steps)
 
-    if det == 0:
-        raise MathServiceError("Matrix is singular (determinant is 0) — no inverse exists")
-    inv = mat.inv()
-    steps = [f"\\det = {latex(det)}", f"\\text{{inverse}} = {latex(inv)}"]
-    return MatrixResult(
-        operation="inverse", determinant=float(det), inverse_latex=latex(inv), steps=steps
-    )
+    if data.operation == "inverse":
+        det = mat.det()
+        if det == 0:
+            raise MathServiceError("Matrix is singular (determinant is 0) — no inverse exists")
+        inv = mat.inv()
+        steps = [f"\\det = {latex(det)}", f"\\text{{inverse}} = {latex(inv)}"]
+        return MatrixResult(
+            operation="inverse", determinant=float(det), inverse_latex=latex(inv), steps=steps
+        )
+
+    if data.operation == "multiply":
+        if data.rows_b is None:
+            raise MathServiceError("multiply needs a second matrix")
+        other = _matrix_from_rows(data.rows_b)
+        if mat.cols != other.rows:
+            raise MathServiceError("matrix multiply inner dimensions must agree")
+        product = mat * other
+        steps = [f"AB = {latex(product)}"]
+        return MatrixResult(operation="multiply", result_latex=latex(product), steps=steps)
+
+    if data.operation == "rref":
+        reduced = mat.rref()[0]
+        steps = [f"\\mathrm{{rref}} = {latex(reduced)}"]
+        return MatrixResult(operation="rref", result_latex=latex(reduced), steps=steps)
+
+    evals = mat.eigenvals()
+    keys = sorted(evals.keys(), key=lambda value: (complex(value).real, complex(value).imag))
+    answer = ", ".join(format_verified_latex(key) for key in keys)
+    steps = [f"\\lambda = {answer}"]
+    return MatrixResult(operation="eigenvalues", result_latex=answer, steps=steps)

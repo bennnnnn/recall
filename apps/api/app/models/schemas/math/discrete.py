@@ -82,8 +82,9 @@ class NumberTheoryResult(BaseModel):
 
 
 class MatrixInput(BaseModel):
-    operation: Literal["determinant", "inverse"]
+    operation: Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"]
     rows: list[list[float]] = Field(min_length=2, max_length=4)
+    rows_b: list[list[float]] | None = Field(default=None, min_length=2, max_length=4)
 
     @field_validator("rows")
     @classmethod
@@ -93,16 +94,32 @@ class MatrixInput(BaseModel):
             raise ValueError("matrix rows must be rectangular and at most 4 wide")
         return value
 
+    @field_validator("rows_b")
+    @classmethod
+    def rows_b_bounded(cls, value: list[list[float]] | None) -> list[list[float]] | None:
+        if value is None:
+            return value
+        width = len(value[0])
+        if width < 1 or width > 4 or any(len(row) != width for row in value):
+            raise ValueError("matrix rows must be rectangular and at most 4 wide")
+        return value
+
     @model_validator(mode="after")
     def square_when_required(self) -> MatrixInput:
         size = len(self.rows)
-        if any(len(row) != size for row in self.rows):
-            raise ValueError("matrix must be square for determinant/inverse")
+        if self.operation in {"determinant", "inverse", "eigenvalues"}:
+            if any(len(row) != size for row in self.rows):
+                raise ValueError("matrix must be square for determinant/inverse/eigenvalues")
+        if self.operation == "multiply":
+            if self.rows_b is None:
+                raise ValueError("multiply needs a second matrix")
+            if len(self.rows[0]) != len(self.rows_b):
+                raise ValueError("matrix multiply inner dimensions must agree")
         return self
 
 
 class MatrixResult(BaseModel):
-    operation: Literal["determinant", "inverse"]
+    operation: Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"]
     determinant: float | None = None
     inverse_latex: str | None = None
     result_latex: str | None = None

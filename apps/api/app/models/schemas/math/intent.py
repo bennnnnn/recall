@@ -103,6 +103,10 @@ class MathIntent(BaseModel):
     # Definite-integral bounds — strings (infinity-aware, like limit_point).
     integral_lower: str | None = None
     integral_upper: str | None = None
+    # Second axis for a double integral (`from x=0 to 1 and y=0 to 1`).
+    variable2: str | None = None
+    integral_lower2: str | None = None
+    integral_upper2: str | None = None
     # System of equations — list of (lhs, rhs) pairs; `lhs`/`rhs`/`variable`
     # above stay single-equation-only for every other kind.
     system_equations: list[tuple[str, str]] | None = None
@@ -137,9 +141,11 @@ class MathIntent(BaseModel):
     numtheory_op: Literal["gcd", "lcm", "factorize", "is_prime", "mod"] | None = None
     numtheory_a: int | None = None
     numtheory_b: int | None = None
-    # Matrix — determinant/inverse of a small square matrix.
-    matrix_op: Literal["determinant", "inverse"] | None = None
+    # Matrix — det/inverse/eigen of a small square matrix; multiply/rref
+    # may be rectangular. `matrix_rows_b` is the right factor for multiply.
+    matrix_op: Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"] | None = None
     matrix_rows: list[list[float]] | None = None
+    matrix_rows_b: list[list[float]] | None = None
     # Triangle by three side lengths (SSS) — `base`/`side` above stay
     # base+height-only for the existing "triangle"/"right_triangle" kinds.
     tri_a: float | None = None

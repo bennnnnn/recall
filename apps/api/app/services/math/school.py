@@ -15,6 +15,8 @@ from sympy import (
     cos,
     diff,
     dsolve,
+    expand,
+    expand_trig,
     factorial,
     latex,
     nsimplify,
@@ -23,6 +25,7 @@ from sympy import (
     sin,
     solve,
     tan,
+    trigsimp,
 )
 
 from app.models.schemas.math import MathExprResult
@@ -231,6 +234,40 @@ def set_intersection(left: list[float], right: list[float]) -> str:
 
 def set_difference(left: list[float], right: list[float]) -> str:
     return _format_school_set(_fraction_set(left) - _fraction_set(right))
+
+
+def work_together(hours_a: float, hours_b: float) -> str:
+    if hours_a <= 0 or hours_b <= 0:
+        raise MathServiceError("work-together needs two positive times")
+    return _format_school_number((hours_a * hours_b) / (hours_a + hours_b))
+
+
+def mixture_percent(vol_a: float, pct_a: float, vol_b: float, pct_b: float) -> str:
+    total = vol_a + vol_b
+    if vol_a < 0 or vol_b < 0 or total <= 0:
+        raise MathServiceError("mixture needs two non-negative volumes")
+    return _format_school_number((vol_a * pct_a + vol_b * pct_b) / total)
+
+
+def twice_as_many(total: float) -> str:
+    if total <= 0:
+        raise MathServiceError("twice-as-many needs a positive total")
+    small = total / 3.0
+    large = 2.0 * total / 3.0
+    return f"{_format_school_number(small)} and {_format_school_number(large)}"
+
+
+def verify_identity(lhs: str, rhs: str) -> str:
+    """Certify ``lhs = rhs`` only when the difference is identically 0."""
+    from app.services.math.solve.discrete import guess_variables
+
+    names = list(dict.fromkeys([*guess_variables(f"{lhs} {rhs}"), "theta", "x", "y", "t"]))
+    left = _parse_expression(lhs, names)
+    right = _parse_expression(rhs, names)
+    difference = simplify(trigsimp(expand_trig(expand(left - right))))
+    if difference != 0:
+        raise MathServiceError("not identically zero")
+    return "true"
 
 
 def _fraction_set(values: list[float]) -> set[Fraction]:

@@ -129,6 +129,34 @@ class TestComputeMatrix:
         with pytest.raises(ValueError):
             MatrixInput(operation="determinant", rows=[[1, 2, 3], [4, 5, 6]])
 
+    def test_multiply_two_matrices(self):
+        result = math_solve.compute_matrix(
+            MatrixInput(
+                operation="multiply",
+                rows=[[1, 2], [3, 4]],
+                rows_b=[[0, 1], [1, 0]],
+            )
+        )
+        assert result.result_latex is not None
+        assert "2" in result.result_latex and "4" in result.result_latex
+
+    def test_rref_identity(self):
+        result = math_solve.compute_matrix(MatrixInput(operation="rref", rows=[[1, 2], [3, 4]]))
+        assert result.result_latex is not None
+        assert "1" in result.result_latex
+
+    def test_eigenvalues_diagonal(self):
+        result = math_solve.compute_matrix(
+            MatrixInput(operation="eigenvalues", rows=[[2, 0], [0, 3]])
+        )
+        assert result.result_latex == "2, 3"
+
+    def test_rref_allows_rectangular(self):
+        result = math_solve.compute_matrix(
+            MatrixInput(operation="rref", rows=[[1, 2, 3], [4, 5, 6]])
+        )
+        assert result.result_latex is not None
+
 
 class TestMathTextMatchSignals:
     def test_stats_signal_requires_numbers_not_just_keyword(self):

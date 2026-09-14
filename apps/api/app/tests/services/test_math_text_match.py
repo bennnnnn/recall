@@ -64,6 +64,11 @@ class TestNeedsSymbolic:
             "100/5/2",
             "y'' of y = x^3 - 3x",
             "f(x) = x^3 - 3x, find f''(x)",
+            "show that sin(x)**2+cos(x)**2=1",
+            "graph r=1+cos(theta)",
+            "double integral of x*y from x=0 to 1 and y=0 to 1",
+            "multiply [[1,2],[3,4]] and [[0,1],[1,0]]",
+            "mix 3 liters of 10% with 5 liters of 20%",
         ],
     )
     def test_needs_symbolic_math_triggers(self, text):
@@ -545,6 +550,16 @@ class TestMatrixSignal:
 
     def test_matrix_signal_rejects_non_square(self):
         assert mtm.matrix_signal("determinant of [[1,2,3],[4,5,6]]") is None
+
+    def test_matrix_signal_multiply_and_rref(self):
+        op, rows = mtm.matrix_signal("multiply [[1,2],[3,4]] and [[0,1],[1,0]]")
+        assert op == "multiply"
+        assert rows == [[1.0, 2.0], [3.0, 4.0]]
+        op, rows = mtm.matrix_signal("rref [[1,2,3],[4,5,6]]")
+        assert op == "rref"
+        assert rows == [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+        op, rows = mtm.matrix_signal("eigenvalues of [[2,0],[0,3]]")
+        assert op == "eigenvalues"
 
 
 class TestParseLimit:

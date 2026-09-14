@@ -29,6 +29,8 @@ def _verified_block_calculus(
     extended = apply_calculus_extension(intent, settings, lines)
     if extended is not None:
         return extended
+    if intent.school_op == "identity":
+        return None
     if intent.operation == "simplify":
         out = math_solve.simplify_expression(intent.expr, intent.variable)
     elif intent.operation == "differentiate":
@@ -36,7 +38,22 @@ def _verified_block_calculus(
             intent.expr, intent.variable, intent.derivative_order
         )
     elif intent.operation == "integrate":
-        if intent.integral_lower is not None and intent.integral_upper is not None:
+        if (
+            intent.integral_lower is not None
+            and intent.integral_upper is not None
+            and intent.integral_lower2 is not None
+            and intent.integral_upper2 is not None
+        ):
+            out = math_solve.integrate_double(
+                intent.expr,
+                intent.variable,
+                intent.integral_lower,
+                intent.integral_upper,
+                intent.variable2 or "y",
+                intent.integral_lower2,
+                intent.integral_upper2,
+            )
+        elif intent.integral_lower is not None and intent.integral_upper is not None:
             out = math_solve.integrate_definite(
                 intent.expr,
                 intent.variable,
@@ -221,7 +238,9 @@ def _verified_block_matrix(
     if intent.matrix_op is None or not intent.matrix_rows:
         return None
     result = math_solve.compute_matrix(
-        MatrixInput(operation=intent.matrix_op, rows=intent.matrix_rows)
+        MatrixInput(
+            operation=intent.matrix_op, rows=intent.matrix_rows, rows_b=intent.matrix_rows_b
+        )
     )
     lines.extend(result.steps)
     if result.operation == "inverse" and result.inverse_latex:

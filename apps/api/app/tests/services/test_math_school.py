@@ -76,3 +76,11 @@ def test_critical_points_cubic() -> None:
     assert out.solved
     assert "1" in out.latex
     assert "-1" in out.latex
+
+
+def test_work_mixture_twice_and_identity_helpers() -> None:
+    assert math_school.work_together(6, 3) == "2"
+    assert math_school.mixture_percent(3, 10, 5, 20) == "16.25"
+    assert math_school.twice_as_many(30) == "10 and 20"
+    assert math_school.verify_identity("sin(x)**2+cos(x)**2", "1") == "true"
+    assert math_school.verify_identity("(x+1)**2", "x**2+2*x+1") == "true"

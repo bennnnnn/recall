@@ -7,5 +7,5 @@ from typing import Literal
 StatsOp = Literal["mean", "median", "mode", "variance", "stdev", "sample_stdev", "sample_variance"]
 CombinatoricsOp = Literal["factorial", "combinations", "permutations"]
 NumberTheoryOp = Literal["gcd", "lcm", "factorize", "is_prime", "mod"]
-MatrixOp = Literal["determinant", "inverse"]
+MatrixOp = Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"]
 SolidShape = Literal["cube", "rectangular_prism", "cylinder", "cone", "sphere", "pyramid"]

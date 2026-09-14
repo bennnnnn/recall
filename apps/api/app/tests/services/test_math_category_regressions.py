@@ -32,6 +32,36 @@ from app.services.math import tools as math_tools
         ("union of {1,2,3} and {3,4}", "arithmetic", "{1, 2, 3, 4}"),
         ("intersection of {1,2,3} and {3,4}", "arithmetic", "{3}"),
         ("difference of {1,2,3} and {3,4}", "arithmetic", "{1, 2}"),
+        (
+            "A can do a job in 6 hours and B in 3 hours. How long together?",
+            "arithmetic",
+            "2",
+        ),
+        ("mix 3 liters of 10% with 5 liters of 20%", "arithmetic", "16.25"),
+        (
+            "Tom has twice as many apples as Ann. Together they have 30",
+            "arithmetic",
+            "10 and 20",
+        ),
+        ("show that (x+1)**2=x**2+2*x+1", "calculus", "true"),
+        ("show that sin(x)**2+cos(x)**2=1", "calculus", "true"),
+        ("show that sin(2*x)=2*sin(x)*cos(x)", "calculus", "true"),
+        (
+            "double integral of x*y from x=0 to 1 and y=0 to 1",
+            "calculus",
+            r"\frac{1}{4}",
+        ),
+        (
+            "multiply [[1,2],[3,4]] and [[0,1],[1,0]]",
+            "matrix",
+            r"\left[\begin{matrix}2 & 1\\4 & 3\end{matrix}\right]",
+        ),
+        (
+            "rref [[1,2],[3,4]]",
+            "matrix",
+            r"\left[\begin{matrix}1 & 0\\0 & 1\end{matrix}\right]",
+        ),
+        ("eigenvalues of [[2,0],[0,3]]", "matrix", "2, 3"),
         (r"\sqrt[6]{9}", "arithmetic", r"\sqrt[3]{3}"),
         (r"sqrt[6]{9}", "arithmetic", r"\sqrt[3]{3}"),
         (r"\sqrt{\sqrt{16}}", "arithmetic", "2"),
@@ -117,6 +147,11 @@ def test_supported_categories_match_the_requested_calculation(text, kind, answer
         "what percent of 50 is 12 of 20",
         "compound interest on 1000 at 5% for 3 months",
         "union of {1,2,3}",
+        "A can do a job in 6 hours and B in 3 hours and 4 hours together",
+        "mix 3 liters of 10% with 5 liters of 20% and 2 liters of 30%",
+        "prove by induction that 1=1",
+        "double integral of x*y from x=0 to 1",
+        "show that 2*x+3=7",
     ],
 )
 def test_unsupported_or_invalid_input_never_certifies_a_different_problem(text):
@@ -133,3 +168,32 @@ def test_matrix_inverse_preserves_exact_fractions():
     assert block.canonical_answer == (
         r"\left[\begin{matrix}-2 & 1\\\frac{3}{2} & - \frac{1}{2}\end{matrix}\right]"
     )
+
+
+def test_polar_cardioid_samples_cartesian_points():
+    intent = math_tools.extract_math_intent("graph r=1+cos(theta)")
+    assert intent is not None and intent.kind == "graph"
+    assert intent.school_op == "polar"
+    block = math_tools._build_verified_block(intent, Settings(_env_file=None))
+    assert block is not None and block.canonical_fence is not None
+    points = block.canonical_fence["points"]
+    assert isinstance(points, list) and len(points) > 10
+    assert points[0][0] == pytest.approx(2.0, abs=0.05)
+    assert points[0][1] == pytest.approx(0.0, abs=0.05)
+
+
+def test_parametric_unit_circle_samples():
+    intent = math_tools.extract_math_intent("graph x=cos(t), y=sin(t)")
+    assert intent is not None and intent.kind == "graph"
+    assert intent.school_op == "parametric"
+    block = math_tools._build_verified_block(intent, Settings(_env_file=None))
+    assert block is not None and block.canonical_fence is not None
+    points = block.canonical_fence["points"]
+    assert isinstance(points, list) and len(points) > 10
+    radii = [abs((x**2 + y**2) ** 0.5 - 1.0) for x, y in points]
+    assert max(radii) < 0.05
+
+
+def test_parametric_refuses_a_bare_point():
+    intent = math_tools.extract_math_intent("graph x=2, y=3")
+    assert intent is None or intent.school_op != "parametric"

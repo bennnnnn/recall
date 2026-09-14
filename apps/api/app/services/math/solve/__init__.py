@@ -10,6 +10,7 @@ from app.services.math.solve.algebra import (
     factor_expression,
     factored_key_step,
     integrate_definite,
+    integrate_double,
     integrate_expression,
     newton_method,
     simplify_expression,
@@ -52,6 +53,8 @@ from app.services.math.solve.graph import (
     parse_ellipse_relation,
     sample_ellipse,
     sample_function,
+    sample_parametric_curve,
+    sample_polar_curve,
 )
 from app.services.math.solve.parse import (
     _SAFE_EXPR_CHARS as _SAFE_EXPR_CHARS,
@@ -94,6 +97,7 @@ __all__ = [
     "format_verified_latex",
     "guess_variables",
     "integrate_definite",
+    "integrate_double",
     "integrate_expression",
     "newton_method",
     "number_line_spec_from_expr",
@@ -104,6 +108,8 @@ __all__ = [
     "right_triangle_geometry",
     "sample_ellipse",
     "sample_function",
+    "sample_parametric_curve",
+    "sample_polar_curve",
     "sector_geometry",
     "sides_from_interior_angles",
     "simplify_expression",

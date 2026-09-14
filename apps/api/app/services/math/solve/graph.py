@@ -144,6 +144,94 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     )
 
 
+def _viewport_from_points(points: list[list[float]]) -> tuple[float, float, float, float]:
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    x_min, x_max = min(xs), max(xs)
+    y_min, y_max = min(ys), max(ys)
+    x_min = min(x_min, 0.0)
+    x_max = max(x_max, 0.0)
+    y_min = min(y_min, 0.0)
+    y_max = max(y_max, 0.0)
+    span_x = x_max - x_min
+    span_y = y_max - y_min
+    pad_x = max(1.0, span_x * 0.15 if span_x > 1e-9 else 1.0)
+    pad_y = max(1.0, span_y * 0.15 if span_y > 1e-9 else 1.0)
+    return x_min - pad_x, x_max + pad_x, y_min - pad_y, y_max + pad_y
+
+
+def sample_polar_curve(expr: str, variable: str = "theta", n: int = 96) -> GraphSampleResult:
+    """Sample ``r = f(θ)`` on ``[0, 2π]`` into cartesian `` ```graph `` points."""
+    from sympy.utilities.lambdify import lambdify
+
+    count = max(16, min(int(n), 500))
+    sym = Symbol(variable)
+    parsed = _parse_expression(expr, [variable])
+    numpy_fn = lambdify(sym, parsed, modules=["numpy"])
+    thetas = np.linspace(0.0, 2.0 * math.pi, count, endpoint=True)
+    points: list[list[float]] = []
+    try:
+        radii = np.asarray(numpy_fn(thetas), dtype=float)
+    except Exception as exc:
+        raise MathServiceError(f"Could not sample polar curve: {expr}") from exc
+    for theta, radius in zip(thetas, radii, strict=False):
+        if not np.isfinite(radius):
+            continue
+        points.append(
+            [
+                round(float(radius * math.cos(float(theta))), 4),
+                round(float(radius * math.sin(float(theta))), 4),
+            ]
+        )
+    if len(points) < 2:
+        raise MathServiceError(f"Could not sample polar curve: {expr}")
+    x_min, x_max, _y_min, _y_max = _viewport_from_points(points)
+    return GraphSampleResult(
+        expr=f"r = {expr}",
+        variable=variable,
+        x_min=x_min,
+        x_max=x_max,
+        points=points,
+        segments=[],
+    )
+
+
+def sample_parametric_curve(
+    x_expr: str, y_expr: str, variable: str = "t", n: int = 96
+) -> GraphSampleResult:
+    """Sample ``x(t), y(t)`` on ``[0, 2π]`` into cartesian `` ```graph `` points."""
+    from sympy.utilities.lambdify import lambdify
+
+    count = max(16, min(int(n), 500))
+    sym = Symbol(variable)
+    parsed_x = _parse_expression(x_expr, [variable])
+    parsed_y = _parse_expression(y_expr, [variable])
+    fx = lambdify(sym, parsed_x, modules=["numpy"])
+    fy = lambdify(sym, parsed_y, modules=["numpy"])
+    ts = np.linspace(0.0, 2.0 * math.pi, count, endpoint=True)
+    points: list[list[float]] = []
+    try:
+        xs = np.asarray(fx(ts), dtype=float)
+        ys = np.asarray(fy(ts), dtype=float)
+    except Exception as exc:
+        raise MathServiceError(f"Could not sample parametric curve: {x_expr}, {y_expr}") from exc
+    for x_val, y_val in zip(xs, ys, strict=False):
+        if not np.isfinite(x_val) or not np.isfinite(y_val):
+            continue
+        points.append([round(float(x_val), 4), round(float(y_val), 4)])
+    if len(points) < 2:
+        raise MathServiceError(f"Could not sample parametric curve: {x_expr}, {y_expr}")
+    x_min, x_max, _y_min, _y_max = _viewport_from_points(points)
+    return GraphSampleResult(
+        expr=f"x = {x_expr}, y = {y_expr}",
+        variable=variable,
+        x_min=x_min,
+        x_max=x_max,
+        points=points,
+        segments=_split_into_segments(points),
+    )
+
+
 # Axis-aligned ellipse / circle relations only (not general F(x,y)=0).
 _CIRCLE_RELATION_RE = re.compile(r"^(?:x\*\*2\+y\*\*2|y\*\*2\+x\*\*2)=(\d+(?:\.\d+)?)$")
 _ELLIPSE_DIV_RELATION_RE = re.compile(r"^x\*\*2/(\d+(?:\.\d+)?)\+y\*\*2/(\d+(?:\.\d+)?)=1$")
