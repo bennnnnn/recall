@@ -13,7 +13,7 @@ recorded as uncovered only when **no** phrasing of it produced a verified answer
 | P1 | [Strip verified-math markers from assistant text](#p1-strip-verified-math-markers-from-assistant-text) | API | ✅ |
 | P2 | [Make the existing physics ops robust to natural phrasing](#p2-make-the-existing-physics-ops-robust-to-natural-phrasing) | API | ✅ |
 | P3 | [Animate the kinematics / projectile trajectory](#p3-animate-the-kinematics--projectile-trajectory) | Mobile | ✅ |
-| P4 | [Momentum, impulse and 1D collisions](#p4-momentum-impulse-and-1d-collisions) | API | ☐ |
+| P4 | [Momentum, impulse and 1D collisions](#p4-momentum-impulse-and-1d-collisions) | API | ✅ |
 | P5 | [Friction and inclined planes](#p5-friction-and-inclined-planes) | API | ☐ |
 | P6 | [Circular motion](#p6-circular-motion) | API | ☐ |
 | P7 | [Springs, Hooke's law and SHM](#p7-springs-hookes-law-and-shm) | API | ☐ |
@@ -259,6 +259,38 @@ common mechanics homework asks after kinematics.
 
 **Acceptance:** `momentum of a 2 kg object moving at 3 m/s` → `6 kg·m/s`;
 a 1D inelastic collision returns the combined velocity; three phrasings each.
+
+**Done** in `apps/api/app/tests/services/test_physics_momentum.py` (26 tests).
+Baseline was 0 of 9 probed phrasings verified; all 9 verify now, each op with at
+least three — enforced by a test over the table rather than by counting. Four
+notes:
+
+- **The kind is named `momentum`, not `collision`.** This ticket said to file
+  all three ops "under a new `collision` kind", but `p = mv` and `J = FΔt` are
+  single-object quantities — that name would misdescribe two thirds of it. The
+  kind is the dispatch key for the solver and the block builder, so it should
+  read as what it covers.
+- **An unstated collision type is refused.** Elastic and perfectly inelastic
+  give different answers from identical inputs, so with nothing in the question
+  to choose between them any answer is a coin flip presented as a verified
+  result. Same reasoning as P2's `_UNSUPPORTED_FORCE_CONTEXT`.
+- **The extractor runs third, before force and energy** — P2's cue-ordering
+  lesson in reverse. Momentum cues are unambiguous so running them earlier
+  cannot steal anything, but running them *later* loses: an impulse question
+  names newtons and seconds, and a collision names kilograms and m/s, which is
+  exactly the shape those two extractors look for. `"elastic"` is deliberately
+  not a standalone cue — an elastic band is not a collision.
+- **The conservation laws are tested, not just the numbers.** Pinning
+  `1.00 m/s and 4.00 m/s` proves the formula was transcribed correctly; separate
+  tests prove it was the right formula, by checking that the elastic result
+  conserves both momentum and kinetic energy and the inelastic one conserves
+  only momentum.
+
+Direct replies are **not** included: `services/physics/direct.py` carries its
+own literal grammar, and a kind absent from it simply never matches, so momentum
+answers reach the user through the model with the verified number injected. A
+test pins that the new kind falls through that guard rather than tripping its
+trajectory branch — the silent-failure class P3 found there.
 
 ---
 

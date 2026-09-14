@@ -1,6 +1,6 @@
 """Physics verified blocks — numeric answer plus optional trajectory graph.
 
-Builds the system-prompt hint for kinematics/projectile/force/energy
+Builds the system-prompt hint for kinematics/projectile/force/energy/momentum
 intents: a verified answer (so the model doesn't recompute) plus an
 optional trajectory graph Recall attaches after the stream.
 """
@@ -59,4 +59,5 @@ PHYSICS_BLOCK_BUILDERS = {
     "projectile": _build_physics_block,
     "force": _build_physics_block,
     "energy": _build_physics_block,
+    "momentum": _build_physics_block,
 }

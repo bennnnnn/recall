@@ -48,6 +48,12 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "a": "meter / second ** 2",
     "g": "meter / second ** 2",
     "W": "joule",
+    # Momentum / impulse / 1D collisions.
+    "m1": "kilogram",
+    "m2": "kilogram",
+    "v1": "meter / second",
+    "v2": "meter / second",
+    "dt": "second",
 }
 
 _UNIT_ALIASES = {
@@ -442,6 +448,71 @@ def solve_energy(intent: MathIntent) -> PhysicsResult:
 
 
 # ---------------------------------------------------------------------------
+# Momentum: p = m v, impulse J = F dt (or m dv), 1D collisions
+#   inelastic: v = (m1 v1 + m2 v2) / (m1 + m2)
+#   elastic:   v1' = ((m1-m2) v1 + 2 m2 v2) / (m1+m2), v2' symmetric
+# ---------------------------------------------------------------------------
+
+
+def solve_momentum(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or "momentum"
+
+    if op == "momentum":
+        p_val = p["m"] * p["v"]
+        return PhysicsResult(
+            answer=(
+                rf"p = m v = {p['m']:g} \cdot {p['v']:g} "
+                rf"\approx {p_val:.2f} \text{{ kg}}\cdot\text{{m/s}}"
+            ),
+            answer_value=f"{p_val:.2f} kg*m/s",
+        )
+
+    if op == "impulse":
+        if "F" in p and "dt" in p:
+            j_val = p["F"] * p["dt"]
+            answer = (
+                rf"J = F \Delta t = {p['F']:g} \cdot {p['dt']:g} "
+                rf"\approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
+            )
+        else:
+            # J = Delta p. Same quantity, same units — N*s and kg*m/s are equal.
+            j_val = p["m"] * (p["v2"] - p["v1"])
+            answer = (
+                rf"J = m \Delta v = {p['m']:g} \cdot "
+                rf"({p['v2']:g} - {p['v1']:g}) \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
+            )
+        return PhysicsResult(answer=answer, answer_value=f"{j_val:.2f} N*s")
+
+    if op == "final_velocity":
+        m1, m2, v1, v2 = p["m1"], p["m2"], p["v1"], p["v2"]
+        total = m1 + m2
+        if total == 0:
+            raise MathServiceError("colliding masses sum to zero")
+        # The extractor refuses an unstated collision type, so this flag is
+        # always something the user actually wrote.
+        if p.get("elastic", 0.0) >= 0.5:
+            u1 = ((m1 - m2) * v1 + 2 * m2 * v2) / total
+            u2 = ((m2 - m1) * v2 + 2 * m1 * v1) / total
+            answer = (
+                r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2} "
+                rf"\approx {u1:.2f} \text{{ m/s}}, \quad v_2' \approx {u2:.2f} \text{{ m/s}}"
+            )
+            answer_value = f"{u1:.2f} m/s and {u2:.2f} m/s"
+        else:
+            u = (m1 * v1 + m2 * v2) / total
+            answer = (
+                r"\text{Perfectly inelastic: } v = \frac{m_1 v_1 + m_2 v_2}{m_1 + m_2} = "
+                rf"\frac{{{m1:g} \cdot {v1:g} + {m2:g} \cdot {v2:g}}}{{{total:g}}} "
+                rf"\approx {u:.2f} \text{{ m/s}}"
+            )
+            answer_value = f"{u:.2f} m/s"
+        return PhysicsResult(answer=answer, answer_value=answer_value)
+
+    raise MathServiceError(f"unsupported momentum op: {op}")
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -456,4 +527,6 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_force(intent)
     if intent.kind == "energy":
         return solve_energy(intent)
+    if intent.kind == "momentum":
+        return solve_momentum(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")

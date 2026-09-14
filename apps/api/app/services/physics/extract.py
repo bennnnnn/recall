@@ -510,6 +510,154 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
+# Momentum: p = m v, impulse J = F dt, and 1D collisions
+# ---------------------------------------------------------------------------
+
+# All unambiguous physics words. That is why this extractor runs *before* force
+# and energy rather than after: an impulse question names newtons and seconds,
+# and a collision names kilograms and m/s, which is exactly the shape those two
+# look for. Running momentum first cannot steal from them, running it last can
+# lose to them.
+_MOMENTUM_CUES = (
+    "momentum",
+    "impulse",
+    "collision",
+    "collide",
+    "collides",
+    "recoil",
+    "stick together",
+    "sticks together",
+)
+
+# Elastic is *not* a cue on its own — an elastic band is not a collision. It
+# only tells us which conservation law to apply once a collision is in hand.
+# No trailing \b: people write "collides inelastically", and requiring a
+# boundary after the stem silently drops the adverb form. "elastic" cannot
+# match inside "inelastic" — the leading \b sees the "n" and fails — so the
+# two stay distinguishable.
+_ELASTIC_RE = re.compile(r"\belastic")
+_INELASTIC_RE = re.compile(
+    r"\binelastic|sticks? together|stuck together|"
+    r"\bcoupled?\b|\bembed(?:s|ded)?\b|\block(?:s|ed)? together\b"
+)
+
+_MASS_UNITS = r"kg|mg|g|lb|lbs|oz"
+_MOMENTUM_TIME_UNITS = r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
+
+
+def _ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
+    """Every number carrying one of these units, left to right.
+
+    Collisions need two masses and two velocities *in the order written* —
+    "a 2 kg ball at 3 m/s hits a 1 kg ball at rest" binds m1=2, v1=3, m2=1.
+    The keyword-nearest search the other extractors use cannot express that.
+    """
+    return [
+        (float(m.group(1)), m.group(2))
+        for m in re.finditer(
+            rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            text,
+            re.IGNORECASE,
+        )
+    ]
+
+
+def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _MOMENTUM_CUES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    masses = _ordered_values(cleaned, _MASS_UNITS)
+    velocities = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
+
+    is_collision = (
+        any(
+            word in lower
+            for word in ("collision", "collide", "collides", "hits", "strikes", "recoil")
+        )
+        or _INELASTIC_RE.search(lower) is not None
+    )
+
+    # --- 1D collision: two masses, at least one velocity ---
+    if is_collision and len(masses) >= 2:
+        elastic = _ELASTIC_RE.search(lower) is not None and not _INELASTIC_RE.search(lower)
+        inelastic = _INELASTIC_RE.search(lower) is not None
+        # Refuse rather than guess. Elastic and inelastic give genuinely
+        # different answers from identical inputs, so an unstated collision type
+        # would produce a confidently wrong number — the same failure mode the
+        # tension guard closes off.
+        if not elastic and not inelastic:
+            return None
+        m1, m1_unit = masses[0]
+        m2, m2_unit = masses[1]
+        v1, v1_unit = velocities[0] if velocities else (0.0, "m/s")
+        # "hits a ball at rest" leaves v2 unwritten; "at rest" means zero.
+        v2, v2_unit = velocities[1] if len(velocities) > 1 else (0.0, "m/s")
+        return MathIntent(
+            kind="momentum",
+            physics_op="final_velocity",
+            physics_params={
+                "m1": m1,
+                "m2": m2,
+                "v1": v1,
+                "v2": v2,
+                "elastic": 1.0 if elastic else 0.0,
+            },
+            physics_units={
+                "m1": m1_unit or "kg",
+                "m2": m2_unit or "kg",
+                "v1": v1_unit or "m/s",
+                "v2": v2_unit or "m/s",
+                "elastic": "",
+            },
+            operation="solve",
+        )
+
+    # --- Impulse: J = F dt, or J = m (v2 - v1) ---
+    if "impulse" in lower:
+        forces = _ordered_values(cleaned, r"N")
+        times = _ordered_values(cleaned, _MOMENTUM_TIME_UNITS)
+        if forces and times:
+            f, f_unit = forces[0]
+            dt, dt_unit = times[0]
+            return MathIntent(
+                kind="momentum",
+                physics_op="impulse",
+                physics_params={"F": f, "dt": dt},
+                physics_units={"F": f_unit or "N", "dt": dt_unit or "s"},
+                operation="solve",
+            )
+        if masses and len(velocities) >= 2:
+            m, m_unit = masses[0]
+            v1, v1_unit = velocities[0]
+            v2, v2_unit = velocities[1]
+            return MathIntent(
+                kind="momentum",
+                physics_op="impulse",
+                physics_params={"m": m, "v1": v1, "v2": v2},
+                physics_units={"m": m_unit or "kg", "v1": v1_unit or "m/s", "v2": v2_unit or "m/s"},
+                operation="solve",
+            )
+        return None
+
+    # --- Plain momentum: p = m v ---
+    if "momentum" in lower and masses and velocities:
+        m, m_unit = masses[0]
+        v, v_unit = velocities[0]
+        return MathIntent(
+            kind="momentum",
+            physics_op="momentum",
+            physics_params={"m": m, "v": v},
+            physics_units={"m": m_unit or "kg", "v": v_unit or "m/s"},
+            operation="solve",
+        )
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Force: scalar Newton's second law (F = ma)
 # ---------------------------------------------------------------------------
 
@@ -828,12 +976,21 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
 PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_kinematics_intent,
     _extract_projectile_intent,
+    _extract_momentum_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
 
 PHYSICS_CUES: tuple[str, ...] = tuple(
-    dict.fromkeys((*_KINEMATICS_CUES, *_PROJECTILE_CUES, *_FORCE_CUES, *_ENERGY_CUES))
+    dict.fromkeys(
+        (
+            *_KINEMATICS_CUES,
+            *_PROJECTILE_CUES,
+            *_MOMENTUM_CUES,
+            *_FORCE_CUES,
+            *_ENERGY_CUES,
+        )
+    )
 )
 
 # The boundary-sensitive half of the same table — see ``_has_cue``.

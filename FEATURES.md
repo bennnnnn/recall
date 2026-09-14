@@ -204,8 +204,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
 - ✅ **Physics (narrow verified)** — 1D gravity kinematics, vacuum projectile range / max
-  height (quadratic time-of-flight when a launch height is given), scalar F=ma, and
-  KE / PE / work / power (`P = F v` or `W / t`). Trajectory ` ```graph ` fences only for
+  height (quadratic time-of-flight when a launch height is given), scalar F=ma,
+  KE / PE / work / power (`P = F v` or `W / t`), and momentum / impulse / 1D collisions
+  (`p = mv`, `J = FΔt` or `mΔv`; elastic and perfectly inelastic — an unstated
+  collision type is refused, not guessed). Trajectory ` ```graph ` fences only for
   kinematics and projectile; force and energy are numbers. A speed/velocity ask plots
   `v(t)`, not height. Projectile and kinematics trajectories **play back on tap** — a dot
   walks the sampled points, which the solver spaces by uniform time, so the motion is
