@@ -62,6 +62,15 @@ def test_sequence_ap_gp_and_mixed_refused() -> None:
     assert math_school.is_ap_or_gp([1, 2, 4, 7]) is False
 
 
+def test_interest_and_set_helpers() -> None:
+    assert math_school.simple_interest(1000, 5, 3) == "150"
+    assert math_school.compound_interest(1000, 5, 3) == "157.625"
+    assert math_school.compound_amount(1000, 5, 3) == "1157.625"
+    assert math_school.set_union([1, 2, 3], [3, 4]) == "{1, 2, 3, 4}"
+    assert math_school.set_intersection([1, 2, 3], [3, 4]) == "{3}"
+    assert math_school.set_difference([1, 2, 3], [3, 4]) == "{1, 2}"
+
+
 def test_critical_points_cubic() -> None:
     out = math_school.critical_points("x**3 - 3*x")
     assert out.solved

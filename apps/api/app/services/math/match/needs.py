@@ -275,6 +275,18 @@ def school_homework_cue(cleaned: str) -> bool:
             return True
         if "," in cleaned:
             return True
+    if (
+        has_digit
+        and "%" in cleaned
+        and (
+            "compound interest" in lower or "simple interest" in lower or "compound amount" in lower
+        )
+    ):
+        return True
+    if "{" in cleaned and any(
+        word_index(lower, word) != -1 for word in ("union", "intersection", "difference")
+    ):
+        return True
     if "average speed" in lower or "average velocity" in lower:
         from app.services.math.tools.school import _extract_average_speed_intent
 

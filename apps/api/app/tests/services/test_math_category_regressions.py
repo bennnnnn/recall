@@ -26,6 +26,12 @@ from app.services.math import tools as math_tools
         ("sum of the first 20 even numbers", "arithmetic", "420"),
         ("sum of the first 20 odd numbers", "arithmetic", "400"),
         ("5th term of 2, 4, 8, 16", "arithmetic", "32"),
+        ("compound interest on 1000 at 5% for 3 years", "arithmetic", "157.625"),
+        ("simple interest on 1000 at 5% for 3 years", "arithmetic", "150"),
+        ("compound amount on 1000 at 5% for 3 years", "arithmetic", "1157.625"),
+        ("union of {1,2,3} and {3,4}", "arithmetic", "{1, 2, 3, 4}"),
+        ("intersection of {1,2,3} and {3,4}", "arithmetic", "{3}"),
+        ("difference of {1,2,3} and {3,4}", "arithmetic", "{1, 2}"),
         (r"\sqrt[6]{9}", "arithmetic", r"\sqrt[3]{3}"),
         (r"sqrt[6]{9}", "arithmetic", r"\sqrt[3]{3}"),
         (r"\sqrt{\sqrt{16}}", "arithmetic", "2"),
@@ -109,6 +115,8 @@ def test_supported_categories_match_the_requested_calculation(text, kind, answer
         "10th term of 1, 2, 4, 7",
         "increase 200 by 12% and 5%",
         "what percent of 50 is 12 of 20",
+        "compound interest on 1000 at 5% for 3 months",
+        "union of {1,2,3}",
     ],
 )
 def test_unsupported_or_invalid_input_never_certifies_a_different_problem(text):

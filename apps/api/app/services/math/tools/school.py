@@ -42,6 +42,7 @@ _BINOMIAL_PARAM = re.compile(
 )
 _SEQUENCE_LIST_MAX = 20
 _SEQUENCE_N_MAX = 10_000
+_INTEREST_YEAR_MAX = 100
 _PERCENT_INCREASE_WORDS = ("increase", "increased", "increasing")
 _PERCENT_DECREASE_WORDS = ("decrease", "decreased", "decreasing")
 _RATIO_SPLIT_WORDS = ("split", "share", "divide")
@@ -623,6 +624,134 @@ def _extract_sequence_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+def _extract_interest_intent(cleaned: str, lower: str) -> MathIntent | None:
+    compound = word_index(lower, "compound") != -1
+    simple = word_index(lower, "simple") != -1
+    if compound == simple:
+        return None
+    if simple and "interest" not in lower:
+        return None
+    if compound and "interest" not in lower and "amount" not in lower:
+        return None
+    if _count_char(cleaned, "%") != 1:
+        return None
+    if any(
+        word_index(lower, word) != -1
+        for word in ("month", "months", "weekly", "daily", "continuous")
+    ):
+        return None
+    nums = list(mtm._NUM.finditer(cleaned))
+    if len(nums) != 3:
+        return None
+    on_at = word_index(lower, "on")
+    if on_at == -1:
+        on_at = word_index(lower, "of")
+    year_at = lower.find("year")
+    pct_at = cleaned.find("%")
+    if on_at == -1 or year_at == -1 or pct_at == -1:
+        return None
+    principal_m = mtm._NUM.search(cleaned, on_at + 2)
+    rate_m = _number_immediately_before(cleaned, pct_at)
+    years_m = _number_immediately_before(cleaned, year_at)
+    if principal_m is None or rate_m is None or years_m is None:
+        return None
+    if {principal_m.span(), rate_m.span(), years_m.span()} != {match.span() for match in nums}:
+        return None
+    principal = _finite_match_value(principal_m)
+    rate = _finite_match_value(rate_m)
+    years_value = _finite_match_value(years_m)
+    if principal is None or rate is None or years_value is None:
+        return None
+    if principal <= 0 or rate < 0 or not years_value.is_integer():
+        return None
+    years = int(years_value)
+    if years < 1 or years > _INTEREST_YEAR_MAX:
+        return None
+    if simple:
+        op = "simple_interest"
+    elif word_index(lower, "amount") != -1 and "interest" not in lower:
+        op = "compound_amount"
+    else:
+        op = "compound_interest"
+    return MathIntent(
+        kind="arithmetic",
+        school_op=op,
+        percent_base=principal,
+        percent_rate=rate,
+        combo_n=years,
+        operation="solve",
+    )
+
+
+def _parse_brace_set(text: str, start: int) -> tuple[list[float], int] | None:
+    if start >= len(text) or text[start] != "{":
+        return None
+    close = text.find("}", start + 1)
+    if close == -1:
+        return None
+    inner = text[start + 1 : close]
+    if "{" in inner:
+        return None
+    values: list[float] = []
+    last = 0
+    for match in mtm._NUM.finditer(inner):
+        gap = inner[last : match.start()].strip()
+        if gap not in {"", ","}:
+            return None
+        parsed = _finite_match_value(match)
+        if parsed is None:
+            return None
+        values.append(parsed)
+        last = match.end()
+    if not values or inner[last:].strip() not in {"", ","}:
+        return None
+    return values, close + 1
+
+
+def _brace_sets(text: str) -> list[list[float]] | None:
+    found: list[list[float]] = []
+    spans: list[tuple[int, int]] = []
+    i = 0
+    while i < len(text):
+        if text[i] == "{":
+            parsed = _parse_brace_set(text, i)
+            if parsed is None:
+                return None
+            values, nxt = parsed
+            found.append(values)
+            spans.append((i, nxt))
+            i = nxt
+        else:
+            i += 1
+    if len(found) != 2:
+        return None
+    for match in mtm._NUM.finditer(text):
+        if not any(start < match.start() and match.end() < end for start, end in spans):
+            return None
+    return found
+
+
+def _extract_set_intent(cleaned: str, lower: str) -> MathIntent | None:
+    if word_index(lower, "union") != -1:
+        op = "set_union"
+    elif word_index(lower, "intersection") != -1:
+        op = "set_intersection"
+    elif word_index(lower, "difference") != -1:
+        op = "set_difference"
+    else:
+        return None
+    groups = _brace_sets(cleaned)
+    if groups is None:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op=op,
+        vec_a=groups[0],
+        vec_b=groups[1],
+        operation="solve",
+    )
+
+
 def _extract_average_speed_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "average speed" not in lower and "average velocity" not in lower:
@@ -679,6 +808,13 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     percent = _extract_percent_or_ratio(cleaned)
     if percent is not None:
         return percent
+    lower = cleaned.lower()
+    interest = _extract_interest_intent(cleaned, lower)
+    if interest is not None:
+        return interest
+    sets = _extract_set_intent(cleaned, lower)
+    if sets is not None:
+        return sets
     sequence = _extract_sequence_intent(cleaned)
     if sequence is not None:
         return sequence
@@ -921,6 +1057,37 @@ def _verified_block_arithmetic(
         else:
             answer = math_school.sequence_sum(intent.stats_numbers, intent.combo_n)
             lines.append(f"Sum of first {intent.combo_n} terms = {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op in {"simple_interest", "compound_interest", "compound_amount"}
+        and intent.percent_base is not None
+        and intent.percent_rate is not None
+        and intent.combo_n is not None
+    ):
+        principal, rate, years = intent.percent_base, intent.percent_rate, intent.combo_n
+        if intent.school_op == "simple_interest":
+            answer = math_school.simple_interest(principal, rate, years)
+            label = "Simple interest"
+        elif intent.school_op == "compound_amount":
+            answer = math_school.compound_amount(principal, rate, years)
+            label = "Compound amount"
+        else:
+            answer = math_school.compound_interest(principal, rate, years)
+            label = "Compound interest"
+        lines.append(f"{label} on {principal:g} at {rate:g}% for {years} years = {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op in {"set_union", "set_intersection", "set_difference"}
+        and intent.vec_a is not None
+        and intent.vec_b is not None
+    ):
+        if intent.school_op == "set_union":
+            answer = math_school.set_union(intent.vec_a, intent.vec_b)
+        elif intent.school_op == "set_intersection":
+            answer = math_school.set_intersection(intent.vec_a, intent.vec_b)
+        else:
+            answer = math_school.set_difference(intent.vec_a, intent.vec_b)
+        lines.append(f"{intent.school_op}: {answer}")
         return _finish_with_answer(lines, answer)
     if not intent.expr:
         return None

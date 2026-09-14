@@ -98,7 +98,7 @@ def percent_of(rate: float, base: float) -> str:
 def _format_school_number(value: float) -> str:
     if not math.isfinite(value):
         raise MathServiceError("result is not a finite number")
-    return f"{value:g}"
+    return f"{value:.12g}"
 
 
 def percent_increase(base: float, rate: float) -> str:
@@ -195,6 +195,46 @@ def sequence_sum(terms: list[float], n: int) -> str:
     else:
         value = first * (step**n - 1) / (step - 1)
     return _format_school_number(float(value))
+
+
+def simple_interest(principal: float, rate: float, years: int) -> str:
+    if not math.isfinite(principal) or not math.isfinite(rate) or years < 1:
+        raise MathServiceError("interest needs a finite principal, rate, and positive years")
+    return _format_school_number(principal * (rate / 100.0) * years)
+
+
+def compound_interest(principal: float, rate: float, years: int) -> str:
+    if not math.isfinite(principal) or not math.isfinite(rate) or years < 1:
+        raise MathServiceError("interest needs a finite principal, rate, and positive years")
+    amount = principal * ((1.0 + rate / 100.0) ** years)
+    return _format_school_number(amount - principal)
+
+
+def compound_amount(principal: float, rate: float, years: int) -> str:
+    if not math.isfinite(principal) or not math.isfinite(rate) or years < 1:
+        raise MathServiceError("interest needs a finite principal, rate, and positive years")
+    return _format_school_number(principal * ((1.0 + rate / 100.0) ** years))
+
+
+def _format_school_set(values: set[Fraction]) -> str:
+    parts = [_format_school_number(float(value)) for value in sorted(values)]
+    return "{" + ", ".join(parts) + "}"
+
+
+def set_union(left: list[float], right: list[float]) -> str:
+    return _format_school_set(_fraction_set(left) | _fraction_set(right))
+
+
+def set_intersection(left: list[float], right: list[float]) -> str:
+    return _format_school_set(_fraction_set(left) & _fraction_set(right))
+
+
+def set_difference(left: list[float], right: list[float]) -> str:
+    return _format_school_set(_fraction_set(left) - _fraction_set(right))
+
+
+def _fraction_set(values: list[float]) -> set[Fraction]:
+    return {_term_fraction(value) for value in values}
 
 
 def simplify_ratio(a: float, b: float) -> str:

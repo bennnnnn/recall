@@ -973,6 +973,8 @@ def test_verified_block_force_math_keyboard_units(text: str) -> None:
         ("what percent of 50 is 12", "arithmetic"),
         ("split 120 in the ratio 2:3", "arithmetic"),
         ("10th term of 3, 7, 11, 15", "arithmetic"),
+        ("compound interest on 1000 at 5% for 3 years", "arithmetic"),
+        ("union of {1,2,3} and {3,4}", "arithmetic"),
         ("simplify the ratio 6:8", "arithmetic"),
         ("sin 30", "trig"),
         ("What is sin of 30 degrees.", "trig"),

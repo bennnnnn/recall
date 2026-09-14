@@ -69,7 +69,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Algebra I–II | One equation, systems (≤4), inequalities + number-line intervals; affine two-variable shaded half-planes | `equation`, `system`, `inequality` + `number_line` / `inequality` graph |
 | Geometry (2D) | Rectangle, square, triangle (base/height), right triangle, SSS, trap, para, circle, sector | geometry fences |
 | Geometry (3D) | Cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area). Numbers only — no 3D SVG fence. | `solid` |
-| Arithmetic / percent / ratio | Bare `7*8` / `8-8*2`; `15% of 80`; increase/decrease by `%`; `what percent of`; simplify `6:8`; split a total in `a:b`; AP/GP nth term and first-N sum (listed or first N even/odd) | `arithmetic` |
+| Arithmetic / percent / ratio | Bare `7*8` / `8-8*2`; `15% of 80`; increase/decrease by `%`; `what percent of`; simplify `6:8`; split a total in `a:b`; AP/GP nth term and first-N sum (listed or first N even/odd); annual simple/compound interest; union/intersection/difference of two `{…}` sets | `arithmetic` |
 | Trig (evaluate / equations) | `sin(30°)` etc. Equations like `sin(x)=1/2` return every real periodic branch with an integer parameter. Unsupported explicit domains and unresolved solution sets stay on the model path. Identities stay LLM. AAA triangles use law of sines with explicitly relative lengths; physical area/perimeter needs a side length. | `trig`, `equation`, `triangle_sides` |
 | Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
 | Vectors | Magnitude, dot, cross | `vector` |
@@ -101,9 +101,9 @@ flowchart TB
 
 ### School-homework gaps (unverified LLM)
 
-Still not a verified kind (the model may answer; it must **not** claim a verified result). Percent change, percent-is, ratio split, and AP/GP sequences are verified under `arithmetic`.
+Still not a verified kind (the model may answer; it must **not** claim a verified result). Percent change, percent-is, ratio split, AP/GP sequences, annual simple/compound interest, and two-set union/intersection/difference are verified under `arithmetic`.
 
-1. **Word problems** (age, mixture, work-rate), **compound interest**, and **sets** stay LLM-only.
+1. **Word problems** (age, mixture, work-rate) stay LLM-only.
 2. **Trig identities** — remain LLM-only. **Angle-only triangles** (AAA summing to 180°) are verified via the law of sines with explicit `relative_lengths` provenance. Their diagrams omit a physical area; a measured side is required to determine area or perimeter. SSS still uses law of cosines for angles-from-sides.
 3. **Polar / parametric curves** (except axis-aligned ellipse) and **double integrals**.
 4. **Linear algebra** beyond 4×4 det / inverse (no multiply / rref / eigen; no general NL matrix parsing).
