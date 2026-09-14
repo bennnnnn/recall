@@ -212,7 +212,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   cannot slide reports `a = 0` rather than a negative acceleration), and circular
   motion (`a_c = v²/r`, `F_c = mv²/r`, `T = 2πr/v`), and springs / SHM
   (`F = kx`, `U = ½kx²`, `T = 2π√(m/k)`; the period answer carries an animatable
-  displacement-vs-time curve, normalised when no amplitude is given). Trajectory ` ```graph ` fences only for
+  displacement-vs-time curve, normalised when no amplitude is given), plus
+  **circuits** — Ohm's law in all three rearrangements, electrical power, and two
+  resistors in series or parallel. Electrical power is a separate op from the
+  mechanical one: same name and same watt, different quantity. Trajectory ` ```graph ` fences only for
   kinematics and projectile; force and energy are numbers. A speed/velocity ask plots
   `v(t)`, not height. Projectile and kinematics trajectories **play back on tap** — a dot
   walks the sampled points, which the solver spaces by uniform time, so the motion is

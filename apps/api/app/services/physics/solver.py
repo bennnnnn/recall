@@ -57,6 +57,11 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "r": "meter",
     "k": "newton / meter",
     "x": "meter",
+    "V": "volt",
+    "I": "ampere",
+    "R": "ohm",
+    "R1": "ohm",
+    "R2": "ohm",
     # "mu" and "angle" are intentionally absent: mu is dimensionless and angle
     # is converted by _params_in_si before any unit check runs.
 }
@@ -69,6 +74,10 @@ _UNIT_ALIASES = {
     "°": "deg",
     "miles per hour": "mph",
     "miles": "mile",
+    "ohms": "ohm",
+    "volts": "volt",
+    "amps": "ampere",
+    "amperes": "ampere",
 }
 
 
@@ -704,6 +713,86 @@ def solve_spring(intent: MathIntent) -> PhysicsResult:
 
 
 # ---------------------------------------------------------------------------
+# Circuits: V = I R, P = V I, series/parallel resistance
+# ---------------------------------------------------------------------------
+
+
+def solve_circuit(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or "current"
+
+    if op in ("series_resistance", "parallel_resistance"):
+        r1, r2 = p["R1"], p["R2"]
+        if r1 <= 0 or r2 <= 0:
+            raise MathServiceError("resistances must be positive")
+        if op == "series_resistance":
+            total = r1 + r2
+            answer = rf"R = R_1 + R_2 = {r1:g} + {r2:g} \approx {total:.2f} \,\Omega"
+        else:
+            total = 1 / (1 / r1 + 1 / r2)
+            answer = (
+                r"\frac{1}{R} = \frac{1}{R_1} + \frac{1}{R_2} \Rightarrow R = "
+                rf"\frac{{{r1:g} \cdot {r2:g}}}{{{r1:g} + {r2:g}}} \approx {total:.2f} \,\Omega"
+            )
+        return PhysicsResult(answer=answer, answer_value=f"{total:.2f} ohm")
+
+    if op == "electrical_power":
+        if "V" in p and "I" in p:
+            val = p["V"] * p["I"]
+            answer = rf"P = VI = {p['V']:g} \cdot {p['I']:g} \approx {val:.2f} \text{{ W}}"
+        elif "I" in p and "R" in p:
+            val = p["I"] ** 2 * p["R"]
+            answer = (
+                rf"P = I^2 R = {_latex_num(p['I'], square=True)} \cdot {p['R']:g} "
+                rf"\approx {val:.2f} \text{{ W}}"
+            )
+        elif "V" in p and "R" in p:
+            if p["R"] == 0:
+                raise MathServiceError("resistance must be nonzero")
+            val = p["V"] ** 2 / p["R"]
+            answer = (
+                rf"P = \frac{{V^2}}{{R}} = \frac{{{_latex_num(p['V'], square=True)}}}"
+                rf"{{{p['R']:g}}} \approx {val:.2f} \text{{ W}}"
+            )
+        else:
+            raise MathServiceError("electrical power needs two of V, I, R")
+        return PhysicsResult(answer=answer, answer_value=f"{val:.2f} W")
+
+    if op == "current":
+        if p["R"] == 0:
+            raise MathServiceError("resistance must be nonzero")
+        val = p["V"] / p["R"]
+        return PhysicsResult(
+            answer=(
+                rf"I = \frac{{V}}{{R}} = \frac{{{p['V']:g}}}{{{p['R']:g}}} "
+                rf"\approx {val:.2f} \text{{ A}}"
+            ),
+            answer_value=f"{val:.2f} A",
+        )
+
+    if op == "voltage":
+        val = p["I"] * p["R"]
+        return PhysicsResult(
+            answer=rf"V = IR = {p['I']:g} \cdot {p['R']:g} \approx {val:.2f} \text{{ V}}",
+            answer_value=f"{val:.2f} V",
+        )
+
+    if op == "resistance":
+        if p["I"] == 0:
+            raise MathServiceError("current must be nonzero")
+        val = p["V"] / p["I"]
+        return PhysicsResult(
+            answer=(
+                rf"R = \frac{{V}}{{I}} = \frac{{{p['V']:g}}}{{{p['I']:g}}} "
+                rf"\approx {val:.2f} \,\Omega"
+            ),
+            answer_value=f"{val:.2f} ohm",
+        )
+
+    raise MathServiceError(f"unsupported circuit op: {op}")
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -726,4 +815,6 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_circular(intent)
     if intent.kind == "spring":
         return solve_spring(intent)
+    if intent.kind == "circuit":
+        return solve_circuit(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")

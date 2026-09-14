@@ -63,4 +63,5 @@ PHYSICS_BLOCK_BUILDERS = {
     "friction": _build_physics_block,
     "circular": _build_physics_block,
     "spring": _build_physics_block,
+    "circuit": _build_physics_block,
 }

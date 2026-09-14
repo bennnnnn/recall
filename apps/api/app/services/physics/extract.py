@@ -949,6 +949,125 @@ def _extract_spring_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
+# Circuits: Ohm's law and resistance networks
+#   V = I R,  P = V I,  series R = R1 + R2,  parallel 1/R = 1/R1 + 1/R2
+# ---------------------------------------------------------------------------
+
+# "series" and "parallel" are NOT cues. Both belong to mathematics first — a
+# geometric series is a `series` intent and a parallelogram is its own kind —
+# and they only ever appear here as qualifiers on a question that already names
+# resistors. "current" is left out for the same reason ("the current date").
+_CIRCUIT_CUES = (
+    "ohm",
+    "voltage",
+    "volts",
+    "resistor",
+    "resistance",
+    "ampere",
+    "amps",
+    "circuit",
+    "battery",
+)
+
+_VOLT_PATTERN = r"V|volts?"
+_AMP_PATTERN = r"A|amps?|amperes?"
+_OHM_PATTERN = r"ohms?|\u03a9"
+
+# A question can name no circuit *word* and still be one: "the electrical power
+# for 12 V and 3 A" is entirely units. Two electrical quantities together are
+# the signature — the same shape P2 used for the projectile's speed-and-angle.
+#
+# Deliberately case-sensitive on the bare letters. "V" and "A" are the SI
+# symbols; matching them case-insensitively would let "3 a piece" read as three
+# amps. The spelled-out forms stay case-insensitive.
+_ELECTRICAL_QUANTITY = r"V|[Vv]olts?|A|[Aa]mp(?:s|ere|eres)?|[Oo]hms?|\u03a9"
+_CIRCUIT_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\d\s*(?:V|[Vv]olts?)\b.{{0,80}}?\d\s*(?:{_ELECTRICAL_QUANTITY})\b"),
+    re.compile(
+        rf"\d\s*(?:A|[Aa]mp(?:s|ere|eres)?|[Oo]hms?|\u03a9)\b.{{0,80}}?"
+        rf"\d\s*(?:{_ELECTRICAL_QUANTITY})\b"
+    ),
+)
+
+
+def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _CIRCUIT_CUES) and not any(
+        rx.search(cleaned) for rx in _CIRCUIT_CUE_RES
+    ):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    volts = _ordered_values(cleaned, _VOLT_PATTERN)
+    amps = _ordered_values(cleaned, _AMP_PATTERN)
+    ohms = _ordered_values(cleaned, _OHM_PATTERN)
+
+    # --- resistor networks: two or more resistances and a stated topology ---
+    if len(ohms) >= 2 and ("series" in lower or "parallel" in lower):
+        op: Literal[
+            "voltage",
+            "current",
+            "resistance",
+            "electrical_power",
+            "series_resistance",
+            "parallel_resistance",
+        ] = "series_resistance" if "series" in lower else "parallel_resistance"
+        return MathIntent(
+            kind="circuit",
+            physics_op=op,
+            physics_params={"R1": ohms[0][0], "R2": ohms[1][0]},
+            physics_units={"R1": "ohm", "R2": "ohm"},
+            operation="solve",
+        )
+
+    params: dict[str, float] = {}
+    units: dict[str, str] = {}
+    if volts:
+        params["V"] = volts[0][0]
+        units["V"] = "volt"
+    if amps:
+        params["I"] = amps[0][0]
+        units["I"] = "ampere"
+    if ohms:
+        params["R"] = ohms[0][0]
+        units["R"] = "ohm"
+
+    # Electrical power needs electrical units present, which is what keeps it
+    # from colliding with the mechanical `power` op (P = F v, in newtons and
+    # m/s). Two different quantities that share a name and a unit.
+    if "power" in lower or "dissipat" in lower or "watt" in lower:
+        if len(params) < 2:
+            return None
+        return MathIntent(
+            kind="circuit",
+            physics_op="electrical_power",
+            physics_params=params,
+            physics_units=units,
+            operation="solve",
+        )
+
+    # V = I R: whichever of the three is absent is the one being asked for.
+    # That reads the question from its givens rather than from its wording,
+    # so all three rearrangements work without three sets of phrasings.
+    if len(params) != 2:
+        return None
+    missing = ({"V", "I", "R"} - set(params)).pop()
+    asked: Literal["voltage", "current", "resistance"] = {
+        "V": "voltage",
+        "I": "current",
+        "R": "resistance",
+    }[missing]  # type: ignore[assignment]
+    return MathIntent(
+        kind="circuit",
+        physics_op=asked,
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Force: scalar Newton's second law (F = ma)
 # ---------------------------------------------------------------------------
 
@@ -1277,6 +1396,7 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_friction_intent,
     _extract_circular_intent,
     _extract_spring_intent,
+    _extract_circuit_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
@@ -1290,6 +1410,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_FRICTION_CUES,
             *_CIRCULAR_CUES,
             *_SPRING_CUES,
+            *_CIRCUIT_CUES,
             *_FORCE_CUES,
             *_ENERGY_CUES,
         )
@@ -1303,6 +1424,7 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_FRICTION_CUE_RES,
     *_CIRCULAR_CUE_RES,
     *_SPRING_CUE_RES,
+    *_CIRCUIT_CUE_RES,
     *_FORCE_CUE_RES,
     *_ENERGY_CUE_RES,
 )

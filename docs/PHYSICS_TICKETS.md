@@ -17,7 +17,7 @@ recorded as uncovered only when **no** phrasing of it produced a verified answer
 | P5 | [Friction and inclined planes](#p5-friction-and-inclined-planes) | API | ✅ |
 | P6 | [Circular motion](#p6-circular-motion) | API | ✅ |
 | P7 | [Springs, Hooke's law and SHM](#p7-springs-hookes-law-and-shm) | API | ✅ |
-| P8 | [Ohm's law and resistance networks](#p8-ohms-law-and-resistance-networks) | API | ☐ |
+| P8 | [Ohm's law and resistance networks](#p8-ohms-law-and-resistance-networks) | API | ✅ |
 | P9 | [Torque and rotational equilibrium](#p9-torque-and-rotational-equilibrium) | API | ☐ |
 | P10 | [Declare the physics boundary in the prompt](#p10-declare-the-physics-boundary-in-the-prompt) | API | ☐ |
 
@@ -425,6 +425,31 @@ as a mechanical op — either reuse it with a unit-aware answer or add
 
 **Acceptance:** `current if the voltage is 12 V and resistance is 4 ohms` → `3 A`;
 all three rearrangements of V = IR verify; two resistors in parallel combine.
+
+**Done** in `apps/api/app/tests/services/test_physics_circuits.py` (27 tests).
+Baseline 0 of 13 probed phrasings; 13 of 13 now, all three acceptance clauses
+met. Four notes:
+
+- **The question is read from its givens, not its wording.** Whichever of V, I
+  and R is *absent* is the one being asked for, so all three rearrangements work
+  without three sets of phrasing rules.
+- **`"series"` and `"parallel"` are not cues.** Both belong to mathematics
+  first — a geometric series is a `series` intent, a parallelogram its own kind
+  — so they only ever qualify a question that already names resistors. `"current"`
+  is left out for the same reason (`the current date`).
+- **Electrical power is its own op**, per this ticket's warning. The mechanical
+  `power` op (`P = F v`, newtons and m/s) is untouched and pinned by a test; the
+  electrical one fires only when electrical units are present. Same name, same
+  watt, different quantity.
+- **A circuit question can name no circuit word at all** — `the electrical power
+  for 12 V and 3 A` is entirely units — so two electrical quantities together
+  are a signature regex, the same shape P2 used for the projectile. It is
+  deliberately case-sensitive on the bare `V` and `A`: matching those
+  case-insensitively would read `3 a piece` as three amps.
+
+Tests assert the relationships: the three rearrangements reproduce each other,
+parallel resistance falls below the smaller resistor, and `P = VI`, `I²R` and
+`V²/R` all agree.
 
 ---
 
