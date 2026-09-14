@@ -855,6 +855,100 @@ def _extract_circular_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
+# Springs and simple harmonic motion
+#   F = k x,  U = 1/2 k x^2,  T = 2 pi sqrt(m / k)
+# ---------------------------------------------------------------------------
+
+# "spring" alone is a season and a semester. It only counts beside a spring
+# constant, which is what the regexes below require — same co-occurrence shape
+# P5 used for friction, and for the same reason: these cues feed the global
+# needs_math_tools pre-filter, so a bare "spring break in 3 weeks" would spend a
+# tool round on a question nothing here can answer.
+_SPRING_CUES = (
+    "hooke",
+    "spring constant",
+    "simple harmonic",
+    "oscillation",
+    "oscillating",
+    "oscillates",
+)
+_SPRING_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bspring\b.{0,80}?(?:\d+\s*N/m|\bk\s*=)", re.IGNORECASE),
+    re.compile(r"(?:\d+\s*N/m|\bk\s*=).{0,80}?\bspring\b", re.IGNORECASE),
+)
+
+_SPRING_K_RE = re.compile(r"\bk\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+_DISPLACEMENT_KEYWORDS = (
+    "stretched",
+    "compressed",
+    "extended",
+    "displacement",
+    "amplitude",
+    "extension",
+    "by",
+)
+
+
+def _extract_spring_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _SPRING_CUES, _SPRING_CUE_RES):
+        return None
+    # Strip "k = 200" before the algebra check: it is a known, not an equation
+    # to solve. Without this the whole question is read as algebra — which is
+    # what happened before this extractor existed.
+    if mtm.has_equation(_strip_param_assignments(_SPRING_K_RE.sub("", cleaned))):
+        return None
+
+    k_match = _find_value_with_specific_unit(cleaned, r"N/m")
+    if k_match is not None:
+        k: float | None = k_match[0]
+    else:
+        k_assign = _SPRING_K_RE.search(cleaned)
+        k = float(k_assign.group(1)) if k_assign else None
+    if k is None:
+        return None
+
+    displacement = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, _DISPLACEMENT_KEYWORDS
+    )
+    mass = _find_value_with_specific_unit(
+        cleaned, r"kg|mg|lb|lbs|oz", ("mass", "object", "body", "block")
+    )
+
+    op: Literal["spring_force", "spring_energy", "shm_period"]
+    if "period" in lower or "oscillat" in lower or "simple harmonic" in lower:
+        op = "shm_period"
+        if mass is None:
+            return None
+    elif "energy" in lower:
+        op = "spring_energy"
+        if displacement is None:
+            return None
+    elif "force" in lower:
+        op = "spring_force"
+        if displacement is None:
+            return None
+    else:
+        return None
+
+    params: dict[str, float] = {"k": k}
+    units: dict[str, str] = {"k": "N/m"}
+    if displacement is not None:
+        params["x"] = displacement[0]
+        units["x"] = displacement[1] or "m"
+    if mass is not None:
+        params["m"] = mass[0]
+        units["m"] = mass[1] or "kg"
+    return MathIntent(
+        kind="spring",
+        physics_op=op,
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Force: scalar Newton's second law (F = ma)
 # ---------------------------------------------------------------------------
 
@@ -1182,6 +1276,7 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_momentum_intent,
     _extract_friction_intent,
     _extract_circular_intent,
+    _extract_spring_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
@@ -1194,6 +1289,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_MOMENTUM_CUES,
             *_FRICTION_CUES,
             *_CIRCULAR_CUES,
+            *_SPRING_CUES,
             *_FORCE_CUES,
             *_ENERGY_CUES,
         )
@@ -1206,6 +1302,7 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_PROJECTILE_CUE_RES,
     *_FRICTION_CUE_RES,
     *_CIRCULAR_CUE_RES,
+    *_SPRING_CUE_RES,
     *_FORCE_CUE_RES,
     *_ENERGY_CUE_RES,
 )

@@ -16,7 +16,7 @@ recorded as uncovered only when **no** phrasing of it produced a verified answer
 | P4 | [Momentum, impulse and 1D collisions](#p4-momentum-impulse-and-1d-collisions) | API | ✅ |
 | P5 | [Friction and inclined planes](#p5-friction-and-inclined-planes) | API | ✅ |
 | P6 | [Circular motion](#p6-circular-motion) | API | ✅ |
-| P7 | [Springs, Hooke's law and SHM](#p7-springs-hookes-law-and-shm) | API | ☐ |
+| P7 | [Springs, Hooke's law and SHM](#p7-springs-hookes-law-and-shm) | API | ✅ |
 | P8 | [Ohm's law and resistance networks](#p8-ohms-law-and-resistance-networks) | API | ☐ |
 | P9 | [Torque and rotational equilibrium](#p9-torque-and-rotational-equilibrium) | API | ☐ |
 | P10 | [Declare the physics boundary in the prompt](#p10-declare-the-physics-boundary-in-the-prompt) | API | ☐ |
@@ -387,6 +387,27 @@ graph, which P3 will then animate.
 
 **Acceptance:** `force of a spring with k = 200 N/m stretched 0.1 m` → `20 N`;
 an SHM period ask emits a `position_vs_time` graph spec.
+
+**Done** in `apps/api/app/tests/services/test_physics_springs.py` (26 tests).
+Baseline 0 of 9 probed phrasings; 9 of 9 now, both acceptance clauses met. Three
+notes:
+
+- **`"spring"` is a season and a semester**, so it is never a cue on its own —
+  it counts only beside a spring constant, the same co-occurrence shape P5 used
+  for friction. A bare mention would otherwise engage the global
+  `needs_math_tools` pre-filter on `spring break starts in 3 weeks`.
+- **`k = 200` reads as an equation.** Before this extractor existed, `what is
+  the period of simple harmonic motion for a 0.5 kg mass and k = 200 N/m` was
+  answered as algebra, returning `N = km/200`. The constant is stripped before
+  the equation check for exactly that reason — one of several pre-existing
+  mis-parses these tickets have quietly retired.
+- **An unstated amplitude is normalised, not invented.** Amplitude only scales
+  the y-axis and the period is what was asked, so a question omitting it still
+  gets a curve, with the axis labelled `Displacement (normalised)` rather than
+  implying metres.
+
+The tests assert relationships as well as numbers: a stiffer spring oscillates
+faster, `U` agrees with `½Fx`, and compression and extension give equal force.
 
 ---
 

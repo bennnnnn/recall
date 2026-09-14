@@ -55,6 +55,8 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "v2": "meter / second",
     "dt": "second",
     "r": "meter",
+    "k": "newton / meter",
+    "x": "meter",
     # "mu" and "angle" are intentionally absent: mu is dimensionless and angle
     # is converted by _params_in_si before any unit check runs.
 }
@@ -631,6 +633,77 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
 
 
 # ---------------------------------------------------------------------------
+# Springs: F = k x, U = 1/2 k x^2, T = 2 pi sqrt(m/k)
+# ---------------------------------------------------------------------------
+
+
+def solve_spring(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or "spring_force"
+    k = p["k"]
+    if k <= 0:
+        raise MathServiceError("spring constant must be positive")
+
+    if op == "spring_force":
+        x = p["x"]
+        f_val = k * abs(x)
+        return PhysicsResult(
+            answer=(rf"F = kx = {k:g} \cdot {abs(x):g} \approx {f_val:.2f} \text{{ N}}"),
+            answer_value=f"{f_val:.2f} N",
+        )
+
+    if op == "spring_energy":
+        x = p["x"]
+        u_val = 0.5 * k * x * x
+        return PhysicsResult(
+            answer=(
+                rf"U = \tfrac{{1}}{{2}} k x^2 = 0.5 \cdot {k:g} \cdot "
+                rf"{_latex_num(x, square=True)} \approx {u_val:.2f} \text{{ J}}"
+            ),
+            answer_value=f"{u_val:.2f} J",
+        )
+
+    if op == "shm_period":
+        m = p["m"]
+        if m <= 0:
+            raise MathServiceError("mass must be positive")
+        t_period = 2 * math.pi * math.sqrt(m / k)
+        answer = (
+            rf"T = 2\pi\sqrt{{\frac{{m}}{{k}}}} = 2\pi\sqrt{{\frac{{{m:g}}}{{{k:g}}}}} "
+            rf"\approx {t_period:.2f} \text{{ s}}"
+        )
+
+        # The oscillation is the thing worth seeing, so hand P3's player a
+        # curve. Amplitude only scales the y-axis — the shape and the period
+        # are what the question is about — so when none is given the plot is
+        # normalised rather than invented.
+        amplitude = p.get("x")
+        n_points = 100
+        span = 2 * t_period
+        dt = span / (n_points - 1)
+        a_plot = abs(amplitude) if amplitude else 1.0
+        points = [
+            [round(i * dt, 4), round(a_plot * math.cos(2 * math.pi * (i * dt) / t_period), 4)]
+            for i in range(n_points)
+        ]
+        spec = GraphBlockSpec(
+            type="trajectory",
+            expr=f"x(t) = {a_plot:g}*cos(2*pi*t/{t_period:.4g})",
+            variable="t",
+            x_min=0.0,
+            x_max=span,
+            points=points,
+            title="Displacement vs. Time",
+            x_label="Time (s)",
+            y_label="Displacement (m)" if amplitude else "Displacement (normalised)",
+            trajectory_type="position_vs_time",
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{t_period:.2f} s", graph_specs=[spec])
+
+    raise MathServiceError(f"unsupported spring op: {op}")
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -651,4 +724,6 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_friction(intent)
     if intent.kind == "circular":
         return solve_circular(intent)
+    if intent.kind == "spring":
+        return solve_spring(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")
