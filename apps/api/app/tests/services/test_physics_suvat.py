@@ -40,6 +40,17 @@ def _settings() -> Settings:
     return Settings(math_tools_enabled=True)
 
 
+def _graph(text: str):
+    """The one graph a SUVAT solve emits, or an assertion failure saying why."""
+    from app.services.physics.solver import solve_physics
+
+    intent = extract_math_intent(text)
+    assert intent is not None, f"no intent extracted for {text!r}"
+    specs = solve_physics(intent).graph_specs
+    assert len(specs) == 1, f"expected one graph for {text!r}, got {len(specs)}"
+    return specs[0]
+
+
 def _verified_answer(text: str) -> str | None:
     intent = extract_math_intent(text)
     if intent is None:
@@ -208,6 +219,54 @@ def test_suvat_emits_a_velocity_time_graph() -> None:
     assert spec.trajectory_type == "velocity_vs_time"
     assert spec.points[0] == [0.0, 0.0]
     assert spec.points[-1][1] == pytest.approx(15.0)
+
+
+def test_the_graph_plots_the_quantity_that_was_asked_for() -> None:
+    """Found in the app: "how far does a car go in 5 s" was answered 37.50 m
+    under a chart climbing to 15 m/s.
+
+    Every op drew the same velocity-against-time line, on the reasoning that
+    its slope *is* the acceleration. True, and still wrong — the 37.50 is the
+    *area* under that line, a real relationship and not the one on screen, with
+    nothing saying so. Two different questions about the same journey also drew
+    byte-identical charts, which reads as a duplication bug rather than a wrong
+    axis.
+
+    The test that matters: the curve's last point is the answer.
+    """
+    distance = _graph("how far does a car go in 5 s accelerating from rest at 3 m/s^2")
+    velocity = _graph("a car accelerates from rest at 3 m/s^2 for 5 s, what is its final velocity")
+
+    assert distance.title == "Distance vs. Time"
+    assert distance.trajectory_type == "position_vs_time"
+    assert distance.points[-1][1] == pytest.approx(37.5)
+
+    assert velocity.title == "Velocity vs. Time"
+    assert velocity.trajectory_type == "velocity_vs_time"
+    assert velocity.points[-1][1] == pytest.approx(15.0)
+
+    # Same journey, different questions — the charts must not be identical.
+    assert distance.points != velocity.points
+
+
+def test_the_distance_curve_bends_the_way_the_equation_bends() -> None:
+    """s = ut + ½at² is a parabola, and drawing it as the straight velocity
+    line was exactly the substitution this fixes."""
+    points = _graph("how far does a car go in 5 s accelerating from rest at 3 m/s^2").points
+
+    first_step = points[1][1] - points[0][1]
+    last_step = points[-1][1] - points[-2][1]
+
+    assert last_step > first_step * 5
+
+
+def test_solving_for_a_time_plots_whichever_target_the_givens_carry() -> None:
+    """A stated final velocity makes it a velocity question; a stated distance
+    makes it a distance one."""
+    to_speed = _graph("a car accelerates from rest at 3 m/s^2, how long to reach 15 m/s")
+
+    assert to_speed.title == "Velocity vs. Time"
+    assert to_speed.points[-1][1] == pytest.approx(15.0)
 
 
 def test_a_graph_needs_a_time_span_to_be_honest() -> None:

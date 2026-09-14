@@ -435,23 +435,53 @@ _SUVAT_OPS = {
 }
 
 
-def _suvat_graph(p: dict[str, float], solved: dict[str, float]) -> list[GraphBlockSpec]:
-    """Velocity against time — the plot that shows a constant acceleration.
+def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list[GraphBlockSpec]:
+    """A plot of the quantity the question actually asked for.
 
-    A straight line is the whole point: its slope *is* the acceleration, which
-    a number alone does not convey. Needs u, a and a span; without all three
-    there is nothing honest to draw.
+    Every op used to get the same velocity-against-time line, on the reasoning
+    that its slope *is* the acceleration. That is true and it was still wrong:
+    "how far does a car go in 5 s" was answered 37.50 m under a chart climbing
+    to 15 m/s. The 37.50 is the area under that line — a real relationship, and
+    not the one on screen, with nothing saying so. Worse, two different
+    questions about the same journey drew byte-identical charts, which reads as
+    a duplication bug rather than a wrong axis.
+
+    So a distance question gets distance against time, and the curve bends the
+    way s = ut + ½at² bends. Needs u, a and a span; without all three there is
+    nothing honest to draw.
     """
     known = {**p, **solved}
     u, a, t_end = known.get("u"), known.get("a"), known.get("t")
     if u is None or a is None or t_end is None or t_end <= 0:
         return []
 
+    # Solving *for* a time plots whichever variable the givens carry to its
+    # target: a stated final velocity makes it a velocity question, a stated
+    # distance a distance one.
+    wants_distance = op == "suvat_distance" or (op == "suvat_time" and "d" in known)
+
     n_points = 60
     dt = t_end / (n_points - 1)
-    points = [[round(i * dt, 4), round(u + a * (i * dt), 4)] for i in range(n_points)]
-    return [
-        GraphBlockSpec(
+    if wants_distance:
+        points = [
+            [round(i * dt, 4), round(u * (i * dt) + 0.5 * a * (i * dt) ** 2, 4)]
+            for i in range(n_points)
+        ]
+        spec = GraphBlockSpec(
+            type="trajectory",
+            expr=f"s(t) = {u:g}*t + {0.5 * a:g}*t^2",
+            variable="t",
+            x_min=0.0,
+            x_max=t_end,
+            points=points,
+            title="Distance vs. Time",
+            x_label="Time (s)",
+            y_label="Distance (m)",
+            trajectory_type="position_vs_time",
+        )
+    else:
+        points = [[round(i * dt, 4), round(u + a * (i * dt), 4)] for i in range(n_points)]
+        spec = GraphBlockSpec(
             type="trajectory",
             expr=f"v(t) = {u:g} + {a:g}*t",
             variable="t",
@@ -463,7 +493,7 @@ def _suvat_graph(p: dict[str, float], solved: dict[str, float]) -> list[GraphBlo
             y_label="Velocity (m/s)",
             trajectory_type="velocity_vs_time",
         )
-    ]
+    return [spec]
 
 
 def solve_suvat(intent: MathIntent) -> PhysicsResult:
@@ -483,7 +513,7 @@ def solve_suvat(intent: MathIntent) -> PhysicsResult:
         raise MathServiceError(f"negative {op.removeprefix('suvat_')} from these givens")
 
     solved = {"suvat_velocity": "v", "suvat_distance": "d", "suvat_time": "t"}.get(op)
-    graphs = _suvat_graph(p, {solved: value} if solved else {})
+    graphs = _suvat_graph(op, p, {solved: value} if solved else {})
     return PhysicsResult(
         answer=rf"{workings} \approx {value:.2f} \text{{ {unit} }}",
         answer_value=f"{value:.2f} {unit}",

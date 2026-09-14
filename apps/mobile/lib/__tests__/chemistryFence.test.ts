@@ -102,3 +102,50 @@ describe("retagMoleculeMathToSmiles", () => {
     expect(out).toBe("```smiles\nOxygen (O2)\nO=O\n```");
   });
 });
+
+describe("a physics formula is not a molecule", () => {
+  // Found in the app: "How much work did the student do on the box?" rendered
+  // a **Molecule** card reading "Could not render that structure" where the
+  // formula should have been. The model wrote `$W = F d$`; the retagger
+  // collapsed it to `W=Fd`, read W and "Fd" as elements, and shipped it to
+  // RDKit — which failed, because a bare `W` was never valid SMILES in the
+  // first place. That is the rule this now enforces: an unbracketed atom is
+  // restricted to the organic subset.
+  const PHYSICS = [
+    "$W = F d$",
+    "$W = Fd$",
+    "$$W = F d$$",
+    "$W = F \\times d$",
+    "$P = F v$",
+    "$F = m a$",
+    "$T = m g$",
+    // Letters that *are* in the organic subset, so only the spacing separates
+    // these from a double bond.
+    "$N = W$",
+    "$F = P$",
+    "$H = P$",
+  ];
+
+  it.each(PHYSICS)("leaves %s alone", (formula) => {
+    expect(retagMoleculeMathToSmiles(formula)).toBe(formula);
+  });
+
+  it("rejects a bare element outside the organic subset", () => {
+    // Tungsten must be written [W] in SMILES, so `W=W` was never renderable.
+    expect(normalizeMoleculeFormulaToSmiles("W=W")).toBeNull();
+    expect(normalizeMoleculeFormulaToSmiles("Fe=Fe")).toBeNull();
+  });
+
+  it("still accepts the diatomics written the way chemists write them", () => {
+    expect(normalizeMoleculeFormulaToSmiles("O=O")).toBe("O=O");
+    expect(normalizeMoleculeFormulaToSmiles("N#N")).toBe("N#N");
+    expect(normalizeMoleculeFormulaToSmiles("H-H")).toBe("[H][H]");
+    // The LaTeX triple bond needs its spaces, so spacing is only read off the
+    // ASCII bonds.
+    expect(normalizeMoleculeFormulaToSmiles("N \\equiv N")).toBe("N#N");
+  });
+
+  it("rejects a spaced ASCII bond, which is algebra", () => {
+    expect(normalizeMoleculeFormulaToSmiles("O = O")).toBeNull();
+  });
+});
