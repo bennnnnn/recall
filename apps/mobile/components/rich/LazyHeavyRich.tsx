@@ -33,6 +33,10 @@ const FunctionGraphBlockLazy = React.lazy(() =>
   import("@/components/rich/FunctionGraphBlock").then((m) => ({ default: m.FunctionGraphBlock })),
 );
 
+const SimulationBlockLazy = React.lazy(() =>
+  import("@/components/rich/SimulationBlock").then((m) => ({ default: m.SimulationBlock })),
+);
+
 function RichLoadPlaceholder({ height }: { height: number }) {
   return (
     <View style={{ height, alignItems: "center", justifyContent: "center" }}>
@@ -93,6 +97,14 @@ export function LazyFunctionGraphBlock({ content }: { content: string }) {
   return (
     <Suspense fallback={<RichLoadPlaceholder height={280} />}>
       <FunctionGraphBlockLazy content={content} />
+    </Suspense>
+  );
+}
+
+export function LazySimulationBlock({ content }: { content: string }) {
+  return (
+    <Suspense fallback={<RichLoadPlaceholder height={240} />}>
+      <SimulationBlockLazy content={content} />
     </Suspense>
   );
 }

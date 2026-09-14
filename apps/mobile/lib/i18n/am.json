@@ -544,6 +544,8 @@
   "rich.graph_plot_a11y": "በመቆንጠጥ የሚቀረብ ግራፍ። ለማጉላት ይቆንጡ።",
   "rich.graph_play": "አጫውት",
   "rich.graph_play_a11y": "የመንገዱን እንቅስቃሴ አጫውት",
+  "rich.simulation_error": "ያንን ሲሙሌሽን ማሳየት አልተቻለም።",
+  "rich.simulation_title": "ሲሙሌሽን",
   "rich.graph_remove_series": "ተግባር አስወግድ",
   "rich.graph_show_series": "ተግባር አሳይ",
   "rich.graph_solution_region": "የተጠለለ የመፍትሄ ክልል",

@@ -51,6 +51,7 @@ class MathIntent(BaseModel):
         "spring",
         "circuit",
         "torque",
+        "suvat",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -192,6 +193,13 @@ class MathIntent(BaseModel):
             "range",
             "max_height",
             "net_force",
+            # Rope/pulley free bodies. P2 refused these on purpose after
+            # finding them answered with m*a; these are the shapes now solved.
+            "tension",
+            "atwood",
+            # Vector forces. Everything else on the force kind is scalar.
+            "resultant_force",
+            "resolve_force",
             "kinetic_energy",
             "potential_energy",
             "work",
@@ -208,6 +216,9 @@ class MathIntent(BaseModel):
             "spring_force",
             "spring_energy",
             "shm_period",
+            # Same simple harmonic motion, different period formula, so it
+            # lives on the spring kind rather than a kind of its own.
+            "pendulum_period",
             "voltage",
             "current",
             "resistance",
@@ -216,6 +227,12 @@ class MathIntent(BaseModel):
             "parallel_resistance",
             "torque",
             "moment_balance",
+            # SUVAT — the op names the unknown, and the solver picks whichever
+            # of the four equations the givens support (P8's approach).
+            "suvat_velocity",
+            "suvat_distance",
+            "suvat_time",
+            "suvat_acceleration",
         ]
         | None
     ) = None

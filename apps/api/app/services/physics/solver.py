@@ -13,17 +13,26 @@ from dataclasses import dataclass, field
 
 from sympy import Eq, Symbol, solve
 
-from app.models.schemas.math import GraphBlockSpec, MathIntent
+from app.models.schemas.math import (
+    GraphBlockSpec,
+    MathIntent,
+    SimulationBlockSpec,
+    SimulationBody,
+    SimulationVector,
+)
 from app.services.math.solve import MathServiceError
 
 
 @dataclass(frozen=True)
 class PhysicsResult:
-    """Result of a physics solve: a LaTeX answer + optional graph specs."""
+    """Result of a physics solve: a LaTeX answer + optional graph/scene specs."""
 
     answer: str  # LaTeX, e.g. r"t = \sqrt{2 \cdot 20 / 9.81} \approx 2.02 \text{ s}"
     answer_value: str  # human-readable with units, e.g. "2.02 s"
     graph_specs: list[GraphBlockSpec] = field(default_factory=list)
+    # A scene of moving bodies, where the graph is a plot of one. A solve may
+    # emit both: the projectile's parabola *and* the ball flying along it.
+    simulation_specs: list[SimulationBlockSpec] = field(default_factory=list)
 
 
 def _latex_num(value: float, *, square: bool = False) -> str:
@@ -65,6 +74,10 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "F1": "newton",
     "F2": "newton",
     "d1": "meter",
+    # SUVAT initial velocity. "v" and "a" and "t" and "d" are already above.
+    "u": "meter / second",
+    # Pendulum length.
+    "L": "meter",
     # "mu" and "angle" are intentionally absent: mu is dimensionless and angle
     # is converted by _params_in_si before any unit check runs.
 }
@@ -290,6 +303,195 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
 
 
 # ---------------------------------------------------------------------------
+# SUVAT: motion under any constant acceleration
+#   v = u + at        s = ut + ½at²
+#   v² = u² + 2as     s = ½(u + v)t
+#
+# The four equations each omit one variable, so the givens choose the equation
+# rather than the wording choosing it — the same "read the question from its
+# givens" shape P8 used for Ohm's law, and the reason four sets of phrasing
+# rules were not needed.
+# ---------------------------------------------------------------------------
+
+
+def _suvat_velocity(p: dict[str, float]) -> tuple[float, str]:
+    u, a, t, d = p.get("u"), p.get("a"), p.get("t"), p.get("d")
+    if u is not None and a is not None and t is not None:
+        return u + a * t, rf"v = u + at = {u:g} + {_latex_num(a)} \cdot {t:g}"
+    if u is not None and a is not None and d is not None:
+        square = u * u + 2 * a * d
+        if square < 0:
+            raise MathServiceError("no real final velocity: the body stops before that distance")
+        return (
+            math.sqrt(square),
+            rf"v = \sqrt{{u^2 + 2as}} = \sqrt{{{_latex_num(u, square=True)} + "
+            rf"2 \cdot {_latex_num(a)} \cdot {d:g}}}",
+        )
+    if u is not None and d is not None and t is not None:
+        if t == 0:
+            raise MathServiceError("time must be non-zero")
+        return (
+            2 * d / t - u,
+            rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow v = \frac{{2s}}{{t}} - u = "
+            rf"\frac{{2 \cdot {d:g}}}{{{t:g}}} - {u:g}",
+        )
+    raise MathServiceError("not enough givens for a final velocity")
+
+
+def _suvat_distance(p: dict[str, float]) -> tuple[float, str]:
+    u, v, a, t = p.get("u"), p.get("v"), p.get("a"), p.get("t")
+    if u is not None and a is not None and t is not None:
+        return (
+            u * t + 0.5 * a * t * t,
+            rf"s = ut + \tfrac{{1}}{{2}}at^2 = {u:g} \cdot {t:g} + 0.5 \cdot "
+            rf"{_latex_num(a)} \cdot {_latex_num(t, square=True)}",
+        )
+    if u is not None and v is not None and a is not None:
+        if a == 0:
+            raise MathServiceError("acceleration must be non-zero to find a distance this way")
+        return (
+            (v * v - u * u) / (2 * a),
+            rf"v^2 = u^2 + 2as \Rightarrow s = \frac{{v^2 - u^2}}{{2a}} = "
+            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
+            rf"{{2 \cdot {_latex_num(a)}}}",
+        )
+    if u is not None and v is not None and t is not None:
+        return (
+            0.5 * (u + v) * t,
+            rf"s = \tfrac{{1}}{{2}}(u + v)t = 0.5 \cdot ({u:g} + {v:g}) \cdot {t:g}",
+        )
+    raise MathServiceError("not enough givens for a distance")
+
+
+def _suvat_time(p: dict[str, float]) -> tuple[float, str]:
+    u, v, a, d = p.get("u"), p.get("v"), p.get("a"), p.get("d")
+    if u is not None and v is not None and a is not None:
+        if a == 0:
+            raise MathServiceError("acceleration must be non-zero to find a time this way")
+        return (
+            (v - u) / a,
+            rf"v = u + at \Rightarrow t = \frac{{v - u}}{{a}} = "
+            rf"\frac{{{v:g} - {u:g}}}{{{_latex_num(a)}}}",
+        )
+    if u is not None and a is not None and d is not None:
+        # ½at² + ut - s = 0. SymPy rather than the quadratic formula by hand,
+        # and the earliest non-negative root is the physical one.
+        t_sym = Symbol("t", real=True)
+        roots = solve(Eq(0.5 * a * t_sym**2 + u * t_sym, d), t_sym)
+        candidates = sorted(float(r) for r in roots if r.is_real and float(r) >= 0)
+        if not candidates:
+            raise MathServiceError("the body never reaches that distance")
+        return (
+            candidates[0],
+            rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow 0.5 \cdot {_latex_num(a)} t^2 + "
+            rf"{u:g}t = {d:g}",
+        )
+    if u is not None and v is not None and d is not None:
+        if u + v == 0:
+            raise MathServiceError("average velocity is zero, so no time follows")
+        return (
+            2 * d / (u + v),
+            rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow t = \frac{{2s}}{{u + v}} = "
+            rf"\frac{{2 \cdot {d:g}}}{{{u:g} + {v:g}}}",
+        )
+    raise MathServiceError("not enough givens for a time")
+
+
+def _suvat_acceleration(p: dict[str, float]) -> tuple[float, str]:
+    u, v, t, d = p.get("u"), p.get("v"), p.get("t"), p.get("d")
+    if u is not None and v is not None and t is not None:
+        if t == 0:
+            raise MathServiceError("time must be non-zero")
+        return (
+            (v - u) / t,
+            rf"v = u + at \Rightarrow a = \frac{{v - u}}{{t}} = "
+            rf"\frac{{{v:g} - {u:g}}}{{{t:g}}}",
+        )
+    if u is not None and v is not None and d is not None:
+        if d == 0:
+            raise MathServiceError("distance must be non-zero")
+        return (
+            (v * v - u * u) / (2 * d),
+            rf"v^2 = u^2 + 2as \Rightarrow a = \frac{{v^2 - u^2}}{{2s}} = "
+            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
+            rf"{{2 \cdot {d:g}}}",
+        )
+    if u is not None and t is not None and d is not None:
+        if t == 0:
+            raise MathServiceError("time must be non-zero")
+        return (
+            2 * (d - u * t) / (t * t),
+            rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow a = \frac{{2(s - ut)}}{{t^2}} = "
+            rf"\frac{{2({d:g} - {u:g} \cdot {t:g})}}{{{_latex_num(t, square=True)}}}",
+        )
+    raise MathServiceError("not enough givens for an acceleration")
+
+
+_SUVAT_OPS = {
+    "suvat_velocity": (_suvat_velocity, "m/s"),
+    "suvat_distance": (_suvat_distance, "m"),
+    "suvat_time": (_suvat_time, "s"),
+    "suvat_acceleration": (_suvat_acceleration, "m/s^2"),
+}
+
+
+def _suvat_graph(p: dict[str, float], solved: dict[str, float]) -> list[GraphBlockSpec]:
+    """Velocity against time — the plot that shows a constant acceleration.
+
+    A straight line is the whole point: its slope *is* the acceleration, which
+    a number alone does not convey. Needs u, a and a span; without all three
+    there is nothing honest to draw.
+    """
+    known = {**p, **solved}
+    u, a, t_end = known.get("u"), known.get("a"), known.get("t")
+    if u is None or a is None or t_end is None or t_end <= 0:
+        return []
+
+    n_points = 60
+    dt = t_end / (n_points - 1)
+    points = [[round(i * dt, 4), round(u + a * (i * dt), 4)] for i in range(n_points)]
+    return [
+        GraphBlockSpec(
+            type="trajectory",
+            expr=f"v(t) = {u:g} + {a:g}*t",
+            variable="t",
+            x_min=0.0,
+            x_max=t_end,
+            points=points,
+            title="Velocity vs. Time",
+            x_label="Time (s)",
+            y_label="Velocity (m/s)",
+            trajectory_type="velocity_vs_time",
+        )
+    ]
+
+
+def solve_suvat(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or "suvat_velocity"
+    entry = _SUVAT_OPS.get(op)
+    if entry is None:
+        raise MathServiceError(f"unsupported suvat op: {op}")
+    compute, unit = entry
+
+    value, workings = compute(p)
+    if not math.isfinite(value):
+        raise MathServiceError("suvat solution is not finite")
+    # A negative time or distance means the givens describe no real motion —
+    # better refused than reported, since the arithmetic looks fine either way.
+    if op in ("suvat_time", "suvat_distance") and value < 0:
+        raise MathServiceError(f"negative {op.removeprefix('suvat_')} from these givens")
+
+    solved = {"suvat_velocity": "v", "suvat_distance": "d", "suvat_time": "t"}.get(op)
+    graphs = _suvat_graph(p, {solved: value} if solved else {})
+    return PhysicsResult(
+        answer=rf"{workings} \approx {value:.2f} \text{{ {unit} }}",
+        answer_value=f"{value:.2f} {unit}",
+        graph_specs=graphs,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Projectile: 2D motion at an angle
 #   x(t) = v0*cos(θ)*t
 #   y(t) = v0*sin(θ)*t - 0.5*g*t^2
@@ -369,10 +571,30 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
         y_label="Height (m)",
         trajectory_type="parametric",
     )
+
+    # The same samples, as a scene rather than a plot. The graph answers "what
+    # shape is the path"; this answers "what is moving, and what is pulling on
+    # it" — and they share one array, so the ball cannot be somewhere the
+    # curve is not.
+    peak = max(point[1] for point in points)
+    span = points[-1][0]
+    scene = SimulationBlockSpec(
+        type="projectile_motion",
+        title="Projectile",
+        bodies=[SimulationBody(path=points, radius=max(span, peak) * 0.025 or 0.1)],
+        x_min=0.0,
+        x_max=span * 1.05,
+        y_min=0.0,
+        # Headroom so the gravity arrow at the apex is not clipped by the top.
+        y_max=max(peak * 1.25, span * 0.25, 1.0),
+        arrows=["velocity", "gravity"],
+        ground=True,
+    )
     return PhysicsResult(
         answer=answer_latex,
         answer_value=answer_value,
         graph_specs=[graph_spec],
+        simulation_specs=[scene],
     )
 
 
@@ -381,8 +603,234 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
+def _free_body_scene(
+    vectors: list[SimulationVector],
+    *,
+    label: str | None = None,
+    ground: bool = False,
+    lift: float = 0.0,
+) -> list[SimulationBlockSpec]:
+    """A block with labelled forces on it, and nothing moving.
+
+    The picture a force question actually wants. Every arrow is drawn at the
+    length the renderer gives it rather than scaled by magnitude — a 59 N
+    tension against a 49 N weight would differ by a fifth of an arrowhead, so
+    the *labels* carry the sizes and the arrows carry the directions.
+    """
+    reach = 2.0
+    return [
+        SimulationBlockSpec(
+            type="free_body",
+            title="Free-Body Diagram",
+            bodies=[
+                SimulationBody(path=[[0.0, 0.0], [0.0, 0.0]], radius=reach * 0.16, label=label)
+            ],
+            vectors=vectors,
+            x_min=-reach,
+            x_max=reach,
+            y_min=-reach if not ground else -reach * 0.35,
+            y_max=reach,
+            ground=ground,
+        )
+    ]
+
+
+def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[SimulationBlockSpec]:
+    """Two masses on one rope over a pulley, the heavy one descending.
+
+    An Atwood machine is a picture by definition — the name is of an apparatus
+    — and "2.45 m/s^2 and 36.79 N" gives no hint that the two masses move in
+    opposite directions at the same rate, which is the whole idea.
+    """
+    reach = 3.0
+    drop = reach * 0.5
+    n_points = 50
+    # Uniform in time, so the pair visibly accelerates. The drop is a display
+    # choice; the acceleration profile is not.
+    duration = math.sqrt(2 * drop / accel) if accel > 0 else 1.0
+    dt = duration / (n_points - 1)
+    fall = [min(0.5 * accel * (i * dt) ** 2, drop) for i in range(n_points)]
+
+    heavy = [[-1.0, round(reach - s, 4)] for s in fall]
+    light = [[1.0, round(reach - drop + s, 4)] for s in fall]
+    return [
+        SimulationBlockSpec(
+            type="free_body",
+            title="Atwood Machine",
+            bodies=[
+                SimulationBody(path=heavy, radius=0.3 * (m1 ** (1 / 3)), role="primary"),
+                SimulationBody(path=light, radius=0.3 * (m2 ** (1 / 3)), role="secondary"),
+            ],
+            vectors=[
+                SimulationVector(
+                    anchor=[0.0, reach + 0.55],
+                    dx=0.0,
+                    dy=-1.0,
+                    label=f"T = {tension:.2f} N",
+                    role="result",
+                )
+            ],
+            x_min=-reach * 0.8,
+            x_max=reach * 0.8,
+            y_min=0.0,
+            y_max=reach + 1.2,
+            # The pulley itself: a beam across the top with the rope's turning
+            # point on it.
+            beam=[-1.0, reach + 0.5, 1.0, reach + 0.5],
+            pivot=[0.0, reach + 0.5],
+        )
+    ]
+
+
+def _vector_sum_scene(
+    parts: list[SimulationVector], result: SimulationVector
+) -> list[SimulationBlockSpec]:
+    """Components and their resultant, from one common tail.
+
+    Here the arrows *are* scaled to magnitude, because a resultant that did not
+    visibly out-reach its components would be the one picture that contradicts
+    its own answer. The scene box is sized to the longest of them.
+    """
+    vectors = [*parts, result]
+    reach = max(math.hypot(v.dx, v.dy) for v in vectors) * 1.3 or 1.0
+    return [
+        SimulationBlockSpec(
+            type="vector_sum",
+            title="Forces",
+            vectors=vectors,
+            x_min=-reach * 0.25,
+            x_max=reach,
+            y_min=-reach * 0.25,
+            y_max=reach,
+        )
+    ]
+
+
 def solve_force(intent: MathIntent) -> PhysicsResult:
     p = _params_in_si(intent)
+    op = intent.physics_op
+
+    # Rope shapes, answered before the F/m/a triangle below because their
+    # answer is not m*a — which is exactly the confusion P2 refused rather
+    # than let ship.
+    if op == "tension":
+        m = p["m"]
+        if m <= 0:
+            raise MathServiceError("mass must be positive")
+        g = p.get("g", 9.81)
+        a = p.get("a", 0.0)
+        if a <= -g:
+            raise MathServiceError("the rope goes slack at or beyond free fall")
+        t_val = m * (g + a)
+        return PhysicsResult(
+            answer=(
+                rf"T = m(g + a) = {m:g}({g:g} + {_latex_num(a)}) "
+                rf"\approx {t_val:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{t_val:.2f} N",
+            # Two arrows and a mass is the whole of this problem, and seeing
+            # them is what makes T = m(g + a) rather than m*a obvious: the rope
+            # carries the weight *and* the acceleration.
+            simulation_specs=_free_body_scene(
+                [
+                    SimulationVector(
+                        anchor=[0.0, 0.0],
+                        dx=0.0,
+                        dy=1.0,
+                        label=f"T = {t_val:.2f} N",
+                        role="result",
+                    ),
+                    SimulationVector(
+                        anchor=[0.0, 0.0],
+                        dx=0.0,
+                        dy=-1.0,
+                        label=f"W = {m * g:.2f} N",
+                    ),
+                ],
+                label=f"{m:g} kg",
+            ),
+        )
+
+    if op == "resultant_force":
+        f1, f2 = p["F1"], p["F2"]
+        phi = p["angle"]  # radians (converted by _params_in_si)
+        # The general parallelogram law. At phi = 90 degrees the cosine term
+        # drops out and it reduces to Pythagoras, so the perpendicular case
+        # needs no separate branch.
+        r_val = math.sqrt(f1 * f1 + f2 * f2 + 2 * f1 * f2 * math.cos(phi))
+        theta = math.degrees(math.atan2(f2 * math.sin(phi), f1 + f2 * math.cos(phi)))
+        return PhysicsResult(
+            answer=(
+                rf"R = \sqrt{{F_1^2 + F_2^2 + 2F_1F_2\cos\phi}} = "
+                rf"\sqrt{{{_latex_num(f1, square=True)} + {_latex_num(f2, square=True)} + "
+                rf"2 \cdot {f1:g} \cdot {f2:g}\cos({math.degrees(phi):g}^\circ)}} "
+                rf"\approx {r_val:.2f} \text{{ N}}, \quad "
+                rf"\theta = \arctan\frac{{F_2\sin\phi}}{{F_1 + F_2\cos\phi}} "
+                rf"\approx {theta:.2f}^\circ"
+            ),
+            answer_value=f"{r_val:.2f} N at {theta:.2f}°",
+            simulation_specs=_vector_sum_scene(
+                [
+                    SimulationVector(anchor=[0.0, 0.0], dx=f1, dy=0.0, label=f"{f1:g} N"),
+                    SimulationVector(
+                        anchor=[0.0, 0.0],
+                        dx=f2 * math.cos(phi),
+                        dy=f2 * math.sin(phi),
+                        label=f"{f2:g} N",
+                    ),
+                ],
+                SimulationVector(
+                    anchor=[0.0, 0.0],
+                    dx=r_val * math.cos(math.radians(theta)),
+                    dy=r_val * math.sin(math.radians(theta)),
+                    label=f"{r_val:.2f} N",
+                    role="result",
+                ),
+            ),
+        )
+
+    if op == "resolve_force":
+        f = p["F"]
+        theta = p["angle"]  # radians
+        fx = f * math.cos(theta)
+        fy = f * math.sin(theta)
+        return PhysicsResult(
+            answer=(
+                rf"F_x = F\cos\theta = {f:g}\cos({math.degrees(theta):g}^\circ) "
+                rf"\approx {fx:.2f} \text{{ N}}, \quad "
+                rf"F_y = F\sin\theta = {f:g}\sin({math.degrees(theta):g}^\circ) "
+                rf"\approx {fy:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{fx:.2f} N horizontally and {fy:.2f} N vertically",
+            simulation_specs=_vector_sum_scene(
+                [
+                    SimulationVector(anchor=[0.0, 0.0], dx=fx, dy=0.0, label=f"{fx:.2f} N"),
+                    SimulationVector(anchor=[fx, 0.0], dx=0.0, dy=fy, label=f"{fy:.2f} N"),
+                ],
+                SimulationVector(anchor=[0.0, 0.0], dx=fx, dy=fy, label=f"{f:g} N", role="result"),
+            ),
+        )
+
+    if op == "atwood":
+        m1, m2 = p["m1"], p["m2"]
+        if m1 <= 0 or m2 <= 0:
+            raise MathServiceError("masses must be positive")
+        g = p.get("g", 9.81)
+        a_val = (m1 - m2) * g / (m1 + m2)
+        t_val = 2 * m1 * m2 * g / (m1 + m2)
+        return PhysicsResult(
+            answer=(
+                rf"a = \frac{{(m_1 - m_2)g}}{{m_1 + m_2}} = "
+                rf"\frac{{({m1:g} - {m2:g}) \cdot {g:g}}}{{{m1:g} + {m2:g}}} "
+                rf"\approx {a_val:.2f} \text{{ m/s}}^2, \quad "
+                rf"T = \frac{{2 m_1 m_2 g}}{{m_1 + m_2}} = "
+                rf"\frac{{2 \cdot {m1:g} \cdot {m2:g} \cdot {g:g}}}{{{m1:g} + {m2:g}}} "
+                rf"\approx {t_val:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{a_val:.2f} m/s^2 and {t_val:.2f} N",
+            simulation_specs=_atwood_scene(m1, m2, a_val, t_val),
+        )
+
     if "F" in p and "m" in p and "a" not in p:
         a_val = p["F"] / p["m"]
         answer_latex = (
@@ -406,7 +854,22 @@ def solve_force(intent: MathIntent) -> PhysicsResult:
         answer_value = f"{f_val:.2f} N"
     else:
         raise MathServiceError("force solve needs exactly two of F, m, a")
-    return PhysicsResult(answer=answer_latex, answer_value=answer_value)
+
+    # F = ma is a push and the motion it produces, drawn the same way round.
+    # Both point right by convention — the question states no direction, and
+    # inventing opposing ones would say the block is being decelerated.
+    force = p.get("F", p.get("m", 0.0) * p.get("a", 0.0))
+    accel = p.get("a", p.get("F", 0.0) / p["m"] if p.get("m") else 0.0)
+    scene = _free_body_scene(
+        [
+            SimulationVector(
+                anchor=[0.0, 0.0], dx=1.0, dy=0.0, label=f"F = {force:.2f} N", role="result"
+            ),
+            SimulationVector(anchor=[0.0, -0.9], dx=1.0, dy=0.0, label=f"a = {accel:.2f} m/s²"),
+        ],
+        label=f"{p['m']:g} kg" if "m" in p else None,
+    )
+    return PhysicsResult(answer=answer_latex, answer_value=answer_value, simulation_specs=scene)
 
 
 # ---------------------------------------------------------------------------
@@ -461,7 +924,50 @@ def solve_energy(intent: MathIntent) -> PhysicsResult:
         answer_value = f"{power_val:.2f} W"
     else:
         raise MathServiceError(f"unsupported energy op: {op}")
-    return PhysicsResult(answer=answer_latex, answer_value=answer_value)
+
+    # Only where there is something spatial to show. A block with a "3 m/s"
+    # arrow beside it tells you nothing the sentence did not — the height in
+    # mgh and the distance in Fd are quantities you can point at, and a speed
+    # is not, so kinetic energy and power get no picture rather than a
+    # decorative one.
+    scene: list[SimulationBlockSpec] = []
+    if op == "potential_energy":
+        height = p["h"]
+        scene = _free_body_scene(
+            [
+                SimulationVector(
+                    anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label=f"W = {p['m'] * g:.2f} N"
+                ),
+                SimulationVector(
+                    anchor=[-0.9, -height],
+                    dx=0.0,
+                    dy=height,
+                    label=f"h = {height:g} m",
+                    role="measure",
+                ),
+            ],
+            label=f"{p['m']:g} kg",
+            ground=True,
+            lift=height,
+        )
+    elif op == "work":
+        distance = p["d"]
+        scene = _free_body_scene(
+            [
+                SimulationVector(
+                    anchor=[0.0, 0.0], dx=1.0, dy=0.0, label=f"F = {p['F']:g} N", role="result"
+                ),
+                SimulationVector(
+                    anchor=[0.0, -0.8],
+                    dx=distance,
+                    dy=0.0,
+                    label=f"d = {distance:g} m",
+                    role="measure",
+                ),
+            ],
+            ground=True,
+        )
+    return PhysicsResult(answer=answer_latex, answer_value=answer_value, simulation_specs=scene)
 
 
 # ---------------------------------------------------------------------------
@@ -517,16 +1023,81 @@ def solve_momentum(intent: MathIntent) -> PhysicsResult:
             )
             answer_value = f"{u1:.2f} m/s and {u2:.2f} m/s"
         else:
-            u = (m1 * v1 + m2 * v2) / total
+            u1 = u2 = (m1 * v1 + m2 * v2) / total
             answer = (
                 r"\text{Perfectly inelastic: } v = \frac{m_1 v_1 + m_2 v_2}{m_1 + m_2} = "
                 rf"\frac{{{m1:g} \cdot {v1:g} + {m2:g} \cdot {v2:g}}}{{{total:g}}} "
-                rf"\approx {u:.2f} \text{{ m/s}}"
+                rf"\approx {u1:.2f} \text{{ m/s}}"
             )
-            answer_value = f"{u:.2f} m/s"
-        return PhysicsResult(answer=answer, answer_value=answer_value)
+            answer_value = f"{u1:.2f} m/s"
+        return PhysicsResult(
+            answer=answer,
+            answer_value=answer_value,
+            simulation_specs=[_collision_scene(m1, m2, v1, v2, u1, u2)],
+        )
 
     raise MathServiceError(f"unsupported momentum op: {op}")
+
+
+def _collision_scene(
+    m1: float, m2: float, v1: float, v2: float, u1: float, u2: float
+) -> SimulationBlockSpec:
+    """Two bodies approaching, meeting, and leaving at their new speeds.
+
+    The one thing a number genuinely cannot show. "1.00 m/s and 4.00 m/s" is
+    the right answer and says nothing about which ball ends up ahead, whether
+    either turns around, or that the pair keeps moving together when they
+    stick — all of which the scene shows without a word.
+
+    Contact is the midpoint of the clock, so the approach and the separation
+    get equal screen time whatever the speeds. Radii come from the masses (as
+    cube roots, since a ball's size goes with its volume), so the heavier body
+    reads as the heavier one.
+    """
+    r1 = 0.30 * (m1 ** (1 / 3))
+    r2 = 0.30 * (m2 ** (1 / 3))
+    gap = r1 + r2
+
+    # Long enough for the fastest phase to travel a few body-widths, so a slow
+    # body still visibly moves and a fast one does not leave the box.
+    fastest = max(abs(v1), abs(v2), abs(u1), abs(u2))
+    half = (4 * gap / fastest) if fastest > 0 else 1.0
+
+    n_half = 40
+    dt = half / n_half
+    path1: list[list[float]] = []
+    path2: list[list[float]] = []
+    for i in range(-n_half, n_half + 1):
+        t = i * dt
+        if t <= 0:
+            # Contact at t = 0 puts the two surfaces together: centres a
+            # radius either side of the origin.
+            x1, x2 = -r1 + v1 * t, r2 + v2 * t
+        else:
+            x1, x2 = -r1 + u1 * t, r2 + u2 * t
+        path1.append([round(x1, 4), 0.0])
+        path2.append([round(x2, 4), 0.0])
+
+    xs = [x for x, _ in path1 + path2]
+    margin = gap
+    lo, hi = min(xs) - margin, max(xs) + margin
+    # A flat track: the bodies only move along x, so the box is wide and short
+    # rather than square. Both axes still share one scale, so the balls stay
+    # round.
+    half_height = max((hi - lo) * 0.18, gap * 1.2)
+    return SimulationBlockSpec(
+        type="collision",
+        title="Collision",
+        bodies=[
+            SimulationBody(path=path1, radius=r1, role="primary"),
+            SimulationBody(path=path2, radius=r2, role="secondary"),
+        ],
+        x_min=lo,
+        x_max=hi,
+        y_min=-half_height,
+        y_max=half_height,
+        arrows=["velocity"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -564,12 +1135,20 @@ def solve_friction(intent: MathIntent) -> PhysicsResult:
                 rf"N = m g \cos\theta = {m:g} \cdot {g:g} \cdot \cos({deg:g}^\circ) "
                 rf"\approx {normal:.2f} \text{{ N}}"
             )
-        return PhysicsResult(answer=answer, answer_value=f"{normal:.2f} N")
+        return PhysicsResult(
+            answer=answer,
+            answer_value=f"{normal:.2f} N",
+            simulation_specs=_incline_scene(deg, mu=mu),
+        )
 
     if op == "friction_force":
         f_val = mu * normal
         answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
-        return PhysicsResult(answer=answer, answer_value=f"{f_val:.2f} N")
+        return PhysicsResult(
+            answer=answer,
+            answer_value=f"{f_val:.2f} N",
+            simulation_specs=_incline_scene(deg, mu=mu),
+        )
 
     if op == "incline_acceleration":
         a_val = g * (math.sin(theta) - mu * math.cos(theta))
@@ -583,20 +1162,125 @@ def solve_friction(intent: MathIntent) -> PhysicsResult:
                     r"\text{so friction holds the block: } a = 0 \text{ m/s}^2"
                 ),
                 answer_value="0.00 m/s^2",
+                # a = 0 is the answer, so the block stays put and the diagram
+                # is the free body that explains why.
+                simulation_specs=_incline_scene(deg, mu=mu),
             )
         answer = (
             r"a = g(\sin\theta - \mu\cos\theta) = "
             rf"{g:g}(\sin({deg:g}^\circ) - {mu:g}\cos({deg:g}^\circ)) "
             rf"\approx {a_val:.2f} \text{{ m/s}}^2"
         )
-        return PhysicsResult(answer=answer, answer_value=f"{a_val:.2f} m/s^2")
+        return PhysicsResult(
+            answer=answer,
+            answer_value=f"{a_val:.2f} m/s^2",
+            simulation_specs=_incline_scene(deg, mu=mu, accel=a_val),
+        )
 
     raise MathServiceError(f"unsupported friction op: {op}")
+
+
+# The slope's own length is never stated, so it is a display choice and the
+# scene is drawn at a fixed one. The same reasoning as the SHM curve's
+# normalised amplitude: what the question is about is the *shape* of the
+# motion — a block that starts slow and speeds up — and that shape is real
+# whatever the slope measures. Inventing a number for the answer would be a
+# different thing entirely.
+_INCLINE_LENGTH = 6.0
+
+
+def _incline_scene(
+    deg: float, *, mu: float, accel: float | None = None
+) -> list[SimulationBlockSpec]:
+    """A block on a slope with its weight, normal and friction arrows.
+
+    The ticket's third named scene, and the one that is mostly a *diagram*: a
+    free-body picture is what an incline question wants, and for two of the
+    three ops the block is not moving at all.
+
+    A flat surface gets nothing. Weight down and normal up is a true picture
+    and an empty one, and with no slope there is no friction direction to draw
+    — the block is not going anywhere for friction to oppose.
+    """
+    if deg == 0:
+        return []
+    theta = math.radians(abs(deg))
+    # Descending left to right, which fixes what "down the slope" means for
+    # both the path and the arrows.
+    down_x, down_y = math.cos(theta), -math.sin(theta)
+    top_x, top_y = 0.0, _INCLINE_LENGTH * math.sin(theta)
+
+    n_points = 60
+    if accel is not None and accel > 0:
+        # s = ½at², sampled uniformly in *time*, so the block visibly
+        # accelerates rather than sliding at a constant rate. The duration is
+        # the one that covers the drawn slope, so the block arrives at the
+        # bottom exactly as the animation ends.
+        duration = math.sqrt(2 * _INCLINE_LENGTH / accel)
+        dt = duration / (n_points - 1)
+        distances = [0.5 * accel * (i * dt) ** 2 for i in range(n_points)]
+    else:
+        # Held by friction, or an op with no acceleration to show: the block
+        # stays where it is and the arrows are the whole picture.
+        distances = [0.0] * n_points
+
+    path = [[round(top_x + s * down_x, 4), round(top_y + s * down_y, 4)] for s in distances]
+    arrows: list[str] = ["gravity", "normal"]
+    if mu > 0:
+        arrows.append("friction")
+
+    margin = _INCLINE_LENGTH * 0.18
+    return [
+        SimulationBlockSpec(
+            type="incline",
+            title="Inclined Plane",
+            bodies=[SimulationBody(path=path, radius=_INCLINE_LENGTH * 0.06)],
+            x_min=-margin,
+            x_max=_INCLINE_LENGTH * math.cos(theta) + margin,
+            y_min=-margin,
+            y_max=top_y + margin,
+            arrows=arrows,  # type: ignore[arg-type]
+            # The angle arrived here through radians, so 30 comes back as
+            # 29.999999999999996 and would ship in the fence JSON that way.
+            incline_deg=round(abs(deg), 4),
+        )
+    ]
 
 
 # ---------------------------------------------------------------------------
 # Circular motion: a_c = v^2/r, F_c = m v^2/r, T = 2 pi r / v
 # ---------------------------------------------------------------------------
+
+
+def _orbit_scene(r: float) -> SimulationBlockSpec:
+    """One lap, sampled at a constant angular step.
+
+    Every circular answer is a number about something going round, and going
+    round is the one motion a still picture cannot show at all — which is why
+    this kind drew nothing before P14 and why it is the first scene after
+    projectiles. The index is the clock here as everywhere else: a constant
+    angular step is a constant speed, which is what uniform circular motion is.
+    """
+    n_points = 96
+    path = [
+        [
+            round(r * math.cos(2 * math.pi * i / (n_points - 1)), 4),
+            round(r * math.sin(2 * math.pi * i / (n_points - 1)), 4),
+        ]
+        for i in range(n_points)
+    ]
+    margin = r * 1.35
+    return SimulationBlockSpec(
+        type="orbit",
+        title="Circular Motion",
+        bodies=[SimulationBody(path=path, radius=r * 0.08)],
+        x_min=-margin,
+        x_max=margin,
+        y_min=-margin,
+        y_max=margin,
+        arrows=["velocity", "centripetal"],
+        centre=[0.0, 0.0],
+    )
 
 
 def solve_circular(intent: MathIntent) -> PhysicsResult:
@@ -606,6 +1290,8 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
     v = p["v"]
     if r <= 0:
         raise MathServiceError("radius must be positive")
+
+    scene = [_orbit_scene(r)]
 
     if op == "orbital_period":
         if v == 0:
@@ -617,6 +1303,7 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
                 rf"\approx {t_val:.2f} \text{{ s}}"
             ),
             answer_value=f"{t_val:.2f} s",
+            simulation_specs=scene,
         )
 
     a_c = v * v / r
@@ -627,6 +1314,7 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
                 rf"\approx {a_c:.2f} \text{{ m/s}}^2"
             ),
             answer_value=f"{a_c:.2f} m/s^2",
+            simulation_specs=scene,
         )
 
     if op == "centripetal_force":
@@ -639,6 +1327,7 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
                 rf"{_latex_num(v, square=True)}}}{{{r:g}}} \approx {f_val:.2f} \text{{ N}}"
             ),
             answer_value=f"{f_val:.2f} N",
+            simulation_specs=scene,
         )
 
     raise MathServiceError(f"unsupported circular op: {op}")
@@ -646,12 +1335,65 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
 
 # ---------------------------------------------------------------------------
 # Springs: F = k x, U = 1/2 k x^2, T = 2 pi sqrt(m/k)
+# A pendulum is the same oscillation with T = 2 pi sqrt(L/g), so it lives here
+# rather than in a kind of its own.
 # ---------------------------------------------------------------------------
+
+
+def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSpec:
+    """One period-and-a-bit of x(t) = A cos(2πt/T).
+
+    The oscillation is the thing worth seeing, so hand P3's player a curve.
+    Amplitude only scales the y-axis — the shape and the period are what the
+    question is about — so when none is given the plot is normalised rather
+    than invented.
+    """
+    n_points = 100
+    span = 2 * t_period
+    dt = span / (n_points - 1)
+    a_plot = abs(amplitude) if amplitude else 1.0
+    points = [
+        [round(i * dt, 4), round(a_plot * math.cos(2 * math.pi * (i * dt) / t_period), 4)]
+        for i in range(n_points)
+    ]
+    return GraphBlockSpec(
+        type="trajectory",
+        expr=f"x(t) = {a_plot:g}*cos(2*pi*t/{t_period:.4g})",
+        variable="t",
+        x_min=0.0,
+        x_max=span,
+        points=points,
+        title="Displacement vs. Time",
+        x_label="Time (s)",
+        y_label="Displacement (m)" if amplitude else "Displacement (normalised)",
+        trajectory_type="position_vs_time",
+    )
 
 
 def solve_spring(intent: MathIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "spring_force"
+
+    # A pendulum has a length, not a spring constant, so it is answered before
+    # the k lookup below rather than after it.
+    if op == "pendulum_period":
+        length = p["L"]
+        if length <= 0:
+            raise MathServiceError("pendulum length must be positive")
+        g = p.get("g", 9.81)
+        if g <= 0:
+            raise MathServiceError("gravity must be positive")
+        t_period = 2 * math.pi * math.sqrt(length / g)
+        answer = (
+            rf"T = 2\pi\sqrt{{\frac{{L}}{{g}}}} = 2\pi\sqrt{{\frac{{{length:g}}}{{{g:g}}}}} "
+            rf"\approx {t_period:.2f} \text{{ s}}"
+        )
+        return PhysicsResult(
+            answer=answer,
+            answer_value=f"{t_period:.2f} s",
+            graph_specs=[_oscillation_curve(t_period, p.get("x"))],
+        )
+
     k = p["k"]
     if k <= 0:
         raise MathServiceError("spring constant must be positive")
@@ -685,31 +1427,7 @@ def solve_spring(intent: MathIntent) -> PhysicsResult:
             rf"\approx {t_period:.2f} \text{{ s}}"
         )
 
-        # The oscillation is the thing worth seeing, so hand P3's player a
-        # curve. Amplitude only scales the y-axis — the shape and the period
-        # are what the question is about — so when none is given the plot is
-        # normalised rather than invented.
-        amplitude = p.get("x")
-        n_points = 100
-        span = 2 * t_period
-        dt = span / (n_points - 1)
-        a_plot = abs(amplitude) if amplitude else 1.0
-        points = [
-            [round(i * dt, 4), round(a_plot * math.cos(2 * math.pi * (i * dt) / t_period), 4)]
-            for i in range(n_points)
-        ]
-        spec = GraphBlockSpec(
-            type="trajectory",
-            expr=f"x(t) = {a_plot:g}*cos(2*pi*t/{t_period:.4g})",
-            variable="t",
-            x_min=0.0,
-            x_max=span,
-            points=points,
-            title="Displacement vs. Time",
-            x_label="Time (s)",
-            y_label="Displacement (m)" if amplitude else "Displacement (normalised)",
-            trajectory_type="position_vs_time",
-        )
+        spec = _oscillation_curve(t_period, p.get("x"))
         return PhysicsResult(answer=answer, answer_value=f"{t_period:.2f} s", graph_specs=[spec])
 
     raise MathServiceError(f"unsupported spring op: {op}")
@@ -800,6 +1518,47 @@ def solve_circuit(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
+def _lever_scene(loads: list[tuple[float, float, str, bool]]) -> list[SimulationBlockSpec]:
+    """A beam on a wedge with a labelled force hanging at each arm.
+
+    The see-saw is how this topic is taught and the one picture that makes
+    "written order is not ownership" — the pairing bug P9 found — obvious at a
+    glance: the arm each force actually has is drawn where it is, so a diagram
+    reading 2 m under the wrong force would be visible rather than silent.
+
+    Each load is (signed distance from the pivot, magnitude, label, is_answer).
+    A negative distance is the left arm.
+    """
+    if not loads:
+        return []
+    reach = max(abs(d) for d, *_ in loads) * 1.25 or 1.0
+    # Arrows hang below the beam, so the box needs room under it as well as a
+    # little air above.
+    depth = reach * 0.55
+    return [
+        SimulationBlockSpec(
+            type="lever",
+            title="Moments",
+            beam=[-reach, 0.0, reach, 0.0],
+            pivot=[0.0, 0.0],
+            vectors=[
+                SimulationVector(
+                    anchor=[distance, 0.0],
+                    dx=0.0,
+                    dy=-1.0,
+                    label=label,
+                    role="result" if is_answer else "force",
+                )
+                for distance, _magnitude, label, is_answer in loads
+            ],
+            x_min=-reach * 1.15,
+            x_max=reach * 1.15,
+            y_min=-depth,
+            y_max=depth,
+        )
+    ]
+
+
 def solve_torque(intent: MathIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "torque"
@@ -815,6 +1574,14 @@ def solve_torque(intent: MathIntent) -> PhysicsResult:
                 rf"\frac{{{f1:g} \cdot {d1:g}}}{{{f2:g}}} \approx {d2:.2f} \text{{ m}}"
             ),
             answer_value=f"{d2:.2f} m",
+            # The known load on the left, the one whose arm was the question on
+            # the right, so the answer is the arm you can see.
+            simulation_specs=_lever_scene(
+                [
+                    (-d1, f1, f"{f1:g} N at {d1:g} m", False),
+                    (d2, f2, f"{f2:g} N at {d2:.2f} m", True),
+                ]
+            ),
         )
 
     if op == "torque":
@@ -826,6 +1593,8 @@ def solve_torque(intent: MathIntent) -> PhysicsResult:
                 rf"\tau = F d = {f:g} \cdot {d:g} "
                 rf"\approx {tau:.2f} \text{{ N}}\cdot\text{{m}}"
             )
+            # Square on: straight down, which is what F d assumes.
+            direction = (0.0, -1.0)
         else:
             tau = f * d * math.sin(theta)
             deg = math.degrees(theta)
@@ -833,7 +1602,13 @@ def solve_torque(intent: MathIntent) -> PhysicsResult:
                 rf"\tau = F d \sin\theta = {f:g} \cdot {d:g} \cdot \sin({deg:g}^\circ) "
                 rf"\approx {tau:.2f} \text{{ N}}\cdot\text{{m}}"
             )
-        return PhysicsResult(answer=answer, answer_value=f"{tau:.2f} N*m")
+            # Drawn at the angle it was given, so the sin theta in the formula
+            # is the thing on screen rather than a factor to take on trust.
+            direction = (math.cos(theta), -math.sin(theta))
+        scene = _lever_scene([(d, f, f"{f:g} N at {d:g} m", True)])
+        if scene:
+            scene[0].vectors[0].dx, scene[0].vectors[0].dy = direction
+        return PhysicsResult(answer=answer, answer_value=f"{tau:.2f} N*m", simulation_specs=scene)
 
     raise MathServiceError(f"unsupported torque op: {op}")
 
@@ -847,6 +1622,8 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
     """Dispatch to the right solver by intent kind."""
     if intent.kind == "kinematics":
         return solve_kinematics(intent)
+    if intent.kind == "suvat":
+        return solve_suvat(intent)
     if intent.kind == "projectile":
         return solve_projectile(intent)
     if intent.kind == "force":

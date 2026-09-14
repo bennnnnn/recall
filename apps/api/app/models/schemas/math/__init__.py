@@ -62,6 +62,11 @@ from app.models.schemas.math.graph import (
     NumberLineInterval,
 )
 from app.models.schemas.math.intent import MathIntent
+from app.models.schemas.math.simulation import (
+    SimulationBlockSpec,
+    SimulationBody,
+    SimulationVector,
+)
 
 __all__ = [
     "CircleGeometryBlockSpec",
@@ -100,6 +105,9 @@ __all__ = [
     "SectorGeometryBlockSpec",
     "SectorInput",
     "SectorResult",
+    "SimulationBlockSpec",
+    "SimulationBody",
+    "SimulationVector",
     "SolidGeometryInput",
     "SolidGeometryResult",
     "SquareGeometryInput",

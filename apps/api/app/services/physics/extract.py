@@ -282,10 +282,39 @@ def _asks_position(lower: str) -> bool:
     return "height after" in lower or "position after" in lower
 
 
+_STATED_ACCELERATION_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*m/s\^?2(?![0-9])", re.IGNORECASE)
+
+
+def _states_a_non_gravity_acceleration(text: str) -> bool:
+    """True when the question names an acceleration that is not the gravity in play.
+
+    Free fall means gravity *is* the acceleration, so a question that supplies
+    its own is not a free-fall question. Without this, kinematics claimed
+    "a car accelerates from rest at 3 m/s^2, how long to reach 15 m/s" and
+    answered **3.06 s** — which is 15/9.81, the time a ball thrown up at 15 m/s
+    takes to stop. The stated 3 m/s² was discarded and Earth's gravity
+    substituted for it; the true answer is 5.00 s.
+
+    A named gravity is the exception rather than a special case: "g = 1.6",
+    "gravity of 1.62", "on the moon" all set the free-fall acceleration, and
+    ``_detect_gravity`` already knows what it is. Comparing against that value
+    keeps those questions here and sends only the genuinely different ones on.
+    """
+    gravity = _detect_gravity(text)
+    return any(
+        abs(float(m.group(1)) - gravity) > 1e-9 for m in _STATED_ACCELERATION_RE.finditer(text)
+    )
+
+
 def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     # Must have a kinematics cue AND at least one number.
     if not _has_cue(lower, _KINEMATICS_CUES, _KINEMATICS_CUE_RES):
+        return None
+    # Constant acceleration that is not gravity belongs to SUVAT, which runs
+    # next. Claiming it here does not merely answer a different question — it
+    # answers with the wrong acceleration.
+    if _states_a_non_gravity_acceleration(cleaned):
         return None
     asks_speed = _asks_speed(lower)
     asks_velocity = _asks_velocity(lower)
@@ -393,6 +422,170 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
+# SUVAT: motion under any constant acceleration
+#   v = u + at        s = ut + ½at²
+#   v² = u² + 2as     s = ½(u + v)t
+# ---------------------------------------------------------------------------
+#
+# The largest coverage gap round 1 left: `kinematics` solves free fall under
+# gravity, so a car pulling away from a stop was not physics to us at all.
+#
+# There are no plain-substring cues. Every one of these is a signature — a
+# motion verb or a rest state beside an actual velocity or acceleration
+# reading — because this tuple feeds the global `needs_math_tools` pre-filter,
+# and "accelerates" or "from rest" on their own are ordinary English.
+_SUVAT_CUES: tuple[str, ...] = ()
+
+_SUVAT_CUE_RES: tuple[re.Pattern[str], ...] = (
+    # "accelerates ... at 3 m/s^2", and the same reading written backwards.
+    re.compile(r"\b(?:ac|de)celerat\w*\b.{0,60}?\d\s*m/s\^?2", re.IGNORECASE),
+    re.compile(r"\d\s*m/s\^?2.{0,60}?\b(?:ac|de)celerat\w*\b", re.IGNORECASE),
+    # A rest state at one end and a speed at the other: "from rest ... 20 m/s",
+    # "12 m/s to rest". This is the shape that carries no acceleration at all
+    # (s = ½(u+v)t), so it cannot be found by looking for m/s².
+    re.compile(r"\b(?:from|at)\s+rest\b.{0,80}?\d\s*(?:m/s|km/h|mph)\b", re.IGNORECASE),
+    re.compile(
+        r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\bto\s+(?:rest|a\s+(?:stop|halt))\b", re.IGNORECASE
+    ),
+    re.compile(r"\b(?:constant|uniform)\s+(?:ac|de)celeration\b", re.IGNORECASE),
+)
+
+# "from rest" / "at rest" as the *starting* state, so u = 0.
+_AT_REST_START_RE = re.compile(
+    r"\b(?:from|at|starts?\s+(?:from|at)|starting\s+(?:from|at)|initially\s+at)\s+rest\b",
+    re.IGNORECASE,
+)
+# The body ends at rest, so v = 0. "before it stops", "comes to a halt".
+_AT_REST_END_RE = re.compile(
+    r"\bto\s+(?:rest|a\s+(?:stop|halt))\b|\b(?:stops?|stopping|halts?)\b"
+    r"|\bcomes?\s+to\s+(?:rest|a\s+(?:stop|halt))\b",
+    re.IGNORECASE,
+)
+_DECELERATION_RE = re.compile(r"\bdecelerat\w*\b|\bslow(?:s|ing|ed)?\s+down\b", re.IGNORECASE)
+
+_SUVAT_TIME_UNITS = r"seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
+
+# Which of the five the question is asking for. Order matters only in that a
+# question naming two is read by the first rule that fires; in practice a SUVAT
+# question asks for exactly one.
+_SUVAT_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "suvat_distance",
+        re.compile(
+            r"\bhow far\b|\bwhat distance\b|\bdistance (?:does|do|is|will|travel|cover)"
+            r"|\bdistance travell?ed\b|\bhow much (?:distance|ground)\b|\bfind the distance\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "suvat_velocity",
+        re.compile(
+            r"\bfinal (?:velocity|speed)\b|\bhow fast\b|\bwhat (?:is its |is the )?"
+            r"(?:velocity|speed)\b|\bfind the (?:velocity|speed)\b|\bspeed (?:does|will|is)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "suvat_acceleration",
+        re.compile(
+            r"\bwhat (?:is the |was the )?(?:ac|de)celeration\b|\bfind the (?:ac|de)celeration\b"
+            r"|\bhow (?:quickly|rapidly) (?:does|did) it (?:ac|de)celerate\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "suvat_time",
+        re.compile(
+            r"\bhow long\b|\bhow much time\b|\bwhat time\b|\bfind the time\b"
+            r"|\btime (?:does|will|is) it take\b",
+            re.IGNORECASE,
+        ),
+    ),
+)
+
+
+def _extract_suvat_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _SUVAT_CUES, _SUVAT_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    unknown = next(
+        (op for op, rx in _SUVAT_UNKNOWN_RES if rx.search(cleaned)),
+        None,
+    )
+    if unknown is None:
+        return None
+
+    params: dict[str, float] = {}
+    units: dict[str, str] = {}
+
+    # --- the two velocities, bound by written order -------------------------
+    # "from 10 m/s to 30 m/s" reads left to right; a stated rest state at
+    # either end fills the slot that has no number of its own.
+    velocities = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
+    starts_at_rest = _AT_REST_START_RE.search(cleaned) is not None
+    ends_at_rest = _AT_REST_END_RE.search(cleaned) is not None
+
+    if starts_at_rest:
+        params["u"], units["u"] = 0.0, "m/s"
+        if velocities:
+            params["v"], units["v"] = velocities[0]
+    elif ends_at_rest:
+        params["v"], units["v"] = 0.0, "m/s"
+        if velocities:
+            params["u"], units["u"] = velocities[0]
+    elif velocities:
+        params["u"], units["u"] = velocities[0]
+        if len(velocities) > 1:
+            params["v"], units["v"] = velocities[1]
+
+    # --- acceleration -------------------------------------------------------
+    # "decelerates at 4 m/s^2" states a magnitude and a direction separately;
+    # the sign lives in the word, not the number.
+    accel = _find_value_with_specific_unit(
+        cleaned,
+        r"m/s\^?2|m/s2",
+        ("acceleration", "accelerates", "accelerating", "deceleration", "decelerates", "rate"),
+    )
+    if accel is not None:
+        value, unit = accel
+        if _DECELERATION_RE.search(cleaned) and value > 0:
+            value = -value
+        params["a"], units["a"] = value, unit or "m/s^2"
+
+    # --- time and distance --------------------------------------------------
+    times = _ordered_values(cleaned, _SUVAT_TIME_UNITS)
+    if times:
+        params["t"], units["t"] = times[0]
+    distances = _ordered_values(cleaned, _LENGTH_UNIT_PATTERN)
+    if distances:
+        params["d"], units["d"] = distances[0]
+
+    # The unknown must not also be a given, and three of the other four are
+    # needed to reach it — every SUVAT equation relates exactly four variables.
+    wanted = {
+        "suvat_velocity": "v",
+        "suvat_distance": "d",
+        "suvat_time": "t",
+        "suvat_acceleration": "a",
+    }[unknown]
+    params.pop(wanted, None)
+    units.pop(wanted, None)
+    if len(params) < 3:
+        return None
+
+    return MathIntent(
+        kind="suvat",
+        physics_op=unknown,  # type: ignore[arg-type]
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Projectile: 2D motion at an angle (range, max height, trajectory)
 # ---------------------------------------------------------------------------
 
@@ -425,6 +618,13 @@ _PROJECTILE_CUE_RES: tuple[re.Pattern[str], ...] = (
 def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _PROJECTILE_CUES, _PROJECTILE_CUE_RES):
+        return None
+    # A collision is not a projectile, whatever units it carries. The signature
+    # cue above is "a speed and an angle in one clause" — which a 2D collision
+    # also satisfies, and this extractor runs first. Without this guard,
+    # "a 2 kg ball at 3 m/s hits a 1 kg ball at rest ... at 30 degrees" was
+    # answered 0.79 m: the range of a ball lobbed at 3 m/s.
+    if _COLLISION_SUBJECT_RE.search(cleaned):
         return None
     if mtm.has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -529,6 +729,30 @@ _MOMENTUM_CUES = (
     "sticks together",
 )
 
+# A question about bodies colliding, whatever units it happens to carry. Used
+# by the momentum extractor to find its own work, and by the projectile
+# extractor to stay out of it.
+_COLLISION_SUBJECT_RE = re.compile(
+    r"\bcollision\b|\bcollides?\b|\bcolliding\b|\brecoils?\b"
+    r"|\bhits?\b|\bstrikes?\b|sticks? together|stuck together",
+    re.IGNORECASE,
+)
+
+# 2D only ever means "not solved here": conservation is implemented in 1D.
+#
+# The last alternative is a bare angle, and it is read only from inside the
+# collision branch, where an angle has nowhere innocent to belong: a head-on
+# collision has no angle to state, so any number of degrees present is the
+# deflection this solver cannot do. It is listed because the commonest 2D
+# phrasing — "collides with a 1 kg ball at 30 degrees" — carries no 2D word at
+# all, and without it the guard above catches the wording and misses the case.
+_TWO_DIMENSIONAL_RE = re.compile(
+    r"\b2-?d\b|\btwo[- ]dimensional\b|\bdeflect(?:s|ed|ion)?\b"
+    r"|\bat an angle\b|\bglancing\b|\boblique\b"
+    r"|\d\s*(?:degrees?|deg|°)",
+    re.IGNORECASE,
+)
+
 # Elastic is *not* a cue on its own — an elastic band is not a collision. It
 # only tells us which conservation law to apply once a collision is in hand.
 # No trailing \b: people write "collides inelastically", and requiring a
@@ -589,15 +813,16 @@ def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
     velocities = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
 
     is_collision = (
-        any(
-            word in lower
-            for word in ("collision", "collide", "collides", "hits", "strikes", "recoil")
-        )
-        or _INELASTIC_RE.search(lower) is not None
+        _COLLISION_SUBJECT_RE.search(cleaned) is not None or _INELASTIC_RE.search(lower) is not None
     )
 
     # --- 1D collision: two masses, at least one velocity ---
     if is_collision and len(masses) >= 2:
+        # Only 1D conservation is implemented. Handing back the 1D number for a
+        # 2D question is the same defect as the projectile answer it replaces,
+        # just less obvious — the arithmetic is right for a problem nobody asked.
+        if _TWO_DIMENSIONAL_RE.search(cleaned):
+            return None
         elastic = _ELASTIC_RE.search(lower) is not None and not _INELASTIC_RE.search(lower)
         inelastic = _INELASTIC_RE.search(lower) is not None
         # Refuse rather than guess. Elastic and inelastic give genuinely
@@ -905,6 +1130,54 @@ _DISPLACEMENT_KEYWORDS = (
 )
 
 
+# A pendulum is the same oscillation as a mass on a spring with a different
+# period formula, so it emits the `spring` kind rather than one of its own.
+#
+# "pendulum" is physics-specific in a way "spring" and "moment" are not, but
+# the idiom ("the pendulum has swung back") is real enough that the cue is a
+# co-occurrence like P5's and P7's: the word beside an actual length.
+_PENDULUM_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bpendulum\b.{0,80}?\d\s*(?:centimet(?:er|re)s?|met(?:er|re)s?|cm|m)\b", re.I),
+    re.compile(r"\d\s*(?:centimet(?:er|re)s?|met(?:er|re)s?|cm|m)\b.{0,80}?\bpendulum\b", re.I),
+)
+
+# The period is the only pendulum quantity solved here, so the question has to
+# be asking for it. "how long" is the spoken form and means time, not length —
+# a pendulum's length is the given, never the ask.
+_PENDULUM_PERIOD_RE = re.compile(
+    r"\bperiod\b|\bhow long\b|\bswing\w*\b|\boscillat\w*\b|\btime\s+for\s+(?:one|a)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_pendulum_intent(cleaned: str) -> MathIntent | None:
+    if not _has_cue(cleaned.lower(), (), _PENDULUM_CUE_RES):
+        return None
+    if not _PENDULUM_PERIOD_RE.search(cleaned):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    length = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("pendulum", "length", "long", "string", "cord")
+    )
+    if length is None:
+        return None
+
+    params: dict[str, float] = {"L": length[0]}
+    units: dict[str, str] = {"L": length[1] or "m"}
+    gravity = _detect_gravity(cleaned)
+    if gravity != _G_DEFAULT:
+        params["g"], units["g"] = gravity, "m/s^2"
+    return MathIntent(
+        kind="spring",
+        physics_op="pendulum_period",
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
 def _extract_spring_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _SPRING_CUES, _SPRING_CUE_RES):
@@ -1166,6 +1439,248 @@ def _extract_torque_intent(cleaned: str) -> MathIntent | None:
         physics_units=units,
         operation="solve",
     )
+
+
+# ---------------------------------------------------------------------------
+# Tension and Atwood machines
+#   Hanging / accelerating mass:  T = m(g ± a)
+#   Atwood pair:  a = (m1 - m2)g / (m1 + m2),  T = 2 m1 m2 g / (m1 + m2)
+# ---------------------------------------------------------------------------
+#
+# P2 put `tension` and `pulley` into _UNSUPPORTED_FORCE_CONTEXT after finding
+# "the tension supporting a 5 kg mass accelerating at 2 m/s^2" answered 10.00 N
+# (m*a) when the answer is 59.05 N. That refusal was right and stays: this
+# extractor runs *ahead* of force and claims only the two shapes below, so
+# everything else still falls through to the refusal — P5's correction applied
+# rather than the entries being deleted wholesale.
+
+# "tension", a mass, and a word putting the rope vertical — all three, in any
+# order, which is why these are lookaheads rather than one linear pattern.
+#
+# All three are needed because this tuple feeds the global needs_math_tools
+# pre-filter. Dropping the third caught "find the tension in a 10 kg rope",
+# which is a rope's own mass rather than a hanging load: nothing here can
+# answer it, and an existing pre-filter test said so before this shipped.
+_TENSION_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"(?=.*\btension\b)(?=.*\d\s*(?:kg|lbs?|oz)\b)"
+        r"(?=.*(?:lift|rais|hoist|hang|suspend|hold|support|lower|descend|elevator))",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    # An Atwood pair often never says "tension" at all.
+    re.compile(r"\batwood\b", re.IGNORECASE),
+    re.compile(r"\bpulley\b.{0,80}?\d\s*(?:kg|lbs?|oz)\b", re.IGNORECASE),
+    re.compile(r"\d\s*(?:kg|lbs?|oz)\b.{0,80}?\bpulley\b", re.IGNORECASE),
+)
+
+# The rope must be vertical for T = m(g ± a) to be the right formula. Nothing
+# in the numbers says which way it points, so the question has to.
+_TENSION_UP_RE = re.compile(
+    r"\blift(?:s|ing|ed)?\b|\brais(?:e|es|ing|ed)\b|\bhoist\w*\b|\bpull(?:s|ed|ing)?\s+up\b"
+    r"|\bupwards?\b|\bris(?:e|es|ing)\b|\bascend\w*\b|\baccelerat\w*\s+up\w*\b",
+    re.IGNORECASE,
+)
+_TENSION_DOWN_RE = re.compile(
+    r"\blower(?:s|ing|ed)?\b|\bdescend\w*\b|\bdownwards?\b|\bfall(?:s|ing)\b|\bdropp?(?:s|ing|ed)\b",
+    re.IGNORECASE,
+)
+_TENSION_STATIC_RE = re.compile(
+    r"\bhang(?:s|ing)?\b|\bsuspend\w*\b|\bhold(?:s|ing)?\b|\bsupport(?:s|ing)?\b"
+    r"|\bstationary\b|\bat rest\b|\bequilibrium\b",
+    re.IGNORECASE,
+)
+
+# Shapes that carry the word but not the formula. A rope at an angle is a
+# vector problem (P17's territory), a rope across a table is horizontal so the
+# weight does not enter at all, and two ropes share the load between them —
+# each would be answered confidently and wrongly by T = m(g ± a).
+_UNSUPPORTED_TENSION_CONTEXT = (
+    "incline",
+    "ramp",
+    "slope",
+    "angle",
+    "degree",
+    "°",
+    "friction",
+    "coefficient",
+    "horizontal",
+    "floor",
+    "table",
+    "across",
+    "two ropes",
+    "both ropes",
+    "each rope",
+    "two cables",
+    "both cables",
+    "each cable",
+    "two strings",
+    "each string",
+)
+
+
+def _extract_tension_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, (), _TENSION_CUE_RES):
+        return None
+    if any(word in lower for word in _UNSUPPORTED_TENSION_CONTEXT):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    masses = _ordered_values(cleaned, r"kg|lbs?|oz")
+    if not masses:
+        return None
+
+    # --- Atwood: two masses sharing one pulley --------------------------------
+    is_pair = "atwood" in lower or "pulley" in lower
+    if is_pair and len(masses) >= 2:
+        # The heavier mass descends, so ordering them here makes the sign of
+        # the acceleration a property of the physics rather than of the
+        # sentence. Its magnitude is what the question asks for either way.
+        heavy, light = sorted((masses[0], masses[1]), key=lambda pair: pair[0], reverse=True)
+        return MathIntent(
+            kind="force",
+            physics_op="atwood",
+            physics_params={"m1": heavy[0], "m2": light[0]},
+            physics_units={"m1": heavy[1] or "kg", "m2": light[1] or "kg"},
+            operation="solve",
+        )
+    if is_pair:
+        # A pulley with one mass named is an incomplete Atwood, not a hanging
+        # mass: the rope runs over the pulley to something we were not told
+        # about. Refusing beats assuming the other side is fixed.
+        return None
+
+    # --- a single rope, which must be vertical -------------------------------
+    goes_up = _TENSION_UP_RE.search(cleaned) is not None
+    goes_down = _TENSION_DOWN_RE.search(cleaned) is not None
+    is_static = _TENSION_STATIC_RE.search(cleaned) is not None
+    if not (goes_up or goes_down or is_static):
+        return None
+
+    params: dict[str, float] = {"m": masses[0][0]}
+    units: dict[str, str] = {"m": masses[0][1] or "kg"}
+    accel = _find_value_with_specific_unit(
+        cleaned,
+        r"m/s\^?2|m/s2",
+        ("acceleration", "accelerates", "accelerating", "accelerated"),
+    )
+    if accel is not None:
+        value, unit = accel
+        # Down is the only direction that has to be stated; "supporting a mass
+        # accelerating at 2 m/s^2" reads as upward, which is what P2's example
+        # meant by 59.05 N.
+        params["a"] = -value if goes_down else value
+        units["a"] = unit or "m/s^2"
+
+    return MathIntent(
+        kind="force",
+        physics_op="tension",
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Vector forces
+#   Resultant:  R = sqrt(F1^2 + F2^2 + 2 F1 F2 cos(phi)),  theta from F1
+#   Resolve:    Fx = F cos(theta),  Fy = F sin(theta)
+# ---------------------------------------------------------------------------
+#
+# Everything else on the `force` kind is scalar, which is why "a 3 N force east
+# and a 4 N force north" had no answer at all.
+#
+# `services/math/` already owns a `vector` kind for magnitude/dot/cross, and the
+# ticket asked which should be used. It is not reusable here: that extractor
+# matches literal angle-bracket operands ("magnitude of <3, 4>") through
+# `is_closed_coordinate_vector_request`, and a force question names units and
+# compass directions instead. The two never see the same sentence, so this is a
+# physics extractor and the maths one is left alone.
+
+# "resultant" is specific enough to stand almost alone, but it is still paired
+# with a newton reading. "resolve" and "component" are not specific at all —
+# resolving a dispute, a component of a plan — so they need the force *and* the
+# angle before they count. These feed the global pre-filter, as always.
+#
+# Case-insensitive, deliberately, where the circuit cues are not: those had to
+# tell "12 V" from "12 v cards", and the bare letters V and A carry that risk
+# because they are also English words. N is not, and every pattern here already
+# demands a word beside the reading — so the pre-filter, which lowercases
+# before it asks, can still see these. Matching case-sensitively would have
+# made the whole topic unreachable in the real pipeline while every extractor
+# test passed.
+_VECTOR_FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bresultant\b.{0,80}?\d\s*N\b", re.IGNORECASE),
+    re.compile(r"\d\s*N\b.{0,80}?\bresultant\b", re.IGNORECASE),
+    re.compile(
+        r"(?=.*\b(?:resolv\w*|components?)\b)(?=.*\d\s*N\b)(?=.*\d\s*(?:degrees?|deg|°))",
+        re.IGNORECASE | re.DOTALL,
+    ),
+)
+
+# Two forces meet at a right angle. Compass pairs say so without the word, and
+# that is the commonest phrasing by far.
+_PERPENDICULAR_RE = re.compile(
+    r"\bperpendicular\b|\bright angles?\b|\bat 90\s*(?:degrees?|deg|°)"
+    r"|\b(?:north|south)\b.{0,60}?\b(?:east|west)\b|\b(?:east|west)\b.{0,60}?\b(?:north|south)\b"
+    r"|\bhorizontal\b.{0,60}?\bvertical\b|\bvertical\b.{0,60}?\bhorizontal\b",
+    re.IGNORECASE,
+)
+# An angle stated as the one *between* the two forces, rather than the
+# direction of a single force.
+_ANGLE_BETWEEN_RE = re.compile(
+    r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|°)(?:[^.]{0,40}?"
+    r"(?:to each other|between them|apart|to one another))",
+    re.IGNORECASE,
+)
+_ANGLE_VALUE_RE = re.compile(
+    r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|°)(?![A-Za-z0-9])", re.IGNORECASE
+)
+_RESOLVE_RE = re.compile(r"\bresolv\w*\b|\bcomponents?\b", re.IGNORECASE)
+
+
+def _extract_vector_force_intent(cleaned: str) -> MathIntent | None:
+    if not _has_cue(cleaned.lower(), (), _VECTOR_FORCE_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    forces = _ordered_values(cleaned, r"N")
+
+    # --- resultant of two forces -------------------------------------------
+    if "resultant" in cleaned.lower() and len(forces) >= 2:
+        between = _ANGLE_BETWEEN_RE.search(cleaned)
+        if between is not None:
+            phi = float(between.group(1))
+        elif _PERPENDICULAR_RE.search(cleaned):
+            phi = 90.0
+        else:
+            # Two forces and no stated geometry is not a resultant question
+            # anyone can answer — the angle between them is the whole problem.
+            return None
+        return MathIntent(
+            kind="force",
+            physics_op="resultant_force",
+            physics_params={"F1": forces[0][0], "F2": forces[1][0], "angle": phi},
+            physics_units={"F1": "N", "F2": "N", "angle": "deg"},
+            operation="solve",
+        )
+
+    # --- one force split into components ------------------------------------
+    if _RESOLVE_RE.search(cleaned) and forces:
+        angle = _ANGLE_VALUE_RE.search(cleaned)
+        if angle is None:
+            return None
+        return MathIntent(
+            kind="force",
+            physics_op="resolve_force",
+            physics_params={"F": forces[0][0], "angle": float(angle.group(1))},
+            physics_units={"F": forces[0][1] or "N", "angle": "deg"},
+            operation="solve",
+        )
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -1492,13 +2007,26 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
 
 PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_kinematics_intent,
+    # After kinematics, not before: free fall is a constant acceleration too,
+    # and kinematics already owns it. SUVAT sees only what gravity did not
+    # claim, so adding it perturbs nothing that already answered.
+    _extract_suvat_intent,
     _extract_projectile_intent,
     _extract_momentum_intent,
     _extract_friction_intent,
     _extract_circular_intent,
+    # Before springs: a pendulum has a length where a spring has a constant,
+    # so the two cannot collide, and reading in this order keeps the spring
+    # extractor's k requirement untouched.
+    _extract_pendulum_intent,
     _extract_spring_intent,
     _extract_circuit_intent,
     _extract_torque_intent,
+    # Ahead of force so the two rope shapes below are claimed before the
+    # blanket refusal in _UNSUPPORTED_FORCE_CONTEXT sees them. Everything else
+    # rope-shaped still reaches that refusal.
+    _extract_tension_intent,
+    _extract_vector_force_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
@@ -1507,6 +2035,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
     dict.fromkeys(
         (
             *_KINEMATICS_CUES,
+            *_SUVAT_CUES,
             *_PROJECTILE_CUES,
             *_MOMENTUM_CUES,
             *_FRICTION_CUES,
@@ -1523,12 +2052,16 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
 # The boundary-sensitive half of the same table — see ``_has_cue``.
 PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_KINEMATICS_CUE_RES,
+    *_SUVAT_CUE_RES,
     *_PROJECTILE_CUE_RES,
     *_FRICTION_CUE_RES,
     *_CIRCULAR_CUE_RES,
+    *_PENDULUM_CUE_RES,
     *_SPRING_CUE_RES,
     *_CIRCUIT_CUE_RES,
     *_TORQUE_CUE_RES,
+    *_TENSION_CUE_RES,
+    *_VECTOR_FORCE_CUE_RES,
     *_FORCE_CUE_RES,
     *_ENERGY_CUE_RES,
 )

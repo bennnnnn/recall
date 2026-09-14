@@ -90,9 +90,13 @@ def test_the_hint_states_the_boundary() -> None:
     assert "be cautious and say when you are unsure" in lower
 
 
-@pytest.mark.parametrize(
-    "topic", ["pressure", "thermodynamics", "gravitation", "waves", "optics", "pendulum"]
-)
+# "pendulum" was one of these until P15 solved it. It is deliberately not moved
+# to a "was a gap" list: the point of this table is what the model must still be
+# cautious about, and a solved topic belongs in the coverage test above instead.
+_KNOWN_GAPS = ["pressure", "thermodynamics", "gravitation", "waves", "optics"]
+
+
+@pytest.mark.parametrize("topic", _KNOWN_GAPS)
 def test_the_known_gaps_are_named(topic: str) -> None:
     """Concrete beats generic.
 
@@ -100,6 +104,21 @@ def test_the_known_gaps_are_named(topic: str) -> None:
     ticket. Naming them makes the caution something the model can act on.
     """
     assert topic in MATH_SOLVER_HINT.lower()
+
+
+def test_a_solved_topic_is_not_still_listed_as_unchecked() -> None:
+    """The half of the boundary that silently rots.
+
+    Adding a solver and leaving the caution in place is the mirror of P10's
+    original finding, and it fails quieter: the model reads "pendulum is not
+    checked" while holding a verified pendulum answer, and hedges a number it
+    was handed. Substring coverage cannot catch it — after P15 the word appears
+    in both lists — so the sentence that names the gaps is read on its own.
+    """
+    unchecked = MATH_SOLVER_HINT.lower().split("outside that list (")[1].split(")")[0]
+
+    assert "pendulum" not in unchecked
+    assert set(_KNOWN_GAPS) <= {topic.strip() for topic in unchecked.split(",")}
 
 
 def test_the_hint_stays_within_its_budget() -> None:

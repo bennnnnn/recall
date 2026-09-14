@@ -18,6 +18,7 @@ import {
   LazyGeometryBlock,
   LazyMermaidBlock,
   LazyMoleculeCard,
+  LazySimulationBlock,
   LazyMolecule3DBlock,
 } from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
@@ -76,6 +77,8 @@ export function renderRichFenceById(
       return <LazyGeometryBlock key={key} content={content} />;
     case "graph":
       return <LazyFunctionGraphBlock key={key} content={content} />;
+    case "simulation":
+      return <LazySimulationBlock key={key} content={content} />;
     case "places": {
       const places = parsePlacesJson(content);
       if (places.length > 0) return <PlacesListBlock key={key} places={places} />;

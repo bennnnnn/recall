@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md). Domain grouping and what is left: [docs/CODE_STRUCTURE_REVIEW_2026-09-13.md](./docs/CODE_STRUCTURE_REVIEW_2026-09-13.md). Math coverage, level awareness and answer style: [docs/MATH_COVERAGE_REVIEW_2026-09-14.md](./docs/MATH_COVERAGE_REVIEW_2026-09-14.md). Physics review + tickets: [docs/PHYSICS_TICKETS.md](./docs/PHYSICS_TICKETS.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md). Domain grouping and what is left: [docs/CODE_STRUCTURE_REVIEW_2026-09-13.md](./docs/CODE_STRUCTURE_REVIEW_2026-09-13.md). Math coverage, level awareness and answer style: [docs/MATH_COVERAGE_REVIEW_2026-09-14.md](./docs/MATH_COVERAGE_REVIEW_2026-09-14.md). Physics review + tickets: [docs/PHYSICS_TICKETS.md](./docs/PHYSICS_TICKETS.md) (P1-P10, shipped) and [docs/PHYSICS_TICKETS_ROUND2.md](./docs/PHYSICS_TICKETS_ROUND2.md) (P11-P17, shipped).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -19,7 +19,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 4. **Topic generation, memory extraction, and other post-turn work are best-effort background jobs.** They must never raise into the chat request path or block streaming. Enqueue from `services/chat/post_turn.py` via `core/jobs.py`.
 5. **No arbitrary code execution — one sandboxed exception.** Code in messages is rendered/highlighted only, with a single exception: **HTML/CSS/JS may be previewed in a sandboxed WebView** (and charts/diagrams rendered from model output). Never execute Python, shell, or any other language, and never run code anywhere except inside the isolated preview WebView (no app token is ever exposed to it). The preview WebView requires a dev build — it does not work in Expo Go.
 6. **All LLM structured outputs are validated with Pydantic** before they touch the DB.
-7. **Symbolic math runs server-side only (SymPy).** Physics is a peer subject in `services/physics/`, not a corner of math. The mobile app renders verified results and structured `geometry` / `graph` fences — it never solves equations on-device. Pipeline map: [docs/math.md](./docs/math.md).
+7. **Symbolic math runs server-side only (SymPy).** Physics is a peer subject in `services/physics/`, not a corner of math. The mobile app renders verified results and structured `geometry` / `graph` / `simulation` fences — it never solves equations on-device, and a `simulation` scene is a *sampled path* it walks, never motion it re-derives. Pipeline map: [docs/math.md](./docs/math.md).
 
 ## Service Overview
 
@@ -41,7 +41,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **integration** — a connected Google account: `user_calendar_connections` and `user_gmail_connections`, feeding calendar context and `suggested_reminders`.
 - **push token** — a registered Expo device token for reminder/nudge notifications.
 
-**Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry/graph SVG, chemistry (SMILES). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
+**Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry/graph SVG, physics scenes and free-body diagrams (`simulation`), chemistry (SMILES). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
 **Owned tool loop, on by default:** `gateways/mcp/` (sympy, calendar, image-gen, web-search) plus `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. The legacy one-shot `mcp_tools_enabled` pre-stream round stays **off**. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 

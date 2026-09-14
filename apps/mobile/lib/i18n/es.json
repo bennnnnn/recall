@@ -544,6 +544,8 @@
   "rich.graph_plot_a11y": "Gráfico interactivo. Pellizca para acercar o alejar.",
   "rich.graph_play": "Reproducir",
   "rich.graph_play_a11y": "Reproducir la animación de la trayectoria",
+  "rich.simulation_error": "No se pudo renderizar esa simulación.",
+  "rich.simulation_title": "Simulación",
   "rich.graph_remove_series": "Quitar función",
   "rich.graph_show_series": "Mostrar función",
   "rich.graph_solution_region": "Región de solución sombreada",
