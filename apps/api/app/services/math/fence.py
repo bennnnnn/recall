@@ -788,13 +788,36 @@ def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None
 
 _UNVERIFIED_MATH_NOTE = "*Couldn't verify this with SymPy.*"
 
+# Any digit, inline `$...$`, or a LaTeX macro. Deliberately blunt: the first
+# attempt looked for an operator or an `=` and dropped the note from "The mass
+# is 12 kg.", a verified-physics answer where it belongs. A false positive here
+# only preserves the existing behavior; a false negative hides the note on a
+# real math reply, so anything numeric counts.
+_MATH_PRESENCE_RE = re.compile(r"[0-9]|\$[^$\n]+\$|\\[A-Za-z]+")
+
+
+def _reply_contains_math(content: str) -> bool:
+    """Is there anything in this reply the note could be talking about?"""
+    lower = content.lower()
+    if any(marker in lower for marker in _FENCE_VALIDATE_MARKERS):
+        return True
+    return _MATH_PRESENCE_RE.search(content) is not None
+
 
 def append_unverified_math_note(content: str) -> str:
     """Honest label when camera/solver intent fired but SymPy produced nothing.
 
     Italic markdown in the reply body — not a banned assistant status chip.
+
+    Skipped when the reply holds no math at all. The note is stamped whenever
+    a math block was injected and SymPy returned nothing, so every extractor
+    false positive reaches here: a chat about anatomy answered "show me" and
+    ended with *Couldn't verify this with SymPy.* Guarding the stamp makes the
+    whole class fail quietly instead of one misfire at a time.
     """
     if _UNVERIFIED_MATH_NOTE in content:
+        return content
+    if not _reply_contains_math(content):
         return content
     stripped = content.rstrip()
     if not stripped:
