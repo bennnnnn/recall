@@ -544,6 +544,8 @@
   "rich.graph_plot_a11y": "Etkileşimli grafik. Yakınlaştırmak için sıkıştırın.",
   "rich.graph_play": "Oynat",
   "rich.graph_play_a11y": "Yörünge animasyonunu oynat",
+  "rich.simulation_error": "Bu simülasyon oluşturulamadı.",
+  "rich.simulation_title": "Simülasyon",
   "rich.graph_remove_series": "Fonksiyonu kaldır",
   "rich.graph_show_series": "Fonksiyonu göster",
   "rich.graph_solution_region": "Taralı çözüm bölgesi",

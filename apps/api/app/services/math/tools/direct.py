@@ -525,7 +525,33 @@ def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -
     if quantity is not None:
         return f"The {quantity} cannot be determined from angles alone. What is one side length?"
     fences = _solver_fences(verified)
+    # A P14 scene rides alongside the answering fence rather than replacing it,
+    # so it is set aside before the `len(fences) == 1` branches below and put
+    # back at the end. Leaving it in the list matched none of them and silently
+    # reduced every projectile to a bare answer pill — the graph the fast path
+    # had always shown simply stopped appearing.
+    scenes = [f for f in fences if f.get("type") in _SIMULATION_FENCE_TYPES]
+    fences = [f for f in fences if f not in scenes]
     answer = (verified.canonical_answer or "").strip()
+    if scenes:
+        body = _format_direct_math_body(verified, user_text, fences, answer)
+        scene_fence = f"```simulation\n{json.dumps(scenes[0], separators=(',', ':'))}\n```\n"
+        return f"{body}\n{scene_fence}" if body.endswith("\n") else f"{body}\n\n{scene_fence}"
+    return _format_direct_math_body(verified, user_text, fences, answer)
+
+
+# The scene types P14 attaches. Kept here rather than imported from the physics
+# package so this module stays free of a physics dependency, as it is for every
+# other fence type it names.
+_SIMULATION_FENCE_TYPES = frozenset({"projectile_motion", "orbit"})
+
+
+def _format_direct_math_body(
+    verified: VerifiedMathBlock,
+    user_text: str,
+    fences: list[dict[str, object]],
+    answer: str,
+) -> str:
     if len(fences) == 1 and fences[0].get("relative_lengths") is True:
         return f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
     if len(fences) == 1 and fences[0].get("type") in {

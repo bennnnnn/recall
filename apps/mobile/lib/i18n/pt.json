@@ -544,6 +544,8 @@
   "rich.graph_plot_a11y": "Gráfico interativo. Belisque para ampliar.",
   "rich.graph_play": "Reproduzir",
   "rich.graph_play_a11y": "Reproduzir a animação da trajetória",
+  "rich.simulation_error": "Não foi possível renderizar essa simulação.",
+  "rich.simulation_title": "Simulação",
   "rich.graph_remove_series": "Remover função",
   "rich.graph_show_series": "Mostrar função",
   "rich.graph_solution_region": "Região de solução sombreada",

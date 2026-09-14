@@ -107,7 +107,7 @@ MATH_SOLVER_HINT = (
     "is present use its exact numbers — do NOT recompute. Include units in the "
     "setup (e.g. g = 9.81 m/s^2 on Earth). When working is requested, give the "
     "general equation then substitute. State the result once in `$...$`. Do NOT "
-    "re-list sampled points in prose. Do NOT emit ```graph. Trajectory graphs "
+    "re-list sampled points in prose. Do NOT emit ```graph or ```simulation. Trajectory graphs "
     "exist only for kinematics and SUVAT (height or velocity against time), projectile "
     "(x-y path) and spring/pendulum SHM (displacement against time); every other answer "
     "is a number — do not invent a plot. OUTSIDE that list (pressure, "

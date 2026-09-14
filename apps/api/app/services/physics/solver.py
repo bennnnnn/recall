@@ -13,17 +13,20 @@ from dataclasses import dataclass, field
 
 from sympy import Eq, Symbol, solve
 
-from app.models.schemas.math import GraphBlockSpec, MathIntent
+from app.models.schemas.math import GraphBlockSpec, MathIntent, SimulationBlockSpec, SimulationBody
 from app.services.math.solve import MathServiceError
 
 
 @dataclass(frozen=True)
 class PhysicsResult:
-    """Result of a physics solve: a LaTeX answer + optional graph specs."""
+    """Result of a physics solve: a LaTeX answer + optional graph/scene specs."""
 
     answer: str  # LaTeX, e.g. r"t = \sqrt{2 \cdot 20 / 9.81} \approx 2.02 \text{ s}"
     answer_value: str  # human-readable with units, e.g. "2.02 s"
     graph_specs: list[GraphBlockSpec] = field(default_factory=list)
+    # A scene of moving bodies, where the graph is a plot of one. A solve may
+    # emit both: the projectile's parabola *and* the ball flying along it.
+    simulation_specs: list[SimulationBlockSpec] = field(default_factory=list)
 
 
 def _latex_num(value: float, *, square: bool = False) -> str:
@@ -562,10 +565,30 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
         y_label="Height (m)",
         trajectory_type="parametric",
     )
+
+    # The same samples, as a scene rather than a plot. The graph answers "what
+    # shape is the path"; this answers "what is moving, and what is pulling on
+    # it" — and they share one array, so the ball cannot be somewhere the
+    # curve is not.
+    peak = max(point[1] for point in points)
+    span = points[-1][0]
+    scene = SimulationBlockSpec(
+        type="projectile_motion",
+        title="Projectile",
+        bodies=[SimulationBody(path=points, radius=max(span, peak) * 0.025 or 0.1)],
+        x_min=0.0,
+        x_max=span * 1.05,
+        y_min=0.0,
+        # Headroom so the gravity arrow at the apex is not clipped by the top.
+        y_max=max(peak * 1.25, span * 0.25, 1.0),
+        arrows=["velocity", "gravity"],
+        ground=True,
+    )
     return PhysicsResult(
         answer=answer_latex,
         answer_value=answer_value,
         graph_specs=[graph_spec],
+        simulation_specs=[scene],
     )
 
 
@@ -868,6 +891,37 @@ def solve_friction(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
+def _orbit_scene(r: float) -> SimulationBlockSpec:
+    """One lap, sampled at a constant angular step.
+
+    Every circular answer is a number about something going round, and going
+    round is the one motion a still picture cannot show at all — which is why
+    this kind drew nothing before P14 and why it is the first scene after
+    projectiles. The index is the clock here as everywhere else: a constant
+    angular step is a constant speed, which is what uniform circular motion is.
+    """
+    n_points = 96
+    path = [
+        [
+            round(r * math.cos(2 * math.pi * i / (n_points - 1)), 4),
+            round(r * math.sin(2 * math.pi * i / (n_points - 1)), 4),
+        ]
+        for i in range(n_points)
+    ]
+    margin = r * 1.35
+    return SimulationBlockSpec(
+        type="orbit",
+        title="Circular Motion",
+        bodies=[SimulationBody(path=path, radius=r * 0.08)],
+        x_min=-margin,
+        x_max=margin,
+        y_min=-margin,
+        y_max=margin,
+        arrows=["velocity", "centripetal"],
+        centre=[0.0, 0.0],
+    )
+
+
 def solve_circular(intent: MathIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "centripetal_acceleration"
@@ -875,6 +929,8 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
     v = p["v"]
     if r <= 0:
         raise MathServiceError("radius must be positive")
+
+    scene = [_orbit_scene(r)]
 
     if op == "orbital_period":
         if v == 0:
@@ -886,6 +942,7 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
                 rf"\approx {t_val:.2f} \text{{ s}}"
             ),
             answer_value=f"{t_val:.2f} s",
+            simulation_specs=scene,
         )
 
     a_c = v * v / r
@@ -896,6 +953,7 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
                 rf"\approx {a_c:.2f} \text{{ m/s}}^2"
             ),
             answer_value=f"{a_c:.2f} m/s^2",
+            simulation_specs=scene,
         )
 
     if op == "centripetal_force":
@@ -908,6 +966,7 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
                 rf"{_latex_num(v, square=True)}}}{{{r:g}}} \approx {f_val:.2f} \text{{ N}}"
             ),
             answer_value=f"{f_val:.2f} N",
+            simulation_specs=scene,
         )
 
     raise MathServiceError(f"unsupported circular op: {op}")

@@ -544,6 +544,8 @@
   "rich.graph_plot_a11y": "Interaktives Diagramm. Zum Zoomen zwei Finger verwenden.",
   "rich.graph_play": "Abspielen",
   "rich.graph_play_a11y": "Flugbahn-Animation abspielen",
+  "rich.simulation_error": "Diese Simulation konnte nicht gerendert werden.",
+  "rich.simulation_title": "Simulation",
   "rich.graph_remove_series": "Funktion entfernen",
   "rich.graph_show_series": "Funktion einblenden",
   "rich.graph_solution_region": "Schattierter Lösungsbereich",

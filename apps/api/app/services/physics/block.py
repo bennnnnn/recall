@@ -8,6 +8,7 @@ optional trajectory graph Recall attaches after the stream.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
@@ -49,8 +50,16 @@ def _build_physics_block(
     # Append the verified answer to the hint lines.
     lines.append(f"Verified answer: ${result.answer}$ ({result.answer_value})")
 
-    if result.graph_specs:
-        return _diagram_block(lines, result.graph_specs[0], result.answer_value)
+    # A solve may produce both a plot and a scene — a projectile's parabola and
+    # the ball flying along it. `canonical_fences` is what carries more than one
+    # fence through `validate_math_fences`, so both are put there and the graph
+    # stays primary for the callers that read `canonical_fence` alone.
+    specs = [*result.graph_specs, *result.simulation_specs]
+    if len(specs) > 1:
+        block = _diagram_block(lines, specs[0], result.answer_value)
+        return replace(block, canonical_fences=[spec.model_dump() for spec in specs])
+    if specs:
+        return _diagram_block(lines, specs[0], result.answer_value)
     return _finish_with_answer(lines, result.answer_value, allow_direct=False)
 
 

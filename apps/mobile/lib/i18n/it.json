@@ -544,6 +544,8 @@
   "rich.graph_plot_a11y": "Grafico interattivo. Pizzica per lo zoom.",
   "rich.graph_play": "Riproduci",
   "rich.graph_play_a11y": "Riproduci l'animazione della traiettoria",
+  "rich.simulation_error": "Impossibile visualizzare questa simulazione.",
+  "rich.simulation_title": "Simulazione",
   "rich.graph_remove_series": "Rimuovi funzione",
   "rich.graph_show_series": "Mostra funzione",
   "rich.graph_solution_region": "Regione delle soluzioni ombreggiata",

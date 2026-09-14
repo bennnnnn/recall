@@ -56,6 +56,9 @@ _MIN_CURVE_POINTS = 48
 _MAX_ANSWER_FENCES = 4
 _MAX_GEOMETRY_FENCES = 4
 _MAX_GRAPH_FENCES = 2
+# One scene per answer. Unlike geometry, there is no question whose answer is
+# two animations.
+_MAX_SIMULATION_FENCES = 1
 _ANSWER_FENCE_LANGS = ("answer", "result", "final")
 _CHART_ALIAS_LANGS = ("chart", "vega", "vega-lite", "plot")
 _DIAGRAM_FAIL_NOTE = "\n*Could not render that diagram.*\n"
@@ -414,10 +417,18 @@ def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
     return None
 
 
+# Checked before the key heuristics below, and that ordering is load-bearing:
+# a scene carries `x_min` too, so the "looks like a graph" fallback would claim
+# it and render a projectile as an empty pair of axes.
+_SIMULATION_TYPES = frozenset({"projectile_motion", "orbit"})
+
+
 def _spec_fence_kind(spec: dict[str, object]) -> str | None:
     spec_type = spec.get("type")
     if spec_type == "answer":
         return "answer"
+    if spec_type in _SIMULATION_TYPES:
+        return "simulation"
     if spec_type in _GEOMETRY_TYPES:
         return "geometry"
     if spec_type in _GRAPH_TYPES:
@@ -679,6 +690,9 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     graph = next((spec for spec in specs if _spec_fence_kind(spec) == "graph"), None)
     if graph is not None and not has_closed_fence(content, "graph"):
         extras.append(_markdown_fence("graph", json.dumps(graph, separators=(",", ":"))))
+    scene = next((spec for spec in specs if _spec_fence_kind(spec) == "simulation"), None)
+    if scene is not None and not has_closed_fence(content, "simulation"):
+        extras.append(_markdown_fence("simulation", json.dumps(scene, separators=(",", ":"))))
 
     if not extras:
         return content
@@ -793,6 +807,21 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
             canonical_fences,
         ),
         max_count=_MAX_GRAPH_FENCES,
+        leftover=lambda _body: _DIAGRAM_FAIL_NOTE,
+    )
+    # A scene is server-owned and the prompt forbids it, but a model that
+    # invents one would otherwise ship a hand-written physics animation. Same
+    # treatment as geometry: replaced by the canonical scene, or struck out.
+    content = map_closed_fences(
+        content,
+        "simulation",
+        lambda body: _replace_fence(
+            body,
+            "simulation",
+            canonical_fence,
+            canonical_fences,
+        ),
+        max_count=_MAX_SIMULATION_FENCES,
         leftover=lambda _body: _DIAGRAM_FAIL_NOTE,
     )
     # A ```graph fence the model truncated mid-JSON (stopped copying the

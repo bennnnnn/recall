@@ -266,6 +266,16 @@ def _expected_trajectory_type(intent: MathIntent) -> str:
     return "position_vs_time"
 
 
+# P14 attaches a scene alongside the trajectory graph, so a projectile now
+# carries two fences where the rule below expects one. A scene is not a second
+# answer — it is an illustration of the same one, server-owned and never
+# model-written — so it is set aside before the count rather than counted.
+# Without this, adding the scene silently switched every projectile back to the
+# provider path: `can_direct_physics` returned False, the pre-computed reply was
+# dropped, and nothing anywhere reported it.
+_SIMULATION_FENCE_TYPES = frozenset({"projectile_motion", "orbit"})
+
+
 def can_direct_physics(
     verified: VerifiedMathBlock, text: str, fences: list[dict[str, Any]]
 ) -> bool:
@@ -273,9 +283,10 @@ def can_direct_physics(
     if expected is None or expected != verified.physics_intent:
         return False
     answer = verified.canonical_answer
-    if not answer or len(answer) > 400 or len(fences) != 1:
+    answering = [f for f in fences if f.get("type") not in _SIMULATION_FENCE_TYPES]
+    if not answer or len(answer) > 400 or len(answering) != 1:
         return False
-    fence = fences[0]
+    fence = answering[0]
     if expected.kind in {"force", "energy", "arithmetic"} or expected.physics_op == "acceleration":
         return fence.get("type") == "answer" and fence.get("content") == answer
     if fence.get("type") != "trajectory" or fence.get("expr2") or fence.get("points2"):

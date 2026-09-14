@@ -11,12 +11,14 @@ not by reading it. Two of these were **wrong answers reaching users today**, and
 came first for that reason; P11 and P12 have since shipped together, since one
 screenshot contained both.
 
+Status: ✅ shipped, ◐ first slice shipped, ☐ open.
+
 | # | Ticket | Area | Status |
 |---|--------|------|--------|
 | P11 | [An angled collision is answered as a projectile](#p11-an-angled-collision-is-answered-as-a-projectile) | API | ✅ |
 | P12 | [Never attach a verified answer to a clarifying question](#p12-never-attach-a-verified-answer-to-a-clarifying-question) | API | ✅ |
 | P13 | [Constant acceleration (SUVAT)](#p13-constant-acceleration-suvat) | API | ✅ |
-| P14 | [A `simulation` fence: sprites, free-body diagrams, animated orbits and collisions](#p14-a-simulation-fence-sprites-free-body-diagrams-animated-orbits-and-collisions) | Mobile + API | ☐ |
+| P14 | [A `simulation` fence: sprites, free-body diagrams, animated orbits and collisions](#p14-a-simulation-fence-sprites-free-body-diagrams-animated-orbits-and-collisions) | Mobile + API | ◐ |
 | P15 | [Pendulum period](#p15-pendulum-period) | API | ✅ |
 | P16 | [Pulleys, tension and Atwood machines](#p16-pulleys-tension-and-atwood-machines) | API | ✅ |
 | P17 | [Vector forces: resultants and components](#p17-vector-forces-resultants-and-components) | API | ✅ |
@@ -40,8 +42,12 @@ the visual story lives.
 them draw a chart, since SUVAT emits the velocity-vs-time line that P3 already
 knows how to animate. Pendulum and the rope/vector ops landed as new **ops** on
 the existing `spring` and `force` kinds rather than as kinds of their own, so
-they did not widen that table. The seven number-only kinds are unchanged, and
-P14 is still where their pictures come from.
+they did not widen that table.
+
+**After P14's first slice**, `circular` draws too — a played orbit rather than a
+chart — which was the most conspicuous blank of the seven. `momentum`,
+`friction`, `circuit`, `torque`, `force` and `energy` are still number-only, and
+the remaining P14 slices are where their pictures come from.
 
 ---
 
@@ -267,6 +273,44 @@ circular motion, then collisions.
 **Acceptance:** a projectile answer can render a moving object with gravity and
 velocity arrows; a circular-motion answer animates an orbit; Reduce Motion
 falls back to a static diagram; nothing autoplays.
+
+**First slice done** — the spec, the projectile renderer and the orbit, which is
+all four acceptance clauses. Collisions are the next slice; the spec already
+carries what they need (several bodies on one clock) and a test asserts that
+shape so it cannot drift before they land. In
+`apps/api/app/tests/services/test_physics_simulation.py` (26),
+`apps/mobile/lib/__tests__/simulationScene.test.ts` (21) and
+`apps/mobile/components/__tests__/SimulationBlock.test.tsx` (7).
+
+Five notes:
+
+- **The scene and the graph share one sampled path.** A projectile emits both —
+  the graph answers "what shape is the path", the scene answers "what is moving
+  and what is pulling on it" — and they are the same array, so the ball can
+  never be somewhere the curve is not. The renderer derives every arrow from
+  that path too, rather than being handed components, so an arrow cannot
+  disagree with the motion it annotates. As everywhere in this pipeline, no
+  physics is repeated on the device.
+- **One scale for both axes**, which is the whole reason this is not
+  `mapGraphPoint`. A graph stretches each axis to fill its box; doing that here
+  would turn an orbit into an ellipse and a 30° launch into some other angle —
+  a picture contradicting the verified number printed beside it. The scene is
+  letterboxed instead.
+- **Adding a second fence silently disabled the fast path.** `can_direct_physics`
+  required exactly one fence and `format_direct_math_reply` branches on
+  `len(fences) == 1`, so attaching a scene made every projectile fall back to
+  the provider *and* dropped the graph the fast path had always shown — with no
+  error anywhere. A scene is now set aside before both checks and appended
+  after, so the fast path shows all three fences.
+- **The registry's contract gate did its job.** `fenceRegistry.test.ts` pins the
+  fence-id set, the structured langs and the never-code-block langs, and refused
+  the new entry until all three were updated deliberately. Everything else —
+  dispatch, preprocess, stream preview, crash fallback — keys off the registry,
+  so the entry *is* the wiring.
+- **P12 already covered it.** A clarifying reply gets no scene for the same
+  reason it gets no pill and no chart, and that is pinned separately: P12 was
+  written when there were two kinds of extra, and a third slipping past the
+  guard would put an animation under a question the model just declined.
 
 ---
 

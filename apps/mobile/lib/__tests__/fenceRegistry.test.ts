@@ -54,6 +54,7 @@ const LEGACY_STRUCTURED = [
   "plot",
   "geometry",
   "graph",
+  "simulation",
   "smiles",
   "chemistry",
   "molecule",
@@ -112,6 +113,7 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "sources",
   "places",
   "graph",
+  "simulation",
   "geometry",
   "smiles",
   "chemistry",
@@ -226,6 +228,10 @@ describe("fence registry lookups", () => {
       "molecule3d",
       "places",
       "quote",
+      // P14. Server-owned like geometry/graph: the prompt forbids it and
+      // validate_math_fences replaces or strikes out anything the model
+      // invents, so the model-owned list below is unchanged.
+      "simulation",
       "social",
       "sources",
       "steps",
@@ -270,6 +276,7 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       chart: "component",
       geometry: "component",
       graph: "component",
+      simulation: "component",
       chemistry: "component",
       molecule: "component",
       molecule3d: "component",
