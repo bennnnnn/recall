@@ -37,7 +37,11 @@ def _verified_block_equation(
         result.canonical_solutions_latex or result.solutions_latex,
         result.solution_kind,
     )
-    return _finish_with_answer(lines, answer)
+    return _finish_with_answer(
+        lines,
+        answer,
+        key_step=math_solve.factored_key_step(eq.lhs, eq.rhs, intent.variable or "x"),
+    )
 
 
 def _verified_block_inequality(

@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md). Domain grouping and what is left: [docs/CODE_STRUCTURE_REVIEW_2026-09-13.md](./docs/CODE_STRUCTURE_REVIEW_2026-09-13.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md). Domain grouping and what is left: [docs/CODE_STRUCTURE_REVIEW_2026-09-13.md](./docs/CODE_STRUCTURE_REVIEW_2026-09-13.md). Math coverage, level awareness and answer style: [docs/MATH_COVERAGE_REVIEW_2026-09-14.md](./docs/MATH_COVERAGE_REVIEW_2026-09-14.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 

@@ -37,6 +37,10 @@ class VerifiedMathBlock:
     # The verified-block wrapper binds the exact solved physics intent here.
     # Includes average speed; guards compare every parameter/unit without re-solving.
     physics_intent: MathIntent | None = None
+    # The one line that shows where the answer came from — e.g. the
+    # factorization behind a quadratic's roots. Shown on the direct-reply
+    # path for the balanced/detailed response styles, omitted for short.
+    key_step: str | None = None
     # Paired snapshots of the actual Newton solve; never reconstruct iterations.
     newton_input: NewtonMethodInput | None = None
     newton_result: NewtonMethodResult | None = None
@@ -76,6 +80,7 @@ def _finish_with_answer(
     *,
     preface: str | None = None,
     allow_direct: bool = True,
+    key_step: str | None = None,
 ) -> VerifiedMathBlock:
     """Record the verified answer for post-stream attach; do not put a fence in the hint."""
     if preface:
@@ -86,6 +91,7 @@ def _finish_with_answer(
         canonical_fence=_answer_canonical(answer),
         canonical_answer=answer,
         allow_direct=allow_direct,
+        key_step=key_step,
     )
 
 

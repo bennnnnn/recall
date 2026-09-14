@@ -790,3 +790,31 @@ def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> Math
         lhs_latex=latex(left),
         rhs_latex=latex(right),
     )
+
+
+def factored_key_step(lhs: str, rhs: str, variable: str = "x") -> str | None:
+    """LaTeX factorization of ``lhs - rhs``, when factoring is the actual step.
+
+    A smart person answering "solve x^2 - 5x + 6 = 0" says "factors as
+    (x-2)(x-3), so x = 2 or x = 3" — the one line that shows where the answer
+    came from. This returns that line's factorization, or None when there is no
+    step worth showing: linear equations (one operation), and polynomials that
+    do not factor over the rationals, where the quadratic formula did the work
+    and naming it adds nothing.
+    """
+    from sympy import Poly, Symbol, degree, factor, latex, simplify
+
+    try:
+        symbol = Symbol(variable)
+        expr = simplify(_parse_expression(lhs, [variable]) - _parse_expression(rhs, [variable]))
+        if degree(Poly(expr, symbol)) < 2:
+            return None
+        factored = factor(expr)
+        if factored == expr:
+            return None
+        # A product of factors, or a perfect power like (x + 1)^2.
+        if not (factored.is_Mul or factored.is_Pow):
+            return None
+        return str(latex(factored))
+    except Exception:
+        return None
