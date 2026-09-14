@@ -15,7 +15,7 @@ recorded as uncovered only when **no** phrasing of it produced a verified answer
 | P3 | [Animate the kinematics / projectile trajectory](#p3-animate-the-kinematics--projectile-trajectory) | Mobile | ✅ |
 | P4 | [Momentum, impulse and 1D collisions](#p4-momentum-impulse-and-1d-collisions) | API | ✅ |
 | P5 | [Friction and inclined planes](#p5-friction-and-inclined-planes) | API | ✅ |
-| P6 | [Circular motion](#p6-circular-motion) | API | ☐ |
+| P6 | [Circular motion](#p6-circular-motion) | API | ✅ |
 | P7 | [Springs, Hooke's law and SHM](#p7-springs-hookes-law-and-shm) | API | ☐ |
 | P8 | [Ohm's law and resistance networks](#p8-ohms-law-and-resistance-networks) | API | ☐ |
 | P9 | [Torque and rotational equilibrium](#p9-torque-and-rotational-equilibrium) | API | ☐ |
@@ -352,6 +352,26 @@ P7 should keep their entries for the same reason.
 
 **Acceptance:** `centripetal force on a 2 kg mass at 4 m/s in a circle of radius 3 m`
 → `10.67 N`.
+
+**Done** in `apps/api/app/tests/services/test_physics_circular.py` (22 tests).
+Baseline 0 of 9 probed phrasings; 9 of 9 now, and the acceptance figure matches
+exactly. The whole risk here was vocabulary:
+
+- **Neither `"circle"` nor `"radius"` is a cue.** `area of a circle of radius 3`
+  resolves to the geometry `circle` intent, and the geometry extractors run
+  *after* physics — so either word would have taken that question outright
+  rather than losing a tie-break. Only words that mean motion qualify:
+  `centripetal`, `circular motion`, `orbital`, `revolution`.
+- **`"period"` counts only beside a radius.** On its own it belongs to
+  trigonometry (`the period of sin(2x)`), so it is a co-occurrence regex rather
+  than a substring cue — the same shape P2 used for the projectile signature.
+- **Only the force needs a mass.** `a_c = v²/r` and `T = 2πr/v` are
+  mass-independent, so requiring one would reject the phrasings that omit it;
+  `F_c = mv²/r` without a mass is refused. Same distinction as P5's incline.
+
+Tests assert the relationships, not just the numbers: `F_c` equals `m·a_c`, and
+a tighter circle demands more acceleration. Both circle-geometry answers and the
+trigonometric period are pinned as untouched.
 
 ---
 

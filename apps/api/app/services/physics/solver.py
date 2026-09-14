@@ -54,6 +54,7 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "v1": "meter / second",
     "v2": "meter / second",
     "dt": "second",
+    "r": "meter",
     # "mu" and "angle" are intentionally absent: mu is dimensionless and angle
     # is converted by _params_in_si before any unit check runs.
 }
@@ -580,6 +581,56 @@ def solve_friction(intent: MathIntent) -> PhysicsResult:
 
 
 # ---------------------------------------------------------------------------
+# Circular motion: a_c = v^2/r, F_c = m v^2/r, T = 2 pi r / v
+# ---------------------------------------------------------------------------
+
+
+def solve_circular(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or "centripetal_acceleration"
+    r = p["r"]
+    v = p["v"]
+    if r <= 0:
+        raise MathServiceError("radius must be positive")
+
+    if op == "orbital_period":
+        if v == 0:
+            raise MathServiceError("period needs a nonzero speed")
+        t_val = 2 * math.pi * r / abs(v)
+        return PhysicsResult(
+            answer=(
+                rf"T = \frac{{2\pi r}}{{v}} = \frac{{2\pi \cdot {r:g}}}{{{v:g}}} "
+                rf"\approx {t_val:.2f} \text{{ s}}"
+            ),
+            answer_value=f"{t_val:.2f} s",
+        )
+
+    a_c = v * v / r
+    if op == "centripetal_acceleration":
+        return PhysicsResult(
+            answer=(
+                rf"a_c = \frac{{v^2}}{{r}} = \frac{{{_latex_num(v, square=True)}}}{{{r:g}}} "
+                rf"\approx {a_c:.2f} \text{{ m/s}}^2"
+            ),
+            answer_value=f"{a_c:.2f} m/s^2",
+        )
+
+    if op == "centripetal_force":
+        if "m" not in p:
+            raise MathServiceError("centripetal force needs a mass")
+        f_val = p["m"] * a_c
+        return PhysicsResult(
+            answer=(
+                rf"F_c = \frac{{m v^2}}{{r}} = \frac{{{p['m']:g} \cdot "
+                rf"{_latex_num(v, square=True)}}}{{{r:g}}} \approx {f_val:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{f_val:.2f} N",
+        )
+
+    raise MathServiceError(f"unsupported circular op: {op}")
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -598,4 +649,6 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_momentum(intent)
     if intent.kind == "friction":
         return solve_friction(intent)
+    if intent.kind == "circular":
+        return solve_circular(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")

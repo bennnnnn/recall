@@ -209,7 +209,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`p = mv`, `J = FΔt` or `mΔv`; elastic and perfectly inelastic — an unstated
   collision type is refused, not guessed), and friction / normal force / incline
   acceleration (`f = μN`, `N = mg·cosθ`, `a = g(sinθ − μcosθ)`; a block that
-  cannot slide reports `a = 0` rather than a negative acceleration). Trajectory ` ```graph ` fences only for
+  cannot slide reports `a = 0` rather than a negative acceleration), and circular
+  motion (`a_c = v²/r`, `F_c = mv²/r`, `T = 2πr/v`). Trajectory ` ```graph ` fences only for
   kinematics and projectile; force and energy are numbers. A speed/velocity ask plots
   `v(t)`, not height. Projectile and kinematics trajectories **play back on tap** — a dot
   walks the sampled points, which the solver spaces by uniform time, so the motion is

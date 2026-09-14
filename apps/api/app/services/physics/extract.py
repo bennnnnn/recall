@@ -785,6 +785,76 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
+# Circular motion
+#   a_c = v^2 / r,  F_c = m v^2 / r,  T = 2 pi r / v
+# ---------------------------------------------------------------------------
+
+# Neither "circle" nor "radius" is a cue. "area of a circle of radius 3"
+# resolves to the geometry `circle` intent, and the geometry extractors run
+# *after* physics — so either word here would take that question rather than
+# compete for it. Only words that mean motion qualify.
+_CIRCULAR_CUES = (
+    "centripetal",
+    "circular motion",
+    "orbital",
+    "revolution",
+)
+
+# "period" is the exception worth spelling out: on its own it belongs to
+# trigonometry ("the period of sin(2x)"), so it only counts beside a radius.
+_CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bperiod\b.{0,80}?\bradius\b", re.IGNORECASE),
+    re.compile(r"\bradius\b.{0,80}?\bperiod\b", re.IGNORECASE),
+)
+
+
+def _extract_circular_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _CIRCULAR_CUES, _CIRCULAR_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    radius = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    )
+    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+    if radius is None or speed is None:
+        return None
+
+    mass = _find_value_with_specific_unit(
+        cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "object", "body", "ball", "car")
+    )
+
+    op: Literal["centripetal_force", "centripetal_acceleration", "orbital_period"]
+    if "period" in lower or "revolution" in lower:
+        op = "orbital_period"
+    elif "acceleration" in lower:
+        op = "centripetal_acceleration"
+    elif "force" in lower:
+        op = "centripetal_force"
+        # F = m v^2 / r is the only one of the three that needs a mass; the
+        # other two are mass-independent, same as the incline result in P5.
+        if mass is None:
+            return None
+    else:
+        return None
+
+    params: dict[str, float] = {"r": radius[0], "v": speed[0]}
+    units: dict[str, str] = {"r": radius[1] or "m", "v": speed[1] or "m/s"}
+    if mass is not None:
+        params["m"] = mass[0]
+        units["m"] = mass[1] or "kg"
+    return MathIntent(
+        kind="circular",
+        physics_op=op,
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Force: scalar Newton's second law (F = ma)
 # ---------------------------------------------------------------------------
 
@@ -1111,6 +1181,7 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_projectile_intent,
     _extract_momentum_intent,
     _extract_friction_intent,
+    _extract_circular_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
@@ -1122,6 +1193,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_PROJECTILE_CUES,
             *_MOMENTUM_CUES,
             *_FRICTION_CUES,
+            *_CIRCULAR_CUES,
             *_FORCE_CUES,
             *_ENERGY_CUES,
         )
@@ -1133,6 +1205,7 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_KINEMATICS_CUE_RES,
     *_PROJECTILE_CUE_RES,
     *_FRICTION_CUE_RES,
+    *_CIRCULAR_CUE_RES,
     *_FORCE_CUE_RES,
     *_ENERGY_CUE_RES,
 )
