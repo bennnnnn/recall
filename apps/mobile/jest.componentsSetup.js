@@ -5,8 +5,21 @@ const { jest: jestGlobals } = require("@jest/globals");
  * neither native module, so mock them before any component test file loads.
  */
 jestGlobals.mock("react-native-reanimated", () => {
+  const React = require("react");
   const { View: RNView } = require("react-native");
   const id = (value) => value;
+  /**
+   * Spread `animatedProps` onto the wrapped component instead of dropping it.
+   * Paired with the synchronous `useAnimatedProps` below, the worklet's derived
+   * values arrive as ordinary props, so a test can assert an animated SVG
+   * element's geometry the same way it asserts a static one.
+   */
+  const createAnimatedComponent = (Component) => {
+    const Animated = ({ animatedProps, ...rest }) =>
+      React.createElement(Component, { ...rest, ...(animatedProps ?? {}) });
+    Animated.displayName = `Animated(${Component.displayName ?? Component.name ?? "Component"})`;
+    return Animated;
+  };
   const layoutAnim = () => {
     const api = {};
     api.duration = () => api;
@@ -19,7 +32,8 @@ jestGlobals.mock("react-native-reanimated", () => {
   };
   return {
     __esModule: true,
-    default: { View: RNView },
+    default: { View: RNView, createAnimatedComponent },
+    createAnimatedComponent,
     Easing: {
       linear: id,
       ease: id,
@@ -32,6 +46,7 @@ jestGlobals.mock("react-native-reanimated", () => {
     runOnJS: (fn) => fn,
     runOnUI: (fn) => (...args) => fn(...args),
     useAnimatedStyle: (factory) => (typeof factory === "function" ? factory() : {}),
+    useAnimatedProps: (factory) => (typeof factory === "function" ? factory() : {}),
     useAnimatedReaction: () => undefined,
     useSharedValue: (value) => ({ value }),
     withSpring: id,

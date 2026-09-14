@@ -818,6 +818,31 @@ describe("graphBlock", () => {
     }
   });
 
+  it.each([
+    ["velocity_vs_time", "velocity_vs_time"],
+    ["bogus", undefined],
+    [42, undefined],
+    [null, undefined],
+    [{ nested: true }, undefined],
+  ])("validates trajectory_type %p instead of casting it", (raw, expected) => {
+    // This was an unchecked `as` cast, harmless while nothing read the field.
+    // It now selects which overlay the chart draws, so an unknown value must
+    // fall back to "no overlay" rather than slipping through onto the union.
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "trajectory",
+        expr: "v(t)",
+        points: [
+          [0, 0],
+          [1, -9.81],
+        ],
+        trajectory_type: raw,
+      }),
+    );
+    expect(spec?.type).toBe("trajectory");
+    if (spec?.type === "trajectory") expect(spec.trajectory_type).toBe(expected);
+  });
+
   it("rejects a trajectory fence with fewer than 2 points", () => {
     const spec = parseGraphSpec(
       JSON.stringify({

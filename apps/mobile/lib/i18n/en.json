@@ -542,6 +542,8 @@
   "rich.graph_hide_series": "Hide function",
   "rich.graph_invalid": "Could not plot that expression.",
   "rich.graph_plot_a11y": "Interactive graph. Pinch to zoom, drag to pan.",
+  "rich.graph_play": "Play",
+  "rich.graph_play_a11y": "Play the trajectory animation",
   "rich.graph_remove_series": "Remove function",
   "rich.graph_show_series": "Show function",
   "rich.graph_solution_region": "Shaded solution region",

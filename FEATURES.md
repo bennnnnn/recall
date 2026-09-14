@@ -205,8 +205,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   result into the draft). See [docs/math.md](./docs/math.md).
 - ✅ **Physics (narrow verified)** — 1D gravity kinematics, vacuum projectile range / max
   height (quadratic time-of-flight when a launch height is given), scalar F=ma, and
-  KE / PE / work / power. Trajectory ` ```graph ` fences only for kinematics and projectile;
-  force and energy are numbers. The solver gate is the union of those extractor cues.
+  KE / PE / work / power (`P = F v` or `W / t`). Trajectory ` ```graph ` fences only for
+  kinematics and projectile; force and energy are numbers. A speed/velocity ask plots
+  `v(t)`, not height. Projectile and kinematics trajectories **play back on tap** — a dot
+  walks the sampled points, which the solver spaces by uniform time, so the motion is
+  real rather than eased. Never autoplays; Reduce Motion keeps the static curve.
+  The solver gate is the union of those extractor cues.
   Moon/Mars gravity is a whole-token match (`marsh` stays Earth). See
   [docs/math.md](./docs/math.md).
 - ✅ **Chemistry (verified kinds)** — server-side RDKit / SymPy + PubChem. Balancing,

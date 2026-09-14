@@ -251,6 +251,21 @@ def _intent(
     )
 
 
+def _expected_trajectory_type(intent: MathIntent) -> str:
+    """The one ``trajectory_type`` ``solve_physics`` emits for this intent.
+
+    Must stay in lockstep with ``solve_kinematics`` / ``solve_projectile``. This
+    guard exists to prove the fence came from that solve rather than from the
+    model, so an extra value here would be a hole — and a missing one silently
+    drops the whole direct reply, which is the harder failure to notice.
+    """
+    if intent.kind == "projectile":
+        return "parametric"
+    if intent.physics_op in ("velocity", "speed"):
+        return "velocity_vs_time"
+    return "position_vs_time"
+
+
 def can_direct_physics(
     verified: VerifiedMathBlock, text: str, fences: list[dict[str, Any]]
 ) -> bool:
@@ -280,6 +295,5 @@ def can_direct_physics(
             for key in ("x_min", "x_max")
         )
         and fence["x_min"] < fence["x_max"]
-        and fence.get("trajectory_type")
-        == ("parametric" if expected.kind == "projectile" else "position_vs_time")
+        and fence.get("trajectory_type") == _expected_trajectory_type(expected)
     )

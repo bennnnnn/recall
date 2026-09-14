@@ -12,7 +12,7 @@ recorded as uncovered only when **no** phrasing of it produced a verified answer
 |---|--------|------|--------|
 | P1 | [Strip verified-math markers from assistant text](#p1-strip-verified-math-markers-from-assistant-text) | API | ✅ |
 | P2 | [Make the existing physics ops robust to natural phrasing](#p2-make-the-existing-physics-ops-robust-to-natural-phrasing) | API | ✅ |
-| P3 | [Animate the kinematics / projectile trajectory](#p3-animate-the-kinematics--projectile-trajectory) | Mobile | ☐ |
+| P3 | [Animate the kinematics / projectile trajectory](#p3-animate-the-kinematics--projectile-trajectory) | Mobile | ✅ |
 | P4 | [Momentum, impulse and 1D collisions](#p4-momentum-impulse-and-1d-collisions) | API | ☐ |
 | P5 | [Friction and inclined planes](#p5-friction-and-inclined-planes) | API | ☐ |
 | P6 | [Circular motion](#p6-circular-motion) | API | ☐ |
@@ -198,15 +198,49 @@ a richer `simulation` fence with its own spec (object type, masses, force
 vectors) and its own renderer. Recorded here as a follow-up so the decision is
 deliberate, not forgotten.
 
-**Files:** `apps/mobile/components/rich/GraphCanvas.tsx`,
-`apps/mobile/components/rich/FunctionGraphBlock.tsx`,
-`apps/mobile/hooks/useInteractiveGraph.ts`, `apps/mobile/lib/math/graphBlock.ts`,
-tests under `apps/mobile/components/__tests__/`.
+**Files (corrected during implementation):** this ticket originally named
+`GraphCanvas.tsx` and `useInteractiveGraph.ts`. **Both were wrong** — the review
+inferred the render path instead of tracing it. Trajectory fences never reach
+`GraphCanvas`; `FunctionGraphBlock.tsx:68` early-returns them into a private
+local `TrajectoryChart`, and `GraphCanvas` only ever serves `function` and
+`vertical` types via `InteractiveFunctionPlot`.
+
+Actual: new `apps/mobile/components/rich/TrajectoryChart.tsx` and
+`apps/mobile/lib/math/trajectory.ts`; `apps/mobile/components/rich/FunctionGraphBlock.tsx`,
+`apps/mobile/lib/math/graphBlock.ts`, `apps/mobile/lib/motion.ts`,
+`apps/mobile/jest.componentsSetup.js`, `apps/mobile/lib/i18n/*.json`;
+`apps/api/app/services/physics/solver.py`, `apps/api/app/services/physics/direct.py`.
 
 **Acceptance:** A projectile answer renders a dot that traverses the arc on play
 and can be replayed; a kinematics answer animates height against time. Tests
 assert the static curve still renders with animation disabled, and that no
 animation starts without user interaction. `pnpm typecheck` and `pnpm test` green.
+
+**Done.** Notes on what the implementation turned up:
+
+- **The animation needed no physics.** The solver samples both trajectory kinds
+  at uniform time steps, so for `parametric` — where neither axis is time — the
+  point *index* is still the clock. Walking it at a constant rate reproduces the
+  fast-slow-fast arc exactly. Hence `Easing.linear`: an ease would distort the
+  apparent velocity and make the chart misstate the physics.
+- **Arrows are drawn only for `parametric`.** On a height- or velocity-vs-time
+  chart the x-axis is time, so a downward gravity arrow would point across a
+  time axis and assert something false.
+- **Reduce Motion keeps the arrows.** It asks for no movement, not less
+  information; only the dot, trail and play control go.
+- **`velocity_vs_time` is emitted now**, so a speed ask plots `v(t)` instead of
+  height. `services/physics/direct.py` hard-coded the expected trajectory type,
+  and a mismatch there drops the entire direct reply *silently* — that guard
+  moved into `_expected_trajectory_type` with a test pinning both tables
+  together.
+- **The shared jest reanimated mock was missing `createAnimatedComponent` and
+  `useAnimatedProps`**, which broke seven existing suites at module load. Fixed
+  once in `jest.componentsSetup.js` rather than per-file: the mock now spreads
+  `animatedProps` onto the wrapped component, so an animated SVG element's
+  geometry is assertable the same way a static one's is.
+- **Device verification is outstanding** — this is the app's first animated SVG,
+  and jest mocks Reanimated away entirely. Needs a dev build; Expo Go cannot run
+  it.
 
 ---
 

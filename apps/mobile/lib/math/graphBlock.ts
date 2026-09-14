@@ -7,7 +7,9 @@ export type NumberLineInterval = {
   end_inclusive: boolean;
 };
 
-type SampledGraphSpec = {
+export type TrajectoryType = "position_vs_time" | "velocity_vs_time" | "parametric";
+
+export type SampledGraphSpec = {
   type: "function" | "vertical" | "number_line" | "trajectory";
   expr: string;
   variable?: string;
@@ -37,7 +39,7 @@ type SampledGraphSpec = {
   // physics solver. Axis labels render on the SVG.
   x_label?: string;
   y_label?: string;
-  trajectory_type?: "position_vs_time" | "velocity_vs_time" | "parametric";
+  trajectory_type?: TrajectoryType;
 };
 
 export type InequalityGraphSpec = Omit<SampledGraphSpec, "type"> & {
@@ -170,11 +172,6 @@ function parseTrajectoryGraph(row: Record<string, unknown>): GraphSpec | null {
   const points = parsePoints(row.points);
   if (points.length < 2) return null;
   const expr = String(row.expr ?? "").trim();
-  const trajectoryType = row.trajectory_type as
-    | "position_vs_time"
-    | "velocity_vs_time"
-    | "parametric"
-    | undefined;
   return {
     type: "trajectory",
     expr: expr.length > MAX_GRAPH_EXPR_LENGTH ? expr.slice(0, MAX_GRAPH_EXPR_LENGTH) : expr,
@@ -185,8 +182,20 @@ function parseTrajectoryGraph(row: Record<string, unknown>): GraphSpec | null {
     points,
     x_label: row.x_label != null ? String(row.x_label) : undefined,
     y_label: row.y_label != null ? String(row.y_label) : undefined,
-    trajectory_type: trajectoryType,
+    trajectory_type: parseTrajectoryType(row.trajectory_type),
   };
+}
+
+/**
+ * Validate rather than assert. This was an unchecked `as` cast, which was
+ * harmless while nothing read the field — but it now selects which overlay the
+ * chart draws, and a gravity arrow drawn across a time axis is worse than none.
+ * Unknown values fall back to `undefined` (plain curve), never to a branch.
+ */
+function parseTrajectoryType(raw: unknown): TrajectoryType | undefined {
+  return raw === "position_vs_time" || raw === "velocity_vs_time" || raw === "parametric"
+    ? raw
+    : undefined;
 }
 
 function parseInequalityGraph(row: Record<string, unknown>): InequalityGraphSpec | null {

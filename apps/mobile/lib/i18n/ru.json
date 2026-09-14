@@ -542,6 +542,8 @@
   "rich.graph_hide_series": "Скрыть функцию",
   "rich.graph_invalid": "Не удалось построить это выражение.",
   "rich.graph_plot_a11y": "Интерактивный график. Сожмите пальцы для масштаба.",
+  "rich.graph_play": "Воспроизвести",
+  "rich.graph_play_a11y": "Воспроизвести анимацию траектории",
   "rich.graph_remove_series": "Удалить функцию",
   "rich.graph_show_series": "Показать функцию",
   "rich.graph_solution_region": "Заштрихованная область решений",

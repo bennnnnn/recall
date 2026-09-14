@@ -166,11 +166,13 @@ def test_unsupported_free_body_problems_are_refused_not_guessed(text: str) -> No
     assert _verified_answer(text) is None
 
 
-def test_speed_without_a_height_answers_but_draws_no_trajectory() -> None:
-    """v = g*t needs no drop height.
+def test_speed_without_a_height_draws_the_velocity_line() -> None:
+    """v = g*t needs no drop height, and v(t) is the graph that answers it.
 
-    The height-vs-time curve does, though: with h0 = 0 every point clamps to
-    zero and the chart reads as "it never moved". Answer yes, graph no.
+    P2 answered this without any graph, because h(t) with h0 = 0 clamps to a
+    flat line at zero and reads as "it never moved". Plotting v(t) instead
+    removes the reason to withhold a graph: the line is real, and it is the one
+    the question asked about.
     """
     from app.services.physics.solver import solve_physics
 
@@ -179,11 +181,20 @@ def test_speed_without_a_height_answers_but_draws_no_trajectory() -> None:
 
     result = solve_physics(intent)
     assert result.answer_value == "9.81 m/s"
-    assert result.graph_specs == []
+    assert len(result.graph_specs) == 1
+    spec = result.graph_specs[0]
+    assert spec.trajectory_type == "velocity_vs_time"
+    assert spec.y_label == "Speed (m/s)"
+    # Starts at rest and reaches the answer at the asked time.
+    assert spec.points[0][1] == 0.0
+    assert abs(spec.points[-1][1] - 9.81 * spec.points[-1][0]) < 0.01
 
 
-def test_a_drop_from_a_height_still_draws_its_trajectory() -> None:
-    """The guard above must not cost the normal case its graph."""
+def test_a_speed_ask_plots_velocity_even_when_a_height_is_given() -> None:
+    """The drop height is known here, so h(t) is available — and still wrong.
+
+    Which graph to draw follows the question, not which data happens to exist.
+    """
     from app.services.physics.solver import solve_physics
 
     intent = extract_math_intent("a ball is dropped from 20 m, what is its speed after 1 s")
@@ -192,7 +203,35 @@ def test_a_drop_from_a_height_still_draws_its_trajectory() -> None:
     result = solve_physics(intent)
     assert result.answer_value == "9.81 m/s"
     assert len(result.graph_specs) == 1
+    assert result.graph_specs[0].trajectory_type == "velocity_vs_time"
+
+
+def test_a_height_ask_still_plots_height() -> None:
+    """The counterpart: a position question keeps h(t)."""
+    from app.services.physics.solver import solve_physics
+
+    intent = extract_math_intent("a ball is dropped from 50 m, what is its height after 2 s")
+    assert intent is not None
+
+    result = solve_physics(intent)
+    assert result.answer_value == "30.38 m"
+    assert len(result.graph_specs) == 1
     assert result.graph_specs[0].trajectory_type == "position_vs_time"
+
+
+def test_a_flat_height_curve_is_still_withheld() -> None:
+    """The h(t) guard survives, narrowed to the case that still reaches it.
+
+    Velocity and speed asks now plot v(t), so they never hit this. A position
+    ask with an explicit zero height does: every point clamps to zero, and a
+    chart that reads "it never moved" is worse than no chart.
+    """
+    from app.services.physics.solver import solve_physics
+
+    intent = extract_math_intent("a ball is dropped from 0 m, what is its height after 2 s")
+    assert intent is not None and intent.physics_op == "position"
+
+    assert solve_physics(intent).graph_specs == []
 
 
 def test_every_verified_op_has_at_least_three_phrasings() -> None:

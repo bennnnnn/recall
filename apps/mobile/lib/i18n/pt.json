@@ -542,6 +542,8 @@
   "rich.graph_hide_series": "Ocultar função",
   "rich.graph_invalid": "Não foi possível traçar essa expressão.",
   "rich.graph_plot_a11y": "Gráfico interativo. Belisque para ampliar.",
+  "rich.graph_play": "Reproduzir",
+  "rich.graph_play_a11y": "Reproduzir a animação da trajetória",
   "rich.graph_remove_series": "Remover função",
   "rich.graph_show_series": "Mostrar função",
   "rich.graph_solution_region": "Região de solução sombreada",

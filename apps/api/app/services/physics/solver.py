@@ -187,14 +187,54 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
     else:
         raise MathServiceError(f"unsupported kinematics op: {op}")
 
+    n_points = 100
+
+    # A "how fast after 1 s" ask gets v(t), not h(t). Plotting height against a
+    # question about speed answers a different question than the one asked, and
+    # `velocity_vs_time` has been declared on both sides of the wire — and
+    # emitted by nothing — since the type was introduced.
+    if op in ("velocity", "speed"):
+        # No h0/v0 guard here: v(t) = v0 - g*t is a real line even for a drop
+        # from an unstated height, which is exactly the case h(t) cannot plot.
+        # Only a zero-length window is degenerate.
+        if t_val <= 0:
+            return PhysicsResult(answer=answer_latex, answer_value=answer_value)
+        t_max = t_val * 1.05
+        dt = t_max / (n_points - 1)
+        v_points: list[list[float]] = []
+        for i in range(n_points):
+            ti = i * dt
+            vi = v0 - g * ti
+            if op == "speed":
+                vi = abs(vi)
+            v_points.append([round(ti, 4), round(float(vi), 4)])
+        is_speed = op == "speed"
+        return PhysicsResult(
+            answer=answer_latex,
+            answer_value=answer_value,
+            graph_specs=[
+                GraphBlockSpec(
+                    type="trajectory",
+                    expr=(f"v(t) = |{v0:g} - {g:g}*t|" if is_speed else f"v(t) = {v0:g} - {g:g}*t"),
+                    variable="t",
+                    x_min=0.0,
+                    x_max=t_max,
+                    points=v_points,
+                    title="Speed vs. Time" if is_speed else "Velocity vs. Time",
+                    x_label="Time (s)",
+                    y_label="Speed (m/s)" if is_speed else "Velocity (m/s)",
+                    trajectory_type="velocity_vs_time",
+                )
+            ],
+        )
+
     # Build trajectory graph: height vs time, from t=0 to t=t_val (ground).
     # Skip it when neither a height nor a launch speed was given: h(t) would
     # be entirely below ground and clamp to a flat line at zero, which reads
-    # as "it never moved". The answer (v = g*t) is still exact.
+    # as "it never moved". The answer is still exact.
     if h0 <= 0 and v0 == 0:
         return PhysicsResult(answer=answer_latex, answer_value=answer_value)
 
-    n_points = 100
     t_max = t_val * 1.05  # small pad so the curve doesn't end exactly at ground
     dt = t_max / (n_points - 1)
     points: list[list[float]] = []

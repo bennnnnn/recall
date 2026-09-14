@@ -542,6 +542,8 @@
   "rich.graph_hide_series": "Funktion ausblenden",
   "rich.graph_invalid": "Dieser Ausdruck konnte nicht gezeichnet werden.",
   "rich.graph_plot_a11y": "Interaktives Diagramm. Zum Zoomen zwei Finger verwenden.",
+  "rich.graph_play": "Abspielen",
+  "rich.graph_play_a11y": "Flugbahn-Animation abspielen",
   "rich.graph_remove_series": "Funktion entfernen",
   "rich.graph_show_series": "Funktion einblenden",
   "rich.graph_solution_region": "Schattierter Lösungsbereich",
