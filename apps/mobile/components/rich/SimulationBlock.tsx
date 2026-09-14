@@ -14,19 +14,24 @@
  * or a slope, and force arrows that point somewhere in the world rather than
  * along an axis.
  *
- * Four scenes: a projectile, an orbit, a two-body collision, and a block on an
- * incline. Most arrows are derived from the body's own sampled path, so they
- * cannot disagree with the motion they annotate. Normal and friction are the
- * exception and come off the stated slope instead, because a block that has
- * not started moving has no tangent to read them from — and a stationary block
- * with its three forces drawn is exactly what an incline question wants.
+ * Seven scenes, in two families. Four have something moving — a projectile, an
+ * orbit, a two-body collision, a block sliding down a slope — and three are
+ * still figures: a see-saw, a free-body diagram, a sum of force vectors. The
+ * still ones are not a lesser case; a free-body diagram is exactly what a force
+ * question is asking to see, and a scene with nothing to play offers no Play.
+ *
+ * Most arrows are derived from the body's own sampled path, so they cannot
+ * disagree with the motion they annotate. Two kinds cannot be: normal and
+ * friction come off the stated slope, because a block that has not started
+ * moving has no tangent; and `vectors` are stated outright, because the
+ * direction of a resultant *is* the answer.
  *
  * As everywhere else in this pipeline, no physics is repeated on the device.
  */
 import { useCallback, useEffect, useMemo } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import Svg, { Circle, G, Line, Polyline } from "react-native-svg";
+import Svg, { Circle, G, Line, Polygon, Polyline, Text as SvgText } from "react-native-svg";
 import Animated, {
   cancelAnimation,
   useAnimatedProps,
@@ -46,6 +51,7 @@ import {
   worldToScreen,
   type SimulationArrow,
   type SimulationSpec,
+  type SimulationVector,
   type SimulationTransform,
   type ScreenPoint,
 } from "@/lib/math/simulation";
@@ -62,6 +68,8 @@ export const SIMULATION_HEIGHT = 240;
 const ARROW_LENGTH = 38;
 const ARROW_HEAD = 7;
 const MIN_BODY_RADIUS = 4;
+const PIVOT_SIZE = 7;
+const LABEL_OFFSET = 8;
 
 type Props = { content: string };
 
@@ -112,6 +120,20 @@ export function SimulationBlock({ content }: Props) {
   const groundY = worldToScreen(0, 0, transform).py;
   const surface = inclineSurface(spec, transform);
   const slope = spec.inclineDeg !== undefined ? inclineDirections(spec.inclineDeg) : null;
+  const beam = spec.beam
+    ? {
+        a: worldToScreen(spec.beam.x1, spec.beam.y1, transform),
+        b: worldToScreen(spec.beam.x2, spec.beam.y2, transform),
+      }
+    : null;
+  const pivot = spec.pivot ? worldToScreen(spec.pivot.x, spec.pivot.y, transform) : null;
+  const statedVectors = spec.vectors;
+  // A see-saw has nothing to play, and a button that does nothing when pressed
+  // is worse than no button. Checked from the paths rather than the scene type
+  // so a future still scene needs no second list to be added to.
+  const animated = spec.bodies.some((body) =>
+    body.path.some((point) => point[0] !== body.path[0][0] || point[1] !== body.path[0][1]),
+  );
 
   return (
     <View style={styles.wrap}>
@@ -153,6 +175,35 @@ export function SimulationBlock({ content }: Props) {
             strokeWidth={1.5}
           />
         )}
+        {beam && (
+          <Line
+            testID="simulation-beam"
+            x1={beam.a.px}
+            y1={beam.a.py}
+            x2={beam.b.px}
+            y2={beam.b.py}
+            stroke={theme.textSecondary}
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
+        )}
+        {pivot && (
+          // A wedge under the beam: the shape that says "this turns about
+          // here" without a word of explanation.
+          <Polygon
+            testID="simulation-pivot"
+            points={`${pivot.px},${pivot.py} ${pivot.px - PIVOT_SIZE},${pivot.py + PIVOT_SIZE * 1.4} ${pivot.px + PIVOT_SIZE},${pivot.py + PIVOT_SIZE * 1.4}`}
+            fill={theme.textSecondary}
+          />
+        )}
+        {statedVectors.map((vector, i) => (
+          <StatedVector
+            key={`vector-${i}`}
+            vector={vector}
+            transform={transform}
+            theme={theme}
+          />
+        ))}
         {centre && (
           <Circle
             testID="simulation-centre"
@@ -177,7 +228,7 @@ export function SimulationBlock({ content }: Props) {
           />
         ))}
       </Svg>
-      {!reduceMotion && (
+      {!reduceMotion && animated && (
         <Pressable
           testID="simulation-play"
           accessibilityRole="button"
@@ -419,6 +470,78 @@ function StaticBodyMarks({
         stroke={theme.bg}
         strokeWidth={1.5}
       />
+    </G>
+  );
+}
+
+/**
+ * One arrow the solver stated, with its label at the tip.
+ *
+ * Nothing here animates: these are the forces on a still figure, and a
+ * see-saw whose loads drifted would be describing a different problem.
+ *
+ * On a `vector_sum` the length carries meaning — the resultant must visibly
+ * out-reach its components or the picture contradicts its own answer — so the
+ * world length is used where the scene gives one. Everywhere else the
+ * magnitudes live in the labels and the arrows are drawn at one size, because
+ * a 59 N tension against a 49 N weight would differ by a fifth of an arrowhead.
+ */
+function StatedVector({
+  vector,
+  transform,
+  theme,
+}: {
+  vector: SimulationVector;
+  transform: SimulationTransform;
+  theme: Theme;
+}) {
+  const from = worldToScreen(vector.anchor.x, vector.anchor.y, transform);
+  const worldLength = Math.hypot(vector.dx, vector.dy);
+  // A unit-ish direction means "no length stated" — draw the standard arrow.
+  // A measure is the exception in the other direction: its length *is* the
+  // quantity, so it spans exactly what it says even when that is short.
+  const scaled = worldLength * transform.scale;
+  const length =
+    vector.role === "measure" || scaled > ARROW_LENGTH * 1.2 ? scaled : ARROW_LENGTH;
+  // World y is up, screen y is down.
+  const points = arrowPolyline(from, vector.dx, -vector.dy, length, ARROW_HEAD);
+  if (!points) return null;
+
+  const measure = vector.role === "measure";
+  const color = vector.role === "result" ? theme.primary : theme.textSecondary;
+  const tipX = from.px + (vector.dx / (worldLength || 1)) * length;
+  const tipY = from.py - (vector.dy / (worldLength || 1)) * length;
+
+  return (
+    // The label is on the group as well as drawn, so a screen reader announces
+    // "T = 59.05 N" rather than silence — an SVG <Text> is not a text node a
+    // reader (or a test) can reach.
+    <G
+      testID={`simulation-vector-${vector.role}`}
+      accessible={vector.label !== undefined}
+      accessibilityLabel={vector.label}
+    >
+      <Polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth={vector.role === "result" ? 2.5 : 1.5}
+        // Dashed so a height or a distance does not read as a third force
+        // acting on the block.
+        strokeDasharray={measure ? [3, 3] : undefined}
+      />
+      {vector.label && (
+        <SvgText
+          testID="simulation-vector-label"
+          x={tipX + (vector.dx >= 0 ? LABEL_OFFSET : -LABEL_OFFSET)}
+          y={tipY + (vector.dy > 0 ? -LABEL_OFFSET : LABEL_OFFSET * 1.6)}
+          fill={color}
+          fontSize={11}
+          textAnchor={vector.dx >= 0 ? "start" : "end"}
+        >
+          {vector.label}
+        </SvgText>
+      )}
     </G>
   );
 }

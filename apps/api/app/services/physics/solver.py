@@ -13,7 +13,13 @@ from dataclasses import dataclass, field
 
 from sympy import Eq, Symbol, solve
 
-from app.models.schemas.math import GraphBlockSpec, MathIntent, SimulationBlockSpec, SimulationBody
+from app.models.schemas.math import (
+    GraphBlockSpec,
+    MathIntent,
+    SimulationBlockSpec,
+    SimulationBody,
+    SimulationVector,
+)
 from app.services.math.solve import MathServiceError
 
 
@@ -597,6 +603,109 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
+def _free_body_scene(
+    vectors: list[SimulationVector],
+    *,
+    label: str | None = None,
+    ground: bool = False,
+    lift: float = 0.0,
+) -> list[SimulationBlockSpec]:
+    """A block with labelled forces on it, and nothing moving.
+
+    The picture a force question actually wants. Every arrow is drawn at the
+    length the renderer gives it rather than scaled by magnitude — a 59 N
+    tension against a 49 N weight would differ by a fifth of an arrowhead, so
+    the *labels* carry the sizes and the arrows carry the directions.
+    """
+    reach = 2.0
+    return [
+        SimulationBlockSpec(
+            type="free_body",
+            title="Free-Body Diagram",
+            bodies=[
+                SimulationBody(path=[[0.0, 0.0], [0.0, 0.0]], radius=reach * 0.16, label=label)
+            ],
+            vectors=vectors,
+            x_min=-reach,
+            x_max=reach,
+            y_min=-reach if not ground else -reach * 0.35,
+            y_max=reach,
+            ground=ground,
+        )
+    ]
+
+
+def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[SimulationBlockSpec]:
+    """Two masses on one rope over a pulley, the heavy one descending.
+
+    An Atwood machine is a picture by definition — the name is of an apparatus
+    — and "2.45 m/s^2 and 36.79 N" gives no hint that the two masses move in
+    opposite directions at the same rate, which is the whole idea.
+    """
+    reach = 3.0
+    drop = reach * 0.5
+    n_points = 50
+    # Uniform in time, so the pair visibly accelerates. The drop is a display
+    # choice; the acceleration profile is not.
+    duration = math.sqrt(2 * drop / accel) if accel > 0 else 1.0
+    dt = duration / (n_points - 1)
+    fall = [min(0.5 * accel * (i * dt) ** 2, drop) for i in range(n_points)]
+
+    heavy = [[-1.0, round(reach - s, 4)] for s in fall]
+    light = [[1.0, round(reach - drop + s, 4)] for s in fall]
+    return [
+        SimulationBlockSpec(
+            type="free_body",
+            title="Atwood Machine",
+            bodies=[
+                SimulationBody(path=heavy, radius=0.3 * (m1 ** (1 / 3)), role="primary"),
+                SimulationBody(path=light, radius=0.3 * (m2 ** (1 / 3)), role="secondary"),
+            ],
+            vectors=[
+                SimulationVector(
+                    anchor=[0.0, reach + 0.55],
+                    dx=0.0,
+                    dy=-1.0,
+                    label=f"T = {tension:.2f} N",
+                    role="result",
+                )
+            ],
+            x_min=-reach * 0.8,
+            x_max=reach * 0.8,
+            y_min=0.0,
+            y_max=reach + 1.2,
+            # The pulley itself: a beam across the top with the rope's turning
+            # point on it.
+            beam=[-1.0, reach + 0.5, 1.0, reach + 0.5],
+            pivot=[0.0, reach + 0.5],
+        )
+    ]
+
+
+def _vector_sum_scene(
+    parts: list[SimulationVector], result: SimulationVector
+) -> list[SimulationBlockSpec]:
+    """Components and their resultant, from one common tail.
+
+    Here the arrows *are* scaled to magnitude, because a resultant that did not
+    visibly out-reach its components would be the one picture that contradicts
+    its own answer. The scene box is sized to the longest of them.
+    """
+    vectors = [*parts, result]
+    reach = max(math.hypot(v.dx, v.dy) for v in vectors) * 1.3 or 1.0
+    return [
+        SimulationBlockSpec(
+            type="vector_sum",
+            title="Forces",
+            vectors=vectors,
+            x_min=-reach * 0.25,
+            x_max=reach,
+            y_min=-reach * 0.25,
+            y_max=reach,
+        )
+    ]
+
+
 def solve_force(intent: MathIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op
@@ -619,6 +728,27 @@ def solve_force(intent: MathIntent) -> PhysicsResult:
                 rf"\approx {t_val:.2f} \text{{ N}}"
             ),
             answer_value=f"{t_val:.2f} N",
+            # Two arrows and a mass is the whole of this problem, and seeing
+            # them is what makes T = m(g + a) rather than m*a obvious: the rope
+            # carries the weight *and* the acceleration.
+            simulation_specs=_free_body_scene(
+                [
+                    SimulationVector(
+                        anchor=[0.0, 0.0],
+                        dx=0.0,
+                        dy=1.0,
+                        label=f"T = {t_val:.2f} N",
+                        role="result",
+                    ),
+                    SimulationVector(
+                        anchor=[0.0, 0.0],
+                        dx=0.0,
+                        dy=-1.0,
+                        label=f"W = {m * g:.2f} N",
+                    ),
+                ],
+                label=f"{m:g} kg",
+            ),
         )
 
     if op == "resultant_force":
@@ -639,6 +769,24 @@ def solve_force(intent: MathIntent) -> PhysicsResult:
                 rf"\approx {theta:.2f}^\circ"
             ),
             answer_value=f"{r_val:.2f} N at {theta:.2f}°",
+            simulation_specs=_vector_sum_scene(
+                [
+                    SimulationVector(anchor=[0.0, 0.0], dx=f1, dy=0.0, label=f"{f1:g} N"),
+                    SimulationVector(
+                        anchor=[0.0, 0.0],
+                        dx=f2 * math.cos(phi),
+                        dy=f2 * math.sin(phi),
+                        label=f"{f2:g} N",
+                    ),
+                ],
+                SimulationVector(
+                    anchor=[0.0, 0.0],
+                    dx=r_val * math.cos(math.radians(theta)),
+                    dy=r_val * math.sin(math.radians(theta)),
+                    label=f"{r_val:.2f} N",
+                    role="result",
+                ),
+            ),
         )
 
     if op == "resolve_force":
@@ -654,6 +802,13 @@ def solve_force(intent: MathIntent) -> PhysicsResult:
                 rf"\approx {fy:.2f} \text{{ N}}"
             ),
             answer_value=f"{fx:.2f} N horizontally and {fy:.2f} N vertically",
+            simulation_specs=_vector_sum_scene(
+                [
+                    SimulationVector(anchor=[0.0, 0.0], dx=fx, dy=0.0, label=f"{fx:.2f} N"),
+                    SimulationVector(anchor=[fx, 0.0], dx=0.0, dy=fy, label=f"{fy:.2f} N"),
+                ],
+                SimulationVector(anchor=[0.0, 0.0], dx=fx, dy=fy, label=f"{f:g} N", role="result"),
+            ),
         )
 
     if op == "atwood":
@@ -673,6 +828,7 @@ def solve_force(intent: MathIntent) -> PhysicsResult:
                 rf"\approx {t_val:.2f} \text{{ N}}"
             ),
             answer_value=f"{a_val:.2f} m/s^2 and {t_val:.2f} N",
+            simulation_specs=_atwood_scene(m1, m2, a_val, t_val),
         )
 
     if "F" in p and "m" in p and "a" not in p:
@@ -698,7 +854,22 @@ def solve_force(intent: MathIntent) -> PhysicsResult:
         answer_value = f"{f_val:.2f} N"
     else:
         raise MathServiceError("force solve needs exactly two of F, m, a")
-    return PhysicsResult(answer=answer_latex, answer_value=answer_value)
+
+    # F = ma is a push and the motion it produces, drawn the same way round.
+    # Both point right by convention — the question states no direction, and
+    # inventing opposing ones would say the block is being decelerated.
+    force = p.get("F", p.get("m", 0.0) * p.get("a", 0.0))
+    accel = p.get("a", p.get("F", 0.0) / p["m"] if p.get("m") else 0.0)
+    scene = _free_body_scene(
+        [
+            SimulationVector(
+                anchor=[0.0, 0.0], dx=1.0, dy=0.0, label=f"F = {force:.2f} N", role="result"
+            ),
+            SimulationVector(anchor=[0.0, -0.9], dx=1.0, dy=0.0, label=f"a = {accel:.2f} m/s²"),
+        ],
+        label=f"{p['m']:g} kg" if "m" in p else None,
+    )
+    return PhysicsResult(answer=answer_latex, answer_value=answer_value, simulation_specs=scene)
 
 
 # ---------------------------------------------------------------------------
@@ -753,7 +924,50 @@ def solve_energy(intent: MathIntent) -> PhysicsResult:
         answer_value = f"{power_val:.2f} W"
     else:
         raise MathServiceError(f"unsupported energy op: {op}")
-    return PhysicsResult(answer=answer_latex, answer_value=answer_value)
+
+    # Only where there is something spatial to show. A block with a "3 m/s"
+    # arrow beside it tells you nothing the sentence did not — the height in
+    # mgh and the distance in Fd are quantities you can point at, and a speed
+    # is not, so kinetic energy and power get no picture rather than a
+    # decorative one.
+    scene: list[SimulationBlockSpec] = []
+    if op == "potential_energy":
+        height = p["h"]
+        scene = _free_body_scene(
+            [
+                SimulationVector(
+                    anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label=f"W = {p['m'] * g:.2f} N"
+                ),
+                SimulationVector(
+                    anchor=[-0.9, -height],
+                    dx=0.0,
+                    dy=height,
+                    label=f"h = {height:g} m",
+                    role="measure",
+                ),
+            ],
+            label=f"{p['m']:g} kg",
+            ground=True,
+            lift=height,
+        )
+    elif op == "work":
+        distance = p["d"]
+        scene = _free_body_scene(
+            [
+                SimulationVector(
+                    anchor=[0.0, 0.0], dx=1.0, dy=0.0, label=f"F = {p['F']:g} N", role="result"
+                ),
+                SimulationVector(
+                    anchor=[0.0, -0.8],
+                    dx=distance,
+                    dy=0.0,
+                    label=f"d = {distance:g} m",
+                    role="measure",
+                ),
+            ],
+            ground=True,
+        )
+    return PhysicsResult(answer=answer_latex, answer_value=answer_value, simulation_specs=scene)
 
 
 # ---------------------------------------------------------------------------
@@ -1304,6 +1518,47 @@ def solve_circuit(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
+def _lever_scene(loads: list[tuple[float, float, str, bool]]) -> list[SimulationBlockSpec]:
+    """A beam on a wedge with a labelled force hanging at each arm.
+
+    The see-saw is how this topic is taught and the one picture that makes
+    "written order is not ownership" — the pairing bug P9 found — obvious at a
+    glance: the arm each force actually has is drawn where it is, so a diagram
+    reading 2 m under the wrong force would be visible rather than silent.
+
+    Each load is (signed distance from the pivot, magnitude, label, is_answer).
+    A negative distance is the left arm.
+    """
+    if not loads:
+        return []
+    reach = max(abs(d) for d, *_ in loads) * 1.25 or 1.0
+    # Arrows hang below the beam, so the box needs room under it as well as a
+    # little air above.
+    depth = reach * 0.55
+    return [
+        SimulationBlockSpec(
+            type="lever",
+            title="Moments",
+            beam=[-reach, 0.0, reach, 0.0],
+            pivot=[0.0, 0.0],
+            vectors=[
+                SimulationVector(
+                    anchor=[distance, 0.0],
+                    dx=0.0,
+                    dy=-1.0,
+                    label=label,
+                    role="result" if is_answer else "force",
+                )
+                for distance, _magnitude, label, is_answer in loads
+            ],
+            x_min=-reach * 1.15,
+            x_max=reach * 1.15,
+            y_min=-depth,
+            y_max=depth,
+        )
+    ]
+
+
 def solve_torque(intent: MathIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "torque"
@@ -1319,6 +1574,14 @@ def solve_torque(intent: MathIntent) -> PhysicsResult:
                 rf"\frac{{{f1:g} \cdot {d1:g}}}{{{f2:g}}} \approx {d2:.2f} \text{{ m}}"
             ),
             answer_value=f"{d2:.2f} m",
+            # The known load on the left, the one whose arm was the question on
+            # the right, so the answer is the arm you can see.
+            simulation_specs=_lever_scene(
+                [
+                    (-d1, f1, f"{f1:g} N at {d1:g} m", False),
+                    (d2, f2, f"{f2:g} N at {d2:.2f} m", True),
+                ]
+            ),
         )
 
     if op == "torque":
@@ -1330,6 +1593,8 @@ def solve_torque(intent: MathIntent) -> PhysicsResult:
                 rf"\tau = F d = {f:g} \cdot {d:g} "
                 rf"\approx {tau:.2f} \text{{ N}}\cdot\text{{m}}"
             )
+            # Square on: straight down, which is what F d assumes.
+            direction = (0.0, -1.0)
         else:
             tau = f * d * math.sin(theta)
             deg = math.degrees(theta)
@@ -1337,7 +1602,13 @@ def solve_torque(intent: MathIntent) -> PhysicsResult:
                 rf"\tau = F d \sin\theta = {f:g} \cdot {d:g} \cdot \sin({deg:g}^\circ) "
                 rf"\approx {tau:.2f} \text{{ N}}\cdot\text{{m}}"
             )
-        return PhysicsResult(answer=answer, answer_value=f"{tau:.2f} N*m")
+            # Drawn at the angle it was given, so the sin theta in the formula
+            # is the thing on screen rather than a factor to take on trust.
+            direction = (math.cos(theta), -math.sin(theta))
+        scene = _lever_scene([(d, f, f"{f:g} N at {d:g} m", True)])
+        if scene:
+            scene[0].vectors[0].dx, scene[0].vectors[0].dy = direction
+        return PhysicsResult(answer=answer, answer_value=f"{tau:.2f} N*m", simulation_specs=scene)
 
     raise MathServiceError(f"unsupported torque op: {op}")
 

@@ -23,7 +23,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.math import SimulationBlockSpec, SimulationBody
+from app.models.schemas.math import SimulationBlockSpec, SimulationBody, SimulationVector
 from app.services.math.fence import _spec_fence_kind, validate_math_fences
 from app.services.math.tools import _build_verified_block, extract_math_intent
 from app.services.physics.solver import solve_physics
@@ -539,3 +539,246 @@ def test_the_fence_layer_knows_every_scene_kind() -> None:
     assert SIMULATION_SPEC_TYPES == set(typing.get_args(SimulationType))
     for kind in SIMULATION_SPEC_TYPES:
         assert _spec_fence_kind({"type": kind}) == "simulation"
+
+
+# --- third slice: the still figures -----------------------------------------
+#
+# Four scene types have something moving; these three do not, and that is the
+# point. A see-saw, a free-body diagram and a sum of force vectors are pictures
+# of *forces*, which is what the four remaining number-only kinds were short
+# of. Their arrows cannot be derived from a path — the direction of a resultant
+# is the answer, not a consequence of it — so the solver states them, with the
+# magnitude it already computed in the label.
+
+TORQUE_Q = "torque of a 5 N force at 2 m from the pivot"
+BALANCE_Q = "a 5 N force is 2 m from the pivot, how far must a 10 N force be to balance it"
+FMA_Q = "a 5 kg mass accelerates at 2 m/s^2, what is the net force"
+TENSION_Q = "what is the tension in a rope lifting a 5 kg mass at 2 m/s^2"
+ATWOOD_Q = "an atwood machine with masses 3 kg and 5 kg, what is the acceleration"
+RESULTANT_Q = "a 3 N force east and a 4 N force north, what is the resultant"
+RESOLVE_Q = "resolve a 10 N force at 30 degrees into components"
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        (TORQUE_Q, "lever"),
+        (BALANCE_Q, "lever"),
+        (FMA_Q, "free_body"),
+        (TENSION_Q, "free_body"),
+        (ATWOOD_Q, "free_body"),
+        (RESULTANT_Q, "vector_sum"),
+        (RESOLVE_Q, "vector_sum"),
+    ],
+)
+def test_the_last_two_number_only_kinds_now_draw(text: str, expected: str) -> None:
+    """`torque` and `force` were two of the four kinds with no picture at all."""
+    assert _scene(text).type == expected
+
+
+def test_a_see_saw_shows_both_arms_where_they_actually_are() -> None:
+    """The picture that makes P9's pairing bug impossible to miss.
+
+    "the distance for a 10 N force to balance a 5 N force at 2 m" was once
+    answered 4 m because the 2 m was read onto the force written first. Drawing
+    each load at the arm it actually has puts that mistake on screen instead of
+    leaving it in a number.
+    """
+    scene = _scene(BALANCE_Q)
+    known, answer = scene.vectors
+
+    assert known.anchor[0] == pytest.approx(-2.0)
+    assert answer.anchor[0] == pytest.approx(1.0)
+    assert answer.role == "result"
+    assert "10 N" in (answer.label or "") and "1.00 m" in (answer.label or "")
+
+
+def test_the_two_moments_the_see_saw_draws_actually_balance() -> None:
+    """F d on one side equals F d on the other, read off the drawn arms."""
+    scene = _scene(BALANCE_Q)
+    left, right = scene.vectors
+
+    assert 5.0 * abs(left.anchor[0]) == pytest.approx(10.0 * abs(right.anchor[0]), rel=1e-3)
+
+
+def test_a_lever_has_its_beam_and_its_pivot() -> None:
+    scene = _scene(TORQUE_Q)
+
+    assert scene.beam is not None
+    assert scene.pivot == [0.0, 0.0]
+    # Both arms are inside the drawn beam, or a load would hang off the end.
+    assert scene.beam is not None
+    for vector in scene.vectors:
+        assert scene.beam[0] <= vector.anchor[0] <= scene.beam[2]
+
+
+def test_an_angled_torque_is_drawn_at_the_angle_it_was_given() -> None:
+    """tau = F d sin(theta) — the sin is the thing on screen rather than a
+    factor to take on trust, so the arrow leans by exactly that angle."""
+    import math
+
+    square_on = _scene(TORQUE_Q).vectors[0]
+    angled = _scene("torque of a 5 N force applied 2 m from the pivot at 30 degrees").vectors[0]
+
+    assert (square_on.dx, square_on.dy) == (0.0, -1.0)
+    assert angled.dx == pytest.approx(math.cos(math.radians(30)))
+    assert angled.dy == pytest.approx(-math.sin(math.radians(30)))
+
+
+def test_tension_is_drawn_against_the_weight_it_carries() -> None:
+    """Two arrows and a mass is the whole of this problem, and seeing them is
+    what makes T = m(g + a) rather than m*a obvious."""
+    scene = _scene(TENSION_Q)
+    rope, weight = scene.vectors
+
+    assert rope.dy > 0 and weight.dy < 0
+    assert rope.role == "result"
+    assert "59.05 N" in (rope.label or "")
+    assert "49.05 N" in (weight.label or "")
+
+
+def test_the_labels_carry_the_numbers_the_answer_carries() -> None:
+    """Otherwise the picture and the pill could drift apart."""
+    answer = _verified_answer(TENSION_Q)
+    labels = " ".join(v.label or "" for v in _scene(TENSION_Q).vectors)
+
+    assert answer is not None
+    assert answer.split()[0] in labels
+
+
+def test_an_atwood_pair_moves_in_opposite_directions_at_one_rate() -> None:
+    """The whole idea of the apparatus, and the thing "2.45 m/s^2 and 36.79 N"
+    gives no hint of."""
+    scene = _scene(ATWOOD_Q)
+    heavy, light = scene.bodies
+
+    assert heavy.path[-1][1] < heavy.path[0][1]  # descends
+    assert light.path[-1][1] > light.path[0][1]  # rises
+    assert abs(heavy.path[-1][1] - heavy.path[0][1]) == pytest.approx(
+        abs(light.path[-1][1] - light.path[0][1]), rel=1e-6
+    )
+
+
+def test_a_resultant_out_reaches_the_components_it_came_from() -> None:
+    """Here the arrow *lengths* carry meaning, unlike every other scene.
+
+    A resultant drawn no longer than its parts would be the one picture that
+    contradicts its own answer.
+    """
+    import math
+
+    scene = _scene(RESULTANT_Q)
+    result = next(v for v in scene.vectors if v.role == "result")
+    parts = [v for v in scene.vectors if v.role == "force"]
+
+    length = math.hypot(result.dx, result.dy)
+    assert length == pytest.approx(5.0, rel=1e-6)
+    for part in parts:
+        assert length > math.hypot(part.dx, part.dy)
+
+
+def test_the_resolved_components_form_a_right_triangle_with_their_force() -> None:
+    """Tip of the horizontal component is where the vertical one starts, so the
+    three arrows close — which is what resolving *means*."""
+    scene = _scene(RESOLVE_Q)
+    horizontal, vertical, original = scene.vectors
+
+    assert vertical.anchor[0] == pytest.approx(horizontal.dx)
+    assert vertical.anchor[1] == pytest.approx(0.0)
+    assert original.dx == pytest.approx(horizontal.dx)
+    assert original.dy == pytest.approx(vertical.dy)
+
+
+def test_a_still_figure_needs_no_bodies() -> None:
+    """A see-saw's picture is its beam and its loads; there is nothing to walk
+    a clock through."""
+    assert _scene(BALANCE_Q).bodies == []
+
+
+def test_a_scene_with_neither_bodies_nor_vectors_is_refused() -> None:
+    with pytest.raises(ValidationError):
+        SimulationBlockSpec(type="lever")
+
+
+def test_a_vector_needs_a_direction() -> None:
+    """Zero length is not an arrow pointing nowhere, it is a missing answer."""
+    with pytest.raises(ValidationError):
+        SimulationVector(anchor=[0.0, 0.0], dx=0.0, dy=0.0)
+
+
+def test_a_pivot_requires_a_beam() -> None:
+    """On its own it is a dot in space."""
+    with pytest.raises(ValidationError):
+        SimulationBlockSpec(
+            type="lever",
+            vectors=[SimulationVector(anchor=[0.0, 0.0], dx=0.0, dy=-1.0)],
+            pivot=[0.0, 0.0],
+        )
+
+
+def test_a_picture_does_not_grant_a_direct_reply() -> None:
+    """Force and energy answers are unlabeled quantities, deliberately kept on
+    the model path so the prompt can name the symbol.
+
+    Attaching a scene routes through the diagram branch of the block builder,
+    which is how that permission nearly flipped silently.
+    """
+    intent = extract_math_intent(FMA_Q)
+    assert intent is not None
+    block = _build_verified_block(intent, _settings())
+
+    assert block is not None
+    assert block.allow_direct is False
+    # The answer fence still leads, so the pill and the direct guard both work.
+    assert block.canonical_fence is not None
+    assert block.canonical_fence.get("type") == "answer"
+
+
+# --- energy: only where there is something spatial --------------------------
+
+
+def test_potential_energy_shows_the_height_it_multiplies() -> None:
+    """The h in mgh is a quantity you can point at, so the picture points at it."""
+    scene = _scene("what is the potential energy of a 2 kg object at a height of 5 m")
+    weight, height = scene.vectors
+
+    assert scene.ground is True
+    assert weight.dy < 0 and "19.62 N" in (weight.label or "")
+    assert height.role == "measure"
+    assert height.dy == pytest.approx(5.0)
+    assert "5 m" in (height.label or "")
+
+
+def test_work_shows_the_distance_the_force_acted_over() -> None:
+    scene = _scene("find the work done by a force of 10 N over a distance of 3 m")
+    force, distance = scene.vectors
+
+    assert force.dx > 0 and force.role == "result"
+    assert distance.role == "measure"
+    assert distance.dx == pytest.approx(3.0)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "what is the kinetic energy of a 2 kg object moving at 3 m/s",
+        "what is the power of a force of 10 N moving at 3 m/s",
+    ],
+)
+def test_energy_without_a_spatial_quantity_draws_nothing(text: str) -> None:
+    """A block with a "3 m/s" arrow beside it tells you nothing the sentence
+    did not. A speed is not a thing you can point at, so these get no picture
+    rather than a decorative one."""
+    intent = extract_math_intent(text)
+    assert intent is not None
+
+    assert solve_physics(intent).simulation_specs == []
+
+
+def test_a_measure_is_not_drawn_as_a_force() -> None:
+    """Its own role, so the client can draw it as a dimension line — a height
+    that looked like a third force acting on the block would be a wrong
+    free-body diagram, not just an ugly one."""
+    scene = _scene("what is the potential energy of a 2 kg object at a height of 5 m")
+
+    assert [v.role for v in scene.vectors] == ["force", "measure"]

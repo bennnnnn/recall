@@ -426,3 +426,101 @@ describe("inclineSurface", () => {
     expect(inclineSurface(spec, t)).toBeNull();
   });
 });
+
+// --- the still figures ------------------------------------------------------
+//
+// Four scene types have something moving; three do not. A see-saw, a free-body
+// diagram and a sum of force vectors are pictures of forces, not of motion, and
+// their arrows are *stated* by the solver rather than read off a path — because
+// the direction of a resultant is the answer, not a consequence of it.
+
+const LEVER = {
+  type: "lever",
+  title: "Moments",
+  bodies: [],
+  beam: [-2.5, 0, 2.5, 0],
+  pivot: [0, 0],
+  vectors: [
+    { anchor: [-2, 0], dx: 0, dy: -1, label: "5 N at 2 m", role: "force" },
+    { anchor: [1, 0], dx: 0, dy: -1, label: "10 N at 1.00 m", role: "result" },
+  ],
+  x_min: -2.9,
+  x_max: 2.9,
+  y_min: -1.4,
+  y_max: 1.4,
+  arrows: [],
+};
+
+const VECTOR_SUM = {
+  type: "vector_sum",
+  bodies: [],
+  vectors: [
+    { anchor: [0, 0], dx: 3, dy: 0, label: "3 N", role: "force" },
+    { anchor: [0, 0], dx: 0, dy: 4, label: "4 N", role: "force" },
+    { anchor: [0, 0], dx: 3, dy: 4, label: "5.00 N", role: "result" },
+  ],
+  x_min: -1.6,
+  x_max: 6.5,
+  y_min: -1.6,
+  y_max: 6.5,
+  arrows: [],
+};
+
+describe("still figures", () => {
+  it("reads a lever with its beam, pivot and loads", () => {
+    const spec = parse(LEVER);
+
+    expect(spec!.type).toBe("lever");
+    expect(spec!.bodies).toHaveLength(0);
+    expect(spec!.beam).toEqual({ x1: -2.5, y1: 0, x2: 2.5, y2: 0 });
+    expect(spec!.pivot).toEqual({ x: 0, y: 0 });
+    expect(spec!.vectors.map((v) => v.label)).toEqual(["5 N at 2 m", "10 N at 1.00 m"]);
+  });
+
+  it("marks the arm that was the question", () => {
+    // The see-saw makes P9's pairing bug visible: the arm each force actually
+    // has is drawn where it is, so a diagram reading 2 m under the wrong force
+    // would be obvious rather than silent.
+    const spec = parse(LEVER)!;
+    const answer = spec.vectors.filter((v) => v.role === "result");
+
+    expect(answer).toHaveLength(1);
+    expect(answer[0].anchor.x).toBeGreaterThan(0);
+  });
+
+  it("reads a vector sum", () => {
+    const spec = parse(VECTOR_SUM);
+
+    expect(spec!.vectors).toHaveLength(3);
+    expect(spec!.vectors.filter((v) => v.role === "result")).toHaveLength(1);
+  });
+
+  it("accepts a scene with vectors and no bodies", () => {
+    // A still figure has nothing to walk a clock through, so requiring a body
+    // would make the whole family unexpressible.
+    expect(parse({ ...LEVER, bodies: undefined })).not.toBeNull();
+  });
+
+  it("refuses a scene with neither bodies nor vectors", () => {
+    expect(parse({ ...LEVER, bodies: [], vectors: [] })).toBeNull();
+  });
+
+  it("refuses a vector with no direction", () => {
+    // Zero length is not an arrow pointing nowhere, it is a missing answer.
+    expect(parse({ ...LEVER, vectors: [{ anchor: [0, 0], dx: 0, dy: 0 }] })).toBeNull();
+  });
+
+  it("refuses a vector whose anchor is not a finite pair", () => {
+    expect(parse({ ...LEVER, vectors: [{ anchor: [0], dx: 1, dy: 0 }] })).toBeNull();
+    expect(parse({ ...LEVER, vectors: [{ anchor: [0, null], dx: 1, dy: 0 }] })).toBeNull();
+  });
+
+  it("ignores a pivot with no beam to sit under", () => {
+    // On its own it is a dot in space; the beam is what makes it read as a
+    // fulcrum.
+    const spec = parse({ ...LEVER, beam: undefined });
+
+    expect(spec!.beam).toBeUndefined();
+    expect(spec!.pivot).toBeUndefined();
+  });
+});

@@ -218,3 +218,87 @@ describe("SimulationBlock: collisions and inclines", () => {
     expect(queryByTestId("simulation-arrow-gravity")).toBeTruthy();
   });
 });
+
+const LEVER = JSON.stringify({
+  type: "lever",
+  title: "Moments",
+  bodies: [],
+  beam: [-2.5, 0, 2.5, 0],
+  pivot: [0, 0],
+  vectors: [
+    { anchor: [-2, 0], dx: 0, dy: -1, label: "5 N at 2 m", role: "force" },
+    { anchor: [1, 0], dx: 0, dy: -1, label: "10 N at 1.00 m", role: "result" },
+  ],
+  x_min: -2.9,
+  x_max: 2.9,
+  y_min: -1.4,
+  y_max: 1.4,
+  arrows: [],
+});
+
+const FREE_BODY = JSON.stringify({
+  type: "free_body",
+  title: "Free-Body Diagram",
+  bodies: [{ radius: 0.32, role: "primary", label: "5 kg", path: [[0, 0], [0, 0]] }],
+  vectors: [
+    { anchor: [0, 0], dx: 0, dy: 1, label: "T = 59.05 N", role: "result" },
+    { anchor: [0, 0], dx: 0, dy: -1, label: "W = 49.05 N", role: "force" },
+  ],
+  x_min: -2,
+  x_max: 2,
+  y_min: -2,
+  y_max: 2,
+  arrows: [],
+});
+
+describe("SimulationBlock: still figures", () => {
+  it("draws a see-saw as beam, pivot and two labelled loads", async () => {
+    const { getByTestId, getAllByTestId } = await render(<SimulationBlock content={LEVER} />);
+
+    expect(getByTestId("simulation-beam")).toBeTruthy();
+    expect(getByTestId("simulation-pivot")).toBeTruthy();
+    expect(getAllByTestId("simulation-vector-label").length).toBe(2);
+    // The arm that was the question is the one drawn in the answer's colour.
+    expect(getAllByTestId("simulation-vector-result").length).toBe(1);
+    expect(getAllByTestId("simulation-vector-force").length).toBe(1);
+  });
+
+  it("offers no Play on a scene with nothing to play", async () => {
+    // A button that does nothing when pressed is worse than no button.
+    const { queryByTestId } = await render(<SimulationBlock content={LEVER} />);
+
+    expect(queryByTestId("simulation-play")).toBeNull();
+  });
+
+  it("shows each stated force with the magnitude the solver computed", async () => {
+    // The labels carry the numbers, so the picture cannot disagree with the
+    // answer pill above it.
+    //
+    // Read off the accessibility label rather than with getByText: an SVG
+    // <Text> renders as a native RNSVGText whose content is not a text node a
+    // test — or a screen reader — can reach, which is why the component puts
+    // the label on the group too.
+    const { getByLabelText } = await render(<SimulationBlock content={FREE_BODY} />);
+
+    expect(getByLabelText("T = 59.05 N")).toBeTruthy();
+    expect(getByLabelText("W = 49.05 N")).toBeTruthy();
+  });
+
+  it("draws the block a free-body diagram is about", async () => {
+    const { getByTestId, queryByTestId } = await render(<SimulationBlock content={FREE_BODY} />);
+
+    expect(getByTestId("simulation-body")).toBeTruthy();
+    // Still figure: no beam, and nothing to play.
+    expect(queryByTestId("simulation-beam")).toBeNull();
+    expect(queryByTestId("simulation-play")).toBeNull();
+  });
+
+  it("keeps its figure under Reduce Motion", async () => {
+    // Nothing was moving, so there is nothing to take away.
+    mockUseReduceMotion.mockReturnValue(true);
+    const { getByTestId, getAllByTestId } = await render(<SimulationBlock content={LEVER} />);
+
+    expect(getByTestId("simulation-beam")).toBeTruthy();
+    expect(getAllByTestId("simulation-vector-label").length).toBe(2);
+  });
+});

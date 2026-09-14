@@ -19,7 +19,37 @@ export type SimulationArrow =
   | "normal"
   | "friction";
 
-export type SimulationKind = "projectile_motion" | "orbit" | "collision" | "incline";
+export type SimulationKind =
+  | "projectile_motion"
+  | "orbit"
+  | "collision"
+  | "incline"
+  | "lever"
+  | "free_body"
+  | "vector_sum";
+
+/**
+ * An arrow the renderer cannot derive, so the solver states it.
+ *
+ * Every other arrow comes off the scene — velocity from the tangent,
+ * centripetal from the centre, normal and friction from the slope — precisely
+ * so it cannot disagree with what is drawn around it. These cannot be: the two
+ * loads on a see-saw, the resultant of a 3 N and a 4 N force. The label
+ * carries the magnitude the solver already computed, so the picture and the
+ * answer pill cannot disagree either.
+ */
+export type SimulationVector = {
+  anchor: { x: number; y: number };
+  dx: number;
+  dy: number;
+  label?: string;
+  /**
+   * Visual weight only. `result` is the quantity the question asked for;
+   * `measure` is an extent rather than a force — the h in mgh, the d in Fd —
+   * drawn as a dimension line so it does not read as another arrow pushing.
+   */
+  role: "force" | "result" | "measure";
+};
 
 export type SimulationBody = {
   label?: string;
@@ -42,6 +72,10 @@ export type SimulationSpec = {
   ground: boolean;
   /** Slope in degrees, descending left to right. Fixes normal and friction. */
   inclineDeg?: number;
+  vectors: SimulationVector[];
+  /** A rigid beam as its two ends, in world coords. */
+  beam?: { x1: number; y1: number; x2: number; y2: number };
+  pivot?: { x: number; y: number };
 };
 
 const MAX_BODIES = 4;
@@ -58,7 +92,30 @@ const SCENE_KINDS: readonly SimulationKind[] = [
   "orbit",
   "collision",
   "incline",
+  "lever",
+  "free_body",
+  "vector_sum",
 ];
+const MAX_VECTORS = 6;
+
+function parseVector(raw: unknown): SimulationVector | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const dx = finite(row.dx);
+  const dy = finite(row.dy);
+  if (dx === null || dy === null || (dx === 0 && dy === 0)) return null;
+  if (!Array.isArray(row.anchor) || row.anchor.length !== 2) return null;
+  const x = finite(row.anchor[0]);
+  const y = finite(row.anchor[1]);
+  if (x === null || y === null) return null;
+  return {
+    anchor: { x, y },
+    dx,
+    dy,
+    label: typeof row.label === "string" && row.label ? row.label.slice(0, 24) : undefined,
+    role: row.role === "result" || row.role === "measure" ? row.role : "force",
+  };
+}
 
 /**
  * Strictly a JSON number — no coercion.
@@ -120,7 +177,7 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
   if (!SCENE_KINDS.includes(row.type as SimulationKind)) return null;
 
   const rawBodies = Array.isArray(row.bodies) ? row.bodies : [];
-  if (rawBodies.length === 0 || rawBodies.length > MAX_BODIES) return null;
+  if (rawBodies.length > MAX_BODIES) return null;
   const bodies: SimulationBody[] = [];
   for (const entry of rawBodies) {
     const body = parseBody(entry);
@@ -148,6 +205,31 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
     const cy = finite(row.centre[1]);
     if (cx !== null && cy !== null) centre = { x: cx, y: cy };
   }
+  const rawVectors = Array.isArray(row.vectors) ? row.vectors : [];
+  if (rawVectors.length > MAX_VECTORS) return null;
+  const vectors: SimulationVector[] = [];
+  for (const entry of rawVectors) {
+    const vector = parseVector(entry);
+    if (!vector) return null;
+    vectors.push(vector);
+  }
+  // A scene with neither is an empty box; one or the other makes it a picture.
+  if (bodies.length === 0 && vectors.length === 0) return null;
+
+  let beam: SimulationSpec["beam"];
+  if (Array.isArray(row.beam) && row.beam.length === 4) {
+    const ends = row.beam.map(finite);
+    if (ends.every((v) => v !== null)) {
+      beam = { x1: ends[0]!, y1: ends[1]!, x2: ends[2]!, y2: ends[3]! };
+    }
+  }
+  let pivot: { x: number; y: number } | undefined;
+  if (beam && Array.isArray(row.pivot) && row.pivot.length === 2) {
+    const px = finite(row.pivot[0]);
+    const py = finite(row.pivot[1]);
+    if (px !== null && py !== null) pivot = { x: px, y: py };
+  }
+
   const inclineDeg = finite(row.incline_deg);
 
   // Each of these is read off something the scene may not have: "toward the
@@ -173,6 +255,9 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
     centre,
     ground: row.ground === true,
     inclineDeg: inclineDeg ?? undefined,
+    vectors,
+    beam,
+    pivot,
   };
 }
 

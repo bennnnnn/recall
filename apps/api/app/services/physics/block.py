@@ -52,15 +52,29 @@ def _build_physics_block(
 
     # A solve may produce both a plot and a scene — a projectile's parabola and
     # the ball flying along it. `canonical_fences` is what carries more than one
-    # fence through `validate_math_fences`, so both are put there and the graph
-    # stays primary for the callers that read `canonical_fence` alone.
-    specs = [*result.graph_specs, *result.simulation_specs]
-    if len(specs) > 1:
+    # fence through `validate_math_fences`, so every spec goes there and the
+    # primary stays first for the callers that read `canonical_fence` alone.
+    specs = [spec.model_dump() for spec in (*result.graph_specs, *result.simulation_specs)]
+    if not specs:
+        return _finish_with_answer(lines, result.answer_value, allow_direct=False)
+
+    if result.graph_specs:
+        # A graph *is* the answer in visual form, so it leads and the turn may
+        # take the direct path exactly as it always could.
         block = _diagram_block(lines, specs[0], result.answer_value)
-        return replace(block, canonical_fences=[spec.model_dump() for spec in specs])
-    if specs:
-        return _diagram_block(lines, specs[0], result.answer_value)
-    return _finish_with_answer(lines, result.answer_value, allow_direct=False)
+    else:
+        # A scene attached to a scalar answer is decoration, not a second
+        # answer. Force and energy are unlabeled quantities deliberately kept
+        # on the model path so the prompt can name the symbol; giving them a
+        # picture must not silently grant the direct reply they were denied.
+        block = _finish_with_answer(lines, result.answer_value, allow_direct=False)
+
+    # Extras only. Every reader of `canonical_fences` already prepends
+    # `canonical_fence`, so repeating it here would mean a caller that clears
+    # the primary still finds a copy — and for a scalar answer the primary
+    # *is* the authorisation for a direct reply.
+    extras = [spec for spec in specs if spec is not block.canonical_fence]
+    return replace(block, canonical_fences=extras)
 
 
 PHYSICS_BLOCK_BUILDERS = {

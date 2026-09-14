@@ -52,7 +52,51 @@ class SimulationBody(BaseModel):
         return self
 
 
-SimulationType = Literal["projectile_motion", "orbit", "collision", "incline"]
+class SimulationVector(BaseModel):
+    """An arrow whose direction the renderer cannot read off a path.
+
+    Every other arrow in this spec is *derived* — velocity from the tangent,
+    centripetal from the centre, normal and friction from the slope — precisely
+    so it cannot disagree with the scene around it. These cannot be: the two
+    loads on a see-saw, the 10 N pushing a block, the resultant of a 3 N and a
+    4 N force. Their direction is the answer, so the solver states it, and the
+    renderer draws exactly what it is given.
+
+    The label carries the magnitude the solver already computed, so the picture
+    and the pill cannot disagree either.
+    """
+
+    anchor: list[float]
+    dx: float
+    dy: float
+    label: str | None = Field(default=None, max_length=24)
+    # Visual weight only. `result` is the quantity the question asked for;
+    # `measure` is an extent rather than a force — the h in mgh, the d in Fd —
+    # drawn as a dimension line so it does not read as another arrow pushing.
+    role: Literal["force", "result", "measure"] = "force"
+
+    @model_validator(mode="after")
+    def finite_and_directed(self) -> SimulationVector:
+        if len(self.anchor) != 2 or not all(math.isfinite(v) for v in self.anchor):
+            raise ValueError("anchor must be a finite [x, y] pair")
+        if not math.isfinite(self.dx) or not math.isfinite(self.dy):
+            raise ValueError("vector direction must be finite")
+        if self.dx == 0 and self.dy == 0:
+            raise ValueError("a vector needs a direction")
+        return self
+
+
+SimulationType = Literal[
+    "projectile_motion",
+    "orbit",
+    "collision",
+    "incline",
+    # Static figures. Nothing moves in these, and that is the point: a
+    # free-body diagram is what the question is asking to see.
+    "lever",
+    "free_body",
+    "vector_sum",
+]
 
 # The one place a scene's `type` values are written down. Both the fence layer
 # and the direct-reply guard have to tell a scene from a graph, and a fourth
@@ -66,6 +110,9 @@ _DEFAULT_TITLES: dict[str, str] = {
     "orbit": "Orbit",
     "collision": "Collision",
     "incline": "Inclined Plane",
+    "lever": "Moments",
+    "free_body": "Free-Body Diagram",
+    "vector_sum": "Forces",
 }
 
 
@@ -82,7 +129,9 @@ class SimulationBlockSpec(BaseModel):
 
     type: SimulationType
     title: str | None = Field(default=None, max_length=64)
-    bodies: list[SimulationBody] = Field(min_length=1, max_length=4)
+    # Empty on a static figure: a see-saw's picture is its beam and its two
+    # load arrows, with nothing to walk a clock through.
+    bodies: list[SimulationBody] = Field(default_factory=list, max_length=4)
     # World bounds. Named x_/y_ like GraphBlockSpec so the two read alike, but
     # these are a *scene* box: both axes are space, always.
     x_min: float = 0.0
@@ -106,9 +155,19 @@ class SimulationBlockSpec(BaseModel):
     # The slope, in degrees, descending left to right. Draws the surface the
     # block sits on and fixes the normal and friction directions.
     incline_deg: float | None = Field(default=None, gt=-90.0, lt=90.0)
+    # Arrows the renderer cannot derive — see SimulationVector.
+    vectors: list[SimulationVector] = Field(default_factory=list, max_length=6)
+    # A rigid beam, as its two ends: [x1, y1, x2, y2]. The lever it turns about
+    # is `pivot`, drawn as a wedge beneath it.
+    beam: list[float] | None = None
+    pivot: list[float] | None = None
 
     @model_validator(mode="after")
     def coherent_scene(self) -> SimulationBlockSpec:
+        # A scene with neither is an empty box. One or the other is what makes
+        # it a picture.
+        if not self.bodies and not self.vectors:
+            raise ValueError("a simulation needs at least one body or vector")
         if self.x_max <= self.x_min or self.y_max <= self.y_min:
             raise ValueError("simulation requires ordered bounds")
         if not all(math.isfinite(v) for v in (self.x_min, self.x_max, self.y_min, self.y_max)):
@@ -125,6 +184,18 @@ class SimulationBlockSpec(BaseModel):
             raise ValueError("normal and friction arrows require incline_deg")
         if self.incline_deg is not None and not math.isfinite(self.incline_deg):
             raise ValueError("incline_deg must be finite")
+        if self.beam is not None and (
+            len(self.beam) != 4 or not all(math.isfinite(v) for v in self.beam)
+        ):
+            raise ValueError("beam must be a finite [x1, y1, x2, y2]")
+        if self.pivot is not None and (
+            len(self.pivot) != 2 or not all(math.isfinite(v) for v in self.pivot)
+        ):
+            raise ValueError("pivot must be a finite [x, y] pair")
+        # A pivot with no beam is a dot in space, and a beam is the thing that
+        # makes a lever readable as a lever.
+        if self.pivot is not None and self.beam is None:
+            raise ValueError("a pivot requires a beam")
         # Every body is walked by one shared clock, so paths of different
         # lengths would drift apart on screen — a two-body scene would show a
         # collision at the wrong moment.

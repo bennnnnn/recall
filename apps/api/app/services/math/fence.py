@@ -92,7 +92,14 @@ def _canonical_replacement(
 
     ``canonical_fences`` (from multiple tool-loop rounds) is matched by type
     so a geometry fence from round 1 isn't lost when round 2 produced a graph
-    fence. Falls back to the single ``canonical_fence`` for backward compat.
+    fence. The primary is searched **alongside** it, not only when it is empty:
+    the other two readers of this pair (`_collect_canonical_specs` and
+    `_solver_fences`) already prepend the primary, and this one treating the
+    list as a replacement meant a caller storing only the extras would have its
+    primary silently stop matching — which is exactly what happened when a
+    physics scene was added beside a trajectory graph, striking out the graph
+    the reply already carried. The tool loop stores the primary in both, and a
+    duplicate here is harmless: the first type match wins either way.
     """
     try:
         data = json.loads(raw)
@@ -100,7 +107,7 @@ def _canonical_replacement(
         return None
     if not isinstance(data, dict):
         return None
-    fences = canonical_fences or ([canonical_fence] if canonical_fence is not None else [])
+    fences = [fence for fence in (canonical_fence, *(canonical_fences or [])) if fence is not None]
     if not fences:
         return None
     data_type = data.get("type")

@@ -43,18 +43,25 @@ the existing `spring` and `force` kinds rather than as kinds of their own, so
 they did not widen that table.
 
 **After P14** the picture is different again, because a scene is not a chart.
-Three more kinds draw something: `circular` (a played orbit — the most
-conspicuous blank of the seven), `momentum` (two bodies colliding) and
-`friction` (a block on a slope with its three forces). Seven of the eleven kinds
-now render:
+Ten of the eleven kinds now render, in two families — four that play and three
+still figures:
 
-| Draws something | Number only |
+| Draws | How |
 |---|---|
-| `kinematics`, `suvat`, `projectile`, `spring`, `circular`, `momentum`, `friction` | `force`, `energy`, `circuit`, `torque` |
+| `kinematics`, `suvat`, `spring` | a chart |
+| `projectile` | a chart *and* a played scene |
+| `circular`, `momentum`, `friction` | a played scene — an orbit, a collision, a block on a slope |
+| `torque`, `force`, `energy` | a still figure — a see-saw, a free body, a sum of vectors |
 
-The four that are left are the ones with least to draw — `circuit` wants a
-schematic and `torque` a lever, both different objects again. Neither is
-ticketed; add one when demand shows up.
+`circuit` is the one left, and it is left on purpose: a schematic needs battery
+and resistor symbols and wires between them — a different set of primitives
+from anything the scene spec has, and a renderer of its own. Not ticketed; add
+one when demand shows up.
+
+Within `energy`, potential energy and work draw and kinetic energy and power do
+not, which is deliberate rather than partial: the h in mgh and the d in Fd are
+quantities you can point at, and a speed is not. A block with a "3 m/s" arrow
+beside it tells you nothing the sentence did.
 
 ---
 
