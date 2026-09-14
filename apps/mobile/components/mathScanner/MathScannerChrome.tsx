@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { IconSize } from "@/lib/icons";
-import { SCANNER_SHUTTER_PX, SCANNER_TOP_CONTROL_PX } from "@/lib/math/mathScannerRegion";
+import { SCANNER_SHUTTER_PX, SCANNER_TOP_CONTROL_PX } from "@/lib/math/scannerRegion";
 import { Motion, motionMs, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

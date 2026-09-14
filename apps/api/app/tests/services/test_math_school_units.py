@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.services import math_school
-from app.services.math_service import MathServiceError
+from app.services.math import school as math_school
+from app.services.math.solve import MathServiceError
 
 # ---------------------------------------------------------------------------
 # Length

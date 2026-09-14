@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
-from app.services import attachment_rag
+from app.services.attachments import rag as attachment_rag
 
 logger = logging.getLogger(__name__)
 

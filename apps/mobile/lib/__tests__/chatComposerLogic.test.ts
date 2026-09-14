@@ -9,7 +9,7 @@ import {
   isModelSelectableInComposer,
   resolveSelectedModelLabel,
   shouldReserveComposerActionGap,
-} from "@/lib/chatComposerLogic";
+} from "@/lib/chat/composerLogic";
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
 
 describe("chatComposerLogic", () => {

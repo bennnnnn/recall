@@ -6,8 +6,8 @@
  * SVG renderers. Server transport (sources/answer), model places, and heavy visuals
  * degrade to a short human summary — never raw JSON or SDF dumps.
  */
-import { parseGraphSpec } from "@/lib/graphBlock";
-import { parseGeometrySpec } from "@/lib/geometryBlock";
+import { parseGraphSpec } from "@/lib/math/graphBlock";
+import { parseGeometrySpec } from "@/lib/math/geometryBlock";
 import { fenceIdForLang, fallbackKindForLang } from "@/lib/fenceRegistry";
 import { parseCalloutKind, type CalloutKind } from "@/lib/richBlocks";
 import { parseSearchSourcesJson } from "@/lib/searchSources";

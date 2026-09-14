@@ -23,7 +23,7 @@ import {
   scaleScanRegion,
   translateScanRegion,
   zoomFromPinch,
-} from "@/lib/math/mathScannerRegion";
+} from "@/lib/math/scannerRegion";
 
 const ZOOM_PUSH_DELTA = 0.02;
 /** theme.scrim is ~0.40 idle; multiply by this while dragging → ~0.25. */

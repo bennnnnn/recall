@@ -14,7 +14,7 @@ from app.background.periodic import (
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
-from app.services import push_notifications
+from app.services.notifications import push as push_notifications
 
 logger = logging.getLogger(__name__)
 

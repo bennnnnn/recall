@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
-from app.services.daily_learning import (
+from app.services.learning.daily import (
     append_daily_goal_history,
     build_daily_history,
     count_missed_by_date,

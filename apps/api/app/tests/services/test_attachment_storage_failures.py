@@ -14,12 +14,10 @@ from app.gateways.storage_gateway import (
     R2StorageGateway,
     StorageUnavailableError,
 )
-from app.services import (
-    attachment_content,
-    attachment_lifecycle,
-    attachment_upload,
-    attachment_workflow,
-)
+from app.services.attachments import content as attachment_content
+from app.services.attachments import lifecycle as attachment_lifecycle
+from app.services.attachments import upload as attachment_upload
+from app.services.attachments import workflow as attachment_workflow
 
 
 @pytest.mark.asyncio

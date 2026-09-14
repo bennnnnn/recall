@@ -1,7 +1,7 @@
 import {
   popLastAssistantMessage,
   restoreAssistantMessage,
-} from "@/lib/chatRegenerateLogic";
+} from "@/lib/chat/regenerateLogic";
 import type { Message } from "@/lib/api";
 
 const assistant: Message = {

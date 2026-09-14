@@ -33,7 +33,7 @@ class SympyToolInput(BaseModel):
     ] = "solve"
     # Bounded the same as the equivalent fields on EquationInput/GraphSampleInput
     # (apps/api/app/models/schemas/math/) — unbounded strings here fed straight
-    # into math_service's SymPy parser with no cap of their own.
+    # into math_solve's SymPy parser with no cap of their own.
     lhs: str | None = Field(default=None, max_length=256)
     rhs: str | None = Field(default=None, max_length=256)
     expr: str | None = Field(default=None, max_length=256)

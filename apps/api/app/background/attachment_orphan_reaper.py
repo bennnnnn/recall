@@ -10,7 +10,7 @@ from app.background.periodic import (
     stop_periodic,
 )
 from app.core.config import Settings
-from app.services import attachment_lifecycle
+from app.services.attachments import lifecycle as attachment_lifecycle
 
 _NAME = "attachment_orphan_reaper"
 LOCK_KEY = "recall:attachment_orphan_reaper:lock"

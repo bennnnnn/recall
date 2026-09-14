@@ -269,7 +269,7 @@ async def enrich_final_content(
                     user_text=ctx.user_message_content,
                 )
 
-        from app.services.sympy_executor import run_sympy
+        from app.services.math.sympy_executor import run_sympy
 
         try:
             # Direct verified replies already carry ```answer. Running that
@@ -310,9 +310,7 @@ async def enrich_final_content(
         if settings.chemistry_enabled and (
             "```smiles" in assistant_text.lower() or "```chemistry" in assistant_text.lower()
         ):
-            from app.services import (
-                chemistry_fence as chemistry_fence_service,
-            )
+            from app.services.chemistry import fence as chemistry_fence_service
 
             try:
                 assistant_text = await run_sympy(

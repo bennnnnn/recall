@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.image_search import ImageSearchError
+from app.services.images.search import ImageSearchError
 from app.services.mcp.image_search_adapter import ImageSearchAdapter, bind_image_search_context
 
 

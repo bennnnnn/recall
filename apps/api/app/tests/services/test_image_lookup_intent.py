@@ -1,9 +1,9 @@
-"""Tests for app.services.image_lookup_intent."""
+"""Tests for app.services.images.lookup_intent."""
 
 import pytest
 
-from app.services.image_gen_intent import extract_image_gen_prompt
-from app.services.image_lookup_intent import extract_image_lookup_query
+from app.services.images.gen_intent import extract_image_gen_prompt
+from app.services.images.lookup_intent import extract_image_lookup_query
 
 
 @pytest.mark.parametrize(

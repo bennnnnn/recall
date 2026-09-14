@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.services import chat_tools
+from app.services.chat import tools as chat_tools
 
 
 @pytest.mark.asyncio
@@ -72,7 +72,7 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
 
     with (
         patch(
-            "app.services.chat_tools.augment_prompt_with_mcp_tools",
+            "app.services.chat.tools.augment_prompt_with_mcp_tools",
             AsyncMock(return_value=after_mcp),
         ) as mcp_mock,
         patch(
@@ -80,7 +80,7 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
             AsyncMock(return_value=("web", [web_hit])),
         ) as web_mock,
         patch(
-            "app.services.math_tools.build_math_augmentation",
+            "app.services.math.tools.build_math_augmentation",
             AsyncMock(return_value=(None, None)),
         ) as math_mock,
     ):
@@ -128,7 +128,7 @@ async def test_augment_web_and_tools_runs_web_and_math_concurrently():
 
     with (
         patch("app.services.web_search.build_search_augmentation", side_effect=slow_web),
-        patch("app.services.math_tools.build_math_augmentation", side_effect=slow_math),
+        patch("app.services.math.tools.build_math_augmentation", side_effect=slow_math),
     ):
         updated, _hits, _verified = await _augment_web_and_tools(messages, "q", settings)
 
@@ -161,7 +161,7 @@ async def test_augment_web_and_tools_injects_math_block_only_once():
     fake_block.text = "Verified (SymPy): d/dx(x^2) = 2x. Do NOT recompute."
 
     with patch(
-        "app.services.math_tools._build_verified_block_async",
+        "app.services.math.tools._build_verified_block_async",
         AsyncMock(return_value=fake_block),
     ):
         updated, _hits, verified_math = await _augment_web_and_tools(
@@ -197,7 +197,7 @@ async def test_augment_web_and_tools_keeps_math_when_tool_loop_on():
     fake_block.text = "Verified (SymPy): d/dx(x^2) = 2x. Do NOT recompute."
 
     with patch(
-        "app.services.math_tools._build_verified_block_async",
+        "app.services.math.tools._build_verified_block_async",
         AsyncMock(return_value=fake_block),
     ):
         updated, _hits, verified_math = await _augment_web_and_tools(

@@ -18,7 +18,7 @@ from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import todos as todos_repo
 from app.services import todos as todos_service
-from app.services.chat_titles import needs_generated_title
+from app.services.chat.titles import needs_generated_title
 from app.services.prompt_safety import wrap_untrusted, wrap_user_preferences
 from app.services.speech import LIVE_TALK_ALIAS
 from app.services.text_normalize import cap_text_head_tail

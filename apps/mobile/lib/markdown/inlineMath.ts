@@ -1,4 +1,4 @@
-import { restoreMathEscapes } from "@/lib/mathText";
+import { restoreMathEscapes } from "@/lib/math/text";
 
 export type InlineMathPart = { type: "text" | "math"; value: string };
 

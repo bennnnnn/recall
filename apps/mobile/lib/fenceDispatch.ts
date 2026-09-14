@@ -27,7 +27,7 @@ import {
   isMathFenceInterruptLine,
   looksLikeLatexFence,
   looksLikeMathFenceBody,
-} from "@/lib/math/mathFenceRetag";
+} from "@/lib/math/fenceRetag";
 import { detectJsonRichFenceKind } from "@/lib/richBlocks";
 import {
   isClockFenceBody,

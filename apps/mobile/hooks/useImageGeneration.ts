@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
-import { resolveChatError } from "@/lib/chatErrorMessage";
+import { resolveChatError } from "@/lib/chat/errorMessage";
 import { notifyWarning } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {

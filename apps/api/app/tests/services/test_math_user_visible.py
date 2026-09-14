@@ -5,8 +5,10 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.services import math_school, math_text_match, math_tools
-from app.services.math_tools.extract import extract_math_intent
+from app.services.math import match as math_match
+from app.services.math import school as math_school
+from app.services.math import tools as math_tools
+from app.services.math.tools.extract import extract_math_intent
 from app.services.tool_loop import turn_needs_tool_loop
 
 _SETTINGS = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)
@@ -158,8 +160,8 @@ def test_verified_inject_is_delimited_data_only() -> None:
 
 
 def test_complex_decision_is_not_symbolic_math() -> None:
-    assert math_text_match.needs_symbolic("help me think through a complex decision") is False
-    assert math_text_match.needs_symbolic("write me a taylor swift caption") is False
+    assert math_match.needs_symbolic("help me think through a complex decision") is False
+    assert math_match.needs_symbolic("write me a taylor swift caption") is False
 
 
 def test_turn_needs_tool_loop_false_after_arithmetic_extract() -> None:
@@ -196,14 +198,14 @@ def test_y_prime_ode_is_not_stolen_as_derivative() -> None:
 
 def test_dates_and_phones_are_not_verified_arithmetic() -> None:
     for text in ("9/7/2026", "1-800-273-8255", "800-273-8255"):
-        assert math_text_match.bare_arithmetic_expr(text) is None
-        assert math_text_match.needs_symbolic(text) is False
+        assert math_match.bare_arithmetic_expr(text) is None
+        assert math_match.needs_symbolic(text) is False
         assert extract_math_intent(text) is None
 
 
 def test_chained_minus_and_slash_still_verify() -> None:
     for text in ("10-3-2", "100/5/2"):
-        assert math_text_match.bare_arithmetic_expr(text) == text
+        assert math_match.bare_arithmetic_expr(text) == text
         intent = extract_math_intent(text)
         assert intent is not None
         assert intent.kind == "arithmetic"

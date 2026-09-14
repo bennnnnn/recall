@@ -9,7 +9,7 @@ from app.services.chat.prompt_constants.math import (
     MATH_FENCE_SAFETY_HINT,
     MATH_NOTATION_CLARIFICATION_HINT,
 )
-from app.services.math_text_match import needs_symbolic
+from app.services.math.match import needs_symbolic
 
 
 @pytest.mark.parametrize("style", ["balanced", "short"])

@@ -5,7 +5,7 @@ import {
   isLocalPendingMessageId,
   priorUserTextFor,
   streamVisualActiveForRow,
-} from "@/lib/chatMessageLogic";
+} from "@/lib/chat/messageLogic";
 import type { Message } from "@/lib/api";
 
 describe("chatMessageLogic", () => {

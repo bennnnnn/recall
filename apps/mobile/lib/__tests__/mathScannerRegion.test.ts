@@ -14,7 +14,7 @@ import {
   scanChromeInset,
   translateScanRegion,
   zoomFromPinch,
-} from "@/lib/math/mathScannerRegion";
+} from "@/lib/math/scannerRegion";
 
 describe("defaultScanRegion", () => {
   it("is centered and within bounds", () => {

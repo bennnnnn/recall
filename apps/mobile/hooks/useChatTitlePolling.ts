@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
-import { firstReplyTitlePlan } from "@/lib/chatTitleRefresh";
+import { firstReplyTitlePlan } from "@/lib/chat/titleRefresh";
 import {
   getChatMutationRevision,
   insertChatGlobal,

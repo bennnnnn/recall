@@ -6,7 +6,7 @@ import { Icon } from "@/components/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import type { Chat } from "@/lib/api";
-import { displayChatTitle } from "@/lib/chat/chatTitle";
+import { displayChatTitle } from "@/lib/chat/title";
 import { IconSize } from "@/lib/icons";
 
 export type ConversationRowStyles = {

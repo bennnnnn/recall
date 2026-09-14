@@ -5,7 +5,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways.mathpix_gateway import MathpixOcrResult
 from app.models.schemas.math import MathImageExtract
-from app.services import math_ocr
+from app.services.math import ocr as math_ocr
 
 
 def test_extract_from_confirmed_reading_equation():
@@ -53,7 +53,7 @@ async def test_extract_math_uses_mathpix_when_high_confidence_equation():
             ),
         ),
         patch(
-            "app.services.math_image_extract.vision_extract_equation",
+            "app.services.math.image_extract.vision_extract_equation",
             vision,
         ),
     ):
@@ -90,7 +90,7 @@ async def test_extract_math_falls_back_to_vision_for_word_problem():
             ),
         ),
         patch(
-            "app.services.math_image_extract.vision_extract_equation",
+            "app.services.math.image_extract.vision_extract_equation",
             AsyncMock(return_value=vision_extract),
         ) as vision,
     ):

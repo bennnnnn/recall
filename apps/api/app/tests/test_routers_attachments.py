@@ -73,9 +73,9 @@ def test_presign_upload_success():
     fake_redis.expire = AsyncMock()
 
     with (
-        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_upload.attachments_repo.create_pending", AsyncMock()),
-        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.upload.attachments_repo.create_pending", AsyncMock()),
+        patch("app.services.attachments.upload.get_redis_client", return_value=fake_redis),
     ):
         client = TestClient(app)
         r = client.post(
@@ -106,9 +106,9 @@ def test_presign_upload_stores_sanitized_filename():
     create_pending = AsyncMock()
 
     with (
-        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_upload.attachments_repo.create_pending", create_pending),
-        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.upload.attachments_repo.create_pending", create_pending),
+        patch("app.services.attachments.upload.get_redis_client", return_value=fake_redis),
     ):
         client = TestClient(app)
         r = client.post(
@@ -134,10 +134,10 @@ def test_presign_upload_returns_503_when_storage_unconfigured():
 
     with (
         patch(
-            "app.services.attachment_upload.get_storage_gateway",
+            "app.services.attachments.upload.get_storage_gateway",
             return_value=UnconfiguredStorageGateway(),
         ),
-        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.upload.get_redis_client", return_value=fake_redis),
     ):
         client = TestClient(app)
         r = client.post(
@@ -161,10 +161,10 @@ def test_presign_upload_refunds_image_quota_when_presign_fails():
     refund_mock = AsyncMock()
 
     with (
-        patch("app.services.attachment_lifecycle.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.lifecycle.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.attachment_upload.quota_service.refund_image_upload",
+            "app.services.attachments.upload.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -199,14 +199,14 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails():
     refund_mock = AsyncMock()
 
     with (
-        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.upload.get_storage_gateway", return_value=gateway),
         patch(
-            "app.services.attachment_upload.attachments_repo.create_pending",
+            "app.services.attachments.upload.attachments_repo.create_pending",
             AsyncMock(side_effect=RuntimeError("db error")),
         ),
-        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.attachment_upload.quota_service.refund_image_upload",
+            "app.services.attachments.upload.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -239,14 +239,14 @@ def test_presign_upload_does_not_refund_for_non_image():
     refund_mock = AsyncMock()
 
     with (
-        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.upload.get_storage_gateway", return_value=gateway),
         patch(
-            "app.services.attachment_upload.attachments_repo.create_pending",
+            "app.services.attachments.upload.attachments_repo.create_pending",
             AsyncMock(side_effect=RuntimeError("db error")),
         ),
-        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.attachment_upload.quota_service.refund_image_upload",
+            "app.services.attachments.upload.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -290,21 +290,21 @@ def test_cancel_pending_upload_refunds_image_quota():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_upload.attachments_repo.get_by_id",
+            "app.services.attachments.upload.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_upload.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.upload.attachments_repo.delete_unlinked_returning",
             AsyncMock(return_value=["user/key"]),
         ),
-        patch("app.services.attachment_lifecycle.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.lifecycle.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.attachment_upload.quota_service.refund_image_upload",
+            "app.services.attachments.upload.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -327,11 +327,11 @@ def test_confirm_storage_outage_returns_retryable_503_without_purging():
     gateway = MagicMock(read_bytes=AsyncMock(side_effect=StorageUnavailableError("outage")))
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_content.purge_invalid_upload", AsyncMock()) as purge,
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.content.purge_invalid_upload", AsyncMock()) as purge,
     ):
         response = TestClient(_app_with_user(user)).post(
             f"/attachments/{attachment_id}/confirm", headers={"Authorization": "Bearer tok"}
@@ -365,17 +365,17 @@ def test_confirm_upload_rejects_spoofed_r2_bytes():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_workflow.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            "app.services.attachments.workflow.quota_service.refund_image_upload",
             refund_mock,
         ),
         patch(
-            "app.services.attachment_workflow.attachments_repo.delete_rows",
+            "app.services.attachments.workflow.attachments_repo.delete_rows",
             AsyncMock(return_value=1),
         ) as delete_rows,
     ):
@@ -408,10 +408,10 @@ def test_confirm_upload_accepts_valid_r2_bytes():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch(
             "app.repositories.attachments.mark_verified",
             AsyncMock(),
@@ -437,10 +437,10 @@ def test_confirm_upload_noop_for_local_backend():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(app)
         r = client.post(
@@ -462,7 +462,7 @@ def test_presign_upload_rejects_image_over_daily_limit():
     fake_redis.incrby = _incrby_over_limit
     fake_redis.expire = AsyncMock()
 
-    with patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis):
+    with patch("app.services.attachments.upload.get_redis_client", return_value=fake_redis):
         client = TestClient(app)
         r = client.post(
             "/attachments/presign",
@@ -496,13 +496,13 @@ def test_upload_rejects_bytes_not_matching_claimed_content_type():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_workflow.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            "app.services.attachments.workflow.quota_service.refund_image_upload",
             AsyncMock(),
         ) as refund_mock,
         patch(
@@ -541,12 +541,12 @@ def test_upload_accepts_bytes_matching_claimed_content_type():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch(
-            "app.services.attachment_workflow.attachments_repo.mark_verified",
+            "app.services.attachments.workflow.attachments_repo.mark_verified",
             AsyncMock(),
         ) as mark_verified,
     ):
@@ -581,13 +581,13 @@ def test_upload_rejects_body_larger_than_declared_size_without_writing():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_workflow.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            "app.services.attachments.workflow.quota_service.refund_image_upload",
             AsyncMock(),
         ),
         patch(
@@ -630,17 +630,17 @@ def test_serve_file_rejects_spoofed_r2_bytes():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_workflow.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            "app.services.attachments.workflow.quota_service.refund_image_upload",
             refund_mock,
         ),
         patch(
-            "app.services.attachment_workflow.attachments_repo.delete_rows",
+            "app.services.attachments.workflow.attachments_repo.delete_rows",
             AsyncMock(return_value=1),
         ),
     ):
@@ -674,10 +674,10 @@ def test_serve_file_local_backend_sets_nosniff_header(tmp_path):
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(app)
         r = client.get(
@@ -710,16 +710,16 @@ def test_serve_file_missing_local_drops_row():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch(
             "app.repositories.attachment_chunks.delete_for_attachment_ids",
             delete_chunks,
         ),
         patch(
-            "app.services.attachment_workflow.attachments_repo.delete_rows",
+            "app.services.attachments.workflow.attachments_repo.delete_rows",
             delete_rows,
         ),
     ):
@@ -757,10 +757,10 @@ def test_serve_file_r2_redirect_sets_nosniff_header():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch(
             "app.repositories.attachments.mark_verified",
             AsyncMock(),
@@ -804,13 +804,13 @@ def test_upload_rejects_size_mismatch_with_declared_size():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_workflow.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            "app.services.attachments.workflow.quota_service.refund_image_upload",
             AsyncMock(),
         ) as refund_mock,
         patch(
@@ -856,17 +856,17 @@ def test_download_url_rejects_spoofed_r2_bytes():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_workflow.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            "app.services.attachments.workflow.quota_service.refund_image_upload",
             refund_mock,
         ),
         patch(
-            "app.services.attachment_workflow.attachments_repo.delete_rows",
+            "app.services.attachments.workflow.attachments_repo.delete_rows",
             AsyncMock(return_value=1),
         ),
     ):
@@ -896,10 +896,10 @@ def test_download_url_local_backend():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(app)
         r = client.get(
@@ -936,11 +936,11 @@ def test_upload_accepts_docx_bytes_matching_claimed_type():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_workflow.attachments_repo.mark_verified", AsyncMock()),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.attachments_repo.mark_verified", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.put(
@@ -968,10 +968,10 @@ def test_upload_rejects_already_linked_attachment():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(app)
         r = client.put(
@@ -999,12 +999,12 @@ def test_upload_r2_backend_returns_501_before_refund():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch(
-            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            "app.services.attachments.workflow.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -1036,10 +1036,10 @@ def test_serve_file_skips_download_when_already_verified():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(app)
         r = client.get(
@@ -1113,21 +1113,21 @@ def test_cancel_still_allowed_when_attachments_disabled():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_upload.attachments_repo.get_by_id",
+            "app.services.attachments.upload.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_upload.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.upload.attachments_repo.delete_unlinked_returning",
             AsyncMock(return_value=["user/key"]),
         ),
-        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_upload.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.attachments.upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.upload.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.attachment_upload.quota_service.refund_image_upload",
+            "app.services.attachments.upload.quota_service.refund_image_upload",
             AsyncMock(),
         ),
     ):
@@ -1175,10 +1175,10 @@ def test_list_attachments_returns_images():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            "app.services.attachments.workflow.attachments_repo.list_for_gallery",
             AsyncMock(return_value=([row1, row2], False)),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(_app_with_user(user))
         r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
@@ -1206,14 +1206,14 @@ def test_list_attachments_includes_chat_id():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            "app.services.attachments.workflow.attachments_repo.list_for_gallery",
             AsyncMock(return_value=([row], False)),
         ),
         patch(
-            "app.services.attachment_workflow.attachments_repo.chat_meta_for_message_ids",
+            "app.services.attachments.workflow.attachments_repo.chat_meta_for_message_ids",
             AsyncMock(return_value={message_id: (chat_id, "Trip")}),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(_app_with_user(user))
         r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
@@ -1234,10 +1234,10 @@ def test_list_attachments_source_filter():
     mock_list = AsyncMock(return_value=([row], False))
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            "app.services.attachments.workflow.attachments_repo.list_for_gallery",
             mock_list,
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(_app_with_user(user))
         r = client.get(
@@ -1271,10 +1271,10 @@ def test_list_attachments_q_filter():
     mock_list = AsyncMock(return_value=([row], False))
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            "app.services.attachments.workflow.attachments_repo.list_for_gallery",
             mock_list,
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(_app_with_user(user))
         r = client.get(
@@ -1297,10 +1297,10 @@ def test_list_attachments_category_filter():
     mock_list = AsyncMock(return_value=([row], False))
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            "app.services.attachments.workflow.attachments_repo.list_for_gallery",
             mock_list,
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(_app_with_user(user))
         r = client.get(
@@ -1323,10 +1323,10 @@ def test_list_attachments_local_backend():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            "app.services.attachments.workflow.attachments_repo.list_for_gallery",
             AsyncMock(return_value=([row], False)),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(_app_with_user(user))
         r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
@@ -1351,16 +1351,16 @@ def test_list_attachments_omits_local_rows_whose_blob_is_gone():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            "app.services.attachments.workflow.attachments_repo.list_for_gallery",
             AsyncMock(return_value=([gone, present], False)),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
         patch(
             "app.repositories.attachment_chunks.delete_for_attachment_ids",
             delete_chunks,
         ),
         patch(
-            "app.services.attachment_workflow.attachments_repo.delete_rows",
+            "app.services.attachments.workflow.attachments_repo.delete_rows",
             delete_rows,
         ),
     ):
@@ -1381,10 +1381,10 @@ def test_list_attachments_empty():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.list_for_gallery",
+            "app.services.attachments.workflow.attachments_repo.list_for_gallery",
             AsyncMock(return_value=([], False)),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
     ):
         client = TestClient(_app_with_user(user))
         r = client.get("/attachments", headers={"Authorization": "Bearer tok"})
@@ -1419,13 +1419,13 @@ def test_put_upload_empty_body_purges_row_and_refunds_quota():
 
     with (
         patch(
-            "app.services.attachment_workflow.attachments_repo.get_by_id",
+            "app.services.attachments.workflow.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
-        patch("app.services.attachment_workflow.get_storage_gateway", return_value=gateway),
-        patch("app.services.attachment_workflow.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.attachments.workflow.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachments.workflow.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.attachment_workflow.quota_service.refund_image_upload",
+            "app.services.attachments.workflow.quota_service.refund_image_upload",
             AsyncMock(),
         ) as refund_mock,
         patch(

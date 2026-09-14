@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react-native";
 
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
-import { parseGeometrySpec } from "@/lib/geometryBlock";
+import { parseGeometrySpec } from "@/lib/math/geometryBlock";
 
 const mockSvgText = jest.fn((_props: Record<string, unknown>) => null);
 jest.mock("react-native-svg", () => ({

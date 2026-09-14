@@ -47,7 +47,7 @@ import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
 import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
 import { useTodosOptional } from "@/contexts/TodosContext";
-import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
+import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chat/composerLogic";
 import { invalidateLearningDetail } from "@/lib/cache/projectDetailCache";
 import { openLearningLesson } from "@/lib/lessonLaunch";
 import { useImageGeneration } from "@/hooks/useImageGeneration";

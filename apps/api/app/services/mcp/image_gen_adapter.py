@@ -19,8 +19,8 @@ from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.models.orm import User
 from app.models.schemas.tools import GenerateImageToolInput
-from app.services import image_generation as image_generation_service
 from app.services import plan as plan_service
+from app.services.images import generation as image_generation_service
 
 _image_user: ContextVar[User | None] = ContextVar("mcp_image_gen_user", default=None)
 _image_redis: ContextVar[Redis | None] = ContextVar("mcp_image_gen_redis", default=None)

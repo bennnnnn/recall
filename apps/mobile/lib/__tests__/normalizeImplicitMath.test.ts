@@ -3,7 +3,7 @@ import {
   fixImplicitExponents,
   normalizeImplicitMath,
   normalizeImplicitMathInProse,
-} from "@/lib/normalizeImplicitMath";
+} from "@/lib/math/normalizeImplicit";
 
 describe("normalizeImplicitMath", () => {
   it("preserves the exact S04 explicit mean formula without wrapping its intervening text", () => {
@@ -182,7 +182,7 @@ describe("normalizeImplicitMath", () => {
   });
 
   it("skips fenced code blocks", () => {
-    const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
+    const { normalizeImplicitMath } = require("@/lib/math/normalizeImplicit");
     const input = "```python\n( x = 1 )\n```\nx2=4";
     const out = normalizeImplicitMath(input);
     expect(out).toContain("```python\n( x = 1 )\n```");
@@ -205,7 +205,7 @@ describe("normalizeImplicitMath", () => {
     // *before* markdownPreprocess.ts's BLOCK_MATH_BRACKET_RE converts the
     // \\[...\\] span into a ```math fence — leaving embedded, un-stripped $
     // characters in the fence body that KaTeX can't parse as bare LaTeX.
-    const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
+    const { normalizeImplicitMath } = require("@/lib/math/normalizeImplicit");
     const input = "Solve:\n\n\\[ x = \\pm \\sqrt{4} \\]\n\nDone.";
     const out = normalizeImplicitMath(input);
     expect(out).toContain("\\[ x = \\pm \\sqrt{4} \\]");
@@ -214,7 +214,7 @@ describe("normalizeImplicitMath", () => {
   });
 
   it("BUG FIX regression: does not touch a $$...$$ display-math span either", () => {
-    const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
+    const { normalizeImplicitMath } = require("@/lib/math/normalizeImplicit");
     const input = "Solve:\n\n$$ x = \\pm \\sqrt{4} $$\n\nDone.";
     const out = normalizeImplicitMath(input);
     expect(out).toContain("$$ x = \\pm \\sqrt{4} $$");
@@ -251,7 +251,7 @@ describe("normalizeImplicitMath", () => {
     // span — trailing stray backslash included — in its own `$...$`.
     // splitInlineMath (markdownPreprocess.ts) already recognizes `\(...\)`
     // directly as inline math; this heuristic must leave it alone.
-    const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
+    const { normalizeImplicitMath } = require("@/lib/math/normalizeImplicit");
     const input = "Decimal form:\n\n\\(\\frac{5}{7} = 0.\\overline{714285}\\) (repeating).";
     const out = normalizeImplicitMath(input);
     expect(out).toContain("\\(\\frac{5}{7} = 0.\\overline{714285}\\)");
@@ -265,7 +265,7 @@ describe("normalizeImplicitMath", () => {
     // re-wrapped into, broken LaTeX: \\left and \\right each lost the
     // delimiter they require, and "^2" was left as literal unrendered text
     // outside any math span.
-    const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
+    const { normalizeImplicitMath } = require("@/lib/math/normalizeImplicit");
     const input = "Square: \\(\\left(\\frac{5}{7}\\right)^2 = \\frac{25}{49} \\approx 0.5102\\)";
     const out = normalizeImplicitMath(input);
     expect(out).toContain(

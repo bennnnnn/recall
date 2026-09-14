@@ -7,12 +7,13 @@ from sympy import S, Symbol, sin, solveset
 
 from app.core.config import Settings
 from app.models.schemas.math import EquationInput
-from app.services import math_fence, math_service
-from app.services.math_service.parse import MathServiceError
-from app.services.math_service.trig_equations import _complete_solution_latex
-from app.services.math_tools.block import _build_verified_block
-from app.services.math_tools.block.common import VerifiedMathBlock
-from app.services.math_tools.extract import extract_math_intent
+from app.services.math import fence as math_fence
+from app.services.math import solve as math_solve
+from app.services.math.solve.parse import MathServiceError
+from app.services.math.solve.trig_equations import _complete_solution_latex
+from app.services.math.tools.block import _build_verified_block
+from app.services.math.tools.block.common import VerifiedMathBlock
+from app.services.math.tools.extract import extract_math_intent
 
 
 def _verified(prompt: str) -> VerifiedMathBlock:
@@ -104,7 +105,7 @@ def test_nonexistent_results_keep_verified_explanation_without_false_value(
     ],
 )
 def test_trig_equation_returns_all_real_branches(lhs: str, rhs: str, expected: str) -> None:
-    result = math_service.solve_equation(EquationInput(lhs=lhs, rhs=rhs))
+    result = math_solve.solve_equation(EquationInput(lhs=lhs, rhs=rhs))
     assert (result.canonical_solutions_latex or result.solutions_latex) == [expected]
     assert "Solve over the real numbers." in result.steps
 
@@ -127,11 +128,11 @@ def test_trig_solution_parameter_does_not_reuse_the_solved_variable() -> None:
 
 def test_unresolved_trig_equation_never_returns_only_principal_roots() -> None:
     with pytest.raises(MathServiceError, match="unresolved"):
-        math_service.solve_equation(EquationInput(lhs="sin(x)", rhs="x/2"))
+        math_solve.solve_equation(EquationInput(lhs="sin(x)", rhs="x/2"))
 
 
 def test_nontrig_equation_retains_complex_roots() -> None:
-    result = math_service.solve_equation(EquationInput(lhs="x**2+1", rhs="0"))
+    result = math_solve.solve_equation(EquationInput(lhs="x**2+1", rhs="0"))
     assert result.solutions_latex == ["x = -i", "x = i"]
 
 

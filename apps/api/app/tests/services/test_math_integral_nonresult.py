@@ -6,12 +6,12 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import MathExprResult
-from app.services import math_service
-from app.services.math_fence import validate_math_fences
-from app.services.math_tools.block import _build_verified_block
-from app.services.math_tools.calculus_outcome import undefined_integral_note
-from app.services.math_tools.direct import maybe_direct_math_reply
-from app.services.math_tools.extract import extract_math_intent
+from app.services.math import solve as math_solve
+from app.services.math.fence import validate_math_fences
+from app.services.math.tools.block import _build_verified_block
+from app.services.math.tools.calculus_outcome import undefined_integral_note
+from app.services.math.tools.direct import maybe_direct_math_reply
+from app.services.math.tools.extract import extract_math_intent
 from app.services.mcp.sympy_adapter import SympyAdapter
 
 _SETTINGS = Settings(math_tools_enabled=True)
@@ -28,7 +28,7 @@ def _block(query):
 def test_actual_undefined_improper_integral_does_not_append_nan_to_explanation():
     query = "Integrate 1/x from -1 to 1"
     # Preserve the solver's diagnostic. Only its presentation becomes a non-result.
-    outcome = math_service.integrate_definite("1/x", "x", "-1", "1")
+    outcome = math_solve.integrate_definite("1/x", "x", "-1", "1")
     assert outcome.result == "nan"
     block = _block(query)
     assert block.canonical_answer is None and block.canonical_fence is None
@@ -44,7 +44,7 @@ def test_actual_undefined_improper_integral_does_not_append_nan_to_explanation()
 @pytest.mark.parametrize("raw,latex", [("nan", r"\text{NaN}"), ("zoo", r"\tilde{\infty}")])
 def test_nonresults_are_not_mislabeled_as_unevaluated_or_signed_divergence(raw, latex):
     with patch.object(
-        math_service, "integrate_definite", return_value=MathExprResult(result=raw, latex=latex)
+        math_solve, "integrate_definite", return_value=MathExprResult(result=raw, latex=latex)
     ):
         block = _block("Integrate x from 0 to 1")
     assert block.canonical_answer is None and block.canonical_fence is None

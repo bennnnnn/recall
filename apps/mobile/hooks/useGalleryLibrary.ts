@@ -9,7 +9,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { api, type AttachmentListItem } from "@/lib/api";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { removeCachedGalleryItem } from "@/lib/cache/galleryListCache";
-import { clearCachedChatMessages } from "@/lib/chatMessageCache";
+import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { shareChatAttachment } from "@/lib/downloadChatAttachment";
 import { galleryFileName, isReadableTextContentType, libraryOpenChatHref } from "@/lib/gallery";
 import { isPdfContentType } from "@/lib/messageAttachments";

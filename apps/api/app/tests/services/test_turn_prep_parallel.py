@@ -71,16 +71,22 @@ def _slim_turn_mode() -> _TurnMode:
     )
 
 
+# The expectations are callables, not values. pytest evaluates a parametrize
+# list once at collection; calling format_date_answer(None) there froze "today"
+# at collection time, so a suite that crossed UTC midnight asserted the previous
+# day's date against a reply built after the rollover. Deferring the call to the
+# assertion puts both sides on the same clock.
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "content,expected_instant_reply",
     [
-        ("Again", None),
-        ("tell me again", None),
-        ("what time is it", "```clock\n```"),
-        ("what year is it", format_year_answer(None)),
-        ("what's the date", format_date_answer(None)),
+        ("Again", lambda: None),
+        ("tell me again", lambda: None),
+        ("what time is it", lambda: "```clock\n```"),
+        ("what year is it", lambda: format_year_answer(None)),
+        ("what's the date", lambda: format_date_answer(None)),
     ],
+    ids=["again", "tell-me-again", "what-time", "what-year", "whats-the-date"],
 )
 async def test_followup_keeps_conversation_context_instead_of_instant_clock(
     content, expected_instant_reply, fake_redis
@@ -126,7 +132,7 @@ async def test_followup_keeps_conversation_context_instead_of_instant_clock(
             turn_mode=_slim_turn_mode(),
         )
 
-    assert bundle.instant_reply == expected_instant_reply
+    assert bundle.instant_reply == expected_instant_reply()
     assert bundle.prompt_messages == messages
     assert build_prompt.await_args.kwargs["query_text"] == content
 
@@ -673,7 +679,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
     from app.models.schemas.math import GraphBlockSpec
     from app.services.chat.stream_pipeline import stream_and_finalize
     from app.services.chat.turn_prep.context import StreamContext
-    from app.services.math_tools.block.common import VerifiedMathBlock
+    from app.services.math.tools.block.common import VerifiedMathBlock
 
     user = _make_user()
     chat = _make_chat()
@@ -783,7 +789,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
 
 @pytest.mark.asyncio
 async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None:
-    from app.services.math_tools.block.common import VerifiedMathBlock
+    from app.services.math.tools.block.common import VerifiedMathBlock
 
     user = _make_user()
     chat = _make_chat()

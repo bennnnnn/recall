@@ -10,16 +10,16 @@ import {
   mergeStrandedColons,
   stripBoldListLabelContinuationColons,
   breakMidlineAtxHeadings,
-} from "@/lib/markdown/markdownPreprocess";
+} from "@/lib/markdown/preprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
-import { markdownItInstance } from "@/lib/markdownIt";
+import { markdownItInstance } from "@/lib/markdown/parser";
 import {
   PROTECTED_ESCAPE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
   PROTECTED_MATH_UNDERSCORE_MARKER,
   parseSimpleLatex,
   segmentsToPlain,
-} from "@/lib/mathText";
+} from "@/lib/math/text";
 
 const RESTAURANT_LIST = `Here are some top-rated restaurants in San Francisco that might tickle your taste buds 🍽️:
 

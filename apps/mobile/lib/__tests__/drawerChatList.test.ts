@@ -3,7 +3,7 @@ import {
   insertChatIntoGroups,
   shouldWarmClosedDrawerChatList,
 } from "@/lib/drawerChatList";
-import { chatRecencySection, patchChatListGroups, removeChatFromGroups } from "@/lib/chat/chatListSections";
+import { chatRecencySection, patchChatListGroups, removeChatFromGroups } from "@/lib/chat/listSections";
 import type { Chat, ChatList } from "@/lib/api";
 
 const empty: ChatList = {

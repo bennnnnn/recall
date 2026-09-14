@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.attachment_content import (
+from app.services.attachments.content import (
     ALLOWED_CONTENT_TYPES,
     extract_text_from_bytes,
     is_image_content_type,
@@ -44,7 +44,7 @@ def test_extract_text_from_bytes_respects_max_chars():
 
 
 def test_normalize_content_type():
-    from app.services.attachment_content import normalize_content_type
+    from app.services.attachments.content import normalize_content_type
 
     assert normalize_content_type("image/heic") == "image/heic"
     assert normalize_content_type("image/jpeg; charset=binary") == "image/jpeg"
@@ -63,7 +63,7 @@ def test_extract_text_from_plain_text():
 
 
 def test_bytes_match_claimed_accepts_word_documents():
-    from app.services.attachment_content import bytes_match_claimed
+    from app.services.attachments.content import bytes_match_claimed
 
     docx_bytes = _build_zip_bytes(["word/document.xml", "[Content_Types].xml"])
     doc_bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32
@@ -76,7 +76,7 @@ def test_bytes_match_claimed_rejects_non_docx_zip_family():
     """.xlsx/.pptx/.jar/.apk/plain .zip all share the PK\\x03\\x04 ZIP
     signature but aren't DOCX — a claimed DOCX upload must actually contain
     the word/document.xml marker entry, not just look like a ZIP."""
-    from app.services.attachment_content import bytes_match_claimed
+    from app.services.attachments.content import bytes_match_claimed
 
     xlsx_bytes = _build_zip_bytes(["xl/workbook.xml", "[Content_Types].xml"])
     pptx_bytes = _build_zip_bytes(["ppt/presentation.xml", "[Content_Types].xml"])
@@ -90,7 +90,7 @@ def test_bytes_match_claimed_rejects_non_docx_zip_family():
 def test_bytes_match_claimed_handles_corrupt_zip_gracefully():
     """A truncated/corrupt buffer that merely starts with the ZIP magic
     bytes must not raise — it should just fail to match DOCX."""
-    from app.services.attachment_content import bytes_match_claimed
+    from app.services.attachments.content import bytes_match_claimed
 
     corrupt_zip_bytes = b"PK\x03\x04" + b"\x00" * 32
     assert bytes_match_claimed(_DOCX_CONTENT_TYPE, corrupt_zip_bytes) is False
@@ -99,7 +99,7 @@ def test_bytes_match_claimed_handles_corrupt_zip_gracefully():
 def test_docx_zip_bomb_rejected():
     """An entry larger than MAX_ATTACHMENT_SIZE is treated as a zip bomb —
     not a DOCX match, and text extraction returns None without parsing."""
-    from app.services.attachment_content import (
+    from app.services.attachments.content import (
         MAX_ATTACHMENT_SIZE,
         _docx_zip_bomb,
         bytes_match_claimed,
@@ -119,7 +119,7 @@ def test_docx_zip_bomb_rejected():
 
 
 def test_bytes_match_claimed_rejects_spoofed_image():
-    from app.services.attachment_content import bytes_match_claimed
+    from app.services.attachments.content import bytes_match_claimed
 
     png_header = b"\x89PNG\r\n\x1a\n" + b"fake"
     assert bytes_match_claimed("image/png", png_header) is True
@@ -171,7 +171,7 @@ def test_extract_text_from_legacy_doc_returns_none():
 async def test_extract_text_from_bytes_async_offloads_to_thread(monkeypatch):
     import threading
 
-    from app.services.attachment_content import ExtractedText, extract_text_from_bytes_async
+    from app.services.attachments.content import ExtractedText, extract_text_from_bytes_async
 
     caller_thread = threading.current_thread()
     seen_thread: dict[str, threading.Thread] = {}
@@ -180,7 +180,7 @@ async def test_extract_text_from_bytes_async_offloads_to_thread(monkeypatch):
         seen_thread["thread"] = threading.current_thread()
         return ExtractedText(text="extracted")
 
-    monkeypatch.setattr("app.services.attachment_content.extract_text_details", spy)
+    monkeypatch.setattr("app.services.attachments.content.extract_text_details", spy)
 
     result = await extract_text_from_bytes_async("text/plain", b"hi", Settings())
 
@@ -196,9 +196,9 @@ async def test_extract_text_from_bytes_async_times_out_gracefully(monkeypatch):
         time.sleep(0.5)
         return "should never be returned"
 
-    monkeypatch.setattr("app.services.attachment_content.extract_text_details", slow_extract)
+    monkeypatch.setattr("app.services.attachments.content.extract_text_details", slow_extract)
 
-    from app.services.attachment_content import extract_text_from_bytes_async
+    from app.services.attachments.content import extract_text_from_bytes_async
 
     settings = Settings(attachment_extract_timeout_seconds=0.05)
     result = await extract_text_from_bytes_async("application/pdf", b"x", settings)
@@ -210,7 +210,7 @@ async def test_extract_text_from_bytes_async_times_out_gracefully(monkeypatch):
 async def test_format_attachment_lines_includes_file_ref():
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import format_attachment_lines
+    from app.services.attachments.content import format_attachment_lines
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"hello")
@@ -232,7 +232,7 @@ async def test_format_attachment_lines_includes_file_ref():
 async def test_format_attachment_lines_reuses_preloaded_data():
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import format_attachment_lines
+    from app.services.attachments.content import format_attachment_lines
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"should-not-read")
@@ -258,7 +258,7 @@ async def test_format_attachment_lines_gives_honest_error_for_unsupported_type()
     placeholder that implies the content was read."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import format_attachment_lines
+    from app.services.attachments.content import format_attachment_lines
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32)
@@ -281,13 +281,13 @@ async def test_format_attachment_lines_scanned_pdf_empty_text():
     instead of a misleading byte-count placeholder."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from app.services.attachment_content import format_attachment_lines
+    from app.services.attachments.content import format_attachment_lines
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"%PDF-1.4 empty-ish")
 
     with patch(
-        "app.services.attachment_content.extract_text_details_async",
+        "app.services.attachments.content.extract_text_details_async",
         AsyncMock(return_value=None),
     ):
         lines, is_image = await format_attachment_lines(
@@ -310,11 +310,11 @@ async def test_format_attachment_lines_scanned_pdf_empty_text():
 async def test_format_attachment_lines_skips_ocr_on_prepare():
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from app.services.attachment_content import format_attachment_lines
+    from app.services.attachments.content import format_attachment_lines
 
     extract = AsyncMock(return_value=None)
     with patch(
-        "app.services.attachment_content.extract_text_details_async",
+        "app.services.attachments.content.extract_text_details_async",
         extract,
     ):
         await format_attachment_lines(
@@ -333,7 +333,7 @@ async def test_format_attachment_lines_skips_ocr_on_prepare():
 async def test_inject_vision_content_uses_bytes_by_key_cache():
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import inject_vision_content
+    from app.services.attachments.content import inject_vision_content
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"should-not-read")
@@ -358,7 +358,7 @@ async def test_inject_vision_content_preserves_image_order():
     match the input `images` order, not read-completion order."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import inject_vision_content
+    from app.services.attachments.content import inject_vision_content
 
     gateway = MagicMock()
     reads = {"key-a": b"AAAA", "key-b": b"BBBB", "key-c": b"CCCC"}
@@ -385,7 +385,7 @@ async def test_inject_vision_content_preserves_image_order():
 async def test_inject_vision_content_skips_unreadable_images():
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import inject_vision_content
+    from app.services.attachments.content import inject_vision_content
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(side_effect=[b"AAAA", None])
@@ -404,7 +404,7 @@ async def test_inject_vision_content_skips_unreadable_images():
 async def test_inject_vision_content_noop_when_no_images_readable():
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import inject_vision_content
+    from app.services.attachments.content import inject_vision_content
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=None)
@@ -426,7 +426,7 @@ async def test_verify_uploaded_bytes_rejects_size_mismatch():
     means the client lied at presign time (or the upload was truncated/extended)."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import verify_uploaded_bytes
+    from app.services.attachments.content import verify_uploaded_bytes
 
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32  # 40 bytes
     gateway = MagicMock()
@@ -446,7 +446,7 @@ async def test_verify_uploaded_bytes_rejects_size_mismatch():
 async def test_verify_uploaded_bytes_accepts_matching_size():
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import verify_uploaded_bytes
+    from app.services.attachments.content import verify_uploaded_bytes
 
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32  # 40 bytes
     gateway = MagicMock()
@@ -467,7 +467,7 @@ async def test_verify_uploaded_bytes_skips_size_check_when_declared_size_none():
     """Backward compat: when declared_size is not provided, the size check is skipped."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from app.services.attachment_content import verify_uploaded_bytes
+    from app.services.attachments.content import verify_uploaded_bytes
 
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
     gateway = MagicMock()
@@ -486,7 +486,7 @@ async def test_verify_uploaded_bytes_skips_size_check_when_declared_size_none():
 def test_resize_image_bytes_shrinks_large_photo():
     from PIL import Image
 
-    from app.services.attachment_content import resize_image_bytes
+    from app.services.attachments.content import resize_image_bytes
 
     buf = io.BytesIO()
     Image.new("RGB", (2000, 1500), color=(12, 80, 160)).save(buf, format="JPEG")
@@ -540,7 +540,7 @@ def test_strip_attachment_from_content_empty_means_delete_message():
 
 
 def test_file_excerpt_limit_note_names_caps():
-    from app.services.attachment_content import file_excerpt_limit_note
+    from app.services.attachments.content import file_excerpt_limit_note
 
     assert file_excerpt_limit_note(char_capped=False, page_capped=False) is None
     note = file_excerpt_limit_note(char_capped=True, page_capped=True)
@@ -551,7 +551,7 @@ def test_file_excerpt_limit_note_names_caps():
 
 
 def test_extract_text_details_flags_char_cap():
-    from app.services.attachment_content import extract_text_details
+    from app.services.attachments.content import extract_text_details
 
     details = extract_text_details("text/plain", ("x" * 50).encode(), max_chars=10)
     assert details is not None
@@ -563,7 +563,7 @@ def test_extract_text_details_flags_char_cap():
 def test_docx_tables_keep_row_alignment():
     from docx import Document
 
-    from app.services.attachment_content import extract_text_from_bytes
+    from app.services.attachments.content import extract_text_from_bytes
 
     document = Document()
     table = document.add_table(rows=2, cols=2)
@@ -580,7 +580,7 @@ def test_docx_tables_keep_row_alignment():
 
 
 def test_prior_image_attachment_ids_skips_current_user_turn():
-    from app.services.attachment_content import prior_image_attachment_ids
+    from app.services.attachments.content import prior_image_attachment_ids
 
     first = uuid4()
     messages = [
@@ -592,7 +592,7 @@ def test_prior_image_attachment_ids_skips_current_user_turn():
 
 
 def test_prior_image_attachment_ids_newest_first_with_cap():
-    from app.services.attachment_content import prior_image_attachment_ids
+    from app.services.attachments.content import prior_image_attachment_ids
 
     older = uuid4()
     newer = uuid4()
@@ -614,13 +614,13 @@ def test_prior_image_attachment_ids_newest_first_with_cap():
 async def test_format_attachment_lines_discloses_truncated_excerpt():
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from app.services.attachment_content import ExtractedText, format_attachment_lines
+    from app.services.attachments.content import ExtractedText, format_attachment_lines
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"hello")
     details = ExtractedText(text="hello", char_capped=True, page_capped=True)
     with patch(
-        "app.services.attachment_content.extract_text_details_async",
+        "app.services.attachments.content.extract_text_details_async",
         AsyncMock(return_value=details),
     ):
         lines, is_image = await format_attachment_lines(

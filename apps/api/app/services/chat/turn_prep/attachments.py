@@ -13,7 +13,7 @@ from app.gateways.storage_gateway import StorageUnavailableError
 from app.models.orm import Attachment, User
 from app.models.schemas.math import MathImageExtract
 from app.repositories import users as users_repo
-from app.services.attachment_quota import has_current_upload_reservation
+from app.services.attachments.quota import has_current_upload_reservation
 from app.services.chat.stream_status import StreamStatusFn
 
 
@@ -21,7 +21,7 @@ async def count_image_attachments(
     session: AsyncSession, user_id: UUID, attachment_ids: list[UUID]
 ) -> int:
     from app.repositories import attachments as attachments_repo
-    from app.services.attachment_content import IMAGE_CONTENT_TYPES, normalize_content_type
+    from app.services.attachments.content import IMAGE_CONTENT_TYPES, normalize_content_type
 
     rows = await attachments_repo.get_by_ids(session, attachment_ids, user_id)
     return sum(1 for row in rows if normalize_content_type(row.content_type) in IMAGE_CONTENT_TYPES)
@@ -136,7 +136,7 @@ async def _process_attachment_inputs(
             if attachment_id in rows_by_id
         ]
         if attachment_rows:
-            from app.services.attachment_reuse import ensure_unlinked_copies
+            from app.services.attachments.reuse import ensure_unlinked_copies
 
             attachment_rows = await ensure_unlinked_copies(session, settings, attachment_rows)
         resolved_ids = [row.id for row in attachment_rows]
@@ -156,7 +156,7 @@ async def _process_attachment_inputs(
         )
 
     from app.gateways.storage_gateway import get_storage_gateway
-    from app.services import attachment_content as attachment_content_service
+    from app.services.attachments import content as attachment_content_service
 
     if on_status is not None:
         await on_status("reading_files")
@@ -233,8 +233,8 @@ async def _process_attachment_inputs(
             user_content = plain
 
     # Camera math solver: vision-extract equation so SymPy can verify.
-    from app.services import math_image_extract as math_image_extract_service
-    from app.services import math_text_match
+    from app.services.math import image_extract as math_image_extract_service
+    from app.services.math import match as math_match
 
     # BUG FIX: this used to require the sent text to be BYTE-FOR-BYTE
     # identical to the preset camera caption — the composer pre-fills that
@@ -250,7 +250,7 @@ async def _process_attachment_inputs(
     # default blank caption every plain image attachment sends) is left
     # alone — this must not fire a vision call on every unrelated photo.
     caption = content.strip()
-    looks_like_math_caption = bool(caption) and math_text_match.has_math_keyword(caption.lower())
+    looks_like_math_caption = bool(caption) and math_match.has_math_keyword(caption.lower())
     confirmed_reading = math_image_extract_service.confirmed_math_reading(content)
     if (
         has_image_attachment
@@ -266,7 +266,7 @@ async def _process_attachment_inputs(
         if confirmed_reading:
             # The student already verified OCR in the scanner. Re-running
             # vision here can silently solve a different equation.
-            from app.services.math_ocr import extract_from_confirmed_reading
+            from app.services.math.ocr import extract_from_confirmed_reading
 
             extracted = extract_from_confirmed_reading(confirmed_reading)
             if extracted is not None:

@@ -59,9 +59,9 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.build_search_augmentation",
@@ -120,9 +120,9 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.build_search_augmentation",
@@ -196,9 +196,9 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.build_search_augmentation",
@@ -262,9 +262,9 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.build_search_augmentation",
@@ -329,9 +329,9 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.todos.extract.extract_todo_actions",
@@ -390,9 +390,9 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.build_search_augmentation",
@@ -464,9 +464,9 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.build_search_augmentation",
@@ -888,7 +888,7 @@ async def test_try_image_gen_dog_then_image_uses_prior_subject():
 async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
     """403/404 must not delete the prior assistant (omit-until-success)."""
     from app.services.chat.stream import _try_image_gen_for_turn
-    from app.services.image_generation import ImageGenerationError
+    from app.services.images.generation import ImageGenerationError
 
     user = MagicMock()
     user.id = uuid4()
@@ -1064,7 +1064,7 @@ async def test_try_image_lookup_succeeds_and_populates_result():
 async def test_try_image_lookup_quota_exceeded_raises():
     from app.exceptions import QuotaExceededError
     from app.services.chat.stream import _try_image_lookup_for_turn
-    from app.services.image_search import ImageSearchError
+    from app.services.images.search import ImageSearchError
 
     user = MagicMock()
     user.id = uuid4()
@@ -1094,7 +1094,7 @@ async def test_try_image_lookup_quota_exceeded_raises():
 async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int):
     """No-results / provider-down lookups fall through to a normal LLM answer."""
     from app.services.chat.stream import _try_image_lookup_for_turn
-    from app.services.image_search import ImageSearchError
+    from app.services.images.search import ImageSearchError
 
     user = MagicMock()
     user.id = uuid4()
@@ -1126,7 +1126,7 @@ async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int
 async def test_try_image_lookup_other_error_raises_chat_service_error():
     from app.exceptions import ChatServiceError
     from app.services.chat.stream import _try_image_lookup_for_turn
-    from app.services.image_search import ImageSearchError
+    from app.services.images.search import ImageSearchError
 
     user = MagicMock()
     user.id = uuid4()
@@ -1480,9 +1480,9 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.build_search_augmentation",
@@ -1541,9 +1541,9 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch("app.services.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
@@ -1605,9 +1605,9 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch("app.services.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
@@ -1687,13 +1687,15 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
                 AsyncMock(side_effect=RuntimeError("calendar boom")),
             )
         )
-        stack.enter_context(patch("app.services.email.is_connected", AsyncMock(return_value=False)))
         stack.enter_context(
-            patch("app.services.email.load_gmail_context", AsyncMock(return_value=None))
+            patch("app.services.email.context.is_connected", AsyncMock(return_value=False))
+        )
+        stack.enter_context(
+            patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None))
         )
         stack.enter_context(
             patch(
-                "app.services.email.load_gmail_for_prompt",
+                "app.services.email.context.load_gmail_for_prompt",
                 AsyncMock(return_value=None),
             )
         )
@@ -1769,9 +1771,9 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
             "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.email.context.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.context.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.build_search_augmentation",
@@ -1898,13 +1900,13 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.attachment_lifecycle.detach_attachments_for_messages",
+                "app.services.attachments.lifecycle.detach_attachments_for_messages",
                 AsyncMock(return_value=[]),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.attachment_lifecycle.delete_storage_keys",
+                "app.services.attachments.lifecycle.delete_storage_keys",
                 AsyncMock(),
             )
         )
@@ -2019,13 +2021,13 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.attachment_lifecycle.detach_attachments_for_messages",
+                "app.services.attachments.lifecycle.detach_attachments_for_messages",
                 AsyncMock(return_value=[]),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.attachment_lifecycle.delete_storage_keys",
+                "app.services.attachments.lifecycle.delete_storage_keys",
                 AsyncMock(),
             )
         )
@@ -2147,13 +2149,13 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.attachment_lifecycle.detach_attachments_for_messages",
+                "app.services.attachments.lifecycle.detach_attachments_for_messages",
                 AsyncMock(return_value=[]),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.attachment_lifecycle.delete_storage_keys",
+                "app.services.attachments.lifecycle.delete_storage_keys",
                 AsyncMock(),
             )
         )

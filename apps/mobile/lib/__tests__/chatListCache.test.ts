@@ -16,7 +16,7 @@ import {
 import {
   markChatHasAssistant,
   shouldProbePreviousChat,
-} from "@/lib/chatDraftLogic";
+} from "@/lib/chat/draftLogic";
 import type { ChatList } from "@/lib/api";
 
 jest.mock("@/lib/api", () => ({

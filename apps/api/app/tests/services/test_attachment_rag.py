@@ -5,8 +5,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.attachment_content import ExtractedText
-from app.services.attachment_rag import chunk_text, index_attachment, retrieve_for_prompt
+from app.services.attachments.content import ExtractedText
+from app.services.attachments.rag import chunk_text, index_attachment, retrieve_for_prompt
 
 
 def _session_cm():
@@ -64,24 +64,24 @@ async def test_retrieve_for_prompt_includes_filename_and_page():
     file_row.index_coverage_json = None
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            "app.services.attachments.rag.chunks_repo.has_chunks_for_chat",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.get_or_embed_query",
+            "app.services.attachments.rag.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[0.1] * 1536),
         ),
         patch(
-            "app.services.attachment_rag.chunks_repo.search_semantic",
+            "app.services.attachments.rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[chunk]),
         ),
         patch(
-            "app.services.attachment_rag.attachments_repo.get_by_ids",
+            "app.services.attachments.rag.attachments_repo.get_by_ids",
             AsyncMock(return_value=[file_row]),
         ),
-        patch("app.services.attachment_rag.chunks_repo.EMBEDDING_DIM", 1536),
+        patch("app.services.attachments.rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings=settings,
@@ -100,20 +100,20 @@ async def test_retrieve_for_prompt_miss_is_not_not_in_file():
     settings = Settings(mock_llm_enabled=True, attachment_rag_enabled=True)
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            "app.services.attachments.rag.chunks_repo.has_chunks_for_chat",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.get_or_embed_query",
+            "app.services.attachments.rag.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[0.1] * 1536),
         ),
         patch(
-            "app.services.attachment_rag.chunks_repo.search_semantic",
+            "app.services.attachments.rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[]),
         ),
-        patch("app.services.attachment_rag.chunks_repo.EMBEDDING_DIM", 1536),
+        patch("app.services.attachments.rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings=settings,
@@ -138,20 +138,20 @@ async def test_retrieve_for_prompt_degrades_on_db_error_instead_of_raising():
     chat_id = uuid4()
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            "app.services.attachments.rag.chunks_repo.has_chunks_for_chat",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.embed_text",
+            "app.services.attachments.rag.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1] * 1536),
         ),
         patch(
-            "app.services.attachment_rag.chunks_repo.search_semantic",
+            "app.services.attachments.rag.chunks_repo.search_semantic",
             AsyncMock(side_effect=RuntimeError("db exploded")),
         ),
-        patch("app.services.attachment_rag.chunks_repo.EMBEDDING_DIM", 1536),
+        patch("app.services.attachments.rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings=settings,
@@ -169,13 +169,13 @@ async def test_retrieve_for_prompt_skips_embed_when_no_chunks():
     embed_mock = AsyncMock(return_value=[0.1] * 1536)
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            "app.services.attachments.rag.chunks_repo.has_chunks_for_chat",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.embed_text",
+            "app.services.attachments.rag.embedding_gateway.embed_text",
             embed_mock,
         ),
     ):
@@ -201,17 +201,17 @@ async def test_retrieve_for_prompt_times_out_hung_embed():
         return [0.1] * 1536
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            "app.services.attachments.rag.chunks_repo.has_chunks_for_chat",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.embed_text",
+            "app.services.attachments.rag.embedding_gateway.embed_text",
             _hang,
         ),
         patch(
-            "app.services.attachment_rag._RAG_EMBED_TIMEOUT_SECONDS",
+            "app.services.attachments.rag._RAG_EMBED_TIMEOUT_SECONDS",
             0.05,
         ),
     ):
@@ -258,29 +258,29 @@ async def test_index_attachment_uses_short_lived_sessions():
         return ExtractedText(text="hello from the attachment")
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _cm),
+        patch("app.services.attachments.rag.SessionLocal", _cm),
         patch(
-            "app.services.attachment_rag.attachments_repo.get_by_id",
+            "app.services.attachments.rag.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            "app.services.attachments.rag.attachment_content_service.read_attachment_bytes",
             AsyncMock(return_value=b"hello from the attachment"),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
+            "app.services.attachments.rag.attachment_content_service.extract_text_details_async",
             _extract,
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.embed_text",
+            "app.services.attachments.rag.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1] * 8),
         ),
         patch(
-            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            "app.services.attachments.rag.chunks_repo.replace_chunks",
             AsyncMock(),
         ) as replace_mock,
         patch(
-            "app.services.attachment_rag.attachments_repo.set_index_coverage",
+            "app.services.attachments.rag.attachments_repo.set_index_coverage",
             AsyncMock(),
         ),
     ):
@@ -303,7 +303,7 @@ async def test_index_attachment_raises_on_storage_read_failure():
     """A failed R2 read is a transient error — index_attachment must raise so
     the worker retries, not silently return 0 (which the dedupe key would
     block from re-enqueue for 24h)."""
-    from app.services.attachment_rag import AttachmentIndexError
+    from app.services.attachments.rag import AttachmentIndexError
 
     settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)
     row = MagicMock()
@@ -313,13 +313,13 @@ async def test_index_attachment_raises_on_storage_read_failure():
     row.content_type = "text/plain"
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.attachments_repo.get_by_id",
+            "app.services.attachments.rag.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            "app.services.attachments.rag.attachment_content_service.read_attachment_bytes",
             AsyncMock(return_value=b""),  # empty = read failure
         ),
     ):
@@ -336,7 +336,7 @@ async def test_index_attachment_raises_on_storage_read_failure():
 async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail():
     """When some chunks embed and some fail, store only the successful ones.
     When ALL fail, raise so the worker retries instead of storing dead rows."""
-    from app.services.attachment_rag import AttachmentIndexError
+    from app.services.attachments.rag import AttachmentIndexError
 
     settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)
     row = MagicMock()
@@ -352,29 +352,29 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
         return next(embed_results)
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.attachments_repo.get_by_id",
+            "app.services.attachments.rag.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            "app.services.attachments.rag.attachment_content_service.read_attachment_bytes",
             AsyncMock(return_value=b"chunk one. chunk two."),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
+            "app.services.attachments.rag.attachment_content_service.extract_text_details_async",
             AsyncMock(return_value=ExtractedText(text="chunk one. chunk two.")),
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.embed_text",
+            "app.services.attachments.rag.embedding_gateway.embed_text",
             _embed,
         ),
         patch(
-            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            "app.services.attachments.rag.chunks_repo.replace_chunks",
             AsyncMock(),
         ) as replace_mock,
         patch(
-            "app.services.attachment_rag.attachments_repo.set_index_coverage",
+            "app.services.attachments.rag.attachments_repo.set_index_coverage",
             AsyncMock(),
         ),
     ):
@@ -398,25 +398,25 @@ async def test_index_attachment_filters_null_embeddings_and_raises_on_all_fail()
         return next(embed_results_all_fail)
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.attachments_repo.get_by_id",
+            "app.services.attachments.rag.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            "app.services.attachments.rag.attachment_content_service.read_attachment_bytes",
             AsyncMock(return_value=b"chunk one. chunk two."),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
+            "app.services.attachments.rag.attachment_content_service.extract_text_details_async",
             AsyncMock(return_value=ExtractedText(text="chunk one. chunk two.")),
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.embed_text",
+            "app.services.attachments.rag.embedding_gateway.embed_text",
             _embed_all_fail,
         ),
         patch(
-            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            "app.services.attachments.rag.chunks_repo.replace_chunks",
             AsyncMock(),
         ),
     ):
@@ -447,29 +447,29 @@ async def test_index_attachment_uses_higher_extraction_cap_for_indexing():
         return ExtractedText(text="text content")
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.attachments_repo.get_by_id",
+            "app.services.attachments.rag.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            "app.services.attachments.rag.attachment_content_service.read_attachment_bytes",
             AsyncMock(return_value=b"text content"),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
+            "app.services.attachments.rag.attachment_content_service.extract_text_details_async",
             _extract,
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.embed_text",
+            "app.services.attachments.rag.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1] * 1536),
         ),
         patch(
-            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            "app.services.attachments.rag.chunks_repo.replace_chunks",
             AsyncMock(),
         ),
         patch(
-            "app.services.attachment_rag.attachments_repo.set_index_coverage",
+            "app.services.attachments.rag.attachments_repo.set_index_coverage",
             AsyncMock(),
         ) as coverage_mock,
     ):
@@ -480,7 +480,7 @@ async def test_index_attachment_uses_higher_extraction_cap_for_indexing():
             chat_id=uuid4(),
         )
 
-    from app.services.attachment_content import MAX_INDEX_EXTRACT_CHARS
+    from app.services.attachments.content import MAX_INDEX_EXTRACT_CHARS
 
     assert captured["max_chars"] == MAX_INDEX_EXTRACT_CHARS
     assert captured["ocr_max_pages"] == settings.attachment_ocr_index_max_pages
@@ -505,29 +505,29 @@ async def test_index_attachment_stores_ocr_coverage():
         return ExtractedText(text="scanned homework", via_ocr=True, page_capped=True)
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.attachments_repo.get_by_id",
+            "app.services.attachments.rag.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            "app.services.attachments.rag.attachment_content_service.read_attachment_bytes",
             AsyncMock(return_value=b"%PDF"),
         ),
         patch(
-            "app.services.attachment_rag.attachment_content_service.extract_text_details_async",
+            "app.services.attachments.rag.attachment_content_service.extract_text_details_async",
             _extract,
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.embed_text",
+            "app.services.attachments.rag.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1] * 1536),
         ),
         patch(
-            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            "app.services.attachments.rag.chunks_repo.replace_chunks",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.attachment_rag.attachments_repo.set_index_coverage",
+            "app.services.attachments.rag.attachments_repo.set_index_coverage",
             AsyncMock(),
         ) as coverage_mock,
     ):
@@ -561,24 +561,24 @@ async def test_retrieve_for_prompt_uses_stored_ocr_coverage():
     )
 
     with (
-        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch("app.services.attachments.rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            "app.services.attachments.rag.chunks_repo.has_chunks_for_chat",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.attachment_rag.embedding_gateway.get_or_embed_query",
+            "app.services.attachments.rag.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[0.1] * 1536),
         ),
         patch(
-            "app.services.attachment_rag.chunks_repo.search_semantic",
+            "app.services.attachments.rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[chunk]),
         ),
         patch(
-            "app.services.attachment_rag.attachments_repo.get_by_ids",
+            "app.services.attachments.rag.attachments_repo.get_by_ids",
             AsyncMock(return_value=[file_row]),
         ),
-        patch("app.services.attachment_rag.chunks_repo.EMBEDDING_DIM", 1536),
+        patch("app.services.attachments.rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings=settings,

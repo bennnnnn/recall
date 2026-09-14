@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { MathConverterUnitSheet } from "@/components/chat/MathConverterUnitSheet";
 import { selection as hapticSelection } from "@/lib/haptics";
-import { converterResultSpec, type MathKeyboardSymbol } from "@/lib/mathKeyboardSymbols";
+import { converterResultSpec, type MathKeyboardSymbol } from "@/lib/math/keyboardSymbols";
 import { Theme, useTheme } from "@/lib/theme";
 import {
   CONVERTER_DEFAULT_DIGITS,

@@ -3,17 +3,17 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathText } from "@/components/rich/MathText";
-import { splitInlineMath } from "@/lib/markdown/markdownPreprocess";
-import { textLooksLikeMath } from "@/lib/math/mathComposerIntent";
-import { isMostlyProsePaste } from "@/lib/mathPasteNormalize";
+import { splitInlineMath } from "@/lib/markdown/preprocess";
+import { textLooksLikeMath } from "@/lib/math/composerIntent";
+import { isMostlyProsePaste } from "@/lib/math/pasteNormalize";
 import {
   caretAfterExpression,
   caretBeforeExpression,
   findDraftNodes,
   type DraftNode,
-} from "@/lib/mathDraftSlots";
-import { innermostSlot, type LatexGroup } from "@/lib/mathKeyboardSymbols";
-import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/mathText";
+} from "@/lib/math/draftSlots";
+import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
+import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
 import { Theme, useTheme } from "@/lib/theme";
 
 export const MATH_DRAFT_PREVIEW_HEIGHT = 48;

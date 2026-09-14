@@ -15,7 +15,7 @@ import {
   graphPolylinePoints,
   parseGraphSpec,
   type GraphSpec,
-} from "@/lib/graphBlock";
+} from "@/lib/math/graphBlock";
 import { CODE_FONT } from "@/lib/fonts";
 import { Theme, useTheme } from "@/lib/theme";
 

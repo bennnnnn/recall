@@ -4,7 +4,7 @@ from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.models.orm import User
 from app.models.schemas import ImageGenerateIn, ImageGenerateOut, MessageOut
-from app.services import image_generation as image_generation_service
+from app.services.images import generation as image_generation_service
 
 router = APIRouter(prefix="/images", tags=["images"])
 

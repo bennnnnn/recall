@@ -6,7 +6,7 @@ import {
   pastedDeltaLooksLikeMath,
   restoreCopiedFractions,
   shouldProbeClipboardForImagePaste,
-} from "@/lib/mathPasteNormalize";
+} from "@/lib/math/pasteNormalize";
 
 describe("normalizePastedMath", () => {
   it("maps Unicode math glyphs to LaTeX and wraps $...$", () => {

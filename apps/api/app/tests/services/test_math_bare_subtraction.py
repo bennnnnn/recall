@@ -3,8 +3,8 @@
 import pytest
 
 from app.core.config import Settings
-from app.services import math_tools
-from app.services.math_tools.direct import maybe_direct_math_reply
+from app.services.math import tools as math_tools
+from app.services.math.tools.direct import maybe_direct_math_reply
 
 
 @pytest.mark.parametrize(

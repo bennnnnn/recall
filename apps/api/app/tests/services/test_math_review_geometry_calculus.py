@@ -6,9 +6,9 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import MathSeriesResult
-from app.services.math_tools import extract_math_intent
-from app.services.math_tools.block import _build_verified_block
-from app.services.math_tools.direct import maybe_direct_math_reply
+from app.services.math.tools import extract_math_intent
+from app.services.math.tools.block import _build_verified_block
+from app.services.math.tools.direct import maybe_direct_math_reply
 
 
 def test_direct_indefinite_integral_keeps_constant_of_integration() -> None:
@@ -108,7 +108,7 @@ def test_unsolved_series_does_not_get_a_canonical_answer() -> None:
     intent = extract_math_intent("sum 1/n^2 from n=1 to infinity")
     assert intent is not None
     with patch(
-        "app.services.math_service.evaluate_series_sum",
+        "app.services.math.solve.evaluate_series_sum",
         return_value=MathSeriesResult(
             result="Sum(...)", latex="unevaluated", is_infinite=False, solved=False
         ),

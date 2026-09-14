@@ -1,8 +1,8 @@
 import { PREVIEW_CSP, MATH_PREVIEW_CSP, PREVIEW_VIEWPORT } from "@/lib/previewSandbox";
-import { buildMathWebHtml, isHeavyMath, pickMathEngine } from "@/lib/mathHtml";
-import { buildMathjaxWebHtml } from "@/lib/mathHtmlMathjax";
+import { buildMathWebHtml, isHeavyMath, pickMathEngine } from "@/lib/math/html";
+import { buildMathjaxWebHtml } from "@/lib/math/htmlMathjax";
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
-import { PROTECTED_ESCAPE_MARKER, PROTECTED_MATH_UNDERSCORE_MARKER } from "@/lib/mathText";
+import { PROTECTED_ESCAPE_MARKER, PROTECTED_MATH_UNDERSCORE_MARKER } from "@/lib/math/text";
 
 describe("math WebView HTML", () => {
   it("restores protected source before selecting and rendering MathJax", () => {

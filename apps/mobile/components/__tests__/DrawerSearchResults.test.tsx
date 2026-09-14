@@ -4,7 +4,7 @@ import { DrawerSearchLoadMore, DrawerSearchResultRow, DrawerSearchResultsChrome 
 import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
 import type { SearchResult } from "@/lib/api";
 import { DrawerChatFlashList, type DrawerChatListItem } from "@/components/drawer/DrawerChatFlashList";
-import { emptyChatList } from "@/lib/chat/chatListSections";
+import { emptyChatList } from "@/lib/chat/listSections";
 
 jest.mock("@/lib/drawer", () => ({ isChatTitleGenerating: () => false }));
 jest.mock("@shopify/flash-list", () => ({ FlashList: ({ data, renderItem }: {

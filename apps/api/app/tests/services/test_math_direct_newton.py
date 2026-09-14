@@ -7,11 +7,11 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import NewtonMethodInput
-from app.services import math_service
-from app.services.math_fence import validate_math_fences
-from app.services.math_tools.block import _build_verified_block
-from app.services.math_tools.direct import maybe_direct_math_reply
-from app.services.math_tools.extract import extract_math_intent
+from app.services.math import solve as math_solve
+from app.services.math.fence import validate_math_fences
+from app.services.math.tools.block import _build_verified_block
+from app.services.math.tools.direct import maybe_direct_math_reply
+from app.services.math.tools.extract import extract_math_intent
 
 _QUERY = "Use Newton method to solve x^2-2=0 starting at 1"
 _SETTINGS = Settings(math_tools_enabled=True)
@@ -29,7 +29,7 @@ def test_exact_c17_displays_verified_recurrence_every_iterate_and_root_without_m
     block = _block()
     result = block.newton_result
     assert result is not None
-    with patch.object(math_service, "newton_method", side_effect=AssertionError("no re-solve")):
+    with patch.object(math_solve, "newton_method", side_effect=AssertionError("no re-solve")):
         reply = maybe_direct_math_reply(block, _QUERY)
     assert reply is not None
     assert result.recurrence_latex in reply
@@ -170,8 +170,8 @@ def test_long_iteration_history_shows_labeled_first_and_last_actual_rows():
 
 
 def test_block_carries_deep_copies_of_the_actual_solved_result():
-    solved = math_service.newton_method(NewtonMethodInput(expr="x^2-2", initial_guess=1))
-    with patch.object(math_service, "newton_method", return_value=solved):
+    solved = math_solve.newton_method(NewtonMethodInput(expr="x^2-2", initial_guess=1))
+    with patch.object(math_solve, "newton_method", return_value=solved):
         block = _block()
     solved.root = 99
     solved.iterations[0].x_n = 99

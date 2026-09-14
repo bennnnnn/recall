@@ -7,7 +7,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways.storage_gateway import get_storage_gateway
 from app.repositories import attachments as attachments_repo
-from app.services import attachment_content
+from app.services.attachments import content as attachment_content
 
 
 async def inject_regenerated_image_content(

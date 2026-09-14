@@ -1,6 +1,6 @@
-import { normalizeMarkdownTables, preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
-import { markdownItInstance } from "@/lib/markdownIt";
-import { preprocessMarkdownForStream } from "@/lib/markdown/markdownPreprocessStream";
+import { normalizeMarkdownTables, preprocessMarkdown } from "@/lib/markdown/preprocess";
+import { markdownItInstance } from "@/lib/markdown/parser";
+import { preprocessMarkdownForStream } from "@/lib/markdown/preprocessStream";
 import { IMPROPER_RESPONSE } from "./fixtures/improperIntegralResponse";
 
 const negativeSide = String.raw`\lim_{a \to 0^{-}} \left(\ln|a| - \ln|-1|\right) = -\infty`;

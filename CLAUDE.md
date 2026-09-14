@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md). Domain grouping and what is left: [docs/CODE_STRUCTURE_REVIEW_2026-09-13.md](./docs/CODE_STRUCTURE_REVIEW_2026-09-13.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -19,7 +19,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 4. **Topic generation, memory extraction, and other post-turn work are best-effort background jobs.** They must never raise into the chat request path or block streaming. Enqueue from `services/chat/post_turn.py` via `core/jobs.py`.
 5. **No arbitrary code execution — one sandboxed exception.** Code in messages is rendered/highlighted only, with a single exception: **HTML/CSS/JS may be previewed in a sandboxed WebView** (and charts/diagrams rendered from model output). Never execute Python, shell, or any other language, and never run code anywhere except inside the isolated preview WebView (no app token is ever exposed to it). The preview WebView requires a dev build — it does not work in Expo Go.
 6. **All LLM structured outputs are validated with Pydantic** before they touch the DB.
-7. **Symbolic math runs server-side only (SymPy).** The mobile app renders verified results and structured `geometry` / `graph` fences — it never solves equations on-device. Pipeline map: [docs/math.md](./docs/math.md).
+7. **Symbolic math runs server-side only (SymPy).** Physics is a peer subject in `services/physics/`, not a corner of math. The mobile app renders verified results and structured `geometry` / `graph` fences — it never solves equations on-device. Pipeline map: [docs/math.md](./docs/math.md).
 
 ## Service Overview
 
@@ -70,9 +70,12 @@ app/
   worker_health.py     # worker liveness probe
   exceptions.py        # shared domain exceptions
   routers/             # HTTP + WebSocket ONLY (no business logic)
-  services/            # business logic (~27k)
+  services/            # business logic — one package per domain
     chat/              # turn prep, stream, post_turn (~4.5k)
-    memory/ learning/ todos/ web_search/ home/
+    math/              # match/ (scan) → tools/ (intent, block) → solve/ (SymPy)
+    physics/           # peer subject: solver, extract, direct, block
+    chemistry/ attachments/ images/ email/
+    memory/ learning/ todos/ notifications/ web_search/ home/ mcp/
   gateways/            # external IO (LiteLLM, Google, storage, speech, search, …)
     mcp/               # tool adapters + registry (flag-gated at runtime)
   repositories/        # Neon access
@@ -118,24 +121,24 @@ What exists in code today. Product caveats: FEATURES.md.
 | Todos / reminders | `routers/todos.py`, `services/todos/` | `app/todos.tsx`, `components/todos/` |
 | Learning classes | `routers/learning.py` (HTTP `/projects`), `services/learning/`, `schemas/learning.py` | `app/projects/`, lesson play |
 | Home starters | `routers/home.py`, `services/home/` | home cards on chat empty / index |
-| Attachments + RAG | `routers/attachments.py`, `attachment_*.py`, `background/attachment_*.py` | `lib/api/attachments.ts`, composer attach |
+| Attachments + RAG | `routers/attachments.py`, `services/attachments/`, `background/attachment_*.py` | `lib/api/attachments.ts`, composer attach |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
-| Image gen (Pro) | `routers/images.py`, `image_generation.py`, `image_gen_intent.py` | composer send only (no prompt sheet) |
-| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `image_search.py`, `image_lookup_intent.py`, MCP `search_image` adapter | `lib/imageLookupIntent.ts` (checked before image-gen intent in `useChatSend`) |
+| Image gen (Pro) | `routers/images.py`, `services/images/generation.py`, `images/gen_intent.py` | composer send only (no prompt sheet) |
+| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `services/images/search.py`, `images/lookup_intent.py`, MCP `search_image` adapter | `lib/imageLookupIntent.ts` (checked before image-gen intent in `useChatSend`) |
 | Speech STT/TTS + live talk | `routers/speech.py`, `services/speech.py`, `quota.py` | `useVoiceInput`, `useLiveTalk`, message speaker |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
-| Math (SymPy) | `math_tools/`, `math_service/`, `math_fence.py`, `sympy_executor.py` | `MathText` / `MathView` / `geometry` / `graph` |
-| Chemistry (RDKit / PubChem) | `services/chemistry/`, `gateways/pubchem_gateway.py`, `chemistry_fence.py` | `chemistryFence.ts`, smiles + `molecule3d` |
-| Calendar / Gmail | `routers/integrations.py`, `gmail_integrations.py`, `services/calendar.py`, `email.py` | `settings/integrations.tsx` |
-| Push / email out | `push_notifications.py`, `transactional_email.py`, `background/*scheduler*` | notification settings |
+| Math (SymPy) | `services/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
+| Chemistry (RDKit / PubChem) | `services/chemistry/`, `gateways/pubchem_gateway.py` | `chemistryFence.ts`, smiles + `molecule3d` |
+| Calendar / Gmail | `routers/integrations.py`, `gmail_integrations.py`, `services/calendar.py`, `services/email/` | `settings/integrations.tsx` |
+| Push / email out | `services/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `routers/webhooks.py`, `gateways/revenuecat_gateway.py` | RevenueCat |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `settings/about.tsx`, data-controls |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**Routers registered in** `main.py`: health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, memories, models, todos, learning, search, suggestions, attachments, integrations, gmail_integrations, speech, images, ws.
+**Routers registered in** `main.py`: health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, memories, models, todos, learning, search, suggestions, attachments, integrations, gmail_integrations, speech, speech_realtime, images, analytics, ws.
 
-**Service packages:** `services/chat`, `memory`, `learning`, `todos`, `web_search`, `home`, `chemistry`, plus top-level modules (math_*, speech, calendar, …). New chat-loop code belongs in `services/chat/`. New IO belongs in a gateway or repository, not a router.
+**Service packages:** every domain is a package under `services/` — `chat`, `math`, `physics`, `chemistry`, `attachments`, `images`, `email`, `memory`, `learning`, `todos`, `notifications`, `web_search`, `home`, `mcp`. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). **A second module sharing a domain prefix means the domain wants a package** — that is how math ended up as three siblings plus six loose files. New chat-loop code belongs in `services/chat/`; new IO in a gateway or repository, not a router.
 
 ## Seams (plug in / plug out)
 
@@ -167,7 +170,7 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, project/quiz context, SymPy pre-solve, chemistry context
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
-7. Post-stream math fence correction (`math_fence.py`) and chemistry fence enrich (`chemistry/fence.py`)
+7. Post-stream math fence correction (`math/fence.py`) and chemistry fence enrich (`chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task
 9. `enqueue_post_turn_jobs` — topic, memory, todos, projects, compress, suggestions, attachment_index, message_index (best-effort; must not raise into the stream)
 
@@ -184,6 +187,7 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 - Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,memories,todos,learning,integrations,attachments,images,account,discover,connectivity,types}.ts`
 - Tokens: `expo-secure-store` only
 - Chat logic: `hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — screens stay thin
+- Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `projects/`, `i18n/`. A module belongs in its domain folder, not beside it: `lib/mathHtml.ts` next to `lib/math/` is the split starting, and inside the folder the prefix comes off (`math/html.ts`, not `math/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fenceRegistry.ts` is the lang/id table; `RichFence` renders
 - i18n: `lib/i18n` (9 locales, key parity enforced by test)

@@ -1,4 +1,4 @@
-import { firstReplyTitlePlan, shouldInsertDrawerRowOnLeave } from "@/lib/chatTitleRefresh";
+import { firstReplyTitlePlan, shouldInsertDrawerRowOnLeave } from "@/lib/chat/titleRefresh";
 import type { Chat } from "@/lib/api";
 
 function chat(id: string, title: string | null): Chat {

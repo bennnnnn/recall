@@ -6,7 +6,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import ChatOut
-from app.services.chat_titles import (
+from app.services.chat.titles import (
     GREETING_CHAT_TITLE,
     finalize_generated_title,
     generate_title,
@@ -38,7 +38,7 @@ def test_normalize_chat_title(raw: str | None, expected: str | None):
 
 
 def test_needs_generated_title():
-    from app.services.chat_titles import needs_generated_title
+    from app.services.chat.titles import needs_generated_title
 
     assert needs_generated_title(None) is True
     assert needs_generated_title("") is True
@@ -126,7 +126,7 @@ def test_finalize_generated_title(raw: str, user: str, expected: str | None):
 async def test_generate_title_greeting_skips_model():
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
     with patch(
-        "app.services.chat_titles.litellm_gateway.complete_text",
+        "app.services.chat.titles.litellm_gateway.complete_text",
         new_callable=AsyncMock,
     ) as complete:
         title = await generate_title(settings, "good morning", "Hello!")

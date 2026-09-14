@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models.schemas import HomeStarter
 from app.services import calendar as calendar_service
-from app.services import email as email_service
+from app.services.email import context as email_service
 from app.services.home.util import (
     CALENDAR_TODAY_END_HOUR,
     CALENDAR_TOMORROW_END_HOUR,

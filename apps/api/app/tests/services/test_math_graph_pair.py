@@ -6,7 +6,9 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import GraphBlockSpec
-from app.services import math_fence, math_text_match, math_tools
+from app.services.math import fence as math_fence
+from app.services.math import match as math_match
+from app.services.math import tools as math_tools
 
 
 class TestGraphExprPairSignal:
@@ -19,15 +21,15 @@ class TestGraphExprPairSignal:
         ],
     )
     def test_matches_two_function_asks(self, text, expected):
-        assert math_text_match.graph_expr_pair(text) == expected
+        assert math_match.graph_expr_pair(text) == expected
 
     def test_does_not_swallow_trailing_prose_as_a_second_function(self):
         """Regression: "plot sin(x) and explain it" used to be read as a
         second function literally named "explain it"."""
-        assert math_text_match.graph_expr_pair("plot sin(x) and explain it") is None
+        assert math_match.graph_expr_pair("plot sin(x) and explain it") is None
 
     def test_single_function_ask_does_not_match(self):
-        assert math_text_match.graph_expr_pair("plot x^2") is None
+        assert math_match.graph_expr_pair("plot x^2") is None
 
 
 class TestAugmentPromptMessagesForGraphPair:

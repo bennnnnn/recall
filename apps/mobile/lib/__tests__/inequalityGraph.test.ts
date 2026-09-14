@@ -1,5 +1,5 @@
-import { formatAxisNumber, graphAxisTicks, parseGraphSpec, type InequalityGraphSpec } from "@/lib/graphBlock";
-import { clipInequalityRegion } from "@/lib/inequalityGraph";
+import { formatAxisNumber, graphAxisTicks, parseGraphSpec, type InequalityGraphSpec } from "@/lib/math/graphBlock";
+import { clipInequalityRegion } from "@/lib/math/inequalityGraph";
 
 const base: InequalityGraphSpec = {
   type: "inequality", expr: "y < 2*x", a: -2, b: 1, c: 0, comparator: "<",

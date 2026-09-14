@@ -1,7 +1,7 @@
 import { api, type Chat, type ChatList } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
-import { clearKnownAssistantChats } from "@/lib/chatDraftLogic";
-import { allChatsFromGroups, emptyChatList } from "@/lib/chat/chatListSections";
+import { clearKnownAssistantChats } from "@/lib/chat/draftLogic";
+import { allChatsFromGroups, emptyChatList } from "@/lib/chat/listSections";
 import { CHAT_LIST_STALE_MS } from "@/lib/drawerChatList";
 
 type ListUpdate = (groups: ChatList) => ChatList;

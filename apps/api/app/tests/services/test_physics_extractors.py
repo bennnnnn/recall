@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.math_tools.physics import (
+from app.services.physics.extract import (
     _VALUE_UNIT_RE,
     _detect_gravity,
     _extract_energy_intent,
@@ -317,8 +317,8 @@ def test_projectile_missing_speed_returns_none() -> None:
 
 def test_projectile_wall_distance_is_not_launch_height() -> None:
     from app.core.config import Settings
-    from app.services import math_tools
-    from app.services.math_tools.extract import extract_math_intent
+    from app.services.math import tools as math_tools
+    from app.services.math.tools.extract import extract_math_intent
 
     text = (
         "A projectile is launched at 20 m/s at 30 degrees. The wall is 15 m away. "
@@ -337,8 +337,8 @@ def test_projectile_wall_distance_is_not_launch_height() -> None:
 
 def test_projectile_without_wall_still_verifies() -> None:
     from app.core.config import Settings
-    from app.services import math_tools
-    from app.services.math_tools.extract import extract_math_intent
+    from app.services.math import tools as math_tools
+    from app.services.math.tools.extract import extract_math_intent
 
     text = "A projectile is launched at 20 m/s at 30 degrees. What is its range?"
     intent = extract_math_intent(text)
@@ -350,7 +350,7 @@ def test_projectile_without_wall_still_verifies() -> None:
 
 
 def test_miles_per_hour_is_not_parsed_as_metres() -> None:
-    from app.services.math_tools.physics import _VALUE_UNIT_RE
+    from app.services.physics.extract import _VALUE_UNIT_RE
 
     hit = _VALUE_UNIT_RE.match("5 miles per hour")
     if hit is not None:
@@ -359,8 +359,8 @@ def test_miles_per_hour_is_not_parsed_as_metres() -> None:
 
 def test_downward_throw_mph_does_not_verify_as_five_metres_per_second() -> None:
     from app.core.config import Settings
-    from app.services import math_tools
-    from app.services.math_tools.extract import extract_math_intent
+    from app.services.math import tools as math_tools
+    from app.services.math.tools.extract import extract_math_intent
 
     text = "A ball is thrown down at 5 miles per hour from 20 m, how long to hit the ground?"
     intent = extract_math_intent(text)

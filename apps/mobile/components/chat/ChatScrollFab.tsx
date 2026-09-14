@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
-import { formatScrollAwayBadge } from "@/lib/chatScrollLogic";
+import { formatScrollAwayBadge } from "@/lib/chat/scrollLogic";
 import { IconSize } from "@/lib/icons";
 
 type Props = {

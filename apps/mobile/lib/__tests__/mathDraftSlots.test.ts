@@ -5,7 +5,7 @@ import {
   hasTappableDraftSlot,
   spliceMathBackspace,
   stepMathCaret,
-} from "@/lib/mathDraftSlots";
+} from "@/lib/math/draftSlots";
 
 describe("findDraftNodes", () => {
   it("finds fractions, roots, scripts, abs, and groups", () => {

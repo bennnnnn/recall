@@ -15,8 +15,8 @@ from app.models.schemas import (
     AttachmentPresignIn,
     AttachmentPresignOut,
 )
-from app.services import attachment_workflow
-from app.services.attachment_upload import AttachmentUploadError, create_presigned_upload
+from app.services.attachments import workflow as attachment_workflow
+from app.services.attachments.upload import AttachmentUploadError, create_presigned_upload
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 

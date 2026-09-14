@@ -17,7 +17,7 @@ from app.background.periodic import (
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.repositories import gmail_connections as gmail_repo
-from app.services import email as email_service
+from app.services.email import context as email_service
 
 logger = logging.getLogger(__name__)
 

@@ -16,17 +16,15 @@ from app.models.schemas.math import MathImageExtract
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
-from app.services import chat_tools as chat_tools_service
-from app.services import email as email_service
 from app.services import learning as learning_service
 from app.services import locale as locale_service
-from app.services import math_tools as math_tools_service
 from app.services import memory as memory_service
 from app.services import profile as profile_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
 from app.services import todos as todos_service
 from app.services import web_search as web_search_service
+from app.services.chat import tools as chat_tools_service
 from app.services.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
     BREVITY_REQUEST_HINT,
@@ -90,13 +88,15 @@ from app.services.chat.prompt_constants.visuals import (
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
-from app.services.math_followup import (
+from app.services.email import context as email_service
+from app.services.math import tools as math_tools_service
+from app.services.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
     readable_standalone_answer,
 )
-from app.services.math_reply_policy import MATH_REPLY_POLICY
-from app.services.math_tools import VerifiedMathBlock
+from app.services.math.reply_policy import MATH_REPLY_POLICY
+from app.services.math.tools import VerifiedMathBlock
 from app.services.md_fence_scan import strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import (
@@ -408,7 +408,7 @@ async def _load_context_blocks(
     async def _history_rag_embed() -> list[float] | None:
         if not history_rag or not query_text or not query_text.strip():
             return None
-        from app.services import chat_history_rag as chat_history_rag_service
+        from app.services.chat import history_rag as chat_history_rag_service
 
         return await chat_history_rag_service.embed_query_for_prompt(
             settings, user_id=user.id, query=query_text
@@ -534,7 +534,7 @@ async def _load_context_blocks(
         # HTTP/embed-bound — do not hold a DB pool slot.
         if not settings.attachment_rag_enabled or not query_text:
             return ""
-        from app.services import attachment_rag as attachment_rag_service
+        from app.services.attachments import rag as attachment_rag_service
 
         return await attachment_rag_service.retrieve_for_prompt(
             settings,
@@ -890,7 +890,7 @@ async def build_prompt_messages(
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
     if history_rag and blocks.history_rag_query_vec is not None:
-        from app.services import chat_history_rag as chat_history_rag_service
+        from app.services.chat import history_rag as chat_history_rag_service
 
         exclude = {m.id for m in recent}
         if omit_message_ids:

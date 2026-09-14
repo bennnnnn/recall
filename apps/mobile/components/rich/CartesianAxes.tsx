@@ -5,7 +5,7 @@ import {
   graphAxisTicks,
   graphTickCount,
   mapGraphPoint,
-} from "@/lib/graphBlock";
+} from "@/lib/math/graphBlock";
 
 type Bounds = {
   xMin: number;

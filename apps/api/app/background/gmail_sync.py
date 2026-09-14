@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.services import email as email_service
+from app.services.email import context as email_service
 
 logger = logging.getLogger(__name__)
 

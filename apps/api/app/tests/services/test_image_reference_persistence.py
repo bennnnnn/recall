@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.image_generation import ImageGenerationError, generate_for_chat
+from app.services.images.generation import ImageGenerationError, generate_for_chat
 
 
 @pytest.mark.asyncio
@@ -32,38 +32,38 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
     link = AsyncMock(return_value=0 if fail_link else 1)
     refund = AsyncMock()
     with (
-        patch("app.services.image_generation.SessionLocal", return_value=session),
-        patch("app.services.image_generation.plan_service.is_pro", return_value=True),
+        patch("app.services.images.generation.SessionLocal", return_value=session),
+        patch("app.services.images.generation.plan_service.is_pro", return_value=True),
         patch(
-            "app.services.image_generation.chats_repo.get_by_id", AsyncMock(return_value=object())
+            "app.services.images.generation.chats_repo.get_by_id", AsyncMock(return_value=object())
         ),
         patch(
-            "app.services.image_generation.messages_repo.get_last_user",
+            "app.services.images.generation.messages_repo.get_last_user",
             AsyncMock(return_value=prior),
         ),
-        patch("app.services.image_generation.get_storage_gateway", return_value=gateway),
-        patch("app.services.image_generation.get_redis_client", return_value=AsyncMock()),
-        patch("app.services.image_generation.load_reference_images", load),
+        patch("app.services.images.generation.get_storage_gateway", return_value=gateway),
+        patch("app.services.images.generation.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.images.generation.load_reference_images", load),
         patch(
-            "app.services.image_generation.quota_service.image_generation_limit_for_user",
+            "app.services.images.generation.quota_service.image_generation_limit_for_user",
             return_value=10,
         ),
         patch(
-            "app.services.image_generation.quota_service.reserve_image_generation",
+            "app.services.images.generation.quota_service.reserve_image_generation",
             AsyncMock(return_value=True),
         ),
-        patch("app.services.image_generation.quota_service.refund_image_generation", refund),
-        patch("app.services.image_generation.generate_image", generated),
-        patch("app.services.image_generation.bytes_match_claimed", return_value=True),
+        patch("app.services.images.generation.quota_service.refund_image_generation", refund),
+        patch("app.services.images.generation.generate_image", generated),
+        patch("app.services.images.generation.bytes_match_claimed", return_value=True),
         patch(
-            "app.services.image_generation.attachments_repo.create_pending", AsyncMock()
+            "app.services.images.generation.attachments_repo.create_pending", AsyncMock()
         ) as pending,
         patch(
-            "app.services.image_generation.attachments_repo.insert_verified_clone", AsyncMock()
+            "app.services.images.generation.attachments_repo.insert_verified_clone", AsyncMock()
         ) as clone,
-        patch("app.services.image_generation.attachments_repo.link_to_message", link),
-        patch("app.services.image_generation.attachments_repo.mark_verified", AsyncMock()),
-        patch("app.services.image_generation.messages_repo.create", create),
+        patch("app.services.images.generation.attachments_repo.link_to_message", link),
+        patch("app.services.images.generation.attachments_repo.mark_verified", AsyncMock()),
+        patch("app.services.images.generation.messages_repo.create", create),
     ):
         args = dict(
             user=user,
@@ -108,25 +108,25 @@ async def test_generate_for_chat_refunds_on_cancelled_error():
         raise asyncio.CancelledError()
 
     with (
-        patch("app.services.image_generation.SessionLocal", return_value=session),
-        patch("app.services.image_generation.plan_service.is_pro", return_value=True),
+        patch("app.services.images.generation.SessionLocal", return_value=session),
+        patch("app.services.images.generation.plan_service.is_pro", return_value=True),
         patch(
-            "app.services.image_generation.chats_repo.get_by_id",
+            "app.services.images.generation.chats_repo.get_by_id",
             AsyncMock(return_value=object()),
         ),
-        patch("app.services.image_generation.get_storage_gateway", return_value=gateway),
-        patch("app.services.image_generation.get_redis_client", return_value=AsyncMock()),
-        patch("app.services.image_generation.load_reference_images", AsyncMock(return_value=[])),
+        patch("app.services.images.generation.get_storage_gateway", return_value=gateway),
+        patch("app.services.images.generation.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.images.generation.load_reference_images", AsyncMock(return_value=[])),
         patch(
-            "app.services.image_generation.quota_service.image_generation_limit_for_user",
+            "app.services.images.generation.quota_service.image_generation_limit_for_user",
             return_value=10,
         ),
         patch(
-            "app.services.image_generation.quota_service.reserve_image_generation",
+            "app.services.images.generation.quota_service.reserve_image_generation",
             AsyncMock(return_value=True),
         ),
-        patch("app.services.image_generation.quota_service.refund_image_generation", refund),
-        patch("app.services.image_generation.generate_image", boom),
+        patch("app.services.images.generation.quota_service.refund_image_generation", refund),
+        patch("app.services.images.generation.generate_image", boom),
     ):
         with pytest.raises(asyncio.CancelledError):
             await generate_for_chat(
@@ -148,20 +148,20 @@ async def test_generate_for_chat_skips_reserve_when_spend_capped():
     gateway = AsyncMock()
 
     with (
-        patch("app.services.image_generation.SessionLocal", return_value=session),
-        patch("app.services.image_generation.plan_service.is_pro", return_value=True),
+        patch("app.services.images.generation.SessionLocal", return_value=session),
+        patch("app.services.images.generation.plan_service.is_pro", return_value=True),
         patch(
-            "app.services.image_generation.chats_repo.get_by_id",
+            "app.services.images.generation.chats_repo.get_by_id",
             AsyncMock(return_value=object()),
         ),
-        patch("app.services.image_generation.get_storage_gateway", return_value=gateway),
-        patch("app.services.image_generation.get_redis_client", return_value=AsyncMock()),
-        patch("app.services.image_generation.load_reference_images", AsyncMock(return_value=[])),
+        patch("app.services.images.generation.get_storage_gateway", return_value=gateway),
+        patch("app.services.images.generation.get_redis_client", return_value=AsyncMock()),
+        patch("app.services.images.generation.load_reference_images", AsyncMock(return_value=[])),
         patch(
-            "app.services.image_generation.quota_service.global_spend_exceeded",
+            "app.services.images.generation.quota_service.global_spend_exceeded",
             AsyncMock(return_value=True),
         ),
-        patch("app.services.image_generation.quota_service.reserve_image_generation", reserve),
+        patch("app.services.images.generation.quota_service.reserve_image_generation", reserve),
     ):
         with pytest.raises(ImageGenerationError, match="temporarily unavailable"):
             await generate_for_chat(

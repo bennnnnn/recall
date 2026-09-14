@@ -2,9 +2,9 @@ import { act, renderHook } from "@testing-library/react-native";
 import { useState } from "react";
 
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
-import { clipboardIsImageOnly } from "@/lib/math/mathClipboard";
+import { clipboardIsImageOnly } from "@/lib/math/clipboard";
 
-jest.mock("@/lib/math/mathClipboard", () => ({
+jest.mock("@/lib/math/clipboard", () => ({
   clipboardIsImageOnly: jest.fn(async () => false),
 }));
 

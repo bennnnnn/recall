@@ -1,14 +1,14 @@
-import { parseChatWsPayload } from "@/lib/chatSocketReduce";
-import { reportChatTtft } from "@/lib/chatLatencyReporter";
+import { parseChatWsPayload } from "@/lib/chat/socketReduce";
+import { reportChatTtft } from "@/lib/chat/latencyReporter";
 import {
   chatTtftBucket,
   clearPendingChatTtft,
   markChatFirstToken,
   markChatTtftStart,
   markChatTtftTransport,
-} from "@/lib/chatLatency";
+} from "@/lib/chat/latency";
 
-jest.mock("@/lib/chatLatencyReporter", () => ({
+jest.mock("@/lib/chat/latencyReporter", () => ({
   reportChatTtft: jest.fn(async () => undefined),
 }));
 

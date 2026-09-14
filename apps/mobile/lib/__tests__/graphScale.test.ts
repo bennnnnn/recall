@@ -4,7 +4,7 @@ import {
   graphBounds,
   mapGraphPoint,
   schoolViewBounds,
-} from "@/lib/graphBlock";
+} from "@/lib/math/graphBlock";
 
 describe("equal graph units", () => {
   it.each([0.5, 1, 1.75, 2.5])("keeps the circle round at plot aspect %s", (aspect) => {
