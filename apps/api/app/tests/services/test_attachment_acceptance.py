@@ -121,10 +121,17 @@ def test_reuse_completed_and_previous_day_uploads_cannot_refund_today(change):
 
 
 def test_hour_old_same_day_upload_still_has_reservation():
+    now = datetime.now(UTC)
+    # Clamp to the start of today: the reservation is keyed to the UTC
+    # calendar day, so within an hour of midnight "an hour ago" is
+    # yesterday and this would assert the opposite of what it means.
+    earlier_today = max(
+        now - timedelta(hours=1), now.replace(hour=0, minute=0, second=0, microsecond=0)
+    )
     values = SimpleNamespace(
         source="upload",
         library_visible=True,
         verified_at=None,
-        created_at=datetime.now(UTC) - timedelta(hours=1),
+        created_at=earlier_today,
     )
     assert has_current_upload_reservation(values)

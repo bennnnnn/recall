@@ -307,7 +307,13 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
     orphan.source = "upload"
     orphan.library_visible = True
     orphan.verified_at = None
-    orphan.created_at = datetime.now(UTC) - timedelta(hours=1)
+    _now = datetime.now(UTC)
+    # Clamp to the start of today: the reservation is keyed to the UTC
+    # calendar day, so within an hour of midnight "an hour ago" is
+    # yesterday and this would assert the opposite of what it means.
+    orphan.created_at = max(
+        _now - timedelta(hours=1), _now.replace(hour=0, minute=0, second=0, microsecond=0)
+    )
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
     fake_redis = AsyncMock()
