@@ -635,6 +635,7 @@ async def build_stream_prompt_context(
             verified_math,
             content,
             has_image_attachment=has_image_attachment,
+            response_style=getattr(user, "response_style", None) or "balanced",
         )
     return TurnPromptBundle(
         prompt_messages=prompt_messages,

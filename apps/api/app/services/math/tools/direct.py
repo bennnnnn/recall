@@ -405,13 +405,18 @@ def can_direct_verified_math_reply(
     user_text: str,
     *,
     has_image_attachment: bool = False,
+    response_style: str = "balanced",
 ) -> bool:
     """Skip the LLM for a short closed answer or an explicit verified function plot.
 
     Geometry, camera homework, explanations, and mixed requests keep the
-    current inject+stream path.
+    current inject+stream path. So does the DETAILED response style: someone
+    who asked for thorough answers is asking for the working, and a bare
+    ```answer fence is the one thing this path cannot give them.
     """
     if has_image_attachment:
+        return False
+    if response_style == "detailed":
         return False
     if wants_math_explanation(user_text):
         return False
@@ -566,14 +571,24 @@ def maybe_direct_math_reply(
     user_text: str,
     *,
     has_image_attachment: bool = False,
+    response_style: str = "balanced",
 ) -> str | None:
     if verified is None:
         return None
     if not can_direct_verified_math_reply(
-        verified, user_text, has_image_attachment=has_image_attachment
+        verified,
+        user_text,
+        has_image_attachment=has_image_attachment,
+        response_style=response_style,
     ):
         return None
     reply = format_direct_math_reply(verified, user_text)
+    # "solve x^2 - 5x + 6 = 0" used to return a bare "x = 2 or x = 3", so the
+    # only way to see where it came from was to ask "how" and spend a second
+    # turn. One line of working, computed here rather than by the model, is
+    # what a person would have said the first time. SHORT asked for less.
+    if verified.key_step and response_style != "short":
+        reply = f"Factors as ${verified.key_step}$.\n\n{reply}"
     if (
         verified.physics_intent is not None
         and verified.physics_intent.kind == "kinematics"

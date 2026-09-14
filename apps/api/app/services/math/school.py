@@ -287,28 +287,54 @@ def partial_derivative(expr: str, variable: str) -> MathExprResult:
     return MathExprResult(result=tex, latex=tex, solved=True)
 
 
-def solve_ode(expr: str, variable: str = "x") -> MathExprResult:
-    """First-order ODE ``dy/dx = ...`` or ``y' = ...``. Build ``Eq`` in SymPy.
+_ODE_PLACEHOLDERS = {"y''": "Dyy", "y'": "Dy"}
 
-    Do not feed ``Derivative(y(x), x) = ...`` through the generic expression
-    parser — ``y(x)`` is not a allowed free-form parse.
+
+def _ode_side(side: str, variable: str):
+    """Parse one side of an ODE with y'' / y' standing in as plain symbols.
+
+    ``Derivative(y(x), x)`` is not something the free-form parser accepts, so
+    the derivative marks become ordinary symbols first and are swapped for the
+    real derivatives afterwards. Longest mark first, or ``y''`` would be eaten
+    as two ``y'``.
+    """
+    text = side
+    for mark, name in _ODE_PLACEHOLDERS.items():
+        text = text.replace(mark, name)
+    return _parse_expression(text, [variable, "y", "Dy", "Dyy"])
+
+
+def solve_ode(expr: str, variable: str = "x") -> MathExprResult:
+    """Linear ODE in ``y``, up to second order, with terms on either side.
+
+    Handles the bare forms (``dy/dx = 2y``, ``y' = 2y``) and the general linear
+    ones (``y'' + y = 0``, ``y'' + 3y' + 2y = 0``). Before this took the general
+    form, ``y'' + y = 0`` fell through to the algebra extractor, which dropped
+    the ``y''`` and returned a confident, verified ``y = 0``.
     """
     y = Function("y")
     ivar = Symbol(variable)
-    text = expr.strip()
+    text = expr.strip().replace("dy/dx", "y'").replace("d^2y/dx^2", "y''")
     eq_at = text.find("=")
     if eq_at == -1:
         raise MathServiceError("could not solve ODE")
     lhs_raw = text[:eq_at].strip()
     rhs_raw = text[eq_at + 1 :].strip()
-    lhs_key = lhs_raw.lower().replace(" ", "")
-    if lhs_key not in {"dy/dx", "y'"}:
+    if "'" not in lhs_raw and "'" not in rhs_raw:
         raise MathServiceError("could not solve ODE")
-    parsed_rhs = _parse_expression(rhs_raw, [variable, "y"])
-    parsed_rhs = parsed_rhs.subs(Symbol("y"), y(ivar))
-    eq = Eq(Derivative(y(ivar), ivar), parsed_rhs)
+    substitutions = {
+        Symbol("Dyy"): Derivative(y(ivar), ivar, 2),
+        Symbol("Dy"): Derivative(y(ivar), ivar),
+        Symbol("y"): y(ivar),
+    }
     try:
+        eq = Eq(
+            _ode_side(lhs_raw, variable).subs(substitutions),
+            _ode_side(rhs_raw, variable).subs(substitutions),
+        )
         sol = dsolve(eq, y(ivar))
+    except MathServiceError:
+        raise
     except Exception as exc:
         raise MathServiceError("could not solve ODE") from exc
     tex = str(latex(sol))
