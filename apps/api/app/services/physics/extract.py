@@ -316,6 +316,15 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     # answers with the wrong acceleration.
     if _states_a_non_gravity_acceleration(cleaned):
         return None
+    # A launch angle means the speed given is not the vertical speed, and this
+    # extractor has no angle: it would use the whole 20 m/s as the vertical
+    # component and answer 4.08 s where the projectile's answer is 2.04 s.
+    # Same defect as the non-gravity acceleration above — a different question
+    # answered with the wrong number, not merely a different question.
+    # (``_PROJECTILE_CUE_RES`` is defined further down; module globals resolve
+    # at call time.)
+    if any(rx.search(lower) for rx in _PROJECTILE_CUE_RES):
+        return None
     asks_speed = _asks_speed(lower)
     asks_velocity = _asks_velocity(lower)
     asks_position = _asks_position(lower)
@@ -612,7 +621,71 @@ _PROJECTILE_CUES = (
 _PROJECTILE_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\d\s*(?:degrees?|deg|°)"),
     re.compile(r"\d\s*(?:degrees?|deg|°).{0,80}?\d\s*(?:m/s|km/h|mph)\b"),
+    # The launch-angle question has no angle to co-occur with — the angle is
+    # what it is asking for — so the signature above cannot see it. A speed
+    # beside an explicit ask for an angle is the signature instead.
+    re.compile(
+        r"\b(?:what|which)\s+(?:launch\s+)?angle\b.{0,80}?\d\s*(?:m/s|km/h|mph)\b"
+        r"|\d\s*(?:m/s|km/h|mph)\b.{0,80}?\b(?:what|which)\s+(?:launch\s+)?angle\b",
+        re.IGNORECASE,
+    ),
 )
+
+# Phrasing -> op, first match wins. The shape is `_SUVAT_UNKNOWN_RES`, and so is
+# the point of it: the ask is read from the question, and a question this table
+# does not recognise is refused rather than answered with whatever came first.
+#
+# Before this, the op was an initializer — `op: Literal[...] = "range"` — so
+# every unrecognised ask came back as a horizontal distance. "What is the time
+# of flight of a ball thrown at 20 m/s at 30 degrees" answered `35.31 m`.
+_PROJECTILE_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "max_height",
+        re.compile(
+            r"\bmax(?:imum)?\s+height\b|\bhow high\b|\bhighest point\b|\bpeak height\b"
+            r"|\bapex\b|\bheight (?:does|it) (?:reach|rise)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        # A speed word AND a landing word, in either order. Either alone is a
+        # different question: the speed alone is the given it was thrown at,
+        # and the landing alone is the time of flight below.
+        "impact_speed",
+        re.compile(
+            r"(?:\bhow fast\b|\bspeed\b|\bvelocity\b).{0,60}?"
+            r"(?:\bland\w*\b|\bimpact\b|\bhits?\b|\bstrikes?\b|\btouch(?:es)? down\b)"
+            r"|(?:\bland\w*\b|\bimpact\b|\bhits?\b|\bstrikes?\b|\btouch(?:es)? down\b).{0,60}?"
+            r"(?:\bhow fast\b|\bspeed\b|\bvelocity\b)",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "time_of_flight",
+        re.compile(
+            r"\btime of flight\b|\bflight time\b|\bhow long\b|\bhow much time\b"
+            r"|\btime (?:in|it spends in) the air\b|\btime (?:to|before) (?:it )?lands?\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        # Before `range` — this phrasing says "range" itself ("what launch angle
+        # gives a range of 35 m"), and there the range is the given.
+        "launch_angle",
+        re.compile(r"\b(?:what|which)\s+(?:launch\s+)?angle\b|\blaunch angle\b", re.IGNORECASE),
+    ),
+    (
+        "range",
+        re.compile(
+            r"\brange\b|\bhow far\b|\bhorizontal distance\b|\btrajectory\b"
+            r"|\bdistance (?:does|it)\b|\bhow much ground\b",
+            re.IGNORECASE,
+        ),
+    ),
+)
+
+# Where the range is the given rather than the answer (the launch-angle case).
+_RANGE_GIVEN_KEYWORDS = ("range", "travel", "reach", "cover", "land", "distance", "far")
 
 
 def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
@@ -672,7 +745,38 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     if angle_m:
         angle = float(angle_m.group(1))
 
-    if v0 is None or angle is None:
+    if v0 is None:
+        return None
+
+    # What is being asked decides which givens are required, so it is read
+    # before the angle gate below: the launch-angle question has no angle in it
+    # by definition.
+    op = next((name for name, rx in _PROJECTILE_UNKNOWN_RES if rx.search(cleaned)), None)
+    if op is None:
+        return None
+
+    g = _detect_gravity(cleaned)
+    angle_unit = "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg"
+
+    if op == "launch_angle":
+        # The range is the given here and the angle is the answer, so an angle
+        # in the text would make the question self-contradictory.
+        if angle is not None:
+            return None
+        ru = _find_value_with_specific_unit(
+            cleaned, _LENGTH_UNIT_PATTERN, _RANGE_GIVEN_KEYWORDS, require_keyword=True
+        )
+        if ru is None:
+            return None
+        return MathIntent(
+            kind="projectile",
+            physics_op=op,  # type: ignore[arg-type]
+            physics_params={"v0": v0, "d": ru[0], "g": g},
+            physics_units={"v0": v0_unit or "m/s", "d": ru[1] or "m", "g": "m/s^2"},
+            operation="solve",
+        )
+
+    if angle is None:
         return None
 
     h0: float | None = None
@@ -686,15 +790,6 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     if hu is not None:
         h0, h0_unit = hu
 
-    # Decide what the user is asking for.
-    op: Literal["range", "max_height"] = "range"
-    if "maximum height" in lower or "max height" in lower or "how high" in lower:
-        op = "max_height"
-    elif "trajectory" in lower:
-        op = "range"  # trajectory implies range + plot
-
-    g = _detect_gravity(cleaned)
-    angle_unit = "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg"
     params: dict[str, float] = {"v0": v0, "angle": angle, "g": g}
     units: dict[str, str] = {"v0": v0_unit or "m/s", "angle": angle_unit, "g": "m/s^2"}
     if h0 is not None:
@@ -702,7 +797,7 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
         units["h0"] = h0_unit or "m"
     return MathIntent(
         kind="projectile",
-        physics_op=op,
+        physics_op=op,  # type: ignore[arg-type]
         physics_params=params,
         physics_units=units,
         operation="solve",
@@ -732,9 +827,16 @@ _MOMENTUM_CUES = (
 # A question about bodies colliding, whatever units it happens to carry. Used
 # by the momentum extractor to find its own work, and by the projectile
 # extractor to stay out of it.
+# A body landing is not a collision between two bodies. "hit" and "strike" are
+# the words for both, so without this exception "how fast does it hit the
+# ground" tripped P11's projectile guard and the question got no answer at all
+# — a projectile is the one thing it could not be read as.
+_LANDING_TARGET = r"ground|floor|water|sea|surface|deck|earth|soil|sand|roof"
 _COLLISION_SUBJECT_RE = re.compile(
     r"\bcollision\b|\bcollides?\b|\bcolliding\b|\brecoils?\b"
-    r"|\bhits?\b|\bstrikes?\b|sticks? together|stuck together",
+    rf"|\bhits?\b(?!\s+the\s+(?:{_LANDING_TARGET})\b)"
+    rf"|\bstrikes?\b(?!\s+the\s+(?:{_LANDING_TARGET})\b)"
+    r"|sticks? together|stuck together",
     re.IGNORECASE,
 )
 

@@ -534,9 +534,34 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     g = p.get("g", 9.81)
     v0 = p["v0"]
-    theta = p["angle"]  # radians (converted by _params_in_si)
-    op = intent.physics_op or "range"
+    # No default. The extractor's `range` initializer was one half of the bug
+    # this fixes; leaving the other half here would keep an opless intent
+    # answering with a distance instead of failing where it can be seen.
+    op = intent.physics_op or ""
     h0 = p.get("h0", 0.0)
+
+    if op == "launch_angle":
+        # The one op whose unknown is the angle, so it is answered before the
+        # angle is read: R = v0² sin(2θ)/g inverted. Two angles give the same
+        # range (theta and 90 deg - theta); the low one is what people mean.
+        if v0 <= 0:
+            raise MathServiceError("launch speed must be positive")
+        r_target = p["d"]
+        ratio = r_target * g / (v0 * v0)
+        if not -1.0 <= ratio <= 1.0:
+            raise MathServiceError("that range is out of reach at this speed")
+        theta_val = 0.5 * math.asin(ratio)
+        deg_val = math.degrees(theta_val)
+        return PhysicsResult(
+            answer=(
+                rf"\theta = \tfrac{{1}}{{2}} \arcsin\!\left(\frac{{Rg}}{{v_0^2}}\right) = "
+                rf"\tfrac{{1}}{{2}} \arcsin\!\left(\frac{{{r_target:g} \cdot {g:g}}}"
+                rf"{{{_latex_num(v0, square=True)}}}\right) \approx {deg_val:.2f}^\circ"
+            ),
+            answer_value=f"{deg_val:.2f} deg",
+        )
+
+    theta = p["angle"]  # radians (converted by _params_in_si)
 
     if h0 > 0:
         # y = h0 + v0 sinθ t - ½ g t² = 0 → ½ g t² - v0 sinθ t - h0 = 0
@@ -574,6 +599,28 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
             rf"{h_val:.2f} \text{{ m}}"
         )
         answer_value = f"{h_val:.2f} m"
+    elif op == "time_of_flight":
+        # t_flight is already in hand — both branches above compute it to build
+        # the trajectory, whatever the question asked for.
+        answer_latex = (
+            rf"t = \frac{{2 v_0 \sin(\theta)}}{{g}} = "
+            rf"\frac{{2 \cdot {v0:g} \cdot \sin({math.degrees(theta):.1f}^\circ)}}{{{g:g}}} "
+            rf"\approx {t_flight:.2f} \text{{ s}}"
+            if h0 <= 0
+            else rf"\tfrac{{1}}{{2}} g t^2 - v_0 \sin(\theta) t - h_0 = 0 "
+            rf"\Rightarrow t \approx {t_flight:.2f} \text{{ s}}"
+        )
+        answer_value = f"{t_flight:.2f} s"
+    elif op == "impact_speed":
+        v_x = v0 * math.cos(theta)
+        v_y = v0 * math.sin(theta) - g * t_flight
+        speed_val = math.hypot(v_x, v_y)
+        answer_latex = (
+            rf"v = \sqrt{{v_x^2 + v_y^2}} = "
+            rf"\sqrt{{{v_x:.2f}^2 + ({v_y:.2f})^2}} "
+            rf"\approx {speed_val:.2f} \text{{ m/s}}"
+        )
+        answer_value = f"{speed_val:.2f} m/s"
     else:
         raise MathServiceError(f"unsupported projectile op: {op}")
 
