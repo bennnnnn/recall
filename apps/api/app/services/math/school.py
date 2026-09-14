@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from fractions import Fraction
 from typing import Any
 
 from pint import UnitRegistry
@@ -92,6 +93,108 @@ def evaluate_arithmetic(expr: str) -> str:
 def percent_of(rate: float, base: float) -> str:
     value = (rate / 100.0) * base
     return f"{value:g}"
+
+
+def _format_school_number(value: float) -> str:
+    if not math.isfinite(value):
+        raise MathServiceError("result is not a finite number")
+    return f"{value:g}"
+
+
+def percent_increase(base: float, rate: float) -> str:
+    if not math.isfinite(base) or not math.isfinite(rate):
+        raise MathServiceError("percent change needs finite numbers")
+    return _format_school_number(base * (1.0 + rate / 100.0))
+
+
+def percent_decrease(base: float, rate: float) -> str:
+    if not math.isfinite(base) or not math.isfinite(rate):
+        raise MathServiceError("percent change needs finite numbers")
+    return _format_school_number(base * (1.0 - rate / 100.0))
+
+
+def percent_is(part: float, whole: float) -> str:
+    if not math.isfinite(part) or not math.isfinite(whole):
+        raise MathServiceError("percent-is needs finite numbers")
+    if whole == 0:
+        raise MathServiceError("cannot take a percent of zero")
+    return _format_school_number((part / whole) * 100.0)
+
+
+def split_ratio(total: float, parts: list[float]) -> str:
+    if not math.isfinite(total) or any(not math.isfinite(part) for part in parts):
+        raise MathServiceError("ratio split needs finite numbers")
+    if len(parts) < 2:
+        raise MathServiceError("ratio split needs at least two parts")
+    if any(part < 0 for part in parts):
+        raise MathServiceError("ratio parts cannot be negative")
+    weight = sum(parts)
+    if weight <= 0:
+        raise MathServiceError("ratio parts must sum to more than zero")
+    shares = [total * part / weight for part in parts]
+    return ":".join(_format_school_number(share) for share in shares)
+
+
+def _term_fraction(value: float) -> Fraction:
+    if not math.isfinite(value):
+        raise MathServiceError("sequence terms must be finite")
+    return Fraction(str(value))
+
+
+def _progression(
+    terms: list[float],
+) -> tuple[str, Fraction, Fraction] | None:
+    """Prefer AP when a list is both arithmetic and geometric."""
+    if len(terms) < 2:
+        return None
+    fracs = [_term_fraction(term) for term in terms]
+    first = fracs[0]
+    delta = fracs[1] - fracs[0]
+    if all(fracs[i] - fracs[i - 1] == delta for i in range(1, len(fracs))):
+        return ("ap", first, delta)
+    if any(prev == 0 for prev in fracs[:-1]):
+        return None
+    ratio = fracs[1] / fracs[0]
+    if all(fracs[i] / fracs[i - 1] == ratio for i in range(1, len(fracs))):
+        return ("gp", first, ratio)
+    return None
+
+
+def is_ap_or_gp(terms: list[float]) -> bool:
+    try:
+        return _progression(terms) is not None
+    except MathServiceError:
+        return False
+
+
+def sequence_nth(terms: list[float], n: int) -> str:
+    if n < 1:
+        raise MathServiceError("sequence index must be a positive term number")
+    kind = _progression(terms)
+    if kind is None:
+        raise MathServiceError("list is not an arithmetic or geometric sequence")
+    op, first, step = kind
+    if op == "ap":
+        value = first + (n - 1) * step
+    else:
+        value = first * (step ** (n - 1))
+    return _format_school_number(float(value))
+
+
+def sequence_sum(terms: list[float], n: int) -> str:
+    if n < 1:
+        raise MathServiceError("sequence length must be a positive term count")
+    kind = _progression(terms)
+    if kind is None:
+        raise MathServiceError("list is not an arithmetic or geometric sequence")
+    op, first, step = kind
+    if op == "ap":
+        value = n * (2 * first + (n - 1) * step) / 2
+    elif step == 1:
+        value = first * n
+    else:
+        value = first * (step**n - 1) / (step - 1)
+    return _format_school_number(float(value))
 
 
 def simplify_ratio(a: float, b: float) -> str:

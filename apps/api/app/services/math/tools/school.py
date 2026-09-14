@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
 from collections.abc import Callable
 from fractions import Fraction
@@ -12,6 +13,7 @@ from app.models.schemas.math import MathIntent
 from app.services.math import match as mtm
 from app.services.math import school as math_school
 from app.services.math.match.coordinate_vector import literal_math_tuples
+from app.services.math.match.scan import word_index
 from app.services.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.math.tools.block.common import format_quantity
 from app.services.math.tools.helpers import math_expr_or_none, substituted_eval_expr
@@ -38,6 +40,12 @@ _BINOMIAL_PARAM = re.compile(
     rf"\b([nkp])\s*=\s*({_PROB_NUMBER}(?:\s*/\s*{_PROB_NUMBER})?)(?=\s|[,;.!?]|$)",
     re.IGNORECASE,
 )
+_SEQUENCE_LIST_MAX = 20
+_SEQUENCE_N_MAX = 10_000
+_PERCENT_INCREASE_WORDS = ("increase", "increased", "increasing")
+_PERCENT_DECREASE_WORDS = ("decrease", "decreased", "decreasing")
+_RATIO_SPLIT_WORDS = ("split", "share", "divide")
+_ORDINAL_SUFFIXES = ("st", "nd", "rd", "th")
 
 
 def _extract_unit_intent(cleaned: str) -> MathIntent | None:
@@ -241,35 +249,378 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
     )
 
 
-def _extract_percent_or_ratio(cleaned: str) -> MathIntent | None:
+def _count_char(text: str, needle: str) -> int:
+    count = 0
+    for char in text:
+        if char == needle:
+            count += 1
+    return count
+
+
+def _has_any_word(lower: str, words: tuple[str, ...]) -> bool:
+    return any(word_index(lower, word) != -1 for word in words)
+
+
+def _finite_match_value(match: re.Match[str]) -> float | None:
+    try:
+        value = float(match.group(0))
+    except ValueError:
+        return None
+    if not math.isfinite(value):
+        return None
+    return value
+
+
+def _number_immediately_before(text: str, idx: int) -> re.Match[str] | None:
+    end = idx
+    while end > 0 and text[end - 1].isspace():
+        end -= 1
+    found = None
+    for match in mtm._NUM.finditer(text[:end]):
+        found = match
+    if found is None or found.end() != end:
+        return None
+    return found
+
+
+def _colon_ratio_parts(text: str) -> tuple[list[float], list[tuple[int, int]]] | None:
+    """First ``a:b`` / ``a:b:c`` group. Linear scan, no nested regex."""
+    search_from = 0
+    length = len(text)
+    while search_from < length:
+        match = mtm._NUM.search(text, search_from)
+        if match is None:
+            return None
+        cursor = match.end()
+        while cursor < length and text[cursor].isspace():
+            cursor += 1
+        if cursor >= length or text[cursor] != ":":
+            search_from = match.end()
+            continue
+        values = [_finite_match_value(match)]
+        spans = [(match.start(), match.end())]
+        if values[0] is None:
+            search_from = match.end()
+            continue
+        cursor += 1
+        while True:
+            while cursor < length and text[cursor].isspace():
+                cursor += 1
+            nxt = mtm._NUM.match(text, cursor)
+            if nxt is None:
+                break
+            parsed = _finite_match_value(nxt)
+            if parsed is None:
+                break
+            values.append(parsed)
+            spans.append((nxt.start(), nxt.end()))
+            cursor = nxt.end()
+            while cursor < length and text[cursor].isspace():
+                cursor += 1
+            if cursor < length and text[cursor] == ":":
+                cursor += 1
+                continue
+            break
+        finite_parts = [part for part in values if part is not None]
+        if len(finite_parts) >= 2:
+            return finite_parts, spans
+        search_from = match.end()
+    return None
+
+
+def _extract_percent_of(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     pct = lower.find("% of ")
-    if pct != -1:
-        rate_m = None
-        for match in mtm._NUM.finditer(cleaned[:pct]):
-            rate_m = match
-        base_m = mtm._NUM.search(cleaned, pct + 5)
-        if rate_m and base_m:
-            return MathIntent(
-                kind="arithmetic",
-                school_op="percent",
-                percent_rate=float(rate_m.group(0)),
-                percent_base=float(base_m.group(0)),
-                operation="solve",
-            )
+    if pct == -1:
+        return None
+    rate_m = None
+    for match in mtm._NUM.finditer(cleaned[:pct]):
+        rate_m = match
+    base_m = mtm._NUM.search(cleaned, pct + 5)
+    if rate_m is None or base_m is None:
+        return None
+    rate = _finite_match_value(rate_m)
+    base = _finite_match_value(base_m)
+    if rate is None or base is None:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="percent",
+        percent_rate=rate,
+        percent_base=base,
+        operation="solve",
+    )
+
+
+def _extract_percent_change(cleaned: str, lower: str) -> MathIntent | None:
+    increase = _has_any_word(lower, _PERCENT_INCREASE_WORDS)
+    decrease = _has_any_word(lower, _PERCENT_DECREASE_WORDS)
+    if increase == decrease:
+        return None
+    if _count_char(cleaned, "%") != 1:
+        return None
+    by_at = word_index(lower, "by")
+    if by_at == -1:
+        return None
+    nums = list(mtm._NUM.finditer(cleaned))
+    if len(nums) != 2:
+        return None
+    pct_at = cleaned.find("%")
+    rate_m = _number_immediately_before(cleaned, pct_at)
+    if rate_m is None:
+        return None
+    base_m = nums[0] if nums[0].span() != rate_m.span() else nums[1]
+    if base_m.span() == rate_m.span() or base_m.end() > by_at or rate_m.start() < by_at:
+        return None
+    rate = _finite_match_value(rate_m)
+    base = _finite_match_value(base_m)
+    if rate is None or base is None:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="percent_increase" if increase else "percent_decrease",
+        percent_rate=rate,
+        percent_base=base,
+        operation="solve",
+    )
+
+
+def _extract_percent_is(cleaned: str, lower: str) -> MathIntent | None:
+    if _count_char(cleaned, "%") != 0:
+        return None
+    nums = list(mtm._NUM.finditer(cleaned))
+    if len(nums) != 2:
+        return None
+    part_m: re.Match[str] | None = None
+    whole_m: re.Match[str] | None = None
+    for cue in (" is what percent of ", " is what percentage of "):
+        idx = lower.find(cue)
+        if idx == -1:
+            continue
+        before = None
+        for match in nums:
+            if match.end() <= idx:
+                before = match
+        after = mtm._NUM.search(cleaned, idx + len(cue))
+        if before is None or after is None:
+            return None
+        part_m, whole_m = before, after
+        break
+    if part_m is None or whole_m is None:
+        for cue in ("what percent of ", "what percentage of "):
+            idx = lower.find(cue)
+            if idx == -1:
+                continue
+            whole = mtm._NUM.search(cleaned, idx + len(cue))
+            if whole is None:
+                return None
+            rest = cleaned[whole.end() :].lstrip()
+            if not rest.lower().startswith("is"):
+                return None
+            after_is = rest[2:]
+            if after_is[:1].isalpha():
+                return None
+            part = mtm._NUM.search(after_is)
+            if part is None:
+                return None
+            part_m, whole_m = part, whole
+            break
+    if part_m is None or whole_m is None:
+        return None
+    if {part_m.group(0), whole_m.group(0)} != {nums[0].group(0), nums[1].group(0)}:
+        return None
+    part_value = _finite_match_value(part_m)
+    whole_value = _finite_match_value(whole_m)
+    if part_value is None or whole_value is None:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="percent_is",
+        percent_rate=part_value,
+        percent_base=whole_value,
+        operation="solve",
+    )
+
+
+def _extract_ratio_split(cleaned: str, lower: str) -> MathIntent | None:
+    if not _has_any_word(lower, _RATIO_SPLIT_WORDS) or "ratio" not in lower:
+        return None
+    grouped = _colon_ratio_parts(cleaned)
+    if grouped is None:
+        return None
+    parts, spans = grouped
+    if any(part < 0 for part in parts) or sum(parts) <= 0:
+        return None
+    leftover: list[re.Match[str]] = []
+    used = set(spans)
+    for match in mtm._NUM.finditer(cleaned):
+        if (match.start(), match.end()) in used:
+            continue
+        leftover.append(match)
+    if len(leftover) != 1:
+        return None
+    total = _finite_match_value(leftover[0])
+    if total is None or total <= 0:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="ratio_split",
+        percent_base=total,
+        stats_numbers=parts,
+        operation="solve",
+    )
+
+
+def _extract_percent_or_ratio(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    # "% of " stays first so "Out of 250 people, what is 30% of 80?" is 24.
+    percent_of = _extract_percent_of(cleaned)
+    if percent_of is not None:
+        return percent_of
+    changed = _extract_percent_change(cleaned, lower)
+    if changed is not None:
+        return changed
+    percent_is = _extract_percent_is(cleaned, lower)
+    if percent_is is not None:
+        return percent_is
+    split = _extract_ratio_split(cleaned, lower)
+    if split is not None:
+        return split
     if ":" in cleaned and ("ratio" in lower or "simplify" in lower):
-        a = mtm._NUM.search(cleaned)
-        if a:
-            b = mtm._NUM.search(cleaned, a.end())
-            if b:
+        first = mtm._NUM.search(cleaned)
+        if first:
+            second = mtm._NUM.search(cleaned, first.end())
+            if second:
+                left = _finite_match_value(first)
+                right = _finite_match_value(second)
+                if left is None or right is None:
+                    return None
+                extra = mtm._NUM.search(cleaned, second.end())
+                if extra is not None:
+                    return None
                 return MathIntent(
                     kind="arithmetic",
                     school_op="ratio",
-                    percent_rate=float(a.group(0)),
-                    percent_base=float(b.group(0)),
+                    percent_rate=left,
+                    percent_base=right,
                     operation="solve",
                 )
     return None
+
+
+def _read_leading_int(text: str) -> tuple[int, int] | None:
+    i = 0
+    n = len(text)
+    while i < n and text[i].isspace():
+        i += 1
+    if i >= n or not text[i].isdigit():
+        return None
+    j = i
+    while j < n and text[j].isdigit():
+        j += 1
+    if j < n and text[j] in ".":
+        return None
+    value = int(text[i:j])
+    return value, j
+
+
+def _ordinal_term_n(lower: str) -> int | None:
+    i = 0
+    n = len(lower)
+    found: int | None = None
+    while i < n:
+        if lower[i].isdigit():
+            if i > 0 and lower[i - 1] == ".":
+                i += 1
+                continue
+            j = i
+            while j < n and lower[j].isdigit():
+                j += 1
+            suffix = lower[j : j + 2]
+            if suffix in _ORDINAL_SUFFIXES:
+                k = j + 2
+                while k < n and lower[k].isspace():
+                    k += 1
+                if lower.startswith("term", k):
+                    value = int(lower[i:j])
+                    if found is not None:
+                        return None
+                    found = value
+            i = j
+        else:
+            i += 1
+    return found
+
+
+def _sequence_sum_n(lower: str) -> int | None:
+    for cue in ("sum of the first", "sum of first"):
+        idx = lower.find(cue)
+        if idx == -1:
+            continue
+        parsed = _read_leading_int(lower[idx + len(cue) :])
+        if parsed is None:
+            return None
+        return parsed[0]
+    return None
+
+
+def _named_even_odd_terms(lower: str) -> list[float] | None:
+    has_even = word_index(lower, "even") != -1
+    has_odd = word_index(lower, "odd") != -1
+    if has_even == has_odd:
+        return None
+    if "number" not in lower:
+        return None
+    if has_even:
+        return [2.0, 4.0]
+    return [1.0, 3.0]
+
+
+def _listed_sequence_terms(cleaned: str, lower: str) -> list[float] | None:
+    idx = lower.rfind(" of ")
+    if idx == -1:
+        return None
+    from app.services.math.match.discrete import numeric_data_values
+
+    numbers = numeric_data_values(cleaned[idx + 4 :])
+    if numbers is None or len(numbers) < 3 or len(numbers) > _SEQUENCE_LIST_MAX:
+        return None
+    return numbers
+
+
+def _extract_sequence_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    sum_n = _sequence_sum_n(lower)
+    term_n = _ordinal_term_n(lower)
+    if sum_n is not None:
+        if term_n is not None and term_n != sum_n:
+            return None
+        n = sum_n
+        op = "sequence_sum"
+    elif term_n is not None:
+        n = term_n
+        op = "sequence_nth"
+    else:
+        return None
+    if n < 1 or n > _SEQUENCE_N_MAX:
+        return None
+    named = _named_even_odd_terms(lower) if sum_n is not None else None
+    listed = None if named is not None else _listed_sequence_terms(cleaned, lower)
+    terms = named if named is not None else listed
+    if terms is None:
+        return None
+    if not math_school.is_ap_or_gp(terms):
+        return None
+    expected = 1 if named is not None else 1 + len(terms)
+    if len(list(mtm._NUM.finditer(cleaned))) != expected:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op=op,
+        stats_numbers=terms,
+        combo_n=n,
+        operation="solve",
+    )
 
 
 def _extract_average_speed_intent(cleaned: str) -> MathIntent | None:
@@ -328,6 +679,9 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     percent = _extract_percent_or_ratio(cleaned)
     if percent is not None:
         return percent
+    sequence = _extract_sequence_intent(cleaned)
+    if sequence is not None:
+        return sequence
     speed = _extract_average_speed_intent(cleaned)
     if speed is not None:
         return speed
@@ -520,12 +874,53 @@ def _verified_block_arithmetic(
         lines.append(f"{intent.percent_rate:g}% of {intent.percent_base:g} = {answer}")
         return _finish_with_answer(lines, answer)
     if (
+        intent.school_op in {"percent_increase", "percent_decrease"}
+        and intent.percent_rate is not None
+        and intent.percent_base is not None
+    ):
+        if intent.school_op == "percent_increase":
+            answer = math_school.percent_increase(intent.percent_base, intent.percent_rate)
+            verb = "increased"
+        else:
+            answer = math_school.percent_decrease(intent.percent_base, intent.percent_rate)
+            verb = "decreased"
+        lines.append(f"{intent.percent_base:g} {verb} by {intent.percent_rate:g}% = {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op == "percent_is"
+        and intent.percent_rate is not None
+        and intent.percent_base is not None
+    ):
+        answer = math_school.percent_is(intent.percent_rate, intent.percent_base)
+        lines.append(f"{intent.percent_rate:g} is {answer}% of {intent.percent_base:g}")
+        return _finish_with_answer(lines, answer)
+    if (
         intent.school_op == "ratio"
         and intent.percent_rate is not None
         and intent.percent_base is not None
     ):
         answer = math_school.simplify_ratio(intent.percent_rate, intent.percent_base)
         lines.append(f"Simplified ratio: {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op == "ratio_split"
+        and intent.percent_base is not None
+        and intent.stats_numbers
+    ):
+        answer = math_school.split_ratio(intent.percent_base, intent.stats_numbers)
+        lines.append(f"{intent.percent_base:g} in ratio split = {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op in {"sequence_nth", "sequence_sum"}
+        and intent.stats_numbers
+        and intent.combo_n is not None
+    ):
+        if intent.school_op == "sequence_nth":
+            answer = math_school.sequence_nth(intent.stats_numbers, intent.combo_n)
+            lines.append(f"Term {intent.combo_n} = {answer}")
+        else:
+            answer = math_school.sequence_sum(intent.stats_numbers, intent.combo_n)
+            lines.append(f"Sum of first {intent.combo_n} terms = {answer}")
         return _finish_with_answer(lines, answer)
     if not intent.expr:
         return None

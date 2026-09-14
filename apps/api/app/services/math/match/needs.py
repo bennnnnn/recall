@@ -221,11 +221,60 @@ def supported_physics_cue(cleaned: str) -> bool:
     return has_supported_physics_cue(cleaned.lower())
 
 
+def _has_ordinal_term_cue(lower: str) -> bool:
+    i = 0
+    n = len(lower)
+    while i < n:
+        if lower[i].isdigit():
+            if i > 0 and lower[i - 1] == ".":
+                i += 1
+                continue
+            j = i
+            while j < n and lower[j].isdigit():
+                j += 1
+            if lower[j : j + 2] in {"st", "nd", "rd", "th"}:
+                k = j + 2
+                while k < n and lower[k].isspace():
+                    k += 1
+                if lower.startswith("term", k):
+                    return True
+            i = j
+        else:
+            i += 1
+    return False
+
+
 def school_homework_cue(cleaned: str) -> bool:
     """Bare arithmetic / percent / coord / vectors / convert / binomial / ODE."""
     lower = cleaned.lower()
     if "% of " in lower and any(ch.isdigit() for ch in cleaned):
         return True
+    has_digit = any(ch.isdigit() for ch in cleaned)
+    if (
+        has_digit
+        and "%" in cleaned
+        and any(
+            word_index(lower, word) != -1
+            for word in ("increase", "increased", "decrease", "decreased")
+        )
+    ):
+        return True
+    if has_digit and ("what percent" in lower or "what percentage" in lower):
+        return True
+    if (
+        has_digit
+        and "ratio" in lower
+        and ":" in cleaned
+        and any(word_index(lower, word) != -1 for word in ("split", "share", "divide"))
+    ):
+        return True
+    if has_digit and _has_ordinal_term_cue(lower):
+        return True
+    if "sum of the first" in lower or "sum of first" in lower:
+        if word_index(lower, "even") != -1 or word_index(lower, "odd") != -1:
+            return True
+        if "," in cleaned:
+            return True
     if "average speed" in lower or "average velocity" in lower:
         from app.services.math.tools.school import _extract_average_speed_intent
 

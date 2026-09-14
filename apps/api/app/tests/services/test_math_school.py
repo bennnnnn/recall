@@ -43,6 +43,25 @@ def test_solve_ode_yprime() -> None:
     assert "2" in out.latex or "e" in out.latex.lower()
 
 
+def test_percent_change_and_percent_is() -> None:
+    assert math_school.percent_increase(200, 12) == "224"
+    assert math_school.percent_decrease(200, 12) == "176"
+    assert math_school.percent_is(12, 50) == "24"
+
+
+def test_split_ratio_two_and_three_parts() -> None:
+    assert math_school.split_ratio(120, [2, 3]) == "48:72"
+    assert math_school.split_ratio(100, [2, 3, 5]) == "20:30:50"
+
+
+def test_sequence_ap_gp_and_mixed_refused() -> None:
+    assert math_school.sequence_nth([3, 7, 11, 15], 10) == "39"
+    assert math_school.sequence_sum([3, 7, 11, 15], 10) == "210"
+    assert math_school.sequence_nth([2, 4, 8, 16], 5) == "32"
+    assert math_school.sequence_sum([2, 4], 20) == "420"
+    assert math_school.is_ap_or_gp([1, 2, 4, 7]) is False
+
+
 def test_critical_points_cubic() -> None:
     out = math_school.critical_points("x**3 - 3*x")
     assert out.solved
