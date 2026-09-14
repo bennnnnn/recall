@@ -10,7 +10,7 @@ recorded as uncovered only when **no** phrasing of it produced a verified answer
 
 | # | Ticket | Area | Status |
 |---|--------|------|--------|
-| P1 | [Strip verified-math markers from assistant text](#p1-strip-verified-math-markers-from-assistant-text) | API | ☐ |
+| P1 | [Strip verified-math markers from assistant text](#p1-strip-verified-math-markers-from-assistant-text) | API | ✅ |
 | P2 | [Make the existing physics ops robust to natural phrasing](#p2-make-the-existing-physics-ops-robust-to-natural-phrasing) | API | ☐ |
 | P3 | [Animate the kinematics / projectile trajectory](#p3-animate-the-kinematics--projectile-trajectory) | Mobile | ☐ |
 | P4 | [Momentum, impulse and 1D collisions](#p4-momentum-impulse-and-1d-collisions) | API | ☐ |
@@ -98,6 +98,13 @@ the reply's content is still useful with the scaffolding removed.
 through the post-stream path and asserts neither marker survives, and that the
 surrounding prose is preserved. A second test asserts the same for the whole
 marker block when a model echoes it verbatim.
+
+**Done.** `strip_verified_math_markers` sits beside `wrap_verified_math` and runs
+in the post-stream chain. Text between the markers is kept — a model that echoed
+the block usually put the real answer inside it. Covered by
+`app/tests/services/test_prompt_leak.py` (five leak shapes, plus round-trip and
+untouched-reply cases) and one test in `test_enrich_final_content.py` that drives
+the real pipeline, since a unit test would not prove the stripper is wired in.
 
 ---
 
