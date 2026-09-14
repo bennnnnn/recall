@@ -144,3 +144,77 @@ describe("SimulationBlock", () => {
     expect(getAllByTestId("simulation-body").length).toBe(2);
   });
 });
+
+const COLLISION = JSON.stringify({
+  type: "collision",
+  title: "Collision",
+  bodies: [
+    { radius: 0.38, role: "primary", path: [[-2, 0], [-1, 0], [-0.38, 0], [0, 0]] },
+    { radius: 0.3, role: "secondary", path: [[0.3, 0], [0.3, 0], [0.3, 0], [1.2, 0]] },
+  ],
+  x_min: -3,
+  x_max: 3,
+  y_min: -1,
+  y_max: 1,
+  arrows: ["velocity"],
+});
+
+const INCLINE = JSON.stringify({
+  type: "incline",
+  title: "Inclined Plane",
+  bodies: [{ radius: 0.36, role: "primary", path: [[0, 3], [0, 3]] }],
+  x_min: -1,
+  x_max: 6.2,
+  y_min: -1,
+  y_max: 4,
+  arrows: ["gravity", "normal", "friction"],
+  incline_deg: 30,
+});
+
+describe("SimulationBlock: collisions and inclines", () => {
+  it("renders both bodies of a collision", async () => {
+    // The scene a number cannot replace: "1.00 m/s and 4.00 m/s" says nothing
+    // about which ball ends up ahead or whether either turns around.
+    const { getAllByTestId, queryByTestId } = await render(<SimulationBlock content={COLLISION} />);
+
+    expect(getAllByTestId("simulation-body").length).toBe(2);
+    expect(getAllByTestId("simulation-arrow-velocity").length).toBe(2);
+    expect(queryByTestId("simulation-ground")).toBeNull();
+    expect(queryByTestId("simulation-slope")).toBeNull();
+  });
+
+  it("draws the slope an incline block sits on", async () => {
+    const { getByTestId, queryByTestId } = await render(<SimulationBlock content={INCLINE} />);
+
+    expect(getByTestId("simulation-slope")).toBeTruthy();
+    expect(getByTestId("simulation-arrow-normal")).toBeTruthy();
+    expect(getByTestId("simulation-arrow-friction")).toBeTruthy();
+    expect(getByTestId("simulation-arrow-gravity")).toBeTruthy();
+    // Not a projectile: no flat ground line under a slope.
+    expect(queryByTestId("simulation-ground")).toBeNull();
+  });
+
+  it("gives a held block its free-body diagram under Reduce Motion", async () => {
+    // For two of the three friction ops the block never moves, so the still
+    // picture is not a fallback — it is the answer's illustration.
+    mockUseReduceMotion.mockReturnValue(true);
+    const { getByTestId, queryByTestId } = await render(<SimulationBlock content={INCLINE} />);
+
+    expect(getByTestId("simulation-static")).toBeTruthy();
+    expect(getByTestId("simulation-arrow-normal")).toBeTruthy();
+    expect(getByTestId("simulation-arrow-friction")).toBeTruthy();
+    expect(getByTestId("simulation-slope")).toBeTruthy();
+    expect(queryByTestId("simulation-play")).toBeNull();
+  });
+
+  it("never draws a normal or friction arrow without a slope", async () => {
+    const noSlope = JSON.stringify({ ...JSON.parse(INCLINE), incline_deg: undefined });
+    const { queryByTestId } = await render(<SimulationBlock content={noSlope} />);
+
+    expect(queryByTestId("simulation-arrow-normal")).toBeNull();
+    expect(queryByTestId("simulation-arrow-friction")).toBeNull();
+    expect(queryByTestId("simulation-slope")).toBeNull();
+    // Weight still points down whatever the surface does.
+    expect(queryByTestId("simulation-arrow-gravity")).toBeTruthy();
+  });
+});

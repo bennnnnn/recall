@@ -32,6 +32,7 @@ from app.models.schemas.math import (
     GraphBlockSpec,
     GraphSampleInput,
 )
+from app.models.schemas.math.simulation import SIMULATION_SPEC_TYPES
 from app.services.math import solve as math_solve
 from app.services.math.solve import MathServiceError
 from app.services.md_fence_scan import (
@@ -417,17 +418,14 @@ def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
     return None
 
 
-# Checked before the key heuristics below, and that ordering is load-bearing:
-# a scene carries `x_min` too, so the "looks like a graph" fallback would claim
-# it and render a projectile as an empty pair of axes.
-_SIMULATION_TYPES = frozenset({"projectile_motion", "orbit"})
-
-
 def _spec_fence_kind(spec: dict[str, object]) -> str | None:
     spec_type = spec.get("type")
     if spec_type == "answer":
         return "answer"
-    if spec_type in _SIMULATION_TYPES:
+    # Checked before the key heuristics below, and that ordering is
+    # load-bearing: a scene carries `x_min` too, so the "looks like a graph"
+    # fallback would claim it and render a projectile as an empty pair of axes.
+    if spec_type in SIMULATION_SPEC_TYPES:
         return "simulation"
     if spec_type in _GEOMETRY_TYPES:
         return "geometry"

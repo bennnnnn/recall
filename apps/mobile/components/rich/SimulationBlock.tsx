@@ -10,12 +10,18 @@
  * Built on `TrajectoryChart`'s pattern rather than beside it: one shared
  * `progress`, `useAnimatedProps` on SVG elements, play-not-autoplay, and a
  * Reduce Motion path. What is new is that this is a *scene* — one uniform scale
- * on both axes (an orbit drawn on stretched axes is an ellipse), a ground line,
- * and force arrows that point somewhere in the world rather than along an axis.
+ * on both axes (an orbit drawn on stretched axes is an ellipse), a ground line
+ * or a slope, and force arrows that point somewhere in the world rather than
+ * along an axis.
  *
- * Every arrow is derived from the body's own sampled path, so an arrow cannot
- * disagree with the motion it annotates. As everywhere else in this pipeline,
- * no physics is repeated on the device.
+ * Four scenes: a projectile, an orbit, a two-body collision, and a block on an
+ * incline. Most arrows are derived from the body's own sampled path, so they
+ * cannot disagree with the motion they annotate. Normal and friction are the
+ * exception and come off the stated slope instead, because a block that has
+ * not started moving has no tangent to read them from — and a stationary block
+ * with its three forces drawn is exactly what an incline question wants.
+ *
+ * As everywhere else in this pipeline, no physics is repeated on the device.
  */
 import { useCallback, useEffect, useMemo } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
@@ -30,6 +36,8 @@ import Animated, {
 
 import {
   arrowPolyline,
+  inclineDirections,
+  inclineSurface,
   parseSimulationSpec,
   polylinePoints,
   projectPath,
@@ -102,6 +110,8 @@ export function SimulationBlock({ content }: Props) {
 
   const centre = spec.centre ? worldToScreen(spec.centre.x, spec.centre.y, transform) : null;
   const groundY = worldToScreen(0, 0, transform).py;
+  const surface = inclineSurface(spec, transform);
+  const slope = spec.inclineDeg !== undefined ? inclineDirections(spec.inclineDeg) : null;
 
   return (
     <View style={styles.wrap}>
@@ -121,6 +131,17 @@ export function SimulationBlock({ content }: Props) {
             strokeDasharray={[4, 4]}
           />
         ))}
+        {surface && (
+          <Line
+            testID="simulation-slope"
+            x1={surface.x1}
+            y1={surface.y1}
+            x2={surface.x2}
+            y2={surface.y2}
+            stroke={theme.textSecondary}
+            strokeWidth={1.5}
+          />
+        )}
         {spec.ground && (
           <Line
             testID="simulation-ground"
@@ -149,6 +170,7 @@ export function SimulationBlock({ content }: Props) {
             role={body.role}
             arrows={spec.arrows}
             centre={centre}
+            slope={slope}
             progress={progress}
             reduceMotion={reduceMotion}
             theme={theme}
@@ -179,10 +201,13 @@ type BodyMarksProps = {
   role: "primary" | "secondary";
   arrows: SimulationArrow[];
   centre: ScreenPoint | null;
+  slope: { normal: Vector; friction: Vector } | null;
   progress: { value: number };
   reduceMotion: boolean;
   theme: Theme;
 };
+
+type Vector = { dx: number; dy: number };
 
 /**
  * One body and the vectors hanging off it.
@@ -197,6 +222,7 @@ function BodyMarks({
   role,
   arrows,
   centre,
+  slope,
   progress,
   reduceMotion,
   theme,
@@ -226,9 +252,35 @@ function BodyMarks({
       points: arrowPolyline(at, centre.px - at.px, centre.py - at.py, ARROW_LENGTH, ARROW_HEAD),
     };
   });
+  // Both directions are fixed by the slope, so they do not change with the
+  // frame — but they still ride the body, which does.
+  const normalProps = useAnimatedProps(() => {
+    const at = trajectoryPointAt(track, progress.value);
+    if (!slope) return { points: "" };
+    return {
+      points: arrowPolyline(at, slope.normal.dx, slope.normal.dy, ARROW_LENGTH, ARROW_HEAD),
+    };
+  });
+  const frictionProps = useAnimatedProps(() => {
+    const at = trajectoryPointAt(track, progress.value);
+    if (!slope) return { points: "" };
+    return {
+      points: arrowPolyline(at, slope.friction.dx, slope.friction.dy, ARROW_LENGTH, ARROW_HEAD),
+    };
+  });
 
   if (reduceMotion) {
-    return <StaticBodyMarks track={track} radius={radius} arrows={arrows} centre={centre} color={color} theme={theme} />;
+    return (
+      <StaticBodyMarks
+        track={track}
+        radius={radius}
+        arrows={arrows}
+        centre={centre}
+        slope={slope}
+        color={color}
+        theme={theme}
+      />
+    );
   }
 
   return (
@@ -260,6 +312,24 @@ function BodyMarks({
           animatedProps={centripetalProps}
         />
       )}
+      {slope && arrows.includes("normal") && (
+        <AnimatedPolyline
+          testID="simulation-arrow-normal"
+          fill="none"
+          stroke={theme.textSecondary}
+          strokeWidth={1.5}
+          animatedProps={normalProps}
+        />
+      )}
+      {slope && arrows.includes("friction") && (
+        <AnimatedPolyline
+          testID="simulation-arrow-friction"
+          fill="none"
+          stroke={theme.textSecondary}
+          strokeWidth={1.5}
+          animatedProps={frictionProps}
+        />
+      )}
       <AnimatedCircle
         testID="simulation-body"
         r={radius}
@@ -278,6 +348,7 @@ function StaticBodyMarks({
   radius,
   arrows,
   centre,
+  slope,
   color,
   theme,
 }: {
@@ -285,6 +356,7 @@ function StaticBodyMarks({
   radius: number;
   arrows: SimulationArrow[];
   centre: ScreenPoint | null;
+  slope: { normal: Vector; friction: Vector } | null;
   color: string;
   theme: Theme;
 }) {
@@ -315,6 +387,24 @@ function StaticBodyMarks({
         <Polyline
           testID="simulation-arrow-centripetal"
           points={arrowPolyline(at, centre.px - at.px, centre.py - at.py, ARROW_LENGTH, ARROW_HEAD)}
+          fill="none"
+          stroke={theme.textSecondary}
+          strokeWidth={1.5}
+        />
+      )}
+      {slope && arrows.includes("normal") && (
+        <Polyline
+          testID="simulation-arrow-normal"
+          points={arrowPolyline(at, slope.normal.dx, slope.normal.dy, ARROW_LENGTH, ARROW_HEAD)}
+          fill="none"
+          stroke={theme.textSecondary}
+          strokeWidth={1.5}
+        />
+      )}
+      {slope && arrows.includes("friction") && (
+        <Polyline
+          testID="simulation-arrow-friction"
+          points={arrowPolyline(at, slope.friction.dx, slope.friction.dy, ARROW_LENGTH, ARROW_HEAD)}
           fill="none"
           stroke={theme.textSecondary}
           strokeWidth={1.5}

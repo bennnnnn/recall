@@ -20,6 +20,7 @@ device re-derives motion — the same rule that governs the math pipeline.
 from __future__ import annotations
 
 import math
+import typing
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -51,15 +52,35 @@ class SimulationBody(BaseModel):
         return self
 
 
+SimulationType = Literal["projectile_motion", "orbit", "collision", "incline"]
+
+# The one place a scene's `type` values are written down. Both the fence layer
+# and the direct-reply guard have to tell a scene from a graph, and a fourth
+# copy of this set living in each of them is precisely the drift the fence
+# registry's docblock warns about — `sources` and `copy` were known to one list
+# and not another for exactly that reason.
+SIMULATION_SPEC_TYPES: frozenset[str] = frozenset(typing.get_args(SimulationType))
+
+_DEFAULT_TITLES: dict[str, str] = {
+    "projectile_motion": "Projectile",
+    "orbit": "Orbit",
+    "collision": "Collision",
+    "incline": "Inclined Plane",
+}
+
+
 class SimulationBlockSpec(BaseModel):
     """A scene the client can play.
 
     ``arrows`` names the vectors worth drawing; the renderer derives each from
     the path rather than being handed components, so an arrow can never
-    disagree with the motion it annotates.
+    disagree with the motion it annotates. ``normal`` and ``friction`` are the
+    exception and the reason ``incline_deg`` exists: a block that has not
+    started moving has no tangent to read them off, and a free-body diagram of
+    a stationary block is most of what an incline question wants.
     """
 
-    type: Literal["projectile_motion", "orbit"]
+    type: SimulationType
     title: str | None = Field(default=None, max_length=64)
     bodies: list[SimulationBody] = Field(min_length=1, max_length=4)
     # World bounds. Named x_/y_ like GraphBlockSpec so the two read alike, but
@@ -68,11 +89,13 @@ class SimulationBlockSpec(BaseModel):
     x_max: float = 10.0
     y_min: float = 0.0
     y_max: float = 10.0
-    # gravity   — straight down from the body, constant
-    # velocity  — tangent to the body's own path at the current frame
+    # gravity     — straight down from the body, constant (this is the weight)
+    # velocity    — tangent to the body's own path at the current frame
     # centripetal — from the body toward `centre`
-    arrows: list[Literal["gravity", "velocity", "centripetal"]] = Field(
-        default_factory=list, max_length=3
+    # normal      — perpendicular to the slope, away from its surface
+    # friction    — up the slope, opposing the slide
+    arrows: list[Literal["gravity", "velocity", "centripetal", "normal", "friction"]] = Field(
+        default_factory=list, max_length=5
     )
     # The point an orbit turns about; required by a centripetal arrow, since
     # "toward the centre" is meaningless without one.
@@ -80,6 +103,9 @@ class SimulationBlockSpec(BaseModel):
     # Draw a ground line at y = 0. A projectile landing on nothing reads as a
     # dot drifting in a box.
     ground: bool = False
+    # The slope, in degrees, descending left to right. Draws the surface the
+    # block sits on and fixes the normal and friction directions.
+    incline_deg: float | None = Field(default=None, gt=-90.0, lt=90.0)
 
     @model_validator(mode="after")
     def coherent_scene(self) -> SimulationBlockSpec:
@@ -92,6 +118,13 @@ class SimulationBlockSpec(BaseModel):
         if self.centre is not None:
             if len(self.centre) != 2 or not all(math.isfinite(v) for v in self.centre):
                 raise ValueError("centre must be a finite [x, y] pair")
+        # Both are read off the slope, not off the motion, so neither can be
+        # drawn without one — and a normal force pointing the wrong way is a
+        # more confident lie than no arrow at all.
+        if {"normal", "friction"} & set(self.arrows) and self.incline_deg is None:
+            raise ValueError("normal and friction arrows require incline_deg")
+        if self.incline_deg is not None and not math.isfinite(self.incline_deg):
+            raise ValueError("incline_deg must be finite")
         # Every body is walked by one shared clock, so paths of different
         # lengths would drift apart on screen — a two-body scene would show a
         # collision at the wrong moment.
@@ -99,5 +132,5 @@ class SimulationBlockSpec(BaseModel):
         if len(lengths) > 1:
             raise ValueError("every body must have the same number of samples")
         if not self.title:
-            self.title = "Projectile" if self.type == "projectile_motion" else "Orbit"
+            self.title = _DEFAULT_TITLES[self.type]
         return self

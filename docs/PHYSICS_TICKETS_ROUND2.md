@@ -11,14 +11,12 @@ not by reading it. Two of these were **wrong answers reaching users today**, and
 came first for that reason; P11 and P12 have since shipped together, since one
 screenshot contained both.
 
-Status: ✅ shipped, ◐ first slice shipped, ☐ open.
-
 | # | Ticket | Area | Status |
 |---|--------|------|--------|
 | P11 | [An angled collision is answered as a projectile](#p11-an-angled-collision-is-answered-as-a-projectile) | API | ✅ |
 | P12 | [Never attach a verified answer to a clarifying question](#p12-never-attach-a-verified-answer-to-a-clarifying-question) | API | ✅ |
 | P13 | [Constant acceleration (SUVAT)](#p13-constant-acceleration-suvat) | API | ✅ |
-| P14 | [A `simulation` fence: sprites, free-body diagrams, animated orbits and collisions](#p14-a-simulation-fence-sprites-free-body-diagrams-animated-orbits-and-collisions) | Mobile + API | ◐ |
+| P14 | [A `simulation` fence: sprites, free-body diagrams, animated orbits and collisions](#p14-a-simulation-fence-sprites-free-body-diagrams-animated-orbits-and-collisions) | Mobile + API | ✅ |
 | P15 | [Pendulum period](#p15-pendulum-period) | API | ✅ |
 | P16 | [Pulleys, tension and Atwood machines](#p16-pulleys-tension-and-atwood-machines) | API | ✅ |
 | P17 | [Vector forces: resultants and components](#p17-vector-forces-resultants-and-components) | API | ✅ |
@@ -44,10 +42,19 @@ knows how to animate. Pendulum and the rope/vector ops landed as new **ops** on
 the existing `spring` and `force` kinds rather than as kinds of their own, so
 they did not widen that table.
 
-**After P14's first slice**, `circular` draws too — a played orbit rather than a
-chart — which was the most conspicuous blank of the seven. `momentum`,
-`friction`, `circuit`, `torque`, `force` and `energy` are still number-only, and
-the remaining P14 slices are where their pictures come from.
+**After P14** the picture is different again, because a scene is not a chart.
+Three more kinds draw something: `circular` (a played orbit — the most
+conspicuous blank of the seven), `momentum` (two bodies colliding) and
+`friction` (a block on a slope with its three forces). Seven of the eleven kinds
+now render:
+
+| Draws something | Number only |
+|---|---|
+| `kinematics`, `suvat`, `projectile`, `spring`, `circular`, `momentum`, `friction` | `force`, `energy`, `circuit`, `torque` |
+
+The four that are left are the ones with least to draw — `circuit` wants a
+schematic and `torque` a lever, both different objects again. Neither is
+ticketed; add one when demand shows up.
 
 ---
 
@@ -274,15 +281,15 @@ circular motion, then collisions.
 velocity arrows; a circular-motion answer animates an orbit; Reduce Motion
 falls back to a static diagram; nothing autoplays.
 
-**First slice done** — the spec, the projectile renderer and the orbit, which is
-all four acceptance clauses. Collisions are the next slice; the spec already
-carries what they need (several bodies on one clock) and a test asserts that
-shape so it cannot drift before they land. In
-`apps/api/app/tests/services/test_physics_simulation.py` (26),
-`apps/mobile/lib/__tests__/simulationScene.test.ts` (21) and
-`apps/mobile/components/__tests__/SimulationBlock.test.tsx` (7).
+**Done**, in two slices as the ticket suggested. The first was the spec, the
+projectile renderer and the orbit — all four acceptance clauses. The second
+added the two scenes the ticket named after those: **collisions** and
+**inclines**. Four scene types now: `projectile_motion`, `orbit`, `collision`,
+`incline`. In `apps/api/app/tests/services/test_physics_simulation.py` (48),
+`apps/mobile/lib/__tests__/simulationScene.test.ts` (31) and
+`apps/mobile/components/__tests__/SimulationBlock.test.tsx` (11).
 
-Five notes:
+Five notes from the first slice:
 
 - **The scene and the graph share one sampled path.** A projectile emits both —
   the graph answers "what shape is the path", the scene answers "what is moving
@@ -311,6 +318,40 @@ Five notes:
   reason it gets no pill and no chart, and that is pinned separately: P12 was
   written when there were two kinds of extra, and a third slipping past the
   guard would put an animation under a question the model just declined.
+
+And four from the second:
+
+- **A collision is the case a number genuinely cannot carry.**
+  `1.00 m/s and 4.00 m/s` is the right answer and says nothing about which ball
+  ends up ahead, whether either turns round, or that the pair keeps moving
+  together when they stick. Contact is the midpoint of the clock so both halves
+  get equal screen time whatever the speeds, and radii come from the masses by
+  cube root so the heavier ball reads as the heavier one. The elastic case is
+  asserted through its *defining* property — the bodies separate as fast as
+  they approached, so the start and end gaps are equal — which is a stronger
+  check than either speed alone and catches the two final velocities being
+  swapped.
+- **An incline is mostly a diagram.** For two of the three friction ops the
+  block never moves, so the still picture is not a fallback, it is the answer's
+  illustration. That forced the one place a scene is *not* read off the path:
+  normal and friction come off the stated slope instead, because a block that
+  has not started moving has no tangent. `incline_deg` exists for that, and the
+  spec refuses either arrow without it — a normal force pointing the wrong way
+  is a more confident lie than no arrow at all.
+- **"Never return a zero tangent" turned out to be wrong.** The first slice
+  defaulted to pointing right when a body did not move, to stop a velocity
+  arrow flipping about on a densely sampled path. Collisions made a stationary
+  body a real case rather than a rounding artefact, and that default drew a
+  confident velocity arrow on a ball that was sitting still. The window already
+  handles the flip; zero now means zero and draws nothing, so the arrow appears
+  at the moment of the collision — which is the moment it means something.
+- **Three copies of the scene-type set had appeared.** The fence layer and both
+  direct-reply paths each need to tell a scene from a graph, and that is exactly
+  the drift `fenceRegistry.ts`'s docblock describes. They now read one
+  `SIMULATION_SPEC_TYPES` derived from the `Literal` itself, with a test
+  asserting the two cannot separate — a fifth scene type added to the schema and
+  not to that set would be classified as a graph, since it carries `x_min` too,
+  and render as an empty pair of axes.
 
 ---
 

@@ -12,7 +12,14 @@
  * directions off them.
  */
 
-export type SimulationArrow = "gravity" | "velocity" | "centripetal";
+export type SimulationArrow =
+  | "gravity"
+  | "velocity"
+  | "centripetal"
+  | "normal"
+  | "friction";
+
+export type SimulationKind = "projectile_motion" | "orbit" | "collision" | "incline";
 
 export type SimulationBody = {
   label?: string;
@@ -23,7 +30,7 @@ export type SimulationBody = {
 };
 
 export type SimulationSpec = {
-  type: "projectile_motion" | "orbit";
+  type: SimulationKind;
   title?: string;
   bodies: SimulationBody[];
   xMin: number;
@@ -33,11 +40,25 @@ export type SimulationSpec = {
   arrows: SimulationArrow[];
   centre?: { x: number; y: number };
   ground: boolean;
+  /** Slope in degrees, descending left to right. Fixes normal and friction. */
+  inclineDeg?: number;
 };
 
 const MAX_BODIES = 4;
 const MAX_PATH_POINTS = 500;
-const ARROW_KINDS: readonly SimulationArrow[] = ["gravity", "velocity", "centripetal"];
+const ARROW_KINDS: readonly SimulationArrow[] = [
+  "gravity",
+  "velocity",
+  "centripetal",
+  "normal",
+  "friction",
+];
+const SCENE_KINDS: readonly SimulationKind[] = [
+  "projectile_motion",
+  "orbit",
+  "collision",
+  "incline",
+];
 
 /**
  * Strictly a JSON number — no coercion.
@@ -96,7 +117,7 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
   }
   if (!data || typeof data !== "object") return null;
   const row = data as Record<string, unknown>;
-  if (row.type !== "projectile_motion" && row.type !== "orbit") return null;
+  if (!SCENE_KINDS.includes(row.type as SimulationKind)) return null;
 
   const rawBodies = Array.isArray(row.bodies) ? row.bodies : [];
   if (rawBodies.length === 0 || rawBodies.length > MAX_BODIES) return null;
@@ -127,12 +148,21 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
     const cy = finite(row.centre[1]);
     if (cx !== null && cy !== null) centre = { x: cx, y: cy };
   }
-  // "Toward the centre" needs a centre; drawing it from nowhere would point
-  // the arrow at the origin of the scene box instead.
-  const usable = centre ? arrows : arrows.filter((a) => a !== "centripetal");
+  const inclineDeg = finite(row.incline_deg);
+
+  // Each of these is read off something the scene may not have: "toward the
+  // centre" needs a centre, and the normal and friction directions come off
+  // the slope rather than the motion — a block that has not started moving has
+  // no tangent to read them from. An arrow drawn without its reference points
+  // somewhere confidently wrong, which is worse than no arrow.
+  const usable = arrows.filter(
+    (a) =>
+      (a !== "centripetal" || centre !== undefined) &&
+      ((a !== "normal" && a !== "friction") || inclineDeg !== null),
+  );
 
   return {
-    type: row.type,
+    type: row.type as SimulationKind,
     title: typeof row.title === "string" && row.title ? row.title.slice(0, 64) : undefined,
     bodies,
     xMin,
@@ -142,6 +172,7 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
     arrows: usable,
     centre,
     ground: row.ground === true,
+    inclineDeg: inclineDeg ?? undefined,
   };
 }
 
@@ -215,7 +246,11 @@ export function arrowPolyline(
   head: number,
 ): string {
   "worklet";
-  const len = Math.hypot(dx, dy) || 1;
+  const len = Math.hypot(dx, dy);
+  // No direction, no arrow. A ball waiting to be hit has no velocity to draw,
+  // and an empty points string renders nothing — so the arrow simply appears
+  // at the moment of the collision, which is the moment it means something.
+  if (len === 0) return "";
   const ux = dx / len;
   const uy = dy / len;
   const tipX = from.px + ux * length;
@@ -239,21 +274,68 @@ export function arrowPolyline(
  *
  * Taken across a small window rather than between adjacent points: on a
  * densely sampled path two neighbours can round to the same pixel, and a
- * zero-length tangent makes the velocity arrow flip about randomly.
+ * near-zero tangent makes the velocity arrow flip about randomly. The window
+ * is what solves that, so a genuinely zero result here means the body is not
+ * moving — which collisions and held blocks both produce — and it is returned
+ * as zero rather than papered over with a default direction that would draw a
+ * velocity arrow on a stationary ball.
  */
-export function tangentAt(points: readonly ScreenPoint[], progress: number): { dx: number; dy: number } {
+export function tangentAt(
+  points: readonly ScreenPoint[],
+  progress: number,
+): { dx: number; dy: number } {
   "worklet";
   const last = points.length - 1;
-  if (last < 1) return { dx: 1, dy: 0 };
+  if (last < 1) return { dx: 0, dy: 0 };
   const clamped = progress < 0 ? 0 : progress > 1 ? 1 : progress;
   const window = Math.max(1, Math.round(last * 0.04));
   const at = Math.round(clamped * last);
   const lo = at - window < 0 ? 0 : at - window;
   const hi = at + window > last ? last : at + window;
-  const a = points[lo];
-  const b = points[hi];
-  const dx = b.px - a.px;
-  const dy = b.py - a.py;
-  if (dx === 0 && dy === 0) return { dx: 1, dy: 0 };
-  return { dx, dy };
+  return { dx: points[hi].px - points[lo].px, dy: points[hi].py - points[lo].py };
+}
+
+/**
+ * The slope's surface, in screen space, extended across the whole scene.
+ *
+ * Taken from a point the block actually sits on rather than from the scene
+ * box, so the line passes under the block instead of near it. The direction
+ * comes from the stated angle, which is the only way a *stationary* block's
+ * slope can be known at all.
+ */
+export function inclineSurface(
+  spec: SimulationSpec,
+  t: SimulationTransform,
+): { x1: number; y1: number; x2: number; y2: number } | null {
+  if (spec.inclineDeg === undefined || spec.bodies.length === 0) return null;
+  const theta = (spec.inclineDeg * Math.PI) / 180;
+  const [bx, by] = spec.bodies[0].path[0];
+  // The block's centre sits a radius above the surface it rests on, measured
+  // along the normal.
+  const r = spec.bodies[0].radius;
+  const onSurface = { x: bx - r * Math.sin(theta), y: by - r * Math.cos(theta) };
+
+  const slope = -Math.tan(theta); // world dy per dx, descending to the right
+  const left = worldToScreen(spec.xMin, onSurface.y + (spec.xMin - onSurface.x) * slope, t);
+  const right = worldToScreen(spec.xMax, onSurface.y + (spec.xMax - onSurface.x) * slope, t);
+  return { x1: left.px, y1: left.py, x2: right.px, y2: right.py };
+}
+
+/**
+ * Screen-space directions fixed by the slope rather than by the motion.
+ *
+ * Both are perpendicular to each other by construction, so the picture cannot
+ * show a normal force that is not normal to the surface it acts on.
+ */
+export function inclineDirections(inclineDeg: number): {
+  normal: { dx: number; dy: number };
+  friction: { dx: number; dy: number };
+} {
+  const theta = (inclineDeg * Math.PI) / 180;
+  return {
+    // Away from the surface: up and to the right, screen y being downward.
+    normal: { dx: Math.sin(theta), dy: -Math.cos(theta) },
+    // Up the slope, opposing a block sliding down to the right.
+    friction: { dx: -Math.cos(theta), dy: -Math.sin(theta) },
+  };
 }

@@ -12,6 +12,8 @@
  */
 import {
   arrowPolyline,
+  inclineDirections,
+  inclineSurface,
   parseSimulationSpec,
   projectPath,
   simulationTransform,
@@ -191,17 +193,29 @@ describe("tangentAt", () => {
     expect(end.dy).toBeGreaterThan(0);
   });
 
-  it("never returns a zero-length direction", () => {
-    // Adjacent samples on a dense path can round to the same pixel, and a
-    // zero-length tangent makes the velocity arrow flip about at random.
-    const flat = [
+  it("returns zero for a body that is not moving", () => {
+    // Collisions made this a real case rather than a rounding artefact: a ball
+    // waiting to be hit genuinely has no velocity, and a held block never
+    // moves at all. An earlier draft returned a default direction here, which
+    // would draw a confident velocity arrow on a stationary ball.
+    //
+    // The random-flip hazard this replaces is handled by the window: a body
+    // that moved at all over 4% of its journey has a non-zero delta, even
+    // where two adjacent samples round to the same pixel.
+    const stationary = [
       { px: 10, py: 10 },
       { px: 10, py: 10 },
       { px: 10, py: 10 },
     ];
 
-    const { dx, dy } = tangentAt(flat, 0.5);
-    expect(Math.hypot(dx, dy)).toBeGreaterThan(0);
+    expect(tangentAt(stationary, 0.5)).toEqual({ dx: 0, dy: 0 });
+  });
+
+  it("a zero direction draws no arrow at all", () => {
+    // The other half of the same decision: an empty points string renders
+    // nothing, so the velocity arrow appears at the moment of the collision —
+    // which is the moment it means something.
+    expect(arrowPolyline({ px: 5, py: 5 }, 0, 0, 40, 8)).toBe("");
   });
 
   it("clamps progress outside 0..1", () => {
@@ -248,8 +262,167 @@ describe("arrowPolyline", () => {
       expect(Math.hypot(tip[0] - 100, tip[1] - 100)).toBeCloseTo(40, 1);
     }
   });
+});
 
-  it("survives a zero direction rather than emitting NaN", () => {
-    expect(arrowPolyline({ px: 5, py: 5 }, 0, 0, 40, 8)).not.toContain("NaN");
+// --- the two scenes P14's second slice added -------------------------------
+
+const COLLISION = {
+  type: "collision",
+  bodies: [
+    {
+      radius: 0.38,
+      role: "primary",
+      path: [
+        [-2, 0],
+        [-1, 0],
+        [-0.38, 0],
+      ],
+    },
+    {
+      radius: 0.3,
+      role: "secondary",
+      path: [
+        [0.3, 0],
+        [0.3, 0],
+        [0.3, 0],
+      ],
+    },
+  ],
+  x_min: -3,
+  x_max: 3,
+  y_min: -1,
+  y_max: 1,
+  arrows: ["velocity"],
+};
+
+const INCLINE = {
+  type: "incline",
+  bodies: [
+    {
+      radius: 0.36,
+      role: "primary",
+      path: [
+        [0, 3],
+        [0, 3],
+      ],
+    },
+  ],
+  x_min: -1,
+  x_max: 6.2,
+  y_min: -1,
+  y_max: 4,
+  arrows: ["gravity", "normal", "friction"],
+  incline_deg: 30,
+};
+
+describe("collision and incline scenes", () => {
+  it("reads a two-body collision", () => {
+    const spec = parse(COLLISION);
+
+    expect(spec!.type).toBe("collision");
+    expect(spec!.bodies.map((b) => b.role)).toEqual(["primary", "secondary"]);
+    // The heavier ball is drawn larger, which is how you tell them apart.
+    expect(spec!.bodies[0].radius).toBeGreaterThan(spec!.bodies[1].radius);
+  });
+
+  it("gives a ball at rest no velocity arrow until it moves", () => {
+    // Body 2 sits still for the whole of this fixture. Its tangent is zero, so
+    // arrowPolyline draws nothing — the arrow appears at the collision.
+    const spec = parse(COLLISION)!;
+    const t = simulationTransform(spec, 360, 240, 24);
+    const still = projectPath(spec.bodies[1].path, t);
+    const moving = projectPath(spec.bodies[0].path, t);
+
+    const stillTangent = tangentAt(still, 0.5);
+    expect(arrowPolyline(still[1], stillTangent.dx, stillTangent.dy, 38, 7)).toBe("");
+
+    const movingTangent = tangentAt(moving, 0.5);
+    expect(arrowPolyline(moving[1], movingTangent.dx, movingTangent.dy, 38, 7)).not.toBe("");
+  });
+
+  it("reads an incline with its slope angle", () => {
+    const spec = parse(INCLINE);
+
+    expect(spec!.type).toBe("incline");
+    expect(spec!.inclineDeg).toBe(30);
+    expect(spec!.arrows).toEqual(["gravity", "normal", "friction"]);
+  });
+
+  it("drops normal and friction arrows when no slope is stated", () => {
+    // Both are read off the slope, not off the motion. Without one they would
+    // be drawn in some default direction, and a normal force pointing the
+    // wrong way is a more confident lie than no arrow.
+    const spec = parse({ ...INCLINE, incline_deg: undefined });
+
+    expect(spec!.arrows).toEqual(["gravity"]);
+  });
+});
+
+describe("inclineDirections", () => {
+  it("keeps the normal perpendicular to the slope", () => {
+    // The property the name promises. A normal that is not normal to the
+    // surface it acts on is the one mistake this diagram must not make.
+    for (const deg of [0, 15, 30, 45, 60, 80]) {
+      const { normal, friction } = inclineDirections(deg);
+      const downhill = { dx: -friction.dx, dy: -friction.dy };
+
+      expect(normal.dx * downhill.dx + normal.dy * downhill.dy).toBeCloseTo(0, 10);
+      expect(Math.hypot(normal.dx, normal.dy)).toBeCloseTo(1, 10);
+    }
+  });
+
+  it("points the normal away from the surface and friction up the slope", () => {
+    const { normal, friction } = inclineDirections(30);
+
+    // Screen y is downward, so "away from the surface" is a negative dy.
+    expect(normal.dy).toBeLessThan(0);
+    // The block slides down to the right, so friction opposes it: up and left.
+    expect(friction.dx).toBeLessThan(0);
+    expect(friction.dy).toBeLessThan(0);
+  });
+
+  it("is straight up and straight back on the flat", () => {
+    const { normal, friction } = inclineDirections(0);
+
+    expect(normal).toEqual({ dx: 0, dy: -1 });
+    expect(friction.dx).toBeCloseTo(-1, 10);
+    expect(friction.dy).toBeCloseTo(0, 10);
+  });
+});
+
+describe("inclineSurface", () => {
+  it("draws a line that descends left to right", () => {
+    const spec = parse(INCLINE)!;
+    const t = simulationTransform(spec, 360, 240, 24);
+    const line = inclineSurface(spec, t)!;
+
+    expect(line.x1).toBeLessThan(line.x2);
+    // Descending in the world means a larger screen y on the right.
+    expect(line.y2).toBeGreaterThan(line.y1);
+  });
+
+  it("passes under the block rather than through it", () => {
+    // The block rests *on* the slope, so the surface is one radius away along
+    // the normal — not through the centre of the body.
+    const spec = parse(INCLINE)!;
+    const t = simulationTransform(spec, 360, 240, 24);
+    const line = inclineSurface(spec, t)!;
+    const body = projectPath(spec.bodies[0].path, t)[0];
+
+    // Distance from the body centre to the line, in pixels.
+    const dx = line.x2 - line.x1;
+    const dy = line.y2 - line.y1;
+    const distance =
+      Math.abs(dy * body.px - dx * body.py + line.x2 * line.y1 - line.y2 * line.x1) /
+      Math.hypot(dx, dy);
+
+    expect(distance).toBeCloseTo(spec.bodies[0].radius * t.scale, 4);
+  });
+
+  it("returns nothing when the scene has no slope", () => {
+    const spec = parse(PROJECTILE)!;
+    const t = simulationTransform(spec, 360, 240, 24);
+
+    expect(inclineSurface(spec, t)).toBeNull();
   });
 });

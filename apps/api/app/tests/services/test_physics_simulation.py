@@ -24,7 +24,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.schemas.math import SimulationBlockSpec, SimulationBody
-from app.services.math.fence import validate_math_fences
+from app.services.math.fence import _spec_fence_kind, validate_math_fences
 from app.services.math.tools import _build_verified_block, extract_math_intent
 from app.services.physics.solver import solve_physics
 
@@ -277,3 +277,265 @@ def test_a_non_finite_sample_is_refused() -> None:
 def test_the_title_defaults_rather_than_rendering_blank() -> None:
     assert SimulationBlockSpec(type="orbit", bodies=[_body()]).title == "Orbit"
     assert SimulationBlockSpec(type="projectile_motion", bodies=[_body()]).title == "Projectile"
+
+
+# --- second slice: collisions and inclines ----------------------------------
+#
+# The two scenes the ticket named after the orbit. A collision is the case a
+# number genuinely cannot carry — "1.00 m/s and 4.00 m/s" is the right answer
+# and says nothing about which ball ends up ahead, whether either turns round,
+# or that the pair keeps moving together when they stick. An incline is mostly
+# a *diagram*: for two of the three friction ops the block never moves, and the
+# free-body picture is what the question wanted.
+
+ELASTIC_Q = (
+    "in an elastic collision a 2 kg ball at 3 m/s hits a 1 kg ball at rest, "
+    "find the final velocities"
+)
+INELASTIC_Q = (
+    "a 2 kg ball at 3 m/s hits a 1 kg ball at rest and they stick together, find the final velocity"
+)
+SLIDING_Q = (
+    "a block slides down a 30 degree incline with a coefficient of friction of 0.2, "
+    "what is the acceleration"
+)
+NORMAL_Q = "what is the normal force on a 5 kg block on a 30 degree incline"
+HELD_Q = (
+    "a block on a 10 degree incline with a coefficient of friction of 0.5, what is the acceleration"
+)
+
+
+def _verified_answer(text: str) -> str | None:
+    intent = extract_math_intent(text)
+    if intent is None:
+        return None
+    block = _build_verified_block(intent, _settings())
+    return None if block is None else block.canonical_answer
+
+
+# Path samples ship rounded to 4 dp to keep the fence small, so one step
+# carries up to 1e-4 of error and a ratio of two of them amplifies it well past
+# anything worth asserting. Measuring across a long span leaves the same
+# absolute error on a displacement twenty times larger.
+_SPAN = 20
+
+
+def _speeds(path: list[list[float]]) -> tuple[float, float]:
+    """Displacement per sample well before and well after contact.
+
+    The clock is uniform, so this *is* a speed up to one constant factor —
+    which is all these comparisons need.
+    """
+    return (
+        (path[_SPAN][0] - path[0][0]) / _SPAN,
+        (path[-1][0] - path[-1 - _SPAN][0]) / _SPAN,
+    )
+
+
+def test_a_collision_answer_carries_two_bodies() -> None:
+    scene = _scene(ELASTIC_Q)
+
+    assert scene.type == "collision"
+    assert len(scene.bodies) == 2
+    assert [b.role for b in scene.bodies] == ["primary", "secondary"]
+
+
+def test_the_heavier_ball_is_drawn_larger() -> None:
+    """Radius from mass by cube root, since a ball's size goes with its volume.
+
+    Two identical circles would make the scene unreadable: which one is the
+    2 kg ball is the first thing a viewer needs.
+    """
+    scene = _scene(ELASTIC_Q)
+    heavy, light = scene.bodies
+
+    assert heavy.radius > light.radius
+    assert heavy.radius / light.radius == pytest.approx(2 ** (1 / 3), rel=1e-9)
+
+
+def test_the_bodies_touch_exactly_at_contact() -> None:
+    """Their surfaces meet at the midpoint of the clock — neither overlapping
+    (which reads as passing through each other) nor short of it."""
+    scene = _scene(ELASTIC_Q)
+    b1, b2 = scene.bodies
+    mid = len(b1.path) // 2
+
+    gap = b2.path[mid][0] - b1.path[mid][0]
+    # Tolerance set by the 4 dp the path ships at, not by the geometry.
+    assert gap == pytest.approx(b1.radius + b2.radius, abs=1e-3)
+
+
+def test_the_scene_shows_the_verified_speeds() -> None:
+    """2 kg at 3 m/s into 1 kg at rest gives 1 m/s and 4 m/s.
+
+    The scene has to move at those speeds, not at some display-friendly
+    approximation, or it contradicts the pill printed above it.
+    """
+    scene = _scene(ELASTIC_Q)
+    before1, after1 = _speeds(scene.bodies[0].path)
+    before2, after2 = _speeds(scene.bodies[1].path)
+
+    assert after1 / before1 == pytest.approx(1 / 3, rel=1e-3)  # 3 m/s -> 1 m/s
+    assert before2 == pytest.approx(0.0, abs=1e-9)  # at rest
+    assert after2 / after1 == pytest.approx(4.0, rel=1e-3)  # 4 m/s vs 1 m/s
+
+
+def test_an_elastic_collision_separates_as_fast_as_it_approached() -> None:
+    """The property that *defines* elastic, visible in the scene itself.
+
+    Relative speed is preserved, so the gap at the start and the gap at the end
+    are equal — which is a stronger check than either speed alone and would
+    catch the two final velocities being swapped.
+    """
+    scene = _scene(ELASTIC_Q)
+    b1, b2 = scene.bodies
+
+    start_gap = b2.path[0][0] - b1.path[0][0]
+    end_gap = b2.path[-1][0] - b1.path[-1][0]
+
+    assert end_gap == pytest.approx(start_gap, abs=1e-3)
+
+
+def test_an_inelastic_collision_leaves_them_stuck() -> None:
+    """The counterpart, and the thing the single number cannot say at all."""
+    scene = _scene(INELASTIC_Q)
+    b1, b2 = scene.bodies
+
+    start_gap = b2.path[0][0] - b1.path[0][0]
+    end_gap = b2.path[-1][0] - b1.path[-1][0]
+
+    assert start_gap > end_gap
+    assert end_gap == pytest.approx(b1.radius + b2.radius, abs=1e-3)
+    # Moving together means identical steps.
+    assert _speeds(b1.path)[1] == pytest.approx(_speeds(b2.path)[1], abs=1e-4)
+
+
+def test_a_collision_shows_velocity_and_nothing_it_cannot_justify() -> None:
+    """Gravity is not acting along the track and there is no centre to orbit."""
+    assert _scene(ELASTIC_Q).arrows == ["velocity"]
+
+
+# --- inclines ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("text", [SLIDING_Q, NORMAL_Q, HELD_Q])
+def test_every_incline_op_gets_a_scene(text: str) -> None:
+    assert _scene(text).type == "incline"
+
+
+def test_the_incline_carries_its_angle() -> None:
+    """The renderer reads normal and friction off the slope, not off the
+    motion, so the angle has to travel with the scene."""
+    scene = _scene(SLIDING_Q)
+
+    assert scene.incline_deg == pytest.approx(30.0)
+
+
+def test_the_block_sits_on_the_slope_it_is_given() -> None:
+    """Every sample lies on the stated line, so the drawn surface and the drawn
+    block cannot disagree about where the slope is."""
+    import math
+
+    scene = _scene(SLIDING_Q)
+    theta = math.radians(scene.incline_deg or 0.0)
+    x0, y0 = scene.bodies[0].path[0]
+
+    for x, y in scene.bodies[0].path:
+        assert y == pytest.approx(y0 - (x - x0) * math.tan(theta), abs=1e-3)
+
+
+def test_a_sliding_block_speeds_up() -> None:
+    """s = ½at² sampled uniformly in time, so the acceleration is the thing you
+    see — a block moving at a constant rate down a slope would be a lie about
+    the very quantity the answer reports."""
+    path = _scene(SLIDING_Q).bodies[0].path
+    first = path[1][0] - path[0][0]
+    last = path[-1][0] - path[-2][0]
+
+    assert last > first * 2
+
+
+def test_a_block_friction_holds_does_not_move() -> None:
+    """tan(10°) < 0.5, so a = 0 — and the scene says so by standing still.
+
+    Showing it slide would contradict the answer directly.
+    """
+    assert _verified_answer(HELD_Q) == "0.00 m/s^2"
+    path = _scene(HELD_Q).bodies[0].path
+
+    assert all(point == path[0] for point in path)
+
+
+def test_an_incline_shows_weight_normal_and_friction() -> None:
+    """The three forces the ticket named."""
+    assert set(_scene(SLIDING_Q).arrows) == {"gravity", "normal", "friction"}
+
+
+def test_a_frictionless_slope_draws_no_friction_arrow() -> None:
+    """An arrow for a force that is not acting is worse than a missing one."""
+    scene = _scene("a block slides down a frictionless 30 degree incline, what is the acceleration")
+
+    assert "friction" not in scene.arrows
+    assert {"gravity", "normal"} <= set(scene.arrows)
+
+
+def test_a_flat_surface_gets_no_incline_scene() -> None:
+    """Weight down and normal up is a true picture and an empty one, and with
+    no slope there is no friction direction to draw — the block is not going
+    anywhere for friction to oppose."""
+    intent = extract_math_intent("what is the normal force on a 5 kg block")
+    assert intent is not None
+
+    assert solve_physics(intent).simulation_specs == []
+
+
+def test_the_angle_ships_without_floating_point_noise() -> None:
+    """It arrives here through radians, so 30 comes back as 29.999999999999996
+    and would ship in the fence JSON that way."""
+    body = _fence_body(SLIDING_Q)
+
+    assert body is not None
+    assert body["incline_deg"] == 30.0
+
+
+# --- the spec's rules for the new fields ------------------------------------
+
+
+def test_normal_and_friction_arrows_require_a_slope() -> None:
+    """Both are read off the slope, and a normal force pointing the wrong way
+    is a more confident lie than no arrow at all."""
+    for arrow in ("normal", "friction"):
+        with pytest.raises(ValidationError):
+            SimulationBlockSpec(type="incline", bodies=[_body()], arrows=[arrow])  # type: ignore[list-item]
+
+
+def test_a_vertical_slope_is_refused() -> None:
+    """At 90 degrees it is not an incline, it is a drop."""
+    with pytest.raises(ValidationError):
+        SimulationBlockSpec(type="incline", bodies=[_body()], incline_deg=90.0)
+
+
+def test_each_scene_kind_has_its_own_default_title() -> None:
+    for kind, title in [
+        ("projectile_motion", "Projectile"),
+        ("orbit", "Orbit"),
+        ("collision", "Collision"),
+        ("incline", "Inclined Plane"),
+    ]:
+        assert SimulationBlockSpec(type=kind, bodies=[_body()]).title == title  # type: ignore[arg-type]
+
+
+def test_the_fence_layer_knows_every_scene_kind() -> None:
+    """The one table both the fence layer and the direct guard read.
+
+    A fifth scene type added to the schema and not to this set would be
+    classified as a graph — it carries `x_min` too — and rendered as an empty
+    pair of axes.
+    """
+    import typing
+
+    from app.models.schemas.math.simulation import SIMULATION_SPEC_TYPES, SimulationType
+
+    assert SIMULATION_SPEC_TYPES == set(typing.get_args(SimulationType))
+    for kind in SIMULATION_SPEC_TYPES:
+        assert _spec_fence_kind({"type": kind}) == "simulation"

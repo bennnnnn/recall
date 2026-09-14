@@ -809,16 +809,81 @@ def solve_momentum(intent: MathIntent) -> PhysicsResult:
             )
             answer_value = f"{u1:.2f} m/s and {u2:.2f} m/s"
         else:
-            u = (m1 * v1 + m2 * v2) / total
+            u1 = u2 = (m1 * v1 + m2 * v2) / total
             answer = (
                 r"\text{Perfectly inelastic: } v = \frac{m_1 v_1 + m_2 v_2}{m_1 + m_2} = "
                 rf"\frac{{{m1:g} \cdot {v1:g} + {m2:g} \cdot {v2:g}}}{{{total:g}}} "
-                rf"\approx {u:.2f} \text{{ m/s}}"
+                rf"\approx {u1:.2f} \text{{ m/s}}"
             )
-            answer_value = f"{u:.2f} m/s"
-        return PhysicsResult(answer=answer, answer_value=answer_value)
+            answer_value = f"{u1:.2f} m/s"
+        return PhysicsResult(
+            answer=answer,
+            answer_value=answer_value,
+            simulation_specs=[_collision_scene(m1, m2, v1, v2, u1, u2)],
+        )
 
     raise MathServiceError(f"unsupported momentum op: {op}")
+
+
+def _collision_scene(
+    m1: float, m2: float, v1: float, v2: float, u1: float, u2: float
+) -> SimulationBlockSpec:
+    """Two bodies approaching, meeting, and leaving at their new speeds.
+
+    The one thing a number genuinely cannot show. "1.00 m/s and 4.00 m/s" is
+    the right answer and says nothing about which ball ends up ahead, whether
+    either turns around, or that the pair keeps moving together when they
+    stick — all of which the scene shows without a word.
+
+    Contact is the midpoint of the clock, so the approach and the separation
+    get equal screen time whatever the speeds. Radii come from the masses (as
+    cube roots, since a ball's size goes with its volume), so the heavier body
+    reads as the heavier one.
+    """
+    r1 = 0.30 * (m1 ** (1 / 3))
+    r2 = 0.30 * (m2 ** (1 / 3))
+    gap = r1 + r2
+
+    # Long enough for the fastest phase to travel a few body-widths, so a slow
+    # body still visibly moves and a fast one does not leave the box.
+    fastest = max(abs(v1), abs(v2), abs(u1), abs(u2))
+    half = (4 * gap / fastest) if fastest > 0 else 1.0
+
+    n_half = 40
+    dt = half / n_half
+    path1: list[list[float]] = []
+    path2: list[list[float]] = []
+    for i in range(-n_half, n_half + 1):
+        t = i * dt
+        if t <= 0:
+            # Contact at t = 0 puts the two surfaces together: centres a
+            # radius either side of the origin.
+            x1, x2 = -r1 + v1 * t, r2 + v2 * t
+        else:
+            x1, x2 = -r1 + u1 * t, r2 + u2 * t
+        path1.append([round(x1, 4), 0.0])
+        path2.append([round(x2, 4), 0.0])
+
+    xs = [x for x, _ in path1 + path2]
+    margin = gap
+    lo, hi = min(xs) - margin, max(xs) + margin
+    # A flat track: the bodies only move along x, so the box is wide and short
+    # rather than square. Both axes still share one scale, so the balls stay
+    # round.
+    half_height = max((hi - lo) * 0.18, gap * 1.2)
+    return SimulationBlockSpec(
+        type="collision",
+        title="Collision",
+        bodies=[
+            SimulationBody(path=path1, radius=r1, role="primary"),
+            SimulationBody(path=path2, radius=r2, role="secondary"),
+        ],
+        x_min=lo,
+        x_max=hi,
+        y_min=-half_height,
+        y_max=half_height,
+        arrows=["velocity"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -856,12 +921,20 @@ def solve_friction(intent: MathIntent) -> PhysicsResult:
                 rf"N = m g \cos\theta = {m:g} \cdot {g:g} \cdot \cos({deg:g}^\circ) "
                 rf"\approx {normal:.2f} \text{{ N}}"
             )
-        return PhysicsResult(answer=answer, answer_value=f"{normal:.2f} N")
+        return PhysicsResult(
+            answer=answer,
+            answer_value=f"{normal:.2f} N",
+            simulation_specs=_incline_scene(deg, mu=mu),
+        )
 
     if op == "friction_force":
         f_val = mu * normal
         answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
-        return PhysicsResult(answer=answer, answer_value=f"{f_val:.2f} N")
+        return PhysicsResult(
+            answer=answer,
+            answer_value=f"{f_val:.2f} N",
+            simulation_specs=_incline_scene(deg, mu=mu),
+        )
 
     if op == "incline_acceleration":
         a_val = g * (math.sin(theta) - mu * math.cos(theta))
@@ -875,15 +948,89 @@ def solve_friction(intent: MathIntent) -> PhysicsResult:
                     r"\text{so friction holds the block: } a = 0 \text{ m/s}^2"
                 ),
                 answer_value="0.00 m/s^2",
+                # a = 0 is the answer, so the block stays put and the diagram
+                # is the free body that explains why.
+                simulation_specs=_incline_scene(deg, mu=mu),
             )
         answer = (
             r"a = g(\sin\theta - \mu\cos\theta) = "
             rf"{g:g}(\sin({deg:g}^\circ) - {mu:g}\cos({deg:g}^\circ)) "
             rf"\approx {a_val:.2f} \text{{ m/s}}^2"
         )
-        return PhysicsResult(answer=answer, answer_value=f"{a_val:.2f} m/s^2")
+        return PhysicsResult(
+            answer=answer,
+            answer_value=f"{a_val:.2f} m/s^2",
+            simulation_specs=_incline_scene(deg, mu=mu, accel=a_val),
+        )
 
     raise MathServiceError(f"unsupported friction op: {op}")
+
+
+# The slope's own length is never stated, so it is a display choice and the
+# scene is drawn at a fixed one. The same reasoning as the SHM curve's
+# normalised amplitude: what the question is about is the *shape* of the
+# motion — a block that starts slow and speeds up — and that shape is real
+# whatever the slope measures. Inventing a number for the answer would be a
+# different thing entirely.
+_INCLINE_LENGTH = 6.0
+
+
+def _incline_scene(
+    deg: float, *, mu: float, accel: float | None = None
+) -> list[SimulationBlockSpec]:
+    """A block on a slope with its weight, normal and friction arrows.
+
+    The ticket's third named scene, and the one that is mostly a *diagram*: a
+    free-body picture is what an incline question wants, and for two of the
+    three ops the block is not moving at all.
+
+    A flat surface gets nothing. Weight down and normal up is a true picture
+    and an empty one, and with no slope there is no friction direction to draw
+    — the block is not going anywhere for friction to oppose.
+    """
+    if deg == 0:
+        return []
+    theta = math.radians(abs(deg))
+    # Descending left to right, which fixes what "down the slope" means for
+    # both the path and the arrows.
+    down_x, down_y = math.cos(theta), -math.sin(theta)
+    top_x, top_y = 0.0, _INCLINE_LENGTH * math.sin(theta)
+
+    n_points = 60
+    if accel is not None and accel > 0:
+        # s = ½at², sampled uniformly in *time*, so the block visibly
+        # accelerates rather than sliding at a constant rate. The duration is
+        # the one that covers the drawn slope, so the block arrives at the
+        # bottom exactly as the animation ends.
+        duration = math.sqrt(2 * _INCLINE_LENGTH / accel)
+        dt = duration / (n_points - 1)
+        distances = [0.5 * accel * (i * dt) ** 2 for i in range(n_points)]
+    else:
+        # Held by friction, or an op with no acceleration to show: the block
+        # stays where it is and the arrows are the whole picture.
+        distances = [0.0] * n_points
+
+    path = [[round(top_x + s * down_x, 4), round(top_y + s * down_y, 4)] for s in distances]
+    arrows: list[str] = ["gravity", "normal"]
+    if mu > 0:
+        arrows.append("friction")
+
+    margin = _INCLINE_LENGTH * 0.18
+    return [
+        SimulationBlockSpec(
+            type="incline",
+            title="Inclined Plane",
+            bodies=[SimulationBody(path=path, radius=_INCLINE_LENGTH * 0.06)],
+            x_min=-margin,
+            x_max=_INCLINE_LENGTH * math.cos(theta) + margin,
+            y_min=-margin,
+            y_max=top_y + margin,
+            arrows=arrows,  # type: ignore[arg-type]
+            # The angle arrived here through radians, so 30 comes back as
+            # 29.999999999999996 and would ship in the fence JSON that way.
+            incline_deg=round(abs(deg), 4),
+        )
+    ]
 
 
 # ---------------------------------------------------------------------------
