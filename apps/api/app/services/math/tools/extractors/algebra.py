@@ -121,6 +121,31 @@ def _leftover_prose_blocks_solve(cleaned: str, lhs: str, rhs: str) -> bool:
     return len(english) >= 2
 
 
+# Lagrange (y', y'') and Leibniz (d^2y/dx^2, d2y/dx2) derivative marks.
+_DERIVATIVE_MARK_RE = re.compile(r"[A-Za-z]\s*['\u2032\u2033]|\bd\s*\^?\s*2\s*[A-Za-z]\s*/")
+
+
+def _derivative_term_dropped(cleaned: str, lhs: str, rhs: str) -> bool:
+    """True when a derivative term was left behind by the extracted sides.
+
+    ``solve y'' + y = 0`` used to extract ``+ y = 0``, silently dropping the
+    ``y''``. The remnant solved to a confident, verified ``y = 0`` — the worst
+    result this pipeline can produce, because the block tells the model not to
+    recompute. Second-order ODEs belong to the dsolve path in
+    ``math.tools.school``; when that path declines, the answer is the model's
+    to give unverified, never algebra's to invent.
+
+    Scoped to derivative marks on purpose. A general "did we consume the whole
+    equation" check needs the extractor to report the span it consumed: the
+    residue legitimately holds qualifiers like ``for x:``, ``for 0<=x<=2*pi``
+    or ``with a proof``, which are not dropped math.
+    """
+    if not _DERIVATIVE_MARK_RE.search(cleaned):
+        return False
+    residue = _blank_extracted_equation(_equation_core_after_leadin(cleaned), lhs, rhs)
+    return bool(_DERIVATIVE_MARK_RE.search(residue))
+
+
 def _has_unclaimed_plot_verb(cleaned: str) -> bool:
     """Plot phrasing that missed ``graph_expr`` must not fall through to solve."""
     from app.services.math import match as mtm
@@ -293,6 +318,8 @@ def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     if math_expr_or_none(lhs) is None or math_expr_or_none(rhs) is None:
         return None
     if _leftover_prose_blocks_solve(cleaned, lhs, rhs):
+        return None
+    if _derivative_term_dropped(cleaned, lhs, rhs):
         return None
     variables = math_solve.guess_variables(lhs + rhs)
     requested = _requested_variable(cleaned, lhs + rhs)

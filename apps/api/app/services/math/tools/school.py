@@ -401,31 +401,31 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
     return MathIntent(kind="complex", school_op="eval", expr=expr, operation="solve")
 
 
-def _first_order_ode_equation(cleaned: str) -> str | None:
-    """Span starting at ``dy/dx`` or ``y'`` through the rhs. Linear scan."""
+_ODE_START_RE = re.compile(r"dy\s*/\s*dx|d\^?2\s*y\s*/\s*dx\^?2|[A-Za-z]'")
+
+
+def _ode_equation(cleaned: str) -> str | None:
+    """Span from the first derivative mark through the rhs. Linear scan.
+
+    Accepts the bare first-order forms (``dy/dx = 2y``) and the general linear
+    ones (``y'' + y = 0``, ``y'' + 3y' + 2y = 0``). Everything between the
+    derivative and the ``=`` must be math: ``Find dy/dx if y = x^2`` is a
+    derivative ask, not an ODE, and the word ``if`` is what says so.
+    """
     from app.services.math.tools.helpers import _strip_trailing_filler
 
-    lower = cleaned.lower()
-    start = -1
-    idx = lower.find("dy/dx")
-    if idx != -1:
-        start = idx
-    yprime = cleaned.find("y'")
-    if yprime != -1 and (start == -1 or yprime < start):
-        start = yprime
-    if start == -1:
+    match = _ODE_START_RE.search(cleaned)
+    if match is None:
         return None
-    rest = cleaned[start:]
-    low_rest = rest.lower()
-    if low_rest.startswith("dy/dx"):
-        after_op = rest[5:].lstrip()
-    elif rest.startswith("y'"):
-        after_op = rest[2:].lstrip()
-    else:
-        after_op = rest.lstrip()
-    # ``Find dy/dx if y = …`` is a derivative ask, not an ODE ``dy/dx = …``.
-    if not after_op.startswith("="):
+    rest = cleaned[match.start() :]
+    eq_at = rest.find("=")
+    if eq_at == -1:
         return None
+    between = rest[:eq_at]
+    for token in between.split():
+        word = token.strip(".,?!:;()[]").lower()
+        if word.isalpha() and len(word) >= 2:
+            return None
     return _strip_trailing_filler(rest)
 
 
@@ -488,8 +488,8 @@ def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
             expr=expr.strip(),
             variable=var,
         )
-    if "dy/dx" in lower or "y'" in cleaned or "dsolve" in lower:
-        ode_eq = _first_order_ode_equation(cleaned)
+    if "dy/dx" in lower or "'" in cleaned or "dsolve" in lower:
+        ode_eq = _ode_equation(cleaned)
         if ode_eq is None:
             return None
         return MathIntent(kind="calculus", operation="dsolve", expr=ode_eq, variable="x")
