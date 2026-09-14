@@ -316,9 +316,41 @@ def _collapse_keyboard_graph_rhs(expr: str) -> str:
     return rhs
 
 
+# Pronouns of two letters read as implicit multiplication — "me" is m*e, "it"
+# is i*t, "us" is u*s — so looks_like_math_expr accepts them and "show me"
+# asked to plot a function called me. Longer ones ("this", "him") already fail
+# has_unknown_english_run. Real two-letter products like "ab" must keep
+# working, so this is an explicit table rather than a length rule, matching
+# this module's existing preference for phrase tables over fuzzy heuristics.
+_PRONOUN_PLOT_CORES = frozenset(
+    (
+        "me",
+        "it",
+        "us",
+        "them",
+        "him",
+        "her",
+        "this",
+        "that",
+        "these",
+        "those",
+        "mine",
+        "yours",
+        "ours",
+        "theirs",
+        "myself",
+        "itself",
+        "one",
+    )
+)
+
+
 def _function_like_plot_core(expr: str) -> bool:
     """True for ``x^2`` / ``y=x^2`` / ``sin(x)``, not ``a triangle`` / ``of rainfall``."""
     core = _core_before_and_then(_peel_repeated_graph_y_prefix(expr)).rstrip(" .?!")
+    words = core.lower().split()
+    if words and all(word in _PRONOUN_PLOT_CORES for word in words):
+        return False
     if looks_like_math_expr(core):
         return True
     compact = core.replace(" ", "").lower()
@@ -415,6 +447,12 @@ def graph_expr(text: str) -> str | None:
         if last is not None and last[0] != idx:
             idx, prefix = last
             expr = _expr_after_prefix(text, idx, prefix)
+    # "graph me" / "plot us" reach here rather than the soft-prefix path, so
+    # they need the same pronoun guard — an explicit "graph" is a strong cue
+    # but still does not make a pronoun plottable.
+    words = expr.lower().rstrip(" .?!").split()
+    if words and all(word in _PRONOUN_PLOT_CORES for word in words):
+        return None
     return expr or None
 
 
