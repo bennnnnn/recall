@@ -51,6 +51,22 @@ _VALUE_UNIT_RE = re.compile(
 )
 
 
+def _has_cue(
+    lower: str,
+    cues: tuple[str, ...],
+    regexes: tuple[re.Pattern[str], ...] = (),
+) -> bool:
+    """Cue match: plain substrings, plus regexes for cues that need a boundary.
+
+    Most cues are safe as substrings ("net force"). A few are not: "find f"
+    sits inside "find factors", and "KE" inside "take". Those are expressed as
+    regexes instead of widening the tuple.
+    """
+    if any(cue in lower for cue in cues):
+        return True
+    return any(rx.search(lower) for rx in regexes)
+
+
 def _find_value_with_unit(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     """Find the first number near a keyword (e.g. "height of 20m", "20m high").
 
@@ -216,6 +232,11 @@ _KINEMATICS_CUES = (
     "how long to fall",
     "time to hit",
     "time to reach",
+    # Spoken forms of the same question. Naming the ground is unambiguous;
+    # "how long ... to fall" needs the regex below, so a share price about to
+    # fall 20% is not read as free fall.
+    "to hit the ground",
+    "to reach the ground",
     "velocity after",
     "speed after",
     "speed when",
@@ -223,6 +244,8 @@ _KINEMATICS_CUES = (
     "position after",
     "acceleration of",
 )
+
+_KINEMATICS_CUE_RES: tuple[re.Pattern[str], ...] = (re.compile(r"\bhow long\b.{0,60}?\bto fall\b"),)
 
 _H0_KEYWORDS = (
     "from",
@@ -239,7 +262,10 @@ _H0_KEYWORDS = (
 
 
 def _asks_speed(lower: str) -> bool:
-    return "speed after" in lower or "speed when" in lower
+    if "speed after" in lower or "speed when" in lower:
+        return True
+    # "how fast is it going after 2 s" is the spoken form of "speed after".
+    return "how fast" in lower
 
 
 def _asks_velocity(lower: str) -> bool:
@@ -259,7 +285,7 @@ def _asks_position(lower: str) -> bool:
 def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     # Must have a kinematics cue AND at least one number.
-    if not any(cue in lower for cue in _KINEMATICS_CUES):
+    if not _has_cue(lower, _KINEMATICS_CUES, _KINEMATICS_CUE_RES):
         return None
     asks_speed = _asks_speed(lower)
     asks_velocity = _asks_velocity(lower)
@@ -310,8 +336,11 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
         v0 = -v0
 
     # If we found no height and no nonzero velocity, this isn't a solvable
-    # kinematics problem — let the next extractor try.
-    if h0 is None and v0 == 0.0:
+    # kinematics problem — let the next extractor try. Speed and velocity at a
+    # known time are the exception: v = v0 - g*t needs no height, so
+    # "how fast is a dropped ball going after 1 s" is answerable. They are let
+    # through here and gated below instead, where a missing time returns None.
+    if h0 is None and v0 == 0.0 and not (asks_speed or asks_velocity):
         return None
 
     # Decide what the user is asking for.
@@ -381,10 +410,21 @@ _PROJECTILE_CUES = (
     "trajectory",
 )
 
+# Question-first and verb-first shapes ("a ball is thrown at 20 m/s at 30
+# degrees, what is the range?"). The question word is the wrong thing to match
+# on — "the range" also appears in "pick a number in the range 2-6", and these
+# cues feed the global needs_math_tools pre-filter, not just this extractor.
+# A speed and an angle in the same clause is the projectile signature itself,
+# and it holds whatever verb the question uses.
+_PROJECTILE_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\d\s*(?:degrees?|deg|°)"),
+    re.compile(r"\d\s*(?:degrees?|deg|°).{0,80}?\d\s*(?:m/s|km/h|mph)\b"),
+)
+
 
 def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    if not any(cue in lower for cue in _PROJECTILE_CUES):
+    if not _has_cue(lower, _PROJECTILE_CUES, _PROJECTILE_CUE_RES):
         return None
     if mtm.has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -448,7 +488,7 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
 
     # Decide what the user is asking for.
     op: Literal["range", "max_height"] = "range"
-    if "maximum height" in lower or "max height" in lower:
+    if "maximum height" in lower or "max height" in lower or "how high" in lower:
         op = "max_height"
     elif "trajectory" in lower:
         op = "range"  # trajectory implies range + plot
@@ -485,12 +525,56 @@ _FORCE_CUES = (
     "find the mass",
     "acceleration given",
     "given force",
+    # Question-first and verb-first shapes ("what force accelerates 5 kg...",
+    # "calculate the force on a 5 kg object"). solve_force still needs exactly
+    # two of F, m, a with units, so a non-physics "force" sentence returns None.
+    "what force",
+    "how much force",
+    "force needed",
+    "force on",
+    "force acts",
+    "force applied",
+    "accelerates at",
+    "accelerating at",
+    "accelerated at",
+)
+
+# Free-body problems whose answer is not F = ma. Tension on an accelerating
+# mass is T = m(g + a), not m*a; friction needs mu and a normal force; an
+# incline needs its angle. Answering "10 N" for a 5 kg mass accelerating at
+# 2 m/s^2 under tension is not a near miss, it is confidently wrong, and a
+# wrong number in the verified block is worse than none.
+#
+# Until now these were kept out by accident — no cue matched their usual
+# wording. Widening the cues removed that cover, so the boundary is stated
+# here instead. P5 (friction/inclines), P6 (circular motion) and P7 (springs)
+# each delete their line from this tuple as they land.
+_UNSUPPORTED_FORCE_CONTEXT = (
+    "tension",
+    "friction",
+    "coefficient",
+    "incline",
+    "ramp",
+    "slope",
+    "pulley",
+    "normal force",
+    "spring",
+    "centripetal",
+    "buoyan",
+)
+
+# "find f" cannot be a substring cue: it sits inside "find factors", and
+# "find f(x)" is calculus. Boundary + no opening paren keeps both out.
+_FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b(?:find|calculate|determine|compute)\s+f\b(?!\s*\()"),
 )
 
 
 def _extract_force_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    if not any(cue in lower for cue in _FORCE_CUES):
+    if not _has_cue(lower, _FORCE_CUES, _FORCE_CUE_RES):
+        return None
+    if any(word in lower for word in _UNSUPPORTED_FORCE_CONTEXT):
         return None
     if mtm.has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -566,7 +650,18 @@ _ENERGY_CUES = (
     "what is the power",
     "what's the power",
     "energy of",
+    "what power",
+    "how much power",
+    "power needed",
+    "power required",
+    "power is needed",
 )
+
+# "KE"/"PE" only where they clearly name a quantity. A bare \bpe\b would fire
+# on "PE at 3pm"; requiring "of" after it keeps the abbreviation to physics.
+_KE_ABBREV_RE = re.compile(r"\bk\.?\s?e\.?\s+of\b")
+_PE_ABBREV_RE = re.compile(r"\bp\.?\s?e\.?\s+of\b")
+_ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (_KE_ABBREV_RE, _PE_ABBREV_RE)
 
 
 def _has_work_angle(text: str) -> bool:
@@ -577,7 +672,7 @@ def _has_work_angle(text: str) -> bool:
 
 def _extract_energy_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    if not any(cue in lower for cue in _ENERGY_CUES):
+    if not _has_cue(lower, _ENERGY_CUES, _ENERGY_CUE_RES):
         return None
     if mtm.has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -633,15 +728,38 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
     if du is not None:
         distance, dist_unit = du
 
-    # Decide the operation.
+    # Energy done (W, in joules) and elapsed time — for P = W / t.
+    work_done: float | None = None
+    work_unit = "J"
+    wu = _find_value_with_specific_unit(cleaned, r"kilojoules?|joules?|kJ|J", ("work", "energy"))
+    if wu is not None:
+        work_done, work_unit = wu
+
+    elapsed: float | None = None
+    elapsed_unit = "s"
+    tu = _find_value_with_specific_unit(
+        cleaned,
+        r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h",
+    )
+    if tu is not None:
+        elapsed, elapsed_unit = tu
+
+    # Decide the operation. Power is checked before work because a question
+    # naming both ("what power does 100 J of work in 5 s need") is asking for
+    # the power; "work done by a 10 N force" names only work and is unaffected.
     op: Literal["kinetic_energy", "potential_energy", "work", "power"]
-    if "kinetic energy" in lower:
+    if "kinetic energy" in lower or _KE_ABBREV_RE.search(lower):
         op = "kinetic_energy"
         if mass is None or velocity is None:
             return None
-    elif "potential energy" in lower:
+    elif "potential energy" in lower or _PE_ABBREV_RE.search(lower):
         op = "potential_energy"
         if mass is None or height is None:
+            return None
+    elif "power" in lower:
+        op = "power"
+        # Either school form: P = F v, or P = W / t.
+        if (force is None or velocity is None) and (work_done is None or elapsed is None):
             return None
     elif "work" in lower:
         # W = Fd cos θ is unsupported — same refusal as friction/tension.
@@ -649,10 +767,6 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
             return None
         op = "work"
         if force is None or distance is None:
-            return None
-    elif "power" in lower:
-        op = "power"
-        if force is None or velocity is None:
             return None
     else:
         # "energy of" / "conservation of energy" — pick whichever we can solve.
@@ -678,7 +792,16 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
     if op == "potential_energy" and height is not None:
         params["h"] = height
         units["h"] = height_unit or "m"
-    if op in ("work", "power") and force is not None:
+    if op == "power" and (force is None or velocity is None):
+        # P = W / t. Drop any partial F/v so solve_energy picks this form.
+        params.pop("v", None)
+        units.pop("v", None)
+        if work_done is not None and elapsed is not None:
+            params["W"] = work_done
+            units["W"] = work_unit or "J"
+            params["t"] = elapsed
+            units["t"] = elapsed_unit or "s"
+    elif op in ("work", "power") and force is not None:
         params["F"] = force
         units["F"] = force_unit or "N"
     if op == "work" and distance is not None:
@@ -713,7 +836,15 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
     dict.fromkeys((*_KINEMATICS_CUES, *_PROJECTILE_CUES, *_FORCE_CUES, *_ENERGY_CUES))
 )
 
+# The boundary-sensitive half of the same table — see ``_has_cue``.
+PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
+    *_KINEMATICS_CUE_RES,
+    *_PROJECTILE_CUE_RES,
+    *_FORCE_CUE_RES,
+    *_ENERGY_CUE_RES,
+)
+
 
 def has_supported_physics_cue(lower: str) -> bool:
     """True when a verified physics template could match this (lowercased) text."""
-    return any(cue in lower for cue in PHYSICS_CUES)
+    return _has_cue(lower, PHYSICS_CUES, PHYSICS_CUE_RES)

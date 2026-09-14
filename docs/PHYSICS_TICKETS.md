@@ -11,7 +11,7 @@ recorded as uncovered only when **no** phrasing of it produced a verified answer
 | # | Ticket | Area | Status |
 |---|--------|------|--------|
 | P1 | [Strip verified-math markers from assistant text](#p1-strip-verified-math-markers-from-assistant-text) | API | ✅ |
-| P2 | [Make the existing physics ops robust to natural phrasing](#p2-make-the-existing-physics-ops-robust-to-natural-phrasing) | API | ☐ |
+| P2 | [Make the existing physics ops robust to natural phrasing](#p2-make-the-existing-physics-ops-robust-to-natural-phrasing) | API | ✅ |
 | P3 | [Animate the kinematics / projectile trajectory](#p3-animate-the-kinematics--projectile-trajectory) | Mobile | ☐ |
 | P4 | [Momentum, impulse and 1D collisions](#p4-momentum-impulse-and-1d-collisions) | API | ☐ |
 | P5 | [Friction and inclined planes](#p5-friction-and-inclined-planes) | API | ☐ |
@@ -137,6 +137,22 @@ test proving `solve 2x + 7 = 19` still routes to the equation extractor.
 **Acceptance:** A table-driven test asserts each of the twelve ops verifies under
 at least three natural phrasings, including the two failing rows above. A
 negative test asserts no algebra ask is claimed by a physics extractor.
+
+**Done** in `apps/api/app/tests/services/test_physics_phrasing.py` (70 tests).
+Baseline was 15 of 28 probed phrasings verified; all 28 do now, with each of the
+twelve ops carrying at least three — enforced by a test over the table itself,
+not by counting. Two notes on how it was done:
+
+- The question word turned out to be the wrong thing to match on. `"the range"`
+  as a cue also fires on *"pick a number in the range 2-6"*, which an existing
+  test caught, and these cues feed the global `needs_math_tools` pre-filter —
+  not just the extractor. Projectile is recognized by its signature instead (a
+  speed and an angle in one clause), which holds for any verb.
+- Widening the force cues removed the accidental cover that kept tension and
+  friction questions out: `"the tension on a 5 kg mass accelerating at 2 m/s^2"`
+  is `T = m(g + a)`, not `m*a`, and would have been answered `10.00 N`. The
+  boundary is now stated explicitly in `_UNSUPPORTED_FORCE_CONTEXT`; P5-P7 each
+  delete their line from it.
 
 ---
 

@@ -47,6 +47,7 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "t": "second",
     "a": "meter / second ** 2",
     "g": "meter / second ** 2",
+    "W": "joule",
 }
 
 _UNIT_ALIASES = {
@@ -187,6 +188,12 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
         raise MathServiceError(f"unsupported kinematics op: {op}")
 
     # Build trajectory graph: height vs time, from t=0 to t=t_val (ground).
+    # Skip it when neither a height nor a launch speed was given: h(t) would
+    # be entirely below ground and clamp to a flat line at zero, which reads
+    # as "it never moved". The answer (v = g*t) is still exact.
+    if h0 <= 0 and v0 == 0:
+        return PhysicsResult(answer=answer_latex, answer_value=answer_value)
+
     n_points = 100
     t_max = t_val * 1.05  # small pad so the curve doesn't end exactly at ground
     dt = t_max / (n_points - 1)
@@ -340,7 +347,7 @@ def solve_force(intent: MathIntent) -> PhysicsResult:
 
 
 # ---------------------------------------------------------------------------
-# Energy: KE = ½ m v², PE = m g h, W = F d, P = F v
+# Energy: KE = ½ m v², PE = m g h, W = F d, P = F v or W / t
 # ---------------------------------------------------------------------------
 
 
@@ -372,11 +379,22 @@ def solve_energy(intent: MathIntent) -> PhysicsResult:
         )
         answer_value = f"{w_val:.2f} J"
     elif op == "power":
-        power_val = p["F"] * p["v"]
-        answer_latex = (
-            rf"P = F \cdot v = {p['F']:g} \cdot {p['v']:g} "
-            rf"\approx {power_val:.2f} \text{{ W}}"
-        )
+        if "W" in p and "t" in p:
+            # P = W / t — the other school form, when no force/velocity pair
+            # was given ("100 J of work in 5 s").
+            if p["t"] == 0:
+                raise MathServiceError("power needs a nonzero time")
+            power_val = p["W"] / p["t"]
+            answer_latex = (
+                rf"P = \frac{{W}}{{t}} = \frac{{{p['W']:g}}}{{{p['t']:g}}} "
+                rf"\approx {power_val:.2f} \text{{ W}}"
+            )
+        else:
+            power_val = p["F"] * p["v"]
+            answer_latex = (
+                rf"P = F \cdot v = {p['F']:g} \cdot {p['v']:g} "
+                rf"\approx {power_val:.2f} \text{{ W}}"
+            )
         answer_value = f"{power_val:.2f} W"
     else:
         raise MathServiceError(f"unsupported energy op: {op}")
