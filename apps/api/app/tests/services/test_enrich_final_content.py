@@ -238,6 +238,38 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
 
 
 @pytest.mark.asyncio
+async def test_verified_math_markers_are_stripped_from_final_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The stripper must actually run in the pipeline, not just exist.
+
+    Every other test asserts these markers are present in the *prompt*. This
+    one asserts the post-stream path removes them from what is persisted and
+    shown, since instruction alone never stopped a model echoing them.
+    """
+    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        _ctx(),
+        assistant_text=(
+            "[BEGIN VERIFIED MATH]\nVerified result: 2.02 s\n[END VERIFIED MATH]\n\n"
+            "So it lands after about 2 seconds."
+        ),
+        usage={"input": 1, "output": 2},
+        result={},
+        was_cancelled=False,
+        assistant_parts=["ignored"],
+        should_cancel=None,
+    )
+
+    assert "BEGIN VERIFIED" not in persisted
+    assert "END VERIFIED" not in persisted
+    assert "So it lands after about 2 seconds." in persisted
+
+
+@pytest.mark.asyncio
 async def test_unverified_math_note_appended_to_final_content(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
