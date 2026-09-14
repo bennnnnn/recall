@@ -14,7 +14,7 @@ recorded as uncovered only when **no** phrasing of it produced a verified answer
 | P2 | [Make the existing physics ops robust to natural phrasing](#p2-make-the-existing-physics-ops-robust-to-natural-phrasing) | API | ✅ |
 | P3 | [Animate the kinematics / projectile trajectory](#p3-animate-the-kinematics--projectile-trajectory) | Mobile | ✅ |
 | P4 | [Momentum, impulse and 1D collisions](#p4-momentum-impulse-and-1d-collisions) | API | ✅ |
-| P5 | [Friction and inclined planes](#p5-friction-and-inclined-planes) | API | ☐ |
+| P5 | [Friction and inclined planes](#p5-friction-and-inclined-planes) | API | ✅ |
 | P6 | [Circular motion](#p6-circular-motion) | API | ☐ |
 | P7 | [Springs, Hooke's law and SHM](#p7-springs-hookes-law-and-shm) | API | ☐ |
 | P8 | [Ohm's law and resistance networks](#p8-ohms-law-and-resistance-networks) | API | ☐ |
@@ -307,6 +307,37 @@ them to the smarter model — so the gap is known but unfilled.
 
 **Acceptance:** `friction force on a 10 kg block with coefficient 0.2` → `19.6 N`;
 a 30° incline with friction returns the acceleration along the slope.
+
+**Done** in `apps/api/app/tests/services/test_physics_friction.py` (25 tests).
+Baseline 0 of 9 probed phrasings; 9 of 9 now (the acceptance figure is `19.62 N`
+with `g = 9.81`). Four notes:
+
+- **`"slope"` is deliberately not a cue.** It is a mathematics word first —
+  `find the slope of the line through (1, 2) and (3, 8)` resolves to a
+  coordinate-geometry intent, and the geometry extractors run *after* physics,
+  so the cue would have stolen it outright. `"ramp"` and `"incline"` carry the
+  same meaning without the collision. There is a test pinning the slope case.
+- **Incline acceleration takes no mass.** `a = g(sinθ − μcosθ)` is
+  mass-independent, which is the whole reason the result is worth teaching, so
+  requiring a mass would reject the textbook phrasing that omits it. A test
+  asserts stating a mass does not change the answer.
+- **A block that cannot slide reports `a = 0`.** When `tanθ ≤ μ` the formula
+  goes negative, which read literally describes the block accelerating *up* the
+  slope unaided.
+- **Two bugs were caught by existing tests, not by me.** Mentioning friction is
+  not asking for it — an earlier draft answered `what is the net force on a
+  5 kg block with a friction coefficient of 0.2` with `μmg`, and P2's refusal
+  test caught it. And a bare `friction` cue engaged the global
+  `needs_math_tools` pre-filter on `find the friction on a 5 kg block`, which
+  nothing here can answer; `test_math_text_match.py` caught that. Friction now
+  needs a coefficient, an angle, or an explicit `frictionless` to fire at all.
+
+**Correction to the earlier note in P2.** It said P5–P7 would each delete their
+line from `_UNSUPPORTED_FORCE_CONTEXT`. P5 did not, and should not have:
+`_extract_friction_intent` runs ahead of the force extractor and claims what it
+can solve, so what reaches that guard is the remainder — a friction question
+missing its coefficient — for which `F = ma` is still the wrong formula. P6 and
+P7 should keep their entries for the same reason.
 
 ---
 

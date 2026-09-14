@@ -60,4 +60,5 @@ PHYSICS_BLOCK_BUILDERS = {
     "force": _build_physics_block,
     "energy": _build_physics_block,
     "momentum": _build_physics_block,
+    "friction": _build_physics_block,
 }

@@ -658,6 +658,133 @@ def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
+# Friction and inclined planes
+#   N = m g cos(theta)          (theta = 0 on level ground)
+#   f = mu N
+#   a = g (sin(theta) - mu cos(theta))   down the slope
+# ---------------------------------------------------------------------------
+
+# "slope" is deliberately absent. It is a mathematics word first — "find the
+# slope of the line through (1, 2) and (3, 8)" resolves to a coordinate-geometry
+# intent today, and the geometry extractors run *after* physics, so a bare
+# "slope" cue here would steal it outright. "ramp" and "incline" carry the same
+# meaning without the collision.
+# Only the two that are solvable on their own: a normal force needs nothing but
+# a mass, and "frictionless" states its own coefficient.
+_FRICTION_CUES = (
+    "normal force",
+    "frictionless",
+)
+
+# Everything else has to carry something to solve with. "find the friction on a
+# 5 kg block" names no coefficient and no angle, so it is unanswerable — and
+# because these cues feed the global needs_math_tools pre-filter, firing on it
+# would spend a tool round to discover that. Requiring the co-occurrence keeps
+# the pre-filter honest, and an existing test in test_math_text_match.py holds
+# that line.
+_FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
+_FRICTION_GIVEN = r"coefficient|\bmu\s*=|\u03bc\s*=|\d+\s*(?:degrees?|deg|\u00b0)"
+_FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"(?:{_FRICTION_SUBJECT}).{{0,80}}?(?:{_FRICTION_GIVEN})", re.IGNORECASE),
+    re.compile(rf"(?:{_FRICTION_GIVEN}).{{0,80}}?(?:{_FRICTION_SUBJECT})", re.IGNORECASE),
+)
+
+# Asking *about* friction is not the same as mentioning it. "what is the net
+# force on a 5 kg block with a friction coefficient of 0.2" asks for a
+# different quantity, and answering it with mu*m*g would be confidently wrong —
+# which is exactly what the P2 refusal test caught when this was looser.
+_FRICTION_FORCE_ASK_RE = re.compile(
+    r"friction(?:al)?\s+force|force\s+of\s+friction"
+    r"|(?:find|calculate|determine|compute|what\s+is)\s+the\s+friction\b",
+    re.IGNORECASE,
+)
+
+# "coefficient" alone belongs to algebra ("the coefficient of x^2"), so it only
+# counts when friction is named or it is written as mu.
+_MU_RE = re.compile(
+    r"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*(?:of|=|is)?\s*"
+    r"|coefficient\s*(?:of|=|is)?\s*"
+    r"|\bmu\s*=\s*|\u03bc\s*=\s*)"
+    r"(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+_INCLINE_ANGLE_RE = re.compile(
+    r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)(?![A-Za-z0-9])", re.IGNORECASE
+)
+
+
+def _extract_friction_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _FRICTION_CUES, _FRICTION_CUE_RES):
+        return None
+    if "net force" in lower:
+        # A different quantity. The force extractor refuses it via
+        # _UNSUPPORTED_FORCE_CONTEXT rather than guessing, which is right.
+        return None
+    if mtm.has_equation(_strip_param_assignments(_MU_RE.sub("", cleaned))):
+        return None
+
+    mass = _find_value_with_specific_unit(
+        cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "block", "box", "crate", "object", "body")
+    )
+
+    frictionless = "frictionless" in lower
+    mu_match = _MU_RE.search(cleaned)
+    mu = 0.0 if frictionless else (float(mu_match.group(1)) if mu_match else None)
+
+    angle_match = _INCLINE_ANGLE_RE.search(cleaned)
+    angle = float(angle_match.group(1)) if angle_match else 0.0
+
+    wants_normal = "normal force" in lower
+    wants_acceleration = "acceleration" in lower or "accelerate" in lower
+    wants_friction = _FRICTION_FORCE_ASK_RE.search(cleaned) is not None and not frictionless
+
+    op: Literal["friction_force", "normal_force", "incline_acceleration"]
+    if wants_acceleration:
+        op = "incline_acceleration"
+        # No mass requirement here, and that is the point: a = g(sin t - mu cos t)
+        # is mass-independent, which is the whole reason the incline result is
+        # worth teaching. Demanding a mass would reject the textbook phrasing
+        # ("a block on a frictionless 30 degree incline") that omits it.
+        if mu is None:
+            # Without a coefficient this is only solvable if it is stated to be
+            # frictionless — otherwise the answer needs a number nobody gave.
+            return None
+        if angle == 0.0:
+            # "acceleration" with no incline angle is an F = ma question, not
+            # this one. Leave it for the force extractor.
+            return None
+    elif wants_normal:
+        op = "normal_force"
+        if mass is None:
+            return None
+        mu = mu if mu is not None else 0.0
+    elif wants_friction:
+        op = "friction_force"
+        if mass is None or mu is None:
+            return None
+    else:
+        return None
+
+    params: dict[str, float] = {"mu": mu, "angle": angle, "g": _detect_gravity(cleaned)}
+    units: dict[str, str] = {
+        "mu": "",
+        "angle": "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg",
+        "g": "m/s^2",
+    }
+    if mass is not None:
+        params["m"] = mass[0]
+        units["m"] = mass[1] or "kg"
+    return MathIntent(
+        kind="friction",
+        physics_op=op,
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Force: scalar Newton's second law (F = ma)
 # ---------------------------------------------------------------------------
 
@@ -695,8 +822,14 @@ _FORCE_CUES = (
 #
 # Until now these were kept out by accident — no cue matched their usual
 # wording. Widening the cues removed that cover, so the boundary is stated
-# here instead. P5 (friction/inclines), P6 (circular motion) and P7 (springs)
-# each delete their line from this tuple as they land.
+# here instead.
+#
+# P5 did NOT delete its lines when friction landed, and the earlier note saying
+# it would was wrong. `_extract_friction_intent` runs ahead of this extractor
+# and claims what it can solve; what reaches here is the remainder — a friction
+# question missing its coefficient, say — and for that remainder F = ma is
+# still the wrong formula. The entries guard the fall-through, so P6 and P7
+# should keep theirs for the same reason.
 _UNSUPPORTED_FORCE_CONTEXT = (
     "tension",
     "friction",
@@ -977,6 +1110,7 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_kinematics_intent,
     _extract_projectile_intent,
     _extract_momentum_intent,
+    _extract_friction_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
@@ -987,6 +1121,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_KINEMATICS_CUES,
             *_PROJECTILE_CUES,
             *_MOMENTUM_CUES,
+            *_FRICTION_CUES,
             *_FORCE_CUES,
             *_ENERGY_CUES,
         )
@@ -997,6 +1132,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
 PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_KINEMATICS_CUE_RES,
     *_PROJECTILE_CUE_RES,
+    *_FRICTION_CUE_RES,
     *_FORCE_CUE_RES,
     *_ENERGY_CUE_RES,
 )

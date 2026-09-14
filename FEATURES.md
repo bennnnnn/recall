@@ -207,7 +207,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   height (quadratic time-of-flight when a launch height is given), scalar F=ma,
   KE / PE / work / power (`P = F v` or `W / t`), and momentum / impulse / 1D collisions
   (`p = mv`, `J = FΔt` or `mΔv`; elastic and perfectly inelastic — an unstated
-  collision type is refused, not guessed). Trajectory ` ```graph ` fences only for
+  collision type is refused, not guessed), and friction / normal force / incline
+  acceleration (`f = μN`, `N = mg·cosθ`, `a = g(sinθ − μcosθ)`; a block that
+  cannot slide reports `a = 0` rather than a negative acceleration). Trajectory ` ```graph ` fences only for
   kinematics and projectile; force and energy are numbers. A speed/velocity ask plots
   `v(t)`, not height. Projectile and kinematics trajectories **play back on tap** — a dot
   walks the sampled points, which the solver spaces by uniform time, so the motion is

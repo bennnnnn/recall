@@ -54,6 +54,8 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "v1": "meter / second",
     "v2": "meter / second",
     "dt": "second",
+    # "mu" and "angle" are intentionally absent: mu is dimensionless and angle
+    # is converted by _params_in_si before any unit check runs.
 }
 
 _UNIT_ALIASES = {
@@ -513,6 +515,71 @@ def solve_momentum(intent: MathIntent) -> PhysicsResult:
 
 
 # ---------------------------------------------------------------------------
+# Friction and inclined planes
+#   N = m g cos(theta), f = mu N, a = g (sin(theta) - mu cos(theta))
+# ---------------------------------------------------------------------------
+
+
+def solve_friction(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or "friction_force"
+    g = p.get("g", 9.81)
+    mu = p.get("mu", 0.0)
+    theta = p.get("angle", 0.0)  # radians
+    if g <= 0:
+        raise MathServiceError("gravity must be positive")
+    if mu < 0:
+        raise MathServiceError("coefficient of friction cannot be negative")
+    if not -math.pi / 2 < theta < math.pi / 2:
+        raise MathServiceError("incline angle must be between -90 and 90 degrees")
+
+    deg = math.degrees(theta)
+    # Mass cancels out of the incline acceleration, so it is optional there and
+    # only these two branches require it.
+    if op in ("normal_force", "friction_force") and "m" not in p:
+        raise MathServiceError(f"{op} needs a mass")
+    normal = p.get("m", 0.0) * g * math.cos(theta)
+    m = p.get("m", 0.0)
+
+    if op == "normal_force":
+        if theta == 0:
+            answer = rf"N = m g = {m:g} \cdot {g:g} \approx {normal:.2f} \text{{ N}}"
+        else:
+            answer = (
+                rf"N = m g \cos\theta = {m:g} \cdot {g:g} \cdot \cos({deg:g}^\circ) "
+                rf"\approx {normal:.2f} \text{{ N}}"
+            )
+        return PhysicsResult(answer=answer, answer_value=f"{normal:.2f} N")
+
+    if op == "friction_force":
+        f_val = mu * normal
+        answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
+        return PhysicsResult(answer=answer, answer_value=f"{f_val:.2f} N")
+
+    if op == "incline_acceleration":
+        a_val = g * (math.sin(theta) - mu * math.cos(theta))
+        if a_val <= 0:
+            # tan(theta) <= mu: static friction holds it. Reporting a negative
+            # acceleration would describe the block sliding *up* the slope on
+            # its own, which is not what the equation means here.
+            return PhysicsResult(
+                answer=(
+                    rf"\tan({deg:g}^\circ) \le \mu = {mu:g}, "
+                    r"\text{so friction holds the block: } a = 0 \text{ m/s}^2"
+                ),
+                answer_value="0.00 m/s^2",
+            )
+        answer = (
+            r"a = g(\sin\theta - \mu\cos\theta) = "
+            rf"{g:g}(\sin({deg:g}^\circ) - {mu:g}\cos({deg:g}^\circ)) "
+            rf"\approx {a_val:.2f} \text{{ m/s}}^2"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{a_val:.2f} m/s^2")
+
+    raise MathServiceError(f"unsupported friction op: {op}")
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -529,4 +596,6 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_energy(intent)
     if intent.kind == "momentum":
         return solve_momentum(intent)
+    if intent.kind == "friction":
+        return solve_friction(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")
