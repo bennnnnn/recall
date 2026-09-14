@@ -172,12 +172,17 @@ export function CartesianAxes({
       >
         {xName}
       </SvgText>
+      {/* Anchored at its start, not its middle. A centred label puts half its
+          width to the left of the axis, and the axis sits at `pad` — so
+          anything longer than ~2·pad ran off the canvas and was clipped:
+          "Velocity (m/s)" rendered as "elocity (m/s)". Growing rightward from
+          the axis cannot clip, and the top-left of a plot is empty anyway. */}
       <SvgText
-        x={yAxisX}
+        x={Math.max(yAxisX - TICK_FONT, 2)}
         y={pad - 2}
         fill={labelColor}
         fontSize={TICK_FONT}
-        textAnchor="middle"
+        textAnchor="start"
       >
         {yName}
       </SvgText>

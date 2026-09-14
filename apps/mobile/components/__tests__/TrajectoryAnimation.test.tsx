@@ -20,11 +20,13 @@ jest.mock("@/lib/motion", () => ({
 
 const mockCircle = jest.fn((_props: Record<string, unknown>) => null);
 const mockPolyline = jest.fn((_props: Record<string, unknown>) => null);
+const mockSvgText = jest.fn((_props: Record<string, unknown>) => null);
 jest.mock("react-native-svg", () => ({
   ...jest.requireActual("react-native-svg"),
   __esModule: true,
   Circle: (props: Record<string, unknown>) => mockCircle(props),
   Polyline: (props: Record<string, unknown>) => mockPolyline(props),
+  Text: (props: Record<string, unknown>) => mockSvgText(props),
 }));
 
 const PARAMETRIC = {
@@ -139,5 +141,27 @@ describe("trajectory playback", () => {
   it("renders a velocity chart with its own labels", async () => {
     const { getByText } = await draw(VELOCITY_VS_TIME);
     getByText("Velocity vs. Time");
+  });
+});
+
+describe("axis labels stay on the canvas", () => {
+  // Found in the app: the y-axis label read "elocity (m/s)" — the V clipped off
+  // the left edge. It was anchored at its middle on an axis sitting at `pad`,
+  // so half of a 14-character label fell outside the SVG.
+  it("anchors the y label at its start, never past the left edge", async () => {
+    mockUseReduceMotion.mockReturnValue(false);
+    await render(
+      <FunctionGraphBlock content={JSON.stringify(VELOCITY_VS_TIME)} />,
+    );
+
+    const labels = mockSvgText.mock.calls
+      .map(([props]) => props)
+      .filter((p) => typeof p.children === "string" && p.children.includes("Velocity"));
+
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(label.textAnchor).toBe("start");
+      expect(Number(label.x)).toBeGreaterThanOrEqual(0);
+    }
   });
 });
