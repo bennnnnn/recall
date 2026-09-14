@@ -74,6 +74,26 @@ def wrap_verified_math(text: str) -> str:
     return f"{VERIFIED_MATH_BEGIN}\n{body}\n{VERIFIED_MATH_END}"
 
 
+def strip_verified_math_markers(text: str) -> str:
+    """Remove the verified-math sentinels if a model echoed them into its reply.
+
+    ``wrap_verified_math`` puts these around the block injected into the
+    prompt. They are scaffolding: the model is told never to mention a system
+    block, but instruction is not enforcement, and the same class of leak has
+    already reached a user once (the SymPy note under an anatomy answer).
+
+    The text *between* the markers is kept. A model that echoed the block
+    usually put the real answer inside it, and an empty reply is worse than a
+    slightly formal one — stripping the scaffolding is enough to make it read
+    as prose. Blank runs left behind are collapsed so removing a marker that
+    sat on its own line does not leave a gap.
+    """
+    if VERIFIED_MATH_BEGIN not in text and VERIFIED_MATH_END not in text:
+        return text
+    stripped = text.replace(VERIFIED_MATH_BEGIN, "").replace(VERIFIED_MATH_END, "")
+    return re.sub(r"\n{3,}", "\n\n", stripped).strip()
+
+
 def _finish_with_answer(
     lines: list[str],
     answer: str,

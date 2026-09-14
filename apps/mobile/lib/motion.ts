@@ -25,11 +25,24 @@ export const Motion = {
     soft: 700,
     /** Pendulum / sway half-cycle */
     sway: 650,
+    /**
+     * One trajectory playthrough. Deliberately fixed rather than the real
+     * flight time, which ranges from half a second to tens of seconds — a
+     * faithful clock would be either over before it registers or unwatchable.
+     * The axis states the real time; the animation shows the shape.
+     */
+    trajectory: 1600,
   },
   easing: {
     inOut: Easing.inOut(Easing.ease),
     sway: Easing.inOut(Easing.sin),
     out: Easing.out(Easing.ease),
     in: Easing.in(Easing.ease),
+    /**
+     * Constant rate. For a trajectory this is correctness, not laziness: the
+     * points are sampled at uniform time steps, so any ease would distort the
+     * apparent velocity and make the graph misstate the physics.
+     */
+    linear: Easing.linear,
   },
 } as const;

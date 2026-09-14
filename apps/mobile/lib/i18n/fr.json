@@ -542,6 +542,8 @@
   "rich.graph_hide_series": "Masquer la fonction",
   "rich.graph_invalid": "Impossible de tracer cette expression.",
   "rich.graph_plot_a11y": "Graphique interactif. Pincez pour zoomer.",
+  "rich.graph_play": "Lire",
+  "rich.graph_play_a11y": "Lire l'animation de la trajectoire",
   "rich.graph_remove_series": "Retirer la fonction",
   "rich.graph_show_series": "Afficher la fonction",
   "rich.graph_solution_region": "Zone de solution ombrée",

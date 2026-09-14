@@ -45,6 +45,12 @@ class MathIntent(BaseModel):
         "projectile",
         "force",
         "energy",
+        "momentum",
+        "friction",
+        "circular",
+        "spring",
+        "circuit",
+        "torque",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -171,8 +177,9 @@ class MathIntent(BaseModel):
     unit_from: str | None = None
     unit_to: str | None = None
     taylor_n: int | None = None
-    # Physics — kinematics / projectile / force / energy. The model sets up the
-    # equation with known values; SymPy solves symbolically; the SVG engine
+    # Physics — kinematics / projectile / force / energy / momentum / friction /
+    # circular / spring / circuit / torque.
+    # The model sets up the equation with known values; SymPy solves symbolically; the SVG engine
     # renders the trajectory. See services/physics/extract.py extractors and
     # services/physics/solver.py solvers.
     physics_op: (
@@ -189,6 +196,26 @@ class MathIntent(BaseModel):
             "potential_energy",
             "work",
             "power",
+            "momentum",
+            "impulse",
+            "final_velocity",
+            "friction_force",
+            "normal_force",
+            "incline_acceleration",
+            "centripetal_force",
+            "centripetal_acceleration",
+            "orbital_period",
+            "spring_force",
+            "spring_energy",
+            "shm_period",
+            "voltage",
+            "current",
+            "resistance",
+            "electrical_power",
+            "series_resistance",
+            "parallel_resistance",
+            "torque",
+            "moment_balance",
         ]
         | None
     ) = None

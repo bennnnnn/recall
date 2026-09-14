@@ -304,6 +304,13 @@ async def enrich_final_content(
         if ctx.math_unverified is True:
             assistant_text = seams.math_fence_service.append_unverified_math_note(assistant_text)
 
+        # Prompt scaffolding must never survive into the reply. The model is
+        # told not to mention a system block, but instruction is not
+        # enforcement — this is the enforcement.
+        from app.services.math.tools.block.common import strip_verified_math_markers
+
+        assistant_text = strip_verified_math_markers(assistant_text)
+
         from app.services.chat.learning_fences import strip_learning_chat_fences
 
         assistant_text = strip_learning_chat_fences(assistant_text)

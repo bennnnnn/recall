@@ -204,9 +204,27 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
 - ✅ **Physics (narrow verified)** — 1D gravity kinematics, vacuum projectile range / max
-  height (quadratic time-of-flight when a launch height is given), scalar F=ma, and
-  KE / PE / work / power. Trajectory ` ```graph ` fences only for kinematics and projectile;
-  force and energy are numbers. The solver gate is the union of those extractor cues.
+  height (quadratic time-of-flight when a launch height is given), scalar F=ma,
+  KE / PE / work / power (`P = F v` or `W / t`), and momentum / impulse / 1D collisions
+  (`p = mv`, `J = FΔt` or `mΔv`; elastic and perfectly inelastic — an unstated
+  collision type is refused, not guessed), and friction / normal force / incline
+  acceleration (`f = μN`, `N = mg·cosθ`, `a = g(sinθ − μcosθ)`; a block that
+  cannot slide reports `a = 0` rather than a negative acceleration), and circular
+  motion (`a_c = v²/r`, `F_c = mv²/r`, `T = 2πr/v`), and springs / SHM
+  (`F = kx`, `U = ½kx²`, `T = 2π√(m/k)`; the period answer carries an animatable
+  displacement-vs-time curve, normalised when no amplitude is given), plus
+  **circuits** — Ohm's law in all three rearrangements, electrical power, and two
+  resistors in series or parallel. Electrical power is a separate op from the
+  mechanical one: same name and same watt, different quantity. Torque and
+  see-saw moment balance close the mechanics set. The system prompt names the
+  verified list and states plainly that anything outside it (pressure,
+  thermodynamics, gravitation, waves, optics, pendulum) is **not** checked — and
+  a test ties that list to the solver registry so it cannot drift again. Trajectory ` ```graph ` fences only for
+  kinematics and projectile; force and energy are numbers. A speed/velocity ask plots
+  `v(t)`, not height. Projectile and kinematics trajectories **play back on tap** — a dot
+  walks the sampled points, which the solver spaces by uniform time, so the motion is
+  real rather than eased. Never autoplays; Reduce Motion keeps the static curve.
+  The solver gate is the union of those extractor cues.
   Moon/Mars gravity is a whole-token match (`marsh` stays Earth). See
   [docs/math.md](./docs/math.md).
 - ✅ **Chemistry (verified kinds)** — server-side RDKit / SymPy + PubChem. Balancing,

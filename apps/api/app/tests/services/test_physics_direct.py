@@ -251,6 +251,44 @@ def test_graph_must_be_single_complete_trajectory() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "query,expected_type",
+    [
+        (_CASES[0][0], "position_vs_time"),  # time to ground
+        (_DROP.format("velocity"), "velocity_vs_time"),
+        (_DROP.format("speed"), "velocity_vs_time"),
+        (_DROP.format("height"), "position_vs_time"),
+        (_PROJECTILE.format("range"), "parametric"),
+    ],
+)
+def test_direct_guard_expects_the_type_the_solver_emits(query: str, expected_type: str) -> None:
+    """The guard and the solver must name the same trajectory_type.
+
+    They are two hard-coded tables that have to agree, and disagreement fails
+    *silently*: `can_direct_physics` rejects the fence, the direct reply is
+    dropped, and the turn quietly falls back to the model path with no error
+    anywhere. When velocity/speed started emitting `velocity_vs_time`, this is
+    the test that would have caught a guard left on `position_vs_time`.
+    """
+    verified = _verified(query)
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence.get("trajectory_type") == expected_type
+
+    # Same fence, wrong type — the direct reply must disappear, proving the
+    # assertion above is load-bearing rather than decorative.
+    assert maybe_direct_math_reply(verified, query) is not None
+    wrong = "parametric" if expected_type != "parametric" else "position_vs_time"
+    assert (
+        maybe_direct_math_reply(
+            replace(
+                verified, canonical_fence=verified.canonical_fence | {"trajectory_type": wrong}
+            ),
+            query,
+        )
+        is None
+    )
+
+
 def test_scalar_requires_its_one_canonical_answer() -> None:
     query = _CASES[7][0]
     verified = _verified(query)
