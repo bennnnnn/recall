@@ -426,6 +426,13 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _PROJECTILE_CUES, _PROJECTILE_CUE_RES):
         return None
+    # A collision is not a projectile, whatever units it carries. The signature
+    # cue above is "a speed and an angle in one clause" — which a 2D collision
+    # also satisfies, and this extractor runs first. Without this guard,
+    # "a 2 kg ball at 3 m/s hits a 1 kg ball at rest ... at 30 degrees" was
+    # answered 0.79 m: the range of a ball lobbed at 3 m/s.
+    if _COLLISION_SUBJECT_RE.search(cleaned):
+        return None
     if mtm.has_equation(_strip_param_assignments(cleaned)):
         return None
 
@@ -529,6 +536,30 @@ _MOMENTUM_CUES = (
     "sticks together",
 )
 
+# A question about bodies colliding, whatever units it happens to carry. Used
+# by the momentum extractor to find its own work, and by the projectile
+# extractor to stay out of it.
+_COLLISION_SUBJECT_RE = re.compile(
+    r"\bcollision\b|\bcollides?\b|\bcolliding\b|\brecoils?\b"
+    r"|\bhits?\b|\bstrikes?\b|sticks? together|stuck together",
+    re.IGNORECASE,
+)
+
+# 2D only ever means "not solved here": conservation is implemented in 1D.
+#
+# The last alternative is a bare angle, and it is read only from inside the
+# collision branch, where an angle has nowhere innocent to belong: a head-on
+# collision has no angle to state, so any number of degrees present is the
+# deflection this solver cannot do. It is listed because the commonest 2D
+# phrasing — "collides with a 1 kg ball at 30 degrees" — carries no 2D word at
+# all, and without it the guard above catches the wording and misses the case.
+_TWO_DIMENSIONAL_RE = re.compile(
+    r"\b2-?d\b|\btwo[- ]dimensional\b|\bdeflect(?:s|ed|ion)?\b"
+    r"|\bat an angle\b|\bglancing\b|\boblique\b"
+    r"|\d\s*(?:degrees?|deg|°)",
+    re.IGNORECASE,
+)
+
 # Elastic is *not* a cue on its own — an elastic band is not a collision. It
 # only tells us which conservation law to apply once a collision is in hand.
 # No trailing \b: people write "collides inelastically", and requiring a
@@ -589,15 +620,16 @@ def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
     velocities = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
 
     is_collision = (
-        any(
-            word in lower
-            for word in ("collision", "collide", "collides", "hits", "strikes", "recoil")
-        )
-        or _INELASTIC_RE.search(lower) is not None
+        _COLLISION_SUBJECT_RE.search(cleaned) is not None or _INELASTIC_RE.search(lower) is not None
     )
 
     # --- 1D collision: two masses, at least one velocity ---
     if is_collision and len(masses) >= 2:
+        # Only 1D conservation is implemented. Handing back the 1D number for a
+        # 2D question is the same defect as the projectile answer it replaces,
+        # just less obvious — the arithmetic is right for a problem nobody asked.
+        if _TWO_DIMENSIONAL_RE.search(cleaned):
+            return None
         elastic = _ELASTIC_RE.search(lower) is not None and not _INELASTIC_RE.search(lower)
         inelastic = _INELASTIC_RE.search(lower) is not None
         # Refuse rather than guess. Elastic and inelastic give genuinely

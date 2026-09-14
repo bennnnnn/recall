@@ -611,12 +611,59 @@ def _prose_already_states_answer(content: str, answer_body: str) -> bool:
     return False
 
 
+# Emphasis and code ticks trailing the question mark: "**...?**", "...?*".
+_TRAILING_MARKUP = "*_`~ \t"
+
+
+def _line_asks(line: str) -> bool:
+    return line.rstrip(_TRAILING_MARKUP).endswith("?")
+
+
+def _reply_asks_instead_of_answering(content: str, answer_body: str | None) -> bool:
+    """True when the reply requests information rather than giving a result.
+
+    The fences below are solver-owned — the model is told not to emit them, so
+    they are attached whenever they are missing. "Missing" was read as "the
+    model forgot", because nothing here could tell that apart from a reply that
+    deliberately has no answer in it. So when the model correctly answered a 2D
+    collision with *"Which ball's final path is at 30°?"*, the pipeline pinned a
+    verified ``0.79 m`` and a trajectory chart underneath the question.
+
+    Both halves are needed, and the second is the one that keeps this safe. A
+    question mark alone proves nothing: *"The range is about 35.31 m. Would you
+    like the maximum height?"* answers first and asks second, and must keep its
+    chart. It is the *absence* of an answer beside the question that makes a
+    reply a request for more information.
+
+    Position, on the other hand, proves nothing either way, which the incident
+    itself showed: its question is the opening line and its closing line is a
+    plain statement, so "the reply ends with a question" would have missed the
+    very case this exists for. Any line that asks counts.
+
+    A solver that produced no answer at all is the third case, and it is not
+    this one. Angles alone fix a triangle's shape but not its size, so the
+    solver returns a diagram, no number, and the reply asks for a side length —
+    a question and no stated answer, yet the diagram is exactly right. What
+    makes the incident wrong is a *verified answer* being pinned to a reply that
+    does not make it, so with no such answer there is nothing to withhold.
+    """
+    if not answer_body:
+        return False
+    if not any(_line_asks(line) for line in content.splitlines()):
+        return False
+    return not _prose_already_states_answer(content, answer_body)
+
+
 def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock | None) -> str:
     """Attach solver-owned fences the model was told not to emit."""
     if verified is None:
         return content
-    extras: list[str] = []
     answer_body = _canonical_answer_body(verified)
+    # A reply that asks rather than answers has no answer to decorate, so it
+    # gets no pill, no diagram and no chart — not one of the three.
+    if _reply_asks_instead_of_answering(content, answer_body):
+        return content
+    extras: list[str] = []
     if (
         answer_body
         and not any(has_closed_fence(content, lang) for lang in _ANSWER_FENCE_LANGS)

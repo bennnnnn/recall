@@ -869,3 +869,141 @@ def test_needs_math_fence_validate_skips_plain_replies() -> None:
 
     verified = VerifiedMathBlock(text="x = 1", canonical_answer="1")
     assert needs_math_fence_validate("plain", verified) is True
+
+
+# --- P12: a verified answer attached to a clarifying question ----------------
+#
+# From the same screenshot as P11. Asked a 2D collision, the model did the right
+# thing and asked which ball deflects — and the pipeline pinned a verified
+# `0.79 m` and a full trajectory chart with a Play button underneath the
+# question. Nothing here could tell "the model forgot the fence" apart from "the
+# model has no answer to fence", so it assumed the first.
+#
+# P11 fixes the collision that produced this one. P12 is the general case: the
+# next under-specified physics question would otherwise do exactly the same.
+
+_TRAJECTORY = {
+    "type": "trajectory",
+    "expr": "h(t)",
+    "points": [[0, 0], [1, 15], [2, 20]],
+}
+
+
+def _projectile_block():
+    from app.services.math.tools import VerifiedMathBlock
+
+    return VerifiedMathBlock(
+        text="unused",
+        canonical_fence=_TRAJECTORY,
+        canonical_answer="35.31 m",
+    )
+
+
+# The reply from the incident, verbatim. A paraphrase would have hidden the
+# point: its question is the *opening* line and its closing line is a plain
+# statement, so "the reply ends with a question" — the obvious rule, and the one
+# first written down for this — misses the very case it was written for.
+_INCIDENT_REPLY = (
+    "Which ball's final path is at **30°** — the **2 kg ball** or the **1 kg ball**?"
+    "\n\nFor a 2D elastic collision, that angle is needed to determine the final velocities."
+)
+
+
+def test_a_clarifying_question_gets_no_answer_pill_or_chart() -> None:
+    out = validate_math_fences(_INCIDENT_REPLY, verified=_projectile_block())
+
+    assert "```answer" not in out
+    assert "```graph" not in out
+    assert out.strip() == _INCIDENT_REPLY.strip()
+
+
+def test_a_question_on_the_last_line_is_caught_too() -> None:
+    """The other shape of the same reply, since position decides nothing."""
+    out = validate_math_fences(
+        "I need one more detail before I can work this out.\n\n"
+        "Is the collision elastic or inelastic?",
+        verified=_projectile_block(),
+    )
+
+    assert "```answer" not in out
+    assert "```graph" not in out
+
+
+def test_answered_then_asked_keeps_its_chart() -> None:
+    """The case that makes a bare question-mark test wrong.
+
+    Offering a follow-up is normal and good. This reply ends in a question and
+    has answered, so it keeps everything a plain answer would get.
+    """
+    out = validate_math_fences(
+        "The range is about 35.31 m. Would you like the maximum height too?",
+        verified=_projectile_block(),
+    )
+
+    assert "```graph" in out
+    # Suppressed because the prose states it, which is the pre-existing rule —
+    # not because of anything P12 added.
+    assert "```answer" not in out
+
+
+def test_a_reply_that_states_no_answer_and_asks_nothing_still_gets_both() -> None:
+    """The guard must not swallow the case it sits in front of.
+
+    "Worked steps follow" with no result is exactly what appending fences is
+    for, and it stays that way.
+    """
+    out = validate_math_fences(
+        "Let me set that up using the range equation.", verified=_projectile_block()
+    )
+
+    assert "```answer\n35.31 m\n```" in out
+    assert "```graph" in out
+
+
+def test_a_clarifying_question_gets_no_diagram_either() -> None:
+    """All three extras, not just the pill — a diagram is as wrong as a chart."""
+    from app.services.math.tools import VerifiedMathBlock
+
+    verified = VerifiedMathBlock(
+        text="unused",
+        canonical_fence={"type": "right_triangle", "base": 3, "height": 4},
+        canonical_answer="5 cm",
+    )
+    out = validate_math_fences("Which side is the hypotenuse here?", verified=verified)
+
+    assert "```answer" not in out
+    assert "```geometry" not in out
+
+
+def test_a_solver_with_no_answer_still_illustrates_its_question() -> None:
+    """The case that nearly made this guard a regression.
+
+    Angles alone fix a triangle's shape but not its size, so the solver returns
+    a diagram and no number, and the reply asks for a side length. A first draft
+    read that as "asks and states no answer" and took the diagram away — which
+    the existing underdetermined-triangle tests caught. A verified answer has to
+    exist before withholding one means anything.
+    """
+    from app.services.math.tools import VerifiedMathBlock
+
+    verified = VerifiedMathBlock(
+        text="unused",
+        canonical_fence={"type": "triangle", "base": 3, "height": 4},
+        canonical_answer=None,
+    )
+    out = validate_math_fences(
+        "The area cannot be determined from angles alone. What is one side length?",
+        verified=verified,
+    )
+
+    assert "```geometry" in out
+
+
+def test_question_marks_inside_emphasis_still_count() -> None:
+    """Models bold the ask: `**Which ball deflects?**` ends in `*`, not `?`."""
+    out = validate_math_fences(
+        "**Which ball's final path is at 30°?**", verified=_projectile_block()
+    )
+
+    assert "```answer" not in out
+    assert "```graph" not in out

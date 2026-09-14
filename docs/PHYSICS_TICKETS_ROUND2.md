@@ -7,13 +7,14 @@ from four kinds to ten. One branch + PR per ticket; finish green
 
 Same method as round 1: every claim below was produced by driving the real
 pipeline (`extract_math_intent` → `_build_verified_block` → `validate_math_fences`),
-not by reading it. Two of these are **wrong answers reaching users today**, and
-they come first for that reason.
+not by reading it. Two of these were **wrong answers reaching users today**, and
+came first for that reason; P11 and P12 have since shipped together, since one
+screenshot contained both.
 
 | # | Ticket | Area | Status |
 |---|--------|------|--------|
-| P11 | [An angled collision is answered as a projectile](#p11-an-angled-collision-is-answered-as-a-projectile) | API | ☐ |
-| P12 | [Never attach a verified answer to a clarifying question](#p12-never-attach-a-verified-answer-to-a-clarifying-question) | API | ☐ |
+| P11 | [An angled collision is answered as a projectile](#p11-an-angled-collision-is-answered-as-a-projectile) | API | ✅ |
+| P12 | [Never attach a verified answer to a clarifying question](#p12-never-attach-a-verified-answer-to-a-clarifying-question) | API | ✅ |
 | P13 | [Constant acceleration (SUVAT)](#p13-constant-acceleration-suvat) | API | ☐ |
 | P14 | [A `simulation` fence: sprites, free-body diagrams, animated orbits and collisions](#p14-a-simulation-fence-sprites-free-body-diagrams-animated-orbits-and-collisions) | Mobile + API | ☐ |
 | P15 | [Pendulum period](#p15-pendulum-period) | API | ☐ |
@@ -82,6 +83,21 @@ caught it.
 **no verified block**, the fourth still answers `2.00 m/s`. A negative test pins
 each of the three against ever returning a `projectile` intent again.
 
+**Done** in `apps/api/app/tests/services/test_physics_momentum.py` (+16 tests,
+42 total). All four probed phrasings refused; the two 1D collisions and three
+real projectiles unchanged; the cross-subject negative table byte-identical. One
+note:
+
+- **Three of the four angled phrasings carry a 2D *word*** — `in 2D`,
+  `at an angle`, `deflected` — and a wording guard caught those three on the
+  first pass. The fourth, `collides elastically with a 1 kg ball at 30 degrees`,
+  carries only degrees, and it is the phrasing a person actually types; it kept
+  getting the 1D answer, which is the same defect in yet another hat. Inside the
+  two-mass collision branch a bare angle counts on its own: a head-on collision
+  has no angle to state, so any degrees present are the deflection. The guard is
+  scoped to that branch, so `p = mv` and impulse questions that merely say
+  "hits" or "strikes" keep their answers.
+
 ---
 
 ## P12: Never attach a verified answer to a clarifying question
@@ -125,6 +141,26 @@ physics question would do the same thing.
 **Acceptance:** the clarifying reply above gets **no** answer fence and **no**
 graph fence; an ordinary answered reply still gets both. A test uses the real
 reply text from this incident.
+
+**Done** in `apps/api/app/tests/services/test_math_fence.py` (+6 tests, 72
+total). The rule is *a verified answer exists, some line asks, and the prose
+does not state it* → append nothing. Writing it changed the ticket's own
+proposal twice:
+
+- **"Ends in `?`" would have missed this very incident.** Its question is the
+  **opening** line and its closing line is a plain statement, so the obvious
+  rule fails on the case it was written for. Position turns out to decide
+  nothing in either direction — the other natural shape, *"I need one more
+  detail. Is the collision elastic?"*, asks on the **last** line. Any line that
+  asks counts, and the reply is used verbatim in the test so this stays visible.
+- **"States no answer" is not enough on its own** — it needs a verified answer
+  to withhold. Angles alone fix a triangle's shape but not its size, so the
+  solver returns a diagram, no number, and the reply asks for a side length: a
+  question with no stated answer, whose diagram is exactly right. The first
+  draft took it away, and the existing underdetermined-triangle tests caught it.
+
+The reply that answers *then* asks — *"The range is about 35.31 m. Would you
+like the maximum height?"* — keeps its chart, on the second half of the rule.
 
 ---
 
