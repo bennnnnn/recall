@@ -4,7 +4,7 @@ import {
   composerTextAfterMathScan,
   composerTextAfterMathScanConfirm,
   isMathCameraPrompt,
-} from "@/lib/mathCameraPrompt";
+} from "@/lib/math/cameraPrompt";
 
 describe("composerTextAfterMathScan", () => {
   it("uses the scan prompt when the composer is empty", () => {

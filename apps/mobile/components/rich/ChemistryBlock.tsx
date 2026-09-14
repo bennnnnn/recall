@@ -10,7 +10,7 @@ import { Icon } from "@/components/Icon";
 import { CopyButton } from "@/components/CopyButton";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { parseChemistryFence } from "@/lib/chemistryFence";
+import { parseChemistryFence } from "@/lib/chemistry/fence";
 import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { IconSize } from "@/lib/icons";

@@ -3,7 +3,7 @@
  * Matched intents generate immediately on send — no confirmation sheet.
  */
 
-import { isMathCameraPrompt } from "@/lib/mathCameraPrompt";
+import { isMathCameraPrompt } from "@/lib/math/cameraPrompt";
 import { parseMessageImages } from "@/lib/messageAttachments";
 
 export const IMAGE_GEN_PENDING_ASSISTANT_ID = "image-gen-pending";

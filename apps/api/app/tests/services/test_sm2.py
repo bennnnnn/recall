@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from app.services.sm2 import apply_sm2, quality_for_status
+from app.services.learning.spaced_repetition import apply_sm2, quality_for_status
 
 
 def test_apply_sm2_fail_resets_to_one_day():

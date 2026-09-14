@@ -23,7 +23,7 @@ class GraphSampleResult(BaseModel):
     x_max: float
     points: list[list[float]]
     # points split at likely vertical-asymptote gaps (see
-    # math_service._split_into_segments) so a renderer can draw each as its
+    # math_solve._split_into_segments) so a renderer can draw each as its
     # own polyline instead of one continuous line straight across a
     # discontinuity (e.g. tan(x) at pi/2). Kept alongside `points` (not
     # instead of) for back-compat with fences the model already knows how

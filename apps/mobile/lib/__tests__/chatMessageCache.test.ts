@@ -17,7 +17,7 @@ import {
   patchCachedChatMessage,
   readCachedChatMessages,
   writeCachedChatMessages,
-} from "@/lib/chatMessageCache";
+} from "@/lib/chat/messageCache";
 import type { Message } from "@/lib/api";
 import {
   deleteAsync,

@@ -163,11 +163,11 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
             AsyncMock(),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_for_user",
+            "app.services.attachments.lifecycle.attachments_repo.list_for_user",
             AsyncMock(return_value=[ok, bad]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_rows",
+            "app.services.attachments.lifecycle.attachments_repo.delete_rows",
             AsyncMock(return_value=2),
         ),
         patch(
@@ -175,7 +175,7 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
             AsyncMock(),
         ),
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch("app.services.account_lifecycle.users_repo.delete_user", AsyncMock()) as delete_user,

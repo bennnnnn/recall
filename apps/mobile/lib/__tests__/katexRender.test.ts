@@ -1,5 +1,5 @@
 import { buildKatexStaticWebHtml, renderKatexHtml } from "@/lib/katexRender";
-import { PROTECTED_ESCAPE_MARKER, PROTECTED_MATH_STAR_MARKER, PROTECTED_MATH_UNDERSCORE_MARKER } from "@/lib/mathText";
+import { PROTECTED_ESCAPE_MARKER, PROTECTED_MATH_STAR_MARKER, PROTECTED_MATH_UNDERSCORE_MARKER } from "@/lib/math/text";
 
 describe("renderKatexHtml", () => {
   it("renders algebra with katex markup and inlines fonts as data URIs (no CDN)", () => {

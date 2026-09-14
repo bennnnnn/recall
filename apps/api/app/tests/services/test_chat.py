@@ -1350,7 +1350,7 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat_history_rag.embed_query_for_prompt",
+            "app.services.chat.history_rag.embed_query_for_prompt",
             AsyncMock(return_value=None),
         ),
         patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
@@ -1371,7 +1371,7 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.attachment_rag.retrieve_for_prompt",
+            "app.services.attachments.rag.retrieve_for_prompt",
             AsyncMock(return_value=rag_block),
         ) as rag_mock,
     ):
@@ -1413,7 +1413,7 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat_history_rag.embed_query_for_prompt",
+            "app.services.chat.history_rag.embed_query_for_prompt",
             AsyncMock(return_value=None),
         ),
         patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
@@ -1434,7 +1434,7 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
             has_chunks,
         ),
         patch(
-            "app.services.attachment_rag.retrieve_for_prompt",
+            "app.services.attachments.rag.retrieve_for_prompt",
             AsyncMock(return_value="SHOULD NOT APPEAR"),
         ) as rag_mock,
     ):

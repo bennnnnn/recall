@@ -1,8 +1,8 @@
-import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
-import { markdownItInstance } from "@/lib/markdownIt";
-import { preprocessMarkdownForStream } from "@/lib/markdown/markdownPreprocessStream";
+import { preprocessMarkdown } from "@/lib/markdown/preprocess";
+import { markdownItInstance } from "@/lib/markdown/parser";
+import { preprocessMarkdownForStream } from "@/lib/markdown/preprocessStream";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
-import { restoreMathEscapes } from "@/lib/mathText";
+import { restoreMathEscapes } from "@/lib/math/text";
 
 const SCANNER_RESPONSE = "Here's how to solve for $x$ step-by-step:\n\n1.  **Original Equation:** `$2x + 3 = 5$`\n2.  **Subtract 3 from both sides:** To isolate the term with $x$, subtract 3 from both sides of the equation.\n    `$2x + 3 - 3 = 5 - 3$`\n    `$2x = 2$`\n3.  **Divide by 2:** To solve for $x$, divide both sides by 2.\n    `$\\frac{2x}{2} = \\frac{2}{2}$`\n    `$x = 1$`\n\nSo, the solution is $x = 1$.";
 const children = (source: string) => markdownItInstance.parse(preprocessMarkdown(source), {}).flatMap((token) => token.children ?? []);

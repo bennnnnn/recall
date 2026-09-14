@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { uploadAttachmentBytes } from "@/lib/api/attachments";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
-import { MATH_CAMERA_PROMPT } from "@/lib/mathCameraPrompt";
+import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
 
 export type AttachmentKind = "image" | "file";
 

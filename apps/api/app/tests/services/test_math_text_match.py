@@ -1,4 +1,4 @@
-"""Direct table-driven tests for the linear math matchers in math_text_match.
+"""Direct table-driven tests for the linear math matchers in math_match.
 
 These matchers are the front door of intent detection — the place where
 extractor precedence bugs (sector-before-circle, triangle-sides-before-
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services import math_text_match as mtm
+from app.services.math import match as mtm
 
 
 class TestNeedsSymbolic:
@@ -405,7 +405,7 @@ class TestGluedVizCommands:
         assert mtm.has_math_keyword("x=6graph")
 
     def test_has_viz_command_whole_run_not_substring(self):
-        from app.services.math_text_match.scan import has_viz_command, peel_edge_english
+        from app.services.math.match.scan import has_viz_command, peel_edge_english
 
         assert has_viz_command("X=6graph")
         assert has_viz_command("graphx=4")

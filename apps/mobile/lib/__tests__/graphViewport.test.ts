@@ -1,9 +1,9 @@
-import { graphAxisTicks, graphTickCount } from "@/lib/graphBlock";
+import { graphAxisTicks, graphTickCount } from "@/lib/math/graphBlock";
 import {
   defaultInteractiveBounds,
   panGraphView,
   zoomGraphView,
-} from "@/lib/graphViewport";
+} from "@/lib/math/graphViewport";
 
 describe("interactive graph viewport", () => {
   it("starts with unit ticks including −3…3", () => {

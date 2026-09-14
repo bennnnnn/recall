@@ -10,11 +10,11 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.schemas.math import GraphBlockSpec
-from app.services import math_fence
-from app.services.math_service.inequality_graph import affine_inequality_graph_spec
-from app.services.math_tools.block import _build_verified_block
-from app.services.math_tools.extract import extract_math_intent
-from app.services.math_tools.prompt import build_math_augmentation
+from app.services.math import fence as math_fence
+from app.services.math.solve.inequality_graph import affine_inequality_graph_spec
+from app.services.math.tools.block import _build_verified_block
+from app.services.math.tools.extract import extract_math_intent
+from app.services.math.tools.prompt import build_math_augmentation
 
 
 @pytest.mark.parametrize(
@@ -124,7 +124,7 @@ def test_region_fence_replaces_model_curve_without_resampling() -> None:
     assert verified is not None and verified.canonical_fence is not None
     wrong_curve = '```graph\n{"type":"function","expr":"2*x","points":[[0,0],[1,2]]}\n```'
     with patch(
-        "app.services.math_service.sample_function", side_effect=AssertionError("No sampling")
+        "app.services.math.solve.sample_function", side_effect=AssertionError("No sampling")
     ):
         final = math_fence.validate_math_fences(wrong_curve, verified=verified)
     assert "Could not render" not in final

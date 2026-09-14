@@ -3,11 +3,11 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
-import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
+import { supportsInlineHtmlMathWebView } from "@/lib/math/webViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
-import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT, restoreMathEscapes, splitMathLines } from "@/lib/mathText";
+import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT, restoreMathEscapes, splitMathLines } from "@/lib/math/text";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
-import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/mathFenceRetag";
+import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
 import { useTheme } from "@/lib/theme";
 
 export function MathInline({ latex }: { latex: string }) {

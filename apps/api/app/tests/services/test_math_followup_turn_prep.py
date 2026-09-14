@@ -14,8 +14,8 @@ from app.models.orm import Chat, User
 from app.services.chat.prompt_builder import _PromptContextBlocks
 from app.services.chat.turn_prep.mode import _TurnMode
 from app.services.chat.turn_prep.prepare import prepare_chat_turn
-from app.services.math_followup import MATH_FOLLOWUP_HINT
-from app.services.math_reply_policy import MATH_REPLY_POLICY
+from app.services.math.followup import MATH_FOLLOWUP_HINT
+from app.services.math.reply_policy import MATH_REPLY_POLICY
 
 _QUERY = "Sum 1/n^2 from n=1 to infinity"
 _RESULT = r"\frac{\pi^{2}}{6}"

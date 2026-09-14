@@ -8,7 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.chat_history_rag import (
+from app.services.chat.history_rag import (
     embed_query_for_prompt,
     index_message,
     index_turn_messages,
@@ -50,20 +50,20 @@ def _session_cm():
 async def test_retrieve_for_prompt_degrades_on_db_error():
     settings = Settings(chat_history_rag_enabled=True, mock_llm_enabled=True)
     with (
-        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.chat_history_rag.chunks_repo.has_chunks_for_user",
+            "app.services.chat.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.chat_history_rag.embedding_gateway.get_or_embed_query",
+            "app.services.chat.history_rag.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[0.1] * 1536),
         ),
         patch(
-            "app.services.chat_history_rag.chunks_repo.search_semantic",
+            "app.services.chat.history_rag.chunks_repo.search_semantic",
             AsyncMock(side_effect=RuntimeError("db exploded")),
         ),
-        patch("app.services.chat_history_rag.chunks_repo.EMBEDDING_DIM", 1536),
+        patch("app.services.chat.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings,
@@ -77,13 +77,13 @@ async def test_retrieve_for_prompt_degrades_on_db_error():
 async def test_retrieve_for_prompt_skips_embed_when_no_chunks():
     embed_mock = AsyncMock(return_value=[0.1] * 1536)
     with (
-        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.chat_history_rag.chunks_repo.has_chunks_for_user",
+            "app.services.chat.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.services.chat_history_rag.embedding_gateway.get_or_embed_query",
+            "app.services.chat.history_rag.embedding_gateway.get_or_embed_query",
             embed_mock,
         ),
     ):
@@ -99,7 +99,7 @@ async def test_retrieve_for_prompt_skips_embed_when_no_chunks():
 @pytest.mark.asyncio
 async def test_retrieve_for_prompt_disabled_or_empty_query():
     with patch(
-        "app.services.chat_history_rag.chunks_repo.has_chunks_for_user",
+        "app.services.chat.history_rag.chunks_repo.has_chunks_for_user",
         AsyncMock(),
     ) as probe:
         assert (
@@ -127,28 +127,28 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
     row.text = "User: we picked the blue couch"
     exclude = {uuid4()}
     with (
-        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.chat_history_rag.chunks_repo.has_chunks_for_user",
+            "app.services.chat.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.chat_history_rag.embedding_gateway.get_or_embed_query",
+            "app.services.chat.history_rag.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=[0.1] * 8),
         ),
         patch(
-            "app.services.chat_history_rag.chunks_repo.search_semantic",
+            "app.services.chat.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
         patch(
-            "app.services.chat_history_rag.embedding_gateway.parse_embedding",
+            "app.services.chat.history_rag.embedding_gateway.parse_embedding",
             return_value=[0.1] * 8,
         ),
         patch(
-            "app.services.chat_history_rag.embedding_gateway.cosine_similarity",
+            "app.services.chat.history_rag.embedding_gateway.cosine_similarity",
             return_value=0.9,
         ),
-        patch("app.services.chat_history_rag.chunks_repo.EMBEDDING_DIM", 1536),
+        patch("app.services.chat.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
@@ -165,13 +165,13 @@ async def test_retrieve_for_prompt_wraps_hits_and_excludes():
 @pytest.mark.asyncio
 async def test_embed_query_for_prompt_degrades_on_timeout():
     with (
-        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.chat_history_rag.chunks_repo.has_chunks_for_user",
+            "app.services.chat.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.chat_history_rag.embedding_gateway.get_or_embed_query",
+            "app.services.chat.history_rag.embedding_gateway.get_or_embed_query",
             AsyncMock(return_value=None),
         ),
     ):
@@ -190,28 +190,28 @@ async def test_retrieve_for_prompt_uses_precomputed_vec_without_reembed():
     exclude = {uuid4()}
     embed = AsyncMock(return_value=[0.1] * 8)
     with (
-        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.chat_history_rag.chunks_repo.has_chunks_for_user",
+            "app.services.chat.history_rag.chunks_repo.has_chunks_for_user",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.chat_history_rag.embedding_gateway.get_or_embed_query",
+            "app.services.chat.history_rag.embedding_gateway.get_or_embed_query",
             embed,
         ),
         patch(
-            "app.services.chat_history_rag.chunks_repo.search_semantic",
+            "app.services.chat.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
         patch(
-            "app.services.chat_history_rag.embedding_gateway.parse_embedding",
+            "app.services.chat.history_rag.embedding_gateway.parse_embedding",
             return_value=[0.1] * 8,
         ),
         patch(
-            "app.services.chat_history_rag.embedding_gateway.cosine_similarity",
+            "app.services.chat.history_rag.embedding_gateway.cosine_similarity",
             return_value=0.9,
         ),
-        patch("app.services.chat_history_rag.chunks_repo.EMBEDDING_DIM", 1536),
+        patch("app.services.chat.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             Settings(chat_history_rag_enabled=True, mock_llm_enabled=True),
@@ -250,7 +250,7 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
         patch("app.services.chat.prompt_builder.SessionLocal", _session_cm()),
         patch("app.services.chat.prompt_builder.messages_repo.list_recent", fast_recent),
         patch(
-            "app.services.chat_history_rag.embed_query_for_prompt",
+            "app.services.chat.history_rag.embed_query_for_prompt",
             slow_embed,
         ),
     ):
@@ -304,17 +304,17 @@ async def test_build_prompt_uses_gathered_history_embedding_once(has_chunks, que
     row = MagicMock(text="User: We chose the blue couch.")
     with (
         patch("app.services.chat.prompt_builder.SessionLocal", _session_cm()),
-        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch("app.services.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.services.todos.build_todos_system_section", AsyncMock(return_value=None)),
         patch(
             "app.services.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
-        patch("app.services.chat_history_rag.chunks_repo.has_chunks_for_user", probe),
-        patch("app.services.chat_history_rag.embedding_gateway.get_or_embed_query", embed),
+        patch("app.services.chat.history_rag.chunks_repo.has_chunks_for_user", probe),
+        patch("app.services.chat.history_rag.embedding_gateway.get_or_embed_query", embed),
         patch(
-            "app.services.chat_history_rag.chunks_repo.search_semantic",
+            "app.services.chat.history_rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[row]),
         ) as search,
     ):
@@ -368,13 +368,13 @@ async def test_index_message_uses_short_lived_session():
         return [0.1] * 8
 
     with (
-        patch("app.services.chat_history_rag.SessionLocal", _cm),
+        patch("app.services.chat.history_rag.SessionLocal", _cm),
         patch(
-            "app.services.chat_history_rag.embedding_gateway.embed_text",
+            "app.services.chat.history_rag.embedding_gateway.embed_text",
             _embed,
         ),
         patch(
-            "app.services.chat_history_rag.chunks_repo.replace_chunks",
+            "app.services.chat.history_rag.chunks_repo.replace_chunks",
             AsyncMock(),
         ) as replace_mock,
     ):
@@ -408,29 +408,29 @@ async def test_index_turn_messages_backfills_when_corpus_empty():
     older.content = "I live in a two-bedroom near the lake."
 
     with (
-        patch("app.services.chat_history_rag.SessionLocal", _session_cm()),
+        patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch(
-            "app.services.chat_history_rag.chunks_repo.count_for_user",
+            "app.services.chat.history_rag.chunks_repo.count_for_user",
             AsyncMock(return_value=0),
         ),
         patch(
-            "app.services.chat_history_rag.messages_repo.get_by_id",
+            "app.services.chat.history_rag.messages_repo.get_by_id",
             AsyncMock(return_value=assistant),
         ),
         patch(
-            "app.services.chat_history_rag.messages_repo.get_last_user",
+            "app.services.chat.history_rag.messages_repo.get_last_user",
             AsyncMock(return_value=user_msg),
         ),
         patch(
-            "app.services.chat_history_rag.index_message",
+            "app.services.chat.history_rag.index_message",
             AsyncMock(return_value=1),
         ) as index_one,
         patch(
-            "app.services.chat_history_rag.messages_repo.list_recent_for_user",
+            "app.services.chat.history_rag.messages_repo.list_recent_for_user",
             AsyncMock(return_value=[user_msg, assistant, older]),
         ),
         patch(
-            "app.services.chat_history_rag.chunks_repo.indexed_message_ids",
+            "app.services.chat.history_rag.chunks_repo.indexed_message_ids",
             AsyncMock(return_value=set()),
         ),
     ):

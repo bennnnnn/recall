@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { ComposerSendDraft } from "@/lib/chat/chatSendLogic";
+import type { ComposerSendDraft } from "@/lib/chat/sendLogic";
 import { useQuotaNudge } from "@/hooks/useQuotaNudge";
-import { resolveChatError, type ResolvedChatError } from "@/lib/chatErrorMessage";
+import { resolveChatError, type ResolvedChatError } from "@/lib/chat/errorMessage";
 
 export function useChatErrorHandlers(isPro: boolean) {
   const { t } = useTranslation();

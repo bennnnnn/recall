@@ -6,7 +6,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.services import push_notifications as push_service
+from app.services.notifications import push as push_service
 
 
 @pytest.fixture
@@ -972,7 +972,7 @@ async def test_enqueue_push_receipts_stores_ticket_and_token():
     pipe.execute = AsyncMock()
     redis.pipeline = MagicMock(return_value=pipe)
 
-    with patch("app.services.push_notifications.time.time", return_value=1000.0):
+    with patch("app.services.notifications.push.time.time", return_value=1000.0):
         await push_service.enqueue_push_receipts(
             redis,
             [("ticket-1", "ExponentPushToken[abc]")],
@@ -997,7 +997,7 @@ async def test_poll_deferred_push_receipts_prunes_invalid_token():
 
     with (
         patch(
-            "app.services.push_notifications.expo_push_gateway.fetch_push_receipts",
+            "app.services.notifications.push.expo_push_gateway.fetch_push_receipts",
             AsyncMock(
                 return_value={
                     "ticket-1": {
@@ -1012,7 +1012,7 @@ async def test_poll_deferred_push_receipts_prunes_invalid_token():
             "delete_by_token",
             AsyncMock(),
         ) as delete_mock,
-        patch("app.services.push_notifications.time.time", return_value=10_000.0),
+        patch("app.services.notifications.push.time.time", return_value=10_000.0),
     ):
         await push_service.poll_deferred_push_receipts(session, redis)
 
@@ -1031,11 +1031,11 @@ async def test_poll_deferred_push_receipts_keeps_pending_receipts():
 
     with (
         patch(
-            "app.services.push_notifications.expo_push_gateway.fetch_push_receipts",
+            "app.services.notifications.push.expo_push_gateway.fetch_push_receipts",
             AsyncMock(return_value={"ticket-1": {"status": "pending"}}),
         ),
         patch.object(push_service.push_repo, "delete_by_token", AsyncMock()) as delete_mock,
-        patch("app.services.push_notifications.time.time", return_value=10_000.0),
+        patch("app.services.notifications.push.time.time", return_value=10_000.0),
     ):
         await push_service.poll_deferred_push_receipts(session, redis)
 

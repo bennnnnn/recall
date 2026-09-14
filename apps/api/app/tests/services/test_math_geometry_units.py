@@ -4,8 +4,8 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import RectangleGeometryInput, TriangleGeometryInput
-from app.services import math_service
-from app.services.math_tools.prompt import build_math_augmentation
+from app.services.math import solve as math_solve
+from app.services.math.tools.prompt import build_math_augmentation
 
 
 @pytest.mark.asyncio
@@ -80,8 +80,8 @@ async def test_geometry_does_not_certify_mixed_or_unsupported_length_scales(quer
 
 
 def test_public_structured_geometry_schema_keeps_legacy_default_unit() -> None:
-    assert math_service.rectangle_geometry(RectangleGeometryInput(width=3, height=4)).unit == "cm"
-    assert math_service.triangle_geometry(TriangleGeometryInput(base=3, height=4)).unit == "cm"
+    assert math_solve.rectangle_geometry(RectangleGeometryInput(width=3, height=4)).unit == "cm"
+    assert math_solve.triangle_geometry(TriangleGeometryInput(base=3, height=4)).unit == "cm"
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,4 @@
-import { messagesLookLikeMath, textLooksLikeMath } from "@/lib/math/mathComposerIntent";
+import { messagesLookLikeMath, textLooksLikeMath } from "@/lib/math/composerIntent";
 
 describe("textLooksLikeMath", () => {
   it("detects latex, glyphs, and homework verbs", () => {

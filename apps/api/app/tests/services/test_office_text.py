@@ -1,7 +1,7 @@
 import io
 from unittest.mock import MagicMock, patch
 
-from app.services.attachment_content import (
+from app.services.attachments.content import (
     MAX_INDEX_EXTRACT_CHARS,
     bytes_match_claimed,
     extract_text_details,

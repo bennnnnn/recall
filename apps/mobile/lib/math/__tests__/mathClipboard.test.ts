@@ -1,6 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 
-import { clipboardIsImageOnly } from "@/lib/math/mathClipboard";
+import { clipboardIsImageOnly } from "@/lib/math/clipboard";
 
 jest.mock("expo-clipboard", () => ({
   getStringAsync: jest.fn(),

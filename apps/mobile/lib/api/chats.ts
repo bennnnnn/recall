@@ -1,5 +1,5 @@
 import { request } from "@/lib/api/client";
-import { chatHasThreadContent, shareEmptyChatCheck } from "@/lib/chatDraftLogic";
+import { chatHasThreadContent, shareEmptyChatCheck } from "@/lib/chat/draftLogic";
 import type {
   Chat,
   ChatList,

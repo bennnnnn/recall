@@ -8,7 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.services import tool_loop
-from app.services.math_reply_policy import MATH_REPLY_POLICY
+from app.services.math.reply_policy import MATH_REPLY_POLICY
 
 
 def _call(call_id: str, name: str, args: dict) -> dict:

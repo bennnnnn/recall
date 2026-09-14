@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { computeChatLayoutMetrics } from "@/lib/chatComposerLogic";
+import { computeChatLayoutMetrics } from "@/lib/chat/composerLogic";
 
 type Options = {
   insetsTop: number;

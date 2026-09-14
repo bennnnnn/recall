@@ -10,7 +10,7 @@ import {
   isChatStreamActive,
   priorUserTextFor,
   streamVisualActiveForRow,
-} from "@/lib/chatMessageLogic";
+} from "@/lib/chat/messageLogic";
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
 import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 

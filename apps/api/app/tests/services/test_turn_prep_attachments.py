@@ -78,11 +78,11 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_content.verify_uploaded_bytes",
+            "app.services.attachments.content.verify_uploaded_bytes",
             AsyncMock(return_value=(None, "Uploaded bytes do not match the declared content type")),
         ),
         patch(
-            "app.services.attachment_content.purge_invalid_upload",
+            "app.services.attachments.content.purge_invalid_upload",
             AsyncMock(),
         ),
         patch(
@@ -182,19 +182,19 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_content.format_attachment_lines",
+            "app.services.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[image attached]"], True)),
         ),
         patch(
-            "app.services.attachment_content.read_attachment_bytes",
+            "app.services.attachments.content.read_attachment_bytes",
             AsyncMock(return_value=b"fake-bytes"),
         ),
         patch(
-            "app.services.attachment_content.inject_vision_content",
+            "app.services.attachments.content.inject_vision_content",
             AsyncMock(),
         ),
         patch(
-            "app.services.math_image_extract.extract_equation_from_image",
+            "app.services.math.image_extract.extract_equation_from_image",
             AsyncMock(return_value=extracted),
         ) as extract_mock,
         patch(
@@ -322,19 +322,19 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_content.format_attachment_lines",
+            "app.services.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[image attached]"], True)),
         ),
         patch(
-            "app.services.attachment_content.read_attachment_bytes",
+            "app.services.attachments.content.read_attachment_bytes",
             AsyncMock(return_value=b"fake-bytes"),
         ),
         patch(
-            "app.services.attachment_content.inject_vision_content",
+            "app.services.attachments.content.inject_vision_content",
             AsyncMock(),
         ),
         patch(
-            "app.services.math_image_extract.extract_equation_from_image",
+            "app.services.math.image_extract.extract_equation_from_image",
             AsyncMock(return_value=extracted),
         ) as extract_mock,
         patch(
@@ -440,15 +440,15 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_content.verify_uploaded_bytes",
+            "app.services.attachments.content.verify_uploaded_bytes",
             AsyncMock(return_value=(payload, None)),
         ) as verify_mock,
         patch(
-            "app.services.attachment_content.format_attachment_lines",
+            "app.services.attachments.content.format_attachment_lines",
             format_mock,
         ),
         patch(
-            "app.services.attachment_content.read_attachment_bytes",
+            "app.services.attachments.content.read_attachment_bytes",
             AsyncMock(return_value=b"should-not-read"),
         ) as read_mock,
     ):
@@ -506,15 +506,15 @@ async def test_process_attachments_skips_verify_when_already_verified():
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_content.verify_uploaded_bytes",
+            "app.services.attachments.content.verify_uploaded_bytes",
             AsyncMock(return_value=(b"hello", None)),
         ) as verify_mock,
         patch(
-            "app.services.attachment_content.format_attachment_lines",
+            "app.services.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[File: x]"], False)),
         ),
         patch(
-            "app.services.attachment_content.read_attachment_bytes",
+            "app.services.attachments.content.read_attachment_bytes",
             AsyncMock(return_value=b"hello"),
         ),
     ):
@@ -570,7 +570,7 @@ async def test_process_attachments_image_only_does_not_flag_document():
         patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
         patch("app.gateways.storage_gateway.get_storage_gateway", return_value=gateway),
         patch(
-            "app.services.attachment_content.format_attachment_lines",
+            "app.services.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[Image: photo.png]"], True)),
         ),
     ):
@@ -626,7 +626,7 @@ async def test_process_attachments_document_flags_document():
         patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
         patch("app.gateways.storage_gateway.get_storage_gateway", return_value=gateway),
         patch(
-            "app.services.attachment_content.format_attachment_lines",
+            "app.services.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[File: notes.txt]"], False)),
         ),
     ):

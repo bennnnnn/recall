@@ -14,8 +14,8 @@ import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { CODE_FONT } from "@/lib/fonts";
-import { markdownItInstance } from "@/lib/markdownIt";
-import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
+import { markdownItInstance } from "@/lib/markdown/parser";
+import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
 import { fenceIdForLang } from "@/lib/fenceRegistry";
 import { Theme, useTheme } from "@/lib/theme";

@@ -1,4 +1,4 @@
-import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
+import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 
 describe("chart answer preservation", () => {
   it.each(["42", "$42$", "**42**", "```answer\n42\n```", "```\n42\n```"])(

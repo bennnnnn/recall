@@ -22,8 +22,9 @@ from app.models.schemas.math import (
     SystemOfEquationsInput,
 )
 from app.models.schemas.tools import SympyToolInput
-from app.services import math_service, math_tools
-from app.services.math_tools.calculus_outcome import infinite_integral_note, undefined_integral_note
+from app.services.math import solve as math_solve
+from app.services.math import tools as math_tools
+from app.services.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ class SympyAdapter:
         every SymPy call this way — its own docstring explains why (solve/
         integrate/etc. are synchronous and can stall every concurrent chat
         stream on this worker's single event loop on a pathological
-        expression). This adapter called math_service functions directly,
+        expression). This adapter called math_solve functions directly,
         synchronously, with none of that protection — a hung/expensive
         expression reaching it via the model-callable "sympy" tool blocked
         the whole worker with no timeout at all.
@@ -92,7 +93,7 @@ class SympyAdapter:
         The function and args must be picklable (top-level functions + plain
         data) so they can cross the subprocess boundary.
         """
-        from app.services.sympy_executor import run_sympy
+        from app.services.math.sympy_executor import run_sympy
 
         try:
             return await run_sympy(fn, *args, timeout=self.settings.math_solve_timeout_seconds)
@@ -109,7 +110,7 @@ class SympyAdapter:
             rhs=str(args.get("rhs") or ""),
             variables=list(args.get("variables") or ["x"]),
         )
-        result = await self._run_off_loop(math_service.solve_equation, data)
+        result = await self._run_off_loop(math_solve.solve_equation, data)
         if result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         # Parity with heuristic solve: attach ```answer for post-stream rewrite.
@@ -139,7 +140,7 @@ class SympyAdapter:
             if lower and upper:
                 indefinite = False
                 expr_result = await self._run_off_loop(
-                    math_service.integrate_definite, expr, variable, lower, upper
+                    math_solve.integrate_definite, expr, variable, lower, upper
                 )
                 if expr_result is None:
                     # A failed definite integral is not an indefinite-integral
@@ -152,14 +153,14 @@ class SympyAdapter:
                 except (TypeError, ValueError):
                     order_n = 1
                 expr_result = await self._run_off_loop(
-                    math_service.differentiate_expression, expr, variable, order_n
+                    math_solve.differentiate_expression, expr, variable, order_n
                 )
             else:
                 fn = {
-                    "simplify": math_service.simplify_expression,
-                    "integrate": math_service.integrate_expression,
-                    "factor": math_service.factor_expression,
-                    "expand": math_service.expand_expression,
+                    "simplify": math_solve.simplify_expression,
+                    "integrate": math_solve.integrate_expression,
+                    "factor": math_solve.factor_expression,
+                    "expand": math_solve.expand_expression,
                 }[action]
                 expr_result = await self._run_off_loop(fn, expr, variable)
         if expr_result is None:
@@ -209,7 +210,7 @@ class SympyAdapter:
         variables = list(args.get("variables") or ["x"])
         variable = str(args.get("variable") or (variables[0] if variables else "x"))
         result = await self._run_off_loop(
-            math_service.solve_inequality,
+            math_solve.solve_inequality,
             str(args.get("lhs") or ""),
             str(args.get("rhs") or ""),
             variable,
@@ -229,7 +230,7 @@ class SympyAdapter:
         rhs = str(args.get("rhs") or "")
         ineq_text = f"{lhs} {comparator} {rhs}"
         line_spec = await self._run_off_loop(
-            math_service.number_line_spec_from_expr, ineq_text, variable
+            math_solve.number_line_spec_from_expr, ineq_text, variable
         )
         if line_spec is not None:
             fence = line_spec.model_dump()
@@ -245,7 +246,7 @@ class SympyAdapter:
             equations=equations,
             variables=list(args.get("variables") or ["x", "y"]),
         )
-        system_result = await self._run_off_loop(math_service.solve_system, system_input)
+        system_result = await self._run_off_loop(math_solve.solve_system, system_input)
         if system_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         answer = math_tools._format_system_answer(
@@ -264,7 +265,7 @@ class SympyAdapter:
         point = str(args.get("point") or "0")
         direction = str(args.get("direction") or "+-")
         limit_result = await self._run_off_loop(
-            math_service.compute_limit, expr, variable, point, direction
+            math_solve.compute_limit, expr, variable, point, direction
         )
         if limit_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
@@ -299,7 +300,7 @@ class SympyAdapter:
         start = str(args.get("start") or "1")
         end = str(args.get("end") or "oo")
         series_result = await self._run_off_loop(
-            math_service.evaluate_series_sum, expr, variable, start, end
+            math_solve.evaluate_series_sum, expr, variable, start, end
         )
         if series_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
@@ -341,7 +342,7 @@ class SympyAdapter:
             variable=str(args.get("variable") or "x"),
             initial_guess=float(args.get("guess") or 1.0),
         )
-        newton_result = await self._run_off_loop(math_service.newton_method, newton_input)
+        newton_result = await self._run_off_loop(math_solve.newton_method, newton_input)
         if newton_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         if not newton_result.converged or newton_result.root is None:
@@ -371,7 +372,7 @@ class SympyAdapter:
             height=float(args["height"]),
             unit=str(args.get("unit") or "cm"),
         )
-        rect_result = await self._run_off_loop(math_service.rectangle_geometry, rect_input)
+        rect_result = await self._run_off_loop(math_solve.rectangle_geometry, rect_input)
         if rect_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         spec = GeometryBlockSpec(
@@ -410,7 +411,7 @@ class SympyAdapter:
             side=float(side),
             unit=str(args.get("unit") or "cm"),
         )
-        square_result = await self._run_off_loop(math_service.square_geometry, square_input)
+        square_result = await self._run_off_loop(math_solve.square_geometry, square_input)
         if square_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         spec = GeometryBlockSpec(
@@ -447,7 +448,7 @@ class SympyAdapter:
             radius=float(args["radius"]),
             unit=str(args.get("unit") or "cm"),
         )
-        circle_result = await self._run_off_loop(math_service.circle_geometry, circle_input)
+        circle_result = await self._run_off_loop(math_solve.circle_geometry, circle_input)
         if circle_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         spec = CircleGeometryBlockSpec(
@@ -483,11 +484,11 @@ class SympyAdapter:
 
         # Axis-aligned circle/ellipse relations — parametric sample (not y=f(x)).
         # Shared with the heuristic _verified_block_graph so the sampling and
-        # y-range viewport stay in one place (math_service.build_ellipse_graph_spec).
+        # y-range viewport stay in one place (math_solve.build_ellipse_graph_spec).
         # Routed through the bounded subprocess pool like the original
         # sample_ellipse call was, so a pathological relation still can't
         # block the worker event loop.
-        ellipse_spec = await self._run_off_loop(math_service.build_ellipse_graph_spec, expr, n)
+        ellipse_spec = await self._run_off_loop(math_solve.build_ellipse_graph_spec, expr, n)
         if ellipse_spec is None or str(args.get("expr2") or "").strip():
             ellipse_spec = None
         if ellipse_spec is not None:
@@ -500,9 +501,7 @@ class SympyAdapter:
                 data=_fence_data(fence),
             )
 
-        line_spec = await self._run_off_loop(
-            math_service.number_line_spec_from_expr, expr, variable
-        )
+        line_spec = await self._run_off_loop(math_solve.number_line_spec_from_expr, expr, variable)
         if line_spec is not None and not str(args.get("expr2") or "").strip():
             fence = line_spec.model_dump()
             return ToolResult(
@@ -521,7 +520,7 @@ class SympyAdapter:
             x_max=x_max,
             n=n,
         )
-        graph_result = await self._run_off_loop(math_service.sample_function, graph_input)
+        graph_result = await self._run_off_loop(math_solve.sample_function, graph_input)
         if graph_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         has_discontinuity = len(graph_result.segments) > 1
@@ -536,7 +535,7 @@ class SympyAdapter:
         if expr2:
             var2 = str(args.get("variable2") or variable)
             sample2 = await self._run_off_loop(
-                math_service.sample_function,
+                math_solve.sample_function,
                 GraphSampleInput(
                     expr=expr2,
                     variable=var2,
@@ -585,7 +584,7 @@ class SympyAdapter:
         )
 
     async def _action_dsolve(self, args: dict[str, Any]) -> ToolResult:
-        from app.services import math_school
+        from app.services.math import school as math_school
 
         expr = str(args.get("expr") or args.get("text") or "")
         variable = str(args.get("variable") or "x")

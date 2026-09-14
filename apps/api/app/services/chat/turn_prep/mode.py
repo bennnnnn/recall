@@ -10,7 +10,6 @@ from app.models.orm import Chat
 from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
 from app.services import day_planning as day_planning_service
-from app.services import email as email_service
 from app.services import learning as learning_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
@@ -21,6 +20,7 @@ from app.services.chat.prompt_constants import (
     is_short_confirmation,
     needs_rich_context,
 )
+from app.services.email import context as email_service
 from app.services.memory.text import is_food_or_diet_query
 
 if TYPE_CHECKING:

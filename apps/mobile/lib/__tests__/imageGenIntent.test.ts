@@ -9,7 +9,7 @@ import {
 import {
   MATH_CAMERA_PROMPT,
   composerTextAfterMathScanConfirm,
-} from "@/lib/mathCameraPrompt";
+} from "@/lib/math/cameraPrompt";
 
 describe("extractImageGenPrompt", () => {
   it("extracts from create a cat pic", () => {

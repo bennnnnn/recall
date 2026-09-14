@@ -27,8 +27,8 @@ import {
 } from "@/hooks/useInteractiveGraph";
 import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
 import { CODE_FONT } from "@/lib/fonts";
-import { formatGraphExpr, type GraphSpec } from "@/lib/graphBlock";
-import { defaultInteractiveBounds } from "@/lib/graphViewport";
+import { formatGraphExpr, type GraphSpec } from "@/lib/math/graphBlock";
+import { defaultInteractiveBounds } from "@/lib/math/graphViewport";
 import { IconSize } from "@/lib/icons";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";

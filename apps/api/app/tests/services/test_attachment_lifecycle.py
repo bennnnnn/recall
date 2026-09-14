@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services import attachment_lifecycle
+from app.services.attachments import lifecycle as attachment_lifecycle
 
 
 @pytest.mark.asyncio
@@ -33,11 +33,11 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
 
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_for_message_ids",
+            "app.services.attachments.lifecycle.attachments_repo.list_for_message_ids",
             AsyncMock(return_value=[row]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_rows",
+            "app.services.attachments.lifecycle.attachments_repo.delete_rows",
             side_effect=delete_rows,
         ),
         patch(
@@ -45,7 +45,7 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
             AsyncMock(),
         ) as chunks,
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
     ):
@@ -80,11 +80,11 @@ async def test_purge_attachments_for_user_deletes_bytes_before_rows():
 
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_for_user",
+            "app.services.attachments.lifecycle.attachments_repo.list_for_user",
             AsyncMock(return_value=[row]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_rows",
+            "app.services.attachments.lifecycle.attachments_repo.delete_rows",
             side_effect=delete_rows,
         ),
         patch(
@@ -92,7 +92,7 @@ async def test_purge_attachments_for_user_deletes_bytes_before_rows():
             AsyncMock(),
         ) as chunks,
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
     ):
@@ -109,11 +109,11 @@ async def test_purge_attachments_for_user_noop_when_empty():
     session = AsyncMock()
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_for_user",
+            "app.services.attachments.lifecycle.attachments_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
         ) as gateway_factory,
     ):
         deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, uuid4())
@@ -146,11 +146,11 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
 
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_for_user",
+            "app.services.attachments.lifecycle.attachments_repo.list_for_user",
             AsyncMock(return_value=[ok, bad]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_rows",
+            "app.services.attachments.lifecycle.attachments_repo.delete_rows",
             AsyncMock(return_value=1),
         ) as delete_rows,
         patch(
@@ -158,11 +158,11 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
             AsyncMock(),
         ) as chunks,
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_lifecycle.enqueue_failed_storage_deletes",
+            "app.services.attachments.lifecycle.enqueue_failed_storage_deletes",
             AsyncMock(),
         ),
     ):
@@ -192,19 +192,19 @@ async def test_reap_orphan_attachments_skips_rows_linked_after_list():
 
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            "app.services.attachments.lifecycle.attachments_repo.list_orphans",
             AsyncMock(return_value=[orphan]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
             AsyncMock(return_value=[]),
         ) as delete_unlinked,
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_lifecycle.retry_pending_storage_deletes",
+            "app.services.attachments.lifecycle.retry_pending_storage_deletes",
             AsyncMock(return_value=0),
         ),
     ):
@@ -240,19 +240,19 @@ async def test_reap_orphan_attachments_deletes_db_rows_before_bytes():
     gateway.delete_bytes = _delete_bytes
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            "app.services.attachments.lifecycle.attachments_repo.list_orphans",
             AsyncMock(return_value=[orphan]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
             side_effect=_delete_unlinked,
         ),
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_lifecycle.retry_pending_storage_deletes",
+            "app.services.attachments.lifecycle.retry_pending_storage_deletes",
             AsyncMock(return_value=0),
         ),
     ):
@@ -269,19 +269,19 @@ async def test_reap_orphan_attachments_no_orphans_is_noop():
     gateway.delete_bytes = AsyncMock()
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            "app.services.attachments.lifecycle.attachments_repo.list_orphans",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
             AsyncMock(),
         ) as delete_unlinked,
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_lifecycle.retry_pending_storage_deletes",
+            "app.services.attachments.lifecycle.retry_pending_storage_deletes",
             AsyncMock(return_value=0),
         ),
     ):
@@ -307,7 +307,13 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
     orphan.source = "upload"
     orphan.library_visible = True
     orphan.verified_at = None
-    orphan.created_at = datetime.now(UTC) - timedelta(hours=1)
+    _now = datetime.now(UTC)
+    # Clamp to the start of today: the reservation is keyed to the UTC
+    # calendar day, so within an hour of midnight "an hour ago" is
+    # yesterday and this would assert the opposite of what it means.
+    orphan.created_at = max(
+        _now - timedelta(hours=1), _now.replace(hour=0, minute=0, second=0, microsecond=0)
+    )
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
     fake_redis = AsyncMock()
@@ -316,27 +322,27 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
 
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            "app.services.attachments.lifecycle.attachments_repo.list_orphans",
             AsyncMock(return_value=[orphan]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
             AsyncMock(return_value=[orphan.storage_key]),
         ),
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_lifecycle.get_redis_client",
+            "app.services.attachments.lifecycle.get_redis_client",
             return_value=fake_redis,
         ),
         patch(
-            "app.services.attachment_lifecycle.quota_service.refund_image_upload",
+            "app.services.attachments.lifecycle.quota_service.refund_image_upload",
             refund_upload,
         ),
         patch(
-            "app.services.attachment_lifecycle.quota_service.refund_image_generation",
+            "app.services.attachments.lifecycle.quota_service.refund_image_generation",
             refund_gen,
         ),
     ):
@@ -352,11 +358,11 @@ async def test_reap_orphan_attachments_passes_pending_grace_to_list():
     settings = Settings(attachment_pending_orphan_hours=1, attachment_orphan_grace_hours=24)
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            "app.services.attachments.lifecycle.attachments_repo.list_orphans",
             AsyncMock(return_value=[]),
         ) as list_orphans,
         patch(
-            "app.services.attachment_lifecycle.retry_pending_storage_deletes",
+            "app.services.attachments.lifecycle.retry_pending_storage_deletes",
             AsyncMock(return_value=0),
         ),
     ):
@@ -386,27 +392,27 @@ async def test_reap_orphan_attachments_does_not_refund_generated_reuse_clones():
 
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            "app.services.attachments.lifecycle.attachments_repo.list_orphans",
             AsyncMock(return_value=[orphan]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
             AsyncMock(return_value=[orphan.storage_key]),
         ),
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_lifecycle.get_redis_client",
+            "app.services.attachments.lifecycle.get_redis_client",
             return_value=fake_redis,
         ),
         patch(
-            "app.services.attachment_lifecycle.quota_service.refund_image_upload",
+            "app.services.attachments.lifecycle.quota_service.refund_image_upload",
             refund_upload,
         ),
         patch(
-            "app.services.attachment_lifecycle.quota_service.refund_image_generation",
+            "app.services.attachments.lifecycle.quota_service.refund_image_generation",
             refund_gen,
         ),
     ):
@@ -434,23 +440,23 @@ async def test_reap_orphan_attachments_does_not_refund_for_non_image():
 
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            "app.services.attachments.lifecycle.attachments_repo.list_orphans",
             AsyncMock(return_value=[orphan]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
             AsyncMock(return_value=[orphan.storage_key]),
         ),
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_lifecycle.get_redis_client",
+            "app.services.attachments.lifecycle.get_redis_client",
             return_value=fake_redis,
         ),
         patch(
-            "app.services.attachment_lifecycle.quota_service.refund_image_upload",
+            "app.services.attachments.lifecycle.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -478,23 +484,23 @@ async def test_reap_orphan_attachments_skips_refund_when_row_linked_after_list()
 
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            "app.services.attachments.lifecycle.attachments_repo.list_orphans",
             AsyncMock(return_value=[orphan]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
             AsyncMock(return_value=[]),  # row was linked, nothing removed
         ),
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_lifecycle.get_redis_client",
+            "app.services.attachments.lifecycle.get_redis_client",
             return_value=fake_redis,
         ),
         patch(
-            "app.services.attachment_lifecycle.quota_service.refund_image_upload",
+            "app.services.attachments.lifecycle.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -533,19 +539,19 @@ async def test_reap_orphan_attachments_continues_when_storage_delete_fails():
 
     with (
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            "app.services.attachments.lifecycle.attachments_repo.list_orphans",
             AsyncMock(return_value=[ok, bad]),
         ),
         patch(
-            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            "app.services.attachments.lifecycle.attachments_repo.delete_unlinked_returning",
             side_effect=delete_unlinked,
         ),
         patch(
-            "app.services.attachment_lifecycle.get_storage_gateway",
+            "app.services.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachment_lifecycle.enqueue_failed_storage_deletes", AsyncMock()
+            "app.services.attachments.lifecycle.enqueue_failed_storage_deletes", AsyncMock()
         ) as enqueue,
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
@@ -561,7 +567,7 @@ async def test_sweep_user_storage_deletes_user_prefix():
     gateway = MagicMock()
     gateway.delete_prefix = AsyncMock(return_value=3)
     with patch(
-        "app.services.attachment_lifecycle.get_storage_gateway",
+        "app.services.attachments.lifecycle.get_storage_gateway",
         return_value=gateway,
     ):
         deleted = await attachment_lifecycle.sweep_user_storage(Settings(), user_id)

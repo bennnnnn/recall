@@ -2,7 +2,7 @@ import {
   collapseAdjacentMoleculeFences,
   dropRedundantMolecule3dFences,
   parseMoleculeFence,
-} from "@/lib/moleculePair";
+} from "@/lib/chemistry/moleculePair";
 
 const SDF = `Ethanol
      RDKit          3D

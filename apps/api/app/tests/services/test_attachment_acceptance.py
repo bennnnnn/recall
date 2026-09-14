@@ -10,7 +10,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway, StorageUnavailableError
-from app.services.attachment_quota import has_current_upload_reservation
+from app.services.attachments.quota import has_current_upload_reservation
 from app.services.chat.turn_prep.attachments import _process_attachments
 
 
@@ -29,7 +29,7 @@ async def test_missing_or_foreign_requested_ids_fail_before_reuse(partial):
             "app.repositories.attachments.get_by_ids",
             AsyncMock(return_value=[owned] if partial else []),
         ),
-        patch("app.services.attachment_reuse.ensure_unlinked_copies", AsyncMock()) as copies,
+        patch("app.services.attachments.reuse.ensure_unlinked_copies", AsyncMock()) as copies,
         pytest.raises(AttachmentValidationError, match="no longer available"),
     ):
         await _process_attachments(
@@ -66,7 +66,7 @@ async def test_local_presign_without_upload_cannot_be_sent(tmp_path):
             "app.gateways.storage_gateway.get_storage_gateway",
             return_value=LocalStorageGateway(tmp_path),
         ),
-        patch("app.services.attachment_content.purge_invalid_upload", AsyncMock()),
+        patch("app.services.attachments.content.purge_invalid_upload", AsyncMock()),
         pytest.raises(AttachmentValidationError, match="Upload not found"),
     ):
         await _process_attachments(
@@ -121,10 +121,17 @@ def test_reuse_completed_and_previous_day_uploads_cannot_refund_today(change):
 
 
 def test_hour_old_same_day_upload_still_has_reservation():
+    now = datetime.now(UTC)
+    # Clamp to the start of today: the reservation is keyed to the UTC
+    # calendar day, so within an hour of midnight "an hour ago" is
+    # yesterday and this would assert the opposite of what it means.
+    earlier_today = max(
+        now - timedelta(hours=1), now.replace(hour=0, minute=0, second=0, microsecond=0)
+    )
     values = SimpleNamespace(
         source="upload",
         library_visible=True,
         verified_at=None,
-        created_at=datetime.now(UTC) - timedelta(hours=1),
+        created_at=earlier_today,
     )
     assert has_current_upload_reservation(values)

@@ -22,7 +22,7 @@ from app.gateways.mock_llm import (
     should_mock_llm,
 )
 from app.models.schemas import TodoExtractionResult
-from app.services import chat_titles
+from app.services.chat import titles as chat_titles
 
 # ── mock_llm ───────────────────────────────────────────────────────────────────
 

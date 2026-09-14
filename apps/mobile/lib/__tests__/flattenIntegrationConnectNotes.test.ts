@@ -1,4 +1,4 @@
-import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
+import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import {
   flattenIntegrationConnectNotes,
   isIntegrationConnectNote,

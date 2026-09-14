@@ -5,8 +5,8 @@ from uuid import UUID
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.repositories import chats as chats_repo
-from app.services import chat_titles
-from app.services.chat_titles import normalize_chat_title
+from app.services.chat import titles as chat_titles
+from app.services.chat.titles import normalize_chat_title
 
 logger = logging.getLogger(__name__)
 

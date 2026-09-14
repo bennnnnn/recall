@@ -13,10 +13,11 @@ from app.core.db import SessionLocal
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
-from app.services import attachment_lifecycle, model_catalog
 from app.services import learning as learning_service
+from app.services import model_catalog
 from app.services import quota as quota_service
 from app.services import todos as todos_service
+from app.services.attachments import lifecycle as attachment_lifecycle
 from app.services.chat.finalize_registry import clear_pending_finalize
 from app.services.chat.turn_prep import RegenerateBackup, StreamContext
 from app.services.context_window import estimate_tokens

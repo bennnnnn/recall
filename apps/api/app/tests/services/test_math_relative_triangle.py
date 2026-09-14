@@ -3,11 +3,11 @@ import copy
 import pytest
 
 from app.core.config import Settings
-from app.services.math_fence import validate_math_fences
-from app.services.math_text_match.literal_geometry import literal_triangle_angles_draw
-from app.services.math_tools.direct import maybe_direct_math_reply
-from app.services.math_tools.direct_geometry import can_direct_triangle_angles
-from app.services.math_tools.prompt import build_math_augmentation
+from app.services.math.fence import validate_math_fences
+from app.services.math.match.literal_geometry import literal_triangle_angles_draw
+from app.services.math.tools.direct import maybe_direct_math_reply
+from app.services.math.tools.direct_geometry import can_direct_triangle_angles
+from app.services.math.tools.prompt import build_math_augmentation
 
 
 @pytest.mark.asyncio

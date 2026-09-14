@@ -15,11 +15,11 @@ import {
   pickMathEngine,
   type MathEngine,
   type MathHtmlOptions,
-} from "@/lib/mathHtml";
+} from "@/lib/math/html";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { MathText } from "@/components/rich/MathText";
-import { restoreMathEscapes } from "@/lib/mathText";
-import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
+import { restoreMathEscapes } from "@/lib/math/text";
+import { supportsInlineHtmlMathWebView } from "@/lib/math/webViewSupport";
 import {
   getPreviewWebView,
   STATIC_HTML_ORIGIN_WHITELIST,
@@ -30,7 +30,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import {
   clampMathWebViewHeight,
   MAX_HEIGHT,
-} from "@/lib/mathWebViewHeight";
+} from "@/lib/math/webViewHeight";
 
 type Props = {
   latex: string;
@@ -130,7 +130,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
     }
     let cancelled = false;
     setHtml(null);
-    void import("@/lib/mathHtmlMathjax").then(({ buildMathjaxWebHtml }) => {
+    void import("@/lib/math/htmlMathjax").then(({ buildMathjaxWebHtml }) => {
       if (cancelled) return;
       setHtml(buildMathjaxWebHtml(latex, htmlOptions));
     });

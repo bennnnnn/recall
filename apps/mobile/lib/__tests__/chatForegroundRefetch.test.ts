@@ -3,7 +3,7 @@ import {
   shouldRefetchChatOnForeground,
   shouldSilentRefetchChatOnFocus,
   shouldSkipSilentChatRefetch,
-} from "@/lib/chat/chatForegroundRefetch";
+} from "@/lib/chat/foregroundRefetch";
 
 describe("shouldRefetchChatOnForeground", () => {
   const base = {

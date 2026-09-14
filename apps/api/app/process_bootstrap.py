@@ -37,7 +37,7 @@ async def initialize_process(settings: Settings) -> None:
     validate_production_settings(settings)
     setup_mcp_adapters(settings)
     await warmup_db_pool()
-    from app.services.sympy_executor import warm_sympy_pool
+    from app.services.math.sympy_executor import warm_sympy_pool
 
     await warm_sympy_pool()
 

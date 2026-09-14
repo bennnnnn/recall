@@ -1,0 +1,618 @@
+"""Gmail sync and suggested reminder extraction."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import re
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import Settings
+from app.core.secrets import OAuthTokenDecryptError, decrypt_refresh_token
+from app.core.timezone import resolve_timezone
+from app.gateways import google_gmail_gateway as gmail_gateway
+from app.gateways import litellm_gateway
+from app.gateways.google_gmail_gateway import GmailMessage
+from app.models.orm import User
+from app.repositories import gmail_connections as gmail_repo
+from app.repositories import suggested_reminders as suggested_repo
+from app.repositories import todos as todos_repo
+from app.repositories import users as users_repo
+from app.services import day_planning as day_planning_service
+from app.services import home as home_service
+from app.services.chat.prompt_constants.locale_cues import has_locale_cue
+from app.services.email import triage as email_triage_service
+from app.services.ics_parser import parse_ics_invite
+from app.services.time_context import normalize_due_at
+
+logger = logging.getLogger(__name__)
+
+REMINDER_TOPIC = "From email"
+# Undated Gmail suggestions (sender templates) become this local hour on confirm
+# so they land on Reminders (`due_at` set), not Lists.
+_SUGGESTION_DEFAULT_HOUR = 18
+# Fan-out bound for per-message LLM extraction during sync (HTTP + periodic).
+_GMAIL_EXTRACT_CONCURRENCY = 5
+_IGNORED_SCAN_TITLE = "No reminder"
+
+GMAIL_HINT = (
+    "The user may have Gmail connected (read-only) as a **separate integration** from their "
+    "Recall sign-in. When a **Gmail** block is present, use the triage sections — "
+    "**Needs attention** vs **FYI** vs filtered noise.\n"
+    "Suggested reminders from email live on the Reminders screen — mention pending ones first.\n"
+    "For day-planning or inbox questions: when a Gmail block is present, lead with a short "
+    "verdict (anything to reply to / follow up on?), then 0-3 actionable threads with sender "
+    "+ one-line why. "
+    "Do NOT dump filtered promotional, automated, or spam mail unless they ask to see everything.\n"
+    "If they ask to check email and no Gmail block is present, tell them to connect Gmail in "
+    "**Settings → Gmail** (optional; not part of sign-in).\n"
+    "If the block says Gmail is **not connected**, say that in ordinary markdown prose "
+    "(never a blockquote (`>`), Tip, Note, or Warning card) and they can connect it in "
+    "Settings → Gmail — including on day-planning turns, not only explicit inbox questions.\n"
+    "Gmail is read-only — you can draft replies in ```email fences, but never claim you sent "
+    "or replied to a message."
+)
+
+GMAIL_INBOX_ANSWER_HINT = (
+    "The user asked about their inbox or follow-ups. Answer in plain prose:\n"
+    "1) One-sentence verdict — e.g. nothing needs a reply, or N threads worth a look.\n"
+    "2) Only items from **Needs attention** (and pending suggested reminders if any).\n"
+    "3) Optionally one line on FYI if relevant; skip filtered noise entirely.\n"
+    "4) Offer to open a specific thread or draft a reply if helpful."
+)
+
+EMAIL_SUGGESTION_NUDGE_HINT = (
+    "Pending Gmail suggested reminders are listed above. Mention them only when "
+    "the user asks about plans, errands, upcoming events, or email — not on "
+    "unrelated turns (math, quizzes, code, casual chat). Confirm before adding."
+)
+
+_EXTERNAL_EMAIL = re.compile(
+    r"\b("
+    r"check my (?:email|inbox|mail)|"
+    r"read my (?:email|inbox|mail)|"
+    r"what(?:'s| is) in my (?:inbox|email)|"
+    r"any (?:new )?emails|"
+    r"recent emails|"
+    r"my gmail|"
+    r"unread (?:email|mail|messages)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_external_email_question(text: str) -> bool:
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    return bool(_EXTERNAL_EMAIL.search(cleaned)) or has_locale_cue(cleaned, "email")
+
+
+def should_inject_gmail_block(text: str) -> bool:
+    """Fetch inbox context when the user asks about email or day planning."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    if day_planning_service.is_day_planning_question(cleaned):
+        return day_planning_service.needs_gmail_for_day_planning(cleaned)
+    return is_external_email_question(cleaned)
+
+
+def format_not_connected_answer() -> str:
+    return (
+        "Gmail isn't connected yet.\n\n"
+        "Connecting Gmail is **separate from signing in to Recall** — it is an optional "
+        "read-only inbox link you turn on in **Settings → Gmail**. Recall scans your inbox for "
+        "actionable items and shows **suggested reminders** on the Reminders screen — "
+        "you confirm before anything is added.\n\n"
+        "After connecting, ask again and I can summarize recent mail."
+    )
+
+
+def format_not_connected_gmail_block() -> str:
+    """Prompt block when Gmail is on but the user has no connection."""
+    return (
+        "Gmail: not connected.\n"
+        "Do not skip inbox or claim there are no emails, follow-ups, or mail-based reminders. "
+        "Mention in ordinary markdown prose that Gmail is not connected; they can connect it "
+        "in Settings → Gmail. Never a callout card (`> Tip:`, `> Warning:`, `> Important:`)."
+    )
+
+
+def _cache_key(user_id: UUID) -> str:
+    return f"gmail:recent:{user_id}"
+
+
+async def clear_gmail_cache(redis: Redis, user_id: UUID) -> None:
+    try:
+        await redis.delete(_cache_key(user_id))
+    except Exception:
+        logger.exception("Failed to clear gmail cache user_id=%s", user_id)
+
+
+async def write_gmail_cache(
+    redis: Redis,
+    user_id: UUID,
+    messages: list[GmailMessage],
+    settings: Settings,
+) -> None:
+    import json
+
+    payload = [
+        {
+            "id": m.id,
+            "subject": m.subject,
+            "snippet": m.snippet,
+            "from_address": m.from_address,
+            "label_ids": list(m.label_ids),
+        }
+        for m in messages
+    ]
+    try:
+        await redis.set(
+            _cache_key(user_id),
+            json.dumps(payload),
+            ex=settings.gmail_cache_ttl,
+        )
+    except Exception:
+        logger.debug("Gmail cache write failed", exc_info=True)
+
+
+def _messages_from_cache(raw: str) -> list[GmailMessage]:
+    import json
+
+    messages: list[GmailMessage] = []
+    payload = json.loads(raw)
+    for item in payload:
+        messages.append(
+            GmailMessage(
+                id=str(item.get("id") or ""),
+                subject=str(item.get("subject") or ""),
+                snippet=str(item.get("snippet") or ""),
+                body_text="",
+                received_at=None,
+                from_address=str(item.get("from_address") or ""),
+                label_ids=tuple(str(label) for label in (item.get("label_ids") or [])),
+            )
+        )
+    return messages
+
+
+async def is_connected(session: AsyncSession, user_id: UUID) -> bool:
+    return await gmail_repo.get_for_user(session, user_id) is not None
+
+
+async def load_pending_suggestions_nudge(session: AsyncSession, user_id: UUID) -> str | None:
+    pending = await suggested_repo.list_pending_for_user(session, user_id, limit=5)
+    return format_pending_suggestions_nudge(pending)
+
+
+def format_gmail_block(
+    *,
+    google_email: str,
+    messages: list[GmailMessage],
+    pending_suggestions: list,
+    fetch_error: str | None = None,
+) -> str:
+    return email_triage_service.format_triaged_inbox_block(
+        google_email=google_email,
+        messages=messages,
+        pending_suggestions=pending_suggestions,
+        fetch_error=fetch_error,
+    )
+
+
+def format_pending_suggestions_nudge(pending_suggestions: list) -> str | None:
+    """Compact pending list for turns that do not load the full inbox."""
+    if not pending_suggestions:
+        return None
+    lines = [
+        f"Pending email suggestions ({len(pending_suggestions)}) — "
+        "user confirms before anything is added:"
+    ]
+    for row in pending_suggestions[:5]:
+        due = f" — due {row.due_at.isoformat()}" if getattr(row, "due_at", None) else ""
+        sender = getattr(row, "source_sender", None)
+        who = f" (from {sender})" if sender else ""
+        lines.append(f"- {row.title}{who}{due}")
+    return "\n".join(lines)
+
+
+async def load_gmail_context(
+    session: AsyncSession,
+    redis: Redis,
+    user: User,
+    settings: Settings,
+) -> tuple[str, list[GmailMessage], list, str | None] | None:
+    """Return (google_email, recent messages, pending suggestions, fetch_error)."""
+    if not gmail_gateway.is_configured(settings):
+        return None
+    conn = await gmail_repo.get_for_user(session, user.id)
+    if conn is None:
+        return None
+
+    cache_key = _cache_key(user.id)
+    messages: list[GmailMessage] = []
+    fetch_error: str | None = None
+    cache_hit = False
+    try:
+        cached = await redis.get(cache_key)
+        if cached is not None:
+            raw = cached.decode() if isinstance(cached, bytes) else cached
+            messages = _messages_from_cache(raw)
+            cache_hit = True
+    except Exception:
+        logger.debug("Gmail cache read failed", exc_info=True)
+
+    if not cache_hit:
+        try:
+            refresh = decrypt_refresh_token(settings, conn.refresh_token)
+            messages = await gmail_gateway.list_recent_messages(
+                settings,
+                refresh,
+                days=settings.gmail_fetch_days,
+                max_messages=min(settings.gmail_max_messages, 15),
+            )
+            await write_gmail_cache(redis, user.id, messages, settings)
+        except (gmail_gateway.GoogleGmailError, OAuthTokenDecryptError) as exc:
+            fetch_error = str(exc)
+            messages = []
+
+    pending = await suggested_repo.list_pending_for_user(session, user.id, limit=20)
+    return conn.google_email, messages, pending, fetch_error
+
+
+async def load_gmail_for_prompt(
+    session: AsyncSession,
+    redis: Redis,
+    user: User,
+    settings: Settings,
+) -> str | None:
+    ctx = await load_gmail_context(session, redis, user, settings)
+    if ctx is None:
+        if gmail_gateway.is_configured(settings):
+            # Same explicit status calendar uses so day-planning cannot skip
+            # inbox or invent an empty mailbox.
+            return format_not_connected_gmail_block()
+        return None
+    google_email, messages, pending, fetch_error = ctx
+    return format_gmail_block(
+        google_email=google_email,
+        messages=messages,
+        pending_suggestions=pending,
+        fetch_error=fetch_error,
+    )
+
+
+class SuggestedReminderItem(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    due_at: datetime | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class SuggestedReminderExtractionResult(BaseModel):
+    reminders: list[SuggestedReminderItem] = Field(default_factory=list)
+
+
+def _parse_from_ics(
+    message: GmailMessage,
+    *,
+    default_tz: str | None = None,
+) -> SuggestedReminderItem | None:
+    if not message.ics_content:
+        return None
+    invite = parse_ics_invite(message.ics_content, default_tz=default_tz)
+    if invite is None:
+        return None
+    title = invite.title or message.subject or "Calendar event"
+    notes_parts: list[str] = []
+    if message.snippet:
+        notes_parts.append(message.snippet)
+    if invite.location:
+        notes_parts.append(invite.location)
+    elif invite.description:
+        notes_parts.append(invite.description[:500])
+    notes = "\n".join(notes_parts) if notes_parts else None
+    return SuggestedReminderItem(
+        title=title,
+        due_at=invite.due_at,
+        confidence=0.95,
+        notes=notes,
+    )
+
+
+async def _extract_with_llm(
+    settings: Settings, message: GmailMessage
+) -> SuggestedReminderItem | None:
+    prompt = (
+        "Extract at most one actionable reminder from this email. "
+        "Look for interviews, flights, appointments, deliveries, deadlines. "
+        'If nothing actionable, return {"reminders": []}. '
+        "Use ISO 8601 UTC for due_at when a specific date/time exists."
+    )
+    content = (
+        f"Subject: {message.subject}\n"
+        f"Snippet: {message.snippet}\n"
+        f"Body: {(message.body_text or '')[:1500]}"
+    )
+    result = await litellm_gateway.complete_structured(
+        settings=settings,
+        model_alias="memory-model",
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": content},
+        ],
+        schema=SuggestedReminderExtractionResult,
+        max_tokens=400,
+    )
+    if not result or not result.reminders:
+        return None
+    item = result.reminders[0]
+    if item.confidence < 0.4:
+        return None
+    return item
+
+
+async def _extract_reminder_item(
+    settings: Settings,
+    message: GmailMessage,
+    *,
+    default_tz: str | None,
+) -> SuggestedReminderItem | None:
+    extracted = _parse_from_ics(message, default_tz=default_tz)
+    if extracted is not None:
+        return extracted
+    from app.services.email.sender_templates import extract_from_sender_template
+
+    templated = extract_from_sender_template(message)
+    if templated is not None:
+        return templated
+    return await _extract_with_llm(settings, message)
+
+
+async def _extract_new_reminders(
+    settings: Settings,
+    messages: list[GmailMessage],
+    *,
+    default_tz: str | None,
+    known_ids: set[str],
+) -> tuple[list[tuple[GmailMessage, SuggestedReminderItem]], list[GmailMessage]]:
+    """Run ICS/LLM extraction with no DB session held.
+
+    Returns (hits, ignored). Exceptions skip the message so the next cycle can retry.
+    """
+    pending = [message for message in messages if message.id not in known_ids]
+    if not pending:
+        return [], []
+    sem = asyncio.Semaphore(max(1, _GMAIL_EXTRACT_CONCURRENCY))
+
+    async def _one(
+        message: GmailMessage,
+    ) -> tuple[GmailMessage, SuggestedReminderItem | None] | None:
+        async with sem:
+            try:
+                return message, await _extract_reminder_item(
+                    settings, message, default_tz=default_tz
+                )
+            except Exception:
+                logger.exception("Failed to extract gmail message id=%s", message.id)
+                return None
+
+    results = await asyncio.gather(*(_one(message) for message in pending))
+    hits: list[tuple[GmailMessage, SuggestedReminderItem]] = []
+    ignored: list[GmailMessage] = []
+    for result in results:
+        if result is None:
+            continue
+        message, item = result
+        if item is None:
+            ignored.append(message)
+        else:
+            hits.append((message, item))
+    return hits, ignored
+
+
+async def _write_suggested_reminder(
+    session: AsyncSession,
+    user_id: UUID,
+    message: GmailMessage,
+    extracted: SuggestedReminderItem,
+) -> None:
+    due_at = extracted.due_at
+    if due_at is not None and due_at.tzinfo is None:
+        due_at = due_at.replace(tzinfo=UTC)
+    from app.services.email.sender_templates import display_sender
+
+    sender = display_sender(message.from_address).strip() or None
+    await suggested_repo.create(
+        session,
+        user_id=user_id,
+        gmail_message_id=message.id,
+        title=extracted.title.strip(),
+        due_at=due_at,
+        notes=extracted.notes,
+        confidence=extracted.confidence,
+        source_snippet=message.snippet[:500] if message.snippet else None,
+        source_sender=sender[:120] if sender else None,
+    )
+
+
+async def _write_ignored_scan(
+    session: AsyncSession,
+    user_id: UUID,
+    message: GmailMessage,
+) -> None:
+    await suggested_repo.create(
+        session,
+        user_id=user_id,
+        gmail_message_id=message.id,
+        title=_IGNORED_SCAN_TITLE,
+        due_at=None,
+        notes=None,
+        confidence=0.0,
+        source_snippet=None,
+        source_sender=None,
+        status="ignored",
+    )
+
+
+def gmail_sync_is_due(
+    last_sync_at: datetime | None,
+    settings: Settings,
+    *,
+    force: bool = False,
+) -> bool:
+    if last_sync_at is None:
+        return True
+    last = last_sync_at
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=UTC)
+    elapsed = datetime.now(UTC) - last
+    if force:
+        return elapsed >= timedelta(seconds=settings.gmail_force_min_interval_seconds)
+    return elapsed >= timedelta(seconds=settings.gmail_sync_interval_seconds)
+
+
+async def sync_gmail_for_user(
+    session: AsyncSession,
+    settings: Settings,
+    user_id: UUID,
+    *,
+    redis: Redis | None = None,
+) -> tuple[int, int]:
+    """Fetch recent mail, cache for chat, create suggested reminders.
+
+    Returns (message_count, reminders_created).
+    """
+    if not gmail_gateway.is_configured(settings):
+        return 0, 0
+
+    conn = await gmail_repo.get_for_user(session, user_id)
+    if conn is None:
+        return 0, 0
+
+    try:
+        refresh = decrypt_refresh_token(settings, conn.refresh_token)
+        messages = await gmail_gateway.list_recent_messages(
+            settings,
+            refresh,
+            days=settings.gmail_fetch_days,
+            max_messages=settings.gmail_max_messages,
+        )
+    except OAuthTokenDecryptError:
+        logger.exception("Gmail token decrypt failed for user_id=%s", user_id)
+        raise
+    except gmail_gateway.GoogleGmailError as exc:
+        if exc.permanent:
+            from app.services import google_integrations as google_integrations_service
+
+            logger.warning("Revoked Gmail grant; disconnecting user_id=%s", user_id)
+            if redis is not None:
+                await google_integrations_service.disconnect_gmail(
+                    session, redis, settings, user_id
+                )
+            return 0, 0
+        logger.exception("Gmail fetch failed for user_id=%s", user_id)
+        raise
+
+    if redis is not None:
+        await write_gmail_cache(redis, user_id, messages, settings)
+
+    user = await users_repo.get_by_id(session, user_id)
+    default_tz = user.timezone if user is not None else None
+
+    known_ids = await suggested_repo.existing_message_ids(
+        session, user_id, [m.id for m in messages]
+    )
+    extracted_rows, ignored_messages = await _extract_new_reminders(
+        settings,
+        messages,
+        default_tz=default_tz,
+        known_ids=known_ids,
+    )
+    created = 0
+    for message, extracted in extracted_rows:
+        try:
+            await _write_suggested_reminder(session, user_id, message, extracted)
+            created += 1
+        except Exception:
+            await session.rollback()
+            logger.exception("Failed to process gmail message id=%s", message.id)
+    for message in ignored_messages:
+        try:
+            await _write_ignored_scan(session, user_id, message)
+        except Exception:
+            await session.rollback()
+            logger.exception("Failed to record ignored gmail scan id=%s", message.id)
+
+    await gmail_repo.update_last_sync(session, user_id)
+    return len(messages), created
+
+
+def suggested_reminder_due_at(
+    due_at: datetime | None,
+    user_timezone: str | None,
+    *,
+    now: datetime | None = None,
+) -> datetime:
+    """Always produce a due time so confirm creates a Reminders row, not a Lists item."""
+    if due_at is not None:
+        normalized = normalize_due_at(due_at, user_timezone)
+        if normalized is not None:
+            return normalized
+    tz = resolve_timezone(user_timezone)
+    current = (now or datetime.now(UTC)).astimezone(tz)
+    default_local = current.replace(
+        hour=_SUGGESTION_DEFAULT_HOUR, minute=0, second=0, microsecond=0
+    )
+    if default_local > current:
+        return default_local.astimezone(UTC)
+    return (current + timedelta(hours=1)).astimezone(UTC)
+
+
+async def add_suggested_reminder(
+    session: AsyncSession,
+    settings: Settings,
+    user: User,
+    reminder_id: UUID,
+) -> tuple[object | None, str | None]:
+    """Convert a pending suggestion into a dated reminder todo. Returns (todo, error)."""
+    row = await suggested_repo.get_by_id(session, reminder_id, user.id)
+    if row is None:
+        return None, "Not found"
+    if row.status != "pending":
+        return None, "Already handled"
+
+    content = row.title
+    if row.notes:
+        content = f"{row.title} — {row.notes}"
+
+    todo = await todos_repo.create(
+        session,
+        user_id=user.id,
+        content=content[:2000],
+        topic=REMINDER_TOPIC,
+        due_at=suggested_reminder_due_at(row.due_at, user.timezone),
+        source="gmail",
+    )
+    await suggested_repo.mark_added(session, row, todo.id)
+    await home_service.invalidate_home_cache(user.id)
+    return todo, None
+
+
+async def dismiss_suggested_reminder(
+    session: AsyncSession,
+    user_id: UUID,
+    reminder_id: UUID,
+) -> bool:
+    row = await suggested_repo.get_by_id(session, reminder_id, user_id)
+    if row is None or row.status != "pending":
+        return False
+    await suggested_repo.mark_dismissed(session, row)
+    return True

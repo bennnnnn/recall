@@ -9,7 +9,7 @@ import pytest
 from pypdf import PdfWriter
 
 from app.core.config import Settings
-from app.services import attachment_ocr as ocr
+from app.services.attachments import ocr as ocr
 
 
 def _blank_pdf_bytes() -> bytes:
@@ -124,14 +124,14 @@ async def test_ocr_scanned_pdf_skips_when_disabled_or_mock():
 
 @pytest.mark.asyncio
 async def test_extract_async_uses_ocr_when_text_layer_empty(monkeypatch):
-    from app.services.attachment_content import extract_text_from_bytes_async
+    from app.services.attachments.content import extract_text_from_bytes_async
 
     monkeypatch.setattr(
-        "app.services.attachment_content.extract_text_details",
+        "app.services.attachments.content.extract_text_details",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
-        "app.services.attachment_ocr.ocr_scanned_pdf",
+        "app.services.attachments.ocr.ocr_scanned_pdf",
         AsyncMock(return_value="scanned homework"),
     )
     settings = Settings(attachment_ocr_enabled=True)
@@ -141,14 +141,14 @@ async def test_extract_async_uses_ocr_when_text_layer_empty(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_extract_async_skips_ocr_when_disallowed(monkeypatch):
-    from app.services.attachment_content import extract_text_from_bytes_async
+    from app.services.attachments.content import extract_text_from_bytes_async
 
     monkeypatch.setattr(
-        "app.services.attachment_content.extract_text_details",
+        "app.services.attachments.content.extract_text_details",
         lambda *_a, **_k: None,
     )
     ocr_mock = AsyncMock(return_value="should-not-run")
-    monkeypatch.setattr("app.services.attachment_ocr.ocr_scanned_pdf", ocr_mock)
+    monkeypatch.setattr("app.services.attachments.ocr.ocr_scanned_pdf", ocr_mock)
     settings = Settings(attachment_ocr_enabled=True)
     result = await extract_text_from_bytes_async(
         "application/pdf", b"%PDF", settings, allow_ocr=False
@@ -159,14 +159,14 @@ async def test_extract_async_skips_ocr_when_disallowed(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_extract_async_does_not_ocr_when_text_layer_present(monkeypatch):
-    from app.services.attachment_content import ExtractedText, extract_text_from_bytes_async
+    from app.services.attachments.content import ExtractedText, extract_text_from_bytes_async
 
     monkeypatch.setattr(
-        "app.services.attachment_content.extract_text_details",
+        "app.services.attachments.content.extract_text_details",
         lambda *_a, **_k: ExtractedText(text="selectable text"),
     )
     ocr_mock = AsyncMock(return_value="should-not-run")
-    monkeypatch.setattr("app.services.attachment_ocr.ocr_scanned_pdf", ocr_mock)
+    monkeypatch.setattr("app.services.attachments.ocr.ocr_scanned_pdf", ocr_mock)
     result = await extract_text_from_bytes_async(
         "application/pdf", b"%PDF", Settings(attachment_ocr_enabled=True)
     )
@@ -178,15 +178,15 @@ async def test_extract_async_does_not_ocr_when_text_layer_present(monkeypatch):
 async def test_extract_async_timeout_does_not_ocr(monkeypatch):
     import time
 
-    from app.services.attachment_content import extract_text_from_bytes_async
+    from app.services.attachments.content import extract_text_from_bytes_async
 
     def _slow(*_a: object, **_k: object) -> str | None:
         time.sleep(0.5)
         return None
 
-    monkeypatch.setattr("app.services.attachment_content.extract_text_details", _slow)
+    monkeypatch.setattr("app.services.attachments.content.extract_text_details", _slow)
     ocr_mock = AsyncMock(return_value="should-not-run")
-    monkeypatch.setattr("app.services.attachment_ocr.ocr_scanned_pdf", ocr_mock)
+    monkeypatch.setattr("app.services.attachments.ocr.ocr_scanned_pdf", ocr_mock)
     settings = Settings(attachment_extract_timeout_seconds=0.05, attachment_ocr_enabled=True)
     result = await extract_text_from_bytes_async("application/pdf", b"%PDF", settings)
     assert result is None
@@ -225,14 +225,14 @@ async def test_ocr_scanned_pdf_uses_caller_char_cap():
 
 @pytest.mark.asyncio
 async def test_extract_async_ocr_index_uses_index_caps(monkeypatch):
-    from app.services.attachment_content import (
+    from app.services.attachments.content import (
         MAX_EXTRACT_CHARS,
         MAX_INDEX_EXTRACT_CHARS,
         extract_text_from_bytes_async,
     )
 
     monkeypatch.setattr(
-        "app.services.attachment_content.extract_text_details",
+        "app.services.attachments.content.extract_text_details",
         lambda *_a, **_k: None,
     )
     captured: dict = {}
@@ -240,11 +240,11 @@ async def test_extract_async_ocr_index_uses_index_caps(monkeypatch):
     async def _ocr(_settings, _data, *, max_chars=None, max_pages=None):
         captured["max_chars"] = max_chars
         captured["max_pages"] = max_pages
-        from app.services.attachment_content import ExtractedText
+        from app.services.attachments.content import ExtractedText
 
         return ExtractedText(text="scanned", via_ocr=True)
 
-    monkeypatch.setattr("app.services.attachment_ocr.ocr_scanned_pdf", _ocr)
+    monkeypatch.setattr("app.services.attachments.ocr.ocr_scanned_pdf", _ocr)
     settings = Settings(attachment_ocr_enabled=True, attachment_ocr_index_max_pages=20)
     result = await extract_text_from_bytes_async(
         "application/pdf",

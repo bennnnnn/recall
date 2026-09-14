@@ -1,5 +1,5 @@
 from app.gateways.google_gmail_gateway import GmailMessage
-from app.services.email_sender_templates import (
+from app.services.email.sender_templates import (
     display_sender,
     email_domain,
     extract_from_sender_template,

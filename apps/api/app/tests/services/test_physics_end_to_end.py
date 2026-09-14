@@ -11,7 +11,7 @@ import math
 import pytest
 
 from app.core.config import Settings
-from app.services.math_tools import (
+from app.services.math.tools import (
     _build_verified_block,
     extract_math_intent,
     maybe_direct_math_reply,

@@ -9,9 +9,9 @@ import {
   mapGraphPoint,
   SHIFTED_VERTEX_MIN,
   type GraphSpec,
-} from "@/lib/graphBlock";
-import { inequalityFillPoints, type GraphCmp } from "@/lib/graphExpr";
-import { type GraphView } from "@/lib/graphViewport";
+} from "@/lib/math/graphBlock";
+import { inequalityFillPoints, type GraphCmp } from "@/lib/math/graphExpr";
+import { type GraphView } from "@/lib/math/graphViewport";
 import { Theme } from "@/lib/theme";
 
 export const GRAPH_AXIS_PAD = 16;

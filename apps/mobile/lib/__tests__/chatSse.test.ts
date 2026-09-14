@@ -1,4 +1,4 @@
-import { isSseAbortError, parseSseChunk, shouldAbortPriorSse, streamChatMessageSse } from "@/lib/chatSse";
+import { isSseAbortError, parseSseChunk, shouldAbortPriorSse, streamChatMessageSse } from "@/lib/chat/sse";
 import { notifyUnauthorized, requestSse } from "@/lib/api/client";
 
 jest.mock("@/lib/config", () => ({

@@ -3,11 +3,11 @@
 import pytest
 
 from app.core.config import Settings
-from app.services.math_fence import validate_math_fences
-from app.services.math_tools.block import _build_verified_block
-from app.services.math_tools.direct import maybe_direct_math_reply
-from app.services.math_tools.extract import extract_math_intent
-from app.services.math_tools.helpers import _parse_newton_guess
+from app.services.math.fence import validate_math_fences
+from app.services.math.tools.block import _build_verified_block
+from app.services.math.tools.direct import maybe_direct_math_reply
+from app.services.math.tools.extract import extract_math_intent
+from app.services.math.tools.helpers import _parse_newton_guess
 
 
 @pytest.mark.parametrize(

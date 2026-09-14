@@ -1,5 +1,5 @@
 import { attachmentIdFromRef } from "@/lib/attachmentRef";
-import { MATH_CAMERA_PROMPT } from "@/lib/mathCameraPrompt";
+import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
 
 const IMAGE_MARKER = /^\[Image:\s*(.+?)\s*\]$/;
 const FILE_MARKER = /^\[File:\s*(.+?)\s*\]$/;

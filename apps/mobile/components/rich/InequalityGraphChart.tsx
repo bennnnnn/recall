@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 import Svg, { Circle, G, Line, Polygon, Polyline } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
-import { formatGraphExpr, formatInequalityExpr, graphPolylinePoints, mapGraphPoint, type InequalityGraphSpec } from "@/lib/graphBlock";
-import { clipInequalityRegion } from "@/lib/inequalityGraph";
+import { formatGraphExpr, formatInequalityExpr, graphPolylinePoints, mapGraphPoint, type InequalityGraphSpec } from "@/lib/math/graphBlock";
+import { clipInequalityRegion } from "@/lib/math/inequalityGraph";
 import { useTheme } from "@/lib/theme";
 
 const CHART_HEIGHT = 220;

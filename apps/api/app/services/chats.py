@@ -20,8 +20,8 @@ from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.chat import finalize_registry
-from app.services.chat_titles import sanitize_manual_chat_title
-from app.services.email_fence import rewrite_first_email_fence
+from app.services.chat.titles import sanitize_manual_chat_title
+from app.services.email.fence import rewrite_first_email_fence
 from app.services.quota import utc_today
 
 logger = logging.getLogger(__name__)

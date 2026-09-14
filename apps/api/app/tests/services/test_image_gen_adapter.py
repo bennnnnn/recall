@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.image_generation import ImageGenerationError
+from app.services.images.generation import ImageGenerationError
 from app.services.mcp.image_gen_adapter import ImageGenAdapter, bind_image_gen_context
 
 

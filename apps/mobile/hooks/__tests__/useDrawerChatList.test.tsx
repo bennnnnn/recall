@@ -4,7 +4,7 @@ import { act, render } from "@testing-library/react-native";
 import { useDrawerChatList } from "@/hooks/useDrawerChatList";
 import { api, type ChatList } from "@/lib/api";
 import { getCachedChatList, invalidateChatListCache, setChatListCache } from "@/lib/cache/chatListCache";
-import { emptyChatList } from "@/lib/chat/chatListSections";
+import { emptyChatList } from "@/lib/chat/listSections";
 import { patchChatGlobal, subscribeChatChanges } from "@/lib/drawer";
 
 let mockSession = 0;

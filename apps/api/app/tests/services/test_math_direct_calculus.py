@@ -6,11 +6,11 @@ from unittest.mock import patch
 import pytest
 
 from app.core.config import Settings
-from app.services.math_fence import validate_math_fences
-from app.services.math_tools.block import _build_verified_block
-from app.services.math_tools.direct import maybe_direct_math_reply
-from app.services.math_tools.direct_calculus import calculus_direct_request
-from app.services.math_tools.extract import extract_math_intent
+from app.services.math.fence import validate_math_fences
+from app.services.math.tools.block import _build_verified_block
+from app.services.math.tools.direct import maybe_direct_math_reply
+from app.services.math.tools.direct_calculus import calculus_direct_request
+from app.services.math.tools.extract import extract_math_intent
 
 _CASES = [
     ("Differentiate x^3", "3 x^{2}"),
@@ -146,7 +146,7 @@ def test_whole_query_must_agree_with_every_extracted_parameter(query, updates):
     intent = extract_math_intent(query)
     assert intent is not None
     with patch(
-        "app.services.math_tools.direct_calculus.extract_math_intent",
+        "app.services.math.tools.direct_calculus.extract_math_intent",
         return_value=intent.model_copy(update=updates),
     ):
         assert calculus_direct_request(query) is False

@@ -6,7 +6,7 @@ import { useChatActions } from "@/hooks/useChatActions";
 import { api, type Chat } from "@/lib/api";
 import { getCachedChat } from "@/lib/cache/chatListCache";
 import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal } from "@/lib/drawer";
-import { clearCachedChatMessages } from "@/lib/chatMessageCache";
+import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 
 let mockSession = 0;
 const mockError = jest.fn();
@@ -18,7 +18,7 @@ jest.mock("@/lib/drawer", () => ({
   insertChatGlobal: jest.fn(), moveChatArchiveGlobal: jest.fn(), patchChatGlobal: jest.fn(),
   removeChatGlobal: jest.fn(), abandonActiveChatIfDeleted: jest.fn(),
 }));
-jest.mock("@/lib/chatMessageCache", () => ({ clearCachedChatMessages: jest.fn() }));
+jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/lib/exportMessagePdf", () => ({ exportConversationAsPdf: jest.fn() }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: jest.fn() }));

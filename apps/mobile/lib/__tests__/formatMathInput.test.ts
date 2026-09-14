@@ -2,7 +2,7 @@ import {
   formatAssistantMathExpr,
   formatMathExpr,
   formatMathMessage,
-} from "@/lib/math/formatMathInput";
+} from "@/lib/math/formatInput";
 
 describe("formatMathExpr", () => {
   describe("power", () => {

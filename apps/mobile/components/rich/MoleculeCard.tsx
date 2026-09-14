@@ -10,8 +10,8 @@ import { CopyButton } from "@/components/CopyButton";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { Chemistry2DView } from "@/components/rich/ChemistryBlock";
 import { Molecule3DView } from "@/components/rich/Molecule3DBlock";
-import { parseMoleculeFence } from "@/lib/moleculePair";
-import { parseMolGeometry, parseMolecule3DFence } from "@/lib/molecule3dFence";
+import { parseMoleculeFence } from "@/lib/chemistry/moleculePair";
+import { parseMolGeometry, parseMolecule3DFence } from "@/lib/chemistry/molecule3dFence";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Mode = "2d" | "3d";

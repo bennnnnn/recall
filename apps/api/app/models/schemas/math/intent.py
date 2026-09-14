@@ -88,7 +88,7 @@ class MathIntent(BaseModel):
     derivative_order: int = 1
     # Limit/series bounds — strings, not float, since "infinity"/"oo" is a
     # valid bound alongside a plain number (see
-    # math_service._parse_infinity_aware_point).
+    # math_solve._parse_infinity_aware_point).
     limit_point: str | None = None
     limit_direction: Literal["+", "-", "+-"] = "+-"
     series_start: str | None = None
@@ -173,8 +173,8 @@ class MathIntent(BaseModel):
     taylor_n: int | None = None
     # Physics — kinematics / projectile / force / energy. The model sets up the
     # equation with known values; SymPy solves symbolically; the SVG engine
-    # renders the trajectory. See math_tools/physics.py extractors and
-    # physics_solver.py solvers.
+    # renders the trajectory. See services/physics/extract.py extractors and
+    # services/physics/solver.py solvers.
     physics_op: (
         Literal[
             "position",

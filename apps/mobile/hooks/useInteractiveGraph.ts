@@ -2,20 +2,20 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Gesture } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 
-import { unmapGraphPoint } from "@/lib/graphBlock";
+import { unmapGraphPoint } from "@/lib/math/graphBlock";
 import {
   displayGraphExpr,
   formatSeriesExpr,
   parseGraphRelation,
   sampleGraphExpr,
   type GraphCmp,
-} from "@/lib/graphExpr";
+} from "@/lib/math/graphExpr";
 import {
   defaultInteractiveBounds,
   panGraphView,
   zoomGraphView,
   type GraphView,
-} from "@/lib/graphViewport";
+} from "@/lib/math/graphViewport";
 
 export const MAX_GRAPH_SERIES = 4;
 const SCATTER_MAX_POINTS = 20;

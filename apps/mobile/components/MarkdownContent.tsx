@@ -7,19 +7,19 @@ import { CodeBlock } from "@/components/CodeBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { MathText } from "@/components/rich/MathText";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
-import { markdownItInstance } from "@/lib/markdownIt";
-import { preprocessMarkdown } from "@/lib/markdown/markdownPreprocess";
+import { markdownItInstance } from "@/lib/markdown/parser";
+import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import {
   preprocessMarkdownForStream,
   type StreamingPreprocessCache,
-} from "@/lib/markdown/markdownPreprocessStream";
+} from "@/lib/markdown/preprocessStream";
 import {
   advanceStreamBlocks,
   type StreamBlocksState,
-} from "@/lib/markdown/markdownStreamBlocks";
+} from "@/lib/markdown/streamBlocks";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
 import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
-import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streamingMath";
+import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streaming";
 import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,

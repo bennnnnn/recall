@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services import chemistry_service
+from app.services import chemistry as chemistry_service
 
 # ---------------------------------------------------------------------------
 # validate_smiles

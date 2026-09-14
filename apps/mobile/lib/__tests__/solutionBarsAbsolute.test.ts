@@ -1,5 +1,5 @@
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
-import { parseSimpleLatex, segmentsToPlain } from "@/lib/mathText";
+import { parseSimpleLatex, segmentsToPlain } from "@/lib/math/text";
 
 describe("only complete assignment alternatives use OR bars", () => {
   it.each([

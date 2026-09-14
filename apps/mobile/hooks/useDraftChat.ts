@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { rememberCreatedChat } from "@/lib/cache/chatListCache";
 import type { QuizMode } from "@/lib/quizMode";
-import { resolveActiveChatId } from "@/lib/chatDraftLogic";
+import { resolveActiveChatId } from "@/lib/chat/draftLogic";
 
 const DRAFT_PREWARM_DELAY_MS = 125;
 

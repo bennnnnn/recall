@@ -13,8 +13,8 @@ from app.models.orm import Learning, LearningPracticeEvent
 from app.models.schemas import HomeProjectHighlight, LearningStats
 from app.repositories import learning as learning_repo
 from app.repositories import learning_items as learning_items_repo
-from app.services import daily_learning
 from app.services.home.util import CompletedDaily, LearningHomeContent
+from app.services.learning import daily as daily_learning
 from app.services.learning import insights as learning_insights
 from app.services.learning import stats as learning_stats
 from app.services.learning.common import normalize_target_language

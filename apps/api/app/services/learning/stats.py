@@ -20,7 +20,7 @@ def stats_from_items(
     *,
     timezone_name: str = "UTC",
 ) -> dict[str, int]:
-    from app.services.daily_learning import count_today_vocab_stats, last_mastery_at
+    from app.services.learning.daily import count_today_vocab_stats, last_mastery_at
 
     now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)

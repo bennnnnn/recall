@@ -2,7 +2,7 @@ import {
   clampMathWebViewHeight,
   COMPACT_MAX_HEIGHT,
   MAX_HEIGHT,
-} from "@/lib/mathWebViewHeight";
+} from "@/lib/math/webViewHeight";
 
 describe("clampMathWebViewHeight", () => {
   describe("compact (final-answer) mode", () => {

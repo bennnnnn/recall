@@ -14,23 +14,23 @@ import {
   shouldRefetchChatOnForeground,
   shouldSilentRefetchChatOnFocus,
   shouldSkipSilentChatRefetch,
-} from "@/lib/chat/chatForegroundRefetch";
+} from "@/lib/chat/foregroundRefetch";
 import {
   cachedChatPageFetchedAt,
   clearCachedChatMessages,
   readCachedChatMessages,
   writeCachedChatMessages,
-} from "@/lib/chatMessageCache";
-import { mergeLocalAttachmentUris } from "@/lib/chat/chatMessageMerge";
-import { MESSAGE_PAGE_SIZE } from "@/lib/chat/chatConstants";
+} from "@/lib/chat/messageCache";
+import { mergeLocalAttachmentUris } from "@/lib/chat/messageMerge";
+import { MESSAGE_PAGE_SIZE } from "@/lib/chat/constants";
 import {
   chatHasThreadContent,
   markChatHasAssistant,
   shouldDiscardOnNewChat,
   shouldProbeEmptyChat,
   shouldProbePreviousChat,
-} from "@/lib/chatDraftLogic";
-import { shouldInsertDrawerRowOnLeave } from "@/lib/chatTitleRefresh";
+} from "@/lib/chat/draftLogic";
+import { shouldInsertDrawerRowOnLeave } from "@/lib/chat/titleRefresh";
 import { getChatMutationRevision, removeChatGlobal, subscribeChatChanges } from "@/lib/drawer";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import { useChatHighlightScroll } from "@/hooks/useChatHighlightScroll";

@@ -11,8 +11,8 @@ from app.core.db import SessionLocal
 from app.models.orm import User
 from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
-from app.services import email as email_service
 from app.services.chat.stream_status import StreamStatusFn
+from app.services.email import context as email_service
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)

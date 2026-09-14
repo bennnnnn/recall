@@ -6,7 +6,8 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import MathSeriesResult
-from app.services import math_service, math_tools
+from app.services.math import solve as math_solve
+from app.services.math import tools as math_tools
 from app.services.mcp.sympy_adapter import SympyAdapter
 
 
@@ -92,7 +93,7 @@ async def test_failed_definite_integral_does_not_retry_as_indefinite():
         result = await adapter.invoke(
             {"action": "integrate", "expr": "x^2", "lower": "0", "upper": "1"}
         )
-    solve.assert_awaited_once_with(math_service.integrate_definite, "x^2", "x", "0", "1")
+    solve.assert_awaited_once_with(math_solve.integrate_definite, "x^2", "x", "0", "1")
     assert result.data is None
 
 

@@ -14,13 +14,13 @@ from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.repositories import attachments as attachments_repo
 from app.repositories import users as users_repo
-from app.services import attachment_lifecycle
 from app.services import google_integrations as google_integrations_service
 from app.services import home as home_service
 from app.services import memory as memory_service
 from app.services import plan as plan_service
 from app.services import tokens as tokens_service
-from app.services.attachment_content import MAX_ATTACHMENT_SIZE, is_image_content_type
+from app.services.attachments import lifecycle as attachment_lifecycle
+from app.services.attachments.content import MAX_ATTACHMENT_SIZE, is_image_content_type
 
 logger = logging.getLogger(__name__)
 

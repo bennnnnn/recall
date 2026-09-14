@@ -1,0 +1,1764 @@
+import { readInlineMathSpan, splitInlineMath } from "@/lib/markdown/inlineMath";
+
+import { retagMoleculeMathToSmiles } from "@/lib/chemistry/fence";
+import { collapseAdjacentMoleculeFences, dropRedundantMolecule3dFences } from "@/lib/chemistry/moleculePair";
+import {
+  retagMathAndDiagramFences,
+  closeInterruptedMathFences,
+  isMathFenceInterruptLine,
+  shouldInlineMathFenceOnBareListMarker,
+  shouldRenderMathFenceInline,
+  stripRedundantDollarWrap,
+} from "@/lib/math/fenceRetag";
+import { flattenIntegrationConnectNotes } from "@/lib/markdown/flattenIntegrationConnectNotes";
+import { repairBrokenMarkdownLinks } from "@/lib/placesList";
+import { normalizeImplicitMath, isMathLike } from "@/lib/math/normalizeImplicit";
+import { isStructuredFenceLang, splitTrailingAttribution } from "@/lib/richBlocks";
+import {
+  isAnswerLang,
+  isExplicitCodeLang,
+  looksLikeCode,
+  looksLikeMathAnswer,
+  shouldRenderAsPlainProseFence,
+} from "@/lib/copyBlock";
+import { shouldLiftFenceOutOfList } from "@/lib/fenceRegistry";
+import { allowsContentHeuristic } from "@/lib/fenceDispatch";
+import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
+import {
+  applyOutsideFences,
+  mapClosedFences,
+  readFenceMarker,
+  readFenceMarkerLoose,
+} from "@/lib/mdFenceScan";
+import {
+  PROTECTED_ESCAPE_MARKER,
+  PROTECTED_MATH_APOSTROPHE_MARKER,
+  PROTECTED_MATH_STAR_MARKER,
+  PROTECTED_MATH_UNDERSCORE_MARKER,
+} from "@/lib/math/text";
+export { splitInlineMath } from "@/lib/markdown/inlineMath";
+
+// Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
+const CALLOUT_RE =
+  /^>[ \t]*\[!(\w+)\][ \t]*([^\n]*)\n((?:>[^\n]*(?:\n|$))*)/gim;
+/** Markdown `> Tip:` / `> Warning:` — same cards as `> [!TIP]`, no custom fence. */
+const CALLOUT_LABEL_LINE =
+  /^>[ \t]*(Tip|Note|Warning|Important|Info)[ \t]*:[ \t]*(.*)$/i;
+
+export function promoteCalloutBlockquotes(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const match = CALLOUT_LABEL_LINE.exec(lines[i] ?? "");
+    if (!match) {
+      out.push(lines[i] ?? "");
+      i += 1;
+      continue;
+    }
+    const kind = (match[1] ?? "").trim().toLowerCase();
+    const body: string[] = [];
+    const first = (match[2] ?? "").trim();
+    if (first) body.push(first);
+    i += 1;
+    while (i < lines.length) {
+      const line = lines[i] ?? "";
+      if (!line.startsWith(">")) break;
+      if (CALLOUT_LABEL_LINE.test(line)) break;
+      body.push(line.replace(/^>\s?/, ""));
+      i += 1;
+    }
+    out.push(`> [!${kind}]`);
+    for (const line of body) out.push(`> ${line}`);
+    out.push("");
+  }
+  return out.join("\n");
+}
+
+const MIN_PROMOTED_QUOTE_CHARS = 24;
+const MAX_PROMOTED_AUTHOR_CHARS = 60;
+
+function collapseWs(s: string): string {
+  let out = "";
+  let prevSpace = false;
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s[i] ?? "";
+    const space = c === " " || c === "\n" || c === "\t" || c === "\r";
+    if (space) {
+      if (!prevSpace && out.length > 0) {
+        out += " ";
+        prevSpace = true;
+      }
+    } else {
+      out += c;
+      prevSpace = false;
+    }
+  }
+  return out.trim();
+}
+
+function unwrapOuterEmphasis(text: string): string {
+  let t = text.trim();
+  if (t.length >= 4 && t.startsWith("**") && t.endsWith("**")) {
+    t = t.slice(2, -2).trim();
+  }
+  if (t.length >= 2) {
+    const a = t[0];
+    const b = t[t.length - 1];
+    if ((a === "*" && b === "*") || (a === "_" && b === "_")) {
+      t = t.slice(1, -1).trim();
+    }
+  }
+  return t;
+}
+
+function isQuoteOpen(ch: string): boolean {
+  return ch === '"' || ch === "\u201C";
+}
+
+function isQuoteClose(ch: string): boolean {
+  return ch === '"' || ch === "\u201D";
+}
+
+function isAttrDash(ch: string): boolean {
+  return ch === "-" || ch === "\u2014" || ch === "\u2013";
+}
+
+function looksLikeAuthor(name: string): boolean {
+  if (name.length < 2 || name.length > MAX_PROMOTED_AUTHOR_CHARS) return false;
+  const c0 = name.charCodeAt(0);
+  if (!((c0 >= 65 && c0 <= 90) || (c0 >= 97 && c0 <= 122))) return false;
+  for (let i = 0; i < name.length; i += 1) {
+    const ch = name[i] ?? "";
+    if (ch === "?" || ch === "!" || ch === ":" || ch === "/") return false;
+  }
+  return true;
+}
+
+/** `"Quote body." - Author` → a `>` blockquote with attribution on its own line. */
+export function quotedAttributionToBlockquote(raw: string): string | null {
+  const t = unwrapOuterEmphasis(collapseWs(raw));
+  if (t.length < MIN_PROMOTED_QUOTE_CHARS + 4) return null;
+  if (t.startsWith(">") || t.startsWith("#") || t.startsWith("|")) return null;
+  if (t.startsWith("- ") || t.startsWith("* ") || t.startsWith("```")) return null;
+  if (!isQuoteOpen(t[0] ?? "")) return null;
+
+  let close = -1;
+  for (let i = t.length - 1; i > 0; i -= 1) {
+    if (isQuoteClose(t[i] ?? "")) {
+      close = i;
+      break;
+    }
+  }
+  if (close <= 1) return null;
+
+  const quote = t.slice(1, close).trim();
+  if (quote.length < MIN_PROMOTED_QUOTE_CHARS) return null;
+
+  let rest = t.slice(close + 1).trim();
+  if (!rest || !isAttrDash(rest[0] ?? "")) return null;
+  rest = rest.slice(1).trim();
+  if (!looksLikeAuthor(rest)) return null;
+
+  return `> ${quote}\n>\n> — ${rest}`;
+}
+
+/** Promote standalone `"…" - Author` paragraphs into quote-card blockquotes. */
+export function promoteQuotedAttributions(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  let inFence = false;
+  while (i < lines.length) {
+    const line = lines[i] ?? "";
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("```")) {
+      inFence = !inFence;
+      out.push(line);
+      i += 1;
+      continue;
+    }
+    if (inFence || trimmed === "") {
+      out.push(line);
+      i += 1;
+      continue;
+    }
+    const para: string[] = [];
+    while (i < lines.length) {
+      const next = lines[i] ?? "";
+      if (next.trim() === "") break;
+      if (next.trimStart().startsWith("```")) break;
+      para.push(next);
+      i += 1;
+    }
+    const promoted = quotedAttributionToBlockquote(para.join(" "));
+    if (promoted) {
+      out.push(promoted);
+    } else {
+      out.push(...para);
+    }
+  }
+  return out.join("\n");
+}
+
+/** `> quote. — Author` → attribution on its own blockquote line for QuoteBlock. */
+export function splitBlockquoteInlineAttribution(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("```")) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    if (inFence || !trimmed.startsWith(">")) {
+      out.push(line);
+      continue;
+    }
+    let prefixEnd = 0;
+    while (prefixEnd < line.length && (line[prefixEnd] === " " || line[prefixEnd] === "\t")) {
+      prefixEnd += 1;
+    }
+    prefixEnd += 1; // '>'
+    if (line[prefixEnd] === " ") prefixEnd += 1;
+    const body = line.slice(prefixEnd);
+    if (body.startsWith("[!")) {
+      out.push(line);
+      continue;
+    }
+    const split = splitTrailingAttribution(body);
+    if (!split) {
+      out.push(line);
+      continue;
+    }
+    out.push(`> ${split.quote}`);
+    out.push(`>`);
+    out.push(`> — ${split.author}`);
+  }
+  return out.join("\n");
+}
+
+const BLOCK_MATH_RE = /\$\$([\s\S]+?)\$\$/g;
+const BLOCK_MATH_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;
+/** Michelin / restaurant price tiers: ($), ($$), ($$$), ($$$$) — not LaTeX. */
+const PRICE_TIER_RE = /\(\s*\$+\s*\)/g;
+const PRICE_SHIELD_PREFIX = "\uE000P";
+const PRICE_SHIELD_SUFFIX = "\uE001";
+const DETAILS_HTML_RE =
+  /<details>\s*<summary>([\s\S]*?)<\/summary>\s*([\s\S]*?)<\/details>/gim;
+const FENCED_TABLE_RE =
+  /```(?:markdown|md|table)\s*\n((?:[^\n]*\|[^\n]*\n){2,})```/gi;
+
+/**
+ * The model glues a fence opener to the end of a sentence
+ * (`Multiply both sides by r: ```math` or `Here's the code: ```python`).
+ * CommonMark only recognizes a fence at the start of a line, so the
+ * backticks and the body paint as prose. Pull those openers onto their own
+ * line before markdown-it runs. Handles ALL fence langs, not just math ones.
+ */
+export function breakAttachedMathFences(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+
+  const openFence = (lang: string) => {
+    if (out.length > 0 && out[out.length - 1] !== "") out.push("");
+    out.push("```" + lang.toLowerCase());
+  };
+
+  const takeLang = (afterTicks: string): { lang: string; rest: string } | null => {
+    let i = 0;
+    while (i < afterTicks.length && /[ \t]/.test(afterTicks[i]!)) i += 1;
+    const start = i;
+    // Read letters, digits, and hyphens — fence langs like "vega-lite",
+    // "callout-note", and "molecule3d" contain hyphens/digits. Without
+    // digits, "molecule3d" was split into lang "molecule" + body "3d".
+    while (i < afterTicks.length && /[\w-]/.test(afterTicks[i]!)) i += 1;
+    const lang = afterTicks.slice(start, i);
+    // Accept any recognized fence lang: structured (math, graph, geometry,
+    // mermaid, …), answer, or explicit code (python, javascript, …). This
+    // lifts glued fence openers for ALL langs, not just math ones — the
+    // model also glues code fences to prose ("Here's the code: ```python").
+    const l = lang.toLowerCase();
+    if (!isStructuredFenceLang(l) && !isAnswerLang(l) && !isExplicitCodeLang(l)) {
+      return null;
+    }
+    return { lang, rest: afterTicks.slice(i).trim() };
+  };
+
+  const splitTrailingCloser = (rest: string): { body: string; closed: boolean } => {
+    if (rest.endsWith("```")) {
+      return { body: rest.slice(0, -3).trim(), closed: true };
+    }
+    return { body: rest, closed: false };
+  };
+
+  for (const line of lines) {
+    const tick = line.search(/`{3,}/);
+    if (tick === -1) {
+      out.push(line);
+      continue;
+    }
+    let tickLen = 0;
+    while (line[tick + tickLen] === "`") tickLen += 1;
+    const prefix = line.slice(0, tick);
+    const parsed = takeLang(line.slice(tick + tickLen));
+    if (!parsed) {
+      out.push(line);
+      continue;
+    }
+    const attached = prefix.trim().length > 0;
+    // A table cell that starts ```python must NOT become a real fence —
+    // CommonMark then swallows the rest of the comparison (live: Python vs
+    // Java "Use Cases" grid rendered inside a python code block).
+    if (attached && (isTableRow(prefix) || isLoosePipeRow(prefix))) {
+      out.push(line);
+      continue;
+    }
+    const { body, closed } = splitTrailingCloser(parsed.rest);
+    if (!attached && !body) {
+      out.push(line);
+      continue;
+    }
+    if (attached) out.push(prefix.trimEnd());
+    openFence(parsed.lang);
+    if (body) out.push(body);
+    if (closed) {
+      out.push("```");
+      out.push("");
+    }
+  }
+  return out.join("\n");
+}
+
+const MATHISH_TICK_INNER = /^[\dA-Za-z+\-*/^=().\s\\{}^_√±×÷·,]+$/;
+
+function backtickInnerIsMath(inner: string): boolean {
+  const t = inner.trim();
+  if (!t) return false;
+  if (/\$/.test(t) || /\\[a-zA-Z]+/.test(t)) return true;
+  if (/\b[A-Za-z]{3,}\b/.test(t)) return false;
+  if (isMathLike(t)) return true;
+  return MATHISH_TICK_INNER.test(t) && /[\d=+\-*/^]/.test(t);
+}
+
+/**
+ * Models wrap arithmetic in markdown backticks (`2+8=42`) or leave a stray
+ * closer tick on the check line. Those paint as a literal ` on screen.
+ * Leave real ``` fences and non-math inline code alone.
+ */
+export function unwrapProseMathBackticks(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^```/.test(trimmed)) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    if (inFence) {
+      out.push(line);
+      continue;
+    }
+    let s = line.replace(/`(\$[^`\n]+?\$)`/g, "$1");
+    s = s.replace(/`([^`\n]+)`/g, (full, inner: string) => {
+      const t = String(inner).trim();
+      if (!t) return "";
+      if (!backtickInnerIsMath(t)) return full;
+      if (t.startsWith("$") && t.endsWith("$")) return t;
+      return `$${t}$`;
+    });
+    s = s.replace(/`+\s*$/, "");
+    out.push(s);
+  }
+  return out.join("\n");
+}
+
+/**
+ * CommonMark treats a ```math fence as indented code (raw backticks on screen)
+ * when it sits inside a numbered list item. Pull math/answer fences to column 0
+ * with a blank line before/after so they parse as real fences.
+ */
+export function liftMathFencesOutOfLists(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence: "math" | "other" | null = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const open = trimmed.match(/^```([a-zA-Z][\w-]*)\s*$/);
+    if (inFence == null) {
+      if (open && shouldLiftFenceOutOfList(open[1]!)) {
+        if (out.length > 0 && out[out.length - 1] !== "") out.push("");
+        out.push("```" + open[1]!.toLowerCase());
+        inFence = "math";
+        continue;
+      }
+      if (open) {
+        inFence = "other";
+        out.push(line);
+        continue;
+      }
+      out.push(line);
+      continue;
+    }
+    if (/^```$/.test(trimmed)) {
+      out.push(inFence === "math" ? "```" : line);
+      if (inFence === "math") out.push("");
+      inFence = null;
+      continue;
+    }
+    // When the fence opener was lifted to column 0, strip the original list
+    // indent from body lines too — otherwise CommonMark treats 4+ space-
+    // indented body lines as indented code blocks, not fence content.
+    if (inFence === "math") {
+      out.push(trimmed);
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+/**
+ * CommonMark treats 4+ space (or tab) indented lines as a code block.
+ * After an unclosed ```math, the next `2. **Simplify:**` often lands in
+ * that indent — a gray Prism card of markdown source. Pull those steps
+ * (and only those) back to column 0. Real fenced bodies are left alone.
+ */
+export function dedentMisindentedMarkdownSteps(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let open: { char: "`" | "~"; len: number } | null = null;
+  for (const line of lines) {
+    if (open) {
+      out.push(line);
+      const closer = readFenceMarkerLoose(line);
+      if (
+        closer &&
+        closer.char === open.char &&
+        closer.len >= open.len &&
+        closer.info === ""
+      ) {
+        open = null;
+      }
+      continue;
+    }
+    const marker = readFenceMarkerLoose(line);
+    if (marker && !marker.info.includes("|")) {
+      open = { char: marker.char, len: marker.len };
+      out.push(line);
+      continue;
+    }
+    if (/^(?:[ \t]{4,}|\t+)/.test(line) && isMathFenceInterruptLine(line)) {
+      out.push(line.trimStart());
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+const INLINE_MATH_FENCE_INFO = /^(math|latex|tex)?$/i;
+
+function isFenceCloser(line: string, open: { char: "`" | "~"; len: number }): boolean {
+  const m = readFenceMarker(line);
+  return Boolean(m && m.char === open.char && m.len >= open.len && !m.info);
+}
+
+function appendInlineMath(out: string[], latex: string): void {
+  const piece = `$${latex}$`;
+  while (out.length > 0 && out[out.length - 1]!.trim() === "") out.pop();
+  if (out.length > 0 && out[out.length - 1]!.trim() !== "") {
+    const prev = out[out.length - 1]!.replace(/\s+$/, "");
+    // Always a space after a list marker (`- $eq$`). Dropping it when the
+    // line already ended in whitespace produced `-$eq$`, which CommonMark
+    // does not treat as a list item.
+    out[out.length - 1] = `${prev} ${piece}`;
+    return;
+  }
+  out.push(piece);
+}
+
+/** `-` / `1.` with no body — the empty bullet a following ```math used to hide. */
+function isBareListMarkerLine(line: string): boolean {
+  return /^\s*(?:[-*•]|\d+[.)])\s*$/.test(line);
+}
+
+function lastNonemptyLine(lines: string[]): string | undefined {
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    if (lines[i]!.trim() !== "") return lines[i];
+  }
+  return undefined;
+}
+
+/**
+ * Models put `$2+Y$` / `Y` in ```math (or an untagged fence). Those parse as
+ * block cards — a gray box that splits the sentence. Fold short one-liners
+ * back into `$...$`. Keep ```answer finals and multi-line display math.
+ */
+export function inlineShortMathFences(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const open = readFenceMarker(lines[i]!);
+    const lang = open?.info.split(/\s/)[0] ?? "";
+    if (!open || !INLINE_MATH_FENCE_INFO.test(lang)) {
+      out.push(lines[i]!);
+      i += 1;
+      continue;
+    }
+    const body: string[] = [];
+    let j = i + 1;
+    while (j < lines.length && !isFenceCloser(lines[j]!, open)) {
+      body.push(lines[j]!);
+      j += 1;
+    }
+    if (j >= lines.length) {
+      out.push(lines[i]!);
+      i += 1;
+      continue;
+    }
+    const raw = body.join("\n").trim();
+    const keepAnswer = isAnswerLang(lang) && looksLikeMathAnswer(raw);
+    const keepCode = !lang && looksLikeCode(raw);
+    const host = lastNonemptyLine(out);
+    const listInline =
+      host != null &&
+      isBareListMarkerLine(host) &&
+      shouldInlineMathFenceOnBareListMarker(raw);
+    if (
+      keepAnswer ||
+      keepCode ||
+      !(listInline || shouldRenderMathFenceInline(raw))
+    ) {
+      for (let k = i; k <= j; k += 1) out.push(lines[k]!);
+      i = j + 1;
+      continue;
+    }
+    appendInlineMath(out, stripRedundantDollarWrap(raw));
+    i = j + 1;
+    while (i < lines.length && lines[i]!.trim() === "") i += 1;
+    if (i < lines.length && isSafeInlineMathTail(lines[i]!.trim())) {
+      const tail = lines[i]!.trim();
+      const last = out[out.length - 1] ?? "";
+      out[out.length - 1] = last + (last.endsWith(" ") ? "" : " ") + tail;
+      i += 1;
+    }
+  }
+  return out.join("\n");
+}
+
+/**
+ * A line that is safe to merge onto the preceding inlined math fence —
+ * starts with a punctuation character that continues the sentence (`?`, `!`,
+ * `,`, `.`, `;`, `:`) but is NOT a structural markdown element (heading,
+ * list item, image, table row, or blockquote).
+ */
+function isSafeInlineMathTail(t: string): boolean {
+  if (!/^[?!,.;:]/.test(t)) return false;
+  if (/^#{1,6}\s/.test(t)) return false; // heading
+  if (/^[-*+]\s/.test(t)) return false; // unordered list item
+  if (/^\d+\.\s/.test(t)) return false; // ordered list item
+  if (/^!\[/.test(t)) return false; // image
+  if (/^\|/.test(t)) return false; // table row
+  if (/^>\s?/.test(t)) return false; // blockquote / callout
+  return true;
+}
+
+function isPipeRow(line: string): boolean {
+  const t = line.trim();
+  return t.includes("|") && /^\|.+\|$/.test(t);
+}
+
+function isLoosePipeRow(line: string): boolean {
+  const t = line.trim();
+  if (!t.includes("|") || isDividerLine(t)) return false;
+  const cells = splitPipesOutsideMath(t)
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0);
+  return cells.length >= 2;
+}
+
+/** GFM tables split on `|`; bars inside explicit math must not count as columns. */
+function splitPipesOutsideMath(line: string): string[] {
+  const cells: string[] = [];
+  let buf = "";
+  let inMath = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const span = readInlineMathSpan(line, i, true);
+    if (span) {
+      buf += line.slice(i, span.end);
+      i = span.end - 1;
+      continue;
+    }
+    const ch = line[i];
+    // Preserve the existing unfinished-dollar guard for streaming text.
+    if (ch === "$") {
+      inMath = !inMath;
+      buf += ch;
+      continue;
+    }
+    if (ch === "|" && !inMath) {
+      cells.push(buf);
+      buf = "";
+      continue;
+    }
+    buf += ch;
+  }
+  cells.push(buf);
+  return cells;
+}
+
+function isTableRow(line: string): boolean {
+  return isPipeRow(line) || isLoosePipeRow(line);
+}
+
+/** Drop cell fences and HTML breaks so a comparison row stays a table row. */
+function sanitizeTableRow(line: string): string {
+  let s = "";
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] === "<" && line.slice(i, i + 3).toLowerCase() === "<br") {
+      let j = i + 3;
+      while (j < line.length && line[j] !== ">") j += 1;
+      if (j < line.length && line[j] === ">") {
+        s += " ";
+        i = j + 1;
+        continue;
+      }
+    }
+    if (line.startsWith("```", i)) {
+      i += 3;
+      while (i < line.length && /[\w-]/.test(line[i]!)) i += 1;
+      continue;
+    }
+    s += line[i];
+    i += 1;
+  }
+  return s;
+}
+
+/** Lines the model uses instead of proper table rows: ---, ___, ===, etc. */
+function isDividerLine(line: string): boolean {
+  // Collapse whitespace first — avoid nested `(\s*[-–—_=*~]\s*){3,}` (js/redos).
+  const compact = line.trim().replace(/\s+/g, "");
+  return compact.length >= 3 && /^[-–—_=*~]+$/.test(compact);
+}
+
+/** `---` between two pipe rows is a fake separator; keep it as an hr / setext otherwise. */
+function isTableDebrisDivider(prev: string | undefined, next: string | undefined): boolean {
+  return Boolean(prev && next && isTableRow(prev) && isTableRow(next));
+}
+
+function isSeparatorRow(line: string): boolean {
+  // Avoid nested `\s*` / `-+\s*` quantifiers (CodeQL js/redos). Collapse
+  // whitespace first, then match a strict pipe + dashes (+ optional colons).
+  const compact = line.trim().replace(/\s+/g, "");
+  return /^\|(:?-+:?\|)+$/.test(compact) && compact.includes("-");
+}
+
+function toStrictPipeRow(line: string): string {
+  const t = line.trim();
+  if (isPipeRow(t)) return t;
+  let parts = splitPipesOutsideMath(t).map((c) => c.trim());
+  if (parts[0] === "") parts = parts.slice(1);
+  if (parts[parts.length - 1] === "") parts = parts.slice(0, -1);
+  return `| ${parts.join(" | ")} |`;
+}
+
+function separatorForHeader(headerLine: string): string {
+  const strict = toStrictPipeRow(headerLine);
+  const cols = splitPipesOutsideMath(strict).filter((c) => c.trim().length > 0);
+  return `|${cols.map(() => " --- ").join("|")}|`;
+}
+
+function isGhostTableRow(line: string): boolean {
+  if (!isTableRow(line)) return false;
+  const strict = toStrictPipeRow(line);
+  const cells = splitPipesOutsideMath(strict)
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0);
+  return cells.length > 0 && cells.every((c) => /^[-–—_]+$/.test(c));
+}
+
+function finalizePipeTable(rows: string[]): string[] {
+  const strict = rows.map(toStrictPipeRow).filter((r) => !isGhostTableRow(r));
+  if (strict.length < 2) return rows;
+
+  const out: string[] = [strict[0]];
+  if (strict.length > 1 && isSeparatorRow(strict[1])) {
+    out.push(strict[1], ...strict.slice(2));
+  } else {
+    out.push(separatorForHeader(strict[0]), ...strict.slice(1));
+  }
+  return out;
+}
+
+/** Strip ASCII dividers, normalize loose pipe rows, build valid GFM tables. */
+export function normalizeMarkdownTables(content: string): string {
+  let out = content;
+
+  out = out.replace(
+    FENCED_TABLE_RE,
+    (_m, table: string) => `\n${table.trim()}\n`,
+  );
+
+  const lines = out.split("\n");
+  const fixed: string[] = [];
+  let tableBuffer: string[] = [];
+  let openFence: { char: "`" | "~"; len: number } | null = null;
+
+  const flushTable = () => {
+    if (tableBuffer.length >= 2) {
+      fixed.push(...finalizePipeTable(tableBuffer));
+    } else {
+      fixed.push(...tableBuffer);
+    }
+    tableBuffer = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const marker = readFenceMarker(line);
+
+    if (openFence) {
+      if (
+        marker &&
+        marker.char === openFence.char &&
+        marker.len >= openFence.len &&
+        marker.info === ""
+      ) {
+        openFence = null;
+      }
+      fixed.push(line);
+      continue;
+    }
+
+    if (marker) {
+      // Cell leftovers (` ``` | ```java`) look like fence openers but are
+      // table-row tails. Treat them as rows so the next GFM table is not
+      // swallowed as fence body.
+      if (marker.info.includes("|")) {
+        const asRow = sanitizeTableRow(line.split("```").join(""));
+        if (isTableRow(asRow)) tableBuffer.push(asRow);
+        continue;
+      }
+      flushTable();
+      openFence = { char: marker.char, len: marker.len };
+      fixed.push(line);
+      continue;
+    }
+
+    if (/^\+[-=+]+\+$/.test(line.trim())) {
+      continue;
+    }
+
+    if (isDividerLine(line) && isTableDebrisDivider(lines[i - 1], lines[i + 1])) {
+      continue;
+    }
+
+    if (isTableRow(line)) {
+      if (isGhostTableRow(line)) continue;
+      tableBuffer.push(sanitizeTableRow(line));
+      continue;
+    }
+
+    flushTable();
+    fixed.push(line);
+  }
+  flushTable();
+
+  return fixed.join("\n");
+}
+
+/** True when fenced/plain content is a GFM pipe table (not prose). */
+export function isPipeTable(content: string): boolean {
+  const normalized = normalizeMarkdownTables(content);
+  const lines = normalized
+    .trim()
+    .split("\n")
+    .filter((l) => l.trim());
+  if (lines.length < 2) return false;
+  const pipeRows = lines.filter(isPipeRow);
+  return pipeRows.length >= 2 && pipeRows.length / lines.length >= 0.6;
+}
+
+/**
+ * A ```python fence that ate a GFM table (cell ```python closer never
+ * matched, so "Use Cases" landed in the code block). Split the table back
+ * out; keep a leading snippet fenced if there is one.
+ */
+function splitCodeFenceAroundPipeTable(lang: string, body: string): string | null {
+  const lines = body.split("\n");
+  let tableAt = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    if (!isTableRow(line)) continue;
+    let hasSep = false;
+    const end = Math.min(lines.length, i + 12);
+    for (let j = i; j < end; j++) {
+      if (isSeparatorRow(lines[j] ?? "")) {
+        hasSep = true;
+        break;
+      }
+    }
+    if (!hasSep) continue;
+    tableAt = i;
+    break;
+  }
+  if (tableAt < 0) return null;
+  let start = tableAt;
+  while (start > 0) {
+    const prev = (lines[start - 1] ?? "").trim();
+    if (prev === "" || /^#{1,6}\s/.test(prev) || isTableRow(lines[start - 1] ?? "")) {
+      start -= 1;
+      continue;
+    }
+    break;
+  }
+  const code = lines.slice(0, start).join("\n").trim();
+  const markdown = normalizeMarkdownTables(lines.slice(start).join("\n").trim());
+  const codeBlock = code.length > 0 ? `\`\`\`${lang}\n${code}\n\`\`\`\n\n` : "";
+  return `\n${codeBlock}${markdown}\n`;
+}
+
+/**
+ * Hoist prose/table fences into inline markdown so we never nest `<Markdown>` inside
+ * fence render rules (that caused stack overflows and stripped formatting).
+ */
+function unwrapNonCodeFences(content: string): string {
+  return mapClosedFences(content, (info, body, original) => {
+    const lang = parseFenceLang((info || "").trim());
+    const l = lang.toLowerCase();
+    if (isStructuredFenceLang(l) || l === "details" || l === "math" || isHtmlFenceLang(l)) {
+      return original;
+    }
+
+    const trimmed = body.replace(/\n$/, "").trim();
+
+    // Drop empty/whitespace fences — they render as blank gray boxes.
+    if (!trimmed) return "";
+
+    if (/^\$\)?\s*$/.test(trimmed)) return "";
+
+    if (trimmed.startsWith("$$)\n") || trimmed.startsWith("$)\n")) {
+      return `\n\n${trimmed.replace(/^\$\)?\s*\n?/, "")}\n\n`;
+    }
+
+    // A final-answer-shaped body (bare number, simplified expression, short
+    // assignment) must stay a real fence so renderFence routes it to
+    // AnswerBlock — shouldRenderAsPlainProseFence below has no concept of
+    // "this looks like a math answer" and would otherwise unwrap it into
+    // plain prose text before it ever reaches that dispatch.
+    if (
+      isAnswerLang(lang) ||
+      (allowsContentHeuristic(lang) && looksLikeMathAnswer(trimmed))
+    ) {
+      return original;
+    }
+
+    const taggedLiteral = l === "text" || l === "plain";
+    if (!isExplicitCodeLang(lang) && !taggedLiteral) {
+      const splitTable = splitCodeFenceAroundPipeTable(lang, trimmed);
+      if (splitTable != null) return splitTable;
+    }
+
+    if (isExplicitCodeLang(lang) || looksLikeCode(trimmed)) {
+      return original;
+    }
+
+    if (isPipeTable(trimmed)) {
+      if (taggedLiteral) return original;
+      return `\n${normalizeMarkdownTables(trimmed)}\n`;
+    }
+
+    if (taggedLiteral && /^\+[-=+]+\+$/m.test(trimmed)) {
+      return original;
+    }
+
+    if (shouldRenderAsPlainProseFence(lang, trimmed)) {
+      return `\n\n${trimmed}\n\n`;
+    }
+
+    if (looksLikeMarkdownListProse(trimmed)) {
+      return `\n\n${trimmed}\n\n`;
+    }
+
+    return original;
+  });
+}
+
+/** Numbered/bulleted lists and headings — never code fences. */
+export function looksLikeMarkdownListProse(content: string): boolean {
+  const lines = content
+    .trim()
+    .split("\n")
+    .filter((l) => l.trim());
+  if (lines.length === 0) return false;
+  const proseLines = lines.filter((line) => {
+    const t = line.trim();
+    return (
+      /^#{1,6}\s/.test(t) ||
+      /^\d+\.\s+\*\*/.test(t) ||
+      /^[-*]\s+\*\*/.test(t) ||
+      /^\d+\.\s+[A-Z]/.test(t)
+    );
+  });
+  return proseLines.length >= 1;
+}
+
+/** Hide ($$) / ($$$) price markers so block-math regex cannot swallow list prose. */
+function shieldPriceTiers(content: string): {
+  text: string;
+  restore: (s: string) => string;
+} {
+  const saved: string[] = [];
+  const text = content.replace(PRICE_TIER_RE, (match) => {
+    const idx = saved.length;
+    saved.push(match);
+    return `${PRICE_SHIELD_PREFIX}${idx}${PRICE_SHIELD_SUFFIX}`;
+  });
+  return {
+    text,
+    restore: (s) =>
+      s.replace(
+        new RegExp(`${PRICE_SHIELD_PREFIX}(\\d+)${PRICE_SHIELD_SUFFIX}`, "g"),
+        (_, index) => saved[Number(index)] ?? "",
+      ),
+  };
+}
+
+// A price-tier-split artifact is a stray "$)" (or bare "$") *alone on the
+// fence's first line* — not just any body that happens to start with "$".
+// A `?` on `)` without also requiring a following newline/end matched any
+// legitimate math fence whose body starts with "$" too (e.g. a bare
+// equation line normalizeImplicitMath had already wrapped as "$x^2 = 4$"
+// before this ran), incorrectly unwrapping real math back to inline text.
+const PRICE_TIER_ARTIFACT_LINE_RE = /^\$\)?\s*(?:\n|$)/;
+const PRICE_TIER_ARTIFACT_STRIP_RE = /^\$\)?\s*\n?/;
+
+/** Undo mistaken ```math fences that contain markdown lists or price-tier debris. */
+function unwrapCorruptedMathFences(content: string): string {
+  return mapClosedFences(content, (info, body, original) => {
+    const lang = (info.split(/\s/)[0] ?? "").toLowerCase();
+    if (lang !== "math") return original;
+    const trimmed = body.trim();
+    if (!trimmed) return "";
+    if (
+      looksLikeMarkdownListProse(trimmed) ||
+      PRICE_TIER_ARTIFACT_LINE_RE.test(trimmed) ||
+      /^#{1,6}\s/.test(trimmed) ||
+      /^\d+\.\s/.test(trimmed) ||
+      /Michelin|restaurant|dining|fare|cuisine/i.test(trimmed)
+    ) {
+      return `\n\n${trimmed.replace(PRICE_TIER_ARTIFACT_STRIP_RE, "")}\n\n`;
+    }
+    return original;
+  });
+}
+
+/** Repair list lines truncated by a prior bad ($$) → math-fence split. */
+function repairCorruptedPriceTierMarkdown(content: string): string {
+  let out = content.replace(
+    /```(?:math)?\n\s*\$\)?\s*\n```/gi,
+    "",
+  );
+  out = out.replace(
+    /```(?:math)?\n\s*\$\)?\s*\n([\s\S]*?)```/gi,
+    (_full, body: string) => `\n\n${String(body).replace(PRICE_TIER_ARTIFACT_STRIP_RE, "")}\n\n`,
+  );
+
+  const lines = out.split("\n");
+  const fixed: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    if (/\(\s*$/.test(line) && !/\(\s*\$/.test(line)) {
+      const next = lines[i + 1]?.trim() ?? "";
+      if (/^\d+\.\s/.test(next) || next.startsWith("```") || next.startsWith("###")) {
+        line = line.replace(/\(\s*$/, "($$$)");
+      }
+    }
+    fixed.push(line);
+  }
+  return fixed.join("\n");
+}
+
+/**
+ * Check lines like `For $x = 2$: $2^2 + 2 = 6$` (or `For F = 0: 0 + 3 = 3 ✓`)
+ * must not cram the substitution onto the label line. Split after the colon.
+ */
+export function layoutCheckVerificationLines(content: string): string {
+  let out = content.replace(
+    /\$([^$\n]*?=\s*-?\d+)\s*:\s*([^$\n]+)\$/g,
+    (_m, label: string, formula: string) => `$${label.trim()}$: $${formula.trim()}$`,
+  );
+  // Horizontal spacing only: consuming newlines glues the next ```chart
+  // opener to a math caption and turns its closer into a new code block.
+  out = out.replace(/\$:[ \t]*/g, "$: ");
+  out = out
+    .split("\n")
+    .map((line) => splitPackedCheckLine(normalizeCheckLabelLine(line)))
+    .join("\n");
+  out = splitChainedEqualsInCheckMath(out);
+  // Frac/sqrt labels can't keep a prose `:` after the math View — RN strands
+  // it as lone "two dots" and the renderer drops it. Tuck the colon into the
+  // last `$...$` so `For x = 1/2:` matches `For x = 3:`.
+  return out
+    .split("\n")
+    .map(tuckStackedCheckColon)
+    .join("\n");
+}
+
+/**
+ * A line that is just ":" (a stranded colon) renders as a lone "two dots"
+ * on its own line — the model put it on a separate line after a bold step
+ * header (``**Multiply**\n:\n$3 \times 2 = 6$``). Merge it onto the previous
+ * line so it renders inline (``**Multiply**:``) instead of stranded.
+ *
+ * Also handles stranded `;` (same pattern — the model puts the semicolon
+ * on its own line after a step header or label).
+ */
+export function mergeStrandedColons(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]!;
+    const trimmed = line.trim();
+    if (trimmed === ":" || trimmed === ";") {
+      if (out.length > 0) {
+        const prev = out[out.length - 1]!;
+        const prevTrimmed = prev.trim();
+        // Don't glue punctuation onto a fence closer, table row, or heading.
+        if (
+          prevTrimmed.startsWith("```") ||
+          prevTrimmed.startsWith("|") ||
+          /^#{1,6}\s/.test(prevTrimmed)
+        ) {
+          out.push(line);
+        } else {
+          out[out.length - 1] = prev.replace(/\s*$/, "") + trimmed;
+        }
+      } else {
+        out.push(line);
+      }
+    } else {
+      out.push(line);
+    }
+  }
+  return out.join("\n");
+}
+
+/**
+ * Models sometimes put a list label and its value on separate lines:
+ * `- **Chemical Formula**\n  : O₂`. The leading colon becomes a conspicuous
+ * standalone glyph in React Native. Keep the intended two-line layout while
+ * dropping only that decorative colon.
+ */
+export function stripBoldListLabelContinuationColons(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  for (const originalLine of lines) {
+    const trimmed = originalLine.trim();
+    if (/^(?:```|~~~)/.test(trimmed)) {
+      inFence = !inFence;
+      out.push(originalLine);
+      continue;
+    }
+
+    const previous = out[out.length - 1]?.trim() ?? "";
+    const previousIsBoldListLabel =
+      /^(?:[-*+]|\d+[.)])\s+\*\*[^*\n]+\*\*\s*$/.test(previous);
+    if (!inFence && previousIsBoldListLabel) {
+      out.push(originalLine.replace(/^(\s*):(?:\s+|$)/, "$1"));
+      continue;
+    }
+    out.push(originalLine);
+  }
+  return out.join("\n");
+}
+
+/**
+ * Models glue an ATX heading onto the previous sentence
+ * (``$y=3x+4$: ### Explanation``). CommonMark only recognizes headings at
+ * line start, so the hashes leak as literal ``###``. Break them out.
+ */
+export function breakMidlineAtxHeadings(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^(?:```|~~~)/.test(trimmed)) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    if (inFence || !line.includes("#")) {
+      out.push(line);
+      continue;
+    }
+    const split = line.replace(/([^\n#])[ \t]*(#{1,6}[ \t]+\S)/g, "$1\n\n$2");
+    if (split === line) {
+      out.push(line);
+    } else {
+      out.push(...split.split("\n"));
+    }
+  }
+  return out.join("\n");
+}
+
+function splitPackedCheckLine(line: string): string {
+  const colon = indexOfCheckLabelColon(line);
+  if (colon < 0) return line;
+  const after = line.slice(colon + 1).trim();
+  if (!after || !looksLikeCheckComputation(after)) return line;
+  const before = line.slice(0, colon + 1).trimEnd();
+  // A single `\n  ` is a CommonMark softbreak. RN renders that as a space, so
+  // `For x = 3:` stuck to the substitution. A blank line is a list paragraph.
+  return `${before}\n\n  ${after}`;
+}
+
+function lastInlineMathSpan(line: string): { open: number; close: number } | null {
+  let open = -1;
+  let last: { open: number; close: number } | null = null;
+  for (let i = 0; i < line.length; i += 1) {
+    if (line[i] !== "$") continue;
+    if (open < 0) {
+      open = i;
+      continue;
+    }
+    last = { open, close: i };
+    open = -1;
+  }
+  return last;
+}
+
+function latexLooksStacked(latex: string): boolean {
+  return (
+    latex.includes("\\frac") ||
+    latex.includes("\\dfrac") ||
+    latex.includes("\\sqrt") ||
+    latex.includes("\\tbinom")
+  );
+}
+
+/**
+ * `For $x = 3$:` can keep the colon in prose. `For $x = \frac{1}{2}$:` cannot:
+ * the fraction is a nested View, so the trailing `:` drops to its own line
+ * and markdownRenderRules strips it. Put `:` inside the math span instead.
+ */
+function tuckStackedCheckColon(line: string): string {
+  const forAt = indexOfForKeyword(line);
+  if (forAt < 0 || isForExampleAt(line, forAt) || !line.includes("=")) return line;
+  const end = line.length;
+  let i = end;
+  while (i > 0 && (line[i - 1] === " " || line[i - 1] === "\t")) i -= 1;
+  if (i === 0 || line[i - 1] !== ":") return line;
+  let j = i - 1;
+  while (j > 0 && (line[j - 1] === " " || line[j - 1] === "\t")) j -= 1;
+  if (j === 0 || line[j - 1] !== "$") return line;
+  const span = lastInlineMathSpan(line.slice(0, j));
+  if (span == null || span.close !== j - 1) return line;
+  const inner = line.slice(span.open + 1, span.close);
+  if (!latexLooksStacked(inner) || inner.trim().endsWith(":")) return line;
+  return `${line.slice(0, span.open)}$${inner}:$${line.slice(i)}`;
+}
+
+function isForExampleAt(line: string, forAt: number): boolean {
+  return line.slice(forAt, forAt + 11).toLowerCase() === "for example";
+}
+
+function indexOfForKeyword(line: string): number {
+  const lower = line.toLowerCase();
+  let from = 0;
+  while (from < lower.length) {
+    const at = lower.indexOf("for", from);
+    if (at < 0) return -1;
+    const prev = at === 0 ? "" : lower[at - 1]!;
+    if (prev >= "a" && prev <= "z") {
+      from = at + 3;
+      continue;
+    }
+    if (isForExampleAt(line, at)) {
+      from = at + 3;
+      continue;
+    }
+    const next = at + 3 < lower.length ? lower[at + 3] : "";
+    if (next === " " || next === "*" || next === "$" || next === "") return at;
+    from = at + 3;
+  }
+  return -1;
+}
+
+function stripTrailingCheckTick(s: string): { text: string; mark: string } {
+  let i = s.length;
+  while (i > 0 && (s[i - 1] === " " || s[i - 1] === "\t")) i -= 1;
+  if (i === 0) return { text: s, mark: "" };
+  const last = s[i - 1]!;
+  if (last !== "✓" && last !== "✔" && last !== "✅") return { text: s, mark: "" };
+  let j = i - 1;
+  while (j > 0 && (s[j - 1] === " " || s[j - 1] === "\t")) j -= 1;
+  return { text: s.slice(0, j), mark: last };
+}
+
+function unwrapInlineDollars(s: string): string {
+  let out = "";
+  for (let i = 0; i < s.length; i += 1) {
+    if (s[i] === "$") continue;
+    out += s[i]!;
+  }
+  return out.trim();
+}
+
+/**
+ * Live checks omit `:` on one root (`For $x = 1/2$`) and keep it on the other
+ * (`For $x = 3:`). Put a colon on every For-x label so both match.
+ */
+function normalizeCheckLabelLine(line: string): string {
+  const forAt = indexOfForKeyword(line);
+  if (forAt < 0 || isForExampleAt(line, forAt)) return line;
+  let afterAt = forAt + 3;
+  while (
+    afterAt < line.length &&
+    (line[afterAt] === "*" || line[afterAt] === " " || line[afterAt] === "\t")
+  ) {
+    afterAt += 1;
+  }
+  const afterForRaw = line.slice(afterAt);
+  if (!afterForRaw.includes("=") || indexOfCheckLabelColon(line) >= 0) return line;
+
+  const afterFor = afterForRaw.trimStart();
+  const leadWs = afterForRaw.length - afterFor.length;
+  const prefix = line.slice(0, afterAt + leadWs);
+  const latex = unwrapInlineDollars(stripTrailingCheckTick(afterFor).text);
+  const segs = splitTopLevelEquals(latex);
+  if (latex.includes("=") && segs.length <= 2) {
+    return `${line.replace(/\s+$/, "")}:`;
+  }
+
+  const parts = splitInlineMath(afterFor);
+  if (parts[0]?.type === "math" && splitTopLevelEquals(parts[0].value).length === 2 && parts.length > 1) {
+    let tail = "";
+    for (let i = 1; i < parts.length; i += 1) {
+      const p = parts[i]!;
+      tail += p.type === "math" ? `$${p.value}$` : p.value;
+    }
+    if (!tail.trim()) return `${line.replace(/\s+$/, "")}:`;
+    return `${prefix}$${parts[0].value}$: ${tail.trim()}`;
+  }
+  return line;
+}
+
+/** Colon that closes `For x = 2:` / `For $F = 0$:` — not inside `$...$`, not "for example:". */
+function indexOfCheckLabelColon(line: string): number {
+  const forAt = indexOfForKeyword(line);
+  if (forAt < 0 || isForExampleAt(line, forAt)) return -1;
+  let i = forAt + 3;
+  let inMath = false;
+  while (i < line.length) {
+    const ch = line[i]!;
+    if (ch === "$") {
+      inMath = !inMath;
+      i += 1;
+      continue;
+    }
+    if (!inMath && ch === ":") {
+      const chunk = line.slice(forAt, i);
+      if (chunk.includes("=") || unwrapInlineDollars(chunk).includes("=")) return i;
+    }
+    i += 1;
+  }
+  return -1;
+}
+
+function looksLikeCheckComputation(s: string): boolean {
+  if (s.length < 3) return false;
+  return /[\d$=+\-]/.test(s);
+}
+
+function isCheckLabelOnlyLine(line: string): boolean {
+  const colon = indexOfCheckLabelColon(line);
+  if (colon >= 0) return line.slice(colon + 1).trim() === "";
+  const forAt = indexOfForKeyword(line);
+  if (forAt < 0 || isForExampleAt(line, forAt)) return false;
+  let afterAt = forAt + 3;
+  while (
+    afterAt < line.length &&
+    (line[afterAt] === "*" || line[afterAt] === " " || line[afterAt] === "\t")
+  ) {
+    afterAt += 1;
+  }
+  const afterFor = line.slice(afterAt).trim();
+  const latex = unwrapInlineDollars(stripTrailingCheckTick(afterFor).text);
+  if (!latex.includes("=") || afterFor.length >= 100) return false;
+  return splitTopLevelEquals(latex).length <= 2;
+}
+
+function isYouCanCheckHeading(line: string): boolean {
+  let t = line.trim().toLowerCase();
+  let compact = "";
+  for (let i = 0; i < t.length; i += 1) {
+    if (t[i] !== "*") compact += t[i]!;
+  }
+  return compact.startsWith("you can check");
+}
+
+function isCheckTickLine(line: string): boolean {
+  const t = line.trim();
+  return t === "✓" || t === "✔" || t === "✅" || t === "- [x]" || t === "* [x]";
+}
+
+/** Top-level `=` only — skip `\{…\}` and `\neq` / `\leq` command tails. */
+function splitTopLevelEquals(latex: string): string[] {
+  const parts: string[] = [];
+  let buf = "";
+  let brace = 0;
+  for (let i = 0; i < latex.length; i += 1) {
+    const ch = latex[i]!;
+    if (ch === "\\") {
+      buf += ch;
+      i += 1;
+      while (i < latex.length && /[A-Za-z]/.test(latex[i]!)) {
+        buf += latex[i]!;
+        i += 1;
+      }
+      i -= 1;
+      continue;
+    }
+    if (ch === "{") {
+      brace += 1;
+      buf += ch;
+      continue;
+    }
+    if (ch === "}" && brace > 0) {
+      brace -= 1;
+      buf += ch;
+      continue;
+    }
+    if (ch === "=" && brace === 0) {
+      parts.push(buf.trim());
+      buf = "";
+      continue;
+    }
+    buf += ch;
+  }
+  const last = buf.trim();
+  if (last) parts.push(last);
+  return parts.filter((p) => p.length > 0);
+}
+
+function splitCheckComputationLine(line: string): string[] {
+  const indent = line.match(/^\s*/)?.[0] ?? "";
+  const body = line.trim();
+  if (!body || isCheckTickLine(body)) return [line];
+
+  const { text: peeled, mark } = stripTrailingCheckTick(body);
+  const latex = unwrapInlineDollars(peeled);
+  const segs = splitTopLevelEquals(latex);
+  if (segs.length < 3) return [line];
+  const lines: string[] = [];
+  segs.forEach((seg, i) => {
+    if (i > 0) lines.push("");
+    const inner = i === 0 ? seg : `= ${seg}`;
+    const suffix = i === segs.length - 1 && mark ? ` ${mark}` : "";
+    lines.push(`${indent}$${inner}$${suffix}`);
+  });
+  return lines;
+}
+
+/**
+ * Check substitutions like `$a = b = c = 0$` clip the last `= 0` on a phone.
+ * One equality per line after a `For x =` label or inside "You can check:" —
+ * not numbered homework steps.
+ */
+function splitChainedEqualsInCheckMath(content: string): string {
+  const lines = content.split("\n");
+  const out: string[] = [];
+  let pendingCheck = false;
+  let inCheck = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (isYouCanCheckHeading(trimmed)) {
+      inCheck = true;
+      pendingCheck = false;
+      out.push(line);
+      continue;
+    }
+    if (trimmed.startsWith("#")) inCheck = false;
+    if (isCheckLabelOnlyLine(trimmed)) {
+      out.push(line);
+      pendingCheck = true;
+      continue;
+    }
+    if ((pendingCheck || inCheck) && (trimmed === "" || isCheckTickLine(trimmed))) {
+      out.push(line);
+      continue;
+    }
+    if ((pendingCheck || inCheck) && looksLikeCheckComputation(trimmed)) {
+      out.push(...splitCheckComputationLine(line));
+      pendingCheck = false;
+      continue;
+    }
+    pendingCheck = false;
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+// A backslash immediately followed by an ASCII punctuation character —
+// CommonMark's own escapable set (matches markdown-it's rules_inline/escape.mjs).
+const MATH_ESCAPE_BACKSLASH_RE = /\\(?=[!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g;
+
+/**
+ * Protect punctuation-led LaTeX commands (`\,` `\;` `\!` `\%` `\_` `\{` `\}` …)
+ * inside `$...$` / `\(...\)` math from markdown-it's own CommonMark
+ * backslash-escape rule, which runs during inline tokenization and silently
+ * drops the backslash before splitInlineMath/MathText ever see the text —
+ * e.g. `\,` (an invisible thin space) survives preprocessMarkdown intact but
+ * renders as a bare, visible "," once markdown-it has tokenized it. Letter-led
+ * commands (`\int`, `\frac`, `\sqrt`, …) are unaffected — letters aren't in
+ * CommonMark's escapable set — so this only needs to touch the backslash
+ * itself, and only inside math spans (fenced ```math bodies are already
+ * exempt: markdown-it's fence rule never applies inline escaping to them).
+ * mathText.ts's preprocessLatex decodes the marker back to "\" as its first
+ * step, before any command table runs.
+ *
+ * Also converts `\(...\)` → `$...$`. CommonMark treats `\(` / `\)` as escaped
+ * punctuation and strips those backslashes during inline tokenization, so
+ * leaving `\(...\)` in the preprocessed string makes splitInlineMath miss the
+ * span entirely and the UI shows raw `(\frac{...})`. `$` is not escapable that
+ * way, and splitInlineMath already handles `$...$`.
+ *
+ * Bare `_` and `*` inside the same spans are swapped for PUA markers so
+ * markdown-it's emphasis tokenizer cannot turn `$x_1 * y_2$` into nested
+ * em/strong. Apostrophes are protected from smartquotes in the same spans.
+ * mathText.ts restores the original source before math parsing.
+ */
+function protectMathEscapes(content: string): string {
+  return applyOutsideFences(content, (prose) => {
+    let out = "";
+    for (let i = 0; i < prose.length;) {
+      if (prose[i] === "\\" && prose[i + 1] !== "(") {
+        // Escaped ticks/dollars cannot open code/math. Copy slash pairs too,
+        // so a tick after an even number of backslashes stays unescaped.
+        out += prose.slice(i, i + 2);
+        i += 2;
+        continue;
+      }
+      if (prose[i] === "`") {
+        let openerEnd = i + 1;
+        while (prose[openerEnd] === "`") openerEnd += 1;
+        const ticks = prose.slice(i, openerEnd);
+        const end = prose.indexOf(ticks, openerEnd);
+        const next = end < 0 ? openerEnd : end + ticks.length;
+        out += prose.slice(i, next);
+        i = next;
+        continue;
+      }
+      const span = readInlineMathSpan(prose, i);
+      if (!span) {
+        out += prose[i];
+        i += 1;
+        continue;
+      }
+      const delimiterLength = prose[i] === "$" ? 1 : 2;
+      const rawBody = prose.slice(i + delimiterLength, span.end - delimiterLength);
+      // Explicit \(...\) may span source lines. Single-dollar inline math
+      // cannot: keep its body in one Markdown token, retaining TeX \\ rows.
+      const inlineBody = rawBody.includes("\n")
+        ? rawBody.split(/\r?\n/).map((line) => line.trim()).join(" ")
+        : rawBody;
+      const body = inlineBody
+        // Preserve LaTeX row separators before CommonMark can consume them.
+        .split("\\\\")
+        .join(`${PROTECTED_ESCAPE_MARKER}${PROTECTED_ESCAPE_MARKER}`)
+        .replace(MATH_ESCAPE_BACKSLASH_RE, PROTECTED_ESCAPE_MARKER)
+        .replace(/_/g, PROTECTED_MATH_UNDERSCORE_MARKER)
+        .replace(/\*/g, PROTECTED_MATH_STAR_MARKER)
+        .replace(/'/g, PROTECTED_MATH_APOSTROPHE_MARKER);
+      out += `$${body}$`;
+      i = span.end;
+    }
+    return out;
+  });
+}
+
+/** Consecutive calculation lines are separate steps, not wrapped prose.
+ * Run after math-code unwrapping; complete fences and inline formula bodies
+ * keep their own line semantics. */
+function separateConsecutiveMathLines(content: string): string {
+  return applyOutsideFences(content, (prose) => {
+    const lines = prose.split("\n");
+    let previousIsMath = false;
+    for (let i = 0; i < lines.length; i += 1) {
+      const trimmed = lines[i].trim();
+      const span = readInlineMathSpan(trimmed, 0);
+      const isMath = span != null && span.end === trimmed.length;
+      if (previousIsMath && isMath) lines[i - 1] = `${lines[i - 1].trimEnd()}  `;
+      previousIsMath = isMath;
+    }
+    return lines.join("\n");
+  });
+}
+
+/** GitHub callouts, block math, and HTML details → fenced blocks the app understands. */
+const VEGA_FENCE_LANGS = new Set(["", "json", "vega", "vega-lite", "chart", "plot"]);
+const VEGA_SCHEMA_MARKER = '"$schema"';
+const VEGA_SCHEMA_HOST = "vega.github.io/schema/";
+
+function fenceBodyLooksLikeVega(body: string): boolean {
+  return (
+    body.includes(VEGA_SCHEMA_MARKER) &&
+    body.includes(VEGA_SCHEMA_HOST) &&
+    body.includes("{") &&
+    body.includes("}")
+  );
+}
+
+/** Retag ```json/vega… fences that hold Vega specs — linear fence walk, no nested regex. */
+function retagVegaFences(src: string): string {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const open = src.indexOf("```", i);
+    if (open === -1) {
+      out += src.slice(i);
+      break;
+    }
+    out += src.slice(i, open);
+    const afterOpen = open + 3;
+    const nl = src.indexOf("\n", afterOpen);
+    if (nl === -1) {
+      out += src.slice(open);
+      break;
+    }
+    const lang = src.slice(afterOpen, nl).trim().toLowerCase();
+    const close = src.indexOf("```", nl + 1);
+    if (close === -1) {
+      out += src.slice(open);
+      break;
+    }
+    const body = src.slice(nl + 1, close);
+    if (VEGA_FENCE_LANGS.has(lang) && fenceBodyLooksLikeVega(body) && lang !== "vega-lite") {
+      out += "```vega-lite\n" + body.trim() + "\n```";
+    } else {
+      out += src.slice(open, close + 3);
+    }
+    i = close + 3;
+  }
+  return out;
+}
+
+/**
+ * Wrap bare Vega-Lite JSON objects (not already fenced) so ChartBlock can render them.
+ * Scans for `{` + `"$schema"` + vega host, then walks braces — no `[\s\S]*?` pump.
+ */
+function wrapBareVegaJson(src: string): string {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const start = src.indexOf("{", i);
+    if (start === -1) {
+      out += src.slice(i);
+      break;
+    }
+    const atBoundary = start === 0 || (start >= 2 && src.slice(start - 2, start) === "\n\n");
+    if (!atBoundary) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    // Inside an open ``` fence? leave alone (retagVegaFences already handled).
+    let fenceMarks = 0;
+    for (let f = src.indexOf("```"); f !== -1 && f < start; f = src.indexOf("```", f + 3)) {
+      fenceMarks += 1;
+    }
+    if (fenceMarks % 2 === 1) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    let k = start + 1;
+    while (k < src.length && (src[k] === " " || src[k] === "\t" || src[k] === "\n" || src[k] === "\r")) {
+      k += 1;
+    }
+    if (!src.startsWith(VEGA_SCHEMA_MARKER, k)) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    const hostAt = src.indexOf(VEGA_SCHEMA_HOST, k);
+    if (hostAt === -1 || hostAt - k > 120) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    let depth = 0;
+    let end = -1;
+    const scanLimit = Math.min(src.length, start + 100_000);
+    for (let j = start; j < scanLimit; j += 1) {
+      const ch = src[j];
+      if (ch === "{") depth += 1;
+      else if (ch === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          end = j;
+          break;
+        }
+      }
+    }
+    // Prior regex required a newline immediately before the closing `}`.
+    if (end === -1 || end === 0 || src[end - 1] !== "\n") {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    const body = src.slice(start, end + 1);
+    if (!fenceBodyLooksLikeVega(body)) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    out += src.slice(i, start);
+    out += `\n\n\`\`\`vega-lite\n${body.trim()}\n\`\`\`\n\n`;
+    i = end + 1;
+  }
+  return out;
+}
+
+export function preprocessMarkdown(
+  content: string,
+  mathFormat?: (expr: string) => string,
+): string {
+  let out = repairBrokenMarkdownLinks(content);
+  // Do this before math normalization can reinterpret a punctuation-only
+  // continuation line.
+  out = stripBoldListLabelContinuationColons(out);
+  out = repairCorruptedPriceTierMarkdown(out);
+  out = normalizeImplicitMath(out, mathFormat);
+  out = normalizeBoldInlineMath(out);
+  // The model often wraps inline math in backticks (`` `$x^2 = 4$` ``), which
+  // markdown renders as inline CODE → raw literal `$...$`. Un-wrap backtick-
+  // wrapped `$...$` so it renders as math inline with the prose (in sync with
+  // the text, no late fence pop-in).
+  out = applyOutsideFences(out, (prose) => prose.replace(/`(\$[^`\n]+?\$)`/g, "$1"));
+
+  out = flattenIntegrationConnectNotes(out);
+  out = promoteCalloutBlockquotes(out);
+  out = promoteQuotedAttributions(out);
+  out = splitBlockquoteInlineAttribution(out);
+  out = out.replace(
+    CALLOUT_RE,
+    (_match, kind: string, title: string, body: string) => {
+      const k = kind.trim().toLowerCase();
+      const cleaned = body
+        .split("\n")
+        .map((line) => line.replace(/^>\s?/, ""))
+        .join("\n")
+        .trim();
+      const heading = title.trim();
+      const merged = heading ? `${heading}\n\n${cleaned}` : cleaned;
+      return `\n\`\`\`callout-${k}\n${merged}\n\`\`\`\n`;
+    },
+  );
+  out = flattenIntegrationConnectNotes(out);
+
+  out = out.replace(DETAILS_HTML_RE, (_m, title: string, body: string) => {
+    return `\n\`\`\`details ${title.trim()}\n${body.trim()}\n\`\`\`\n`;
+  });
+
+  const { text: blockMathInput, restore: restorePriceTiers } = shieldPriceTiers(out);
+  const blockMathOut = applyOutsideFences(blockMathInput, (prose) => {
+    BLOCK_MATH_RE.lastIndex = 0;
+    BLOCK_MATH_BRACKET_RE.lastIndex = 0;
+    let next = prose.replace(BLOCK_MATH_RE, (_m, latex: string) => {
+      return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
+    });
+    return next.replace(BLOCK_MATH_BRACKET_RE, (_m, latex: string) => {
+      return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
+    });
+  });
+  out = restorePriceTiers(blockMathOut);
+  out = breakAttachedMathFences(out);
+  out = closeInterruptedMathFences(out);
+  out = dedentMisindentedMarkdownSteps(out);
+  out = unwrapCorruptedMathFences(out);
+
+  out = normalizeMarkdownTables(out);
+
+  // Re-tag Vega fences / bare JSON with linear scans (no nested [\s\S]*? ReDoS).
+  out = retagVegaFences(out);
+  out = wrapBareVegaJson(out);
+
+  // Molecule formulas before math retag — otherwise bare `O=O` becomes ```math.
+  out = retagMoleculeMathToSmiles(out);
+  out = retagMathAndDiagramFences(out);
+
+  out = unwrapNonCodeFences(out);
+
+  out = protectMathEscapes(out);
+  out = mergeStrandedColons(out);
+  out = breakMidlineAtxHeadings(out);
+  out = breakAttachedMathFences(out);
+  out = closeInterruptedMathFences(out);
+  out = dedentMisindentedMarkdownSteps(out);
+  out = liftMathFencesOutOfLists(out);
+  out = inlineShortMathFences(out);
+  out = unwrapProseMathBackticks(out);
+  out = separateConsecutiveMathLines(out);
+  out = collapseAdjacentMoleculeFences(out);
+  out = dropRedundantMolecule3dFences(out);
+  // After fence inlining: a trailing ✓ used to abort the = split, and
+  // inlineShortMathFences can glue `$...$` back onto `For x = 3:`.
+  out = layoutCheckVerificationLines(out);
+  return out;
+}
+
+/** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters.
+
+ * Keep the original span when math sits in the *middle* of the bold (text
+ * both before and after) — e.g. ``**Slope ($m$):** 3``. Unwrapping that
+ * produces ``**Slope (**$m$**):**`` which markdown-it splits into three
+ * inline nodes; in a list item those stack vertically as
+ * "Slope (" / "m" / "): 3" — the colon-on-its-own-line the user keeps
+ * seeing. Trailing-formula bold (``**Answer: $x = 2$**``) still unwraps.
+ */
+export function normalizeBoldInlineMath(content: string): string {
+  return content.replace(/\*\*((?:(?!\*\*).)+)\*\*/g, (full, inner: string) => {
+    if (!/\$[^$\n]+?\$/.test(inner)) return full;
+    const parts = splitInlineMath(inner);
+    if (!parts.some((part) => part.type === "math")) return full;
+
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    if (
+      first &&
+      last &&
+      first.type === "text" &&
+      last.type === "text" &&
+      first.value.trim() !== "" &&
+      last.value.trim() !== ""
+    ) {
+      return full;
+    }
+
+    let out = "";
+    for (const part of parts) {
+      if (part.type === "math") {
+        out += `$${part.value}$`;
+        continue;
+      }
+      const lead = part.value.match(/^\s+/)?.[0] ?? "";
+      const trail = part.value.match(/\s+$/)?.[0] ?? "";
+      const core = part.value.trim();
+      if (core) out += `${lead}**${core}**${trail}`;
+      else out += part.value;
+    }
+    return out.trim() ? out : full;
+  });
+}

@@ -18,8 +18,8 @@ from app.models.schemas import (
 )
 from app.repositories import gmail_connections as gmail_repo
 from app.repositories import suggested_reminders as suggested_repo
-from app.services import email as email_service
 from app.services import google_integrations as google_integrations_service
+from app.services.email import context as email_service
 
 router = APIRouter(prefix="/integrations/google-gmail", tags=["integrations"])
 

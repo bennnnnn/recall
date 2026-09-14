@@ -329,7 +329,7 @@ async def test_chat_meta_for_message_ids_maps_title(fake_session):
 
 
 def test_sanitize_original_filename():
-    from app.services.attachment_upload import sanitize_original_filename
+    from app.services.attachments.upload import sanitize_original_filename
 
     assert sanitize_original_filename("notes.pdf") == "notes.pdf"
     assert sanitize_original_filename("folder/../notes.pdf") == "notes.pdf"

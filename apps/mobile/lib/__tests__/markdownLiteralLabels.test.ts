@@ -1,4 +1,4 @@
-import { markdownItInstance } from "@/lib/markdownIt";
+import { markdownItInstance } from "@/lib/markdown/parser";
 
 describe("literal mathematical labels in prose", () => {
   it("preserves parenthesized variable names and operator shorthand", () => {

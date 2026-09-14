@@ -5,7 +5,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import email_gateway
-from app.services import transactional_email as tx_email
+from app.services.notifications import transactional_email as tx_email
 
 
 def _user(*, email="user@test.local", name="Ada", locale=None):

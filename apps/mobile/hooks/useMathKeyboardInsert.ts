@@ -5,7 +5,7 @@ import {
   type TextInputSelectionChangeEventData,
 } from "react-native";
 
-import { clipboardIsImageOnly } from "@/lib/math/mathClipboard";
+import { clipboardIsImageOnly } from "@/lib/math/clipboard";
 import {
   autoAdvanceNextEmptySlot,
   caretForInsert,
@@ -17,15 +17,15 @@ import {
   tapAdvancesToNextSlot,
   type MathKeyboardSymbol,
   type TextSelection,
-} from "@/lib/mathKeyboardSymbols";
-import { applyPinnedTextChange, caretAfterMathBarClose, nativeEditRange } from "@/lib/math/mathComposerChange";
+} from "@/lib/math/keyboardSymbols";
+import { applyPinnedTextChange, caretAfterMathBarClose, nativeEditRange } from "@/lib/math/composerChange";
 import {
   extractInsertedDelta,
   isMostlyProsePaste,
   shouldProbeClipboardForImagePaste,
   normalizePastedMath,
-} from "@/lib/mathPasteNormalize";
-import { spliceMathBackspace, stepMathCaret } from "@/lib/mathDraftSlots";
+} from "@/lib/math/pasteNormalize";
+import { spliceMathBackspace, stepMathCaret } from "@/lib/math/draftSlots";
 
 export const MATH_PAD_FALLBACK_HEIGHT = 320;
 

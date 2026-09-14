@@ -9,7 +9,7 @@ from uuid import UUID
 from app.models.orm import Memory, User
 from app.models.schemas import HomeProjectHighlight, HomeStarter, HomeUrgentTodo
 from app.services import time_context as time_context_service
-from app.services.chat_titles import BORING_CHAT_TITLES
+from app.services.chat.titles import BORING_CHAT_TITLES
 from app.services.home.util import (
     _HOME_MEMORY_TYPES,
     _USER_PREFIX,

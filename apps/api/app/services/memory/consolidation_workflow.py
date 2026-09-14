@@ -11,7 +11,6 @@ from app.core.db import SessionLocal
 from app.repositories import memories as memories_repo
 from app.repositories import users as users_repo
 from app.repositories.memory_writes import MemoryFactWrite
-from app.services import memory_llm
 from app.services.memory import (
     accept_memory_section_rewrite,
     acquire_memory_write_lock,
@@ -19,6 +18,7 @@ from app.services.memory import (
     normalize_memory_text,
     release_memory_write_lock,
 )
+from app.services.memory import llm as memory_llm
 from app.services.memory.apply import apply_memory_facts
 from app.services.memory.consolidation import fact_text_jaccard
 from app.services.memory.facts import is_active_memory

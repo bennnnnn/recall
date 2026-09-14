@@ -7,7 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
-from app.services import chat_history_rag
+from app.services.chat import history_rag as chat_history_rag
 
 logger = logging.getLogger(__name__)
 

@@ -67,7 +67,7 @@ Label `[Verified …]` only on solver success. Do **not** reintroduce `[Gas law 
 
 ## Unreachable (implemented, not on this path)
 
-These exist on `chemistry_service` and stay unused on purpose:
+These exist on `services/chemistry` and stay unused on purpose:
 
 - `generate_2d_coordinates` — mobile smiles-drawer owns 2D
 - `lookup_by_smiles` / `fetch_3d_sdf` — 3D is local RDKit on the closed SMILES fence
@@ -97,9 +97,9 @@ plus pytest — do not add a second kind table in this round.
 | Post-stream fences | `apps/api/app/services/chemistry/fence.py` |
 | PubChem | `apps/api/app/gateways/pubchem_gateway.py` |
 | Prompt hint | `apps/api/app/services/chat/prompt_constants/visuals.py` |
-| Mobile parse / render | `apps/mobile/lib/chemistryFence.ts`, `components/rich/` |
+| Mobile parse / render | `apps/mobile/lib/chemistry/`, `components/rich/` |
 
-Compatibility aliases (`chemistry_service.py`, `chemistry_context.py`,
-`chemistry_fence.py`) stay; tests lock them.
+The flat compatibility aliases are gone — `services/chemistry/` is the only
+path in. `test_domain_package_seams.py` asserts the old names no longer import.
 
 Flag: `chemistry_enabled` (default on).

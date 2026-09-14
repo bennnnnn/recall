@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
-from app.services import math_tools
+from app.services.math import tools as math_tools
 
 
 def test_math_intent_has_no_dead_expression_kind() -> None:
@@ -487,7 +487,7 @@ async def test_build_math_augmentation_verifies_kinematics_trajectory() -> None:
 async def test_augment_prompt_no_intent_forbids_invented_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services.math_tools import prompt as math_prompt
+    from app.services.math.tools import prompt as math_prompt
 
     monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
     settings = Settings(math_tools_enabled=True)
@@ -577,7 +577,7 @@ async def test_augment_prompt_newton_reports_non_convergence() -> None:
     from app.models.schemas.math import NewtonMethodResult
 
     with patch(
-        "app.services.math_tools.math_service.newton_method",
+        "app.services.math.tools.math_solve.newton_method",
         return_value=NewtonMethodResult(
             iterations=[], converged=False, root=None, iterations_used=0
         ),
@@ -1117,7 +1117,7 @@ def test_garbled_graph_ask_does_not_become_equation() -> None:
 
 def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
     from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
-    from app.services.math_tools.prompt import _unverified_math_note
+    from app.services.math.tools.prompt import _unverified_math_note
 
     note = _unverified_math_note("graph")
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in note
@@ -1587,9 +1587,9 @@ async def test_augment_prompt_calculus_includes_derivation_steps() -> None:
 def test_differentiate_expression_steps_name_rules() -> None:
     """Unit-level check: the differentiation steps name the rule applied to
     each term and carry the SymPy-verified derivative."""
-    from app.services import math_service
+    from app.services.math import solve as math_solve
 
-    out = math_service.differentiate_expression("x^3 + 5", "x")
+    out = math_solve.differentiate_expression("x^3 + 5", "x")
     assert out.solved
     assert any("Sum rule" in s for s in out.steps)
     assert any("Power rule" in s and "3" in s for s in out.steps)
@@ -1940,7 +1940,7 @@ async def test_augment_graph_uses_user_named_domain() -> None:
 def test_graph_domain_parses_user_window(
     expr: str, expected_lo: float, expected_hi: float, expected_clean: str
 ) -> None:
-    from app.services import math_text_match as mtm
+    from app.services.math import match as mtm
 
     out = mtm.graph_domain(expr)
     assert out is not None
@@ -1951,7 +1951,7 @@ def test_graph_domain_parses_user_window(
 
 
 def test_graph_domain_none_when_no_clause() -> None:
-    from app.services import math_text_match as mtm
+    from app.services.math import match as mtm
 
     assert mtm.graph_domain("y = x^2") is None
     # Reversed bounds are invalid — fall back to default rather than misplot.
@@ -2100,7 +2100,7 @@ async def test_composer_dollar_wrap_injects_vertical_fence() -> None:
     assert verified.canonical_fence["x"] == 6.0
     import json
 
-    from app.services.math_fence import validate_math_fences
+    from app.services.math.fence import validate_math_fences
 
     prose = "$X = 6$ is a **vertical line** on the Cartesian plane.\n\n$X = 6$"
     out = validate_math_fences(prose, verified=verified)
@@ -2313,7 +2313,7 @@ async def test_augment_prompt_math_service_error_injects_unverified_note(
     settings = Settings(math_tools_enabled=True)
 
     def boom(intent, settings):  # type: ignore[no-untyped-def]
-        raise math_tools.math_service.MathServiceError("unsafe expr")
+        raise math_tools.math_solve.MathServiceError("unsafe expr")
 
     monkeypatch.setattr(math_tools, "_build_verified_block", boom)
 
@@ -2341,7 +2341,7 @@ async def test_augment_prompt_broken_pool_injects_unverified_note(
     async def boom(*_args: object, **_kwargs: object) -> None:
         raise BrokenProcessPool("killed by sibling timeout")
 
-    monkeypatch.setattr("app.services.sympy_executor.run_sympy", boom)
+    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", boom)
 
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "Solve x^2 + 2 = 6"}]

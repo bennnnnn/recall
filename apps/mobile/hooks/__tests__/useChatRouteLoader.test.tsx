@@ -5,7 +5,7 @@ import { act, render, waitFor } from "@testing-library/react-native";
 import { useChatRouteLoader } from "@/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
 import { getCachedChat } from "@/lib/cache/chatListCache";
-import { clearCachedChatMessages, readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
+import { clearCachedChatMessages, readCachedChatMessages, writeCachedChatMessages } from "@/lib/chat/messageCache";
 
 
 let mockSession = 0;
@@ -35,7 +35,7 @@ jest.mock("@/lib/api", () => ({
 jest.mock("@/lib/cache/chatListCache", () => ({
   getCachedChat: jest.fn(() => undefined),
 }));
-jest.mock("@/lib/chatMessageCache", () => ({
+jest.mock("@/lib/chat/messageCache", () => ({
   clearCachedChatMessages: jest.fn(async () => undefined),
   readCachedChatMessages: jest.fn(async () => null),
   writeCachedChatMessages: jest.fn(async () => undefined),

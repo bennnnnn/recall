@@ -4,7 +4,7 @@ import katex from "katex";
 
 import { isMathFenceLang } from "@/lib/fenceRegistry";
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
-import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/markdownPreprocess";
+import { preprocessMarkdown, splitInlineMath } from "@/lib/markdown/preprocess";
 
 export function escapeHtml(text: string): string {
   return text
