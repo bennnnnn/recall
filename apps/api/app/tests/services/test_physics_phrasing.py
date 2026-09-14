@@ -150,8 +150,11 @@ def test_solve_for_x_still_routes_to_the_equation_extractor() -> None:
 # Free-body problems the solver does not model. Before P2 these were kept out
 # by accident, because no cue matched their wording; now they are refused on
 # purpose. Each becomes supported as its own ticket (P5-P7) lands.
+# P16 removed the tension row: "Find the tension supporting a 5 kg mass
+# accelerating at 2 m/s^2." is the example P2 used to justify the refusal, and
+# it is now answered 59.05 N. See `test_the_p2_example_is_the_one_p16_solves`
+# below — the case is kept, on the other side of the boundary.
 UNSUPPORTED_FORCE = [
-    "Find the tension supporting a 5 kg mass accelerating at 2 m/s^2.",
     "Find the friction on a 5 kg block with a 10 N load.",
     "what is the net force on a 5 kg block with a friction coefficient of 0.2",
     "what force acts on a 5 kg block on a 30 degree incline",
@@ -164,6 +167,19 @@ UNSUPPORTED_FORCE = [
 def test_unsupported_free_body_problems_are_refused_not_guessed(text: str) -> None:
     """A wrong number in the verified block is worse than no block at all."""
     assert _verified_answer(text) is None
+
+
+def test_the_p2_example_is_the_one_p16_solves() -> None:
+    """The refusal above was always meant to be temporary.
+
+    P2 found this exact sentence answered 10.00 N — m*a — when the answer is
+    T = m(g + a) = 59.05 N, and refused it rather than ship the wrong number.
+    P16 filled the gap, so the row moved from that table to this assertion
+    rather than quietly disappearing from the file.
+    """
+    assert _verified_answer("Find the tension supporting a 5 kg mass accelerating at 2 m/s^2.") == (
+        "59.05 N"
+    )
 
 
 def test_speed_without_a_height_draws_the_velocity_line() -> None:

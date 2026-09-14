@@ -15,11 +15,11 @@ screenshot contained both.
 |---|--------|------|--------|
 | P11 | [An angled collision is answered as a projectile](#p11-an-angled-collision-is-answered-as-a-projectile) | API | ✅ |
 | P12 | [Never attach a verified answer to a clarifying question](#p12-never-attach-a-verified-answer-to-a-clarifying-question) | API | ✅ |
-| P13 | [Constant acceleration (SUVAT)](#p13-constant-acceleration-suvat) | API | ☐ |
+| P13 | [Constant acceleration (SUVAT)](#p13-constant-acceleration-suvat) | API | ✅ |
 | P14 | [A `simulation` fence: sprites, free-body diagrams, animated orbits and collisions](#p14-a-simulation-fence-sprites-free-body-diagrams-animated-orbits-and-collisions) | Mobile + API | ☐ |
-| P15 | [Pendulum period](#p15-pendulum-period) | API | ☐ |
-| P16 | [Pulleys, tension and Atwood machines](#p16-pulleys-tension-and-atwood-machines) | API | ☐ |
-| P17 | [Vector forces: resultants and components](#p17-vector-forces-resultants-and-components) | API | ☐ |
+| P15 | [Pendulum period](#p15-pendulum-period) | API | ✅ |
+| P16 | [Pulleys, tension and Atwood machines](#p16-pulleys-tension-and-atwood-machines) | API | ✅ |
+| P17 | [Vector forces: resultants and components](#p17-vector-forces-resultants-and-components) | API | ✅ |
 
 ## Where round 1 left things
 
@@ -35,6 +35,13 @@ Ten verified kinds: `kinematics`, `projectile`, `force`, `energy`, `momentum`,
 
 P3's playback therefore reaches three kinds out of ten. P14 is where the rest of
 the visual story lives.
+
+**After P13-P17** there are eleven kinds — `suvat` joined the ten — and four of
+them draw a chart, since SUVAT emits the velocity-vs-time line that P3 already
+knows how to animate. Pendulum and the rope/vector ops landed as new **ops** on
+the existing `spring` and `force` kinds rather than as kinds of their own, so
+they did not widen that table. The seven number-only kinds are unchanged, and
+P14 is still where their pictures come from.
 
 ---
 
@@ -198,6 +205,27 @@ already exists (P3 added it, P7 uses it), so this needs no new fence.
 final velocity` → `15.00 m/s`; all four equations verify under at least three
 phrasings each; `F = ma` is untouched.
 
+**Done** in `apps/api/app/tests/services/test_physics_suvat.py` (36 tests).
+Baseline 0 of 6 probed phrasings; 6 of 6 now, all three acceptance clauses met,
+cross-subject negative table byte-identical. Two notes:
+
+- **Writing it turned up a live wrong answer of its own.** `how long to reach`
+  was already a kinematics cue, so "a car accelerates from rest at 3 m/s^2, how
+  long to reach 15 m/s" was claimed by free fall and answered **3.06 s** — that
+  is 15/9.81, the time a ball thrown up at 15 m/s takes to stop. The stated
+  3 m/s² was discarded and Earth's gravity substituted. Confirmed against the
+  merged code before any of P13 was written. Ordering could not fix it (running
+  SUVAT first would have had it competing with free fall for every falling
+  body); kinematics declines instead, on the definition of free fall — gravity
+  *is* the acceleration, so a question supplying its own is not one. A named
+  gravity (`g = 1.6`, "on the moon") still is, and is compared against rather
+  than special-cased.
+- **The cue hazard was not where the ticket expected.** `accelerates at` being
+  a force cue mattered less than predicted: what separates SUVAT from F = ma is
+  not the verb but that F = ma names a mass and no time or distance, so SUVAT
+  never has three of its five variables and cannot claim the question even
+  though it recognises the wording.
+
 ---
 
 ## P14: A `simulation` fence: sprites, free-body diagrams, animated orbits and collisions
@@ -265,6 +293,18 @@ motion with a different period formula.
 **Acceptance:** `period of a 2 m pendulum` → `2.84 s`; three phrasings; emits an
 animatable displacement curve.
 
+**Done** in `apps/api/app/tests/services/test_physics_springs.py` (+11 tests, 41
+total). Five phrasings, `2.84 s`, and the SHM curve builder is now shared with
+`shm_period` rather than copied. One note:
+
+- **P10's boundary rots in both directions.** P10 caught solvers the prompt had
+  not been told about; the mirror is a solved topic the prompt still calls
+  unchecked, and it fails quieter — the model reads "pendulum is not verified"
+  while holding a verified pendulum answer, and hedges a number it was handed.
+  Substring coverage cannot catch it, because after this ticket the word
+  appears in *both* the verified list and the caution, so
+  `test_physics_prompt_boundary.py` now reads the caution sentence on its own.
+
 ---
 
 ## P16: Pulleys, tension and Atwood machines
@@ -288,6 +328,21 @@ wholesale when a topic lands.
 → `59.05 N`; an Atwood pair returns both acceleration and tension; a pulley
 shape outside those two is still refused.
 
+**Done** in `apps/api/app/tests/services/test_physics_tension.py` (30 tests).
+All three acceptance clauses met; P2's own example now answers `59.05 N` and its
+row moved out of `test_physics_phrasing.py`'s refusal table into an assertion
+that says why. Two notes:
+
+- **The refusal tuple is untouched**, per P5's correction. The new extractor
+  runs ahead of force and claims only the two solved shapes; a rope at an
+  angle, a rope across a table, two ropes sharing a load, and a pulley with one
+  mass named all still fall through to it. Each would otherwise get a confident
+  wrong number from `T = m(g ± a)` — which is the failure P2 was guarding.
+- **The cue needed three conditions, not two.** "tension" beside a mass looked
+  sufficient until an existing pre-filter test failed on "find the tension in a
+  10 kg rope" — a rope's own mass, not a hanging load. The cue now also needs a
+  word putting the rope vertical, which is the shape actually solved.
+
 ---
 
 ## P17: Vector forces: resultants and components
@@ -309,6 +364,26 @@ negative test must keep existing `vector` questions on the maths path.
 
 **Acceptance:** `a 3 N force east and a 4 N force north` → `5.00 N at 53.13°`;
 three phrasings per op; the existing `vector` kind is untouched.
+
+**Done** in `apps/api/app/tests/services/test_physics_vectors.py` (25 tests).
+All three acceptance clauses met. Three notes:
+
+- **Answering the ticket's question: a physics extractor, not the maths one.**
+  `services/math/`'s `vector` kind matches literal angle-bracket operands
+  (`magnitude of <3, 4>`) through `is_closed_coordinate_vector_request`; a force
+  question names units and compass directions instead. The two never see the
+  same sentence, so neither had to give way. Asserted in the test file rather
+  than only stated here.
+- **One formula, not two.** The general parallelogram law drops its cosine term
+  at 90°, so the perpendicular case needs no separate branch — and a test pins
+  the two readings of a right angle to the same answer so they cannot drift.
+- **Case-sensitivity cuts the other way here.** P8 made the circuit cues
+  case-sensitive so "12 V" could be told from "12 v cards". Doing the same for
+  `N` would have made this topic unreachable in the real pipeline while every
+  extractor test passed, because the global pre-filter lowercases before it
+  asks. N is not also an English word, and every pattern already demands
+  "resultant" or "resolve"+an angle beside the reading, so these are
+  case-insensitive on purpose.
 
 ---
 

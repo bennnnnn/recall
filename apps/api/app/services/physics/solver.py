@@ -65,6 +65,10 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "F1": "newton",
     "F2": "newton",
     "d1": "meter",
+    # SUVAT initial velocity. "v" and "a" and "t" and "d" are already above.
+    "u": "meter / second",
+    # Pendulum length.
+    "L": "meter",
     # "mu" and "angle" are intentionally absent: mu is dimensionless and angle
     # is converted by _params_in_si before any unit check runs.
 }
@@ -290,6 +294,195 @@ def solve_kinematics(intent: MathIntent) -> PhysicsResult:
 
 
 # ---------------------------------------------------------------------------
+# SUVAT: motion under any constant acceleration
+#   v = u + at        s = ut + ½at²
+#   v² = u² + 2as     s = ½(u + v)t
+#
+# The four equations each omit one variable, so the givens choose the equation
+# rather than the wording choosing it — the same "read the question from its
+# givens" shape P8 used for Ohm's law, and the reason four sets of phrasing
+# rules were not needed.
+# ---------------------------------------------------------------------------
+
+
+def _suvat_velocity(p: dict[str, float]) -> tuple[float, str]:
+    u, a, t, d = p.get("u"), p.get("a"), p.get("t"), p.get("d")
+    if u is not None and a is not None and t is not None:
+        return u + a * t, rf"v = u + at = {u:g} + {_latex_num(a)} \cdot {t:g}"
+    if u is not None and a is not None and d is not None:
+        square = u * u + 2 * a * d
+        if square < 0:
+            raise MathServiceError("no real final velocity: the body stops before that distance")
+        return (
+            math.sqrt(square),
+            rf"v = \sqrt{{u^2 + 2as}} = \sqrt{{{_latex_num(u, square=True)} + "
+            rf"2 \cdot {_latex_num(a)} \cdot {d:g}}}",
+        )
+    if u is not None and d is not None and t is not None:
+        if t == 0:
+            raise MathServiceError("time must be non-zero")
+        return (
+            2 * d / t - u,
+            rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow v = \frac{{2s}}{{t}} - u = "
+            rf"\frac{{2 \cdot {d:g}}}{{{t:g}}} - {u:g}",
+        )
+    raise MathServiceError("not enough givens for a final velocity")
+
+
+def _suvat_distance(p: dict[str, float]) -> tuple[float, str]:
+    u, v, a, t = p.get("u"), p.get("v"), p.get("a"), p.get("t")
+    if u is not None and a is not None and t is not None:
+        return (
+            u * t + 0.5 * a * t * t,
+            rf"s = ut + \tfrac{{1}}{{2}}at^2 = {u:g} \cdot {t:g} + 0.5 \cdot "
+            rf"{_latex_num(a)} \cdot {_latex_num(t, square=True)}",
+        )
+    if u is not None and v is not None and a is not None:
+        if a == 0:
+            raise MathServiceError("acceleration must be non-zero to find a distance this way")
+        return (
+            (v * v - u * u) / (2 * a),
+            rf"v^2 = u^2 + 2as \Rightarrow s = \frac{{v^2 - u^2}}{{2a}} = "
+            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
+            rf"{{2 \cdot {_latex_num(a)}}}",
+        )
+    if u is not None and v is not None and t is not None:
+        return (
+            0.5 * (u + v) * t,
+            rf"s = \tfrac{{1}}{{2}}(u + v)t = 0.5 \cdot ({u:g} + {v:g}) \cdot {t:g}",
+        )
+    raise MathServiceError("not enough givens for a distance")
+
+
+def _suvat_time(p: dict[str, float]) -> tuple[float, str]:
+    u, v, a, d = p.get("u"), p.get("v"), p.get("a"), p.get("d")
+    if u is not None and v is not None and a is not None:
+        if a == 0:
+            raise MathServiceError("acceleration must be non-zero to find a time this way")
+        return (
+            (v - u) / a,
+            rf"v = u + at \Rightarrow t = \frac{{v - u}}{{a}} = "
+            rf"\frac{{{v:g} - {u:g}}}{{{_latex_num(a)}}}",
+        )
+    if u is not None and a is not None and d is not None:
+        # ½at² + ut - s = 0. SymPy rather than the quadratic formula by hand,
+        # and the earliest non-negative root is the physical one.
+        t_sym = Symbol("t", real=True)
+        roots = solve(Eq(0.5 * a * t_sym**2 + u * t_sym, d), t_sym)
+        candidates = sorted(float(r) for r in roots if r.is_real and float(r) >= 0)
+        if not candidates:
+            raise MathServiceError("the body never reaches that distance")
+        return (
+            candidates[0],
+            rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow 0.5 \cdot {_latex_num(a)} t^2 + "
+            rf"{u:g}t = {d:g}",
+        )
+    if u is not None and v is not None and d is not None:
+        if u + v == 0:
+            raise MathServiceError("average velocity is zero, so no time follows")
+        return (
+            2 * d / (u + v),
+            rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow t = \frac{{2s}}{{u + v}} = "
+            rf"\frac{{2 \cdot {d:g}}}{{{u:g} + {v:g}}}",
+        )
+    raise MathServiceError("not enough givens for a time")
+
+
+def _suvat_acceleration(p: dict[str, float]) -> tuple[float, str]:
+    u, v, t, d = p.get("u"), p.get("v"), p.get("t"), p.get("d")
+    if u is not None and v is not None and t is not None:
+        if t == 0:
+            raise MathServiceError("time must be non-zero")
+        return (
+            (v - u) / t,
+            rf"v = u + at \Rightarrow a = \frac{{v - u}}{{t}} = "
+            rf"\frac{{{v:g} - {u:g}}}{{{t:g}}}",
+        )
+    if u is not None and v is not None and d is not None:
+        if d == 0:
+            raise MathServiceError("distance must be non-zero")
+        return (
+            (v * v - u * u) / (2 * d),
+            rf"v^2 = u^2 + 2as \Rightarrow a = \frac{{v^2 - u^2}}{{2s}} = "
+            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
+            rf"{{2 \cdot {d:g}}}",
+        )
+    if u is not None and t is not None and d is not None:
+        if t == 0:
+            raise MathServiceError("time must be non-zero")
+        return (
+            2 * (d - u * t) / (t * t),
+            rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow a = \frac{{2(s - ut)}}{{t^2}} = "
+            rf"\frac{{2({d:g} - {u:g} \cdot {t:g})}}{{{_latex_num(t, square=True)}}}",
+        )
+    raise MathServiceError("not enough givens for an acceleration")
+
+
+_SUVAT_OPS = {
+    "suvat_velocity": (_suvat_velocity, "m/s"),
+    "suvat_distance": (_suvat_distance, "m"),
+    "suvat_time": (_suvat_time, "s"),
+    "suvat_acceleration": (_suvat_acceleration, "m/s^2"),
+}
+
+
+def _suvat_graph(p: dict[str, float], solved: dict[str, float]) -> list[GraphBlockSpec]:
+    """Velocity against time — the plot that shows a constant acceleration.
+
+    A straight line is the whole point: its slope *is* the acceleration, which
+    a number alone does not convey. Needs u, a and a span; without all three
+    there is nothing honest to draw.
+    """
+    known = {**p, **solved}
+    u, a, t_end = known.get("u"), known.get("a"), known.get("t")
+    if u is None or a is None or t_end is None or t_end <= 0:
+        return []
+
+    n_points = 60
+    dt = t_end / (n_points - 1)
+    points = [[round(i * dt, 4), round(u + a * (i * dt), 4)] for i in range(n_points)]
+    return [
+        GraphBlockSpec(
+            type="trajectory",
+            expr=f"v(t) = {u:g} + {a:g}*t",
+            variable="t",
+            x_min=0.0,
+            x_max=t_end,
+            points=points,
+            title="Velocity vs. Time",
+            x_label="Time (s)",
+            y_label="Velocity (m/s)",
+            trajectory_type="velocity_vs_time",
+        )
+    ]
+
+
+def solve_suvat(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or "suvat_velocity"
+    entry = _SUVAT_OPS.get(op)
+    if entry is None:
+        raise MathServiceError(f"unsupported suvat op: {op}")
+    compute, unit = entry
+
+    value, workings = compute(p)
+    if not math.isfinite(value):
+        raise MathServiceError("suvat solution is not finite")
+    # A negative time or distance means the givens describe no real motion —
+    # better refused than reported, since the arithmetic looks fine either way.
+    if op in ("suvat_time", "suvat_distance") and value < 0:
+        raise MathServiceError(f"negative {op.removeprefix('suvat_')} from these givens")
+
+    solved = {"suvat_velocity": "v", "suvat_distance": "d", "suvat_time": "t"}.get(op)
+    graphs = _suvat_graph(p, {solved: value} if solved else {})
+    return PhysicsResult(
+        answer=rf"{workings} \approx {value:.2f} \text{{ {unit} }}",
+        answer_value=f"{value:.2f} {unit}",
+        graph_specs=graphs,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Projectile: 2D motion at an angle
 #   x(t) = v0*cos(θ)*t
 #   y(t) = v0*sin(θ)*t - 0.5*g*t^2
@@ -383,6 +576,82 @@ def solve_projectile(intent: MathIntent) -> PhysicsResult:
 
 def solve_force(intent: MathIntent) -> PhysicsResult:
     p = _params_in_si(intent)
+    op = intent.physics_op
+
+    # Rope shapes, answered before the F/m/a triangle below because their
+    # answer is not m*a — which is exactly the confusion P2 refused rather
+    # than let ship.
+    if op == "tension":
+        m = p["m"]
+        if m <= 0:
+            raise MathServiceError("mass must be positive")
+        g = p.get("g", 9.81)
+        a = p.get("a", 0.0)
+        if a <= -g:
+            raise MathServiceError("the rope goes slack at or beyond free fall")
+        t_val = m * (g + a)
+        return PhysicsResult(
+            answer=(
+                rf"T = m(g + a) = {m:g}({g:g} + {_latex_num(a)}) "
+                rf"\approx {t_val:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{t_val:.2f} N",
+        )
+
+    if op == "resultant_force":
+        f1, f2 = p["F1"], p["F2"]
+        phi = p["angle"]  # radians (converted by _params_in_si)
+        # The general parallelogram law. At phi = 90 degrees the cosine term
+        # drops out and it reduces to Pythagoras, so the perpendicular case
+        # needs no separate branch.
+        r_val = math.sqrt(f1 * f1 + f2 * f2 + 2 * f1 * f2 * math.cos(phi))
+        theta = math.degrees(math.atan2(f2 * math.sin(phi), f1 + f2 * math.cos(phi)))
+        return PhysicsResult(
+            answer=(
+                rf"R = \sqrt{{F_1^2 + F_2^2 + 2F_1F_2\cos\phi}} = "
+                rf"\sqrt{{{_latex_num(f1, square=True)} + {_latex_num(f2, square=True)} + "
+                rf"2 \cdot {f1:g} \cdot {f2:g}\cos({math.degrees(phi):g}^\circ)}} "
+                rf"\approx {r_val:.2f} \text{{ N}}, \quad "
+                rf"\theta = \arctan\frac{{F_2\sin\phi}}{{F_1 + F_2\cos\phi}} "
+                rf"\approx {theta:.2f}^\circ"
+            ),
+            answer_value=f"{r_val:.2f} N at {theta:.2f}°",
+        )
+
+    if op == "resolve_force":
+        f = p["F"]
+        theta = p["angle"]  # radians
+        fx = f * math.cos(theta)
+        fy = f * math.sin(theta)
+        return PhysicsResult(
+            answer=(
+                rf"F_x = F\cos\theta = {f:g}\cos({math.degrees(theta):g}^\circ) "
+                rf"\approx {fx:.2f} \text{{ N}}, \quad "
+                rf"F_y = F\sin\theta = {f:g}\sin({math.degrees(theta):g}^\circ) "
+                rf"\approx {fy:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{fx:.2f} N horizontally and {fy:.2f} N vertically",
+        )
+
+    if op == "atwood":
+        m1, m2 = p["m1"], p["m2"]
+        if m1 <= 0 or m2 <= 0:
+            raise MathServiceError("masses must be positive")
+        g = p.get("g", 9.81)
+        a_val = (m1 - m2) * g / (m1 + m2)
+        t_val = 2 * m1 * m2 * g / (m1 + m2)
+        return PhysicsResult(
+            answer=(
+                rf"a = \frac{{(m_1 - m_2)g}}{{m_1 + m_2}} = "
+                rf"\frac{{({m1:g} - {m2:g}) \cdot {g:g}}}{{{m1:g} + {m2:g}}} "
+                rf"\approx {a_val:.2f} \text{{ m/s}}^2, \quad "
+                rf"T = \frac{{2 m_1 m_2 g}}{{m_1 + m_2}} = "
+                rf"\frac{{2 \cdot {m1:g} \cdot {m2:g} \cdot {g:g}}}{{{m1:g} + {m2:g}}} "
+                rf"\approx {t_val:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{a_val:.2f} m/s^2 and {t_val:.2f} N",
+        )
+
     if "F" in p and "m" in p and "a" not in p:
         a_val = p["F"] / p["m"]
         answer_latex = (
@@ -646,12 +915,65 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
 
 # ---------------------------------------------------------------------------
 # Springs: F = k x, U = 1/2 k x^2, T = 2 pi sqrt(m/k)
+# A pendulum is the same oscillation with T = 2 pi sqrt(L/g), so it lives here
+# rather than in a kind of its own.
 # ---------------------------------------------------------------------------
+
+
+def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSpec:
+    """One period-and-a-bit of x(t) = A cos(2πt/T).
+
+    The oscillation is the thing worth seeing, so hand P3's player a curve.
+    Amplitude only scales the y-axis — the shape and the period are what the
+    question is about — so when none is given the plot is normalised rather
+    than invented.
+    """
+    n_points = 100
+    span = 2 * t_period
+    dt = span / (n_points - 1)
+    a_plot = abs(amplitude) if amplitude else 1.0
+    points = [
+        [round(i * dt, 4), round(a_plot * math.cos(2 * math.pi * (i * dt) / t_period), 4)]
+        for i in range(n_points)
+    ]
+    return GraphBlockSpec(
+        type="trajectory",
+        expr=f"x(t) = {a_plot:g}*cos(2*pi*t/{t_period:.4g})",
+        variable="t",
+        x_min=0.0,
+        x_max=span,
+        points=points,
+        title="Displacement vs. Time",
+        x_label="Time (s)",
+        y_label="Displacement (m)" if amplitude else "Displacement (normalised)",
+        trajectory_type="position_vs_time",
+    )
 
 
 def solve_spring(intent: MathIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "spring_force"
+
+    # A pendulum has a length, not a spring constant, so it is answered before
+    # the k lookup below rather than after it.
+    if op == "pendulum_period":
+        length = p["L"]
+        if length <= 0:
+            raise MathServiceError("pendulum length must be positive")
+        g = p.get("g", 9.81)
+        if g <= 0:
+            raise MathServiceError("gravity must be positive")
+        t_period = 2 * math.pi * math.sqrt(length / g)
+        answer = (
+            rf"T = 2\pi\sqrt{{\frac{{L}}{{g}}}} = 2\pi\sqrt{{\frac{{{length:g}}}{{{g:g}}}}} "
+            rf"\approx {t_period:.2f} \text{{ s}}"
+        )
+        return PhysicsResult(
+            answer=answer,
+            answer_value=f"{t_period:.2f} s",
+            graph_specs=[_oscillation_curve(t_period, p.get("x"))],
+        )
+
     k = p["k"]
     if k <= 0:
         raise MathServiceError("spring constant must be positive")
@@ -685,31 +1007,7 @@ def solve_spring(intent: MathIntent) -> PhysicsResult:
             rf"\approx {t_period:.2f} \text{{ s}}"
         )
 
-        # The oscillation is the thing worth seeing, so hand P3's player a
-        # curve. Amplitude only scales the y-axis — the shape and the period
-        # are what the question is about — so when none is given the plot is
-        # normalised rather than invented.
-        amplitude = p.get("x")
-        n_points = 100
-        span = 2 * t_period
-        dt = span / (n_points - 1)
-        a_plot = abs(amplitude) if amplitude else 1.0
-        points = [
-            [round(i * dt, 4), round(a_plot * math.cos(2 * math.pi * (i * dt) / t_period), 4)]
-            for i in range(n_points)
-        ]
-        spec = GraphBlockSpec(
-            type="trajectory",
-            expr=f"x(t) = {a_plot:g}*cos(2*pi*t/{t_period:.4g})",
-            variable="t",
-            x_min=0.0,
-            x_max=span,
-            points=points,
-            title="Displacement vs. Time",
-            x_label="Time (s)",
-            y_label="Displacement (m)" if amplitude else "Displacement (normalised)",
-            trajectory_type="position_vs_time",
-        )
+        spec = _oscillation_curve(t_period, p.get("x"))
         return PhysicsResult(answer=answer, answer_value=f"{t_period:.2f} s", graph_specs=[spec])
 
     raise MathServiceError(f"unsupported spring op: {op}")
@@ -847,6 +1145,8 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
     """Dispatch to the right solver by intent kind."""
     if intent.kind == "kinematics":
         return solve_kinematics(intent)
+    if intent.kind == "suvat":
+        return solve_suvat(intent)
     if intent.kind == "projectile":
         return solve_projectile(intent)
     if intent.kind == "force":

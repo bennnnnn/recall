@@ -234,3 +234,123 @@ def test_ordinary_energy_questions_are_untouched(text: str, answer: str) -> None
 
     assert intent is not None and intent.kind == "energy"
     assert _verified_answer(text) == answer
+
+
+# --- P15: the pendulum ------------------------------------------------------
+#
+# One line of physics away from code that already shipped: T = 2π√(L/g) is
+# structurally the same as this file's T = 2π√(m/k), and it emits the same
+# displacement curve, so P3's player animates it for free. It lives on the
+# `spring` kind for that reason — the same simple harmonic motion with a
+# different period formula, not a new subject.
+#
+# `routing.py` already listed `pendulum` as a topic worth escalating to the
+# smarter model, and P10 named it as explicitly unverified. The gap was
+# acknowledged in two places and unfilled in both.
+
+PENDULUM: list[tuple[str, str]] = [
+    ("period of a 2 m pendulum", "2.84 s"),
+    ("what is the time period of a simple pendulum of 2 m", "2.84 s"),
+    ("how long does a 2 m pendulum take to swing back and forth", "2.84 s"),
+    ("what is the period of a pendulum 2 m long", "2.84 s"),
+    ("find the period of a 50 cm pendulum", "1.42 s"),
+]
+
+
+@pytest.mark.parametrize("text,answer", PENDULUM, ids=[t[:44] for t, _ in PENDULUM])
+def test_pendulum_phrasings_reach_a_verified_answer(text: str, answer: str) -> None:
+    intent = extract_math_intent(text)
+
+    assert intent is not None and intent.kind == "spring"
+    assert intent.physics_op == "pendulum_period"
+    assert _verified_answer(text) == answer
+
+
+def test_the_period_does_not_depend_on_mass() -> None:
+    """The fact that makes a pendulum worth asking about.
+
+    A heavier bob does not swing slower. Nothing in the extractor reads a mass
+    for this op, so stating one must change nothing — and if a later change
+    starts binding mass here, this is what catches it.
+    """
+    without = _verified_answer("period of a 2 m pendulum")
+    with_mass = _verified_answer("period of a 2 m pendulum with a 5 kg bob")
+
+    assert without == with_mass == "2.84 s"
+
+
+def test_quadrupling_the_length_doubles_the_period() -> None:
+    """T ∝ √L, checked as a relationship rather than two pinned numbers.
+
+    The tolerance is set by the answer strings, not by the physics: these are
+    rounded to 2 dp before this test sees them, so doubling 2.01 gives 4.02
+    where the exact ratio gives 4.01. Anything tighter tests the formatter.
+    """
+    short = _verified_answer("period of a 1 m pendulum")
+    long = _verified_answer("period of a 4 m pendulum")
+
+    assert short is not None and long is not None
+    assert float(long.split()[0]) == pytest.approx(2 * float(short.split()[0]), abs=0.02)
+
+
+def test_a_pendulum_on_the_moon_swings_slower() -> None:
+    """`_detect_gravity` already knew about the Moon; this op just asks it.
+
+    Weaker gravity means a longer period, which is the kind of claim a verified
+    answer should be able to make.
+    """
+    earth = _verified_answer("period of a 2 m pendulum")
+    moon = _verified_answer("a pendulum on the moon is 2 m long, what is its period")
+
+    assert earth is not None and moon is not None
+    assert float(moon.split()[0]) > float(earth.split()[0])
+
+
+def test_the_pendulum_emits_the_same_animatable_curve_as_the_spring() -> None:
+    """Shared builder, so P3's playback needs no second implementation."""
+    from app.services.physics.solver import solve_physics
+
+    intent = extract_math_intent("period of a 2 m pendulum")
+    assert intent is not None
+    result = solve_physics(intent)
+
+    assert len(result.graph_specs) == 1
+    spec = result.graph_specs[0]
+    assert spec.trajectory_type == "position_vs_time"
+    assert spec.title == "Displacement vs. Time"
+    # One period-and-a-bit: the curve must come back to where it started.
+    assert spec.points[0][1] == pytest.approx(1.0)
+    assert spec.points[-1][1] == pytest.approx(1.0, abs=1e-3)
+
+
+def test_the_spring_period_is_untouched() -> None:
+    """A pendulum has a length where a spring has a constant, so the two cannot
+    collide — but the pendulum extractor runs first, so this says so."""
+    intent = extract_math_intent("the period of a 200 N/m spring with a 2 kg mass")
+
+    assert intent is not None and intent.physics_op == "shm_period"
+    assert _verified_answer("the period of a 200 N/m spring with a 2 kg mass") == "0.63 s"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "the pendulum has swung back to the centre",
+        "what is a pendulum",
+        "public opinion is a pendulum",
+        "the pendulum of fashion swings every 20 years",
+    ],
+)
+def test_pendulum_needs_a_length_beside_it(text: str) -> None:
+    """The idiom is real, and this cue feeds the global pre-filter.
+
+    So "pendulum" counts only next to an actual length — the co-occurrence
+    shape P5 used for friction and P7 for springs.
+    """
+    intent = extract_math_intent(text)
+    assert intent is None or intent.kind not in PHYSICS_KINDS
+
+
+def test_a_pendulum_length_alone_is_not_a_question() -> None:
+    """Describing one is not asking for its period."""
+    assert _verified_answer("a pendulum is 2 m long") is None

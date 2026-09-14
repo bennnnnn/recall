@@ -56,6 +56,7 @@ def _build_physics_block(
 
 PHYSICS_BLOCK_BUILDERS = {
     "kinematics": _build_physics_block,
+    "suvat": _build_physics_block,
     "projectile": _build_physics_block,
     "force": _build_physics_block,
     "energy": _build_physics_block,
