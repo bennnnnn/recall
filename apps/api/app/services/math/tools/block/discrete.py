@@ -24,7 +24,12 @@ _FUNCTION_ANALYSIS_OPS = {
     "function_inverse",
     "function_compose",
 }
-_BIVARIATE_STATS_OPS = {"correlation", "covariance", "linear_regression"}
+_BIVARIATE_STATS_OPS = {
+    "correlation",
+    "covariance",
+    "sample_covariance",
+    "linear_regression",
+}
 
 
 def _verified_function_analysis(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
