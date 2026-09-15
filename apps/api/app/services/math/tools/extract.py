@@ -15,6 +15,9 @@ from app.services.math.tools.extractors.calculus_applications import (
     CALCULUS_APPLICATION_EXTRACTORS,
     calculus_application_requested,
 )
+from app.services.math.tools.extractors.coverage_extensions import (
+    COVERAGE_EXTENSION_EXTRACTORS,
+)
 from app.services.math.tools.extractors.discrete_statistics import (
     DISCRETE_STATISTICS_EXTRACTORS,
 )
@@ -36,6 +39,7 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     *PHYSICS_EXTRACTORS,
     *GEOMETRY_GRAPH_EXTRACTORS,
     *FUNCTION_EXTRACTORS,
+    *COVERAGE_EXTENSION_EXTRACTORS,
     *CALCULUS_EXTRACTORS,
     *PRE_DISCRETE_ALGEBRA_EXTRACTORS,
     *DISCRETE_STATISTICS_EXTRACTORS,
