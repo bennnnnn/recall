@@ -2,7 +2,7 @@
 
 The existing kind registry stays unchanged: advanced features reuse the
 ``calculus``, ``matrix``, and ``statistics`` kinds and are distinguished by
-``school_op``.  Unsupported operations fall straight back to the established
+``school_op``. Unsupported operations fall straight back to the established
 builders.
 """
 
@@ -75,7 +75,11 @@ def _verified_block_calculus_extended(
         return _finish_with_answer(lines, answer)
 
     if op in _CALCULUS_APPLICATION_OPS:
-        if not intent.expr or intent.integral_lower is None or intent.integral_upper is None:
+        if (
+            not intent.expr
+            or intent.integral_lower is None
+            or intent.integral_upper is None
+        ):
             return None
         answer = solve_calculus_application(
             op,
