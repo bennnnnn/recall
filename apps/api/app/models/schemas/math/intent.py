@@ -159,10 +159,24 @@ class MathIntent(BaseModel):
     ) = None
     numtheory_a: int | None = None
     numtheory_b: int | None = None
-    # Matrix — det/inverse/eigen of a small square matrix; multiply/rref
-    # may be rectangular. `matrix_rows_b` is the right factor for multiply.
+    # Matrix — small-matrix operations. Multiplication/addition use matrix_rows_b;
+    # determinant/inverse/eigens/diagonalization require a square matrix.
     matrix_op: (
-        Literal["determinant", "inverse", "multiply", "rref", "eigenvalues", "add", "transpose"]
+        Literal[
+            "determinant",
+            "inverse",
+            "multiply",
+            "rref",
+            "eigenvalues",
+            "eigenvectors",
+            "rank",
+            "nullspace",
+            "columnspace",
+            "rowspace",
+            "diagonalize",
+            "add",
+            "transpose",
+        ]
         | None
     ) = None
     matrix_rows: list[list[float]] | None = None
