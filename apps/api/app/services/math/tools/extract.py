@@ -6,6 +6,7 @@ import re
 from collections.abc import Callable, Sequence
 
 from app.models.schemas.math import MathIntent
+from app.services.math.tools.extractors.advanced import ADVANCED_EXTRACTORS
 from app.services.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
@@ -24,6 +25,7 @@ from app.services.physics.extract import PHYSICS_EXTRACTORS
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     SOLID_EXTRACTOR,
+    *ADVANCED_EXTRACTORS,
     *SCHOOL_EXTRACTORS,
     *PHYSICS_EXTRACTORS,
     *GEOMETRY_GRAPH_EXTRACTORS,
