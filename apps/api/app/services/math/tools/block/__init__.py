@@ -39,7 +39,6 @@ from app.services.math.tools.block.common import (
 from app.services.math.tools.block.discrete import (
     _verified_block_combinatorics,
     _verified_block_limit,
-    _verified_block_matrix,
     _verified_block_number_theory,
     _verified_block_series,
     _verified_block_statistics,
@@ -61,6 +60,9 @@ from app.services.math.tools.block.graph import (
     _verified_block_graph_pair,
     _verified_block_point,
     _verified_block_vertical,
+)
+from app.services.math.tools.block.matrix_extensions import (
+    _verified_block_matrix_with_extensions,
 )
 
 logger = logging.getLogger(__name__)
@@ -92,7 +94,7 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
     "statistics": _verified_block_statistics,
     "combinatorics": _verified_block_combinatorics,
     "number_theory": _verified_block_number_theory,
-    "matrix": _verified_block_matrix,
+    "matrix": _verified_block_matrix_with_extensions,
 }
 
 
