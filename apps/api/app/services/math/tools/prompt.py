@@ -35,17 +35,21 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     if math_match.needs_symbolic(text, has_image_attachment=has_image_attachment):
         return True
     # The generic gate is intentionally conservative. New higher-level
-    # function/matrix features have their own strict extractors, so ask those
-    # extractors instead of teaching the broad keyword gate that ordinary prose
-    # containing words like "range" or "rank" is automatically mathematics.
+    # features have strict extractors, so ask those instead of teaching the
+    # broad keyword gate that ordinary prose containing words like "range",
+    # "rank", or "correlation" is automatically mathematics.
     if has_image_attachment:
         return False
     from app.services.math.tools.extractors.functions import _extract_function_analysis_intent
     from app.services.math.tools.extractors.linear_algebra import _extract_advanced_matrix_intent
+    from app.services.math.tools.extractors.statistics_advanced import (
+        _extract_bivariate_statistics_intent,
+    )
 
     return (
         _extract_function_analysis_intent(text) is not None
         or _extract_advanced_matrix_intent(text) is not None
+        or _extract_bivariate_statistics_intent(text) is not None
     )
 
 
@@ -180,9 +184,6 @@ async def build_math_augmentation(
         return None, None
 
     if image_math_extract is not None:
-        # OCR already produced a Pydantic-validated extract — map it straight
-        # to MathIntent (do not re-parse through the text regex, which mangles
-        # unicode ops / abs bars a photographed problem can contain).
         intent = _intent_from_image_extract(image_math_extract)
         if (
             intent is not None
@@ -215,12 +216,7 @@ async def build_math_augmentation(
 
     verified = await mt._build_verified_block_async(intent, settings)
     if not verified:
-        # Intent matched but SymPy timed out / rejected / had no builder result.
-        # Inject honesty so the model does not reuse the same "verified" UX.
         return _unverified_math_note(intent.kind), None
-    # Keep presentation guidance adjacent to the result, after any worked
-    # steps, so the model does not treat solver data as a tutorial request.
-    # The canonical block remains data-only for direct replies/fence validation.
     return f"{verified.text}\n\n{VERIFIED_MATH_REPLY_HINT}", verified
 
 
@@ -292,13 +288,9 @@ async def _build_verified_block_async(
         )
         return None
     except math_solve.MathServiceError as exc:
-        # Sync builder also catches this; keep the async boundary honest if a
-        # patched/edge path raises through the executor.
         logger.info("math_tools skipped: %s", exc)
         return None
     except Exception:
-        # BrokenProcessPool / cancelled sibling futures after another caller's
-        # timeout kill — degrade to the honesty note, do not fail the turn.
         logger.warning(
             "math_tools solve failed for kind=%s",
             intent.kind,
