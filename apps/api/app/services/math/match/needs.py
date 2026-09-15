@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.services.math.match.advanced import advanced_cue
 from app.services.math.match.calculus import (
     calc_op,
     parse_limit,
@@ -196,6 +197,8 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         and any(ch.isdigit() for ch in cleaned)
         and any(op in cleaned for op in ("+", "-", "*", "/", "^", "("))
     ):
+        return True
+    if advanced_cue(cleaned):
         return True
     if stats_signal(cleaned) is not None:
         return True
