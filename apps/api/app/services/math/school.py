@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from fractions import Fraction
 from typing import Any
 
 from pint import UnitRegistry
@@ -14,6 +15,8 @@ from sympy import (
     cos,
     diff,
     dsolve,
+    expand,
+    expand_trig,
     factorial,
     latex,
     nsimplify,
@@ -22,6 +25,7 @@ from sympy import (
     sin,
     solve,
     tan,
+    trigsimp,
 )
 
 from app.models.schemas.math import MathExprResult
@@ -92,6 +96,182 @@ def evaluate_arithmetic(expr: str) -> str:
 def percent_of(rate: float, base: float) -> str:
     value = (rate / 100.0) * base
     return f"{value:g}"
+
+
+def _format_school_number(value: float) -> str:
+    if not math.isfinite(value):
+        raise MathServiceError("result is not a finite number")
+    return f"{value:.12g}"
+
+
+def percent_increase(base: float, rate: float) -> str:
+    if not math.isfinite(base) or not math.isfinite(rate):
+        raise MathServiceError("percent change needs finite numbers")
+    return _format_school_number(base * (1.0 + rate / 100.0))
+
+
+def percent_decrease(base: float, rate: float) -> str:
+    if not math.isfinite(base) or not math.isfinite(rate):
+        raise MathServiceError("percent change needs finite numbers")
+    return _format_school_number(base * (1.0 - rate / 100.0))
+
+
+def percent_is(part: float, whole: float) -> str:
+    if not math.isfinite(part) or not math.isfinite(whole):
+        raise MathServiceError("percent-is needs finite numbers")
+    if whole == 0:
+        raise MathServiceError("cannot take a percent of zero")
+    return _format_school_number((part / whole) * 100.0)
+
+
+def split_ratio(total: float, parts: list[float]) -> str:
+    if not math.isfinite(total) or any(not math.isfinite(part) for part in parts):
+        raise MathServiceError("ratio split needs finite numbers")
+    if len(parts) < 2:
+        raise MathServiceError("ratio split needs at least two parts")
+    if any(part < 0 for part in parts):
+        raise MathServiceError("ratio parts cannot be negative")
+    weight = sum(parts)
+    if weight <= 0:
+        raise MathServiceError("ratio parts must sum to more than zero")
+    shares = [total * part / weight for part in parts]
+    return ":".join(_format_school_number(share) for share in shares)
+
+
+def _term_fraction(value: float) -> Fraction:
+    if not math.isfinite(value):
+        raise MathServiceError("sequence terms must be finite")
+    return Fraction(str(value))
+
+
+def _progression(
+    terms: list[float],
+) -> tuple[str, Fraction, Fraction] | None:
+    """Prefer AP when a list is both arithmetic and geometric."""
+    if len(terms) < 2:
+        return None
+    fracs = [_term_fraction(term) for term in terms]
+    first = fracs[0]
+    delta = fracs[1] - fracs[0]
+    if all(fracs[i] - fracs[i - 1] == delta for i in range(1, len(fracs))):
+        return ("ap", first, delta)
+    if any(prev == 0 for prev in fracs[:-1]):
+        return None
+    ratio = fracs[1] / fracs[0]
+    if all(fracs[i] / fracs[i - 1] == ratio for i in range(1, len(fracs))):
+        return ("gp", first, ratio)
+    return None
+
+
+def is_ap_or_gp(terms: list[float]) -> bool:
+    try:
+        return _progression(terms) is not None
+    except MathServiceError:
+        return False
+
+
+def sequence_nth(terms: list[float], n: int) -> str:
+    if n < 1:
+        raise MathServiceError("sequence index must be a positive term number")
+    kind = _progression(terms)
+    if kind is None:
+        raise MathServiceError("list is not an arithmetic or geometric sequence")
+    op, first, step = kind
+    if op == "ap":
+        value = first + (n - 1) * step
+    else:
+        value = first * (step ** (n - 1))
+    return _format_school_number(float(value))
+
+
+def sequence_sum(terms: list[float], n: int) -> str:
+    if n < 1:
+        raise MathServiceError("sequence length must be a positive term count")
+    kind = _progression(terms)
+    if kind is None:
+        raise MathServiceError("list is not an arithmetic or geometric sequence")
+    op, first, step = kind
+    if op == "ap":
+        value = n * (2 * first + (n - 1) * step) / 2
+    elif step == 1:
+        value = first * n
+    else:
+        value = first * (step**n - 1) / (step - 1)
+    return _format_school_number(float(value))
+
+
+def simple_interest(principal: float, rate: float, years: int) -> str:
+    if not math.isfinite(principal) or not math.isfinite(rate) or years < 1:
+        raise MathServiceError("interest needs a finite principal, rate, and positive years")
+    return _format_school_number(principal * (rate / 100.0) * years)
+
+
+def compound_interest(principal: float, rate: float, years: int) -> str:
+    if not math.isfinite(principal) or not math.isfinite(rate) or years < 1:
+        raise MathServiceError("interest needs a finite principal, rate, and positive years")
+    amount = principal * ((1.0 + rate / 100.0) ** years)
+    return _format_school_number(amount - principal)
+
+
+def compound_amount(principal: float, rate: float, years: int) -> str:
+    if not math.isfinite(principal) or not math.isfinite(rate) or years < 1:
+        raise MathServiceError("interest needs a finite principal, rate, and positive years")
+    return _format_school_number(principal * ((1.0 + rate / 100.0) ** years))
+
+
+def _format_school_set(values: set[Fraction]) -> str:
+    parts = [_format_school_number(float(value)) for value in sorted(values)]
+    return "{" + ", ".join(parts) + "}"
+
+
+def set_union(left: list[float], right: list[float]) -> str:
+    return _format_school_set(_fraction_set(left) | _fraction_set(right))
+
+
+def set_intersection(left: list[float], right: list[float]) -> str:
+    return _format_school_set(_fraction_set(left) & _fraction_set(right))
+
+
+def set_difference(left: list[float], right: list[float]) -> str:
+    return _format_school_set(_fraction_set(left) - _fraction_set(right))
+
+
+def work_together(hours_a: float, hours_b: float) -> str:
+    if hours_a <= 0 or hours_b <= 0:
+        raise MathServiceError("work-together needs two positive times")
+    return _format_school_number((hours_a * hours_b) / (hours_a + hours_b))
+
+
+def mixture_percent(vol_a: float, pct_a: float, vol_b: float, pct_b: float) -> str:
+    total = vol_a + vol_b
+    if vol_a < 0 or vol_b < 0 or total <= 0:
+        raise MathServiceError("mixture needs two non-negative volumes")
+    return _format_school_number((vol_a * pct_a + vol_b * pct_b) / total)
+
+
+def twice_as_many(total: float) -> str:
+    if total <= 0:
+        raise MathServiceError("twice-as-many needs a positive total")
+    small = total / 3.0
+    large = 2.0 * total / 3.0
+    return f"{_format_school_number(small)} and {_format_school_number(large)}"
+
+
+def verify_identity(lhs: str, rhs: str) -> str:
+    """Certify ``lhs = rhs`` only when the difference is identically 0."""
+    from app.services.math.solve.discrete import guess_variables
+
+    names = list(dict.fromkeys([*guess_variables(f"{lhs} {rhs}"), "theta", "x", "y", "t"]))
+    left = _parse_expression(lhs, names)
+    right = _parse_expression(rhs, names)
+    difference = simplify(trigsimp(expand_trig(expand(left - right))))
+    if difference != 0:
+        raise MathServiceError("not identically zero")
+    return "true"
+
+
+def _fraction_set(values: list[float]) -> set[Fraction]:
+    return {_term_fraction(value) for value in values}
 
 
 def simplify_ratio(a: float, b: float) -> str:

@@ -69,19 +69,19 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Algebra I–II | One equation, systems (≤4), inequalities + number-line intervals; affine two-variable shaded half-planes | `equation`, `system`, `inequality` + `number_line` / `inequality` graph |
 | Geometry (2D) | Rectangle, square, triangle (base/height), right triangle, SSS, trap, para, circle, sector | geometry fences |
 | Geometry (3D) | Cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area). Numbers only — no 3D SVG fence. | `solid` |
-| Arithmetic / percent / ratio | Bare `7*8` / `8-8*2`; `15% of 80`; simplify `6:8` | `arithmetic` |
-| Trig (evaluate / equations) | `sin(30°)` etc. Equations like `sin(x)=1/2` return every real periodic branch with an integer parameter. Unsupported explicit domains and unresolved solution sets stay on the model path. Identities stay LLM. AAA triangles use law of sines with explicitly relative lengths; physical area/perimeter needs a side length. | `trig`, `equation`, `triangle_sides` |
-| Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
-| Vectors | Magnitude, dot, cross | `vector` |
+| Arithmetic / percent / ratio | Bare `7*8` / `8-8*2`; `15% of 80`; increase/decrease/markup by `%`; `what percent of`; percent change from A to B; discount / `with tax`; simplify `6:8`; split a total in `a:b`; AP/GP nth term and first-N sum; infinite GP (`|r|<1`); annual simple/compound interest and present value; union/intersection/difference of two `{…}` sets; work-together (two hour-times); two-part `%` mixture; `twice as many` + together + one total; unit rate; three-number direct/inverse proportion; rounding to decimal places or sig figs | `arithmetic` |
+| Trig (evaluate / equations) | `sin(30°)` etc. Equations like `sin(x)=1/2` return every real periodic branch with an integer parameter. Unsupported explicit domains and unresolved solution sets stay on the model path. Identities (`show that` / `prove that` / `identity`) certify only when lhs−rhs is identically 0. AAA triangles use law of sines with explicitly relative lengths; physical area/perimeter needs a side length. | `trig`, `equation`, `triangle_sides`, calculus `identity` |
+| Coordinate geometry | Distance, midpoint, slope; line through two points; distance from a point to `ax+by+c=0` | `coord` |
+| Vectors | Magnitude, unit vector, angle, projection, dot, cross | `vector` |
 | Physics (narrow) | 1D gravity kinematics, projectile range/max height (vacuum formula when no height; quadratic time-of-flight when `h0` is given), scalar F=ma, kinetic/potential energy, work, power, momentum/impulse/1D collisions (collision type must be stated), friction/normal force/incline acceleration (needs a coefficient or an explicit `frictionless`), circular motion (centripetal force/acceleration, orbital period), springs/SHM (Hooke's law, stored energy, period + displacement graph), circuits (Ohm's law all three ways, electrical power, series/parallel resistance), torque/moment balance | `kinematics`, `projectile`, `force`, `energy`, `momentum`, `friction`, `circular`, `spring`, `circuit`, `torque`; trajectory `graph` fences for kinematics/projectile and the SHM period. Gate = union of those extractor cues. `moon`/`mars` are whole tokens. Unlabeled lengths are not launch height. Complete supported literal requests use `services/physics/direct.py`; other physics phrasing retains the model path. |
-| Linear algebra | 2×2–4×4 det and inverse | `matrix` |
-| Calc II (thin) | Taylor / Maclaurin, partials, first-order `dsolve`, 2nd/3rd derivative. Polar/parametric/double integrals stay LLM | `calculus` |
-| Probability | Binomial PMF, expected value of a list | `probability` |
-| Complex / units | Simplify `a+bi`; Pint unit convert (SI case-sensitive symbols) | `complex`, `unit` |
-| Graphs | y=f(x), two curves, vertical line, point, axis-aligned ellipse | `graph` / `graph_pair` |
+| Linear algebra | 2×2–4×4 det, inverse, multiply, add, transpose, rref, eigenvalues (`[[…]]` bracket notation only) | `matrix` |
+| Calc II (thin) | Taylor / Maclaurin, partials, gradient/div/curl of an explicit formula, directional derivative, linear approximation, average value, implicit `dy/dx`, first-order `dsolve`, 2nd/3rd derivative, double/triple integrals over named axis-aligned boxes. Written proofs stay LLM | `calculus` |
+| Probability | Binomial / geometric / Poisson PMF, complement, Bayes with three probabilities, expected value of a list | `probability` |
+| Complex / units | Simplify `a+bi`; modulus / argument / conjugate / polar form; Pint unit convert (SI case-sensitive symbols) | `complex`, `unit` |
+| Graphs | y=f(x), two curves, vertical line, point, axis-aligned ellipse, polar `r=f(θ)`, parametric `x(t), y(t)` | `graph` / `graph_pair` |
 | Precalc / Calc I | simplify, factor, expand, d/dx, ∫, definite ∫, limits, series sum, Newton | `calculus`, `limit`, `series`, `numerical_method` |
-| Stats (descriptive) | mean, median, mode, variance, stdev | `statistics` |
-| Discrete (intro) | n!, nCr, nPr | `combinatorics` |
+| Stats (descriptive) | mean, median, mode, variance, stdev, range, quartiles, IQR, percentile | `statistics` |
+| Discrete (intro) | n!, nCr, nPr; gcd/lcm/primes/mod; modular inverse, totient, two-congruence CRT | `combinatorics`, `number_theory` |
 
 **Closed physics replies:** `services/physics/direct.py` matches complete literal requests for a drop from rest (time to ground, velocity/speed/height at a stated time, or free-fall acceleration), a level-ground projectile's range/maximum height with a launch angle strictly between 0° and 90°, scalar F=ma with two known quantities, kinetic/potential energy, work, power, and average speed. It compares the requested operation, values, and units with a snapshot of the exact verified intent, without solving again. The answer retains the solver's precision and any trajectory. Physics inputs convert to SI; average speed retains the supplied distance/time unit pairing. Unit-symbol case and signed values are preserved; signed free-fall velocity/acceleration explicitly state that upward is positive. Explicit gravity is supported in the closed gravity templates; otherwise the solver uses 9.81 m/s². Extra conditions, teaching requests, images, and unsupported phrasing retain the model path.
 
@@ -101,13 +101,12 @@ flowchart TB
 
 ### School-homework gaps (unverified LLM)
 
-Still not a verified kind (the model may answer; it must **not** claim a verified result):
+Still not a verified kind (the model may answer; it must **not** claim a verified result). Closed formula templates on existing kinds are verified. Concept-only nodes (counting objects, axioms, “meaning of a fraction”) are not a solver kind.
 
-1. **Trig identities** — remain LLM-only. **Angle-only triangles** (AAA summing to 180°) are verified via the law of sines with explicit `relative_lengths` provenance. Their diagrams omit a physical area; a measured side is required to determine area or perimeter. SSS still uses law of cosines for angles-from-sides.
-2. **Polar / parametric curves** (except axis-aligned ellipse) and **double integrals**.
-3. **Linear algebra** beyond 4×4 det / inverse (no multiply / rref / eigen; no general NL matrix parsing).
-4. **Unit-symbol casing** — Pint already covers energy/force/pressure/etc. Symbols that need uppercase (`J`, `N`, `Pa`) must be passed through with original case (lowercasing before lookup used to drop them). `fl-oz` aliases to Pint `fluid_ounce`.
-5. **Physics beyond the verified templates** — friction, tension, normal-force systems, momentum/collisions, rotation, circuits, waves, thermodynamics, relativity, coupled ODEs, and free-body diagrams remain LLM-only.
+1. **Open-ended word problems** (age puzzles, leftover quantities, stories that are not a closed template) stay LLM-only.
+2. **Written proofs** — an identity equality is not a proof. Induction, contradiction, and prose proofs stay unverified. **Angle-only triangles** (AAA summing to 180°) are verified via the law of sines with explicit `relative_lengths` provenance. Their diagrams omit a physical area; a measured side is required to determine area or perimeter. SSS still uses law of cosines for angles-from-sides.
+3. **Unit-symbol casing** — Pint already covers energy/force/pressure/etc. Symbols that need uppercase (`J`, `N`, `Pa`) must be passed through with original case (lowercasing before lookup used to drop them). `fl-oz` aliases to Pint `fluid_ounce`.
+4. **Physics beyond the verified templates** — remains a peer subject in `services/physics/`. Extra conditions, waves, thermodynamics, relativity, and coupled ODEs stay LLM-only.
 
 New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math/tools` is a package (`extract.py` registry, `block/` builders, `school.py` extra kinds) — do not add a second kind table.
 

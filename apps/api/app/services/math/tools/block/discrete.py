@@ -29,6 +29,18 @@ def _verified_block_calculus(
     extended = apply_calculus_extension(intent, settings, lines)
     if extended is not None:
         return extended
+    if intent.school_op in {
+        "average_value",
+        "linear_approx",
+        "gradient",
+        "directional",
+        "divergence",
+        "curl",
+        "implicit",
+    }:
+        return None
+    if intent.school_op == "identity":
+        return None
     if intent.operation == "simplify":
         out = math_solve.simplify_expression(intent.expr, intent.variable)
     elif intent.operation == "differentiate":
@@ -36,7 +48,42 @@ def _verified_block_calculus(
             intent.expr, intent.variable, intent.derivative_order
         )
     elif intent.operation == "integrate":
-        if intent.integral_lower is not None and intent.integral_upper is not None:
+        if (
+            intent.integral_lower is not None
+            and intent.integral_upper is not None
+            and intent.integral_lower2 is not None
+            and intent.integral_upper2 is not None
+            and intent.integral_lower3 is not None
+            and intent.integral_upper3 is not None
+        ):
+            out = math_solve.integrate_triple(
+                intent.expr,
+                intent.variable,
+                intent.integral_lower,
+                intent.integral_upper,
+                intent.variable2 or "y",
+                intent.integral_lower2,
+                intent.integral_upper2,
+                intent.variable3 or "z",
+                intent.integral_lower3,
+                intent.integral_upper3,
+            )
+        elif (
+            intent.integral_lower is not None
+            and intent.integral_upper is not None
+            and intent.integral_lower2 is not None
+            and intent.integral_upper2 is not None
+        ):
+            out = math_solve.integrate_double(
+                intent.expr,
+                intent.variable,
+                intent.integral_lower,
+                intent.integral_upper,
+                intent.variable2 or "y",
+                intent.integral_lower2,
+                intent.integral_upper2,
+            )
+        elif intent.integral_lower is not None and intent.integral_upper is not None:
             out = math_solve.integrate_definite(
                 intent.expr,
                 intent.variable,
@@ -159,6 +206,19 @@ def _verified_block_statistics(
         answer = f"{result.variance_population:g}"
     elif intent.stats_op == "sample_variance":
         answer = f"{result.variance_sample:g}" if result.variance_sample is not None else "n/a"
+    elif intent.stats_op == "range":
+        answer = result.labels["range"]
+    elif intent.stats_op in {"iqr", "quartiles", "percentile"}:
+        from app.services.math import formulas as math_formulas
+
+        if intent.stats_op == "iqr":
+            answer = math_formulas.interquartile_range(intent.stats_numbers)
+        elif intent.stats_op == "quartiles":
+            answer = math_formulas.quartiles(intent.stats_numbers)
+        elif intent.combo_n is None:
+            return None
+        else:
+            answer = math_formulas.percentile(intent.stats_numbers, intent.combo_n)
     else:
         answer = result.labels["mean"]
     return _finish_with_answer(
@@ -200,6 +260,15 @@ def _verified_block_combinatorics(
 def _verified_block_number_theory(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
+    if intent.numtheory_op == "crt":
+        if not intent.vec_a or len(intent.vec_a) != 4:
+            return None
+        from app.services.math.formulas import chinese_remainder
+
+        a, m, b, n = (int(value) for value in intent.vec_a)
+        answer = chinese_remainder(a, m, b, n)
+        lines.append(f"x \\equiv {answer} \\pmod{{{int(intent.vec_a[1] * intent.vec_a[3])}}}")
+        return _finish_with_answer(lines, answer)
     if intent.numtheory_op is None or intent.numtheory_a is None:
         return None
     result = math_solve.compute_number_theory(
@@ -221,7 +290,9 @@ def _verified_block_matrix(
     if intent.matrix_op is None or not intent.matrix_rows:
         return None
     result = math_solve.compute_matrix(
-        MatrixInput(operation=intent.matrix_op, rows=intent.matrix_rows)
+        MatrixInput(
+            operation=intent.matrix_op, rows=intent.matrix_rows, rows_b=intent.matrix_rows_b
+        )
     )
     lines.extend(result.steps)
     if result.operation == "inverse" and result.inverse_latex:

@@ -129,6 +129,50 @@ class TestComputeMatrix:
         with pytest.raises(ValueError):
             MatrixInput(operation="determinant", rows=[[1, 2, 3], [4, 5, 6]])
 
+    def test_multiply_two_matrices(self):
+        result = math_solve.compute_matrix(
+            MatrixInput(
+                operation="multiply",
+                rows=[[1, 2], [3, 4]],
+                rows_b=[[0, 1], [1, 0]],
+            )
+        )
+        assert result.result_latex is not None
+        assert "2" in result.result_latex and "4" in result.result_latex
+
+    def test_rref_identity(self):
+        result = math_solve.compute_matrix(MatrixInput(operation="rref", rows=[[1, 2], [3, 4]]))
+        assert result.result_latex is not None
+        assert "1" in result.result_latex
+
+    def test_eigenvalues_diagonal(self):
+        result = math_solve.compute_matrix(
+            MatrixInput(operation="eigenvalues", rows=[[2, 0], [0, 3]])
+        )
+        assert result.result_latex == "2, 3"
+
+    def test_rref_allows_rectangular(self):
+        result = math_solve.compute_matrix(
+            MatrixInput(operation="rref", rows=[[1, 2, 3], [4, 5, 6]])
+        )
+        assert result.result_latex is not None
+
+    def test_add_and_transpose(self):
+        added = math_solve.compute_matrix(
+            MatrixInput(
+                operation="add",
+                rows=[[1, 2], [3, 4]],
+                rows_b=[[0, 1], [1, 0]],
+            )
+        )
+        assert added.result_latex is not None
+        assert "1" in added.result_latex and "4" in added.result_latex
+        transposed = math_solve.compute_matrix(
+            MatrixInput(operation="transpose", rows=[[1, 2], [3, 4]])
+        )
+        assert transposed.result_latex is not None
+        assert "3" in transposed.result_latex
+
 
 class TestMathTextMatchSignals:
     def test_stats_signal_requires_numbers_not_just_keyword(self):
@@ -163,6 +207,8 @@ class TestMathTextMatchSignals:
             ("is 97 prime", ("is_prime", 97, None)),
             ("is 91 a prime number", ("is_prime", 91, None)),
             ("17 mod 5", ("mod", 17, 5)),
+            ("modular inverse of 3 mod 11", ("mod_inverse", 3, 11)),
+            ("totient of 10", ("totient", 10, None)),
         ],
     )
     def test_number_theory_signal(self, text, expected):

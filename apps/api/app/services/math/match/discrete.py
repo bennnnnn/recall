@@ -14,6 +14,12 @@ from app.services.math.match.types import CombinatoricsOp, MatrixOp, NumberTheor
 # "sample standard deviation" is not swallowed by the plain "standard
 # deviation" entry (which defaults to the population statistic).
 _STATS_WORDS: tuple[tuple[str, StatsOp], ...] = (
+    ("interquartile range", "iqr"),
+    ("quartiles", "quartiles"),
+    ("quartile", "quartiles"),
+    ("percentile", "percentile"),
+    ("iqr", "iqr"),
+    ("range", "range"),
     ("sample standard deviation", "sample_stdev"),
     ("sample std dev", "sample_stdev"),
     ("sample stdev", "sample_stdev"),
@@ -230,6 +236,33 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
             if rest.startswith("prime") or rest.startswith("a prime"):
                 return "is_prime", after[0], None
         idx = lower.find("is ", idx + 1)
+    if "[[" not in text and "inverse" in lower and (" mod " in lower or " modulo " in lower):
+        idx = lower.find("inverse")
+        a_hit = _digits_immediately_after(text, idx + len("inverse"))
+        if a_hit is None:
+            of_at = lower.find(" of ", idx)
+            if of_at != -1:
+                a_hit = _digits_immediately_after(text, of_at + len(" of "))
+        mod_at = lower.find(" mod ", idx)
+        if mod_at == -1:
+            mod_at = lower.find(" modulo ", idx)
+            width = len(" modulo ")
+        else:
+            width = len(" mod ")
+        b_hit = _digits_immediately_after(text, mod_at + width) if mod_at != -1 else None
+        if a_hit is not None and b_hit is not None:
+            return "mod_inverse", a_hit[0], b_hit[0]
+    for prefix in ("euler totient of ", "totient of "):
+        idx = lower.find(prefix)
+        if idx != -1:
+            after = _digits_immediately_after(text, idx + len(prefix))
+            if after is not None:
+                return "totient", after[0], None
+    phi_at = lower.find("phi(")
+    if phi_at != -1:
+        after = _digits_immediately_after(text, phi_at + 4)
+        if after is not None:
+            return "totient", after[0], None
     idx = lower.find(" mod ")
     if idx != -1:
         a = _digits_immediately_before(text, idx)
@@ -239,34 +272,114 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
     return None
 
 
+def crt_signal(text: str) -> tuple[int, int, int, int] | None:
+    lower = text.lower()
+    if "chinese remainder" not in lower and word_index(lower, "crt") == -1:
+        return None
+    pairs: list[tuple[int, int]] = []
+    start = 0
+    while True:
+        idx = lower.find(" mod ", start)
+        if idx == -1:
+            break
+        a = _digits_immediately_before(text, idx)
+        after = _digits_immediately_after(text, idx + len(" mod "))
+        if a is None or after is None:
+            return None
+        pairs.append((a, after[0]))
+        start = idx + 1
+    if len(pairs) != 2:
+        return None
+    return pairs[0][0], pairs[0][1], pairs[1][0], pairs[1][1]
+
+
+def _rows_from_brackets(body: str) -> list[list[float]] | None:
+    inner = body.strip()
+    if not inner.startswith("[[") or not inner.endswith("]]"):
+        return None
+    core = inner[1:-1]
+    rows: list[list[float]] = []
+    for row_text in core.split("],["):
+        cells = [cell.strip() for cell in row_text.strip("[]").split(",") if cell.strip()]
+        if not cells:
+            return None
+        try:
+            rows.append([float(cell) for cell in cells])
+        except ValueError:
+            return None
+    if len(rows) < 2 or len(rows) > 4:
+        return None
+    width = len(rows[0])
+    if width < 1 or width > 4 or any(len(row) != width for row in rows):
+        return None
+    return rows
+
+
+def bracket_matrices(text: str, limit: int = 2) -> list[list[list[float]]] | None:
+    """Parse up to ``limit`` explicit ``[[...],[...]]`` matrices, left to right."""
+    found: list[list[list[float]]] = []
+    search = 0
+    while len(found) < limit:
+        start = text.find("[[", search)
+        if start == -1:
+            break
+        end = text.find("]]", start)
+        if end == -1:
+            return None
+        rows = _rows_from_brackets(text[start : end + 2])
+        if rows is None:
+            return None
+        found.append(rows)
+        search = end + 2
+    return found or None
+
+
+def _matrix_op_from_text(text: str) -> MatrixOp | None:
+    lower = text.lower()
+    if "determinant" in lower or "det(" in lower.replace(" ", ""):
+        return "determinant"
+    if "inverse" in lower:
+        return "inverse"
+    if "rref" in lower or "row echelon" in lower:
+        return "rref"
+    if "eigen" in lower:
+        return "eigenvalues"
+    if "transpose" in lower:
+        return "transpose"
+    if word_index(lower, "add") != -1 or word_index(lower, "plus") != -1:
+        return "add"
+    if (
+        word_index(lower, "multiply") != -1
+        or "product of" in lower
+        or word_index(lower, "times") != -1
+    ):
+        return "multiply"
+    first = text.find("]]")
+    second = text.find("[[", first + 2) if first != -1 else -1
+    if first != -1 and second != -1:
+        mid = text[first + 2 : second].strip()
+        if mid in {"*", "\u00d7"}:
+            return "multiply"
+        if mid == "+":
+            return "add"
+    return None
+
+
 def matrix_signal(text: str) -> tuple[MatrixOp, list[list[float]]] | None:
     """ "determinant of [[1,2],[3,4]]" / "inverse of [[2,0],[1,3]]" -> (op,
     rows). Only explicit [[...],[...]] bracket notation is recognized — a
     best-effort structural match, not general NL parsing."""
-    lower = text.lower()
-    op: MatrixOp
-    if "determinant" in lower or "det(" in lower.replace(" ", ""):
-        op = "determinant"
-    elif "inverse" in lower:
-        op = "inverse"
-    else:
+    op = _matrix_op_from_text(text)
+    if op is None:
         return None
-    start = text.find("[[")
-    if start == -1:
+    matrices = bracket_matrices(text)
+    if not matrices:
         return None
-    end = text.find("]]", start)
-    if end == -1:
+    rows = matrices[0]
+    if op in {"determinant", "inverse", "eigenvalues"} and any(
+        len(row) != len(rows) for row in rows
+    ):
         return None
-    body = text[start : end + 2].strip("[]")
-    rows: list[list[float]] = []
-    for row_text in body.split("],["):
-        cells = [c.strip() for c in row_text.strip("[]").split(",") if c.strip()]
-        if not cells:
-            return None
-        try:
-            rows.append([float(c) for c in cells])
-        except ValueError:
-            return None
-    if len(rows) < 2 or len(rows) > 4 or any(len(r) != len(rows) for r in rows):
+    if op in {"multiply", "add"} and len(matrices) != 2:
         return None
     return op, rows

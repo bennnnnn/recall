@@ -64,6 +64,11 @@ class TestNeedsSymbolic:
             "100/5/2",
             "y'' of y = x^3 - 3x",
             "f(x) = x^3 - 3x, find f''(x)",
+            "show that sin(x)**2+cos(x)**2=1",
+            "graph r=1+cos(theta)",
+            "double integral of x*y from x=0 to 1 and y=0 to 1",
+            "multiply [[1,2],[3,4]] and [[0,1],[1,0]]",
+            "mix 3 liters of 10% with 5 liters of 20%",
         ],
     )
     def test_needs_symbolic_math_triggers(self, text):
@@ -521,6 +526,8 @@ class TestNumberTheorySignal:
             ("is 17 prime", "is_prime", 17, None),
             ("is 91 a prime number", "is_prime", 91, None),
             ("10 mod 3", "mod", 10, 3),
+            ("modular inverse of 3 mod 11", "mod_inverse", 3, 11),
+            ("totient of 10", "totient", 10, None),
         ],
     )
     def test_number_theory_signal(self, text, expected_op, expected_a, expected_b):
@@ -545,6 +552,20 @@ class TestMatrixSignal:
 
     def test_matrix_signal_rejects_non_square(self):
         assert mtm.matrix_signal("determinant of [[1,2,3],[4,5,6]]") is None
+
+    def test_matrix_signal_multiply_and_rref(self):
+        op, rows = mtm.matrix_signal("multiply [[1,2],[3,4]] and [[0,1],[1,0]]")
+        assert op == "multiply"
+        assert rows == [[1.0, 2.0], [3.0, 4.0]]
+        op, rows = mtm.matrix_signal("rref [[1,2,3],[4,5,6]]")
+        assert op == "rref"
+        assert rows == [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+        op, rows = mtm.matrix_signal("eigenvalues of [[2,0],[0,3]]")
+        assert op == "eigenvalues"
+        op, rows = mtm.matrix_signal("add [[1,2],[3,4]] and [[0,1],[1,0]]")
+        assert op == "add"
+        op, rows = mtm.matrix_signal("transpose [[1,2],[3,4]]")
+        assert op == "transpose"
 
 
 class TestParseLimit:

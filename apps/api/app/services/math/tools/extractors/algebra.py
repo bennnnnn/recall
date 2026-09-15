@@ -260,12 +260,25 @@ def _extract_numerical_method_intent(cleaned: str) -> MathIntent | None:
 
 def _extract_matrix_intent(cleaned: str) -> MathIntent | None:
     from app.services.math import match as mtm
+    from app.services.math.match.discrete import bracket_matrices
 
     signal = mtm.matrix_signal(cleaned)
     if signal is None:
         return None
     op, rows = signal
-    return MathIntent(kind="matrix", matrix_op=op, matrix_rows=rows, operation="solve")
+    rows_b = None
+    if op in {"multiply", "add"}:
+        matrices = bracket_matrices(cleaned)
+        if matrices is None or len(matrices) != 2:
+            return None
+        rows, rows_b = matrices[0], matrices[1]
+    return MathIntent(
+        kind="matrix",
+        matrix_op=op,
+        matrix_rows=rows,
+        matrix_rows_b=rows_b,
+        operation="solve",
+    )
 
 
 def _primary_equation_pair(eq_pairs: list[tuple[str, str]]) -> tuple[str, str]:

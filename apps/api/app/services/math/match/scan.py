@@ -97,6 +97,7 @@ MATH_MULTI_LETTER = frozenset(
         "gcd",
         "lcm",
         "mod",
+        "theta",
     }
 )
 VIZ_COMMANDS = frozenset(

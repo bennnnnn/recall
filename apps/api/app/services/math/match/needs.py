@@ -221,10 +221,183 @@ def supported_physics_cue(cleaned: str) -> bool:
     return has_supported_physics_cue(cleaned.lower())
 
 
+def _has_ordinal_term_cue(lower: str) -> bool:
+    i = 0
+    n = len(lower)
+    while i < n:
+        if lower[i].isdigit():
+            if i > 0 and lower[i - 1] == ".":
+                i += 1
+                continue
+            j = i
+            while j < n and lower[j].isdigit():
+                j += 1
+            if lower[j : j + 2] in {"st", "nd", "rd", "th"}:
+                k = j + 2
+                while k < n and lower[k].isspace():
+                    k += 1
+                if lower.startswith("term", k):
+                    return True
+            i = j
+        else:
+            i += 1
+    return False
+
+
 def school_homework_cue(cleaned: str) -> bool:
     """Bare arithmetic / percent / coord / vectors / convert / binomial / ODE."""
     lower = cleaned.lower()
     if "% of " in lower and any(ch.isdigit() for ch in cleaned):
+        return True
+    has_digit = any(ch.isdigit() for ch in cleaned)
+    if (
+        has_digit
+        and "%" in cleaned
+        and any(
+            word_index(lower, word) != -1
+            for word in ("increase", "increased", "decrease", "decreased")
+        )
+    ):
+        return True
+    if has_digit and ("what percent" in lower or "what percentage" in lower):
+        return True
+    if (
+        has_digit
+        and "ratio" in lower
+        and ":" in cleaned
+        and any(word_index(lower, word) != -1 for word in ("split", "share", "divide"))
+    ):
+        return True
+    if has_digit and _has_ordinal_term_cue(lower):
+        return True
+    if "sum of the first" in lower or "sum of first" in lower:
+        if word_index(lower, "even") != -1 or word_index(lower, "odd") != -1:
+            return True
+        if "," in cleaned:
+            return True
+    if (
+        has_digit
+        and "%" in cleaned
+        and (
+            "compound interest" in lower or "simple interest" in lower or "compound amount" in lower
+        )
+    ):
+        return True
+    if "{" in cleaned and any(
+        word_index(lower, word) != -1 for word in ("union", "intersection", "difference")
+    ):
+        return True
+    if has_equation(cleaned) and (
+        "identity" in lower
+        or "show that" in lower
+        or "prove that" in lower
+        or "verify that" in lower
+    ):
+        return True
+    compact = lower.replace(" ", "")
+    polar_plot = any(
+        word_index(lower, word) != -1 for word in ("graph", "plot", "polar", "sketch", "draw")
+    )
+    if "r=" in compact and ("polar" in lower or "theta" in lower or "θ" in cleaned) and polar_plot:
+        return True
+    if (
+        "x=" in compact
+        and "y=" in compact
+        and (
+            "parametric" in lower
+            or word_index(lower, "graph") != -1
+            or word_index(lower, "plot") != -1
+        )
+    ):
+        return True
+    if word_index(lower, "together") != -1 and "hour" in lower and has_digit:
+        return True
+    if (
+        has_digit
+        and cleaned.count("%") == 2
+        and "% of " not in lower
+        and any(word_index(lower, word) != -1 for word in ("mix", "mixed", "mixture"))
+    ):
+        return True
+    if (
+        has_digit
+        and ("twice as many" in lower or "2 times as many" in lower)
+        and (word_index(lower, "together") != -1)
+    ):
+        return True
+    if (
+        has_digit
+        and "%" in cleaned
+        and (
+            word_index(lower, "tax") != -1
+            or word_index(lower, "tip") != -1
+            or word_index(lower, "discount") != -1
+            or word_index(lower, "off") != -1
+            or word_index(lower, "markup") != -1
+        )
+    ):
+        return True
+    if has_digit and ("percent change from" in lower or "percentage change from" in lower):
+        return True
+    if has_digit and ("direct proportion" in lower or "inverse proportion" in lower):
+        return True
+    if has_digit and word_index(lower, "cost") != -1 and word_index(lower, "if") != -1:
+        return True
+    if (
+        has_digit
+        and word_index(lower, "round") != -1
+        and ("decimal" in lower or "significant" in lower)
+    ):
+        return True
+    if "present value" in lower and has_digit:
+        return True
+    if ("infinity" in lower or "infinite" in lower) and ("sum" in lower or "series" in lower):
+        return True
+    if "equation of" in lower and "line" in lower and "(" in cleaned:
+        return True
+    if word_index(lower, "distance") != -1 and "(" in cleaned and "=" in cleaned:
+        return True
+    if (
+        any(w in lower for w in ("unit vector", "projection of", "angle between"))
+        and "<" in cleaned
+    ):
+        return True
+    if "geometric" in lower and "k=" in lower.replace(" ", ""):
+        return True
+    if "poisson" in lower:
+        return True
+    if word_index(lower, "bayes") != -1 or word_index(lower, "complement") != -1:
+        return True
+    if any(
+        word_index(lower, word) != -1
+        for word in ("quartiles", "percentile", "iqr", "interquartile")
+    ):
+        return True
+    if "range of" in lower and "," in cleaned:
+        return True
+    if "modular inverse" in lower or ("totient" in lower and has_digit):
+        return True
+    if "chinese remainder" in lower or word_index(lower, "crt") != -1:
+        return True
+    if "transpose" in lower and "[[" in cleaned:
+        return True
+    if word_index(lower, "add") != -1 and "[[" in cleaned:
+        return True
+    if any(
+        word in lower
+        for word in (
+            "gradient",
+            "directional derivative",
+            "divergence",
+            "curl",
+            "average value",
+            "linear approximation",
+            "implicit",
+            "triple integral",
+        )
+    ):
+        return True
+    if "area" in lower and "triangle" in lower and "angle" in lower and "sides" in lower:
         return True
     if "average speed" in lower or "average velocity" in lower:
         from app.services.math.tools.school import _extract_average_speed_intent
