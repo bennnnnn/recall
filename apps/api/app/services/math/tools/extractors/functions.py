@@ -56,10 +56,7 @@ def _extract_function_analysis_intent(cleaned: str) -> MathIntent | None:
 
     compact = re.sub(r"\s+", "", lower)
     composition_requested = (
-        "compose" in lower
-        or "composition" in lower
-        or "f(g(" in compact
-        or "g(f(" in compact
+        "compose" in lower or "composition" in lower or "f(g(" in compact or "g(f(" in compact
     )
     if composition_requested and len(defs) >= 2:
         if "g(f(" in compact:
