@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 # Length units for drop height — longer spellings before ``m`` so ``miles``
 # is not read as metres. ``m`` still has a trailing-boundary lookahead.
+# Scientific notation is how astronomy states a mass, and nothing here read it:
+# "6e24 kg" matched as *24 kg*, which answered a planet's surface gravity as
+# 0.00 m/s^2 rather than failing. Shared by every value scanner below.
+_NUMBER = r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+
 _LENGTH_UNIT_PATTERN = (
     r"kilometers?|km|centimeters?|cm|millimeters?|mm|"
     r"miles?|mi|meters?|metres?|m|feet|ft|yards?|yd|inches?|in"
@@ -36,7 +41,7 @@ _G_DEFAULT = 9.81
 # The unit is matched loosely — we validate via Pint in the solver.
 # Trailing boundary so ``m`` cannot bind inside ``miles`` / ``min``.
 _VALUE_UNIT_RE = re.compile(
-    r"(-?\d+(?:\.\d+)?)\s*"
+    rf"({_NUMBER})\s*"
     r"(m/s\^?2|m/s2|m/s|m\^?2/s\^?2|km/h|mph|miles\s+per\s+hour|cm/s|mm/s|"
     r"kilometers?|centimeters?|millimeters?|"
     r"miles?|minutes?|milliseconds?|seconds?|hours?|"
@@ -152,7 +157,7 @@ def _find_value_with_specific_unit(
     """
     matches = list(
         re.finditer(
-            rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
@@ -901,7 +906,7 @@ def _ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     return [
         (float(m.group(1)), m.group(2))
         for m in re.finditer(
-            rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
@@ -917,7 +922,7 @@ def _positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, s
     return [
         (m.start(), float(m.group(1)), m.group(2))
         for m in re.finditer(
-            rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
@@ -1547,6 +1552,406 @@ def _extract_thermal_intent(cleaned: str) -> MathIntent | None:
         physics_units={"m": mass[1] or "kg", "c_heat": "J/kg/K", "delta_temp": "K"},
         operation="solve",
     )
+
+
+# ---------------------------------------------------------------------------
+# Gravitation
+#   F = G M m / r^2,  v_orb = sqrt(GM/r),  v_esc = sqrt(2GM/R),  g = GM/R^2
+# ---------------------------------------------------------------------------
+
+# "gravity" alone is the gravity of a situation, and "mass" is a mass email, so
+# neither is a cue. Every entry here is unambiguous gravitation vocabulary.
+_GRAVITATION_CUES = (
+    "gravitational force",
+    "gravitational constant",
+    "gravitational field",
+    "orbital velocity",
+    "orbital speed",
+    "escape velocity",
+    "escape speed",
+    "surface gravity",
+    "newton's law of gravitation",
+    "law of universal gravitation",
+)
+_GRAVITATION_CUE_RES: tuple[re.Pattern[str], ...] = (
+    # "the force between two 1000 kg masses 10 m apart" names no topic word.
+    re.compile(r"\bforce\s+between\b.{0,80}?\d\s*(?:kg|tonnes?|tons?)\b", re.IGNORECASE),
+    re.compile(r"\bg\s+on\s+a\s+planet\b", re.IGNORECASE),
+)
+
+# Earth and the Moon are not in Pint, and a question that says "from earth"
+# supplies neither mass nor radius. Resolving the body here rather than in the
+# solver keeps the substitution visible in the answer.
+#   IAU / CODATA nominal values.
+_BODY_PROPERTIES: dict[str, tuple[float, float]] = {
+    "earth": (5.9722e24, 6.371e6),
+    "moon": (7.342e22, 1.7374e6),
+    "mars": (6.4171e23, 3.3895e6),
+    "jupiter": (1.8982e27, 6.9911e7),
+    "sun": (1.9885e30, 6.957e8),
+}
+
+
+# "two 1000 kg masses", "a pair of 5 kg spheres" - one number, two bodies.
+_IDENTICAL_PAIR_RE = re.compile(
+    r"\b(?:two|a\s+pair\s+of|both)\b[^.?!]{0,40}?"
+    r"\b(?:masses|spheres|balls|objects|bodies|blocks|stars|planets)\b",
+    re.IGNORECASE,
+)
+
+
+def _named_body(lower: str) -> tuple[float, float] | None:
+    for name, properties in _BODY_PROPERTIES.items():
+        if word_index(lower, name) != -1:
+            return properties
+    return None
+
+
+def _extract_gravitation_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _GRAVITATION_CUES, _GRAVITATION_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    body = _named_body(lower)
+    masses = _ordered_values(cleaned, r"kg|tonnes?|tons?")
+    radius = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    )
+    altitude = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("above", "altitude", "height"), require_keyword=True
+    )
+    separation = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("apart", "separation", "between", "distance")
+    )
+
+    if "escape" in lower:
+        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        if planet_mass is None or planet_radius is None:
+            return None
+        return MathIntent(
+            kind="gravitation",
+            physics_op="escape_velocity",
+            physics_params={"M": planet_mass, "radius_body": planet_radius},
+            physics_units={"M": "kg", "radius_body": "m"},
+            operation="solve",
+        )
+
+    if "orbital" in lower:
+        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        if planet_mass is None or planet_radius is None:
+            return None
+        # An orbit is measured from the centre, so an altitude adds to the
+        # radius - but the two are rarely in the same unit ("400 km above the
+        # earth"), so they are passed separately and added after `_to_si`
+        # rather than summed here in whatever units they arrived in.
+        params: dict[str, float] = {"M": planet_mass, "radius_body": planet_radius}
+        units: dict[str, str] = {"M": "kg", "radius_body": "m"}
+        if altitude is not None:
+            params["altitude"] = altitude[0]
+            units["altitude"] = altitude[1] or "m"
+        return MathIntent(
+            kind="gravitation",
+            physics_op="orbital_velocity",
+            physics_params=params,
+            physics_units=units,
+            operation="solve",
+        )
+
+    if "surface gravity" in lower or "gravitational field" in lower or "g on a planet" in lower:
+        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        if planet_mass is None or planet_radius is None:
+            return None
+        return MathIntent(
+            kind="gravitation",
+            physics_op="surface_gravity",
+            physics_params={"M": planet_mass, "radius_body": planet_radius},
+            physics_units={"M": "kg", "radius_body": "m"},
+            operation="solve",
+        )
+
+    # F = G M m / r^2 between two stated masses. "two 1000 kg masses" gives one
+    # number for both bodies, which is the commonest wording of this question.
+    if len(masses) == 1 and separation is not None and _IDENTICAL_PAIR_RE.search(cleaned):
+        masses = [masses[0], masses[0]]
+    if len(masses) >= 2 and separation is not None:
+        return MathIntent(
+            kind="gravitation",
+            physics_op="gravitational_force",
+            physics_params={"m1": masses[0][0], "m2": masses[1][0], "r": separation[0]},
+            physics_units={
+                "m1": masses[0][1] or "kg",
+                "m2": masses[1][1] or "kg",
+                "r": separation[1] or "m",
+            },
+            operation="solve",
+        )
+    return None
+
+
+def _resolve_body(
+    body: tuple[float, float] | None,
+    masses: list[tuple[float, str]],
+    radius: tuple[float, str] | None,
+) -> tuple[float | None, float | None]:
+    """A named body, or a stated mass and radius - never a mix of guesses.
+
+    A question that *describes* a planet without naming it and supplies only
+    one of the two is refused: silently finishing it with Earth's other number
+    is the same defect as the projectile default, one layer up.
+    """
+    if body is not None:
+        return body
+    if masses and radius is not None:
+        return masses[0][0], radius[0]
+    return None, None
+
+
+# ---------------------------------------------------------------------------
+# Fluids
+#   P = F/A,  P = rho g h,  upthrust = rho V g,  rho = m/V,  A1 v1 = A2 v2
+# ---------------------------------------------------------------------------
+
+# "pressure" is what deadlines apply and "flow" is what cash does, so both are
+# co-occurrence only. "upthrust" and "archimedes" are unambiguous.
+_FLUIDS_CUES = (
+    "upthrust",
+    "buoyant force",
+    "buoyancy",
+    "archimedes",
+    "hydrostatic",
+    "flow rate",
+    "pascal's principle",
+)
+_AREA_PATTERN = r"m\^?2|cm\^?2|mm\^?2|square\s+met(?:er|re)s?"
+_VOLUME_PATTERN = r"m\^?3|cm\^?3|litres?|liters?|ml"
+_DENSITY_PATTERN = r"kg/m\^?3|g/cm\^?3|kg\s+per\s+cubic\s+met(?:er|re)"
+_PRESSURE_PATTERN = r"Pa|pascals?|kPa|kilopascals?|MPa|megapascals?"
+_FLUIDS_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        rf"\bpressure\b.{{0,80}}?\d\s*(?:{_AREA_PATTERN}|{_PRESSURE_PATTERN})\b", re.IGNORECASE
+    ),
+    re.compile(
+        rf"\d\s*(?:{_AREA_PATTERN}|{_PRESSURE_PATTERN})\b.{{0,80}}?\bpressure\b", re.IGNORECASE
+    ),
+    re.compile(r"\bpressure\b.{0,80}?\bdepth\b", re.IGNORECASE),
+    re.compile(rf"\bdensity\b.{{0,80}}?\d\s*(?:{_VOLUME_PATTERN})\b", re.IGNORECASE),
+    re.compile(rf"\d\s*(?:{_DENSITY_PATTERN})\b", re.IGNORECASE),
+    re.compile(rf"\bpipe\b.{{0,80}}?\d\s*(?:{_AREA_PATTERN})\b", re.IGNORECASE),
+)
+
+# Stress is the same F/A. The materials kind owns that vocabulary and runs
+# first; refusing it here keeps the two from ever both answering.
+_STRESS_WORDS = ("stress", "strain", "young", "modulus", "tensile")
+# Depth pressure is *gauge* unless the question says otherwise, and a question
+# that says "absolute" wants atmospheric added - a different number.
+_ABSOLUTE_PRESSURE_RE = re.compile(r"\babsolute\b|\batmospheric\b", re.IGNORECASE)
+_WATER_DENSITY = 1000.0
+
+
+def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _FLUIDS_CUES, _FLUIDS_CUE_RES):
+        return None
+    if any(word in lower for word in _STRESS_WORDS):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
+    volume = _find_value_with_specific_unit(cleaned, _VOLUME_PATTERN)
+    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
+    force = _find_value_with_specific_unit(cleaned, r"N|newtons?", ("force", "weight"))
+    depth = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("depth", "deep", "below", "down"), require_keyword=True
+    )
+    density = _find_value_with_specific_unit(cleaned, _DENSITY_PATTERN)
+    speed = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
+    areas = _ordered_values(cleaned, _AREA_PATTERN)
+
+    def _fluid_density() -> float | None:
+        if density is not None:
+            return density[0]
+        if "water" in lower:
+            return _WATER_DENSITY
+        return None
+
+    # --- continuity: A1 v1 = A2 v2 --------------------------------------
+    if len(areas) >= 2 and speed:
+        if areas[1][0] == 0:
+            return None
+        return MathIntent(
+            kind="fluids",
+            physics_op="continuity_velocity",
+            physics_params={"A1": areas[0][0], "A2": areas[1][0], "v": speed[0][0]},
+            physics_units={
+                "A1": areas[0][1] or "m^2",
+                "A2": areas[1][1] or "m^2",
+                "v": speed[0][1] or "m/s",
+            },
+            operation="solve",
+        )
+
+    # --- flow rate: Q = A v ---------------------------------------------
+    if "flow" in lower and area is not None and speed:
+        return MathIntent(
+            kind="fluids",
+            physics_op="flow_rate",
+            physics_params={"area": area[0], "v": speed[0][0]},
+            physics_units={"area": area[1] or "m^2", "v": speed[0][1] or "m/s"},
+            operation="solve",
+        )
+
+    # --- upthrust: rho V g ----------------------------------------------
+    if any(word in lower for word in ("upthrust", "buoyan", "archimedes")):
+        rho = _fluid_density()
+        if volume is None or rho is None:
+            return None
+        if "submerged" not in lower and "immersed" not in lower:
+            # A floating body displaces its own weight, not its own volume.
+            # Which one is meant changes the answer, so it has to be said.
+            return None
+        return MathIntent(
+            kind="fluids",
+            physics_op="upthrust",
+            physics_params={"rho": rho, "volume": volume[0], "g": _detect_gravity(cleaned)},
+            physics_units={"rho": "kg/m^3", "volume": volume[1] or "m^3", "g": "m/s^2"},
+            operation="solve",
+        )
+
+    # --- pressure at depth: rho g h -------------------------------------
+    if depth is not None:
+        if _ABSOLUTE_PRESSURE_RE.search(cleaned):
+            return None
+        rho = _fluid_density()
+        if rho is None:
+            return None
+        return MathIntent(
+            kind="fluids",
+            physics_op="pressure_at_depth",
+            physics_params={"rho": rho, "depth": depth[0], "g": _detect_gravity(cleaned)},
+            physics_units={"rho": "kg/m^3", "depth": depth[1] or "m", "g": "m/s^2"},
+            operation="solve",
+        )
+
+    # --- density: rho = m / V -------------------------------------------
+    if "density" in lower and mass is not None and volume is not None:
+        return MathIntent(
+            kind="fluids",
+            physics_op="density",
+            physics_params={"m": mass[0], "volume": volume[0]},
+            physics_units={"m": mass[1] or "kg", "volume": volume[1] or "m^3"},
+            operation="solve",
+        )
+
+    # --- pressure from a force: P = F / A --------------------------------
+    if force is not None and area is not None:
+        return MathIntent(
+            kind="fluids",
+            physics_op="pressure_from_force",
+            physics_params={"F": force[0], "area": area[0]},
+            physics_units={"F": force[1] or "N", "area": area[1] or "m^2"},
+            operation="solve",
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Rotation
+#   omega = theta/t,  I = k m r^2,  L = I omega,  KE = 1/2 I omega^2
+# ---------------------------------------------------------------------------
+
+# P9 refused "moment of inertia" on the torque kind because it was not solved.
+# It is solved here now, and torque still refuses it - that refusal is what
+# stops *torque* claiming it, and this extractor runs afterwards to pick up the
+# fall-through.
+_ROTATION_CUES = (
+    "moment of inertia",
+    "rotational inertia",
+    "angular momentum",
+    "rotational kinetic energy",
+    "angular acceleration",
+)
+_INERTIA_PATTERN = r"kg\s*m\^?2|kg\s*\*\s*m\^?2|kilogram\s+met(?:er|re)\s+squared"
+_ROTATION_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\d\s*(?:{_INERTIA_PATTERN})", re.IGNORECASE),
+    re.compile(r"\bangular\s+(?:velocity|speed)\b.{0,80}?\d\s*(?:radians?|rad)\b", re.IGNORECASE),
+    re.compile(r"\d\s*(?:radians?|rad)\b.{0,80}?\bangular\s+(?:velocity|speed)\b", re.IGNORECASE),
+)
+
+# I = k m r^2, and k is the *shape*. A "wheel" or an "object" is not a shape,
+# and answering one with the disc constant is a confidently wrong number - so
+# the shape has to be named, and a rod has to name its axis too.
+_INERTIA_SHAPES: dict[str, tuple[float, str]] = {
+    "hoop": (1.0, "m r^2"),
+    "ring": (1.0, "m r^2"),
+    "cylindrical shell": (1.0, "m r^2"),
+    "disc": (0.5, r"\tfrac{1}{2} m r^2"),
+    "disk": (0.5, r"\tfrac{1}{2} m r^2"),
+    "solid cylinder": (0.5, r"\tfrac{1}{2} m r^2"),
+    "solid sphere": (0.4, r"\tfrac{2}{5} m r^2"),
+    "hollow sphere": (2 / 3, r"\tfrac{2}{3} m r^2"),
+    "spherical shell": (2 / 3, r"\tfrac{2}{3} m r^2"),
+}
+
+
+def _extract_rotation_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _ROTATION_CUES, _ROTATION_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    inertia = _find_value_with_specific_unit(cleaned, _INERTIA_PATTERN)
+    omega = _ANGULAR_FREQ_RE.search(cleaned)
+    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
+    radius = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    )
+
+    if "moment of inertia" in lower or "rotational inertia" in lower:
+        shape = next(
+            ((k, name) for name, (k, _) in _INERTIA_SHAPES.items() if name in lower),
+            None,
+        )
+        formula = next((tex for name, (_, tex) in _INERTIA_SHAPES.items() if name in lower), None)
+        if shape is None or formula is None or mass is None or radius is None:
+            return None
+        return MathIntent(
+            kind="rotation",
+            physics_op="moment_of_inertia",
+            physics_params={"m": mass[0], "r": radius[0], "shape_factor": shape[0]},
+            physics_units={"m": mass[1] or "kg", "r": radius[1] or "m", "shape_factor": ""},
+            operation="solve",
+        )
+
+    if inertia is not None and omega is not None:
+        op = (
+            "rotational_kinetic_energy"
+            if "kinetic energy" in lower or "rotational energy" in lower
+            else "angular_momentum"
+        )
+        return MathIntent(
+            kind="rotation",
+            physics_op=op,  # type: ignore[arg-type]
+            physics_params={"inertia": inertia[0], "omega": float(omega.group(1))},
+            physics_units={"inertia": "kg*m^2", "omega": "rad/s"},
+            operation="solve",
+        )
+
+    # omega = theta / t
+    turned = re.search(r"(-?\d+(?:\.\d+)?)\s*(?:radians?|rad)\b", cleaned, re.IGNORECASE)
+    elapsed = _find_value_with_specific_unit(cleaned, r"seconds?|secs?|sec|s|minutes?|mins?|min")
+    if turned is not None and elapsed is not None:
+        return MathIntent(
+            kind="rotation",
+            physics_op="angular_velocity",
+            physics_params={"theta": float(turned.group(1)), "t": elapsed[0]},
+            physics_units={"theta": "rad", "t": elapsed[1] or "s"},
+            operation="solve",
+        )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -2801,6 +3206,12 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_waves_intent,
     _extract_optics_intent,
     _extract_thermal_intent,
+    _extract_gravitation_intent,
+    _extract_fluids_intent,
+    # After torque, deliberately. P9 refuses "moment of inertia" there because
+    # it was not solved; that refusal is what stops *torque* claiming it, and
+    # is kept. This picks up the fall-through.
+    _extract_rotation_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
@@ -2815,6 +3226,9 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_WAVE_CUES,
             *_OPTICS_CUES,
             *_THERMAL_CUES,
+            *_GRAVITATION_CUES,
+            *_FLUIDS_CUES,
+            *_ROTATION_CUES,
             *_FRICTION_CUES,
             *_CIRCULAR_CUES,
             *_SPRING_CUES,
@@ -2835,6 +3249,9 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_CIRCULAR_CUE_RES,
     *_WAVE_CUE_RES,
     *_THERMAL_CUE_RES,
+    *_GRAVITATION_CUE_RES,
+    *_FLUIDS_CUE_RES,
+    *_ROTATION_CUE_RES,
     *_SHM_CUE_RES,
     *_PENDULUM_CUE_RES,
     *_SPRING_CUE_RES,

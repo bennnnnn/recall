@@ -111,6 +111,20 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "pres": "pascal",
     "volume": "meter ** 3",
     "moles": "mole",
+    # Round 3 gravitation. "M" beside "m" is case-only, but it is how the
+    # formula is written and the pair always appears together.
+    "M": "kilogram",
+    "radius_body": "meter",
+    "altitude": "meter",
+    # Round 3 fluids.
+    "rho": "kilogram / meter ** 3",
+    "depth": "meter",
+    "area": "meter ** 2",
+    "A1": "meter ** 2",
+    "A2": "meter ** 2",
+    # Round 3 rotation. "I" is already the ampere.
+    "inertia": "kilogram * meter ** 2",
+    "theta": "radian",
     "F1": "newton",
     "F2": "newton",
     "d1": "meter",
@@ -173,6 +187,20 @@ _UNIT_ALIASES = {
     "litre": "liter",
     "liters": "liter",
     "moles": "mole",
+    "m^2": "m**2",
+    "m2": "m**2",
+    "cm^2": "cm**2",
+    "cm2": "cm**2",
+    "mm^2": "mm**2",
+    "kg/m^3": "kg/m**3",
+    "kg/m3": "kg/m**3",
+    "g/cm^3": "g/cm**3",
+    "g/cm3": "g/cm**3",
+    "kg*m^2": "kg * m**2",
+    "kg m^2": "kg * m**2",
+    "kgm^2": "kg * m**2",
+    "rad": "radian",
+    "radians": "radian",
 }
 
 
@@ -188,6 +216,7 @@ _OFFSET_UNITS = frozenset({"degC", "degF", "celsius", "fahrenheit"})
 # CODATA, read from the unit registry rather than typed: a transposed digit in
 # a hand-written constant is a wrong answer nothing else would catch.
 _GAS_CONSTANT = 8.314462618153241
+_BIG_G = 6.67430e-11
 
 
 def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
@@ -2096,6 +2125,216 @@ def solve_thermal(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported thermal op: {op}")
 
 
+def solve_gravitation(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "gravitational_force":
+        r = p["r"]
+        if r <= 0:
+            raise MathServiceError("separation must be positive")
+        f_val = _BIG_G * p["m1"] * p["m2"] / (r * r)
+        return PhysicsResult(
+            answer=(
+                rf"F = \frac{{G m_1 m_2}}{{r^2}} = \frac{{{_BIG_G:.5g} \cdot {p['m1']:g} "
+                rf"\cdot {p['m2']:g}}}{{{_latex_num(r, square=True)}}} "
+                rf"\approx {f_val:.4g} \text{{ N}}"
+            ),
+            answer_value=f"{f_val:.4g} N",
+        )
+
+    if op == "orbital_velocity":
+        r = p["radius_body"] + p.get("altitude", 0.0)
+        if r <= 0:
+            raise MathServiceError("orbital radius must be positive")
+        v_val = math.sqrt(_BIG_G * p["M"] / r)
+        return PhysicsResult(
+            answer=(
+                rf"v = \sqrt{{\frac{{GM}}{{r}}}} = \sqrt{{\frac{{{_BIG_G:.5g} \cdot "
+                rf"{p['M']:.4g}}}{{{r:.4g}}}}} \approx {v_val:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{v_val:.2f} m/s",
+            simulation_specs=[_orbit_scene(r)],
+        )
+
+    if op == "escape_velocity":
+        radius = p["radius_body"]
+        if radius <= 0:
+            raise MathServiceError("radius must be positive")
+        v_val = math.sqrt(2 * _BIG_G * p["M"] / radius)
+        return PhysicsResult(
+            answer=(
+                rf"v_e = \sqrt{{\frac{{2GM}}{{R}}}} = \sqrt{{\frac{{2 \cdot {_BIG_G:.5g} "
+                rf"\cdot {p['M']:.4g}}}{{{radius:.4g}}}}} \approx {v_val:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{v_val:.2f} m/s",
+        )
+
+    if op == "surface_gravity":
+        radius = p["radius_body"]
+        if radius <= 0:
+            raise MathServiceError("radius must be positive")
+        g_val = _BIG_G * p["M"] / (radius * radius)
+        return PhysicsResult(
+            answer=(
+                rf"g = \frac{{GM}}{{R^2}} = \frac{{{_BIG_G:.5g} \cdot {p['M']:.4g}}}"
+                rf"{{{_latex_num(radius, square=True)}}} \approx {g_val:.2f} "
+                rf"\text{{ m/s}}^2"
+            ),
+            answer_value=f"{g_val:.2f} m/s^2",
+        )
+
+    raise MathServiceError(f"unsupported gravitation op: {op}")
+
+
+def solve_fluids(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "pressure_from_force":
+        area = p["area"]
+        if area <= 0:
+            raise MathServiceError("area must be positive")
+        pressure = p["F"] / area
+        return PhysicsResult(
+            answer=(
+                rf"P = \frac{{F}}{{A}} = \frac{{{p['F']:g}}}{{{area:g}}} "
+                rf"\approx {pressure:.2f} \text{{ Pa}}"
+            ),
+            answer_value=f"{pressure:.2f} Pa",
+        )
+
+    if op == "pressure_at_depth":
+        pressure = p["rho"] * p.get("g", 9.81) * p["depth"]
+        return PhysicsResult(
+            answer=(
+                rf"P = \rho g h = {p['rho']:g} \cdot {p.get('g', 9.81):g} \cdot "
+                rf"{p['depth']:g} \approx {pressure:.2f} \text{{ Pa}}"
+            ),
+            # Gauge, and it says so: the absolute reading is this plus one
+            # atmosphere, and which one is meant changes the number by 101 kPa.
+            answer_value=f"{pressure:.2f} Pa (gauge)",
+        )
+
+    if op == "upthrust":
+        force = p["rho"] * p["volume"] * p.get("g", 9.81)
+        return PhysicsResult(
+            answer=(
+                rf"F_b = \rho V g = {p['rho']:g} \cdot {p['volume']:g} \cdot "
+                rf"{p.get('g', 9.81):g} \approx {force:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{force:.2f} N",
+            # The one fluids answer a free body actually draws: an upward
+            # buoyant force against the weight it opposes.
+            simulation_specs=_free_body_scene(
+                [
+                    SimulationVector(
+                        anchor=[0.0, 0.0],
+                        dx=0.0,
+                        dy=1.0,
+                        label=f"upthrust {force:.1f} N",
+                        role="force",
+                    ),
+                    SimulationVector(
+                        anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label="weight", role="force"
+                    ),
+                ],
+                label="body",
+                lift=1.0,
+            ),
+        )
+
+    if op == "density":
+        volume = p["volume"]
+        if volume <= 0:
+            raise MathServiceError("volume must be positive")
+        rho = p["m"] / volume
+        return PhysicsResult(
+            answer=(
+                rf"\rho = \frac{{m}}{{V}} = \frac{{{p['m']:g}}}{{{volume:g}}} "
+                rf"\approx {rho:.2f} \text{{ kg/m}}^3"
+            ),
+            answer_value=f"{rho:.2f} kg/m^3",
+        )
+
+    if op == "continuity_velocity":
+        a2 = p["A2"]
+        if a2 <= 0:
+            raise MathServiceError("the second area must be positive")
+        v2 = p["A1"] * p["v"] / a2
+        return PhysicsResult(
+            answer=(
+                rf"A_1 v_1 = A_2 v_2 \Rightarrow v_2 = \frac{{{p['A1']:g} \cdot "
+                rf"{p['v']:g}}}{{{a2:g}}} \approx {v2:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{v2:.2f} m/s",
+        )
+
+    if op == "flow_rate":
+        flow = p["area"] * p["v"]
+        return PhysicsResult(
+            answer=(
+                rf"Q = A v = {p['area']:g} \cdot {p['v']:g} \approx {flow:.4g} "
+                rf"\text{{ m}}^3\text{{/s}}"
+            ),
+            answer_value=f"{flow:.4g} m^3/s",
+        )
+
+    raise MathServiceError(f"unsupported fluids op: {op}")
+
+
+def solve_rotation(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "moment_of_inertia":
+        factor = p["shape_factor"]
+        value = factor * p["m"] * p["r"] ** 2
+        return PhysicsResult(
+            answer=(
+                rf"I = {factor:g} m r^2 = {factor:g} \cdot {p['m']:g} \cdot "
+                rf"{_latex_num(p['r'], square=True)} \approx {value:.2f} "
+                rf"\text{{ kg}}\,\text{{m}}^2"
+            ),
+            answer_value=f"{value:.2f} kg*m^2",
+        )
+
+    if op == "angular_momentum":
+        value = p["inertia"] * p["omega"]
+        return PhysicsResult(
+            answer=(
+                rf"L = I\omega = {p['inertia']:g} \cdot {p['omega']:g} "
+                rf"\approx {value:.2f} \text{{ kg}}\,\text{{m}}^2\text{{/s}}"
+            ),
+            answer_value=f"{value:.2f} kg*m^2/s",
+        )
+
+    if op == "rotational_kinetic_energy":
+        value = 0.5 * p["inertia"] * p["omega"] ** 2
+        return PhysicsResult(
+            answer=(
+                rf"E_k = \tfrac{{1}}{{2}} I \omega^2 = 0.5 \cdot {p['inertia']:g} \cdot "
+                rf"{_latex_num(p['omega'], square=True)} \approx {value:.2f} \text{{ J}}"
+            ),
+            answer_value=f"{value:.2f} J",
+        )
+
+    if op == "angular_velocity":
+        elapsed = p["t"]
+        if elapsed <= 0:
+            raise MathServiceError("elapsed time must be positive")
+        value = p["theta"] / elapsed
+        return PhysicsResult(
+            answer=(
+                rf"\omega = \frac{{\theta}}{{t}} = \frac{{{p['theta']:g}}}{{{elapsed:g}}} "
+                rf"\approx {value:.2f} \text{{ rad/s}}"
+            ),
+            answer_value=f"{value:.2f} rad/s",
+        )
+
+    raise MathServiceError(f"unsupported rotation op: {op}")
+
+
 def solve_physics(intent: MathIntent) -> PhysicsResult:
     """Dispatch to the right solver by intent kind."""
     if intent.kind == "kinematics":
@@ -2126,4 +2365,10 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_optics(intent)
     if intent.kind == "thermal":
         return solve_thermal(intent)
+    if intent.kind == "gravitation":
+        return solve_gravitation(intent)
+    if intent.kind == "fluids":
+        return solve_fluids(intent)
+    if intent.kind == "rotation":
+        return solve_rotation(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")

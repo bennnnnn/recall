@@ -148,13 +148,34 @@ def test_moment_alone_is_not_a_torque_cue(text: str) -> None:
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
-def test_moment_of_inertia_is_refused_not_confused() -> None:
-    """A different quantity entirely (kg*m^2), and not solved here.
+def test_moment_of_inertia_is_not_confused_with_torque() -> None:
+    """A different quantity entirely (kg*m^2), sharing the word "moment".
 
-    It shares the word "moment" with torque, so it is named explicitly rather
-    than left to chance.
+    P9 named it in `_TORQUE_UNSUPPORTED` rather than leaving it to chance, and
+    that refusal is kept: it is what stops *torque* claiming it. Round 3 added
+    a `rotation` kind that runs afterwards and answers it properly, so the
+    assertion is no longer "nobody answers this" - it is "torque does not, and
+    whoever does calls it by the right name".
     """
-    assert _verified_answer("what is the moment of inertia of a 5 kg disc of radius 2 m") is None
+    from app.services.physics.extract import _extract_torque_intent
+
+    text = "what is the moment of inertia of a 5 kg disc of radius 2 m"
+    assert _extract_torque_intent(text) is None
+
+    intent = extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "rotation"
+    assert intent.physics_op == "moment_of_inertia"
+    assert _verified_answer(text) == "10.00 kg*m^2"
+
+
+def test_a_shapeless_moment_of_inertia_is_still_refused() -> None:
+    """I = k m r^2, and k is the shape. A wheel is not a shape.
+
+    This is the half of P9's caution that survives verbatim: answering an
+    unnamed body with the disc constant would be a confidently wrong number.
+    """
+    assert _verified_answer("what is the moment of inertia of a 5 kg wheel of radius 2 m") is None
 
 
 def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:

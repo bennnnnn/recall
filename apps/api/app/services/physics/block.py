@@ -91,5 +91,8 @@ PHYSICS_BLOCK_BUILDERS = {
     "waves": _build_physics_block,
     "optics": _build_physics_block,
     "thermal": _build_physics_block,
+    "gravitation": _build_physics_block,
+    "fluids": _build_physics_block,
+    "rotation": _build_physics_block,
     "torque": _build_physics_block,
 }

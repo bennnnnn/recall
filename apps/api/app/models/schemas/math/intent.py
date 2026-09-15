@@ -56,6 +56,9 @@ class MathIntent(BaseModel):
         "waves",
         "optics",
         "thermal",
+        "gravitation",
+        "fluids",
+        "rotation",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -299,6 +302,25 @@ class MathIntent(BaseModel):
             "heat_energy",
             "ideal_gas_pressure",
             "thermal_efficiency",
+            # Round 3 gravitation.
+            "gravitational_force",
+            "orbital_velocity",
+            "escape_velocity",
+            "surface_gravity",
+            # Round 3 fluids. "pressure_from_force" and "pressure_at_depth"
+            # rather than "pressure" and "fluid_pressure": in a Literal this
+            # long, a pair that close reads wrong.
+            "pressure_from_force",
+            "pressure_at_depth",
+            "upthrust",
+            "density",
+            "continuity_velocity",
+            "flow_rate",
+            # Round 3 rotation. "angular_velocity" is shared with the circular
+            # kind - the same quantity, reached from a different given.
+            "moment_of_inertia",
+            "angular_momentum",
+            "rotational_kinetic_energy",
             "suvat_velocity",
             "suvat_distance",
             "suvat_time",
