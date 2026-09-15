@@ -11,6 +11,7 @@ import statistics
 
 from sympy import (
     Eq,
+    Expr,
     FiniteSet,
     Integral,
     Interval,
@@ -35,15 +36,15 @@ from app.services.math.solve.parse import (
 )
 
 
-def _expr(text: str, variable: str = "x"):
+def _expr(text: str, variable: str = "x") -> Expr:
     return _parse_expression(text, [variable], real=True)
 
 
-def _bound(text: str):
+def _bound(text: str) -> Expr:
     return _parse_expression(text, [], real=True)
 
 
-def _ordered_bounds(lower: str, upper: str) -> tuple[object, object]:
+def _ordered_bounds(lower: str, upper: str) -> tuple[Expr, Expr]:
     lo = _bound(lower)
     hi = _bound(upper)
     try:
