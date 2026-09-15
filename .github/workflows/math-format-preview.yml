@@ -1,0 +1,26 @@
+name: Math format preview
+
+on:
+  push:
+    branches:
+      - codex/math-coverage-p0
+
+permissions:
+  contents: read
+
+jobs:
+  format-preview:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: uv sync --all-groups --frozen
+      - name: Show exact Ruff formatting diff
+        working-directory: apps/api
+        run: |
+          uv run ruff format --diff \
+            app/services/math/solve/advanced.py \
+            app/services/math/tools/block/advanced.py \
+            app/services/math/tools/extractors/advanced.py
