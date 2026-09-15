@@ -20,6 +20,7 @@ from app.services.math.tools.extractors.geometry_graph import (
     SOLID_EXTRACTOR,
 )
 from app.services.math.tools.extractors.linear_algebra import ADVANCED_MATRIX_EXTRACTORS
+from app.services.math.tools.extractors.statistics_advanced import ADVANCED_STATISTICS_EXTRACTORS
 from app.services.math.tools.helpers import has_assignment_evaluation_request, math_expr_or_none
 from app.services.math.tools.school import SCHOOL_EXTRACTORS
 from app.services.physics.extract import PHYSICS_EXTRACTORS
@@ -31,6 +32,7 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     *GEOMETRY_GRAPH_EXTRACTORS,
     *FUNCTION_EXTRACTORS,
     *ADVANCED_MATRIX_EXTRACTORS,
+    *ADVANCED_STATISTICS_EXTRACTORS,
     *CALCULUS_EXTRACTORS,
     *PRE_DISCRETE_ALGEBRA_EXTRACTORS,
     *DISCRETE_STATISTICS_EXTRACTORS,
@@ -86,9 +88,6 @@ def extract_math_intent(text: str) -> MathIntent | None:
     for extractor in _INTENT_EXTRACTORS:
         intent = extractor(cleaned)
         if intent is not None:
-            # Successful substitution arithmetic wins earlier. If that did
-            # not parse, never certify just the given assignment(s) while
-            # silently ignoring the requested evaluation.
             if intent.kind in {"equation", "system"} and has_assignment_evaluation_request(text):
                 return None
             if intent.kind == "equation" and trig_domain_would_be_dropped(
@@ -106,9 +105,6 @@ def extract_math_intent(text: str) -> MathIntent | None:
                 "parallelogram",
                 "sector",
             }:
-                # A natural-language measurement must not inherit the public
-                # structured-input schema's legacy centimetre default. AAA
-                # triangles already carry relative side lengths in generic units.
                 from app.services.math.match.units import solid_length_unit
 
                 if intent.kind != "triangle_sides" or intent.unit != "units":
