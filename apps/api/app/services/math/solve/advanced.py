@@ -249,7 +249,9 @@ def _integrate_absolute(expr, variable: Symbol, lower, upper):
 
     points = [lower, *(root for _, root in internal), upper]
     total = S.Zero
-    for left, right in zip(points, points[1:], strict=True):
+    for index in range(len(points) - 1):
+        left = points[index]
+        right = points[index + 1]
         midpoint = simplify((left + right) / 2)
         try:
             sign = float(expr.subs(variable, midpoint).evalf())
