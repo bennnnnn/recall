@@ -94,7 +94,9 @@ def _extract_arc_length_intent(cleaned: str) -> MathIntent | None:
 
 def _extract_volume_revolution_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    if "volume" not in lower or not any(word in lower for word in ("revolution", "revolved")):
+    if "volume" not in lower or not any(
+        word in lower for word in ("revolution", "revolved")
+    ):
         return None
     # This first verified template is the disk/washer case around the x-axis.
     # Do not silently apply it to the y-axis or an arbitrary line.
@@ -127,3 +129,25 @@ CALCULUS_APPLICATION_EXTRACTORS = (
     _extract_arc_length_intent,
     _extract_volume_revolution_intent,
 )
+
+
+def calculus_application_requested(text: str) -> bool:
+    """True when the user asked for one of these applications, supported or not."""
+    lower = text.lower()
+    return (
+        "area between" in lower
+        or "arc length" in lower
+        or (
+            "volume" in lower
+            and any(word in lower for word in ("revolution", "revolved"))
+        )
+    )
+
+
+def extract_calculus_application_intent(cleaned: str) -> MathIntent | None:
+    """Try the supported templates; callers must refuse fall-through on None."""
+    for extractor in CALCULUS_APPLICATION_EXTRACTORS:
+        intent = extractor(cleaned)
+        if intent is not None:
+            return intent
+    return None
