@@ -34,9 +34,7 @@ class TestFunctionFeatures:
             compute_function_feature("inverse", "x**2")
 
     def test_composition(self) -> None:
-        answer, _steps = compute_function_feature(
-            "composition", "x**2+1", expr2="2*x"
-        )
+        answer, _steps = compute_function_feature("composition", "x**2+1", expr2="2*x")
         assert "4" in answer
         assert "x" in answer
 
