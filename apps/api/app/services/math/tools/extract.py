@@ -11,12 +11,22 @@ from app.services.math.tools.extractors.algebra import (
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
 )
 from app.services.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
-from app.services.math.tools.extractors.calculus_applications import CALCULUS_APPLICATION_EXTRACTORS
-from app.services.math.tools.extractors.discrete_statistics import DISCRETE_STATISTICS_EXTRACTORS
+from app.services.math.tools.extractors.calculus_applications import (
+    calculus_application_requested,
+    extract_calculus_application_intent,
+)
+from app.services.math.tools.extractors.discrete_statistics import (
+    DISCRETE_STATISTICS_EXTRACTORS,
+)
 from app.services.math.tools.extractors.functions import FUNCTION_EXTRACTORS
-from app.services.math.tools.extractors.geometry_graph import GEOMETRY_GRAPH_EXTRACTORS, SOLID_EXTRACTOR
+from app.services.math.tools.extractors.geometry_graph import (
+    GEOMETRY_GRAPH_EXTRACTORS,
+    SOLID_EXTRACTOR,
+)
 from app.services.math.tools.extractors.linear_algebra import ADVANCED_MATRIX_EXTRACTORS
-from app.services.math.tools.extractors.statistics_advanced import ADVANCED_STATISTICS_EXTRACTORS
+from app.services.math.tools.extractors.statistics_advanced import (
+    ADVANCED_STATISTICS_EXTRACTORS,
+)
 from app.services.math.tools.helpers import has_assignment_evaluation_request, math_expr_or_none
 from app.services.math.tools.school import SCHOOL_EXTRACTORS
 from app.services.physics.extract import PHYSICS_EXTRACTORS
@@ -27,7 +37,6 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     *PHYSICS_EXTRACTORS,
     *GEOMETRY_GRAPH_EXTRACTORS,
     *FUNCTION_EXTRACTORS,
-    *CALCULUS_APPLICATION_EXTRACTORS,
     *ADVANCED_MATRIX_EXTRACTORS,
     *ADVANCED_STATISTICS_EXTRACTORS,
     *CALCULUS_EXTRACTORS,
@@ -36,8 +45,14 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     *ALGEBRA_EXTRACTORS,
 )
 
-_ROOTS_RE = re.compile(r"\b(?:find(?:\s+the)?\s+)?(?:roots|zeros)\s+of\s+(.+)", re.IGNORECASE)
-_TRIG_FUNCTION_RE = re.compile(r"\b(?:sin|cos|tan|cot|sec|csc)\s*\(", re.IGNORECASE)
+_ROOTS_RE = re.compile(
+    r"\b(?:find(?:\s+the)?\s+)?(?:roots|zeros)\s+of\s+(.+)",
+    re.IGNORECASE,
+)
+_TRIG_FUNCTION_RE = re.compile(
+    r"\b(?:sin|cos|tan|cot|sec|csc)\s*\(",
+    re.IGNORECASE,
+)
 _RESTRICTED_TRIG_DOMAIN_RE = re.compile(
     r"[<>\u2264\u2265\u2208\u2102\u2124\u2115\u211a\[\]]"
     r"|\\in\b|\\mathbb\s*\{[CZNQ]\}"
@@ -72,6 +87,10 @@ def extract_math_intent(text: str) -> MathIntent | None:
     cleaned = mtm.prepare(text)
     if not cleaned:
         return None
+    if calculus_application_requested(cleaned):
+        # A recognized application that misses the supported grammar must not
+        # fall through and get certified as a stray equation in the prompt.
+        return extract_calculus_application_intent(cleaned)
     roots_match = _ROOTS_RE.search(cleaned)
     if roots_match:
         tail = math_expr_or_none(roots_match.group(1))
@@ -108,7 +127,15 @@ def extract_math_intent(text: str) -> MathIntent | None:
     return None
 
 
-_GRAPH_FOLLOWUP_VERBS = ("graph", "plot", "sketch", "draw", "visualize", "visualise", "chart")
+_GRAPH_FOLLOWUP_VERBS = (
+    "graph",
+    "plot",
+    "sketch",
+    "draw",
+    "visualize",
+    "visualise",
+    "chart",
+)
 _GRAPH_FOLLOWUP_OBJECTS = frozenset(
     {
         "",
@@ -202,7 +229,10 @@ def _plottable_graph_source(text: str) -> str | None:
     return None
 
 
-def resolve_graph_followup(text: str, prior_user_messages: list[str] | None) -> tuple[str, bool]:
+def resolve_graph_followup(
+    text: str,
+    prior_user_messages: list[str] | None,
+) -> tuple[str, bool]:
     """Rewrite ``graph it`` from a prior equation."""
     if not is_graph_followup(text):
         return text, False
