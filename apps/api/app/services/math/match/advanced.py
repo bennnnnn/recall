@@ -6,6 +6,8 @@ kept dependency-light because ``match.needs`` imports it on every chat turn.
 
 from __future__ import annotations
 
+import re
+
 
 def advanced_cue(text: str) -> bool:
     """Return True when *text* is worth offering to the advanced extractors.
@@ -62,7 +64,13 @@ def advanced_cue(text: str) -> bool:
             "g(f(x))",
         )
     )
-    if function_cue and any(token in lower for token in ("x", "f(", "g(", "y=")):
+    has_function_notation = (
+        "f(" in lower
+        or "g(" in lower
+        or "y=" in lower
+        or re.search(r"\bx\b", lower) is not None
+    )
+    if function_cue and has_function_notation:
         return True
 
     if "area between" in lower and (" from " in lower or " on [" in lower):
