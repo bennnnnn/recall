@@ -131,12 +131,7 @@ def _verified_block_calculus(
         return VerifiedMathBlock(text="\n".join(lines))
     answer = out.latex
     if intent.operation == "integrate" and intent.integral_lower is None:
-        # The service computes one antiderivative; the user's indefinite
-        # integral asks for the family, including on the direct reply path.
         answer += " + C"
-    # Verified worked steps (differentiation): copy these verbatim instead of
-    # inventing a derivation — the model's self-derived steps were often wrong
-    # even with a verified final answer.
     if out.steps:
         lines.extend(out.steps)
         return _finish_with_answer(lines, answer)
@@ -160,8 +155,7 @@ def _verified_block_limit(
     lines.append(f"Result: {limit_out.latex}")
     if limit_out.is_infinite:
         lines.append(
-            "This limit is infinite — preserve its sign, do not treat it as an ordinary "
-            "finite number."
+            "This limit is infinite — preserve its sign, do not treat it as an ordinary finite number."
         )
     return _finish_with_answer(lines, limit_out.latex)
 
@@ -193,8 +187,7 @@ def _verified_block_series(
         return VerifiedMathBlock(text="\n".join(lines))
     if series_out.is_infinite:
         lines.append(
-            "This series diverges to infinity — preserve its sign, do not "
-            "treat it as an ordinary finite number."
+            "This series diverges to infinity — preserve its sign, do not treat it as an ordinary finite number."
         )
     return _finish_with_answer(lines, series_out.latex)
 
@@ -202,6 +195,25 @@ def _verified_block_series(
 def _verified_block_statistics(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
+    if intent.school_op in {
+        "statistics_correlation",
+        "statistics_regression",
+        "statistics_covariance_sample",
+        "statistics_covariance_population",
+    }:
+        if not intent.vec_a or not intent.vec_b:
+            return None
+        from app.services.math.solve.advanced import (
+            BivariateStatisticsFeature,
+            compute_bivariate_statistics,
+        )
+
+        feature = cast(BivariateStatisticsFeature, intent.school_op.removeprefix("statistics_"))
+        answer, steps = compute_bivariate_statistics(intent.vec_a, intent.vec_b, feature)
+        lines.append(f"Paired data: n={len(intent.vec_a)}")
+        lines.extend(steps)
+        return _finish_with_answer(lines, answer)
+
     if not intent.stats_numbers or len(intent.stats_numbers) < 2:
         return None
     result = math_solve.compute_statistics(StatisticsInput(numbers=intent.stats_numbers))
@@ -241,14 +253,10 @@ def _verified_block_statistics(
             answer = math_formulas.percentile(intent.stats_numbers, intent.combo_n)
     else:
         answer = result.labels["mean"]
-    return _finish_with_answer(
-        lines,
-        answer,
-    )
+    return _finish_with_answer(lines, answer)
 
 
 def _format_number_theory_answer(result: NumberTheoryResult) -> str:
-    """Short final for ```answer — matches the verified step language."""
     if result.operation == "factorize" and result.factors is not None:
         parts = [f"{p}^{{{e}}}" if e > 1 else f"{p}" for p, e in sorted(result.factors.items())]
         return " \\times ".join(parts)
@@ -271,10 +279,7 @@ def _verified_block_combinatorics(
     )
     lines.extend(result.steps)
     lines.append(f"Result: {result.result}")
-    return _finish_with_answer(
-        lines,
-        str(result.result),
-    )
+    return _finish_with_answer(lines, str(result.result))
 
 
 def _verified_block_number_theory(
@@ -298,10 +303,7 @@ def _verified_block_number_theory(
     answer = _format_number_theory_answer(result)
     if not answer:
         return VerifiedMathBlock(text="\n".join(lines))
-    return _finish_with_answer(
-        lines,
-        answer,
-    )
+    return _finish_with_answer(lines, answer)
 
 
 def _verified_block_matrix(
@@ -339,7 +341,4 @@ def _verified_block_matrix(
         answer = f"{result.determinant:g}"
     else:
         return VerifiedMathBlock(text="\n".join(lines))
-    return _finish_with_answer(
-        lines,
-        answer,
-    )
+    return _finish_with_answer(lines, answer)
