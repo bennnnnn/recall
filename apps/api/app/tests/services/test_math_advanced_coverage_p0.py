@@ -64,6 +64,20 @@ class TestAdvancedSolvers:
         volume = solve_calculus_application("volume_revolution_x", "x", "0", "1")
         assert volume == "\\frac{\\pi}{3}"
 
+    def test_area_between_curves_finds_every_periodic_crossing(self):
+        area = solve_calculus_application(
+            "area_between_curves",
+            "sin(x)",
+            "0",
+            "2*pi",
+            "0",
+        )
+        assert area == "4"
+
+    def test_y_axis_shell_volume_refuses_axis_crossing_interval(self):
+        with pytest.raises(ValueError):
+            solve_calculus_application("volume_revolution_y", "1", "-1", "1")
+
 
 class TestAdvancedExtraction:
     def test_function_domain_intent(self):
@@ -114,6 +128,7 @@ class TestAdvancedExtraction:
         [
             "what is the rank structure at my company?",
             "what is the range of this product?",
+            "what is your domain of expertise?",
             "we need a regression plan for the release",
         ],
     )
