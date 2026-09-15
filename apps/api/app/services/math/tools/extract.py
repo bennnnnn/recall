@@ -73,11 +73,34 @@ def trig_domain_would_be_dropped(expression: str, text: str) -> bool:
     )
 
 
+# An area, arc length or volume over a region is a calculus application, and
+# the curves in it are the *input*. No extractor here solves one, so the whole
+# shape is refused at the funnel rather than left for whichever extractor
+# recognises half of it.
+#
+# Measured before this guard: "area between y=x and y=x^2 from 0 to 1" was
+# claimed by the simultaneous-system extractor and answered
+# `x = 0, y = 0; x = 1, y = 1` - where the curves *cross*, not the area
+# between them, which is 1/6. Guarding only that extractor moved the bug
+# rather than fixing it: the question then fell through to the single-equation
+# extractor, which answered `y = 0`.
+#
+# A verified block tells the model not to recompute, so a confident answer to
+# a question nobody asked is worse than no block at all.
+_CALCULUS_APPLICATION_RE = re.compile(
+    r"\b(?:area|arc\s+length|volume)\b[^.?!]{0,80}?"
+    r"\b(?:between|under|bounded\s+by|of\s+revolution|revolved|rotated)\b",
+    re.IGNORECASE,
+)
+
+
 def extract_math_intent(text: str) -> MathIntent | None:
     from app.services.math import match as mtm
 
     cleaned = mtm.prepare(text)
     if not cleaned:
+        return None
+    if _CALCULUS_APPLICATION_RE.search(cleaned):
         return None
     # Function analysis currently verifies the maximal real domain only.
     # Refuse the whole extraction before inequality/algebra fallbacks can
