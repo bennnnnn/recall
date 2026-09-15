@@ -7,7 +7,12 @@ from typing import Literal
 
 from app.services.math.match.discrete import numeric_data_values
 
-BivariateStatsOp = Literal["correlation", "covariance", "linear_regression"]
+BivariateStatsOp = Literal[
+    "correlation",
+    "covariance",
+    "sample_covariance",
+    "linear_regression",
+]
 
 _LIST_RE = re.compile(r"\[([^\[\]]+)\]")
 
@@ -31,16 +36,18 @@ def _paired_numeric_lists(text: str) -> tuple[list[float], list[float]] | None:
 def bivariate_stats_signal(
     text: str,
 ) -> tuple[BivariateStatsOp, list[float], list[float]] | None:
-    """Recognize Pearson correlation, sample covariance, or simple regression.
+    """Recognize correlation, covariance, or simple linear regression.
 
-    The two data series must be explicit bracketed lists. That restriction is
-    deliberate: paired statistics are easy to misread from ordinary prose or
-    from a single unlabelled stream of numbers.
+    The two data series must be explicit bracketed lists. Bare ``covariance``
+    follows Recall's existing variance convention and means population
+    covariance; ``sample covariance`` selects the n-1 denominator explicitly.
     """
     lower = text.lower()
     operation: BivariateStatsOp | None = None
     if "correlation" in lower or "pearson" in lower:
         operation = "correlation"
+    elif "sample covariance" in lower:
+        operation = "sample_covariance"
     elif "covariance" in lower:
         operation = "covariance"
     elif any(
