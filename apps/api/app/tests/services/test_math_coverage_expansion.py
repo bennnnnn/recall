@@ -160,6 +160,4 @@ def test_square_matrix_rules_remain_strict() -> None:
         MatrixInput(operation="eigenvectors", rows=[[1, 2, 3], [4, 5, 6]])
 
     with pytest.raises(MathServiceError, match="not diagonalizable"):
-        math_solve.compute_matrix(
-            MatrixInput(operation="diagonalize", rows=[[1, 1], [0, 1]])
-        )
+        math_solve.compute_matrix(MatrixInput(operation="diagonalize", rows=[[1, 1], [0, 1]]))
