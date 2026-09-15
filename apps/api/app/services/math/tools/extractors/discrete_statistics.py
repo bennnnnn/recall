@@ -8,6 +8,18 @@ from app.models.schemas.math import MathIntent
 def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
     from app.services.math import match as mtm
     from app.services.math.match.scan import word_index
+    from app.services.math.match.statistics import bivariate_stats_signal
+
+    paired = bivariate_stats_signal(cleaned)
+    if paired is not None:
+        op, numbers, numbers_b = paired
+        return MathIntent(
+            kind="statistics",
+            stats_op=op,
+            stats_numbers=numbers,
+            stats_numbers_b=numbers_b,
+            operation="solve",
+        )
 
     signal = mtm.stats_signal(cleaned)
     if signal is None:
