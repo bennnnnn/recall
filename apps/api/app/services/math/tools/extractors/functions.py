@@ -57,10 +57,12 @@ def _composition_intent(cleaned: str) -> MathIntent | None:
     second_call = f"{second_name.lower()}({first_name.lower()}({var.lower()}))"
     if second_call in compact:
         outer, inner = second_expr, first_expr
-    else:
+    elif first_call in compact or "compose" in lower:
         # ``compose f and g`` convention here is f∘g; explicit nested notation
         # above always wins when the user names the order.
         outer, inner = first_expr, second_expr
+    else:
+        return None
     return MathIntent(
         kind="calculus",
         operation="simplify",
