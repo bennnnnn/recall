@@ -32,7 +32,21 @@ VERIFIED_MATH_REPLY_HINT = (
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
     from app.services.math import match as math_match
 
-    return math_match.needs_symbolic(text, has_image_attachment=has_image_attachment)
+    if math_match.needs_symbolic(text, has_image_attachment=has_image_attachment):
+        return True
+    # The generic gate is intentionally conservative. New higher-level
+    # function/matrix features have their own strict extractors, so ask those
+    # extractors instead of teaching the broad keyword gate that ordinary prose
+    # containing words like "range" or "rank" is automatically mathematics.
+    if has_image_attachment:
+        return False
+    from app.services.math.tools.extractors.functions import _extract_function_analysis_intent
+    from app.services.math.tools.extractors.linear_algebra import _extract_advanced_matrix_intent
+
+    return (
+        _extract_function_analysis_intent(text) is not None
+        or _extract_advanced_matrix_intent(text) is not None
+    )
 
 
 def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
