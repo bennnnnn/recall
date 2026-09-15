@@ -1,9 +1,8 @@
-"""Verified higher-level function, statistics, and linear-algebra operations.
+"""Verified higher-level function, statistics, calculus, and linear-algebra operations.
 
-This module extends existing ``calculus``, ``statistics``, and ``matrix``
-MathIntent kinds via ``school_op``. It deliberately reuses the safe expression
-parser and the small-matrix bounds already enforced by the main math pipeline
-instead of creating a second symbolic-math path.
+These helpers extend existing MathIntent kinds via ``school_op``. They reuse
+the safe expression parser and the bounded worker used by the main math
+pipeline instead of creating a second symbolic-math path.
 """
 
 from __future__ import annotations
@@ -12,14 +11,15 @@ import math
 from collections.abc import Sequence
 from typing import Literal
 
-from sympy import Eq, S, Symbol, latex, simplify, solve
+from sympy import Abs, Eq, Integral, S, Symbol, diff, integrate, latex, pi, simplify, solve, sqrt
 from sympy.calculus.util import continuous_domain, function_range
 from sympy.matrices.exceptions import MatrixError
 
 from app.services.math.solve.discrete import _matrix_from_rows
-from app.services.math.solve.parse import MathServiceError, _parse_expression
+from app.services.math.solve.parse import MathServiceError, _parse_expression, format_verified_latex
 
 FunctionFeature = Literal["domain", "range", "inverse", "composition"]
+CalculusApplicationFeature = Literal["area_between_curves", "arc_length", "volume_revolution_x"]
 BivariateStatisticsFeature = Literal[
     "correlation",
     "regression",
@@ -43,12 +43,8 @@ def compute_function_feature(
     *,
     expr2: str | None = None,
 ) -> tuple[str, list[str]]:
-    """Return ``(canonical_answer, verified_steps)`` for a function feature."""
     if not expr.strip():
         raise MathServiceError("function expression is required")
-    # Match the parser's plain Symbol(variable). Adding assumptions here creates
-    # a distinct SymPy symbol with the same printed name, so substitutions can
-    # silently fail (e.g. composition would return the original expression).
     x = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
 
@@ -78,8 +74,6 @@ def compute_function_feature(
             branches = solve(Eq(y, parsed), x)
         except (NotImplementedError, ValueError, TypeError) as exc:
             raise MathServiceError("could not solve for an inverse function") from exc
-        # A multi-branch relation is not a single inverse function on the full
-        # real domain. Refuse instead of silently choosing +sqrt / -sqrt.
         if len(branches) != 1:
             raise MathServiceError(
                 "function does not have a unique real inverse on the stated domain"
@@ -87,7 +81,7 @@ def compute_function_feature(
         candidate = simplify(branches[0])
         try:
             verified = simplify(parsed.subs(x, candidate) - y) == 0
-        except Exception as exc:  # SymPy verification failure, not user error.
+        except Exception as exc:
             raise MathServiceError("could not verify the inverse function") from exc
         if not verified:
             raise MathServiceError("inverse candidate failed symbolic verification")
@@ -103,6 +97,80 @@ def compute_function_feature(
     return answer, [f"(f\\circ g)({variable}) = {answer}"]
 
 
+def _calculus_bounds(variable: str, lower: str, upper: str) -> tuple[Symbol, object, object]:
+    x = Symbol(variable)
+    lo = _parse_expression(lower, [variable])
+    hi = _parse_expression(upper, [variable])
+    if lo.free_symbols or hi.free_symbols:
+        raise MathServiceError("calculus application bounds must be constants")
+    try:
+        lo_value = float(lo.evalf())
+        hi_value = float(hi.evalf())
+    except (TypeError, ValueError) as exc:
+        raise MathServiceError("calculus application bounds must be real and finite") from exc
+    if not math.isfinite(lo_value) or not math.isfinite(hi_value) or lo_value >= hi_value:
+        raise MathServiceError("calculus application needs finite bounds with lower < upper")
+    return x, lo, hi
+
+
+def _definite_application_result(integrand: object, x: Symbol, lo: object, hi: object) -> str:
+    result = integrate(integrand, (x, lo, hi))
+    if result.has(Integral):
+        numerical = Integral(integrand, (x, lo, hi)).evalf(12)
+        try:
+            numeric_value = float(numerical)
+        except (TypeError, ValueError) as exc:
+            raise MathServiceError("calculus application has no verified finite result") from exc
+        if not math.isfinite(numeric_value):
+            raise MathServiceError("calculus application has no verified finite result")
+        return rf"\approx {latex(numerical)}"
+    return format_verified_latex(simplify(result))
+
+
+def compute_calculus_application(
+    operation: CalculusApplicationFeature,
+    expr: str,
+    variable: str,
+    lower: str,
+    upper: str,
+    *,
+    expr2: str | None = None,
+) -> tuple[str, list[str]]:
+    """Verify standard single-variable integral applications."""
+    x, lo, hi = _calculus_bounds(variable, lower, upper)
+    parsed = _parse_expression(expr, [variable])
+
+    if operation == "area_between_curves":
+        if expr2 is None:
+            raise MathServiceError("area between curves requires two functions")
+        other = _parse_expression(expr2, [variable])
+        integrand = Abs(simplify(parsed - other))
+        result = _definite_application_result(integrand, x, lo, hi)
+        answer = f"A = {result}"
+        return answer, [
+            f"A = \\int_{{{latex(lo)}}}^{{{latex(hi)}}} {latex(integrand)}\\,d{variable}",
+            answer,
+        ]
+
+    if operation == "arc_length":
+        derivative = diff(parsed, x)
+        integrand = sqrt(1 + derivative**2)
+        result = _definite_application_result(integrand, x, lo, hi)
+        answer = f"L = {result}"
+        return answer, [
+            f"L = \\int_{{{latex(lo)}}}^{{{latex(hi)}}} {latex(integrand)}\\,d{variable}",
+            answer,
+        ]
+
+    integrand = pi * parsed**2
+    result = _definite_application_result(integrand, x, lo, hi)
+    answer = f"V = {result}"
+    return answer, [
+        f"V = \\pi\\int_{{{latex(lo)}}}^{{{latex(hi)}}} ({latex(parsed)})^2\\,d{variable}",
+        answer,
+    ]
+
+
 def _format_stat_number(value: float) -> str:
     if abs(value) < 5e-13:
         value = 0.0
@@ -114,7 +182,6 @@ def compute_bivariate_statistics(
     y_values: Sequence[float],
     operation: BivariateStatisticsFeature,
 ) -> tuple[str, list[str]]:
-    """Correlation, covariance, and least-squares regression for paired data."""
     if len(x_values) != len(y_values) or len(x_values) < 2:
         raise MathServiceError("paired statistics need equal-length lists with at least 2 values")
     if len(x_values) > 200:
@@ -132,25 +199,18 @@ def compute_bivariate_statistics(
     sum_y2 = math.fsum(value * value for value in centered_y)
 
     if operation == "covariance_population":
-        covariance = cross / n
-        answer = _format_stat_number(covariance)
+        answer = _format_stat_number(cross / n)
         return answer, [f"population covariance = {answer}"]
-
     if operation == "covariance_sample":
-        covariance = cross / (n - 1)
-        answer = _format_stat_number(covariance)
+        answer = _format_stat_number(cross / (n - 1))
         return answer, [f"sample covariance = {answer}"]
-
     if operation == "correlation":
         denominator = math.sqrt(sum_x2 * sum_y2)
         if denominator == 0:
             raise MathServiceError("correlation is undefined when either data list is constant")
-        correlation = cross / denominator
-        # Clamp tiny floating-point excursions outside the mathematical range.
-        correlation = max(-1.0, min(1.0, correlation))
+        correlation = max(-1.0, min(1.0, cross / denominator))
         answer = _format_stat_number(correlation)
         return answer, [f"Pearson r = {answer}"]
-
     if sum_x2 == 0:
         raise MathServiceError("linear regression needs at least two distinct x values")
     slope = cross / sum_x2
@@ -175,29 +235,21 @@ def _basis_latex(vectors: Sequence[object]) -> str:
 def compute_matrix_feature(
     rows: list[list[float]], operation: MatrixFeature
 ) -> tuple[str, list[str]]:
-    """Verified undergraduate linear-algebra operations on a small matrix."""
     mat = _matrix_from_rows(rows)
-
     if operation == "rank":
-        rank = int(mat.rank())
-        answer = str(rank)
+        answer = str(int(mat.rank()))
         return answer, [f"\\operatorname{{rank}}(A) = {answer}"]
-
     if operation == "nullspace":
         answer = _basis_latex(mat.nullspace())
         return answer, [f"\\operatorname{{Null}}(A) = {answer}"]
-
     if operation == "columnspace":
         answer = _basis_latex(mat.columnspace())
         return answer, [f"\\operatorname{{Col}}(A) = {answer}"]
-
     if operation == "rowspace":
         answer = _basis_latex(mat.rowspace())
         return answer, [f"\\operatorname{{Row}}(A) = {answer}"]
-
     if mat.rows != mat.cols:
         raise MathServiceError("eigenvectors/diagonalization require a square matrix")
-
     if operation == "eigenvectors":
         pieces: list[str] = []
         for eigenvalue, _multiplicity, basis in mat.eigenvects():
@@ -205,7 +257,6 @@ def compute_matrix_feature(
             pieces.append(f"\\lambda={latex(eigenvalue)}:\\; {basis_text}")
         answer = r";\quad ".join(pieces)
         return answer, [answer]
-
     try:
         p, d = mat.diagonalize()
     except (MatrixError, ValueError) as exc:
