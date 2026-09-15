@@ -14,7 +14,10 @@ from app.services.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
 from app.services.math.tools.extractors.discrete_statistics import (
     DISCRETE_STATISTICS_EXTRACTORS,
 )
-from app.services.math.tools.extractors.functions import FUNCTION_EXTRACTORS
+from app.services.math.tools.extractors.functions import (
+    FUNCTION_EXTRACTORS,
+    function_analysis_constraint_would_be_dropped,
+)
 from app.services.math.tools.extractors.geometry_graph import (
     GEOMETRY_GRAPH_EXTRACTORS,
     SOLID_EXTRACTOR,
@@ -75,6 +78,11 @@ def extract_math_intent(text: str) -> MathIntent | None:
 
     cleaned = mtm.prepare(text)
     if not cleaned:
+        return None
+    # Function analysis currently verifies the maximal real domain only.
+    # Refuse the whole extraction before inequality/algebra fallbacks can
+    # verify just the trailing restriction and silently ignore the actual ask.
+    if function_analysis_constraint_would_be_dropped(cleaned):
         return None
     roots_match = _ROOTS_RE.search(cleaned)
     if roots_match:
