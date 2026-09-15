@@ -43,7 +43,7 @@ _BINOMIAL_PARAM = re.compile(
 _SEQUENCE_LIST_MAX = 20
 _SEQUENCE_N_MAX = 10_000
 _INTEREST_YEAR_MAX = 100
-_PERCENT_INCREASE_WORDS = ("increase", "increased", "increasing")
+_PERCENT_INCREASE_WORDS = ("increase", "increased", "increasing", "markup", "marked up")
 _PERCENT_DECREASE_WORDS = ("decrease", "decreased", "decreasing")
 _RATIO_SPLIT_WORDS = ("split", "share", "divide")
 _ORDINAL_SUFFIXES = ("st", "nd", "rd", "th")
@@ -93,6 +93,11 @@ def _extract_unit_intent(cleaned: str) -> MathIntent | None:
 
 
 def _extract_coord_intent(cleaned: str) -> MathIntent | None:
+    from app.services.math.tools.extractors.formulas import extract_coord_formulas
+
+    extra = extract_coord_formulas(cleaned)
+    if extra is not None:
+        return extra
     lower = cleaned.lower()
     op: str | None = None
     if "distance" in lower or "how far" in lower:
@@ -130,6 +135,11 @@ def _two_points(text: str) -> tuple[tuple[float, float], tuple[float, float]] | 
 
 
 def _extract_vector_intent(cleaned: str) -> MathIntent | None:
+    from app.services.math.tools.extractors.formulas import extract_vector_formulas
+
+    extra = extract_vector_formulas(cleaned)
+    if extra is not None:
+        return extra
     lower = cleaned.lower()
     op: str | None = None
     if "cross" in lower:
@@ -157,6 +167,11 @@ def _angle_vectors(text: str) -> list[list[float]]:
 
 
 def _extract_trig_intent(cleaned: str) -> MathIntent | None:
+    from app.services.math.tools.extractors.formulas import extract_sas_area
+
+    sas = extract_sas_area(cleaned)
+    if sas is not None:
+        return sas
     if mtm.has_equation(cleaned):
         return None
     if mtm.calc_op(cleaned) is not None:
@@ -896,6 +911,14 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     percent = _extract_percent_or_ratio(cleaned)
     if percent is not None:
         return percent
+    from app.services.math.tools.extractors.formulas import (
+        extract_arithmetic_formulas,
+        extract_infinite_geometric,
+    )
+
+    formulas = extract_arithmetic_formulas(cleaned)
+    if formulas is not None:
+        return formulas
     lower = cleaned.lower()
     interest = _extract_interest_intent(cleaned, lower)
     if interest is not None:
@@ -906,6 +929,9 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     word = _extract_word_problem_intent(cleaned, lower)
     if word is not None:
         return word
+    infinite = extract_infinite_geometric(cleaned)
+    if infinite is not None:
+        return infinite
     sequence = _extract_sequence_intent(cleaned)
     if sequence is not None:
         return sequence
@@ -919,6 +945,11 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
 
 
 def _extract_probability_intent(cleaned: str) -> MathIntent | None:
+    from app.services.math.tools.extractors.formulas import extract_probability_formulas
+
+    extra = extract_probability_formulas(cleaned)
+    if extra is not None:
+        return extra
     lower = cleaned.lower()
     if "binomial" in lower or ("n=" in lower.replace(" ", "") and "p=" in lower.replace(" ", "")):
         empty = MathIntent(kind="probability", school_op="binomial", operation="solve")
@@ -964,22 +995,41 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
 
 def _extract_complex_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    if "complex" not in lower and "i)" not in lower and "+ i" not in lower and "- i" not in lower:
-        if "modulus" not in lower and "imaginary" not in lower:
+    from app.services.math.tools.extractors.formulas import extract_complex_op
+
+    op = extract_complex_op(cleaned)
+    if op is None:
+        has_complex_token = "complex" in lower or "i)" in lower or "+ i" in lower or "- i" in lower
+        if not has_complex_token and "imaginary" not in lower:
             return None
     if mtm.has_equation(cleaned) and "solve" in lower:
         return None
     expr = cleaned.strip()
-    # Prefixes are prose and case-insensitive; retain the expression's case
-    # (notably I, pi, and function names) and never erase interior substrings.
     while True:
-        for prefix in ("simplify", "evaluate", "compute", "modulus of", "modulus", "complex"):
+        for prefix in (
+            "simplify",
+            "evaluate",
+            "compute",
+            "modulus of",
+            "modulus",
+            "magnitude of",
+            "magnitude",
+            "argument of",
+            "argument",
+            "arg of",
+            "conjugate of",
+            "conjugate",
+            "polar form of",
+            "polar form",
+            "polar of",
+            "complex",
+        ):
             if expr.lower().startswith(prefix + " "):
                 expr = expr[len(prefix) :].lstrip()
                 break
         else:
             break
-    return MathIntent(kind="complex", school_op="eval", expr=expr, operation="solve")
+    return MathIntent(kind="complex", school_op=op or "eval", expr=expr, operation="solve")
 
 
 _ODE_START_RE = re.compile(r"dy\s*/\s*dx|d\^?2\s*y\s*/\s*dx\^?2|[A-Za-z]'")
@@ -1122,6 +1172,79 @@ def _verified_block_arithmetic(
         lines.append(f"{intent.percent_rate:g} is {answer}% of {intent.percent_base:g}")
         return _finish_with_answer(lines, answer)
     if (
+        intent.school_op == "discount"
+        and intent.percent_rate is not None
+        and intent.percent_base is not None
+    ):
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.sale_price(intent.percent_base, intent.percent_rate)
+        lines.append(f"{intent.percent_rate:g}% off {intent.percent_base:g} = {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op == "percent_change_from"
+        and intent.percent_base is not None
+        and intent.percent_rate is not None
+    ):
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.percent_change_from(intent.percent_base, intent.percent_rate)
+        lines.append(
+            f"Percent change from {intent.percent_base:g} to {intent.percent_rate:g} = {answer}"
+        )
+        return _finish_with_answer(lines, answer)
+    if intent.school_op in {"direct_proportion", "inverse_proportion"} and intent.stats_numbers:
+        from app.services.math import formulas as math_formulas
+
+        if len(intent.stats_numbers) != 3:
+            return None
+        a, b, c = intent.stats_numbers
+        if intent.school_op == "direct_proportion":
+            answer = math_formulas.direct_proportion(a, b, c)
+        else:
+            answer = math_formulas.inverse_proportion(a, b, c)
+        lines.append(f"{intent.school_op}: {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op == "round_decimal"
+        and intent.percent_base is not None
+        and intent.combo_n is not None
+    ):
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.round_decimal_places(intent.percent_base, intent.combo_n)
+        lines.append(f"Rounded: {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op == "round_sigfigs"
+        and intent.percent_base is not None
+        and intent.combo_n is not None
+    ):
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.round_significant_figures(intent.percent_base, intent.combo_n)
+        lines.append(f"Rounded: {answer}")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "infinite_gp" and intent.stats_numbers:
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.infinite_geometric_sum(intent.stats_numbers)
+        lines.append(f"Infinite GP sum = {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op == "present_value"
+        and intent.percent_base is not None
+        and intent.percent_rate is not None
+        and intent.combo_n is not None
+    ):
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.present_value(
+            intent.percent_base, intent.percent_rate, intent.combo_n
+        )
+        lines.append(f"Present value = {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
         intent.school_op == "ratio"
         and intent.percent_rate is not None
         and intent.percent_base is not None
@@ -1214,6 +1337,19 @@ def _verified_block_arithmetic(
 def _verified_block_trig(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
+    if (
+        intent.school_op == "sas_area"
+        and intent.percent_base is not None
+        and intent.percent_rate is not None
+        and intent.point_x is not None
+    ):
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.sas_triangle_area(
+            intent.percent_base, intent.percent_rate, intent.point_x
+        )
+        lines.append(f"SAS area = {answer}")
+        return _finish_with_answer(lines, answer)
     if intent.school_op and intent.percent_base is not None:
         answer = math_school.evaluate_trig_degrees(intent.school_op, intent.percent_base)
         lines.append(f"{intent.school_op}({intent.percent_base:g}°) = {answer}")
@@ -1228,12 +1364,28 @@ def _verified_block_trig(
 def _verified_block_coord(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
+    from app.services.math import formulas as math_formulas
+
+    if (
+        intent.school_op == "point_to_line"
+        and intent.point_x is not None
+        and intent.point_y is not None
+        and intent.vec_a
+        and len(intent.vec_a) == 3
+    ):
+        answer = math_formulas.point_to_line(
+            intent.point_x, intent.point_y, intent.vec_a[0], intent.vec_a[1], intent.vec_a[2]
+        )
+        lines.append(f"point_to_line: {answer}")
+        return _finish_with_answer(lines, answer)
     if None in (intent.point_x, intent.point_y, intent.x2, intent.y2):
         return None
     x1, y1, x2, y2 = intent.point_x, intent.point_y, intent.x2, intent.y2
     if x1 is None or y1 is None or x2 is None or y2 is None:
         return None
-    if intent.school_op == "midpoint":
+    if intent.school_op == "line":
+        answer = math_formulas.line_through(x1, y1, x2, y2)
+    elif intent.school_op == "midpoint":
         answer = math_school.coord_midpoint(x1, y1, x2, y2)
     elif intent.school_op == "slope":
         answer = math_school.coord_slope(x1, y1, x2, y2)
@@ -1250,10 +1402,22 @@ def _verified_block_vector(
         return None
     if intent.school_op == "magnitude":
         answer = math_school.vector_magnitude(intent.vec_a)
+    elif intent.school_op == "unit":
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.vector_unit(intent.vec_a)
     elif intent.school_op == "dot" and intent.vec_b:
         answer = math_school.vector_dot(intent.vec_a, intent.vec_b)
     elif intent.school_op == "cross" and intent.vec_b:
         answer = math_school.vector_cross(intent.vec_a, intent.vec_b)
+    elif intent.school_op == "angle" and intent.vec_b:
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.vector_angle_degrees(intent.vec_a, intent.vec_b)
+    elif intent.school_op == "projection" and intent.vec_b:
+        from app.services.math import formulas as math_formulas
+
+        answer = math_formulas.vector_projection(intent.vec_a, intent.vec_b)
     else:
         return None
     lines.append(f"{intent.school_op}: {answer}")
@@ -1276,6 +1440,32 @@ def _verified_block_probability(
         answer = math_school.expected_value(intent.stats_numbers, None)
         lines.append(f"E[X] = {answer}")
         return _finish_with_answer(lines, answer)
+    from app.services.math import formulas as math_formulas
+
+    if (
+        intent.school_op == "geometric"
+        and intent.combo_k is not None
+        and intent.percent_base is not None
+    ):
+        answer = math_formulas.geometric_pmf(intent.combo_k, intent.percent_base)
+        lines.append(f"P(X={intent.combo_k}) = {answer}")
+        return _finish_with_answer(lines, answer)
+    if (
+        intent.school_op == "poisson"
+        and intent.combo_k is not None
+        and intent.percent_base is not None
+    ):
+        answer = math_formulas.poisson_pmf(intent.combo_k, intent.percent_base)
+        lines.append(f"P(X={intent.combo_k}) = {answer}")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "complement" and intent.percent_base is not None:
+        answer = math_formulas.complement_probability(intent.percent_base)
+        lines.append(f"1-P = {answer}")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "bayes" and intent.vec_a and len(intent.vec_a) == 3:
+        answer = math_formulas.bayes_probability(intent.vec_a[0], intent.vec_a[1], intent.vec_a[2])
+        lines.append(f"P(A|B) = {answer}")
+        return _finish_with_answer(lines, answer)
     return None
 
 
@@ -1284,7 +1474,18 @@ def _verified_block_complex(
 ) -> VerifiedMathBlock | None:
     if not intent.expr:
         return None
-    answer = math_school.evaluate_complex(intent.expr)
+    from app.services.math import formulas as math_formulas
+
+    if intent.school_op == "modulus":
+        answer = math_formulas.complex_modulus(intent.expr)
+    elif intent.school_op == "argument":
+        answer = math_formulas.complex_argument(intent.expr)
+    elif intent.school_op == "conjugate":
+        answer = math_formulas.complex_conjugate(intent.expr)
+    elif intent.school_op == "polar":
+        answer = math_formulas.complex_polar(intent.expr)
+    else:
+        answer = math_school.evaluate_complex(intent.expr)
     lines.append(f"Result: {answer}")
     return _finish_with_answer(lines, answer)
 
@@ -1308,7 +1509,17 @@ def apply_calculus_extension(
         )
         lines.append(f"Taylor: {out.latex}")
         return _finish_with_answer(lines, out.latex)
-    if intent.operation == "partial" and intent.expr:
+    if (
+        intent.operation == "partial"
+        and intent.expr
+        and intent.school_op
+        not in {
+            "gradient",
+            "directional",
+            "divergence",
+            "curl",
+        }
+    ):
         out = math_school.partial_derivative(intent.expr, intent.variable)
         lines.append(f"Partial: {out.latex}")
         return _finish_with_answer(lines, out.latex)
@@ -1323,6 +1534,44 @@ def apply_calculus_extension(
     if intent.school_op == "identity" and intent.lhs and intent.rhs:
         answer = math_school.verify_identity(intent.lhs, intent.rhs)
         lines.append("Identity holds.")
+        return _finish_with_answer(lines, answer)
+    from app.services.math import formulas as math_formulas
+
+    if intent.school_op == "average_value" and intent.expr and intent.integral_lower is not None:
+        if intent.integral_upper is None:
+            return None
+        answer = math_formulas.average_value(
+            intent.expr, intent.variable, intent.integral_lower, intent.integral_upper
+        )
+        lines.append(f"Average value: {answer}")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "linear_approx" and intent.expr and intent.limit_point is not None:
+        answer = math_formulas.linear_approximation(
+            intent.expr, intent.variable, intent.limit_point
+        )
+        lines.append(f"Linear approximation: {answer}")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "gradient" and intent.expr:
+        answer = math_formulas.gradient_of(intent.expr)
+        lines.append(f"Gradient: {answer}")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "directional" and intent.expr and intent.vec_a and intent.vec_b:
+        answer = math_formulas.directional_derivative(
+            intent.expr, tuple(intent.vec_a), intent.vec_b
+        )
+        lines.append(f"Directional derivative: {answer}")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "divergence" and intent.expr:
+        answer = math_formulas.divergence_of(intent.expr)
+        lines.append(f"Divergence: {answer}")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "curl" and intent.expr:
+        answer = math_formulas.curl_of(intent.expr)
+        lines.append(f"Curl: {answer}")
+        return _finish_with_answer(lines, answer)
+    if intent.school_op == "implicit" and intent.lhs and intent.rhs:
+        answer = math_formulas.implicit_derivative(intent.lhs, intent.rhs)
+        lines.append(f"dy/dx = {answer}")
         return _finish_with_answer(lines, answer)
     return None
 

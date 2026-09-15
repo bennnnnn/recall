@@ -78,7 +78,26 @@ def test_critical_points_cubic() -> None:
     assert "-1" in out.latex
 
 
-def test_work_mixture_twice_and_identity_helpers() -> None:
+def test_formula_helpers():
+    from app.services.math import formulas as math_formulas
+
+    assert math_formulas.sale_price(80, 20) == "64"
+    assert math_formulas.percent_change_from(50, 80) == "60"
+    assert math_formulas.direct_proportion(3, 12, 5) == "20"
+    assert math_formulas.inverse_proportion(6, 4, 8) == "3"
+    assert math_formulas.round_decimal_places(3.14159, 3) == "3.142"
+    assert math_formulas.infinite_geometric_sum([8, 4, 2]) == "16"
+    assert math_formulas.present_value(1157.625, 5, 3) == "1000"
+    assert math_formulas.line_through(1, 2, 3, 6) == "y = 2 x"
+    assert math_formulas.vector_unit([3, 4]) == "<0.6, 0.8>"
+    assert math_formulas.vector_angle_degrees([1, 0], [0, 1]) == "90"
+    assert math_formulas.complex_modulus("3+4i") == "5"
+    assert math_formulas.geometric_pmf(2, 0.5) == "0.25"
+    assert math_formulas.complement_probability(0.3) == "0.7"
+    assert math_formulas.modular_inverse(3, 11) == "4"
+    assert math_formulas.euler_totient(10) == "4"
+    assert math_formulas.chinese_remainder(2, 3, 3, 5) == "8"
+    assert math_formulas.sas_triangle_area(5, 6, 90) == "15"
     assert math_school.work_together(6, 3) == "2"
     assert math_school.mixture_percent(3, 10, 5, 20) == "16.25"
     assert math_school.twice_as_many(30) == "10 and 20"

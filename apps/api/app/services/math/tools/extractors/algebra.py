@@ -267,7 +267,7 @@ def _extract_matrix_intent(cleaned: str) -> MathIntent | None:
         return None
     op, rows = signal
     rows_b = None
-    if op == "multiply":
+    if op in {"multiply", "add"}:
         matrices = bracket_matrices(cleaned)
         if matrices is None or len(matrices) != 2:
             return None

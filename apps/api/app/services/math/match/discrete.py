@@ -14,6 +14,12 @@ from app.services.math.match.types import CombinatoricsOp, MatrixOp, NumberTheor
 # "sample standard deviation" is not swallowed by the plain "standard
 # deviation" entry (which defaults to the population statistic).
 _STATS_WORDS: tuple[tuple[str, StatsOp], ...] = (
+    ("interquartile range", "iqr"),
+    ("quartiles", "quartiles"),
+    ("quartile", "quartiles"),
+    ("percentile", "percentile"),
+    ("iqr", "iqr"),
+    ("range", "range"),
     ("sample standard deviation", "sample_stdev"),
     ("sample std dev", "sample_stdev"),
     ("sample stdev", "sample_stdev"),
@@ -230,6 +236,33 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
             if rest.startswith("prime") or rest.startswith("a prime"):
                 return "is_prime", after[0], None
         idx = lower.find("is ", idx + 1)
+    if "[[" not in text and "inverse" in lower and (" mod " in lower or " modulo " in lower):
+        idx = lower.find("inverse")
+        a_hit = _digits_immediately_after(text, idx + len("inverse"))
+        if a_hit is None:
+            of_at = lower.find(" of ", idx)
+            if of_at != -1:
+                a_hit = _digits_immediately_after(text, of_at + len(" of "))
+        mod_at = lower.find(" mod ", idx)
+        if mod_at == -1:
+            mod_at = lower.find(" modulo ", idx)
+            width = len(" modulo ")
+        else:
+            width = len(" mod ")
+        b_hit = _digits_immediately_after(text, mod_at + width) if mod_at != -1 else None
+        if a_hit is not None and b_hit is not None:
+            return "mod_inverse", a_hit[0], b_hit[0]
+    for prefix in ("euler totient of ", "totient of "):
+        idx = lower.find(prefix)
+        if idx != -1:
+            after = _digits_immediately_after(text, idx + len(prefix))
+            if after is not None:
+                return "totient", after[0], None
+    phi_at = lower.find("phi(")
+    if phi_at != -1:
+        after = _digits_immediately_after(text, phi_at + 4)
+        if after is not None:
+            return "totient", after[0], None
     idx = lower.find(" mod ")
     if idx != -1:
         a = _digits_immediately_before(text, idx)
@@ -237,6 +270,27 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
         if a is not None and after is not None:
             return "mod", a, after[0]
     return None
+
+
+def crt_signal(text: str) -> tuple[int, int, int, int] | None:
+    lower = text.lower()
+    if "chinese remainder" not in lower and word_index(lower, "crt") == -1:
+        return None
+    pairs: list[tuple[int, int]] = []
+    start = 0
+    while True:
+        idx = lower.find(" mod ", start)
+        if idx == -1:
+            break
+        a = _digits_immediately_before(text, idx)
+        after = _digits_immediately_after(text, idx + len(" mod "))
+        if a is None or after is None:
+            return None
+        pairs.append((a, after[0]))
+        start = idx + 1
+    if len(pairs) != 2:
+        return None
+    return pairs[0][0], pairs[0][1], pairs[1][0], pairs[1][1]
 
 
 def _rows_from_brackets(body: str) -> list[list[float]] | None:
@@ -290,6 +344,10 @@ def _matrix_op_from_text(text: str) -> MatrixOp | None:
         return "rref"
     if "eigen" in lower:
         return "eigenvalues"
+    if "transpose" in lower:
+        return "transpose"
+    if word_index(lower, "add") != -1 or word_index(lower, "plus") != -1:
+        return "add"
     if (
         word_index(lower, "multiply") != -1
         or "product of" in lower
@@ -302,6 +360,8 @@ def _matrix_op_from_text(text: str) -> MatrixOp | None:
         mid = text[first + 2 : second].strip()
         if mid in {"*", "\u00d7"}:
             return "multiply"
+        if mid == "+":
+            return "add"
     return None
 
 
@@ -320,6 +380,6 @@ def matrix_signal(text: str) -> tuple[MatrixOp, list[list[float]]] | None:
         len(row) != len(rows) for row in rows
     ):
         return None
-    if op == "multiply" and len(matrices) != 2:
+    if op in {"multiply", "add"} and len(matrices) != 2:
         return None
     return op, rows

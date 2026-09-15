@@ -157,6 +157,22 @@ class TestComputeMatrix:
         )
         assert result.result_latex is not None
 
+    def test_add_and_transpose(self):
+        added = math_solve.compute_matrix(
+            MatrixInput(
+                operation="add",
+                rows=[[1, 2], [3, 4]],
+                rows_b=[[0, 1], [1, 0]],
+            )
+        )
+        assert added.result_latex is not None
+        assert "1" in added.result_latex and "4" in added.result_latex
+        transposed = math_solve.compute_matrix(
+            MatrixInput(operation="transpose", rows=[[1, 2], [3, 4]])
+        )
+        assert transposed.result_latex is not None
+        assert "3" in transposed.result_latex
+
 
 class TestMathTextMatchSignals:
     def test_stats_signal_requires_numbers_not_just_keyword(self):
@@ -191,6 +207,8 @@ class TestMathTextMatchSignals:
             ("is 97 prime", ("is_prime", 97, None)),
             ("is 91 a prime number", ("is_prime", 91, None)),
             ("17 mod 5", ("mod", 17, 5)),
+            ("modular inverse of 3 mod 11", ("mod_inverse", 3, 11)),
+            ("totient of 10", ("totient", 10, None)),
         ],
     )
     def test_number_theory_signal(self, text, expected):

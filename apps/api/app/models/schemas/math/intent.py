@@ -107,6 +107,9 @@ class MathIntent(BaseModel):
     variable2: str | None = None
     integral_lower2: str | None = None
     integral_upper2: str | None = None
+    variable3: str | None = None
+    integral_lower3: str | None = None
+    integral_upper3: str | None = None
     # System of equations — list of (lhs, rhs) pairs; `lhs`/`rhs`/`variable`
     # above stay single-equation-only for every other kind.
     system_equations: list[tuple[str, str]] | None = None
@@ -129,7 +132,19 @@ class MathIntent(BaseModel):
     # sample_* variants use the (n-1) divisor; the bare "stdev"/"variance"
     # ops use the population divisor (the historical default).
     stats_op: (
-        Literal["mean", "median", "mode", "variance", "stdev", "sample_stdev", "sample_variance"]
+        Literal[
+            "mean",
+            "median",
+            "mode",
+            "variance",
+            "stdev",
+            "sample_stdev",
+            "sample_variance",
+            "range",
+            "iqr",
+            "quartiles",
+            "percentile",
+        ]
         | None
     ) = None
     stats_numbers: list[float] | None = None
@@ -138,12 +153,18 @@ class MathIntent(BaseModel):
     combo_n: int | None = None
     combo_k: int | None = None
     # Number theory — gcd/lcm/mod take a and b; factorize/is_prime take a only.
-    numtheory_op: Literal["gcd", "lcm", "factorize", "is_prime", "mod"] | None = None
+    numtheory_op: (
+        Literal["gcd", "lcm", "factorize", "is_prime", "mod", "mod_inverse", "totient", "crt"]
+        | None
+    ) = None
     numtheory_a: int | None = None
     numtheory_b: int | None = None
     # Matrix — det/inverse/eigen of a small square matrix; multiply/rref
     # may be rectangular. `matrix_rows_b` is the right factor for multiply.
-    matrix_op: Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"] | None = None
+    matrix_op: (
+        Literal["determinant", "inverse", "multiply", "rref", "eigenvalues", "add", "transpose"]
+        | None
+    ) = None
     matrix_rows: list[list[float]] | None = None
     matrix_rows_b: list[list[float]] | None = None
     # Triangle by three side lengths (SSS) — `base`/`side` above stay

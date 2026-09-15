@@ -152,6 +152,28 @@ def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
             operation=data.operation, a=a, b=b, result_int=result, steps=steps
         )
 
+    if data.operation == "mod_inverse":
+        from app.services.math.formulas import modular_inverse
+
+        if data.b is None:
+            raise MathServiceError("modular inverse requires two integers")
+        result = int(modular_inverse(a, data.b))
+        return NumberTheoryResult(
+            operation="mod_inverse",
+            a=a,
+            b=data.b,
+            result_int=result,
+            steps=[f"{a}^{{-1}} \\bmod {data.b} = {result}"],
+        )
+
+    if data.operation == "totient":
+        from app.services.math.formulas import euler_totient
+
+        result = int(euler_totient(a))
+        return NumberTheoryResult(
+            operation="totient", a=a, b=None, result_int=result, steps=[f"\\phi({a}) = {result}"]
+        )
+
     if data.operation == "factorize":
         from sympy import factorint
 
@@ -221,6 +243,21 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
         reduced = mat.rref()[0]
         steps = [f"\\mathrm{{rref}} = {latex(reduced)}"]
         return MatrixResult(operation="rref", result_latex=latex(reduced), steps=steps)
+
+    if data.operation == "add":
+        if data.rows_b is None:
+            raise MathServiceError("add needs a second matrix")
+        other = _matrix_from_rows(data.rows_b)
+        if mat.rows != other.rows or mat.cols != other.cols:
+            raise MathServiceError("matrix add needs matching shapes")
+        summed = mat + other
+        steps = [f"A+B = {latex(summed)}"]
+        return MatrixResult(operation="add", result_latex=latex(summed), steps=steps)
+
+    if data.operation == "transpose":
+        transposed = mat.T
+        steps = [f"A^{{T}} = {latex(transposed)}"]
+        return MatrixResult(operation="transpose", result_latex=latex(transposed), steps=steps)
 
     evals = mat.eigenvals()
     keys = sorted(evals.keys(), key=lambda value: (complex(value).real, complex(value).imag))

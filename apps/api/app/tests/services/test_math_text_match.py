@@ -526,6 +526,8 @@ class TestNumberTheorySignal:
             ("is 17 prime", "is_prime", 17, None),
             ("is 91 a prime number", "is_prime", 91, None),
             ("10 mod 3", "mod", 10, 3),
+            ("modular inverse of 3 mod 11", "mod_inverse", 3, 11),
+            ("totient of 10", "totient", 10, None),
         ],
     )
     def test_number_theory_signal(self, text, expected_op, expected_a, expected_b):
@@ -560,6 +562,10 @@ class TestMatrixSignal:
         assert rows == [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
         op, rows = mtm.matrix_signal("eigenvalues of [[2,0],[0,3]]")
         assert op == "eigenvalues"
+        op, rows = mtm.matrix_signal("add [[1,2],[3,4]] and [[0,1],[1,0]]")
+        assert op == "add"
+        op, rows = mtm.matrix_signal("transpose [[1,2],[3,4]]")
+        assert op == "transpose"
 
 
 class TestParseLimit:

@@ -325,6 +325,80 @@ def school_homework_cue(cleaned: str) -> bool:
         and (word_index(lower, "together") != -1)
     ):
         return True
+    if (
+        has_digit
+        and "%" in cleaned
+        and (
+            word_index(lower, "tax") != -1
+            or word_index(lower, "tip") != -1
+            or word_index(lower, "discount") != -1
+            or word_index(lower, "off") != -1
+            or word_index(lower, "markup") != -1
+        )
+    ):
+        return True
+    if has_digit and ("percent change from" in lower or "percentage change from" in lower):
+        return True
+    if has_digit and ("direct proportion" in lower or "inverse proportion" in lower):
+        return True
+    if has_digit and word_index(lower, "cost") != -1 and word_index(lower, "if") != -1:
+        return True
+    if (
+        has_digit
+        and word_index(lower, "round") != -1
+        and ("decimal" in lower or "significant" in lower)
+    ):
+        return True
+    if "present value" in lower and has_digit:
+        return True
+    if ("infinity" in lower or "infinite" in lower) and ("sum" in lower or "series" in lower):
+        return True
+    if "equation of" in lower and "line" in lower and "(" in cleaned:
+        return True
+    if word_index(lower, "distance") != -1 and "(" in cleaned and "=" in cleaned:
+        return True
+    if (
+        any(w in lower for w in ("unit vector", "projection of", "angle between"))
+        and "<" in cleaned
+    ):
+        return True
+    if "geometric" in lower and "k=" in lower.replace(" ", ""):
+        return True
+    if "poisson" in lower:
+        return True
+    if word_index(lower, "bayes") != -1 or word_index(lower, "complement") != -1:
+        return True
+    if any(
+        word_index(lower, word) != -1
+        for word in ("quartiles", "percentile", "iqr", "interquartile")
+    ):
+        return True
+    if "range of" in lower and "," in cleaned:
+        return True
+    if "modular inverse" in lower or ("totient" in lower and has_digit):
+        return True
+    if "chinese remainder" in lower or word_index(lower, "crt") != -1:
+        return True
+    if "transpose" in lower and "[[" in cleaned:
+        return True
+    if word_index(lower, "add") != -1 and "[[" in cleaned:
+        return True
+    if any(
+        word in lower
+        for word in (
+            "gradient",
+            "directional derivative",
+            "divergence",
+            "curl",
+            "average value",
+            "linear approximation",
+            "implicit",
+            "triple integral",
+        )
+    ):
+        return True
+    if "area" in lower and "triangle" in lower and "angle" in lower and "sides" in lower:
+        return True
     if "average speed" in lower or "average velocity" in lower:
         from app.services.math.tools.school import _extract_average_speed_intent
 

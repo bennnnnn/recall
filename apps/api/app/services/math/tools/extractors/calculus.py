@@ -6,6 +6,7 @@ import re
 from typing import Literal
 
 from app.models.schemas.math import MathIntent
+from app.services.math.tools.extractors.formulas import FORMULA_CALCULUS_EXTRACTORS
 from app.services.math.tools.helpers import (
     _calc_expr_tail,
     _normalize_latex_expr,
@@ -188,6 +189,10 @@ def _extract_double_integral_intent(cleaned: str) -> MathIntent | None:
     y_bounds = _named_axis_bounds(cleaned, "y")
     if x_bounds is None or y_bounds is None:
         return None
+    if _named_axis_bounds(cleaned, "z") is not None:
+        return None
+    if "triple" in cleaned.lower():
+        return None
     start = lower.find("double integral")
     if start != -1:
         rest = cleaned[start + len("double integral") :]
@@ -327,6 +332,7 @@ def _extract_series_intent(cleaned: str) -> MathIntent | None:
 CALCULUS_EXTRACTORS = (
     _extract_critical_points_intent,
     _extract_identity_intent,
+    *FORMULA_CALCULUS_EXTRACTORS,
     _extract_double_integral_intent,
     _extract_calculus_intent,
     _extract_limit_intent,

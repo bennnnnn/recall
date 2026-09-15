@@ -7,12 +7,35 @@ from app.models.schemas.math import MathIntent
 
 def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
     from app.services.math import match as mtm
+    from app.services.math.match.scan import word_index
 
     signal = mtm.stats_signal(cleaned)
     if signal is None:
         return None
     op, numbers = signal
-    return MathIntent(kind="statistics", stats_op=op, stats_numbers=numbers, operation="solve")
+    percentile_n = None
+    if op == "percentile":
+        idx = word_index(cleaned.lower(), "percentile")
+        if idx == -1:
+            return None
+        j = idx
+        while j > 0 and cleaned[j - 1].isspace():
+            j -= 1
+        if j >= 2 and cleaned[j - 2 : j].lower() in {"st", "nd", "rd", "th"}:
+            k = j - 2
+            while k > 0 and cleaned[k - 1].isdigit():
+                k -= 1
+            if k < j - 2:
+                percentile_n = int(cleaned[k : j - 2])
+        if percentile_n is None:
+            return None
+    return MathIntent(
+        kind="statistics",
+        stats_op=op,
+        stats_numbers=numbers,
+        combo_n=percentile_n,
+        operation="solve",
+    )
 
 
 def _extract_combinatorics_intent(cleaned: str) -> MathIntent | None:
@@ -27,7 +50,19 @@ def _extract_combinatorics_intent(cleaned: str) -> MathIntent | None:
 
 def _extract_number_theory_intent(cleaned: str) -> MathIntent | None:
     from app.services.math import match as mtm
+    from app.services.math.match.discrete import crt_signal
 
+    crt = crt_signal(cleaned)
+    if crt is not None:
+        rem_a, mod_m, rem_b, mod_n = crt
+        return MathIntent(
+            kind="number_theory",
+            numtheory_op="crt",
+            numtheory_a=rem_a,
+            numtheory_b=mod_m,
+            vec_a=[float(rem_a), float(mod_m), float(rem_b), float(mod_n)],
+            operation="solve",
+        )
     signal = mtm.number_theory_signal(cleaned)
     if signal is None:
         return None

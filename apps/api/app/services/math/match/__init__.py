@@ -14,6 +14,7 @@ from app.services.math.match.calculus import (
 )
 from app.services.math.match.discrete import (
     combinatorics_signal,
+    crt_signal,
     matrix_signal,
     number_theory_signal,
     stats_signal,
@@ -79,6 +80,7 @@ __all__ = [
     "calc_op",
     "classify_solid_shape",
     "combinatorics_signal",
+    "crt_signal",
     "first_dim_pair",
     "first_dim_triple",
     "geometry_deferred_for_algebra",
