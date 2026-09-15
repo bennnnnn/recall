@@ -23,6 +23,13 @@ _FUNCTION_ANALYSIS_OPS = {
     "function_range",
     "function_inverse",
     "function_compose",
+    "function_symmetry",
+}
+_CALCULUS_APPLICATION_OPS = {
+    "area_between_curves",
+    "arc_length",
+    "volume_revolution_x",
+    "volume_revolution_y",
 }
 _BIVARIATE_STATS_OPS = {
     "correlation",
@@ -30,6 +37,38 @@ _BIVARIATE_STATS_OPS = {
     "sample_covariance",
     "linear_regression",
 }
+
+
+def _verified_calculus_application(
+    intent: MathIntent, lines: list[str]
+) -> VerifiedMathBlock | None:
+    from app.services.math import calculus_applications as apps
+
+    op = intent.school_op
+    if op not in _CALCULUS_APPLICATION_OPS:
+        return None
+    if not intent.expr or intent.integral_lower is None or intent.integral_upper is None:
+        return None
+
+    if op == "area_between_curves":
+        if not intent.expr2:
+            return None
+        answer = apps.area_between_curves(
+            intent.expr, intent.expr2, intent.integral_lower, intent.integral_upper, intent.variable
+        )
+        lines.append(f"Area between the curves: {answer}")
+    elif op == "arc_length":
+        answer = apps.arc_length(
+            intent.expr, intent.integral_lower, intent.integral_upper, intent.variable
+        )
+        lines.append(f"Arc length: {answer}")
+    else:
+        axis = "x" if op.endswith("_x") else "y"
+        answer = apps.volume_of_revolution(
+            intent.expr, intent.integral_lower, intent.integral_upper, axis, intent.variable
+        )
+        lines.append(f"Volume about the {axis}-axis: {answer}")
+    return _finish_with_answer(lines, answer)
 
 
 def _verified_function_analysis(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -46,6 +85,9 @@ def _verified_function_analysis(intent: MathIntent, lines: list[str]) -> Verifie
     elif intent.school_op == "function_inverse":
         answer = function_analysis.inverse_function(intent.expr, intent.variable)
         lines.append(f"Inverse function: {answer}")
+    elif intent.school_op == "function_symmetry":
+        answer = function_analysis.symmetry(intent.expr, intent.variable)
+        lines.append(f"Symmetry: {answer}")
     else:
         if not intent.expr2:
             return None
@@ -61,6 +103,8 @@ def _verified_block_calculus(
         return None
     if intent.school_op in _FUNCTION_ANALYSIS_OPS:
         return _verified_function_analysis(intent, lines)
+    if intent.school_op in _CALCULUS_APPLICATION_OPS:
+        return _verified_calculus_application(intent, lines)
     from app.services.math.tools.school import apply_calculus_extension
 
     extended = apply_calculus_extension(intent, settings, lines)

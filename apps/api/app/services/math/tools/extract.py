@@ -11,6 +11,9 @@ from app.services.math.tools.extractors.algebra import (
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
 )
 from app.services.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
+from app.services.math.tools.extractors.calculus_applications import (
+    CALCULUS_APPLICATION_EXTRACTORS,
+)
 from app.services.math.tools.extractors.discrete_statistics import (
     DISCRETE_STATISTICS_EXTRACTORS,
 )
@@ -28,6 +31,10 @@ from app.services.physics.extract import PHYSICS_EXTRACTORS
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     SOLID_EXTRACTOR,
+    # Ahead of the school and algebra extractors. "area between y=x and y=x^2
+    # from 0 to 1" reads as two simultaneous equations to the algebra side,
+    # which is how it once answered with the curves' intersection points.
+    *CALCULUS_APPLICATION_EXTRACTORS,
     *SCHOOL_EXTRACTORS,
     *PHYSICS_EXTRACTORS,
     *GEOMETRY_GRAPH_EXTRACTORS,
@@ -87,11 +94,29 @@ def trig_domain_would_be_dropped(expression: str, text: str) -> bool:
 #
 # A verified block tells the model not to recompute, so a confident answer to
 # a question nobody asked is worse than no block at all.
-_CALCULUS_APPLICATION_RE = re.compile(
+# #1344 refused every area/arc-length/volume-over-a-region question outright,
+# after "area between y=x and y=x^2 from 0 to 1" was answered with the curves'
+# *intersection points*. Three of those shapes are solved now, so the guard
+# moved from *before* the extractors to *after* them: whatever the calculus
+# application extractors claim is let through, and whatever they decline is
+# still refused.
+#
+# It has to stay this broad. Narrowing it to the unimplemented wordings
+# reopened the original bug immediately: "area between y=x and y=x^2" with no
+# stated interval is declined by the application extractor, fell through to the
+# algebra side, and answered `x = 0, y = 0; x = 1, y = 1` all over again.
+_REGION_QUESTION_RE = re.compile(
     r"\b(?:area|arc\s+length|volume)\b[^.?!]{0,80}?"
     r"\b(?:between|under|bounded\s+by|of\s+revolution|revolved|rotated)\b",
     re.IGNORECASE,
 )
+
+_SOLVED_REGION_OPS = {
+    "area_between_curves",
+    "arc_length",
+    "volume_revolution_x",
+    "volume_revolution_y",
+}
 
 
 def extract_math_intent(text: str) -> MathIntent | None:
@@ -99,8 +124,6 @@ def extract_math_intent(text: str) -> MathIntent | None:
 
     cleaned = mtm.prepare(text)
     if not cleaned:
-        return None
-    if _CALCULUS_APPLICATION_RE.search(cleaned):
         return None
     # Function analysis currently verifies the maximal real domain only.
     # Refuse the whole extraction before inequality/algebra fallbacks can
@@ -112,9 +135,16 @@ def extract_math_intent(text: str) -> MathIntent | None:
         tail = math_expr_or_none(roots_match.group(1))
         if tail is not None and "=" not in tail:
             cleaned = f"solve {tail} = 0"
+    region_question = _REGION_QUESTION_RE.search(cleaned) is not None
     for extractor in _INTENT_EXTRACTORS:
         intent = extractor(cleaned)
         if intent is not None:
+            if region_question and intent.school_op not in _SOLVED_REGION_OPS:
+                # A region question the application extractors declined must
+                # not be answered by whichever other extractor recognises half
+                # of it. Declining means a given is missing, not that some
+                # other reading is available.
+                return None
             # Successful substitution arithmetic wins earlier. If that did
             # not parse, never certify just the given assignment(s) while
             # silently ignoring the requested evaluation.
