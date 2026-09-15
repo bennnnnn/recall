@@ -1,6 +1,6 @@
 """Cheap cues for advanced verified math features.
 
-The actual parsing lives in ``math.tools.extractors.advanced``.  This module is
+The actual parsing lives in ``math.tools.extractors.advanced``. This module is
 kept dependency-light because ``match.needs`` imports it on every chat turn.
 """
 
@@ -69,7 +69,8 @@ def advanced_cue(text: str) -> bool:
         return True
     if "arc length" in lower and (" from " in lower or " on [" in lower):
         return True
-    if "volume" in lower and ("revolution" in lower or "revolved" in lower or "rotated" in lower):
+    volume_words = ("revolution", "revolved", "rotated")
+    if "volume" in lower and any(word in lower for word in volume_words):
         return "axis" in lower and " from " in lower
 
     return False
