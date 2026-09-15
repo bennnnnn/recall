@@ -11,6 +11,10 @@ from app.services.math.tools.extractors.algebra import (
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
 )
 from app.services.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
+from app.services.math.tools.extractors.calculus_applications import (
+    CALCULUS_APPLICATION_EXTRACTORS,
+    calculus_application_requested,
+)
 from app.services.math.tools.extractors.discrete_statistics import (
     DISCRETE_STATISTICS_EXTRACTORS,
 )
@@ -83,6 +87,15 @@ def extract_math_intent(text: str) -> MathIntent | None:
     # Refuse the whole extraction before inequality/algebra fallbacks can
     # verify just the trailing restriction and silently ignore the actual ask.
     if function_analysis_constraint_would_be_dropped(cleaned):
+        return None
+    # A recognized calculus application must either parse completely or fail
+    # closed. Otherwise a partial expression can fall through to an unrelated
+    # algebra/physics extractor and get a confidently verified wrong answer.
+    if calculus_application_requested(cleaned):
+        for extractor in CALCULUS_APPLICATION_EXTRACTORS:
+            intent = extractor(cleaned)
+            if intent is not None:
+                return intent
         return None
     roots_match = _ROOTS_RE.search(cleaned)
     if roots_match:
