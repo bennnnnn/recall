@@ -18,9 +18,7 @@ def test_pearson_correlation_perfect_positive() -> None:
 
 def test_sample_and_population_covariance_are_distinct() -> None:
     sample, _ = compute_bivariate_statistics([1, 2, 3], [2, 4, 6], "covariance_sample")
-    population, _ = compute_bivariate_statistics(
-        [1, 2, 3], [2, 4, 6], "covariance_population"
-    )
+    population, _ = compute_bivariate_statistics([1, 2, 3], [2, 4, 6], "covariance_population")
     assert sample == "2"
     assert population.startswith("1.333333")
 
