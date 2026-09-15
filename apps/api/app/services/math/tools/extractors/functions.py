@@ -14,6 +14,24 @@ from app.services.math.tools.helpers import (
 
 _FUNC_DEF_START = re.compile(r"\b([A-Za-z])\s*\(\s*([A-Za-z])\s*\)\s*=", re.IGNORECASE)
 _TRAILING_JOINER = re.compile(r"(?:\s+and\s*|\s*[,;]\s*)$", re.IGNORECASE)
+_FUNCTION_ANALYSIS_CUE_RE = re.compile(
+    r"\b(?:domain|range|inverse(?:\s+function)?)\b",
+    re.IGNORECASE,
+)
+_FUNCTION_RESTRICTION_RE = re.compile(
+    r"\b(?:on|for|where|when)\b[^,;]*?(?:<=|>=|<|>|≤|≥|\bin\b|\bbetween\b|\[|\()",
+    re.IGNORECASE,
+)
+
+
+def function_analysis_constraint_would_be_dropped(text: str) -> bool:
+    """True when a supported function ask includes a domain restriction.
+
+    Domain/range/inverse helpers currently operate on the maximal real domain.
+    A restriction such as ``on x >= 0`` must never be peeled away and replaced
+    by a confidently verified unrestricted answer.
+    """
+    return bool(_FUNCTION_ANALYSIS_CUE_RE.search(text) and _FUNCTION_RESTRICTION_RE.search(text))
 
 
 def _function_definitions(text: str) -> list[tuple[str, str, str]]:
@@ -77,6 +95,14 @@ def _single_function_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "[[" in cleaned or "matrix" in lower:
         return None
+    # Number theory owns modular inverses. Without this guard, the generic
+    # ``inverse of`` cue can steal ``modular inverse of 3 mod 11`` before the
+    # number-theory extractor gets a chance to verify it.
+    if "modular inverse" in lower or " mod " in lower or " modulo " in lower:
+        return None
+    if function_analysis_constraint_would_be_dropped(cleaned):
+        return None
+
     op: str | None = None
     cue: str | None = None
     for phrase, name in (
