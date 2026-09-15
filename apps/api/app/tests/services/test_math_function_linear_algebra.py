@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.services.math.solve.advanced import compute_function_feature, compute_matrix_feature
 from app.services.math import tools as math_tools
+from app.services.math.solve.advanced import compute_function_feature, compute_matrix_feature
 
 
 class TestFunctionFeatures:
