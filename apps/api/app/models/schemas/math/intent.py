@@ -145,6 +145,7 @@ class MathIntent(BaseModel):
             "percentile",
             "correlation",
             "covariance",
+            "sample_covariance",
             "linear_regression",
         ]
         | None
