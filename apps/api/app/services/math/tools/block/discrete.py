@@ -14,10 +14,7 @@ from app.models.schemas.math import (
     StatisticsInput,
 )
 from app.services.math import solve as math_solve
-from app.services.math.tools.block.common import (
-    VerifiedMathBlock,
-    _finish_with_answer,
-)
+from app.services.math.tools.block.common import VerifiedMathBlock, _finish_with_answer
 from app.services.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
 
@@ -36,9 +33,25 @@ def _verified_block_calculus(
 
         feature = cast(FunctionFeature, intent.school_op.removeprefix("function_"))
         answer, steps = compute_function_feature(
-            feature,
+            feature, intent.expr, intent.variable, expr2=intent.expr2
+        )
+        lines.extend(steps)
+        return _finish_with_answer(lines, answer)
+    if intent.school_op in {"area_between_curves", "arc_length", "volume_revolution_x"}:
+        if intent.integral_lower is None or intent.integral_upper is None:
+            return None
+        from app.services.math.solve.advanced import (
+            CalculusApplicationFeature,
+            compute_calculus_application,
+        )
+
+        application = cast(CalculusApplicationFeature, intent.school_op)
+        answer, steps = compute_calculus_application(
+            application,
             intent.expr,
             intent.variable,
+            intent.integral_lower,
+            intent.integral_upper,
             expr2=intent.expr2,
         )
         lines.extend(steps)
@@ -105,10 +118,7 @@ def _verified_block_calculus(
             )
         elif intent.integral_lower is not None and intent.integral_upper is not None:
             out = math_solve.integrate_definite(
-                intent.expr,
-                intent.variable,
-                intent.integral_lower,
-                intent.integral_upper,
+                intent.expr, intent.variable, intent.integral_lower, intent.integral_upper
             )
         else:
             out = math_solve.integrate_expression(intent.expr, intent.variable)
