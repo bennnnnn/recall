@@ -132,9 +132,7 @@ class MatrixInput(BaseModel):
             "diagonalize",
         }:
             if any(len(row) != size for row in self.rows):
-                raise ValueError(
-                    "matrix must be square for determinant/inverse/eigenvalues/eigenvectors/diagonalize"
-                )
+                raise ValueError("matrix must be square for this operation")
         if self.operation == "multiply":
             if self.rows_b is None:
                 raise ValueError("multiply needs a second matrix")
