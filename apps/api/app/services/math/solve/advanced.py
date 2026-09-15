@@ -11,7 +11,9 @@ import statistics
 
 from sympy import (
     Eq,
+    FiniteSet,
     Integral,
+    Interval,
     Matrix,
     Rational,
     S,
@@ -21,6 +23,7 @@ from sympy import (
     pi,
     simplify,
     solve,
+    solveset,
     sqrt,
 )
 from sympy.calculus.util import continuous_domain, function_range
@@ -211,14 +214,28 @@ def _closed_integral(value, label: str) -> str:
     return format_verified_latex(simplify(value))
 
 
+def _require_continuous(expr, variable: Symbol, lower, upper) -> None:
+    interval = Interval(lower, upper)
+    try:
+        domain = continuous_domain(expr, variable, S.Reals)
+    except NotImplementedError as exc:
+        raise MathServiceError("Could not verify continuity on the requested interval") from exc
+    if interval.is_subset(domain) is not True:
+        raise MathServiceError("The expression is not continuous on the requested interval")
+
+
 def _integrate_absolute(expr, variable: Symbol, lower, upper):
     """Integrate |expr| by splitting at verified real zeros in the interval."""
     if simplify(expr) == 0:
         return S.Zero
+    interval = Interval(lower, upper)
     try:
-        roots = solve(Eq(expr, 0), variable)
+        root_set = solveset(Eq(expr, 0), variable, domain=interval)
     except Exception as exc:
         raise MathServiceError("Could not locate the curve crossings symbolically") from exc
+    if not isinstance(root_set, FiniteSet):
+        raise MathServiceError("Could not enumerate every crossing on the requested interval")
+    roots = list(root_set)
     if len(roots) > 32:
         raise MathServiceError("Too many curve crossings to verify safely")
 
@@ -266,11 +283,13 @@ def solve_calculus_application(
     x = Symbol("x", real=True)
     expr = _expr(expr_text)
     lo, hi = _ordered_bounds(lower, upper)
+    _require_continuous(expr, x, lo, hi)
 
     if op == "area_between_curves":
         if expr2_text is None:
             raise MathServiceError("Area between curves needs two functions")
         other = _expr(expr2_text)
+        _require_continuous(other, x, lo, hi)
         result = _integrate_absolute(expr - other, x, lo, hi)
         return _closed_integral(result, "area")
 
@@ -283,8 +302,14 @@ def solve_calculus_application(
         return _closed_integral(result, "volume")
 
     if op == "volume_revolution_y":
+        lo_float = float(lo.evalf())
+        hi_float = float(hi.evalf())
+        if lo_float < 0 < hi_float:
+            raise MathServiceError(
+                "Verified y-axis shell volume requires an interval on one side of the axis"
+            )
         # Cylindrical shells. Split at sign changes so geometric volume stays
-        # non-negative even when a radius/height expression crosses an axis.
+        # non-negative even when the height expression crosses the x-axis.
         shells = _integrate_absolute(x * expr, x, lo, hi)
         return _closed_integral(2 * pi * shells, "volume")
 
