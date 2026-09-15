@@ -65,10 +65,7 @@ def advanced_cue(text: str) -> bool:
         )
     )
     has_function_notation = (
-        "f(" in lower
-        or "g(" in lower
-        or "y=" in lower
-        or re.search(r"\bx\b", lower) is not None
+        "f(" in lower or "g(" in lower or "y=" in lower or re.search(r"\bx\b", lower) is not None
     )
     if function_cue and has_function_notation:
         return True
