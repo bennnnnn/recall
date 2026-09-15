@@ -342,8 +342,20 @@ def _matrix_op_from_text(text: str) -> MatrixOp | None:
         return "inverse"
     if "rref" in lower or "row echelon" in lower:
         return "rref"
+    if "eigenvector" in lower:
+        return "eigenvectors"
     if "eigen" in lower:
         return "eigenvalues"
+    if "nullspace" in lower or "null space" in lower or word_index(lower, "kernel") != -1:
+        return "nullspace"
+    if "column space" in lower or "columnspace" in lower or "colspace" in lower:
+        return "columnspace"
+    if "row space" in lower or "rowspace" in lower:
+        return "rowspace"
+    if "diagonalize" in lower or "diagonalise" in lower or "diagonalization" in lower:
+        return "diagonalize"
+    if word_index(lower, "rank") != -1:
+        return "rank"
     if "transpose" in lower:
         return "transpose"
     if word_index(lower, "add") != -1 or word_index(lower, "plus") != -1:
@@ -366,9 +378,12 @@ def _matrix_op_from_text(text: str) -> MatrixOp | None:
 
 
 def matrix_signal(text: str) -> tuple[MatrixOp, list[list[float]]] | None:
-    """ "determinant of [[1,2],[3,4]]" / "inverse of [[2,0],[1,3]]" -> (op,
-    rows). Only explicit [[...],[...]] bracket notation is recognized — a
-    best-effort structural match, not general NL parsing."""
+    """Recognize explicit small-matrix operations using ``[[...],[...]]`` notation.
+
+    This remains a best-effort structural match rather than general natural-language
+    matrix parsing. Operations that mathematically require a square matrix are
+    rejected here before they reach the verified solver.
+    """
     op = _matrix_op_from_text(text)
     if op is None:
         return None
@@ -376,7 +391,7 @@ def matrix_signal(text: str) -> tuple[MatrixOp, list[list[float]]] | None:
     if not matrices:
         return None
     rows = matrices[0]
-    if op in {"determinant", "inverse", "eigenvalues"} and any(
+    if op in {"determinant", "inverse", "eigenvalues", "eigenvectors", "diagonalize"} and any(
         len(row) != len(rows) for row in rows
     ):
         return None
