@@ -100,9 +100,7 @@ def _extract_calculus_application_intent(cleaned: str) -> MathIntent | None:
             operation="integrate",
         )
 
-    if "volume" in lower and any(
-        word in lower for word in ("revolution", "revolved", "rotated")
-    ):
+    if "volume" in lower and any(word in lower for word in ("revolution", "revolved", "rotated")):
         if "x-axis" in lower or "x axis" in lower:
             axis = "x"
         elif "y-axis" in lower or "y axis" in lower:
