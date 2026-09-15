@@ -51,6 +51,26 @@ _VALUE_UNIT_RE = re.compile(
 )
 
 
+def _has_cue_either_case(
+    cleaned: str,
+    cues: tuple[str, ...],
+    regexes: tuple[re.Pattern[str], ...] = (),
+) -> bool:
+    """`_has_cue`, but the regexes see the text as written as well as lowered.
+
+    A few cue regexes mean the SI symbols `V` and `A` and are case-sensitive on
+    purpose - "12 V and 3 A" is a circuit, "12 v cards and 3 a piece" is not.
+    Handing them only lowercased text silently disables them, which is exactly
+    what the pre-filter did: `needs_symbolic` dropped questions the extractor
+    would have answered, because the extractor saw the original casing and the
+    pre-filter did not. The two have to see the same thing.
+    """
+    lower = cleaned.lower()
+    if any(cue in lower for cue in cues):
+        return True
+    return any(rx.search(cleaned) or rx.search(lower) for rx in regexes)
+
+
 def _has_cue(
     lower: str,
     cues: tuple[str, ...],
@@ -1358,34 +1378,119 @@ _CIRCUIT_CUES = (
     "amps",
     "circuit",
     "battery",
+    # Round 3. Each of these is electrical vocabulary and nothing else -
+    # unlike "charge" (a card is charged) and "current" (the current date),
+    # which stay out and are reached by co-occurrence below.
+    "capacitance",
+    "capacitor",
+    "farad",
+    "coulomb",
+    "internal resistance",
+    "terminal voltage",
+    "electromotive force",
 )
 
 _VOLT_PATTERN = r"V|volts?"
 _AMP_PATTERN = r"A|amps?|amperes?"
 _OHM_PATTERN = r"ohms?|\u03a9"
 
+# Cue-side spellings: the symbol is uppercase-only, the word either case. The
+# harvest patterns above are used with IGNORECASE and stay as they are.
+_VOLT_CUE = r"V|[Vv]olts?"
+_AMP_CUE = r"A|[Aa]mp(?:s|ere|eres)?"
+_OHM_CUE = r"[Oo]hms?|\u03a9"
+
+
 # A question can name no circuit *word* and still be one: "the electrical power
 # for 12 V and 3 A" is entirely units. Two electrical quantities together are
-# the signature — the same shape P2 used for the projectile's speed-and-angle.
+# the signature - the same shape P2 used for the projectile's speed-and-angle.
 #
-# Deliberately case-sensitive on the bare letters. "V" and "A" are the SI
-# symbols; matching them case-insensitively would let "3 a piece" read as three
-# amps. The spelled-out forms stay case-insensitive.
-_ELECTRICAL_QUANTITY = r"V|[Vv]olts?|A|[Aa]mp(?:s|ere|eres)?|[Oo]hms?|\u03a9"
-_CIRCUIT_CUE_RES: tuple[re.Pattern[str], ...] = (
-    re.compile(rf"\d\s*(?:V|[Vv]olts?)\b.{{0,80}}?\d\s*(?:{_ELECTRICAL_QUANTITY})\b"),
-    re.compile(
-        rf"\d\s*(?:A|[Aa]mp(?:s|ere|eres)?|[Oo]hms?|\u03a9)\b.{{0,80}}?"
-        rf"\d\s*(?:{_ELECTRICAL_QUANTITY})\b"
-    ),
+# These were case-sensitive, to stop "3 a piece" reading as three amps. That
+# was the right worry and the wrong mechanism: `needs_symbolic` lowercases
+# before testing cues (math/match/needs.py:215-221), so a case-sensitive cue is
+# *dead* in the pre-filter. Measured, the question above never reached
+# extraction in production - `needs_symbolic` was False - while the extractor
+# test passed, because the extractor re-runs these against the original casing.
+#
+# What makes lowercase safe is that a circuit signature names two *different*
+# electrical quantities. A symbol can never pair with itself, so "3 a day ...
+# 5 a day" and "the 5 v 5 format beats 3 v 3" cannot match, while "12 v and
+# 3 a" does. Measured against a decoy set: this fires on 6/6 real circuit
+# questions and 0/7 decoys, where plain re.IGNORECASE on the old patterns fired
+# on 5 of those 7.
+def _circuit_pair(first: str, second: str) -> re.Pattern[str]:
+    """A number in `first`'s unit within 80 chars of a number in `second`'s.
+
+    No IGNORECASE: the bare letters below are the SI symbols, and the spelled
+    out forms carry their own case classes. `_has_cue_either_case` is what
+    makes this reachable from the pre-filter.
+    """
+    return re.compile(rf"\d\s*(?:{first})(?![A-Za-z0-9]).{{0,80}}?\d\s*(?:{second})(?![A-Za-z0-9])")
+
+
+# "charge" is what happens to a card and "energy" is what a person runs out of,
+# so neither is a cue on its own. Each qualifies only beside the unit that
+# makes it electrical - the co-occurrence shape P5 and P7 used.
+_CHARGE_FLOW_RE = re.compile(
+    rf"\bcharge\b.{{0,60}}?\d\s*(?:{_AMP_PATTERN})(?![A-Za-z0-9])"
+    rf"|\d\s*(?:{_AMP_PATTERN})(?![A-Za-z0-9]).{{0,60}}?\bcharge\b",
+    re.IGNORECASE,
 )
+_WATT_PATTERN = r"W|watts?|kW|kilowatts?"
+_ELECTRICAL_ENERGY_RE = re.compile(
+    rf"\b(?:energy|consumes?|consumed|uses?|used|costs?)\b.{{0,80}}?"
+    rf"\d\s*(?:{_WATT_PATTERN})(?![A-Za-z0-9])"
+    rf"|\d\s*(?:{_WATT_PATTERN})(?![A-Za-z0-9]).{{0,80}}?"
+    rf"\b(?:energy|consumes?|consumed|uses?|used|costs?)\b",
+    re.IGNORECASE,
+)
+
+_COULOMB_PATTERN = r"C|coulombs?"
+_CIRCUIT_TIME_UNITS = r"seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
+# The EMF is the other answer to "what voltage", so the ask has to say which.
+_TERMINAL_ASK_RE = re.compile(
+    r"\bterminal\b|\bacross the terminals\b|\blost volts\b|\bp\.?d\.? across\b",
+    re.IGNORECASE,
+)
+
+_CIRCUIT_CUE_RES: tuple[re.Pattern[str], ...] = (
+    _circuit_pair(_VOLT_CUE, rf"{_AMP_CUE}|{_OHM_CUE}"),
+    _circuit_pair(rf"{_AMP_CUE}|{_OHM_CUE}", _VOLT_CUE),
+    _circuit_pair(_AMP_CUE, _OHM_CUE),
+    _circuit_pair(_OHM_CUE, _AMP_CUE),
+    _CHARGE_FLOW_RE,
+    _ELECTRICAL_ENERGY_RE,
+)
+
+
+# A network's resistances are not always each given a unit. "4 ohms and 6 ohms"
+# carries one per value, but "4 and 6 ohms" and "2, 3 and 6 ohms" carry one for
+# the whole list, and `_ordered_values` sees only the first shape - so a
+# two-resistor question written the second way returned no intent at all.
+_RESISTOR_LIST_RE = re.compile(
+    r"(\d+(?:\.\d+)?(?:\s*(?:,|and)\s*\d+(?:\.\d+)?)+)\s*(?:ohms?|\u03a9)",
+    re.IGNORECASE,
+)
+
+# Each resistance needs a `_PARAM_SI_DIMENSIONS` entry, so the count is bounded.
+# Beyond it the question is refused rather than answered from a prefix: reading
+# three resistors and using two is how `2, 3 and 5 in series` answered 5 ohms.
+_MAX_NETWORK_RESISTORS = 4
+
+
+def _resistor_values(text: str) -> list[float]:
+    """Every resistance in a network, however the units are distributed."""
+    listed = _RESISTOR_LIST_RE.search(text)
+    if listed is not None:
+        return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]
+    return [value for value, _ in _ordered_values(text, _OHM_PATTERN)]
 
 
 def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _CIRCUIT_CUES) and not any(
-        rx.search(cleaned) for rx in _CIRCUIT_CUE_RES
-    ):
+    # The same check the pre-filter runs, so the two cannot disagree about
+    # whether this question is a circuit question.
+    if not _has_cue_either_case(cleaned, _CIRCUIT_CUES, _CIRCUIT_CUE_RES):
         return None
     if mtm.has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -1395,7 +1500,10 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
     ohms = _ordered_values(cleaned, _OHM_PATTERN)
 
     # --- resistor networks: two or more resistances and a stated topology ---
-    if len(ohms) >= 2 and ("series" in lower or "parallel" in lower):
+    network = _resistor_values(cleaned)
+    if len(network) >= 2 and ("series" in lower or "parallel" in lower):
+        if len(network) > _MAX_NETWORK_RESISTORS:
+            return None
         op: Literal[
             "voltage",
             "current",
@@ -1407,8 +1515,8 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
         return MathIntent(
             kind="circuit",
             physics_op=op,
-            physics_params={"R1": ohms[0][0], "R2": ohms[1][0]},
-            physics_units={"R1": "ohm", "R2": "ohm"},
+            physics_params={f"R{n}": value for n, value in enumerate(network, start=1)},
+            physics_units={f"R{n}": "ohm" for n in range(1, len(network) + 1)},
             operation="solve",
         )
 
@@ -1423,6 +1531,70 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
     if ohms:
         params["R"] = ohms[0][0]
         units["R"] = "ohm"
+
+    # --- terminal voltage: V = emf - I r ---------------------------------
+    # Only when the question says both that there *is* an internal resistance
+    # and that the terminal value is what it wants. Without the second half
+    # this is an ordinary Ohm's law question and belongs below - choosing
+    # between the EMF and the terminal voltage on the reader's behalf is the
+    # kind of guess a verified block must not make.
+    if "internal resistance" in lower and _TERMINAL_ASK_RE.search(cleaned):
+        r_internal = _find_value_with_specific_unit(
+            cleaned, _OHM_PATTERN, ("internal",), require_keyword=True
+        )
+        if r_internal is None or not volts or not amps:
+            return None
+        return MathIntent(
+            kind="circuit",
+            physics_op="terminal_voltage",
+            physics_params={
+                "E_emf": volts[0][0],
+                "I": amps[0][0],
+                "r_int": r_internal[0],
+            },
+            physics_units={"E_emf": "volt", "I": "ampere", "r_int": "ohm"},
+            operation="solve",
+        )
+
+    # --- capacitance: C = Q / V ------------------------------------------
+    if "capacit" in lower:
+        coulombs = _ordered_values(cleaned, _COULOMB_PATTERN)
+        if not coulombs or not volts:
+            return None
+        return MathIntent(
+            kind="circuit",
+            physics_op="capacitance",
+            physics_params={"Q": coulombs[0][0], "V": volts[0][0]},
+            physics_units={"Q": "coulomb", "V": "volt"},
+            operation="solve",
+        )
+
+    # --- charge: Q = I t --------------------------------------------------
+    if _CHARGE_FLOW_RE.search(cleaned):
+        seconds = _find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
+        if not amps or seconds is None:
+            return None
+        return MathIntent(
+            kind="circuit",
+            physics_op="charge",
+            physics_params={"I": amps[0][0], "t": seconds[0]},
+            physics_units={"I": "ampere", "t": seconds[1] or "s"},
+            operation="solve",
+        )
+
+    # --- electrical energy: E = P t ---------------------------------------
+    if _ELECTRICAL_ENERGY_RE.search(cleaned):
+        watts = _find_value_with_specific_unit(cleaned, _WATT_PATTERN)
+        seconds = _find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
+        if watts is None or seconds is None:
+            return None
+        return MathIntent(
+            kind="circuit",
+            physics_op="electrical_energy",
+            physics_params={"power": watts[0], "t": seconds[0]},
+            physics_units={"power": watts[1] or "W", "t": seconds[1] or "s"},
+            operation="solve",
+        )
 
     # Electrical power needs electrical units present, which is what keeps it
     # from colliding with the mechanical `power` op (P = F v, in newtons and
@@ -2169,6 +2341,9 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 
-def has_supported_physics_cue(lower: str) -> bool:
-    """True when a verified physics template could match this (lowercased) text."""
-    return _has_cue(lower, PHYSICS_CUES, PHYSICS_CUE_RES)
+def has_supported_physics_cue(cleaned: str) -> bool:
+    """True when a verified physics template could match this text.
+
+    Takes the text **as written**, not lowercased. See `_has_cue_either_case`.
+    """
+    return _has_cue_either_case(cleaned, PHYSICS_CUES, PHYSICS_CUE_RES)

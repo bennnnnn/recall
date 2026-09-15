@@ -218,7 +218,10 @@ def supported_physics_cue(cleaned: str) -> bool:
         return False
     from app.services.physics.extract import has_supported_physics_cue
 
-    return has_supported_physics_cue(cleaned.lower())
+    # Not lowercased: a few physics cues mean the SI symbols `V` and `A` and
+    # are case-sensitive on purpose. Lowercasing here made them dead in the
+    # pre-filter while the extractor kept honouring them.
+    return has_supported_physics_cue(cleaned)
 
 
 def _has_ordinal_term_cue(lower: str) -> bool:

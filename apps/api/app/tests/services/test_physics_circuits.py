@@ -211,3 +211,189 @@ UNDERSPECIFIED = [
 @pytest.mark.parametrize("text", UNDERSPECIFIED)
 def test_circuits_missing_a_given_are_refused(text: str) -> None:
     assert _verified_answer(text) is None
+
+
+# ---------------------------------------------------------------------------
+# Round 3. Three defects and four new ops.
+#
+# The first defect was invisible from inside this file: every test above calls
+# `extract_math_intent` directly, and the extractor reads the original casing.
+# `needs_symbolic` lowercases before testing the same cues, so a question
+# carried only by the SI symbols was dropped by the pre-filter and never
+# reached the extractor in production - while these tests passed. Every round-3
+# case below therefore asserts the pre-filter too.
+# ---------------------------------------------------------------------------
+
+
+def _reaches_the_tool_path(text: str) -> bool:
+    from app.services.math.match.needs import needs_symbolic
+
+    return needs_symbolic(text)
+
+
+UNIT_ONLY = [
+    ("what is the electrical power for 12 V and 3 A", "electrical_power", "36.00 W"),
+    ("a 12 V battery with 4 A of current, what is the resistance", "resistance", "3.00 ohm"),
+    ("what is the current for 12 V and 4 ohms", "current", "3.00 A"),
+]
+
+
+@pytest.mark.parametrize("text,op,answer", UNIT_ONLY, ids=[row[0][:44] for row in UNIT_ONLY])
+def test_a_question_carried_only_by_its_units_reaches_the_solver(
+    text: str, op: str, answer: str
+) -> None:
+    """The pre-filter assertion is the point; the answer was already right."""
+    assert _reaches_the_tool_path(text), "dropped before extraction"
+    intent = extract_math_intent(text)
+    assert intent is not None and intent.physics_op == op
+    assert _verified_answer(text) == answer
+
+
+BARE_LETTER_DECOYS = [
+    "I bought 12 v cards and 3 a piece was the price",
+    "i drink 2 a day, she drinks 5 a day",
+    "the 5 v 5 format beats 3 v 3",
+    "chapter 3 a and chapter 4 a",
+    "flight ba 2 a and ba 4 a were cancelled",
+]
+
+
+@pytest.mark.parametrize("text", BARE_LETTER_DECOYS)
+def test_lowercase_bare_letters_are_still_not_units(text: str) -> None:
+    """Two *different* symbols is most of the rule, but not all of it.
+
+    "12 v cards and 3 a piece" pairs a v with an a exactly as a real question
+    does. What separates them is case, which is why the cue stays
+    case-sensitive and the pre-filter stopped lowercasing instead.
+    """
+    assert not _reaches_the_tool_path(text)
+    intent = extract_math_intent(text)
+    assert intent is None or intent.kind not in PHYSICS_KINDS
+
+
+# (question, expected op, expected answer)
+NETWORKS: list[tuple[str, str, str]] = [
+    # Three resistors were read and only two were used, so these were wrong
+    # answers rather than gaps: 5.00 ohm for a series of 2, 3 and 5.
+    (
+        "what is the total resistance of 2 ohms, 3 ohms and 5 ohms in series",
+        "series_resistance",
+        "10.00 ohm",
+    ),
+    (
+        "what is the total resistance of 4 ohms, 6 ohms and 12 ohms in parallel",
+        "parallel_resistance",
+        "2.00 ohm",
+    ),
+    (
+        "three resistors of 2 ohms, 3 ohms and 6 ohms in parallel, what is the total",
+        "parallel_resistance",
+        "1.00 ohm",
+    ),
+    # One unit for the whole list: these returned nothing at all.
+    (
+        "two resistors of 4 and 6 ohms in series, what is the total resistance",
+        "series_resistance",
+        "10.00 ohm",
+    ),
+    (
+        "three resistors of 2, 3 and 6 ohms in parallel, what is the total resistance",
+        "parallel_resistance",
+        "1.00 ohm",
+    ),
+    # A unit each, two resistors: the shape that already worked.
+    (
+        "what is the combined resistance of 4 ohms and 6 ohms in parallel",
+        "parallel_resistance",
+        "2.40 ohm",
+    ),
+    (
+        "what is the total resistance of a 4 ohm and 6 ohm resistor in series",
+        "series_resistance",
+        "10.00 ohm",
+    ),
+]
+
+
+@pytest.mark.parametrize("text,op,answer", NETWORKS, ids=[row[0][:44] for row in NETWORKS])
+def test_resistor_networks_use_every_resistance(text: str, op: str, answer: str) -> None:
+    assert _reaches_the_tool_path(text)
+    intent = extract_math_intent(text)
+    assert intent is not None and intent.physics_op == op
+    assert _verified_answer(text) == answer
+
+
+def test_a_network_larger_than_the_table_is_refused_not_truncated() -> None:
+    """Answering from a prefix is the bug, so the cap refuses instead."""
+    assert _verified_answer("five resistors of 1, 2, 3, 4 and 5 ohms in series") is None
+
+
+NEW_OPS: list[tuple[str, str, str]] = [
+    ("what is the charge if a current of 3 A flows for 5 s", "charge", "15.00 C"),
+    ("how much charge passes when 2 A flows for 10 s", "charge", "20.00 C"),
+    ("what charge is delivered by 4 A over 3 s", "charge", "12.00 C"),
+    ("what is the energy used by a 2000 W heater in 3 hours", "electrical_energy", "21600000.00 J"),
+    ("how much energy does a 100 W bulb use in 10 hours", "electrical_energy", "3600000.00 J"),
+    ("energy consumed by a 500 W device in 2 hours", "electrical_energy", "3600000.00 J"),
+    ("what is the capacitance storing 6 C at 3 V", "capacitance", "2.00 F"),
+    ("a capacitor holds 12 C at 4 V, what is the capacitance", "capacitance", "3.00 F"),
+    ("find the capacitance of a capacitor with 10 C at 5 V", "capacitance", "2.00 F"),
+    (
+        "what is the terminal voltage of a 12 V cell with 0.5 ohm internal resistance drawing 2 A",
+        "terminal_voltage",
+        "11.00 V",
+    ),
+    (
+        "a 9 V battery with 1 ohm internal resistance supplies 2 A, what is the terminal voltage",
+        "terminal_voltage",
+        "7.00 V",
+    ),
+    (
+        "find the voltage across the terminals of a 6 V cell, internal resistance 0.5 ohm, 2 A",
+        "terminal_voltage",
+        "5.00 V",
+    ),
+]
+
+
+@pytest.mark.parametrize("text,op,answer", NEW_OPS, ids=[row[0][:44] for row in NEW_OPS])
+def test_round_three_circuit_ops(text: str, op: str, answer: str) -> None:
+    assert _reaches_the_tool_path(text), "dropped before extraction"
+    intent = extract_math_intent(text)
+    assert intent is not None and intent.physics_op == op
+    assert _verified_answer(text) == answer
+
+
+def test_every_round_three_circuit_op_has_at_least_three_phrasings() -> None:
+    from collections import Counter
+
+    counts = Counter(op for _, op, _ in NEW_OPS)
+    thin = {op: n for op, n in counts.items() if n < 3}
+    assert not thin, f"ops with fewer than three phrasings: {thin}"
+    assert set(counts) == {"charge", "electrical_energy", "capacitance", "terminal_voltage"}
+
+
+def test_a_cell_with_internal_resistance_is_ohms_law_unless_the_ask_says_terminal() -> None:
+    """The EMF is the other answer to "what voltage", so the ask must say which.
+
+    Choosing between them on the reader's behalf is the kind of guess a
+    verified block must not make.
+    """
+    intent = extract_math_intent(
+        "a 12 V cell with 0.5 ohm internal resistance supplies 2 A, what is the voltage"
+    )
+    assert intent is None or intent.physics_op != "terminal_voltage"
+
+
+ROUND_THREE_DECOYS = [
+    "charge my card for the 2 tickets",
+    "the energy in this 3 person team is great",
+    "i have 2 chargers and 3 cables",
+    "my phone takes 2 hours to charge",
+]
+
+
+@pytest.mark.parametrize("text", ROUND_THREE_DECOYS)
+def test_the_new_circuit_cues_do_not_steal_ordinary_english(text: str) -> None:
+    intent = extract_math_intent(text)
+    assert intent is None or intent.kind not in PHYSICS_KINDS

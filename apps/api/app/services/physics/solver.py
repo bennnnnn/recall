@@ -9,6 +9,7 @@ with SymPy; SciPy is deferred until users hit ODE systems SymPy can't.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 
 from sympy import Eq, Symbol, solve
@@ -71,6 +72,14 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "R": "ohm",
     "R1": "ohm",
     "R2": "ohm",
+    "R3": "ohm",
+    "R4": "ohm",
+    # Round 3 circuits. Single letters are taken (V is volt, I is ampere, R is
+    # ohm), so anything new here is spelled out.
+    "Q": "coulomb",
+    "power": "watt",
+    "E_emf": "volt",
+    "r_int": "ohm",
     "F1": "newton",
     "F2": "newton",
     "d1": "meter",
@@ -94,7 +103,26 @@ _UNIT_ALIASES = {
     "volts": "volt",
     "amps": "ampere",
     "amperes": "ampere",
+    # Pint is case-sensitive and unforgiving about the symbols people type:
+    # bare "pa" is a petayear, "t" a tonne, "c" the speed of light, and "w",
+    # "n", "j", "hz" are not units at all. Every extractor regex here is
+    # IGNORECASE, so the lowercase spellings do arrive.
+    "w": "watt",
+    "watts": "watt",
+    "kw": "kilowatt",
+    "kilowatts": "kilowatt",
+    "c": "coulomb",
+    "coulombs": "coulomb",
+    "f": "farad",
+    "farads": "farad",
+    "j": "joule",
+    "joules": "joule",
 }
+
+
+# R1..R4 name a resistor network's members. Single-digit, so plain `sorted`
+# orders them correctly.
+_RESISTOR_KEY_RE = re.compile(r"R[1-9]")
 
 
 def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
@@ -1520,19 +1548,65 @@ def solve_circuit(intent: MathIntent) -> PhysicsResult:
     op = intent.physics_op or "current"
 
     if op in ("series_resistance", "parallel_resistance"):
-        r1, r2 = p["R1"], p["R2"]
-        if r1 <= 0 or r2 <= 0:
+        # Every R the extractor found, not the first two. Reading three and
+        # using two is how "2, 3 and 5 ohms in series" answered 5 ohms.
+        resistances = [p[key] for key in sorted(p) if _RESISTOR_KEY_RE.fullmatch(key)]
+        if len(resistances) < 2:
+            raise MathServiceError("a resistor network needs at least two resistances")
+        if any(r <= 0 for r in resistances):
             raise MathServiceError("resistances must be positive")
+        terms = " + ".join(f"{r:g}" for r in resistances)
         if op == "series_resistance":
-            total = r1 + r2
-            answer = rf"R = R_1 + R_2 = {r1:g} + {r2:g} \approx {total:.2f} \,\Omega"
+            total = sum(resistances)
+            answer = rf"R = \sum R_i = {terms} \approx {total:.2f} \,\Omega"
         else:
-            total = 1 / (1 / r1 + 1 / r2)
+            total = 1 / sum(1 / r for r in resistances)
+            reciprocals = " + ".join(rf"\frac{{1}}{{{r:g}}}" for r in resistances)
             answer = (
-                r"\frac{1}{R} = \frac{1}{R_1} + \frac{1}{R_2} \Rightarrow R = "
-                rf"\frac{{{r1:g} \cdot {r2:g}}}{{{r1:g} + {r2:g}}} \approx {total:.2f} \,\Omega"
+                rf"\frac{{1}}{{R}} = {reciprocals} \Rightarrow R "
+                rf"\approx {total:.2f} \,\Omega"
             )
         return PhysicsResult(answer=answer, answer_value=f"{total:.2f} ohm")
+
+    if op == "charge":
+        q_val = p["I"] * p["t"]
+        return PhysicsResult(
+            answer=(rf"Q = I t = {p['I']:g} \cdot {p['t']:g} \approx {q_val:.2f} \text{{ C}}"),
+            answer_value=f"{q_val:.2f} C",
+        )
+
+    if op == "electrical_energy":
+        e_val = p["power"] * p["t"]
+        kwh = e_val / 3.6e6
+        return PhysicsResult(
+            answer=(
+                rf"E = P t = {p['power']:g} \cdot {p['t']:g} \approx "
+                rf"{e_val:.2f} \text{{ J}} \; ({kwh:.2f} \text{{ kWh}})"
+            ),
+            answer_value=f"{e_val:.2f} J",
+        )
+
+    if op == "capacitance":
+        if p["V"] == 0:
+            raise MathServiceError("capacitance needs a nonzero voltage")
+        c_val = p["Q"] / p["V"]
+        return PhysicsResult(
+            answer=(
+                rf"C = \frac{{Q}}{{V}} = \frac{{{p['Q']:g}}}{{{p['V']:g}}} "
+                rf"\approx {c_val:.2f} \text{{ F}}"
+            ),
+            answer_value=f"{c_val:.2f} F",
+        )
+
+    if op == "terminal_voltage":
+        v_val = p["E_emf"] - p["I"] * p["r_int"]
+        return PhysicsResult(
+            answer=(
+                rf"V = \varepsilon - I r = {p['E_emf']:g} - {p['I']:g} \cdot "
+                rf"{p['r_int']:g} \approx {v_val:.2f} \text{{ V}}"
+            ),
+            answer_value=f"{v_val:.2f} V",
+        )
 
     if op == "electrical_power":
         if "V" in p and "I" in p:

@@ -258,6 +258,12 @@ class MathIntent(BaseModel):
             "electrical_power",
             "series_resistance",
             "parallel_resistance",
+            # Round 3. "electrical_energy" rather than "energy": the mechanical
+            # kind already owns work and kinetic energy, and both are joules.
+            "charge",
+            "electrical_energy",
+            "capacitance",
+            "terminal_voltage",
             "torque",
             "moment_balance",
             # SUVAT — the op names the unknown, and the solver picks whichever
