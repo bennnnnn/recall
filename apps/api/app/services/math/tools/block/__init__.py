@@ -15,6 +15,9 @@ from app.services.math.tools.block.algebra import (
     _verified_block_numerical_method,
     _verified_block_system,
 )
+from app.services.math.tools.block.calculus_applications import (
+    _verified_block_calculus_with_applications,
+)
 from app.services.math.tools.block.common import (
     VerifiedMathBlock as VerifiedMathBlock,
 )
@@ -34,7 +37,6 @@ from app.services.math.tools.block.common import (
     _format_system_answer as _format_system_answer,
 )
 from app.services.math.tools.block.discrete import (
-    _verified_block_calculus,
     _verified_block_combinatorics,
     _verified_block_limit,
     _verified_block_matrix,
@@ -84,7 +86,7 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
     "vertical": _verified_block_vertical,
     "graph": _verified_block_graph,
     "graph_pair": _verified_block_graph_pair,
-    "calculus": _verified_block_calculus,
+    "calculus": _verified_block_calculus_with_applications,
     "limit": _verified_block_limit,
     "series": _verified_block_series,
     "statistics": _verified_block_statistics,
