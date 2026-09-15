@@ -204,7 +204,11 @@ def _matrix_from_rows(rows: list[list[float]]):
 def _matrix_basis_latex(vectors: list[object]) -> str:
     if not vectors:
         return r"\{0\}"
-    return r"\operatorname{span}\left\{" + ", ".join(latex(vector) for vector in vectors) + r"\right\}"
+    return (
+        r"\operatorname{span}\left\{"
+        + ", ".join(latex(vector) for vector in vectors)
+        + r"\right\}"
+    )
 
 
 def compute_matrix(data: MatrixInput) -> MatrixResult:
@@ -249,7 +253,11 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
     if data.operation == "rank":
         value = int(mat.rank())
         answer = str(value)
-        return MatrixResult(operation="rank", result_latex=answer, steps=[f"\\operatorname{{rank}}(A) = {answer}"])
+        return MatrixResult(
+            operation="rank",
+            result_latex=answer,
+            steps=[f"\\operatorname{{rank}}(A) = {answer}"],
+        )
 
     if data.operation == "nullspace":
         answer = _matrix_basis_latex(mat.nullspace())
