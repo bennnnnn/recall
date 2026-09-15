@@ -97,3 +97,11 @@ def test_projectile_launch_angle_route_is_preserved() -> None:
     assert intent is not None
     assert intent.kind == "projectile"
     assert intent.physics_op == "launch_angle"
+
+
+def test_sector_arc_length_route_is_preserved() -> None:
+    text = "arc length of a sector with radius 5 and 60°"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "sector"
+    assert intent.wants_arc_length is True
