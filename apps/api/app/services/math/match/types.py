@@ -21,5 +21,19 @@ CombinatoricsOp = Literal["factorial", "combinations", "permutations"]
 NumberTheoryOp = Literal[
     "gcd", "lcm", "factorize", "is_prime", "mod", "mod_inverse", "totient", "crt"
 ]
-MatrixOp = Literal["determinant", "inverse", "multiply", "rref", "eigenvalues", "add", "transpose"]
+MatrixOp = Literal[
+    "determinant",
+    "inverse",
+    "multiply",
+    "rref",
+    "eigenvalues",
+    "eigenvectors",
+    "rank",
+    "nullspace",
+    "columnspace",
+    "rowspace",
+    "diagonalize",
+    "add",
+    "transpose",
+]
 SolidShape = Literal["cube", "rectangular_prism", "cylinder", "cone", "sphere", "pyramid"]
