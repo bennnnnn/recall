@@ -44,9 +44,7 @@ def _extract_matrix_extension_intent(cleaned: str) -> MathIntent | None:
         or "dimension of null space" in lower
     ):
         operation = "matrix_nullity"
-    elif "linearly independent" in lower and (
-        "column" in lower or "columns" in lower
-    ):
+    elif "linearly independent" in lower and ("column" in lower or "columns" in lower):
         operation = "matrix_independent_columns"
     else:
         return None
