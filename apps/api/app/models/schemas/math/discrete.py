@@ -81,10 +81,25 @@ class NumberTheoryResult(BaseModel):
     steps: list[str] = Field(default_factory=list)
 
 
+_MATRIX_OPERATIONS = Literal[
+    "determinant",
+    "inverse",
+    "multiply",
+    "rref",
+    "eigenvalues",
+    "eigenvectors",
+    "rank",
+    "nullspace",
+    "columnspace",
+    "rowspace",
+    "diagonalize",
+    "add",
+    "transpose",
+]
+
+
 class MatrixInput(BaseModel):
-    operation: Literal[
-        "determinant", "inverse", "multiply", "rref", "eigenvalues", "add", "transpose"
-    ]
+    operation: _MATRIX_OPERATIONS
     rows: list[list[float]] = Field(min_length=2, max_length=4)
     rows_b: list[list[float]] | None = Field(default=None, min_length=2, max_length=4)
 
@@ -109,9 +124,17 @@ class MatrixInput(BaseModel):
     @model_validator(mode="after")
     def square_when_required(self) -> MatrixInput:
         size = len(self.rows)
-        if self.operation in {"determinant", "inverse", "eigenvalues"}:
+        if self.operation in {
+            "determinant",
+            "inverse",
+            "eigenvalues",
+            "eigenvectors",
+            "diagonalize",
+        }:
             if any(len(row) != size for row in self.rows):
-                raise ValueError("matrix must be square for determinant/inverse/eigenvalues")
+                raise ValueError(
+                    "matrix must be square for determinant/inverse/eigenvalues/eigenvectors/diagonalize"
+                )
         if self.operation == "multiply":
             if self.rows_b is None:
                 raise ValueError("multiply needs a second matrix")
@@ -126,9 +149,7 @@ class MatrixInput(BaseModel):
 
 
 class MatrixResult(BaseModel):
-    operation: Literal[
-        "determinant", "inverse", "multiply", "rref", "eigenvalues", "add", "transpose"
-    ]
+    operation: _MATRIX_OPERATIONS
     determinant: float | None = None
     inverse_latex: str | None = None
     result_latex: str | None = None
