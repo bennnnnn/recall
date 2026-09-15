@@ -14,10 +14,12 @@ from app.services.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
 from app.services.math.tools.extractors.discrete_statistics import (
     DISCRETE_STATISTICS_EXTRACTORS,
 )
+from app.services.math.tools.extractors.functions import FUNCTION_EXTRACTORS
 from app.services.math.tools.extractors.geometry_graph import (
     GEOMETRY_GRAPH_EXTRACTORS,
     SOLID_EXTRACTOR,
 )
+from app.services.math.tools.extractors.linear_algebra import ADVANCED_MATRIX_EXTRACTORS
 from app.services.math.tools.helpers import has_assignment_evaluation_request, math_expr_or_none
 from app.services.math.tools.school import SCHOOL_EXTRACTORS
 from app.services.physics.extract import PHYSICS_EXTRACTORS
@@ -27,6 +29,8 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     *SCHOOL_EXTRACTORS,
     *PHYSICS_EXTRACTORS,
     *GEOMETRY_GRAPH_EXTRACTORS,
+    *FUNCTION_EXTRACTORS,
+    *ADVANCED_MATRIX_EXTRACTORS,
     *CALCULUS_EXTRACTORS,
     *PRE_DISCRETE_ALGEBRA_EXTRACTORS,
     *DISCRETE_STATISTICS_EXTRACTORS,
