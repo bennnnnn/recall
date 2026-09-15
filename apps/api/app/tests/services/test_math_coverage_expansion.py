@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from app.models.schemas.math import MatrixInput
 from app.services.math import function_analysis
+from app.services.math import match as math_match
 from app.services.math import solve as math_solve
 from app.services.math.solve import MathServiceError
 from app.services.math.tools import extract_math_intent
@@ -27,6 +28,20 @@ def test_function_composition_is_symbolic_and_exact() -> None:
     assert function_analysis.compose_functions("x^2", "x+1") == r"\left(x + 1\right)^{2}"
 
 
+def test_function_analysis_routes_through_symbolic_gate() -> None:
+    for prompt in (
+        "domain of 1/(x-2)",
+        "range of x^2",
+        "inverse of 2*x+3",
+        "find f(g(x)) where f(x)=x^2 and g(x)=x+1",
+    ):
+        assert math_match.needs_symbolic(prompt) is True, prompt
+
+    # Ordinary English uses of these words must not become math turns.
+    assert math_match.needs_symbolic("what is the domain name for this website?") is False
+    assert math_match.needs_symbolic("what is the range of this electric car?") is False
+
+
 def test_function_analysis_intents_do_not_steal_matrix_inverse() -> None:
     domain = extract_math_intent("find the domain of f(x)=1/(x-2)")
     assert domain is not None
@@ -45,6 +60,11 @@ def test_function_analysis_intents_do_not_steal_matrix_inverse() -> None:
     assert matrix is not None
     assert matrix.kind == "matrix"
     assert matrix.matrix_op == "inverse"
+
+
+def test_restricted_function_domain_is_not_silently_dropped() -> None:
+    assert extract_math_intent("inverse of x^2 on x >= 0") is None
+    assert extract_math_intent("range of x^2 for x >= 2") is None
 
 
 def test_advanced_matrix_operations() -> None:
@@ -92,6 +112,7 @@ def test_matrix_extraction_recognizes_new_operations() -> None:
         assert intent is not None, prompt
         assert intent.kind == "matrix", prompt
         assert intent.matrix_op == operation, prompt
+        assert math_match.needs_symbolic(prompt) is True, prompt
 
 
 def test_square_matrix_rules_remain_strict() -> None:
