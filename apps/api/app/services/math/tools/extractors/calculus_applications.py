@@ -5,7 +5,11 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.math import MathIntent
-from app.services.math.tools.helpers import _strip_trailing_filler, math_expr_or_none, peel_function_definition
+from app.services.math.tools.helpers import (
+    _strip_trailing_filler,
+    math_expr_or_none,
+    peel_function_definition,
+)
 
 _BOUND = (
     r"[-+]?(?:\d+(?:\.\d+)?|\.\d+|pi|π|e)"
