@@ -70,9 +70,7 @@ def _extract_advanced_matrix_intent(cleaned: str) -> MathIntent | None:
         op = "matrix_columnspace"
     elif "row space" in lower or "rowspace" in lower:
         op = "matrix_rowspace"
-    elif "linearly independent" in lower and (
-        "column" in lower or "columns" in lower
-    ):
+    elif "linearly independent" in lower and ("column" in lower or "columns" in lower):
         op = "matrix_independent_columns"
     elif re.search(r"\brank\b", lower):
         op = "matrix_rank"
@@ -215,11 +213,7 @@ def _extract_function_intent(cleaned: str) -> MathIntent | None:
             continue
         if op == "function_inverse" and "[[" in cleaned:
             return None
-        if (
-            op == "function_inverse"
-            and cue == "inverse of"
-            and "f(" not in lower[idx:]
-        ):
+        if op == "function_inverse" and cue == "inverse of" and "f(" not in lower[idx:]:
             # Avoid stealing modular, trig, and matrix inverse requests.
             continue
         expr = _clean_expr(cleaned[idx + len(cue) :])
