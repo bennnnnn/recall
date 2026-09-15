@@ -88,5 +88,8 @@ PHYSICS_BLOCK_BUILDERS = {
     "circular": _build_physics_block,
     "spring": _build_physics_block,
     "circuit": _build_physics_block,
+    "waves": _build_physics_block,
+    "optics": _build_physics_block,
+    "thermal": _build_physics_block,
     "torque": _build_physics_block,
 }

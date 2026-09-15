@@ -1197,6 +1197,359 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
+# Waves
+#   v = f lambda,  f = 1/T,  Doppler for a source approaching a still observer
+# ---------------------------------------------------------------------------
+
+# "wave" alone is a wave of layoffs and "frequency" is how often something
+# happens, so neither is a cue. "wavelength" and "doppler" are unambiguous.
+_WAVE_CUES = ("wavelength", "doppler", "sound wave", "light wave", "water wave")
+_HERTZ_PATTERN = r"Hz|hertz|kHz|kilohertz|MHz|megahertz"
+# A siren does not say "wave", and neither does a moving whistle. A frequency
+# beside a sound source in motion is the Doppler signature itself.
+_SOUND_SOURCE = r"siren|ambulance|police|horn|whistle|train|engine|speaker|source"
+_WAVE_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\bwaves?\b.{{0,80}}?\d\s*(?:{_HERTZ_PATTERN})\b", re.IGNORECASE),
+    re.compile(rf"\d\s*(?:{_HERTZ_PATTERN})\b.{{0,80}}?\bwaves?\b", re.IGNORECASE),
+    re.compile(rf"\b(?:{_SOUND_SOURCE})\b.{{0,80}}?\d\s*(?:{_HERTZ_PATTERN})\b", re.IGNORECASE),
+    re.compile(rf"\d\s*(?:{_HERTZ_PATTERN})\b.{{0,80}}?\b(?:{_SOUND_SOURCE})\b", re.IGNORECASE),
+    # A wave stated by its period carries no Hz at all. The time unit has to
+    # follow "period", so "a wave of layoffs over a 3 week period" cannot match
+    # - it puts its number before the word, and weeks are not in the pattern.
+    re.compile(
+        r"\bwaves?\b.{0,80}?\bperiod\b\s*(?:of\s*)?\d+(?:\.\d+)?\s*"
+        r"(?:seconds?|secs?|milliseconds?|ms|s)\b",
+        re.IGNORECASE,
+    ),
+)
+
+# Approaching and receding give different answers from identical numbers, so an
+# unstated direction is refused rather than assumed - the shape P4 used for an
+# unstated collision type.
+_APPROACHING_RE = re.compile(
+    r"\bapproach\w*\b|\btowards?\b|\bcoming\s+(?:at|toward)\b|\bnearing\b", re.IGNORECASE
+)
+_RECEDING_RE = re.compile(
+    r"\breced\w*\b|\baway\s+from\b|\bmoving\s+away\b|\bdeparting\b", re.IGNORECASE
+)
+# 343 m/s at 20 C. Stated in the answer, because 340 is taught just as often.
+_SPEED_OF_SOUND = 343.0
+
+
+def _extract_waves_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _WAVE_CUES, _WAVE_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
+    wavelength = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
+    )
+    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+    period = _find_value_with_specific_unit(
+        cleaned, _SHM_TIME_UNITS, ("period",), require_keyword=True
+    )
+
+    moving_source = re.search(rf"\b(?:{_SOUND_SOURCE})\b", lower) is not None
+    if "doppler" in lower or (freq is not None and speed is not None and moving_source):
+        approaching = _APPROACHING_RE.search(cleaned) is not None
+        receding = _RECEDING_RE.search(cleaned) is not None
+        if freq is None or speed is None or approaching == receding:
+            return None
+        return MathIntent(
+            kind="waves",
+            physics_op="doppler_frequency",
+            physics_params={
+                "freq": freq[0],
+                "v_src": speed[0] if approaching else -speed[0],
+                "v_sound": _SPEED_OF_SOUND,
+            },
+            physics_units={"freq": freq[1] or "Hz", "v_src": "m/s", "v_sound": "m/s"},
+            operation="solve",
+        )
+
+    # f = 1/T and T = 1/f, whichever of the pair is missing.
+    if period is not None and freq is None:
+        return MathIntent(
+            kind="waves",
+            physics_op="wave_frequency_from_period",
+            physics_params={"period": period[0]},
+            physics_units={"period": period[1] or "s"},
+            operation="solve",
+        )
+    if freq is not None and wavelength is None and speed is None and "period" in lower:
+        return MathIntent(
+            kind="waves",
+            physics_op="wave_period",
+            physics_params={"freq": freq[0]},
+            physics_units={"freq": freq[1] or "Hz"},
+            operation="solve",
+        )
+
+    # v = f lambda, solved for whichever of the three is absent.
+    given = {
+        "freq": freq,
+        "wavelength": wavelength,
+        "v_wave": speed,
+    }
+    present = {key: value for key, value in given.items() if value is not None}
+    if len(present) != 2:
+        return None
+    missing = ({"freq", "wavelength", "v_wave"} - set(present)).pop()
+    op = {
+        "freq": "wave_frequency",
+        "wavelength": "wavelength",
+        "v_wave": "wave_speed",
+    }[missing]
+    defaults = {"freq": "Hz", "wavelength": "m", "v_wave": "m/s"}
+    return MathIntent(
+        kind="waves",
+        physics_op=op,  # type: ignore[arg-type]
+        physics_params={key: value[0] for key, value in present.items()},
+        physics_units={key: (value[1] or defaults[key]) for key, value in present.items()},
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Optics
+#   1/f = 1/u + 1/v,  m = v/u,  n1 sin(t1) = n2 sin(t2),  sin(tc) = 1/n
+# ---------------------------------------------------------------------------
+
+# "lens", "focus" and "image" are all ordinary English; the multi-word forms
+# are not.
+_OPTICS_CUES = (
+    "focal length",
+    "refractive index",
+    "critical angle",
+    "index of refraction",
+    "converging lens",
+    "convex lens",
+    "magnification",
+    "snell",
+)
+
+# Sign conventions disagree between textbooks for exactly the interesting
+# cases, so only the one every convention agrees on is solved: a converging
+# lens forming a real image. A diverging lens, or an object inside the focal
+# length, is refused rather than answered with a sign the reader may not share.
+_DIVERGING_RE = re.compile(
+    r"\bdiverging\b|\bconcave\s+lens\b|\bvirtual\s+image\b|\bnegative\s+focal\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_optics_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _OPTICS_CUES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+    if _DIVERGING_RE.search(cleaned):
+        return None
+
+    index_values = [
+        float(m.group(1))
+        for m in re.finditer(
+            r"(?:refractive\s+index|index\s+of\s+refraction)\s*(?:of|is|=)?\s*"
+            r"(-?\d+(?:\.\d+)?)",
+            cleaned,
+            re.IGNORECASE,
+        )
+    ]
+    angles = [float(m.group(1)) for m in _INCLINE_ANGLE_RE.finditer(cleaned)]
+    if len(angles) < 2:
+        # "bends from 30 to 20 degrees" puts the unit on the second angle only,
+        # so the scan above sees one number where the question gave two.
+        pair = re.search(
+            r"from\s+(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)?\s*to\s+"
+            r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)",
+            cleaned,
+            re.IGNORECASE,
+        )
+        if pair is not None:
+            angles = [float(pair.group(1)), float(pair.group(2))]
+
+    if "critical angle" in lower:
+        if len(index_values) != 1 or index_values[0] <= 1:
+            return None
+        return MathIntent(
+            kind="optics",
+            physics_op="critical_angle",
+            physics_params={"n1": index_values[0]},
+            physics_units={"n1": ""},
+            operation="solve",
+        )
+
+    if "refractive index" in lower or "index of refraction" in lower or "snell" in lower:
+        # n = sin(t1) / sin(t2) when both angles are given and the index is not.
+        if len(angles) == 2 and not index_values:
+            return MathIntent(
+                kind="optics",
+                physics_op="refractive_index",
+                physics_params={"angle": angles[0], "angle2": angles[1]},
+                physics_units={"angle": "deg", "angle2": "deg"},
+                operation="solve",
+            )
+        return None
+
+    focal = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("focal length", "focal"), require_keyword=True
+    )
+    obj = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("object",), require_keyword=True
+    )
+    if "magnification" in lower:
+        img = _find_value_with_specific_unit(
+            cleaned, _LENGTH_UNIT_PATTERN, ("image",), require_keyword=True
+        )
+        if img is None or obj is None:
+            return None
+        return MathIntent(
+            kind="optics",
+            physics_op="magnification",
+            physics_params={"h_img": img[0], "h_obj": obj[0]},
+            physics_units={"h_img": img[1] or "m", "h_obj": obj[1] or "m"},
+            operation="solve",
+        )
+
+    if focal is None or obj is None:
+        return None
+    return MathIntent(
+        kind="optics",
+        physics_op="image_distance",
+        physics_params={"focal": focal[0], "d_obj": obj[0]},
+        physics_units={"focal": focal[1] or "m", "d_obj": obj[1] or "m"},
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Thermal
+#   Q = m c dT,  P V = n R T,  efficiency = W_out / Q_in
+# ---------------------------------------------------------------------------
+
+# "heat", "gas" and "efficiency" are all ordinary English, so the cues are the
+# multi-word forms and a signature.
+_THERMAL_CUES = ("specific heat", "heat capacity", "ideal gas", "gas constant")
+_KELVIN_PATTERN = r"K|kelvins?"
+_CELSIUS_PATTERN = r"°C|degrees?\s+c(?:elsius)?|celsius"
+_THERMAL_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        rf"\b(?:heat|warm|cool)\w*\b.{{0,80}}?\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN}).{{0,80}}?\b(?:heat|warm|cool)\w*\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\befficiency\b.{0,80}?\d\s*(?:J|joules?|kJ|kilojoules?)\b", re.IGNORECASE),
+    re.compile(r"\d\s*(?:J|joules?|kJ|kilojoules?)\b.{0,80}?\befficiency\b", re.IGNORECASE),
+)
+
+# 4186 J/kg/K. Only used when the substance is named water and no capacity is
+# given; any other substance must state its own.
+_WATER_SPECIFIC_HEAT = 4186.0
+_GAS_CONSTANT = 8.314462618
+
+
+def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
+    """A temperature with an explicit scale, or nothing.
+
+    27 C and 27 K differ by a factor of eleven, so a bare number is refused
+    rather than assumed - and "degrees" alone cannot help, because it means an
+    *angle* everywhere else in this file.
+    """
+    kelvin = _find_value_with_specific_unit(cleaned, _KELVIN_PATTERN, keywords)
+    if kelvin is not None:
+        return kelvin[0], "K"
+    match = re.search(
+        rf"(-?\d+(?:\.\d+)?)\s*(?:{_CELSIUS_PATTERN})",
+        cleaned,
+        re.IGNORECASE,
+    )
+    if match is not None:
+        return float(match.group(1)), "degC"
+    return None
+
+
+def _extract_thermal_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _THERMAL_CUES, _THERMAL_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    # --- efficiency: only from two energies -----------------------------
+    if "efficiency" in lower:
+        energies = _ordered_values(cleaned, r"kilojoules?|joules?|kJ|J")
+        if len(energies) != 2:
+            # Two temperatures is a Carnot question, which needs absolute
+            # temperatures and a different formula. Not solved here.
+            return None
+        work, supplied = sorted((energies[0][0], energies[1][0]))
+        if supplied <= 0:
+            return None
+        return MathIntent(
+            kind="thermal",
+            physics_op="thermal_efficiency",
+            physics_params={"W_out": work, "Q_in": supplied},
+            physics_units={"W_out": "J", "Q_in": "J"},
+            operation="solve",
+        )
+
+    # --- ideal gas: P V = n R T -----------------------------------------
+    moles = _find_value_with_specific_unit(cleaned, r"mol|moles?")
+    if moles is not None or "ideal gas" in lower:
+        volume = _find_value_with_specific_unit(cleaned, r"m\^?3|cm\^?3|litres?|liters?|l|ml")
+        temp = _temperature_value(cleaned, ("temperature", "at"))
+        if moles is None or volume is None or temp is None:
+            return None
+        if temp[1] != "K":
+            # PV = nRT needs an absolute temperature. Celsius would be wrong by
+            # 273 and look plausible.
+            return None
+        return MathIntent(
+            kind="thermal",
+            physics_op="ideal_gas_pressure",
+            physics_params={"moles": moles[0], "volume": volume[0], "temp": temp[0]},
+            physics_units={
+                "moles": "mol",
+                "volume": volume[1] or "m^3",
+                "temp": "K",
+            },
+            operation="solve",
+        )
+
+    # --- Q = m c dT ------------------------------------------------------
+    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
+    rise = _temperature_value(cleaned, ("by", "rise", "raise", "change"))
+    if mass is None or rise is None:
+        return None
+    capacity = _find_value_with_specific_unit(
+        cleaned, r"J/kg/K|J/\(kg\s*K\)|J/kgK", ("specific heat", "capacity")
+    )
+    if capacity is not None:
+        c_value = capacity[0]
+    elif "water" in lower:
+        c_value = _WATER_SPECIFIC_HEAT
+    else:
+        # No capacity and no named substance: the answer would be a guess.
+        return None
+    # A temperature *difference* is the same number in kelvin and celsius, so
+    # this one does not need the scale the absolute reading above does.
+    return MathIntent(
+        kind="thermal",
+        physics_op="heat_energy",
+        physics_params={"m": mass[0], "c_heat": c_value, "delta_temp": rise[0]},
+        physics_units={"m": mass[1] or "kg", "c_heat": "J/kg/K", "delta_temp": "K"},
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Circular motion
 #   a_c = v^2 / r,  F_c = m v^2 / r,  T = 2 pi r / v
 # ---------------------------------------------------------------------------
@@ -1398,7 +1751,12 @@ _ANGULAR_FREQ_RE = re.compile(
 
 
 def _extract_shm_intent(cleaned: str) -> MathIntent | None:
-    if not _has_cue(cleaned.lower(), (), _SHM_CUE_RES):
+    lower = cleaned.lower()
+    if not _has_cue(lower, (), _SHM_CUE_RES):
+        return None
+    # f = 1/T is the same arithmetic for an oscillator and a wave, but the kind
+    # should say which was asked about. Waves runs later, so defer explicitly.
+    if "wave" in lower:
         return None
     if mtm.has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -2421,12 +2779,12 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_momentum_intent,
     _extract_friction_intent,
     _extract_circular_intent,
+    # Before the pendulum and the spring: both of those read a *period* as the
+    # answer, and the two SHM ops read it as a given.
+    _extract_shm_intent,
     # Before springs: a pendulum has a length where a spring has a constant,
     # so the two cannot collide, and reading in this order keeps the spring
     # extractor's k requirement untouched.
-    # Before the pendulum and the spring: both of those read a *period* as the
-    # answer, and these two read it as a given.
-    _extract_shm_intent,
     _extract_pendulum_intent,
     _extract_spring_intent,
     _extract_circuit_intent,
@@ -2436,6 +2794,13 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     # rope-shaped still reaches that refusal.
     _extract_tension_intent,
     _extract_vector_force_intent,
+    # Round 3, all three ahead of force and energy. Each says a word those two
+    # own - optics says "power" (of a lens, in dioptres), thermal says "energy"
+    # and modern will too - and running first makes the split deterministic
+    # rather than lucky.
+    _extract_waves_intent,
+    _extract_optics_intent,
+    _extract_thermal_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
@@ -2447,6 +2812,9 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_SUVAT_CUES,
             *_PROJECTILE_CUES,
             *_MOMENTUM_CUES,
+            *_WAVE_CUES,
+            *_OPTICS_CUES,
+            *_THERMAL_CUES,
             *_FRICTION_CUES,
             *_CIRCULAR_CUES,
             *_SPRING_CUES,
@@ -2465,6 +2833,8 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_PROJECTILE_CUE_RES,
     *_FRICTION_CUE_RES,
     *_CIRCULAR_CUE_RES,
+    *_WAVE_CUE_RES,
+    *_THERMAL_CUE_RES,
     *_SHM_CUE_RES,
     *_PENDULUM_CUE_RES,
     *_SPRING_CUE_RES,

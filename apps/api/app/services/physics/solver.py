@@ -84,6 +84,33 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     # temperature to thermodynamics, and a bare w is not a unit at all.
     "period": "second",
     "omega": "radian / second",
+    # Round 3 waves. Every key here is spelled out: Pint reads a bare "t" as a
+    # tonne, "c" as the speed of light and "pa" as a *petayear*, so a param
+    # without an entry in this table is not merely unvalidated - it can convert
+    # into the wrong dimension entirely and answer confidently.
+    "freq": "hertz",
+    "wavelength": "meter",
+    "v_wave": "meter / second",
+    "v_src": "meter / second",
+    "v_sound": "meter / second",
+    # Round 3 optics. `u` is SUVAT's initial velocity and `f` is not a param,
+    # so the conventional letters are spelled out here too.
+    "focal": "meter",
+    "d_obj": "meter",
+    "d_img": "meter",
+    "h_obj": "meter",
+    "h_img": "meter",
+    # Round 3 thermal. "temp" is absolute and "delta_temp" is an interval -
+    # the same number in kelvin and celsius, which "temp" is not.
+    "temp": "kelvin",
+    "delta_temp": "kelvin",
+    "c_heat": "joule / kilogram / kelvin",
+    "heat": "joule",
+    "W_out": "joule",
+    "Q_in": "joule",
+    "pres": "pascal",
+    "volume": "meter ** 3",
+    "moles": "mole",
     "F1": "newton",
     "F2": "newton",
     "d1": "meter",
@@ -125,12 +152,42 @@ _UNIT_ALIASES = {
     "rads/s": "radian / second",
     "radians/s": "radian / second",
     "rad/sec": "radian / second",
+    "hz": "hertz",
+    "khz": "kilohertz",
+    "mhz": "megahertz",
+    "pa": "pascal",
+    "kpa": "kilopascal",
+    "mpa": "megapascal",
+    "k": "kelvin",
+    "kelvins": "kelvin",
+    "\u00b0c": "degC",
+    "celsius": "degC",
+    "j/kg/k": "joule / kilogram / kelvin",
+    "j/(kg k)": "joule / kilogram / kelvin",
+    "j/kgk": "joule / kilogram / kelvin",
+    "m^3": "m**3",
+    "m3": "m**3",
+    "cm^3": "cm**3",
+    "cm3": "cm**3",
+    "litres": "liter",
+    "litre": "liter",
+    "liters": "liter",
+    "moles": "mole",
 }
 
 
 # R1..R4 name a resistor network's members. Single-digit, so plain `sorted`
 # orders them correctly.
 _RESISTOR_KEY_RE = re.compile(r"R[1-9]")
+
+
+# Units whose zero is not zero. These must be constructed as a Quantity rather
+# than multiplied, and a *difference* in them is not the same as a value.
+_OFFSET_UNITS = frozenset({"degC", "degF", "celsius", "fahrenheit"})
+
+# CODATA, read from the unit registry rather than typed: a transposed digit in
+# a hand-written constant is a wrong answer nothing else would catch.
+_GAS_CONSTANT = 8.314462618153241
 
 
 def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
@@ -146,7 +203,12 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     ureg = _get_unit_registry()
     alias = _UNIT_ALIASES.get(unit.lower(), unit)
     try:
-        quantity = value * ureg(alias)
+        if alias in _OFFSET_UNITS:
+            # Celsius is an offset unit, not a scale factor: `value * ureg(
+            # "degC")` raises OffsetUnitCalculusError rather than converting.
+            quantity = ureg.Quantity(value, alias)
+        else:
+            quantity = value * ureg(alias)
         dim_spec = _PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
         if dim_spec is not None and quantity.dimensionality != ureg(dim_spec).dimensionality:
             raise MathServiceError(
@@ -167,7 +229,10 @@ def _params_in_si(intent: MathIntent) -> dict[str, float]:
     out: dict[str, float] = {}
     for key, val in params.items():
         unit = units.get(key, "")
-        if key == "angle":
+        # `startswith`, not `==`: Snell's law carries `angle` and `angle2`, and
+        # an angle that skipped this branch would reach `_to_si` and convert
+        # only because Pint's `degree` happens to base-convert to radians.
+        if key.startswith("angle"):
             lower_unit = unit.lower()
             if lower_unit in ("rad", "radian", "radians"):
                 out[key] = val
@@ -1837,6 +1902,200 @@ def solve_torque(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
+def solve_waves(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "wave_frequency_from_period":
+        t_period = p["period"]
+        if t_period <= 0:
+            raise MathServiceError("period must be positive")
+        freq = 1 / t_period
+        return PhysicsResult(
+            answer=(
+                rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
+                rf"\approx {freq:.2f} \text{{ Hz}}"
+            ),
+            answer_value=f"{freq:.2f} Hz",
+        )
+
+    if op == "wave_period":
+        freq = p["freq"]
+        if freq <= 0:
+            raise MathServiceError("frequency must be positive")
+        t_period = 1 / freq
+        return PhysicsResult(
+            answer=(
+                rf"T = \frac{{1}}{{f}} = \frac{{1}}{{{freq:g}}} "
+                rf"\approx {t_period:.4g} \text{{ s}}"
+            ),
+            answer_value=f"{t_period:.4g} s",
+        )
+
+    if op == "doppler_frequency":
+        source = p["v_src"]
+        sound = p["v_sound"]
+        freq = p["freq"]
+        if sound - source <= 0:
+            raise MathServiceError("a source at or above the speed of sound has no Doppler shift")
+        observed = freq * sound / (sound - source)
+        motion = "approaching" if source > 0 else "receding"
+        return PhysicsResult(
+            answer=(
+                rf"f' = f\,\frac{{v}}{{v - v_s}} = {freq:g} \cdot "
+                rf"\frac{{{sound:g}}}{{{sound:g} - ({source:g})}} "
+                rf"\approx {observed:.2f} \text{{ Hz}}"
+            ),
+            answer_value=f"{observed:.2f} Hz ({motion}, sound at {sound:g} m/s)",
+        )
+
+    if op == "wave_speed":
+        value = p["freq"] * p["wavelength"]
+        return PhysicsResult(
+            answer=(
+                rf"v = f\lambda = {p['freq']:g} \cdot {p['wavelength']:g} "
+                rf"\approx {value:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{value:.2f} m/s",
+        )
+
+    if op == "wavelength":
+        if p["freq"] <= 0:
+            raise MathServiceError("frequency must be positive")
+        value = p["v_wave"] / p["freq"]
+        return PhysicsResult(
+            answer=(
+                rf"\lambda = \frac{{v}}{{f}} = \frac{{{p['v_wave']:g}}}{{{p['freq']:g}}} "
+                rf"\approx {value:.2f} \text{{ m}}"
+            ),
+            answer_value=f"{value:.2f} m",
+        )
+
+    if op == "wave_frequency":
+        if p["wavelength"] <= 0:
+            raise MathServiceError("wavelength must be positive")
+        value = p["v_wave"] / p["wavelength"]
+        return PhysicsResult(
+            answer=(
+                rf"f = \frac{{v}}{{\lambda}} = "
+                rf"\frac{{{p['v_wave']:g}}}{{{p['wavelength']:g}}} "
+                rf"\approx {value:.2f} \text{{ Hz}}"
+            ),
+            answer_value=f"{value:.2f} Hz",
+        )
+
+    raise MathServiceError(f"unsupported waves op: {op}")
+
+
+def solve_optics(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "critical_angle":
+        n = p["n1"]
+        if n <= 1:
+            raise MathServiceError("total internal reflection needs an index above 1")
+        theta_c = math.degrees(math.asin(1 / n))
+        return PhysicsResult(
+            answer=(
+                rf"\theta_c = \arcsin\!\left(\frac{{1}}{{n}}\right) = "
+                rf"\arcsin\!\left(\frac{{1}}{{{n:g}}}\right) \approx {theta_c:.2f}^\circ"
+            ),
+            answer_value=f"{theta_c:.2f} deg",
+        )
+
+    if op == "refractive_index":
+        t1, t2 = p["angle"], p["angle2"]
+        if math.sin(t2) == 0:
+            raise MathServiceError("the refracted angle cannot be zero")
+        n = math.sin(t1) / math.sin(t2)
+        return PhysicsResult(
+            answer=(
+                rf"n = \frac{{\sin\theta_1}}{{\sin\theta_2}} = "
+                rf"\frac{{\sin({math.degrees(t1):.1f}^\circ)}}"
+                rf"{{\sin({math.degrees(t2):.1f}^\circ)}} \approx {n:.2f}"
+            ),
+            answer_value=f"{n:.2f}",
+        )
+
+    if op == "magnification":
+        if p["h_obj"] == 0:
+            raise MathServiceError("the object height cannot be zero")
+        m_val = p["h_img"] / p["h_obj"]
+        return PhysicsResult(
+            answer=(
+                rf"m = \frac{{h_i}}{{h_o}} = \frac{{{p['h_img']:g}}}{{{p['h_obj']:g}}} "
+                rf"\approx {m_val:.2f}"
+            ),
+            answer_value=f"{m_val:.2f}",
+        )
+
+    if op == "image_distance":
+        focal, obj = p["focal"], p["d_obj"]
+        if focal <= 0 or obj <= 0:
+            raise MathServiceError("only a converging lens with a real object is solved here")
+        if obj <= focal:
+            # Inside the focal length the image is virtual, and the sign that
+            # says so is exactly what the conventions disagree about.
+            raise MathServiceError("an object inside the focal length forms a virtual image")
+        img = 1 / (1 / focal - 1 / obj)
+        return PhysicsResult(
+            answer=(
+                rf"\frac{{1}}{{f}} = \frac{{1}}{{u}} + \frac{{1}}{{v}} \Rightarrow v = "
+                rf"\frac{{uf}}{{u - f}} = \frac{{{obj:g} \cdot {focal:g}}}"
+                rf"{{{obj:g} - {focal:g}}} \approx {img:.4g} \text{{ m}}"
+            ),
+            answer_value=f"{img:.4g} m",
+        )
+
+    raise MathServiceError(f"unsupported optics op: {op}")
+
+
+def solve_thermal(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "heat_energy":
+        q_val = p["m"] * p["c_heat"] * p["delta_temp"]
+        return PhysicsResult(
+            answer=(
+                rf"Q = mc\Delta T = {p['m']:g} \cdot {p['c_heat']:g} \cdot "
+                rf"{p['delta_temp']:g} \approx {q_val:.2f} \text{{ J}}"
+            ),
+            answer_value=f"{q_val:.2f} J",
+        )
+
+    if op == "ideal_gas_pressure":
+        volume = p["volume"]
+        if volume <= 0:
+            raise MathServiceError("volume must be positive")
+        if p["temp"] <= 0:
+            raise MathServiceError("an absolute temperature must be positive")
+        pressure = p["moles"] * _GAS_CONSTANT * p["temp"] / volume
+        return PhysicsResult(
+            answer=(
+                rf"P = \frac{{nRT}}{{V}} = \frac{{{p['moles']:g} \cdot {_GAS_CONSTANT:.4f} "
+                rf"\cdot {p['temp']:g}}}{{{volume:g}}} \approx {pressure:.2f} \text{{ Pa}}"
+            ),
+            answer_value=f"{pressure:.2f} Pa",
+        )
+
+    if op == "thermal_efficiency":
+        supplied = p["Q_in"]
+        if supplied <= 0:
+            raise MathServiceError("the energy supplied must be positive")
+        eta = p["W_out"] / supplied
+        return PhysicsResult(
+            answer=(
+                rf"\eta = \frac{{W}}{{Q_{{in}}}} = \frac{{{p['W_out']:g}}}{{{supplied:g}}} "
+                rf"\approx {eta:.2f} \; ({eta * 100:.1f}\%)"
+            ),
+            answer_value=f"{eta:.2f} ({eta * 100:.1f}%)",
+        )
+
+    raise MathServiceError(f"unsupported thermal op: {op}")
+
+
 def solve_physics(intent: MathIntent) -> PhysicsResult:
     """Dispatch to the right solver by intent kind."""
     if intent.kind == "kinematics":
@@ -1861,4 +2120,10 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_circuit(intent)
     if intent.kind == "torque":
         return solve_torque(intent)
+    if intent.kind == "waves":
+        return solve_waves(intent)
+    if intent.kind == "optics":
+        return solve_optics(intent)
+    if intent.kind == "thermal":
+        return solve_thermal(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")

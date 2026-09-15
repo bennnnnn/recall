@@ -90,10 +90,11 @@ def test_the_hint_states_the_boundary() -> None:
     assert "be cautious and say when you are unsure" in lower
 
 
-# "pendulum" was one of these until P15 solved it. It is deliberately not moved
-# to a "was a gap" list: the point of this table is what the model must still be
-# cautious about, and a solved topic belongs in the coverage test above instead.
-_KNOWN_GAPS = ["pressure", "thermodynamics", "gravitation", "waves", "optics"]
+# "pendulum" was one of these until P15 solved it, and "waves", "optics" and
+# "thermodynamics" until round 3. They are deliberately not moved to a "was a
+# gap" list: the point of this table is what the model must still be cautious
+# about, and a solved topic belongs in the coverage test above instead.
+_KNOWN_GAPS = ["pressure", "gravitation", "rotation", "magnetism", "materials"]
 
 
 @pytest.mark.parametrize("topic", _KNOWN_GAPS)
@@ -118,6 +119,13 @@ def test_a_solved_topic_is_not_still_listed_as_unchecked() -> None:
     unchecked = MATH_SOLVER_HINT.lower().split("outside that list (")[1].split(")")[0]
 
     assert "pendulum" not in unchecked
+    # Every kind with a solver, not just the one that caught this originally.
+    # Round 3 moved three topics across at once, and checking them by hand is
+    # how the next one gets missed.
+    still_listed = [kind for kind in PHYSICS_BLOCK_BUILDERS if kind in unchecked]
+    assert not still_listed, (
+        f"{still_listed} have solvers but are still named as unchecked in MATH_SOLVER_HINT."
+    )
     assert set(_KNOWN_GAPS) <= {topic.strip() for topic in unchecked.split(",")}
 
 

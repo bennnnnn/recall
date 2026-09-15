@@ -52,6 +52,10 @@ class MathIntent(BaseModel):
         "circuit",
         "torque",
         "suvat",
+        # Round 3.
+        "waves",
+        "optics",
+        "thermal",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -277,6 +281,24 @@ class MathIntent(BaseModel):
             "moment_balance",
             # SUVAT — the op names the unknown, and the solver picks whichever
             # of the four equations the givens support (P8's approach).
+            # Round 3 waves. Never a bare "frequency" or "period": the spring
+            # kind has both.
+            "wave_speed",
+            "wavelength",
+            "wave_frequency",
+            "wave_frequency_from_period",
+            "wave_period",
+            "doppler_frequency",
+            # Round 3 optics. "lens_power" would be a fourth thing called
+            # power; it is not solved here, so it does not exist.
+            "image_distance",
+            "magnification",
+            "refractive_index",
+            "critical_angle",
+            # Round 3 thermal.
+            "heat_energy",
+            "ideal_gas_pressure",
+            "thermal_efficiency",
             "suvat_velocity",
             "suvat_distance",
             "suvat_time",
