@@ -132,13 +132,9 @@ def _calculus_bounds(
         lo_value = float(lo.evalf())
         hi_value = float(hi.evalf())
     except (TypeError, ValueError) as exc:
-        raise MathServiceError(
-            "calculus application bounds must be real and finite"
-        ) from exc
+        raise MathServiceError("calculus application bounds must be real and finite") from exc
     if not math.isfinite(lo_value) or not math.isfinite(hi_value) or lo_value >= hi_value:
-        raise MathServiceError(
-            "calculus application needs finite bounds with lower < upper"
-        )
+        raise MathServiceError("calculus application needs finite bounds with lower < upper")
     return x, lo, hi
 
 
@@ -154,9 +150,7 @@ def _definite_application_result(
         try:
             numeric_value = float(numerical)
         except (TypeError, ValueError) as exc:
-            raise MathServiceError(
-                "calculus application has no verified finite result"
-            ) from exc
+            raise MathServiceError("calculus application has no verified finite result") from exc
         if not math.isfinite(numeric_value):
             raise MathServiceError("calculus application has no verified finite result")
         return rf"\approx {latex(numerical)}"
@@ -184,8 +178,7 @@ def compute_calculus_application(
         result = _definite_application_result(integrand, x, lo, hi)
         answer = f"A = {result}"
         return answer, [
-            f"A = \\int_{{{latex(lo)}}}^{{{latex(hi)}}} "
-            f"{latex(integrand)}\\,d{variable}",
+            f"A = \\int_{{{latex(lo)}}}^{{{latex(hi)}}} {latex(integrand)}\\,d{variable}",
             answer,
         ]
 
@@ -195,8 +188,7 @@ def compute_calculus_application(
         result = _definite_application_result(integrand, x, lo, hi)
         answer = f"L = {result}"
         return answer, [
-            f"L = \\int_{{{latex(lo)}}}^{{{latex(hi)}}} "
-            f"{latex(integrand)}\\,d{variable}",
+            f"L = \\int_{{{latex(lo)}}}^{{{latex(hi)}}} {latex(integrand)}\\,d{variable}",
             answer,
         ]
 
@@ -204,8 +196,7 @@ def compute_calculus_application(
     result = _definite_application_result(integrand, x, lo, hi)
     answer = f"V = {result}"
     return answer, [
-        f"V = \\pi\\int_{{{latex(lo)}}}^{{{latex(hi)}}} "
-        f"({latex(parsed)})^2\\,d{variable}",
+        f"V = \\pi\\int_{{{latex(lo)}}}^{{{latex(hi)}}} ({latex(parsed)})^2\\,d{variable}",
         answer,
     ]
 
@@ -222,9 +213,7 @@ def compute_bivariate_statistics(
     operation: BivariateStatisticsFeature,
 ) -> tuple[str, list[str]]:
     if len(x_values) != len(y_values) or len(x_values) < 2:
-        raise MathServiceError(
-            "paired statistics need equal-length lists with at least 2 values"
-        )
+        raise MathServiceError("paired statistics need equal-length lists with at least 2 values")
     if len(x_values) > 200:
         raise MathServiceError("paired statistics are capped at 200 values")
     if any(not math.isfinite(v) for v in (*x_values, *y_values)):
@@ -235,9 +224,7 @@ def compute_bivariate_statistics(
     mean_y = math.fsum(y_values) / n
     centered_x = [value - mean_x for value in x_values]
     centered_y = [value - mean_y for value in y_values]
-    cross = math.fsum(
-        a * b for a, b in zip(centered_x, centered_y, strict=True)
-    )
+    cross = math.fsum(a * b for a, b in zip(centered_x, centered_y, strict=True))
     sum_x2 = math.fsum(value * value for value in centered_x)
     sum_y2 = math.fsum(value * value for value in centered_y)
 
@@ -250,16 +237,12 @@ def compute_bivariate_statistics(
     if operation == "correlation":
         denominator = math.sqrt(sum_x2 * sum_y2)
         if denominator == 0:
-            raise MathServiceError(
-                "correlation is undefined when either data list is constant"
-            )
+            raise MathServiceError("correlation is undefined when either data list is constant")
         correlation = max(-1.0, min(1.0, cross / denominator))
         answer = _format_stat_number(correlation)
         return answer, [f"Pearson r = {answer}"]
     if sum_x2 == 0:
-        raise MathServiceError(
-            "linear regression needs at least two distinct x values"
-        )
+        raise MathServiceError("linear regression needs at least two distinct x values")
     slope = cross / sum_x2
     intercept = mean_y - slope * mean_x
     slope_text = _format_stat_number(slope)
@@ -277,9 +260,7 @@ def _basis_latex(vectors: Sequence[object]) -> str:
     if not vectors:
         return r"\{0\}"
     return (
-        r"\operatorname{span}\left\{"
-        + ", ".join(latex(vector) for vector in vectors)
-        + r"\right\}"
+        r"\operatorname{span}\left\{" + ", ".join(latex(vector) for vector in vectors) + r"\right\}"
     )
 
 
@@ -301,9 +282,7 @@ def compute_matrix_feature(
         answer = _basis_latex(mat.rowspace())
         return answer, [f"\\operatorname{{Row}}(A) = {answer}"]
     if mat.rows != mat.cols:
-        raise MathServiceError(
-            "eigenvectors/diagonalization require a square matrix"
-        )
+        raise MathServiceError("eigenvectors/diagonalization require a square matrix")
     if operation == "eigenvectors":
         pieces: list[str] = []
         for eigenvalue, _multiplicity, basis in mat.eigenvects():
