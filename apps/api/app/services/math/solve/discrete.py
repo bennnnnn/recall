@@ -201,18 +201,20 @@ def _matrix_from_rows(rows: list[list[float]]):
     return Matrix([[Rational(str(value)) for value in row] for row in rows])
 
 
+def _matrix_basis_latex(vectors: list[object]) -> str:
+    if not vectors:
+        return r"\{0\}"
+    return r"\operatorname{span}\left\{" + ", ".join(latex(vector) for vector in vectors) + r"\right\}"
+
+
 def compute_matrix(data: MatrixInput) -> MatrixResult:
-    """Small-matrix ops via sympy.Matrix. Entries are plain floats from
-    Pydantic (never sympified from raw text). Converted via Rational(str(v))
-    rather than left as float — sympy.Matrix keeps float entries as floats,
-    so e.g. an inverse's 1/6 entry would otherwise print as the illegible
-    "0.166666666666667" instead of a clean fraction.
-    """
+    """Small-matrix ops via sympy.Matrix using exact rational entries."""
     from app.services.math.solve.parse import format_verified_latex
 
     mat = _matrix_from_rows(data.rows)
-    if data.operation in {"determinant", "inverse", "eigenvalues"} and mat.rows != mat.cols:
-        raise MathServiceError("determinant/inverse/eigenvalues need a square matrix")
+    square_ops = {"determinant", "inverse", "eigenvalues", "eigenvectors", "diagonalize"}
+    if data.operation in square_ops and mat.rows != mat.cols:
+        raise MathServiceError(f"{data.operation} needs a square matrix")
 
     if data.operation == "determinant":
         det = mat.det()
@@ -244,6 +246,35 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
         steps = [f"\\mathrm{{rref}} = {latex(reduced)}"]
         return MatrixResult(operation="rref", result_latex=latex(reduced), steps=steps)
 
+    if data.operation == "rank":
+        value = int(mat.rank())
+        answer = str(value)
+        return MatrixResult(operation="rank", result_latex=answer, steps=[f"\\operatorname{{rank}}(A) = {answer}"])
+
+    if data.operation == "nullspace":
+        answer = _matrix_basis_latex(mat.nullspace())
+        return MatrixResult(
+            operation="nullspace",
+            result_latex=answer,
+            steps=[f"\\operatorname{{Null}}(A) = {answer}"],
+        )
+
+    if data.operation == "columnspace":
+        answer = _matrix_basis_latex(mat.columnspace())
+        return MatrixResult(
+            operation="columnspace",
+            result_latex=answer,
+            steps=[f"\\operatorname{{Col}}(A) = {answer}"],
+        )
+
+    if data.operation == "rowspace":
+        answer = _matrix_basis_latex(mat.rowspace())
+        return MatrixResult(
+            operation="rowspace",
+            result_latex=answer,
+            steps=[f"\\operatorname{{Row}}(A) = {answer}"],
+        )
+
     if data.operation == "add":
         if data.rows_b is None:
             raise MathServiceError("add needs a second matrix")
@@ -258,6 +289,28 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
         transposed = mat.T
         steps = [f"A^{{T}} = {latex(transposed)}"]
         return MatrixResult(operation="transpose", result_latex=latex(transposed), steps=steps)
+
+    if data.operation == "eigenvectors":
+        parts: list[str] = []
+        for value, _multiplicity, vectors in mat.eigenvects():
+            eigenvalue = format_verified_latex(value)
+            basis = _matrix_basis_latex(vectors)
+            parts.append(f"\\lambda={eigenvalue}:\ {basis}")
+        answer = r";\quad ".join(parts)
+        return MatrixResult(
+            operation="eigenvectors",
+            result_latex=answer,
+            steps=[f"\\text{{eigenspaces: }} {answer}"],
+        )
+
+    if data.operation == "diagonalize":
+        try:
+            p_matrix, d_matrix = mat.diagonalize()
+        except Exception as exc:
+            raise MathServiceError("matrix is not diagonalizable") from exc
+        answer = f"P={latex(p_matrix)},\\quad D={latex(d_matrix)}"
+        steps = [f"A=PDP^{{-1}},\\quad {answer}"]
+        return MatrixResult(operation="diagonalize", result_latex=answer, steps=steps)
 
     evals = mat.eigenvals()
     keys = sorted(evals.keys(), key=lambda value: (complex(value).real, complex(value).imag))
