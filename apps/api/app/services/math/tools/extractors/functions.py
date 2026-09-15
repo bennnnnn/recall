@@ -91,6 +91,20 @@ def _composition_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+# "even or odd" is unambiguous; "symmetric" alone is not (a symmetric matrix,
+# a symmetric layout), so it only counts beside "about the y-axis"/"the origin".
+_EVEN_ODD_RE = re.compile(
+    r"\b(?:even\s+or\s+odd|odd\s+or\s+even)\b"
+    r"|\bsymmetric\b[^.?!]{0,30}?\b(?:y[- ]axis|origin)\b",
+    re.IGNORECASE,
+)
+_EVEN_ODD_FUNCTION_RE = re.compile(
+    r"(?:f\s*\(\s*x\s*\)|y)\s*=\s*(.+?)"
+    r"(?=\s*(?:,|;)?\s*(?:is\s+it\b|is\s+this\b|even\b|odd\b|symmetric\b)|[?.!]*$)",
+    re.IGNORECASE,
+)
+
+
 def _single_function_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "[[" in cleaned or "matrix" in lower:
@@ -102,6 +116,23 @@ def _single_function_intent(cleaned: str) -> MathIntent | None:
         return None
     if function_analysis_constraint_would_be_dropped(cleaned):
         return None
+
+    # "is f(x)=x^3 even or odd" puts its cue *after* the function, so it is
+    # read before the leading-cue table below rather than through it.
+    if _EVEN_ODD_RE.search(cleaned):
+        match = _EVEN_ODD_FUNCTION_RE.search(cleaned)
+        if match is None:
+            return None
+        expr = math_expr_or_none(_normalize_latex_expr(_strip_trailing_filler(match.group(1))))
+        if not expr:
+            return None
+        return MathIntent(
+            kind="calculus",
+            operation="simplify",
+            school_op="function_symmetry",
+            expr=expr,
+            variable="x",
+        )
 
     op: str | None = None
     cue: str | None = None

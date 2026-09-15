@@ -92,3 +92,20 @@ def compose_functions(outer_expr: str, inner_expr: str, variable: str = "x") -> 
     except Exception as exc:
         raise MathServiceError("could not compose the functions") from exc
     return str(latex(result))
+
+
+def symmetry(expr: str, variable: str = "x") -> str:
+    """Classify a function as even, odd, or neither.
+
+    f(-x) == f(x) is even, f(-x) == -f(x) is odd. "Neither" is a real answer
+    here rather than a failure: most functions are neither, and saying so is
+    what the question asks for.
+    """
+    parsed = _real_expression(expr, variable)
+    sym = Symbol(variable, real=True)
+    reflected = simplify(parsed.subs(sym, -sym))
+    if simplify(reflected - parsed) == 0:
+        return "even"
+    if simplify(reflected + parsed) == 0:
+        return "odd"
+    return "neither"
