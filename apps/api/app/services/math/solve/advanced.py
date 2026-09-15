@@ -161,9 +161,7 @@ def _paired(
     y_values: list[float],
 ) -> tuple[list[float], list[float]]:
     if len(x_values) != len(y_values) or len(x_values) < 2:
-        raise MathServiceError(
-            "Paired statistics need equal-length lists with at least two values"
-        )
+        raise MathServiceError("Paired statistics need equal-length lists with at least two values")
     if len(x_values) > 200:
         raise MathServiceError("Paired statistics are capped at 200 values")
     if not all(math.isfinite(v) for v in [*x_values, *y_values]):
@@ -180,10 +178,7 @@ def solve_bivariate_statistics(
     n = len(xs)
     mean_x = statistics.fmean(xs)
     mean_y = statistics.fmean(ys)
-    cross = math.fsum(
-        (x - mean_x) * (y - mean_y)
-        for x, y in zip(xs, ys, strict=True)
-    )
+    cross = math.fsum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True))
     ss_x = math.fsum((x - mean_x) ** 2 for x in xs)
     ss_y = math.fsum((y - mean_y) ** 2 for y in ys)
 
@@ -194,9 +189,7 @@ def solve_bivariate_statistics(
     if op == "correlation":
         denom = math.sqrt(ss_x * ss_y)
         if denom == 0:
-            raise MathServiceError(
-                "Correlation is undefined when one list has zero variance"
-            )
+            raise MathServiceError("Correlation is undefined when one list has zero variance")
         return f"{cross / denom:.6g}"
     if op == "linear_regression":
         if ss_x == 0:
@@ -205,10 +198,7 @@ def solve_bivariate_statistics(
         intercept = mean_y - slope * mean_x
         r_squared = 1.0 if ss_y == 0 else (cross * cross) / (ss_x * ss_y)
         sign = "+" if intercept >= 0 else "-"
-        return (
-            f"y = {slope:.6g}x {sign} {abs(intercept):.6g},"
-            f"\\quad R^2 = {r_squared:.6g}"
-        )
+        return f"y = {slope:.6g}x {sign} {abs(intercept):.6g},\\quad R^2 = {r_squared:.6g}"
 
     raise MathServiceError(f"Unsupported statistics operation: {op}")
 
