@@ -31,7 +31,7 @@ class TestAdvancedSolvers:
         answer = solve_function_feature("function_inverse", "2*x+1")
         assert "f^{-1}(x)" in answer
         assert "\\frac{x}{2}" in answer
-        with pytest.raises(math_tools.MathServiceError):
+        with pytest.raises(ValueError):
             solve_function_feature("function_inverse", "x^2")
 
     def test_function_symmetry_and_composition(self):
