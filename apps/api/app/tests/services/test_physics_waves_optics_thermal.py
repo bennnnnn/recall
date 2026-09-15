@@ -300,3 +300,46 @@ NOT_PHYSICS = [
 def test_the_new_cues_do_not_steal_ordinary_english(text: str) -> None:
     intent = extract_math_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
+
+
+# ---------------------------------------------------------------------------
+# Wordings the sweep found after the kinds shipped. Each is the same class of
+# defect the round kept turning up: a cue that does not fire, or a unit written
+# once for a pair.
+# ---------------------------------------------------------------------------
+
+
+def test_a_temperature_rise_may_omit_its_scale() -> None:
+    """The half of the temperature rule that is not ambiguous.
+
+    A *difference* of 10 degrees is 10 K and 10 C alike, so "raise 2 kg of
+    water by 10 degrees" is answerable where "at 300 degrees" is not.
+    """
+    assert _verified_answer("how much heat is needed to raise 2 kg of water by 10 degrees") == (
+        "83720.00 J"
+    )
+
+
+def test_an_absolute_temperature_still_may_not() -> None:
+    """The relaxation above must not reach the ideal gas law.
+
+    27 C and 27 K differ by a factor of eleven, and PV = nRT needs the
+    absolute one.
+    """
+    assert (
+        _verified_answer("what is the pressure of 2 moles of ideal gas at 27 degrees in 0.05 m^3")
+        is None
+    )
+
+
+def test_a_mole_count_beside_a_temperature_is_its_own_signature() -> None:
+    """ "the pressure of 2 moles of gas at 300 K" names no thermal word."""
+    assert needs_symbolic("what is the pressure of 2 moles of gas at 300 K in 0.05 m^3")
+    assert _verified_answer("what is the pressure of 2 moles of gas at 300 K in 0.05 m^3") == (
+        "99773.55 Pa"
+    )
+
+
+def test_latent_heat_is_still_a_gap() -> None:
+    """Melting is not Q = mc dT, and guessing it with c would be wrong."""
+    assert _verified_answer("what is the energy to melt 1 kg of ice") is None

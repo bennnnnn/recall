@@ -1454,6 +1454,16 @@ _THERMAL_CUE_RES: tuple[re.Pattern[str], ...] = (
     ),
     re.compile(r"\befficiency\b.{0,80}?\d\s*(?:J|joules?|kJ|kilojoules?)\b", re.IGNORECASE),
     re.compile(r"\d\s*(?:J|joules?|kJ|kilojoules?)\b.{0,80}?\befficiency\b", re.IGNORECASE),
+    # "the pressure of 2 moles of gas at 300 K" names no thermal word at all -
+    # a mole count beside a temperature is the signature itself.
+    re.compile(
+        rf"\d\s*mol(?:e|es)?\b.{{0,80}}?\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN}).{{0,80}}?\d\s*mol(?:e|es)?\b",
+        re.IGNORECASE,
+    ),
 )
 
 # 4186 J/kg/K. Only used when the substance is named water and no capacity is
@@ -1533,6 +1543,18 @@ def _extract_thermal_intent(cleaned: str) -> MathIntent | None:
     # --- Q = m c dT ------------------------------------------------------
     mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
     rise = _temperature_value(cleaned, ("by", "rise", "raise", "change"))
+    if rise is None:
+        # A temperature *difference* is the same number in kelvin and celsius,
+        # so a bare "by 10 degrees" is unambiguous here in a way an absolute
+        # "at 300 degrees" is not. Only the interval may be loose.
+        bare = re.search(
+            rf"(?:by|rises?|raise[sd]?|warms?|cools?)\s+(?:by\s+)?({_NUMBER})\s*"
+            r"(?:degrees?|deg|\u00b0)(?![A-Za-z0-9])",
+            cleaned,
+            re.IGNORECASE,
+        )
+        if bare is not None:
+            rise = (float(bare.group(1)), "K")
     if mass is None or rise is None:
         return None
     capacity = _find_value_with_specific_unit(
@@ -1771,6 +1793,18 @@ def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
     density = _find_value_with_specific_unit(cleaned, _DENSITY_PATTERN)
     speed = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
     areas = _ordered_values(cleaned, _AREA_PATTERN)
+    if len(areas) < 2:
+        # "narrowing from 0.04 to 0.01 m^2" carries the unit once, on the
+        # second value - the same shape the resistor networks had.
+        pair = re.search(
+            rf"from\s+({_NUMBER})\s*(?:{_AREA_PATTERN})?\s*to\s+({_NUMBER})\s*"
+            rf"({_AREA_PATTERN})",
+            cleaned,
+            re.IGNORECASE,
+        )
+        if pair is not None:
+            unit = pair.group(3)
+            areas = [(float(pair.group(1)), unit), (float(pair.group(2)), unit)]
 
     def _fluid_density() -> float | None:
         if density is not None:
@@ -1810,7 +1844,7 @@ def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
         rho = _fluid_density()
         if volume is None or rho is None:
             return None
-        if "submerged" not in lower and "immersed" not in lower:
+        if not any(word in lower for word in ("submerged", "immersed", "displac")):
             # A floating body displaces its own weight, not its own volume.
             # Which one is meant changes the answer, so it has to be said.
             return None

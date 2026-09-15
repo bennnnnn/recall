@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md). Domain grouping and what is left: [docs/CODE_STRUCTURE_REVIEW_2026-09-13.md](./docs/CODE_STRUCTURE_REVIEW_2026-09-13.md). Math coverage, level awareness and answer style: [docs/MATH_COVERAGE_REVIEW_2026-09-14.md](./docs/MATH_COVERAGE_REVIEW_2026-09-14.md). Physics review + tickets: [docs/PHYSICS_TICKETS.md](./docs/PHYSICS_TICKETS.md) (P1-P10, shipped) and [docs/PHYSICS_TICKETS_ROUND2.md](./docs/PHYSICS_TICKETS_ROUND2.md) (P11-P17, shipped).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md). Domain grouping and what is left: [docs/CODE_STRUCTURE_REVIEW_2026-09-13.md](./docs/CODE_STRUCTURE_REVIEW_2026-09-13.md). Math coverage, level awareness and answer style: [docs/MATH_COVERAGE_REVIEW_2026-09-14.md](./docs/MATH_COVERAGE_REVIEW_2026-09-14.md). Physics review + tickets: [docs/PHYSICS_TICKETS.md](./docs/PHYSICS_TICKETS.md) (P1-P10, shipped) and [docs/PHYSICS_TICKETS_ROUND2.md](./docs/PHYSICS_TICKETS_ROUND2.md) (P11-P17, shipped) and [docs/PHYSICS_TICKETS_ROUND3.md](./docs/PHYSICS_TICKETS_ROUND3.md) (round 3, shipped: twenty verified kinds).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -128,6 +128,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Speech STT/TTS + live talk | `routers/speech.py`, `services/speech.py`, `quota.py` | `useVoiceInput`, `useLiveTalk`, message speaker |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `services/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
+| Physics (20 verified kinds) | `services/physics/` (`extract.py` cues + extractors, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
 | Chemistry (RDKit / PubChem) | `services/chemistry/`, `gateways/pubchem_gateway.py` | `chemistryFence.ts`, smiles + `molecule3d` |
 | Calendar / Gmail | `routers/integrations.py`, `gmail_integrations.py`, `services/calendar.py`, `services/email/` | `settings/integrations.tsx` |
 | Push / email out | `services/notifications/`, `background/*scheduler*` | notification settings |

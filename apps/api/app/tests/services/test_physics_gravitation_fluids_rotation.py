@@ -304,3 +304,23 @@ NOT_PHYSICS = [
 def test_the_new_cues_do_not_steal_ordinary_english(text: str) -> None:
     intent = extract_math_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
+
+
+def test_displacing_states_the_submerged_volume() -> None:
+    """ "displacing 2 m^3 of water" says it as plainly as "submerged" does."""
+    assert (
+        _verified_answer("what is the buoyant force on a body displacing 2 m^3 of water")
+        == "19620.00 N"
+    )
+
+
+def test_a_narrowing_pipe_writes_its_unit_once() -> None:
+    """ "from 0.04 to 0.01 m^2" puts the unit on the second area only.
+
+    The same shape as the resistor networks, and it returned nothing for the
+    same reason.
+    """
+    assert (
+        _verified_answer("what is the velocity in a pipe narrowing from 0.04 to 0.01 m^2 at 2 m/s")
+        == "8.00 m/s"
+    )
