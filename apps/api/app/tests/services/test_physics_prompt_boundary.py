@@ -94,7 +94,13 @@ def test_the_hint_states_the_boundary() -> None:
 # "thermodynamics" until round 3. They are deliberately not moved to a "was a
 # gap" list: the point of this table is what the model must still be cautious
 # about, and a solved topic belongs in the coverage test above instead.
-_KNOWN_GAPS = ["magnetism", "materials", "relativity", "nuclear", "alternating current"]
+_KNOWN_GAPS = [
+    "relativity",
+    "quantum states",
+    "alternating current",
+    "entropy",
+    "interference",
+]
 
 
 @pytest.mark.parametrize("topic", _KNOWN_GAPS)

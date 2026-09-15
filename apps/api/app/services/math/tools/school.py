@@ -993,8 +993,20 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     return None
 
 
+# An elastic modulus is not the modulus of a complex number. This extractor
+# runs before the physics ones, so without this "the young modulus for a stress
+# of 2e7 Pa" was read as |z| and failed as an unparseable expression.
+_ELASTIC_MODULUS_RE = re.compile(
+    r"\b(?:young(?:'s)?|bulk|shear|elastic|rigidity)\s+modulus\b", re.IGNORECASE
+)
+
+
 def _extract_complex_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
+    # Before anything else: an elastic modulus is not the modulus of a complex
+    # number, and this extractor runs before the physics ones.
+    if _ELASTIC_MODULUS_RE.search(cleaned):
+        return None
     from app.services.math.tools.extractors.formulas import extract_complex_op
 
     op = extract_complex_op(cleaned)

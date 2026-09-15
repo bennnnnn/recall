@@ -94,5 +94,8 @@ PHYSICS_BLOCK_BUILDERS = {
     "gravitation": _build_physics_block,
     "fluids": _build_physics_block,
     "rotation": _build_physics_block,
+    "magnetism": _build_physics_block,
+    "materials": _build_physics_block,
+    "modern": _build_physics_block,
     "torque": _build_physics_block,
 }

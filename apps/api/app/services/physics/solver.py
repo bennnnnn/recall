@@ -125,6 +125,16 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     # Round 3 rotation. "I" is already the ampere.
     "inertia": "kilogram * meter ** 2",
     "theta": "radian",
+    # Round 3 magnetism. "B" is free; "T" is not, being the tesla to Pint and a
+    # temperature to thermodynamics.
+    "b_field": "tesla",
+    "wire_L": "meter",
+    "flux": "weber",
+    # Round 3 materials.
+    "sigma": "pascal",
+    "E_mod": "pascal",
+    "L0": "meter",
+    "dL": "meter",
     "F1": "newton",
     "F2": "newton",
     "d1": "meter",
@@ -201,6 +211,16 @@ _UNIT_ALIASES = {
     "kgm^2": "kg * m**2",
     "rad": "radian",
     "radians": "radian",
+    "t": "tesla",
+    "tesla": "tesla",
+    "teslas": "tesla",
+    "mt": "millitesla",
+    "wb": "weber",
+    "weber": "weber",
+    "webers": "weber",
+    "n": "newton",
+    "newtons": "newton",
+    "gpa": "gigapascal",
 }
 
 
@@ -217,6 +237,9 @@ _OFFSET_UNITS = frozenset({"degC", "degF", "celsius", "fahrenheit"})
 # a hand-written constant is a wrong answer nothing else would catch.
 _GAS_CONSTANT = 8.314462618153241
 _BIG_G = 6.67430e-11
+_PLANCK_H = 6.62607015e-34
+_SPEED_OF_LIGHT = 299792458.0
+_ELEMENTARY_CHARGE = 1.602176634e-19
 
 
 def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
@@ -2335,6 +2358,149 @@ def solve_rotation(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported rotation op: {op}")
 
 
+def solve_magnetism(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "magnetic_force_wire":
+        value = p["b_field"] * p["I"] * p["wire_L"]
+        return PhysicsResult(
+            answer=(
+                rf"F = BIL = {p['b_field']:g} \cdot {p['I']:g} \cdot {p['wire_L']:g} "
+                rf"\approx {value:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{value:.2f} N",
+        )
+
+    if op == "magnetic_force_charge":
+        value = p["Q"] * p["v"] * p["b_field"]
+        return PhysicsResult(
+            answer=(
+                rf"F = qvB = {p['Q']:g} \cdot {p['v']:g} \cdot {p['b_field']:g} "
+                rf"\approx {value:.2f} \text{{ N}}"
+            ),
+            # The full form carries sin(theta); this is the perpendicular case,
+            # which is the one every school question states.
+            answer_value=f"{value:.2f} N (field perpendicular to the motion)",
+        )
+
+    if op == "magnetic_flux":
+        value = p["b_field"] * p["area"]
+        return PhysicsResult(
+            answer=(
+                rf"\Phi = BA = {p['b_field']:g} \cdot {p['area']:g} "
+                rf"\approx {value:.4g} \text{{ Wb}}"
+            ),
+            answer_value=f"{value:.4g} Wb",
+        )
+
+    raise MathServiceError(f"unsupported magnetism op: {op}")
+
+
+def solve_materials(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "stress":
+        area = p["area"]
+        if area <= 0:
+            raise MathServiceError("area must be positive")
+        value = p["F"] / area
+        return PhysicsResult(
+            answer=(
+                rf"\sigma = \frac{{F}}{{A}} = \frac{{{p['F']:g}}}{{{area:g}}} "
+                rf"\approx {value:.4g} \text{{ Pa}}"
+            ),
+            answer_value=f"{value:.4g} Pa",
+        )
+
+    if op == "strain":
+        original = p["L0"]
+        if original <= 0:
+            raise MathServiceError("the original length must be positive")
+        value = p["dL"] / original
+        return PhysicsResult(
+            answer=(
+                rf"\varepsilon = \frac{{\Delta L}}{{L_0}} = "
+                rf"\frac{{{p['dL']:g}}}{{{original:g}}} \approx {value:.4g}"
+            ),
+            answer_value=f"{value:.4g}",
+        )
+
+    if op == "youngs_modulus":
+        strain = p["strain"]
+        if strain == 0:
+            raise MathServiceError("strain cannot be zero")
+        value = p["sigma"] / strain
+        return PhysicsResult(
+            answer=(
+                rf"E = \frac{{\sigma}}{{\varepsilon}} = "
+                rf"\frac{{{p['sigma']:g}}}{{{strain:g}}} \approx {value:.4g} \text{{ Pa}}"
+            ),
+            answer_value=f"{value:.4g} Pa",
+        )
+
+    raise MathServiceError(f"unsupported materials op: {op}")
+
+
+def solve_modern(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "photon_energy":
+        value = _PLANCK_H * p["freq"]
+        ev = value / _ELEMENTARY_CHARGE
+        return PhysicsResult(
+            answer=(
+                rf"E = hf = {_PLANCK_H:.5g} \cdot {p['freq']:.4g} "
+                rf"\approx {value:.4g} \text{{ J}}"
+            ),
+            answer_value=f"{value:.4g} J ({ev:.2f} eV)",
+        )
+
+    if op == "de_broglie_wavelength":
+        momentum = p["m"] * p["v"]
+        if momentum <= 0:
+            raise MathServiceError("momentum must be positive")
+        value = _PLANCK_H / momentum
+        return PhysicsResult(
+            answer=(
+                rf"\lambda = \frac{{h}}{{mv}} = \frac{{{_PLANCK_H:.5g}}}"
+                rf"{{{p['m']:.4g} \cdot {p['v']:.4g}}} \approx {value:.4g} \text{{ m}}"
+            ),
+            answer_value=f"{value:.4g} m",
+        )
+
+    if op == "half_life_remaining":
+        halves = p["n_halves"]
+        if halves < 0:
+            raise MathServiceError("the number of half lives cannot be negative")
+        # Answer in the unit the question used. A sample given in grams should
+        # not come back in kilograms; the arithmetic is a ratio either way.
+        unit = (intent.physics_units or {}).get("m", "kg")
+        given = (intent.physics_params or {}).get("m", p["m"])
+        value = given / (2**halves)
+        return PhysicsResult(
+            answer=(
+                rf"N = \frac{{N_0}}{{2^n}} = \frac{{{given:g}}}{{2^{{{halves:g}}}}} "
+                rf"\approx {value:.4g} \text{{ {unit}}}"
+            ),
+            answer_value=f"{value:.4g} {unit}",
+        )
+
+    if op == "mass_energy":
+        value = p["m"] * _SPEED_OF_LIGHT**2
+        return PhysicsResult(
+            answer=(
+                rf"E = mc^2 = {p['m']:g} \cdot ({_SPEED_OF_LIGHT:.0f})^2 "
+                rf"\approx {value:.4g} \text{{ J}}"
+            ),
+            answer_value=f"{value:.4g} J",
+        )
+
+    raise MathServiceError(f"unsupported modern op: {op}")
+
+
 def solve_physics(intent: MathIntent) -> PhysicsResult:
     """Dispatch to the right solver by intent kind."""
     if intent.kind == "kinematics":
@@ -2371,4 +2537,10 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_fluids(intent)
     if intent.kind == "rotation":
         return solve_rotation(intent)
+    if intent.kind == "magnetism":
+        return solve_magnetism(intent)
+    if intent.kind == "materials":
+        return solve_materials(intent)
+    if intent.kind == "modern":
+        return solve_modern(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")

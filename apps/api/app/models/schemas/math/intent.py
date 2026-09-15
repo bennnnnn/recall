@@ -59,6 +59,9 @@ class MathIntent(BaseModel):
         "gravitation",
         "fluids",
         "rotation",
+        "magnetism",
+        "materials",
+        "modern",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -321,6 +324,21 @@ class MathIntent(BaseModel):
             "moment_of_inertia",
             "angular_momentum",
             "rotational_kinetic_energy",
+            # Round 3 magnetism. Never a bare "force": three kinds have one.
+            "magnetic_force_wire",
+            "magnetic_force_charge",
+            "magnetic_flux",
+            # Round 3 materials. "stress" stays bare because it is the physics
+            # word; the kind is what separates it from a fluid pressure, and a
+            # test pins each to its own.
+            "stress",
+            "strain",
+            "youngs_modulus",
+            # Round 3 modern. Never a bare "energy": four kinds have one.
+            "photon_energy",
+            "de_broglie_wavelength",
+            "half_life_remaining",
+            "mass_energy",
             "suvat_velocity",
             "suvat_distance",
             "suvat_time",

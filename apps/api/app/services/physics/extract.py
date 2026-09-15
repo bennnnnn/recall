@@ -35,6 +35,8 @@ _VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
 # Default gravitational acceleration (m/s^2). Earth gravity unless the user
 # says otherwise ("on the moon", "g = 1.6").
 _G_DEFAULT = 9.81
+# CODATA 2018.
+_ELECTRON_MASS = 9.1093837015e-31
 
 # A number followed by an optional unit word. Captures the numeric value and
 # the trailing unit (m, cm, km, ft, mi, m/s, m/s^2, kg, g, N, J, W, ...).
@@ -1955,6 +1957,263 @@ def _extract_rotation_intent(cleaned: str) -> MathIntent | None:
 
 
 # ---------------------------------------------------------------------------
+# Magnetism
+#   F = B I L,  F = q v B,  flux = B A
+# ---------------------------------------------------------------------------
+
+# "field" is a football field and "tesla" is a car, so neither stands alone.
+_MAGNETISM_CUES = ("magnetic field", "magnetic flux", "solenoid", "flux density")
+_TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
+_MAGNETISM_CUE_RES: tuple[re.Pattern[str], ...] = (
+    # A tesla value beside a current or a charge is the signature itself.
+    re.compile(
+        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9]).{{0,80}}?"
+        rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9])"
+    ),
+    re.compile(
+        rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9]).{{0,80}}?"
+        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9])"
+    ),
+)
+
+
+def _extract_magnetism_intent(cleaned: str) -> MathIntent | None:
+    # The tesla signature is case-sensitive (a bare lowercase t is a tonne), so
+    # this gate reads the original casing the way the pre-filter now does.
+    if not _has_cue_either_case(cleaned, _MAGNETISM_CUES, _MAGNETISM_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    field = _find_value_with_specific_unit(cleaned, _TESLA_PATTERN)
+    if field is None:
+        return None
+    current = _find_value_with_specific_unit(cleaned, _AMP_PATTERN)
+    charge = _find_value_with_specific_unit(cleaned, _COULOMB_PATTERN)
+    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+    length = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("wire", "conductor", "long", "length")
+    )
+    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
+
+    # F = q v B, checked before F = B I L: a moving charge names both.
+    if charge is not None and speed is not None:
+        return MathIntent(
+            kind="magnetism",
+            physics_op="magnetic_force_charge",
+            physics_params={"Q": charge[0], "v": speed[0], "b_field": field[0]},
+            physics_units={
+                "Q": charge[1] or "C",
+                "v": speed[1] or "m/s",
+                "b_field": field[1] or "T",
+            },
+            operation="solve",
+        )
+
+    if current is not None and length is not None:
+        return MathIntent(
+            kind="magnetism",
+            physics_op="magnetic_force_wire",
+            physics_params={"I": current[0], "wire_L": length[0], "b_field": field[0]},
+            physics_units={
+                "I": current[1] or "A",
+                "wire_L": length[1] or "m",
+                "b_field": field[1] or "T",
+            },
+            operation="solve",
+        )
+
+    if area is not None:
+        return MathIntent(
+            kind="magnetism",
+            physics_op="magnetic_flux",
+            physics_params={"area": area[0], "b_field": field[0]},
+            physics_units={"area": area[1] or "m^2", "b_field": field[1] or "T"},
+            operation="solve",
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Materials
+#   sigma = F/A,  strain = dL/L,  E = sigma/strain
+# ---------------------------------------------------------------------------
+
+# Runs *before* fluids, and the two are kept disjoint by vocabulary rather than
+# by formula: sigma = F/A and P = F/A are the same arithmetic, so nothing about
+# the numbers can separate them. Stress owns stress/strain/modulus/tensile and
+# fluids refuses those words outright.
+_MATERIALS_CUES = ("young's modulus", "youngs modulus", "young modulus", "tensile stress")
+_MATERIALS_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        rf"\bstress\b.{{0,80}}?\d\s*(?:N|newtons?|{_PRESSURE_PATTERN})(?![A-Za-z0-9])",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\d\s*(?:N|newtons?|{_PRESSURE_PATTERN})(?![A-Za-z0-9]).{{0,80}}?\bstress\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\bstrain\b.{{0,80}}?\d\s*(?:{_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9])", re.IGNORECASE
+    ),
+    re.compile(
+        rf"\d\s*(?:{_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9]).{{0,80}}?\bstrain\b", re.IGNORECASE
+    ),
+)
+
+
+def _extract_materials_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _MATERIALS_CUES, _MATERIALS_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    stress = _find_value_with_specific_unit(cleaned, _PRESSURE_PATTERN)
+    strain_match = re.search(rf"strain\s*(?:of|is|=)?\s*({_NUMBER})", cleaned, re.IGNORECASE)
+    force = _find_value_with_specific_unit(cleaned, r"N|newtons?", ("force", "load"))
+    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
+    original = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("wire", "rod", "bar", "long", "length", "original")
+    )
+    extension = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("extends", "extension", "stretches", "elongat")
+    )
+
+    if "modulus" in lower:
+        if stress is None or strain_match is None:
+            return None
+        return MathIntent(
+            kind="materials",
+            physics_op="youngs_modulus",
+            physics_params={"sigma": stress[0], "strain": float(strain_match.group(1))},
+            physics_units={"sigma": stress[1] or "Pa", "strain": ""},
+            operation="solve",
+        )
+
+    if "strain" in lower:
+        # Two distinct lengths, not one read twice. "a wire extends by 4 mm"
+        # matches both keyword sets on the same value, which would give a
+        # strain of exactly 1 for any wire.
+        lengths = _ordered_values(cleaned, _LENGTH_UNIT_PATTERN)
+        if original is None or extension is None or len(lengths) < 2:
+            return None
+        if original[0] == extension[0]:
+            return None
+        return MathIntent(
+            kind="materials",
+            physics_op="strain",
+            physics_params={"L0": original[0], "dL": extension[0]},
+            physics_units={"L0": original[1] or "m", "dL": extension[1] or "m"},
+            operation="solve",
+        )
+
+    if force is not None and area is not None:
+        return MathIntent(
+            kind="materials",
+            physics_op="stress",
+            physics_params={"F": force[0], "area": area[0]},
+            physics_units={"F": force[1] or "N", "area": area[1] or "m^2"},
+            operation="solve",
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Modern physics
+#   E = h f,  lambda = h / m v,  N = N0 / 2^n,  E = m c^2
+# ---------------------------------------------------------------------------
+
+_MODERN_CUES = (
+    "photon",
+    "de broglie",
+    "planck",
+    "photoelectric",
+    "rest energy",
+    "mass energy",
+    "energy equivalent",
+)
+# "half life" is ordinary English - a meme has one - so it is a co-occurrence
+# cue rather than a substring. The decoy table caught this: adding it as a
+# plain cue put "the half life of this meme was 3 days" on the tool path.
+_DECAY_SUBJECT = r"sample|isotope|radioactive|radioisotope|decay|nuclei|nuclide|substance"
+_MODERN_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\bhalf[- ]li(?:ves|fe)\b.{{0,80}}?\b(?:{_DECAY_SUBJECT})\b", re.IGNORECASE),
+    re.compile(rf"\b(?:{_DECAY_SUBJECT})\b.{{0,80}}?\bhalf[- ]li(?:ves|fe)\b", re.IGNORECASE),
+)
+# "how long until it is safe" needs a threshold nobody stated, and solving for
+# the half-life itself is a third question. Only the fraction remaining after a
+# stated elapsed time, or after a stated number of half lives, is answered.
+_HALF_LIFE_COUNT_RE = re.compile(rf"({_NUMBER})\s*half[- ]li(?:ves|fe)", re.IGNORECASE)
+
+
+def _extract_modern_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _MODERN_CUES, _MODERN_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    if "photon" in lower or "planck" in lower or "photoelectric" in lower:
+        freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
+        if freq is None:
+            return None
+        return MathIntent(
+            kind="modern",
+            physics_op="photon_energy",
+            physics_params={"freq": freq[0]},
+            physics_units={"freq": freq[1] or "Hz"},
+            operation="solve",
+        )
+
+    if "de broglie" in lower:
+        speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+        mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass",))
+        if speed is None:
+            return None
+        # An electron's mass is not in the question, and naming it is the point
+        # of the question; any other particle has to state one.
+        if mass is None and "electron" not in lower:
+            return None
+        return MathIntent(
+            kind="modern",
+            physics_op="de_broglie_wavelength",
+            physics_params={
+                "m": mass[0] if mass is not None else _ELECTRON_MASS,
+                "v": speed[0],
+            },
+            physics_units={"m": mass[1] if mass is not None else "kg", "v": speed[1] or "m/s"},
+            operation="solve",
+        )
+
+    if "half li" in lower or "half-li" in lower:
+        count = _HALF_LIFE_COUNT_RE.search(cleaned)
+        amount = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("sample", "of"))
+        if count is None or amount is None:
+            # An elapsed time with a stated half-life, or a threshold to reach,
+            # are different questions. Neither is guessed at from this one.
+            return None
+        return MathIntent(
+            kind="modern",
+            physics_op="half_life_remaining",
+            physics_params={"m": amount[0], "n_halves": float(count.group(1))},
+            physics_units={"m": amount[1] or "kg", "n_halves": ""},
+            operation="solve",
+        )
+
+    mass = _find_value_with_specific_unit(cleaned, r"kg|grams?|g", ("mass", "of"))
+    if mass is None:
+        return None
+    return MathIntent(
+        kind="modern",
+        physics_op="mass_energy",
+        physics_params={"m": mass[0]},
+        physics_units={"m": mass[1] or "kg"},
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Circular motion
 #   a_c = v^2 / r,  F_c = m v^2 / r,  T = 2 pi r / v
 # ---------------------------------------------------------------------------
@@ -3207,7 +3466,14 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_optics_intent,
     _extract_thermal_intent,
     _extract_gravitation_intent,
+    _extract_magnetism_intent,
+    # Before fluids, and the ordering is load-bearing: sigma = F/A and P = F/A
+    # are the same arithmetic, so nothing about the numbers can separate them.
+    # Stress is the narrower vocabulary, so it chooses first and fluids refuses
+    # those words outright.
+    _extract_materials_intent,
     _extract_fluids_intent,
+    _extract_modern_intent,
     # After torque, deliberately. P9 refuses "moment of inertia" there because
     # it was not solved; that refusal is what stops *torque* claiming it, and
     # is kept. This picks up the fall-through.
@@ -3229,6 +3495,9 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_GRAVITATION_CUES,
             *_FLUIDS_CUES,
             *_ROTATION_CUES,
+            *_MAGNETISM_CUES,
+            *_MATERIALS_CUES,
+            *_MODERN_CUES,
             *_FRICTION_CUES,
             *_CIRCULAR_CUES,
             *_SPRING_CUES,
@@ -3252,6 +3521,9 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_GRAVITATION_CUE_RES,
     *_FLUIDS_CUE_RES,
     *_ROTATION_CUE_RES,
+    *_MAGNETISM_CUE_RES,
+    *_MATERIALS_CUE_RES,
+    *_MODERN_CUE_RES,
     *_SHM_CUE_RES,
     *_PENDULUM_CUE_RES,
     *_SPRING_CUE_RES,
