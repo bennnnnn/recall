@@ -110,6 +110,11 @@ def _single_function_intent(cleaned: str) -> MathIntent | None:
         at = lower.find(cue)
         raw = cleaned[at + len(cue) :].strip() if at != -1 else ""
         raw = peel_function_definition(_strip_trailing_filler(raw))
+        # ``range of 1,2,3`` is descriptive statistics, not function range.
+        # A comma also means this single-variable function extractor cannot
+        # safely claim the whole request.
+        if op == "function_range" and "," in raw:
+            return None
         expr = math_expr_or_none(_normalize_latex_expr(raw)) or ""
         var = "x"
     if not expr:
