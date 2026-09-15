@@ -1,7 +1,7 @@
 """Verified solvers for high-value math gaps.
 
 All user expressions pass through the same restricted SymPy parser used by the
-rest of Recall.  Do not replace these calls with raw ``sympify``/``parse_expr``.
+rest of Recall. Do not replace these calls with raw ``sympify``/``parse_expr``.
 """
 
 from __future__ import annotations
@@ -9,10 +9,28 @@ from __future__ import annotations
 import math
 import statistics
 
-from sympy import Abs, Eq, Integral, Matrix, Rational, S, Symbol, integrate, latex, pi, simplify, solve, sqrt
+from sympy import (
+    Abs,
+    Eq,
+    Integral,
+    Matrix,
+    Rational,
+    S,
+    Symbol,
+    integrate,
+    latex,
+    pi,
+    simplify,
+    solve,
+    sqrt,
+)
 from sympy.calculus.util import continuous_domain, function_range
 
-from app.services.math.solve.parse import MathServiceError, _parse_expression, format_verified_latex
+from app.services.math.solve.parse import (
+    MathServiceError,
+    _parse_expression,
+    format_verified_latex,
+)
 
 
 def _expr(text: str, variable: str = "x"):
@@ -35,7 +53,11 @@ def _ordered_bounds(lower: str, upper: str) -> tuple[object, object]:
     return lo, hi
 
 
-def solve_function_feature(op: str, expr_text: str, expr2_text: str | None = None) -> str:
+def solve_function_feature(
+    op: str,
+    expr_text: str,
+    expr2_text: str | None = None,
+) -> str:
     x = Symbol("x", real=True)
     expr = _expr(expr_text)
 
@@ -47,7 +69,9 @@ def solve_function_feature(op: str, expr_text: str, expr2_text: str | None = Non
         try:
             result = function_range(expr, x, S.Reals)
         except NotImplementedError as exc:
-            raise MathServiceError("Could not determine this function's range symbolically") from exc
+            raise MathServiceError(
+                "Could not determine this function's range symbolically"
+            ) from exc
         return latex(result)
 
     if op == "function_inverse":
@@ -56,9 +80,11 @@ def solve_function_feature(op: str, expr_text: str, expr2_text: str | None = Non
         clean = [simplify(value) for value in solutions if not value.has(x)]
         if len(clean) != 1:
             raise MathServiceError(
-                "This expression does not have one verified inverse on the full real domain; specify a restricted domain"
+                "This expression does not have one verified inverse on the full real "
+                "domain; specify a restricted domain"
             )
-        return f"f^{{-1}}(x) = {format_verified_latex(clean[0].subs(y, x))}"
+        inverse = format_verified_latex(clean[0].subs(y, x))
+        return f"f^{{-1}}(x) = {inverse}"
 
     if op == "function_even_odd":
         reflected = simplify(expr.subs(x, -x))
@@ -72,8 +98,12 @@ def solve_function_feature(op: str, expr_text: str, expr2_text: str | None = Non
         if expr2_text is None:
             raise MathServiceError("Composition needs both f and g")
         other = _expr(expr2_text)
-        result = expr.subs(x, other) if op == "function_compose_fg" else other.subs(x, expr)
-        name = "f(g(x))" if op == "function_compose_fg" else "g(f(x))"
+        if op == "function_compose_fg":
+            result = expr.subs(x, other)
+            name = "f(g(x))"
+        else:
+            result = other.subs(x, expr)
+            name = "g(f(x))"
         return f"{name} = {format_verified_latex(simplify(result))}"
 
     raise MathServiceError(f"Unsupported function operation: {op}")
@@ -86,7 +116,8 @@ def _matrix(rows: list[list[float]]) -> Matrix:
 def _vector_list(vectors: list[Matrix]) -> str:
     if not vectors:
         return r"\{\mathbf{0}\}"
-    return r"\operatorname{span}\left\{" + ", ".join(latex(vector) for vector in vectors) + r"\right\}"
+    body = ", ".join(latex(vector) for vector in vectors)
+    return rf"\operatorname{{span}}\left\{{{body}\right\}}"
 
 
 def solve_matrix_feature(op: str, rows: list[list[float]]) -> str:
@@ -118,15 +149,22 @@ def solve_matrix_feature(op: str, rows: list[list[float]]) -> str:
         try:
             p_mat, d_mat = mat.diagonalize()
         except Exception as exc:
-            raise MathServiceError("Matrix is not diagonalizable over the available symbolic domain") from exc
+            raise MathServiceError(
+                "Matrix is not diagonalizable over the available symbolic domain"
+            ) from exc
         return f"P={latex(p_mat)},\\quad D={latex(d_mat)}"
 
     raise MathServiceError(f"Unsupported matrix operation: {op}")
 
 
-def _paired(x_values: list[float], y_values: list[float]) -> tuple[list[float], list[float]]:
+def _paired(
+    x_values: list[float],
+    y_values: list[float],
+) -> tuple[list[float], list[float]]:
     if len(x_values) != len(y_values) or len(x_values) < 2:
-        raise MathServiceError("Paired statistics need equal-length lists with at least two values")
+        raise MathServiceError(
+            "Paired statistics need equal-length lists with at least two values"
+        )
     if len(x_values) > 200:
         raise MathServiceError("Paired statistics are capped at 200 values")
     if not all(math.isfinite(v) for v in [*x_values, *y_values]):
@@ -134,37 +172,44 @@ def _paired(x_values: list[float], y_values: list[float]) -> tuple[list[float], 
     return x_values, y_values
 
 
-def solve_bivariate_statistics(op: str, x_values: list[float], y_values: list[float]) -> str:
+def solve_bivariate_statistics(
+    op: str,
+    x_values: list[float],
+    y_values: list[float],
+) -> str:
     xs, ys = _paired(x_values, y_values)
     n = len(xs)
     mean_x = statistics.fmean(xs)
     mean_y = statistics.fmean(ys)
-    cross = math.fsum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=True))
+    cross = math.fsum(
+        (x - mean_x) * (y - mean_y)
+        for x, y in zip(xs, ys, strict=True)
+    )
     ss_x = math.fsum((x - mean_x) ** 2 for x in xs)
     ss_y = math.fsum((y - mean_y) ** 2 for y in ys)
 
     if op == "population_covariance":
         return f"{cross / n:.6g}"
     if op == "sample_covariance":
-        if n < 2:
-            raise MathServiceError("Sample covariance needs at least two pairs")
         return f"{cross / (n - 1):.6g}"
     if op == "correlation":
         denom = math.sqrt(ss_x * ss_y)
         if denom == 0:
-            raise MathServiceError("Correlation is undefined when one list has zero variance")
+            raise MathServiceError(
+                "Correlation is undefined when one list has zero variance"
+            )
         return f"{cross / denom:.6g}"
     if op == "linear_regression":
         if ss_x == 0:
             raise MathServiceError("Regression is undefined when all x values are equal")
         slope = cross / ss_x
         intercept = mean_y - slope * mean_x
-        if ss_y == 0:
-            r_squared = 1.0
-        else:
-            r_squared = (cross * cross) / (ss_x * ss_y)
+        r_squared = 1.0 if ss_y == 0 else (cross * cross) / (ss_x * ss_y)
         sign = "+" if intercept >= 0 else "-"
-        return f"y = {slope:.6g}x {sign} {abs(intercept):.6g},\\quad R^2 = {r_squared:.6g}"
+        return (
+            f"y = {slope:.6g}x {sign} {abs(intercept):.6g},"
+            f"\\quad R^2 = {r_squared:.6g}"
+        )
 
     raise MathServiceError(f"Unsupported statistics operation: {op}")
 
@@ -204,7 +249,7 @@ def solve_calculus_application(
         return _closed_integral(result, "volume")
 
     if op == "volume_revolution_y":
-        # Cylindrical shells.  Abs keeps the geometric volume non-negative
+        # Cylindrical shells. Abs keeps the geometric volume non-negative
         # when a radius/height expression crosses an axis.
         result = 2 * pi * integrate(Abs(x * expr), (x, lo, hi))
         return _closed_integral(result, "volume")
