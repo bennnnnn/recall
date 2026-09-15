@@ -36,14 +36,19 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
         return True
     if has_image_attachment:
         return False
-    # Calculus applications use a strict whole-request extractor instead of a
-    # broad keyword cue. This catches forms such as "area between x and x^2 on
-    # [0,1]" without making ordinary uses of area/volume symbolic math turns.
+    # New coverage is gated by strict whole-request extractors rather than a
+    # broad keyword list. This keeps words such as area, parity, nullity, and
+    # independence from turning ordinary prose into symbolic math.
     from app.services.math.tools.extractors.calculus_applications import (
         _extract_calculus_application_intent,
     )
+    from app.services.math.tools.extractors.coverage_extensions import (
+        COVERAGE_EXTENSION_EXTRACTORS,
+    )
 
-    return _extract_calculus_application_intent(text) is not None
+    if _extract_calculus_application_intent(text) is not None:
+        return True
+    return any(extractor(text) is not None for extractor in COVERAGE_EXTENSION_EXTRACTORS)
 
 
 def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
