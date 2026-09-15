@@ -1046,7 +1046,7 @@ _FRICTION_CUES = (
 # the pre-filter honest, and an existing test in test_math_text_match.py holds
 # that line.
 _FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
-_FRICTION_GIVEN = r"coefficient|\bmu\s*=|\u03bc\s*=|\d+\s*(?:degrees?|deg|\u00b0)"
+_FRICTION_GIVEN = r"coefficient|\bmu\s*(?:=|is)|\u03bc\s*(?:=|is)|\d+\s*(?:degrees?|deg|\u00b0)"
 _FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(rf"(?:{_FRICTION_SUBJECT}).{{0,80}}?(?:{_FRICTION_GIVEN})", re.IGNORECASE),
     re.compile(rf"(?:{_FRICTION_GIVEN}).{{0,80}}?(?:{_FRICTION_SUBJECT})", re.IGNORECASE),
@@ -1067,8 +1067,30 @@ _FRICTION_FORCE_ASK_RE = re.compile(
 _MU_RE = re.compile(
     r"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*(?:of|=|is)?\s*"
     r"|coefficient\s*(?:of|=|is)?\s*"
-    r"|\bmu\s*=\s*|\u03bc\s*=\s*)"
+    r"|\bmu\s+is\s+|\bmu\s*=\s*|\u03bc\s+is\s+|\u03bc\s*=\s*)"
     r"(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+# Asking *for* the coefficient, rather than being given one. "coefficient" is
+# algebra's word too, so the friction cue tables above still gate this.
+_MU_ASK_RE = re.compile(
+    r"(?:what|find|calculate|determine|compute)\b[^.?!]{0,40}?"
+    r"\bcoefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\b"
+    r"|\bcoefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*\?",
+    re.IGNORECASE,
+)
+# mu = tan(theta) is only true at the angle where motion begins.
+_SLIPPING_RE = re.compile(
+    r"\bstarts?\s+to\s+(?:slide|slip|move)\b|\bbegins?\s+to\s+(?:slide|slip|move)\b"
+    r"|\bslipping\s+begins?\b|\bjust\s+(?:slides?|slips?|begins)\b"
+    r"|\bslides?\s+(?:at|when|down\s+a)\b|\bon\s+the\s+point\s+of\b",
+    re.IGNORECASE,
+)
+# The force that just overcomes static friction on the flat.
+_MIN_FORCE_ASK_RE = re.compile(
+    r"\bminimum\s+force\b|\bleast\s+force\b|\bsmallest\s+force\b"
+    r"|\bforce\s+(?:is\s+)?(?:needed|required)\s+to\s+(?:start|move|push|pull|budge)\b"
+    r"|\bforce\s+to\s+(?:start|move|push|pull|budge)\b",
     re.IGNORECASE,
 )
 _INCLINE_ANGLE_RE = re.compile(
@@ -1101,9 +1123,32 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
     wants_normal = "normal force" in lower
     wants_acceleration = "acceleration" in lower or "accelerate" in lower
     wants_friction = _FRICTION_FORCE_ASK_RE.search(cleaned) is not None and not frictionless
+    wants_coefficient = _MU_ASK_RE.search(cleaned) is not None
+    wants_min_force = _MIN_FORCE_ASK_RE.search(cleaned) is not None
 
-    op: Literal["friction_force", "normal_force", "incline_acceleration"]
-    if wants_acceleration:
+    op: Literal[
+        "friction_force",
+        "normal_force",
+        "incline_acceleration",
+        "friction_coefficient",
+        "minimum_force",
+    ]
+    if wants_coefficient:
+        # mu = tan(theta) holds only at the angle where it *starts* to slide.
+        # On any other incline the angle says nothing about mu, so the slipping
+        # wording is required rather than assumed.
+        op = "friction_coefficient"
+        if angle == 0.0 or mu is not None or not _SLIPPING_RE.search(cleaned):
+            return None
+    elif wants_min_force:
+        op = "minimum_force"
+        if mass is None or mu is None:
+            return None
+        if angle != 0.0:
+            # On a slope the minimum force is mu*m*g*cos(t) + m*g*sin(t), a
+            # different formula. Not solved here, so not guessed at either.
+            return None
+    elif wants_acceleration:
         op = "incline_acceleration"
         # No mass requirement here, and that is the point: a = g(sin t - mu cos t)
         # is mass-independent, which is the whole reason the incline result is
@@ -1129,12 +1174,16 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
     else:
         return None
 
-    params: dict[str, float] = {"mu": mu, "angle": angle, "g": _detect_gravity(cleaned)}
+    params: dict[str, float] = {"angle": angle, "g": _detect_gravity(cleaned)}
     units: dict[str, str] = {
-        "mu": "",
         "angle": "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg",
         "g": "m/s^2",
     }
+    # For `friction_coefficient` mu is the answer, not a given, so there is
+    # none to pass. Every other op has already refused a missing one above.
+    if mu is not None:
+        params["mu"] = mu
+        units["mu"] = ""
     if mass is not None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
@@ -1165,9 +1214,22 @@ _CIRCULAR_CUES = (
 
 # "period" is the exception worth spelling out: on its own it belongs to
 # trigonometry ("the period of sin(2x)"), so it only counts beside a radius.
+#
+# "angular" is never a cue by itself either - Angular the framework ships
+# version numbers, so "angular 17 released 3 new features" would qualify. It
+# counts beside the circle it is angular about.
+_ANGULAR_ASK_RE = re.compile(r"\bangular\s+(?:velocity|speed|frequency)\b", re.IGNORECASE)
 _CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bperiod\b.{0,80}?\bradius\b", re.IGNORECASE),
     re.compile(r"\bradius\b.{0,80}?\bperiod\b", re.IGNORECASE),
+    re.compile(
+        r"\bangular\s+(?:velocity|speed)\b.{0,80}?\b(?:radius|circular|circle|track|orbit)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:radius|circular|circle|track|orbit)\b.{0,80}?\bangular\s+(?:velocity|speed)\b",
+        re.IGNORECASE,
+    ),
 )
 
 
@@ -1189,8 +1251,17 @@ def _extract_circular_intent(cleaned: str) -> MathIntent | None:
         cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "object", "body", "ball", "car")
     )
 
-    op: Literal["centripetal_force", "centripetal_acceleration", "orbital_period"]
-    if "period" in lower or "revolution" in lower:
+    op: Literal[
+        "centripetal_force",
+        "centripetal_acceleration",
+        "orbital_period",
+        "angular_velocity",
+    ]
+    if _ANGULAR_ASK_RE.search(cleaned):
+        # Before "period": "angular frequency" contains neither word, but
+        # "what angular velocity gives a period of 2 s" contains both.
+        op = "angular_velocity"
+    elif "period" in lower or "revolution" in lower:
         op = "orbital_period"
     elif "acceleration" in lower:
         op = "centripetal_acceleration"
@@ -1296,6 +1367,67 @@ def _extract_pendulum_intent(cleaned: str) -> MathIntent | None:
         physics_op="pendulum_period",
         physics_params=params,
         physics_units=units,
+        operation="solve",
+    )
+
+
+# Frequency-from-period and maximum speed need neither a spring constant nor a
+# pendulum length, so they fit neither extractor beside this one. They are the
+# same simple harmonic motion, so they emit the `spring` kind as the pendulum
+# does rather than inventing one.
+#
+# "frequency" and "period" are both ordinary English on their own ("the
+# frequency of these outages", "a quiet period"), so each is required to appear
+# beside the other or beside an oscillation word.
+_SHM_FREQUENCY_RE = re.compile(
+    r"\bfrequency\b.{0,80}?\bperiod\b|\bperiod\b.{0,80}?\bfrequency\b",
+    re.IGNORECASE,
+)
+_SHM_MAX_SPEED_RE = re.compile(
+    r"\b(?:max(?:imum)?|peak)\s+(?:speed|velocity)\b.{0,80}?\bamplitude\b"
+    r"|\bamplitude\b.{0,80}?\b(?:max(?:imum)?|peak)\s+(?:speed|velocity)\b",
+    re.IGNORECASE,
+)
+_SHM_CUE_RES: tuple[re.Pattern[str], ...] = (_SHM_FREQUENCY_RE, _SHM_MAX_SPEED_RE)
+
+_SHM_TIME_UNITS = r"seconds?|secs?|sec|s|milliseconds?|ms|minutes?|mins?|min"
+_ANGULAR_FREQ_RE = re.compile(
+    r"(-?\d+(?:\.\d+)?)\s*(?:rad(?:ians?)?\s*(?:/|per)\s*s(?:ec(?:ond)?s?)?)",
+    re.IGNORECASE,
+)
+
+
+def _extract_shm_intent(cleaned: str) -> MathIntent | None:
+    if not _has_cue(cleaned.lower(), (), _SHM_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    if _SHM_MAX_SPEED_RE.search(cleaned):
+        amplitude = _find_value_with_specific_unit(
+            cleaned, _LENGTH_UNIT_PATTERN, ("amplitude",), require_keyword=True
+        )
+        omega = _ANGULAR_FREQ_RE.search(cleaned)
+        if amplitude is None or omega is None:
+            return None
+        return MathIntent(
+            kind="spring",
+            physics_op="shm_max_speed",
+            physics_params={"x": amplitude[0], "omega": float(omega.group(1))},
+            physics_units={"x": amplitude[1] or "m", "omega": "rad/s"},
+            operation="solve",
+        )
+
+    period = _find_value_with_specific_unit(
+        cleaned, _SHM_TIME_UNITS, ("period",), require_keyword=True
+    )
+    if period is None:
+        return None
+    return MathIntent(
+        kind="spring",
+        physics_op="shm_frequency",
+        physics_params={"period": period[0]},
+        physics_units={"period": period[1] or "s"},
         operation="solve",
     )
 
@@ -2292,6 +2424,9 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     # Before springs: a pendulum has a length where a spring has a constant,
     # so the two cannot collide, and reading in this order keeps the spring
     # extractor's k requirement untouched.
+    # Before the pendulum and the spring: both of those read a *period* as the
+    # answer, and these two read it as a given.
+    _extract_shm_intent,
     _extract_pendulum_intent,
     _extract_spring_intent,
     _extract_circuit_intent,
@@ -2330,6 +2465,7 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_PROJECTILE_CUE_RES,
     *_FRICTION_CUE_RES,
     *_CIRCULAR_CUE_RES,
+    *_SHM_CUE_RES,
     *_PENDULUM_CUE_RES,
     *_SPRING_CUE_RES,
     *_CIRCUIT_CUE_RES,

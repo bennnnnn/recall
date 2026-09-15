@@ -243,15 +243,24 @@ class MathIntent(BaseModel):
             "friction_force",
             "normal_force",
             "incline_acceleration",
+            # Round 3.
+            "friction_coefficient",
+            "minimum_force",
             "centripetal_force",
             "centripetal_acceleration",
             "orbital_period",
+            # Round 3. Shared with the rotation kind: the same quantity in the
+            # same units, reached from a different given (v/r here).
+            "angular_velocity",
             "spring_force",
             "spring_energy",
             "shm_period",
             # Same simple harmonic motion, different period formula, so it
             # lives on the spring kind rather than a kind of its own.
             "pendulum_period",
+            # Round 3. Never a bare "frequency" - the waves kind has one too.
+            "shm_frequency",
+            "shm_max_speed",
             "voltage",
             "current",
             "resistance",

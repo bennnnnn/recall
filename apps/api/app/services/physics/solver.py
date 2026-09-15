@@ -80,6 +80,10 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "power": "watt",
     "E_emf": "volt",
     "r_int": "ohm",
+    # Round 3 SHM. "period" and "omega" spelled out: T is tesla to Pint and a
+    # temperature to thermodynamics, and a bare w is not a unit at all.
+    "period": "second",
+    "omega": "radian / second",
     "F1": "newton",
     "F2": "newton",
     "d1": "meter",
@@ -117,6 +121,10 @@ _UNIT_ALIASES = {
     "farads": "farad",
     "j": "joule",
     "joules": "joule",
+    "rad/s": "radian / second",
+    "rads/s": "radian / second",
+    "radians/s": "radian / second",
+    "rad/sec": "radian / second",
 }
 
 
@@ -1282,6 +1290,24 @@ def solve_friction(intent: MathIntent) -> PhysicsResult:
             simulation_specs=_incline_scene(deg, mu=mu, accel=a_val),
         )
 
+    if op == "friction_coefficient":
+        mu_val = math.tan(theta)
+        return PhysicsResult(
+            answer=(rf"\mu = \tan(\theta) = \tan({deg:.1f}^\circ) \approx {mu_val:.2f}"),
+            answer_value=f"{mu_val:.2f}",
+            simulation_specs=_incline_scene(deg, mu=mu_val),
+        )
+
+    if op == "minimum_force":
+        f_val = mu * m * g
+        return PhysicsResult(
+            answer=(
+                rf"F_{{min}} = \mu m g = {mu:g} \cdot {m:g} \cdot {g:g} "
+                rf"\approx {f_val:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{f_val:.2f} N",
+        )
+
     raise MathServiceError(f"unsupported friction op: {op}")
 
 
@@ -1411,6 +1437,17 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
             simulation_specs=scene,
         )
 
+    if op == "angular_velocity":
+        omega_val = abs(v) / r
+        return PhysicsResult(
+            answer=(
+                rf"\omega = \frac{{v}}{{r}} = \frac{{{abs(v):g}}}{{{r:g}}} "
+                rf"\approx {omega_val:.2f} \text{{ rad/s}}"
+            ),
+            answer_value=f"{omega_val:.2f} rad/s",
+            simulation_specs=scene,
+        )
+
     a_c = v * v / r
     if op == "centripetal_acceleration":
         return PhysicsResult(
@@ -1497,6 +1534,37 @@ def solve_spring(intent: MathIntent) -> PhysicsResult:
             answer=answer,
             answer_value=f"{t_period:.2f} s",
             graph_specs=[_oscillation_curve(t_period, p.get("x"))],
+        )
+
+    # Like the pendulum above, these need no spring constant, so they are
+    # answered before the k lookup rather than after it.
+    if op == "shm_frequency":
+        t_period = p["period"]
+        if t_period <= 0:
+            raise MathServiceError("period must be positive")
+        freq = 1 / t_period
+        return PhysicsResult(
+            answer=(
+                rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
+                rf"\approx {freq:.2f} \text{{ Hz}}"
+            ),
+            answer_value=f"{freq:.2f} Hz",
+            graph_specs=[_oscillation_curve(t_period, p.get("x"))],
+        )
+
+    if op == "shm_max_speed":
+        amplitude = p["x"]
+        omega = p["omega"]
+        if amplitude <= 0 or omega <= 0:
+            raise MathServiceError("amplitude and angular frequency must be positive")
+        v_max = amplitude * omega
+        return PhysicsResult(
+            answer=(
+                rf"v_{{max}} = A\omega = {amplitude:g} \cdot {omega:g} "
+                rf"\approx {v_max:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{v_max:.2f} m/s",
+            graph_specs=[_oscillation_curve(2 * math.pi / omega, amplitude)],
         )
 
     k = p["k"]
