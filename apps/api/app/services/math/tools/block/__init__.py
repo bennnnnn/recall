@@ -9,6 +9,11 @@ from dataclasses import replace
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
 from app.services.math import solve as math_solve
+from app.services.math.tools.block.advanced import (
+    _verified_block_calculus_extended,
+    _verified_block_matrix_extended,
+    _verified_block_statistics_extended,
+)
 from app.services.math.tools.block.algebra import (
     _verified_block_equation,
     _verified_block_inequality,
@@ -34,18 +39,10 @@ from app.services.math.tools.block.common import (
     _format_system_answer as _format_system_answer,
 )
 from app.services.math.tools.block.discrete import (
-    _verified_block_calculus,
     _verified_block_combinatorics,
     _verified_block_limit,
-    _verified_block_matrix,
     _verified_block_number_theory,
     _verified_block_series,
-    _verified_block_statistics,
-)
-from app.services.math.tools.block.advanced import (
-    _verified_block_calculus_extended,
-    _verified_block_matrix_extended,
-    _verified_block_statistics_extended,
 )
 from app.services.math.tools.block.geometry import (
     _verified_block_circle,
