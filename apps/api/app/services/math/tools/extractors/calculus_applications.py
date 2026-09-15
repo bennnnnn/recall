@@ -44,6 +44,10 @@ def _bounds(text: str) -> tuple[str, str, int] | None:
 
 def calculus_application_requested(text: str) -> bool:
     lower = text.lower()
+    # "Arc length of a sector" is elementary circle geometry, not the
+    # integral arc-length formula. Let the existing sector extractor own it.
+    if "arc length" in lower and "sector" in lower:
+        return False
     return (
         "area between" in lower
         or "arc length" in lower
@@ -56,6 +60,8 @@ def calculus_application_requested(text: str) -> bool:
 
 def _extract_calculus_application_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
+    if "arc length" in lower and "sector" in lower:
+        return None
     interval = _bounds(cleaned)
     if interval is None:
         return None
