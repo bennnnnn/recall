@@ -38,7 +38,10 @@ def compute_function_feature(
     """Return ``(canonical_answer, verified_steps)`` for a function feature."""
     if not expr.strip():
         raise MathServiceError("function expression is required")
-    x = Symbol(variable, real=True)
+    # Match the parser's plain Symbol(variable). Adding assumptions here creates
+    # a distinct SymPy symbol with the same printed name, so substitutions can
+    # silently fail (e.g. composition would return the original expression).
+    x = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
 
     if operation == "domain":
@@ -62,7 +65,7 @@ def compute_function_feature(
         ]
 
     if operation == "inverse":
-        y = Symbol("__inverse_y", real=True)
+        y = Symbol("__inverse_y")
         try:
             branches = solve(Eq(y, parsed), x)
         except (NotImplementedError, ValueError, TypeError) as exc:
@@ -128,7 +131,7 @@ def compute_matrix_feature(
         pieces: list[str] = []
         for eigenvalue, _multiplicity, basis in mat.eigenvects():
             basis_text = _basis_latex(basis)
-            pieces.append(f"\\lambda={latex(eigenvalue)}:\ {basis_text}")
+            pieces.append(f"\\lambda={latex(eigenvalue)}:\\; {basis_text}")
         answer = r";\quad ".join(pieces)
         return answer, [answer]
 
@@ -136,5 +139,5 @@ def compute_matrix_feature(
         p, d = mat.diagonalize()
     except (MatrixError, ValueError) as exc:
         raise MathServiceError("matrix is not diagonalizable") from exc
-    answer = f"P={latex(p)},\quad D={latex(d)}"
-    return answer, [f"A=PDP^{{-1}}", answer]
+    answer = f"P={latex(p)},\\quad D={latex(d)}"
+    return answer, ["A=PDP^{-1}", answer]
