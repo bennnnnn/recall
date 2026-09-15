@@ -63,4 +63,15 @@ def compute_bivariate_statistics(
         intercept = _format_stat(abs(intercept_value))
         sign = "+" if intercept_value > 0 else "-"
         answer = f"y = {slope}x {sign} {intercept}"
-    return answer, [f"Least-squares line: {answer}"]
+
+    steps = [f"Least-squares line: {answer}"]
+    try:
+        correlation = statistics.correlation(x_values, y_values)
+    except statistics.StatisticsError:
+        # Constant data can have a valid least-squares line while R² is not
+        # defined by the correlation-squared identity. Do not invent a value.
+        pass
+    else:
+        r_squared = _format_stat(correlation * correlation)
+        steps.append(f"Coefficient of determination: R^2 = {r_squared}")
+    return answer, steps
