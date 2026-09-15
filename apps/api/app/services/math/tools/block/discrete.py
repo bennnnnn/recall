@@ -18,12 +18,49 @@ from app.services.math.tools.block.common import (
 )
 from app.services.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
+_FUNCTION_ANALYSIS_OPS = {
+    "function_domain",
+    "function_range",
+    "function_inverse",
+    "function_compose",
+}
+_BIVARIATE_STATS_OPS = {
+    "correlation",
+    "covariance",
+    "sample_covariance",
+    "linear_regression",
+}
+
+
+def _verified_function_analysis(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    from app.services.math import function_analysis
+
+    if not intent.expr or intent.school_op not in _FUNCTION_ANALYSIS_OPS:
+        return None
+    if intent.school_op == "function_domain":
+        answer = function_analysis.real_domain(intent.expr, intent.variable)
+        lines.append(f"Real domain: {answer}")
+    elif intent.school_op == "function_range":
+        answer = function_analysis.real_range(intent.expr, intent.variable)
+        lines.append(f"Real range: {answer}")
+    elif intent.school_op == "function_inverse":
+        answer = function_analysis.inverse_function(intent.expr, intent.variable)
+        lines.append(f"Inverse function: {answer}")
+    else:
+        if not intent.expr2:
+            return None
+        answer = function_analysis.compose_functions(intent.expr, intent.expr2, intent.variable)
+        lines.append(f"Composition: {answer}")
+    return _finish_with_answer(lines, answer)
+
 
 def _verified_block_calculus(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
     if not (intent.expr and intent.operation):
         return None
+    if intent.school_op in _FUNCTION_ANALYSIS_OPS:
+        return _verified_function_analysis(intent, lines)
     from app.services.math.tools.school import apply_calculus_extension
 
     extended = apply_calculus_extension(intent, settings, lines)
@@ -184,6 +221,17 @@ def _verified_block_statistics(
 ) -> VerifiedMathBlock | None:
     if not intent.stats_numbers or len(intent.stats_numbers) < 2:
         return None
+    if intent.stats_op in _BIVARIATE_STATS_OPS:
+        if not intent.stats_numbers_b or len(intent.stats_numbers_b) != len(intent.stats_numbers):
+            return None
+        answer, steps = math_solve.compute_bivariate_statistics(
+            intent.stats_op,
+            intent.stats_numbers,
+            intent.stats_numbers_b,
+        )
+        lines.extend(steps)
+        return _finish_with_answer(lines, answer)
+
     result = math_solve.compute_statistics(StatisticsInput(numbers=intent.stats_numbers))
     lines.append(f"Data ({result.count} values): {', '.join(f'{v:g}' for v in result.numbers)}")
     sample_stdev = (

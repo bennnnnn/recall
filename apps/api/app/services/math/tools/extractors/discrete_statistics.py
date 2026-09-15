@@ -8,13 +8,25 @@ from app.models.schemas.math import MathIntent
 def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
     from app.services.math import match as mtm
     from app.services.math.match.scan import word_index
+    from app.services.math.match.statistics import bivariate_stats_signal
+
+    paired = bivariate_stats_signal(cleaned)
+    if paired is not None:
+        paired_op, paired_numbers, paired_numbers_b = paired
+        return MathIntent(
+            kind="statistics",
+            stats_op=paired_op,
+            stats_numbers=paired_numbers,
+            stats_numbers_b=paired_numbers_b,
+            operation="solve",
+        )
 
     signal = mtm.stats_signal(cleaned)
     if signal is None:
         return None
-    op, numbers = signal
+    stat_op, numbers = signal
     percentile_n = None
-    if op == "percentile":
+    if stat_op == "percentile":
         idx = word_index(cleaned.lower(), "percentile")
         if idx == -1:
             return None
@@ -31,7 +43,7 @@ def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
             return None
     return MathIntent(
         kind="statistics",
-        stats_op=op,
+        stats_op=stat_op,
         stats_numbers=numbers,
         combo_n=percentile_n,
         operation="solve",

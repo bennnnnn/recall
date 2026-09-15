@@ -75,6 +75,7 @@ from app.services.math.solve.parse import (
 from app.services.math.solve.parse import (
     parse_equation as parse_equation,
 )
+from app.services.math.solve.statistics import compute_bivariate_statistics
 
 __all__ = [
     "_SAFE_EXPR_CHARS",
@@ -83,6 +84,7 @@ __all__ = [
     "_parse_expression",
     "build_ellipse_graph_spec",
     "circle_geometry",
+    "compute_bivariate_statistics",
     "compute_combinatorics",
     "compute_limit",
     "compute_matrix",

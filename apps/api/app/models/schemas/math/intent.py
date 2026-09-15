@@ -128,9 +128,8 @@ class MathIntent(BaseModel):
     # Same idea for circles: only annotate diameter/circumference when asked.
     wants_diameter: bool = False
     wants_circumference: bool = False
-    # Statistics — a raw data list (mean/median/mode/stdev/variance). The
-    # sample_* variants use the (n-1) divisor; the bare "stdev"/"variance"
-    # ops use the population divisor (the historical default).
+    # Statistics — one raw list for descriptive stats, or two equal-length lists
+    # for correlation/covariance/simple linear regression.
     stats_op: (
         Literal[
             "mean",
@@ -144,10 +143,15 @@ class MathIntent(BaseModel):
             "iqr",
             "quartiles",
             "percentile",
+            "correlation",
+            "covariance",
+            "sample_covariance",
+            "linear_regression",
         ]
         | None
     ) = None
     stats_numbers: list[float] | None = None
+    stats_numbers_b: list[float] | None = None
     # Combinatorics — factorial (k unused) / combinations / permutations.
     combo_op: Literal["factorial", "combinations", "permutations"] | None = None
     combo_n: int | None = None
@@ -159,10 +163,24 @@ class MathIntent(BaseModel):
     ) = None
     numtheory_a: int | None = None
     numtheory_b: int | None = None
-    # Matrix — det/inverse/eigen of a small square matrix; multiply/rref
-    # may be rectangular. `matrix_rows_b` is the right factor for multiply.
+    # Matrix — small-matrix operations. Multiplication/addition use matrix_rows_b;
+    # determinant/inverse/eigens/diagonalization require a square matrix.
     matrix_op: (
-        Literal["determinant", "inverse", "multiply", "rref", "eigenvalues", "add", "transpose"]
+        Literal[
+            "determinant",
+            "inverse",
+            "multiply",
+            "rref",
+            "eigenvalues",
+            "eigenvectors",
+            "rank",
+            "nullspace",
+            "columnspace",
+            "rowspace",
+            "diagonalize",
+            "add",
+            "transpose",
+        ]
         | None
     ) = None
     matrix_rows: list[list[float]] | None = None
