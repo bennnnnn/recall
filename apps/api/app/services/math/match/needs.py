@@ -39,6 +39,7 @@ from app.services.math.match.scan import (
     two_numbers_after,
     word_index,
 )
+from app.services.math.match.statistics import bivariate_stats_signal
 
 
 def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
@@ -207,7 +208,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         and any(op in cleaned for op in ("+", "-", "*", "/", "^", "("))
     ):
         return True
-    if stats_signal(cleaned) is not None:
+    if stats_signal(cleaned) is not None or bivariate_stats_signal(cleaned) is not None:
         return True
     if combinatorics_signal(cleaned) is not None:
         return True
