@@ -76,7 +76,7 @@ def test_restricted_function_domain_is_not_silently_dropped() -> None:
 def test_function_analysis_builds_canonical_verified_answer() -> None:
     intent = extract_math_intent("range of x^2")
     assert intent is not None
-    block = _build_verified_block(intent, Settings(_env_file=None))
+    block = _build_verified_block(intent, Settings())
     assert block is not None
     assert block.canonical_answer == r"\left[0, \infty\right)"
 
@@ -94,7 +94,7 @@ def test_bivariate_statistics_are_verified() -> None:
         assert intent is not None, prompt
         assert intent.kind == "statistics", prompt
         assert intent.stats_op == operation, prompt
-        block = _build_verified_block(intent, Settings(_env_file=None))
+        block = _build_verified_block(intent, Settings())
         assert block is not None, prompt
         assert block.canonical_answer == expected, prompt
 
@@ -108,7 +108,7 @@ def test_bivariate_statistics_require_two_explicit_equal_lists() -> None:
 
 
 def test_advanced_matrix_operations() -> None:
-    rows = [[1, 2], [2, 4]]
+    rows: list[list[float]] = [[1.0, 2.0], [2.0, 4.0]]
 
     rank = math_solve.compute_matrix(MatrixInput(operation="rank", rows=rows))
     assert rank.result_latex == "1"
@@ -127,7 +127,7 @@ def test_advanced_matrix_operations() -> None:
 
 
 def test_eigenvectors_and_diagonalization() -> None:
-    rows = [[2, 0], [0, 3]]
+    rows: list[list[float]] = [[2.0, 0.0], [0.0, 3.0]]
     eigenvectors = math_solve.compute_matrix(MatrixInput(operation="eigenvectors", rows=rows))
     assert eigenvectors.result_latex is not None
     assert r"\lambda=2" in eigenvectors.result_latex
@@ -157,7 +157,12 @@ def test_matrix_extraction_recognizes_new_operations() -> None:
 
 def test_square_matrix_rules_remain_strict() -> None:
     with pytest.raises(ValidationError):
-        MatrixInput(operation="eigenvectors", rows=[[1, 2, 3], [4, 5, 6]])
+        MatrixInput(
+            operation="eigenvectors",
+            rows=[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
+        )
 
     with pytest.raises(MathServiceError, match="not diagonalizable"):
-        math_solve.compute_matrix(MatrixInput(operation="diagonalize", rows=[[1, 1], [0, 1]]))
+        math_solve.compute_matrix(
+            MatrixInput(operation="diagonalize", rows=[[1.0, 1.0], [0.0, 1.0]])
+        )
