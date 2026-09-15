@@ -1,13 +1,15 @@
-"""Verified higher-level function and linear-algebra operations.
+"""Verified higher-level function, statistics, and linear-algebra operations.
 
-This module extends existing ``calculus`` and ``matrix`` MathIntent kinds via
-``school_op``. It deliberately reuses the safe expression parser and the
-small-matrix bounds already enforced by the main math pipeline instead of
-creating a second symbolic-math path.
+This module extends existing ``calculus``, ``statistics``, and ``matrix``
+MathIntent kinds via ``school_op``. It deliberately reuses the safe expression
+parser and the small-matrix bounds already enforced by the main math pipeline
+instead of creating a second symbolic-math path.
 """
 
 from __future__ import annotations
 
+import math
+from collections.abc import Sequence
 from typing import Literal
 
 from sympy import Eq, S, Symbol, latex, simplify, solve
@@ -18,6 +20,12 @@ from app.services.math.solve.discrete import _matrix_from_rows
 from app.services.math.solve.parse import MathServiceError, _parse_expression
 
 FunctionFeature = Literal["domain", "range", "inverse", "composition"]
+BivariateStatisticsFeature = Literal[
+    "correlation",
+    "regression",
+    "covariance_sample",
+    "covariance_population",
+]
 MatrixFeature = Literal[
     "rank",
     "nullspace",
@@ -95,7 +103,70 @@ def compute_function_feature(
     return answer, [f"(f\\circ g)({variable}) = {answer}"]
 
 
-def _basis_latex(vectors: list[object]) -> str:
+def _format_stat_number(value: float) -> str:
+    if abs(value) < 5e-13:
+        value = 0.0
+    return f"{value:.12g}"
+
+
+def compute_bivariate_statistics(
+    x_values: Sequence[float],
+    y_values: Sequence[float],
+    operation: BivariateStatisticsFeature,
+) -> tuple[str, list[str]]:
+    """Correlation, covariance, and least-squares regression for paired data."""
+    if len(x_values) != len(y_values) or len(x_values) < 2:
+        raise MathServiceError("paired statistics need equal-length lists with at least 2 values")
+    if len(x_values) > 200:
+        raise MathServiceError("paired statistics are capped at 200 values")
+    if any(not math.isfinite(v) for v in (*x_values, *y_values)):
+        raise MathServiceError("statistics values must be finite numbers")
+
+    n = len(x_values)
+    mean_x = math.fsum(x_values) / n
+    mean_y = math.fsum(y_values) / n
+    centered_x = [value - mean_x for value in x_values]
+    centered_y = [value - mean_y for value in y_values]
+    cross = math.fsum(a * b for a, b in zip(centered_x, centered_y, strict=True))
+    sum_x2 = math.fsum(value * value for value in centered_x)
+    sum_y2 = math.fsum(value * value for value in centered_y)
+
+    if operation == "covariance_population":
+        covariance = cross / n
+        answer = _format_stat_number(covariance)
+        return answer, [f"population covariance = {answer}"]
+
+    if operation == "covariance_sample":
+        covariance = cross / (n - 1)
+        answer = _format_stat_number(covariance)
+        return answer, [f"sample covariance = {answer}"]
+
+    if operation == "correlation":
+        denominator = math.sqrt(sum_x2 * sum_y2)
+        if denominator == 0:
+            raise MathServiceError("correlation is undefined when either data list is constant")
+        correlation = cross / denominator
+        # Clamp tiny floating-point excursions outside the mathematical range.
+        correlation = max(-1.0, min(1.0, correlation))
+        answer = _format_stat_number(correlation)
+        return answer, [f"Pearson r = {answer}"]
+
+    if sum_x2 == 0:
+        raise MathServiceError("linear regression needs at least two distinct x values")
+    slope = cross / sum_x2
+    intercept = mean_y - slope * mean_x
+    slope_text = _format_stat_number(slope)
+    intercept_text = _format_stat_number(abs(intercept))
+    sign = "+" if intercept >= 0 else "-"
+    answer = f"y = {slope_text}x {sign} {intercept_text}"
+    return answer, [
+        f"least-squares slope = {slope_text}",
+        f"intercept = {_format_stat_number(intercept)}",
+        answer,
+    ]
+
+
+def _basis_latex(vectors: Sequence[object]) -> str:
     if not vectors:
         return r"\{0\}"
     return r"\operatorname{span}\left\{" + ", ".join(latex(v) for v in vectors) + r"\right\}"
