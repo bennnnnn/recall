@@ -43,9 +43,7 @@ def _extract_advanced_matrix_intent(cleaned: str) -> MathIntent | None:
     if not matrices or len(matrices) != 1:
         return None
     rows = matrices[0]
-    if operation in {"eigenvectors", "diagonalize"} and any(
-        len(row) != len(rows) for row in rows
-    ):
+    if operation in {"eigenvectors", "diagonalize"} and any(len(row) != len(rows) for row in rows):
         return None
     return MathIntent(
         kind="matrix",
