@@ -84,8 +84,9 @@ def test_function_analysis_builds_canonical_verified_answer() -> None:
 def test_bivariate_statistics_are_verified() -> None:
     cases = (
         ("correlation between [1,2,3] and [2,4,6]", "correlation", "1"),
-        ("covariance of [1,2,3] and [2,4,6]", "covariance", "2"),
-        ("linear regression for [1,2,3] and [2,4,6]", "linear_regression", "y = 2x + 0"),
+        ("covariance of [1,2,3] and [2,4,6]", "covariance", "1.333333333"),
+        ("sample covariance of [1,2,3] and [2,4,6]", "sample_covariance", "2"),
+        ("linear regression for [1,2,3] and [2,4,6]", "linear_regression", "y = 2x"),
     )
     for prompt, operation, expected in cases:
         assert math_match.needs_symbolic(prompt) is True, prompt
