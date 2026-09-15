@@ -203,30 +203,46 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
-- ✅ **Physics (narrow verified)** — 1D gravity kinematics, vacuum projectile range / max
-  height (quadratic time-of-flight when a launch height is given), scalar F=ma,
-  KE / PE / work / power (`P = F v` or `W / t`), and momentum / impulse / 1D collisions
-  (`p = mv`, `J = FΔt` or `mΔv`; elastic and perfectly inelastic — an unstated
-  collision type is refused, not guessed), and friction / normal force / incline
-  acceleration (`f = μN`, `N = mg·cosθ`, `a = g(sinθ − μcosθ)`; a block that
-  cannot slide reports `a = 0` rather than a negative acceleration), and circular
-  motion (`a_c = v²/r`, `F_c = mv²/r`, `T = 2πr/v`), and springs / SHM
-  (`F = kx`, `U = ½kx²`, `T = 2π√(m/k)`; the period answer carries an animatable
-  displacement-vs-time curve, normalised when no amplitude is given), plus
-  **circuits** — Ohm's law in all three rearrangements, electrical power, and two
-  resistors in series or parallel. Electrical power is a separate op from the
-  mechanical one: same name and same watt, different quantity. Torque and
-  see-saw moment balance close the mechanics set. The system prompt names the
-  verified list and states plainly that anything outside it (pressure,
-  thermodynamics, gravitation, waves, optics, pendulum) is **not** checked — and
-  a test ties that list to the solver registry so it cannot drift again. Trajectory ` ```graph ` fences only for
-  kinematics and projectile; force and energy are numbers. A speed/velocity ask plots
-  `v(t)`, not height. Projectile and kinematics trajectories **play back on tap** — a dot
-  walks the sampled points, which the solver spaces by uniform time, so the motion is
-  real rather than eased. Never autoplays; Reduce Motion keeps the static curve.
-  The solver gate is the union of those extractor cues.
-  Moon/Mars gravity is a whole-token match (`marsh` stays Earth). See
-  [docs/math.md](./docs/math.md).
+- ✅ **Physics (twenty verified kinds)** — server-side SymPy. Mechanics:
+  1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
+  max height, time of flight, impact speed, launch angle from a range), scalar
+  F=ma with resultants and components, KE / PE / work / power, momentum /
+  impulse / 1D collisions, friction (`f = μN`, incline acceleration, `μ = tanθ`
+  at the slipping angle, minimum force to move), circular motion
+  (`a_c`, `F_c`, period, `ω = v/r`), springs and SHM (`F = kx`, `U`, spring and
+  pendulum periods, `f = 1/T`, `v_max = Aω`), torque and moment balance.
+  Beyond mechanics: **circuits** (Ohm's law, power, n-resistor networks,
+  `Q = It`, `E = Pt`, `C = Q/V`, terminal voltage), **waves** (`v = fλ`,
+  `f = 1/T`, Doppler), **optics** (thin lens, magnification, Snell, critical
+  angle), **thermal** (`Q = mcΔT`, `PV = nRT`, efficiency), **gravitation**
+  (`F = GMm/r²`, orbital and escape velocity, surface gravity, with a named-body
+  table), **fluids** (`P = F/A`, `ρgh`, upthrust, density, continuity, flow
+  rate), **rotation** (`ω = θ/t`, moment of inertia, `L = Iω`, rotational KE),
+  **magnetism** (`F = BIL`, `F = qvB`, `Φ = BA`), **materials** (`σ = F/A`,
+  `ε = ΔL/L`, `E = σ/ε`) and **modern** (`E = hf`, de Broglie, half-life,
+  `E = mc²`).
+  **What it refuses is the design.** An unstated collision type, a 2D collision,
+  a diverging lens (the sign conventions disagree), an absolute temperature
+  written as bare "degrees" (27 °C and 27 K differ elevenfold), efficiency from
+  two temperatures (that is Carnot), a Doppler question with no stated
+  direction, a moment of inertia for a "wheel" (the shape *is* the answer), a
+  planet described but not named, and buoyancy without a submerged volume — all
+  return no verified block rather than a plausible wrong number. Depth pressure
+  says "gauge"; the magnetic force on a charge says it assumes a perpendicular
+  field. The system prompt names the verified list and states plainly that
+  anything outside it (relativity, quantum states, alternating current, entropy,
+  interference) is **not** checked, and a test ties that list to the solver
+  registry so it cannot drift. Trajectory ` ```graph ` fences only for
+  kinematics/SUVAT (height or velocity against time), projectile (x-y path) and
+  SHM (displacement against time); a speed/velocity ask plots `v(t)`, not
+  height. Projectile and kinematics trajectories **play back on tap** — a dot
+  walks the sampled points, which the solver spaces by uniform time, so the
+  motion is real rather than eased. Never autoplays; Reduce Motion keeps the
+  static curve. The solver gate is the union of those extractor cues, and every
+  param declares an SI dimension (Pint reads a bare `pa` as a *petayear*, so a
+  missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
+  whole-token match (`marsh` stays Earth). See [docs/math.md](./docs/math.md)
+  and [docs/PHYSICS_TICKETS_ROUND3.md](./docs/PHYSICS_TICKETS_ROUND3.md).
 - ✅ **Chemistry (verified kinds)** — server-side RDKit / SymPy + PubChem. Balancing,
   molar mass (Hill formulas vs organic SMILES — `CO` is 28 g/mol, `CCO` is ethanol),
   hydrates, stoich / limiting reagent, pH, ideal gas, molarity / dilution, element

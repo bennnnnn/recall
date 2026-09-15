@@ -21,6 +21,11 @@ logger = logging.getLogger(__name__)
 
 # Length units for drop height — longer spellings before ``m`` so ``miles``
 # is not read as metres. ``m`` still has a trailing-boundary lookahead.
+# Scientific notation is how astronomy states a mass, and nothing here read it:
+# "6e24 kg" matched as *24 kg*, which answered a planet's surface gravity as
+# 0.00 m/s^2 rather than failing. Shared by every value scanner below.
+_NUMBER = r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+
 _LENGTH_UNIT_PATTERN = (
     r"kilometers?|km|centimeters?|cm|millimeters?|mm|"
     r"miles?|mi|meters?|metres?|m|feet|ft|yards?|yd|inches?|in"
@@ -30,13 +35,15 @@ _VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
 # Default gravitational acceleration (m/s^2). Earth gravity unless the user
 # says otherwise ("on the moon", "g = 1.6").
 _G_DEFAULT = 9.81
+# CODATA 2018.
+_ELECTRON_MASS = 9.1093837015e-31
 
 # A number followed by an optional unit word. Captures the numeric value and
 # the trailing unit (m, cm, km, ft, mi, m/s, m/s^2, kg, g, N, J, W, ...).
 # The unit is matched loosely — we validate via Pint in the solver.
 # Trailing boundary so ``m`` cannot bind inside ``miles`` / ``min``.
 _VALUE_UNIT_RE = re.compile(
-    r"(-?\d+(?:\.\d+)?)\s*"
+    rf"({_NUMBER})\s*"
     r"(m/s\^?2|m/s2|m/s|m\^?2/s\^?2|km/h|mph|miles\s+per\s+hour|cm/s|mm/s|"
     r"kilometers?|centimeters?|millimeters?|"
     r"miles?|minutes?|milliseconds?|seconds?|hours?|"
@@ -49,6 +56,26 @@ _VALUE_UNIT_RE = re.compile(
     r"(?![A-Za-z0-9/^])",
     re.IGNORECASE,
 )
+
+
+def _has_cue_either_case(
+    cleaned: str,
+    cues: tuple[str, ...],
+    regexes: tuple[re.Pattern[str], ...] = (),
+) -> bool:
+    """`_has_cue`, but the regexes see the text as written as well as lowered.
+
+    A few cue regexes mean the SI symbols `V` and `A` and are case-sensitive on
+    purpose - "12 V and 3 A" is a circuit, "12 v cards and 3 a piece" is not.
+    Handing them only lowercased text silently disables them, which is exactly
+    what the pre-filter did: `needs_symbolic` dropped questions the extractor
+    would have answered, because the extractor saw the original casing and the
+    pre-filter did not. The two have to see the same thing.
+    """
+    lower = cleaned.lower()
+    if any(cue in lower for cue in cues):
+        return True
+    return any(rx.search(cleaned) or rx.search(lower) for rx in regexes)
 
 
 def _has_cue(
@@ -132,7 +159,7 @@ def _find_value_with_specific_unit(
     """
     matches = list(
         re.finditer(
-            rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
@@ -881,7 +908,7 @@ def _ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     return [
         (float(m.group(1)), m.group(2))
         for m in re.finditer(
-            rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
@@ -897,7 +924,7 @@ def _positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, s
     return [
         (m.start(), float(m.group(1)), m.group(2))
         for m in re.finditer(
-            rf"(-?\d+(?:\.\d+)?)\s*({unit_pattern})(?![A-Za-z0-9/^])",
+            rf"({_NUMBER})\s*({unit_pattern})(?![A-Za-z0-9/^])",
             text,
             re.IGNORECASE,
         )
@@ -1026,7 +1053,7 @@ _FRICTION_CUES = (
 # the pre-filter honest, and an existing test in test_math_text_match.py holds
 # that line.
 _FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
-_FRICTION_GIVEN = r"coefficient|\bmu\s*=|\u03bc\s*=|\d+\s*(?:degrees?|deg|\u00b0)"
+_FRICTION_GIVEN = r"coefficient|\bmu\s*(?:=|is)|\u03bc\s*(?:=|is)|\d+\s*(?:degrees?|deg|\u00b0)"
 _FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(rf"(?:{_FRICTION_SUBJECT}).{{0,80}}?(?:{_FRICTION_GIVEN})", re.IGNORECASE),
     re.compile(rf"(?:{_FRICTION_GIVEN}).{{0,80}}?(?:{_FRICTION_SUBJECT})", re.IGNORECASE),
@@ -1047,8 +1074,30 @@ _FRICTION_FORCE_ASK_RE = re.compile(
 _MU_RE = re.compile(
     r"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*(?:of|=|is)?\s*"
     r"|coefficient\s*(?:of|=|is)?\s*"
-    r"|\bmu\s*=\s*|\u03bc\s*=\s*)"
+    r"|\bmu\s+is\s+|\bmu\s*=\s*|\u03bc\s+is\s+|\u03bc\s*=\s*)"
     r"(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+# Asking *for* the coefficient, rather than being given one. "coefficient" is
+# algebra's word too, so the friction cue tables above still gate this.
+_MU_ASK_RE = re.compile(
+    r"(?:what|find|calculate|determine|compute)\b[^.?!]{0,40}?"
+    r"\bcoefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\b"
+    r"|\bcoefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*\?",
+    re.IGNORECASE,
+)
+# mu = tan(theta) is only true at the angle where motion begins.
+_SLIPPING_RE = re.compile(
+    r"\bstarts?\s+to\s+(?:slide|slip|move)\b|\bbegins?\s+to\s+(?:slide|slip|move)\b"
+    r"|\bslipping\s+begins?\b|\bjust\s+(?:slides?|slips?|begins)\b"
+    r"|\bslides?\s+(?:at|when|down\s+a)\b|\bon\s+the\s+point\s+of\b",
+    re.IGNORECASE,
+)
+# The force that just overcomes static friction on the flat.
+_MIN_FORCE_ASK_RE = re.compile(
+    r"\bminimum\s+force\b|\bleast\s+force\b|\bsmallest\s+force\b"
+    r"|\bforce\s+(?:is\s+)?(?:needed|required)\s+to\s+(?:start|move|push|pull|budge)\b"
+    r"|\bforce\s+to\s+(?:start|move|push|pull|budge)\b",
     re.IGNORECASE,
 )
 _INCLINE_ANGLE_RE = re.compile(
@@ -1081,9 +1130,32 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
     wants_normal = "normal force" in lower
     wants_acceleration = "acceleration" in lower or "accelerate" in lower
     wants_friction = _FRICTION_FORCE_ASK_RE.search(cleaned) is not None and not frictionless
+    wants_coefficient = _MU_ASK_RE.search(cleaned) is not None
+    wants_min_force = _MIN_FORCE_ASK_RE.search(cleaned) is not None
 
-    op: Literal["friction_force", "normal_force", "incline_acceleration"]
-    if wants_acceleration:
+    op: Literal[
+        "friction_force",
+        "normal_force",
+        "incline_acceleration",
+        "friction_coefficient",
+        "minimum_force",
+    ]
+    if wants_coefficient:
+        # mu = tan(theta) holds only at the angle where it *starts* to slide.
+        # On any other incline the angle says nothing about mu, so the slipping
+        # wording is required rather than assumed.
+        op = "friction_coefficient"
+        if angle == 0.0 or mu is not None or not _SLIPPING_RE.search(cleaned):
+            return None
+    elif wants_min_force:
+        op = "minimum_force"
+        if mass is None or mu is None:
+            return None
+        if angle != 0.0:
+            # On a slope the minimum force is mu*m*g*cos(t) + m*g*sin(t), a
+            # different formula. Not solved here, so not guessed at either.
+            return None
+    elif wants_acceleration:
         op = "incline_acceleration"
         # No mass requirement here, and that is the point: a = g(sin t - mu cos t)
         # is mass-independent, which is the whole reason the incline result is
@@ -1109,12 +1181,16 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
     else:
         return None
 
-    params: dict[str, float] = {"mu": mu, "angle": angle, "g": _detect_gravity(cleaned)}
+    params: dict[str, float] = {"angle": angle, "g": _detect_gravity(cleaned)}
     units: dict[str, str] = {
-        "mu": "",
         "angle": "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg",
         "g": "m/s^2",
     }
+    # For `friction_coefficient` mu is the answer, not a given, so there is
+    # none to pass. Every other op has already refused a missing one above.
+    if mu is not None:
+        params["mu"] = mu
+        units["mu"] = ""
     if mass is not None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
@@ -1123,6 +1199,1050 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
         physics_op=op,
         physics_params=params,
         physics_units=units,
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Waves
+#   v = f lambda,  f = 1/T,  Doppler for a source approaching a still observer
+# ---------------------------------------------------------------------------
+
+# "wave" alone is a wave of layoffs and "frequency" is how often something
+# happens, so neither is a cue. "wavelength" and "doppler" are unambiguous.
+_WAVE_CUES = ("wavelength", "doppler", "sound wave", "light wave", "water wave")
+_HERTZ_PATTERN = r"Hz|hertz|kHz|kilohertz|MHz|megahertz"
+# A siren does not say "wave", and neither does a moving whistle. A frequency
+# beside a sound source in motion is the Doppler signature itself.
+_SOUND_SOURCE = r"siren|ambulance|police|horn|whistle|train|engine|speaker|source"
+_WAVE_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\bwaves?\b.{{0,80}}?\d\s*(?:{_HERTZ_PATTERN})\b", re.IGNORECASE),
+    re.compile(rf"\d\s*(?:{_HERTZ_PATTERN})\b.{{0,80}}?\bwaves?\b", re.IGNORECASE),
+    re.compile(rf"\b(?:{_SOUND_SOURCE})\b.{{0,80}}?\d\s*(?:{_HERTZ_PATTERN})\b", re.IGNORECASE),
+    re.compile(rf"\d\s*(?:{_HERTZ_PATTERN})\b.{{0,80}}?\b(?:{_SOUND_SOURCE})\b", re.IGNORECASE),
+    # A wave stated by its period carries no Hz at all. The time unit has to
+    # follow "period", so "a wave of layoffs over a 3 week period" cannot match
+    # - it puts its number before the word, and weeks are not in the pattern.
+    re.compile(
+        r"\bwaves?\b.{0,80}?\bperiod\b\s*(?:of\s*)?\d+(?:\.\d+)?\s*"
+        r"(?:seconds?|secs?|milliseconds?|ms|s)\b",
+        re.IGNORECASE,
+    ),
+)
+
+# Approaching and receding give different answers from identical numbers, so an
+# unstated direction is refused rather than assumed - the shape P4 used for an
+# unstated collision type.
+_APPROACHING_RE = re.compile(
+    r"\bapproach\w*\b|\btowards?\b|\bcoming\s+(?:at|toward)\b|\bnearing\b", re.IGNORECASE
+)
+_RECEDING_RE = re.compile(
+    r"\breced\w*\b|\baway\s+from\b|\bmoving\s+away\b|\bdeparting\b", re.IGNORECASE
+)
+# 343 m/s at 20 C. Stated in the answer, because 340 is taught just as often.
+_SPEED_OF_SOUND = 343.0
+
+
+def _extract_waves_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _WAVE_CUES, _WAVE_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
+    wavelength = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("wavelength",), require_keyword=True
+    )
+    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+    period = _find_value_with_specific_unit(
+        cleaned, _SHM_TIME_UNITS, ("period",), require_keyword=True
+    )
+
+    moving_source = re.search(rf"\b(?:{_SOUND_SOURCE})\b", lower) is not None
+    if "doppler" in lower or (freq is not None and speed is not None and moving_source):
+        approaching = _APPROACHING_RE.search(cleaned) is not None
+        receding = _RECEDING_RE.search(cleaned) is not None
+        if freq is None or speed is None or approaching == receding:
+            return None
+        return MathIntent(
+            kind="waves",
+            physics_op="doppler_frequency",
+            physics_params={
+                "freq": freq[0],
+                "v_src": speed[0] if approaching else -speed[0],
+                "v_sound": _SPEED_OF_SOUND,
+            },
+            physics_units={"freq": freq[1] or "Hz", "v_src": "m/s", "v_sound": "m/s"},
+            operation="solve",
+        )
+
+    # f = 1/T and T = 1/f, whichever of the pair is missing.
+    if period is not None and freq is None:
+        return MathIntent(
+            kind="waves",
+            physics_op="wave_frequency_from_period",
+            physics_params={"period": period[0]},
+            physics_units={"period": period[1] or "s"},
+            operation="solve",
+        )
+    if freq is not None and wavelength is None and speed is None and "period" in lower:
+        return MathIntent(
+            kind="waves",
+            physics_op="wave_period",
+            physics_params={"freq": freq[0]},
+            physics_units={"freq": freq[1] or "Hz"},
+            operation="solve",
+        )
+
+    # v = f lambda, solved for whichever of the three is absent.
+    given = {
+        "freq": freq,
+        "wavelength": wavelength,
+        "v_wave": speed,
+    }
+    present = {key: value for key, value in given.items() if value is not None}
+    if len(present) != 2:
+        return None
+    missing = ({"freq", "wavelength", "v_wave"} - set(present)).pop()
+    op = {
+        "freq": "wave_frequency",
+        "wavelength": "wavelength",
+        "v_wave": "wave_speed",
+    }[missing]
+    defaults = {"freq": "Hz", "wavelength": "m", "v_wave": "m/s"}
+    return MathIntent(
+        kind="waves",
+        physics_op=op,  # type: ignore[arg-type]
+        physics_params={key: value[0] for key, value in present.items()},
+        physics_units={key: (value[1] or defaults[key]) for key, value in present.items()},
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Optics
+#   1/f = 1/u + 1/v,  m = v/u,  n1 sin(t1) = n2 sin(t2),  sin(tc) = 1/n
+# ---------------------------------------------------------------------------
+
+# "lens", "focus" and "image" are all ordinary English; the multi-word forms
+# are not.
+_OPTICS_CUES = (
+    "focal length",
+    "refractive index",
+    "critical angle",
+    "index of refraction",
+    "converging lens",
+    "convex lens",
+    "magnification",
+    "snell",
+)
+
+# Sign conventions disagree between textbooks for exactly the interesting
+# cases, so only the one every convention agrees on is solved: a converging
+# lens forming a real image. A diverging lens, or an object inside the focal
+# length, is refused rather than answered with a sign the reader may not share.
+_DIVERGING_RE = re.compile(
+    r"\bdiverging\b|\bconcave\s+lens\b|\bvirtual\s+image\b|\bnegative\s+focal\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_optics_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _OPTICS_CUES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+    if _DIVERGING_RE.search(cleaned):
+        return None
+
+    index_values = [
+        float(m.group(1))
+        for m in re.finditer(
+            r"(?:refractive\s+index|index\s+of\s+refraction)\s*(?:of|is|=)?\s*"
+            r"(-?\d+(?:\.\d+)?)",
+            cleaned,
+            re.IGNORECASE,
+        )
+    ]
+    angles = [float(m.group(1)) for m in _INCLINE_ANGLE_RE.finditer(cleaned)]
+    if len(angles) < 2:
+        # "bends from 30 to 20 degrees" puts the unit on the second angle only,
+        # so the scan above sees one number where the question gave two.
+        pair = re.search(
+            r"from\s+(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)?\s*to\s+"
+            r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)",
+            cleaned,
+            re.IGNORECASE,
+        )
+        if pair is not None:
+            angles = [float(pair.group(1)), float(pair.group(2))]
+
+    if "critical angle" in lower:
+        if len(index_values) != 1 or index_values[0] <= 1:
+            return None
+        return MathIntent(
+            kind="optics",
+            physics_op="critical_angle",
+            physics_params={"n1": index_values[0]},
+            physics_units={"n1": ""},
+            operation="solve",
+        )
+
+    if "refractive index" in lower or "index of refraction" in lower or "snell" in lower:
+        # n = sin(t1) / sin(t2) when both angles are given and the index is not.
+        if len(angles) == 2 and not index_values:
+            return MathIntent(
+                kind="optics",
+                physics_op="refractive_index",
+                physics_params={"angle": angles[0], "angle2": angles[1]},
+                physics_units={"angle": "deg", "angle2": "deg"},
+                operation="solve",
+            )
+        return None
+
+    focal = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("focal length", "focal"), require_keyword=True
+    )
+    obj = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("object",), require_keyword=True
+    )
+    if "magnification" in lower:
+        img = _find_value_with_specific_unit(
+            cleaned, _LENGTH_UNIT_PATTERN, ("image",), require_keyword=True
+        )
+        if img is None or obj is None:
+            return None
+        return MathIntent(
+            kind="optics",
+            physics_op="magnification",
+            physics_params={"h_img": img[0], "h_obj": obj[0]},
+            physics_units={"h_img": img[1] or "m", "h_obj": obj[1] or "m"},
+            operation="solve",
+        )
+
+    if focal is None or obj is None:
+        return None
+    return MathIntent(
+        kind="optics",
+        physics_op="image_distance",
+        physics_params={"focal": focal[0], "d_obj": obj[0]},
+        physics_units={"focal": focal[1] or "m", "d_obj": obj[1] or "m"},
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Thermal
+#   Q = m c dT,  P V = n R T,  efficiency = W_out / Q_in
+# ---------------------------------------------------------------------------
+
+# "heat", "gas" and "efficiency" are all ordinary English, so the cues are the
+# multi-word forms and a signature.
+_THERMAL_CUES = ("specific heat", "heat capacity", "ideal gas", "gas constant")
+_KELVIN_PATTERN = r"K|kelvins?"
+_CELSIUS_PATTERN = r"°C|degrees?\s+c(?:elsius)?|celsius"
+_THERMAL_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        rf"\b(?:heat|warm|cool)\w*\b.{{0,80}}?\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN}).{{0,80}}?\b(?:heat|warm|cool)\w*\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\befficiency\b.{0,80}?\d\s*(?:J|joules?|kJ|kilojoules?)\b", re.IGNORECASE),
+    re.compile(r"\d\s*(?:J|joules?|kJ|kilojoules?)\b.{0,80}?\befficiency\b", re.IGNORECASE),
+    # "the pressure of 2 moles of gas at 300 K" names no thermal word at all -
+    # a mole count beside a temperature is the signature itself.
+    re.compile(
+        rf"\d\s*mol(?:e|es)?\b.{{0,80}}?\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN}).{{0,80}}?\d\s*mol(?:e|es)?\b",
+        re.IGNORECASE,
+    ),
+)
+
+# 4186 J/kg/K. Only used when the substance is named water and no capacity is
+# given; any other substance must state its own.
+_WATER_SPECIFIC_HEAT = 4186.0
+_GAS_CONSTANT = 8.314462618
+
+
+def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
+    """A temperature with an explicit scale, or nothing.
+
+    27 C and 27 K differ by a factor of eleven, so a bare number is refused
+    rather than assumed - and "degrees" alone cannot help, because it means an
+    *angle* everywhere else in this file.
+    """
+    kelvin = _find_value_with_specific_unit(cleaned, _KELVIN_PATTERN, keywords)
+    if kelvin is not None:
+        return kelvin[0], "K"
+    match = re.search(
+        rf"(-?\d+(?:\.\d+)?)\s*(?:{_CELSIUS_PATTERN})",
+        cleaned,
+        re.IGNORECASE,
+    )
+    if match is not None:
+        return float(match.group(1)), "degC"
+    return None
+
+
+def _extract_thermal_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _THERMAL_CUES, _THERMAL_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    # --- efficiency: only from two energies -----------------------------
+    if "efficiency" in lower:
+        energies = _ordered_values(cleaned, r"kilojoules?|joules?|kJ|J")
+        if len(energies) != 2:
+            # Two temperatures is a Carnot question, which needs absolute
+            # temperatures and a different formula. Not solved here.
+            return None
+        work, supplied = sorted((energies[0][0], energies[1][0]))
+        if supplied <= 0:
+            return None
+        return MathIntent(
+            kind="thermal",
+            physics_op="thermal_efficiency",
+            physics_params={"W_out": work, "Q_in": supplied},
+            physics_units={"W_out": "J", "Q_in": "J"},
+            operation="solve",
+        )
+
+    # --- ideal gas: P V = n R T -----------------------------------------
+    moles = _find_value_with_specific_unit(cleaned, r"mol|moles?")
+    if moles is not None or "ideal gas" in lower:
+        volume = _find_value_with_specific_unit(cleaned, r"m\^?3|cm\^?3|litres?|liters?|l|ml")
+        temp = _temperature_value(cleaned, ("temperature", "at"))
+        if moles is None or volume is None or temp is None:
+            return None
+        if temp[1] != "K":
+            # PV = nRT needs an absolute temperature. Celsius would be wrong by
+            # 273 and look plausible.
+            return None
+        return MathIntent(
+            kind="thermal",
+            physics_op="ideal_gas_pressure",
+            physics_params={"moles": moles[0], "volume": volume[0], "temp": temp[0]},
+            physics_units={
+                "moles": "mol",
+                "volume": volume[1] or "m^3",
+                "temp": "K",
+            },
+            operation="solve",
+        )
+
+    # --- Q = m c dT ------------------------------------------------------
+    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
+    rise = _temperature_value(cleaned, ("by", "rise", "raise", "change"))
+    if rise is None:
+        # A temperature *difference* is the same number in kelvin and celsius,
+        # so a bare "by 10 degrees" is unambiguous here in a way an absolute
+        # "at 300 degrees" is not. Only the interval may be loose.
+        bare = re.search(
+            rf"(?:by|rises?|raise[sd]?|warms?|cools?)\s+(?:by\s+)?({_NUMBER})\s*"
+            r"(?:degrees?|deg|\u00b0)(?![A-Za-z0-9])",
+            cleaned,
+            re.IGNORECASE,
+        )
+        if bare is not None:
+            rise = (float(bare.group(1)), "K")
+    if mass is None or rise is None:
+        return None
+    capacity = _find_value_with_specific_unit(
+        cleaned, r"J/kg/K|J/\(kg\s*K\)|J/kgK", ("specific heat", "capacity")
+    )
+    if capacity is not None:
+        c_value = capacity[0]
+    elif "water" in lower:
+        c_value = _WATER_SPECIFIC_HEAT
+    else:
+        # No capacity and no named substance: the answer would be a guess.
+        return None
+    # A temperature *difference* is the same number in kelvin and celsius, so
+    # this one does not need the scale the absolute reading above does.
+    return MathIntent(
+        kind="thermal",
+        physics_op="heat_energy",
+        physics_params={"m": mass[0], "c_heat": c_value, "delta_temp": rise[0]},
+        physics_units={"m": mass[1] or "kg", "c_heat": "J/kg/K", "delta_temp": "K"},
+        operation="solve",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Gravitation
+#   F = G M m / r^2,  v_orb = sqrt(GM/r),  v_esc = sqrt(2GM/R),  g = GM/R^2
+# ---------------------------------------------------------------------------
+
+# "gravity" alone is the gravity of a situation, and "mass" is a mass email, so
+# neither is a cue. Every entry here is unambiguous gravitation vocabulary.
+_GRAVITATION_CUES = (
+    "gravitational force",
+    "gravitational constant",
+    "gravitational field",
+    "orbital velocity",
+    "orbital speed",
+    "escape velocity",
+    "escape speed",
+    "surface gravity",
+    "newton's law of gravitation",
+    "law of universal gravitation",
+)
+_GRAVITATION_CUE_RES: tuple[re.Pattern[str], ...] = (
+    # "the force between two 1000 kg masses 10 m apart" names no topic word.
+    re.compile(r"\bforce\s+between\b.{0,80}?\d\s*(?:kg|tonnes?|tons?)\b", re.IGNORECASE),
+    re.compile(r"\bg\s+on\s+a\s+planet\b", re.IGNORECASE),
+)
+
+# Earth and the Moon are not in Pint, and a question that says "from earth"
+# supplies neither mass nor radius. Resolving the body here rather than in the
+# solver keeps the substitution visible in the answer.
+#   IAU / CODATA nominal values.
+_BODY_PROPERTIES: dict[str, tuple[float, float]] = {
+    "earth": (5.9722e24, 6.371e6),
+    "moon": (7.342e22, 1.7374e6),
+    "mars": (6.4171e23, 3.3895e6),
+    "jupiter": (1.8982e27, 6.9911e7),
+    "sun": (1.9885e30, 6.957e8),
+}
+
+
+# "two 1000 kg masses", "a pair of 5 kg spheres" - one number, two bodies.
+_IDENTICAL_PAIR_RE = re.compile(
+    r"\b(?:two|a\s+pair\s+of|both)\b[^.?!]{0,40}?"
+    r"\b(?:masses|spheres|balls|objects|bodies|blocks|stars|planets)\b",
+    re.IGNORECASE,
+)
+
+
+def _named_body(lower: str) -> tuple[float, float] | None:
+    for name, properties in _BODY_PROPERTIES.items():
+        if word_index(lower, name) != -1:
+            return properties
+    return None
+
+
+def _extract_gravitation_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _GRAVITATION_CUES, _GRAVITATION_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    body = _named_body(lower)
+    masses = _ordered_values(cleaned, r"kg|tonnes?|tons?")
+    radius = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    )
+    altitude = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("above", "altitude", "height"), require_keyword=True
+    )
+    separation = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("apart", "separation", "between", "distance")
+    )
+
+    if "escape" in lower:
+        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        if planet_mass is None or planet_radius is None:
+            return None
+        return MathIntent(
+            kind="gravitation",
+            physics_op="escape_velocity",
+            physics_params={"M": planet_mass, "radius_body": planet_radius},
+            physics_units={"M": "kg", "radius_body": "m"},
+            operation="solve",
+        )
+
+    if "orbital" in lower:
+        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        if planet_mass is None or planet_radius is None:
+            return None
+        # An orbit is measured from the centre, so an altitude adds to the
+        # radius - but the two are rarely in the same unit ("400 km above the
+        # earth"), so they are passed separately and added after `_to_si`
+        # rather than summed here in whatever units they arrived in.
+        params: dict[str, float] = {"M": planet_mass, "radius_body": planet_radius}
+        units: dict[str, str] = {"M": "kg", "radius_body": "m"}
+        if altitude is not None:
+            params["altitude"] = altitude[0]
+            units["altitude"] = altitude[1] or "m"
+        return MathIntent(
+            kind="gravitation",
+            physics_op="orbital_velocity",
+            physics_params=params,
+            physics_units=units,
+            operation="solve",
+        )
+
+    if "surface gravity" in lower or "gravitational field" in lower or "g on a planet" in lower:
+        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        if planet_mass is None or planet_radius is None:
+            return None
+        return MathIntent(
+            kind="gravitation",
+            physics_op="surface_gravity",
+            physics_params={"M": planet_mass, "radius_body": planet_radius},
+            physics_units={"M": "kg", "radius_body": "m"},
+            operation="solve",
+        )
+
+    # F = G M m / r^2 between two stated masses. "two 1000 kg masses" gives one
+    # number for both bodies, which is the commonest wording of this question.
+    if len(masses) == 1 and separation is not None and _IDENTICAL_PAIR_RE.search(cleaned):
+        masses = [masses[0], masses[0]]
+    if len(masses) >= 2 and separation is not None:
+        return MathIntent(
+            kind="gravitation",
+            physics_op="gravitational_force",
+            physics_params={"m1": masses[0][0], "m2": masses[1][0], "r": separation[0]},
+            physics_units={
+                "m1": masses[0][1] or "kg",
+                "m2": masses[1][1] or "kg",
+                "r": separation[1] or "m",
+            },
+            operation="solve",
+        )
+    return None
+
+
+def _resolve_body(
+    body: tuple[float, float] | None,
+    masses: list[tuple[float, str]],
+    radius: tuple[float, str] | None,
+) -> tuple[float | None, float | None]:
+    """A named body, or a stated mass and radius - never a mix of guesses.
+
+    A question that *describes* a planet without naming it and supplies only
+    one of the two is refused: silently finishing it with Earth's other number
+    is the same defect as the projectile default, one layer up.
+    """
+    if body is not None:
+        return body
+    if masses and radius is not None:
+        return masses[0][0], radius[0]
+    return None, None
+
+
+# ---------------------------------------------------------------------------
+# Fluids
+#   P = F/A,  P = rho g h,  upthrust = rho V g,  rho = m/V,  A1 v1 = A2 v2
+# ---------------------------------------------------------------------------
+
+# "pressure" is what deadlines apply and "flow" is what cash does, so both are
+# co-occurrence only. "upthrust" and "archimedes" are unambiguous.
+_FLUIDS_CUES = (
+    "upthrust",
+    "buoyant force",
+    "buoyancy",
+    "archimedes",
+    "hydrostatic",
+    "flow rate",
+    "pascal's principle",
+)
+_AREA_PATTERN = r"m\^?2|cm\^?2|mm\^?2|square\s+met(?:er|re)s?"
+_VOLUME_PATTERN = r"m\^?3|cm\^?3|litres?|liters?|ml"
+_DENSITY_PATTERN = r"kg/m\^?3|g/cm\^?3|kg\s+per\s+cubic\s+met(?:er|re)"
+_PRESSURE_PATTERN = r"Pa|pascals?|kPa|kilopascals?|MPa|megapascals?"
+_FLUIDS_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        rf"\bpressure\b.{{0,80}}?\d\s*(?:{_AREA_PATTERN}|{_PRESSURE_PATTERN})\b", re.IGNORECASE
+    ),
+    re.compile(
+        rf"\d\s*(?:{_AREA_PATTERN}|{_PRESSURE_PATTERN})\b.{{0,80}}?\bpressure\b", re.IGNORECASE
+    ),
+    re.compile(r"\bpressure\b.{0,80}?\bdepth\b", re.IGNORECASE),
+    re.compile(rf"\bdensity\b.{{0,80}}?\d\s*(?:{_VOLUME_PATTERN})\b", re.IGNORECASE),
+    re.compile(rf"\d\s*(?:{_DENSITY_PATTERN})\b", re.IGNORECASE),
+    re.compile(rf"\bpipe\b.{{0,80}}?\d\s*(?:{_AREA_PATTERN})\b", re.IGNORECASE),
+)
+
+# Stress is the same F/A. The materials kind owns that vocabulary and runs
+# first; refusing it here keeps the two from ever both answering.
+_STRESS_WORDS = ("stress", "strain", "young", "modulus", "tensile")
+# Depth pressure is *gauge* unless the question says otherwise, and a question
+# that says "absolute" wants atmospheric added - a different number.
+_ABSOLUTE_PRESSURE_RE = re.compile(r"\babsolute\b|\batmospheric\b", re.IGNORECASE)
+_WATER_DENSITY = 1000.0
+
+
+def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _FLUIDS_CUES, _FLUIDS_CUE_RES):
+        return None
+    if any(word in lower for word in _STRESS_WORDS):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
+    volume = _find_value_with_specific_unit(cleaned, _VOLUME_PATTERN)
+    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
+    force = _find_value_with_specific_unit(cleaned, r"N|newtons?", ("force", "weight"))
+    depth = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("depth", "deep", "below", "down"), require_keyword=True
+    )
+    density = _find_value_with_specific_unit(cleaned, _DENSITY_PATTERN)
+    speed = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
+    areas = _ordered_values(cleaned, _AREA_PATTERN)
+    if len(areas) < 2:
+        # "narrowing from 0.04 to 0.01 m^2" carries the unit once, on the
+        # second value - the same shape the resistor networks had.
+        pair = re.search(
+            rf"from\s+({_NUMBER})\s*(?:{_AREA_PATTERN})?\s*to\s+({_NUMBER})\s*"
+            rf"({_AREA_PATTERN})",
+            cleaned,
+            re.IGNORECASE,
+        )
+        if pair is not None:
+            unit = pair.group(3)
+            areas = [(float(pair.group(1)), unit), (float(pair.group(2)), unit)]
+
+    def _fluid_density() -> float | None:
+        if density is not None:
+            return density[0]
+        if "water" in lower:
+            return _WATER_DENSITY
+        return None
+
+    # --- continuity: A1 v1 = A2 v2 --------------------------------------
+    if len(areas) >= 2 and speed:
+        if areas[1][0] == 0:
+            return None
+        return MathIntent(
+            kind="fluids",
+            physics_op="continuity_velocity",
+            physics_params={"A1": areas[0][0], "A2": areas[1][0], "v": speed[0][0]},
+            physics_units={
+                "A1": areas[0][1] or "m^2",
+                "A2": areas[1][1] or "m^2",
+                "v": speed[0][1] or "m/s",
+            },
+            operation="solve",
+        )
+
+    # --- flow rate: Q = A v ---------------------------------------------
+    if "flow" in lower and area is not None and speed:
+        return MathIntent(
+            kind="fluids",
+            physics_op="flow_rate",
+            physics_params={"area": area[0], "v": speed[0][0]},
+            physics_units={"area": area[1] or "m^2", "v": speed[0][1] or "m/s"},
+            operation="solve",
+        )
+
+    # --- upthrust: rho V g ----------------------------------------------
+    if any(word in lower for word in ("upthrust", "buoyan", "archimedes")):
+        rho = _fluid_density()
+        if volume is None or rho is None:
+            return None
+        if not any(word in lower for word in ("submerged", "immersed", "displac")):
+            # A floating body displaces its own weight, not its own volume.
+            # Which one is meant changes the answer, so it has to be said.
+            return None
+        return MathIntent(
+            kind="fluids",
+            physics_op="upthrust",
+            physics_params={"rho": rho, "volume": volume[0], "g": _detect_gravity(cleaned)},
+            physics_units={"rho": "kg/m^3", "volume": volume[1] or "m^3", "g": "m/s^2"},
+            operation="solve",
+        )
+
+    # --- pressure at depth: rho g h -------------------------------------
+    if depth is not None:
+        if _ABSOLUTE_PRESSURE_RE.search(cleaned):
+            return None
+        rho = _fluid_density()
+        if rho is None:
+            return None
+        return MathIntent(
+            kind="fluids",
+            physics_op="pressure_at_depth",
+            physics_params={"rho": rho, "depth": depth[0], "g": _detect_gravity(cleaned)},
+            physics_units={"rho": "kg/m^3", "depth": depth[1] or "m", "g": "m/s^2"},
+            operation="solve",
+        )
+
+    # --- density: rho = m / V -------------------------------------------
+    if "density" in lower and mass is not None and volume is not None:
+        return MathIntent(
+            kind="fluids",
+            physics_op="density",
+            physics_params={"m": mass[0], "volume": volume[0]},
+            physics_units={"m": mass[1] or "kg", "volume": volume[1] or "m^3"},
+            operation="solve",
+        )
+
+    # --- pressure from a force: P = F / A --------------------------------
+    if force is not None and area is not None:
+        return MathIntent(
+            kind="fluids",
+            physics_op="pressure_from_force",
+            physics_params={"F": force[0], "area": area[0]},
+            physics_units={"F": force[1] or "N", "area": area[1] or "m^2"},
+            operation="solve",
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Rotation
+#   omega = theta/t,  I = k m r^2,  L = I omega,  KE = 1/2 I omega^2
+# ---------------------------------------------------------------------------
+
+# P9 refused "moment of inertia" on the torque kind because it was not solved.
+# It is solved here now, and torque still refuses it - that refusal is what
+# stops *torque* claiming it, and this extractor runs afterwards to pick up the
+# fall-through.
+_ROTATION_CUES = (
+    "moment of inertia",
+    "rotational inertia",
+    "angular momentum",
+    "rotational kinetic energy",
+    "angular acceleration",
+)
+_INERTIA_PATTERN = r"kg\s*m\^?2|kg\s*\*\s*m\^?2|kilogram\s+met(?:er|re)\s+squared"
+_ROTATION_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\d\s*(?:{_INERTIA_PATTERN})", re.IGNORECASE),
+    re.compile(r"\bangular\s+(?:velocity|speed)\b.{0,80}?\d\s*(?:radians?|rad)\b", re.IGNORECASE),
+    re.compile(r"\d\s*(?:radians?|rad)\b.{0,80}?\bangular\s+(?:velocity|speed)\b", re.IGNORECASE),
+)
+
+# I = k m r^2, and k is the *shape*. A "wheel" or an "object" is not a shape,
+# and answering one with the disc constant is a confidently wrong number - so
+# the shape has to be named, and a rod has to name its axis too.
+_INERTIA_SHAPES: dict[str, tuple[float, str]] = {
+    "hoop": (1.0, "m r^2"),
+    "ring": (1.0, "m r^2"),
+    "cylindrical shell": (1.0, "m r^2"),
+    "disc": (0.5, r"\tfrac{1}{2} m r^2"),
+    "disk": (0.5, r"\tfrac{1}{2} m r^2"),
+    "solid cylinder": (0.5, r"\tfrac{1}{2} m r^2"),
+    "solid sphere": (0.4, r"\tfrac{2}{5} m r^2"),
+    "hollow sphere": (2 / 3, r"\tfrac{2}{3} m r^2"),
+    "spherical shell": (2 / 3, r"\tfrac{2}{3} m r^2"),
+}
+
+
+def _extract_rotation_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _ROTATION_CUES, _ROTATION_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    inertia = _find_value_with_specific_unit(cleaned, _INERTIA_PATTERN)
+    omega = _ANGULAR_FREQ_RE.search(cleaned)
+    mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
+    radius = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
+    )
+
+    if "moment of inertia" in lower or "rotational inertia" in lower:
+        shape = next(
+            ((k, name) for name, (k, _) in _INERTIA_SHAPES.items() if name in lower),
+            None,
+        )
+        formula = next((tex for name, (_, tex) in _INERTIA_SHAPES.items() if name in lower), None)
+        if shape is None or formula is None or mass is None or radius is None:
+            return None
+        return MathIntent(
+            kind="rotation",
+            physics_op="moment_of_inertia",
+            physics_params={"m": mass[0], "r": radius[0], "shape_factor": shape[0]},
+            physics_units={"m": mass[1] or "kg", "r": radius[1] or "m", "shape_factor": ""},
+            operation="solve",
+        )
+
+    if inertia is not None and omega is not None:
+        op = (
+            "rotational_kinetic_energy"
+            if "kinetic energy" in lower or "rotational energy" in lower
+            else "angular_momentum"
+        )
+        return MathIntent(
+            kind="rotation",
+            physics_op=op,  # type: ignore[arg-type]
+            physics_params={"inertia": inertia[0], "omega": float(omega.group(1))},
+            physics_units={"inertia": "kg*m^2", "omega": "rad/s"},
+            operation="solve",
+        )
+
+    # omega = theta / t
+    turned = re.search(r"(-?\d+(?:\.\d+)?)\s*(?:radians?|rad)\b", cleaned, re.IGNORECASE)
+    elapsed = _find_value_with_specific_unit(cleaned, r"seconds?|secs?|sec|s|minutes?|mins?|min")
+    if turned is not None and elapsed is not None:
+        return MathIntent(
+            kind="rotation",
+            physics_op="angular_velocity",
+            physics_params={"theta": float(turned.group(1)), "t": elapsed[0]},
+            physics_units={"theta": "rad", "t": elapsed[1] or "s"},
+            operation="solve",
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Magnetism
+#   F = B I L,  F = q v B,  flux = B A
+# ---------------------------------------------------------------------------
+
+# "field" is a football field and "tesla" is a car, so neither stands alone.
+_MAGNETISM_CUES = ("magnetic field", "magnetic flux", "solenoid", "flux density")
+_TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
+_MAGNETISM_CUE_RES: tuple[re.Pattern[str], ...] = (
+    # A tesla value beside a current or a charge is the signature itself.
+    re.compile(
+        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9]).{{0,80}}?"
+        rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9])"
+    ),
+    re.compile(
+        rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9]).{{0,80}}?"
+        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9])"
+    ),
+)
+
+
+def _extract_magnetism_intent(cleaned: str) -> MathIntent | None:
+    # The tesla signature is case-sensitive (a bare lowercase t is a tonne), so
+    # this gate reads the original casing the way the pre-filter now does.
+    if not _has_cue_either_case(cleaned, _MAGNETISM_CUES, _MAGNETISM_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    field = _find_value_with_specific_unit(cleaned, _TESLA_PATTERN)
+    if field is None:
+        return None
+    current = _find_value_with_specific_unit(cleaned, _AMP_PATTERN)
+    charge = _find_value_with_specific_unit(cleaned, _COULOMB_PATTERN)
+    speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+    length = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("wire", "conductor", "long", "length")
+    )
+    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
+
+    # F = q v B, checked before F = B I L: a moving charge names both.
+    if charge is not None and speed is not None:
+        return MathIntent(
+            kind="magnetism",
+            physics_op="magnetic_force_charge",
+            physics_params={"Q": charge[0], "v": speed[0], "b_field": field[0]},
+            physics_units={
+                "Q": charge[1] or "C",
+                "v": speed[1] or "m/s",
+                "b_field": field[1] or "T",
+            },
+            operation="solve",
+        )
+
+    if current is not None and length is not None:
+        return MathIntent(
+            kind="magnetism",
+            physics_op="magnetic_force_wire",
+            physics_params={"I": current[0], "wire_L": length[0], "b_field": field[0]},
+            physics_units={
+                "I": current[1] or "A",
+                "wire_L": length[1] or "m",
+                "b_field": field[1] or "T",
+            },
+            operation="solve",
+        )
+
+    if area is not None:
+        return MathIntent(
+            kind="magnetism",
+            physics_op="magnetic_flux",
+            physics_params={"area": area[0], "b_field": field[0]},
+            physics_units={"area": area[1] or "m^2", "b_field": field[1] or "T"},
+            operation="solve",
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Materials
+#   sigma = F/A,  strain = dL/L,  E = sigma/strain
+# ---------------------------------------------------------------------------
+
+# Runs *before* fluids, and the two are kept disjoint by vocabulary rather than
+# by formula: sigma = F/A and P = F/A are the same arithmetic, so nothing about
+# the numbers can separate them. Stress owns stress/strain/modulus/tensile and
+# fluids refuses those words outright.
+_MATERIALS_CUES = ("young's modulus", "youngs modulus", "young modulus", "tensile stress")
+_MATERIALS_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        rf"\bstress\b.{{0,80}}?\d\s*(?:N|newtons?|{_PRESSURE_PATTERN})(?![A-Za-z0-9])",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\d\s*(?:N|newtons?|{_PRESSURE_PATTERN})(?![A-Za-z0-9]).{{0,80}}?\bstress\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"\bstrain\b.{{0,80}}?\d\s*(?:{_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9])", re.IGNORECASE
+    ),
+    re.compile(
+        rf"\d\s*(?:{_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9]).{{0,80}}?\bstrain\b", re.IGNORECASE
+    ),
+)
+
+
+def _extract_materials_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _MATERIALS_CUES, _MATERIALS_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    stress = _find_value_with_specific_unit(cleaned, _PRESSURE_PATTERN)
+    strain_match = re.search(rf"strain\s*(?:of|is|=)?\s*({_NUMBER})", cleaned, re.IGNORECASE)
+    force = _find_value_with_specific_unit(cleaned, r"N|newtons?", ("force", "load"))
+    area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
+    original = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("wire", "rod", "bar", "long", "length", "original")
+    )
+    extension = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("extends", "extension", "stretches", "elongat")
+    )
+
+    if "modulus" in lower:
+        if stress is None or strain_match is None:
+            return None
+        return MathIntent(
+            kind="materials",
+            physics_op="youngs_modulus",
+            physics_params={"sigma": stress[0], "strain": float(strain_match.group(1))},
+            physics_units={"sigma": stress[1] or "Pa", "strain": ""},
+            operation="solve",
+        )
+
+    if "strain" in lower:
+        # Two distinct lengths, not one read twice. "a wire extends by 4 mm"
+        # matches both keyword sets on the same value, which would give a
+        # strain of exactly 1 for any wire.
+        lengths = _ordered_values(cleaned, _LENGTH_UNIT_PATTERN)
+        if original is None or extension is None or len(lengths) < 2:
+            return None
+        if original[0] == extension[0]:
+            return None
+        return MathIntent(
+            kind="materials",
+            physics_op="strain",
+            physics_params={"L0": original[0], "dL": extension[0]},
+            physics_units={"L0": original[1] or "m", "dL": extension[1] or "m"},
+            operation="solve",
+        )
+
+    if force is not None and area is not None:
+        return MathIntent(
+            kind="materials",
+            physics_op="stress",
+            physics_params={"F": force[0], "area": area[0]},
+            physics_units={"F": force[1] or "N", "area": area[1] or "m^2"},
+            operation="solve",
+        )
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Modern physics
+#   E = h f,  lambda = h / m v,  N = N0 / 2^n,  E = m c^2
+# ---------------------------------------------------------------------------
+
+_MODERN_CUES = (
+    "photon",
+    "de broglie",
+    "planck",
+    "photoelectric",
+    "rest energy",
+    "mass energy",
+    "energy equivalent",
+)
+# "half life" is ordinary English - a meme has one - so it is a co-occurrence
+# cue rather than a substring. The decoy table caught this: adding it as a
+# plain cue put "the half life of this meme was 3 days" on the tool path.
+_DECAY_SUBJECT = r"sample|isotope|radioactive|radioisotope|decay|nuclei|nuclide|substance"
+_MODERN_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"\bhalf[- ]li(?:ves|fe)\b.{{0,80}}?\b(?:{_DECAY_SUBJECT})\b", re.IGNORECASE),
+    re.compile(rf"\b(?:{_DECAY_SUBJECT})\b.{{0,80}}?\bhalf[- ]li(?:ves|fe)\b", re.IGNORECASE),
+)
+# "how long until it is safe" needs a threshold nobody stated, and solving for
+# the half-life itself is a third question. Only the fraction remaining after a
+# stated elapsed time, or after a stated number of half lives, is answered.
+_HALF_LIFE_COUNT_RE = re.compile(rf"({_NUMBER})\s*half[- ]li(?:ves|fe)", re.IGNORECASE)
+
+
+def _extract_modern_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _MODERN_CUES, _MODERN_CUE_RES):
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    if "photon" in lower or "planck" in lower or "photoelectric" in lower:
+        freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
+        if freq is None:
+            return None
+        return MathIntent(
+            kind="modern",
+            physics_op="photon_energy",
+            physics_params={"freq": freq[0]},
+            physics_units={"freq": freq[1] or "Hz"},
+            operation="solve",
+        )
+
+    if "de broglie" in lower:
+        speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
+        mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass",))
+        if speed is None:
+            return None
+        # An electron's mass is not in the question, and naming it is the point
+        # of the question; any other particle has to state one.
+        if mass is None and "electron" not in lower:
+            return None
+        return MathIntent(
+            kind="modern",
+            physics_op="de_broglie_wavelength",
+            physics_params={
+                "m": mass[0] if mass is not None else _ELECTRON_MASS,
+                "v": speed[0],
+            },
+            physics_units={"m": mass[1] if mass is not None else "kg", "v": speed[1] or "m/s"},
+            operation="solve",
+        )
+
+    if "half li" in lower or "half-li" in lower:
+        count = _HALF_LIFE_COUNT_RE.search(cleaned)
+        amount = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("sample", "of"))
+        if count is None or amount is None:
+            # An elapsed time with a stated half-life, or a threshold to reach,
+            # are different questions. Neither is guessed at from this one.
+            return None
+        return MathIntent(
+            kind="modern",
+            physics_op="half_life_remaining",
+            physics_params={"m": amount[0], "n_halves": float(count.group(1))},
+            physics_units={"m": amount[1] or "kg", "n_halves": ""},
+            operation="solve",
+        )
+
+    mass = _find_value_with_specific_unit(cleaned, r"kg|grams?|g", ("mass", "of"))
+    if mass is None:
+        return None
+    return MathIntent(
+        kind="modern",
+        physics_op="mass_energy",
+        physics_params={"m": mass[0]},
+        physics_units={"m": mass[1] or "kg"},
         operation="solve",
     )
 
@@ -1145,9 +2265,22 @@ _CIRCULAR_CUES = (
 
 # "period" is the exception worth spelling out: on its own it belongs to
 # trigonometry ("the period of sin(2x)"), so it only counts beside a radius.
+#
+# "angular" is never a cue by itself either - Angular the framework ships
+# version numbers, so "angular 17 released 3 new features" would qualify. It
+# counts beside the circle it is angular about.
+_ANGULAR_ASK_RE = re.compile(r"\bangular\s+(?:velocity|speed|frequency)\b", re.IGNORECASE)
 _CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bperiod\b.{0,80}?\bradius\b", re.IGNORECASE),
     re.compile(r"\bradius\b.{0,80}?\bperiod\b", re.IGNORECASE),
+    re.compile(
+        r"\bangular\s+(?:velocity|speed)\b.{0,80}?\b(?:radius|circular|circle|track|orbit)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:radius|circular|circle|track|orbit)\b.{0,80}?\bangular\s+(?:velocity|speed)\b",
+        re.IGNORECASE,
+    ),
 )
 
 
@@ -1169,8 +2302,17 @@ def _extract_circular_intent(cleaned: str) -> MathIntent | None:
         cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "object", "body", "ball", "car")
     )
 
-    op: Literal["centripetal_force", "centripetal_acceleration", "orbital_period"]
-    if "period" in lower or "revolution" in lower:
+    op: Literal[
+        "centripetal_force",
+        "centripetal_acceleration",
+        "orbital_period",
+        "angular_velocity",
+    ]
+    if _ANGULAR_ASK_RE.search(cleaned):
+        # Before "period": "angular frequency" contains neither word, but
+        # "what angular velocity gives a period of 2 s" contains both.
+        op = "angular_velocity"
+    elif "period" in lower or "revolution" in lower:
         op = "orbital_period"
     elif "acceleration" in lower:
         op = "centripetal_acceleration"
@@ -1280,6 +2422,72 @@ def _extract_pendulum_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+# Frequency-from-period and maximum speed need neither a spring constant nor a
+# pendulum length, so they fit neither extractor beside this one. They are the
+# same simple harmonic motion, so they emit the `spring` kind as the pendulum
+# does rather than inventing one.
+#
+# "frequency" and "period" are both ordinary English on their own ("the
+# frequency of these outages", "a quiet period"), so each is required to appear
+# beside the other or beside an oscillation word.
+_SHM_FREQUENCY_RE = re.compile(
+    r"\bfrequency\b.{0,80}?\bperiod\b|\bperiod\b.{0,80}?\bfrequency\b",
+    re.IGNORECASE,
+)
+_SHM_MAX_SPEED_RE = re.compile(
+    r"\b(?:max(?:imum)?|peak)\s+(?:speed|velocity)\b.{0,80}?\bamplitude\b"
+    r"|\bamplitude\b.{0,80}?\b(?:max(?:imum)?|peak)\s+(?:speed|velocity)\b",
+    re.IGNORECASE,
+)
+_SHM_CUE_RES: tuple[re.Pattern[str], ...] = (_SHM_FREQUENCY_RE, _SHM_MAX_SPEED_RE)
+
+_SHM_TIME_UNITS = r"seconds?|secs?|sec|s|milliseconds?|ms|minutes?|mins?|min"
+_ANGULAR_FREQ_RE = re.compile(
+    r"(-?\d+(?:\.\d+)?)\s*(?:rad(?:ians?)?\s*(?:/|per)\s*s(?:ec(?:ond)?s?)?)",
+    re.IGNORECASE,
+)
+
+
+def _extract_shm_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, (), _SHM_CUE_RES):
+        return None
+    # f = 1/T is the same arithmetic for an oscillator and a wave, but the kind
+    # should say which was asked about. Waves runs later, so defer explicitly.
+    if "wave" in lower:
+        return None
+    if mtm.has_equation(_strip_param_assignments(cleaned)):
+        return None
+
+    if _SHM_MAX_SPEED_RE.search(cleaned):
+        amplitude = _find_value_with_specific_unit(
+            cleaned, _LENGTH_UNIT_PATTERN, ("amplitude",), require_keyword=True
+        )
+        omega = _ANGULAR_FREQ_RE.search(cleaned)
+        if amplitude is None or omega is None:
+            return None
+        return MathIntent(
+            kind="spring",
+            physics_op="shm_max_speed",
+            physics_params={"x": amplitude[0], "omega": float(omega.group(1))},
+            physics_units={"x": amplitude[1] or "m", "omega": "rad/s"},
+            operation="solve",
+        )
+
+    period = _find_value_with_specific_unit(
+        cleaned, _SHM_TIME_UNITS, ("period",), require_keyword=True
+    )
+    if period is None:
+        return None
+    return MathIntent(
+        kind="spring",
+        physics_op="shm_frequency",
+        physics_params={"period": period[0]},
+        physics_units={"period": period[1] or "s"},
+        operation="solve",
+    )
+
+
 def _extract_spring_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _SPRING_CUES, _SPRING_CUE_RES):
@@ -1358,34 +2566,119 @@ _CIRCUIT_CUES = (
     "amps",
     "circuit",
     "battery",
+    # Round 3. Each of these is electrical vocabulary and nothing else -
+    # unlike "charge" (a card is charged) and "current" (the current date),
+    # which stay out and are reached by co-occurrence below.
+    "capacitance",
+    "capacitor",
+    "farad",
+    "coulomb",
+    "internal resistance",
+    "terminal voltage",
+    "electromotive force",
 )
 
 _VOLT_PATTERN = r"V|volts?"
 _AMP_PATTERN = r"A|amps?|amperes?"
 _OHM_PATTERN = r"ohms?|\u03a9"
 
+# Cue-side spellings: the symbol is uppercase-only, the word either case. The
+# harvest patterns above are used with IGNORECASE and stay as they are.
+_VOLT_CUE = r"V|[Vv]olts?"
+_AMP_CUE = r"A|[Aa]mp(?:s|ere|eres)?"
+_OHM_CUE = r"[Oo]hms?|\u03a9"
+
+
 # A question can name no circuit *word* and still be one: "the electrical power
 # for 12 V and 3 A" is entirely units. Two electrical quantities together are
-# the signature — the same shape P2 used for the projectile's speed-and-angle.
+# the signature - the same shape P2 used for the projectile's speed-and-angle.
 #
-# Deliberately case-sensitive on the bare letters. "V" and "A" are the SI
-# symbols; matching them case-insensitively would let "3 a piece" read as three
-# amps. The spelled-out forms stay case-insensitive.
-_ELECTRICAL_QUANTITY = r"V|[Vv]olts?|A|[Aa]mp(?:s|ere|eres)?|[Oo]hms?|\u03a9"
-_CIRCUIT_CUE_RES: tuple[re.Pattern[str], ...] = (
-    re.compile(rf"\d\s*(?:V|[Vv]olts?)\b.{{0,80}}?\d\s*(?:{_ELECTRICAL_QUANTITY})\b"),
-    re.compile(
-        rf"\d\s*(?:A|[Aa]mp(?:s|ere|eres)?|[Oo]hms?|\u03a9)\b.{{0,80}}?"
-        rf"\d\s*(?:{_ELECTRICAL_QUANTITY})\b"
-    ),
+# These were case-sensitive, to stop "3 a piece" reading as three amps. That
+# was the right worry and the wrong mechanism: `needs_symbolic` lowercases
+# before testing cues (math/match/needs.py:215-221), so a case-sensitive cue is
+# *dead* in the pre-filter. Measured, the question above never reached
+# extraction in production - `needs_symbolic` was False - while the extractor
+# test passed, because the extractor re-runs these against the original casing.
+#
+# What makes lowercase safe is that a circuit signature names two *different*
+# electrical quantities. A symbol can never pair with itself, so "3 a day ...
+# 5 a day" and "the 5 v 5 format beats 3 v 3" cannot match, while "12 v and
+# 3 a" does. Measured against a decoy set: this fires on 6/6 real circuit
+# questions and 0/7 decoys, where plain re.IGNORECASE on the old patterns fired
+# on 5 of those 7.
+def _circuit_pair(first: str, second: str) -> re.Pattern[str]:
+    """A number in `first`'s unit within 80 chars of a number in `second`'s.
+
+    No IGNORECASE: the bare letters below are the SI symbols, and the spelled
+    out forms carry their own case classes. `_has_cue_either_case` is what
+    makes this reachable from the pre-filter.
+    """
+    return re.compile(rf"\d\s*(?:{first})(?![A-Za-z0-9]).{{0,80}}?\d\s*(?:{second})(?![A-Za-z0-9])")
+
+
+# "charge" is what happens to a card and "energy" is what a person runs out of,
+# so neither is a cue on its own. Each qualifies only beside the unit that
+# makes it electrical - the co-occurrence shape P5 and P7 used.
+_CHARGE_FLOW_RE = re.compile(
+    rf"\bcharge\b.{{0,60}}?\d\s*(?:{_AMP_PATTERN})(?![A-Za-z0-9])"
+    rf"|\d\s*(?:{_AMP_PATTERN})(?![A-Za-z0-9]).{{0,60}}?\bcharge\b",
+    re.IGNORECASE,
 )
+_WATT_PATTERN = r"W|watts?|kW|kilowatts?"
+_ELECTRICAL_ENERGY_RE = re.compile(
+    rf"\b(?:energy|consumes?|consumed|uses?|used|costs?)\b.{{0,80}}?"
+    rf"\d\s*(?:{_WATT_PATTERN})(?![A-Za-z0-9])"
+    rf"|\d\s*(?:{_WATT_PATTERN})(?![A-Za-z0-9]).{{0,80}}?"
+    rf"\b(?:energy|consumes?|consumed|uses?|used|costs?)\b",
+    re.IGNORECASE,
+)
+
+_COULOMB_PATTERN = r"C|coulombs?"
+_CIRCUIT_TIME_UNITS = r"seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
+# The EMF is the other answer to "what voltage", so the ask has to say which.
+_TERMINAL_ASK_RE = re.compile(
+    r"\bterminal\b|\bacross the terminals\b|\blost volts\b|\bp\.?d\.? across\b",
+    re.IGNORECASE,
+)
+
+_CIRCUIT_CUE_RES: tuple[re.Pattern[str], ...] = (
+    _circuit_pair(_VOLT_CUE, rf"{_AMP_CUE}|{_OHM_CUE}"),
+    _circuit_pair(rf"{_AMP_CUE}|{_OHM_CUE}", _VOLT_CUE),
+    _circuit_pair(_AMP_CUE, _OHM_CUE),
+    _circuit_pair(_OHM_CUE, _AMP_CUE),
+    _CHARGE_FLOW_RE,
+    _ELECTRICAL_ENERGY_RE,
+)
+
+
+# A network's resistances are not always each given a unit. "4 ohms and 6 ohms"
+# carries one per value, but "4 and 6 ohms" and "2, 3 and 6 ohms" carry one for
+# the whole list, and `_ordered_values` sees only the first shape - so a
+# two-resistor question written the second way returned no intent at all.
+_RESISTOR_LIST_RE = re.compile(
+    r"(\d+(?:\.\d+)?(?:\s*(?:,|and)\s*\d+(?:\.\d+)?)+)\s*(?:ohms?|\u03a9)",
+    re.IGNORECASE,
+)
+
+# Each resistance needs a `_PARAM_SI_DIMENSIONS` entry, so the count is bounded.
+# Beyond it the question is refused rather than answered from a prefix: reading
+# three resistors and using two is how `2, 3 and 5 in series` answered 5 ohms.
+_MAX_NETWORK_RESISTORS = 4
+
+
+def _resistor_values(text: str) -> list[float]:
+    """Every resistance in a network, however the units are distributed."""
+    listed = _RESISTOR_LIST_RE.search(text)
+    if listed is not None:
+        return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]
+    return [value for value, _ in _ordered_values(text, _OHM_PATTERN)]
 
 
 def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _CIRCUIT_CUES) and not any(
-        rx.search(cleaned) for rx in _CIRCUIT_CUE_RES
-    ):
+    # The same check the pre-filter runs, so the two cannot disagree about
+    # whether this question is a circuit question.
+    if not _has_cue_either_case(cleaned, _CIRCUIT_CUES, _CIRCUIT_CUE_RES):
         return None
     if mtm.has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -1395,7 +2688,10 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
     ohms = _ordered_values(cleaned, _OHM_PATTERN)
 
     # --- resistor networks: two or more resistances and a stated topology ---
-    if len(ohms) >= 2 and ("series" in lower or "parallel" in lower):
+    network = _resistor_values(cleaned)
+    if len(network) >= 2 and ("series" in lower or "parallel" in lower):
+        if len(network) > _MAX_NETWORK_RESISTORS:
+            return None
         op: Literal[
             "voltage",
             "current",
@@ -1407,8 +2703,8 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
         return MathIntent(
             kind="circuit",
             physics_op=op,
-            physics_params={"R1": ohms[0][0], "R2": ohms[1][0]},
-            physics_units={"R1": "ohm", "R2": "ohm"},
+            physics_params={f"R{n}": value for n, value in enumerate(network, start=1)},
+            physics_units={f"R{n}": "ohm" for n in range(1, len(network) + 1)},
             operation="solve",
         )
 
@@ -1423,6 +2719,70 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
     if ohms:
         params["R"] = ohms[0][0]
         units["R"] = "ohm"
+
+    # --- terminal voltage: V = emf - I r ---------------------------------
+    # Only when the question says both that there *is* an internal resistance
+    # and that the terminal value is what it wants. Without the second half
+    # this is an ordinary Ohm's law question and belongs below - choosing
+    # between the EMF and the terminal voltage on the reader's behalf is the
+    # kind of guess a verified block must not make.
+    if "internal resistance" in lower and _TERMINAL_ASK_RE.search(cleaned):
+        r_internal = _find_value_with_specific_unit(
+            cleaned, _OHM_PATTERN, ("internal",), require_keyword=True
+        )
+        if r_internal is None or not volts or not amps:
+            return None
+        return MathIntent(
+            kind="circuit",
+            physics_op="terminal_voltage",
+            physics_params={
+                "E_emf": volts[0][0],
+                "I": amps[0][0],
+                "r_int": r_internal[0],
+            },
+            physics_units={"E_emf": "volt", "I": "ampere", "r_int": "ohm"},
+            operation="solve",
+        )
+
+    # --- capacitance: C = Q / V ------------------------------------------
+    if "capacit" in lower:
+        coulombs = _ordered_values(cleaned, _COULOMB_PATTERN)
+        if not coulombs or not volts:
+            return None
+        return MathIntent(
+            kind="circuit",
+            physics_op="capacitance",
+            physics_params={"Q": coulombs[0][0], "V": volts[0][0]},
+            physics_units={"Q": "coulomb", "V": "volt"},
+            operation="solve",
+        )
+
+    # --- charge: Q = I t --------------------------------------------------
+    if _CHARGE_FLOW_RE.search(cleaned):
+        seconds = _find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
+        if not amps or seconds is None:
+            return None
+        return MathIntent(
+            kind="circuit",
+            physics_op="charge",
+            physics_params={"I": amps[0][0], "t": seconds[0]},
+            physics_units={"I": "ampere", "t": seconds[1] or "s"},
+            operation="solve",
+        )
+
+    # --- electrical energy: E = P t ---------------------------------------
+    if _ELECTRICAL_ENERGY_RE.search(cleaned):
+        watts = _find_value_with_specific_unit(cleaned, _WATT_PATTERN)
+        seconds = _find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
+        if watts is None or seconds is None:
+            return None
+        return MathIntent(
+            kind="circuit",
+            physics_op="electrical_energy",
+            physics_params={"power": watts[0], "t": seconds[0]},
+            physics_units={"power": watts[1] or "W", "t": seconds[1] or "s"},
+            operation="solve",
+        )
 
     # Electrical power needs electrical units present, which is what keeps it
     # from colliding with the mechanical `power` op (P = F v, in newtons and
@@ -2117,6 +3477,9 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     _extract_momentum_intent,
     _extract_friction_intent,
     _extract_circular_intent,
+    # Before the pendulum and the spring: both of those read a *period* as the
+    # answer, and the two SHM ops read it as a given.
+    _extract_shm_intent,
     # Before springs: a pendulum has a length where a spring has a constant,
     # so the two cannot collide, and reading in this order keeps the spring
     # extractor's k requirement untouched.
@@ -2129,6 +3492,26 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
     # rope-shaped still reaches that refusal.
     _extract_tension_intent,
     _extract_vector_force_intent,
+    # Round 3, all three ahead of force and energy. Each says a word those two
+    # own - optics says "power" (of a lens, in dioptres), thermal says "energy"
+    # and modern will too - and running first makes the split deterministic
+    # rather than lucky.
+    _extract_waves_intent,
+    _extract_optics_intent,
+    _extract_thermal_intent,
+    _extract_gravitation_intent,
+    _extract_magnetism_intent,
+    # Before fluids, and the ordering is load-bearing: sigma = F/A and P = F/A
+    # are the same arithmetic, so nothing about the numbers can separate them.
+    # Stress is the narrower vocabulary, so it chooses first and fluids refuses
+    # those words outright.
+    _extract_materials_intent,
+    _extract_fluids_intent,
+    _extract_modern_intent,
+    # After torque, deliberately. P9 refuses "moment of inertia" there because
+    # it was not solved; that refusal is what stops *torque* claiming it, and
+    # is kept. This picks up the fall-through.
+    _extract_rotation_intent,
     _extract_force_intent,
     _extract_energy_intent,
 )
@@ -2140,6 +3523,15 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_SUVAT_CUES,
             *_PROJECTILE_CUES,
             *_MOMENTUM_CUES,
+            *_WAVE_CUES,
+            *_OPTICS_CUES,
+            *_THERMAL_CUES,
+            *_GRAVITATION_CUES,
+            *_FLUIDS_CUES,
+            *_ROTATION_CUES,
+            *_MAGNETISM_CUES,
+            *_MATERIALS_CUES,
+            *_MODERN_CUES,
             *_FRICTION_CUES,
             *_CIRCULAR_CUES,
             *_SPRING_CUES,
@@ -2158,6 +3550,15 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_PROJECTILE_CUE_RES,
     *_FRICTION_CUE_RES,
     *_CIRCULAR_CUE_RES,
+    *_WAVE_CUE_RES,
+    *_THERMAL_CUE_RES,
+    *_GRAVITATION_CUE_RES,
+    *_FLUIDS_CUE_RES,
+    *_ROTATION_CUE_RES,
+    *_MAGNETISM_CUE_RES,
+    *_MATERIALS_CUE_RES,
+    *_MODERN_CUE_RES,
+    *_SHM_CUE_RES,
     *_PENDULUM_CUE_RES,
     *_SPRING_CUE_RES,
     *_CIRCUIT_CUE_RES,
@@ -2169,6 +3570,9 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 
-def has_supported_physics_cue(lower: str) -> bool:
-    """True when a verified physics template could match this (lowercased) text."""
-    return _has_cue(lower, PHYSICS_CUES, PHYSICS_CUE_RES)
+def has_supported_physics_cue(cleaned: str) -> bool:
+    """True when a verified physics template could match this text.
+
+    Takes the text **as written**, not lowercased. See `_has_cue_either_case`.
+    """
+    return _has_cue_either_case(cleaned, PHYSICS_CUES, PHYSICS_CUE_RES)

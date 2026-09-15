@@ -486,6 +486,10 @@ density / buoyancy**, **thermodynamics** (`Q = mcΔT`), **gravitation and
 orbits**, **waves**, **optics**. All confirmed still uncovered. Add tickets when
 demand shows up, not before.
 
+> **Round 3 shipped all of these.** Circuits beyond two resistors and rotation
+> beyond torque are both covered now, and the gap list below is kept as written
+> for the record. See [PHYSICS_TICKETS_ROUND3.md](./PHYSICS_TICKETS_ROUND3.md).
+
 Also out of scope, and confirmed as gaps rather than forgotten:
 
 - **Circuits beyond two resistors** — three-resistor networks and capacitors

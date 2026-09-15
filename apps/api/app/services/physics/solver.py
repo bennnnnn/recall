@@ -9,6 +9,7 @@ with SymPy; SciPy is deferred until users hit ODE systems SymPy can't.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 
 from sympy import Eq, Symbol, solve
@@ -71,6 +72,69 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "R": "ohm",
     "R1": "ohm",
     "R2": "ohm",
+    "R3": "ohm",
+    "R4": "ohm",
+    # Round 3 circuits. Single letters are taken (V is volt, I is ampere, R is
+    # ohm), so anything new here is spelled out.
+    "Q": "coulomb",
+    "power": "watt",
+    "E_emf": "volt",
+    "r_int": "ohm",
+    # Round 3 SHM. "period" and "omega" spelled out: T is tesla to Pint and a
+    # temperature to thermodynamics, and a bare w is not a unit at all.
+    "period": "second",
+    "omega": "radian / second",
+    # Round 3 waves. Every key here is spelled out: Pint reads a bare "t" as a
+    # tonne, "c" as the speed of light and "pa" as a *petayear*, so a param
+    # without an entry in this table is not merely unvalidated - it can convert
+    # into the wrong dimension entirely and answer confidently.
+    "freq": "hertz",
+    "wavelength": "meter",
+    "v_wave": "meter / second",
+    "v_src": "meter / second",
+    "v_sound": "meter / second",
+    # Round 3 optics. `u` is SUVAT's initial velocity and `f` is not a param,
+    # so the conventional letters are spelled out here too.
+    "focal": "meter",
+    "d_obj": "meter",
+    "d_img": "meter",
+    "h_obj": "meter",
+    "h_img": "meter",
+    # Round 3 thermal. "temp" is absolute and "delta_temp" is an interval -
+    # the same number in kelvin and celsius, which "temp" is not.
+    "temp": "kelvin",
+    "delta_temp": "kelvin",
+    "c_heat": "joule / kilogram / kelvin",
+    "heat": "joule",
+    "W_out": "joule",
+    "Q_in": "joule",
+    "pres": "pascal",
+    "volume": "meter ** 3",
+    "moles": "mole",
+    # Round 3 gravitation. "M" beside "m" is case-only, but it is how the
+    # formula is written and the pair always appears together.
+    "M": "kilogram",
+    "radius_body": "meter",
+    "altitude": "meter",
+    # Round 3 fluids.
+    "rho": "kilogram / meter ** 3",
+    "depth": "meter",
+    "area": "meter ** 2",
+    "A1": "meter ** 2",
+    "A2": "meter ** 2",
+    # Round 3 rotation. "I" is already the ampere.
+    "inertia": "kilogram * meter ** 2",
+    "theta": "radian",
+    # Round 3 magnetism. "B" is free; "T" is not, being the tesla to Pint and a
+    # temperature to thermodynamics.
+    "b_field": "tesla",
+    "wire_L": "meter",
+    "flux": "weber",
+    # Round 3 materials.
+    "sigma": "pascal",
+    "E_mod": "pascal",
+    "L0": "meter",
+    "dL": "meter",
     "F1": "newton",
     "F2": "newton",
     "d1": "meter",
@@ -94,7 +158,88 @@ _UNIT_ALIASES = {
     "volts": "volt",
     "amps": "ampere",
     "amperes": "ampere",
+    # Pint is case-sensitive and unforgiving about the symbols people type:
+    # bare "pa" is a petayear, "t" a tonne, "c" the speed of light, and "w",
+    # "n", "j", "hz" are not units at all. Every extractor regex here is
+    # IGNORECASE, so the lowercase spellings do arrive.
+    "w": "watt",
+    "watts": "watt",
+    "kw": "kilowatt",
+    "kilowatts": "kilowatt",
+    "c": "coulomb",
+    "coulombs": "coulomb",
+    "f": "farad",
+    "farads": "farad",
+    "j": "joule",
+    "joules": "joule",
+    "rad/s": "radian / second",
+    "rads/s": "radian / second",
+    "radians/s": "radian / second",
+    "rad/sec": "radian / second",
+    "hz": "hertz",
+    "khz": "kilohertz",
+    "mhz": "megahertz",
+    "pa": "pascal",
+    "kpa": "kilopascal",
+    "mpa": "megapascal",
+    "k": "kelvin",
+    "kelvins": "kelvin",
+    "\u00b0c": "degC",
+    "celsius": "degC",
+    "j/kg/k": "joule / kilogram / kelvin",
+    "j/(kg k)": "joule / kilogram / kelvin",
+    "j/kgk": "joule / kilogram / kelvin",
+    "m^3": "m**3",
+    "m3": "m**3",
+    "cm^3": "cm**3",
+    "cm3": "cm**3",
+    "litres": "liter",
+    "litre": "liter",
+    "liters": "liter",
+    "moles": "mole",
+    "m^2": "m**2",
+    "m2": "m**2",
+    "cm^2": "cm**2",
+    "cm2": "cm**2",
+    "mm^2": "mm**2",
+    "kg/m^3": "kg/m**3",
+    "kg/m3": "kg/m**3",
+    "g/cm^3": "g/cm**3",
+    "g/cm3": "g/cm**3",
+    "kg*m^2": "kg * m**2",
+    "kg m^2": "kg * m**2",
+    "kgm^2": "kg * m**2",
+    "rad": "radian",
+    "radians": "radian",
+    "t": "tesla",
+    "tesla": "tesla",
+    "teslas": "tesla",
+    "mt": "millitesla",
+    "wb": "weber",
+    "weber": "weber",
+    "webers": "weber",
+    "n": "newton",
+    "newtons": "newton",
+    "gpa": "gigapascal",
 }
+
+
+# R1..R4 name a resistor network's members. Single-digit, so plain `sorted`
+# orders them correctly.
+_RESISTOR_KEY_RE = re.compile(r"R[1-9]")
+
+
+# Units whose zero is not zero. These must be constructed as a Quantity rather
+# than multiplied, and a *difference* in them is not the same as a value.
+_OFFSET_UNITS = frozenset({"degC", "degF", "celsius", "fahrenheit"})
+
+# CODATA, read from the unit registry rather than typed: a transposed digit in
+# a hand-written constant is a wrong answer nothing else would catch.
+_GAS_CONSTANT = 8.314462618153241
+_BIG_G = 6.67430e-11
+_PLANCK_H = 6.62607015e-34
+_SPEED_OF_LIGHT = 299792458.0
+_ELEMENTARY_CHARGE = 1.602176634e-19
 
 
 def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
@@ -110,7 +255,12 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     ureg = _get_unit_registry()
     alias = _UNIT_ALIASES.get(unit.lower(), unit)
     try:
-        quantity = value * ureg(alias)
+        if alias in _OFFSET_UNITS:
+            # Celsius is an offset unit, not a scale factor: `value * ureg(
+            # "degC")` raises OffsetUnitCalculusError rather than converting.
+            quantity = ureg.Quantity(value, alias)
+        else:
+            quantity = value * ureg(alias)
         dim_spec = _PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
         if dim_spec is not None and quantity.dimensionality != ureg(dim_spec).dimensionality:
             raise MathServiceError(
@@ -131,7 +281,10 @@ def _params_in_si(intent: MathIntent) -> dict[str, float]:
     out: dict[str, float] = {}
     for key, val in params.items():
         unit = units.get(key, "")
-        if key == "angle":
+        # `startswith`, not `==`: Snell's law carries `angle` and `angle2`, and
+        # an angle that skipped this branch would reach `_to_si` and convert
+        # only because Pint's `degree` happens to base-convert to radians.
+        if key.startswith("angle"):
             lower_unit = unit.lower()
             if lower_unit in ("rad", "radian", "radians"):
                 out[key] = val
@@ -1254,6 +1407,24 @@ def solve_friction(intent: MathIntent) -> PhysicsResult:
             simulation_specs=_incline_scene(deg, mu=mu, accel=a_val),
         )
 
+    if op == "friction_coefficient":
+        mu_val = math.tan(theta)
+        return PhysicsResult(
+            answer=(rf"\mu = \tan(\theta) = \tan({deg:.1f}^\circ) \approx {mu_val:.2f}"),
+            answer_value=f"{mu_val:.2f}",
+            simulation_specs=_incline_scene(deg, mu=mu_val),
+        )
+
+    if op == "minimum_force":
+        f_val = mu * m * g
+        return PhysicsResult(
+            answer=(
+                rf"F_{{min}} = \mu m g = {mu:g} \cdot {m:g} \cdot {g:g} "
+                rf"\approx {f_val:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{f_val:.2f} N",
+        )
+
     raise MathServiceError(f"unsupported friction op: {op}")
 
 
@@ -1383,6 +1554,17 @@ def solve_circular(intent: MathIntent) -> PhysicsResult:
             simulation_specs=scene,
         )
 
+    if op == "angular_velocity":
+        omega_val = abs(v) / r
+        return PhysicsResult(
+            answer=(
+                rf"\omega = \frac{{v}}{{r}} = \frac{{{abs(v):g}}}{{{r:g}}} "
+                rf"\approx {omega_val:.2f} \text{{ rad/s}}"
+            ),
+            answer_value=f"{omega_val:.2f} rad/s",
+            simulation_specs=scene,
+        )
+
     a_c = v * v / r
     if op == "centripetal_acceleration":
         return PhysicsResult(
@@ -1471,6 +1653,37 @@ def solve_spring(intent: MathIntent) -> PhysicsResult:
             graph_specs=[_oscillation_curve(t_period, p.get("x"))],
         )
 
+    # Like the pendulum above, these need no spring constant, so they are
+    # answered before the k lookup rather than after it.
+    if op == "shm_frequency":
+        t_period = p["period"]
+        if t_period <= 0:
+            raise MathServiceError("period must be positive")
+        freq = 1 / t_period
+        return PhysicsResult(
+            answer=(
+                rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
+                rf"\approx {freq:.2f} \text{{ Hz}}"
+            ),
+            answer_value=f"{freq:.2f} Hz",
+            graph_specs=[_oscillation_curve(t_period, p.get("x"))],
+        )
+
+    if op == "shm_max_speed":
+        amplitude = p["x"]
+        omega = p["omega"]
+        if amplitude <= 0 or omega <= 0:
+            raise MathServiceError("amplitude and angular frequency must be positive")
+        v_max = amplitude * omega
+        return PhysicsResult(
+            answer=(
+                rf"v_{{max}} = A\omega = {amplitude:g} \cdot {omega:g} "
+                rf"\approx {v_max:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{v_max:.2f} m/s",
+            graph_specs=[_oscillation_curve(2 * math.pi / omega, amplitude)],
+        )
+
     k = p["k"]
     if k <= 0:
         raise MathServiceError("spring constant must be positive")
@@ -1520,19 +1733,65 @@ def solve_circuit(intent: MathIntent) -> PhysicsResult:
     op = intent.physics_op or "current"
 
     if op in ("series_resistance", "parallel_resistance"):
-        r1, r2 = p["R1"], p["R2"]
-        if r1 <= 0 or r2 <= 0:
+        # Every R the extractor found, not the first two. Reading three and
+        # using two is how "2, 3 and 5 ohms in series" answered 5 ohms.
+        resistances = [p[key] for key in sorted(p) if _RESISTOR_KEY_RE.fullmatch(key)]
+        if len(resistances) < 2:
+            raise MathServiceError("a resistor network needs at least two resistances")
+        if any(r <= 0 for r in resistances):
             raise MathServiceError("resistances must be positive")
+        terms = " + ".join(f"{r:g}" for r in resistances)
         if op == "series_resistance":
-            total = r1 + r2
-            answer = rf"R = R_1 + R_2 = {r1:g} + {r2:g} \approx {total:.2f} \,\Omega"
+            total = sum(resistances)
+            answer = rf"R = \sum R_i = {terms} \approx {total:.2f} \,\Omega"
         else:
-            total = 1 / (1 / r1 + 1 / r2)
+            total = 1 / sum(1 / r for r in resistances)
+            reciprocals = " + ".join(rf"\frac{{1}}{{{r:g}}}" for r in resistances)
             answer = (
-                r"\frac{1}{R} = \frac{1}{R_1} + \frac{1}{R_2} \Rightarrow R = "
-                rf"\frac{{{r1:g} \cdot {r2:g}}}{{{r1:g} + {r2:g}}} \approx {total:.2f} \,\Omega"
+                rf"\frac{{1}}{{R}} = {reciprocals} \Rightarrow R "
+                rf"\approx {total:.2f} \,\Omega"
             )
         return PhysicsResult(answer=answer, answer_value=f"{total:.2f} ohm")
+
+    if op == "charge":
+        q_val = p["I"] * p["t"]
+        return PhysicsResult(
+            answer=(rf"Q = I t = {p['I']:g} \cdot {p['t']:g} \approx {q_val:.2f} \text{{ C}}"),
+            answer_value=f"{q_val:.2f} C",
+        )
+
+    if op == "electrical_energy":
+        e_val = p["power"] * p["t"]
+        kwh = e_val / 3.6e6
+        return PhysicsResult(
+            answer=(
+                rf"E = P t = {p['power']:g} \cdot {p['t']:g} \approx "
+                rf"{e_val:.2f} \text{{ J}} \; ({kwh:.2f} \text{{ kWh}})"
+            ),
+            answer_value=f"{e_val:.2f} J",
+        )
+
+    if op == "capacitance":
+        if p["V"] == 0:
+            raise MathServiceError("capacitance needs a nonzero voltage")
+        c_val = p["Q"] / p["V"]
+        return PhysicsResult(
+            answer=(
+                rf"C = \frac{{Q}}{{V}} = \frac{{{p['Q']:g}}}{{{p['V']:g}}} "
+                rf"\approx {c_val:.2f} \text{{ F}}"
+            ),
+            answer_value=f"{c_val:.2f} F",
+        )
+
+    if op == "terminal_voltage":
+        v_val = p["E_emf"] - p["I"] * p["r_int"]
+        return PhysicsResult(
+            answer=(
+                rf"V = \varepsilon - I r = {p['E_emf']:g} - {p['I']:g} \cdot "
+                rf"{p['r_int']:g} \approx {v_val:.2f} \text{{ V}}"
+            ),
+            answer_value=f"{v_val:.2f} V",
+        )
 
     if op == "electrical_power":
         if "V" in p and "I" in p:
@@ -1695,6 +1954,553 @@ def solve_torque(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
+def solve_waves(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "wave_frequency_from_period":
+        t_period = p["period"]
+        if t_period <= 0:
+            raise MathServiceError("period must be positive")
+        freq = 1 / t_period
+        return PhysicsResult(
+            answer=(
+                rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
+                rf"\approx {freq:.2f} \text{{ Hz}}"
+            ),
+            answer_value=f"{freq:.2f} Hz",
+        )
+
+    if op == "wave_period":
+        freq = p["freq"]
+        if freq <= 0:
+            raise MathServiceError("frequency must be positive")
+        t_period = 1 / freq
+        return PhysicsResult(
+            answer=(
+                rf"T = \frac{{1}}{{f}} = \frac{{1}}{{{freq:g}}} "
+                rf"\approx {t_period:.4g} \text{{ s}}"
+            ),
+            answer_value=f"{t_period:.4g} s",
+        )
+
+    if op == "doppler_frequency":
+        source = p["v_src"]
+        sound = p["v_sound"]
+        freq = p["freq"]
+        if sound - source <= 0:
+            raise MathServiceError("a source at or above the speed of sound has no Doppler shift")
+        observed = freq * sound / (sound - source)
+        motion = "approaching" if source > 0 else "receding"
+        return PhysicsResult(
+            answer=(
+                rf"f' = f\,\frac{{v}}{{v - v_s}} = {freq:g} \cdot "
+                rf"\frac{{{sound:g}}}{{{sound:g} - ({source:g})}} "
+                rf"\approx {observed:.2f} \text{{ Hz}}"
+            ),
+            answer_value=f"{observed:.2f} Hz ({motion}, sound at {sound:g} m/s)",
+        )
+
+    if op == "wave_speed":
+        value = p["freq"] * p["wavelength"]
+        return PhysicsResult(
+            answer=(
+                rf"v = f\lambda = {p['freq']:g} \cdot {p['wavelength']:g} "
+                rf"\approx {value:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{value:.2f} m/s",
+        )
+
+    if op == "wavelength":
+        if p["freq"] <= 0:
+            raise MathServiceError("frequency must be positive")
+        value = p["v_wave"] / p["freq"]
+        return PhysicsResult(
+            answer=(
+                rf"\lambda = \frac{{v}}{{f}} = \frac{{{p['v_wave']:g}}}{{{p['freq']:g}}} "
+                rf"\approx {value:.2f} \text{{ m}}"
+            ),
+            answer_value=f"{value:.2f} m",
+        )
+
+    if op == "wave_frequency":
+        if p["wavelength"] <= 0:
+            raise MathServiceError("wavelength must be positive")
+        value = p["v_wave"] / p["wavelength"]
+        return PhysicsResult(
+            answer=(
+                rf"f = \frac{{v}}{{\lambda}} = "
+                rf"\frac{{{p['v_wave']:g}}}{{{p['wavelength']:g}}} "
+                rf"\approx {value:.2f} \text{{ Hz}}"
+            ),
+            answer_value=f"{value:.2f} Hz",
+        )
+
+    raise MathServiceError(f"unsupported waves op: {op}")
+
+
+def solve_optics(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "critical_angle":
+        n = p["n1"]
+        if n <= 1:
+            raise MathServiceError("total internal reflection needs an index above 1")
+        theta_c = math.degrees(math.asin(1 / n))
+        return PhysicsResult(
+            answer=(
+                rf"\theta_c = \arcsin\!\left(\frac{{1}}{{n}}\right) = "
+                rf"\arcsin\!\left(\frac{{1}}{{{n:g}}}\right) \approx {theta_c:.2f}^\circ"
+            ),
+            answer_value=f"{theta_c:.2f} deg",
+        )
+
+    if op == "refractive_index":
+        t1, t2 = p["angle"], p["angle2"]
+        if math.sin(t2) == 0:
+            raise MathServiceError("the refracted angle cannot be zero")
+        n = math.sin(t1) / math.sin(t2)
+        return PhysicsResult(
+            answer=(
+                rf"n = \frac{{\sin\theta_1}}{{\sin\theta_2}} = "
+                rf"\frac{{\sin({math.degrees(t1):.1f}^\circ)}}"
+                rf"{{\sin({math.degrees(t2):.1f}^\circ)}} \approx {n:.2f}"
+            ),
+            answer_value=f"{n:.2f}",
+        )
+
+    if op == "magnification":
+        if p["h_obj"] == 0:
+            raise MathServiceError("the object height cannot be zero")
+        m_val = p["h_img"] / p["h_obj"]
+        return PhysicsResult(
+            answer=(
+                rf"m = \frac{{h_i}}{{h_o}} = \frac{{{p['h_img']:g}}}{{{p['h_obj']:g}}} "
+                rf"\approx {m_val:.2f}"
+            ),
+            answer_value=f"{m_val:.2f}",
+        )
+
+    if op == "image_distance":
+        focal, obj = p["focal"], p["d_obj"]
+        if focal <= 0 or obj <= 0:
+            raise MathServiceError("only a converging lens with a real object is solved here")
+        if obj <= focal:
+            # Inside the focal length the image is virtual, and the sign that
+            # says so is exactly what the conventions disagree about.
+            raise MathServiceError("an object inside the focal length forms a virtual image")
+        img = 1 / (1 / focal - 1 / obj)
+        return PhysicsResult(
+            answer=(
+                rf"\frac{{1}}{{f}} = \frac{{1}}{{u}} + \frac{{1}}{{v}} \Rightarrow v = "
+                rf"\frac{{uf}}{{u - f}} = \frac{{{obj:g} \cdot {focal:g}}}"
+                rf"{{{obj:g} - {focal:g}}} \approx {img:.4g} \text{{ m}}"
+            ),
+            answer_value=f"{img:.4g} m",
+        )
+
+    raise MathServiceError(f"unsupported optics op: {op}")
+
+
+def solve_thermal(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "heat_energy":
+        q_val = p["m"] * p["c_heat"] * p["delta_temp"]
+        return PhysicsResult(
+            answer=(
+                rf"Q = mc\Delta T = {p['m']:g} \cdot {p['c_heat']:g} \cdot "
+                rf"{p['delta_temp']:g} \approx {q_val:.2f} \text{{ J}}"
+            ),
+            answer_value=f"{q_val:.2f} J",
+        )
+
+    if op == "ideal_gas_pressure":
+        volume = p["volume"]
+        if volume <= 0:
+            raise MathServiceError("volume must be positive")
+        if p["temp"] <= 0:
+            raise MathServiceError("an absolute temperature must be positive")
+        pressure = p["moles"] * _GAS_CONSTANT * p["temp"] / volume
+        return PhysicsResult(
+            answer=(
+                rf"P = \frac{{nRT}}{{V}} = \frac{{{p['moles']:g} \cdot {_GAS_CONSTANT:.4f} "
+                rf"\cdot {p['temp']:g}}}{{{volume:g}}} \approx {pressure:.2f} \text{{ Pa}}"
+            ),
+            answer_value=f"{pressure:.2f} Pa",
+        )
+
+    if op == "thermal_efficiency":
+        supplied = p["Q_in"]
+        if supplied <= 0:
+            raise MathServiceError("the energy supplied must be positive")
+        eta = p["W_out"] / supplied
+        return PhysicsResult(
+            answer=(
+                rf"\eta = \frac{{W}}{{Q_{{in}}}} = \frac{{{p['W_out']:g}}}{{{supplied:g}}} "
+                rf"\approx {eta:.2f} \; ({eta * 100:.1f}\%)"
+            ),
+            answer_value=f"{eta:.2f} ({eta * 100:.1f}%)",
+        )
+
+    raise MathServiceError(f"unsupported thermal op: {op}")
+
+
+def solve_gravitation(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "gravitational_force":
+        r = p["r"]
+        if r <= 0:
+            raise MathServiceError("separation must be positive")
+        f_val = _BIG_G * p["m1"] * p["m2"] / (r * r)
+        return PhysicsResult(
+            answer=(
+                rf"F = \frac{{G m_1 m_2}}{{r^2}} = \frac{{{_BIG_G:.5g} \cdot {p['m1']:g} "
+                rf"\cdot {p['m2']:g}}}{{{_latex_num(r, square=True)}}} "
+                rf"\approx {f_val:.4g} \text{{ N}}"
+            ),
+            answer_value=f"{f_val:.4g} N",
+        )
+
+    if op == "orbital_velocity":
+        r = p["radius_body"] + p.get("altitude", 0.0)
+        if r <= 0:
+            raise MathServiceError("orbital radius must be positive")
+        v_val = math.sqrt(_BIG_G * p["M"] / r)
+        return PhysicsResult(
+            answer=(
+                rf"v = \sqrt{{\frac{{GM}}{{r}}}} = \sqrt{{\frac{{{_BIG_G:.5g} \cdot "
+                rf"{p['M']:.4g}}}{{{r:.4g}}}}} \approx {v_val:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{v_val:.2f} m/s",
+            simulation_specs=[_orbit_scene(r)],
+        )
+
+    if op == "escape_velocity":
+        radius = p["radius_body"]
+        if radius <= 0:
+            raise MathServiceError("radius must be positive")
+        v_val = math.sqrt(2 * _BIG_G * p["M"] / radius)
+        return PhysicsResult(
+            answer=(
+                rf"v_e = \sqrt{{\frac{{2GM}}{{R}}}} = \sqrt{{\frac{{2 \cdot {_BIG_G:.5g} "
+                rf"\cdot {p['M']:.4g}}}{{{radius:.4g}}}}} \approx {v_val:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{v_val:.2f} m/s",
+        )
+
+    if op == "surface_gravity":
+        radius = p["radius_body"]
+        if radius <= 0:
+            raise MathServiceError("radius must be positive")
+        g_val = _BIG_G * p["M"] / (radius * radius)
+        return PhysicsResult(
+            answer=(
+                rf"g = \frac{{GM}}{{R^2}} = \frac{{{_BIG_G:.5g} \cdot {p['M']:.4g}}}"
+                rf"{{{_latex_num(radius, square=True)}}} \approx {g_val:.2f} "
+                rf"\text{{ m/s}}^2"
+            ),
+            answer_value=f"{g_val:.2f} m/s^2",
+        )
+
+    raise MathServiceError(f"unsupported gravitation op: {op}")
+
+
+def solve_fluids(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "pressure_from_force":
+        area = p["area"]
+        if area <= 0:
+            raise MathServiceError("area must be positive")
+        pressure = p["F"] / area
+        return PhysicsResult(
+            answer=(
+                rf"P = \frac{{F}}{{A}} = \frac{{{p['F']:g}}}{{{area:g}}} "
+                rf"\approx {pressure:.2f} \text{{ Pa}}"
+            ),
+            answer_value=f"{pressure:.2f} Pa",
+        )
+
+    if op == "pressure_at_depth":
+        pressure = p["rho"] * p.get("g", 9.81) * p["depth"]
+        return PhysicsResult(
+            answer=(
+                rf"P = \rho g h = {p['rho']:g} \cdot {p.get('g', 9.81):g} \cdot "
+                rf"{p['depth']:g} \approx {pressure:.2f} \text{{ Pa}}"
+            ),
+            # Gauge, and it says so: the absolute reading is this plus one
+            # atmosphere, and which one is meant changes the number by 101 kPa.
+            answer_value=f"{pressure:.2f} Pa (gauge)",
+        )
+
+    if op == "upthrust":
+        force = p["rho"] * p["volume"] * p.get("g", 9.81)
+        return PhysicsResult(
+            answer=(
+                rf"F_b = \rho V g = {p['rho']:g} \cdot {p['volume']:g} \cdot "
+                rf"{p.get('g', 9.81):g} \approx {force:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{force:.2f} N",
+            # The one fluids answer a free body actually draws: an upward
+            # buoyant force against the weight it opposes.
+            simulation_specs=_free_body_scene(
+                [
+                    SimulationVector(
+                        anchor=[0.0, 0.0],
+                        dx=0.0,
+                        dy=1.0,
+                        label=f"upthrust {force:.1f} N",
+                        role="force",
+                    ),
+                    SimulationVector(
+                        anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label="weight", role="force"
+                    ),
+                ],
+                label="body",
+                lift=1.0,
+            ),
+        )
+
+    if op == "density":
+        volume = p["volume"]
+        if volume <= 0:
+            raise MathServiceError("volume must be positive")
+        rho = p["m"] / volume
+        return PhysicsResult(
+            answer=(
+                rf"\rho = \frac{{m}}{{V}} = \frac{{{p['m']:g}}}{{{volume:g}}} "
+                rf"\approx {rho:.2f} \text{{ kg/m}}^3"
+            ),
+            answer_value=f"{rho:.2f} kg/m^3",
+        )
+
+    if op == "continuity_velocity":
+        a2 = p["A2"]
+        if a2 <= 0:
+            raise MathServiceError("the second area must be positive")
+        v2 = p["A1"] * p["v"] / a2
+        return PhysicsResult(
+            answer=(
+                rf"A_1 v_1 = A_2 v_2 \Rightarrow v_2 = \frac{{{p['A1']:g} \cdot "
+                rf"{p['v']:g}}}{{{a2:g}}} \approx {v2:.2f} \text{{ m/s}}"
+            ),
+            answer_value=f"{v2:.2f} m/s",
+        )
+
+    if op == "flow_rate":
+        flow = p["area"] * p["v"]
+        return PhysicsResult(
+            answer=(
+                rf"Q = A v = {p['area']:g} \cdot {p['v']:g} \approx {flow:.4g} "
+                rf"\text{{ m}}^3\text{{/s}}"
+            ),
+            answer_value=f"{flow:.4g} m^3/s",
+        )
+
+    raise MathServiceError(f"unsupported fluids op: {op}")
+
+
+def solve_rotation(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "moment_of_inertia":
+        factor = p["shape_factor"]
+        value = factor * p["m"] * p["r"] ** 2
+        return PhysicsResult(
+            answer=(
+                rf"I = {factor:g} m r^2 = {factor:g} \cdot {p['m']:g} \cdot "
+                rf"{_latex_num(p['r'], square=True)} \approx {value:.2f} "
+                rf"\text{{ kg}}\,\text{{m}}^2"
+            ),
+            answer_value=f"{value:.2f} kg*m^2",
+        )
+
+    if op == "angular_momentum":
+        value = p["inertia"] * p["omega"]
+        return PhysicsResult(
+            answer=(
+                rf"L = I\omega = {p['inertia']:g} \cdot {p['omega']:g} "
+                rf"\approx {value:.2f} \text{{ kg}}\,\text{{m}}^2\text{{/s}}"
+            ),
+            answer_value=f"{value:.2f} kg*m^2/s",
+        )
+
+    if op == "rotational_kinetic_energy":
+        value = 0.5 * p["inertia"] * p["omega"] ** 2
+        return PhysicsResult(
+            answer=(
+                rf"E_k = \tfrac{{1}}{{2}} I \omega^2 = 0.5 \cdot {p['inertia']:g} \cdot "
+                rf"{_latex_num(p['omega'], square=True)} \approx {value:.2f} \text{{ J}}"
+            ),
+            answer_value=f"{value:.2f} J",
+        )
+
+    if op == "angular_velocity":
+        elapsed = p["t"]
+        if elapsed <= 0:
+            raise MathServiceError("elapsed time must be positive")
+        value = p["theta"] / elapsed
+        return PhysicsResult(
+            answer=(
+                rf"\omega = \frac{{\theta}}{{t}} = \frac{{{p['theta']:g}}}{{{elapsed:g}}} "
+                rf"\approx {value:.2f} \text{{ rad/s}}"
+            ),
+            answer_value=f"{value:.2f} rad/s",
+        )
+
+    raise MathServiceError(f"unsupported rotation op: {op}")
+
+
+def solve_magnetism(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "magnetic_force_wire":
+        value = p["b_field"] * p["I"] * p["wire_L"]
+        return PhysicsResult(
+            answer=(
+                rf"F = BIL = {p['b_field']:g} \cdot {p['I']:g} \cdot {p['wire_L']:g} "
+                rf"\approx {value:.2f} \text{{ N}}"
+            ),
+            answer_value=f"{value:.2f} N",
+        )
+
+    if op == "magnetic_force_charge":
+        value = p["Q"] * p["v"] * p["b_field"]
+        return PhysicsResult(
+            answer=(
+                rf"F = qvB = {p['Q']:g} \cdot {p['v']:g} \cdot {p['b_field']:g} "
+                rf"\approx {value:.2f} \text{{ N}}"
+            ),
+            # The full form carries sin(theta); this is the perpendicular case,
+            # which is the one every school question states.
+            answer_value=f"{value:.2f} N (field perpendicular to the motion)",
+        )
+
+    if op == "magnetic_flux":
+        value = p["b_field"] * p["area"]
+        return PhysicsResult(
+            answer=(
+                rf"\Phi = BA = {p['b_field']:g} \cdot {p['area']:g} "
+                rf"\approx {value:.4g} \text{{ Wb}}"
+            ),
+            answer_value=f"{value:.4g} Wb",
+        )
+
+    raise MathServiceError(f"unsupported magnetism op: {op}")
+
+
+def solve_materials(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "stress":
+        area = p["area"]
+        if area <= 0:
+            raise MathServiceError("area must be positive")
+        value = p["F"] / area
+        return PhysicsResult(
+            answer=(
+                rf"\sigma = \frac{{F}}{{A}} = \frac{{{p['F']:g}}}{{{area:g}}} "
+                rf"\approx {value:.4g} \text{{ Pa}}"
+            ),
+            answer_value=f"{value:.4g} Pa",
+        )
+
+    if op == "strain":
+        original = p["L0"]
+        if original <= 0:
+            raise MathServiceError("the original length must be positive")
+        value = p["dL"] / original
+        return PhysicsResult(
+            answer=(
+                rf"\varepsilon = \frac{{\Delta L}}{{L_0}} = "
+                rf"\frac{{{p['dL']:g}}}{{{original:g}}} \approx {value:.4g}"
+            ),
+            answer_value=f"{value:.4g}",
+        )
+
+    if op == "youngs_modulus":
+        strain = p["strain"]
+        if strain == 0:
+            raise MathServiceError("strain cannot be zero")
+        value = p["sigma"] / strain
+        return PhysicsResult(
+            answer=(
+                rf"E = \frac{{\sigma}}{{\varepsilon}} = "
+                rf"\frac{{{p['sigma']:g}}}{{{strain:g}}} \approx {value:.4g} \text{{ Pa}}"
+            ),
+            answer_value=f"{value:.4g} Pa",
+        )
+
+    raise MathServiceError(f"unsupported materials op: {op}")
+
+
+def solve_modern(intent: MathIntent) -> PhysicsResult:
+    p = _params_in_si(intent)
+    op = intent.physics_op or ""
+
+    if op == "photon_energy":
+        value = _PLANCK_H * p["freq"]
+        ev = value / _ELEMENTARY_CHARGE
+        return PhysicsResult(
+            answer=(
+                rf"E = hf = {_PLANCK_H:.5g} \cdot {p['freq']:.4g} "
+                rf"\approx {value:.4g} \text{{ J}}"
+            ),
+            answer_value=f"{value:.4g} J ({ev:.2f} eV)",
+        )
+
+    if op == "de_broglie_wavelength":
+        momentum = p["m"] * p["v"]
+        if momentum <= 0:
+            raise MathServiceError("momentum must be positive")
+        value = _PLANCK_H / momentum
+        return PhysicsResult(
+            answer=(
+                rf"\lambda = \frac{{h}}{{mv}} = \frac{{{_PLANCK_H:.5g}}}"
+                rf"{{{p['m']:.4g} \cdot {p['v']:.4g}}} \approx {value:.4g} \text{{ m}}"
+            ),
+            answer_value=f"{value:.4g} m",
+        )
+
+    if op == "half_life_remaining":
+        halves = p["n_halves"]
+        if halves < 0:
+            raise MathServiceError("the number of half lives cannot be negative")
+        # Answer in the unit the question used. A sample given in grams should
+        # not come back in kilograms; the arithmetic is a ratio either way.
+        unit = (intent.physics_units or {}).get("m", "kg")
+        given = (intent.physics_params or {}).get("m", p["m"])
+        value = given / (2**halves)
+        return PhysicsResult(
+            answer=(
+                rf"N = \frac{{N_0}}{{2^n}} = \frac{{{given:g}}}{{2^{{{halves:g}}}}} "
+                rf"\approx {value:.4g} \text{{ {unit}}}"
+            ),
+            answer_value=f"{value:.4g} {unit}",
+        )
+
+    if op == "mass_energy":
+        value = p["m"] * _SPEED_OF_LIGHT**2
+        return PhysicsResult(
+            answer=(
+                rf"E = mc^2 = {p['m']:g} \cdot ({_SPEED_OF_LIGHT:.0f})^2 "
+                rf"\approx {value:.4g} \text{{ J}}"
+            ),
+            answer_value=f"{value:.4g} J",
+        )
+
+    raise MathServiceError(f"unsupported modern op: {op}")
+
+
 def solve_physics(intent: MathIntent) -> PhysicsResult:
     """Dispatch to the right solver by intent kind."""
     if intent.kind == "kinematics":
@@ -1719,4 +2525,22 @@ def solve_physics(intent: MathIntent) -> PhysicsResult:
         return solve_circuit(intent)
     if intent.kind == "torque":
         return solve_torque(intent)
+    if intent.kind == "waves":
+        return solve_waves(intent)
+    if intent.kind == "optics":
+        return solve_optics(intent)
+    if intent.kind == "thermal":
+        return solve_thermal(intent)
+    if intent.kind == "gravitation":
+        return solve_gravitation(intent)
+    if intent.kind == "fluids":
+        return solve_fluids(intent)
+    if intent.kind == "rotation":
+        return solve_rotation(intent)
+    if intent.kind == "magnetism":
+        return solve_magnetism(intent)
+    if intent.kind == "materials":
+        return solve_materials(intent)
+    if intent.kind == "modern":
+        return solve_modern(intent)
     raise MathServiceError(f"not a physics kind: {intent.kind}")

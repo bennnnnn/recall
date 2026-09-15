@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.services.math.match.calculus import (
     calc_op,
     parse_limit,
@@ -223,13 +225,32 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     return has_math_keyword(lower) and has_equation(cleaned)
 
 
+# A handful of verified questions carry no number at all, because the numbers
+# are the body's own: "what is the escape velocity from earth". The digit rule
+# below is what keeps the physics cues cheap, so this is an explicit short list
+# rather than a relaxation of it - each phrase is unambiguous physics, and the
+# extractor still refuses anything it cannot resolve.
+_DIGIT_FREE_PHYSICS_RE = re.compile(
+    r"\b(?:escape velocity|escape speed|orbital velocity|orbital speed|"
+    r"surface gravity|gravitational field strength)\b"
+    r"[^.?!]{0,60}?\b(?:earth|moon|mars|jupiter|sun)\b"
+    r"|\b(?:earth|moon|mars|jupiter|sun)\b[^.?!]{0,60}?"
+    r"\b(?:escape velocity|escape speed|orbital velocity|orbital speed|"
+    r"surface gravity|gravitational field strength)\b",
+    re.IGNORECASE,
+)
+
+
 def supported_physics_cue(cleaned: str) -> bool:
     """A numeric problem supported by the narrow verified physics solver."""
     if not any(ch.isdigit() for ch in cleaned):
-        return False
+        return _DIGIT_FREE_PHYSICS_RE.search(cleaned) is not None
     from app.services.physics.extract import has_supported_physics_cue
 
-    return has_supported_physics_cue(cleaned.lower())
+    # Not lowercased: a few physics cues mean the SI symbols `V` and `A` and
+    # are case-sensitive on purpose. Lowercasing here made them dead in the
+    # pre-filter while the extractor kept honouring them.
+    return has_supported_physics_cue(cleaned)
 
 
 def _has_ordinal_term_cue(lower: str) -> bool:
