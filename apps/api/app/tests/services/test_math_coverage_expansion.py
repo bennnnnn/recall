@@ -42,7 +42,7 @@ def test_function_analysis_routes_through_symbolic_gate() -> None:
     assert math_match.needs_symbolic("what is the range of this electric car?") is False
 
 
-def test_function_analysis_intents_do_not_steal_matrix_inverse() -> None:
+def test_function_analysis_intents_do_not_steal_other_math_families() -> None:
     domain = extract_math_intent("find the domain of f(x)=1/(x-2)")
     assert domain is not None
     assert domain.kind == "calculus"
@@ -60,6 +60,11 @@ def test_function_analysis_intents_do_not_steal_matrix_inverse() -> None:
     assert matrix is not None
     assert matrix.kind == "matrix"
     assert matrix.matrix_op == "inverse"
+
+    stats = extract_math_intent("range of 1, 4, 9")
+    assert stats is not None
+    assert stats.kind == "statistics"
+    assert stats.stats_op == "range"
 
 
 def test_restricted_function_domain_is_not_silently_dropped() -> None:
