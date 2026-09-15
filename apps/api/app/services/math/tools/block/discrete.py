@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from app.core.config import Settings
 from app.models.schemas.math import (
     CombinatoricsInput,
@@ -24,6 +26,24 @@ def _verified_block_calculus(
 ) -> VerifiedMathBlock | None:
     if not (intent.expr and intent.operation):
         return None
+    if intent.school_op in {
+        "function_domain",
+        "function_range",
+        "function_inverse",
+        "function_composition",
+    }:
+        from app.services.math.solve.advanced import FunctionFeature, compute_function_feature
+
+        feature = cast(FunctionFeature, intent.school_op.removeprefix("function_"))
+        answer, steps = compute_function_feature(
+            feature,
+            intent.expr,
+            intent.variable,
+            expr2=intent.expr2,
+        )
+        lines.extend(steps)
+        return _finish_with_answer(lines, answer)
+
     from app.services.math.tools.school import apply_calculus_extension
 
     extended = apply_calculus_extension(intent, settings, lines)
@@ -287,7 +307,23 @@ def _verified_block_number_theory(
 def _verified_block_matrix(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
-    if intent.matrix_op is None or not intent.matrix_rows:
+    if not intent.matrix_rows:
+        return None
+    if intent.school_op in {
+        "matrix_rank",
+        "matrix_nullspace",
+        "matrix_columnspace",
+        "matrix_rowspace",
+        "matrix_eigenvectors",
+        "matrix_diagonalize",
+    }:
+        from app.services.math.solve.advanced import MatrixFeature, compute_matrix_feature
+
+        feature = cast(MatrixFeature, intent.school_op.removeprefix("matrix_"))
+        answer, steps = compute_matrix_feature(intent.matrix_rows, feature)
+        lines.extend(steps)
+        return _finish_with_answer(lines, answer)
+    if intent.matrix_op is None:
         return None
     result = math_solve.compute_matrix(
         MatrixInput(
