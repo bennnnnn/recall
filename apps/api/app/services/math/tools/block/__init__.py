@@ -42,6 +42,11 @@ from app.services.math.tools.block.discrete import (
     _verified_block_series,
     _verified_block_statistics,
 )
+from app.services.math.tools.block.advanced import (
+    _verified_block_calculus_extended,
+    _verified_block_matrix_extended,
+    _verified_block_statistics_extended,
+)
 from app.services.math.tools.block.geometry import (
     _verified_block_circle,
     _verified_block_parallelogram,
@@ -84,13 +89,13 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
     "vertical": _verified_block_vertical,
     "graph": _verified_block_graph,
     "graph_pair": _verified_block_graph_pair,
-    "calculus": _verified_block_calculus,
+    "calculus": _verified_block_calculus_extended,
     "limit": _verified_block_limit,
     "series": _verified_block_series,
-    "statistics": _verified_block_statistics,
+    "statistics": _verified_block_statistics_extended,
     "combinatorics": _verified_block_combinatorics,
     "number_theory": _verified_block_number_theory,
-    "matrix": _verified_block_matrix,
+    "matrix": _verified_block_matrix_extended,
 }
 
 
