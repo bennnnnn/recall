@@ -32,7 +32,18 @@ VERIFIED_MATH_REPLY_HINT = (
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
     from app.services.math import match as math_match
 
-    return math_match.needs_symbolic(text, has_image_attachment=has_image_attachment)
+    if math_match.needs_symbolic(text, has_image_attachment=has_image_attachment):
+        return True
+    if has_image_attachment:
+        return False
+    # Calculus applications use a strict whole-request extractor instead of a
+    # broad keyword cue. This catches forms such as "area between x and x^2 on
+    # [0,1]" without making ordinary uses of area/volume symbolic math turns.
+    from app.services.math.tools.extractors.calculus_applications import (
+        _extract_calculus_application_intent,
+    )
+
+    return _extract_calculus_application_intent(text) is not None
 
 
 def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
