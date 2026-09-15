@@ -8,10 +8,27 @@ from __future__ import annotations
 
 import math
 
-from sympy import Eq, Expr, FiniteSet, Integral, Interval, S, Symbol, integrate, pi, simplify, solveset, sqrt
+from sympy import (
+    Eq,
+    Expr,
+    FiniteSet,
+    Integral,
+    Interval,
+    S,
+    Symbol,
+    integrate,
+    pi,
+    simplify,
+    solveset,
+    sqrt,
+)
 from sympy.calculus.util import continuous_domain
 
-from app.services.math.solve.parse import MathServiceError, _parse_expression, format_verified_latex
+from app.services.math.solve.parse import (
+    MathServiceError,
+    _parse_expression,
+    format_verified_latex,
+)
 
 
 def _expr(text: str) -> Expr:
@@ -42,7 +59,12 @@ def _closed_integral(value: Expr, label: str) -> str:
     return format_verified_latex(simplify(value))
 
 
-def _require_continuous(expr: Expr, variable: Symbol, lower: Expr, upper: Expr) -> None:
+def _require_continuous(
+    expr: Expr,
+    variable: Symbol,
+    lower: Expr,
+    upper: Expr,
+) -> None:
     interval = Interval(lower, upper)
     try:
         domain = continuous_domain(expr, variable, S.Reals)
@@ -52,7 +74,12 @@ def _require_continuous(expr: Expr, variable: Symbol, lower: Expr, upper: Expr) 
         raise MathServiceError("the expression is not continuous on the requested interval")
 
 
-def _integrate_absolute(expr: Expr, variable: Symbol, lower: Expr, upper: Expr) -> Expr:
+def _integrate_absolute(
+    expr: Expr,
+    variable: Symbol,
+    lower: Expr,
+    upper: Expr,
+) -> Expr:
     """Integrate |expr| by splitting at verified real zeros in the interval."""
     if simplify(expr) == 0:
         return S.Zero
