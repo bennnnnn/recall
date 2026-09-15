@@ -205,9 +205,7 @@ def _matrix_basis_latex(vectors: list[object]) -> str:
     if not vectors:
         return r"\{0\}"
     return (
-        r"\operatorname{span}\left\{"
-        + ", ".join(latex(vector) for vector in vectors)
-        + r"\right\}"
+        r"\operatorname{span}\left\{" + ", ".join(latex(vector) for vector in vectors) + r"\right\}"
     )
 
 
