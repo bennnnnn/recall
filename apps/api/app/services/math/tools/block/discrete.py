@@ -24,6 +24,7 @@ _FUNCTION_ANALYSIS_OPS = {
     "function_inverse",
     "function_compose",
 }
+_BIVARIATE_STATS_OPS = {"correlation", "covariance", "linear_regression"}
 
 
 def _verified_function_analysis(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -215,6 +216,17 @@ def _verified_block_statistics(
 ) -> VerifiedMathBlock | None:
     if not intent.stats_numbers or len(intent.stats_numbers) < 2:
         return None
+    if intent.stats_op in _BIVARIATE_STATS_OPS:
+        if not intent.stats_numbers_b or len(intent.stats_numbers_b) != len(intent.stats_numbers):
+            return None
+        answer, steps = math_solve.compute_bivariate_statistics(
+            intent.stats_op,
+            intent.stats_numbers,
+            intent.stats_numbers_b,
+        )
+        lines.extend(steps)
+        return _finish_with_answer(lines, answer)
+
     result = math_solve.compute_statistics(StatisticsInput(numbers=intent.stats_numbers))
     lines.append(f"Data ({result.count} values): {', '.join(f'{v:g}' for v in result.numbers)}")
     sample_stdev = (
