@@ -11,14 +11,10 @@ from app.services.math.tools.extractors.algebra import (
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
 )
 from app.services.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
-from app.services.math.tools.extractors.discrete_statistics import (
-    DISCRETE_STATISTICS_EXTRACTORS,
-)
+from app.services.math.tools.extractors.calculus_applications import CALCULUS_APPLICATION_EXTRACTORS
+from app.services.math.tools.extractors.discrete_statistics import DISCRETE_STATISTICS_EXTRACTORS
 from app.services.math.tools.extractors.functions import FUNCTION_EXTRACTORS
-from app.services.math.tools.extractors.geometry_graph import (
-    GEOMETRY_GRAPH_EXTRACTORS,
-    SOLID_EXTRACTOR,
-)
+from app.services.math.tools.extractors.geometry_graph import GEOMETRY_GRAPH_EXTRACTORS, SOLID_EXTRACTOR
 from app.services.math.tools.extractors.linear_algebra import ADVANCED_MATRIX_EXTRACTORS
 from app.services.math.tools.extractors.statistics_advanced import ADVANCED_STATISTICS_EXTRACTORS
 from app.services.math.tools.helpers import has_assignment_evaluation_request, math_expr_or_none
@@ -31,6 +27,7 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     *PHYSICS_EXTRACTORS,
     *GEOMETRY_GRAPH_EXTRACTORS,
     *FUNCTION_EXTRACTORS,
+    *CALCULUS_APPLICATION_EXTRACTORS,
     *ADVANCED_MATRIX_EXTRACTORS,
     *ADVANCED_STATISTICS_EXTRACTORS,
     *CALCULUS_EXTRACTORS,
@@ -62,12 +59,7 @@ _TRIG_INTERVAL_RE = re.compile(
 
 
 def trig_domain_would_be_dropped(expression: str, text: str) -> bool:
-    """The trig solver owns all real values, not an interval or another domain.
-
-    Equation extraction peels surrounding prose. Do not silently drop a
-    user-specified domain and certify an all-real answer in its place.
-    Explicit real-domain wording remains supported.
-    """
+    """The trig solver owns all real values, not an interval or another domain."""
     return bool(
         _TRIG_FUNCTION_RE.search(expression)
         and (_RESTRICTED_TRIG_DOMAIN_RE.search(text) or _TRIG_INTERVAL_RE.search(text))
@@ -211,12 +203,7 @@ def _plottable_graph_source(text: str) -> str | None:
 
 
 def resolve_graph_followup(text: str, prior_user_messages: list[str] | None) -> tuple[str, bool]:
-    """Rewrite ``graph it`` from a prior equation.
-
-    Returns ``(content, skip_math)``. ``skip_math`` is True only when this
-    *is* a pronoun follow-up with no plottable prior — caller must not stamp
-    *Couldn't verify* (``graph_expr("it")`` looks like math and used to).
-    """
+    """Rewrite ``graph it`` from a prior equation."""
     if not is_graph_followup(text):
         return text, False
     for prior in reversed(prior_user_messages or []):
