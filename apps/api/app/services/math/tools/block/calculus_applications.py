@@ -1,10 +1,11 @@
-"""Verified-block wrapper for integral applications."""
+"""Verified-block wrapper for calculus applications and function parity."""
 
 from __future__ import annotations
 
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
 from app.services.math.calculus_applications import solve_calculus_application
+from app.services.math.coverage_extensions import function_parity
 from app.services.math.tools.block.common import VerifiedMathBlock, _finish_with_answer
 from app.services.math.tools.block.discrete import _verified_block_calculus
 
@@ -22,6 +23,12 @@ def _verified_block_calculus_with_applications(
     lines: list[str],
 ) -> VerifiedMathBlock | None:
     operation = intent.school_op
+    if operation == "function_even_odd":
+        if not intent.expr:
+            return None
+        answer = function_parity(intent.expr, intent.variable)
+        lines.append(f"Function parity: {answer}")
+        return _finish_with_answer(lines, answer)
     if operation not in _CALCULUS_APPLICATION_OPS:
         return _verified_block_calculus(intent, settings, lines)
     if not intent.expr or intent.integral_lower is None or intent.integral_upper is None:
