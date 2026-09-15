@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import math
 import statistics
-from typing import Literal
 
 from app.services.math.solve.parse import MathServiceError
-
-BivariateStatsOp = Literal["correlation", "covariance", "linear_regression"]
 
 
 def _format_stat(value: float) -> str:
@@ -20,7 +17,7 @@ def _format_stat(value: float) -> str:
 
 
 def compute_bivariate_statistics(
-    operation: BivariateStatsOp,
+    operation: str,
     x_values: list[float],
     y_values: list[float],
 ) -> tuple[str, list[str]]:
@@ -39,6 +36,8 @@ def compute_bivariate_statistics(
         if operation == "covariance":
             answer = _format_stat(statistics.covariance(x_values, y_values))
             return answer, [f"Sample covariance: {answer}"]
+        if operation != "linear_regression":
+            raise MathServiceError("unsupported paired-statistics operation")
         regression = statistics.linear_regression(x_values, y_values)
     except statistics.StatisticsError as exc:
         raise MathServiceError(str(exc)) from exc
