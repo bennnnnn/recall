@@ -36,7 +36,6 @@ def _expression_after(text: str, phrase: str) -> tuple[str, str] | None:
     if idx == -1:
         return None
     raw = _strip_trailing_filler(text[idx + len(phrase) :].strip())
-    # ``domain of the function x^2`` / ``range of function ...``.
     low = raw.lower()
     for prefix in ("the function ", "function "):
         if low.startswith(prefix):
@@ -55,8 +54,6 @@ def _extract_function_analysis_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     defs = _function_definitions(cleaned)
 
-    # Composition must run before generic "range/domain of" handling because
-    # the prompt commonly contains two definitions separated by "and".
     compact = re.sub(r"\s+", "", lower)
     composition_requested = (
         "compose" in lower
@@ -101,8 +98,6 @@ def _extract_function_analysis_intent(cleaned: str) -> MathIntent | None:
         return None
 
     if defs:
-        # Prefer the function named immediately after "of"; otherwise use the
-        # first explicit definition in the user's text.
         name = "f"
         if "of g(" in lower and "g" in defs:
             name = "g"
@@ -110,7 +105,12 @@ def _extract_function_analysis_intent(cleaned: str) -> MathIntent | None:
             name = next(iter(defs))
         variable, expr = defs[name]
     else:
-        phrase = "domain of" if feature == "domain" else "range of" if feature == "range" else "inverse of"
+        if feature == "domain":
+            phrase = "domain of"
+        elif feature == "range":
+            phrase = "range of"
+        else:
+            phrase = "inverse of"
         hit = _expression_after(cleaned, phrase)
         if hit is None:
             return None
