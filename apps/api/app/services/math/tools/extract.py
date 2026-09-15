@@ -96,8 +96,8 @@ def extract_math_intent(text: str) -> MathIntent | None:
     # closed. Otherwise a partial expression can fall through to an unrelated
     # algebra/physics extractor and get a confidently verified wrong answer.
     if calculus_application_requested(cleaned):
-        for extractor in CALCULUS_APPLICATION_EXTRACTORS:
-            intent = extractor(cleaned)
+        for calculus_extractor in CALCULUS_APPLICATION_EXTRACTORS:
+            intent = calculus_extractor(cleaned)
             if intent is not None:
                 return intent
         return None
