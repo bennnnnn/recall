@@ -158,6 +158,16 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # "Could not render that diagram." with no verified fence.
     if inequality_signal(cleaned):
         return True
+    # Domain/range/inverse/composition are not ordinary calculus command words,
+    # so route them only when the dedicated extractor can consume the whole ask.
+    if any(
+        cue in lower
+        for cue in ("domain of", "range of", "inverse function", "inverse of", "compose")
+    ):
+        from app.services.math.tools.extractors.functions import _extract_function_analysis_intent
+
+        if _extract_function_analysis_intent(cleaned) is not None:
+            return True
     if calc_op(cleaned) is not None:
         return True
     if any(cue in lower for cue in ("critical point", "extrema", "local max", "local min")):
