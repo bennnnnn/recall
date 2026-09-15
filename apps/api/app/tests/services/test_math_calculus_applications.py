@@ -104,4 +104,6 @@ def test_sector_arc_length_route_is_preserved() -> None:
     intent = math_tools.extract_math_intent(text)
     assert intent is not None
     assert intent.kind == "sector"
-    assert intent.wants_arc_length is True
+    assert intent.radius == 5
+    assert intent.sector_angle_deg == 60
+    assert intent.wants_area is False
