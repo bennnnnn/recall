@@ -81,6 +81,31 @@ def test_function_analysis_builds_canonical_verified_answer() -> None:
     assert block.canonical_answer == r"\left[0, \infty\right)"
 
 
+def test_bivariate_statistics_are_verified() -> None:
+    cases = (
+        ("correlation between [1,2,3] and [2,4,6]", "correlation", "1"),
+        ("covariance of [1,2,3] and [2,4,6]", "covariance", "2"),
+        ("linear regression for [1,2,3] and [2,4,6]", "linear_regression", "y = 2x + 0"),
+    )
+    for prompt, operation, expected in cases:
+        assert math_match.needs_symbolic(prompt) is True, prompt
+        intent = extract_math_intent(prompt)
+        assert intent is not None, prompt
+        assert intent.kind == "statistics", prompt
+        assert intent.stats_op == operation, prompt
+        block = _build_verified_block(intent, Settings(_env_file=None))
+        assert block is not None, prompt
+        assert block.canonical_answer == expected, prompt
+
+
+def test_bivariate_statistics_require_two_explicit_equal_lists() -> None:
+    assert math_match.needs_symbolic("correlation between sales and weather") is False
+    assert extract_math_intent("correlation between [1,2,3] and [2,4]") is None
+
+    with pytest.raises(MathServiceError):
+        math_solve.compute_bivariate_statistics("correlation", [1, 1], [2, 3])
+
+
 def test_advanced_matrix_operations() -> None:
     rows = [[1, 2], [2, 4]]
 
