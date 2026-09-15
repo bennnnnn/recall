@@ -1,0 +1,51 @@
+"""Deterministic paired-data statistics using Python's standard library."""
+
+from __future__ import annotations
+
+import math
+import statistics
+from typing import Literal
+
+from app.services.math.solve.parse import MathServiceError
+
+BivariateStatsOp = Literal["correlation", "covariance", "linear_regression"]
+
+
+def _format_stat(value: float) -> str:
+    if not math.isfinite(value):
+        raise MathServiceError("statistic is not finite")
+    if abs(value) < 5e-13:
+        value = 0.0
+    return f"{value:.10g}"
+
+
+def compute_bivariate_statistics(
+    operation: BivariateStatsOp,
+    x_values: list[float],
+    y_values: list[float],
+) -> tuple[str, list[str]]:
+    """Return a verified answer plus short supporting steps for paired data."""
+    if len(x_values) != len(y_values) or len(x_values) < 2:
+        raise MathServiceError("paired statistics need equal-length lists with at least 2 values")
+    if len(x_values) > 200:
+        raise MathServiceError("paired statistics are capped at 200 values")
+    if not all(math.isfinite(value) for value in (*x_values, *y_values)):
+        raise MathServiceError("statistics values must be finite numbers")
+
+    try:
+        if operation == "correlation":
+            answer = _format_stat(statistics.correlation(x_values, y_values))
+            return answer, [f"Pearson correlation: r = {answer}"]
+        if operation == "covariance":
+            answer = _format_stat(statistics.covariance(x_values, y_values))
+            return answer, [f"Sample covariance: {answer}"]
+        regression = statistics.linear_regression(x_values, y_values)
+    except statistics.StatisticsError as exc:
+        raise MathServiceError(str(exc)) from exc
+
+    slope = _format_stat(regression.slope)
+    intercept_value = 0.0 if abs(regression.intercept) < 5e-13 else regression.intercept
+    intercept = _format_stat(abs(intercept_value))
+    sign = "+" if intercept_value >= 0 else "-"
+    answer = f"y = {slope}x {sign} {intercept}"
+    return answer, [f"Least-squares line: {answer}"]
