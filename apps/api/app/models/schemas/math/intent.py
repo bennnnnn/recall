@@ -219,6 +219,12 @@ class MathIntent(BaseModel):
             "time_to_ground",
             "range",
             "max_height",
+            # A projectile question that is not about distance. Before these
+            # existed the extractor defaulted to "range", so "how long is it in
+            # the air" was answered with a length.
+            "time_of_flight",
+            "impact_speed",
+            "launch_angle",
             "net_force",
             # Rope/pulley free bodies. P2 refused these on purpose after
             # finding them answered with m*a; these are the shapes now solved.
