@@ -165,7 +165,8 @@ def _verified_block_limit(
     lines.append(f"Result: {limit_out.latex}")
     if limit_out.is_infinite:
         lines.append(
-            "This limit is infinite — preserve its sign, do not treat it as an ordinary finite number."
+            "This limit is infinite — preserve its sign, "
+            "do not treat it as an ordinary finite number."
         )
     return _finish_with_answer(lines, limit_out.latex)
 
@@ -197,7 +198,8 @@ def _verified_block_series(
         return VerifiedMathBlock(text="\n".join(lines))
     if series_out.is_infinite:
         lines.append(
-            "This series diverges to infinity — preserve its sign, do not treat it as an ordinary finite number."
+            "This series diverges to infinity — preserve its sign, "
+            "do not treat it as an ordinary finite number."
         )
     return _finish_with_answer(lines, series_out.latex)
 
