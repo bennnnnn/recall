@@ -10,7 +10,6 @@ import math
 import statistics
 
 from sympy import (
-    Abs,
     Eq,
     Integral,
     Matrix,
@@ -222,6 +221,49 @@ def _closed_integral(value, label: str) -> str:
     return format_verified_latex(simplify(value))
 
 
+def _integrate_absolute(expr, variable: Symbol, lower, upper):
+    """Integrate |expr| by splitting at verified real zeros in the interval."""
+    if simplify(expr) == 0:
+        return S.Zero
+    try:
+        roots = solve(Eq(expr, 0), variable)
+    except Exception as exc:
+        raise MathServiceError("Could not locate the curve crossings symbolically") from exc
+    if len(roots) > 32:
+        raise MathServiceError("Too many curve crossings to verify safely")
+
+    lo_float = float(lower.evalf())
+    hi_float = float(upper.evalf())
+    internal: list[tuple[float, object]] = []
+    for root in roots:
+        if root.has(variable) or root.is_real is False:
+            continue
+        try:
+            root_float = float(root.evalf())
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if math.isfinite(root_float) and lo_float < root_float < hi_float:
+            if not any(abs(root_float - seen) < 1e-10 for seen, _ in internal):
+                internal.append((root_float, root))
+    internal.sort(key=lambda item: item[0])
+
+    points = [lower, *(root for _, root in internal), upper]
+    total = S.Zero
+    for left, right in zip(points, points[1:], strict=True):
+        midpoint = simplify((left + right) / 2)
+        try:
+            sign = float(expr.subs(variable, midpoint).evalf())
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise MathServiceError("Could not determine the sign between crossings") from exc
+        if not math.isfinite(sign):
+            raise MathServiceError("The integrand is not finite between the requested bounds")
+        piece = integrate(expr, (variable, left, right))
+        if piece.has(Integral):
+            raise MathServiceError("No closed-form integral was found")
+        total += -piece if sign < 0 else piece
+    return simplify(total)
+
+
 def solve_calculus_application(
     op: str,
     expr_text: str,
@@ -237,7 +279,7 @@ def solve_calculus_application(
         if expr2_text is None:
             raise MathServiceError("Area between curves needs two functions")
         other = _expr(expr2_text)
-        result = integrate(Abs(expr - other), (x, lo, hi))
+        result = _integrate_absolute(expr - other, x, lo, hi)
         return _closed_integral(result, "area")
 
     if op == "arc_length":
@@ -249,9 +291,9 @@ def solve_calculus_application(
         return _closed_integral(result, "volume")
 
     if op == "volume_revolution_y":
-        # Cylindrical shells. Abs keeps the geometric volume non-negative
-        # when a radius/height expression crosses an axis.
-        result = 2 * pi * integrate(Abs(x * expr), (x, lo, hi))
-        return _closed_integral(result, "volume")
+        # Cylindrical shells. Split at sign changes so geometric volume stays
+        # non-negative even when a radius/height expression crosses an axis.
+        shells = _integrate_absolute(x * expr, x, lo, hi)
+        return _closed_integral(2 * pi * shells, "volume")
 
     raise MathServiceError(f"Unsupported calculus application: {op}")
