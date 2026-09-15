@@ -47,10 +47,7 @@ def calculus_application_requested(text: str) -> bool:
     return (
         "area between" in lower
         or "arc length" in lower
-        or (
-            "volume" in lower
-            and any(word in lower for word in ("revolution", "revolved", "rotated"))
-        )
+        or ("volume" in lower and any(word in lower for word in ("revolution", "revolved", "rotated")))
     )
 
 
