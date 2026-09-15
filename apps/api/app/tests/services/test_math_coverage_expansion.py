@@ -3,12 +3,13 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from app.core.config import Settings
 from app.models.schemas.math import MatrixInput
 from app.services.math import function_analysis
 from app.services.math import match as math_match
 from app.services.math import solve as math_solve
 from app.services.math.solve import MathServiceError
-from app.services.math.tools import extract_math_intent
+from app.services.math.tools import _build_verified_block, extract_math_intent
 
 
 def test_function_domain_and_range_are_verified() -> None:
@@ -70,6 +71,14 @@ def test_function_analysis_intents_do_not_steal_other_math_families() -> None:
 def test_restricted_function_domain_is_not_silently_dropped() -> None:
     assert extract_math_intent("inverse of x^2 on x >= 0") is None
     assert extract_math_intent("range of x^2 for x >= 2") is None
+
+
+def test_function_analysis_builds_canonical_verified_answer() -> None:
+    intent = extract_math_intent("range of x^2")
+    assert intent is not None
+    block = _build_verified_block(intent, Settings(_env_file=None))
+    assert block is not None
+    assert block.canonical_answer == r"\left[0, \infty\right)"
 
 
 def test_advanced_matrix_operations() -> None:
