@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
@@ -18,6 +19,11 @@ from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
 from app.services.chat.finalize_registry import get_chat_generation, wait_for_pending_finalize
 
+# User/chat profile state is not covered by the chat-history generation key.
+# Keep speculative state short-lived so plan/profile/chat metadata changes are
+# picked up promptly even if no message committed in the meantime.
+PRELOAD_MAX_AGE_SECONDS = 30.0
+
 
 @dataclass(frozen=True, slots=True)
 class PreloadedChatTurnState:
@@ -28,6 +34,11 @@ class PreloadedChatTurnState:
     recent_messages: list[Any]
     prior_count: int
     generation: int
+    created_at_monotonic: float = field(default_factory=time.monotonic)
+
+    def is_fresh(self, *, now: float | None = None) -> bool:
+        current = time.monotonic() if now is None else now
+        return current - self.created_at_monotonic <= PRELOAD_MAX_AGE_SECONDS
 
 
 async def _load_user(user_id: UUID) -> User:
