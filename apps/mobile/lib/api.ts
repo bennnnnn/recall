@@ -25,6 +25,7 @@ export {
 export { chatWebSocketUrl, checkHealth } from "@/lib/api/connectivity";
 export {
   logoutSession,
+  refreshAccessToken,
   setTokenRefreshHandler,
   setUnauthorizedHandler,
 } from "@/lib/api/client";
