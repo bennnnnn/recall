@@ -844,13 +844,21 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
 
 
 @pytest.mark.asyncio
-async def test_stream_chat_response_quota_exceeded():
+@pytest.mark.parametrize("used", [100, 101], ids=["at-limit", "over-limit"])
+async def test_stream_chat_response_quota_exceeded(used: int) -> None:
     from app.exceptions import QuotaExceededError
     from app.services import chat as chat_service
 
     user_id = uuid4()
-    fake_user = MagicMock()
-    fake_user.response_style = "balanced"
+    redis = AsyncMock()
+    settings = Settings(daily_token_limit=100)
+    fake_user = MagicMock(
+        id=user_id, plan="free", response_style="balanced", default_model="free-chat"
+    )
+    usage = AsyncMock(return_value=used)
+    # Soft quota reads actual usage; mocking reserve_usage no longer rejects
+    # the turn. Fail immediately if the guard lets message persistence begin.
+    prepare = AsyncMock(side_effect=AssertionError("Over-limit turn reached preparation"))
     with (
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.services.chat.stream.SessionLocal", lambda: _FakeSessionCM()),
@@ -860,17 +868,24 @@ async def test_stream_chat_response_quota_exceeded():
             AsyncMock(return_value=MagicMock(project_id=None, quiz_mode=None, summary=None)),
         ),
         patch("app.services.chat.stream.messages_repo.list_recent", AsyncMock(return_value=[])),
-        patch("app.services.quota.reserve_usage", AsyncMock(return_value=False)),
+        patch("app.services.quota.has_daily_usage_key", AsyncMock(return_value=True)),
+        patch("app.services.quota.get_daily_usage", usage),
+        patch("app.services.quota.reserve_usage", AsyncMock()) as reserve,
+        patch("app.services.chat.stream.prepare_chat_turn", prepare),
     ):
         with pytest.raises(QuotaExceededError):
             async for _t in chat_service.stream_chat_response(
-                AsyncMock(),
-                Settings(),
+                redis,
+                settings,
                 user_id=user_id,
                 chat_id=uuid4(),
                 content="hi",
             ):
                 pass
+
+    usage.assert_awaited_once_with(redis, str(user_id))
+    reserve.assert_not_awaited()
+    prepare.assert_not_awaited()
 
 
 # ── auth service ───────────────────────────────────────────────────────────────

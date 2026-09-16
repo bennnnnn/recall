@@ -29,7 +29,12 @@ const HomeContext = createContext<HomeContextValue | null>(null);
 export function HomeProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
   const token = auth?.token;
+  const userId = auth?.user?.id;
   const userName = auth?.user?.name;
+  // Access tokens rotate during a healthy session. Cache/dedupe by account,
+  // not bearer token, so the 401->refresh path cannot launch a second /home
+  // request while the first request is already retrying with fresh auth.
+  const resourceKey = userId ?? token;
   const [screen, setScreen] = useState<HomeScreen | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -41,7 +46,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
-      if (!token) {
+      if (!token || !resourceKey) {
         setScreen(null);
         setHasFetched(false);
         setLoading(false);
@@ -51,7 +56,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
       if (
         !opts?.force &&
         screenRef.current &&
-        resourceRef.current.isFresh(token)
+        resourceRef.current.isFresh(resourceKey)
       ) {
         return;
       }
@@ -61,7 +66,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
 
       try {
         const data = await resourceRef.current.fetch(
-          token,
+          resourceKey,
           async () => {
             try {
               return await api.getHomeScreen(token, getDeviceTimezone());
@@ -82,7 +87,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
         if (!opts?.silent) setLoading(false);
       }
     },
-    [token],
+    [resourceKey, token],
   );
 
   useEffect(() => {
