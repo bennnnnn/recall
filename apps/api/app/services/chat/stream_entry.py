@@ -238,9 +238,7 @@ async def stream_chat_response(
                 timing.mark_phase("quota_probe_ready")
                 return False
             try:
-                missing = not await seams.quota_service.has_daily_usage_key(
-                    redis, str(user_id)
-                )
+                missing = not await seams.quota_service.has_daily_usage_key(redis, str(user_id))
             except Exception:
                 missing = True
             timing.mark_phase("quota_probe_ready")
