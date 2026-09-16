@@ -211,31 +211,58 @@ async def stream_chat_response(
         borrowed=resources,
     ) as res:
 
-        async def _load_user_and_quota() -> tuple[User, int, Chat]:
-            loaded_user = user
-            loaded_chat = chat
-            need_usage_seed = False
-            if not skip_usage_seed:
-                try:
-                    need_usage_seed = not await seams.quota_service.has_daily_usage_key(
-                        redis, str(user_id)
-                    )
-                except Exception:
-                    need_usage_seed = True
+        async def _load_user() -> User:
+            if user is not None:
+                timing.mark_phase("user_ready")
+                return user
             async with seams.SessionLocal() as session:
-                if loaded_user is None:
-                    loaded_user = await seams.users_repo.get_by_id(session, user_id)
-                    if loaded_user is None:
-                        raise ChatNotFoundError("User not found.")
-                if need_usage_seed:
+                loaded = await seams.users_repo.get_by_id(session, user_id)
+            if loaded is None:
+                raise ChatNotFoundError("User not found.")
+            timing.mark_phase("user_ready")
+            return loaded
+
+        async def _load_chat() -> Chat:
+            if chat is not None:
+                timing.mark_phase("chat_ready")
+                return chat
+            async with seams.SessionLocal() as session:
+                loaded = await seams.chats_repo.get_by_id(session, chat_id, user_id)
+            if loaded is None:
+                raise ChatNotFoundError("Chat not found.")
+            timing.mark_phase("chat_ready")
+            return loaded
+
+        async def _needs_usage_seed() -> bool:
+            if skip_usage_seed:
+                timing.mark_phase("quota_probe_ready")
+                return False
+            try:
+                missing = not await seams.quota_service.has_daily_usage_key(
+                    redis, str(user_id)
+                )
+            except Exception:
+                missing = True
+            timing.mark_phase("quota_probe_ready")
+            return missing
+
+        async def _load_user_and_quota() -> tuple[User, int, Chat]:
+            # User ownership, chat ownership, and the Redis quota probe are
+            # independent. Live simulator timing showed the old user->chat
+            # serial DB reads dominating this lane, so overlap them. Each DB
+            # read gets its own AsyncSession; SQLAlchemy AsyncSession itself is
+            # intentionally not used concurrently.
+            loaded_user, loaded_chat, need_usage_seed = await asyncio.gather(
+                _load_user(),
+                _load_chat(),
+                _needs_usage_seed(),
+            )
+            if need_usage_seed:
+                async with seams.SessionLocal() as session:
                     await seams.seed_usage_from_db(redis, session, user_id)
-                if loaded_chat is None:
-                    loaded_chat = await seams.chats_repo.get_by_id(session, chat_id, user_id)
-                    if loaded_chat is None:
-                        raise ChatNotFoundError("Chat not found.")
-                limit = seams.quota_service.daily_limit_for_user(loaded_user, settings)
-            if timing is not None:
-                timing.mark_phase("account_quota_ready")
+            timing.mark_phase("quota_seed_ready")
+            limit = seams.quota_service.daily_limit_for_user(loaded_user, settings)
+            timing.mark_phase("account_quota_ready")
             return loaded_user, limit, loaded_chat
 
         async def _load_history_after_finalize() -> tuple[list[Any], int]:
@@ -244,8 +271,7 @@ async def stream_chat_response(
             # concurrently so a remote DB round trip is paid once in wall time,
             # not once for account/chat and again for recent messages.
             await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
-            if timing is not None:
-                timing.mark_phase("previous_finalize_ready")
+            timing.mark_phase("previous_finalize_ready")
             async with seams.SessionLocal() as session:
                 window = settings.recent_message_window
                 recent = await seams.messages_repo.list_recent(session, chat_id, limit=window)
@@ -256,8 +282,7 @@ async def stream_chat_response(
                     session=session,
                     chat_id=chat_id,
                 )
-            if timing is not None:
-                timing.mark_phase("history_ready")
+            timing.mark_phase("history_ready")
             return recent, prior_count
 
         # Account/quota and history are independent once the previous turn is
