@@ -38,6 +38,31 @@ function requireNotAborted(signal?: AbortSignal | null): void {
   throw error;
 }
 
+/**
+ * Decode JWT expiry only as a latency hint. Authentication still belongs to
+ * the server; unreadable/opaque tokens keep the existing request-then-401
+ * behavior instead of being rejected by the client.
+ */
+export function accessTokenNeedsRefresh(
+  token: string,
+  nowMs: number = Date.now(),
+  skewMs = 30_000,
+): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3 || parts.some((part) => !part)) return false;
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    const claims: unknown = JSON.parse(atob(padded));
+    if (typeof claims !== "object" || claims === null || !("exp" in claims)) return false;
+    const exp = (claims as { exp?: unknown }).exp;
+    if (typeof exp !== "number" || !Number.isFinite(exp)) return false;
+    return exp * 1000 <= nowMs + Math.max(0, skewMs);
+  } catch {
+    return false;
+  }
+}
+
 const AUTH_FETCH_TIMEOUT_MS = 15_000;
 
 export async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
@@ -173,8 +198,22 @@ export async function requestRaw(
   let streamingBodyReturned = false;
   try {
     requireNotAborted(externalSignal);
+    let effectiveToken = token;
+    let refreshAttempted = false;
+    // Cold start used to mount every provider with an expired token, causing
+    // /me, /home, /chats, /models, etc. to all send one doomed 401 before
+    // joining the shared refresh. Join that same single-flight *before* any
+    // authenticated request leaves the device when expiry is already known.
+    if (effectiveToken && allowRefresh && accessTokenNeedsRefresh(effectiveToken)) {
+      refreshAttempted = true;
+      const refreshed = await refreshAccessToken();
+      requireSession(generation);
+      requireNotAborted(controller.signal);
+      if (refreshed) effectiveToken = refreshed;
+    }
+
     const headers = { ...(init?.headers ?? {}) } as Record<string, string>;
-    if (token) headers.Authorization = `Bearer ${token}`;
+    if (effectiveToken) headers.Authorization = `Bearer ${effectiveToken}`;
     const response = await fetch(apiUrl(path), {
       ...init,
       signal: controller.signal,
@@ -182,8 +221,8 @@ export async function requestRaw(
     });
     requireSession(generation);
     requireNotAborted(controller.signal);
-    if (response.status === 401 && token) {
-      if (allowRefresh) {
+    if (response.status === 401 && effectiveToken) {
+      if (allowRefresh && !refreshAttempted) {
         const refreshed = await refreshAccessToken();
         requireSession(generation);
         requireNotAborted(controller.signal);
