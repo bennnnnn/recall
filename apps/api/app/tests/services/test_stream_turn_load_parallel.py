@@ -1,9 +1,9 @@
+import asyncio
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-import asyncio
 import pytest
 
 from app.core.config import Settings
