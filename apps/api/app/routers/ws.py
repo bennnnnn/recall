@@ -25,6 +25,7 @@ from app.models.schemas import ChatMessageRequest
 from app.services import chat as chat_service
 from app.services import tokens as tokens_service
 from app.services.chat.finalize_registry import register_inflight_stream
+from app.services.chat.preload import PreloadedChatTurnState, preload_chat_turn_state
 from app.services.chat.stream_events import (
     await_finalize_commit,
     build_done_payload,
@@ -271,6 +272,69 @@ def _status_emitters(websocket: WebSocket) -> tuple[Any, Any]:
     return emit_status, emit_reasoning
 
 
+async def _safe_preload_turn(
+    redis: Any,
+    settings: Any,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+) -> PreloadedChatTurnState | None:
+    try:
+        return await preload_chat_turn_state(
+            redis,
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        # Preload is a latency optimization only. A missing/deleted chat or a
+        # transient DB failure must not break the socket; Send falls back to
+        # the normal fresh-read path.
+        logger.debug("Chat turn preload failed chat_id=%s", chat_id, exc_info=True)
+        return None
+
+
+def _start_turn_preload(
+    redis: Any,
+    settings: Any,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+) -> asyncio.Task[PreloadedChatTurnState | None]:
+    return asyncio.create_task(
+        _safe_preload_turn(
+            redis,
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
+        ),
+        name=f"chat-turn-preload:{chat_id}",
+    )
+
+
+async def _take_turn_preload(
+    task: asyncio.Task[PreloadedChatTurnState | None] | None,
+) -> PreloadedChatTurnState | None:
+    if task is None:
+        return None
+    try:
+        return await task
+    except asyncio.CancelledError:
+        return None
+
+
+async def _cancel_turn_preload(
+    task: asyncio.Task[PreloadedChatTurnState | None] | None,
+) -> None:
+    if task is None or task.done():
+        return
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+
 def _client_geo_kwargs(
     request: ChatMessageRequest,
     *,
@@ -339,6 +403,7 @@ async def _handle_message(
     cancel_event: asyncio.Event,
     emit_status: Any,
     emit_reasoning: Any,
+    preloaded_state: PreloadedChatTurnState | None = None,
 ) -> None:
     try:
         request = ChatMessageRequest.model_validate(payload)
@@ -367,6 +432,7 @@ async def _handle_message(
             result=result,
             on_status=emit_status,
             on_reasoning=emit_reasoning,
+            preloaded_state=preloaded_state,
             **_client_geo_kwargs(request, client_timezone=client_timezone),
         )
 
@@ -441,6 +507,12 @@ async def chat_websocket(
 
     cancel_event = asyncio.Event()
     emit_status, emit_reasoning = _status_emitters(websocket)
+    preload_task: asyncio.Task[PreloadedChatTurnState | None] | None = _start_turn_preload(
+        redis,
+        settings,
+        user_id=user_id,
+        chat_id=chat_id,
+    )
 
     try:
         while True:
@@ -495,6 +567,11 @@ async def chat_websocket(
                     continue
 
             if msg_type == "regenerate":
+                # Regenerate mutates the assistant row, so any speculative
+                # next-send snapshot is obsolete even before its generation
+                # check. Cancel it to avoid unnecessary DB work.
+                await _cancel_turn_preload(preload_task)
+                preload_task = None
                 await _handle_regenerate(
                     websocket,
                     redis=redis,
@@ -507,11 +584,19 @@ async def chat_websocket(
                     emit_status=emit_status,
                     emit_reasoning=emit_reasoning,
                 )
+                preload_task = _start_turn_preload(
+                    redis,
+                    settings,
+                    user_id=user_id,
+                    chat_id=chat_id,
+                )
                 continue
 
             if msg_type != "message":
                 continue
 
+            preloaded_state = await _take_turn_preload(preload_task)
+            preload_task = None
             await _handle_message(
                 websocket,
                 redis=redis,
@@ -523,6 +608,18 @@ async def chat_websocket(
                 cancel_event=cancel_event,
                 emit_status=emit_status,
                 emit_reasoning=emit_reasoning,
+                preloaded_state=preloaded_state,
+            )
+            # The just-finished turn's DB commit is awaited before _handle_message
+            # returns. Immediately prepare the next one while the user reads the
+            # answer, hiding user/chat/history I/O behind normal think time.
+            preload_task = _start_turn_preload(
+                redis,
+                settings,
+                user_id=user_id,
+                chat_id=chat_id,
             )
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected chat_id=%s", chat_id)
+    finally:
+        await _cancel_turn_preload(preload_task)
