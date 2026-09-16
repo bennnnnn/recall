@@ -97,3 +97,93 @@ async def test_history_load_overlaps_account_and_chat_load() -> None:
     assert tokens == []
     assert history_started.is_set()
     resources.refund.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_user_and_chat_ownership_loads_overlap() -> None:
+    """User and chat DB lookups run concurrently on separate sessions."""
+    user_started = asyncio.Event()
+    chat_started = asyncio.Event()
+    user_id = uuid4()
+    chat_id = uuid4()
+
+    user = MagicMock()
+    user.id = user_id
+    user.plan = "pro"
+    user.timezone = "UTC"
+    user.default_model = "free-chat"
+    user.response_style = "balanced"
+    user.memory_enabled = True
+
+    chat = MagicMock()
+    chat.id = chat_id
+    chat.project_id = None
+    chat.quiz_mode = None
+
+    async def load_user(_session, _user_id):
+        user_started.set()
+        await asyncio.wait_for(chat_started.wait(), timeout=0.5)
+        return user
+
+    async def load_chat(_session, _chat_id, _user_id):
+        chat_started.set()
+        await asyncio.wait_for(user_started.wait(), timeout=0.5)
+        return chat
+
+    class SessionCM:
+        async def __aenter__(self):
+            return AsyncMock()
+
+        async def __aexit__(self, *_args):
+            return False
+
+    resources = SimpleNamespace(
+        reserved_tokens=0,
+        refund=AsyncMock(),
+        lock_key="lock",
+        lock_token="token",
+    )
+
+    @asynccontextmanager
+    async def turn_resources(*_args, **_kwargs):
+        yield resources
+
+    seams = SimpleNamespace(
+        wrap_stream_status=lambda _timing, status: status,
+        turn_resources=turn_resources,
+        quota_service=SimpleNamespace(
+            has_daily_usage_key=AsyncMock(return_value=True),
+            daily_limit_for_user=lambda _user, _settings: 100_000,
+        ),
+        SessionLocal=SessionCM,
+        users_repo=SimpleNamespace(get_by_id=load_user),
+        chats_repo=SimpleNamespace(get_by_id=load_chat),
+        messages_repo=SimpleNamespace(
+            list_recent=AsyncMock(return_value=[]),
+            count_for_chat=AsyncMock(return_value=0),
+        ),
+        seed_usage_from_db=AsyncMock(),
+        wait_for_pending_finalize=AsyncMock(),
+        plan_service=SimpleNamespace(
+            resolve_user_model_override=lambda *_args, **_kwargs: "free-chat"
+        ),
+        _try_image_lookup_for_turn=AsyncMock(return_value=True),
+        _try_image_gen_for_turn=AsyncMock(return_value=False),
+    )
+
+    tokens = [
+        token
+        async for token in stream_chat_response(
+            seams,
+            AsyncMock(),
+            Settings(),
+            user_id=user_id,
+            chat_id=chat_id,
+            content="hi",
+        )
+    ]
+
+    assert tokens == []
+    assert user_started.is_set()
+    assert chat_started.is_set()
+    resources.refund.assert_awaited_once()
