@@ -17,104 +17,63 @@ from app.core.background_tasks import create_background_task as create_backgroun
 from app.core.config import Settings
 from app.core.db import SessionLocal as SessionLocal
 from app.core.ids import uuid7 as uuid7
-from app.core.redis_lock import (
-    acquire_lock as acquire_lock,
-)
-from app.core.redis_lock import (
-    refresh_lock as refresh_lock,
-)
-from app.core.redis_lock import (
-    release_lock as release_lock,
-)
+from app.core.redis_lock import acquire_lock as acquire_lock
+from app.core.redis_lock import refresh_lock as refresh_lock
+from app.core.redis_lock import release_lock as release_lock
 from app.gateways import litellm_gateway as litellm_gateway
 from app.models.orm import User
 from app.repositories import chats, messages, users
-from app.services import (
-    calendar,
-    plan,
-    quota,
-    todos,
-    web_search,
-)
+from app.services import calendar, plan, quota, todos, web_search
 from app.services import model_catalog as model_catalog
-from app.services.attachments import (  # noqa: F401 - stream_entry reaches this through the stream module
-    lifecycle as attachment_lifecycle,
+from app.services.attachments import (
+    lifecycle as attachment_lifecycle,  # noqa: F401 - stream_entry reaches this through the stream module
 )
 from app.services.chat import stream_entry as _entry
 from app.services.chat import stream_pipeline as _pipeline
 from app.services.chat import turn_resources as _resources
-from app.services.chat.finalize_registry import (
-    mark_pending_finalize as mark_pending_finalize,
-)
+from app.services.chat.finalize_registry import mark_pending_finalize as mark_pending_finalize
 from app.services.chat.finalize_registry import (
     register_pending_finalize as register_pending_finalize,
 )
 from app.services.chat.finalize_registry import (
     wait_for_pending_finalize as wait_for_pending_finalize,
 )
-from app.services.chat.post_turn import (
-    enqueue_post_turn_jobs as enqueue_post_turn_jobs,
-)
-from app.services.chat.post_turn import (
-    finalize_stream_turn_db as finalize_stream_turn_db,
-)
-from app.services.chat.post_turn import (
-    restore_regenerate_backup as restore_regenerate_backup,
-)
-from app.services.chat.post_turn import (
-    seed_usage_from_db as seed_usage_from_db,
-)
+from app.services.chat.post_turn import enqueue_post_turn_jobs as enqueue_post_turn_jobs
+from app.services.chat.post_turn import finalize_stream_turn_db as finalize_stream_turn_db
+from app.services.chat.post_turn import restore_regenerate_backup as restore_regenerate_backup
+from app.services.chat.post_turn import seed_usage_from_db as seed_usage_from_db
+from app.services.chat.preload import PreloadedChatTurnState
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.services.chat.quality import detect_quality_issues as detect_quality_issues
-from app.services.chat.turn_prep import (
-    StreamContext,
-)
-from app.services.chat.turn_prep import (
-    await_user_message_persist as await_user_message_persist,
-)
+from app.services.chat.turn_prep import StreamContext
+from app.services.chat.turn_prep import await_user_message_persist as await_user_message_persist
 from app.services.chat.turn_prep import (
     build_stream_prompt_context as build_stream_prompt_context,
 )
-from app.services.chat.turn_prep import (
-    count_image_attachments as count_image_attachments,
-)
-from app.services.chat.turn_prep import (
-    prepare_chat_turn as prepare_chat_turn,
-)
-from app.services.chat.turn_prep import (
-    stream_context_from_bundle as stream_context_from_bundle,
-)
-from app.services.chat.turn_prep import (
-    vision_reserve_tokens as vision_reserve_tokens,
-)
+from app.services.chat.turn_prep import count_image_attachments as count_image_attachments
+from app.services.chat.turn_prep import prepare_chat_turn as prepare_chat_turn
+from app.services.chat.turn_prep import stream_context_from_bundle as stream_context_from_bundle
+from app.services.chat.turn_prep import vision_reserve_tokens as vision_reserve_tokens
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens as estimate_tokens
 from app.services.images import generation as image_generation
 from app.services.images import search as image_search
-from app.services.images.gen_intent import (
-    could_be_image_revision as could_be_image_revision,
-)
+from app.services.images.gen_intent import could_be_image_revision as could_be_image_revision
 from app.services.images.gen_intent import (
     could_be_image_thread_followup as could_be_image_thread_followup,
 )
-from app.services.images.gen_intent import (
-    extract_image_gen_prompt as extract_image_gen_prompt,
-)
+from app.services.images.gen_intent import extract_image_gen_prompt as extract_image_gen_prompt
 from app.services.images.gen_intent import (
     extract_image_gen_prompt_from_thread as extract_image_gen_prompt_from_thread,
 )
 from app.services.images.gen_intent import (
     extract_image_revision_prompt as extract_image_revision_prompt,
 )
-from app.services.images.gen_intent import (
-    image_gen_revision_context as image_gen_revision_context,
-)
+from app.services.images.gen_intent import image_gen_revision_context as image_gen_revision_context
 from app.services.images.gen_intent import (
     prior_user_contents_for_image_gen as prior_user_contents_for_image_gen,
 )
-from app.services.images.lookup_intent import (
-    extract_image_lookup_query as extract_image_lookup_query,
-)
+from app.services.images.lookup_intent import extract_image_lookup_query as extract_image_lookup_query
 from app.services.math import fence as math_fence
 
 chats_repo = chats
@@ -319,6 +278,7 @@ async def stream_chat_response(
     user: User | None = None,
     skip_usage_seed: bool = False,
     resources: TurnResources | None = None,
+    preloaded_state: PreloadedChatTurnState | None = None,
 ) -> AsyncIterator[str]:
     async for token in _entry.stream_chat_response(
         _seams(),
@@ -340,6 +300,7 @@ async def stream_chat_response(
         user=user,
         skip_usage_seed=skip_usage_seed,
         resources=resources,
+        preloaded_state=preloaded_state,
     ):
         yield token
 
