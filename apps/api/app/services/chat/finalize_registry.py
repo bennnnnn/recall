@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 _FINALIZE_WAIT_TIMEOUT_SECONDS = 10.0
 _FINALIZE_MARKER_TTL_SECONDS = 120
 _FINALIZE_POLL_INTERVAL_SECONDS = 0.05
-_CHAT_GENERATION_TTL_SECONDS = 60 * 60 * 24 * 7
 
 _pending: dict[UUID, asyncio.Task[None]] = {}
 _inflight: dict[UUID, asyncio.Task[None]] = {}
@@ -42,10 +41,6 @@ _inflight: dict[UUID, asyncio.Task[None]] = {}
 
 def _marker_key(chat_id: UUID) -> str:
     return f"chatfinal:{chat_id}"
-
-
-def _generation_key(chat_id: UUID) -> str:
-    return f"chatgen:{chat_id}"
 
 
 def _track(store: dict[UUID, asyncio.Task[None]], chat_id: UUID, task: asyncio.Task[None]) -> None:
@@ -78,21 +73,6 @@ def register_inflight_stream(chat_id: UUID, task: asyncio.Task[None]) -> None:
     _track(_inflight, chat_id, task)
 
 
-async def get_chat_generation(redis: Redis, chat_id: UUID) -> int | None:
-    """Return the cheap Redis generation for chat history, or None on Redis failure.
-
-    Missing keys are generation 0. Preloaded turn state is only consumed when
-    this generation is readable and unchanged, so an unavailable Redis never
-    risks serving a stale history snapshot.
-    """
-    try:
-        raw = await redis.get(_generation_key(chat_id))
-        return int(raw or 0)
-    except Exception:
-        logger.debug("Failed to read chat generation chat_id=%s", chat_id, exc_info=True)
-        return None
-
-
 async def mark_pending_finalize(redis: Redis, chat_id: UUID) -> None:
     """Publish a cross-process "finalize in flight" marker for ``chat_id``."""
     try:
@@ -102,18 +82,9 @@ async def mark_pending_finalize(redis: Redis, chat_id: UUID) -> None:
 
 
 async def clear_pending_finalize(redis: Redis, chat_id: UUID) -> None:
-    """Clear the finalize marker and invalidate any preloaded history snapshot.
-
-    Generation bump + marker clear are one Redis transaction. A failed finalize
-    also bumps the generation: invalidating a speculative snapshot is safer
-    than reusing state that may have observed a partial/failed turn.
-    """
+    """Clear the cross-process finalize marker after commit attempt finishes."""
     try:
-        pipe = redis.pipeline(transaction=True)
-        pipe.incr(_generation_key(chat_id))
-        pipe.expire(_generation_key(chat_id), _CHAT_GENERATION_TTL_SECONDS)
-        pipe.delete(_marker_key(chat_id))
-        await pipe.execute()
+        await redis.delete(_marker_key(chat_id))
     except Exception:
         logger.debug("Failed to clear pending finalize chat_id=%s", chat_id, exc_info=True)
 

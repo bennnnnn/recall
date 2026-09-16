@@ -64,7 +64,6 @@ from app.services.chat.post_turn import (
 from app.services.chat.post_turn import (
     seed_usage_from_db as seed_usage_from_db,
 )
-from app.services.chat.preload import PreloadedChatTurnState
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.services.chat.quality import detect_quality_issues as detect_quality_issues
 from app.services.chat.turn_prep import (
@@ -320,7 +319,6 @@ async def stream_chat_response(
     user: User | None = None,
     skip_usage_seed: bool = False,
     resources: TurnResources | None = None,
-    preloaded_state: PreloadedChatTurnState | None = None,
 ) -> AsyncIterator[str]:
     async for token in _entry.stream_chat_response(
         _seams(),
@@ -342,7 +340,6 @@ async def stream_chat_response(
         user=user,
         skip_usage_seed=skip_usage_seed,
         resources=resources,
-        preloaded_state=preloaded_state,
     ):
         yield token
 

@@ -13,8 +13,6 @@ from app.services.attachments.content import (
     image_attachment_ids_from_text,
     strip_attachment_from_content,
 )
-from app.services.chat.finalize_registry import get_chat_generation
-from app.services.chat.preload import PreloadedChatTurnState
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
@@ -198,7 +196,6 @@ async def stream_chat_response(
     chat: Chat | None = None,
     skip_usage_seed: bool = False,
     resources: Any | None = None,
-    preloaded_state: PreloadedChatTurnState | None = None,
 ) -> AsyncIterator[str]:
     content = content.strip()
     if not content and not attachment_ids:
@@ -213,27 +210,11 @@ async def stream_chat_response(
         chat_id=chat_id,
         borrowed=resources,
     ) as res:
-        usable_preload: PreloadedChatTurnState | None = None
-        if preloaded_state is not None:
-            # The chatprep lock is held while validating the one-turn snapshot,
-            # so another sender cannot mutate this chat between validation and
-            # prompt construction. A cross-process generation catches a turn
-            # that committed after the eager preload was built.
-            await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
-            current_generation = await get_chat_generation(redis, chat_id)
-            if current_generation is not None and current_generation == preloaded_state.generation:
-                usable_preload = preloaded_state
-                timing.mark_phase("preload_hit")
-            else:
-                timing.mark_phase("preload_miss")
 
         async def _load_user() -> User:
             if user is not None:
                 timing.mark_phase("user_ready")
                 return user
-            if usable_preload is not None:
-                timing.mark_phase("user_ready")
-                return usable_preload.user
             async with seams.SessionLocal() as session:
                 loaded = await seams.users_repo.get_by_id(session, user_id)
             if loaded is None:
@@ -245,9 +226,6 @@ async def stream_chat_response(
             if chat is not None:
                 timing.mark_phase("chat_ready")
                 return chat
-            if usable_preload is not None:
-                timing.mark_phase("chat_ready")
-                return usable_preload.chat
             async with seams.SessionLocal() as session:
                 loaded = await seams.chats_repo.get_by_id(session, chat_id, user_id)
             if loaded is None:
@@ -286,11 +264,6 @@ async def stream_chat_response(
             return loaded_user, limit, loaded_chat
 
         async def _load_history_after_finalize() -> tuple[list[Any], int]:
-            if usable_preload is not None:
-                timing.mark_phase("previous_finalize_ready")
-                timing.mark_phase("history_ready")
-                return usable_preload.recent_messages, usable_preload.prior_count
-
             # History must observe the previous assistant commit, but it does
             # not depend on the current turn's user/chat lookup. Run both lanes
             # concurrently so a remote DB round trip is paid once in wall time,
