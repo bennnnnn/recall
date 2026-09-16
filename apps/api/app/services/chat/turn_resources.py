@@ -252,8 +252,10 @@ async def reserve_turn_quota(
     and the *next* turn is blocked. Returning 0 tells the rest of the pipeline
     there is no pre-reserved amount to top up or refund.
 
-    ``seed`` is kept for compatibility with regenerate/legacy callers. The
-    normal chat path already seeds only when today's Redis counter is missing.
+    Account-wide chat rate limiting remains the abuse backstop for many
+    concurrent chats. ``seed`` is kept for compatibility with regenerate and
+    legacy callers; the normal chat path only seeds when today's Redis counter
+    is missing, so ordinary sends stay on the cheap Redis path.
     """
     _ = (content, model, max_output, vision_extra)
     if seed:
