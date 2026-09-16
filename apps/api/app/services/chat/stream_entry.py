@@ -221,10 +221,7 @@ async def stream_chat_response(
             # that committed after the eager preload was built.
             await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
             current_generation = await get_chat_generation(redis, chat_id)
-            if (
-                current_generation is not None
-                and current_generation == preloaded_state.generation
-            ):
+            if current_generation is not None and current_generation == preloaded_state.generation:
                 usable_preload = preloaded_state
                 timing.mark_phase("preload_hit")
             else:
