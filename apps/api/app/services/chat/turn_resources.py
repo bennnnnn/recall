@@ -199,6 +199,14 @@ async def top_up_reserve_for_prompt(
     ctx: StreamContext,
     daily_limit: int,
 ) -> None:
+    # Soft-quota turns intentionally reserve 0 before generation and charge
+    # actual usage after the response finishes. Do not reintroduce a strict
+    # preauthorization here after the full prompt is assembled. A non-zero
+    # reservation is a legacy/borrowed path and keeps the old top-up behavior.
+    if res.reserved_tokens <= 0:
+        ctx.reserved_tokens = 0
+        return
+
     messages = ctx.prompt_messages
     if not isinstance(messages, list):
         return
@@ -236,20 +244,24 @@ async def reserve_turn_quota(
     vision_extra: int = 0,
     seed: bool = True,
 ) -> int:
+    """Soft-enforce the daily chat quota before generation.
+
+    Chat quota is a product guardrail, not a financial preauthorization. A turn
+    that starts below the limit is allowed to finish even if its actual usage
+    carries the user slightly over; finalize records the actual weighted usage
+    and the *next* turn is blocked. Returning 0 tells the rest of the pipeline
+    there is no pre-reserved amount to top up or refund.
+
+    ``seed`` is kept for compatibility with regenerate/legacy callers. The
+    normal chat path already seeds only when today's Redis counter is missing.
+    """
+    _ = (content, model, max_output, vision_extra)
     if seed:
         async with seams.SessionLocal() as session:
             await seams.seed_usage_from_db(redis, session, user.id)
     if daily_limit is None:
         daily_limit = seams.quota_service.daily_limit_for_user(user, settings)
-    reserved = seams.weighted_reserve_tokens(
-        content=content,
-        model=model,
-        settings=settings,
-        max_output=max_output,
-        vision_extra=vision_extra,
-    )
-    if not await seams.quota_service.reserve_usage(
-        redis, str(user.id), reserved, daily_limit=daily_limit
-    ):
+    used = await seams.quota_service.get_daily_usage(redis, str(user.id))
+    if used >= daily_limit:
         raise QuotaExceededError(quota_exceeded_message(user))
-    return reserved
+    return 0
