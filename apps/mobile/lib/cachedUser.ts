@@ -34,22 +34,44 @@ const CACHED_USER_PATH = `${cacheDirectory ?? ""}cached-user.json`;
  */
 export type CachedUser = Pick<User, "id" | "name" | "avatar_url" | "plan">;
 
-/** Decode only to select cached display fields, never to authenticate or grant
- * access. A cache from a previous account can survive a failed file deletion. */
-export function cachedUserMatchesToken(cached: CachedUser, token: string): boolean {
+function decodeJwtClaims(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split(".");
-    if (parts.length !== 3 || parts.some((part) => !part)) return false;
+    if (parts.length !== 3 || parts.some((part) => !part)) return null;
     const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, "=");
     const claims: unknown = JSON.parse(atob(padded));
-    return typeof claims === "object" && claims !== null &&
-      "sub" in claims && typeof claims.sub === "string" && claims.sub === cached.id;
+    return typeof claims === "object" && claims !== null
+      ? claims as Record<string, unknown>
+      : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
+/** Decode only to select cached display fields, never to authenticate or grant
+ * access. A cache from a previous account can survive a failed file deletion. */
+export function cachedUserMatchesToken(cached: CachedUser, token: string): boolean {
+  const claims = decodeJwtClaims(token);
+  return claims !== null && typeof claims.sub === "string" && claims.sub === cached.id;
+}
+
+/**
+ * Client-side expiry is only a latency hint: the server still authenticates
+ * every request. Refresh slightly before expiry so cold-start providers do not
+ * all send one doomed request and then replay after the shared 401 refresh.
+ * Opaque/unreadable tokens keep the old behavior instead of being rejected.
+ */
+export function accessTokenNeedsRefresh(
+  token: string,
+  nowMs: number = Date.now(),
+  skewSeconds = 30,
+): boolean {
+  const claims = decodeJwtClaims(token);
+  const exp = claims?.exp;
+  if (typeof exp !== "number" || !Number.isFinite(exp)) return false;
+  return exp * 1000 <= nowMs + Math.max(0, skewSeconds) * 1000;
+}
 
 /** Default values for the fields NOT in ``CachedUser`` — used to construct a
  * full ``User`` from a cached subset so the in-memory state stays typed as
