@@ -12,9 +12,11 @@ import { useTheme } from "@/lib/theme";
 export function AutomationCard({
   automation,
   onOpen,
+  onLongPress,
 }: {
   automation: Automation;
   onOpen: (id: string) => void;
+  onLongPress: (automation: Automation) => void;
 }) {
   const { t } = useTranslation();
   const C = useTheme();
@@ -30,6 +32,10 @@ export function AutomationCard({
       onPress={() => {
         tap();
         onOpen(automation.id);
+      }}
+      onLongPress={() => {
+        tap();
+        onLongPress(automation);
       }}
       accessibilityRole="button"
       accessibilityLabel={automation.prompt}

@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -12,10 +12,12 @@ import { IconButton } from "@/components/IconButton";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAutomationDetail } from "@/hooks/useAutomationDetail";
-import { describeLastRun, formatScheduleAt } from "@/lib/automations/schedule";
+import { describeLastRun, formatScheduleAt, shareAutomation } from "@/lib/automations/schedule";
 import { IconSize } from "@/lib/icons";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useTheme } from "@/lib/theme";
 
 export default function AutomationDetailScreen() {
@@ -27,6 +29,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { token } = useAuth();
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const C = useTheme();
   const s = useMemo(() => makeAutomationsStyles(C), [C]);
   const navigation = useNavigation();
@@ -35,6 +38,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
     useAutomationDetail(id ?? "", isCurrent);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const sharing = useRef(false);
 
   const openMenu = useCallback(() => {
     if (isCurrent()) setMenuOpen(true);
@@ -127,6 +131,20 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
         onEdit={() => {
           setMenuOpen(false);
           setEditOpen(true);
+        }}
+        onShare={() => {
+          // Keep the sheet mounted until Share.share resolves — closing it
+          // first can make iOS drop the OS activity controller.
+          if (sharing.current || !automation) return;
+          sharing.current = true;
+          void shareAutomation(automation, t)
+            .catch(() => {
+              if (isCurrent()) reportRecoverableError(feedback, t("automations.share_failed"));
+            })
+            .finally(() => {
+              sharing.current = false;
+              if (isCurrent()) setMenuOpen(false);
+            });
         }}
         onTogglePause={() => {
           setMenuOpen(false);

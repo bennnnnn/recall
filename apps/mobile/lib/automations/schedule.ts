@@ -1,6 +1,8 @@
 import type { TFunction } from "i18next";
 
+import { automationFrequencyMessageKey } from "@/lib/automations/frequency";
 import type { Automation } from "@/lib/api/types";
+import { presentShareSheet } from "@/lib/share";
 
 /** Neutral (non-"overdue") date/time label for an automation's next run —
  * `describeDueAt` in lib/todos/dueDate.ts is reminder-specific ("Overdue by
@@ -36,4 +38,15 @@ export function describeLastRun(automation: Automation, t: TFunction): string {
     return t("automations.last_run_skipped_quota", { date });
   }
   return t("automations.last_run_error", { date });
+}
+
+/** Share the automation's prompt + schedule as plain text via the OS share
+ * sheet (Messages, Mail, Files, …) — mirrors `shareConversation`. */
+export async function shareAutomation(automation: Automation, t: TFunction): Promise<void> {
+  const frequencyLabel = t(automationFrequencyMessageKey(automation.frequency));
+  const schedule = `${frequencyLabel} · ${formatScheduleAt(automation.next_run_at)}`;
+  await presentShareSheet({
+    message: `${automation.prompt}\n\n${schedule}`,
+    title: automation.prompt,
+  });
 }

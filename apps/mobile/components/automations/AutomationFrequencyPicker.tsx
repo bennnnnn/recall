@@ -4,17 +4,14 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { AUTOMATION_FREQUENCIES, type AutomationFrequency } from "@/lib/api/types";
+import { automationFrequencyMessageKey } from "@/lib/automations/frequency";
 import { selection } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-export function automationFrequencyMessageKey(
-  frequency: AutomationFrequency,
-): `automations.frequency_${AutomationFrequency}` {
-  return `automations.frequency_${frequency}`;
-}
+export { automationFrequencyMessageKey } from "@/lib/automations/frequency";
 
 /** Pick-one list for automation frequency. Must live in the parent sheet — a
  * nested AppSheet never presents on iOS (mirrors RepeatPickerSheet). */

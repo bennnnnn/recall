@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type Automation, type AutomationFrequency } from "@/lib/api";
+import { api, type Automation, type AutomationFrequency, type AutomationStatus } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
@@ -70,5 +70,43 @@ export function useAutomationsList(isCurrent: () => boolean) {
     [token, creating, isCurrent, feedback, t],
   );
 
-  return { automations, loading, error, creating, refresh, create };
+  /** Edit / pause-resume from the list's long-press menu, so quick actions
+   * don't require navigating into the detail screen first. */
+  const update = useCallback(
+    async (
+      id: string,
+      patch: Partial<{
+        prompt: string;
+        frequency: AutomationFrequency;
+        next_run_at: string;
+        status: Extract<AutomationStatus, "active" | "paused">;
+      }>,
+    ) => {
+      if (!token) return;
+      try {
+        const updated = await api.updateAutomation(token, id, patch);
+        if (!isCurrent()) return;
+        setAutomations((rows) => rows.map((row) => (row.id === id ? updated : row)));
+      } catch {
+        if (isCurrent()) reportRecoverableError(feedback, t("automations.update_failed"));
+      }
+    },
+    [token, isCurrent, feedback, t],
+  );
+
+  const remove = useCallback(
+    async (id: string) => {
+      if (!token) return;
+      try {
+        await api.deleteAutomation(token, id);
+        if (!isCurrent()) return;
+        setAutomations((rows) => rows.filter((row) => row.id !== id));
+      } catch {
+        if (isCurrent()) reportRecoverableError(feedback, t("automations.delete_failed"));
+      }
+    },
+    [token, isCurrent, feedback, t],
+  );
+
+  return { automations, loading, error, creating, refresh, create, update, remove };
 }

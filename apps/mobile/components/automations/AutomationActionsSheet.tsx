@@ -22,6 +22,7 @@ export function AutomationActionsSheet({
   status,
   onClose,
   onEdit,
+  onShare,
   onTogglePause,
   onDelete,
 }: {
@@ -29,6 +30,7 @@ export function AutomationActionsSheet({
   status: AutomationStatus;
   onClose: () => void;
   onEdit: () => void;
+  onShare: () => void;
   onTogglePause: () => void;
   onDelete: () => void;
 }) {
@@ -39,6 +41,7 @@ export function AutomationActionsSheet({
   const actions = useMemo<Action[]>(() => {
     const rows: Action[] = [
       { key: "edit", icon: "create-outline", label: t("automations.edit"), onPress: onEdit },
+      { key: "share", icon: "share-outline", label: t("automations.share"), onPress: onShare },
     ];
     if (status !== "completed") {
       rows.push({
@@ -56,7 +59,7 @@ export function AutomationActionsSheet({
       danger: true,
     });
     return rows;
-  }, [status, onEdit, onTogglePause, onDelete, t]);
+  }, [status, onEdit, onShare, onTogglePause, onDelete, t]);
 
   return (
     <AppSheet
