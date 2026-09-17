@@ -25,7 +25,7 @@ import { Type } from "@/lib/type";
 type Props = {
   visible: boolean;
   onClose: () => void;
-  source?: "quota" | "model_gate" | "settings" | "other";
+  source?: "quota" | "model_gate" | "settings" | "automations" | "other";
 };
 
 export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {

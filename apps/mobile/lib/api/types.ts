@@ -89,6 +89,33 @@ export type Memory = {
 export const RECURRENCE_RULES = ["daily", "weekdays", "weekly", "monthly"] as const;
 export type RecurrenceRule = (typeof RECURRENCE_RULES)[number];
 
+export const AUTOMATION_FREQUENCIES = [
+  "once",
+  "daily",
+  "weekdays",
+  "weekly",
+  "monthly",
+] as const;
+export type AutomationFrequency = (typeof AUTOMATION_FREQUENCIES)[number];
+export type AutomationStatus = "active" | "paused" | "completed";
+export type AutomationRunStatus = "ok" | "skipped_quota" | "error";
+
+/** Pro-only recurring prompt, run unattended (read-only tools) through the chat
+ * turn engine. `chat_id` is a dedicated, drawer-hidden chat whose messages are
+ * this automation's run history — see `services/automations/` on the API. */
+export type Automation = {
+  id: string;
+  chat_id: string;
+  prompt: string;
+  frequency: AutomationFrequency;
+  next_run_at: string;
+  status: AutomationStatus;
+  last_run_at: string | null;
+  last_run_status: AutomationRunStatus | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Todo = {
   id: string;
   content: string;

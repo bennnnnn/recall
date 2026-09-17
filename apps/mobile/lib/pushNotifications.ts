@@ -162,6 +162,7 @@ type PushData = {
   todo_id?: string;
   project_id?: string;
   topic?: string;
+  automation_id?: string;
 };
 
 async function openLearningProject(
@@ -183,6 +184,12 @@ export async function handlePushNotificationResponse(
 
   if (data.type === "calendar_nudge") {
     router.push({ pathname: "/todos", params: { focus: "reminders" } });
+    return;
+  }
+
+  if (data.type === "automation_run" || data.screen === "automations") {
+    if (data.automation_id) router.push(`/automations/${data.automation_id}`);
+    else router.push("/automations");
     return;
   }
 
