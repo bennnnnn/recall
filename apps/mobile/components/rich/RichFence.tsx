@@ -120,6 +120,7 @@ export function renderRichFenceById(
     case "copy":
     case "sources":
     case "learning_launch":
+    case "automation_created":
       return null;
     default: {
       const _exhaustive: never = id;

@@ -15,10 +15,12 @@ from app.models.orm import Chat, User
 from app.models.schemas.math import MathImageExtract
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
+from app.services import automations as automations_service
 from app.services import calendar as calendar_service
 from app.services import learning as learning_service
 from app.services import locale as locale_service
 from app.services import memory as memory_service
+from app.services import plan as plan_service
 from app.services import profile as profile_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
@@ -942,6 +944,11 @@ async def build_prompt_messages(
         )
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
     system_parts.append(TONE_FORMAT_GUARD)
+    # Unconditional (not gated by slim_context/rich_context) so a mid slot-filling
+    # reply like "Monday and learn spanish" — which carries no automation keyword
+    # of its own — still sees the fence protocol on the follow-up turn.
+    if settings.automations_enabled and plan_service.is_pro(user):
+        system_parts.append(automations_service.AUTOMATIONS_HINT)
     custom_block = _custom_instructions_block(user)
     if custom_block:
         system_parts.append(custom_block)

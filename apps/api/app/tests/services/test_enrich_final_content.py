@@ -46,11 +46,17 @@ def _seams() -> MagicMock:
     async def _passthrough_reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
         return str(kwargs["assistant_text"]), 0
 
+    async def _passthrough_automations(_session: object, **kwargs: Any) -> tuple[str, int]:
+        return str(kwargs["assistant_text"]), 0
+
     seams.calendar_service.materialize_calendar_proposals = AsyncMock(
         side_effect=_passthrough_calendar
     )
     seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
     seams.todos_service.transcript_implies_todo_sync = MagicMock(return_value=False)
+    seams.automations_service.materialize_automation_fences = AsyncMock(
+        side_effect=_passthrough_automations
+    )
     seams.math_fence_service.validate_math_fences_worker = _passthrough_math
     seams.math_fence_service.replace_unclosed_graph_fence_safe = lambda content, _canonical: content
     seams.web_search_service = web_search_service
@@ -71,6 +77,7 @@ def _ctx(
     ctx.skip_memory_jobs = False
     ctx.instant_reply = None
     ctx.user_message_content = "what's the news"
+    ctx.is_automation = False
     return ctx
 
 
@@ -329,3 +336,60 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
         should_cancel=None,
     )
     assert persisted == ctx.instant_reply
+
+
+@pytest.mark.asyncio
+async def test_automation_fence_is_materialized_on_a_normal_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    seams = _seams()
+    seams.automations_service.materialize_automation_fences = AsyncMock(
+        return_value=("Done — every day at 8am.", 1)
+    )
+    ctx = _ctx()
+    ctx.is_automation = False
+    persisted = await enrich_final_content(
+        seams,
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text="```automation\n{}\n```",
+        usage={"input": 1, "output": 2},
+        result={},
+        was_cancelled=False,
+        assistant_parts=["```automation\n{}\n```"],
+        should_cancel=None,
+    )
+    assert persisted == "Done — every day at 8am."
+    seams.automations_service.materialize_automation_fences.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_automation_fence_is_skipped_during_an_unattended_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A scheduled automation run must never create another automation —
+    read-only tools only (services/automations/run.py)."""
+    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    seams = _seams()
+    seams.automations_service.materialize_automation_fences = AsyncMock(
+        return_value=("should not be used", 1)
+    )
+    ctx = _ctx()
+    ctx.is_automation = True
+    raw = "```automation\n{}\n```"
+    persisted = await enrich_final_content(
+        seams,
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=raw,
+        usage={"input": 1, "output": 2},
+        result={},
+        was_cancelled=False,
+        assistant_parts=[raw],
+        should_cancel=None,
+    )
+    assert persisted == raw
+    seams.automations_service.materialize_automation_fences.assert_not_awaited()

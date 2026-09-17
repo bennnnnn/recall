@@ -4,13 +4,11 @@ import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { AddFab } from "@/components/AddFab";
 import { AddAutomationSheet } from "@/components/automations/AddAutomationSheet";
 import { AutomationActionsSheet } from "@/components/automations/AutomationActionsSheet";
 import { AutomationCard } from "@/components/automations/AutomationCard";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
-import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAutomationsList } from "@/hooks/useAutomationsList";
@@ -26,37 +24,27 @@ export default function AutomationsScreen() {
   return <AutomationsContent key={owner.key} isCurrent={owner.isCurrent} />;
 }
 
+// Creation is chat-only (the model emits a ```automation fence — see
+// services/automations/fences.py); there is no "+" here. This screen is
+// list + long-press actions (edit/share/pause/delete) only.
 function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const router = useRouter();
-  const { automations, loading, error, creating, refresh, create, update, remove } =
-    useAutomationsList(isCurrent);
+  const { automations, loading, error, refresh, update, remove } = useAutomationsList(isCurrent);
   const [pullRefreshing, setPullRefreshing] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [actionsTarget, setActionsTarget] = useState<Automation | null>(null);
   const [editTarget, setEditTarget] = useState<Automation | null>(null);
   const sharing = useRef(false);
-  const isPro = user?.plan === "pro";
 
   useFocusEffect(
     useCallback(() => {
       void refresh({ silent: true });
     }, [refresh]),
   );
-
-  const openCreate = useCallback(() => {
-    if (!isCurrent()) return;
-    if (!isPro) {
-      setUpgradeOpen(true);
-      return;
-    }
-    setSheetOpen(true);
-  }, [isCurrent, isPro]);
 
   const openAutomation = useCallback(
     (id: string) => {
@@ -115,6 +103,7 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
                   variant="empty"
                   icon="flash-outline"
                   title={t("automations.empty_title")}
+                  message={t("automations.empty_message")}
                 />
               ) : null}
               {error ? (
@@ -134,32 +123,6 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
           )}
         />
       )}
-
-      <AddFab onPress={openCreate} accessibilityLabel={t("automations.add_a11y")} />
-
-      <AddAutomationSheet
-        visible={sheetOpen}
-        saving={creating}
-        initial={null}
-        onClose={() => {
-          if (isCurrent()) setSheetOpen(false);
-        }}
-        onSave={(prompt, frequency, nextRunAt) =>
-          void create({ prompt, frequency, nextRunAt: nextRunAt.toISOString() }, (created) => {
-            if (!isCurrent()) return;
-            setSheetOpen(false);
-            router.push(`/automations/${created.id}`);
-          })
-        }
-      />
-
-      <UpgradeSheet
-        visible={upgradeOpen}
-        onClose={() => {
-          if (isCurrent()) setUpgradeOpen(false);
-        }}
-        source="automations"
-      />
 
       <AutomationActionsSheet
         visible={!!actionsTarget}

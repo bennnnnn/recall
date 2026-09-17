@@ -269,6 +269,18 @@ async def enrich_final_content(
                     user_timezone=getattr(user, "timezone", None),
                     user_text=ctx.user_message_content,
                 )
+                # An automation's own unattended run must never create another
+                # automation — read-only tools only (services/automations/run.py).
+                if not ctx.is_automation:
+                    (
+                        assistant_text,
+                        _automation_created,
+                    ) = await seams.automations_service.materialize_automation_fences(
+                        session,
+                        user=user,
+                        settings=settings,
+                        assistant_text=assistant_text,
+                    )
 
         from app.services.math.sympy_executor import run_sympy
 

@@ -839,14 +839,27 @@ device).
 - ✅ **Long-press quick actions** — long-pressing a card in the list (or the kebab on the detail
   screen) opens an action sheet: Edit, Share (native OS share sheet, prompt + schedule as text),
   Pause/Resume, Delete.
-- ✅ **Pro-only** — same gating posture as Live Talk / image generation; free users see the
-  Upgrade sheet on create. A per-user active-automation cap and a daily run cap bound runaway
-  schedules (`automations_max_active_per_user`, `automations_daily_run_cap`).
+- ✅ **Chat-based creation, no "+" button** — matching ChatGPT's Tasks tab, the **My Job** list
+  has no create FAB. A Pro user asks in normal chat ("create a task to check for L3 jobs every
+  morning at 8am"); the model (system-prompted via `AUTOMATIONS_HINT` —
+  [`services/automations/prompt_hint.py`](apps/api/app/services/automations/prompt_hint.py))
+  asks briefly for whatever is missing, then emits one ` ```automation ` JSON fence
+  (`prompt`/`frequency`/`next_run_at`). The server materializes it into a real automation and
+  replaces the fence with a ` ```automation_created ` confirmation
+  (`services/automations/fences.py`); mobile renders that as a tappable pill
+  (`AutomationCreatedChip`) showing the frequency + prompt that opens the detail screen on tap.
+  Invalid JSON or a rejected create (Pro gate, active-cap) becomes a plain italic line instead
+  of raw JSON. An automation's own unattended run never triggers this (`ctx.is_automation`
+  skips it) — no runaway automation-creates-automation loop. Edit/pause/delete stay in the
+  My Job tab, not chat — the hint tells the model to point users there.
+- ✅ **Pro-only** — same gating posture as Live Talk / image generation. Free users get no
+  `AUTOMATIONS_HINT` at all, so asking in chat is a normal (non-automation) reply rather than a
+  broken fence. A per-user active-automation cap and a daily run cap bound runaway schedules
+  (`automations_max_active_per_user`, `automations_daily_run_cap`).
 - ✅ **Push on completion** — one push per finished run (`type: "automation_run"`), deep-linking
-  to that automation's live chat.
-- ❌ **Custom cron / write-capable tools / free tier / chat-based creation** — out of scope for
-  v1. Same 4 fixed recurrence rules as Schedule, plus "once". Creating an automation from a
-  normal chat conversation (LLM tool + slot-filling) is planned but not yet built.
+  to that automation's detail screen.
+- ❌ **Custom cron / write-capable tools / free tier** — out of scope for v1. Same 4 fixed
+  recurrence rules as Schedule, plus "once".
 
 ---
 

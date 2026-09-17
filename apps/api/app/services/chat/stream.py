@@ -30,6 +30,7 @@ from app.gateways import litellm_gateway as litellm_gateway
 from app.models.orm import User
 from app.repositories import chats, messages, users
 from app.services import (
+    automations,
     calendar,
     plan,
     quota,
@@ -120,6 +121,7 @@ from app.services.math import fence as math_fence
 chats_repo = chats
 messages_repo = messages
 users_repo = users
+automations_service = automations
 calendar_service = calendar
 image_generation_service = image_generation
 image_search_service = image_search

@@ -84,14 +84,15 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 5.4 | Learning project — vocab quiz flow | ☐ | ☐ | |
 | 5.5 | Trivia project quiz | ☐ | ☐ | |
 | 5.6 | Home suggestions load | ☐ | ☐ | |
-| 5.7 | My Job (automations) — free user create attempt shows Upgrade sheet | ☐ | ☐ | No network call; client-side gate |
-| 5.8 | My Job — Pro create (prompt + frequency + time), appears in list | ☐ | ☐ | |
-| 5.9 | My Job — active cap (`automations_max_active_per_user`) shows inline error, not a crash | ☐ | ☐ | Create N+1 |
+| 5.7 | My Job — free user asks in chat ("create a task to...") gets a normal reply, never a raw ` ```automation ` fence or a created chip | ☐ | ☐ | No `AUTOMATIONS_HINT` for free plan |
+| 5.8 | My Job — Pro user asks in chat, model asks for missing details, then a tappable confirmation chip appears (frequency + prompt); tapping it opens the detail screen and the automation is in the My Job list | ☐ | ☐ | List has no "+" — creation is chat-only |
+| 5.9 | My Job — active cap (`automations_max_active_per_user`) reached: chat reply shows a plain italic rejection line, not a raw fence or a chip | ☐ | ☐ | Create N+1 via chat |
 | 5.10 | My Job — tapping a card opens a plain detail screen (prompt, Repeat/Time/Last-run rows) — never a chat, even after a scheduled run (web search only, no calendar/email/image tool calls) | ☐ | ☐ | Needs worker running; verify via `last_run_status` |
 | 5.11 | My Job — long-press a card → action sheet (Edit, Share, Pause/Resume, Delete) | ☐ | ☐ | Paused automation stops appearing in scheduler `list_due` |
 | 5.11b | My Job — Share action opens native OS share sheet with prompt + schedule | ☐ | ☐ | |
-| 5.12 | My Job — edit prompt/frequency/time | ☐ | ☐ | |
+| 5.12 | My Job — edit prompt/frequency/time (Edit sheet from long-press, not chat) | ☐ | ☐ | |
 | 5.13 | My Job — delete removes automation + its chat (drawer never shows it) | ☐ | ☐ | |
+| 5.14 | My Job — an automation's own scheduled run never creates another automation, even if its reply resembles a create request | ☐ | ☐ | `ctx.is_automation` skips fence materialization |
 
 ---
 
