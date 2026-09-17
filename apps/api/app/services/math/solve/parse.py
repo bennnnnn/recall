@@ -468,7 +468,7 @@ def _reject_unsafe_expr(normalized: str) -> None:
     is valid Python syntax that walks the class hierarchy to reach e.g.
     subprocess.Popen and executes arbitrary shell commands — entirely inside
     SymPy's parse-time eval(), no further .doit()/evaluation needed. This is
-    reachable from a plain chat message (math_tools.py's keyword-triggered
+    reachable from a plain chat message (math/tools keyword-triggered
     intent extraction has no sanitization) and from the sympy MCP tool the
     model can call directly. SymPy's own docs are explicit that
     sympify/parse_expr must never see untrusted input un-validated.

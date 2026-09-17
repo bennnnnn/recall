@@ -263,10 +263,3 @@ async def search_and_attach_for_chat(
         logger.exception("record_global_spend failed after photo lookup")
 
     return user_message, assistant_message
-
-
-def image_search_marker_ids(content: str) -> list[UUID]:
-    """Parse ``[Image: /attachments/{uuid}/file]`` markers (reused for revisions/tests)."""
-    from app.services.attachments.content import image_attachment_ids_from_text
-
-    return image_attachment_ids_from_text(content)

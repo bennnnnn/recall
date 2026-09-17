@@ -81,7 +81,7 @@ class SympyAdapter:
         """Run synchronous, CPU-bound SymPy work in the bounded subprocess
         pool with a hard timeout + SIGTERM on timeout.
 
-        BUG FIX (was silent): math_tools.py's chat-path callers already wrap
+        BUG FIX (was silent): math/tools chat-path callers already wrap
         every SymPy call this way — its own docstring explains why (solve/
         integrate/etc. are synchronous and can stall every concurrent chat
         stream on this worker's single event loop on a pathological

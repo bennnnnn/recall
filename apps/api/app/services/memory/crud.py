@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import Memory
-from app.services.memory.facts import MUTED_STATUS
 
 logger = logging.getLogger(__name__)
 
@@ -294,33 +293,5 @@ async def disable_and_clear_memories(
             raise
         await _invalidate_caches(seams, user_id)
         return removed
-    finally:
-        await seams.release_memory_write_lock(user_id, lock_token)
-
-
-async def mute_memory(
-    seams: Any,
-    session: AsyncSession,
-    user_id: UUID,
-    memory_id: UUID,
-) -> Memory | None:
-    from app.repositories import memories as memories_repo
-
-    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
-    try:
-        updated: Memory | None = None
-        try:
-            updated = await memories_repo.update_status(
-                session, user_id, memory_id, MUTED_STATUS, commit=False
-            )
-            if updated is not None:
-                await session.commit()
-                await session.refresh(updated)
-        except Exception:
-            await session.rollback()
-            raise
-        if updated is not None:
-            await _invalidate_caches(seams, user_id)
-        return updated
     finally:
         await seams.release_memory_write_lock(user_id, lock_token)
