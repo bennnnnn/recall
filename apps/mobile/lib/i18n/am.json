@@ -52,7 +52,6 @@
   "automations.create_failed": "አውቶሜሽን መፍጠር አልተቻለም",
   "automations.update_failed": "አውቶሜሽን ማዘመን አልተቻለም",
   "automations.delete_failed": "አውቶሜሽን መሰረዝ አልተቻለም",
-  "automations.transcript_empty": "እስካሁን ምንም ሩጫ የለም። Recall ውጤቶቹን እዚህ ይለጥፋል።",
   "calendar.all_day": "ሙሉ ቀን",
   "calendar.day_with_count": "{{day}}፣ {{count}} ማስታወሻዎች",
   "calendar.day_with_items": "{{day}}፣ {{count}} ንጥሎች",

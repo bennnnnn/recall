@@ -52,7 +52,6 @@
   "automations.create_failed": "Couldn't create automation",
   "automations.update_failed": "Couldn't update automation",
   "automations.delete_failed": "Couldn't delete automation",
-  "automations.transcript_empty": "No runs yet. Recall will post results here.",
   "calendar.all_day": "All day",
   "calendar.day_with_count": "{{day}}, {{count}} reminders",
   "calendar.day_with_items": "{{day}}, {{count}} items",

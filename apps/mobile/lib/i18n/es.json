@@ -52,7 +52,6 @@
   "automations.create_failed": "No se pudo crear la automatización",
   "automations.update_failed": "No se pudo actualizar la automatización",
   "automations.delete_failed": "No se pudo eliminar la automatización",
-  "automations.transcript_empty": "Aún no hay ejecuciones. Recall publicará los resultados aquí.",
   "calendar.all_day": "Todo el día",
   "calendar.day_with_count": "{{day}}, {{count}} recordatorios",
   "calendar.day_with_items": "{{day}}, {{count}} elementos",

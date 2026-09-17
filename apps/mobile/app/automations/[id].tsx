@@ -1,11 +1,12 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AddAutomationSheet } from "@/components/automations/AddAutomationSheet";
 import { AutomationActionsSheet } from "@/components/automations/AutomationActionsSheet";
-import { AutomationTranscript } from "@/components/automations/AutomationTranscript";
+import { AutomationChatThread } from "@/components/automations/AutomationChatThread";
 import { automationFrequencyMessageKey } from "@/components/automations/AutomationFrequencyPicker";
 import { makeAutomationsStyles } from "@/components/automations/automationsStyles";
 import { IconButton } from "@/components/IconButton";
@@ -19,6 +20,12 @@ import { describeLastRun, formatScheduleAt, shareAutomation } from "@/lib/automa
 import { IconSize } from "@/lib/icons";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useTheme } from "@/lib/theme";
+
+/** Standard iOS/Android native stack header height — the Stack.Screen header
+ * lives outside this component's tree, so KeyboardAvoidingView needs it as
+ * an explicit offset (react-navigation's `useHeaderHeight` isn't installed
+ * as a direct dependency here). */
+const NATIVE_HEADER_HEIGHT = 44;
 
 export default function AutomationDetailScreen() {
   const owner = useAccountViewOwner();
@@ -34,7 +41,8 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
   const s = useMemo(() => makeAutomationsStyles(C), [C]);
   const navigation = useNavigation();
   const router = useRouter();
-  const { automation, messages, loading, error, saving, deleted, refresh, update, togglePause, remove } =
+  const insets = useSafeAreaInsets();
+  const { automation, loading, error, saving, deleted, refresh, update, togglePause, remove } =
     useAutomationDetail(id ?? "", isCurrent);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -98,7 +106,11 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
   }
 
   return (
-    <View style={s.root}>
+    <KeyboardAvoidingView
+      style={s.root}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={insets.top + NATIVE_HEADER_HEIGHT}
+    >
       <View style={s.detailHeader}>
         <Text style={s.detailPrompt}>{automation.prompt}</Text>
         <View style={s.detailMetaRow}>
@@ -120,7 +132,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
         <Text style={s.detailMetaText}>{describeLastRun(automation, t)}</Text>
       </View>
 
-      <AutomationTranscript chatId={automation.chat_id} messages={messages} />
+      <AutomationChatThread chatId={automation.chat_id} isCurrent={isCurrent} />
 
       <AutomationActionsSheet
         visible={menuOpen}
@@ -169,6 +181,6 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
           setEditOpen(false);
         }}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }

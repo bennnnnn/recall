@@ -52,7 +52,6 @@
   "automations.create_failed": "Otomasyon oluşturulamadı",
   "automations.update_failed": "Otomasyon güncellenemedi",
   "automations.delete_failed": "Otomasyon silinemedi",
-  "automations.transcript_empty": "Henüz çalışma yok. Recall sonuçları burada paylaşacak.",
   "calendar.all_day": "Tüm gün",
   "calendar.day_with_count": "{{day}}, {{count}} hatırlatma",
   "calendar.day_with_items": "{{day}}, {{count}} öğe",

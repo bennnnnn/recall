@@ -52,7 +52,6 @@
   "automations.create_failed": "Impossibile creare l'automazione",
   "automations.update_failed": "Impossibile aggiornare l'automazione",
   "automations.delete_failed": "Impossibile eliminare l'automazione",
-  "automations.transcript_empty": "Nessuna esecuzione ancora. Recall pubblicherà qui i risultati.",
   "calendar.all_day": "Tutto il giorno",
   "calendar.day_with_count": "{{day}}, {{count}} promemoria",
   "calendar.day_with_items": "{{day}}, {{count}} elementi",

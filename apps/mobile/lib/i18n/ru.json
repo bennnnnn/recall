@@ -52,7 +52,6 @@
   "automations.create_failed": "Не удалось создать автоматизацию",
   "automations.update_failed": "Не удалось обновить автоматизацию",
   "automations.delete_failed": "Не удалось удалить автоматизацию",
-  "automations.transcript_empty": "Пока нет запусков. Recall опубликует результаты здесь.",
   "calendar.all_day": "Весь день",
   "calendar.day_with_count": "{{day}}, {{count}} напоминаний",
   "calendar.day_with_items": "{{day}}, {{count}} элементов",

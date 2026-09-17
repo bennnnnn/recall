@@ -821,25 +821,30 @@ device).
 
 ## 18. Automations (Pro)
 
-- ✅ **Recurring unattended prompts** — a new drawer entry, separate from Schedule and Learning.
-  A user writes a prompt (e.g. "every morning at 8am, find L3 backend job postings"), picks a
-  frequency (once / daily / weekdays / weekly / monthly) and a time, and the worker runs it
-  unattended through the normal chat turn engine on schedule.
+- ✅ **Recurring unattended prompts** — drawer entry labeled **"My Job"** (engine/API stay
+  generic `automations`, separate from Schedule and Learning). A user writes a prompt (e.g.
+  "every morning at 8am, find L3 backend job postings"), picks a frequency (once / daily /
+  weekdays / weekly / monthly) and a time, and the worker runs it unattended through the normal
+  chat turn engine on schedule.
 - ✅ **Read-only tools only** — an automation run can call `web_search` and read the
   calendar/Gmail context already injected into every turn; it can never write a calendar event,
   send email, generate an image, or otherwise take an autonomous side effect. Enforced by an
   `is_automation` flag that filters the tool-loop's advertised tool schemas, not just context
   binding — see [`services/tool_loop.py`](apps/api/app/services/tool_loop.py).
-- ✅ **Own run history** — each automation owns a dedicated chat (hidden from the normal chat
-  drawer) whose messages are its run history; the detail screen is a read-only transcript, no
-  separate run-log UI.
+- ✅ **Own run history, live chat** — each automation owns a dedicated chat (hidden from the
+  normal chat drawer) whose messages are its run history. Tapping a card opens that chat as a
+  **live, replyable thread** (`AutomationChatThread` / `useAutomationChat`, same streaming
+  engine as the main chat screen via a minimal composer) — not a read-only transcript.
+- ✅ **Long-press quick actions** — long-pressing a card in the list opens an action sheet:
+  Edit, Share (native OS share sheet, prompt + schedule as text), Pause/Resume, Delete.
 - ✅ **Pro-only** — same gating posture as Live Talk / image generation; free users see the
   Upgrade sheet on create. A per-user active-automation cap and a daily run cap bound runaway
   schedules (`automations_max_active_per_user`, `automations_daily_run_cap`).
 - ✅ **Push on completion** — one push per finished run (`type: "automation_run"`), deep-linking
-  to that automation's detail screen.
-- ❌ **Custom cron / write-capable tools / free tier** — out of scope for v1. Same 4 fixed
-  recurrence rules as Schedule, plus "once".
+  to that automation's live chat.
+- ❌ **Custom cron / write-capable tools / free tier / chat-based creation** — out of scope for
+  v1. Same 4 fixed recurrence rules as Schedule, plus "once". Creating an automation from a
+  normal chat conversation (LLM tool + slot-filling) is planned but not yet built.
 
 ---
 

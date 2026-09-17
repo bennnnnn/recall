@@ -113,7 +113,5 @@ export function makeAutomationsStyles(C: Theme) {
       flexWrap: "wrap",
     },
     detailMetaText: { ...Type.secondary, color: C.textSecondary },
-    transcriptList: { flex: 1 },
-    transcriptContent: { padding: Space.md, paddingBottom: Space.xl, flexGrow: 1 },
   });
 }
