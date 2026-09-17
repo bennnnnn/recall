@@ -199,7 +199,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
   `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
   verified answers (`1+1=x`, factor a quadratic) return directly without an LLM
-  turn; “explain every step” still streams. Recall attaches geometry, graph, and
+  turn. Linear / pure-power / quadratic **lessons** are server-rendered from
+  verified `key_steps` when the style is Detailed, the user asks for steps, or
+  Balanced with two or more operations; other explanations still stream. Recall attaches geometry, graph, and
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).

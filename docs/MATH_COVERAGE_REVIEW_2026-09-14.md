@@ -1,5 +1,7 @@
 # Recall — Math Review: coverage, level awareness, and how it answers (Sep 2026)
 
+> **Historical (14 Sep 2026).** Coverage numbers and gaps below are a snapshot from that day. The live inventory is [docs/math.md](./math.md): `MathIntent.kind` is **52** (including **20 physics**). School templates (percent/ratio/sequences/interest/sets/work/mixture), function analysis, calculus applications, bivariate stats, extra matrix ops, SUVAT, and physics rounds 2–3 shipped after this review. Do not treat “Couldn't verify” here as the current stamp story — that note now requires the reply to contain math.
+
 Three questions, asked of the math pipeline as a whole: **is the maths covered,
 does the system know who it is talking to, and does it answer the way a
 knowledgeable person would?** Probed by driving the real pre-stream pipeline
