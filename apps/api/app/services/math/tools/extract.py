@@ -29,7 +29,11 @@ from app.services.math.tools.extractors.geometry_graph import (
 from app.services.math.tools.helpers import has_assignment_evaluation_request, math_expr_or_none
 from app.services.math.tools.school import SCHOOL_EXTRACTORS
 from app.services.physics.extract import PHYSICS_EXTRACTORS
-from app.services.physics.request import complete_physics_intent, prepare_physics_request
+from app.services.physics.request import (
+    PhysicsRequest,
+    complete_physics_intent,
+    prepare_physics_request,
+)
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | PhysicsIntent | None]] = (
     SOLID_EXTRACTOR,
@@ -121,6 +125,25 @@ _SOLVED_REGION_OPS = {
 }
 
 
+_LAGRANGE_REQUEST = re.compile(
+    r"(?P<name>[a-zA-Z])\(\s*(?P<var>[a-zA-Z])\s*\)\s*=\s*(?P<expr>.+),\s*"
+    r"(?:find|calculate|compute|determine)\s+(?P=name)'{1,3}\(\s*(?P=var)\s*\)[.?]?",
+    re.IGNORECASE,
+)
+
+
+def _closed_math_syntax(text: str) -> bool:
+    """A whole math request is not invalid merely under physics's number grammar."""
+    from app.services.math.tools.direct_statistics import statistics_direct_request
+
+    if len(text) > 1000:
+        return False
+    if statistics_direct_request(text) is True:
+        return True
+    match = _LAGRANGE_REQUEST.fullmatch(text.strip())
+    return match is not None and math_expr_or_none(match["expr"]) is not None
+
+
 def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
     from app.services.math import match as mtm
 
@@ -129,7 +152,12 @@ def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
         return None
     request = prepare_physics_request(cleaned)
     if request.rejected:
-        return None
+        # Broad physics cues include "range of" and "find f". Only a
+        # complete statistics list or formal derivative request may bypass
+        # this refusal; a math fragment in a physics question must not.
+        if not _closed_math_syntax(cleaned):
+            return None
+        request = PhysicsRequest(cleaned)
     if request.collision is not None:
         return request.collision
     cleaned = request.text
