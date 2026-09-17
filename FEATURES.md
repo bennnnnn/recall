@@ -334,7 +334,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Memory screen** — facts grouped by type, each with a real id, **last confirmed** and
   source chat title (not confidence %). Edit, delete, or mute (“Don’t mention this”).
   `PATCH /memories/{id}` updates text or status; `DELETE /memories/{id}` deletes one fact;
-  `DELETE /memories` clears all. See [docs/MEMORY_V2.md](docs/MEMORY_V2.md).
+  `DELETE /memories` clears all.
 - ✅ **Memory toggle** — turn learning on/off in Settings (stops new learning; saved facts
   remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;

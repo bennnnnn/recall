@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math: [docs/math.md](./docs/math.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Memory facts: [docs/MEMORY_V2.md](./docs/MEMORY_V2.md). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math: [docs/math.md](./docs/math.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -30,7 +30,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `pro`) is driven by RevenueCat.
 - **chat** — a conversation; has an auto-generated title.
 - **message** — one turn (`user` | `assistant` | `system`).
-- **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`). `type` (`profile` | `preference` | `project` | `fact` | `focus`) is UI grouping. See [docs/MEMORY_V2.md](./docs/MEMORY_V2.md).
+- **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`), cap 150 active. `type` (`profile` | `preference` | `project` | `fact` | `focus`) is UI grouping. Sensitive topics are not auto-stored unless the user said “remember” or opted in. Extraction is post-turn.
 - **model alias** — product-level model name mapped to a provider by the gateway.
 - **quota** — per-user daily token budget (free tier 100k/day).
 - **todo** — a lightweight task the user tracks; optionally linked to a chat.
@@ -57,7 +57,7 @@ recall/
     mobile/        # Expo React Native (~50k TS) — screens, hooks, rich render, lib/api
     api/           # FastAPI (~44k py) — HTTP/WS + worker
     web/           # Vite slice 1: login + chat SSE (not react-native-web)
-  docs/            # math.md, chemistry.md, MEMORY_V2.md, PRODUCTION.md, QA_MATRIX.md, ROLLBACK.md
+  docs/            # math.md, chemistry.md, PRODUCTION.md, QA_MATRIX.md, ROLLBACK.md
   CLAUDE.md
   FEATURES.md
   SECURITY.md
