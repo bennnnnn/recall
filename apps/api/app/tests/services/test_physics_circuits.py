@@ -16,6 +16,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {
@@ -245,7 +246,7 @@ def test_a_question_carried_only_by_its_units_reaches_the_solver(
     """The pre-filter assertion is the point; the answer was already right."""
     assert _reaches_the_tool_path(text), "dropped before extraction"
     intent = extract_math_intent(text)
-    assert intent is not None and intent.physics_op == op
+    assert isinstance(intent, PhysicsIntent) and intent.physics_op == op
     assert _verified_answer(text) == answer
 
 
@@ -319,7 +320,7 @@ NETWORKS: list[tuple[str, str, str]] = [
 def test_resistor_networks_use_every_resistance(text: str, op: str, answer: str) -> None:
     assert _reaches_the_tool_path(text)
     intent = extract_math_intent(text)
-    assert intent is not None and intent.physics_op == op
+    assert isinstance(intent, PhysicsIntent) and intent.physics_op == op
     assert _verified_answer(text) == answer
 
 
@@ -360,7 +361,7 @@ NEW_OPS: list[tuple[str, str, str]] = [
 def test_round_three_circuit_ops(text: str, op: str, answer: str) -> None:
     assert _reaches_the_tool_path(text), "dropped before extraction"
     intent = extract_math_intent(text)
-    assert intent is not None and intent.physics_op == op
+    assert isinstance(intent, PhysicsIntent) and intent.physics_op == op
     assert _verified_answer(text) == answer
 
 
@@ -382,7 +383,7 @@ def test_a_cell_with_internal_resistance_is_ohms_law_unless_the_ask_says_termina
     intent = extract_math_intent(
         "a 12 V cell with 0.5 ohm internal resistance supplies 2 A, what is the voltage"
     )
-    assert intent is None or intent.physics_op != "terminal_voltage"
+    assert getattr(intent, "physics_op", None) != "terminal_voltage"
 
 
 ROUND_THREE_DECOYS = [

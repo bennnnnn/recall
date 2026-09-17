@@ -8,10 +8,12 @@ optional trajectory graph Recall attaches after the stream.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import replace
+from typing import Any
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
+from app.models.schemas.physics import PhysicsIntent
 from app.services.physics.solver import PhysicsResult, solve_physics
 from app.services.solving import (
     MathServiceError,
@@ -24,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def _build_physics_block(
-    intent: MathIntent, settings: Settings, lines: list[str]
+    intent: PhysicsIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
     """Solve the physics problem and build a verified block with answer + graph."""
     result: PhysicsResult | None = None
@@ -77,7 +79,13 @@ def _build_physics_block(
     return replace(block, canonical_fences=extras)
 
 
-PHYSICS_BLOCK_BUILDERS = {
+# Any, not PhysicsIntent: the generic dispatch in math/tools/block/__init__.py
+# calls whichever builder it looks up with a MathIntent | PhysicsIntent — see
+# _BlockBuilder there for why the registry's own Callable type has to be
+# this loose even though _build_physics_block's own signature is precise.
+_PhysicsBlockBuilder = Callable[[Any, Settings, list[str]], VerifiedMathBlock | None]
+
+PHYSICS_BLOCK_BUILDERS: dict[str, _PhysicsBlockBuilder] = {
     "kinematics": _build_physics_block,
     "suvat": _build_physics_block,
     "projectile": _build_physics_block,

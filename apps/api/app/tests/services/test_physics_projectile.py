@@ -54,7 +54,7 @@ def _verified_answer(text: str) -> str | None:
 
 def _op(text: str) -> str | None:
     intent = extract_math_intent(text)
-    return None if intent is None else intent.physics_op
+    return None if intent is None else getattr(intent, "physics_op", None)
 
 
 # (question, expected physics_op, expected answer). Every answer is pinned: the

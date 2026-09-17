@@ -23,7 +23,12 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.math import SimulationBlockSpec, SimulationBody, SimulationVector
+from app.models.schemas.physics import (
+    PhysicsIntent,
+    SimulationBlockSpec,
+    SimulationBody,
+    SimulationVector,
+)
 from app.services.math.fence import _spec_fence_kind, validate_math_fences
 from app.services.math.tools import _build_verified_block, extract_math_intent
 from app.services.physics.solver import solve_physics
@@ -40,7 +45,7 @@ def _settings() -> Settings:
 
 def _scene(text: str) -> SimulationBlockSpec:
     intent = extract_math_intent(text)
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
     specs = solve_physics(intent).simulation_specs
     assert len(specs) == 1
     return specs[0]
@@ -67,7 +72,7 @@ def test_a_projectile_answer_carries_a_scene_as_well_as_its_graph() -> None:
     reply can afford both.
     """
     intent = extract_math_intent(PROJECTILE_Q)
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
     result = solve_physics(intent)
 
     assert len(result.graph_specs) == 1
@@ -81,7 +86,7 @@ def test_the_scene_and_the_graph_share_one_sampled_path() -> None:
     starts disagreeing with itself.
     """
     intent = extract_math_intent(PROJECTILE_Q)
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
     result = solve_physics(intent)
 
     assert result.simulation_specs[0].bodies[0].path == result.graph_specs[0].points
@@ -484,7 +489,7 @@ def test_a_flat_surface_gets_no_incline_scene() -> None:
     no slope there is no friction direction to draw — the block is not going
     anywhere for friction to oppose."""
     intent = extract_math_intent("what is the normal force on a 5 kg block")
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
 
     assert solve_physics(intent).simulation_specs == []
 
@@ -534,7 +539,7 @@ def test_the_fence_layer_knows_every_scene_kind() -> None:
     """
     import typing
 
-    from app.models.schemas.math.simulation import SIMULATION_SPEC_TYPES, SimulationType
+    from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES, SimulationType
 
     assert SIMULATION_SPEC_TYPES == set(typing.get_args(SimulationType))
     for kind in SIMULATION_SPEC_TYPES:
@@ -770,7 +775,7 @@ def test_energy_without_a_spatial_quantity_draws_nothing(text: str) -> None:
     did not. A speed is not a thing you can point at, so these get no picture
     rather than a decorative one."""
     intent = extract_math_intent(text)
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
 
     assert solve_physics(intent).simulation_specs == []
 

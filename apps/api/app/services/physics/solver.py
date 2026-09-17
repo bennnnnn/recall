@@ -14,9 +14,9 @@ from dataclasses import dataclass, field
 
 from sympy import Eq, Symbol, solve
 
-from app.models.schemas.math import (
-    GraphBlockSpec,
-    MathIntent,
+from app.models.schemas.math import GraphBlockSpec
+from app.models.schemas.physics import (
+    PhysicsIntent,
     SimulationBlockSpec,
     SimulationBody,
     SimulationVector,
@@ -274,7 +274,7 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
         raise MathServiceError(f"unsupported unit: {unit}") from exc
 
 
-def _params_in_si(intent: MathIntent) -> dict[str, float]:
+def _params_in_si(intent: PhysicsIntent) -> dict[str, float]:
     """Convert all physics_params to SI base units using Pint."""
     params = intent.physics_params or {}
     units = intent.physics_units or {}
@@ -302,7 +302,7 @@ def _params_in_si(intent: MathIntent) -> dict[str, float]:
 # ---------------------------------------------------------------------------
 
 
-def solve_kinematics(intent: MathIntent) -> PhysicsResult:
+def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     g = p.get("g", 9.81)
     h0 = p.get("h0", 0.0)
@@ -649,7 +649,7 @@ def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list
     return [spec]
 
 
-def solve_suvat(intent: MathIntent) -> PhysicsResult:
+def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "suvat_velocity"
     entry = _SUVAT_OPS.get(op)
@@ -683,7 +683,7 @@ def solve_suvat(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
-def solve_projectile(intent: MathIntent) -> PhysicsResult:
+def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     g = p.get("g", 9.81)
     v0 = p["v0"]
@@ -936,7 +936,7 @@ def _vector_sum_scene(
     ]
 
 
-def solve_force(intent: MathIntent) -> PhysicsResult:
+def solve_force(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op
 
@@ -1107,7 +1107,7 @@ def solve_force(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
-def solve_energy(intent: MathIntent) -> PhysicsResult:
+def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     g = p.get("g", 9.81)
     op = intent.physics_op or "kinetic_energy"
@@ -1207,7 +1207,7 @@ def solve_energy(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
-def solve_momentum(intent: MathIntent) -> PhysicsResult:
+def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "momentum"
 
@@ -1336,7 +1336,7 @@ def _collision_scene(
 # ---------------------------------------------------------------------------
 
 
-def solve_friction(intent: MathIntent) -> PhysicsResult:
+def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "friction_force"
     g = p.get("g", 9.81)
@@ -1531,7 +1531,7 @@ def _orbit_scene(r: float) -> SimulationBlockSpec:
     )
 
 
-def solve_circular(intent: MathIntent) -> PhysicsResult:
+def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "centripetal_acceleration"
     r = p["r"]
@@ -1629,7 +1629,7 @@ def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSp
     )
 
 
-def solve_spring(intent: MathIntent) -> PhysicsResult:
+def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "spring_force"
 
@@ -1728,7 +1728,7 @@ def solve_spring(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
-def solve_circuit(intent: MathIntent) -> PhysicsResult:
+def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "current"
 
@@ -1895,7 +1895,7 @@ def _lever_scene(loads: list[tuple[float, float, str, bool]]) -> list[Simulation
     ]
 
 
-def solve_torque(intent: MathIntent) -> PhysicsResult:
+def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "torque"
 
@@ -1954,7 +1954,7 @@ def solve_torque(intent: MathIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
-def solve_waves(intent: MathIntent) -> PhysicsResult:
+def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 
@@ -2039,7 +2039,7 @@ def solve_waves(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported waves op: {op}")
 
 
-def solve_optics(intent: MathIntent) -> PhysicsResult:
+def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 
@@ -2103,7 +2103,7 @@ def solve_optics(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported optics op: {op}")
 
 
-def solve_thermal(intent: MathIntent) -> PhysicsResult:
+def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 
@@ -2148,7 +2148,7 @@ def solve_thermal(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported thermal op: {op}")
 
 
-def solve_gravitation(intent: MathIntent) -> PhysicsResult:
+def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 
@@ -2210,7 +2210,7 @@ def solve_gravitation(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported gravitation op: {op}")
 
 
-def solve_fluids(intent: MathIntent) -> PhysicsResult:
+def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 
@@ -2306,7 +2306,7 @@ def solve_fluids(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported fluids op: {op}")
 
 
-def solve_rotation(intent: MathIntent) -> PhysicsResult:
+def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 
@@ -2358,7 +2358,7 @@ def solve_rotation(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported rotation op: {op}")
 
 
-def solve_magnetism(intent: MathIntent) -> PhysicsResult:
+def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 
@@ -2397,7 +2397,7 @@ def solve_magnetism(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported magnetism op: {op}")
 
 
-def solve_materials(intent: MathIntent) -> PhysicsResult:
+def solve_materials(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 
@@ -2443,7 +2443,7 @@ def solve_materials(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported materials op: {op}")
 
 
-def solve_modern(intent: MathIntent) -> PhysicsResult:
+def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 
@@ -2501,7 +2501,7 @@ def solve_modern(intent: MathIntent) -> PhysicsResult:
     raise MathServiceError(f"unsupported modern op: {op}")
 
 
-def solve_physics(intent: MathIntent) -> PhysicsResult:
+def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     """Dispatch to the right solver by intent kind."""
     if intent.kind == "kinematics":
         return solve_kinematics(intent)

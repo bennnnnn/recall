@@ -7,6 +7,7 @@ import math
 import re
 from collections.abc import Callable
 from fractions import Fraction
+from typing import Any
 
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
@@ -1589,7 +1590,15 @@ def apply_calculus_extension(
     return None
 
 
-SCHOOL_BLOCK_BUILDERS = {
+# Any, not MathIntent: math/tools/block/__init__.py's generic dispatch joins
+# this registry's Callable type with PHYSICS_BLOCK_BUILDERS's (PhysicsIntent)
+# when both are candidates for the same `builder` variable — without this
+# explicit annotation, mypy infers the dict's value type from these
+# MathIntent-only functions and that narrower type wins the join, which then
+# rejects the physics dispatch path entirely.
+_SchoolBlockBuilder = Callable[[Any, Settings, list[str]], VerifiedMathBlock | None]
+
+SCHOOL_BLOCK_BUILDERS: dict[str, _SchoolBlockBuilder] = {
     "arithmetic": _verified_block_arithmetic,
     "trig": _verified_block_trig,
     "coord": _verified_block_coord,

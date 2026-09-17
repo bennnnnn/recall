@@ -1,4 +1,4 @@
-# Recall — Subject Separation Tickets: math / physics / chemistry (Phase 1 shipped)
+# Recall — Subject Separation Tickets: math / physics / chemistry (Phases 1, 3, 4 shipped)
 
 Math, physics, and chemistry are meant to be three peer subjects (Golden Rule 7: "Physics is
 a peer subject in `services/physics/`, not a corner of math"). Chemistry mostly lives up to
@@ -9,10 +9,11 @@ own module docstring (`services/physics/__init__.py`) says it plainly:
 > shared primitives (`MathIntent`, `VerifiedMathBlock`, `MathServiceError`) and plugs into
 > math's dispatch through four registry seams."
 
-That was the actual state when this doc was written (the docstring has since been updated to
-match Phase 1, below). What's left after Phase 1: one shared intent type — physics problems are
-still represented as a `MathIntent` whose `kind` is one of its twenty physics values (Phase 3, not
-done). This doc scopes the work to make the separation real. It does **not**
+That was the actual state when this doc was written. It no longer is: physics now has its own
+`PhysicsIntent` type (Phase 3), and the docstring has been updated to describe that rather than
+the fusion it used to admit to. What's left is Phase 2 (turn_prep/prompt-hint parity with
+chemistry), deliberately re-sequenced behind Phase 3 for reasons in its own section below. This
+doc scopes the work to make the separation real. It does **not**
 cover the camera/scanner subject picker (math/physics/chemistry slider) — that's deferred by
 request and gets easier once S1/S5 below land, because the backend will know "this is a physics
 turn" independently of math instead of inferring it from a shared enum value.
@@ -27,12 +28,14 @@ which also touched nothing about correctness and was verified against the full s
 | | Math | Physics | Chemistry |
 |---|---|---|---|
 | Own top-level `services/` package | yes | yes | yes |
-| Own intent/schema type | `MathIntent` (`models/schemas/math/intent.py`) | **none** — reuses `MathIntent`, its 20 kinds interleaved into math's 29 in one `Literal[...]` | n/a (no structured intent schema; own gate function instead) |
-| Own turn_prep gate + context local | `needs_math` / `math_block` (`turn_prep/context.py`) | **none** — rides inside `needs_math` / `math_block` | `needs_chem` / `chem_block` — already separate |
+| Own intent/schema type | `MathIntent` (`models/schemas/math/intent.py`, 29 kinds) | **fixed (S1)** — `PhysicsIntent` (`models/schemas/physics/intent.py`, 20 kinds); disjoint from `MathIntent.kind`, guarded by a test | n/a (no structured intent schema; own gate function instead) |
+| Own schema package for domain-specific fence types | `models/schemas/math/` (geometry, graph, algebra, discrete) | **fixed (S7)** — `models/schemas/physics/simulation.py` (`SimulationBlockSpec` and friends), moved out of `models/schemas/math/` | n/a |
+| Own turn_prep gate + context local | `needs_math` / `math_block` (`turn_prep/context.py`) | **none** — rides inside `needs_math` / `math_block`; unblocked by S1 but not yet done (Phase 2) | `needs_chem` / `chem_block` — already separate |
 | Own detection gate | `needs_symbolic_math` | shares `needs_symbolic_math`; contributes cues via `has_supported_physics_cue` | `is_chemistry_question` (`services/chemistry/context.py`) — already separate |
-| Prompt hint, conditionally injected only when relevant | n/a (always injected on math turns) | **none** — its verified-kinds paragraph is appended inside `MATH_SOLVER_HINT` (`prompt_constants/math.py`) and ships on every math turn | `CHEMISTRY_FENCE_HINT` (`prompt_constants/visuals.py`), injected only when turn_prep actually found chemistry context — the pattern to copy |
+| Prompt hint, conditionally injected only when relevant | n/a (always injected on math turns) | **none, and staying that way** (S6 descoped) — its verified-kinds paragraph is deliberately unconditional inside `MATH_SOLVER_HINT` | `CHEMISTRY_FENCE_HINT` (`prompt_constants/visuals.py`), injected only when turn_prep actually found chemistry context |
 | Imports another subject's private (`_`-prefixed) internals | — | **fixed (S3)** — both helpers are now public (`extract_average_speed_intent`, `get_unit_registry`); physics calls them as intentional cross-subject API, not private reach-ins | no (checked; clean) |
 | Duplicate cue list maintained outside its own package | — | kept as-is (S8) — see note below; not the bug it first looked like | no |
+| Remaining imports from math, at all | — | **4, all named and allowlisted (S10)**: `MathIntent` (the average-speed union case), `GraphBlockSpec` (a genuinely shared fence type), `extract_average_speed_intent`, `get_unit_registry` | no |
 
 Chemistry is the reference pattern. Physics needs to catch up to it, not the other way around.
 
@@ -108,7 +111,7 @@ chemistry, not image generation). No private-internal reach-ins found. No refact
 
 ## Phase 2 — turn-prep parity with chemistry — re-sequenced behind Phase 3, see below
 
-### S5 — Give physics its own `needs_physics` / `physics_block` in turn_prep — blocked on S1
+### S5 — Give physics its own `needs_physics` / `physics_block` in turn_prep — unblocked, not yet done
 
 Traced `turn_prep/context.py` in full before touching it. Chemistry's `needs_chem`/`chem_block`
 aren't `StreamContext` fields — they're locals scoped to `build_stream_prompt_context`, used only
@@ -121,10 +124,13 @@ separate physics fetch to hang a `physics_block` local off. The dispatch result 
 carry the answer, though: `VerifiedMathBlock.physics_intent` is set exactly when the solve was
 physics. A `needs_physics`/`physics_block` pair computed from that field post-fetch would be real
 and truthful, but nothing today would read it — adding it now is exactly the "abstraction beyond
-what the task requires" this codebase's own conventions warn against. It becomes a normal,
-motivated addition the moment S1 exists: a `PhysicsIntent` result on `verified_math` (vs.
-`MathIntent`) is a real type distinction to key `needs_physics` off, not a derived boolean nobody
-consumes yet. Do S1 first.
+what the task requires" this codebase's own conventions warn against. S1 has since shipped, so the
+type distinction now exists (`isinstance(verified_math.physics_intent, PhysicsIntent)` is real and
+checkable) — the blocker named here is gone. Still not done in this pass: nothing yet *consumes*
+`needs_physics`/`physics_block`, and adding the fields with no reader would still be the same
+premature abstraction, just no longer excused by a missing type. Do this when something
+(analytics, a future `SubjectSpec` registry, a physics-specific prompt addition once S6 is
+revisited) actually needs to ask "was this turn's verified answer physics."
 
 ### S6 — Split `MATH_SOLVER_HINT` into independent per-subject prompt hints — descoped, see below
 
@@ -142,65 +148,103 @@ wording of this ticket doesn't hold up against that trade. Re-evaluate only if S
 the hint would need to move to a *post-hoc* injection (after a physics solve, add extra detail)
 rather than gating the existing boundary-caution paragraph, which should stay universal.
 
-## Phase 3 — the real type split (now first, since Phase 2 depends on it)
+## Phase 3 — the real type split (done first, since Phase 2 depended on it)
 
-### S1 — Split `MathIntent` into subject-specific intent types
+### S1 — Split `MathIntent` into subject-specific intent types ✅ shipped
 
-`models/schemas/math/intent.py` holds one `Literal[...]` with 49 values; physics's 20
-(`kinematics` … `modern`) are interleaved with math's 29. No `PhysicsIntent` exists anywhere.
+Audited physics's actual field usage before scoping the split (every `MathIntent(...)` /
+`.model_validate(...)` construction site in `services/physics/*.py`, plus every non-`physics_*`
+attribute access): of `MathIntent`'s fields, physics touched exactly `kind` (20 of its 49 values),
+`operation` (always `"solve"`), `physics_op`, `physics_params`, `physics_units` — a clean, narrow
+footprint, not the sprawling shared-schema problem it could have been. Shipped `PhysicsIntent`
+with exactly those fields in a new `models/schemas/physics/` package; narrowed `MathIntent.kind`
+to the remaining 29 values and removed the three `physics_*` fields from it entirely.
 
-Audited physics's actual field usage before scoping the split further (`grep` every
-`MathIntent(...)`/`.model_validate(...)` construction site in `services/physics/*.py`, plus every
-non-`physics_*` attribute access): of `MathIntent`'s 49 fields, physics touches exactly `kind`
-(its 20 values), `physics_op`, `physics_params`, `physics_units`, plus reads `.expr`/`.kind` for
-the average-speed cross-check into math's arithmetic path. `school_op` stays math's — it's how
-`average_speed` (a math/arithmetic kind) opts into the physics-style direct-reply path without
-being a physics kind itself. This is a clean, narrow footprint, not the sprawling shared-schema
-problem it could have been — confirms independent types are the right call and scopes the actual
-diff: introduce `PhysicsIntent` (20-value `kind`, `physics_op`, `physics_params`, `physics_units`)
-in a new `models/schemas/physics/` package; narrow `MathIntent.kind` to the remaining 29 values
-and drop the three `physics_*` fields from it. Touches every extractor/direct/solver/block
-function in `services/physics/` currently type-hinted `MathIntent` (~60 construction sites, mostly
-in `extract.py`), plus the dispatch seam in `math/tools/block/__init__.py` where
-`_build_verified_block(intent: MathIntent, ...)` currently hands the same object to whichever
-registry (`_BLOCK_BUILDERS` / `SCHOOL_BLOCK_BUILDERS` / `PHYSICS_BLOCK_BUILDERS`) claims
-`intent.kind`, plus `VerifiedMathBlock.physics_intent`'s type. Mechanical but real surface area —
-the biggest ticket in this doc.
+The two types flow through the **same** generic dispatch as a real union
+(`MathIntent | PhysicsIntent`) rather than through any conversion — `_INTENT_EXTRACTORS`,
+`extract_math_intent`, `_build_verified_block`, and `VerifiedMathBlock.physics_intent` all widened
+to accept/return the union, and dict-keyed dispatch by `.kind` doesn't care which concrete type it
+receives. One real design wrinkle: `Callable` parameters are contravariant, so a registry
+(`_BLOCK_BUILDERS` / `SCHOOL_BLOCK_BUILDERS` / `PHYSICS_BLOCK_BUILDERS`) typed to the union would
+have forced every math-only builder to also declare it accepts a `PhysicsIntent` it never
+receives — each registry's Callable value type is `Any`-parameterized instead (`_BlockBuilder` in
+`block/__init__.py`, mirrored in `school.py` and `physics/block.py`), while every individual
+builder function keeps its own precise, narrow parameter type at its actual definition. Return
+types don't have this problem (covariant), so `_INTENT_EXTRACTORS`'s sequence type widened cleanly
+with no changes needed to individual extractors' return annotations.
 
-### S7 — Move physics-only schema types out of `models/schemas/math/`
+One genuine union case survives on purpose: average speed is a math kind (`arithmetic`) that
+physics's direct-reply path (`physics/direct.py`) cross-checks its own extraction against, so
+`_expected_intent` returns `MathIntent | PhysicsIntent | None` and `can_direct_physics` narrows
+with `isinstance(expected, PhysicsIntent)` before touching physics-only fields.
 
-`models/schemas/math/simulation.py` hosts physics simulation-scene types (`projectile_motion` and
-siblings) under the `math` schema package — there is no `models/schemas/physics/` today. Once S1
-creates that package, move physics-only simulation types into it; leave any genuinely
-math-only graph/geometry types where they are. (Mobile's `fenceRegistry.ts` needs no change here
-— the `simulation` fence id is a rendering primitive, not a subject boundary, and is fine shared
-exactly as it is today.)
+Touched ~60 construction sites in `extract.py`, all of `solver.py`/`direct.py`/`block.py`, the
+dispatch seam in `math/tools/block/__init__.py`, one generic call site in
+`math/tools/extract.py` (line ~142, which read `.school_op` on whatever the first matching
+extractor returned — fixed with an `isinstance(intent, PhysicsIntent)` early return, since none of
+the checks after it ever applied to a physics kind anyway), and ~20 test files that constructed a
+physics-kind intent directly or narrowed the union to reach a subject-specific field. One test
+(`test_solve_physics_unknown_kind_raises`) had relied on constructing an *invalid*-kind
+`MathIntent` to exercise `solve_physics`'s own defensive dispatch-miss branch — no longer
+constructible through the normal API now that `PhysicsIntent.kind` is a closed Literal, so it uses
+`PhysicsIntent.model_construct(...)` (Pydantic's validation-bypass, exactly for this case) instead
+of deleting the coverage. Verified: full backend suite (6984 tests, all of `app/tests/`, not just
+`services/`), ruff, mypy — all clean, zero behavior change.
+
+### S7 — Move physics-only schema types out of `models/schemas/math/` ✅ shipped
+
+`models/schemas/math/simulation.py` was entirely physics's own scene-fence schema
+(`SimulationBlockSpec`, `SimulationBody`, `SimulationVector`, `SIMULATION_SPEC_TYPES`) misfiled
+under the math package — confirmed by reading the whole file, not just its name. Moved verbatim to
+`models/schemas/physics/simulation.py`; `GraphBlockSpec` (genuinely shared — physics trajectory
+graphs reuse math's own graph fence type) stayed put. Four consumers repointed
+(`physics/solver.py`, `physics/direct.py`, `math/fence.py`, `math/tools/direct.py`), plus one
+deferred (function-local) import inside `test_physics_simulation.py` that a plain top-of-file grep
+missed on the first pass and the full test suite caught. Mobile needed no change — the
+`simulation` fence id in `fenceRegistry.ts` is a rendering primitive, not a subject boundary.
 
 ## Phase 4 — lock it in
 
-### S10 — Seam test pinning the separation
+### S10 — Seam test pinning the separation ✅ shipped
 
-This repo already polices exactly this class of drift (`test_service_layout.py`,
-`test_domain_package_seams.py`, and Physics Round 3's
-`test_a_solved_topic_is_not_still_listed_as_unchecked`, which loops over every kind with a solver
-instead of checking one hardcoded word). Add the equivalent for this doc: `MathIntent.kind`
-contains no physics-only literal, `PhysicsIntent.kind` contains no math-only literal, and
-`services/physics/` imports nothing from `services/math/` outside an explicit allowlist (ideally
-empty after Phase 1). Land this last so it's checking the end state, not blocking the migration
-that produces it.
+`test_subject_separation_seams.py`, mirroring `test_domain_package_seams.py`'s existing style:
 
-## Suggested order (revised)
+- `test_math_and_physics_intent_kinds_are_disjoint` — the two `Literal` kind spaces share no value.
+- `test_physics_intent_kind_count_matches_the_verified_registry` — `PhysicsIntent.kind`'s values
+  equal `PHYSICS_BLOCK_BUILDERS`'s keys, exactly twenty; a kind added to one without the other is
+  a silent dispatch miss in production, caught here instead.
+- `test_physics_imports_from_math_are_allowlisted` — AST-walks every file in `services/physics/`
+  for `from app.services.math...` / `from app.models.schemas.math...` imports and asserts the set
+  found is exactly the four named, reasoned entries in `_ALLOWED_MATH_IMPORTS` (verified by hand
+  that the scanner actually finds them — an allowlist test that silently matches nothing is worse
+  than no test). A new import here must be added to the allowlist with a reason, not slip in
+  silently.
+- `test_new_subject_neutral_modules_import_cold_in_isolation` — extends
+  `test_physics_modules_import_cold_in_isolation`'s fresh-interpreter pattern to
+  `app.services.solving` specifically, since it sits in the real cycle S2 found and fixed
+  (`math.solve` imports `MathServiceError` from it; it type-only-imports back into
+  `math.solve.key_steps`) — a regression there only reproduces cold, never in a process where
+  either side is already imported.
 
-Phase 1 (S2, S3, S4, S8, S9) → **Phase 3 (S1, S7)** → Phase 2 (S5, S6, revised scope) → Phase 4
-(S10). Phase 2 moved behind Phase 3 on contact with the actual turn_prep code: S5/S6 both need a
-real type distinction between a math-dispatched and a physics-dispatched verified block to be
-worth doing safely, and S1 is what creates that distinction. Doing them in the original order
-would have meant either shipping a field nobody reads (S5) or weakening a tested safety property
-for no one's benefit (S6, see its section).
+## Suggested order (revised) — Phases 1, 3, 4 done; Phase 2 open
 
-**Phase 1: done.** S2/S3/S4/S9 shipped as scoped; S8 shipped as a documentation-only correction
-once the premise didn't hold up under closer reading (see its section). Verified against the full
-backend suite, ruff, and mypy — zero behavior change anywhere in Phase 1.
+Actual order: Phase 1 (S2, S3, S4, S8, S9) → **Phase 3 (S1, S7)** → Phase 4 (S10). Phase 2 (S5, S6)
+moved behind Phase 3 on contact with the actual turn_prep code and remains open — see their
+sections for why S6 is staying descoped for good rather than merely deferred, and what would
+actually motivate S5.
+
+**Shipped, all verified against the full backend suite (6984 tests across all of `app/tests/`,
+not just `services/`), ruff, and mypy, with zero intended behavior change throughout:**
+
+- Phase 1 — S2 (shared verified-block/error primitives), S3 (physics's private-internal reach-ins
+  made public), S4 (shared text-scanning utilities), S9 (chemistry confirmed already clean). S8
+  shipped as a documentation-only correction once its premise didn't hold up under closer reading.
+- Phase 3 — S1 (`PhysicsIntent` split from `MathIntent`), S7 (physics simulation schema moved out
+  of `models/schemas/math/`).
+- Phase 4 — S10 (seam tests pinning all of the above).
+
+**Still open:** Phase 2 (S5, S6) — S6 should probably never ship as originally scoped (see its
+section); S5 is unblocked by S1 but has no consumer yet.
 
 ## Explicitly out of scope for this round
 

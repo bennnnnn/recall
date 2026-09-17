@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 # makes them lazy strings), so no runtime import is needed at all.
 if TYPE_CHECKING:
     from app.models.schemas.math import MathIntent, NewtonMethodInput, NewtonMethodResult
+    from app.models.schemas.physics import PhysicsIntent
     from app.services.math.solve.key_steps import KeyStep
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
@@ -57,8 +58,10 @@ class VerifiedMathBlock:
     # plain, explicit function plots may return their canonical graph directly.
     allow_direct: bool = True
     # The verified-block wrapper binds the exact solved physics intent here.
-    # Includes average speed; guards compare every parameter/unit without re-solving.
-    physics_intent: MathIntent | None = None
+    # Includes average speed (a MathIntent, kind="arithmetic" — the one case
+    # this field holds a math-kind intent rather than a PhysicsIntent); guards
+    # compare every parameter/unit without re-solving.
+    physics_intent: MathIntent | PhysicsIntent | None = None
     # The one line that shows where the answer came from — e.g. the
     # factorization behind a quadratic's roots. Shown on the direct-reply
     # path for the balanced/detailed response styles, omitted for short.

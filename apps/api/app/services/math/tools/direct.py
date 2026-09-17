@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 
-from app.models.schemas.math.simulation import SIMULATION_SPEC_TYPES
+from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.services.math.tools.lesson import (
     format_equation_lesson_reply,
     should_render_equation_lesson,

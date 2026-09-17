@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import replace
+from typing import Any
 
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math import solve as math_solve
 from app.services.math.tools.block.algebra import (
     _verified_block_equation,
@@ -63,7 +65,15 @@ from app.services.solving import (
 
 logger = logging.getLogger(__name__)
 
-_BlockBuilder = Callable[[MathIntent, Settings, list[str]], VerifiedMathBlock | None]
+# Any, not MathIntent | PhysicsIntent: each concrete builder below is typed
+# against its own narrower intent (MathIntent for the math builders,
+# PhysicsIntent for _build_physics_block) at its own definition, which is
+# where a real type error should be caught. Callable parameters are
+# contravariant, so a registry typed to the union would require every
+# math-only builder to also declare it accepts a PhysicsIntent it never
+# receives — Any at the registry boundary avoids that without losing
+# precision at any actual call site.
+_BlockBuilder = Callable[[Any, Settings, list[str]], VerifiedMathBlock | None]
 
 _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
     "equation": _verified_block_equation,
@@ -94,7 +104,9 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
 }
 
 
-def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
+def _build_verified_block(
+    intent: MathIntent | PhysicsIntent, settings: Settings
+) -> VerifiedMathBlock | None:
     lines: list[str] = []
 
     # Deferred: physics.block imports this package's shared block primitives, so
@@ -103,7 +115,12 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
     from app.services.physics.block import PHYSICS_BLOCK_BUILDERS
 
     try:
-        builder = _BLOCK_BUILDERS.get(intent.kind)
+        # Explicit _BlockBuilder annotation on first assignment: SCHOOL_BLOCK_BUILDERS
+        # and PHYSICS_BLOCK_BUILDERS have their own, independently-inferred value
+        # types (the former all-MathIntent, the latter all-PhysicsIntent) — without
+        # this, mypy would infer `builder`'s type fresh at each reassignment below
+        # instead of checking each against one declared type.
+        builder: _BlockBuilder | None = _BLOCK_BUILDERS.get(intent.kind)
         if builder is None:
             from app.services.math.tools.school import SCHOOL_BLOCK_BUILDERS
 
@@ -118,7 +135,8 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         from app.services.solving import wrap_verified_math
 
         physics_intent = None
-        if intent.kind in PHYSICS_BLOCK_BUILDERS or intent.school_op == "average_speed":
+        is_average_speed = getattr(intent, "school_op", None) == "average_speed"
+        if intent.kind in PHYSICS_BLOCK_BUILDERS or is_average_speed:
             physics_intent = intent.model_copy(deep=True)
         return replace(block, text=wrap_verified_math(block.text), physics_intent=physics_intent)
     except math_solve.MathServiceError as exc:

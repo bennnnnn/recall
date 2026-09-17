@@ -32,7 +32,7 @@ from app.models.schemas.math import (
     GraphBlockSpec,
     GraphSampleInput,
 )
-from app.models.schemas.math.simulation import SIMULATION_SPEC_TYPES
+from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.services.math import solve as math_solve
 from app.services.math.solve import MathServiceError
 from app.services.md_fence_scan import (

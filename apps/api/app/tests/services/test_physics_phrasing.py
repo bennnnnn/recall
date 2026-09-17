@@ -18,6 +18,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {"kinematics", "projectile", "force", "energy"}
@@ -106,7 +107,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_natural_phrasing_reaches_a_verified_answer(text: str, op: str, answer: str) -> None:
     intent = extract_math_intent(text)
-    assert intent is not None, "no intent extracted"
+    assert isinstance(intent, PhysicsIntent), "no intent extracted"
     assert intent.physics_op == op
     assert _verified_answer(text) == answer
 
@@ -193,7 +194,7 @@ def test_speed_without_a_height_draws_the_velocity_line() -> None:
     from app.services.physics.solver import solve_physics
 
     intent = extract_math_intent("how fast is a dropped ball going after 1 s")
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
     assert result.answer_value == "9.81 m/s"
@@ -214,7 +215,7 @@ def test_a_speed_ask_plots_velocity_even_when_a_height_is_given() -> None:
     from app.services.physics.solver import solve_physics
 
     intent = extract_math_intent("a ball is dropped from 20 m, what is its speed after 1 s")
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
     assert result.answer_value == "9.81 m/s"
@@ -227,7 +228,7 @@ def test_a_height_ask_still_plots_height() -> None:
     from app.services.physics.solver import solve_physics
 
     intent = extract_math_intent("a ball is dropped from 50 m, what is its height after 2 s")
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
     assert result.answer_value == "30.38 m"
@@ -245,7 +246,7 @@ def test_a_flat_height_curve_is_still_withheld() -> None:
     from app.services.physics.solver import solve_physics
 
     intent = extract_math_intent("a ball is dropped from 0 m, what is its height after 2 s")
-    assert intent is not None and intent.physics_op == "position"
+    assert isinstance(intent, PhysicsIntent) and intent.physics_op == "position"
 
     assert solve_physics(intent).graph_specs == []
 

@@ -11,7 +11,8 @@ import re
 from typing import Any
 
 from app.models.schemas.math import MathIntent
-from app.models.schemas.math.simulation import SIMULATION_SPEC_TYPES
+from app.models.schemas.physics import PhysicsIntent
+from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.services.physics.extract import _LENGTH_UNIT_PATTERN, _VELOCITY_UNIT_PATTERN
 from app.services.solving import VerifiedMathBlock
 
@@ -172,7 +173,7 @@ def _measures(match: re.Match[str]) -> tuple[dict[str, float], dict[str, str]]:
     return params, units
 
 
-def _expected_intent(text: str) -> MathIntent | None:
+def _expected_intent(text: str) -> MathIntent | PhysicsIntent | None:
     parsed = _request(text)
     if parsed is None:
         return None
@@ -238,10 +239,10 @@ def _expected_intent(text: str) -> MathIntent | None:
 
 def _intent(
     kind: str, op: str, params: dict[str, float], units: dict[str, str]
-) -> MathIntent | None:
+) -> PhysicsIntent | None:
     if any(not math.isfinite(value) or abs(value) > 1e6 for value in params.values()):
         return None
-    return MathIntent.model_validate(
+    return PhysicsIntent.model_validate(
         {
             "kind": kind,
             "physics_op": op,
@@ -252,7 +253,7 @@ def _intent(
     )
 
 
-def _expected_trajectory_type(intent: MathIntent) -> str:
+def _expected_trajectory_type(intent: PhysicsIntent) -> str:
     """The one ``trajectory_type`` ``solve_physics`` emits for this intent.
 
     Must stay in lockstep with ``solve_kinematics`` / ``solve_projectile``. This
@@ -285,7 +286,11 @@ def can_direct_physics(
     if not answer or len(answer) > 400 or len(answering) != 1:
         return False
     fence = answering[0]
-    if expected.kind in {"force", "energy", "arithmetic"} or expected.physics_op == "acceleration":
+    if not isinstance(expected, PhysicsIntent):
+        # Only the average-speed cross-check (a MathIntent, kind="arithmetic")
+        # reaches here — it has no trajectory, just a scalar answer.
+        return fence.get("type") == "answer" and fence.get("content") == answer
+    if expected.kind in {"force", "energy"} or expected.physics_op == "acceleration":
         return fence.get("type") == "answer" and fence.get("content") == answer
     if fence.get("type") != "trajectory" or fence.get("expr2") or fence.get("points2"):
         return False
