@@ -20,8 +20,6 @@ import {
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
 
-export const MATH_KEYBOARD_PAD_HEIGHT = 320;
-
 const PAD_PADDING_V = 20;
 const PAD_GAP = 6;
 const KEY_HEIGHT_MIN = 42;

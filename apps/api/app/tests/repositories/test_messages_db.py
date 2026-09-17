@@ -1,13 +1,12 @@
 """Real-Postgres tests for app.repositories.messages.
 
 `test_messages.py` mocks `AsyncSession` and returns a canned result no
-matter what statement is executed, so it can't catch wrong ordering, a
-`chat_id` scoping filter that's missing/inverted, or the tuple-comparison
-`(created_at, id)` cutoff logic in `delete_messages_from` being off by one.
-These tests build real `Message` rows (with explicit `created_at`/`id`
-values, since Postgres `now()` is pinned to transaction start and every
-fixture row in a test shares one transaction) and exercise the real
-compiled SQL via the `db_session` fixture.
+matter what statement is executed, so it can't catch wrong ordering or a
+`chat_id` scoping filter that's missing/inverted. These tests build real
+`Message` rows (with explicit `created_at`/`id` values, since Postgres
+`now()` is pinned to transaction start and every fixture row in a test
+shares one transaction) and exercise the real compiled SQL via the
+`db_session` fixture.
 """
 
 import uuid
@@ -84,67 +83,6 @@ async def test_get_by_id_scoped_by_chat_does_not_leak_across_chats(db_session):
 
 
 @pytest.mark.asyncio
-async def test_delete_messages_from_respects_tuple_created_at_id_cutoff(db_session):
-    """delete_messages_from deletes created_at > cutoff OR
-    (created_at == cutoff AND id >= anchor_id). Build one message on each
-    side of every branch of that tuple comparison. UUIDs built with
-    `uuid.UUID(int=N)` compare the same way in Python and in Postgres (both
-    compare the raw 128-bit value), so ordering is deterministic."""
-    user = await _make_user(db_session)
-    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
-    cutoff = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
-    anchor_id = uuid.UUID(int=5)
-
-    before_cutoff = _build_message(
-        chat.id,
-        user.id,
-        created_at=cutoff - timedelta(minutes=1),
-        message_id=uuid.UUID(int=1),
-        content="before",
-    )
-    same_time_lower_id = _build_message(
-        chat.id,
-        user.id,
-        created_at=cutoff,
-        message_id=uuid.UUID(int=2),
-        content="same-time-lower-id",
-    )
-    anchor = _build_message(
-        chat.id, user.id, created_at=cutoff, message_id=anchor_id, content="anchor"
-    )
-    same_time_higher_id = _build_message(
-        chat.id,
-        user.id,
-        created_at=cutoff,
-        message_id=uuid.UUID(int=9),
-        content="same-time-higher-id",
-    )
-    after_cutoff = _build_message(
-        chat.id,
-        user.id,
-        created_at=cutoff + timedelta(minutes=1),
-        message_id=uuid.UUID(int=10),
-        content="after",
-    )
-    db_session.add_all(
-        [before_cutoff, same_time_lower_id, anchor, same_time_higher_id, after_cutoff]
-    )
-    await db_session.flush()
-
-    deleted_count = await messages_repo.delete_messages_from(
-        db_session, chat.id, from_created_at=cutoff, from_message_id=anchor_id
-    )
-
-    # anchor itself (id >= anchor), same_time_higher_id (id >= anchor), and
-    # after_cutoff (created_at > cutoff) should go; the two "kept" rows below
-    # must survive.
-    assert deleted_count == 3
-
-    remaining = await messages_repo.list_all(db_session, chat.id)
-    assert {m.content for m in remaining} == {"before", "same-time-lower-id"}
-
-
-@pytest.mark.asyncio
 async def test_list_range_is_stable_across_created_at_ties(db_session):
     """BUG FIX (was silent): list_range previously ordered by created_at alone.
     Postgres doesn't guarantee any particular sub-order among equal
@@ -186,8 +124,7 @@ async def test_list_range_is_stable_across_created_at_ties(db_session):
 async def test_get_last_uses_id_tiebreaker_when_created_at_ties(db_session):
     """get_last / get_last_assistant / get_last_user must order by
     (created_at, id) so a shared millisecond doesn't make "last"
-    non-deterministic — edit/regenerate/quiz grading all rely on a single
-    canonical last row."""
+    non-deterministic — regenerate relies on a single canonical last row."""
     user = await _make_user(db_session)
     chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
     same_time = datetime(2026, 1, 1, tzinfo=UTC)

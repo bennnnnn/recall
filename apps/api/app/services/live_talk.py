@@ -72,13 +72,6 @@ async def issue_realtime_session(redis: Redis, user_id: UUID, chat_id: UUID | No
     return session_id
 
 
-async def realtime_session_is_active(redis: Redis, user_id: UUID, session_id: str) -> bool:
-    token = (session_id or "").strip()
-    if not token:
-        return False
-    return bool(await redis.get(_realtime_session_key(user_id, token)))
-
-
 async def realtime_session_bound_chat_id(
     redis: Redis, user_id: UUID, session_id: str
 ) -> UUID | None:

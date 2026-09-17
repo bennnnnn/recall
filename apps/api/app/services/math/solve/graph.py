@@ -311,7 +311,7 @@ def build_ellipse_graph_spec(expr: str, n: int) -> GraphBlockSpec | None:
     parametrically-sampled ``GraphBlockSpec`` (with a square-ish viewport
     around the curve); otherwise ``None``.
 
-    Shared by the heuristic ``_verified_block_graph`` (math_tools.py) and the
+    Shared by the heuristic ``_verified_block_graph`` (math/tools) and the
     MCP ``sympy`` adapter so the sampling and y-range padding live in one
     place — previously both copied the same ``-(b + max(1.0, b * 0.15))`` /
     ``b + max(1.0, b * 0.15)`` viewport math, which could drift.

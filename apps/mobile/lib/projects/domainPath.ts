@@ -32,17 +32,6 @@ export function groupPathByDomain(path: PathChapterProgress[]): DomainProgress[]
   });
 }
 
-export function domainForChapter(
-  path: PathChapterProgress[],
-  chapterTitle: string | null | undefined,
-): string | null {
-  if (!chapterTitle?.trim()) return null;
-  const key = chapterKey(chapterTitle);
-  const match = path.find((chapter) => chapterKey(chapter.title) === key);
-  const domain = match?.domain?.trim() || match?.title;
-  return domain || null;
-}
-
 export function domainAccess(
   domains: DomainProgress[],
   title: string,

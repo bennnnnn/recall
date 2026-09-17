@@ -883,7 +883,7 @@ def test_graph_block_spec_rejects_more_points_than_the_backend_ever_samples() ->
 # to stop attribute access on an already-resolved Symbol object. Any of
 # these payloads walks the Python class hierarchy to reach something like
 # subprocess.Popen and would execute it, reachable from a plain chat message
-# via math_tools.py's keyword-triggered intent extraction (no sanitization)
+# via math/tools keyword-triggered intent extraction (no sanitization)
 # and independently via the sympy MCP tool. This must stay blocked.
 @pytest.mark.parametrize(
     "payload",

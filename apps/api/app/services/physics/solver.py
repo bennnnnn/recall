@@ -838,7 +838,6 @@ def _free_body_scene(
     *,
     label: str | None = None,
     ground: bool = False,
-    lift: float = 0.0,
 ) -> list[SimulationBlockSpec]:
     """A block with labelled forces on it, and nothing moving.
 
@@ -1178,7 +1177,6 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
             ],
             label=f"{p['m']:g} kg",
             ground=True,
-            lift=height,
         )
     elif op == "work":
         distance = p["d"]
@@ -2263,7 +2261,6 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                     ),
                 ],
                 label="body",
-                lift=1.0,
             ),
         )
 

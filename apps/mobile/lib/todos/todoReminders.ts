@@ -5,13 +5,12 @@ import type { Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import i18n from "@/lib/i18n";
 import { getReminderLeadMs } from "@/lib/reminderPrefs";
-import { DEFAULT_REMINDER_LEAD_MINUTES, leadMsFromMinutes, reminderNotifyDate } from "@/lib/todos/reminderTiming";
+import { leadMsFromMinutes, reminderNotifyDate } from "@/lib/todos/reminderTiming";
 import { shouldSyncLocalTodoReminders } from "@/lib/todos/todoReminderPush";
 
 export { ensureNotificationPermission } from "@/lib/pushNotifications";
 const TODO_PREFIX = "todo-due-";
 const ANDROID_CHANNEL = "todo-reminders";
-export const REMINDER_LEAD_MS = leadMsFromMinutes(DEFAULT_REMINDER_LEAD_MINUTES);
 type ReminderOptions = { pushEnabled?: boolean | null; session?: number; leadMinutes?: number };
 type IsCurrent = () => boolean;
 let androidChannelReady = false;
@@ -91,13 +90,6 @@ async function permitted(current: IsCurrent): Promise<boolean> {
   // Permission prompts belong to explicit user actions, never a background refresh.
   const permission = await Notifications.getPermissionsAsync();
   return current() && permission.status === "granted";
-}
-export function scheduleTodoReminder(todo: Todo, options?: ReminderOptions): Promise<void> {
-  return enqueue(options?.session ?? getSessionGeneration(), async (current) => {
-    if (!await permitted(current)) return;
-    const leadMs = options?.leadMinutes == null ? await getReminderLeadMs() : leadMsFromMinutes(options.leadMinutes);
-    await schedule(todo, leadMs, current);
-  }, false);
 }
 
 export function syncTodoReminders(todos: Todo[], options?: ReminderOptions): Promise<void> {

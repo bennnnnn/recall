@@ -4,7 +4,6 @@ export const REMINDER_LEAD_OPTIONS = [5, 10, 15, 30, 60] as const;
 export type ReminderLeadMinutes = (typeof REMINDER_LEAD_OPTIONS)[number];
 
 export const DEFAULT_REMINDER_LEAD_MINUTES: ReminderLeadMinutes = 10;
-export const MAX_REMINDER_LEAD_MINUTES: ReminderLeadMinutes = 60;
 
 /** When due is sooner than the lead window, fire almost immediately. */
 export const IMMINENT_NOTIFY_DELAY_MS = 2_000;

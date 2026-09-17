@@ -154,7 +154,6 @@ def _strip_leading_prefixes(text: str, *, strip_bare_x: bool) -> str:
             s = s[3:].lstrip()
         if s == prev:
             return s
-    return s
 
 
 def _strip_leading_filler(text: str) -> str:
