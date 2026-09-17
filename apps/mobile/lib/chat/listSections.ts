@@ -31,10 +31,6 @@ export function emptyChatList(): ChatList {
   };
 }
 
-export function chatsForSection(groups: ChatList, key: ChatListSectionKey): Chat[] {
-  return groups[key];
-}
-
 export function activeChatsFromGroups(groups: ChatList): Chat[] {
   return [
     ...groups.pinned,

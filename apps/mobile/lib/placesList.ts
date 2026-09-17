@@ -12,8 +12,6 @@ export type PlaceItem = {
   price?: string;
 };
 
-const PLACES_FENCE_RE = /```places\s*\n([\s\S]*?)(?:```|$)/gi;
-const PLACES_JSON_FENCE_RE = /```json\s*\n([\s\S]*?)(?:```|$)/gi;
 const PRICE_IN_NOTE_RE = /\(\s*\$+\s*\)/;
 const NUMBERED_LINE_RE = /^\s*\d+\.\s+/;
 const SECTION_HEADING_RE = /^\s*#{1,6}\s+/;
@@ -120,13 +118,6 @@ export function parseAllPlacesFences(content: string): PlaceItem[] {
   return collectClosedFenceBodies(content, "places").flatMap((body) =>
     parsePlacesJson(body.trim()),
   );
-}
-
-/** Hide ```places / ```json venue blocks from markdown (incl. while streaming). */
-export function stripGeoFenceBlocks(text: string): string {
-  let out = stripClosedLangFence(text, "places");
-  out = stripClosedLangFence(out, "json");
-  return out.replace(/\n{3,}/g, "\n\n").trimEnd();
 }
 
 /** Unified venue list — ```places fences, or ```json arrays the model mis-tagged. */

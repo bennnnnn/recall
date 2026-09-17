@@ -1,4 +1,4 @@
-import type { PathChapterProgress, LearningDetail, LearningItem } from "@/lib/api";
+import type { LearningDetail, LearningItem } from "@/lib/api";
 
 import { wholeWordIndex } from "@/lib/projects/wordBoundary";
 import { chapterKey } from "@/lib/projects/chapterAccess";
@@ -84,11 +84,6 @@ export function resolveLessonChapter(
   if (wanted) return wanted;
   if (project.up_next?.trim()) return project.up_next.trim();
   return project.path_progress?.[0]?.title ?? project.lists[0]?.list_title ?? null;
-}
-
-export function chapterProgress(project: LearningDetail, title: string): PathChapterProgress | null {
-  const key = chapterKey(title);
-  return project.path_progress?.find((entry) => chapterKey(entry.title) === key) ?? null;
 }
 
 export type LessonVocabCard = {

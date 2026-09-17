@@ -185,11 +185,6 @@ async function assetToPending(
   };
 }
 
-export function attachmentPreviewLabel(pending: PendingAttachment): string {
-  const icon = pending.kind === "image" ? "📷" : "📎";
-  return `${icon} ${pending.fileName}`;
-}
-
 export function defaultAttachmentPrompt(pending: PendingAttachment): string {
   return pending.kind === "image" ? "" : "Summarize this file.";
 }
