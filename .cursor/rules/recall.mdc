@@ -21,7 +21,7 @@ Read `CLAUDE.md` at repo root for the engineering map (catalog + seams). Product
 
 `routers/` → `services/` → `gateways/` + `repositories/`. No business logic in routers.
 
-New chat-loop code belongs in `apps/api/app/services/chat/`. Quota + prepare lock: `async with turn_resources(...)` in `stream.py`. New external IO belongs in `gateways/` (MCP adapters in `gateways/mcp/`). New durable work belongs in `background/handlers.py` + `core/jobs.py`, never on the stream path.
+New chat-loop code belongs in `apps/api/app/services/chat/`. Quota + prepare lock: `async with turn_resources(...)` in `stream.py`. New external IO belongs in `gateways/`. MCP adapters live in `services/mcp/` and register through `gateways/mcp/`. New durable work belongs in `background/handlers.py` + `core/jobs.py`, never on the stream path.
 
 ## Mobile
 
@@ -32,10 +32,10 @@ New chat-loop code belongs in `apps/api/app/services/chat/`. Quota + prepare loc
 
 ## In scope (current)
 
-Chat + memory, Learning projects/quizzes, todos/reminders, search, suggestions, attachments/RAG, calendar/Gmail, speech, image gen, web search, i18n, Pro, and rich rendering (markdown, math, geometry/graph, charts, Mermaid, chemistry, sandboxed HTML/JS). MCP tool loop exists but is flag-gated **off**.
+Chat + memory, Learning projects/quizzes, todos/reminders, search, suggestions, attachments/RAG, calendar/Gmail, speech, image gen, web search, i18n, Pro, and rich rendering (markdown, math, geometry/graph, charts, Mermaid, chemistry, sandboxed HTML/JS). MCP tool loop is shipped and **on** (`mcp_tool_loop_enabled` defaults true). The legacy one-shot `mcp_tools_enabled` pre-stream round stays off.
 
 ## v1 non-goals
 
-No multi-user, no execution of non-web code or execution outside the sandboxed preview WebView, no duplex voice, no arbitrary user MCP servers. Do not treat “no tools/agents” as a hard absence — the tool loop is shipped and default-off.
+No multi-user, no execution of non-web code or execution outside the sandboxed preview WebView, no duplex voice, no arbitrary user MCP servers. Do not treat “no tools/agents” as a hard absence — the owned tool loop is on by default.
 
-A **web client sharing this same API** is planned for a later version — keep `lib/api.ts` the single network boundary and rich-block rendering swappable so the app stays portable.
+A **web client** exists at `apps/web` as slice 1 (login + chat SSE). Remaining web slices are deferred. Keep `lib/api.ts` the single mobile network boundary and rich-block rendering swappable so clients stay portable.

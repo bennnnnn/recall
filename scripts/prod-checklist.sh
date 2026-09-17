@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-launch checklist — verifies repo config; ops secrets are manual (see DEPLOY_TICKETS.md).
+# Pre-launch checklist — verifies repo config; ops secrets are manual (see docs/PRODUCTION.md).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -59,7 +59,7 @@ echo "        ./scripts/validate-prod-env.sh"
 echo "        ./scripts/fly-secrets-import.sh && ./scripts/deploy-api.sh"
 echo
 
-echo "Manual ops (cannot auto-verify — see DEPLOY_TICKETS.md):"
+echo "Manual ops (cannot auto-verify — see docs/PRODUCTION.md):"
 echo "  - Fly secrets filled per apps/api/.env.production.example"
 echo "  - Neon: vector + pg_trgm, alembic upgrade head"
 echo "  - EAS: EXPO_PUBLIC_API_URL, production builds, store listings"
