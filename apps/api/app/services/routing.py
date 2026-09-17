@@ -60,6 +60,18 @@ _SMART_TRIGGERS = (
 # escape velocity, …). needs_symbolic stays the solver gate so we don't
 # inject fake verified fences; Auto still escalates so a weak model isn't
 # left to invent F=ma on an incline. Bare "physics" must not match.
+#
+# Deliberately a separate list from `services.physics.extract.PHYSICS_CUES` /
+# `has_supported_physics_cue`, not a duplicate of it: that one gates "the
+# solver's extractors might handle this text," which has grown to twenty
+# kinds. This one gates "escalate Auto to the smarter model," which some
+# entries here now overlap with a covered kind (momentum, simple harmonic,
+# centripetal) — kept anyway, since a smarter model's surrounding
+# explanation is still worth it even when the number itself is guaranteed.
+# If that stops being true for a given phrase, prune it here; don't point
+# this at `has_supported_physics_cue` — inverting the gate would escalate
+# exactly the questions the solver already has covered, and stop escalating
+# the ones it doesn't, which is backwards from this function's purpose.
 _PHYSICS_HOMEWORK_CUES = (
     "frictionless",
     "incline",

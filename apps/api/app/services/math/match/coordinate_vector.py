@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from app.services.math.match.scan import word_index
+from app.services.text_match import word_index
 
 _OPERATIONS = ("distance", "midpoint", "slope", "magnitude", "norm", "dot", "cross")
 _REQUESTS = (

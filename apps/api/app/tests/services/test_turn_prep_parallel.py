@@ -679,7 +679,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
     from app.models.schemas.math import GraphBlockSpec
     from app.services.chat.stream_pipeline import stream_and_finalize
     from app.services.chat.turn_prep.context import StreamContext
-    from app.services.math.tools.block.common import VerifiedMathBlock
+    from app.services.solving import VerifiedMathBlock
 
     user = _make_user()
     chat = _make_chat()
@@ -789,7 +789,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
 
 @pytest.mark.asyncio
 async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None:
-    from app.services.math.tools.block.common import VerifiedMathBlock
+    from app.services.solving import VerifiedMathBlock
 
     user = _make_user()
     chat = _make_chat()

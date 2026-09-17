@@ -21,7 +21,7 @@ from app.models.schemas.math import (
     SimulationBody,
     SimulationVector,
 )
-from app.services.math.solve import MathServiceError
+from app.services.solving import MathServiceError
 
 
 @dataclass(frozen=True)
@@ -250,9 +250,9 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     """
     if not unit:
         return value
-    from app.services.math.school import _get_unit_registry
+    from app.services.math.school import get_unit_registry
 
-    ureg = _get_unit_registry()
+    ureg = get_unit_registry()
     alias = _UNIT_ALIASES.get(unit.lower(), unit)
     try:
         if alias in _OFFSET_UNITS:

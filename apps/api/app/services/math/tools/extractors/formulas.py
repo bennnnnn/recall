@@ -7,8 +7,8 @@ import re
 
 from app.models.schemas.math import MathIntent
 from app.services.math import match as mtm
-from app.services.math.match.scan import word_index
 from app.services.math.tools.helpers import math_expr_or_none
+from app.services.text_match import word_index
 
 
 def _finite_match_value(match: re.Match[str]) -> float | None:

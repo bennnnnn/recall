@@ -307,7 +307,7 @@ async def enrich_final_content(
         # Prompt scaffolding must never survive into the reply. The model is
         # told not to mention a system block, but instruction is not
         # enforcement — this is the enforcement.
-        from app.services.math.tools.block.common import strip_verified_math_markers
+        from app.services.solving import strip_verified_math_markers
 
         assistant_text = strip_verified_math_markers(assistant_text)
 

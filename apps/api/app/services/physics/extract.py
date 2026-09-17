@@ -14,8 +14,7 @@ from collections.abc import Callable
 from typing import Literal
 
 from app.models.schemas.math import MathIntent
-from app.services.math import match as mtm
-from app.services.math.match.scan import word_index
+from app.services.text_match import has_equation, word_index
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +361,7 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     stripped = _strip_param_assignments(cleaned)
     if asks_speed or asks_velocity or asks_position:
         stripped = _T_ASSIGN_RE.sub("", stripped)
-    if mtm.has_equation(stripped):
+    if has_equation(stripped):
         return None
 
     # Initial height (h0): length units only so "5 kg" is not a drop height.
@@ -544,7 +543,7 @@ def _extract_suvat_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _SUVAT_CUES, _SUVAT_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     unknown = next(
@@ -726,7 +725,7 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     # answered 0.79 m: the range of a ball lobbed at 3 m/s.
     if _COLLISION_SUBJECT_RE.search(cleaned):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     # Initial speed (v0): "at 15 m/s", "speed of 15 m/s", "velocity of 15 m/s"
@@ -935,7 +934,7 @@ def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _MOMENTUM_CUES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     masses = _ordered_values(cleaned, _MASS_UNITS)
@@ -1113,7 +1112,7 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
         # A different quantity. The force extractor refuses it via
         # _UNSUPPORTED_FORCE_CONTEXT rather than guessing, which is right.
         return None
-    if mtm.has_equation(_strip_param_assignments(_MU_RE.sub("", cleaned))):
+    if has_equation(_strip_param_assignments(_MU_RE.sub("", cleaned))):
         return None
 
     mass = _find_value_with_specific_unit(
@@ -1247,7 +1246,7 @@ def _extract_waves_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _WAVE_CUES, _WAVE_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
@@ -1352,7 +1351,7 @@ def _extract_optics_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _OPTICS_CUES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
     if _DIVERGING_RE.search(cleaned):
         return None
@@ -1496,7 +1495,7 @@ def _extract_thermal_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _THERMAL_CUES, _THERMAL_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     # --- efficiency: only from two energies -----------------------------
@@ -1635,7 +1634,7 @@ def _extract_gravitation_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _GRAVITATION_CUES, _GRAVITATION_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     body = _named_body(lower)
@@ -1780,7 +1779,7 @@ def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
         return None
     if any(word in lower for word in _STRESS_WORDS):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
@@ -1936,7 +1935,7 @@ def _extract_rotation_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _ROTATION_CUES, _ROTATION_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     inertia = _find_value_with_specific_unit(cleaned, _INERTIA_PATTERN)
@@ -2016,7 +2015,7 @@ def _extract_magnetism_intent(cleaned: str) -> MathIntent | None:
     # this gate reads the original casing the way the pre-filter now does.
     if not _has_cue_either_case(cleaned, _MAGNETISM_CUES, _MAGNETISM_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     field = _find_value_with_specific_unit(cleaned, _TESLA_PATTERN)
@@ -2100,7 +2099,7 @@ def _extract_materials_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _MATERIALS_CUES, _MATERIALS_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     stress = _find_value_with_specific_unit(cleaned, _PRESSURE_PATTERN)
@@ -2185,7 +2184,7 @@ def _extract_modern_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _MODERN_CUES, _MODERN_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     if "photon" in lower or "planck" in lower or "photoelectric" in lower:
@@ -2288,7 +2287,7 @@ def _extract_circular_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _CIRCULAR_CUES, _CIRCULAR_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     radius = _find_value_with_specific_unit(
@@ -2399,7 +2398,7 @@ def _extract_pendulum_intent(cleaned: str) -> MathIntent | None:
         return None
     if not _PENDULUM_PERIOD_RE.search(cleaned):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     length = _find_value_with_specific_unit(
@@ -2456,7 +2455,7 @@ def _extract_shm_intent(cleaned: str) -> MathIntent | None:
     # should say which was asked about. Waves runs later, so defer explicitly.
     if "wave" in lower:
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     if _SHM_MAX_SPEED_RE.search(cleaned):
@@ -2495,7 +2494,7 @@ def _extract_spring_intent(cleaned: str) -> MathIntent | None:
     # Strip "k = 200" before the algebra check: it is a known, not an equation
     # to solve. Without this the whole question is read as algebra — which is
     # what happened before this extractor existed.
-    if mtm.has_equation(_strip_param_assignments(_SPRING_K_RE.sub("", cleaned))):
+    if has_equation(_strip_param_assignments(_SPRING_K_RE.sub("", cleaned))):
         return None
 
     k_match = _find_value_with_specific_unit(cleaned, r"N/m")
@@ -2680,7 +2679,7 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
     # whether this question is a circuit question.
     if not _has_cue_either_case(cleaned, _CIRCUIT_CUES, _CIRCUIT_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     volts = _ordered_values(cleaned, _VOLT_PATTERN)
@@ -2850,7 +2849,7 @@ def _extract_torque_intent(cleaned: str) -> MathIntent | None:
         return None
     if any(word in lower for word in _TORQUE_UNSUPPORTED):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     placed_forces = _positioned_values(cleaned, r"N")
@@ -2986,7 +2985,7 @@ def _extract_tension_intent(cleaned: str) -> MathIntent | None:
         return None
     if any(word in lower for word in _UNSUPPORTED_TENSION_CONTEXT):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     masses = _ordered_values(cleaned, r"kg|lbs?|oz")
@@ -3105,7 +3104,7 @@ _RESOLVE_RE = re.compile(r"\bresolv\w*\b|\bcomponents?\b", re.IGNORECASE)
 def _extract_vector_force_intent(cleaned: str) -> MathIntent | None:
     if not _has_cue(cleaned.lower(), (), _VECTOR_FORCE_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     forces = _ordered_values(cleaned, r"N")
@@ -3218,7 +3217,7 @@ def _extract_force_intent(cleaned: str) -> MathIntent | None:
         return None
     if any(word in lower for word in _UNSUPPORTED_FORCE_CONTEXT):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     # Mass (m): "mass of 5 kg", "5 kg mass", "5kg object" — use unit-specific
@@ -3316,7 +3315,7 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _ENERGY_CUES, _ENERGY_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     # Mass (m) — use unit-specific search so force isn't picked up as mass.

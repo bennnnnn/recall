@@ -84,9 +84,9 @@ def test_every_emitted_param_declares_a_dimension(text: str) -> None:
 
 def test_every_declared_dimension_is_a_real_unit() -> None:
     """A typo in the table disables the check it exists to perform."""
-    from app.services.math.school import _get_unit_registry
+    from app.services.math.school import get_unit_registry
 
-    ureg = _get_unit_registry()
+    ureg = get_unit_registry()
     broken = []
     for key, spec in _PARAM_SI_DIMENSIONS.items():
         try:

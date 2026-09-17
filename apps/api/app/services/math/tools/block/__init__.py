@@ -16,18 +16,6 @@ from app.services.math.tools.block.algebra import (
     _verified_block_system,
 )
 from app.services.math.tools.block.common import (
-    VerifiedMathBlock as VerifiedMathBlock,
-)
-from app.services.math.tools.block.common import (
-    _answer_canonical as _answer_canonical,
-)
-from app.services.math.tools.block.common import (
-    _diagram_block as _diagram_block,
-)
-from app.services.math.tools.block.common import (
-    _finish_with_answer as _finish_with_answer,
-)
-from app.services.math.tools.block.common import (
     _format_equation_answer as _format_equation_answer,
 )
 from app.services.math.tools.block.common import (
@@ -59,6 +47,18 @@ from app.services.math.tools.block.graph import (
     _verified_block_graph_pair,
     _verified_block_point,
     _verified_block_vertical,
+)
+from app.services.solving import (
+    VerifiedMathBlock as VerifiedMathBlock,
+)
+from app.services.solving import (
+    _answer_canonical as _answer_canonical,
+)
+from app.services.solving import (
+    _diagram_block as _diagram_block,
+)
+from app.services.solving import (
+    _finish_with_answer as _finish_with_answer,
 )
 
 logger = logging.getLogger(__name__)
@@ -115,7 +115,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         block = builder(intent, settings, lines)
         if block is None:
             return None
-        from app.services.math.tools.block.common import wrap_verified_math
+        from app.services.solving import wrap_verified_math
 
         physics_intent = None
         if intent.kind in PHYSICS_BLOCK_BUILDERS or intent.school_op == "average_speed":

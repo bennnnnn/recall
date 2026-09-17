@@ -25,11 +25,11 @@ from app.models.schemas.math import (
     TriangleSidesInput,
 )
 from app.services.math import solve as math_solve
-from app.services.math.tools.block.common import (
+from app.services.math.tools.block.common import format_quantity
+from app.services.solving import (
     VerifiedMathBlock,
     _diagram_block,
     _finish_with_answer,
-    format_quantity,
 )
 
 

@@ -1,4 +1,4 @@
-# Recall — Subject Separation Tickets: math / physics / chemistry (planned, not started)
+# Recall — Subject Separation Tickets: math / physics / chemistry (Phase 1 shipped)
 
 Math, physics, and chemistry are meant to be three peer subjects (Golden Rule 7: "Physics is
 a peer subject in `services/physics/`, not a corner of math"). Chemistry mostly lives up to
@@ -9,9 +9,10 @@ own module docstring (`services/physics/__init__.py`) says it plainly:
 > shared primitives (`MathIntent`, `VerifiedMathBlock`, `MathServiceError`) and plugs into
 > math's dispatch through four registry seams."
 
-That is today's actual state, not an aspiration: one shared intent type, one shared verified-block
-type, and physics extraction/solving code that imports two underscore-prefixed (private) helpers
-out of math's internals. This doc scopes the work to make the separation real. It does **not**
+That was the actual state when this doc was written (the docstring has since been updated to
+match Phase 1, below). What's left after Phase 1: one shared intent type — physics problems are
+still represented as a `MathIntent` whose `kind` is one of its twenty physics values (Phase 3, not
+done). This doc scopes the work to make the separation real. It does **not**
 cover the camera/scanner subject picker (math/physics/chemistry slider) — that's deferred by
 request and gets easier once S1/S5 below land, because the backend will know "this is a physics
 turn" independently of math instead of inferring it from a shared enum value.
@@ -30,8 +31,8 @@ which also touched nothing about correctness and was verified against the full s
 | Own turn_prep gate + context local | `needs_math` / `math_block` (`turn_prep/context.py`) | **none** — rides inside `needs_math` / `math_block` | `needs_chem` / `chem_block` — already separate |
 | Own detection gate | `needs_symbolic_math` | shares `needs_symbolic_math`; contributes cues via `has_supported_physics_cue` | `is_chemistry_question` (`services/chemistry/context.py`) — already separate |
 | Prompt hint, conditionally injected only when relevant | n/a (always injected on math turns) | **none** — its verified-kinds paragraph is appended inside `MATH_SOLVER_HINT` (`prompt_constants/math.py`) and ships on every math turn | `CHEMISTRY_FENCE_HINT` (`prompt_constants/visuals.py`), injected only when turn_prep actually found chemistry context — the pattern to copy |
-| Imports another subject's private (`_`-prefixed) internals | — | yes: `math.tools.school._extract_average_speed_intent`, `math.school._get_unit_registry` | no (checked; clean) |
-| Duplicate cue list maintained outside its own package | — | yes: `services/routing.py` keeps its own independent `_PHYSICS_HOMEWORK_CUES` / `_PHYSICS_FORMULA_CUES`, unlinked to `physics/extract.py`'s cues | no |
+| Imports another subject's private (`_`-prefixed) internals | — | **fixed (S3)** — both helpers are now public (`extract_average_speed_intent`, `get_unit_registry`); physics calls them as intentional cross-subject API, not private reach-ins | no (checked; clean) |
+| Duplicate cue list maintained outside its own package | — | kept as-is (S8) — see note below; not the bug it first looked like | no |
 
 Chemistry is the reference pattern. Physics needs to catch up to it, not the other way around.
 
@@ -39,59 +40,71 @@ Chemistry is the reference pattern. Physics needs to catch up to it, not the oth
 
 These don't require the type split in Phase 3 and can land first and independently.
 
-### S2 — Give physics its own verified-block/error primitives instead of importing math's
+### S2 — Give physics its own verified-block/error primitives instead of importing math's ✅ shipped
 
-`services/physics/block.py:15-16` and `direct.py:15` import `VerifiedMathBlock` from
-`app.services.math.tools.block.common`, and `block.py:15` / `solver.py:24` import
-`MathServiceError` from `app.services.math.solve`. Promote both out of the `math` package into a
-subject-neutral home (e.g. `services/solving/common.py`, or alongside the existing shared types
-in `models/schemas/common.py`) that math, physics, and chemistry all import from equally. Math
-keeps whatever math-only extensions it needs on top; physics stops importing anything through a
-path that starts with `app.services.math`.
+Moved `VerifiedMathBlock`, `MathServiceError`, the `[BEGIN/END VERIFIED MATH]` wrapping, and their
+constructor helpers (`_finish_with_answer`, `_diagram_block`, `wrap_verified_math`,
+`strip_verified_math_markers`) into a new `app.services.solving` — a subject-neutral module, not a
+package, matching the existing `reminder_timing.py`-at-`services/`-root precedent for genuinely
+cross-cutting code. `math/tools/block/common.py` kept only what's actually math-specific
+(`format_quantity`, equation/system answer formatting). Every direct importer of the moved names
+(~30 files, about half of them tests) was repointed to `app.services.solving`; math's own package
+`__init__.py` files (`math/tools/block/__init__.py`, `math/solve/__init__.py`) still re-export them
+for math's internal convenience — that's normal package API surface, not the split-brain alias
+pattern the domain-package move retired, since these packages still do real work and aren't
+pass-through shims to a deleted location. One real hazard found and fixed while doing this: a naive
+`from app.services.math.solve.key_steps import KeyStep` at the top of the new module would have
+forced `math/solve/__init__.py` to load before `solving.py` finished defining `MathServiceError`,
+which `parse.py` (loaded by that same `__init__.py`) now imports back — a genuine import cycle.
+Fixed by making it a `TYPE_CHECKING`-only import (every use was already an annotation). Verified:
+full backend suite (5967 tests), ruff, mypy all clean.
 
-### S3 — Stop physics reaching into math's underscore-prefixed internals
+### S3 — Stop physics reaching into math's underscore-prefixed internals ✅ shipped
 
-Two call sites, both deferred imports (added specifically to dodge the circular-import problem
-described in S-note below, which is itself a symptom of the fusion):
+Both helpers turned out to be heavily used *inside* math too (`math/school.py` calls its own
+`_get_unit_registry`; `math/match/needs.py` and `math/tools/school.py` call
+`_extract_average_speed_intent`), so they were never really private — physics reaching in with a
+leading underscore was the actual bug, not the dependency itself. Renamed both to drop the
+underscore (`get_unit_registry`, `extract_average_speed_intent`) and updated every call site
+(math's own and physics's). "Average speed" stays a math-owned arithmetic concept that physics's
+direct-reply path legitimately cross-checks against — that ownership call didn't need to change,
+just its visibility.
 
-- `services/physics/direct.py:231` → `app.services.math.tools.school._extract_average_speed_intent`
-- `services/physics/solver.py:253` → `app.services.math.school._get_unit_registry`
+### S4 — Move physics off `math.match` for text-scanning utilities ✅ shipped
 
-`_get_unit_registry` is pure Pint setup with nothing math-specific about it — promote it to a
-shared utility (it's exactly the kind of thing S2's new neutral module should hold). For
-`_extract_average_speed_intent`, decide which subject actually owns "average speed" as a concept
-and expose it as a real public function from that subject for the other to call — an underscore
-name being imported cross-package means math never intended this dependency to be load-bearing,
-and it is one anyway.
+Turned out to be two functions, not one: `word_index` (as scoped) plus `has_equation`, which
+`services/physics/extract.py` was also reaching for 24 times via `from app.services.math import
+match as mtm` / `mtm.has_equation(...)`. Both are genuinely pure string scanning (no SymPy, no
+subject semantics — `has_equation` is six lines checking for a bare `=` with alphanumeric content
+on both sides) and moved to a new `app.services.text_match`, sibling to the existing
+`app.services.text_normalize` this codebase already had for exactly this kind of thing. `math/
+match/scan.py` re-imports both for its own internal callers (`has_algebraic_equation` calls
+`has_equation`; two other functions call `word_index`). ~14 files across math's extractor layer
+had a one-line import-path change; physics/extract.py additionally dropped the `mtm` alias
+entirely and calls `has_equation` bare.
 
-### S4 — Move physics off `math.match` for text-scanning utilities
+### S8 — Fold `routing.py`'s duplicate physics-cue list into the physics package — descoped, see below
 
-`services/physics/extract.py:17-18` imports `app.services.math.match as mtm` and
-`app.services.math.match.scan.word_index`. `word_index` and similar helpers are generic string
-scanning with no math semantics — promote them to a subject-neutral text-matching module (e.g.
-`services/text_match.py`) that both `math.match` and `physics.extract` import from, instead of
-physics importing through math to get to them.
+Turned out to be built on a false premise. `_looks_like_physics_homework` and
+`has_supported_physics_cue` are **not** the same gate wearing two costumes: one asks "should Auto
+escalate to the smarter model because the solver won't help," the other asks "might the solver's
+extractors handle this text at all." Delegating the first to the second would invert the
+intent — it would stop escalating exactly the physics questions the solver now covers (momentum,
+simple harmonic, centripetal all shipped in round 3) and only escalate the ones it doesn't, which
+is backwards, and it's a live-routing behavior change I have no way to validate is wanted from
+here. Did the safe version instead: left the routing logic untouched and added a comment on
+`_PHYSICS_HOMEWORK_CUES` explaining the two lists are deliberately separate and why the overlap
+with now-covered kinds is likely intentional (a smarter model's prose is still worth it even when
+the number is guaranteed), so a future reader doesn't mistake this for the Round 3 casing bug and
+"fix" it into actually-backwards behavior. No code behavior changed.
 
-### S8 — Fold `routing.py`'s duplicate physics-cue list into the physics package
-
-`services/routing.py` maintains its own `_PHYSICS_HOMEWORK_CUES`, `_PHYSICS_FORMULA_CUES`, and
-`_looks_like_physics_homework()` for Auto model-tier escalation, entirely independent of
-`physics/extract.py`'s own cues. Three unlinked "what counts as physics" lists already exist in
-this codebase (`extract.py`'s cues, `routing.py`'s cues, and the verified-kind list baked into
-`MATH_SOLVER_HINT`) — that's the exact shape of bug Physics Round 3 already found once, where a
-pre-filter and its extractor silently disagreed on casing and a real question never reached
-extraction in production despite its own test passing. Export a public check from
-`services/physics/` (`has_supported_physics_cue` already exists and is close) and have
-`routing.py` call it instead of maintaining a parallel list.
-
-### S9 — Audit chemistry (expected to be mostly a confirmation, not a fix)
+### S9 — Audit chemistry ✅ confirmed clean
 
 Chemistry already has its own gate, its own turn_prep locals, and a conditionally-injected prompt
 hint. A grep across `apps/api/app` for `chemistry` outside its own package turned up only the
 turn_prep integration points every subject needs, test files, and one legitimate disambiguation
 touch in `services/images/gen_intent.py` / `lookup_intent.py` (so "draw a benzene ring" routes to
-chemistry, not image generation). No private-internal reach-ins found. This ticket is: confirm
-that stays true (feeds directly into S10's guard test) rather than a refactor.
+chemistry, not image generation). No private-internal reach-ins found. No refactor needed.
 
 ## Phase 2 — turn-prep parity with chemistry
 
@@ -151,11 +164,14 @@ that produces it.
 
 ## Suggested order
 
-Phase 1 (S2, S3, S4, S8, S9) → Phase 2 (S5, S6) → Phase 3 (S1, S7) → Phase 4 (S10). Phase 1 is
-low-risk cleanup that can start immediately and ships value on its own (it's already bugs-shaped:
-S8 in particular is a latent drift risk, not just a tidiness issue). Phase 3 is the one that
-actually earns the word "separate" at the type level and should wait until Phase 1 has removed
-the private-internal dependencies it would otherwise have to migrate too.
+Phase 1 (S2, S3, S4, S8, S9) → Phase 2 (S5, S6) → Phase 3 (S1, S7) → Phase 4 (S10).
+
+**Phase 1: done.** S2/S3/S4/S9 shipped as scoped; S8 shipped as a documentation-only correction
+once the premise didn't hold up under closer reading (see its section). Verified against the full
+backend suite, ruff, and mypy — zero behavior change anywhere in Phase 1.
+
+Phase 3 is the one that actually earns the word "separate" at the type level and should wait until
+Phase 2 gives physics its own turn_prep presence to key off of.
 
 ## Explicitly out of scope for this round
 

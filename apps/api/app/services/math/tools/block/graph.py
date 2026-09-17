@@ -6,7 +6,7 @@ from app.core.config import Settings
 from app.models.schemas.math import GraphBlockSpec, GraphSampleInput, MathIntent
 from app.services.math import solve as math_solve
 from app.services.math.solve.inequality_graph import affine_inequality_graph_spec
-from app.services.math.tools.block.common import (
+from app.services.solving import (
     VerifiedMathBlock,
     _diagram_block,
 )

@@ -6,7 +6,7 @@ import math
 import re
 
 from app.services.math.match.discrete import _STATS_WORDS, stats_signal
-from app.services.math.match.scan import word_index
+from app.services.text_match import word_index
 
 _NUMBER = r"[+-]?(?:[0-9]{1,24}(?:\.[0-9]{1,24})?|\.[0-9]{1,24})(?:[eE][+-]?[0-9]{1,4})?"
 _VALUE = re.compile(rf"({_NUMBER})(?:\s*/\s*({_NUMBER}))?")

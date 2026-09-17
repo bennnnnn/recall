@@ -19,11 +19,13 @@ from app.services.math.solve.key_steps import (
 )
 from app.services.math.solve.parse import parse_equation as parse_eq
 from app.services.math.tools.block.common import (
+    _format_equation_answer,
+    _format_system_answer,
+)
+from app.services.solving import (
     VerifiedMathBlock,
     _diagram_block,
     _finish_with_answer,
-    _format_equation_answer,
-    _format_system_answer,
 )
 
 

@@ -9,7 +9,6 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import GraphBlockSpec
-from app.services.math.tools.block.common import VerifiedMathBlock
 from app.services.math.tools.direct import (
     can_direct_verified_math_reply,
     format_direct_math_reply,
@@ -17,6 +16,7 @@ from app.services.math.tools.direct import (
     wants_math_explanation,
 )
 from app.services.math.tools.prompt import build_math_augmentation
+from app.services.solving import VerifiedMathBlock
 
 
 def _answer_block(answer: str) -> VerifiedMathBlock:

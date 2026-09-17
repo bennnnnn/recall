@@ -12,8 +12,8 @@ from typing import Any
 
 from app.models.schemas.math import MathIntent
 from app.models.schemas.math.simulation import SIMULATION_SPEC_TYPES
-from app.services.math.tools.block.common import VerifiedMathBlock
 from app.services.physics.extract import _LENGTH_UNIT_PATTERN, _VELOCITY_UNIT_PATTERN
+from app.services.solving import VerifiedMathBlock
 
 _NUMBER = r"-?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
 _TIME = r"seconds?|s|minutes?|min|milliseconds?|ms|hours?|hr|h"
@@ -228,9 +228,9 @@ def _expected_intent(text: str) -> MathIntent | None:
         params, _units = _measures(match)
         if not 0 <= params["d"] <= 1e6 or not 0 < params["t"] <= 1e6:
             return None
-        from app.services.math.tools.school import _extract_average_speed_intent
+        from app.services.math.tools.school import extract_average_speed_intent
 
-        intent = _extract_average_speed_intent(body)
+        intent = extract_average_speed_intent(body)
         if intent is not None and intent.expr == f"{params['d']}/{params['t']}":
             return intent
     return None

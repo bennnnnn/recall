@@ -5,10 +5,10 @@ from dataclasses import replace
 import pytest
 
 from app.core.config import Settings
-from app.services.math.tools.block.common import VerifiedMathBlock
 from app.services.math.tools.direct import maybe_direct_math_reply
 from app.services.math.tools.direct_statistics import statistics_direct_request
 from app.services.math.tools.prompt import build_math_augmentation
+from app.services.solving import VerifiedMathBlock
 
 
 @pytest.mark.asyncio

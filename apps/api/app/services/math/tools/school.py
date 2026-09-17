@@ -13,10 +13,11 @@ from app.models.schemas.math import MathIntent
 from app.services.math import match as mtm
 from app.services.math import school as math_school
 from app.services.math.match.coordinate_vector import literal_math_tuples
-from app.services.math.match.scan import _NUM, word_index
+from app.services.math.match.scan import _NUM
 from app.services.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.math.tools.block.common import format_quantity
 from app.services.math.tools.helpers import math_expr_or_none, substituted_eval_expr
+from app.services.text_match import word_index
 
 logger = logging.getLogger(__name__)
 
@@ -767,7 +768,7 @@ def _extract_set_intent(cleaned: str, lower: str) -> MathIntent | None:
     )
 
 
-def _extract_average_speed_intent(cleaned: str) -> MathIntent | None:
+def extract_average_speed_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "average speed" not in lower and "average velocity" not in lower:
         return None
@@ -935,7 +936,7 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     sequence = _extract_sequence_intent(cleaned)
     if sequence is not None:
         return sequence
-    speed = _extract_average_speed_intent(cleaned)
+    speed = extract_average_speed_intent(cleaned)
     if speed is not None:
         return speed
     expr = mtm.bare_arithmetic_expr(cleaned)

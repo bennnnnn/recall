@@ -33,15 +33,14 @@ from app.services.math.match.scan import (
     geometry_dim_context,
     has_algebraic_equation,
     has_draw_shape,
-    has_equation,
     has_math_keyword,
     inequality_signal,
     number_after,
     prepare,
     two_numbers_after,
-    word_index,
 )
 from app.services.math.match.statistics import bivariate_stats_signal
+from app.services.text_match import has_equation, word_index
 
 
 def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
@@ -432,9 +431,9 @@ def school_homework_cue(cleaned: str) -> bool:
     if "area" in lower and "triangle" in lower and "angle" in lower and "sides" in lower:
         return True
     if "average speed" in lower or "average velocity" in lower:
-        from app.services.math.tools.school import _extract_average_speed_intent
+        from app.services.math.tools.school import extract_average_speed_intent
 
-        if _extract_average_speed_intent(cleaned) is not None:
+        if extract_average_speed_intent(cleaned) is not None:
             return True
     if "convert" in lower and " to " in lower and any(ch.isdigit() for ch in cleaned):
         return True

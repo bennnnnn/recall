@@ -12,13 +12,13 @@ from dataclasses import replace
 
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
-from app.services.math.solve import MathServiceError
-from app.services.math.tools.block.common import (
+from app.services.physics.solver import PhysicsResult, solve_physics
+from app.services.solving import (
+    MathServiceError,
     VerifiedMathBlock,
     _diagram_block,
     _finish_with_answer,
 )
-from app.services.physics.solver import PhysicsResult, solve_physics
 
 logger = logging.getLogger(__name__)
 
