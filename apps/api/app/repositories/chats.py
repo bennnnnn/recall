@@ -7,7 +7,7 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.timezone import resolve_timezone
-from app.models.orm import Chat, Message
+from app.models.orm import Automation, Chat, Message
 
 
 async def create(
@@ -17,11 +17,17 @@ async def create(
     model: str,
     project_id: UUID | None = None,
     quiz_mode: str | None = None,
+    commit: bool = True,
 ) -> Chat:
     chat = Chat(user_id=user_id, model=model, project_id=project_id, quiz_mode=quiz_mode)
     session.add(chat)
-    await session.commit()
-    await session.refresh(chat)
+    if commit:
+        await session.commit()
+        await session.refresh(chat)
+    else:
+        # Flush only — materializes chat.id for a caller (e.g. automations
+        # create) that inserts a dependent row in the same transaction.
+        await session.flush()
     return chat
 
 
@@ -38,10 +44,15 @@ async def list_for_user(
     include_archived: bool = False,
 ) -> list[Chat]:
     has_messages = exists().where(Message.chat_id == Chat.id)
+    # Automations get their own dedicated chat purely as run-history storage —
+    # keep them out of the normal chat drawer/search (they surface under the
+    # Automations tab instead). No column on `chats`; automations owns the FK.
+    is_automation_chat = exists().where(Automation.chat_id == Chat.id)
     stmt = (
         select(Chat)
         .where(Chat.user_id == user_id)
         .where(has_messages)
+        .where(~is_automation_chat)
         .order_by(Chat.pinned.desc(), Chat.updated_at.desc(), Chat.id.desc())
     )
     if not include_archived:
