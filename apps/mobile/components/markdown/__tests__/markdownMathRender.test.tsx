@@ -283,4 +283,15 @@ describe("MarkdownContent math rendering", () => {
     expect(getAllByText("= 0").length).toBeGreaterThanOrEqual(2);
     expect(getAllByText("= 18 - 21 + 3").length).toBeGreaterThanOrEqual(1);
   });
+
+  it("keeps a lesson formula off the step label line", async () => {
+    const { getByText, queryByText } = await render(
+      <MarkdownContent
+        content={"**2. Simplify**\n\n$3 x = 3$"}
+      />,
+    );
+    expect(getByText("2. Simplify")).toBeOnTheScreen();
+    expect(getByText("3 x = 3")).toBeOnTheScreen();
+    expect(queryByText(/Simplify 3/)).toBeNull();
+  });
 });

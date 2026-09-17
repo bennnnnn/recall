@@ -80,14 +80,6 @@ def _solution_value_latex(val: Any) -> str:
     return f"{format_verified_latex(real)} + {format_verified_latex(imag)} i"
 
 
-def _latex_coeff(val: Any) -> str:
-    """Parenthesize a negative coefficient so ``-5^{2}`` is not ``-(5^{2})``."""
-    tex = str(latex(val))
-    if val.is_number and val < 0:
-        return f"({tex})"
-    return tex
-
-
 def compact_root_answer_lines(variable: str, values: list[Any]) -> list[str]:
     """Pair ± reals and conjugate complexes so the answer pill is readable.
 
@@ -146,144 +138,10 @@ def compact_root_answer_lines(variable: str, values: list[Any]) -> list[str]:
 
 
 def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
-    """Derive verified intermediate isolation steps for common single-variable
-    polynomial equations (degree 1, or degree 2 with no linear term) so the
-    model can copy them verbatim instead of re-deriving (and corrupting) the
-    algebra. Returns [] for forms it doesn't recognize — the caller still has
-    the equation + solutions."""
-    from sympy import Poly, sqrt
+    """String form of the structured equation trace for the verified-math hint."""
+    from app.services.math.solve.key_steps import equation_key_steps, stringify_key_steps
 
-    try:
-        var = Symbol(variable)
-        expr = simplify(lhs - rhs)
-        poly = Poly(expr, var)
-    except Exception:
-        return []
-
-    degree = poly.degree()
-    if degree not in (1, 2):
-        return []
-
-    # Coefficients of the polynomial in `var` (expr = 0 form).
-    c1 = poly.coeff_monomial(var) if degree >= 1 else 0
-    c2 = poly.coeff_monomial(var**2) if degree == 2 else 0
-    c0 = poly.coeff_monomial(1)  # constant term
-
-    steps: list[str] = []
-    if degree == 1 and c1 != 0:
-        # School-style: write the inverse on BOTH sides, then simplify.
-        # Wrong: "Subtract 3" then jump to F = 3 - 3. Right: F + 3 - 3 = 3 - 3.
-        both_sides = _linear_both_sides_steps(lhs, rhs, var, c1, c0)
-        if both_sides:
-            return both_sides
-        isolated = simplify(-c0 / c1)
-        steps.append(f"Isolate: {latex(c1)} \\cdot {variable} = {latex(-c0)}")
-        steps.append(f"Solve: {variable} = {latex(isolated)}")
-        return steps
-
-    if degree == 2 and c2 != 0 and c1 == 0:
-        # a*x^2 + c0 = 0  →  x^2 = -c0/a  →  x = ±sqrt(-c0/a)
-        ratio = simplify(-c0 / c2)
-        steps.append(f"Isolate: {variable}^{{2}} = {latex(ratio)}")
-        radicand = simplify(ratio)
-        # Only emit the square-root step when the radicand is non-negative
-        # (so we don't claim a real root for a negative radicand).
-        if radicand.is_number and radicand >= 0:
-            root = simplify(sqrt(radicand))
-            steps.append(f"Take square root: {variable} = \\pm {latex(root)}")
-        else:
-            steps.append(f"Take square root: {variable} = \\pm \\sqrt{{{latex(radicand)}}}")
-        return steps
-
-    if degree == 2 and c2 != 0 and c1 != 0:
-        # General quadratic a*x^2 + b*x + c = 0 — emit the discriminant and
-        # the quadratic formula so the model can copy verified steps instead
-        # of re-deriving (and corrupting) the algebra when b != 0.
-        discriminant = simplify(c1**2 - 4 * c2 * c0)
-        steps.append(
-            f"Discriminant: \\Delta = {_latex_coeff(c1)}^{{2}} - 4({latex(c2)})({latex(c0)}) "
-            f"= {latex(discriminant)}"
-        )
-        if c2 == 1:
-            denom = "2"
-        elif c2 == -1:
-            denom = "-2"
-        else:
-            denom = f"2({latex(c2)})"
-        steps.append(
-            f"Quadratic formula: {variable} = \\frac{{-{_latex_coeff(c1)} \\pm "
-            f"\\sqrt{{{latex(discriminant)}}}}}{{{denom}}}"
-        )
-        return steps
-
-    return steps
-
-
-def _reciprocal_if_proper_fraction(coeff: Any) -> Any | None:
-    """``x/2`` → multiply by 2, not divide by ``1/2`` (avoids nested fractions)."""
-    rat = simplify(coeff)
-    if not getattr(rat, "is_number", False) or not getattr(rat, "is_rational", False):
-        return None
-    numer, denom = rat.as_numer_denom()
-    if not getattr(numer, "is_integer", False) or not getattr(denom, "is_integer", False):
-        return None
-    if denom in (0, 1, -1):
-        return None
-    if abs(int(numer)) >= abs(int(denom)):
-        return None
-    return simplify(1 / rat)
-
-
-def _linear_both_sides_steps(lhs: Any, rhs: Any, var: Any, c1: Any, c0: Any) -> list[str]:
-    """Verified linear steps that apply add/subtract/divide to both sides."""
-    if not hasattr(lhs, "as_independent") or var not in getattr(lhs, "free_symbols", set()):
-        return []
-
-    steps: list[str] = []
-    indep, _dep = lhs.as_independent(var, as_Add=True)
-    cur_lhs, cur_rhs = lhs, rhs
-
-    if indep != 0 and getattr(indep, "is_number", False):
-        if indep > 0:
-            steps.append(
-                f"Subtract {latex(indep)} from both sides: "
-                f"{latex(cur_lhs)} - {latex(indep)} = {latex(cur_rhs)} - {latex(indep)}"
-            )
-        else:
-            addend = -indep
-            steps.append(
-                f"Add {latex(addend)} to both sides: "
-                f"{latex(cur_lhs)} + {latex(addend)} = {latex(cur_rhs)} + {latex(addend)}"
-            )
-        cur_lhs = simplify(cur_lhs - indep)
-        cur_rhs = simplify(cur_rhs - indep)
-        steps.append(f"Simplify: {latex(cur_lhs)} = {latex(cur_rhs)}")
-
-    coeff = cur_lhs.coeff(var) if hasattr(cur_lhs, "coeff") else c1
-    isolated = simplify(-c0 / c1)
-    final = f"{var} = {latex(isolated)}"
-    if coeff != 0 and coeff != 1 and coeff != -1:
-        multiplier = _reciprocal_if_proper_fraction(coeff)
-        if multiplier is not None:
-            steps.append(
-                f"Multiply both sides by {latex(multiplier)}: "
-                f"{latex(multiplier)} \\cdot ({latex(cur_lhs)}) = "
-                f"{latex(multiplier)} \\cdot ({latex(cur_rhs)})"
-            )
-        else:
-            steps.append(
-                f"Divide both sides by {latex(coeff)}: "
-                f"\\frac{{{latex(cur_lhs)}}}{{{latex(coeff)}}} = "
-                f"\\frac{{{latex(cur_rhs)}}}{{{latex(coeff)}}}"
-            )
-        steps.append(f"Simplify: {final}")
-    elif coeff == -1:
-        steps.append(f"Multiply both sides by -1: {latex(-cur_lhs)} = {latex(-cur_rhs)}")
-        if final not in (steps[-1] if steps else ""):
-            steps.append(f"Simplify: {final}")
-    elif not any(final in line for line in steps):
-        steps.append(f"Solve: {final}")
-    return steps
+    return stringify_key_steps(equation_key_steps(lhs, rhs, variable))
 
 
 def _classify_no_solution(lhs: Any, rhs: Any) -> Literal["none", "infinite"]:

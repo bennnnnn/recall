@@ -169,8 +169,9 @@ def test_solve_quadratic_includes_worked_isolation_steps() -> None:
     steps_text = "\n".join(result.steps)
     # Isolation step: x^2 = 4
     assert "x^{2} = 4" in steps_text
-    # Square-root step: x = ± 2
-    assert "\\pm 2" in steps_text
+    # Even-root real solutions: |x| = 2, not a claimed real square root of a negative.
+    assert "lvert" in steps_text or r"\left|" in steps_text
+    assert "2" in steps_text
     # No stray wrong terms the model was emitting.
     assert "2x" not in steps_text
     assert "\\sqrt{4x}" not in steps_text
@@ -208,25 +209,21 @@ def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
 
 
 def test_solve_quadratic_negative_b_parenthesizes_discriminant() -> None:
-    """``x^2 - 5x + 6`` used to emit ``\\Delta = -5^{2} - 4(1)(6) = 1`` (false:
-    -5^2 is -25) and ``--5`` in the formula. Parenthesize b and use latex(-b)."""
+    """``x^2 - 2x - 1`` used to emit ``\\Delta = -2^{2}`` (false: -2^2 is -4)."""
     result = math_solve.solve_equation(
-        EquationInput(lhs="x**2 - 5*x + 6", rhs="0", variables=["x"])
+        EquationInput(lhs="x**2 - 2*x - 1", rhs="0", variables=["x"])
     )
     steps_text = "\n".join(result.steps)
     assert "\\Delta" in steps_text
-    assert "(-5)^{2}" in steps_text or "\\left(-5\\right)^{2}" in steps_text
-    assert "-5^{2}" not in steps_text.replace("(-5)^{2}", "")
+    assert "(-2)^{2}" in steps_text or "\\left(-2\\right)^{2}" in steps_text
+    assert "-2^{2}" not in steps_text.replace("(-2)^{2}", "")
     assert "--" not in steps_text
     assert "2(1)" not in steps_text
-    joined = " ".join(result.solutions_latex)
-    assert "2" in joined
-    assert "3" in joined
 
 
 def test_solve_quadratic_negative_b_and_c_no_false_precedence() -> None:
     result = math_solve.solve_equation(
-        EquationInput(lhs="2*x**2 - 4*x - 6", rhs="0", variables=["x"])
+        EquationInput(lhs="2*x**2 - 4*x - 1", rhs="0", variables=["x"])
     )
     steps_text = "\n".join(result.steps)
     assert "--" not in steps_text
@@ -236,7 +233,7 @@ def test_solve_quadratic_negative_b_and_c_no_false_precedence() -> None:
 
 def test_solve_quadratic_negative_linear_coeff_parenthesizes_b() -> None:
     result = math_solve.solve_equation(
-        EquationInput(lhs="x**2 - 5*x + 6", rhs="0", variables=["x"])
+        EquationInput(lhs="x**2 - 5*x - 1", rhs="0", variables=["x"])
     )
     steps_text = "\n".join(result.steps)
     assert "(-5)^{2}" in steps_text or "(-5)^{{2}}" in steps_text

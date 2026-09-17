@@ -17,5 +17,8 @@ MATH_REPLY_POLICY = (
     "asked; with SHORT, give less. "
     "Honor explicit requests for just the answer or no steps. Always preserve necessary "
     "domains, excluded endpoints or values, all solution branches, units, constants of "
-    "integration, and every requested part of the problem."
+    "integration, and every requested part of the problem. When steps are shown, one "
+    "transformation per numbered step: operation label, then the formula alone on the "
+    "next `$...$` line. Copy verified formulas; do not recompute them. Inverse "
+    "operations are for equations, not a universal teaching method."
 )
