@@ -82,10 +82,14 @@ def test_a_collision_does_not_invent_the_second_velocity(model: str) -> None:
 
 @pytest.mark.parametrize("model", ["inelastically", "in an inelastic collision"])
 def test_inelastic_alone_does_not_mean_sticking(model: str) -> None:
-    assert _collision_intent(f"a 2 kg ball at 3 m/s collides {model} with a 1 kg ball at rest") is None
+    assert (
+        _collision_intent(f"a 2 kg ball at 3 m/s collides {model} with a 1 kg ball at rest") is None
+    )
 
 
-@pytest.mark.parametrize("model", ["elastically", "perfectly inelastically", "completely inelastically"])
+@pytest.mark.parametrize(
+    "model", ["elastically", "perfectly inelastically", "completely inelastically"]
+)
 def test_explicit_collision_givens_are_preserved(model: str) -> None:
     intent = _collision_intent(f"a 2 kg ball at 3 m/s collides {model} with a 1 kg ball at rest")
     assert intent is not None
@@ -106,7 +110,9 @@ def test_rest_belongs_to_the_correct_body() -> None:
 
 
 def test_sticking_with_mixed_mass_units() -> None:
-    intent = _collision_intent("a 500 g ball at 3 m/s hits a 1 kg ball at rest and they stick together")
+    intent = _collision_intent(
+        "a 500 g ball at 3 m/s hits a 1 kg ball at rest and they stick together"
+    )
     assert intent is not None
     assert intent.physics_units is not None
     assert intent.physics_units["m1"] == "g"
@@ -218,7 +224,9 @@ def test_pipeline_rejects_missing_collision_conditions() -> None:
     from app.services.math.tools import extract_math_intent
 
     assert extract_math_intent("a 2 kg ball at 3 m/s hits a 1 kg ball elastically") is None
-    assert extract_math_intent("a 2 kg ball at 3 m/s hits a 1 kg ball at rest inelastically") is None
+    assert (
+        extract_math_intent("a 2 kg ball at 3 m/s hits a 1 kg ball at rest inelastically") is None
+    )
 
 
 def test_pipeline_all_projectile_answers_share_one_visual() -> None:

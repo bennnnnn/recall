@@ -192,12 +192,10 @@ class PhysicsIntent(BaseModel):
 
     @model_validator(mode="after")
     def coherent_requested_ops(self) -> PhysicsIntent:
-        if self.requested_ops:
-            if self.kind != "projectile" or self.physics_op != self.requested_ops[0]:
+        ops = self.requested_ops
+        if ops:
+            if self.kind != "projectile" or self.physics_op != ops[0]:
                 raise ValueError("multipart quantities must belong to the same projectile")
-            if (
-                len(self.requested_ops) < 2
-                or len(set(self.requested_ops)) != len(self.requested_ops)
-            ):
+            if len(ops) < 2 or len(set(ops)) != len(ops):
                 raise ValueError("multipart quantities must contain two to four distinct requests")
         return self

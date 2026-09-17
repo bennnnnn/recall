@@ -103,9 +103,7 @@ def test_elastic_collision_conserves_momentum_and_energy() -> None:
     """
     from app.services.physics.solver import solve_physics
 
-    intent = extract_math_intent(
-        "a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest"
-    )
+    intent = extract_math_intent("a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest")
     assert isinstance(intent, PhysicsIntent)
     solve_physics(intent)  # must not raise
 
@@ -253,7 +251,8 @@ def test_a_bare_angle_is_enough_to_refuse() -> None:
     angle to state, so inside a collision the number can only be the deflection.
     """
     assert (
-        _verified_answer("a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest") is not None
+        _verified_answer("a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest")
+        is not None
     )
     assert (
         _verified_answer("a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at 30 degrees")
