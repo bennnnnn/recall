@@ -204,8 +204,7 @@ def test_pipeline_leading_decimal_and_scientific_notation() -> None:
         assert isinstance(intent, PhysicsIntent)
         assert intent.physics_params is not None and intent.physics_params["m"] == 0.5
     intent = extract_math_intent(
-        "A projectile is launched at 2e1 m/s at 30 degrees. "
-        "Find the range. Use g = 1e-2 m/s^2."
+        "A projectile is launched at 2e1 m/s at 30 degrees. Find the range. Use g = 1e-2 m/s^2."
     )
     assert isinstance(intent, PhysicsIntent)
     assert intent.physics_params is not None

@@ -103,7 +103,9 @@ def test_elastic_collision_conserves_momentum_and_energy() -> None:
     """
     from app.services.physics.solver import solve_physics
 
-    intent = extract_math_intent("a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest")
+    intent = extract_math_intent(
+        "a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest"
+    )
     assert isinstance(intent, PhysicsIntent)
     solve_physics(intent)  # must not raise
 
