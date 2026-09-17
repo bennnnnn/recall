@@ -54,7 +54,7 @@ VERIFIED: list[tuple[str, str, str]] = [
         "2.00 m/s",
     ),
     (
-        "a 2 kg cart moving at 3 m/s collides inelastically with a 1 kg cart at rest, "
+        "a 2 kg cart moving at 3 m/s collides perfectly inelastically with a 1 kg cart at rest, "
         "what is the final velocity",
         "final_velocity",
         "2.00 m/s",
@@ -191,7 +191,7 @@ def test_momentum_never_claims_a_direct_reply() -> None:
     """
     from app.services.math.tools.direct import maybe_direct_math_reply
 
-    text = "momentum of a 2 kg object moving at 3 m/s"
+    text = "momentum of a 2 kg mass moving at 3 m/s"
     intent = extract_math_intent(text)
     assert intent is not None
     block = _build_verified_block(intent, _settings())
@@ -253,7 +253,8 @@ def test_a_bare_angle_is_enough_to_refuse() -> None:
     angle to state, so inside a collision the number can only be the deflection.
     """
     assert (
-        _verified_answer("a 2 kg ball at 3 m/s collides elastically with a 1 kg ball") is not None
+        _verified_answer("a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest")
+        is not None
     )
     assert (
         _verified_answer("a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at 30 degrees")
