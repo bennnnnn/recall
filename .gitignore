@@ -47,3 +47,6 @@ tmp/
 
 # Accidental Simulator dumps at repo root
 /simulator_screenshot_*.png
+
+# Local Redis dev fallback (Homebrew Redis / raw redis-server) dumps here by default
+*.rdb
