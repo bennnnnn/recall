@@ -34,13 +34,13 @@ function answerNeedsKatex(text: string): boolean {
 }
 
 /**
- * Final answer — same gray surface as other math blocks, no Copy affordance.
+ * Final answer — chat-canvas background, no Copy affordance.
  * (```answer / short numeric or simplified-expression finals only.)
  *
  * Light answers stay on native `MathText`. Heavy LaTeX environments
  * (`\begin{cases|matrix|aligned|…}`) use the KaTeX WebView in **stretch
  * displayMode** — never `compact` + centered zero-width wrap, which used to
- * collapse into a thin vertical sliver / tall pill inside this gray box.
+ * collapse into a thin vertical sliver / tall pill inside this box.
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
@@ -54,7 +54,7 @@ export function AnswerBlock({ content }: Props) {
   // A nested math View (stacked frac / sqrt) must be a direct child of the box,
   // NOT wrapped in a Text. iOS clips a View nested inside a Text to the line
   // box — which cut the radicand's bottom (the digit under √ lost its baseline)
-  // in this gray answer box. Mirrors markdownRenderRules' nested-View guard.
+  // in this answer box. Mirrors markdownRenderRules' nested-View guard.
   const hasNestedView = hasInlineMath
     ? parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))
     : latexHasNestedMathView(text);
@@ -77,13 +77,13 @@ export function AnswerBlock({ content }: Props) {
       accessibilityRole="text"
       accessibilityLabel={t("rich.answer_a11y", { text: readableLatexFallback(text) })}
     >
-      <View style={[s.box, useKatex || hasNestedView ? s.boxStretch : null]}>
+      <View testID="answer-box" style={[s.box, useKatex || hasNestedView ? s.boxStretch : null]}>
         {useKatex ? (
           <MathFormulaWebView
             latex={text}
             displayMode
             textColor={theme.text}
-            bgColor={theme.surfaceAlt}
+            bgColor={theme.bg}
           />
         ) : hasNestedView ? (
           <View style={s.answerLines}>
@@ -148,9 +148,7 @@ const makeStyles = (t: Theme) =>
       maxWidth: "100%",
       paddingVertical: 10,
       paddingHorizontal: 18,
-      // One step stronger than contentSurface so finals read on the chat
-      // canvas / assistant bubble without introducing a new hue.
-      backgroundColor: t.surfaceAlt,
+      backgroundColor: t.bg,
       borderRadius: 10,
       alignItems: "center",
       justifyContent: "center",

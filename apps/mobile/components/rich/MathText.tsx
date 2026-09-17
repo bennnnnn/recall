@@ -94,6 +94,10 @@ function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width:
       const body = estimateSegmentsSize(seg.body, inFrac);
       width += 14 + (seg.degree ? visualLength(seg.degree) * 8 + 2 : 4) + body.width;
       height = Math.max(height, body.height + (seg.degree ? 6 : 2));
+    } else if (seg.type === "cancel") {
+      const inner = estimateSegmentsSize(seg.body, inFrac);
+      width += inner.width;
+      height = Math.max(height, inner.height);
     } else {
       width += Math.max(visualLength(seg.value), 1) * FRAC_CHAR_PX;
       if (isFractionalScript(seg)) height = Math.max(height, FRACTIONAL_SCRIPT_HEIGHT);
@@ -125,7 +129,9 @@ function estimateMathTextSize(segments: MathSegment[]): { width: number; height:
 
 function hasTallMath(segments: MathSegment[]): boolean {
   for (const seg of segments) {
-    if (seg.type === "frac" || seg.type === "sqrt" || isFractionalScript(seg)) return true;
+    if (seg.type === "frac" || seg.type === "sqrt" || seg.type === "cancel" || isFractionalScript(seg)) {
+      return true;
+    }
   }
   return false;
 }
@@ -259,6 +265,16 @@ function renderSegments(
           <Text style={inFrac ? styles.fracPart : styles.sqrtSign}>√</Text>
           <View style={styles.sqrtRadicand} testID="math-sqrt-radicand">
             {renderRadicand(seg.body, `${key}-b`, ctx)}
+          </View>
+        </View>
+      );
+    }
+    if (seg.type === "cancel") {
+      return (
+        <View key={key} testID="math-cancel" style={styles.cancelWrap} collapsable={false}>
+          {renderSegments(seg.body, `${key}-c`, ctx)}
+          <View style={styles.cancelSlashHit} pointerEvents="none" accessible={false}>
+            <View style={styles.cancelSlash} />
           </View>
         </View>
       );
@@ -443,6 +459,21 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       height: StyleSheet.hairlineWidth * 2,
       marginVertical: 2 * layoutScale,
       backgroundColor: color,
+    },
+    cancelWrap: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cancelSlashHit: {
+      ...StyleSheet.absoluteFill,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cancelSlash: {
+      width: "140%",
+      height: StyleSheet.hairlineWidth * 2,
+      backgroundColor: color,
+      transform: [{ rotate: "-32deg" }],
     },
   });
 };

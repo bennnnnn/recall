@@ -17,6 +17,7 @@ from app.services.math.tools import (
     maybe_direct_math_reply,
     wants_math_explanation,
 )
+from app.services.math.tools.lesson import format_equation_lesson_reply
 
 
 def _block(text: str):
@@ -76,8 +77,12 @@ def test_show_steps_linear_lesson_overrides_short() -> None:
     assert "```answer" in reply
     assert "x = 4" in reply
     # Label and formula are on separate lines; chip is last.
-    subtract_line = next(line for line in reply.splitlines() if line.startswith("1."))
+    # Bold ``**1. …**`` — a CommonMark ``1.`` list glues the formula onto the label.
+    subtract_line = next(line for line in reply.splitlines() if "1. Subtract" in line)
     assert "$" not in subtract_line
+    assert subtract_line.startswith("**")
+    assert not any(line[:1].isdigit() and line[1:3] == ". " for line in reply.splitlines())
+    assert "—" not in reply.split("```answer")[0]
     assert reply.strip().endswith("```") or "```answer" in reply.split("Check:")[0]
 
 
@@ -173,3 +178,53 @@ def test_default_style_is_balanced() -> None:
     assert maybe_direct_math_reply(_block(text), text) == maybe_direct_math_reply(
         _block(text), text, response_style="balanced"
     )
+
+
+def test_linear_lesson_is_short_and_cancels_on_divide() -> None:
+    text = "3x - 3 = 0"
+    reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
+
+    assert reply is not None
+    before_chip, _, _ = reply.partition("```answer")
+    assert "Add 3 to both sides" in before_chip
+    assert "Divide both sides by 3" in before_chip
+    assert "—" not in before_chip
+    assert "cancels" not in before_chip
+    assert "undoes" not in before_chip
+    assert r"\cancel{3}" in before_chip
+    given_line = next(line for line in reply.splitlines() if "Given" in line)
+    assert "$" not in given_line
+    simplify_line = next(line for line in reply.splitlines() if "Simplify" in line)
+    assert "$" not in simplify_line
+    assert "x = 1" in reply
+
+
+def test_detailed_linear_keeps_the_why_sentence() -> None:
+    text = "3x - 3 = 0"
+    reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
+
+    assert reply is not None
+    assert "Add 3 to both sides" in reply
+    assert "—" in reply.split("```answer")[0]
+    assert r"\cancel{3}" in reply
+
+
+def test_format_omits_reasons_unless_asked() -> None:
+    verified = _block("3x - 3 = 0")
+    short = format_equation_lesson_reply(verified, include_reasons=False)
+    long = format_equation_lesson_reply(verified, include_reasons=True)
+    assert "—" not in short.split("```answer")[0]
+    assert "—" in long.split("```answer")[0]
+
+
+def test_divide_cancels_the_variable_coeff_not_the_constant() -> None:
+    from sympy import Symbol
+
+    from app.services.math.solve.key_steps import equation_key_steps
+
+    x = Symbol("x")
+    steps = equation_key_steps(2 * x + 3, 11, "x")
+    divide = next(step for step in steps if step.label.startswith("Divide"))
+    assert r"\cancel{2}" in divide.formula
+    assert r"\frac{8}{2}" in divide.formula
+    assert r"\cancel{8}" not in divide.formula

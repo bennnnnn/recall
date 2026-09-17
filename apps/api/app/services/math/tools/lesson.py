@@ -40,6 +40,21 @@ _ANSWER_ONLY_PHRASES: tuple[str, ...] = (
     "only the answer",
 )
 
+# "Show steps" is a short lesson. These ask for the extra why-sentence.
+_DETAILED_EXPLAIN_PHRASES: tuple[str, ...] = (
+    "explain",
+    "teach",
+    "walk me",
+    "why is",
+    "why does",
+    "how do",
+    "how does",
+    "how to",
+    "how can",
+    "how would",
+    "show me how",
+)
+
 _METHOD_PHRASES: tuple[str, ...] = (
     "using the quadratic formula",
     "with the quadratic formula",
@@ -94,6 +109,12 @@ def wants_answer_only(text: str) -> bool:
     return any(phrase in lowered for phrase in _ANSWER_ONLY_PHRASES)
 
 
+def wants_detailed_math_explanation(text: str) -> bool:
+    """True for 'explain' / 'why' — not for 'show steps'."""
+    lowered = text.lower()
+    return any(phrase in lowered for phrase in _DETAILED_EXPLAIN_PHRASES)
+
+
 def strip_teaching_signals(text: str) -> str:
     """Drop teaching/answer-only metadata so leftover-English still sees the math."""
     return _strip_phrases(text, _STRIP_PHRASES)
@@ -144,16 +165,23 @@ def format_equation_lesson_reply(
     verified: VerifiedMathBlock,
     *,
     include_check: bool = False,
+    include_reasons: bool = False,
 ) -> str:
-    """GOLD layout: Given, one transformation per step, chip last."""
+    """GOLD layout: Given, one transformation per step, chip last.
+
+    Labels are bold ``**1. …**`` (not ``1.`` lists). CommonMark tight lists
+    glue ``2. Simplify\\n$3x=3$`` into one paragraph, so the formula sits on
+    the label line. A blank line then ``$formula$`` keeps each equation on
+    its own line.
+    """
     chunks: list[str] = []
     if verified.given_latex:
-        chunks.append(f"**Given:**\n${verified.given_latex}$")
+        chunks.append(_labelled_formula("**Given:**", verified.given_latex))
     for index, step in enumerate(verified.key_steps, start=1):
-        heading = f"{index}. {step.label}"
-        if step.reason:
+        heading = f"**{index}. {step.label}**"
+        if include_reasons and step.reason:
             heading = f"{heading} — {step.reason}"
-        chunks.append(f"{heading}\n${step.formula}$")
+        chunks.append(_labelled_formula(heading, step.formula))
     body = "\n\n".join(chunks)
     answer = (verified.canonical_answer or "").strip()
     reply = f"{body}\n\n```answer\n{answer}\n```\n" if body else f"```answer\n{answer}\n```\n"
@@ -162,3 +190,7 @@ def format_equation_lesson_reply(
     if verified.alternate_method_note:
         reply += f"\n{verified.alternate_method_note}\n"
     return reply
+
+
+def _labelled_formula(label: str, formula: str) -> str:
+    return f"{label}\n\n${formula}$"

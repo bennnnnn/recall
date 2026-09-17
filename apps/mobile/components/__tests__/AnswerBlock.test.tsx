@@ -2,6 +2,7 @@ import { render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
+import { lightTheme } from "@/lib/theme";
 
 const mockFormula = jest.fn((_props: Record<string, unknown>) => null);
 
@@ -36,6 +37,13 @@ describe("AnswerBlock", () => {
     const { getByLabelText } = await render(<AnswerBlock content={String.raw`x = \pm 2`} />);
     expect(getByLabelText("Answer: x = ± 2")).toBeOnTheScreen();
     expect(mockFormula).not.toHaveBeenCalled();
+  });
+
+  it("uses the chat window background instead of a gray pill", async () => {
+    const { getByTestId } = await render(<AnswerBlock content="x = 1" />);
+    expect(StyleSheet.flatten(getByTestId("answer-box").props.style).backgroundColor).toBe(
+      lightTheme.bg,
+    );
   });
 
   it("BUG FIX regression: two roots joined with or stay on MathText so the last root is not clipped", async () => {

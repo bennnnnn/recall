@@ -132,6 +132,51 @@ def _latex_coeff(val: Any) -> str:
     return tex
 
 
+def _is_symbol_power_product(expr: Any) -> bool:
+    """``x`` / ``x^{2}`` / ``x y`` — not a leftover integer like ``8/2 → 4``."""
+    if getattr(expr, "is_Symbol", False):
+        return True
+    if getattr(expr, "is_Pow", False):
+        return bool(getattr(expr.base, "is_Symbol", False))
+    if getattr(expr, "is_Mul", False):
+        return all(_is_symbol_power_product(arg) for arg in expr.args)
+    return False
+
+
+def _cancelled_side_tex(side: Any, divisor: Any) -> str:
+    """Strike matching factors when dividing ``3x`` by ``3``, not when ``8/2``."""
+    d_tex = str(latex(divisor))
+    if divisor == 0:
+        return str(latex(side))
+    if _expr_equal(side, divisor):
+        return f"\\frac{{\\cancel{{{d_tex}}}}}{{\\cancel{{{d_tex}}}}}"
+    try:
+        rest = simplify(side / divisor)
+    except Exception:
+        return f"\\frac{{{latex(side)}}}{{{d_tex}}}"
+    if _expr_equal(rest, 1) and _expr_equal(rest * divisor, side):
+        return f"\\frac{{\\cancel{{{d_tex}}}}}{{\\cancel{{{d_tex}}}}}"
+    if _is_symbol_power_product(rest) and _expr_equal(rest * divisor, side):
+        return f"\\frac{{\\cancel{{{d_tex}}} {latex(rest)}}}{{\\cancel{{{d_tex}}}}}"
+    return f"\\frac{{{latex(side)}}}{{{d_tex}}}"
+
+
+def _divide_both_sides_step(
+    cur_l: Any,
+    cur_r: Any,
+    coeff: Any,
+    *,
+    label: str | None = None,
+    branch: str | None = None,
+) -> KeyStep:
+    return KeyStep(
+        label=label or f"Divide both sides by {latex(coeff)}",
+        formula=(f"{_cancelled_side_tex(cur_l, coeff)} = {_cancelled_side_tex(cur_r, coeff)}"),
+        reason=f"this undoes multiplication by {latex(coeff)}",
+        branch=branch,
+    )
+
+
 def _remove_term_step(
     cur_l: Any,
     cur_r: Any,
@@ -210,16 +255,7 @@ def _linear_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
                 )
             )
         else:
-            steps.append(
-                KeyStep(
-                    label=f"Divide both sides by {latex(coeff)}",
-                    formula=(
-                        f"\\frac{{{latex(cur_l)}}}{{{latex(coeff)}}} = "
-                        f"\\frac{{{latex(cur_r)}}}{{{latex(coeff)}}}"
-                    ),
-                    reason=f"this undoes multiplication by {latex(coeff)}",
-                )
-            )
+            steps.append(_divide_both_sides_step(cur_l, cur_r, coeff))
         return steps
     if not steps:
         isolated = simplify(-c0 / c1)
@@ -263,15 +299,7 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
 
     leading = cur_l.coeff(var**2) if hasattr(cur_l, "coeff") else c2
     if leading not in (0, 1, -1) and leading is not None:
-        steps.append(
-            KeyStep(
-                label=f"Divide both sides by {latex(leading)}",
-                formula=(
-                    f"\\frac{{{latex(cur_l)}}}{{{latex(leading)}}} = "
-                    f"\\frac{{{latex(cur_r)}}}{{{latex(leading)}}}"
-                ),
-            )
-        )
+        steps.append(_divide_both_sides_step(cur_l, cur_r, leading))
         cur_l = simplify(cur_l / leading)
         cur_r = simplify(cur_r / leading)
         steps.append(KeyStep(label="Simplify", formula=_eq_tex(cur_l, cur_r)))
@@ -377,13 +405,14 @@ def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> lis
         coeff = piece.coeff(var) if hasattr(piece, "coeff") else 1
         if coeff not in (0, 1, -1):
             steps.append(
-                KeyStep(
-                    label=f"Divide both sides of the {which} equation by {latex(coeff)}"
-                    if which
-                    else f"Divide both sides by {latex(coeff)}",
-                    formula=(
-                        f"\\frac{{{latex(simplify(piece - indep))}}}{{{latex(coeff)}}} = "
-                        f"\\frac{{{latex(-indep)}}}{{{latex(coeff)}}}"
+                _divide_both_sides_step(
+                    simplify(piece - indep),
+                    -indep,
+                    coeff,
+                    label=(
+                        f"Divide both sides of the {which} equation by {latex(coeff)}"
+                        if which
+                        else f"Divide both sides by {latex(coeff)}"
                     ),
                     branch=branch,
                 )

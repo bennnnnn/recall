@@ -68,6 +68,18 @@ describe("parseSimpleLatex", () => {
     ]);
   });
 
+  it("parses \\cancel as a cancelled factor, not cancel(3) function notation", () => {
+    const segs = parseSimpleLatex(String.raw`\frac{\cancel{3} x}{\cancel{3}}`);
+    expect(segmentsToPlain(segs)).toBe("3 x/3");
+    expect(segmentsToPlain(segs)).not.toContain("cancel");
+    const frac = segs.find((s) => s.type === "frac");
+    expect(frac?.type).toBe("frac");
+    if (frac?.type === "frac") {
+      expect(frac.num.some((s) => s.type === "cancel")).toBe(true);
+      expect(frac.den.some((s) => s.type === "cancel")).toBe(true);
+    }
+  });
+
   it("BUG FIX regression: \\frac numerator/denominator render as nested segments (superscripts inside a fraction)", () => {
     // \frac{x^2}{4} used to flatten the numerator to the literal string "x^2"
     // (caret shown), not the superscript x². num/den are now MathSegment[] so

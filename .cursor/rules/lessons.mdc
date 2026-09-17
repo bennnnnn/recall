@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Equation step math sat on the same line as “2. Simplify”.** CommonMark tight lists make `2. Label\n$3x=3$` one paragraph, so a short formula wraps beside the label. Emit `**1. Add 3 to both sides**` plus a blank line then `$formula$`; keep `— this cancels…` only for Detailed / explain. Divide steps wrap matching factors in `\cancel{…}` (native MathText slash). Answer chips use `theme.bg`, not gray `surfaceAlt`.
+
 - **`Show steps: 2x+3=11` never extracted.** `_extract_equation_intent` treats
   leading `show ` as an unclaimed plot verb, and leftover English (`show`+`steps`)
   also blocked the solve. Strip show-steps / just-the-answer wrappers before

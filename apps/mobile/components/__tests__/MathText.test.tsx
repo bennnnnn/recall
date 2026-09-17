@@ -29,6 +29,14 @@ describe("MathText", () => {
     expect(toJSON()).toBeNull();
   });
 
+  it("draws a slash through a cancelled factor", async () => {
+    const { getAllByTestId, getAllByText } = await render(
+      <MathText latex={String.raw`\frac{\cancel{3} x}{\cancel{3}}`} />,
+    );
+    expect(getAllByTestId("math-cancel")).toHaveLength(2);
+    expect(getAllByText("3")).toHaveLength(2);
+  });
+
   it("renders a simple fraction as a stacked vinculum (num / bar / den)", async () => {
     // User-requested: real stacked fraction with a straight horizontal
     // vinculum — not ½, not ¹⁄₂, and never the broken ¹─₂ bar hack.

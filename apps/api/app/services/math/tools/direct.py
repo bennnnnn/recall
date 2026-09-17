@@ -11,6 +11,7 @@ from app.services.math.tools.lesson import (
     format_equation_lesson_reply,
     should_render_equation_lesson,
     strip_teaching_signals,
+    wants_detailed_math_explanation,
     wants_math_explanation,
 )
 
@@ -578,6 +579,9 @@ def maybe_direct_math_reply(
         reply = format_equation_lesson_reply(
             verified,
             include_check=response_style == "detailed",
+            include_reasons=(
+                response_style == "detailed" or wants_detailed_math_explanation(user_text)
+            ),
         )
     if (
         verified.physics_intent is not None
