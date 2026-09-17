@@ -12,6 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`Show steps: 2x+3=11` never extracted.** `_extract_equation_intent` treats
+  leading `show ` as an unclaimed plot verb, and leftover English (`show`+`steps`)
+  also blocked the solve. Strip show-steps / just-the-answer wrappers before
+  the plot-verb and leftover checks; keep generic `explain` so `explain why y=mx+b`
+  stays unverified. Server-render the lesson from `key_steps` instead of handing
+  Detailed to the model.
+
 - **Pinch on an in-chat graph never zoomed.** `Gesture.Exclusive(doubleTap, pinch)` waits out the second tap, and FlashList plus the drawer pan steal two-finger touches. Open a full-screen `Modal` with its own `GestureHandlerRootView` and `Gesture.Simultaneous(pinch, pan)`.
 - **`graph it` after `4x^2-5x-12=0` stamped Couldn't verify, then drew two vertical lines.** `sample_function` rejects Equalities; solve-for-y needs `y`. Rewrite `f(x)=0` (no y) as lhs-rhs; resolve pronoun follow-ups from a prior equation. `schoolViewBounds` then origin-cropped y to ±4, hiding the vertex at y≈-13 — keep a modest vertex in the window so the U is visible. Ellipse `x^2+y^2=1` stays a relation.
 - **Shifted parabola looked like a needle under the x-axis.** Equal-scale + ±10 x put the axis at the top and clipped the arms at y≈4. Zoom x to the roots and let y run from the vertex up the arms (~30); do not expand x to match that tall y.

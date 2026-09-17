@@ -317,25 +317,28 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
 
 
 def _extract_equation_intent(cleaned: str) -> MathIntent | None:
-    if _has_unclaimed_plot_verb(cleaned):
+    from app.services.math.tools.lesson import strip_lesson_prefixes
+
+    probe = strip_lesson_prefixes(cleaned)
+    if _has_unclaimed_plot_verb(probe):
         return None
-    eq_pairs = math_solve.try_extract_equations_from_text(cleaned)
+    eq_pairs = math_solve.try_extract_equations_from_text(probe)
     if not eq_pairs:
         return None
     # Let-binding + "what is x+2" is arithmetic after substitute, not solve x=5.
-    if substituted_eval_expr(cleaned) is not None:
+    if substituted_eval_expr(probe) is not None:
         return None
     lhs, rhs = eq_pairs[0] if len(eq_pairs) == 1 else _primary_equation_pair(eq_pairs)
     from app.services.math.tools.helpers import math_expr_or_none
 
     if math_expr_or_none(lhs) is None or math_expr_or_none(rhs) is None:
         return None
-    if _leftover_prose_blocks_solve(cleaned, lhs, rhs):
+    if _leftover_prose_blocks_solve(probe, lhs, rhs):
         return None
-    if _derivative_term_dropped(cleaned, lhs, rhs):
+    if _derivative_term_dropped(probe, lhs, rhs):
         return None
     variables = math_solve.guess_variables(lhs + rhs)
-    requested = _requested_variable(cleaned, lhs + rhs)
+    requested = _requested_variable(probe, lhs + rhs)
     variable = requested or (variables[0] if variables else "x")
     return MathIntent(
         kind="equation",

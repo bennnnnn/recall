@@ -46,12 +46,11 @@ def test_bare_arithmetic_answers() -> None:
 
 
 def test_quadratic_discriminant_parenthesizes_negative_b() -> None:
-    intent, block = _block("solve x^2-5x+6=0")
+    intent, block = _block("solve x^2-2x-1=0")
     assert intent.kind == "equation"
-    assert "(-5)^{2}" in block.text
-    assert "-5^{2}" not in block.text
-    assert "2" in (block.canonical_answer or "")
-    assert "3" in (block.canonical_answer or "")
+    assert "(-2)^{2}" in block.text
+    assert "-2^{2}" not in block.text.replace("(-2)^{2}", "")
+    assert r"\sqrt{2}" in (block.canonical_answer or "")
 
 
 def test_sin_1_5_answer_is_short_decimal() -> None:

@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from app.services.math.solve.key_steps import KeyStep
+
 if TYPE_CHECKING:
     from app.models.schemas.math import MathIntent, NewtonMethodInput, NewtonMethodResult
 
@@ -41,6 +43,11 @@ class VerifiedMathBlock:
     # factorization behind a quadratic's roots. Shown on the direct-reply
     # path for the balanced/detailed response styles, omitted for short.
     key_step: str | None = None
+    # Ordered inverse-operation (or factor / formula) trace for equation lessons.
+    key_steps: tuple[KeyStep, ...] = ()
+    given_latex: str | None = None
+    check_latex: str | None = None
+    alternate_method_note: str | None = None
     # Paired snapshots of the actual Newton solve; never reconstruct iterations.
     newton_input: NewtonMethodInput | None = None
     newton_result: NewtonMethodResult | None = None
@@ -101,6 +108,10 @@ def _finish_with_answer(
     preface: str | None = None,
     allow_direct: bool = True,
     key_step: str | None = None,
+    key_steps: tuple[KeyStep, ...] | list[KeyStep] = (),
+    given_latex: str | None = None,
+    check_latex: str | None = None,
+    alternate_method_note: str | None = None,
 ) -> VerifiedMathBlock:
     """Record the verified answer for post-stream attach; do not put a fence in the hint."""
     if preface:
@@ -112,6 +123,10 @@ def _finish_with_answer(
         canonical_answer=answer,
         allow_direct=allow_direct,
         key_step=key_step,
+        key_steps=tuple(key_steps),
+        given_latex=given_latex,
+        check_latex=check_latex,
+        alternate_method_note=alternate_method_note,
     )
 
 

@@ -46,6 +46,7 @@ def _graph_block(*, x_min: float = -10, x_max: float = 10) -> VerifiedMathBlock:
         ("Factor x^2 - 5x + 6 and teach me how factoring works", True),
         ("show your work for 1+1", True),
         ("Solve 1+1=x and show me your work", True),
+        ("Show steps: 2x + 3 = 11", True),
         ("prove 1+1=2", True),
         ("approve this 1+1=x", False),
     ],

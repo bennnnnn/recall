@@ -12,6 +12,12 @@ from app.models.schemas.math import (
     SystemOfEquationsInput,
 )
 from app.services.math import solve as math_solve
+from app.services.math.solve.key_steps import (
+    equation_check_latex,
+    equation_key_steps,
+    used_factor_trace,
+)
+from app.services.math.solve.parse import parse_equation as parse_eq
 from app.services.math.tools.block.common import (
     VerifiedMathBlock,
     _diagram_block,
@@ -37,10 +43,19 @@ def _verified_block_equation(
         result.canonical_solutions_latex or result.solutions_latex,
         result.solution_kind,
     )
+    _, lhs, rhs = parse_eq(eq)
+    key_steps = equation_key_steps(lhs, rhs, intent.variable or "x")
+    alt = None
+    if used_factor_trace(key_steps):
+        alt = "Another method is the quadratic formula; it gives the same two solutions."
     return _finish_with_answer(
         lines,
         answer,
         key_step=math_solve.factored_key_step(eq.lhs, eq.rhs, intent.variable or "x"),
+        key_steps=key_steps,
+        given_latex=f"{result.lhs_latex} = {result.rhs_latex}",
+        check_latex=equation_check_latex(lhs, rhs, intent.variable or "x"),
+        alternate_method_note=alt,
     )
 
 

@@ -7,31 +7,11 @@ import math
 
 from app.models.schemas.math.simulation import SIMULATION_SPEC_TYPES
 from app.services.math.tools.block.common import VerifiedMathBlock
-
-# Linear phrase scan — do not put user text through nested-optional regex
-# (CodeQL py/polynomial-redos). Substrings are enough: "explain every step"
-# should keep the LLM; "1+1=x" should not.
-_EXPLAIN_PHRASES: tuple[str, ...] = (
-    "explain",
-    "teach",
-    "show work",
-    "show your work",
-    "show me your work",
-    "show me work",
-    "show the steps",
-    "show me the steps",
-    "show me how",
-    "show working",
-    "step by step",
-    "step-by-step",
-    "walk me",
-    "why is",
-    "why does",
-    "how do",
-    "how does",
-    "how to",
-    "how can",
-    "how would",
+from app.services.math.tools.lesson import (
+    format_equation_lesson_reply,
+    should_render_equation_lesson,
+    strip_teaching_signals,
+    wants_math_explanation,
 )
 
 # Imperative / polite glue around a closed compute. Two leftover English
@@ -167,15 +147,6 @@ def _can_direct_point_or_vertical(verified: VerifiedMathBlock, user_text: str) -
         and _literal_plot_point(str(graph.get("expr") or "")) == expected
         and _literal_plot_point(verified.canonical_answer or "") == expected
     )
-
-
-def wants_math_explanation(text: str) -> bool:
-    """True when the user asked for language (steps / teaching), not just the value."""
-    lowered = text.lower()
-    if any(phrase in lowered for phrase in _EXPLAIN_PHRASES):
-        return True
-    padded = f" {lowered} "
-    return " prove " in padded or " proof " in padded
 
 
 def _looks_math_token(tok: str) -> bool:
@@ -410,16 +381,15 @@ def can_direct_verified_math_reply(
 ) -> bool:
     """Skip the LLM for a short closed answer or an explicit verified function plot.
 
-    Geometry, camera homework, explanations, and mixed requests keep the
-    current inject+stream path. So does the DETAILED response style: someone
-    who asked for thorough answers is asking for the working, and a bare
-    ```answer fence is the one thing this path cannot give them.
+    Geometry, camera homework, mixed leftover requests, and explanations that
+    have no verified trace keep the inject+stream path. Detailed / "show steps"
+    take the direct path when ``key_steps`` exist so the lesson cannot drift
+    from the chip.
     """
     if has_image_attachment:
         return False
-    if response_style == "detailed":
-        return False
-    if wants_math_explanation(user_text):
+    lesson = should_render_equation_lesson(verified, user_text, response_style)
+    if wants_math_explanation(user_text) and not lesson:
         return False
     if verified.physics_intent is not None:
         from app.services.physics.direct import can_direct_physics
@@ -500,7 +470,7 @@ def can_direct_verified_math_reply(
         or unit_request
         or solid_request
         or calculus_request
-    ) and leftover_non_math_request(user_text):
+    ) and leftover_non_math_request(strip_teaching_signals(user_text)):
         return False
     answer = (verified.canonical_answer or "").strip()
     if calculus_request and any(
@@ -604,12 +574,11 @@ def maybe_direct_math_reply(
     ):
         return None
     reply = format_direct_math_reply(verified, user_text)
-    # "solve x^2 - 5x + 6 = 0" used to return a bare "x = 2 or x = 3", so the
-    # only way to see where it came from was to ask "how" and spend a second
-    # turn. One line of working, computed here rather than by the model, is
-    # what a person would have said the first time. SHORT asked for less.
-    if verified.key_step and response_style != "short":
-        reply = f"Factors as ${verified.key_step}$.\n\n{reply}"
+    if should_render_equation_lesson(verified, user_text, response_style):
+        reply = format_equation_lesson_reply(
+            verified,
+            include_check=response_style == "detailed",
+        )
     if (
         verified.physics_intent is not None
         and verified.physics_intent.kind == "kinematics"

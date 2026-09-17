@@ -243,6 +243,8 @@ def test_prose_mentioning_an_equation_is_not_a_verified_solve(text: str) -> None
         "graph y=x^2",
         "simplify 4x+2x=18",
         "show me how to solve 2x+3=7",
+        "Show steps: 2x+3=7",
+        "Just the answer: 2x+3=7",
     ],
 )
 def test_imperative_and_bare_equations_still_extract(text: str) -> None:
