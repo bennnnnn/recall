@@ -2,6 +2,7 @@ import { Dimensions, StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
+import { lightTheme } from "@/lib/theme";
 
 describe("MathText", () => {
   beforeEach(() => {
@@ -29,12 +30,19 @@ describe("MathText", () => {
     expect(toJSON()).toBeNull();
   });
 
-  it("draws a slash through a cancelled factor", async () => {
+  it("draws a red slash through a cancelled factor, not a red number", async () => {
     const { getAllByTestId, getAllByText } = await render(
       <MathText latex={String.raw`\frac{\cancel{3} x}{\cancel{3}}`} />,
     );
     expect(getAllByTestId("math-cancel")).toHaveLength(2);
-    expect(getAllByText("3")).toHaveLength(2);
+    const threes = getAllByText("3");
+    expect(threes).toHaveLength(2);
+    for (const three of threes) {
+      expect(StyleSheet.flatten(three.props.style).color).toBe(lightTheme.text);
+    }
+    for (const slash of getAllByTestId("math-cancel-slash")) {
+      expect(StyleSheet.flatten(slash.props.style).backgroundColor).toBe(lightTheme.danger);
+    }
   });
 
   it("renders a simple fraction as a stacked vinculum (num / bar / den)", async () => {

@@ -274,7 +274,7 @@ function renderSegments(
         <View key={key} testID="math-cancel" style={styles.cancelWrap} collapsable={false}>
           {renderSegments(seg.body, `${key}-c`, ctx)}
           <View style={styles.cancelSlashHit} pointerEvents="none" accessible={false}>
-            <View style={styles.cancelSlash} />
+            <View testID="math-cancel-slash" style={styles.cancelSlash} />
           </View>
         </View>
       );
@@ -471,8 +471,8 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
     },
     cancelSlash: {
       width: "140%",
-      height: StyleSheet.hairlineWidth * 2,
-      backgroundColor: color,
+      height: 1.5 * layoutScale,
+      backgroundColor: theme.danger,
       transform: [{ rotate: "-32deg" }],
     },
   });
