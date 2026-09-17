@@ -105,7 +105,7 @@ export function makeAutomationsStyles(C: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: C.border,
     },
-    detailPrompt: { ...Type.navTitle, color: C.text },
+    detailPrompt: { ...Type.navTitle, fontWeight: "700", color: C.text },
     detailMetaRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -114,10 +114,13 @@ export function makeAutomationsStyles(C: Theme) {
     },
     detailMetaText: { ...Type.secondary, color: C.textSecondary },
     detailStatusPill: { alignSelf: "flex-start" },
+    detailHeaderActions: { flexDirection: "row", alignItems: "center", gap: 2 },
 
-    // ChatGPT-style "Repeat / Schedule / Time" info rows on the detail
-    // screen — a plain read view (editing goes through the kebab → Edit
-    // sheet); this is metadata, not a chat.
+    // ChatGPT Task-detail-style "Repeat / Time / Last run" card — Repeat and
+    // Time are directly editable in place (tap → inline picker, same
+    // components AddAutomationSheet uses), auto-saving on select/close. Last
+    // run is read-only. Editing the prompt text itself still goes through
+    // the kebab → Edit sheet.
     detailInfoCard: {
       margin: Space.md,
       backgroundColor: C.surface,
@@ -139,7 +142,15 @@ export function makeAutomationsStyles(C: Theme) {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: C.border,
     },
+    detailInfoRowOpen: { backgroundColor: C.surfaceAlt },
     detailInfoLabel: { ...Type.body, color: C.text },
     detailInfoValue: { ...Type.secondary, color: C.textSecondary, flexShrink: 1, textAlign: "right" },
+    detailInfoValueGroup: { flexDirection: "row", alignItems: "center", gap: Space.xxs },
+    detailPickerWrap: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: C.border,
+      paddingVertical: Space.xs,
+      backgroundColor: C.surfaceAlt,
+    },
   });
 }

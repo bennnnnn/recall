@@ -25,6 +25,7 @@ export function AutomationActionsSheet({
   onShare,
   onTogglePause,
   onDelete,
+  hideTogglePause = false,
 }: {
   visible: boolean;
   status: AutomationStatus;
@@ -33,6 +34,9 @@ export function AutomationActionsSheet({
   onShare: () => void;
   onTogglePause: () => void;
   onDelete: () => void;
+  /** The detail screen already has a header pause/resume icon — omit the
+   * duplicate row there. The list's long-press sheet keeps it (no header). */
+  hideTogglePause?: boolean;
 }) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -43,7 +47,7 @@ export function AutomationActionsSheet({
       { key: "edit", icon: "create-outline", label: t("automations.edit"), onPress: onEdit },
       { key: "share", icon: "share-outline", label: t("automations.share"), onPress: onShare },
     ];
-    if (status !== "completed") {
+    if (status !== "completed" && !hideTogglePause) {
       rows.push({
         key: "toggle-pause",
         icon: status === "paused" ? "play-outline" : "pause-outline",
@@ -59,7 +63,7 @@ export function AutomationActionsSheet({
       danger: true,
     });
     return rows;
-  }, [status, onEdit, onShare, onTogglePause, onDelete, t]);
+  }, [status, hideTogglePause, onEdit, onShare, onTogglePause, onDelete, t]);
 
   return (
     <AppSheet

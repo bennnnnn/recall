@@ -87,10 +87,14 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 5.7 | My Job — free user asks in chat ("create a task to...") gets a normal reply, never a raw ` ```automation ` fence or a created chip | ☐ | ☐ | No `AUTOMATIONS_HINT` for free plan |
 | 5.8 | My Job — Pro user asks in chat, model asks for missing details, then a tappable confirmation chip appears (frequency + prompt); tapping it opens the detail screen and the automation is in the My Job list | ☐ | ☐ | List has no "+" — creation is chat-only |
 | 5.9 | My Job — active cap (`automations_max_active_per_user`) reached: chat reply shows a plain italic rejection line, not a raw fence or a chip | ☐ | ☐ | Create N+1 via chat |
-| 5.10 | My Job — tapping a card opens a plain detail screen (prompt, Repeat/Time/Last-run rows) — never a chat, even after a scheduled run (web search only, no calendar/email/image tool calls) | ☐ | ☐ | Needs worker running; verify via `last_run_status` |
+| 5.10 | My Job — tapping a card opens a detail screen (prompt, Repeat/Time/Last-run) — never a chat, even after a scheduled run (web search only, no calendar/email/image tool calls) | ☐ | ☐ | Needs worker running; verify via `last_run_status` |
+| 5.10b | My Job detail — tapping Repeat expands an inline picker in place; selecting a value saves immediately and collapses it | ☐ | ☐ | No separate Save button |
+| 5.10c | My Job detail — tapping Time expands an inline date/time picker; changing it saves on close (iOS) / on confirm (Android two-step dialog) | ☐ | ☐ | |
+| 5.10d | My Job detail — header icon toggles Pause/Resume directly, no menu | ☐ | ☐ | |
+| 5.10e | My Job detail — a completed one-time (`once`) automation shows Repeat/Time as read-only (no chevron, not tappable) and no header pause icon | ☐ | ☐ | |
 | 5.11 | My Job — long-press a card → action sheet (Edit, Share, Pause/Resume, Delete) | ☐ | ☐ | Paused automation stops appearing in scheduler `list_due` |
 | 5.11b | My Job — Share action opens native OS share sheet with prompt + schedule | ☐ | ☐ | |
-| 5.12 | My Job — edit prompt/frequency/time (Edit sheet from long-press, not chat) | ☐ | ☐ | |
+| 5.12 | My Job — edit prompt text (Edit sheet from kebab, not chat) | ☐ | ☐ | |
 | 5.13 | My Job — delete removes automation + its chat (drawer never shows it) | ☐ | ☐ | |
 | 5.14 | My Job — an automation's own scheduled run never creates another automation, even if its reply resembles a create request | ☐ | ☐ | `ctx.is_automation` skips fence materialization |
 

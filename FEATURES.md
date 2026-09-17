@@ -834,11 +834,17 @@ device).
 - ✅ **Own run history chat, never surfaced** — each automation owns a dedicated chat (hidden
   from the normal chat drawer) that the worker posts into on every scheduled run. This is
   internal run-history storage only — the app never opens it as a chat UI. Tapping a card opens
-  a plain detail screen (prompt, Repeat / Time / Last-run rows), matching ChatGPT's Task detail
-  — not a chat.
+  a detail screen (prompt, Repeat / Time / Last-run), matching ChatGPT's Task detail — not a
+  chat.
+- ✅ **Repeat / Time are directly editable on the detail screen** — tapping either row expands
+  an inline picker in place (`AutomationFrequencyPicker` / `ReminderDateTimePicker`, the same
+  components `AddAutomationSheet` uses) and auto-saves on select/close — no separate Save
+  button, matching ChatGPT's Task detail. A header icon toggles Pause/Resume directly (no menu
+  needed for the most common action). Disabled once a one-time (`once`) automation has
+  completed. Editing the prompt text itself still goes through the kebab → Edit sheet.
 - ✅ **Long-press quick actions** — long-pressing a card in the list (or the kebab on the detail
   screen) opens an action sheet: Edit, Share (native OS share sheet, prompt + schedule as text),
-  Pause/Resume, Delete.
+  Pause/Resume (list only — the detail screen has a header icon for this), Delete.
 - ✅ **Chat-based creation, no "+" button** — matching ChatGPT's Tasks tab, the **My Job** list
   has no create FAB. A Pro user asks in normal chat ("create a task to check for L3 jobs every
   morning at 8am"); the model (system-prompted via `AUTOMATIONS_HINT` —
