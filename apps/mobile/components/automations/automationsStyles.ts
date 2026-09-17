@@ -113,5 +113,33 @@ export function makeAutomationsStyles(C: Theme) {
       flexWrap: "wrap",
     },
     detailMetaText: { ...Type.secondary, color: C.textSecondary },
+    detailStatusPill: { alignSelf: "flex-start" },
+
+    // ChatGPT-style "Repeat / Schedule / Time" info rows on the detail
+    // screen — a plain read view (editing goes through the kebab → Edit
+    // sheet); this is metadata, not a chat.
+    detailInfoCard: {
+      margin: Space.md,
+      backgroundColor: C.surface,
+      borderRadius: Radius.md,
+      borderWidth: 1,
+      borderColor: C.border,
+      overflow: "hidden",
+    },
+    detailInfoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      minHeight: Space.minTouch,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
+      gap: Space.sm,
+    },
+    detailInfoRowBorder: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: C.border,
+    },
+    detailInfoLabel: { ...Type.body, color: C.text },
+    detailInfoValue: { ...Type.secondary, color: C.textSecondary, flexShrink: 1, textAlign: "right" },
   });
 }

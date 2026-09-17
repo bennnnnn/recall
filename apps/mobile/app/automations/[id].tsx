@@ -1,12 +1,10 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AddAutomationSheet } from "@/components/automations/AddAutomationSheet";
 import { AutomationActionsSheet } from "@/components/automations/AutomationActionsSheet";
-import { AutomationChatThread } from "@/components/automations/AutomationChatThread";
 import { automationFrequencyMessageKey } from "@/components/automations/AutomationFrequencyPicker";
 import { makeAutomationsStyles } from "@/components/automations/automationsStyles";
 import { IconButton } from "@/components/IconButton";
@@ -20,12 +18,6 @@ import { describeLastRun, formatScheduleAt, shareAutomation } from "@/lib/automa
 import { IconSize } from "@/lib/icons";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useTheme } from "@/lib/theme";
-
-/** Standard iOS/Android native stack header height — the Stack.Screen header
- * lives outside this component's tree, so KeyboardAvoidingView needs it as
- * an explicit offset (react-navigation's `useHeaderHeight` isn't installed
- * as a direct dependency here). */
-const NATIVE_HEADER_HEIGHT = 44;
 
 export default function AutomationDetailScreen() {
   const owner = useAccountViewOwner();
@@ -41,7 +33,6 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
   const s = useMemo(() => makeAutomationsStyles(C), [C]);
   const navigation = useNavigation();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { automation, loading, error, saving, deleted, refresh, update, togglePause, remove } =
     useAutomationDetail(id ?? "", isCurrent);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -106,33 +97,38 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={s.root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={insets.top + NATIVE_HEADER_HEIGHT}
-    >
+    <View style={s.root}>
       <View style={s.detailHeader}>
         <Text style={s.detailPrompt}>{automation.prompt}</Text>
-        <View style={s.detailMetaRow}>
-          {automation.status === "paused" ? (
-            <View style={[s.cardStatusPill, s.cardStatusPillPaused]}>
-              <Text style={[s.cardStatusPillText, s.cardStatusPillTextPaused]}>
-                {t("automations.status_paused")}
-              </Text>
-            </View>
-          ) : automation.status === "completed" ? (
-            <Text style={s.detailMetaText}>{t("automations.status_completed")}</Text>
-          ) : (
-            <Text style={s.detailMetaText}>
-              {t(automationFrequencyMessageKey(automation.frequency))} ·{" "}
-              {formatScheduleAt(automation.next_run_at)}
+        {automation.status === "paused" ? (
+          <View style={[s.cardStatusPill, s.cardStatusPillPaused, s.detailStatusPill]}>
+            <Text style={[s.cardStatusPillText, s.cardStatusPillTextPaused]}>
+              {t("automations.status_paused")}
             </Text>
-          )}
-        </View>
-        <Text style={s.detailMetaText}>{describeLastRun(automation, t)}</Text>
+          </View>
+        ) : null}
       </View>
 
-      <AutomationChatThread chatId={automation.chat_id} isCurrent={isCurrent} />
+      <View style={s.detailInfoCard}>
+        <View style={s.detailInfoRow}>
+          <Text style={s.detailInfoLabel}>{t("automations.frequency_label")}</Text>
+          <Text style={s.detailInfoValue}>
+            {automation.status === "completed"
+              ? t("automations.status_completed")
+              : t(automationFrequencyMessageKey(automation.frequency))}
+          </Text>
+        </View>
+        {automation.status !== "completed" ? (
+          <View style={[s.detailInfoRow, s.detailInfoRowBorder]}>
+            <Text style={s.detailInfoLabel}>{t("automations.field_time")}</Text>
+            <Text style={s.detailInfoValue}>{formatScheduleAt(automation.next_run_at)}</Text>
+          </View>
+        ) : null}
+        <View style={[s.detailInfoRow, s.detailInfoRowBorder]}>
+          <Text style={s.detailInfoLabel}>{t("automations.field_last_run")}</Text>
+          <Text style={s.detailInfoValue}>{describeLastRun(automation, t)}</Text>
+        </View>
+      </View>
 
       <AutomationActionsSheet
         visible={menuOpen}
@@ -181,6 +177,6 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
           setEditOpen(false);
         }}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }

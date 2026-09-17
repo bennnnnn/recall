@@ -29,6 +29,8 @@
   "automations.prompt_label": "Prompt",
   "automations.prompt_placeholder": "e.g. Find L3 backend jobs posted today",
   "automations.next_run_label": "Next run",
+  "automations.field_time": "Time",
+  "automations.field_last_run": "Last run",
   "automations.frequency_label": "Repeat",
   "automations.frequency_once": "Once",
   "automations.frequency_daily": "Every day",

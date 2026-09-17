@@ -831,12 +831,14 @@ device).
   send email, generate an image, or otherwise take an autonomous side effect. Enforced by an
   `is_automation` flag that filters the tool-loop's advertised tool schemas, not just context
   binding — see [`services/tool_loop.py`](apps/api/app/services/tool_loop.py).
-- ✅ **Own run history, live chat** — each automation owns a dedicated chat (hidden from the
-  normal chat drawer) whose messages are its run history. Tapping a card opens that chat as a
-  **live, replyable thread** (`AutomationChatThread` / `useAutomationChat`, same streaming
-  engine as the main chat screen via a minimal composer) — not a read-only transcript.
-- ✅ **Long-press quick actions** — long-pressing a card in the list opens an action sheet:
-  Edit, Share (native OS share sheet, prompt + schedule as text), Pause/Resume, Delete.
+- ✅ **Own run history chat, never surfaced** — each automation owns a dedicated chat (hidden
+  from the normal chat drawer) that the worker posts into on every scheduled run. This is
+  internal run-history storage only — the app never opens it as a chat UI. Tapping a card opens
+  a plain detail screen (prompt, Repeat / Time / Last-run rows), matching ChatGPT's Task detail
+  — not a chat.
+- ✅ **Long-press quick actions** — long-pressing a card in the list (or the kebab on the detail
+  screen) opens an action sheet: Edit, Share (native OS share sheet, prompt + schedule as text),
+  Pause/Resume, Delete.
 - ✅ **Pro-only** — same gating posture as Live Talk / image generation; free users see the
   Upgrade sheet on create. A per-user active-automation cap and a daily run cap bound runaway
   schedules (`automations_max_active_per_user`, `automations_daily_run_cap`).

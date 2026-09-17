@@ -29,6 +29,8 @@
   "automations.prompt_label": "Prompt",
   "automations.prompt_placeholder": "z. B. Finde heute veröffentlichte L3-Backend-Stellen",
   "automations.next_run_label": "Nächster Lauf",
+  "automations.field_time": "Uhrzeit",
+  "automations.field_last_run": "Letzter Lauf",
   "automations.frequency_label": "Wiederholen",
   "automations.frequency_once": "Einmal",
   "automations.frequency_daily": "Täglich",

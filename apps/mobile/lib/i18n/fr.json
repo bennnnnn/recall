@@ -29,6 +29,8 @@
   "automations.prompt_label": "Instruction",
   "automations.prompt_placeholder": "ex. Trouver les offres backend L3 publiées aujourd'hui",
   "automations.next_run_label": "Prochaine exécution",
+  "automations.field_time": "Heure",
+  "automations.field_last_run": "Dernière exécution",
   "automations.frequency_label": "Répéter",
   "automations.frequency_once": "Une fois",
   "automations.frequency_daily": "Tous les jours",

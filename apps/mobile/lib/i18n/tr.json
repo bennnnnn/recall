@@ -29,6 +29,8 @@
   "automations.prompt_label": "İstem",
   "automations.prompt_placeholder": "örn. Bugün yayınlanan L3 backend ilanlarını bul",
   "automations.next_run_label": "Sonraki çalışma",
+  "automations.field_time": "Saat",
+  "automations.field_last_run": "Son çalışma",
   "automations.frequency_label": "Tekrar",
   "automations.frequency_once": "Bir kez",
   "automations.frequency_daily": "Her gün",

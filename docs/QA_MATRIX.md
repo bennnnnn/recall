@@ -87,8 +87,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 5.7 | My Job (automations) — free user create attempt shows Upgrade sheet | ☐ | ☐ | No network call; client-side gate |
 | 5.8 | My Job — Pro create (prompt + frequency + time), appears in list | ☐ | ☐ | |
 | 5.9 | My Job — active cap (`automations_max_active_per_user`) shows inline error, not a crash | ☐ | ☐ | Create N+1 |
-| 5.10 | My Job — tapping a card opens its live chat; a scheduled run's reply streams in as a normal turn (web search only, no calendar/email/image tool calls) | ☐ | ☐ | Needs worker running; verify via `last_run_status` |
-| 5.10b | My Job — replying in that live chat sends normally and streams a reply | ☐ | ☐ | Minimal composer, no attach/voice |
+| 5.10 | My Job — tapping a card opens a plain detail screen (prompt, Repeat/Time/Last-run rows) — never a chat, even after a scheduled run (web search only, no calendar/email/image tool calls) | ☐ | ☐ | Needs worker running; verify via `last_run_status` |
 | 5.11 | My Job — long-press a card → action sheet (Edit, Share, Pause/Resume, Delete) | ☐ | ☐ | Paused automation stops appearing in scheduler `list_due` |
 | 5.11b | My Job — Share action opens native OS share sheet with prompt + schedule | ☐ | ☐ | |
 | 5.12 | My Job — edit prompt/frequency/time | ☐ | ☐ | |
@@ -113,7 +112,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 7.1 | Push permission + token registration | ☐ | ☐ | Dev build |
 | 7.2 | Learning reminder push (scheduled) | ☐ | ☐ | Worker process must run |
 | 7.3 | RevenueCat paywall + Pro unlock | ☐ | ☐ | Sandbox purchases |
-| 7.4 | Automation-run push notification tap opens `/automations/{id}` (live chat) | ☐ | ☐ | Dev build; worker must complete a run |
+| 7.4 | Automation-run push notification tap opens `/automations/{id}` detail screen | ☐ | ☐ | Dev build; worker must complete a run |
 | 7.4 | Pro quota (500k) reflected in Settings | ☐ | ☐ | |
 
 ---

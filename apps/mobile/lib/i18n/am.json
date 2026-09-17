@@ -29,6 +29,8 @@
   "automations.prompt_label": "ጥያቄ",
   "automations.prompt_placeholder": "ለምሳሌ፦ ዛሬ የተለጠፉ L3 backend ስራዎችን ፈልግ",
   "automations.next_run_label": "የሚቀጥለው ጊዜ",
+  "automations.field_time": "ጊዜ",
+  "automations.field_last_run": "የመጨረሻ ሩጫ",
   "automations.frequency_label": "ድግግሞሽ",
   "automations.frequency_once": "አንድ ጊዜ",
   "automations.frequency_daily": "በየቀኑ",

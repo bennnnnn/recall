@@ -6,9 +6,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api, type Automation, type AutomationFrequency } from "@/lib/api";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
-/** Single automation record + its edit/pause/delete actions. The run
- * history itself is a live chat (`AutomationChatThread` / `useAutomationChat`
- * against `automation.chat_id`), not fetched here. */
+/** Single automation record + its edit/pause/delete actions. The dedicated
+ * `chat_id` is the worker's own run-history storage — it is never surfaced
+ * as a chat in the app; the detail screen shows plain schedule metadata. */
 export function useAutomationDetail(automationId: string, isCurrent: () => boolean) {
   const { token } = useAuth();
   const { t } = useTranslation();

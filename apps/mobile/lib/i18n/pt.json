@@ -29,6 +29,8 @@
   "automations.prompt_label": "Instrução",
   "automations.prompt_placeholder": "ex. Encontrar vagas de backend L3 publicadas hoje",
   "automations.next_run_label": "Próxima execução",
+  "automations.field_time": "Hora",
+  "automations.field_last_run": "Última execução",
   "automations.frequency_label": "Repetir",
   "automations.frequency_once": "Uma vez",
   "automations.frequency_daily": "Todos os dias",
