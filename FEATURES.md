@@ -23,16 +23,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Session recovery and account boundaries** — atomic secure credential pairs and Redis
   rotation; temporary failures preserve sign-in; startup offers Retry when validation is
   unavailable; old-account requests, cache writes and background sync cannot restore a
-  signed-out account. See [authentication review](docs/AUTH_SESSION_REVIEW_2026-09-04.md).
+  signed-out account.
 - ✅ **Auto sign-out on 401** — refresh is attempted first; definitive rejection signs out,
   while temporary refresh failures preserve the session for retry.
 - ✅ **Sign out** — revokes server tokens, clears local storage, and signs out of Google.
 - ✅ **Sign in with Apple** — iOS only (hidden on Android); requires Apple capability on App ID.
 - 🔜 Email/password, magic links, multi-device session management.
-- ⚠️ **Native sign-in verification (2026-09-04)** — the installed simulator app lacks signing
-  entitlements and cannot use Keychain; no valid signing identity is available in this
-  environment. Configure Apple development signing and rebuild before verifying session
-  persistence and native Google/Apple callbacks. Credentials stay in secure storage.
+- ⚠️ **Simulator Keychain** — unsigned simulator builds cannot use Keychain (`errSecMissingEntitlement`). Configure Apple development signing and rebuild before verifying session persistence and native Google/Apple callbacks. Credentials stay in secure storage.
 
 ## 2. Conversations (chats)
 - ✅ **New chat** — from the header `＋` and the drawer; created **lazily** on the first message
@@ -45,10 +42,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   messages).
 - ✅ **Search** — full-text search across chats and messages via the drawer search bar
   (backend `/search` with debounce + pagination).
-- ✅ **Search reliability review (2026-09-04)** — account/query changes immediately
+- ✅ **Search reliability** — account/query changes immediately
   invalidate old results and requests; first-page and pagination failures offer Retry.
   Results use stable ordering and a consistent page/count database snapshot, and opening
-  a message cancels obsolete navigation work. See [review and release checks](docs/SEARCH_RELIABILITY_REVIEW_2026-09-04.md).
+  a message cancels obsolete navigation work.
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the **native OS
@@ -75,21 +72,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   only after the server confirms the file is gone. Opening Library warms the All page
   from the drawer tap (20s cache, same window as Memory); tab snapshots avoid a
   wrong-grid flash. Logout, chat delete, upload, and image-gen invalidate it.
-- ✅ **Attachment reliability review (2026-09-04)** — picker and Library completions
+- ✅ **Attachment reliability** — picker and Library completions
   stay in their account and conversation; pagination failures retain rows with Retry.
   Downloads use distinct cache files, verify cached files still exist, and clear on logout.
   Temporary storage failures preserve attachment records; failed object deletions remain
   queued for cleanup. Local upload retries cannot overwrite an existing Library file.
-  See [review and validation notes](./docs/ATTACHMENT_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
   **Delete** (with confirm).
-- ✅ **Chat management reliability review (2026-09-04)** — manual titles survive delayed
+- ✅ **Chat management reliability** — manual titles survive delayed
   generation; pin/archive updates are atomic; drawer and header changes stay in sync.
   Bulk partial failures preserve successful actions, and stale reads cannot restore
   deleted chats. Saved history and title polling respect navigation and account changes.
-  See [review and release checks](docs/CHAT_MANAGEMENT_REVIEW_2026-09-04.md).
 - 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
 - 🔜 Folders.
 - ✅ **Learning-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
@@ -243,8 +238,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   static curve. The solver gate is the union of those extractor cues, and every
   param declares an SI dimension (Pint reads a bare `pa` as a *petayear*, so a
   missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
-  whole-token match (`marsh` stays Earth). See [docs/math.md](./docs/math.md)
-  and [docs/PHYSICS_TICKETS_ROUND3.md](./docs/PHYSICS_TICKETS_ROUND3.md).
+  whole-token match (`marsh` stays Earth). See [docs/math.md](./docs/math.md).
 - ✅ **Chemistry (verified kinds)** — server-side RDKit / SymPy + PubChem. Balancing,
   molar mass (Hill formulas vs organic SMILES — `CO` is 28 g/mol, `CCO` is ethanol),
   hydrates, stoich / limiting reagent, pH, ideal gas, molarity / dilution, element
@@ -345,12 +339,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
   do not implement until this line is promoted.
-- ✅ **Memory management reliability review (2026-09-04)** — account and navigation
+- ✅ **Memory management reliability** — account and navigation
   changes invalidate old dialogs, reads, and feedback; independent section edits compose,
   and pending writes remain exclusive across screen visits. Failed refreshes retain saved
   rows with Retry. Manual changes clear stale embeddings and invalidate derived caches;
   delayed background writes cannot overwrite changed/deleted sections and recheck the
-  learning toggle before saving. See [review and release checks](docs/MEMORY_RELIABILITY_REVIEW_2026-09-04.md).
+  learning toggle before saving.
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
   (editable in Settings → Personalization → About you) and injected into the chat system profile block.
 - ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks
@@ -532,14 +526,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   or a failure line — it does not promise a change that has not happened. Route
   `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
-- ✅ **Schedule reliability review (2026-09-04)** — normal reminder saves use the
+- ✅ **Schedule reliability** — normal reminder saves use the
   accepted API payload; failed saves preserve drafts. Account/focus guards, coordinated
   list reads and row mutations, Android date-then-time selection, serialized local
   notifications, and conditional server recurrence/delivery writes protect reminder state.
   Schedule loads through immutable-ID cursor pages so edits between pages cannot hide
   existing reminders. Recurring reminders are excluded from email; one-shot email
   finalization cannot mark a concurrently edited occurrence as delivered.
-  See [review and release checks](docs/SCHEDULE_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Todos API** — create, check off, delete dated reminders; `due_at` is required
   on create and cannot be cleared on update. Recurring without a due date stays invalid.
   Chat extract skips undated adds.
@@ -806,7 +799,7 @@ were removed. Programming help lives in main chat.
   Recall manages lesson content; there are no manual content edit/delete controls.
   Today’s progress sits above the path tree. Locked chapters stay
   visible until the current one is complete. No generic `learning` kind, lesson
-  notes, certificates, or marketplace. See the [Learning review and release checks](docs/LEARNING_REVIEW_2026-09-04.md).
+  notes, certificates, or marketplace.
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
@@ -836,7 +829,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** sends the cropped image to chat (no pre-send OCR). Mathpix/`vision-chat` still run on the chat turn when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`).
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** sends the cropped image to chat (no pre-send OCR). Mathpix/`vision-chat` still run on the chat turn when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
@@ -1067,9 +1060,9 @@ Notes: multimodal routes through whichever catalog model supports the modality (
 aliases on OpenRouter). Multimodal calls cost more than text — gated by plan + daily caps
 (images, speech).
 
-### Web client (planned)
+### Web client
 
-A future **web version that reuses this same API** — one backend, multiple clients.
+A **web version that reuses this same API** — one backend, multiple clients. Slice 1 is in `apps/web`; later slices are not.
 
 - 🔜 **Shared API + types** — the web app consumes the same HTTP/WebSocket endpoints and
   request/response shapes; eventually extract the `lib/api.ts` types/client into a package both
@@ -1125,9 +1118,9 @@ structured Learning topic type.
 |-------|--------|--------|
 | MVP (mobile) | Chat + memory + Schedule + Learning + calendar/Gmail + attachments | ~95% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | 🔜 Future (owner ops) |
-| v1.1 | Web client (same API), locale prose, legal localization | 🔜 Future |
+| v1.1 | Remaining web slices (rich fences, Memory/Learning/settings), locale prose, legal localization | 🔜 Future |
 | Next (product) | — | Done (tool loop, scanned-PDF OCR, chat-history RAG) |
-| Later | Google Docs, GitHub, code execution, duplex voice, web client, folders / family plans | 🔜 Future |
+| Later | Google Docs, GitHub, code execution, duplex voice, folders / family plans | 🔜 Future |
 
 Notes already on `main` (not waiting on v2): Fly api/worker split ✅, attachment RAG ✅,
 chat-history RAG ✅, LiteLLM tool loop **on by default** (ordinary chat skips the pre-stream round) ✅, structured profile ✅,
@@ -1201,7 +1194,7 @@ streaks). **OpenRouter / product aliases are the intended model setup** — not 
 
 **Future (not implementing now):** launch ops (provision, landing page, Gmail OAuth, on-device
 QA, prod R2); Google Docs + GitHub; code execution (beyond the HTML sandbox); duplex voice;
-web client; locale prose + legal bodies; folders / family plans; **user-wide attachment RAG**;
+remaining web slices; locale prose + legal bodies; folders / family plans; **user-wide attachment RAG**;
 **SM-2 review-queue UI / Settings deck browse / typed-answer lessons**.
 
 ---

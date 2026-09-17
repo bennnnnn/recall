@@ -138,7 +138,12 @@ purchases. Configure your EAS `projectId`.
 
 - **On-device QA:** [`docs/QA_MATRIX.md`](docs/QA_MATRIX.md)
 - **Production provisioning:** [`docs/PRODUCTION.md`](docs/PRODUCTION.md)
+- **Rollback:** [`docs/ROLLBACK.md`](docs/ROLLBACK.md)
+- **Engineering map:** [`CLAUDE.md`](CLAUDE.md) · product [`FEATURES.md`](FEATURES.md) · [`SECURITY.md`](SECURITY.md)
+- **Subject pipelines:** [`docs/math.md`](docs/math.md) · [`docs/chemistry.md`](docs/chemistry.md) · [`docs/MEMORY_V2.md`](docs/MEMORY_V2.md)
+- **Mobile async UX / launch metrics:** [`docs/UI_ACTION_FEEDBACK.md`](docs/UI_ACTION_FEEDBACK.md) · [`docs/PRODUCT_SCORECARD.md`](docs/PRODUCT_SCORECARD.md)
 - **Automated smoke:** `./scripts/qa-smoke.sh` (add `--live` when API is running)
+- **Local gate:** `./scripts/dev.sh check`
 - **Production verify:** `./scripts/verify-production.sh`
 
 ## Remote
