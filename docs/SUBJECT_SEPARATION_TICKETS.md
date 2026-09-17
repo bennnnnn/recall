@@ -106,39 +106,66 @@ turn_prep integration points every subject needs, test files, and one legitimate
 touch in `services/images/gen_intent.py` / `lookup_intent.py` (so "draw a benzene ring" routes to
 chemistry, not image generation). No private-internal reach-ins found. No refactor needed.
 
-## Phase 2 — turn-prep parity with chemistry
+## Phase 2 — turn-prep parity with chemistry — re-sequenced behind Phase 3, see below
 
-### S5 — Give physics its own `needs_physics` / `physics_block` in turn_prep
+### S5 — Give physics its own `needs_physics` / `physics_block` in turn_prep — blocked on S1
 
-`services/chat/turn_prep/context.py` currently has only `needs_math` / `math_block` as locals;
-physics rides entirely inside them. Chemistry's `needs_chem` / `chem_block` in the same file is
-the template — copy its shape. This is the ticket that actually makes physics a peer at the one
-place every chat turn passes through, and it's mechanical: the pattern already exists three lines
-away in the same function. Can key off `MathIntent.kind` membership in the physics set even
-before Phase 3 ships, if sequencing needs it, though it's cleaner once S1 exists.
+Traced `turn_prep/context.py` in full before touching it. Chemistry's `needs_chem`/`chem_block`
+aren't `StreamContext` fields — they're locals scoped to `build_stream_prompt_context`, used only
+to decide what to inject into *this* turn's prompt messages. Physics has no equivalent because
+physics detection is fused inside `needs_symbolic_math` at the top of that function (one shared
+boolean, no way to ask "was the match physics specifically" without inspecting the result), and
+the eventual `verified_math`/`math_block` come out of one shared fetch (`fetch_web_and_tools` →
+`_build_verified_block`) that dispatches to physics or math builders by `intent.kind` — there's no
+separate physics fetch to hang a `physics_block` local off. The dispatch result *does* already
+carry the answer, though: `VerifiedMathBlock.physics_intent` is set exactly when the solve was
+physics. A `needs_physics`/`physics_block` pair computed from that field post-fetch would be real
+and truthful, but nothing today would read it — adding it now is exactly the "abstraction beyond
+what the task requires" this codebase's own conventions warn against. It becomes a normal,
+motivated addition the moment S1 exists: a `PhysicsIntent` result on `verified_math` (vs.
+`MathIntent`) is a real type distinction to key `needs_physics` off, not a derived boolean nobody
+consumes yet. Do S1 first.
 
-### S6 — Split `MATH_SOLVER_HINT` into independent per-subject prompt hints
+### S6 — Split `MATH_SOLVER_HINT` into independent per-subject prompt hints — descoped, see below
 
-`prompt_constants/math.py`'s `MATH_SOLVER_HINT` currently contains the physics-verified-kinds
-paragraph inline, shipped on every math-flavored turn whether or not the turn is actually physics.
-Extract a `PHYSICS_SOLVER_HINT` into a new `prompt_constants/physics.py`, injected only when
-`needs_physics` (from S5) is true — mirrors `CHEMISTRY_FENCE_HINT`'s existing, already-correct
-pattern in `visuals.py` ("Only injected when turn_prep actually has chemistry context"). Side
-benefit: pure-math turns stop paying prompt tokens for a physics paragraph they never needed.
+Do not do this as scoped. `test_physics_prompt_boundary.py` deliberately pins the physics
+verified-kinds paragraph inside `MATH_SOLVER_HINT` so it ships on *every* math turn regardless of
+whether the pre-check recognized the phrasing as physics — that's what lets the model say "not
+checked, be cautious" about relativity/entropy/AC-circuits even on a turn the extractor itself
+misreads. FEATURES.md documents this as a deliberate safety property ("a test ties that list to
+the solver registry so it cannot drift"), not an accident of where the string happens to live.
+Making the hint conditional on a `needs_physics` pre-check would mean the caution reminder goes
+missing on exactly the turns where detection is already uncertain — trading a real, tested safety
+property for a token-count optimization nobody asked for. The token-bloat concern in the original
+wording of this ticket doesn't hold up against that trade. Re-evaluate only if S1 lands and
+`needs_physics` becomes a true post-dispatch signal rather than a fallible pre-check — even then,
+the hint would need to move to a *post-hoc* injection (after a physics solve, add extra detail)
+rather than gating the existing boundary-caution paragraph, which should stay universal.
 
-## Phase 3 — the real type split (bigger, do after Phase 1/2 de-risk the seams)
+## Phase 3 — the real type split (now first, since Phase 2 depends on it)
 
 ### S1 — Split `MathIntent` into subject-specific intent types
 
 `models/schemas/math/intent.py` holds one `Literal[...]` with 49 values; physics's 20
 (`kinematics` … `modern`) are interleaved with math's 29. No `PhysicsIntent` exists anywhere.
-Introduce `PhysicsIntent` with its own 20-value `kind` enum in a new `models/schemas/physics/`
-package; narrow `MathIntent.kind` to the remaining math-only values. This touches every
-`_verified_block_*` / extractor / direct function currently type-hinted against `MathIntent` for
-a physics kind — mechanical but real surface area, and the biggest ticket in this doc. Decide up
-front whether math and physics intents share a base class for common fields (`variables`, etc.)
-or stay fully independent; recommend fully independent given how little actually overlaps beyond
-`kind`.
+
+Audited physics's actual field usage before scoping the split further (`grep` every
+`MathIntent(...)`/`.model_validate(...)` construction site in `services/physics/*.py`, plus every
+non-`physics_*` attribute access): of `MathIntent`'s 49 fields, physics touches exactly `kind`
+(its 20 values), `physics_op`, `physics_params`, `physics_units`, plus reads `.expr`/`.kind` for
+the average-speed cross-check into math's arithmetic path. `school_op` stays math's — it's how
+`average_speed` (a math/arithmetic kind) opts into the physics-style direct-reply path without
+being a physics kind itself. This is a clean, narrow footprint, not the sprawling shared-schema
+problem it could have been — confirms independent types are the right call and scopes the actual
+diff: introduce `PhysicsIntent` (20-value `kind`, `physics_op`, `physics_params`, `physics_units`)
+in a new `models/schemas/physics/` package; narrow `MathIntent.kind` to the remaining 29 values
+and drop the three `physics_*` fields from it. Touches every extractor/direct/solver/block
+function in `services/physics/` currently type-hinted `MathIntent` (~60 construction sites, mostly
+in `extract.py`), plus the dispatch seam in `math/tools/block/__init__.py` where
+`_build_verified_block(intent: MathIntent, ...)` currently hands the same object to whichever
+registry (`_BLOCK_BUILDERS` / `SCHOOL_BLOCK_BUILDERS` / `PHYSICS_BLOCK_BUILDERS`) claims
+`intent.kind`, plus `VerifiedMathBlock.physics_intent`'s type. Mechanical but real surface area —
+the biggest ticket in this doc.
 
 ### S7 — Move physics-only schema types out of `models/schemas/math/`
 
@@ -162,16 +189,18 @@ contains no physics-only literal, `PhysicsIntent.kind` contains no math-only lit
 empty after Phase 1). Land this last so it's checking the end state, not blocking the migration
 that produces it.
 
-## Suggested order
+## Suggested order (revised)
 
-Phase 1 (S2, S3, S4, S8, S9) → Phase 2 (S5, S6) → Phase 3 (S1, S7) → Phase 4 (S10).
+Phase 1 (S2, S3, S4, S8, S9) → **Phase 3 (S1, S7)** → Phase 2 (S5, S6, revised scope) → Phase 4
+(S10). Phase 2 moved behind Phase 3 on contact with the actual turn_prep code: S5/S6 both need a
+real type distinction between a math-dispatched and a physics-dispatched verified block to be
+worth doing safely, and S1 is what creates that distinction. Doing them in the original order
+would have meant either shipping a field nobody reads (S5) or weakening a tested safety property
+for no one's benefit (S6, see its section).
 
 **Phase 1: done.** S2/S3/S4/S9 shipped as scoped; S8 shipped as a documentation-only correction
 once the premise didn't hold up under closer reading (see its section). Verified against the full
 backend suite, ruff, and mypy — zero behavior change anywhere in Phase 1.
-
-Phase 3 is the one that actually earns the word "separate" at the type level and should wait until
-Phase 2 gives physics its own turn_prep presence to key off of.
 
 ## Explicitly out of scope for this round
 
