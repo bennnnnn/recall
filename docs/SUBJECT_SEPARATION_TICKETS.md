@@ -20,15 +20,15 @@ turn" independently of math instead of inferring it from a shared enum value.
 
 **No ticket here changes what any kind solves.** This is a structural refactor with the existing
 pytest suites (61 math test files, 22 physics test files, the chemistry suite) as the regression
-net — same pattern as the domain-package move in `docs/CODE_STRUCTURE_REVIEW_2026-09-13.md`,
-which also touched nothing about correctness and was verified against the full suite.
+net — same pattern as the earlier domain-package move, which also touched nothing about
+correctness and was verified against the full suite.
 
 ## Where the three subjects actually stand today
 
 | | Math | Physics | Chemistry |
 |---|---|---|---|
 | Own top-level `services/` package | yes | yes | yes |
-| Own intent/schema type | `MathIntent` (`models/schemas/math/intent.py`, 29 kinds) | **fixed (S1)** — `PhysicsIntent` (`models/schemas/physics/intent.py`, 20 kinds); disjoint from `MathIntent.kind`, guarded by a test | n/a (no structured intent schema; own gate function instead) |
+| Own intent/schema type | `MathIntent` (`models/schemas/math/intent.py`, 32 kinds) | **fixed (S1)** — `PhysicsIntent` (`models/schemas/physics/intent.py`, 20 kinds); disjoint from `MathIntent.kind`, guarded by a test | n/a (no structured intent schema; own gate function instead) |
 | Own schema package for domain-specific fence types | `models/schemas/math/` (geometry, graph, algebra, discrete) | **fixed (S7)** — `models/schemas/physics/simulation.py` (`SimulationBlockSpec` and friends), moved out of `models/schemas/math/` | n/a |
 | Own turn_prep gate + context local | `needs_math` / `math_block` (`turn_prep/context.py`) | **none** — rides inside `needs_math` / `math_block`; unblocked by S1 but not yet done (Phase 2) | `needs_chem` / `chem_block` — already separate |
 | Own detection gate | `needs_symbolic_math` | shares `needs_symbolic_math`; contributes cues via `has_supported_physics_cue` | `is_chemistry_question` (`services/chemistry/context.py`) — already separate |
@@ -154,11 +154,11 @@ rather than gating the existing boundary-caution paragraph, which should stay un
 
 Audited physics's actual field usage before scoping the split (every `MathIntent(...)` /
 `.model_validate(...)` construction site in `services/physics/*.py`, plus every non-`physics_*`
-attribute access): of `MathIntent`'s fields, physics touched exactly `kind` (20 of its 49 values),
+attribute access): of `MathIntent`'s fields, physics touched exactly `kind` (20 of its 52 values),
 `operation` (always `"solve"`), `physics_op`, `physics_params`, `physics_units` — a clean, narrow
 footprint, not the sprawling shared-schema problem it could have been. Shipped `PhysicsIntent`
 with exactly those fields in a new `models/schemas/physics/` package; narrowed `MathIntent.kind`
-to the remaining 29 values and removed the three `physics_*` fields from it entirely.
+to the remaining 32 values and removed the three `physics_*` fields from it entirely.
 
 The two types flow through the **same** generic dispatch as a real union
 (`MathIntent | PhysicsIntent`) rather than through any conversion — `_INTENT_EXTRACTORS`,

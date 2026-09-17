@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math pipeline: [docs/math.md](./docs/math.md). Chemistry pipeline: [docs/chemistry.md](./docs/chemistry.md). Health review: [docs/CODEBASE_REVIEW_2026-08.md](./docs/CODEBASE_REVIEW_2026-08.md). Domain grouping and what is left: [docs/CODE_STRUCTURE_REVIEW_2026-09-13.md](./docs/CODE_STRUCTURE_REVIEW_2026-09-13.md). Math coverage, level awareness and answer style: [docs/MATH_COVERAGE_REVIEW_2026-09-14.md](./docs/MATH_COVERAGE_REVIEW_2026-09-14.md). Physics review + tickets: [docs/PHYSICS_TICKETS.md](./docs/PHYSICS_TICKETS.md) (P1-P10, shipped) and [docs/PHYSICS_TICKETS_ROUND2.md](./docs/PHYSICS_TICKETS_ROUND2.md) (P11-P17, shipped) and [docs/PHYSICS_TICKETS_ROUND3.md](./docs/PHYSICS_TICKETS_ROUND3.md) (round 3, shipped: twenty verified kinds). Making math/physics/chemistry true peer subjects at the type level (not just the package level): [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (S1-S4, S7-S10 shipped: `PhysicsIntent` split from `MathIntent`; S5-S6 open).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math: [docs/math.md](./docs/math.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (S1-S4, S7-S10 shipped: `PhysicsIntent` split from `MathIntent`; S5-S6 open). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -30,7 +30,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `pro`) is driven by RevenueCat.
 - **chat** — a conversation; has an auto-generated title.
 - **message** — one turn (`user` | `assistant` | `system`).
-- **memory** — a structured fact about the user, typed: `profile` | `preference` | `project` | `fact` | `focus`.
+- **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`), cap 150 active. `type` (`profile` | `preference` | `project` | `fact` | `focus`) is UI grouping. Sensitive topics are not auto-stored unless the user said “remember” or opted in. Extraction is post-turn.
 - **model alias** — product-level model name mapped to a provider by the gateway.
 - **quota** — per-user daily token budget (free tier 100k/day).
 - **todo** — a lightweight task the user tracks; optionally linked to a chat.
@@ -43,9 +43,9 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry/graph SVG, physics scenes and free-body diagrams (`simulation`), chemistry (SMILES). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
-**Owned tool loop, on by default:** `gateways/mcp/` (sympy, calendar, image-gen, web-search) plus `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. The legacy one-shot `mcp_tools_enabled` pre-stream round stays **off**. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
+**Owned tool loop, on by default:** `services/mcp/` adapters (`web_search`, `calendar`, `sympy`, `generate_image`, `search_image`) registered through `gateways/mcp/` plus `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. The legacy one-shot `mcp_tools_enabled` pre-stream round stays **off**. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 
-**Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. A **web client sharing this same API** is planned later. Attachment RAG is shipped. Live talk speech-to-speech (Pro + daily cap) is shipped.
+**Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. Attachment RAG, chat-history RAG, and live talk (Pro + daily cap) are shipped. `apps/web` is slice 1 only (login + chat SSE); remaining web surfaces are deferred.
 
 ## Architecture
 
@@ -56,9 +56,11 @@ recall/
   apps/
     mobile/        # Expo React Native (~50k TS) — screens, hooks, rich render, lib/api
     api/           # FastAPI (~44k py) — HTTP/WS + worker
-  docs/            # math.md, PRODUCTION.md, QA_MATRIX.md, CODEBASE_REVIEW_2026-08.md
+    web/           # Vite slice 1: login + chat SSE (not react-native-web)
+  docs/            # math.md, chemistry.md, PRODUCTION.md, QA_MATRIX.md, ROLLBACK.md
   CLAUDE.md
   FEATURES.md
+  SECURITY.md
 ```
 
 Backend layers (`apps/api/app/`) — keep layers thin and one-directional (`routers/` → `services/` → `gateways/` + `repositories/`):
@@ -75,9 +77,9 @@ app/
     math/              # match/ (scan) → tools/ (intent, block) → solve/ (SymPy)
     physics/           # peer subject: solver, extract, direct, block
     chemistry/ attachments/ images/ email/
-    memory/ learning/ todos/ notifications/ web_search/ home/ mcp/
+    memory/ learning/ todos/ notifications/ web_search/ home/ mcp/  # MCP adapters
   gateways/            # external IO (LiteLLM, Google, storage, speech, search, …)
-    mcp/               # tool adapters + registry (flag-gated at runtime)
+    mcp/               # adapter protocol + registry (not the adapters)
   repositories/        # Neon access
   models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools)
   background/          # job handlers + periodic schedulers
@@ -105,7 +107,7 @@ app/
 
 **Streaming:** WebSocket (`routers/ws.py`) preferred (stop-generation); SSE fallback (`routers/chat_stream.py`). Both share `chat/stream_events.py` for `done` / `error` payloads. A cancel message aborts the active LLM task.
 
-**Clients & the API contract:** the backend is a client-agnostic HTTP/WebSocket API with stateless JWT (Bearer) auth, so a future **web client reuses the same API**. Keep `apps/mobile/lib/api.ts` the **barrel** over `lib/api/*.ts` (single network boundary). Rich-block rendering should stay swappable; only platform bits differ per client.
+**Clients & the API contract:** the backend is a client-agnostic HTTP/WebSocket API with JWT auth. Mobile uses Bearer + `expo-secure-store`. `apps/web` uses an in-memory access token plus an httpOnly refresh cookie. Keep `apps/mobile/lib/api.ts` the **barrel** over `lib/api/*.ts` (single network boundary for mobile). Rich-block rendering should stay swappable; only platform bits differ per client.
 
 ## Domain catalog
 
@@ -133,6 +135,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Calendar / Gmail | `routers/integrations.py`, `gmail_integrations.py`, `services/calendar.py`, `services/email/` | `settings/integrations.tsx` |
 | Push / email out | `services/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `routers/webhooks.py`, `gateways/revenuecat_gateway.py` | RevenueCat |
+| Product analytics | `routers/analytics.py`, `services/product_analytics.py` | `lib/api/analytics.ts` (metadata-only events; never prompts) |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `settings/about.tsx`, data-controls |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
@@ -149,7 +152,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 |---------|------|----------------|---------------|
 | HTTP/WS endpoint | `routers/` + `main.py` `include_router` | Thin router → service | Drop router registration + tests |
 | External API | `gateways/` | One gateway module; mock in tests | Delete gateway; keep service behind a flag if needed |
-| MCP / model tools | `gateways/mcp/` + `setup_mcp_adapters` | `register(Adapter)` implementing `ToolAdapter` | Unregister; `mcp_tool_loop_enabled` defaults **on** |
+| MCP / model tools | `services/mcp/` adapters + `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter` | Unregister; `mcp_tool_loop_enabled` defaults **on** |
 | Background job | `background/handlers.py` + `core/jobs.py` `register` | Add handler in `handlers.py`; enqueue from `post_turn.py` or a scheduler — never on the stream path | Unregister + stop enqueue |
 | Feature flag | `core/config.py` `*_enabled` | One Settings field; gate service entry | Default false; then delete path |
 | Model | `services/model_catalog.py` | Catalog entry + OpenRouter slug | Remove alias; don’t leave provider names in app code |
@@ -185,10 +188,10 @@ Steps 6–8 are the only ones on the user's critical path. Everything in step 9 
 
 Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Learning (`projects/`), Settings (models, memory, preferences, integrations, learning, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
-- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,memories,todos,learning,integrations,attachments,images,account,discover,connectivity,types}.ts`
+- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,memories,todos,learning,integrations,attachments,images,account,discover,connectivity,speech,analytics,types}.ts`
 - Tokens: `expo-secure-store` only
 - Chat logic: `hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — screens stay thin
-- Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `projects/`, `i18n/`. A module belongs in its domain folder, not beside it: `lib/mathHtml.ts` next to `lib/math/` is the split starting, and inside the folder the prefix comes off (`math/html.ts`, not `math/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
+- Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `projects/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fenceRegistry.ts` is the lang/id table; `RichFence` renders
 - i18n: `lib/i18n` (9 locales, key parity enforced by test)
@@ -296,9 +299,9 @@ Neon · Upstash Redis · LiteLLM (OpenRouter) · Google OAuth · Apple Sign-In �
 
 **Database — Neon (serverless Postgres), chosen over Supabase:** we run our own backend, auth (Google/JWT/Apple), and object storage (R2 in production), so we only need a database — not a BaaS bundle (auth/storage/realtime) we wouldn't use. Neon's usage-based pricing + scale-to-zero is cheaper at our scale, branching helps CI/preview, it's plain Postgres (portable, good for the future web client), and `pgvector` runs in the **same DB** for memory embeddings, attachment RAG, and chat-history RAG.
 
-**Shipped beyond the original MVP week:** Learning projects + quizzes, todos/reminders, Gmail/calendar, attachments + RAG, image gen, STT/TTS, web search, math/geometry/graph, rich fences, Pro/RevenueCat, push, Fly `api`/`worker` split, flag-gated MCP tool loop. Full catalog: FEATURES.md.
+**Shipped beyond the original MVP week:** Learning + quizzes, todos/reminders, Gmail/calendar, attachments + RAG, chat-history RAG, image gen, STT/TTS, live talk, web search, math/physics/geometry/graph, chemistry, rich fences, Pro/RevenueCat, push, Fly `api`/`worker` split, owned MCP tool loop (on by default), web slice 1. Full catalog: FEATURES.md.
 
-**Later:** web client, user MCP servers, LiteLLM Proxy. Not “missing from CLAUDE.md” — deferred on purpose. The owned tool loop is on by default (see Service Overview). Chat-history semantic RAG is shipped.
+**Later:** remaining web slices, user MCP servers, LiteLLM Proxy. Not “missing from CLAUDE.md” — deferred on purpose.
 
 ## Milestones (MVP week — complete)
 

@@ -3,7 +3,7 @@
 Manual QA checklist for iOS and Android before store submission. Run against a **dev build** (not Expo Go) for native features; use **Expo Go + Dev User** for quick smoke only.
 
 **Automated backend smoke (no device):** `./scripts/qa-smoke.sh`  
-**Full local gate:** `./scripts/check.sh`
+**Full local gate:** `./scripts/dev.sh check` (same as `./scripts/check.sh`)
 
 ---
 
