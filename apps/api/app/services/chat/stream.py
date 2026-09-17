@@ -319,6 +319,7 @@ async def stream_chat_response(
     user: User | None = None,
     skip_usage_seed: bool = False,
     resources: TurnResources | None = None,
+    is_automation: bool = False,
 ) -> AsyncIterator[str]:
     async for token in _entry.stream_chat_response(
         _seams(),
@@ -340,6 +341,7 @@ async def stream_chat_response(
         user=user,
         skip_usage_seed=skip_usage_seed,
         resources=resources,
+        is_automation=is_automation,
     ):
         yield token
 

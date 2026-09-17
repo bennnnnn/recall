@@ -149,6 +149,7 @@ async def run_tool_loop_path(
         redis=redis,
         chat_id=ctx.chat_id,
         web_search=web_search_flag,
+        is_automation=ctx.is_automation,
     )
     if tool_verified is not None:
         ctx.verified_math = tool_verified

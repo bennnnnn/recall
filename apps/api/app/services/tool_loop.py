@@ -16,6 +16,7 @@ pass and uses the already-persisted ``[Image: …]`` assistant row.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -367,6 +368,7 @@ async def run_tool_rounds(
     redis: Redis | None = None,
     chat_id: UUID | None = None,
     web_search: bool | None = None,
+    is_automation: bool = False,
 ) -> tuple[
     list[dict[str, Any]],
     VerifiedMathBlock | None,
@@ -378,20 +380,35 @@ async def run_tool_rounds(
     Returns ``(messages, verified_math, terminal_image, search_hits)``. Tool-call
     rounds stay non-streaming. After tools execute, the caller streams the
     user-visible answer (tools omitted) instead of a discarded leftover completion.
+
+    ``is_automation``: an unattended Automations run (services/automations/run.py).
+    Read-only only — the model never even sees the write-capable tool schemas
+    (generate_image / search_image / calendar), and their context binders are
+    skipped too (belt-and-suspenders: a tool the model can't see also can't
+    be invoked even if a future bug widened the advertised list).
     """
     if not settings.mcp_tool_loop_enabled:
         return messages, None, None, []
 
     tools = _tools_for_user(settings, user)
+    if is_automation:
+        tools = [t for t in tools if (t.get("function") or {}).get("name") == "web_search"]
     if not tools:
         return messages, None, None, []
 
-    with (
-        bind_search_quota_context(user=user, redis=redis, settings=settings),
-        bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
-        bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
-        bind_calendar_context(user=user, redis=redis, settings=settings),
-    ):
+    if is_automation:
+        context_binders = [bind_search_quota_context(user=user, redis=redis, settings=settings)]
+    else:
+        context_binders = [
+            bind_search_quota_context(user=user, redis=redis, settings=settings),
+            bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
+            bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
+            bind_calendar_context(user=user, redis=redis, settings=settings),
+        ]
+
+    with contextlib.ExitStack() as stack:
+        for binder in context_binders:
+            stack.enter_context(binder)
         working, verified, terminal, hits = await _run_tool_rounds_bound(
             settings=settings,
             model_alias=model_alias,

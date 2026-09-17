@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.gateways import expo_push_gateway, google_calendar_gateway
 from app.models.orm import (
+    Automation,
     PushToken,
     SuggestedReminder,
     TodoItem,
@@ -78,41 +79,49 @@ _PUSH_STRINGS: dict[str, dict[str, str]] = {
         "from_inbox": "From your inbox",
         "time_to_learn": "Time to learn",
         "email_plural": "{count} reminders from your email — tap to review",
+        "automation_ready": "Automation ready",
     },
     "es": {
         "from_inbox": "Desde tu bandeja",
         "time_to_learn": "Hora de aprender",
         "email_plural": "{count} recordatorios de tu correo — toca para revisar",
+        "automation_ready": "Automatización lista",
     },
     "fr": {
         "from_inbox": "Depuis votre boîte",
         "time_to_learn": "Temps d'apprendre",
         "email_plural": "{count} rappels de votre courriel — appuyez pour voir",
+        "automation_ready": "Automatisation prête",
     },
     "de": {
         "from_inbox": "Aus deinem Postfach",
         "time_to_learn": "Zeit zum Lernen",
         "email_plural": "{count} Erinnerungen aus deiner E-Mail — tippen zum Ansehen",
+        "automation_ready": "Automatisierung bereit",
     },
     "it": {
         "from_inbox": "Dalla tua casella",
         "time_to_learn": "Ora di imparare",
         "email_plural": "{count} promemoria dalla tua email — tocca per vedere",
+        "automation_ready": "Automazione pronta",
     },
     "pt": {
         "from_inbox": "Da sua caixa de entrada",
         "time_to_learn": "Hora de aprender",
         "email_plural": "{count} lembretes do seu e-mail — toque para ver",
+        "automation_ready": "Automação pronta",
     },
     "ru": {
         "from_inbox": "Из вашего ящика",
         "time_to_learn": "Время учиться",
         "email_plural": "{count} напоминаний из почты — нажмите для просмотра",
+        "automation_ready": "Автоматизация готова",
     },
     "tr": {
         "from_inbox": "Gelen kutunuzdan",
         "time_to_learn": "Öğrenme zamanı",
         "email_plural": "E-postanızdan {count} hatırlatma — görmek için dokunun",
+        "automation_ready": "Otomasyon hazır",
     },
 }
 
@@ -122,15 +131,21 @@ def _push_strings(locale: str | None) -> dict[str, str]:
     return _PUSH_STRINGS.get(code, _PUSH_STRINGS["en"])
 
 
-def _sanitize_email_suggestion_body(title: str) -> str:
-    """Collapse whitespace/control chars and cap length — never raw LLM titles."""
-    cleaned = "".join(ch if ch.isprintable() else " " for ch in title)
+def _sanitize_push_body(
+    text: str, *, fallback: str, max_chars: int = _MAX_EMAIL_SUGGESTION_PUSH_CHARS
+) -> str:
+    """Collapse whitespace/control chars and cap length — never raw LLM/user text as-is."""
+    cleaned = "".join(ch if ch.isprintable() else " " for ch in text)
     cleaned = " ".join(cleaned.split())
     if not cleaned:
-        return "New reminder from inbox"
-    if len(cleaned) > _MAX_EMAIL_SUGGESTION_PUSH_CHARS:
-        return cleaned[: _MAX_EMAIL_SUGGESTION_PUSH_CHARS - 1].rstrip() + "…"
+        return fallback
+    if len(cleaned) > max_chars:
+        return cleaned[: max_chars - 1].rstrip() + "…"
     return cleaned
+
+
+def _sanitize_email_suggestion_body(title: str) -> str:
+    return _sanitize_push_body(title, fallback="New reminder from inbox")
 
 
 def _receipt_token_key(ticket_id: str) -> str:
@@ -706,6 +721,57 @@ async def finalize_push_deliveries(
     await _finalize_push_deliveries(
         session, redis, outbound, delivered, now=now or datetime.now(UTC)
     )
+
+
+async def notify_automation_run(
+    session: AsyncSession,
+    redis: Redis,
+    settings: Settings,
+    automation: Automation,
+) -> None:
+    """Single ad hoc push for one completed Automation run.
+
+    Unlike the batched cycle above (which scans every user every tick),
+    this fires once, right after `services/automations/run.py` finishes a
+    headless turn for exactly one automation/user — no candidate scan.
+    """
+    if not settings.push_enabled:
+        return
+    user = await session.get(User, automation.user_id)
+    if user is None or not user.push_notifications_enabled:
+        return
+    if in_quiet_hours(user, now=datetime.now(UTC)):
+        return
+    tokens = await push_repo.list_for_users(session, [automation.user_id])
+    if not tokens:
+        return
+
+    strings = _push_strings(getattr(user, "locale", None))
+    body = _sanitize_push_body(automation.prompt, fallback="Your automation finished")
+    outbound: list[OutboundPush] = []
+    _append_outbound(
+        outbound,
+        tokens,
+        title=strings["automation_ready"],
+        body=body,
+        data={
+            "type": "automation_run",
+            "screen": "automations",
+            "automation_id": str(automation.id),
+            "chat_id": str(automation.chat_id),
+        },
+    )
+
+    delivered, invalid_tokens, receipt_tickets = await dispatch_expo(outbound, settings)
+    for expo_token in invalid_tokens:
+        try:
+            await push_repo.delete_by_token(session, expo_token)
+        except Exception:
+            logger.debug("Failed to prune push token", exc_info=True)
+    if receipt_tickets:
+        await enqueue_push_receipts(redis, receipt_tickets)
+    if any(delivered):
+        logger.info("Automation run push sent automation_id=%s", automation.id)
 
 
 async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings) -> int:
