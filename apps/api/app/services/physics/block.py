@@ -24,6 +24,46 @@ from app.services.solving import (
 
 logger = logging.getLogger(__name__)
 
+# Display labels only. Supported operations and validation live on PhysicsIntent.
+_PROJECTILE_LABELS = {
+    "time_of_flight": r"t_{\mathrm{flight}}",
+    "max_height": r"H_{\mathrm{max}}",
+    "range": "R",
+    "impact_speed": r"v_{\mathrm{impact}}",
+}
+
+
+def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
+    """Solve every requested part before publishing any multipart result.
+
+    Reuse the existing solvers and their verified working. All supported parts
+    share one launch and therefore the same path; keep that visual once, not
+    one graph and scene per scalar quantity. A failure aborts the whole block.
+    """
+    if not intent.requested_ops:
+        return solve_physics(intent)
+    # Validate even a model_copy-constructed intent before trusting its parts.
+    intent = PhysicsIntent.model_validate(intent.model_dump())
+    results: list[PhysicsResult] = []
+    answers: list[str] = []
+    for op in intent.requested_ops:
+        part = PhysicsIntent.model_validate(
+            {**intent.model_dump(), "physics_op": op, "requested_ops": []}
+        )
+        result = solve_physics(part)
+        value, separator, unit = result.answer_value.partition(" ")
+        if not separator or unit not in {"s", "m", "m/s"}:
+            raise MathServiceError("unexpected projectile result representation")
+        answers.append(rf"{_PROJECTILE_LABELS[op]} = {value}\,\mathrm{{{unit}}}")
+        results.append(result)
+    first = results[0]
+    return PhysicsResult(
+        answer=r";\quad ".join(result.answer for result in results),
+        answer_value=r";\quad ".join(answers),
+        graph_specs=first.graph_specs,
+        simulation_specs=first.simulation_specs,
+    )
+
 
 def _build_physics_block(
     intent: PhysicsIntent, settings: Settings, lines: list[str]
@@ -31,7 +71,7 @@ def _build_physics_block(
     """Solve the physics problem and build a verified block with answer + graph."""
     result: PhysicsResult | None = None
     try:
-        result = solve_physics(intent)
+        result = _solve_requested_quantities(intent)
     except MathServiceError as exc:
         logger.info(
             "physics verification skipped kind=%s op=%s reason=%s",
@@ -49,6 +89,12 @@ def _build_physics_block(
         )
         return None
 
+    if intent.requested_ops:
+        lines.append("Every requested projectile quantity below was solved for the same givens.")
+        lines.append(
+            "Working uses uniform gravity, no air resistance, and heights measured from "
+            "the landing plane. Copy each verified formula; do not recalculate its numbers."
+        )
     # Append the verified answer to the hint lines.
     lines.append(f"Verified answer: ${result.answer}$ ({result.answer_value})")
 

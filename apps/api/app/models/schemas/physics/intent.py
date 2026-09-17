@@ -18,7 +18,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
+
+ProjectileQuantity = Literal["time_of_flight", "max_height", "range", "impact_speed"]
 
 
 class PhysicsIntent(BaseModel):
@@ -185,3 +187,17 @@ class PhysicsIntent(BaseModel):
     # Unit labels for the params above: {"h0": "m", "v0": "m/s", "g": "m/s^2"}.
     # Used to render the answer with proper units.
     physics_units: dict[str, str] | None = None
+    # One launch, with every requested output retained in presentation order.
+    requested_ops: list[ProjectileQuantity] = Field(default_factory=list, max_length=4)
+
+    @model_validator(mode="after")
+    def coherent_requested_ops(self) -> PhysicsIntent:
+        if self.requested_ops:
+            if self.kind != "projectile" or self.physics_op != self.requested_ops[0]:
+                raise ValueError("multipart quantities must belong to the same projectile")
+            if (
+                len(self.requested_ops) < 2
+                or len(set(self.requested_ops)) != len(self.requested_ops)
+            ):
+                raise ValueError("multipart quantities must contain two to four distinct requests")
+        return self

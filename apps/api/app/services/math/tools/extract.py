@@ -29,6 +29,7 @@ from app.services.math.tools.extractors.geometry_graph import (
 from app.services.math.tools.helpers import has_assignment_evaluation_request, math_expr_or_none
 from app.services.math.tools.school import SCHOOL_EXTRACTORS
 from app.services.physics.extract import PHYSICS_EXTRACTORS
+from app.services.physics.request import complete_physics_intent, prepare_physics_request
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | PhysicsIntent | None]] = (
     SOLID_EXTRACTOR,
@@ -126,6 +127,12 @@ def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
     cleaned = mtm.prepare(text)
     if not cleaned:
         return None
+    request = prepare_physics_request(cleaned)
+    if request.rejected:
+        return None
+    if request.collision is not None:
+        return request.collision
+    cleaned = request.text
     # Function analysis currently verifies the maximal real domain only.
     # Refuse the whole extraction before inequality/algebra fallbacks can
     # verify just the trailing restriction and silently ignore the actual ask.
@@ -141,12 +148,10 @@ def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
         intent = extractor(cleaned)
         if intent is not None:
             if isinstance(intent, PhysicsIntent):
-                # None of the checks below apply to any physics kind — they're
-                # all gated on math-only kinds (equation/system/rectangle/...)
-                # and touch fields (school_op, lhs, rhs, unit) PhysicsIntent
-                # doesn't have. Physics extractors already did their own
-                # validation; nothing here is relevant a second time.
-                return intent
+                return complete_physics_intent(intent, request)
+            if request.projectile_ops:
+                # Do not certify an algebraic fragment of a multipart launch.
+                return None
             if region_question and intent.school_op not in _SOLVED_REGION_OPS:
                 # A region question the application extractors declined must
                 # not be answered by whichever other extractor recognises half
