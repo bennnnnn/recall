@@ -12,11 +12,11 @@ from app.models.schemas.math import (
     StatisticsInput,
 )
 from app.services.math import solve as math_solve
-from app.services.math.tools.block.common import (
+from app.services.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
+from app.services.solving import (
     VerifiedMathBlock,
     _finish_with_answer,
 )
-from app.services.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
 _FUNCTION_ANALYSIS_OPS = {
     "function_domain",

@@ -5,8 +5,7 @@ from __future__ import annotations
 import json
 import math
 
-from app.models.schemas.math.simulation import SIMULATION_SPEC_TYPES
-from app.services.math.tools.block.common import VerifiedMathBlock
+from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.services.math.tools.lesson import (
     format_equation_lesson_reply,
     should_render_equation_lesson,
@@ -14,6 +13,7 @@ from app.services.math.tools.lesson import (
     wants_detailed_math_explanation,
     wants_math_explanation,
 )
+from app.services.solving import VerifiedMathBlock
 
 # Imperative / polite glue around a closed compute. Two leftover English
 # words beyond this ("tell" + "joke") keep the LLM.

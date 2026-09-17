@@ -3,6 +3,7 @@
 import pytest
 
 from app.core.config import Settings
+from app.models.schemas.math import MathIntent
 from app.services.math.fence import validate_math_fences
 from app.services.math.tools.block import _build_verified_block
 from app.services.math.tools.direct import maybe_direct_math_reply
@@ -19,7 +20,7 @@ def test_signed_leading_decimal_is_one_complete_newton_guess(literal: str, expec
     assert guess == expected
     assert equation == "Use Newton method to solve x^2-2=0"
     intent = extract_math_intent(query)
-    assert intent is not None
+    assert isinstance(intent, MathIntent)
     assert intent.newton_guess == expected
     block = _build_verified_block(intent, Settings(math_tools_enabled=True))
     assert block is not None and block.newton_input is not None and block.newton_result is not None

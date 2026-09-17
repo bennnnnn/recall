@@ -10,9 +10,9 @@ from app.services.math.match.scan import (
     first_dim_pair,
     first_dim_triple,
     number_after,
-    word_index,
 )
 from app.services.math.match.types import SolidShape
+from app.services.text_match import word_index
 
 _SOLID_ALGEBRA_PHRASES = (
     "cube root",

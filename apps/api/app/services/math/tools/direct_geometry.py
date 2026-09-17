@@ -16,7 +16,7 @@ from app.services.math.match.literal_geometry import (
     measurement_request as _measurement_request,
 )
 from app.services.math.match.units import solid_length_unit, strip_geometry_length_units
-from app.services.math.tools.block.common import VerifiedMathBlock
+from app.services.solving import VerifiedMathBlock
 
 _DIMENSIONS = re.compile(rf"({_DECIMAL})\s*(?:by|x|\u00d7|\*)\s*({_DECIMAL})")
 

@@ -865,7 +865,7 @@ def test_needs_math_fence_validate_skips_plain_replies() -> None:
 
     assert needs_math_fence_validate("hi there", None) is False
     assert needs_math_fence_validate("```answer\nx = 1\n```", None) is True
-    from app.services.math.tools.block.common import VerifiedMathBlock
+    from app.services.solving import VerifiedMathBlock
 
     verified = VerifiedMathBlock(text="x = 1", canonical_answer="1")
     assert needs_math_fence_validate("plain", verified) is True

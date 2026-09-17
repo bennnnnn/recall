@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.math.tools.block.common import VerifiedMathBlock
+from app.services.solving import VerifiedMathBlock
 
 # Linear phrase scan — do not put user text through nested-optional regex
 # (CodeQL py/polynomial-redos). Substrings are enough: "explain every step"

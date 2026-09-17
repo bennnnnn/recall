@@ -26,7 +26,7 @@ from app.models.schemas.math import (
     TriangleSidesInput,
     TriangleSidesResult,
 )
-from app.services.math.solve.parse import MathServiceError
+from app.services.solving import MathServiceError
 
 _ANGLE_INT_TOL_DEG = 0.11
 

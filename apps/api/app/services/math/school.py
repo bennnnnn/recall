@@ -38,7 +38,7 @@ from app.services.math.solve import MathServiceError, _parse_expression
 _unit_registry: UnitRegistry | None = None
 
 
-def _get_unit_registry() -> UnitRegistry:
+def get_unit_registry() -> UnitRegistry:
     global _unit_registry
     if _unit_registry is None:
         _unit_registry = UnitRegistry()
@@ -385,7 +385,7 @@ def convert_unit(value: float, src: str, dest: str) -> str:
     (m/s, m/s², N, J, Pa, W, Hz, etc.). Raises MathServiceError on
     unsupported conversions or dimensionality mismatches.
     """
-    ureg = _get_unit_registry()
+    ureg = get_unit_registry()
 
     def _candidates(unit: str) -> list[str]:
         raw = unit.strip()

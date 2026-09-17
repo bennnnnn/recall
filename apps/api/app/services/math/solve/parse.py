@@ -15,6 +15,7 @@ from sympy.parsing.sympy_parser import (
 
 from app.core.config import get_settings
 from app.models.schemas.math import EquationInput
+from app.services.solving import MathServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +43,6 @@ def format_verified_latex(expr: Any) -> str:
     if len(tex) <= _EXACT_LATEX_DECIMAL_THRESHOLD:
         return tex
     return str(latex(val.evalf(6)))
-
-
-class MathServiceError(ValueError):
-    """Invalid or unsupported math input."""
 
 
 # Shallow LaTeX → SymPy-ish text. Nested \frac needs repeated passes (capped).

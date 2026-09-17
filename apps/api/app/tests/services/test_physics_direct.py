@@ -13,10 +13,10 @@ from app.services.chat.stream_pipeline import stream_and_finalize
 from app.services.chat.turn_prep.context import StreamContext
 from app.services.math.fence import validate_math_fences
 from app.services.math.tools import _build_verified_block, extract_math_intent, needs_symbolic_math
-from app.services.math.tools.block.common import VerifiedMathBlock
 from app.services.math.tools.direct import maybe_direct_math_reply
 from app.services.math.tools.prompt import build_math_augmentation
 from app.services.physics.direct import _expected_intent
+from app.services.solving import VerifiedMathBlock
 from app.services.tool_loop import turn_needs_tool_loop
 
 _SETTINGS = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)

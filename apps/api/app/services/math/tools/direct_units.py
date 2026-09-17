@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import re
 
-from app.services.math.match.scan import word_index
+from app.services.text_match import word_index
 
 _NUMBER = r"[+-]?(?:[0-9]{1,24}(?:\.[0-9]{1,24})?|\.[0-9]{1,24})"
 _UNIT = r"[A-Za-zµμ°][A-Za-z0-9µμ°*/^._-]{0,63}"

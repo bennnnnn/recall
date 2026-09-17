@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathSeriesResult
+from app.models.schemas.math import MathIntent, MathSeriesResult
 from app.services.math.tools import extract_math_intent
 from app.services.math.tools.block import _build_verified_block
 from app.services.math.tools.direct import maybe_direct_math_reply
@@ -75,7 +75,7 @@ def test_insufficient_dimensions_cannot_verify_a_perimeter(question: str) -> Non
 )
 def test_limit_preserves_requested_direction(question: str, direction: str, answer: str) -> None:
     intent = extract_math_intent(question)
-    assert intent is not None
+    assert isinstance(intent, MathIntent)
     assert intent.limit_direction == direction
     result = _build_verified_block(intent, Settings())
     assert result is not None

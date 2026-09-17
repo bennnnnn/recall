@@ -5,8 +5,9 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.math import MathIntent
-from app.services.math.match.scan import MATH_MULTI_LETTER, word_index
+from app.services.math.match.scan import MATH_MULTI_LETTER
 from app.services.math.tools.helpers import _strip_trailing_filler, math_expr_or_none
+from app.services.text_match import word_index
 
 
 def _requests_geometry_measurement(lower: str) -> bool:

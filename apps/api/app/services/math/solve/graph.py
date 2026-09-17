@@ -20,7 +20,8 @@ from app.services.math.solve.extract_eq import (
     try_extract_compound_inequality_from_text,
     try_extract_inequality_from_text,
 )
-from app.services.math.solve.parse import MathServiceError, _parse_expression
+from app.services.math.solve.parse import _parse_expression
+from app.services.solving import MathServiceError
 
 
 def _split_into_segments(

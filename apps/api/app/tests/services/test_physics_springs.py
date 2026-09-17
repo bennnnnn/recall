@@ -18,6 +18,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {
@@ -115,7 +116,7 @@ def test_an_shm_period_emits_an_animatable_trajectory() -> None:
     intent = extract_math_intent(
         "period of a 0.5 kg mass on a spring with k = 200 N/m and amplitude 0.1 m"
     )
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
     assert result.answer_value == "0.31 s"
@@ -140,7 +141,7 @@ def test_an_unstated_amplitude_is_normalised_not_invented() -> None:
     from app.services.physics.solver import solve_physics
 
     intent = extract_math_intent("period of a 0.5 kg mass on a spring with k = 200 N/m")
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
 
     spec = solve_physics(intent).graph_specs[0]
     assert spec.y_label == "Displacement (normalised)"
@@ -311,9 +312,9 @@ def test_the_pendulum_emits_the_same_animatable_curve_as_the_spring() -> None:
     from app.services.physics.solver import solve_physics
 
     intent = extract_math_intent("period of a 2 m pendulum")
-    assert intent is not None
-    result = solve_physics(intent)
+    assert isinstance(intent, PhysicsIntent)
 
+    result = solve_physics(intent)
     assert len(result.graph_specs) == 1
     spec = result.graph_specs[0]
     assert spec.trajectory_type == "position_vs_time"
@@ -328,7 +329,7 @@ def test_the_spring_period_is_untouched() -> None:
     collide — but the pendulum extractor runs first, so this says so."""
     intent = extract_math_intent("the period of a 200 N/m spring with a 2 kg mass")
 
-    assert intent is not None and intent.physics_op == "shm_period"
+    assert isinstance(intent, PhysicsIntent) and intent.physics_op == "shm_period"
     assert _verified_answer("the period of a 200 N/m spring with a 2 kg mass") == "0.63 s"
 
 

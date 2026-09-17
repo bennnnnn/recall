@@ -5,8 +5,8 @@ from __future__ import annotations
 import math
 import re
 
-from app.services.math.match.scan import word_index
 from app.services.math.match.types import CombinatoricsOp, MatrixOp, NumberTheoryOp, StatsOp
+from app.services.text_match import word_index
 
 # Longest/most-specific phrase first so e.g. "standard deviation" is found
 # before a later, coincidental bare "deviation" would matter. "sample …"

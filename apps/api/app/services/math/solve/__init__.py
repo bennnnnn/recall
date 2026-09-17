@@ -61,9 +61,6 @@ from app.services.math.solve.parse import (
     _SAFE_EXPR_CHARS as _SAFE_EXPR_CHARS,
 )
 from app.services.math.solve.parse import (
-    MathServiceError as MathServiceError,
-)
-from app.services.math.solve.parse import (
     _normalize_latex_to_sympy as _normalize_latex_to_sympy,
 )
 from app.services.math.solve.parse import (
@@ -76,6 +73,9 @@ from app.services.math.solve.parse import (
     parse_equation as parse_equation,
 )
 from app.services.math.solve.statistics import compute_bivariate_statistics
+from app.services.solving import (
+    MathServiceError as MathServiceError,
+)
 
 __all__ = [
     "_SAFE_EXPR_CHARS",

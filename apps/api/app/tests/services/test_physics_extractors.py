@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.models.schemas.physics import PhysicsIntent
 from app.services.physics.extract import (
     _VALUE_UNIT_RE,
     _detect_gravity,
@@ -364,7 +365,7 @@ def test_downward_throw_mph_does_not_verify_as_five_metres_per_second() -> None:
 
     text = "A ball is thrown down at 5 miles per hour from 20 m, how long to hit the ground?"
     intent = extract_math_intent(text)
-    if intent is not None:
+    if isinstance(intent, PhysicsIntent):
         units = intent.physics_units or {}
         params = intent.physics_params or {}
         if "v0" in params:

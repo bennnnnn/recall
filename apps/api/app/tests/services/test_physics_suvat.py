@@ -19,6 +19,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {
@@ -45,7 +46,7 @@ def _graph(text: str):
     from app.services.physics.solver import solve_physics
 
     intent = extract_math_intent(text)
-    assert intent is not None, f"no intent extracted for {text!r}"
+    assert isinstance(intent, PhysicsIntent), f"no intent extracted for {text!r}"
     specs = solve_physics(intent).graph_specs
     assert len(specs) == 1, f"expected one graph for {text!r}, got {len(specs)}"
     return specs[0]
@@ -211,7 +212,7 @@ def test_suvat_emits_a_velocity_time_graph() -> None:
     intent = extract_math_intent(
         "a car accelerates from rest at 3 m/s^2 for 5 s, what is its final velocity"
     )
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
     result = solve_physics(intent)
 
     assert len(result.graph_specs) == 1
@@ -280,7 +281,7 @@ def test_a_graph_needs_a_time_span_to_be_honest() -> None:
     intent = extract_math_intent(
         "what distance does a car cover accelerating from 10 m/s to 30 m/s at 2 m/s^2"
     )
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
 
     assert solve_physics(intent).graph_specs == []
 

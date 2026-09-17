@@ -22,7 +22,7 @@ from sympy import (
 )
 
 from app.models.schemas.math import MathSolveResult
-from app.services.math.solve.parse import MathServiceError
+from app.services.solving import MathServiceError
 
 
 def _complete_solution_latex(solution: Any, variable: Any) -> str:

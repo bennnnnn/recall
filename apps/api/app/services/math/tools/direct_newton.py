@@ -7,8 +7,8 @@ import re
 from typing import Any
 
 from app.services.math import solve as math_solve
-from app.services.math.tools.block.common import VerifiedMathBlock
 from app.services.math.tools.direct_calculus import _compact, _expression
+from app.services.solving import VerifiedMathBlock
 
 _NUMBER = r"[+-]?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
 _START = re.compile(

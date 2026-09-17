@@ -20,6 +20,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.match.needs import needs_symbolic
 from app.services.math.tools import _build_verified_block, extract_math_intent
 
@@ -137,7 +138,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
 def test_round_three_final_phrasings(text: str, kind: str, op: str, answer: str) -> None:
     assert needs_symbolic(text), "dropped by the pre-filter before extraction"
     intent = extract_math_intent(text)
-    assert intent is not None, "no intent extracted"
+    assert isinstance(intent, PhysicsIntent), "no intent extracted"
     assert intent.kind == kind
     assert intent.physics_op == op
     assert _verified_answer(text) == answer

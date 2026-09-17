@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.math import MathIntent
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.match import calc_op
 from app.services.math.tools.extract import extract_math_intent
 from app.services.math.tools.helpers import math_expr_or_none
@@ -147,7 +148,11 @@ def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | N
     if request.lower().startswith("the "):
         request = request[4:]
     actual = extract_math_intent(text)
-    if actual is None:
+    if actual is None or isinstance(actual, PhysicsIntent):
+        # A physics-classified match means the extractor registry already
+        # decided this text isn't calculus (PHYSICS_EXTRACTORS run before
+        # CALCULUS_EXTRACTORS) — treat it the same as no match, not as a
+        # calculus intent missing calculus-only fields like `.expr`.
         return False
     if actual.operation == "dsolve":
         return None

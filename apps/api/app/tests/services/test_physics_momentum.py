@@ -15,6 +15,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {"kinematics", "projectile", "force", "energy", "momentum"}
@@ -105,7 +106,7 @@ def test_elastic_collision_conserves_momentum_and_energy() -> None:
     intent = extract_math_intent(
         "a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest"
     )
-    assert intent is not None
+    assert isinstance(intent, PhysicsIntent)
     solve_physics(intent)  # must not raise
 
     m1, m2, v1, v2 = 2.0, 1.0, 3.0, 0.0

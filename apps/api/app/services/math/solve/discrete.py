@@ -19,7 +19,7 @@ from app.models.schemas.math import (
     StatisticsResult,
 )
 from app.services.math.match.scan import mask_unknown_letter_runs
-from app.services.math.solve.parse import MathServiceError
+from app.services.solving import MathServiceError
 
 _FUNCTION_NAME_RE = re.compile(
     r"\b(?:sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|sqrt|exp|min|max|abs)\b",

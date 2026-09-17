@@ -8,7 +8,7 @@ import math
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.solve import MathServiceError
 from app.services.physics import block as physics_block
 from app.services.physics import solver as physics_solver
@@ -19,7 +19,7 @@ from app.services.physics import solver as physics_solver
 
 
 def test_kinematics_time_to_ground() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="time_to_ground",
         physics_params={"h0": 20.0, "v0": 0.0, "g": 9.81},
@@ -43,7 +43,7 @@ def test_kinematics_time_to_ground() -> None:
 
 
 def test_kinematics_time_to_ground_derivation_includes_initial_velocity() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="time_to_ground",
         physics_params={"h0": 0.0, "v0": 15.0, "g": 9.81},
@@ -59,7 +59,7 @@ def test_kinematics_time_to_ground_derivation_includes_initial_velocity() -> Non
 
 
 def test_kinematics_velocity_op() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="velocity",
         physics_params={"h0": 20.0, "v0": 0.0, "g": 9.81, "t": 1.0},
@@ -72,7 +72,7 @@ def test_kinematics_velocity_op() -> None:
 
 
 def test_kinematics_speed_op_is_magnitude() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="speed",
         physics_params={"h0": 20.0, "v0": 0.0, "g": 9.81, "t": 1.0},
@@ -86,7 +86,7 @@ def test_kinematics_speed_op_is_magnitude() -> None:
 
 
 def test_kinematics_thrown_down_latex_parenthesises_negative_v0() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="time_to_ground",
         physics_params={"h0": 20.0, "v0": -5.0, "g": 9.81},
@@ -100,7 +100,7 @@ def test_kinematics_thrown_down_latex_parenthesises_negative_v0() -> None:
 
 
 def test_params_in_si_rejects_length_as_velocity() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="time_to_ground",
         physics_params={"h0": 20.0, "v0": 5.0, "g": 9.81},
@@ -112,7 +112,7 @@ def test_params_in_si_rejects_length_as_velocity() -> None:
 
 
 def test_kinematics_position_op_uses_requested_time() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="position",
         physics_params={"h0": 20.0, "v0": 5.0, "g": 9.81, "t": 2.0},
@@ -126,7 +126,7 @@ def test_kinematics_position_op_uses_requested_time() -> None:
 
 
 def test_kinematics_position_past_impact_is_not_verified() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="position",
         physics_params={"h0": 20.0, "v0": 0.0, "g": 9.81, "t": 10.0},
@@ -140,7 +140,7 @@ def test_kinematics_position_past_impact_is_not_verified() -> None:
 
 
 def test_kinematics_velocity_past_impact_is_not_verified() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="velocity",
         physics_params={"h0": 100.0, "v0": 0.0, "g": 9.81, "t": 10.0},
@@ -152,7 +152,7 @@ def test_kinematics_velocity_past_impact_is_not_verified() -> None:
 
 
 def test_kinematics_acceleration_is_constant() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="acceleration",
         physics_params={"h0": 20.0, "v0": 0.0, "g": 9.81},
@@ -171,7 +171,7 @@ def test_kinematics_acceleration_is_constant() -> None:
 
 
 def test_projectile_range_45_degrees() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="projectile",
         physics_op="range",
         physics_params={"v0": 15.0, "angle": 45.0, "g": 9.81},
@@ -195,7 +195,7 @@ def test_projectile_range_45_degrees() -> None:
 
 
 def test_projectile_range_from_cliff_uses_quadratic_tof() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="projectile",
         physics_op="range",
         physics_params={"v0": 20.0, "angle": 30.0, "h0": 10.0, "g": 9.81},
@@ -212,7 +212,7 @@ def test_projectile_range_from_cliff_uses_quadratic_tof() -> None:
 
 
 def test_projectile_max_height() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="projectile",
         physics_op="max_height",
         physics_params={"v0": 20.0, "angle": 30.0, "g": 9.81},
@@ -231,7 +231,7 @@ def test_projectile_max_height() -> None:
 
 
 def test_force_solve_acceleration() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="force",
         physics_op="net_force",
         physics_params={"F": 20.0, "m": 5.0},
@@ -244,7 +244,7 @@ def test_force_solve_acceleration() -> None:
 
 
 def test_force_solve_force() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="force",
         physics_op="net_force",
         physics_params={"m": 5.0, "a": 2.0},
@@ -257,7 +257,7 @@ def test_force_solve_force() -> None:
 
 
 def test_force_missing_two_knowns_raises() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="force",
         physics_op="net_force",
         physics_params={"F": 20.0, "m": 5.0, "a": 4.0},
@@ -278,7 +278,7 @@ def test_force_missing_two_knowns_raises() -> None:
 
 
 def test_energy_kinetic() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="energy",
         physics_op="kinetic_energy",
         physics_params={"m": 2.0, "v": 10.0, "g": 9.81},
@@ -291,7 +291,7 @@ def test_energy_kinetic() -> None:
 
 
 def test_energy_potential() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="energy",
         physics_op="potential_energy",
         physics_params={"m": 3.0, "h": 5.0, "g": 9.81},
@@ -305,7 +305,7 @@ def test_energy_potential() -> None:
 
 
 def test_energy_work() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="energy",
         physics_op="work",
         physics_params={"F": 10.0, "d": 4.0, "g": 9.81},
@@ -323,7 +323,7 @@ def test_energy_work() -> None:
 
 
 def test_solve_physics_dispatches_by_kind() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="time_to_ground",
         physics_params={"h0": 20.0, "v0": 0.0, "g": 9.81},
@@ -335,7 +335,13 @@ def test_solve_physics_dispatches_by_kind() -> None:
 
 
 def test_solve_physics_unknown_kind_raises() -> None:
-    intent = MathIntent(kind="equation", lhs="x", rhs="5", operation="solve")
+    # PhysicsIntent.kind is now a closed twenty-value Literal, so an
+    # out-of-domain kind can no longer reach solve_physics through the normal
+    # constructor — this exercises solve_physics's own defensive dispatch-miss
+    # branch directly, the way a kind added to the Literal without a matching
+    # handler in solve_physics would (model_construct bypasses validation on
+    # purpose, matching that scenario rather than a since-impossible one).
+    intent = PhysicsIntent.model_construct(kind="equation", operation="solve")
     try:
         physics_solver.solve_physics(intent)
         raise AssertionError("should have raised")
@@ -347,14 +353,14 @@ def test_physics_block_logs_expected_solver_rejection(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="position",
         physics_params={"h0": 20.0},
         operation="solve",
     )
 
-    def reject(_intent: MathIntent):
+    def reject(_intent: PhysicsIntent):
         raise MathServiceError("position requires a time t")
 
     monkeypatch.setattr(physics_block, "solve_physics", reject)
@@ -367,7 +373,7 @@ def test_physics_block_logs_expected_solver_rejection(
 
 
 def test_velocity_unit_metres_raises_dimension_error() -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="kinematics",
         physics_op="time_to_ground",
         physics_params={"h0": 20.0, "v0": 5.0, "g": 9.81},
@@ -384,14 +390,14 @@ def test_physics_block_logs_unexpected_solver_failure(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    intent = MathIntent(
+    intent = PhysicsIntent(
         kind="force",
         physics_op="net_force",
         physics_params={"F": 20.0, "m": 5.0},
         operation="solve",
     )
 
-    def fail(_intent: MathIntent):
+    def fail(_intent: PhysicsIntent):
         raise RuntimeError("unexpected")
 
     monkeypatch.setattr(physics_block, "solve_physics", fail)

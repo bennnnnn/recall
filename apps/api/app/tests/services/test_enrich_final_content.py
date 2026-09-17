@@ -301,7 +301,7 @@ async def test_unverified_math_note_appended_to_final_content(
 async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services.math.tools.block.common import VerifiedMathBlock
+    from app.services.solving import VerifiedMathBlock
 
     async def _must_not_run(*_a: Any, **_k: Any) -> str:
         raise AssertionError("direct math must not queue fence rewrite on the pool")

@@ -9,11 +9,10 @@ from app.core.config import Settings
 from app.models.schemas.math import EquationInput
 from app.services.math import fence as math_fence
 from app.services.math import solve as math_solve
-from app.services.math.solve.parse import MathServiceError
 from app.services.math.solve.trig_equations import _complete_solution_latex
 from app.services.math.tools.block import _build_verified_block
-from app.services.math.tools.block.common import VerifiedMathBlock
 from app.services.math.tools.extract import extract_math_intent
+from app.services.solving import MathServiceError, VerifiedMathBlock
 
 
 def _verified(prompt: str) -> VerifiedMathBlock:

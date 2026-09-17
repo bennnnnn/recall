@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import statistics
 
-from app.services.math.solve.parse import MathServiceError
+from app.services.solving import MathServiceError
 
 
 def _format_stat(value: float) -> str:

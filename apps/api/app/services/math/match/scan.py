@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.services.text_match import has_equation, word_index
 from app.services.text_normalize import collapse_ws
 
 _MAX = 1000
@@ -371,22 +372,6 @@ def strip_inline_math_delims(text: str) -> str:
     )
 
 
-def word_index(lower: str, phrase: str) -> int:
-    """First index of ``phrase`` not glued inside a longer letter-run."""
-    start = 0
-    n = len(phrase)
-    while True:
-        idx = lower.find(phrase, start)
-        if idx == -1:
-            return -1
-        before_ok = idx == 0 or not lower[idx - 1].isalpha()
-        after = idx + n
-        after_ok = after >= len(lower) or not lower[after].isalpha()
-        if before_ok and after_ok:
-            return idx
-        start = idx + 1
-
-
 def fold_match_superscripts(s: str) -> str:
     """Turn ``m/s²`` / ``m/s^{2}`` into ``m/s^2`` so unit scanners can bind.
 
@@ -695,16 +680,6 @@ def has_math_keyword(lower: str) -> bool:
         if phrase in lower:
             return True
     return False
-
-
-def has_equation(text: str) -> bool:
-    eq = text.find("=")
-    if eq <= 0 or eq >= len(text) - 1:
-        return False
-    if text[eq + 1 : eq + 2] == "=":
-        return False
-    lhs, rhs = text[:eq].strip(), text[eq + 1 :].strip()
-    return bool(lhs and rhs and any(c.isalnum() for c in lhs) and any(c.isalnum() for c in rhs))
 
 
 # A standalone single-letter variable (not part of a longer word) is a strong

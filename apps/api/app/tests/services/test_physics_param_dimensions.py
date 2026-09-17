@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.tools import extract_math_intent
 from app.services.physics.solver import _PARAM_SI_DIMENSIONS
 
@@ -70,7 +71,7 @@ def test_the_corpus_is_not_empty() -> None:
 @pytest.mark.parametrize("text", _verified_questions(), ids=lambda t: t[:44])
 def test_every_emitted_param_declares_a_dimension(text: str) -> None:
     intent = extract_math_intent(text)
-    assert intent is not None, f"no intent for {text!r}"
+    assert isinstance(intent, PhysicsIntent), f"no intent for {text!r}"
     undeclared = [
         key
         for key in (intent.physics_params or {})
@@ -84,9 +85,9 @@ def test_every_emitted_param_declares_a_dimension(text: str) -> None:
 
 def test_every_declared_dimension_is_a_real_unit() -> None:
     """A typo in the table disables the check it exists to perform."""
-    from app.services.math.school import _get_unit_registry
+    from app.services.math.school import get_unit_registry
 
-    ureg = _get_unit_registry()
+    ureg = get_unit_registry()
     broken = []
     for key, spec in _PARAM_SI_DIMENSIONS.items():
         try:

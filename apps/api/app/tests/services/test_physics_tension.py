@@ -19,6 +19,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {
@@ -241,7 +242,7 @@ def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:
     """Tension runs before force, so it must not swallow ordinary F = ma."""
     intent = extract_math_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
 
-    assert intent is not None and intent.physics_op == "net_force"
+    assert isinstance(intent, PhysicsIntent) and intent.physics_op == "net_force"
     assert (
         _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10.00 N"
     )

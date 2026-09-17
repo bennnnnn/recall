@@ -13,9 +13,8 @@ import re
 from collections.abc import Callable
 from typing import Literal
 
-from app.models.schemas.math import MathIntent
-from app.services.math import match as mtm
-from app.services.math.match.scan import word_index
+from app.models.schemas.physics import PhysicsIntent
+from app.services.text_match import has_equation, word_index
 
 logger = logging.getLogger(__name__)
 
@@ -333,7 +332,7 @@ def _states_a_non_gravity_acceleration(text: str) -> bool:
     )
 
 
-def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
+def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     # Must have a kinematics cue AND at least one number.
     if not _has_cue(lower, _KINEMATICS_CUES, _KINEMATICS_CUE_RES):
@@ -362,7 +361,7 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
     stripped = _strip_param_assignments(cleaned)
     if asks_speed or asks_velocity or asks_position:
         stripped = _T_ASSIGN_RE.sub("", stripped)
-    if mtm.has_equation(stripped):
+    if has_equation(stripped):
         return None
 
     # Initial height (h0): length units only so "5 kg" is not a drop height.
@@ -448,7 +447,7 @@ def _extract_kinematics_intent(cleaned: str) -> MathIntent | None:
         params["t"] = time_value
         units["t"] = time_unit or "s"
 
-    return MathIntent(
+    return PhysicsIntent(
         kind="kinematics",
         physics_op=op,
         physics_params=params,
@@ -540,11 +539,11 @@ _SUVAT_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
-def _extract_suvat_intent(cleaned: str) -> MathIntent | None:
+def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _SUVAT_CUES, _SUVAT_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     unknown = next(
@@ -612,7 +611,7 @@ def _extract_suvat_intent(cleaned: str) -> MathIntent | None:
     if len(params) < 3:
         return None
 
-    return MathIntent(
+    return PhysicsIntent(
         kind="suvat",
         physics_op=unknown,  # type: ignore[arg-type]
         physics_params=params,
@@ -715,7 +714,7 @@ _PROJECTILE_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
 _RANGE_GIVEN_KEYWORDS = ("range", "travel", "reach", "cover", "land", "distance", "far")
 
 
-def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
+def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _PROJECTILE_CUES, _PROJECTILE_CUE_RES):
         return None
@@ -726,7 +725,7 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     # answered 0.79 m: the range of a ball lobbed at 3 m/s.
     if _COLLISION_SUBJECT_RE.search(cleaned):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     # Initial speed (v0): "at 15 m/s", "speed of 15 m/s", "velocity of 15 m/s"
@@ -795,7 +794,7 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
         )
         if ru is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="projectile",
             physics_op=op,  # type: ignore[arg-type]
             physics_params={"v0": v0, "d": ru[0], "g": g},
@@ -822,7 +821,7 @@ def _extract_projectile_intent(cleaned: str) -> MathIntent | None:
     if h0 is not None:
         params["h0"] = h0
         units["h0"] = h0_unit or "m"
-    return MathIntent(
+    return PhysicsIntent(
         kind="projectile",
         physics_op=op,  # type: ignore[arg-type]
         physics_params=params,
@@ -931,11 +930,11 @@ def _positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, s
     ]
 
 
-def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
+def _extract_momentum_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _MOMENTUM_CUES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     masses = _ordered_values(cleaned, _MASS_UNITS)
@@ -965,7 +964,7 @@ def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
         v1, v1_unit = velocities[0] if velocities else (0.0, "m/s")
         # "hits a ball at rest" leaves v2 unwritten; "at rest" means zero.
         v2, v2_unit = velocities[1] if len(velocities) > 1 else (0.0, "m/s")
-        return MathIntent(
+        return PhysicsIntent(
             kind="momentum",
             physics_op="final_velocity",
             physics_params={
@@ -992,7 +991,7 @@ def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
         if forces and times:
             f, f_unit = forces[0]
             dt, dt_unit = times[0]
-            return MathIntent(
+            return PhysicsIntent(
                 kind="momentum",
                 physics_op="impulse",
                 physics_params={"F": f, "dt": dt},
@@ -1003,7 +1002,7 @@ def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
             m, m_unit = masses[0]
             v1, v1_unit = velocities[0]
             v2, v2_unit = velocities[1]
-            return MathIntent(
+            return PhysicsIntent(
                 kind="momentum",
                 physics_op="impulse",
                 physics_params={"m": m, "v1": v1, "v2": v2},
@@ -1016,7 +1015,7 @@ def _extract_momentum_intent(cleaned: str) -> MathIntent | None:
     if "momentum" in lower and masses and velocities:
         m, m_unit = masses[0]
         v, v_unit = velocities[0]
-        return MathIntent(
+        return PhysicsIntent(
             kind="momentum",
             physics_op="momentum",
             physics_params={"m": m, "v": v},
@@ -1105,7 +1104,7 @@ _INCLINE_ANGLE_RE = re.compile(
 )
 
 
-def _extract_friction_intent(cleaned: str) -> MathIntent | None:
+def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _FRICTION_CUES, _FRICTION_CUE_RES):
         return None
@@ -1113,7 +1112,7 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
         # A different quantity. The force extractor refuses it via
         # _UNSUPPORTED_FORCE_CONTEXT rather than guessing, which is right.
         return None
-    if mtm.has_equation(_strip_param_assignments(_MU_RE.sub("", cleaned))):
+    if has_equation(_strip_param_assignments(_MU_RE.sub("", cleaned))):
         return None
 
     mass = _find_value_with_specific_unit(
@@ -1194,7 +1193,7 @@ def _extract_friction_intent(cleaned: str) -> MathIntent | None:
     if mass is not None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
-    return MathIntent(
+    return PhysicsIntent(
         kind="friction",
         physics_op=op,
         physics_params=params,
@@ -1243,11 +1242,11 @@ _RECEDING_RE = re.compile(
 _SPEED_OF_SOUND = 343.0
 
 
-def _extract_waves_intent(cleaned: str) -> MathIntent | None:
+def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _WAVE_CUES, _WAVE_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
@@ -1265,7 +1264,7 @@ def _extract_waves_intent(cleaned: str) -> MathIntent | None:
         receding = _RECEDING_RE.search(cleaned) is not None
         if freq is None or speed is None or approaching == receding:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="waves",
             physics_op="doppler_frequency",
             physics_params={
@@ -1279,7 +1278,7 @@ def _extract_waves_intent(cleaned: str) -> MathIntent | None:
 
     # f = 1/T and T = 1/f, whichever of the pair is missing.
     if period is not None and freq is None:
-        return MathIntent(
+        return PhysicsIntent(
             kind="waves",
             physics_op="wave_frequency_from_period",
             physics_params={"period": period[0]},
@@ -1287,7 +1286,7 @@ def _extract_waves_intent(cleaned: str) -> MathIntent | None:
             operation="solve",
         )
     if freq is not None and wavelength is None and speed is None and "period" in lower:
-        return MathIntent(
+        return PhysicsIntent(
             kind="waves",
             physics_op="wave_period",
             physics_params={"freq": freq[0]},
@@ -1311,7 +1310,7 @@ def _extract_waves_intent(cleaned: str) -> MathIntent | None:
         "v_wave": "wave_speed",
     }[missing]
     defaults = {"freq": "Hz", "wavelength": "m", "v_wave": "m/s"}
-    return MathIntent(
+    return PhysicsIntent(
         kind="waves",
         physics_op=op,  # type: ignore[arg-type]
         physics_params={key: value[0] for key, value in present.items()},
@@ -1348,11 +1347,11 @@ _DIVERGING_RE = re.compile(
 )
 
 
-def _extract_optics_intent(cleaned: str) -> MathIntent | None:
+def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _OPTICS_CUES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
     if _DIVERGING_RE.search(cleaned):
         return None
@@ -1382,7 +1381,7 @@ def _extract_optics_intent(cleaned: str) -> MathIntent | None:
     if "critical angle" in lower:
         if len(index_values) != 1 or index_values[0] <= 1:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="optics",
             physics_op="critical_angle",
             physics_params={"n1": index_values[0]},
@@ -1393,7 +1392,7 @@ def _extract_optics_intent(cleaned: str) -> MathIntent | None:
     if "refractive index" in lower or "index of refraction" in lower or "snell" in lower:
         # n = sin(t1) / sin(t2) when both angles are given and the index is not.
         if len(angles) == 2 and not index_values:
-            return MathIntent(
+            return PhysicsIntent(
                 kind="optics",
                 physics_op="refractive_index",
                 physics_params={"angle": angles[0], "angle2": angles[1]},
@@ -1414,7 +1413,7 @@ def _extract_optics_intent(cleaned: str) -> MathIntent | None:
         )
         if img is None or obj is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="optics",
             physics_op="magnification",
             physics_params={"h_img": img[0], "h_obj": obj[0]},
@@ -1424,7 +1423,7 @@ def _extract_optics_intent(cleaned: str) -> MathIntent | None:
 
     if focal is None or obj is None:
         return None
-    return MathIntent(
+    return PhysicsIntent(
         kind="optics",
         physics_op="image_distance",
         physics_params={"focal": focal[0], "d_obj": obj[0]},
@@ -1492,11 +1491,11 @@ def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, 
     return None
 
 
-def _extract_thermal_intent(cleaned: str) -> MathIntent | None:
+def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _THERMAL_CUES, _THERMAL_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     # --- efficiency: only from two energies -----------------------------
@@ -1509,7 +1508,7 @@ def _extract_thermal_intent(cleaned: str) -> MathIntent | None:
         work, supplied = sorted((energies[0][0], energies[1][0]))
         if supplied <= 0:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="thermal",
             physics_op="thermal_efficiency",
             physics_params={"W_out": work, "Q_in": supplied},
@@ -1528,7 +1527,7 @@ def _extract_thermal_intent(cleaned: str) -> MathIntent | None:
             # PV = nRT needs an absolute temperature. Celsius would be wrong by
             # 273 and look plausible.
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="thermal",
             physics_op="ideal_gas_pressure",
             physics_params={"moles": moles[0], "volume": volume[0], "temp": temp[0]},
@@ -1569,7 +1568,7 @@ def _extract_thermal_intent(cleaned: str) -> MathIntent | None:
         return None
     # A temperature *difference* is the same number in kelvin and celsius, so
     # this one does not need the scale the absolute reading above does.
-    return MathIntent(
+    return PhysicsIntent(
         kind="thermal",
         physics_op="heat_energy",
         physics_params={"m": mass[0], "c_heat": c_value, "delta_temp": rise[0]},
@@ -1631,11 +1630,11 @@ def _named_body(lower: str) -> tuple[float, float] | None:
     return None
 
 
-def _extract_gravitation_intent(cleaned: str) -> MathIntent | None:
+def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _GRAVITATION_CUES, _GRAVITATION_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     body = _named_body(lower)
@@ -1654,7 +1653,7 @@ def _extract_gravitation_intent(cleaned: str) -> MathIntent | None:
         planet_mass, planet_radius = _resolve_body(body, masses, radius)
         if planet_mass is None or planet_radius is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="gravitation",
             physics_op="escape_velocity",
             physics_params={"M": planet_mass, "radius_body": planet_radius},
@@ -1675,7 +1674,7 @@ def _extract_gravitation_intent(cleaned: str) -> MathIntent | None:
         if altitude is not None:
             params["altitude"] = altitude[0]
             units["altitude"] = altitude[1] or "m"
-        return MathIntent(
+        return PhysicsIntent(
             kind="gravitation",
             physics_op="orbital_velocity",
             physics_params=params,
@@ -1687,7 +1686,7 @@ def _extract_gravitation_intent(cleaned: str) -> MathIntent | None:
         planet_mass, planet_radius = _resolve_body(body, masses, radius)
         if planet_mass is None or planet_radius is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="gravitation",
             physics_op="surface_gravity",
             physics_params={"M": planet_mass, "radius_body": planet_radius},
@@ -1700,7 +1699,7 @@ def _extract_gravitation_intent(cleaned: str) -> MathIntent | None:
     if len(masses) == 1 and separation is not None and _IDENTICAL_PAIR_RE.search(cleaned):
         masses = [masses[0], masses[0]]
     if len(masses) >= 2 and separation is not None:
-        return MathIntent(
+        return PhysicsIntent(
             kind="gravitation",
             physics_op="gravitational_force",
             physics_params={"m1": masses[0][0], "m2": masses[1][0], "r": separation[0]},
@@ -1774,13 +1773,13 @@ _ABSOLUTE_PRESSURE_RE = re.compile(r"\babsolute\b|\batmospheric\b", re.IGNORECAS
 _WATER_DENSITY = 1000.0
 
 
-def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
+def _extract_fluids_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _FLUIDS_CUES, _FLUIDS_CUE_RES):
         return None
     if any(word in lower for word in _STRESS_WORDS):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
@@ -1817,7 +1816,7 @@ def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
     if len(areas) >= 2 and speed:
         if areas[1][0] == 0:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="fluids",
             physics_op="continuity_velocity",
             physics_params={"A1": areas[0][0], "A2": areas[1][0], "v": speed[0][0]},
@@ -1831,7 +1830,7 @@ def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
 
     # --- flow rate: Q = A v ---------------------------------------------
     if "flow" in lower and area is not None and speed:
-        return MathIntent(
+        return PhysicsIntent(
             kind="fluids",
             physics_op="flow_rate",
             physics_params={"area": area[0], "v": speed[0][0]},
@@ -1848,7 +1847,7 @@ def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
             # A floating body displaces its own weight, not its own volume.
             # Which one is meant changes the answer, so it has to be said.
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="fluids",
             physics_op="upthrust",
             physics_params={"rho": rho, "volume": volume[0], "g": _detect_gravity(cleaned)},
@@ -1863,7 +1862,7 @@ def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
         rho = _fluid_density()
         if rho is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="fluids",
             physics_op="pressure_at_depth",
             physics_params={"rho": rho, "depth": depth[0], "g": _detect_gravity(cleaned)},
@@ -1873,7 +1872,7 @@ def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
 
     # --- density: rho = m / V -------------------------------------------
     if "density" in lower and mass is not None and volume is not None:
-        return MathIntent(
+        return PhysicsIntent(
             kind="fluids",
             physics_op="density",
             physics_params={"m": mass[0], "volume": volume[0]},
@@ -1883,7 +1882,7 @@ def _extract_fluids_intent(cleaned: str) -> MathIntent | None:
 
     # --- pressure from a force: P = F / A --------------------------------
     if force is not None and area is not None:
-        return MathIntent(
+        return PhysicsIntent(
             kind="fluids",
             physics_op="pressure_from_force",
             physics_params={"F": force[0], "area": area[0]},
@@ -1932,11 +1931,11 @@ _INERTIA_SHAPES: dict[str, tuple[float, str]] = {
 }
 
 
-def _extract_rotation_intent(cleaned: str) -> MathIntent | None:
+def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _ROTATION_CUES, _ROTATION_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     inertia = _find_value_with_specific_unit(cleaned, _INERTIA_PATTERN)
@@ -1954,7 +1953,7 @@ def _extract_rotation_intent(cleaned: str) -> MathIntent | None:
         formula = next((tex for name, (_, tex) in _INERTIA_SHAPES.items() if name in lower), None)
         if shape is None or formula is None or mass is None or radius is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="rotation",
             physics_op="moment_of_inertia",
             physics_params={"m": mass[0], "r": radius[0], "shape_factor": shape[0]},
@@ -1968,7 +1967,7 @@ def _extract_rotation_intent(cleaned: str) -> MathIntent | None:
             if "kinetic energy" in lower or "rotational energy" in lower
             else "angular_momentum"
         )
-        return MathIntent(
+        return PhysicsIntent(
             kind="rotation",
             physics_op=op,  # type: ignore[arg-type]
             physics_params={"inertia": inertia[0], "omega": float(omega.group(1))},
@@ -1980,7 +1979,7 @@ def _extract_rotation_intent(cleaned: str) -> MathIntent | None:
     turned = re.search(r"(-?\d+(?:\.\d+)?)\s*(?:radians?|rad)\b", cleaned, re.IGNORECASE)
     elapsed = _find_value_with_specific_unit(cleaned, r"seconds?|secs?|sec|s|minutes?|mins?|min")
     if turned is not None and elapsed is not None:
-        return MathIntent(
+        return PhysicsIntent(
             kind="rotation",
             physics_op="angular_velocity",
             physics_params={"theta": float(turned.group(1)), "t": elapsed[0]},
@@ -2011,12 +2010,12 @@ _MAGNETISM_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 
-def _extract_magnetism_intent(cleaned: str) -> MathIntent | None:
+def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
     # The tesla signature is case-sensitive (a bare lowercase t is a tonne), so
     # this gate reads the original casing the way the pre-filter now does.
     if not _has_cue_either_case(cleaned, _MAGNETISM_CUES, _MAGNETISM_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     field = _find_value_with_specific_unit(cleaned, _TESLA_PATTERN)
@@ -2032,7 +2031,7 @@ def _extract_magnetism_intent(cleaned: str) -> MathIntent | None:
 
     # F = q v B, checked before F = B I L: a moving charge names both.
     if charge is not None and speed is not None:
-        return MathIntent(
+        return PhysicsIntent(
             kind="magnetism",
             physics_op="magnetic_force_charge",
             physics_params={"Q": charge[0], "v": speed[0], "b_field": field[0]},
@@ -2045,7 +2044,7 @@ def _extract_magnetism_intent(cleaned: str) -> MathIntent | None:
         )
 
     if current is not None and length is not None:
-        return MathIntent(
+        return PhysicsIntent(
             kind="magnetism",
             physics_op="magnetic_force_wire",
             physics_params={"I": current[0], "wire_L": length[0], "b_field": field[0]},
@@ -2058,7 +2057,7 @@ def _extract_magnetism_intent(cleaned: str) -> MathIntent | None:
         )
 
     if area is not None:
-        return MathIntent(
+        return PhysicsIntent(
             kind="magnetism",
             physics_op="magnetic_flux",
             physics_params={"area": area[0], "b_field": field[0]},
@@ -2096,11 +2095,11 @@ _MATERIALS_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 
-def _extract_materials_intent(cleaned: str) -> MathIntent | None:
+def _extract_materials_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _MATERIALS_CUES, _MATERIALS_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     stress = _find_value_with_specific_unit(cleaned, _PRESSURE_PATTERN)
@@ -2117,7 +2116,7 @@ def _extract_materials_intent(cleaned: str) -> MathIntent | None:
     if "modulus" in lower:
         if stress is None or strain_match is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="materials",
             physics_op="youngs_modulus",
             physics_params={"sigma": stress[0], "strain": float(strain_match.group(1))},
@@ -2134,7 +2133,7 @@ def _extract_materials_intent(cleaned: str) -> MathIntent | None:
             return None
         if original[0] == extension[0]:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="materials",
             physics_op="strain",
             physics_params={"L0": original[0], "dL": extension[0]},
@@ -2143,7 +2142,7 @@ def _extract_materials_intent(cleaned: str) -> MathIntent | None:
         )
 
     if force is not None and area is not None:
-        return MathIntent(
+        return PhysicsIntent(
             kind="materials",
             physics_op="stress",
             physics_params={"F": force[0], "area": area[0]},
@@ -2181,18 +2180,18 @@ _MODERN_CUE_RES: tuple[re.Pattern[str], ...] = (
 _HALF_LIFE_COUNT_RE = re.compile(rf"({_NUMBER})\s*half[- ]li(?:ves|fe)", re.IGNORECASE)
 
 
-def _extract_modern_intent(cleaned: str) -> MathIntent | None:
+def _extract_modern_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _MODERN_CUES, _MODERN_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     if "photon" in lower or "planck" in lower or "photoelectric" in lower:
         freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
         if freq is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="modern",
             physics_op="photon_energy",
             physics_params={"freq": freq[0]},
@@ -2209,7 +2208,7 @@ def _extract_modern_intent(cleaned: str) -> MathIntent | None:
         # of the question; any other particle has to state one.
         if mass is None and "electron" not in lower:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="modern",
             physics_op="de_broglie_wavelength",
             physics_params={
@@ -2227,7 +2226,7 @@ def _extract_modern_intent(cleaned: str) -> MathIntent | None:
             # An elapsed time with a stated half-life, or a threshold to reach,
             # are different questions. Neither is guessed at from this one.
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="modern",
             physics_op="half_life_remaining",
             physics_params={"m": amount[0], "n_halves": float(count.group(1))},
@@ -2238,7 +2237,7 @@ def _extract_modern_intent(cleaned: str) -> MathIntent | None:
     mass = _find_value_with_specific_unit(cleaned, r"kg|grams?|g", ("mass", "of"))
     if mass is None:
         return None
-    return MathIntent(
+    return PhysicsIntent(
         kind="modern",
         physics_op="mass_energy",
         physics_params={"m": mass[0]},
@@ -2284,11 +2283,11 @@ _CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 
-def _extract_circular_intent(cleaned: str) -> MathIntent | None:
+def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _CIRCULAR_CUES, _CIRCULAR_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     radius = _find_value_with_specific_unit(
@@ -2330,7 +2329,7 @@ def _extract_circular_intent(cleaned: str) -> MathIntent | None:
     if mass is not None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
-    return MathIntent(
+    return PhysicsIntent(
         kind="circular",
         physics_op=op,
         physics_params=params,
@@ -2394,12 +2393,12 @@ _PENDULUM_PERIOD_RE = re.compile(
 )
 
 
-def _extract_pendulum_intent(cleaned: str) -> MathIntent | None:
+def _extract_pendulum_intent(cleaned: str) -> PhysicsIntent | None:
     if not _has_cue(cleaned.lower(), (), _PENDULUM_CUE_RES):
         return None
     if not _PENDULUM_PERIOD_RE.search(cleaned):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     length = _find_value_with_specific_unit(
@@ -2413,7 +2412,7 @@ def _extract_pendulum_intent(cleaned: str) -> MathIntent | None:
     gravity = _detect_gravity(cleaned)
     if gravity != _G_DEFAULT:
         params["g"], units["g"] = gravity, "m/s^2"
-    return MathIntent(
+    return PhysicsIntent(
         kind="spring",
         physics_op="pendulum_period",
         physics_params=params,
@@ -2448,7 +2447,7 @@ _ANGULAR_FREQ_RE = re.compile(
 )
 
 
-def _extract_shm_intent(cleaned: str) -> MathIntent | None:
+def _extract_shm_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, (), _SHM_CUE_RES):
         return None
@@ -2456,7 +2455,7 @@ def _extract_shm_intent(cleaned: str) -> MathIntent | None:
     # should say which was asked about. Waves runs later, so defer explicitly.
     if "wave" in lower:
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     if _SHM_MAX_SPEED_RE.search(cleaned):
@@ -2466,7 +2465,7 @@ def _extract_shm_intent(cleaned: str) -> MathIntent | None:
         omega = _ANGULAR_FREQ_RE.search(cleaned)
         if amplitude is None or omega is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="spring",
             physics_op="shm_max_speed",
             physics_params={"x": amplitude[0], "omega": float(omega.group(1))},
@@ -2479,7 +2478,7 @@ def _extract_shm_intent(cleaned: str) -> MathIntent | None:
     )
     if period is None:
         return None
-    return MathIntent(
+    return PhysicsIntent(
         kind="spring",
         physics_op="shm_frequency",
         physics_params={"period": period[0]},
@@ -2488,14 +2487,14 @@ def _extract_shm_intent(cleaned: str) -> MathIntent | None:
     )
 
 
-def _extract_spring_intent(cleaned: str) -> MathIntent | None:
+def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _SPRING_CUES, _SPRING_CUE_RES):
         return None
     # Strip "k = 200" before the algebra check: it is a known, not an equation
     # to solve. Without this the whole question is read as algebra — which is
     # what happened before this extractor existed.
-    if mtm.has_equation(_strip_param_assignments(_SPRING_K_RE.sub("", cleaned))):
+    if has_equation(_strip_param_assignments(_SPRING_K_RE.sub("", cleaned))):
         return None
 
     k_match = _find_value_with_specific_unit(cleaned, r"N/m")
@@ -2538,7 +2537,7 @@ def _extract_spring_intent(cleaned: str) -> MathIntent | None:
     if mass is not None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
-    return MathIntent(
+    return PhysicsIntent(
         kind="spring",
         physics_op=op,
         physics_params=params,
@@ -2674,13 +2673,13 @@ def _resistor_values(text: str) -> list[float]:
     return [value for value, _ in _ordered_values(text, _OHM_PATTERN)]
 
 
-def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
+def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     # The same check the pre-filter runs, so the two cannot disagree about
     # whether this question is a circuit question.
     if not _has_cue_either_case(cleaned, _CIRCUIT_CUES, _CIRCUIT_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     volts = _ordered_values(cleaned, _VOLT_PATTERN)
@@ -2700,7 +2699,7 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
             "series_resistance",
             "parallel_resistance",
         ] = "series_resistance" if "series" in lower else "parallel_resistance"
-        return MathIntent(
+        return PhysicsIntent(
             kind="circuit",
             physics_op=op,
             physics_params={f"R{n}": value for n, value in enumerate(network, start=1)},
@@ -2732,7 +2731,7 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
         )
         if r_internal is None or not volts or not amps:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="circuit",
             physics_op="terminal_voltage",
             physics_params={
@@ -2749,7 +2748,7 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
         coulombs = _ordered_values(cleaned, _COULOMB_PATTERN)
         if not coulombs or not volts:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="circuit",
             physics_op="capacitance",
             physics_params={"Q": coulombs[0][0], "V": volts[0][0]},
@@ -2762,7 +2761,7 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
         seconds = _find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
         if not amps or seconds is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="circuit",
             physics_op="charge",
             physics_params={"I": amps[0][0], "t": seconds[0]},
@@ -2776,7 +2775,7 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
         seconds = _find_value_with_specific_unit(cleaned, _CIRCUIT_TIME_UNITS)
         if watts is None or seconds is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="circuit",
             physics_op="electrical_energy",
             physics_params={"power": watts[0], "t": seconds[0]},
@@ -2790,7 +2789,7 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
     if "power" in lower or "dissipat" in lower or "watt" in lower:
         if len(params) < 2:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="circuit",
             physics_op="electrical_power",
             physics_params=params,
@@ -2809,7 +2808,7 @@ def _extract_circuit_intent(cleaned: str) -> MathIntent | None:
         "I": "current",
         "R": "resistance",
     }[missing]  # type: ignore[assignment]
-    return MathIntent(
+    return PhysicsIntent(
         kind="circuit",
         physics_op=asked,
         physics_params=params,
@@ -2844,13 +2843,13 @@ _TORQUE_CUE_RES: tuple[re.Pattern[str], ...] = (
 _TORQUE_UNSUPPORTED = ("moment of inertia", "angular momentum", "rotational inertia")
 
 
-def _extract_torque_intent(cleaned: str) -> MathIntent | None:
+def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _TORQUE_CUES, _TORQUE_CUE_RES):
         return None
     if any(word in lower for word in _TORQUE_UNSUPPORTED):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     placed_forces = _positioned_values(cleaned, r"N")
@@ -2874,7 +2873,7 @@ def _extract_torque_intent(cleaned: str) -> MathIntent | None:
         if not others:
             return None
         unknown = others[0]
-        return MathIntent(
+        return PhysicsIntent(
             kind="torque",
             physics_op="moment_balance",
             physics_params={"F1": known[1], "d1": d_val, "F2": unknown[1]},
@@ -2894,7 +2893,7 @@ def _extract_torque_intent(cleaned: str) -> MathIntent | None:
     if angle_match:
         params["angle"] = float(angle_match.group(1))
         units["angle"] = "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg"
-    return MathIntent(
+    return PhysicsIntent(
         kind="torque",
         physics_op="torque",
         physics_params=params,
@@ -2980,13 +2979,13 @@ _UNSUPPORTED_TENSION_CONTEXT = (
 )
 
 
-def _extract_tension_intent(cleaned: str) -> MathIntent | None:
+def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, (), _TENSION_CUE_RES):
         return None
     if any(word in lower for word in _UNSUPPORTED_TENSION_CONTEXT):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     masses = _ordered_values(cleaned, r"kg|lbs?|oz")
@@ -3000,7 +2999,7 @@ def _extract_tension_intent(cleaned: str) -> MathIntent | None:
         # the acceleration a property of the physics rather than of the
         # sentence. Its magnitude is what the question asks for either way.
         heavy, light = sorted((masses[0], masses[1]), key=lambda pair: pair[0], reverse=True)
-        return MathIntent(
+        return PhysicsIntent(
             kind="force",
             physics_op="atwood",
             physics_params={"m1": heavy[0], "m2": light[0]},
@@ -3035,7 +3034,7 @@ def _extract_tension_intent(cleaned: str) -> MathIntent | None:
         params["a"] = -value if goes_down else value
         units["a"] = unit or "m/s^2"
 
-    return MathIntent(
+    return PhysicsIntent(
         kind="force",
         physics_op="tension",
         physics_params=params,
@@ -3102,10 +3101,10 @@ _ANGLE_VALUE_RE = re.compile(
 _RESOLVE_RE = re.compile(r"\bresolv\w*\b|\bcomponents?\b", re.IGNORECASE)
 
 
-def _extract_vector_force_intent(cleaned: str) -> MathIntent | None:
+def _extract_vector_force_intent(cleaned: str) -> PhysicsIntent | None:
     if not _has_cue(cleaned.lower(), (), _VECTOR_FORCE_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     forces = _ordered_values(cleaned, r"N")
@@ -3121,7 +3120,7 @@ def _extract_vector_force_intent(cleaned: str) -> MathIntent | None:
             # Two forces and no stated geometry is not a resultant question
             # anyone can answer — the angle between them is the whole problem.
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="force",
             physics_op="resultant_force",
             physics_params={"F1": forces[0][0], "F2": forces[1][0], "angle": phi},
@@ -3134,7 +3133,7 @@ def _extract_vector_force_intent(cleaned: str) -> MathIntent | None:
         angle = _ANGLE_VALUE_RE.search(cleaned)
         if angle is None:
             return None
-        return MathIntent(
+        return PhysicsIntent(
             kind="force",
             physics_op="resolve_force",
             physics_params={"F": forces[0][0], "angle": float(angle.group(1))},
@@ -3212,13 +3211,13 @@ _FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 
-def _extract_force_intent(cleaned: str) -> MathIntent | None:
+def _extract_force_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _FORCE_CUES, _FORCE_CUE_RES):
         return None
     if any(word in lower for word in _UNSUPPORTED_FORCE_CONTEXT):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     # Mass (m): "mass of 5 kg", "5 kg mass", "5kg object" — use unit-specific
@@ -3268,7 +3267,7 @@ def _extract_force_intent(cleaned: str) -> MathIntent | None:
         params["a"] = accel
         units["a"] = accel_unit or "m/s^2"
 
-    return MathIntent(
+    return PhysicsIntent(
         kind="force",
         physics_op="net_force",
         physics_params=params,
@@ -3312,11 +3311,11 @@ def _has_work_angle(text: str) -> bool:
     return "degrees" in lower or "at an angle" in lower or "°" in text
 
 
-def _extract_energy_intent(cleaned: str) -> MathIntent | None:
+def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _ENERGY_CUES, _ENERGY_CUE_RES):
         return None
-    if mtm.has_equation(_strip_param_assignments(cleaned)):
+    if has_equation(_strip_param_assignments(cleaned)):
         return None
 
     # Mass (m) — use unit-specific search so force isn't picked up as mass.
@@ -3453,7 +3452,7 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
         params["g"] = _detect_gravity(cleaned)
         units["g"] = "m/s^2"
 
-    return MathIntent(
+    return PhysicsIntent(
         kind="energy",
         physics_op=op,
         physics_params=params,
@@ -3467,7 +3466,7 @@ def _extract_energy_intent(cleaned: str) -> MathIntent | None:
 # Kinematics first (most common homework cue), then projectile, force, energy.
 # ---------------------------------------------------------------------------
 
-PHYSICS_EXTRACTORS: tuple[Callable[[str], MathIntent | None], ...] = (
+PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
     _extract_kinematics_intent,
     # After kinematics, not before: free fall is a constant acceleration too,
     # and kinematics already owns it. SUVAT sees only what gravity did not

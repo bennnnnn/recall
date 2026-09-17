@@ -621,7 +621,7 @@ def test_extract_rectangle_intent_captures_what_was_asked(
     text: str, wants_diagonal: bool, wants_angle: bool, wants_area: bool, wants_perimeter: bool
 ) -> None:
     intent = math_tools.extract_math_intent(text)
-    assert intent is not None
+    assert isinstance(intent, MathIntent)
     assert intent.wants_diagonal is wants_diagonal
     assert intent.wants_angle is wants_angle
     assert intent.wants_area is wants_area
@@ -753,7 +753,7 @@ def test_draw_right_triangle_does_not_attach_area_answer_pill() -> None:
 def test_area_of_right_triangle_with_legs_still_answers_area() -> None:
     settings = Settings(math_tools_enabled=True)
     intent = math_tools.extract_math_intent("area of a right triangle with legs 3 and 4")
-    assert intent is not None
+    assert isinstance(intent, MathIntent)
     assert intent.wants_area is True
     block = math_tools._build_verified_block(intent, settings)
     assert block is not None
@@ -1258,7 +1258,7 @@ def test_graph_and_solve_does_not_become_vertical_line() -> None:
     """``3x=9`` after a graph cue is not ``x=9``; first-match vertical must lose."""
     text = "graph y=x**2 and also solve 3x=9"
     intent = math_tools.extract_math_intent(text)
-    assert intent is not None
+    assert isinstance(intent, MathIntent)
     assert intent.kind != "vertical"
     assert intent.point_x != 9.0
 

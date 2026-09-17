@@ -6,6 +6,7 @@ import re
 from collections.abc import Callable, Sequence
 
 from app.models.schemas.math import MathIntent
+from app.models.schemas.physics import PhysicsIntent
 from app.services.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
@@ -29,7 +30,7 @@ from app.services.math.tools.helpers import has_assignment_evaluation_request, m
 from app.services.math.tools.school import SCHOOL_EXTRACTORS
 from app.services.physics.extract import PHYSICS_EXTRACTORS
 
-_INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
+_INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | PhysicsIntent | None]] = (
     SOLID_EXTRACTOR,
     # Ahead of the school and algebra extractors. "area between y=x and y=x^2
     # from 0 to 1" reads as two simultaneous equations to the algebra side,
@@ -119,7 +120,7 @@ _SOLVED_REGION_OPS = {
 }
 
 
-def extract_math_intent(text: str) -> MathIntent | None:
+def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
     from app.services.math import match as mtm
 
     cleaned = mtm.prepare(text)
@@ -139,6 +140,13 @@ def extract_math_intent(text: str) -> MathIntent | None:
     for extractor in _INTENT_EXTRACTORS:
         intent = extractor(cleaned)
         if intent is not None:
+            if isinstance(intent, PhysicsIntent):
+                # None of the checks below apply to any physics kind — they're
+                # all gated on math-only kinds (equation/system/rectangle/...)
+                # and touch fields (school_op, lhs, rhs, unit) PhysicsIntent
+                # doesn't have. Physics extractors already did their own
+                # validation; nothing here is relevant a second time.
+                return intent
             if region_question and intent.school_op not in _SOLVED_REGION_OPS:
                 # A region question the application extractors declined must
                 # not be answered by whichever other extractor recognises half
