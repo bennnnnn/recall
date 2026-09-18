@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import { StackBackButton } from "@/components/StackBackButton";
+import { Radius } from "@/lib/radius";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackPushTransition } from "@/lib/stackTransitions";
@@ -13,6 +14,10 @@ export default function AutomationsLayout() {
   const theme = useTheme();
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
   const reduceMotion = useReduceMotion();
+  const headerButtonStyle = useMemo(
+    () => ({ backgroundColor: theme.surface, borderRadius: Radius.full }),
+    [theme.surface],
+  );
 
   return (
     <Stack
@@ -22,7 +27,7 @@ export default function AutomationsLayout() {
         headerShown: true,
         contentStyle: { backgroundColor: theme.bg },
         headerBackVisible: false,
-        headerLeft: () => <StackBackButton fallback="/" />,
+        headerLeft: () => <StackBackButton fallback="/" style={headerButtonStyle} />,
       }}
     >
       <Stack.Screen name="index" options={{ title: t("automations.title") }} />
@@ -30,7 +35,9 @@ export default function AutomationsLayout() {
         name="[id]"
         options={{
           title: "",
-          headerLeft: () => <StackBackButton fallback="/automations" icon="close" />,
+          headerLeft: () => (
+            <StackBackButton fallback="/automations" icon="close" style={headerButtonStyle} />
+          ),
         }}
       />
     </Stack>
