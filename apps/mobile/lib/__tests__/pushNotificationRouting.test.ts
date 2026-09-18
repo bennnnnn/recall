@@ -52,3 +52,61 @@ describe("handlePushNotificationResponse: job_search_ready", () => {
     expect(router.push).toHaveBeenCalledWith("/my-job");
   });
 });
+
+describe("handlePushNotificationResponse: learning + suggestions", () => {
+  it("sends learning pushes straight to the lesson map", async () => {
+    const router = fakeRouter();
+    await handlePushNotificationResponse(router, "tok", {
+      type: "learning_review",
+      project_id: "p1",
+    });
+    expect(router.push).toHaveBeenCalledWith("/projects/p1/lesson");
+  });
+
+  it("routes email suggestions to Schedule even when a project id is present", async () => {
+    const router = fakeRouter();
+    await handlePushNotificationResponse(router, "tok", {
+      type: "email_suggestion",
+      project_id: "p1",
+    });
+    expect(router.push).toHaveBeenCalledWith("/todos");
+  });
+
+  it("focuses Schedule on the event day for calendar nudges", async () => {
+    const router = fakeRouter();
+    await handlePushNotificationResponse(router, "tok", {
+      type: "calendar_nudge",
+      event_start: "2026-09-18T17:30:00.000Z",
+    });
+    const href = router.push.mock.calls[0][0] as {
+      pathname: string;
+      params: { date: string };
+    };
+    expect(href.pathname).toBe("/todos");
+    // Local day key derived from the timestamp (device timezone).
+    expect(href.params.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("falls back to plain Schedule when the nudge carries no start", async () => {
+    const router = fakeRouter();
+    await handlePushNotificationResponse(router, "tok", { type: "calendar_nudge" });
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/todos", params: {} });
+  });
+});
+
+describe("handlePushNotificationResponse: already on target", () => {
+  it("replaces instead of stacking a duplicate route", async () => {
+    const router = fakeRouter();
+    await handlePushNotificationResponse(
+      router,
+      "tok",
+      { type: "todo_due", todo_id: "t1" },
+      "/todos",
+    );
+    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: "/todos",
+      params: { highlight: "t1" },
+    });
+  });
+});

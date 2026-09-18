@@ -1,6 +1,6 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AddFab } from "@/components/AddFab";
@@ -30,9 +30,10 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const navigation = useNavigation();
-  const { focus, highlight } = useLocalSearchParams<{
+  const { focus, highlight, date } = useLocalSearchParams<{
     focus?: string;
     highlight?: string;
+    date?: string;
   }>();
   const {
     todos,
@@ -161,10 +162,16 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     ],
   );
 
+  // Deep links (e.g. calendar nudges) can land on a specific day.
+  useEffect(() => {
+    if (date) calendar.goToDay(date);
+  }, [date, calendar.goToDay]);
+
   if (!token) return <Redirect href="/login" />;
 
+  // Legacy links used focus=list; the list is the only view now.
   if (focus === "list") {
-    return <Redirect href={{ pathname: "/todos", params: { focus: "reminders" } }} />;
+    return <Redirect href="/todos" />;
   }
 
   if (loading && todos.length === 0) {
@@ -179,7 +186,9 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   };
 
   return (
-    <GestureHandlerRootView style={s.root}>
+    // The root layout already provides GestureHandlerRootView — a nested one
+    // here steals gesture routing (see lessons: drawer pan vs mic press).
+    <View style={s.root}>
       <TodosScrollList
         showRemindersEmptyHero={showRemindersEmptyHero}
         error={Boolean(error)}
@@ -221,6 +230,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         onRecurrenceChange={actions.onDueRecurrenceChange}
         onConfirm={() => void actions.confirmDuePicker()}
       />
-    </GestureHandlerRootView>
+    </View>
   );
 }
