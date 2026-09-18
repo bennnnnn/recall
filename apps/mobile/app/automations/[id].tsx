@@ -1,12 +1,14 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AddAutomationSheet } from "@/components/automations/AddAutomationSheet";
 import { AutomationActionsSheet } from "@/components/automations/AutomationActionsSheet";
+import { automationFrequencyMessageKey } from "@/components/automations/AutomationFrequencyPicker";
 import { AutomationTranscript } from "@/components/automations/AutomationTranscript";
 import { makeAutomationsStyles } from "@/components/automations/automationsStyles";
+import { Icon } from "@/components/Icon";
 import { IconButton } from "@/components/IconButton";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
@@ -14,7 +16,11 @@ import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAutomationDetail } from "@/hooks/useAutomationDetail";
-import { shareAutomation } from "@/lib/automations/schedule";
+import {
+  automationDisplayTitle,
+  formatAutomationScheduleDay,
+  shareAutomation,
+} from "@/lib/automations/schedule";
 import { IconSize } from "@/lib/icons";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useTheme } from "@/lib/theme";
@@ -43,9 +49,13 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
     if (isCurrent()) setMenuOpen(true);
   }, [isCurrent]);
 
+  const openEditor = useCallback(() => {
+    if (isCurrent() && automation?.status !== "completed") setEditOpen(true);
+  }, [isCurrent, automation?.status]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: automation ? automation.prompt : t("automations.title"),
+      title: "",
       headerRight: automation
         ? () => (
             <View style={s.detailHeaderActions}>
@@ -60,7 +70,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
                 />
               ) : null}
               <IconButton
-                name="ellipsis-horizontal"
+                name="ellipsis-vertical"
                 size={IconSize.md}
                 accessibilityLabel={t("automations.menu_a11y")}
                 onPress={openMenu}
@@ -108,20 +118,60 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
     );
   }
 
+  const canEdit = automation.status !== "completed";
+  const frequencyLabel = t(automationFrequencyMessageKey(automation.frequency));
+  const scheduleLabel = formatAutomationScheduleDay(automation);
+  const runDate = new Date(automation.next_run_at);
+  const timeLabel = Number.isNaN(runDate.getTime())
+    ? ""
+    : runDate.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+  const settingRow = (label: string, value: string, key: string) => (
+    <Pressable
+      key={key}
+      style={s.detailSettingRow}
+      onPress={openEditor}
+      disabled={!canEdit}
+      accessibilityRole={canEdit ? "button" : undefined}
+      accessibilityLabel={`${label}, ${value}`}
+    >
+      <Text style={s.detailSettingLabel}>{label}</Text>
+      <View style={s.detailSettingRight}>
+        <Text style={s.detailSettingValue} numberOfLines={1}>
+          {value}
+        </Text>
+        {canEdit ? <Icon name="chevron-forward" size={18} color={C.textTertiary} /> : null}
+      </View>
+    </Pressable>
+  );
+
   return (
     <View style={s.root}>
-      <View style={s.detailHeader}>
-        <Text style={s.detailPrompt}>{automation.prompt}</Text>
-        {automation.status === "paused" ? (
-          <View style={[s.cardStatusPill, s.cardStatusPillPaused, s.detailStatusPill]}>
-            <Text style={[s.cardStatusPillText, s.cardStatusPillTextPaused]}>
-              {t("automations.status_paused")}
-            </Text>
+      <View style={s.detailContent}>
+        <View style={s.detailTaskCard}>
+          <View style={s.detailTaskSection}>
+            <Text style={s.detailTaskTitle}>{automationDisplayTitle(automation.prompt)}</Text>
           </View>
-        ) : null}
+          <View style={s.detailDivider} />
+          <View style={s.detailTaskSection}>
+            <Text style={s.detailPrompt}>{automation.prompt}</Text>
+          </View>
+        </View>
+
+        <View style={s.detailSettingsGroup}>
+          {settingRow(t("automations.frequency_label"), frequencyLabel, "repeat")}
+          <View style={s.detailDivider} />
+          {settingRow(t("drawer.reminders"), scheduleLabel, "schedule")}
+        </View>
+
+        <View style={s.detailSettingsGroup}>
+          {settingRow(t("automations.field_time"), timeLabel, "time")}
+        </View>
       </View>
 
-      <AutomationTranscript chatId={automation.chat_id} messages={messages} />
+      {messages.length > 0 ? (
+        <AutomationTranscript chatId={automation.chat_id} messages={messages} />
+      ) : null}
 
       <AutomationActionsSheet
         visible={menuOpen}
@@ -132,11 +182,9 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
         }}
         onEdit={() => {
           setMenuOpen(false);
-          setEditOpen(true);
+          openEditor();
         }}
         onShare={() => {
-          // Keep the sheet mounted until Share.share resolves — closing it
-          // first can make iOS drop the OS activity controller.
           if (sharing.current || !automation) return;
           sharing.current = true;
           void shareAutomation(automation, t)
