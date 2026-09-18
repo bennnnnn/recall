@@ -32,8 +32,7 @@ def upgrade() -> None:
     # task cannot keep running after users upgrade to the job-search-only UI.
     op.execute(
         sa.text(
-            "UPDATE automations SET status = 'paused' "
-            "WHERE kind = 'generic' AND status = 'active'"
+            "UPDATE automations SET status = 'paused' WHERE kind = 'generic' AND status = 'active'"
         )
     )
     op.create_index(
