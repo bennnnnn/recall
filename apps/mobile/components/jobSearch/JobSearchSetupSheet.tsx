@@ -29,11 +29,58 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
+type Step = 0 | 1 | 2;
+
+const STEP_COPY = [
+  {
+    eyebrow: "YOUR SEARCH",
+    title: "What work do you want?",
+    body: "Set the hard filters first. Recall will use them to reject weak listings before ranking anything.",
+  },
+  {
+    eyebrow: "YOUR BACKGROUND",
+    title: "Help Recall understand your fit",
+    body: "A résumé is optional, but it makes the match reasons and skill-gap notes much more useful.",
+  },
+  {
+    eyebrow: "DELIVERY",
+    title: "Choose how jobs reach you",
+    body: "Recall will send up to your selected number of strong matches. It will never add filler just to hit the count.",
+  },
+] as const;
+
+const WORK_MODE_OPTIONS: Array<{ value: JobSearchWorkMode; label: string }> = [
+  { value: "remote", label: "Remote" },
+  { value: "hybrid", label: "Hybrid" },
+  { value: "onsite", label: "On-site" },
+];
+
+const EXPERIENCE_OPTIONS: Array<{ value: JobSearchExperience; label: string }> = [
+  { value: "internship", label: "Internship" },
+  { value: "entry", label: "Entry / L3" },
+  { value: "mid", label: "Mid-level" },
+  { value: "senior", label: "Senior" },
+];
+
+const FREQUENCY_OPTIONS: Array<{ value: JobSearchFrequency; label: string }> = [
+  { value: "daily", label: "Daily" },
+  { value: "weekdays", label: "Weekdays" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
 function nextMorning(): Date {
   const value = new Date();
   value.setDate(value.getDate() + 1);
   value.setHours(8, 0, 0, 0);
   return value;
+}
+
+function usableRunDate(value: string | undefined): Date {
+  if (!value) return nextMorning();
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) return nextMorning();
+  return parsed;
 }
 
 function join(values: string[]): string {
@@ -52,7 +99,7 @@ function split(value: string): string[] {
   );
 }
 
-function Chip<T extends string>({
+function SelectChip<T extends string>({
   value,
   label,
   selected,
@@ -85,6 +132,17 @@ function Chip<T extends string>({
   );
 }
 
+function FieldLabel({ children, optional }: { children: string; optional?: boolean }) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
+  return (
+    <View style={s.labelRow}>
+      <Text style={s.label}>{children}</Text>
+      {optional ? <Text style={s.optional}>Optional</Text> : null}
+    </View>
+  );
+}
+
 export function JobSearchSetupSheet({
   visible,
   initial,
@@ -102,6 +160,7 @@ export function JobSearchSetupSheet({
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const isPro = user?.plan === "pro";
+  const [step, setStep] = useState<Step>(0);
   const [roles, setRoles] = useState("");
   const [skills, setSkills] = useState("");
   const [location, setLocation] = useState("");
@@ -116,13 +175,14 @@ export function JobSearchSetupSheet({
     isPro ? "weekdays" : "weekly",
   );
   const [nextRunAt, setNextRunAt] = useState(nextMorning);
-  const [showPicker, setShowPicker] = useState(Platform.OS === "ios");
+  const [showPicker, setShowPicker] = useState(false);
   const [resumeId, setResumeId] = useState<string | null>(null);
   const [resumeName, setResumeName] = useState<string | null>(null);
   const [uploadingResume, setUploadingResume] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
+    setStep(0);
     setRoles(join(initial?.target_roles ?? (user?.job ? [user.job] : [])));
     setSkills(join(initial?.skills ?? []));
     setLocation(initial?.location ?? user?.location ?? user?.country ?? "");
@@ -134,10 +194,10 @@ export function JobSearchSetupSheet({
     setSponsorship(initial?.requires_sponsorship ?? null);
     setCount(isPro ? (initial?.result_count ?? 10) : 5);
     setFrequency(isPro ? (initial?.frequency ?? "weekdays") : "weekly");
-    setNextRunAt(initial ? new Date(initial.next_run_at) : nextMorning());
+    setNextRunAt(usableRunDate(initial?.next_run_at));
     setResumeId(initial?.resume_attachment_id ?? null);
     setResumeName(initial?.resume_filename ?? null);
-    setShowPicker(Platform.OS === "ios");
+    setShowPicker(false);
   }, [visible, initial, user, isPro]);
 
   const toggle = <T extends string,>(
@@ -164,7 +224,7 @@ export function JobSearchSetupSheet({
         picked.contentType ===
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       if (!allowed) {
-        Alert.alert("Choose a resume", "Upload a PDF, DOCX, or text file.");
+        Alert.alert("Choose a résumé", "Upload a PDF, DOCX, or text file.");
         return;
       }
       setUploadingResume(true);
@@ -173,7 +233,7 @@ export function JobSearchSetupSheet({
       setResumeName(picked.fileName);
     } catch (error) {
       Alert.alert(
-        "Could not upload resume",
+        "Could not upload résumé",
         error instanceof Error ? error.message : "Please try another file.",
       );
     } finally {
@@ -185,11 +245,13 @@ export function JobSearchSetupSheet({
     const targetRoles = split(roles);
     if (targetRoles.length === 0) {
       Alert.alert("Add a target role", "For example: Backend Engineer or Platform Engineer.");
+      setStep(0);
       return;
     }
     const parsedSalary = salary.trim() ? Number(salary.replace(/[$,\s]/g, "")) : null;
     if (parsedSalary != null && (!Number.isFinite(parsedSalary) || parsedSalary < 0)) {
       Alert.alert("Check the salary", "Enter a yearly minimum such as 100000.");
+      setStep(1);
       return;
     }
     const ok = await onSave({
@@ -216,6 +278,28 @@ export function JobSearchSetupSheet({
     setNextRunAt(date);
   };
 
+  const moveBack = () => {
+    if (busy) return;
+    Keyboard.dismiss();
+    setShowPicker(false);
+    if (step === 0) onClose();
+    else setStep((step - 1) as Step);
+  };
+
+  const moveForward = async () => {
+    Keyboard.dismiss();
+    setShowPicker(false);
+    if (step === 0 && split(roles).length === 0) {
+      Alert.alert("Add a target role", "For example: Backend Engineer or Platform Engineer.");
+      return;
+    }
+    if (step < 2) {
+      setStep((step + 1) as Step);
+      return;
+    }
+    await save();
+  };
+
   const timeLabel = nextRunAt.toLocaleString(undefined, {
     weekday: "short",
     month: "short",
@@ -223,6 +307,11 @@ export function JobSearchSetupSheet({
     hour: "numeric",
     minute: "2-digit",
   });
+  const frequencyLabel =
+    FREQUENCY_OPTIONS.find((option) => option.value === frequency)?.label ?? "Weekly";
+  const roleSummary = split(roles).slice(0, 2).join(" · ") || "Your target roles";
+  const currentCopy = STEP_COPY[step];
+  const finalLabel = initial ? "Save" : "Start search";
 
   return (
     <AppSheet
@@ -234,233 +323,340 @@ export function JobSearchSetupSheet({
       contentContainerStyle={s.sheet}
     >
       <SheetFormHeader
-        title={initial ? "Edit job search" : "Set up My Job"}
-        onCancel={onClose}
-        onSave={() => void save()}
-        cancelLabel="Cancel"
-        saveLabel={initial ? "Save" : "Start search"}
+        title={initial ? "Edit My Job" : "Set up My Job"}
+        onCancel={moveBack}
+        onSave={() => void moveForward()}
+        cancelLabel={step === 0 ? "Cancel" : "Back"}
+        saveLabel={step === 2 ? finalLabel : "Next"}
         saving={busy}
-        saveDisabled={!roles.trim() || uploadingResume}
+        saveDisabled={step === 0 && split(roles).length === 0}
       />
 
+      <View style={s.progressWrap}>
+        <View style={s.progressBars}>
+          {[0, 1, 2].map((value) => (
+            <View
+              key={value}
+              style={[s.progressBar, value <= step && s.progressBarActive]}
+            />
+          ))}
+        </View>
+        <Text style={s.progressText}>Step {step + 1} of 3</Text>
+      </View>
+
       <View style={s.body}>
-        <Text style={s.intro}>
-          Tell Recall what a strong job looks like. My Job will search on your schedule and only
-          keep the best verified matches.
-        </Text>
-
-        <Text style={s.sectionTitle}>What you want</Text>
-        <Text style={s.label}>Target roles</Text>
-        <TextInput
-          style={s.input}
-          value={roles}
-          onChangeText={setRoles}
-          placeholder="Backend Engineer, Platform Engineer"
-          placeholderTextColor={C.textDisabled}
-          autoCapitalize="words"
-        />
-        <Text style={s.help}>Separate multiple roles with commas.</Text>
-
-        <Text style={s.label}>Skills to prioritize</Text>
-        <TextInput
-          style={s.input}
-          value={skills}
-          onChangeText={setSkills}
-          placeholder="Python, FastAPI, APIs, AWS"
-          placeholderTextColor={C.textDisabled}
-        />
-
-        <Text style={s.label}>Location</Text>
-        <TextInput
-          style={s.input}
-          value={location}
-          onChangeText={setLocation}
-          placeholder="Remote in the United States"
-          placeholderTextColor={C.textDisabled}
-        />
-
-        <Text style={s.label}>Work style</Text>
-        <View style={s.chipRow}>
-          {(["remote", "hybrid", "onsite"] as const).map((value) => (
-            <Chip
-              key={value}
-              value={value}
-              label={{ remote: "Remote", hybrid: "Hybrid", onsite: "On-site" }[value]}
-              selected={workModes.includes(value)}
-              onPress={(next) => toggle(next, workModes, setWorkModes)}
-            />
-          ))}
+        <View style={s.intro}>
+          <Text style={s.eyebrow}>{currentCopy.eyebrow}</Text>
+          <Text style={s.title}>{currentCopy.title}</Text>
+          <Text style={s.subtitle}>{currentCopy.body}</Text>
         </View>
 
-        <Text style={s.label}>Experience level</Text>
-        <View style={s.chipRow}>
-          {(["internship", "entry", "mid", "senior"] as const).map((value) => (
-            <Chip
-              key={value}
-              value={value}
-              label={
-                {
-                  internship: "Internship",
-                  entry: "Entry / L3",
-                  mid: "Mid-level",
-                  senior: "Senior",
-                }[value]
-              }
-              selected={levels.includes(value)}
-              onPress={(next) => toggle(next, levels, setLevels)}
-            />
-          ))}
-        </View>
+        {step === 0 ? (
+          <>
+            <View style={s.fieldGroup}>
+              <FieldLabel>Target roles</FieldLabel>
+              <TextInput
+                style={s.input}
+                value={roles}
+                onChangeText={setRoles}
+                placeholder="Backend Engineer, Platform Engineer"
+                placeholderTextColor={C.textDisabled}
+                editable={!busy}
+                autoCapitalize="words"
+                returnKeyType="next"
+              />
+              <Text style={s.helper}>Separate multiple roles with commas.</Text>
+            </View>
 
-        <Text style={s.label}>Minimum salary (optional)</Text>
-        <TextInput
-          style={s.input}
-          value={salary}
-          onChangeText={setSalary}
-          placeholder="100000"
-          placeholderTextColor={C.textDisabled}
-          keyboardType="number-pad"
-        />
+            <View style={s.fieldGroup}>
+              <FieldLabel optional>Skills to prioritize</FieldLabel>
+              <TextInput
+                style={s.input}
+                value={skills}
+                onChangeText={setSkills}
+                placeholder="Python, FastAPI, APIs, Kubernetes"
+                placeholderTextColor={C.textDisabled}
+                editable={!busy}
+                autoCapitalize="none"
+              />
+            </View>
 
-        <Text style={s.label}>Sponsorship</Text>
-        <View style={s.chipRow}>
-          <Chip
-            value="unknown"
-            label="Not specified"
-            selected={sponsorship == null}
-            onPress={() => setSponsorship(null)}
-          />
-          <Chip
-            value="no"
-            label="Not needed"
-            selected={sponsorship === false}
-            onPress={() => setSponsorship(false)}
-          />
-          <Chip
-            value="yes"
-            label="Required"
-            selected={sponsorship === true}
-            onPress={() => setSponsorship(true)}
-          />
-        </View>
+            <View style={s.fieldGroup}>
+              <FieldLabel optional>Preferred location</FieldLabel>
+              <TextInput
+                style={s.input}
+                value={location}
+                onChangeText={setLocation}
+                placeholder="Remote in the United States"
+                placeholderTextColor={C.textDisabled}
+                editable={!busy}
+              />
+            </View>
 
-        <Text style={s.sectionTitle}>Your background</Text>
-        <Pressable
-          style={({ pressed }) => [s.resumeButton, pressed && s.pressed]}
-          onPress={() => void chooseResume()}
-          disabled={uploadingResume}
-        >
-          <View style={s.resumeIcon}>
-            <Icon
-              name={resumeName ? "document-text" : "cloud-upload-outline"}
-              size={22}
-              color={C.primary}
-            />
-          </View>
-          <View style={s.resumeCopy}>
-            <Text style={s.resumeTitle} numberOfLines={1}>
-              {uploadingResume ? "Uploading resume…" : resumeName ?? "Upload your resume"}
-            </Text>
-            <Text style={s.resumeMeta}>PDF, DOCX, or text · used only to improve matching</Text>
-          </View>
-          <Icon name="chevron-forward" size={18} color={C.textTertiary} />
-        </Pressable>
-        {resumeName ? (
-          <Pressable
-            onPress={() => {
-              setResumeId(null);
-              setResumeName(null);
-            }}
-          >
-            <Text style={s.removeResume}>Remove resume</Text>
-          </Pressable>
+            <View style={s.fieldGroup}>
+              <FieldLabel>Work mode</FieldLabel>
+              <View style={s.chipRow}>
+                {WORK_MODE_OPTIONS.map((option) => (
+                  <SelectChip
+                    key={option.value}
+                    {...option}
+                    selected={workModes.includes(option.value)}
+                    onPress={(value) => toggle(value, workModes, setWorkModes)}
+                    disabled={busy}
+                  />
+                ))}
+              </View>
+            </View>
+          </>
         ) : null}
 
-        <Text style={s.label}>Anything else Recall should know?</Text>
-        <TextInput
-          style={[s.input, s.multiline]}
-          value={background}
-          onChangeText={setBackground}
-          placeholder="Describe relevant experience, projects, work authorization, or industries you prefer."
-          placeholderTextColor={C.textDisabled}
-          multiline
-          textAlignVertical="top"
-          maxLength={6000}
-        />
+        {step === 1 ? (
+          <>
+            <View style={s.fieldGroup}>
+              <FieldLabel>Experience level</FieldLabel>
+              <View style={s.chipRow}>
+                {EXPERIENCE_OPTIONS.map((option) => (
+                  <SelectChip
+                    key={option.value}
+                    {...option}
+                    selected={levels.includes(option.value)}
+                    onPress={(value) => toggle(value, levels, setLevels)}
+                    disabled={busy}
+                  />
+                ))}
+              </View>
+            </View>
 
-        <Text style={s.label}>Companies to avoid</Text>
-        <TextInput
-          style={s.input}
-          value={excluded}
-          onChangeText={setExcluded}
-          placeholder="Optional — separate with commas"
-          placeholderTextColor={C.textDisabled}
-        />
+            <View style={s.fieldGroup}>
+              <FieldLabel optional>Résumé</FieldLabel>
+              <Pressable
+                style={({ pressed }) => [s.resumeCard, pressed && s.pressed]}
+                onPress={() => void chooseResume()}
+                disabled={busy || uploadingResume}
+                accessibilityRole="button"
+                accessibilityLabel={resumeName ? "Replace résumé" : "Upload résumé"}
+              >
+                <View style={s.resumeIcon}>
+                  <Icon name="document-text-outline" size={23} color={C.primary} />
+                </View>
+                <View style={s.resumeCopy}>
+                  <Text style={s.resumeTitle} numberOfLines={1}>
+                    {uploadingResume
+                      ? "Uploading…"
+                      : resumeName
+                        ? resumeName
+                        : "Upload your résumé"}
+                  </Text>
+                  <Text style={s.resumeMeta}>
+                    {resumeName ? "Tap to replace" : "PDF, DOCX, or text · used only for matching"}
+                  </Text>
+                </View>
+                <Icon name="chevron-forward" size={19} color={C.textTertiary} />
+              </Pressable>
+              {resumeName ? (
+                <Pressable
+                  style={s.removeResume}
+                  onPress={() => {
+                    setResumeId(null);
+                    setResumeName(null);
+                  }}
+                  disabled={busy}
+                >
+                  <Text style={s.removeResumeText}>Remove résumé</Text>
+                </Pressable>
+              ) : null}
+            </View>
 
-        <Text style={s.sectionTitle}>Delivery</Text>
-        <Text style={s.label}>Jobs per delivery</Text>
-        <View style={s.chipRow}>
-          {([5, 10, 15] as const).map((value) => (
-            <Chip
-              key={value}
-              value={String(value)}
-              label={!isPro && value > 5 ? `${value} · Pro` : String(value)}
-              selected={count === value}
-              onPress={() => setCount(value)}
-              disabled={!isPro && value > 5}
-            />
-          ))}
-        </View>
+            <View style={s.fieldGroup}>
+              <FieldLabel optional>Professional background</FieldLabel>
+              <TextInput
+                style={[s.input, s.multiline]}
+                value={background}
+                onChangeText={setBackground}
+                placeholder="Example: 10 months of platform engineering experience, focused on Python APIs and AI tooling."
+                placeholderTextColor={C.textDisabled}
+                editable={!busy}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
 
-        <Text style={s.label}>How often</Text>
-        <View style={s.chipRow}>
-          {(["daily", "weekdays", "weekly", "monthly"] as const).map((value) => (
-            <Chip
-              key={value}
-              value={value}
-              label={
-                {
-                  daily: "Daily",
-                  weekdays: "Weekdays",
-                  weekly: "Weekly",
-                  monthly: "Monthly",
-                }[value] + (!isPro && value !== "weekly" ? " · Pro" : "")
-              }
-              selected={frequency === value}
-              onPress={setFrequency}
-              disabled={!isPro && value !== "weekly"}
-            />
-          ))}
-        </View>
-        {!isPro ? <Text style={s.help}>Free includes up to 5 matches each week.</Text> : null}
+            <View style={s.twoColumnRow}>
+              <View style={s.flexField}>
+                <FieldLabel optional>Minimum salary</FieldLabel>
+                <TextInput
+                  style={s.input}
+                  value={salary}
+                  onChangeText={setSalary}
+                  placeholder="100000"
+                  placeholderTextColor={C.textDisabled}
+                  editable={!busy}
+                  keyboardType="number-pad"
+                />
+              </View>
+            </View>
 
-        <Text style={s.label}>First delivery</Text>
-        {Platform.OS === "ios" && showPicker ? (
-          <View style={s.pickerWrap}>
-            <ReminderDateTimePicker
-              value={nextRunAt}
-              onChange={onPickerChange}
-              disabled={busy}
-            />
-          </View>
-        ) : (
-          <Pressable
-            style={({ pressed }) => [s.timeButton, pressed && s.pressed]}
-            onPress={() => {
-              Keyboard.dismiss();
-              setShowPicker(true);
-            }}
-          >
-            <Icon name="calendar-outline" size={20} color={C.primary} />
-            <Text style={s.timeText}>{timeLabel}</Text>
-          </Pressable>
-        )}
-        {Platform.OS === "android" && showPicker ? (
-          <ReminderDateTimePicker
-            value={nextRunAt}
-            onChange={onPickerChange}
-            disabled={busy}
-          />
+            <View style={s.fieldGroup}>
+              <FieldLabel optional>Sponsorship</FieldLabel>
+              <View style={s.chipRow}>
+                <SelectChip
+                  value="no"
+                  label="Not needed"
+                  selected={sponsorship === false}
+                  onPress={() => setSponsorship(false)}
+                  disabled={busy}
+                />
+                <SelectChip
+                  value="yes"
+                  label="Required"
+                  selected={sponsorship === true}
+                  onPress={() => setSponsorship(true)}
+                  disabled={busy}
+                />
+                <SelectChip
+                  value="skip"
+                  label="No preference"
+                  selected={sponsorship == null}
+                  onPress={() => setSponsorship(null)}
+                  disabled={busy}
+                />
+              </View>
+            </View>
+
+            <View style={s.fieldGroup}>
+              <FieldLabel optional>Companies to avoid</FieldLabel>
+              <TextInput
+                style={s.input}
+                value={excluded}
+                onChangeText={setExcluded}
+                placeholder="Staffing agencies, specific employers"
+                placeholderTextColor={C.textDisabled}
+                editable={!busy}
+              />
+            </View>
+          </>
+        ) : null}
+
+        {step === 2 ? (
+          <>
+            <View style={s.fieldGroup}>
+              <FieldLabel>Jobs per delivery</FieldLabel>
+              <View style={s.countRow}>
+                {([5, 10, 15] as const).map((option) => {
+                  const locked = !isPro && option !== 5;
+                  const selected = count === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      style={({ pressed }) => [
+                        s.countCard,
+                        selected && s.countCardSelected,
+                        pressed && !locked && s.pressed,
+                        locked && s.disabled,
+                      ]}
+                      onPress={() => setCount(option)}
+                      disabled={busy || locked}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected, disabled: locked }}
+                    >
+                      <Text style={[s.countNumber, selected && s.countNumberSelected]}>
+                        {option}
+                      </Text>
+                      <Text style={[s.countLabel, selected && s.countLabelSelected]}>
+                        {locked ? "Pro" : "jobs"}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={s.fieldGroup}>
+              <FieldLabel>Frequency</FieldLabel>
+              <View style={s.chipRow}>
+                {FREQUENCY_OPTIONS.map((option) => {
+                  const locked = !isPro && option.value !== "weekly";
+                  return (
+                    <SelectChip
+                      key={option.value}
+                      {...option}
+                      selected={frequency === option.value}
+                      onPress={setFrequency}
+                      disabled={busy || locked}
+                    />
+                  );
+                })}
+              </View>
+              {!isPro ? (
+                <Text style={s.helper}>Free includes 5 matches weekly. Faster delivery is Pro.</Text>
+              ) : null}
+            </View>
+
+            <View style={s.fieldGroup}>
+              <FieldLabel>First delivery</FieldLabel>
+              <Pressable
+                style={({ pressed }) => [s.dateCard, pressed && s.pressed]}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowPicker((current) => !current);
+                }}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showPicker }}
+              >
+                <View style={s.dateIcon}>
+                  <Icon name="calendar-outline" size={22} color={C.primary} />
+                </View>
+                <View style={s.dateCopy}>
+                  <Text style={s.dateTitle}>{timeLabel}</Text>
+                  <Text style={s.dateMeta}>Uses your current time zone</Text>
+                </View>
+                <Icon
+                  name={showPicker ? "chevron-up" : "chevron-down"}
+                  size={19}
+                  color={C.textTertiary}
+                />
+              </Pressable>
+              {showPicker ? (
+                <View style={s.pickerWrap}>
+                  <ReminderDateTimePicker
+                    value={nextRunAt}
+                    onChange={onPickerChange}
+                    disabled={busy}
+                  />
+                </View>
+              ) : null}
+            </View>
+
+            <View style={s.summaryCard}>
+              <View style={s.summaryTop}>
+                <View style={s.summaryIcon}>
+                  <Icon name="briefcase-outline" size={22} color={C.primary} />
+                </View>
+                <View style={s.summaryCopy}>
+                  <Text style={s.summaryEyebrow}>YOUR MY JOB SEARCH</Text>
+                  <Text style={s.summaryTitle} numberOfLines={2}>
+                    {roleSummary}
+                  </Text>
+                </View>
+              </View>
+              <View style={s.summaryDivider} />
+              <View style={s.summaryRow}>
+                <Text style={s.summaryLabel}>Delivery</Text>
+                <Text style={s.summaryValue}>
+                  Up to {isPro ? count : 5} · {isPro ? frequencyLabel : "Weekly"}
+                </Text>
+              </View>
+              <View style={s.summaryRow}>
+                <Text style={s.summaryLabel}>Work mode</Text>
+                <Text style={s.summaryValue}>{workModes.join(" / ")}</Text>
+              </View>
+              <View style={s.summaryRow}>
+                <Text style={s.summaryLabel}>Starts</Text>
+                <Text style={s.summaryValue}>{timeLabel}</Text>
+              </View>
+            </View>
+          </>
         ) : null}
       </View>
     </AppSheet>
@@ -473,101 +669,194 @@ function makeStyles(C: Theme) {
       backgroundColor: C.bg,
       borderTopLeftRadius: Radius.sheet,
       borderTopRightRadius: Radius.sheet,
-      paddingHorizontal: 0,
-      paddingTop: 0,
     },
-    body: { padding: Space.md, paddingBottom: Space.xl, gap: Space.xs },
-    intro: {
-      ...Type.secondary,
-      color: C.textSecondary,
-      lineHeight: 21,
-      marginBottom: Space.md,
+    progressWrap: {
+      paddingHorizontal: Space.lg,
+      paddingTop: Space.md,
+      gap: Space.xs,
     },
-    sectionTitle: {
-      ...Type.title,
+    progressBars: {
+      flexDirection: "row",
+      gap: Space.xs,
+    },
+    progressBar: {
+      flex: 1,
+      height: 4,
+      borderRadius: Radius.full,
+      backgroundColor: C.surfaceAlt,
+    },
+    progressBarActive: { backgroundColor: C.primary },
+    progressText: { ...Type.caption, color: C.textTertiary },
+    body: {
+      paddingHorizontal: Space.lg,
+      paddingTop: Space.lg,
+      paddingBottom: Space.xl,
+      gap: Space.lg,
+    },
+    intro: { gap: Space.xs },
+    eyebrow: { ...Type.overline, color: C.primary },
+    title: {
+      ...Type.display,
+      fontSize: 26,
+      lineHeight: 32,
       color: C.text,
-      marginTop: Space.lg,
-      marginBottom: Space.sm,
     },
-    label: {
-      ...Type.label,
-      color: C.text,
-      marginTop: Space.md,
-      marginBottom: Space.xxs,
+    subtitle: { ...Type.body, color: C.textSecondary },
+    fieldGroup: { gap: Space.xs },
+    labelRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: Space.sm,
     },
-    help: { ...Type.caption, color: C.textTertiary, marginTop: Space.xxs },
+    label: { ...Type.label, color: C.text },
+    optional: { ...Type.caption, color: C.textTertiary },
     input: {
       ...Type.body,
-      color: C.text,
+      minHeight: 54,
+      borderRadius: Radius.xl,
       backgroundColor: C.surface,
-      borderRadius: Radius.lg,
-      minHeight: 52,
+      color: C.text,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
     },
     multiline: { minHeight: 112 },
-    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
+    helper: { ...Type.caption, color: C.textTertiary },
+    chipRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Space.xs,
+    },
     chip: {
       minHeight: 42,
-      justifyContent: "center",
       paddingHorizontal: Space.md,
       borderRadius: Radius.full,
       backgroundColor: C.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
-    },
-    chipSelected: { backgroundColor: C.primaryLight, borderColor: C.primary },
-    chipText: { ...Type.secondary, color: C.textSecondary, fontWeight: "600" },
-    chipTextSelected: { color: C.primary },
-    pressed: { opacity: 0.7 },
-    disabled: { opacity: 0.4 },
-    resumeButton: {
-      minHeight: 72,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      backgroundColor: C.surface,
-      borderRadius: Radius.xl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-    },
-    resumeIcon: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
       alignItems: "center",
       justifyContent: "center",
+    },
+    chipSelected: {
       backgroundColor: C.primaryLight,
+      borderColor: C.primary,
     },
-    resumeCopy: { flex: 1 },
-    resumeTitle: { ...Type.body, color: C.text, fontWeight: "600" },
-    resumeMeta: { ...Type.caption, color: C.textTertiary, marginTop: 2 },
-    removeResume: {
-      ...Type.secondary,
-      color: C.danger,
-      alignSelf: "flex-start",
-      paddingVertical: Space.xs,
-    },
-    timeButton: {
-      minHeight: 52,
+    chipText: { ...Type.secondary, fontWeight: "600", color: C.textSecondary },
+    chipTextSelected: { color: C.primary },
+    resumeCard: {
+      minHeight: 72,
+      borderRadius: Radius.xl,
+      backgroundColor: C.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
       flexDirection: "row",
       alignItems: "center",
       gap: Space.sm,
-      paddingHorizontal: Space.md,
+    },
+    resumeIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: Radius.md,
+      backgroundColor: C.primaryLight,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    resumeCopy: { flex: 1, gap: 2 },
+    resumeTitle: { ...Type.label, color: C.text },
+    resumeMeta: { ...Type.caption, color: C.textTertiary },
+    removeResume: { alignSelf: "flex-start", paddingVertical: Space.xxs },
+    removeResumeText: { ...Type.secondary, fontWeight: "600", color: C.danger },
+    twoColumnRow: { flexDirection: "row", gap: Space.sm },
+    flexField: { flex: 1, gap: Space.xs },
+    countRow: { flexDirection: "row", gap: Space.sm },
+    countCard: {
+      flex: 1,
+      minHeight: 82,
+      borderRadius: Radius.xl,
       backgroundColor: C.surface,
-      borderRadius: Radius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 2,
     },
-    timeText: { ...Type.body, color: C.text, flex: 1 },
-    pickerWrap: {
+    countCardSelected: {
+      backgroundColor: C.primaryLight,
+      borderColor: C.primary,
+    },
+    countNumber: { ...Type.title, fontWeight: "700", color: C.text },
+    countNumberSelected: { color: C.primary },
+    countLabel: { ...Type.caption, color: C.textTertiary },
+    countLabelSelected: { color: C.primary },
+    dateCard: {
+      minHeight: 72,
+      borderRadius: Radius.xl,
       backgroundColor: C.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.sm,
+    },
+    dateIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: Radius.md,
+      backgroundColor: C.primaryLight,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    dateCopy: { flex: 1, gap: 2 },
+    dateTitle: { ...Type.label, color: C.text },
+    dateMeta: { ...Type.caption, color: C.textTertiary },
+    pickerWrap: {
       borderRadius: Radius.xl,
       overflow: "hidden",
+      backgroundColor: C.surface,
+      paddingVertical: Platform.OS === "ios" ? Space.xs : 0,
     },
+    summaryCard: {
+      borderRadius: Radius.xl,
+      backgroundColor: C.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border,
+      padding: Space.md,
+      gap: Space.sm,
+    },
+    summaryTop: { flexDirection: "row", alignItems: "center", gap: Space.sm },
+    summaryIcon: {
+      width: 46,
+      height: 46,
+      borderRadius: Radius.md,
+      backgroundColor: C.primaryLight,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    summaryCopy: { flex: 1, gap: 2 },
+    summaryEyebrow: { ...Type.overline, color: C.primary },
+    summaryTitle: { ...Type.navTitle, color: C.text },
+    summaryDivider: { height: StyleSheet.hairlineWidth, backgroundColor: C.border },
+    summaryRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: Space.md,
+    },
+    summaryLabel: { ...Type.secondary, color: C.textSecondary },
+    summaryValue: {
+      ...Type.secondary,
+      fontWeight: "600",
+      color: C.text,
+      textAlign: "right",
+      flex: 1,
+    },
+    pressed: { opacity: 0.72 },
+    disabled: { opacity: 0.45 },
   });
 }
