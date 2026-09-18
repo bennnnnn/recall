@@ -8,7 +8,7 @@ from uuid import UUID
 from app.core.config import Settings
 from app.core.jobs import JobDiscardError, register
 from app.core.redis import get_redis_client
-from app.services import job_search_runner
+from app.services.job_search import runner as job_search_runner
 
 
 async def _handle_job_search_run(
