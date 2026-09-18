@@ -33,7 +33,9 @@ def _require_enabled(settings: Settings) -> None:
 
 
 def _generic_or_not_found(automation: Automation | None) -> Automation:
-    if automation is None or automation.kind != "generic":
+    # Rows created before the kind column existed are generic by definition.
+    # Only an explicit job_search kind is hidden from the legacy endpoint.
+    if automation is None or getattr(automation, "kind", "generic") == "job_search":
         raise AutomationsError("Automation not found", status_code=404)
     return automation
 
