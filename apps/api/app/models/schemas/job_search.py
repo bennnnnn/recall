@@ -13,6 +13,14 @@ JobSearchExperience = Literal["internship", "entry", "mid", "senior"]
 JobMatchStatus = Literal["new", "saved", "applied", "hidden"]
 
 
+def _default_work_modes() -> list[JobSearchWorkMode]:
+    return ["remote"]
+
+
+def _default_experience_levels() -> list[JobSearchExperience]:
+    return ["entry"]
+
+
 def _clean_list(values: list[str], *, limit: int) -> list[str]:
     result: list[str] = []
     seen: set[str] = set()
@@ -36,8 +44,10 @@ class JobSearchUpsert(BaseModel):
     target_roles: list[str] = Field(min_length=1, max_length=6)
     skills: list[str] = Field(default_factory=list, max_length=30)
     location: str | None = Field(default=None, max_length=160)
-    work_modes: list[JobSearchWorkMode] = Field(default_factory=lambda: ["remote"])
-    experience_levels: list[JobSearchExperience] = Field(default_factory=lambda: ["entry"])
+    work_modes: list[JobSearchWorkMode] = Field(default_factory=_default_work_modes)
+    experience_levels: list[JobSearchExperience] = Field(
+        default_factory=_default_experience_levels
+    )
     salary_min: int | None = Field(default=None, ge=0, le=1_000_000)
     requires_sponsorship: bool | None = None
     excluded_companies: list[str] = Field(default_factory=list, max_length=20)
