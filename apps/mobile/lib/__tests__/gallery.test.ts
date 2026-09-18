@@ -38,15 +38,15 @@ describe("gallery helpers", () => {
     expect(isReadableTextContentType("application/pdf")).toBe(false);
   });
 
-  it("pushes open-chat so Back returns to Library", () => {
+  it("pushes the main chat route with returnTo=gallery so Back returns to Library", () => {
     expect(libraryOpenChatHref({ chat_id: null, message_id: "m1" })).toBeNull();
     expect(libraryOpenChatHref({ chat_id: "c1", message_id: "m1" })).toEqual({
-      pathname: "/open-chat",
-      params: { chatId: "c1", highlightMessage: "m1" },
+      pathname: "/",
+      params: { chatId: "c1", returnTo: "gallery", highlightMessage: "m1" },
     });
     expect(libraryOpenChatHref({ chat_id: "c1", message_id: null })).toEqual({
-      pathname: "/open-chat",
-      params: { chatId: "c1" },
+      pathname: "/",
+      params: { chatId: "c1", returnTo: "gallery" },
     });
   });
 

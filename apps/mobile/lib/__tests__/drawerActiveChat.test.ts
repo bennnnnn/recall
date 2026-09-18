@@ -9,10 +9,6 @@ import {
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 
 describe("deletedIncludesActiveChat", () => {
-  afterEach(() => {
-    setActiveChatIdGlobal(null);
-  });
-
   it("returns false when nothing is open", () => {
     expect(deletedIncludesActiveChat(["a", "b"], null)).toBe(false);
     expect(deletedIncludesActiveChat(["a"])).toBe(false);
@@ -27,25 +23,62 @@ describe("deletedIncludesActiveChat", () => {
   });
 
   it("reads the registered active chat id by default", () => {
-    setActiveChatIdGlobal("open-1");
-    expect(getActiveChatIdGlobal()).toBe("open-1");
-    expect(deletedIncludesActiveChat(["open-1", "other"])).toBe(true);
-    expect(deletedIncludesActiveChat(["other"])).toBe(false);
+    const unregister = setActiveChatIdGlobal("open-1");
+    try {
+      expect(getActiveChatIdGlobal()).toBe("open-1");
+      expect(deletedIncludesActiveChat(["open-1", "other"])).toBe(true);
+      expect(deletedIncludesActiveChat(["other"])).toBe(false);
+    } finally {
+      unregister();
+    }
+    expect(getActiveChatIdGlobal()).toBeNull();
   });
 });
 
 describe("registerNewChat", () => {
-  afterEach(() => {
-    registerNewChat(null);
-  });
-
-  it("clears the handler so a dead screen cannot create orphan drafts", () => {
+  it("clears the handler on unregister so a dead screen cannot create orphan drafts", () => {
     const fn = jest.fn();
-    registerNewChat(fn);
+    const unregister = registerNewChat(fn);
     startNewChatGlobal({ force: true });
     expect(fn).toHaveBeenCalledWith({ force: true });
-    registerNewChat(null);
+    unregister();
     startNewChatGlobal({ force: true });
     expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("stacked screens: popping the top instance restores the one underneath", () => {
+    // Library pushes a second copy of the chat route; when it unmounts, its
+    // cleanup must not clear the still-mounted home screen's registration.
+    const home = jest.fn();
+    const pushed = jest.fn();
+    const unregisterHome = registerNewChat(home);
+    const unregisterPushed = registerNewChat(pushed);
+
+    startNewChatGlobal();
+    expect(pushed).toHaveBeenCalledTimes(1);
+    expect(home).not.toHaveBeenCalled();
+
+    unregisterPushed();
+    startNewChatGlobal();
+    expect(home).toHaveBeenCalledTimes(1);
+
+    // Double-unregister is a safe no-op.
+    unregisterPushed();
+    startNewChatGlobal();
+    expect(home).toHaveBeenCalledTimes(2);
+
+    unregisterHome();
+    startNewChatGlobal();
+    expect(home).toHaveBeenCalledTimes(2);
+  });
+
+  it("stacked active chat ids: popping the top instance restores the underlying chat", () => {
+    const unregisterHome = setActiveChatIdGlobal("home-chat");
+    const unregisterPushed = setActiveChatIdGlobal("library-chat");
+    expect(getActiveChatIdGlobal()).toBe("library-chat");
+    unregisterPushed();
+    expect(getActiveChatIdGlobal()).toBe("home-chat");
+    unregisterHome();
+    expect(getActiveChatIdGlobal()).toBeNull();
   });
 });

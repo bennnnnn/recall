@@ -388,18 +388,16 @@ function ChatScreen() {
     setMathScannerOpen(true);
   }, [setMathScannerOpen]);
 
-  useEffect(() => {
-    setActiveChatIdGlobal(chatId);
-    return () => setActiveChatIdGlobal(null);
-  }, [chatId]);
+  useEffect(() => setActiveChatIdGlobal(chatId), [chatId]);
 
-  useEffect(() => {
-    registerNewChat((opts) => {
-      dismissChatError();
-      startNewChat(opts);
-    });
-    return () => registerNewChat(null);
-  }, [startNewChat, dismissChatError]);
+  useEffect(
+    () =>
+      registerNewChat((opts) => {
+        dismissChatError();
+        startNewChat(opts);
+      }),
+    [startNewChat, dismissChatError],
+  );
 
   const {
     listRef,
