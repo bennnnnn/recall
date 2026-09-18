@@ -22,6 +22,14 @@ from app.models.schemas.auth import (
     UserOut,
     UserUpdate,
 )
+from app.models.schemas.automations import (
+    AutomationCreate,
+    AutomationFrequency,
+    AutomationOut,
+    AutomationRunStatus,
+    AutomationStatus,
+    AutomationUpdate,
+)
 from app.models.schemas.chats import (
     ArchiveUpdate,
     ChatCreate,
@@ -131,6 +139,12 @@ __all__ = [
     "AuthResponse",
     "AuthSessionListOut",
     "AuthSessionOut",
+    "AutomationCreate",
+    "AutomationFrequency",
+    "AutomationOut",
+    "AutomationRunStatus",
+    "AutomationStatus",
+    "AutomationUpdate",
     "CalendarConflictOut",
     "CalendarConflictsOut",
     "CalendarEventProposalIn",

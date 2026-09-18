@@ -20,6 +20,12 @@ import {
   stripLearningLaunchBlock,
   type ParsedLearningLaunch,
 } from "@/lib/parseLearningLaunch";
+import {
+  hasAutomationCreatedFence,
+  parseAutomationCreated,
+  stripAutomationCreatedBlock,
+  type ParsedAutomationCreated,
+} from "@/lib/parseAutomationCreated";
 
 import { isLocationQuestion } from "@/lib/localPlacesQuery";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
@@ -64,6 +70,7 @@ export type AssistantMessageContent = {
   markdownStreamMode: boolean;
   markdownResetKey: string;
   learningLaunch: ParsedLearningLaunch | null;
+  automationCreated: ParsedAutomationCreated | null;
 };
 
 function buildMarkdownContent(options: {
@@ -102,6 +109,7 @@ function buildMarkdownContent(options: {
 
   if (showLiveClock) text = stripTimeAnswerFences(text);
   text = stripLearningLaunchBlock(text);
+  text = stripAutomationCreatedBlock(text);
   text = stripSearchSourcesFromContent(text);
   text = stripReminderFences(text);
   text = stripCalendarProposalFences(text);
@@ -202,6 +210,11 @@ export function deriveAssistantMessageContent(
       ? parseLearningLaunch(content)
       : null;
 
+  const automationCreated =
+    !isUser && !layoutFrozen && hasAutomationCreatedFence(content)
+      ? parseAutomationCreated(content)
+      : null;
+
   return {
     hasContent,
     showActionSlot,
@@ -223,5 +236,6 @@ export function deriveAssistantMessageContent(
     markdownStreamMode: layoutFrozen || isGenerating,
     markdownResetKey: `${renderKey ?? messageId}:${markdownContent.length}`,
     learningLaunch,
+    automationCreated,
   };
 }

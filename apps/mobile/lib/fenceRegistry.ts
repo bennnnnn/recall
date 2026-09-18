@@ -32,6 +32,7 @@
 
 export type FenceId =
   | "answer"
+  | "automation_created"
   | "callout"
   | "chart"
   | "chemistry"
@@ -277,6 +278,15 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server",
   },
+  // Parsed/stripped outside the rich dispatcher like learning_launch — see
+  // lib/parseAutomationCreated.ts + AutomationCreatedChip.
+  {
+    id: "automation_created",
+    langs: ["automation_created"],
+    structured: false,
+    neverCodeBlock: true,
+    owner: "server",
+  },
 ];
 
 const BY_LANG = new Map<string, FenceSpec>();
@@ -361,7 +371,8 @@ export function isDiagramFenceId(id: FenceId | undefined): boolean {
 /** Prompt-control JSON plus registry transport fences — never copy or speak. */
 export function isControlFenceLang(lang: string): boolean {
   const id = fenceIdForLang(lang);
-  if (id === "sources" || id === "places" || id === "learning_launch") return true;
+  if (id === "sources" || id === "places" || id === "learning_launch" || id === "automation_created")
+    return true;
   const l = normalize(lang);
   return (
     l === "reminder" ||

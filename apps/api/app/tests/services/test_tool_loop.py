@@ -961,6 +961,98 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
 
 
 @pytest.mark.asyncio
+async def test_automation_run_never_sees_write_capable_tools():
+    """is_automation=True must not even advertise generate_image to the model."""
+    from app.services.mcp.image_gen_adapter import ImageGenAdapter
+
+    mcp_registry.clear()
+    mcp_registry.register(WebSearchAdapter(_settings()))
+    mcp_registry.register(ImageGenAdapter(_settings(image_generation_enabled=True)))
+    try:
+        messages = [{"role": "user", "content": "find L3 backend jobs"}]
+        seen_tools: list[list[dict]] = []
+
+        async def _complete(**kwargs):
+            seen_tools.append(kwargs.get("tools") or [])
+            return {"content": "no tool needed", "tool_calls": []}
+
+        pro_user = MagicMock()
+        with (
+            patch(
+                "app.services.tool_loop.litellm_gateway.complete_with_tools",
+                AsyncMock(side_effect=_complete),
+            ),
+            patch("app.services.tool_loop.plan_service.is_pro", return_value=True),
+        ):
+            await tool_loop.run_tool_rounds(
+                settings=_settings(mcp_tool_loop_enabled=True, image_generation_enabled=True),
+                model_alias="free-chat",
+                messages=messages,
+                usage={},
+                user=pro_user,
+                is_automation=True,
+            )
+
+        assert len(seen_tools) == 1
+        names = {(t.get("function") or {}).get("name") for t in seen_tools[0]}
+        assert names == {"web_search"}
+    finally:
+        mcp_registry.clear()
+
+
+@pytest.mark.asyncio
+async def test_automation_run_skips_when_only_write_tools_registered():
+    """No web_search adapter registered → nothing left to advertise → no-op."""
+    from app.services.mcp.image_gen_adapter import ImageGenAdapter
+
+    mcp_registry.clear()
+    mcp_registry.register(ImageGenAdapter(_settings(image_generation_enabled=True)))
+    try:
+        messages = [{"role": "user", "content": "draw a cat"}]
+        complete = AsyncMock(side_effect=AssertionError("must not call the model"))
+        pro_user = MagicMock()
+        with patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete):
+            out, verified, terminal, hits = await tool_loop.run_tool_rounds(
+                settings=_settings(mcp_tool_loop_enabled=True, image_generation_enabled=True),
+                model_alias="free-chat",
+                messages=messages,
+                usage={},
+                user=pro_user,
+                is_automation=True,
+            )
+        assert out == messages
+        assert verified is None
+        assert terminal is None
+        assert hits == []
+        complete.assert_not_awaited()
+    finally:
+        mcp_registry.clear()
+
+
+@pytest.mark.asyncio
+async def test_automation_run_does_not_bind_image_or_calendar_context(web_search_registered):
+    """Belt-and-suspenders: context binders for write tools are skipped too."""
+    messages = [{"role": "user", "content": "find L3 backend jobs"}]
+    complete = AsyncMock(return_value={"content": "done", "tool_calls": []})
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.tool_loop.bind_image_gen_context") as image_gen_bind,
+        patch("app.services.tool_loop.bind_image_search_context") as image_search_bind,
+        patch("app.services.tool_loop.bind_calendar_context") as calendar_bind,
+    ):
+        await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+            is_automation=True,
+        )
+    image_gen_bind.assert_not_called()
+    image_search_bind.assert_not_called()
+    calendar_bind.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_tool_loop_path_skips_classifier_when_spend_capped():
     from uuid import uuid4
 

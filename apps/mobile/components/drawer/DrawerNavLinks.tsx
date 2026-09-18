@@ -15,6 +15,7 @@ type Props = {
   unseenCount: number;
   onProjects: () => void;
   onReminders: () => void;
+  onAutomations: () => void;
   onGallery: () => void;
 };
 
@@ -25,6 +26,7 @@ export function DrawerNavLinks({
   unseenCount,
   onProjects,
   onReminders,
+  onAutomations,
   onGallery,
 }: Props) {
   const { t } = useTranslation();
@@ -65,6 +67,20 @@ export function DrawerNavLinks({
           ) : null}
         </View>
         <Text style={s.todosLinkText}>{t("drawer.reminders")}</Text>
+        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
+      </Pressable>
+
+      <Pressable
+        style={s.todosLink}
+        onPress={() => {
+          tap();
+          onAutomations();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t("drawer.automations")}
+      >
+        <Icon name="flash-outline" size={18} />
+        <Text style={s.todosLinkText}>{t("drawer.automations")}</Text>
         <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
 

@@ -42,8 +42,14 @@ async def test_start_worker_runtime_registers_before_consumer_and_schedulers():
             "app.process_bootstrap.billing_reconcile_scheduler.start_billing_reconcile_scheduler",
             AsyncMock(),
         ),
+        patch(
+            "app.process_bootstrap.automations_scheduler.start_automations_scheduler",
+            AsyncMock(),
+        ) as start_automations,
     ):
         await process_bootstrap.start_worker_runtime(settings)
+
+    start_automations.assert_awaited_once_with(settings)
 
     assert order == ["register", "worker"]
 

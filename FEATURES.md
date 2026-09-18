@@ -819,6 +819,56 @@ device).
 
 ---
 
+## 18. Automations (Pro)
+
+- ✅ **Recurring unattended prompts** — drawer entry labeled **"My Job"** (engine/API stay
+  generic `automations`, separate from Schedule and Learning). A user writes a prompt (e.g.
+  "every morning at 8am, find L3 backend job postings"), picks a frequency (once / daily /
+  weekdays / weekly / monthly) and a time, and the worker runs it unattended through the normal
+  chat turn engine on schedule.
+- ✅ **Read-only tools only** — an automation run can call `web_search` and read the
+  calendar/Gmail context already injected into every turn; it can never write a calendar event,
+  send email, generate an image, or otherwise take an autonomous side effect. Enforced by an
+  `is_automation` flag that filters the tool-loop's advertised tool schemas, not just context
+  binding — see [`services/tool_loop.py`](apps/api/app/services/tool_loop.py).
+- ✅ **Own run history chat, never surfaced** — each automation owns a dedicated chat (hidden
+  from the normal chat drawer) that the worker posts into on every scheduled run. This is
+  internal run-history storage only — the app never opens it as a chat UI. Tapping a card opens
+  a detail screen (prompt, Repeat / Time / Last-run), matching ChatGPT's Task detail — not a
+  chat.
+- ✅ **Repeat / Time are directly editable on the detail screen** — tapping either row expands
+  an inline picker in place (`AutomationFrequencyPicker` / `ReminderDateTimePicker`, the same
+  components `AddAutomationSheet` uses) and auto-saves on select/close — no separate Save
+  button, matching ChatGPT's Task detail. A header icon toggles Pause/Resume directly (no menu
+  needed for the most common action). Disabled once a one-time (`once`) automation has
+  completed. Editing the prompt text itself still goes through the kebab → Edit sheet.
+- ✅ **Long-press quick actions** — long-pressing a card in the list (or the kebab on the detail
+  screen) opens an action sheet: Edit, Share (native OS share sheet, prompt + schedule as text),
+  Pause/Resume (list only — the detail screen has a header icon for this), Delete.
+- ✅ **Chat-based creation, no "+" button** — matching ChatGPT's Tasks tab, the **My Job** list
+  has no create FAB. A Pro user asks in normal chat ("create a task to check for L3 jobs every
+  morning at 8am"); the model (system-prompted via `AUTOMATIONS_HINT` —
+  [`services/automations/prompt_hint.py`](apps/api/app/services/automations/prompt_hint.py))
+  asks briefly for whatever is missing, then emits one ` ```automation ` JSON fence
+  (`prompt`/`frequency`/`next_run_at`). The server materializes it into a real automation and
+  replaces the fence with a ` ```automation_created ` confirmation
+  (`services/automations/fences.py`); mobile renders that as a tappable pill
+  (`AutomationCreatedChip`) showing the frequency + prompt that opens the detail screen on tap.
+  Invalid JSON or a rejected create (Pro gate, active-cap) becomes a plain italic line instead
+  of raw JSON. An automation's own unattended run never triggers this (`ctx.is_automation`
+  skips it) — no runaway automation-creates-automation loop. Edit/pause/delete stay in the
+  My Job tab, not chat — the hint tells the model to point users there.
+- ✅ **Pro-only** — same gating posture as Live Talk / image generation. Free users get no
+  `AUTOMATIONS_HINT` at all, so asking in chat is a normal (non-automation) reply rather than a
+  broken fence. A per-user active-automation cap and a daily run cap bound runaway schedules
+  (`automations_max_active_per_user`, `automations_daily_run_cap`).
+- ✅ **Push on completion** — one push per finished run (`type: "automation_run"`), deep-linking
+  to that automation's detail screen.
+- ❌ **Custom cron / write-capable tools / free tier** — out of scope for v1. Same 4 fixed
+  recurrence rules as Schedule, plus "once".
+
+---
+
 ## Deferred to upcoming version(s)
 A consolidated list of what's intentionally **not** (or only partially) in this version.
 

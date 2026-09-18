@@ -71,6 +71,7 @@ async def prepare_chat_turn(
     prior_count: int | None = None,
     recent_messages: list[Any] | None = None,
     resolved_model: str | None = None,
+    is_automation: bool = False,
 ) -> StreamContext:
     attachments = await _process_attachments(
         user_id=user_id,
@@ -346,4 +347,5 @@ async def prepare_chat_turn(
         timing=timing,
         indexable_attachment_ids=indexable_attachment_ids,
         user_message_persist=persist_task,
+        is_automation=is_automation,
     )

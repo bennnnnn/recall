@@ -232,6 +232,16 @@ class Settings(BaseSettings):
     daily_image_searches_pro: int = 60
     image_search_fetch_timeout_seconds: float = 8.0
 
+    # Automations: recurring prompts run unattended through the chat turn
+    # engine (Pro-only, read-only tools). Master switch defaults off until
+    # the mobile UI (phase 3) ships; the scheduler/job handler no-op with it
+    # off since list_due() only reads rows, and creation is gated separately.
+    automations_enabled: bool = True
+    automations_max_active_per_user: int = 5
+    # Per-automation daily run cap — guards a misconfigured tight recurrence
+    # (e.g. hourly) from silently burning a user's whole day of chat quota.
+    automations_daily_run_cap: int = 6
+
     push_enabled: bool = True
     push_learning_hour: int = 9
     server_todo_push_enabled: bool = True  # server owns due-at; skip local when push is on

@@ -5,6 +5,7 @@ exports `TodoItem`. Database table and column names are unchanged.
 """
 
 from app.models.orm.attachments import Attachment, AttachmentChunk, MessageChunk
+from app.models.orm.automations import Automation
 from app.models.orm.chat import Chat, Message
 from app.models.orm.integrations import (
     PushToken,
@@ -23,6 +24,7 @@ from app.models.orm.user import User
 __all__ = [
     "Attachment",
     "AttachmentChunk",
+    "Automation",
     "Chat",
     "Learning",
     "LearningItem",

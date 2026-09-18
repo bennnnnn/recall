@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.models.orm import User
+from app.models.orm import Automation, User
 from app.services.notifications import push as push_service
 
 
@@ -1380,3 +1380,133 @@ async def test_finalize_keeps_learning_dedupe_for_a_day_after_send():
         "1",
         ex=push_service.LEARNING_DEDUPE_TTL_SECONDS,
     )
+
+
+def _automation(**overrides: object) -> Automation:
+    automation = Automation(
+        id=uuid4(),
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        prompt="Find L3 backend jobs posted in the last day",
+        frequency="daily",
+        next_run_at=datetime.now(UTC),
+        status="active",
+    )
+    for key, value in overrides.items():
+        setattr(automation, key, value)
+    return automation
+
+
+@pytest.mark.asyncio
+async def test_notify_automation_run_sends_push_with_deep_link_payload():
+    automation = _automation()
+    user = MagicMock()
+    user.push_notifications_enabled = True
+    user.locale = "en"
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=user)
+    redis = AsyncMock()
+    token = MagicMock()
+    token.user_id = automation.user_id
+    token.expo_push_token = "ExponentPushToken[abc]"
+
+    with (
+        patch.object(push_service.push_repo, "list_for_users", AsyncMock(return_value=[token])),
+        patch.object(
+            push_service,
+            "dispatch_expo",
+            AsyncMock(return_value=([True], [], [])),
+        ) as dispatch,
+    ):
+        await push_service.notify_automation_run(
+            session, redis, Settings(push_enabled=True), automation
+        )
+
+    dispatch.assert_awaited_once()
+    outbound = dispatch.await_args.args[0]
+    assert len(outbound) == 1
+    message = outbound[0].message
+    assert message["title"] == "Automation ready"
+    assert message["data"] == {
+        "type": "automation_run",
+        "screen": "automations",
+        "automation_id": str(automation.id),
+        "chat_id": str(automation.chat_id),
+    }
+
+
+@pytest.mark.asyncio
+async def test_notify_automation_run_skips_when_push_disabled_for_user():
+    automation = _automation()
+    user = MagicMock()
+    user.push_notifications_enabled = False
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=user)
+    redis = AsyncMock()
+
+    with patch.object(
+        push_service, "dispatch_expo", AsyncMock(side_effect=AssertionError("must not send"))
+    ):
+        await push_service.notify_automation_run(
+            session, redis, Settings(push_enabled=True), automation
+        )
+
+
+@pytest.mark.asyncio
+async def test_notify_automation_run_skips_when_no_tokens():
+    automation = _automation()
+    user = MagicMock()
+    user.push_notifications_enabled = True
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=user)
+    redis = AsyncMock()
+
+    with (
+        patch.object(push_service.push_repo, "list_for_users", AsyncMock(return_value=[])),
+        patch.object(
+            push_service, "dispatch_expo", AsyncMock(side_effect=AssertionError("must not send"))
+        ),
+    ):
+        await push_service.notify_automation_run(
+            session, redis, Settings(push_enabled=True), automation
+        )
+
+
+@pytest.mark.asyncio
+async def test_notify_automation_run_noop_when_push_disabled_globally():
+    automation = _automation()
+    session = AsyncMock()
+    session.get = AsyncMock(side_effect=AssertionError("must not touch the DB"))
+    redis = AsyncMock()
+
+    await push_service.notify_automation_run(
+        session, redis, Settings(push_enabled=False), automation
+    )
+
+
+@pytest.mark.asyncio
+async def test_notify_automation_run_sanitizes_long_prompt_into_body():
+    automation = _automation(prompt="x" * 200)
+    user = MagicMock()
+    user.push_notifications_enabled = True
+    user.locale = "en"
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=user)
+    redis = AsyncMock()
+    token = MagicMock()
+    token.user_id = automation.user_id
+    token.expo_push_token = "ExponentPushToken[abc]"
+
+    with (
+        patch.object(push_service.push_repo, "list_for_users", AsyncMock(return_value=[token])),
+        patch.object(
+            push_service, "dispatch_expo", AsyncMock(return_value=([True], [], []))
+        ) as dispatch,
+    ):
+        await push_service.notify_automation_run(
+            session, redis, Settings(push_enabled=True), automation
+        )
+
+    body = dispatch.await_args.args[0][0].message["body"]
+    assert len(body) <= 240
+    assert body.endswith("…")
