@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next";
 import type { StyleProp, ViewStyle } from "react-native";
 
 import { IconButton } from "@/components/IconButton";
-import { IconSize } from "@/lib/icons";
+import { IconSize, type IoniconName } from "@/lib/icons";
 
 type Props = {
   /** Where to go when there is no back stack (e.g. opened via deep link). */
   fallback?: Href;
-  icon?: "chevron-back" | "arrow-back";
+  icon?: IoniconName;
   style?: StyleProp<ViewStyle>;
 };
 
