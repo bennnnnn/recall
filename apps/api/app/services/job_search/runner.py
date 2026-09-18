@@ -22,8 +22,8 @@ from app.core.db import SessionLocal
 from app.core.redis_lock import acquire_lock, release_lock
 from app.gateways import litellm_gateway, web_search_gateway
 from app.models.orm import JobMatch, JobSearchProfile, User
-from app.services import job_search_notifications
 from app.services import plan as plan_service
+from app.services.job_search import notifications as job_search_notifications
 from app.services.prompt_safety import wrap_untrusted
 from app.services.todos.recurrence import next_recurring_due
 
