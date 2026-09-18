@@ -179,7 +179,7 @@ export function ConversationList(_props: unknown) {
 
   const openReminders = useCallback(() => {
     closeDrawer();
-    router.push({ pathname: "/todos", params: { focus: "reminders" } });
+    router.push("/todos");
   }, [router]);
 
   const openProjects = useCallback(() => {

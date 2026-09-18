@@ -555,9 +555,10 @@ async def process_calendar_nudges(
                     data={
                         "type": "calendar_nudge",
                         "screen": "todos",
-                        "focus": "reminders",
                         "event_id": event.id,
                         "event_title": event.title,
+                        # Mobile derives the local day key to focus Schedule.
+                        "event_start": event.start.isoformat(),
                     },
                     dedupe_redis_key=dedupe_key,
                     dedupe_ttl_seconds=ttl,

@@ -6,6 +6,8 @@ import { api } from "@/lib/api";
 import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
 import { trackProductEvent } from "@/lib/productAnalytics";
+import { lessonMapPath } from "@/lib/projects/chapterAccess";
+import { localDateKey } from "@/lib/todos/reminderCalendar";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -163,15 +165,22 @@ type PushData = {
   project_id?: string;
   profile_id?: string;
   topic?: string;
+  event_start?: string;
 };
 
-async function openLearningProject(
+/** Push when the target is a different screen; replace when already on it so
+ * repeated taps never stack duplicate copies of the same route. */
+function navigateToTarget(
   router: AppRouter,
-  _apiToken: string,
-  projectId: string,
-  _topic?: string,
-): Promise<void> {
-  router.push(`/projects/${projectId}`);
+  currentPathname: string | null,
+  href: string | { pathname: string; params?: Record<string, string> },
+): void {
+  const target = typeof href === "string" ? href : href.pathname;
+  if (currentPathname && currentPathname === target) {
+    router.replace(href);
+  } else {
+    router.push(href);
+  }
 }
 
 /** Navigate when the user taps a push notification. */
@@ -179,26 +188,31 @@ export async function handlePushNotificationResponse(
   router: AppRouter,
   apiToken: string | null,
   data: PushData | undefined,
+  currentPathname?: string | null,
 ): Promise<void> {
   if (!data) return;
+  const current = currentPathname ?? null;
 
   if (data.type === "job_search_ready" || data.screen === "my-job") {
-    router.push("/my-job");
+    navigateToTarget(router, current, "/my-job");
     return;
   }
 
   if (data.type === "calendar_nudge") {
-    router.push({ pathname: "/todos", params: { focus: "reminders" } });
+    // Land on Schedule focused on the event's day, not a generic list.
+    const start = data.event_start ? new Date(data.event_start) : null;
+    const day = start && Number.isFinite(start.getTime()) ? localDateKey(start) : null;
+    navigateToTarget(router, current, {
+      pathname: "/todos",
+      params: day ? { date: day } : {},
+    });
     return;
   }
 
   if (data.type === "todo_due" || data.type === "todo_reminder" || data.screen === "todos") {
-    router.push({
+    navigateToTarget(router, current, {
       pathname: "/todos",
-      params: {
-        focus: data.focus ?? "reminders",
-        ...(data.todo_id ? { highlight: data.todo_id } : {}),
-      },
+      params: data.todo_id ? { highlight: data.todo_id } : {},
     });
     return;
   }
@@ -206,22 +220,22 @@ export async function handlePushNotificationResponse(
   if (
     (data.type === "learning_review" ||
       data.type === "learning_continue" ||
-      data.type === "learning_daily_goal" ||
-      data.type === "email_suggestion") &&
-    apiToken &&
+      data.type === "learning_daily_goal") &&
     data.project_id
   ) {
-    await openLearningProject(router, apiToken, data.project_id, data.topic);
+    // Straight to the lesson map — /projects/:id is just a redirect hop.
+    navigateToTarget(router, current, lessonMapPath(data.project_id));
     return;
   }
 
+  // Email suggestions are reminders — always Schedule, never Learning.
   if (data.type === "email_suggestion") {
-    router.push({ pathname: "/todos", params: { focus: "reminders" } });
+    navigateToTarget(router, current, "/todos");
     return;
   }
 
   if (data.project_id) {
-    router.push(`/projects/${data.project_id}`);
+    navigateToTarget(router, current, lessonMapPath(data.project_id));
   }
 }
 

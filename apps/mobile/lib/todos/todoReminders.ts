@@ -76,7 +76,7 @@ async function schedule(todo: Todo, leadMs: number, current: IsCurrent): Promise
     content: {
       title: i18n.t("notifications.todo_reminder_title"),
       body: i18n.t("notifications.todo_reminder_body", { content: todo.content, time: formatDueTime(due) }),
-      data: { type: "todo_due", screen: "todos", focus: "reminders", todo_id: todo.id, topic: todo.topic },
+      data: { type: "todo_due", screen: "todos", todo_id: todo.id, topic: todo.topic },
       ...(Platform.OS === "android" ? { channelId: ANDROID_CHANNEL } : {}),
     },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: notifyAt },

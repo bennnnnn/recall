@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
-import { useRouter } from "expo-router";
+import { usePathname, useRouter } from "expo-router";
 import { Platform } from "react-native";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
@@ -19,8 +19,14 @@ import {
 /** Handles push notification taps and configures foreground display. */
 export function PushNotificationBootstrap() {
   const router = useRouter();
+  const pathname = usePathname();
   const auth = useAuthOptional();
   const token = auth?.token ?? null;
+  const authLoading = auth?.loading ?? true;
+  const coldStartHandledRef = useRef(false);
+  // Read the current route without re-attaching listeners on every nav.
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
 
   useEffect(() => {
     configurePushNotificationHandler();
@@ -41,18 +47,25 @@ export function PushNotificationBootstrap() {
         router as Parameters<typeof handlePushNotificationResponse>[0],
         token,
         data as never,
+        pathnameRef.current,
       ).catch(() => {
         if (active) console.warn("[notifications] Could not open notification");
       });
     };
 
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) {
-        navigate(response.notification.request.content.data as Record<string, unknown>);
-      }
-    }).catch(() => {
-      if (active) console.warn("[notifications] Could not restore startup notification");
-    });
+    // Cold-start tap: wait until auth has settled (token restored or known
+    // logged-out) so the target route doesn't mount before the session it
+    // needs — and only ever consume the launch response once.
+    if (!authLoading && !coldStartHandledRef.current) {
+      coldStartHandledRef.current = true;
+      void Notifications.getLastNotificationResponseAsync().then((response) => {
+        if (response) {
+          navigate(response.notification.request.content.data as Record<string, unknown>);
+        }
+      }).catch(() => {
+        if (active) console.warn("[notifications] Could not restore startup notification");
+      });
+    }
 
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       navigate(response.notification.request.content.data as Record<string, unknown>);
@@ -72,7 +85,7 @@ export function PushNotificationBootstrap() {
       responseSub.remove();
       receivedSub.remove();
     };
-  }, [router, token]);
+  }, [router, token, authLoading]);
 
   return null;
 }

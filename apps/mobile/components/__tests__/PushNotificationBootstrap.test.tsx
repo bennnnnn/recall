@@ -26,9 +26,10 @@ jest.mock("expo-notifications", () => ({
 }));
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => "/",
 }));
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuthOptional: () => ({ token: null }),
+  useAuthOptional: () => ({ token: null, loading: false }),
 }));
 jest.mock("@/lib/pushNotifications", () => ({
   configurePushNotificationHandler: jest.fn(),
