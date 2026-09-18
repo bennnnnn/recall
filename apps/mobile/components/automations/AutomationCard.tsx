@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { automationFrequencyMessageKey } from "@/components/automations/AutomationFrequencyPicker";
 import { makeAutomationsStyles } from "@/components/automations/automationsStyles";
 import type { Automation } from "@/lib/api";
-import { describeLastRun, formatScheduleAt } from "@/lib/automations/schedule";
+import { automationDisplayTitle } from "@/lib/automations/schedule";
 import { tap } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
@@ -22,13 +22,21 @@ export function AutomationCard({
   const C = useTheme();
   const s = useMemo(() => makeAutomationsStyles(C), [C]);
   const paused = automation.status === "paused";
+  const completed = automation.status === "completed";
   const frequencyLabel = t(automationFrequencyMessageKey(automation.frequency));
-  const lastRunLabel = describeLastRun(automation, t);
-  const lastRunToneStyle = automation.last_run_status === "error" ? s.cardLastRunError : s.cardLastRunOk;
+  const eyebrow = paused
+    ? t("automations.status_paused")
+    : completed
+      ? t("automations.status_completed")
+      : t("automations.title");
 
   return (
     <Pressable
-      style={[s.card, paused && s.cardPaused]}
+      style={({ pressed }) => [
+        s.card,
+        paused && s.cardPaused,
+        pressed && s.cardPressed,
+      ]}
       onPress={() => {
         tap();
         onOpen(automation.id);
@@ -40,25 +48,17 @@ export function AutomationCard({
       accessibilityRole="button"
       accessibilityLabel={automation.prompt}
     >
-      <Text style={s.cardPrompt} numberOfLines={2}>
+      <Text style={s.cardEyebrow}>{eyebrow}</Text>
+      <Text style={s.cardTitle} numberOfLines={2}>
+        {automationDisplayTitle(automation.prompt)}
+      </Text>
+      <Text style={s.cardDescription} numberOfLines={3}>
         {automation.prompt}
       </Text>
-      <View style={s.cardMetaRow}>
-        {paused ? (
-          <View style={[s.cardStatusPill, s.cardStatusPillPaused]}>
-            <Text style={[s.cardStatusPillText, s.cardStatusPillTextPaused]}>
-              {t("automations.status_paused")}
-            </Text>
-          </View>
-        ) : (
-          <Text style={s.cardMetaText}>
-            {frequencyLabel} · {formatScheduleAt(automation.next_run_at)}
-          </Text>
-        )}
-      </View>
-      <Text style={[s.cardMetaText, lastRunToneStyle]} numberOfLines={1}>
-        {lastRunLabel}
-      </Text>
+
+      <View style={s.cardDivider} />
+
+      <Text style={s.cardFooter}>{frequencyLabel}</Text>
     </Pressable>
   );
 }
