@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
 from app.routers import job_search
 
@@ -36,9 +37,7 @@ async def test_run_now_enqueues_a_manual_occurrence_immediately() -> None:
         redis,
         "automation_run",
         {"automation_id": str(profile.id)},
-        dedupe_key=(
-            f"automation_run_manual:{profile.id}:{profile.last_run_at.isoformat()}"
-        ),
+        dedupe_key=(f"automation_run_manual:{profile.id}:{profile.last_run_at.isoformat()}"),
     )
 
 
@@ -71,7 +70,7 @@ async def test_run_now_uses_stable_first_run_dedupe_key() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_now_returns_dashboard_when_immediate_enqueue_raises() -> None:
+async def test_run_now_reports_when_immediate_enqueue_fails() -> None:
     profile = MagicMock()
     profile.id = uuid4()
     profile.last_run_at = None
@@ -89,12 +88,14 @@ async def test_run_now_returns_dashboard_when_immediate_enqueue_raises() -> None
             "enqueue",
             AsyncMock(side_effect=RuntimeError("redis unavailable")),
         ),
+        pytest.raises(HTTPException) as exc,
     ):
-        result = await job_search.run_job_search_now(
+        await job_search.run_job_search_now(
             user=MagicMock(),
             session=AsyncMock(),
             settings=MagicMock(),
             redis=AsyncMock(),
         )
 
-    assert result is dashboard
+    assert exc.value.status_code == 503
+    assert exc.value.detail == "Could not start the job search. Try again."
