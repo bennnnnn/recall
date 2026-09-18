@@ -120,7 +120,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
 
   const canEdit = automation.status !== "completed";
   const frequencyLabel = t(automationFrequencyMessageKey(automation.frequency));
-  const scheduleLabel = formatAutomationScheduleDay(automation);
+  const scheduleLabel =\n    automation.frequency === "daily" || automation.frequency === "weekdays"\n      ? frequencyLabel\n      : formatAutomationScheduleDay(automation);
   const runDate = new Date(automation.next_run_at);
   const timeLabel = Number.isNaN(runDate.getTime())
     ? ""
