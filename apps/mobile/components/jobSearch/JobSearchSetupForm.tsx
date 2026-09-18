@@ -12,7 +12,6 @@ import {
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
 import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { ReminderDateTimePicker } from "@/components/todos/ReminderDateTimePicker";
@@ -113,14 +112,12 @@ function FieldLabel({ children, optional }: { children: string; optional?: boole
   );
 }
 
-export function JobSearchSetupSheet({
-  visible,
+export function JobSearchSetupForm({
   initial,
   busy,
   onClose,
   onSave,
 }: {
-  visible: boolean;
   initial: JobSearchProfile | null;
   busy: boolean;
   onClose: () => void;
@@ -153,8 +150,9 @@ export function JobSearchSetupSheet({
   const [roleError, setRoleError] = useState(false);
   const [salaryError, setSalaryError] = useState(false);
 
+  // Full-screen route: mount = open, so (re)seed the draft when the loaded
+  // profile / user arrives.
   useEffect(() => {
-    if (!visible) return;
     setStep(0);
     setRoleError(false);
     setSalaryError(false);
@@ -173,7 +171,7 @@ export function JobSearchSetupSheet({
     setResumeId(initial?.resume_attachment_id ?? null);
     setResumeName(initial?.resume_filename ?? null);
     setShowPicker(false);
-  }, [visible, initial, user, isPro]);
+  }, [initial, user, isPro]);
 
   const toggle = <T extends string,>(
     value: T,
@@ -295,14 +293,7 @@ export function JobSearchSetupSheet({
   const finalLabel = initial ? t("common.save") : t("my_job.start_search");
 
   return (
-    <AppSheet
-      visible={visible}
-      onClose={busy ? () => {} : onClose}
-      variant="bottom"
-      keyboardAvoiding
-      withHandle={false}
-      contentContainerStyle={s.sheet}
-    >
+    <View style={s.screen}>
       <SheetFormHeader
         title={initial ? t("my_job.edit_title") : t("my_job.setup_title")}
         onCancel={moveBack}
@@ -663,16 +654,14 @@ export function JobSearchSetupSheet({
           </>
         ) : null}
       </View>
-    </AppSheet>
+    </View>
   );
 }
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
-    sheet: {
+    screen: {
       backgroundColor: C.bg,
-      borderTopLeftRadius: Radius.sheet,
-      borderTopRightRadius: Radius.sheet,
     },
     progressWrap: {
       paddingHorizontal: Space.lg,

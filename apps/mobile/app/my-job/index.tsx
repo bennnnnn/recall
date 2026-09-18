@@ -9,13 +9,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { Redirect, useFocusEffect } from "expo-router";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { JobMatchCard } from "@/components/jobSearch/JobMatchCard";
-import { JobSearchSetupSheet } from "@/components/jobSearch/JobSearchSetupSheet";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
@@ -96,13 +95,16 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     running,
     error,
     refresh,
-    save,
     setSearchStatus,
     setMatchStatus,
     runNow,
     remove,
   } = useJobSearch(isCurrent);
-  const [setupOpen, setSetupOpen] = useState(false);
+  const router = useRouter();
+  const openSetup = useCallback(() => {
+    tap();
+    router.push("/my-job/setup");
+  }, [router]);
   const [tab, setTab] = useState<Tab>("matches");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -173,7 +175,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
 
           <Pressable
             style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
-            onPress={() => setSetupOpen(true)}
+            onPress={openSetup}
           >
             <Text style={s.primaryButtonText}>{t("my_job.setup_cta")}</Text>
             <Icon name="arrow-forward" size={20} color={C.onPrimary} />
@@ -182,14 +184,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             {user?.plan === "pro" ? t("my_job.plan_note_pro") : t("my_job.plan_note_free")}
           </Text>
         </View>
-
-        <JobSearchSetupSheet
-          visible={setupOpen}
-          initial={null}
-          busy={busy}
-          onClose={() => setSetupOpen(false)}
-          onSave={save}
-        />
       </View>
     );
   }
@@ -241,7 +235,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 </View>
                 <Pressable
                   style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-                  onPress={() => setSetupOpen(true)}
+                  onPress={openSetup}
                   accessibilityRole="button"
                   accessibilityLabel={t("my_job.edit_a11y")}
                 >
@@ -344,14 +338,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
         renderItem={({ item }) => (
           <JobMatchCard match={item} onStatus={(status) => void setMatchStatus(item.id, status)} />
         )}
-      />
-
-      <JobSearchSetupSheet
-        visible={setupOpen}
-        initial={profile}
-        busy={busy}
-        onClose={() => setSetupOpen(false)}
-        onSave={save}
       />
     </View>
   );
