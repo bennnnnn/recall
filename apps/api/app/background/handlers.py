@@ -33,7 +33,6 @@ from app.core.redis import get_redis_client
 from app.services import quota as quota_service
 from app.services import suggestion_generation
 from app.services.attachments import lifecycle as attachment_lifecycle
-from app.services.automations import run as automations_run
 from app.services.chat import compaction
 from app.services.memory import consolidation_workflow as memory_consolidation
 from app.services.memory import extraction_workflow as memory_extraction
@@ -264,19 +263,6 @@ async def _handle_message_index(settings: Settings, payload: dict[str, Any]) -> 
     await message_indexing.index_message_job(settings, payload)
 
 
-async def _handle_automation_run(settings: Settings, payload: dict[str, Any]) -> None:
-    """Not spend-capped: `run_automation` charges the user's own chat quota
-    (per Golden Rule — automation turns are user-initiated, unlike the
-    background-LLM jobs above that spend operator cost)."""
-    raw = payload.get("automation_id")
-    try:
-        automation_id = UUID(str(raw))
-    except (TypeError, ValueError):
-        logger.warning("automation_run invalid automation_id=%r", raw)
-        raise JobDiscardError(f"automation_run invalid automation_id={raw!r}") from None
-    await automations_run.run_automation(settings, get_redis_client(), automation_id=automation_id)
-
-
 async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> None:
     """GDPR residual: prefix-delete leftover R2 objects after account wipe.
 
@@ -307,4 +293,3 @@ def register_all() -> None:
     register("attachment_index", _handle_attachment_index)
     register("message_index", _handle_message_index)
     register("storage_sweep", _handle_storage_sweep)
-    register("automation_run", _handle_automation_run)

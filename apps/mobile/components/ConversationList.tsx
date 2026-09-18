@@ -182,11 +182,6 @@ export function ConversationList(_props: unknown) {
     router.push("/projects");
   }, [router]);
 
-  const openAutomations = useCallback(() => {
-    closeDrawer();
-    router.push("/automations");
-  }, [router]);
-
   const openGallery = useCallback(() => {
     if (token) prefetchGallery(token);
     closeDrawer();
@@ -248,7 +243,6 @@ export function ConversationList(_props: unknown) {
           unseenCount={unseenCount}
           onProjects={openProjects}
           onReminders={openReminders}
-          onAutomations={openAutomations}
           onGallery={openGallery}
         />
         <DrawerListHeader
@@ -272,7 +266,6 @@ export function ConversationList(_props: unknown) {
       unseenCount,
       openProjects,
       openReminders,
-      openAutomations,
       openGallery,
       loading,
       error,

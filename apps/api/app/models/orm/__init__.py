@@ -5,7 +5,6 @@ exports `TodoItem`. Database table and column names are unchanged.
 """
 
 from app.models.orm.attachments import Attachment, AttachmentChunk, MessageChunk
-from app.models.orm.automations import Automation
 from app.models.orm.chat import Chat, Message
 from app.models.orm.integrations import (
     PushToken,
@@ -13,6 +12,7 @@ from app.models.orm.integrations import (
     UserCalendarConnection,
     UserGmailConnection,
 )
+from app.models.orm.job_search import JobMatch, JobSearchProfile
 from app.models.orm.learning import Learning, LearningItem, QuizMissEvent, VocabDeck, VocabEntry
 from app.models.orm.learning_practice import LearningPracticeEvent
 from app.models.orm.memory import Memory
@@ -24,8 +24,9 @@ from app.models.orm.user import User
 __all__ = [
     "Attachment",
     "AttachmentChunk",
-    "Automation",
     "Chat",
+    "JobMatch",
+    "JobSearchProfile",
     "Learning",
     "LearningItem",
     "LearningPracticeEvent",

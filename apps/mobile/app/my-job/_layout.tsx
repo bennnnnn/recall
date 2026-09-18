@@ -2,8 +2,8 @@ import { Stack } from "expo-router";
 import { useMemo } from "react";
 
 import { StackBackButton } from "@/components/StackBackButton";
-import { stackHeaderOptions } from "@/lib/stackHeader";
 import { useReduceMotion } from "@/lib/reduceMotion";
+import { stackHeaderOptions } from "@/lib/stackHeader";
 import { stackPushTransition } from "@/lib/stackTransitions";
 import { useTheme } from "@/lib/theme";
 
@@ -24,7 +24,6 @@ export default function MyJobLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: "My Job" }} />
-      <Stack.Screen name="[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }

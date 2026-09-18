@@ -161,8 +161,8 @@ type PushData = {
   focus?: string;
   todo_id?: string;
   project_id?: string;
+  profile_id?: string;
   topic?: string;
-  automation_id?: string;
 };
 
 async function openLearningProject(
@@ -182,14 +182,13 @@ export async function handlePushNotificationResponse(
 ): Promise<void> {
   if (!data) return;
 
-  if (data.type === "calendar_nudge") {
-    router.push({ pathname: "/todos", params: { focus: "reminders" } });
+  if (data.type === "job_search_ready" || data.screen === "my-job") {
+    router.push("/my-job");
     return;
   }
 
-  if (data.type === "automation_run" || data.screen === "automations") {
-    if (data.automation_id) router.push(`/automations/${data.automation_id}`);
-    else router.push("/automations");
+  if (data.type === "calendar_nudge") {
+    router.push({ pathname: "/todos", params: { focus: "reminders" } });
     return;
   }
 

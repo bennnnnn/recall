@@ -13,7 +13,6 @@ from app.routers import (
     analytics,
     attachments,
     auth,
-    automations,
     chat_stream,
     chats,
     gmail_integrations,
@@ -100,12 +99,11 @@ def create_app() -> FastAPI:
     app.include_router(link_preview.router)
     app.include_router(chats.router)
     app.include_router(chat_stream.router)
-    app.include_router(automations.router)
-    app.include_router(job_search.router)
     app.include_router(memories.router)
     app.include_router(models.router)
     app.include_router(todos.router)
     app.include_router(learning.router)
+    app.include_router(job_search.router)
     app.include_router(search.router)
     app.include_router(suggestions.router)
     app.include_router(attachments.router)

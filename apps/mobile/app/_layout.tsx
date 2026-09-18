@@ -88,10 +88,6 @@ function RootNavigator() {
           options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
         />
         <Stack.Screen
-          name="automations"
-          options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
-        />
-        <Stack.Screen
           name="gallery"
           options={{
             ...stackUtilityTransition(reduceMotion),

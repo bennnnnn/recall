@@ -1,4 +1,6 @@
-import logging
+"""HTTP surface for the dedicated My Job product."""
+
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
@@ -16,9 +18,7 @@ from app.models.schemas.job_search import (
     JobSearchUpsert,
 )
 from app.services import job_search as job_search_service
-from app.services import job_search_run_now as job_search_run_now_service
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/job-search", tags=["job-search"])
 
 
@@ -32,10 +32,7 @@ async def get_job_search(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> JobSearchDashboardOut:
-    try:
-        return await job_search_service.get_dashboard(session, user, settings)
-    except job_search_service.JobSearchError as exc:
-        raise _map_error(exc) from exc
+    return await job_search_service.get_dashboard(session, user, settings)
 
 
 @router.put("", response_model=JobSearchDashboardOut)
@@ -59,14 +56,19 @@ async def update_job_search_status(
     settings: Settings = Depends(get_settings_dep),
 ) -> JobSearchDashboardOut:
     try:
-        return await job_search_service.set_search_status(session, user, settings, body.status)
+        return await job_search_service.set_search_status(
+            session,
+            user,
+            settings,
+            body.status,
+        )
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc
 
 
 @router.patch("/matches/{match_id}", response_model=JobSearchDashboardOut)
 async def update_job_match_status(
-    match_id: str,
+    match_id: UUID,
     body: JobMatchStatusUpdate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
@@ -92,7 +94,7 @@ async def run_job_search_now(
     redis: Redis = Depends(get_redis),
 ) -> JobSearchDashboardOut:
     try:
-        dashboard = await job_search_run_now_service.prepare_manual_run(
+        dashboard = await job_search_service.prepare_manual_run(
             session,
             user,
             settings,
@@ -101,29 +103,18 @@ async def run_job_search_now(
         raise _map_error(exc) from exc
 
     profile = dashboard.profile
-    if profile is not None:
-        # A manual run is an extra occurrence, not a reschedule. Key the queue
-        # claim to the previous completed occurrence so repeated taps before
-        # the worker starts collapse into one job while a later run remains
-        # possible after the ten-minute guard expires.
-        previous_run = profile.last_run_at.isoformat() if profile.last_run_at else "never"
-        try:
-            await enqueue(
-                redis,
-                "automation_run",
-                {"automation_id": str(profile.id)},
-                dedupe_key=f"automation_run_manual:{profile.id}:{previous_run}",
-            )
-        except Exception as exc:
-            logger.exception("Immediate My Job enqueue failed profile_id=%s", profile.id)
-            # The recurring schedule intentionally remains in the future, so
-            # there is no scheduler fallback for this extra occurrence. Tell
-            # the client the manual search did not start instead of returning
-            # a misleading successful response.
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Could not start the job search. Try again.",
-            ) from exc
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Set up your job search first",
+        )
+    previous_run = profile.last_run_at.isoformat() if profile.last_run_at else "never"
+    await enqueue(
+        redis,
+        "job_search_run",
+        {"profile_id": str(profile.id), "manual": True},
+        dedupe_key=f"job_search_manual:{profile.id}:{previous_run}",
+    )
     return dashboard
 
 
@@ -133,7 +124,4 @@ async def delete_job_search(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    try:
-        await job_search_service.delete_profile(session, user, settings)
-    except job_search_service.JobSearchError as exc:
-        raise _map_error(exc) from exc
+    await job_search_service.delete_profile(session, user, settings)

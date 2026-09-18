@@ -1,4 +1,4 @@
-"""Schemas for the purpose-built My Job search assistant."""
+"""API schemas for the purpose-built My Job assistant."""
 
 from datetime import datetime
 from typing import Literal
@@ -45,7 +45,9 @@ class JobSearchUpsert(BaseModel):
     skills: list[str] = Field(default_factory=list, max_length=30)
     location: str | None = Field(default=None, max_length=160)
     work_modes: list[JobSearchWorkMode] = Field(default_factory=_default_work_modes)
-    experience_levels: list[JobSearchExperience] = Field(default_factory=_default_experience_levels)
+    experience_levels: list[JobSearchExperience] = Field(
+        default_factory=_default_experience_levels
+    )
     salary_min: int | None = Field(default=None, ge=0, le=1_000_000)
     requires_sponsorship: bool | None = None
     excluded_companies: list[str] = Field(default_factory=list, max_length=20)
@@ -101,9 +103,9 @@ class JobSearchProfileOut(BaseModel):
     result_count: Literal[5, 10, 15]
     frequency: JobSearchFrequency
     next_run_at: datetime
-    status: Literal["active", "paused", "completed"]
+    status: JobSearchStatus
     last_run_at: datetime | None = None
-    last_run_status: Literal["ok", "skipped_quota", "error"] | None = None
+    last_run_status: Literal["ok", "error", "skipped_quota"] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -111,7 +113,7 @@ class JobSearchProfileOut(BaseModel):
 class JobMatchOut(BaseModel):
     model_config = ConfigDict(title="JobMatchOut")
 
-    id: str
+    id: UUID
     title: str
     company: str
     location: str | None = None

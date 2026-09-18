@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -15,7 +16,6 @@ type Props = {
   unseenCount: number;
   onProjects: () => void;
   onReminders: () => void;
-  onAutomations: () => void;
   onGallery: () => void;
 };
 
@@ -26,13 +26,27 @@ export function DrawerNavLinks({
   unseenCount,
   onProjects,
   onReminders,
-  onAutomations,
   onGallery,
 }: Props) {
   const { t } = useTranslation();
+  const router = useRouter();
 
   return (
     <View style={s.drawerNav}>
+      <Pressable
+        style={s.todosLink}
+        onPress={() => {
+          tap();
+          router.push("/my-job");
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="My Job"
+      >
+        <Icon name="briefcase-outline" size={18} />
+        <Text style={s.todosLinkText}>My Job</Text>
+        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
+      </Pressable>
+
       <Pressable
         style={s.todosLink}
         onPress={() => {
@@ -67,20 +81,6 @@ export function DrawerNavLinks({
           ) : null}
         </View>
         <Text style={s.todosLinkText}>{t("drawer.reminders")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
-      </Pressable>
-
-      <Pressable
-        style={s.todosLink}
-        onPress={() => {
-          tap();
-          onAutomations();
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={t("drawer.automations")}
-      >
-        <Icon name="briefcase-outline" size={18} />
-        <Text style={s.todosLinkText}>{t("drawer.automations")}</Text>
         <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
 
