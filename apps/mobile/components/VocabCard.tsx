@@ -40,11 +40,11 @@ export function VocabCard({ card, language = "en", textScale = 1, onSpeak }: Pro
   const compactWord = word.length > COMPACT_WORD;
 
   const handleSpeak = () => {
+    tap();
     if (onSpeak) {
       onSpeak();
       return;
     }
-    tap();
     void speakWord(word, {
       language: language === "en" ? "en-US" : language,
       token,

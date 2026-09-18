@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -35,7 +36,10 @@ export function SheetFormHeader({
   return (
     <View style={s.header}>
       <Pressable
-        onPress={onCancel}
+        onPress={() => {
+          tap();
+          onCancel();
+        }}
         hitSlop={8}
         disabled={cancelBlocked}
         accessible
@@ -51,7 +55,10 @@ export function SheetFormHeader({
         {title}
       </Text>
       <Pressable
-        onPress={onSave}
+        onPress={() => {
+          tap();
+          onSave();
+        }}
         hitSlop={8}
         disabled={saveBlocked}
         accessible

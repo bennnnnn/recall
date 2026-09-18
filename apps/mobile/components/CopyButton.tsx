@@ -25,7 +25,7 @@ export function CopyButton({
   text,
   haptic = true,
   style,
-  hitSlop = 8,
+  hitSlop = 0,
   accessibilityLabel,
 }: Props) {
   const { t } = useTranslation();
@@ -75,8 +75,11 @@ export function CopyButton({
 function makeStyles() {
   return StyleSheet.create({
     btn: {
-      width: 32,
-      height: 32,
+      // 44×44 touch target; negative margins keep the visual footprint at the
+      // old 32×32 so card headers don't grow.
+      width: 44,
+      height: 44,
+      margin: -6,
       alignItems: "center",
       justifyContent: "center",
     },

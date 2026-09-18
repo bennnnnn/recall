@@ -31,6 +31,8 @@ export function SuggestionChips({ suggestions, onSelect, onDismiss }: Props) {
               style={s.chip}
               onPress={() => onSelect(item.text)}
               onLongPress={() => onDismiss(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={label}
               accessibilityHint={t("chat.home.dismiss_suggestion")}
             >
               <Icon name="bulb-outline" size={14} color={theme.primary} />
@@ -66,6 +68,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: 6,
       maxWidth: "100%",
+      minHeight: 44,
       backgroundColor: theme.surface,
       borderRadius: 999,
       paddingHorizontal: 12,

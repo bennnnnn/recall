@@ -149,11 +149,21 @@ function makeStyles(theme: Theme) {
     cta: {
       backgroundColor: theme.primary,
       borderRadius: Radius.full,
-      paddingHorizontal: 10,
+      paddingHorizontal: 12,
       paddingVertical: 6,
+      minHeight: 44,
+      justifyContent: "center",
       flexShrink: 0,
     },
     ctaText: { ...Type.caption, fontWeight: "700", color: theme.onPrimary },
-    close: { padding: 4, flexShrink: 0 },
+    close: {
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+      marginVertical: -8,
+      marginRight: -6,
+    },
   });
 }

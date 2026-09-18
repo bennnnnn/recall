@@ -24,7 +24,6 @@ export function MediaLoadRetry({ onRetry, compact = false }: Props) {
       accessibilityRole="button"
       accessibilityLabel={t("common.retry")}
       testID="media-load-retry"
-      hitSlop={compact ? 4 : 8}
       style={s.btn}
     >
       <Icon
@@ -43,6 +42,8 @@ function makeStyles(C: Theme) {
       alignItems: "center",
       justifyContent: "center",
       gap: Space.xxs,
+      minWidth: Space.minTouch,
+      minHeight: Space.minTouch,
       paddingHorizontal: Space.xs,
       paddingVertical: Space.xxs,
     },

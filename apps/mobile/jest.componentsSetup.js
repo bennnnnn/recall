@@ -94,3 +94,14 @@ jestGlobals.mock("react-native-gesture-handler", () => {
 jestGlobals.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
+
+// expo-haptics is a native module (expo-modules-core EventEmitter) that cannot
+// load in this env; lib/haptics is imported by shared chrome like
+// SheetFormHeader and SettingsSwitchRow.
+jestGlobals.mock("expo-haptics", () => ({
+  impactAsync: () => Promise.resolve(),
+  notificationAsync: () => Promise.resolve(),
+  selectionAsync: () => Promise.resolve(),
+  ImpactFeedbackStyle: { Light: "light", Medium: "medium", Heavy: "heavy" },
+  NotificationFeedbackType: { Success: "success", Warning: "warning", Error: "error" },
+}));

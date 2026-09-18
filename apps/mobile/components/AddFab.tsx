@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/Icon";
 import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 import { tap } from "@/lib/haptics";
+import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -47,15 +48,7 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",
-      ...Platform.select({
-        ios: {
-          shadowColor: theme.primary,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: theme.isDark ? 0.35 : 0.28,
-          shadowRadius: 8,
-        },
-        android: { elevation: 6 },
-      }),
+      ...shadowElevated(theme, "fab"),
     },
   });
 }

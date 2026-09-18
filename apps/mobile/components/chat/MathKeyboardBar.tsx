@@ -22,7 +22,7 @@ import { IconSize } from "@/lib/icons";
 
 const PAD_PADDING_V = 20;
 const PAD_GAP = 6;
-const KEY_HEIGHT_MIN = 42;
+const KEY_HEIGHT_MIN = 44;
 const KEY_HEIGHT_MAX = 72;
 
 function fillKeyHeight(padHeight: number, tabHeight: number, keyRows: number): number {
@@ -437,7 +437,7 @@ const makeStyles = (theme: Theme) =>
     },
     key: {
       flex: 1,
-      height: 42,
+      height: 44,
       borderRadius: 8,
       alignItems: "center",
       justifyContent: "center",

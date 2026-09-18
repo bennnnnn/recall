@@ -22,6 +22,7 @@ import { useJobSearch } from "@/hooks/useJobSearch";
 import type { JobMatch, JobMatchStatus, JobSearchProfile } from "@/lib/api";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { notifyWarning, selection, tap } from "@/lib/haptics";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -59,7 +60,10 @@ function TabButton({
   return (
     <Pressable
       style={({ pressed }) => [s.tab, active && s.tabActive, pressed && s.pressed]}
-      onPress={onPress}
+      onPress={() => {
+        selection();
+        onPress();
+      }}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
     >
@@ -125,7 +129,10 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
       {
         text: t("common.delete"),
         style: "destructive",
-        onPress: () => void remove(),
+        onPress: () => {
+          notifyWarning();
+          void remove();
+        },
       },
     ]);
   };
@@ -260,9 +267,10 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               <View style={s.searchActions}>
                 <Pressable
                   style={({ pressed }) => [s.secondaryButton, pressed && s.pressed]}
-                  onPress={() =>
-                    void setSearchStatus(profile.status === "paused" ? "active" : "paused")
-                  }
+                  onPress={() => {
+                    selection();
+                    void setSearchStatus(profile.status === "paused" ? "active" : "paused");
+                  }}
                   disabled={busy}
                 >
                   <Icon
@@ -277,7 +285,10 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 {user?.plan === "pro" ? (
                   <Pressable
                     style={({ pressed }) => [s.secondaryButton, pressed && s.pressed]}
-                    onPress={() => void runNow()}
+                    onPress={() => {
+                      tap();
+                      void runNow();
+                    }}
                     disabled={busy}
                   >
                     <Icon name="refresh" size={18} color={C.text} />
