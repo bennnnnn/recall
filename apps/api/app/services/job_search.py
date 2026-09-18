@@ -395,7 +395,11 @@ def _profile_out(
         location=str(config["location"]) if config.get("location") else None,
         work_modes=_work_modes(config),
         experience_levels=_experience_levels(config),
-        salary_min=(config.get("salary_min") if isinstance(config.get("salary_min"), int) else None),
+        salary_min=(
+            config.get("salary_min")
+            if isinstance(config.get("salary_min"), int)
+            else None
+        ),
         requires_sponsorship=(
             config.get("requires_sponsorship")
             if isinstance(config.get("requires_sponsorship"), bool)
@@ -534,7 +538,9 @@ async def upsert_profile(
         "requires_sponsorship": body.requires_sponsorship,
         "excluded_companies": body.excluded_companies,
         "background": body.background,
-        "resume_attachment_id": (str(body.resume_attachment_id) if body.resume_attachment_id else None),
+        "resume_attachment_id": (
+            str(body.resume_attachment_id) if body.resume_attachment_id else None
+        ),
         "resume_filename": resume_filename,
         "resume_text": resume_text,
         "result_count": body.result_count,
