@@ -4,8 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.services import job_search
-from app.services import job_search_run_now
+from app.services import job_search, job_search_run_now
 
 
 def _user(*, pro: bool = True) -> MagicMock:
