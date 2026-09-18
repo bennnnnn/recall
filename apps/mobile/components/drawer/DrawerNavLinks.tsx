@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -14,6 +13,7 @@ type Props = {
   theme: Theme;
   showIndicator: boolean;
   unseenCount: number;
+  onMyJob: () => void;
   onProjects: () => void;
   onReminders: () => void;
   onGallery: () => void;
@@ -24,12 +24,12 @@ export function DrawerNavLinks({
   theme,
   showIndicator,
   unseenCount,
+  onMyJob,
   onProjects,
   onReminders,
   onGallery,
 }: Props) {
   const { t } = useTranslation();
-  const router = useRouter();
 
   return (
     <View style={s.drawerNav}>
@@ -37,7 +37,7 @@ export function DrawerNavLinks({
         style={s.todosLink}
         onPress={() => {
           tap();
-          router.push("/my-job");
+          onMyJob();
         }}
         accessibilityRole="button"
         accessibilityLabel="My Job"
