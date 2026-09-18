@@ -106,9 +106,7 @@ async def run_job_search_now(
                 redis,
                 "automation_run",
                 {"automation_id": str(profile.id)},
-                dedupe_key=(
-                    f"automation_run:{profile.id}:{profile.next_run_at.isoformat()}"
-                ),
+                dedupe_key=(f"automation_run:{profile.id}:{profile.next_run_at.isoformat()}"),
             )
         except Exception:
             # ``run_now`` already made the row due. A transient Redis enqueue
