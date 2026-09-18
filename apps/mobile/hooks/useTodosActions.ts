@@ -154,7 +154,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     if (!token || !canAct() || owner.mutations.pendingIds.has(todo.id)) return;
     const current = latestTodo(todo.id);
     if (!current) return;
-    Alert.alert(t("todos.delete_confirm"), `"${current.content}"`, [
+    Alert.alert(t("todos.delete_confirm"), t("todos.delete_confirm_body", { title: current.content }), [
       { text: t("common.cancel"), style: "cancel" },
       { text: t("common.delete"), style: "destructive", onPress: async () => {
         await mutateRow(todo.id, () => null, async () => {

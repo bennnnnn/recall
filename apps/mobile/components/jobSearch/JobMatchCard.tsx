@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import type { JobMatch, JobMatchStatus } from "@/lib/api";
@@ -58,6 +59,7 @@ export function JobMatchCard({
   onStatus: (status: JobMatchStatus) => void;
 }) {
   const C = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
   const initial = match.company.trim().charAt(0).toUpperCase() || "J";
   const meta = [match.location, match.work_mode, match.salary, match.posted_at]
@@ -68,10 +70,7 @@ export function JobMatchCard({
     try {
       await Linking.openURL(match.url);
     } catch {
-      Alert.alert(
-        "Could not open this job",
-        "The listing may have moved or expired. Recall will remove stale links in future searches.",
-      );
+      Alert.alert(t("my_job.open_failed_title"), t("my_job.open_failed_body"));
     }
   };
 
@@ -89,7 +88,7 @@ export function JobMatchCard({
           style={({ pressed }) => [s.hideButton, pressed && s.pressed]}
           onPress={() => onStatus("hidden")}
           accessibilityRole="button"
-          accessibilityLabel="Not interested"
+          accessibilityLabel={t("my_job.not_interested")}
         >
           <Icon name="close" size={20} color={C.textTertiary} />
         </Pressable>
@@ -100,7 +99,7 @@ export function JobMatchCard({
 
       {match.match_reasons.length > 0 ? (
         <View style={s.reasonBlock}>
-          <Text style={s.reasonTitle}>Why it matches</Text>
+          <Text style={s.reasonTitle}>{t("my_job.why_matches")}</Text>
           {match.match_reasons.slice(0, 3).map((reason) => (
             <View key={reason} style={s.reasonRow}>
               <View style={s.reasonDot} />
@@ -119,16 +118,16 @@ export function JobMatchCard({
 
       <View style={s.divider} />
       <View style={s.actions}>
-        <Action icon="open-outline" label="View job" primary onPress={() => void openJob()} />
+        <Action icon="open-outline" label={t("my_job.view_job")} primary onPress={() => void openJob()} />
         <Action
           icon={match.status === "saved" ? "bookmark" : "bookmark-outline"}
-          label={match.status === "saved" ? "Saved" : "Save"}
+          label={match.status === "saved" ? t("my_job.saved") : t("my_job.save")}
           active={match.status === "saved"}
           onPress={() => onStatus(match.status === "saved" ? "new" : "saved")}
         />
         <Action
           icon="checkmark-circle-outline"
-          label={match.status === "applied" ? "Applied" : "I applied"}
+          label={match.status === "applied" ? t("my_job.applied") : t("my_job.i_applied")}
           active={match.status === "applied"}
           onPress={() => onStatus(match.status === "applied" ? "new" : "applied")}
         />

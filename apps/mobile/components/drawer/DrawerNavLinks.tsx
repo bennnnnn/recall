@@ -40,10 +40,10 @@ export function DrawerNavLinks({
           onMyJob();
         }}
         accessibilityRole="button"
-        accessibilityLabel="My Job"
+        accessibilityLabel={t("drawer.my_job")}
       >
         <Icon name="briefcase-outline" size={18} />
-        <Text style={s.todosLinkText}>My Job</Text>
+        <Text style={s.todosLinkText}>{t("drawer.my_job")}</Text>
         <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
 

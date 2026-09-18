@@ -9,6 +9,8 @@ import {
   View,
 } from "react-native";
 import { Redirect, useFocusEffect } from "expo-router";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { JobMatchCard } from "@/components/jobSearch/JobMatchCard";
@@ -25,14 +27,8 @@ import { Type } from "@/lib/type";
 
 type Tab = "matches" | "saved" | "applied";
 
-function cadence(profile: JobSearchProfile): string {
-  const frequency = {
-    daily: "daily",
-    weekdays: "every weekday",
-    weekly: "weekly",
-    monthly: "monthly",
-  }[profile.frequency];
-  return `Up to ${profile.result_count} jobs ${frequency}`;
+function cadence(profile: JobSearchProfile, t: TFunction): string {
+  return t(`my_job.cadence_${profile.frequency}`, { count: profile.result_count });
 }
 
 function nextDelivery(profile: JobSearchProfile): string {
@@ -84,6 +80,7 @@ export default function MyJobScreen() {
 
 function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const { token, user } = useAuth();
+  const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const {
@@ -123,18 +120,14 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   }, [dashboard.matches, tab]);
 
   const confirmDelete = () => {
-    Alert.alert(
-      "Delete My Job search?",
-      "This removes your search profile and match history. Saved and applied jobs will also be removed.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => void remove(),
-        },
-      ],
-    );
+    Alert.alert(t("my_job.delete_title"), t("my_job.delete_body"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("common.delete"),
+        style: "destructive",
+        onPress: () => void remove(),
+      },
+    ]);
   };
 
   if (!token) return <Redirect href="/login" />;
@@ -147,18 +140,15 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
           <View style={s.heroIcon}>
             <Icon name="briefcase-outline" size={34} color={C.primary} />
           </View>
-          <Text style={s.heroTitle}>Jobs that fit you, delivered</Text>
-          <Text style={s.heroBody}>
-            Share what you are looking for once. Recall will search for fresh openings, remove
-            weak matches, and explain why each job is worth your time.
-          </Text>
+          <Text style={s.heroTitle}>{t("my_job.hero_title")}</Text>
+          <Text style={s.heroBody}>{t("my_job.hero_body")}</Text>
 
           <View style={s.benefits}>
-            {[
-              ["search-outline", "Fresh, verified openings", "Direct job links instead of duplicate listings."],
-              ["sparkles-outline", "Matched to your background", "Roles are ranked against your skills, level, and location."],
-              ["notifications-outline", "Delivered on your schedule", "Choose 5, 10, or 15 matches daily, weekly, or monthly."],
-            ].map(([icon, title, body]) => (
+            {([
+              ["search-outline", t("my_job.benefit_fresh_title"), t("my_job.benefit_fresh_body")],
+              ["sparkles-outline", t("my_job.benefit_matched_title"), t("my_job.benefit_matched_body")],
+              ["notifications-outline", t("my_job.benefit_delivered_title"), t("my_job.benefit_delivered_body")],
+            ] as const).map(([icon, title, body]) => (
               <View key={title} style={s.benefitRow}>
                 <View style={s.benefitIcon}>
                   <Icon name={icon as "search-outline"} size={21} color={C.primary} />
@@ -175,13 +165,11 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
             onPress={() => setSetupOpen(true)}
           >
-            <Text style={s.primaryButtonText}>Set up my job search</Text>
+            <Text style={s.primaryButtonText}>{t("my_job.setup_cta")}</Text>
             <Icon name="arrow-forward" size={20} color={C.onPrimary} />
           </Pressable>
           <Text style={s.planNote}>
-            {user?.plan === "pro"
-              ? "Pro includes up to 15 matches per delivery."
-              : "Free includes up to 5 matches every week."}
+            {user?.plan === "pro" ? t("my_job.plan_note_pro") : t("my_job.plan_note_free")}
           </Text>
         </View>
 
@@ -197,15 +185,19 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   }
 
   const emptyTitle =
-    tab === "matches" ? "No new matches yet" : tab === "saved" ? "No saved jobs" : "No applications yet";
+    tab === "matches"
+      ? t("my_job.empty_matches")
+      : tab === "saved"
+        ? t("my_job.empty_saved")
+        : t("my_job.empty_applied");
   const emptyBody =
     tab === "matches"
       ? profile.last_run_at
-        ? "The latest search did not find a strong new match. Recall will try again on your schedule."
-        : `Your first search is scheduled for ${nextDelivery(profile)}.`
+        ? t("my_job.empty_matches_body_ran")
+        : t("my_job.empty_matches_body_scheduled", { date: nextDelivery(profile) })
       : tab === "saved"
-        ? "Save promising jobs so you can return to them here."
-        : "Mark a job as applied to keep your search organized.";
+        ? t("my_job.empty_saved_body")
+        : t("my_job.empty_applied_body");
 
   return (
     <View style={s.root}>
@@ -230,7 +222,9 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             <View style={s.searchCard}>
               <View style={s.searchTopRow}>
                 <View style={s.searchCopy}>
-                  <Text style={s.overline}>{profile.status === "paused" ? "PAUSED" : "YOUR SEARCH"}</Text>
+                  <Text style={s.overline}>
+                    {profile.status === "paused" ? t("my_job.status_paused") : t("my_job.status_your_search")}
+                  </Text>
                   <Text style={s.searchTitle} numberOfLines={2}>
                     {profile.target_roles.join(" · ")}
                   </Text>
@@ -239,7 +233,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                   style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
                   onPress={() => setSetupOpen(true)}
                   accessibilityRole="button"
-                  accessibilityLabel="Edit job search"
+                  accessibilityLabel={t("my_job.edit_a11y")}
                 >
                   <Icon name="options-outline" size={21} color={C.text} />
                 </Pressable>
@@ -256,8 +250,10 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                   <Icon name="notifications-outline" size={19} color={C.primary} />
                 </View>
                 <View style={s.deliveryCopy}>
-                  <Text style={s.deliveryTitle}>{cadence(profile)}</Text>
-                  <Text style={s.deliveryMeta}>Next: {nextDelivery(profile)}</Text>
+                  <Text style={s.deliveryTitle}>{cadence(profile, t)}</Text>
+                  <Text style={s.deliveryMeta}>
+                    {t("my_job.next_delivery", { date: nextDelivery(profile) })}
+                  </Text>
                 </View>
               </View>
 
@@ -275,7 +271,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                     color={C.text}
                   />
                   <Text style={s.secondaryButtonText}>
-                    {profile.status === "paused" ? "Resume" : "Pause"}
+                    {profile.status === "paused" ? t("my_job.resume") : t("my_job.pause")}
                   </Text>
                 </Pressable>
                 {user?.plan === "pro" ? (
@@ -285,7 +281,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                     disabled={busy}
                   >
                     <Icon name="refresh" size={18} color={C.text} />
-                    <Text style={s.secondaryButtonText}>Find jobs now</Text>
+                    <Text style={s.secondaryButtonText}>{t("my_job.find_now")}</Text>
                   </Pressable>
                 ) : null}
                 <Pressable
@@ -293,7 +289,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                   onPress={confirmDelete}
                   disabled={busy}
                   accessibilityRole="button"
-                  accessibilityLabel="Delete job search"
+                  accessibilityLabel={t("my_job.delete_a11y")}
                 >
                   <Icon name="trash-outline" size={19} color={C.danger} />
                 </Pressable>
@@ -301,15 +297,15 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             </View>
 
             <View style={s.tabs} accessibilityRole="tablist">
-              <TabButton label="Matches" count={counts.matches} active={tab === "matches"} onPress={() => setTab("matches")} />
-              <TabButton label="Saved" count={counts.saved} active={tab === "saved"} onPress={() => setTab("saved")} />
-              <TabButton label="Applied" count={counts.applied} active={tab === "applied"} onPress={() => setTab("applied")} />
+              <TabButton label={t("my_job.tab_matches")} count={counts.matches} active={tab === "matches"} onPress={() => setTab("matches")} />
+              <TabButton label={t("my_job.tab_saved")} count={counts.saved} active={tab === "saved"} onPress={() => setTab("saved")} />
+              <TabButton label={t("my_job.tab_applied")} count={counts.applied} active={tab === "applied"} onPress={() => setTab("applied")} />
             </View>
 
             {error ? (
               <Pressable style={s.errorCard} onPress={() => void refresh()}>
                 <Icon name="alert-circle-outline" size={20} color={C.danger} />
-                <Text style={s.errorText}>Could not refresh My Job. Tap to retry.</Text>
+                <Text style={s.errorText}>{t("my_job.refresh_error")}</Text>
               </Pressable>
             ) : null}
 
