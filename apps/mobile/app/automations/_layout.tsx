@@ -1,6 +1,5 @@
 import { Stack } from "expo-router";
 import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
 
 import { StackBackButton } from "@/components/StackBackButton";
 import { stackHeaderOptions } from "@/lib/stackHeader";
@@ -8,8 +7,7 @@ import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackPushTransition } from "@/lib/stackTransitions";
 import { useTheme } from "@/lib/theme";
 
-export default function AutomationsLayout() {
-  const { t } = useTranslation();
+export default function MyJobLayout() {
   const theme = useTheme();
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
   const reduceMotion = useReduceMotion();
@@ -25,11 +23,8 @@ export default function AutomationsLayout() {
         headerLeft: () => <StackBackButton fallback="/" />,
       }}
     >
-      <Stack.Screen name="index" options={{ title: t("automations.title") }} />
-      <Stack.Screen
-        name="[id]"
-        options={{ headerLeft: () => <StackBackButton fallback="/automations" /> }}
-      />
+      <Stack.Screen name="index" options={{ title: "My Job" }} />
+      <Stack.Screen name="[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }
