@@ -20,7 +20,7 @@ export function StackBackButton({ fallback = "/", icon = "chevron-back", style }
     <IconButton
       name={icon}
       size={IconSize.lg}
-      accessibilityLabel={t("common.back")}
+      accessibilityLabel={t(icon === "close" ? "common.close" : "common.back")}
       onPress={() => {
         if (router.canGoBack()) router.back();
         else router.replace(fallback);
