@@ -50,11 +50,12 @@ class JobSearchUpsert(BaseModel):
     @field_validator("target_roles", "skills", "excluded_companies")
     @classmethod
     def normalize_lists(cls, value: list[str], info: ValidationInfo) -> list[str]:
-        limit = {"target_roles": 6, "skills": 30, "excluded_companies": 20}[
-            info.field_name
-        ]
+        field_name = info.field_name
+        if field_name is None:
+            raise ValueError("field name is required")
+        limit = {"target_roles": 6, "skills": 30, "excluded_companies": 20}[field_name]
         cleaned = _clean_list(value, limit=limit)
-        if info.field_name == "target_roles" and not cleaned:
+        if field_name == "target_roles" and not cleaned:
             raise ValueError("at least one target role is required")
         return cleaned
 
