@@ -20,6 +20,10 @@ def test_worker_health_ready_when_worker_alive_and_redis_up():
     client = TestClient(create_worker_health_app())
     with (
         patch.object(jobs, "is_worker_alive", return_value=True),
+        patch(
+            "app.worker_health.periodic.started_periodic_unhealthy",
+            return_value=[],
+        ),
         patch("app.worker_health.get_redis_client") as redis_client,
     ):
         redis_client.return_value.ping = AsyncMock()
@@ -40,6 +44,10 @@ def test_worker_health_not_ready_when_redis_unreachable():
     client = TestClient(create_worker_health_app())
     with (
         patch.object(jobs, "is_worker_alive", return_value=True),
+        patch(
+            "app.worker_health.periodic.started_periodic_unhealthy",
+            return_value=[],
+        ),
         patch("app.worker_health.get_redis_client") as redis_client,
     ):
         redis_client.return_value.ping = AsyncMock(side_effect=RuntimeError("redis down"))
