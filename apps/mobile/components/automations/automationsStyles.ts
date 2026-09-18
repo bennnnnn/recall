@@ -9,18 +9,47 @@ export function makeAutomationsStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
     content: { padding: Space.md, paddingBottom: 96 },
-    listGap: { height: Space.sm },
+    listGap: { height: Space.md },
 
     card: {
-      backgroundColor: C.surface,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: C.border,
-      padding: Space.md,
+      backgroundColor: C.surfaceAlt,
+      borderRadius: Radius.sheet,
+      paddingHorizontal: Space.lg,
+      paddingTop: Space.lg,
+      paddingBottom: Space.md,
       gap: Space.xs,
     },
-    cardPaused: { opacity: 0.6 },
-    cardPrompt: { ...Type.body, color: C.text },
+    cardPressed: { opacity: 0.82 },
+    cardPaused: { opacity: 0.62 },
+    cardEyebrow: {
+      ...Type.overline,
+      color: C.primary,
+      marginBottom: Space.xs,
+    },
+    cardTitle: {
+      ...Type.title,
+      fontWeight: "700",
+      color: C.text,
+    },
+    cardDescription: {
+      ...Type.body,
+      color: C.textSecondary,
+      marginTop: Space.xxs,
+    },
+    cardDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: C.border,
+      marginTop: Space.md,
+    },
+    cardFooter: {
+      ...Type.secondary,
+      color: C.textTertiary,
+      marginTop: Space.sm,
+    },
+
+    // Legacy status/meta roles are still used by older snapshots/tests and by
+    // the paused detail treatment. Keep them neutral while the card itself
+    // uses the simpler Tasks-style hierarchy above.
     cardMetaRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -28,6 +57,7 @@ export function makeAutomationsStyles(C: Theme) {
       flexWrap: "wrap",
     },
     cardMetaText: { ...Type.caption, color: C.textSecondary },
+    cardPrompt: { ...Type.body, color: C.text },
     cardStatusPill: {
       paddingHorizontal: Space.xs,
       paddingVertical: 2,
@@ -99,27 +129,83 @@ export function makeAutomationsStyles(C: Theme) {
     },
     sheetBody: { padding: Space.md, paddingBottom: Space.xl, gap: Space.xs },
 
-    detailHeader: {
-      padding: Space.md,
-      gap: Space.xs,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: C.border,
+    detailContent: {
+      paddingHorizontal: Space.md,
+      paddingTop: Space.md,
+      gap: Space.md,
     },
-    detailPrompt: { ...Type.navTitle, fontWeight: "700", color: C.text },
-    detailMetaRow: {
+    detailTaskCard: {
+      backgroundColor: C.surfaceAlt,
+      borderRadius: Radius.sheet,
+      overflow: "hidden",
+    },
+    detailTaskSection: {
+      paddingHorizontal: Space.lg,
+      paddingVertical: Space.lg,
+    },
+    detailTaskTitle: {
+      ...Type.title,
+      fontWeight: "500",
+      color: C.text,
+    },
+    detailPrompt: {
+      ...Type.body,
+      color: C.text,
+    },
+    detailDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: C.border,
+      marginLeft: Space.lg,
+    },
+    detailSettingsGroup: {
+      backgroundColor: C.surfaceAlt,
+      borderRadius: Radius.sheet,
+      overflow: "hidden",
+    },
+    detailSettingRow: {
+      minHeight: 70,
+      paddingHorizontal: Space.lg,
       flexDirection: "row",
       alignItems: "center",
-      gap: Space.xs,
-      flexWrap: "wrap",
+      justifyContent: "space-between",
+      gap: Space.md,
     },
-    detailMetaText: { ...Type.secondary, color: C.textSecondary },
-    detailStatusPill: { alignSelf: "flex-start" },
-    detailHeaderActions: { flexDirection: "row", alignItems: "center", gap: 2 },
+    detailSettingLabel: {
+      ...Type.body,
+      color: C.text,
+      flexShrink: 0,
+    },
+    detailSettingRight: {
+      flex: 1,
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      alignItems: "center",
+      gap: Space.xs,
+    },
+    detailSettingValue: {
+      ...Type.navTitle,
+      fontWeight: "400",
+      color: C.textSecondary,
+      textAlign: "right",
+      flexShrink: 1,
+    },
+    detailHeaderActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 2,
+      paddingHorizontal: Space.xxs,
+      borderRadius: Radius.full,
+      backgroundColor: C.surfaceAlt,
+    },
 
-    // Read-only run-history transcript — reuses MessageBubble so a run's
-    // reply (search sources, tables, etc.) renders exactly like a normal
-    // chat message. Frequency/Time/prompt editing lives behind kebab → Edit.
-    transcriptList: { flex: 1 },
-    transcriptContent: { padding: Space.md, paddingBottom: Space.xl, flexGrow: 1 },
+    // Kept for the latest run history below the task controls. The task editor
+    // is the primary surface; history only appears once the automation has run.
+    transcriptList: { flex: 1, marginTop: Space.sm },
+    transcriptContent: {
+      paddingHorizontal: Space.md,
+      paddingTop: 0,
+      paddingBottom: Space.xl,
+      flexGrow: 1,
+    },
   });
 }
