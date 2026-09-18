@@ -41,9 +41,7 @@ async def prepare_manual_run(
         )
 
     now = datetime.now(UTC)
-    if automation.last_run_at is not None and now - automation.last_run_at < timedelta(
-        minutes=10
-    ):
+    if automation.last_run_at is not None and now - automation.last_run_at < timedelta(minutes=10):
         raise job_search_service.JobSearchError(
             "A job search ran recently. Try again in a few minutes.",
             status_code=429,
