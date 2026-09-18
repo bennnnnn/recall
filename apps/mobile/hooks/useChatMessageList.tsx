@@ -87,6 +87,10 @@ export function useChatMessageList({
     Boolean(onSelectSuggestion) &&
     Boolean(onDismissSuggestion);
 
+  // `regenerating` is deliberately NOT here: it flips true→false once per
+  // regenerate and would change this object's identity, re-rendering every
+  // row. Only the last-assistant row consumes it, so it is passed per-row in
+  // renderItem instead.
   const sharedRowProps = useMemo(
     () => ({
       lastAssistantId,
@@ -94,7 +98,6 @@ export function useChatMessageList({
       highlightedMessageId,
       sendingMessageId,
       onRegenerate: regenerateResponse,
-      regenerating,
       onFeedback: handleFeedback,
       lessonProjectId,
       onOpenLesson,
@@ -106,7 +109,6 @@ export function useChatMessageList({
       highlightedMessageId,
       sendingMessageId,
       regenerateResponse,
-      regenerating,
       handleFeedback,
       lessonProjectId,
       onOpenLesson,
@@ -148,36 +150,39 @@ export function useChatMessageList({
           item={item}
           priorUserText={priorUserText}
           streamVisualActive={streamVisualActive}
+          regenerating={item.id === lastAssistantId ? regenerating : false}
           {...sharedRowProps}
         />
       );
 
-      if (
+      // Every row keeps the same root <View> so the suggestion chips appearing
+      // after stream end (or lastAssistantId moving to a new reply) never
+      // changes the root element type — that would remount the whole bubble.
+      const withChips =
         showSuggestions &&
         item.role === "assistant" &&
         item.id === lastAssistantId &&
         onSelectSuggestion &&
-        onDismissSuggestion
-      ) {
-        return (
-          <View>
-            {row}
+        onDismissSuggestion;
+      return (
+        <View>
+          {row}
+          {withChips ? (
             <SuggestionChips
               suggestions={suggestions}
               onSelect={onSelectSuggestion}
               onDismiss={onDismissSuggestion}
             />
-          </View>
-        );
-      }
-
-      return row;
+          ) : null}
+        </View>
+      );
     },
     [
       sharedRowProps,
       streaming,
       finalizing,
       lastAssistantId,
+      regenerating,
       showSuggestions,
       suggestions,
       onSelectSuggestion,

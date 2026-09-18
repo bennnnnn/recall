@@ -206,11 +206,22 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
         ? classifyOpenFencePreview(openRegion.lang, openRegion.body)
         : null;
 
+    // Key chunks by content offset + length, not index: chunks are append-only
+    // so offsets are stable while one reply streams, and a reset (new stream /
+    // regenerate) reusing the same position gets a fresh key instead of
+    // recycling a component whose memoized parse belongs to the old reply.
+    const chunkOffsets: number[] = [];
+    let chunkOffset = 0;
+    for (const chunk of blocks.chunks) {
+      chunkOffsets.push(chunkOffset);
+      chunkOffset += chunk.length;
+    }
+
     return (
       <HtmlPreviewFilesProvider files={previewFiles}>
         {blocks.chunks.map((chunk, index) => (
           <MarkdownStreamChunk
-            key={`chunk-${index}`}
+            key={`chunk-${chunkOffsets[index]}-${chunk.length}`}
             content={chunk}
             rules={rules}
             mdStyles={mdStyles}

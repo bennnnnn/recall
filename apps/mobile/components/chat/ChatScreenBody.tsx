@@ -167,9 +167,26 @@ export function ChatScreenBody({
   hideHomeStarters = false,
 }: ChatScreenBodyProps) {
   const { t } = useTranslation();
+  // messagesLookLikeMath only reads the last 8 messages — fingerprint exactly
+  // those so a prepend of older pages (or any unrelated list change) doesn't
+  // re-run the regex scan, and never map the full history to get there.
+  const recentMathFingerprint = useMemo(() => {
+    const start = Math.max(0, messages.length - 8);
+    let fingerprint = "";
+    for (let i = start; i < messages.length; i += 1) {
+      const message = messages[i];
+      fingerprint += `${message.id}:${message.content.length};`;
+    }
+    return fingerprint;
+  }, [messages]);
   const mathContext = useMemo(
-    () => messagesLookLikeMath(messages.map((m) => m.content)),
-    [messages],
+    () =>
+      messagesLookLikeMath(
+        messages.slice(Math.max(0, messages.length - 8)).map((m) => m.content),
+      ),
+    // recentMathFingerprint captures exactly the inputs this reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [recentMathFingerprint],
   );
   const handleComposerSend = useCallback(
     (text?: string) => {

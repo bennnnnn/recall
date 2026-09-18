@@ -85,6 +85,9 @@ export function messageListItemType(item: {
 }): string {
   if (item.role !== "assistant") return item.role;
   const content = item.content ?? "";
+  // Cheap gate: proposal cards always carry a fenced block, and most messages
+  // have none — skip the full-content regex scans for them.
+  if (!content.includes("```")) return "assistant";
   if (CALENDAR_PROPOSAL_FENCE_RE.test(content)) return "assistant-calendar";
   if (hasSettingsProposalFence(content)) return "assistant-settings";
   return "assistant";
