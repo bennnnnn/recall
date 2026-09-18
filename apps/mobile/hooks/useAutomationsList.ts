@@ -49,7 +49,6 @@ export function useAutomationsList(isCurrent: () => boolean) {
     async (
       id: string,
       patch: Partial<{
-        title: string | null;
         prompt: string;
         frequency: AutomationFrequency;
         next_run_at: string;

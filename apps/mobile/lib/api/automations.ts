@@ -7,17 +7,11 @@ export const automationsApi = {
     request<Automation>(`/automations/${id}`, token),
   createAutomation: (
     token: string,
-    params: {
-      title?: string | null;
-      prompt: string;
-      frequency: AutomationFrequency;
-      nextRunAt: string;
-    },
+    params: { prompt: string; frequency: AutomationFrequency; nextRunAt: string },
   ) =>
     request<Automation>("/automations", token, {
       method: "POST",
       body: JSON.stringify({
-        title: params.title ?? null,
         prompt: params.prompt,
         frequency: params.frequency,
         next_run_at: params.nextRunAt,
@@ -27,7 +21,6 @@ export const automationsApi = {
     token: string,
     id: string,
     patch: Partial<{
-      title: string | null;
       prompt: string;
       frequency: AutomationFrequency;
       next_run_at: string;

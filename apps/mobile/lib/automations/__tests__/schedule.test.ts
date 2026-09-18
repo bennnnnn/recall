@@ -18,7 +18,6 @@ const t = ((key: string, opts?: Record<string, unknown>) =>
 const baseAutomation: Automation = {
   id: "auto-1",
   chat_id: "chat-1",
-  title: "Backend Job Watch",
   prompt: "Find L3 backend jobs posted today",
   frequency: "daily",
   next_run_at: new Date(Date.now() + 86_400_000).toISOString(),
@@ -85,7 +84,7 @@ describe("shareAutomation", () => {
     const [payload] = jest.mocked(Share.share).mock.calls[0];
     expect(payload.message).toContain(baseAutomation.prompt);
     expect(payload.message).toContain("automations.frequency_daily");
-    expect(payload.title).toBe(baseAutomation.title);
+    expect(payload.title).toBe(baseAutomation.prompt);
   });
 
   it("does not throw when the user dismisses the share sheet", async () => {

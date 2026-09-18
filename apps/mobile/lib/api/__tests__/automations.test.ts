@@ -29,7 +29,6 @@ it("creates an automation with snake_case body fields", async () => {
   expect(token).toBe("token");
   expect(init).toMatchObject({ method: "POST" });
   expect(JSON.parse(init!.body as string)).toEqual({
-    title: null,
     prompt: "Find L3 backend jobs",
     frequency: "daily",
     next_run_at: "2026-09-18T15:00:00.000Z",

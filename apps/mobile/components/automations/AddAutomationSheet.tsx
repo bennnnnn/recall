@@ -18,7 +18,6 @@ import { describeDueAt, toDueAtIso } from "@/lib/todos/dueDate";
 import { useTheme } from "@/lib/theme";
 
 type Initial = {
-  title: string | null;
   prompt: string;
   frequency: AutomationFrequency;
   nextRunAt: Date;
@@ -36,13 +35,12 @@ export function AddAutomationSheet({
   /** null = create; a value = edit that automation's fields. */
   initial: Initial;
   onClose: () => void;
-  onSave: (title: string | null, prompt: string, frequency: AutomationFrequency, nextRunAt: Date) => void;
+  onSave: (prompt: string, frequency: AutomationFrequency, nextRunAt: Date) => void;
 }) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeAutomationsStyles(C), [C]);
   const isEdit = initial != null;
-  const [title, setTitle] = useState(initial?.title ?? "");
   const [text, setText] = useState(initial?.prompt ?? "");
   const [nextRunAt, setNextRunAt] = useState(() => initial?.nextRunAt ?? defaultDueDate());
   const [frequency, setFrequency] = useState<AutomationFrequency>(initial?.frequency ?? "daily");
@@ -51,7 +49,6 @@ export function AddAutomationSheet({
 
   useEffect(() => {
     if (!visible) return;
-    setTitle(initial?.title ?? "");
     setText(initial?.prompt ?? "");
     setNextRunAt(initial?.nextRunAt ?? defaultDueDate());
     setFrequency(initial?.frequency ?? "daily");
@@ -59,7 +56,7 @@ export function AddAutomationSheet({
     setFrequencyPickerOpen(false);
     // Only reset when the sheet opens (or the automation being edited changes).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, initial?.title, initial?.prompt, initial?.frequency, initial?.nextRunAt?.getTime()]);
+  }, [visible, initial?.prompt, initial?.frequency, initial?.nextRunAt?.getTime()]);
 
   const canSave = text.trim().length > 0 && !saving;
 
@@ -80,7 +77,7 @@ export function AddAutomationSheet({
 
   const handleSave = () => {
     if (!canSave) return;
-    onSave(title.trim() || null, text, frequency, nextRunAt);
+    onSave(text, frequency, nextRunAt);
   };
 
   const frequencyLabel = t(automationFrequencyMessageKey(frequency));
@@ -105,25 +102,14 @@ export function AddAutomationSheet({
       />
 
       <View style={s.sheetBody}>
-        <Text style={s.formLabel}>{t("automations.title_label")}</Text>
-        <TextInput
-          style={s.titleInput}
-          placeholder={t("automations.title_placeholder")}
-          placeholderTextColor={C.textDisabled}
-          value={title}
-          onChangeText={setTitle}
-          autoFocus={!isEdit}
-          maxLength={200}
-          editable={!saving}
-        />
-
-        <Text style={[s.formLabel, s.fieldGap]}>{t("automations.prompt_label")}</Text>
+        <Text style={s.formLabel}>{t("automations.prompt_label")}</Text>
         <TextInput
           style={s.promptInput}
           placeholder={t("automations.prompt_placeholder")}
           placeholderTextColor={C.textDisabled}
           value={text}
           onChangeText={setText}
+          autoFocus={!isEdit}
           multiline
           maxLength={2000}
           editable={!saving}

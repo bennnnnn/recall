@@ -56,7 +56,6 @@ async def create_automation(
             session,
             user,
             settings,
-            title=body.title,
             prompt=body.prompt,
             frequency=body.frequency,
             next_run_at=body.next_run_at,

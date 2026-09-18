@@ -22,21 +22,9 @@ export function AutomationCard({
   const C = useTheme();
   const s = useMemo(() => makeAutomationsStyles(C), [C]);
   const paused = automation.status === "paused";
-  const completed = automation.status === "completed";
   const frequencyLabel = t(automationFrequencyMessageKey(automation.frequency));
   const lastRunLabel = describeLastRun(automation, t);
   const lastRunToneStyle = automation.last_run_status === "error" ? s.cardLastRunError : s.cardLastRunOk;
-
-  const statusLabel = paused
-    ? t("automations.status_paused")
-    : completed
-      ? t("automations.status_completed")
-      : t("automations.status_active");
-  const statusStyle = paused
-    ? s.cardStatusLabelPaused
-    : completed
-      ? s.cardStatusLabelCompleted
-      : s.cardStatusLabelActive;
 
   return (
     <Pressable
@@ -50,26 +38,26 @@ export function AutomationCard({
         onLongPress(automation);
       }}
       accessibilityRole="button"
-      accessibilityLabel={automation.title || automation.prompt}
+      accessibilityLabel={automation.prompt}
     >
-      <Text style={[s.cardStatusLabel, statusStyle]}>{statusLabel.toUpperCase()}</Text>
-      {automation.title ? (
-        <>
-          <Text style={s.cardTitle} numberOfLines={1}>
-            {automation.title}
+      <Text style={s.cardPrompt} numberOfLines={2}>
+        {automation.prompt}
+      </Text>
+      <View style={s.cardMetaRow}>
+        {paused ? (
+          <View style={[s.cardStatusPill, s.cardStatusPillPaused]}>
+            <Text style={[s.cardStatusPillText, s.cardStatusPillTextPaused]}>
+              {t("automations.status_paused")}
+            </Text>
+          </View>
+        ) : (
+          <Text style={s.cardMetaText}>
+            {frequencyLabel} · {formatScheduleAt(automation.next_run_at)}
           </Text>
-          <Text style={s.cardPrompt} numberOfLines={2}>
-            {automation.prompt}
-          </Text>
-        </>
-      ) : (
-        <Text style={s.cardPrompt} numberOfLines={3}>
-          {automation.prompt}
-        </Text>
-      )}
-      <Text style={s.cardMetaText}>
-        {frequencyLabel}
-        {!paused && !completed ? ` · ${formatScheduleAt(automation.next_run_at)}` : ""}
+        )}
+      </View>
+      <Text style={[s.cardMetaText, lastRunToneStyle]} numberOfLines={1}>
+        {lastRunLabel}
       </Text>
     </Pressable>
   );

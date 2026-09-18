@@ -7,7 +7,6 @@ import { AUTOMATION_FREQUENCIES, type AutomationFrequency } from "@/lib/api/type
  */
 export type ParsedAutomationCreated = {
   id: string;
-  title: string | null;
   prompt: string;
   frequency: AutomationFrequency;
   nextRunAt: string;
@@ -26,15 +25,13 @@ export function parseAutomationCreated(content: string): ParsedAutomationCreated
   try {
     const raw = JSON.parse(match[1].trim()) as Record<string, unknown>;
     const id = String(raw.id ?? "").trim();
-    const rawTitle = raw.title != null ? String(raw.title).trim() : null;
-    const title = rawTitle || null;
     const prompt = String(raw.prompt ?? "").trim();
     const frequency = String(raw.frequency ?? "").trim();
     const nextRunAt = String(raw.next_run_at ?? "").trim();
     if (!id || !prompt || !frequency || !nextRunAt || !isAutomationFrequency(frequency)) {
       return null;
     }
-    return { id, title, prompt, frequency, nextRunAt };
+    return { id, prompt, frequency, nextRunAt };
   } catch {
     return null;
   }

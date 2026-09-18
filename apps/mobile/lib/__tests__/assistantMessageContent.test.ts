@@ -260,7 +260,6 @@ describe("deriveAssistantMessageContent", () => {
 
     expect(result.automationCreated).toEqual({
       id: automationId,
-      title: null,
       prompt: "Find L3 backend jobs",
       frequency: "daily",
       nextRunAt: "2026-09-19T08:00:00-04:00",

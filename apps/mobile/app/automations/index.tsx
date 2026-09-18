@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, RefreshControl, Text, View } from "react-native";
+import { Alert, RefreshControl, StyleSheet, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -7,8 +7,6 @@ import { useTranslation } from "react-i18next";
 import { AddAutomationSheet } from "@/components/automations/AddAutomationSheet";
 import { AutomationActionsSheet } from "@/components/automations/AutomationActionsSheet";
 import { AutomationCard } from "@/components/automations/AutomationCard";
-import { Icon } from "@/components/Icon";
-import { makeAutomationsStyles } from "@/components/automations/automationsStyles";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
@@ -16,22 +14,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAutomationsList } from "@/hooks/useAutomationsList";
 import type { Automation } from "@/lib/api";
 import { shareAutomation } from "@/lib/automations/schedule";
-import { tap } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
+import { Theme, useTheme } from "@/lib/theme";
 
 export default function AutomationsScreen() {
   const owner = useAccountViewOwner();
   return <AutomationsContent key={owner.key} isCurrent={owner.isCurrent} />;
 }
 
+// Creation is chat-only (the model emits a ```automation fence — see
+// services/automations/fences.py); there is no "+" here. This screen is
+// list + long-press actions (edit/share/pause/delete) only.
 function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
   const { token } = useAuth();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
   const C = useTheme();
-  const s = useMemo(() => makeAutomationsStyles(C), [C]);
+  const s = useMemo(() => makeStyles(C), [C]);
   const router = useRouter();
   const { automations, loading, error, refresh, update, remove } = useAutomationsList(isCurrent);
   const [pullRefreshing, setPullRefreshing] = useState(false);
@@ -71,11 +72,6 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
     [t, remove],
   );
 
-  const navigateToCreateTask = useCallback(() => {
-    tap();
-    router.push({ pathname: "/", params: { prefill: t("automations.create_prefill") } });
-  }, [router, t]);
-
   if (!token) return <Redirect href="/login" />;
 
   return (
@@ -107,6 +103,7 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
                   variant="empty"
                   icon="flash-outline"
                   title={t("automations.empty_title")}
+                  message={t("automations.empty_message")}
                 />
               ) : null}
               {error ? (
@@ -127,12 +124,6 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
         />
       )}
 
-      {/* Bottom "Create a task" bar */}
-      <Pressable style={s.createBar} onPress={navigateToCreateTask} accessibilityRole="button">
-        <Text style={s.createBarText}>{t("automations.create_bar")}</Text>
-        <Icon name="mic-outline" size={20} color={C.textTertiary} style={s.createBarIcon} />
-      </Pressable>
-
       <AutomationActionsSheet
         visible={!!actionsTarget}
         status={actionsTarget?.status ?? "active"}
@@ -145,6 +136,8 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
           if (target) setEditTarget(target);
         }}
         onShare={() => {
+          // Keep the sheet mounted until Share.share resolves — closing it
+          // first can make iOS drop the OS activity controller.
           if (sharing.current || !actionsTarget) return;
           sharing.current = true;
           void shareAutomation(actionsTarget, t)
@@ -172,7 +165,6 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
         initial={
           editTarget
             ? {
-                title: editTarget.title,
                 prompt: editTarget.prompt,
                 frequency: editTarget.frequency,
                 nextRunAt: new Date(editTarget.next_run_at),
@@ -182,14 +174,22 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
         onClose={() => {
           if (isCurrent()) setEditTarget(null);
         }}
-        onSave={(title, prompt, frequency, nextRunAt) => {
+        onSave={(prompt, frequency, nextRunAt) => {
           const target = editTarget;
           setEditTarget(null);
           if (target) {
-            void update(target.id, { title, prompt, frequency, next_run_at: nextRunAt.toISOString() });
+            void update(target.id, { prompt, frequency, next_run_at: nextRunAt.toISOString() });
           }
         }}
       />
     </View>
   );
+}
+
+function makeStyles(C: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+    content: { padding: Space.md, paddingBottom: 96 },
+    listGap: { height: Space.sm },
+  });
 }

@@ -20,17 +20,7 @@ export function makeAutomationsStyles(C: Theme) {
       gap: Space.xs,
     },
     cardPaused: { opacity: 0.6 },
-    cardStatusLabel: {
-      ...Type.caption,
-      fontSize: 11,
-      fontWeight: "700",
-      letterSpacing: 0.5,
-    },
-    cardStatusLabelActive: { color: C.primary },
-    cardStatusLabelPaused: { color: C.textTertiary },
-    cardStatusLabelCompleted: { color: C.textTertiary },
-    cardTitle: { ...Type.body, fontWeight: "700", color: C.text },
-    cardPrompt: { ...Type.secondary, color: C.textSecondary },
+    cardPrompt: { ...Type.body, color: C.text },
     cardMetaRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -57,19 +47,8 @@ export function makeAutomationsStyles(C: Theme) {
 
     formLabel: { ...Type.label, color: C.textSecondary },
     fieldGap: { marginTop: Space.md },
-    titleInput: {
-      ...Type.navTitle,
-      fontWeight: "700",
-      color: C.text,
-      backgroundColor: C.surface,
-      borderRadius: Radius.md,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderWidth: 1,
-      borderColor: C.border,
-    },
     promptInput: {
-      ...Type.body,
+      ...Type.navTitle,
       color: C.text,
       backgroundColor: C.surface,
       borderRadius: Radius.md,
@@ -120,34 +99,28 @@ export function makeAutomationsStyles(C: Theme) {
     },
     sheetBody: { padding: Space.md, paddingBottom: Space.xl, gap: Space.xs },
 
-    // Detail screen — prompt card (title + prompt in a rounded card)
-    detailPromptCard: {
-      margin: Space.md,
-      marginBottom: 0,
-      backgroundColor: C.surface,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: C.border,
-      overflow: "hidden",
+    detailHeader: {
+      padding: Space.md,
+      gap: Space.xs,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: C.border,
     },
-    detailTitleRow: {
-      paddingHorizontal: Space.md,
-      paddingTop: Space.md,
-      paddingBottom: Space.xs,
+    detailPrompt: { ...Type.navTitle, fontWeight: "700", color: C.text },
+    detailMetaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.xs,
+      flexWrap: "wrap",
     },
-    detailTitle: { ...Type.navTitle, fontWeight: "700", color: C.text },
-    detailPromptRow: {
-      paddingHorizontal: Space.md,
-      paddingTop: Space.xs,
-      paddingBottom: Space.md,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: C.border,
-    },
-    detailPrompt: { ...Type.body, color: C.textSecondary },
-    detailStatusPill: { alignSelf: "flex-start", marginHorizontal: Space.md, marginBottom: Space.xs },
+    detailMetaText: { ...Type.secondary, color: C.textSecondary },
+    detailStatusPill: { alignSelf: "flex-start" },
     detailHeaderActions: { flexDirection: "row", alignItems: "center", gap: 2 },
 
-    // Repeat / Schedule / Time / Last run info card
+    // ChatGPT Task-detail-style "Repeat / Time / Last run" card — Repeat and
+    // Time are directly editable in place (tap → inline picker, same
+    // components AddAutomationSheet uses), auto-saving on select/close. Last
+    // run is read-only. Editing the prompt text itself still goes through
+    // the kebab → Edit sheet.
     detailInfoCard: {
       margin: Space.md,
       backgroundColor: C.surface,
@@ -179,25 +152,5 @@ export function makeAutomationsStyles(C: Theme) {
       paddingVertical: Space.xs,
       backgroundColor: C.surfaceAlt,
     },
-
-    // Bottom "Create a task" bar on list screen
-    createBar: {
-      position: "absolute",
-      left: Space.md,
-      right: Space.md,
-      bottom: Space.xl,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      backgroundColor: C.surface,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: C.border,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      minHeight: Space.minTouch,
-    },
-    createBarText: { ...Type.body, color: C.textTertiary, flex: 1 },
-    createBarIcon: { opacity: 0.5 },
   });
 }

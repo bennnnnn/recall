@@ -26,7 +26,6 @@ def _settings() -> Settings:
 def _automation(**overrides: object) -> MagicMock:
     automation = MagicMock()
     automation.id = overrides.get("id", uuid4())
-    automation.title = overrides.get("title", "Backend Job Watch")
     automation.prompt = overrides.get("prompt", "Find L3 backend jobs")
     automation.frequency = overrides.get("frequency", "daily")
     automation.next_run_at = overrides.get("next_run_at", datetime(2026, 9, 18, 8, tzinfo=UTC))
