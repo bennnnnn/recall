@@ -133,10 +133,11 @@ async def run_automation(settings: Settings, redis: Redis, *, automation_id: UUI
         chat_id = automation.chat_id
         user_id = user.id
         prompt = automation.prompt
-        # ``smart-chat`` is a Pro-only concrete override. Free My Job searches
-        # must route inside the user's allowed free model pool; otherwise the
-        # chat engine rejects the scheduled run as an unavailable override.
-        model_alias = _AUTOMATION_MODEL_ALIAS if is_pro else None
+        # My Job is a product-owned search, not a per-message model choice.
+        # Route it inside the user's allowed/enabled pool so free searches and
+        # Pro users who disabled ``smart-chat`` both work. Keep the historical
+        # smart override only for legacy generic automations.
+        model_alias = None if automation.kind == "job_search" else _AUTOMATION_MODEL_ALIAS
 
     run_status = "ok"
     result: dict[str, str] = {}
