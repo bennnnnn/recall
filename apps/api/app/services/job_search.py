@@ -319,9 +319,7 @@ async def _resume_details(
     if attachment_id is None:
         return None, None
 
-    same_attachment = str(previous.get("resume_attachment_id") or "") == str(
-        attachment_id
-    )
+    same_attachment = str(previous.get("resume_attachment_id") or "") == str(attachment_id)
     cached = previous.get("resume_text")
     if same_attachment and isinstance(cached, str) and cached.strip():
         filename = previous.get("resume_filename")
@@ -645,10 +643,7 @@ async def run_now(
         raise JobSearchError("Set up your job search first", status_code=404)
 
     now = datetime.now(UTC)
-    if (
-        automation.last_run_at is not None
-        and now - automation.last_run_at < timedelta(minutes=10)
-    ):
+    if automation.last_run_at is not None and now - automation.last_run_at < timedelta(minutes=10):
         raise JobSearchError(
             "A job search ran recently. Try again in a few minutes.",
             status_code=429,
