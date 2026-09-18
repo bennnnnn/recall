@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { usePathname, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Icon } from "@/components/Icon";
 import { IconButton } from "@/components/IconButton";
 import { useTranslation } from "react-i18next";
@@ -45,9 +45,9 @@ export const ChatHeader = memo(function ChatHeader({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const pathname = usePathname();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const router = useRouter();
-  const fromLibrary = pathname === "/open-chat";
+  const fromLibrary = returnTo === "gallery";
 
   return (
     <View

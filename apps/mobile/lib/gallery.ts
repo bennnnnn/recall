@@ -38,14 +38,17 @@ export function galleryImageIndex(images: AttachmentListItem[], id: string): num
 export function libraryOpenChatHref(
   item: Pick<AttachmentListItem, "chat_id" | "message_id">,
 ): {
-  pathname: "/open-chat";
-  params: { chatId: string; highlightMessage?: string };
+  pathname: "/";
+  params: { chatId: string; returnTo: "gallery"; highlightMessage?: string };
 } | null {
   if (!item.chat_id) return null;
+  // Push a second instance of the main chat route; returnTo=gallery flips the
+  // header from hamburger to Back so the user returns to Library.
   return {
-    pathname: "/open-chat",
+    pathname: "/",
     params: {
       chatId: item.chat_id,
+      returnTo: "gallery",
       ...(item.message_id ? { highlightMessage: item.message_id } : {}),
     },
   };

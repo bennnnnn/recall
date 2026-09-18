@@ -104,10 +104,6 @@ function RootNavigator() {
             headerLeft: () => <StackBackButton />,
           }}
         />
-        <Stack.Screen
-          name="open-chat"
-          options={{ headerShown: false }}
-        />
       </Stack>
     </>
   );

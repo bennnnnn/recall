@@ -1,20 +1,46 @@
 import type { Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 
-// Shared drawer control — avoids circular imports between DrawerShell and ConversationList
-let _open: (() => void) | null = null;
-let _close: (() => void) | null = null;
+/**
+ * Screen-owned globals live on last-mounted-wins stacks. The chat screen can
+ * be pushed on top of itself (Library → "open in chat" mounts a second copy
+ * of the index route), and a popped instance's cleanup must not clear the
+ * still-mounted instance underneath — with plain `let` slots, Back from the
+ * pushed chat left the home screen's drawer / New chat / active-chat id
+ * pointing at a dead component (or null).
+ */
+type StackEntry<T> = { owner: object; value: T };
 
-export function registerDrawer(open: () => void, close: () => void) {
-  _open = open;
-  _close = close;
+function createInstanceStack<T>() {
+  const stack: StackEntry<T>[] = [];
+  return {
+    /** Register `value` for this mounted instance; returns the unregister. */
+    push(owner: object, value: T): () => void {
+      const entry: StackEntry<T> = { owner, value };
+      stack.push(entry);
+      return () => {
+        const i = stack.indexOf(entry);
+        if (i >= 0) stack.splice(i, 1);
+      };
+    },
+    top(): T | undefined {
+      return stack.length ? stack[stack.length - 1].value : undefined;
+    },
+  };
+}
+
+// Shared drawer control — avoids circular imports between DrawerShell and ConversationList
+const drawerControls = createInstanceStack<{ open: () => void; close: () => void }>();
+
+export function registerDrawer(open: () => void, close: () => void): () => void {
+  return drawerControls.push({}, { open, close });
 }
 
 export function openDrawer() {
-  _open?.();
+  drawerControls.top()?.open();
 }
 export function closeDrawer() {
-  _close?.();
+  drawerControls.top()?.close();
 }
 
 // Shared "start a new chat" action — registered by the chat screen so the
@@ -22,35 +48,36 @@ export function closeDrawer() {
 export type StartNewChatOptions = { force?: boolean };
 export type StartNewChatFn = (opts?: StartNewChatOptions) => void;
 
-let _newChat: StartNewChatFn | null = null;
+const newChatHandlers = createInstanceStack<StartNewChatFn>();
 
-export function registerNewChat(fn: StartNewChatFn | null) {
-  _newChat = fn;
+export function registerNewChat(fn: StartNewChatFn): () => void {
+  return newChatHandlers.push({}, fn);
 }
 
 export function startNewChatGlobal(opts?: StartNewChatOptions) {
-  _newChat?.(opts);
+  newChatHandlers.top()?.(opts);
 }
 
 // Selecting a title result can keep the same route/chat id. Explicitly cancel
 // the previous message target even when there is no route change to observe.
-let _clearChatHighlight: (() => void) | null = null;
-export function registerChatHighlightClearer(clear: (() => void) | null) {
-  _clearChatHighlight = clear;
+const highlightClearers = createInstanceStack<() => void>();
+
+export function registerChatHighlightClearer(clear: () => void): () => void {
+  return highlightClearers.push({}, clear);
 }
 export function clearChatHighlightGlobal() {
-  _clearChatHighlight?.();
+  highlightClearers.top()?.();
 }
 
 /** Active chat id on the home screen — drawer deletes use this to avoid orphans. */
-let _activeChatId: string | null = null;
+const activeChatIds = createInstanceStack<string | null>();
 
-export function setActiveChatIdGlobal(chatId: string | null) {
-  _activeChatId = chatId;
+export function setActiveChatIdGlobal(chatId: string | null): () => void {
+  return activeChatIds.push({}, chatId);
 }
 
 export function getActiveChatIdGlobal(): string | null {
-  return _activeChatId;
+  return activeChatIds.top() ?? null;
 }
 
 /** True when a delete batch includes the chat currently open on the home screen. */
@@ -71,48 +98,50 @@ export function abandonActiveChatIfDeleted(deletedIds: readonly string[]) {
 /** Patch a chat row in the drawer list (e.g. when auto-title arrives). */
 export type ChatListPatch = Partial<Chat>;
 
-let _patchChat: ((chatId: string, patch: ChatListPatch) => void) | null = null;
+const chatPatchers = createInstanceStack<(chatId: string, patch: ChatListPatch) => void>();
 
-export function registerChatPatcher(fn: ((chatId: string, patch: ChatListPatch) => void) | null) {
-  _patchChat = fn;
+export function registerChatPatcher(
+  fn: (chatId: string, patch: ChatListPatch) => void,
+): () => void {
+  return chatPatchers.push({}, fn);
 }
 
 export function patchChatGlobal(chatId: string, patch: ChatListPatch) {
-  _patchChat?.(chatId, patch);
+  chatPatchers.top()?.(chatId, patch);
 }
 
 /** Move a chat between active and archived sections in the drawer list. */
-let _moveChatArchive: ((chatId: string, archived: boolean) => void) | null = null;
+const chatArchiveMovers = createInstanceStack<(chatId: string, archived: boolean) => void>();
 
 export function registerChatArchiveMover(
-  fn: ((chatId: string, archived: boolean) => void) | null,
-) {
-  _moveChatArchive = fn;
+  fn: (chatId: string, archived: boolean) => void,
+): () => void {
+  return chatArchiveMovers.push({}, fn);
 }
 
 export function moveChatArchiveGlobal(chatId: string, archived: boolean) {
-  _moveChatArchive?.(chatId, archived);
+  chatArchiveMovers.top()?.(chatId, archived);
 }
 
 /** Insert a chat into the drawer list after the first reply (see insertChatIntoGroups). */
-let _insertChat: ((chat: Chat) => void) | null = null;
+const chatInserters = createInstanceStack<(chat: Chat) => void>();
 
-export function registerChatInserter(fn: ((chat: Chat) => void) | null) {
-  _insertChat = fn;
+export function registerChatInserter(fn: (chat: Chat) => void): () => void {
+  return chatInserters.push({}, fn);
 }
 
 export function insertChatGlobal(chat: Chat) {
-  _insertChat?.(chat);
+  chatInserters.top()?.(chat);
 }
 
-let _removeChat: ((chatId: string) => void) | null = null;
+const chatRemovers = createInstanceStack<(chatId: string) => void>();
 
-export function registerChatRemover(fn: ((chatId: string) => void) | null) {
-  _removeChat = fn;
+export function registerChatRemover(fn: (chatId: string) => void): () => void {
+  return chatRemovers.push({}, fn);
 }
 
 export function removeChatGlobal(chatId: string) {
-  _removeChat?.(chatId);
+  chatRemovers.top()?.(chatId);
 }
 
 const _pendingTitleChatIds = new Set<string>();

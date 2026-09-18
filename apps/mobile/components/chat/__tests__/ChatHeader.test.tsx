@@ -5,10 +5,10 @@ import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
-let mockPathname = "/";
+let mockReturnTo: string | undefined;
 
 jest.mock("expo-router", () => ({
-  usePathname: () => mockPathname,
+  useLocalSearchParams: () => ({ returnTo: mockReturnTo }),
   useRouter: () => ({
     back: mockBack,
     canGoBack: () => true,
@@ -61,7 +61,7 @@ const props = {
 describe("ChatHeader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPathname = "/";
+    mockReturnTo = undefined;
   });
 
   it("opens the drawer from home chat", async () => {
@@ -80,8 +80,8 @@ describe("ChatHeader", () => {
     expect(queryByLabelText("reminders.badge_accessibility")).toBeNull();
   });
 
-  it("goes back to Library from /open-chat", async () => {
-    mockPathname = "/open-chat";
+  it("goes back to Library when pushed with returnTo=gallery", async () => {
+    mockReturnTo = "gallery";
     const onOpenDrawer = jest.fn();
     const { getByLabelText, queryByLabelText } = await render(
       <ChatHeader {...props} onOpenDrawer={onOpenDrawer} />,

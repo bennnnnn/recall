@@ -58,10 +58,7 @@ export function useChatHighlightScroll({
     cancelScheduled();
     setHighlight(null);
   }, [cancelScheduled]);
-  useEffect(() => {
-    registerChatHighlightClearer(clearHighlight);
-    return () => registerChatHighlightClearer(null);
-  }, [clearHighlight]);
+  useEffect(() => registerChatHighlightClearer(clearHighlight), [clearHighlight]);
 
   useEffect(() => {
     mounted.current = true;
