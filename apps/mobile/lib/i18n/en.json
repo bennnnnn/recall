@@ -824,7 +824,6 @@
   "settings.quiet_hours": "Quiet hours",
   "settings.quiet_hours_desc": "Skip push and reminder emails during this window",
   "settings.quiet_hours_end": "Ends",
-  "settings.quiet_hours_range": "{{start}} – {{end}}",
   "settings.quiet_hours_start": "Starts",
   "settings.report_problem": "Report a problem",
   "settings.restore_purchases": "Restore purchases",
@@ -979,5 +978,7 @@
     "mute_failed": "Couldn’t update that. Try again."
   },
   "my_job.searching": "Searching…",
-  "my_job.run_timeout": "Still searching — new matches will show up here when they're ready."
+  "my_job.run_timeout": "Still searching — new matches will show up here when they're ready.",
+  "todos.edit_reminder": "Edit reminder",
+  "memory.edit_count": "{{count}} / {{max}}"
 }

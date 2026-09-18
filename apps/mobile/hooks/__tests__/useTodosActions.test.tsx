@@ -156,20 +156,20 @@ describe("useTodosActions reminders", () => {
     });
 
     await act(async () => {
-      actions.openDuePicker(existing);
+      actions.openReminderEditor(existing);
     });
+    expect(actions.editingReminder?.id).toBe("r1");
     await act(async () => {
-      actions.setDuePicker({
-        todo: existing,
-        date: new Date("2026-08-25T18:00:00.000Z"),
-        recurrence: "weekly",
-      });
-    });
-    await act(async () => {
-      await actions.confirmDuePicker();
+      await actions.handleUpdateReminder(
+        existing,
+        "Package",
+        new Date("2026-08-25T18:00:00.000Z"),
+        "weekly",
+      );
     });
 
     expect(api.updateTodo).toHaveBeenCalledWith("tok", "r1", {
+      content: "Package",
       due_at: "2026-08-25T18:00:00.000Z",
       recurrence_rule: "weekly",
     });

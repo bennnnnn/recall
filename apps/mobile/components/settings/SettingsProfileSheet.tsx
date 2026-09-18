@@ -55,6 +55,7 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
             maxLength={80}
             autoCapitalize="words"
             autoCorrect={false}
+            autoFocus
             returnKeyType="done"
             onSubmitEditing={() => void editor.save()}
           />

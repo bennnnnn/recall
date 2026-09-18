@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Alert, Platform, ScrollView, View } from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
@@ -7,6 +7,8 @@ import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { AppSheet } from "@/components/AppSheet";
+import { SheetFormHeader } from "@/components/SheetFormHeader";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -78,6 +80,9 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     DEFAULT_REMINDER_LEAD_MINUTES,
   );
   const [pickingQuiet, setPickingQuiet] = useState<"start" | "end" | null>(null);
+  // iOS spins continuously, so the sheet edits a draft and only saves on Done
+  // — otherwise every spinner tick is its own profile write.
+  const [quietDraft, setQuietDraft] = useState<Date | null>(null);
   const session = getSessionGeneration();
   const busyAction = useSyncExternalStore(subscribe, () => pending?.session === session ? pending.action : null);
   const sameAccount = useCallback(() => Boolean(token) && session === getSessionGeneration(), [token, session]);
@@ -189,32 +194,44 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     }
   }, [begin, updateUser, reportError, finish]);
 
-  const onQuietPickerChange = useCallback(
-    (which: "start" | "end", event: DateTimePickerEvent, date?: Date) => {
-      if (event.type === "dismissed") {
-        setPickingQuiet(null);
-        return;
-      }
-      if (Platform.OS === "android") setPickingQuiet(null);
-      if (!date) return;
-      const minutes = minuteFromDate(date);
-      void (async () => {
-        const request = begin(`quiet-${which}`);
-        if (!request) return;
-        try {
-          if (which === "start") {
-            await updateUser({ quiet_hours_start_minute: minutes });
-          } else {
-            await updateUser({ quiet_hours_end_minute: minutes });
-          }
-        } catch {
-          reportError("common.error");
-        } finally {
-          finish(request);
-        }
-      })();
+  const openQuietPicker = useCallback(
+    (which: "start" | "end") => {
+      if (!isCurrent()) return;
+      setQuietDraft(dateFromMinute(which === "start" ? quietStart : quietEnd));
+      setPickingQuiet(which);
     },
-    [begin, updateUser, reportError, finish],
+    [isCurrent, quietStart, quietEnd],
+  );
+
+  const saveQuietMinutes = useCallback(
+    async (which: "start" | "end", minutes: number) => {
+      const request = begin(`quiet-${which}`);
+      if (!request) return;
+      try {
+        if (which === "start") {
+          await updateUser({ quiet_hours_start_minute: minutes });
+        } else {
+          await updateUser({ quiet_hours_end_minute: minutes });
+        }
+        if (isCurrent()) setPickingQuiet(null);
+      } catch {
+        reportError("common.error");
+      } finally {
+        finish(request);
+      }
+    },
+    [begin, updateUser, isCurrent, reportError, finish],
+  );
+
+  // Android shows a native dialog; a completed pick commits immediately.
+  const onQuietAndroidChange = useCallback(
+    (event: DateTimePickerEvent, date?: Date) => {
+      const which = pickingQuiet;
+      setPickingQuiet(null);
+      if (event.type === "dismissed" || !date || !which) return;
+      void saveQuietMinutes(which, minuteFromDate(date));
+    },
+    [pickingQuiet, saveQuietMinutes],
   );
 
   if (!token) return <Redirect href="/login" />;
@@ -264,24 +281,9 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
             <>
               <View style={s.menuSeparator} />
               <SettingsLinkRow
-                title={t("settings.quiet_hours")}
-                value={t("settings.quiet_hours_range", {
-                  start: formatClock(quietStart),
-                  end: formatClock(quietEnd),
-                })}
-                onPress={() => {
-                  if (isCurrent()) setPickingQuiet((cur) => (cur ? null : "start"));
-                }}
-                styles={s}
-                theme={theme}
-              />
-              <View style={s.menuSeparator} />
-              <SettingsLinkRow
                 title={t("settings.quiet_hours_start")}
                 value={formatClock(quietStart)}
-                onPress={() => {
-                  if (isCurrent()) setPickingQuiet("start");
-                }}
+                onPress={() => openQuietPicker("start")}
                 styles={s}
                 theme={theme}
               />
@@ -289,9 +291,7 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
               <SettingsLinkRow
                 title={t("settings.quiet_hours_end")}
                 value={formatClock(quietEnd)}
-                onPress={() => {
-                  if (isCurrent()) setPickingQuiet("end");
-                }}
+                onPress={() => openQuietPicker("end")}
                 styles={s}
                 theme={theme}
               />
@@ -299,12 +299,12 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           ) : null}
         </SettingsGroup>
 
-        {pickingQuiet && quietEnabled ? (
+        {pickingQuiet && quietEnabled && Platform.OS === "android" ? (
           <DateTimePicker
             mode="time"
-            value={dateFromMinute(pickingQuiet === "start" ? quietStart : quietEnd)}
-            onChange={(event, date) => onQuietPickerChange(pickingQuiet, event, date)}
-            display={Platform.OS === "ios" ? "spinner" : "default"}
+            value={quietDraft ?? dateFromMinute(pickingQuiet === "start" ? quietStart : quietEnd)}
+            onChange={onQuietAndroidChange}
+            display="default"
           />
         ) : null}
 
@@ -328,6 +328,42 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           />
         </SettingsGroup>
       </ScrollView>
+
+      <AppSheet
+        visible={pickingQuiet !== null && quietEnabled && Platform.OS === "ios"}
+        onClose={() => setPickingQuiet(null)}
+        variant="bottom"
+        withHandle={false}
+        contentContainerStyle={localStyles.quietSheet}
+      >
+        <SheetFormHeader
+          title={t(pickingQuiet === "end" ? "settings.quiet_hours_end" : "settings.quiet_hours_start")}
+          onCancel={() => setPickingQuiet(null)}
+          onSave={() => {
+            if (pickingQuiet && quietDraft) {
+              void saveQuietMinutes(pickingQuiet, minuteFromDate(quietDraft));
+            }
+          }}
+          cancelLabel={t("common.cancel")}
+          saveLabel={t("common.done")}
+          saving={pickingQuiet !== null && busyAction === `quiet-${pickingQuiet}`}
+        />
+        <View style={localStyles.quietPickerWrap}>
+          <DateTimePicker
+            mode="time"
+            value={quietDraft ?? new Date()}
+            onChange={(_event, date) => {
+              if (date) setQuietDraft(date);
+            }}
+            display="spinner"
+          />
+        </View>
+      </AppSheet>
     </>
   );
 }
+
+const localStyles = StyleSheet.create({
+  quietSheet: { paddingHorizontal: 0, paddingTop: 0 },
+  quietPickerWrap: { alignItems: "center", paddingVertical: Space.sm },
+});

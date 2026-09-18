@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
-import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useTranslation } from "react-i18next";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { dayKeyForDue, defaultDueDate } from "@/components/todos/todoHelpers";
+import { dayKeyForDue } from "@/components/todos/todoHelpers";
 import { api, type RecurrenceRule, type Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { toDueAtIso } from "@/lib/todos/dueDate";
@@ -12,7 +11,6 @@ import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/lib/todo
 import { beginTodoMutation, getTodoMutationState } from "@/lib/todos/todoMutationState";
 import { DEFAULT_TOPIC } from "@/lib/todoTopics";
 
-type DuePicker = { todo: Todo; date: Date; recurrence: RecurrenceRule | null };
 type Params = {
   token: string | null;
   userId: string | undefined;
@@ -58,15 +56,14 @@ export function useTodosActions({ token, userId, todos, getTodos,
     owner.mutations.listeners.add(changed);
     return () => { owner.mutations.listeners.delete(changed); };
   }, [owner, isSameOwner]);
-  const [pickerState, setPickerState] = useState<{ owner: typeof owner; value: DuePicker | null }>({ owner, value: null });
-  const pickerRef = useRef(pickerState);
-  const duePicker = pickerState.owner === owner ? pickerState.value : null;
-  const setDuePicker = useCallback((update: React.SetStateAction<DuePicker | null>) => {
+  const [editorState, setEditorState] = useState<{ owner: typeof owner; value: Todo | null }>({ owner, value: null });
+  const editorRef = useRef(editorState);
+  const editingReminder = editorState.owner === owner ? editorState.value : null;
+  const setEditingReminder = useCallback((todo: Todo | null) => {
     if (!canAct()) return;
-    const current = pickerRef.current.owner === owner ? pickerRef.current.value : null;
-    const next = { owner, value: typeof update === "function" ? update(current) : update };
-    pickerRef.current = next;
-    setPickerState(next);
+    const next = { owner, value: todo };
+    editorRef.current = next;
+    setEditorState(next);
   }, [canAct, owner]);
   const reportError = useCallback((bodyKey: string) => {
     if (!canAct()) return;
@@ -165,55 +162,50 @@ export function useTodosActions({ token, userId, todos, getTodos,
     ]);
   }, [token, canAct, owner, latestTodo, t, mutateRow]);
 
-  const applyDueDate = useCallback(async (
-    todo: Todo, date: Date, recurrence: RecurrenceRule | null,
-  ) => {
+  const openReminderEditor = useCallback((todo: Todo) => {
+    if (!canAct() || owner.mutations.pendingIds.has(todo.id)) return;
+    const current = latestTodo(todo.id);
+    if (!current) return;
+    setEditingReminder(current);
+  }, [canAct, owner, latestTodo, setEditingReminder]);
+
+  const closeReminderEditor = useCallback(() => {
+    setEditingReminder(null);
+  }, [setEditingReminder]);
+
+  // Saves content + due + repeat from the edit sheet. The todo argument must
+  // still be the open target — a retained callback from a replaced target
+  // must not save (see useTodosActionsSafety tests).
+  const handleUpdateReminder = useCallback(async (
+    todo: Todo, content: string, date: Date, recurrence: RecurrenceRule | null,
+  ): Promise<boolean> => {
     if (!token || !canAct()) return false;
+    if (editorRef.current.owner !== owner || editorRef.current.value?.id !== todo.id) return false;
+    const trimmed = content.trim();
+    if (!trimmed) return false;
     if (!Number.isFinite(date.getTime())) { reportError("todos.error_due"); return false; }
     const dueIso = toDueAtIso(date);
-    return mutateRow(todo.id, (snapshot) => ({
-      ...snapshot, due_at: dueIso, recurrence_rule: recurrence,
+    const saved = await mutateRow(todo.id, (snapshot) => ({
+      ...snapshot, content: trimmed, due_at: dueIso, recurrence_rule: recurrence,
     }),
-      () => api.updateTodo(token, todo.id, { due_at: dueIso, recurrence_rule: recurrence }), "todos.error_due", {
+      () => api.updateTodo(token, todo.id, {
+        content: trimmed, due_at: dueIso, recurrence_rule: recurrence,
+      }), "todos.error_due", {
         optimistic: () => goToDay(dayKeyForDue(date, dueIso)),
         saved: (updated) => goToDay(dayKeyForDue(date, updated.due_at ?? dueIso)),
         rollback: (snapshot) => {
           if (snapshot.due_at) goToDay(dayKeyForDue(new Date(snapshot.due_at), snapshot.due_at));
         },
       });
-  }, [token, canAct, reportError, mutateRow, goToDay]);
-
-  const openDuePicker = useCallback((todo: Todo) => {
-    if (!canAct() || owner.mutations.pendingIds.has(todo.id)) return;
-    const current = latestTodo(todo.id);
-    if (!current) return;
-    const due = current.due_at ? new Date(current.due_at) : defaultDueDate();
-    setDuePicker({
-      todo: current,
-      date: Number.isFinite(due.getTime()) ? due : defaultDueDate(),
-      recurrence: current.recurrence_rule ?? null,
-    });
-  }, [canAct, owner, latestTodo, setDuePicker]);
-  const onDuePickerChange = useCallback((event: DateTimePickerEvent, date?: Date) => {
-    if (!canAct() || !duePicker || pickerRef.current.value !== duePicker) return;
-    if (event.type === "dismissed") { setDuePicker(null); return; }
-    if (date) setDuePicker({ ...duePicker, date });
-  }, [canAct, duePicker, setDuePicker]);
-  const onDueRecurrenceChange = useCallback((rule: RecurrenceRule | null) => {
-    if (!canAct() || !duePicker || pickerRef.current.value !== duePicker) return;
-    setDuePicker({ ...duePicker, recurrence: rule });
-  }, [canAct, duePicker, setDuePicker]);
-  const confirmDuePicker = useCallback(async () => {
-    if (!canAct() || !duePicker || pickerRef.current.value !== duePicker) return;
-    const saved = await applyDueDate(duePicker.todo, duePicker.date, duePicker.recurrence);
-    if (saved && pickerRef.current.value === duePicker) setDuePicker(null);
-  }, [canAct, duePicker, applyDueDate, setDuePicker]);
+    if (saved && editorRef.current.value?.id === todo.id) setEditingReminder(null);
+    return saved;
+  }, [token, canAct, owner, reportError, mutateRow, goToDay, setEditingReminder]);
 
   return {
     togglingId: owner.mutations.togglingIds.values().next().value ?? null,
     busyTodoIds: new Set(owner.mutations.pendingIds),
-    duePicker, setDuePicker, savingReminder: owner.mutations.createId !== null,
-    handleCreateReminder, handleToggle, handleDeleteItem, openDuePicker, onDuePickerChange,
-    onDueRecurrenceChange, confirmDuePicker,
+    editingReminder, savingReminder: owner.mutations.createId !== null,
+    handleCreateReminder, handleToggle, handleDeleteItem, openReminderEditor,
+    closeReminderEditor, handleUpdateReminder,
   };
 }

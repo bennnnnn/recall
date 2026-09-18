@@ -173,9 +173,11 @@ it("suppresses due-date response navigation when its original view is no longer 
   const updating = deferred<Todo>();
   mockApi.updateTodo.mockReturnValue(updating.promise);
   await render(<Probe />);
-  await act(async () => { actions.setDuePicker({ todo: A, date: new Date("2026-09-06T18:00:00.000Z") }); });
+  await act(async () => { actions.openReminderEditor(A); });
   let pending!: Promise<void>;
-  await act(async () => { pending = actions.confirmDuePicker(); });
+  await act(async () => {
+    pending = actions.handleUpdateReminder(A, A.content, new Date("2026-09-06T18:00:00.000Z"), null);
+  });
   expect(goToDay).toHaveBeenCalledTimes(1);
   currentView = false;
   await act(async () => { updating.resolve({ ...A, due_at: "2026-09-07T18:00:00.000Z" }); await pending; });
@@ -220,12 +222,14 @@ it("retains a pending action through ordinary token refresh", async () => {
   expect(actions.busyTodoIds.has(A.id)).toBe(false);
 });
 
-it("does not save a replaced due picker through a retained confirmation callback", async () => {
+it("does not save a replaced reminder edit through a retained save callback", async () => {
   await render(<Probe />);
-  await act(async () => { actions.openDuePicker(A); });
-  const confirm = actions.confirmDuePicker;
-  await act(async () => { actions.openDuePicker(B); });
-  await act(async () => { await confirm(); });
+  await act(async () => { actions.openReminderEditor(A); });
+  const update = actions.handleUpdateReminder;
+  await act(async () => { actions.openReminderEditor(B); });
+  await act(async () => {
+    await update(A, A.content, new Date(A.due_at!), null);
+  });
   expect(mockApi.updateTodo).not.toHaveBeenCalled();
-  expect(actions.duePicker?.todo.id).toBe(B.id);
+  expect(actions.editingReminder?.id).toBe(B.id);
 });

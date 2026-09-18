@@ -97,10 +97,8 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const saveEdit = useCallback(async () => {
     if (!isCurrentView() || !editing || savingRef.current || pendingTypes.has(editing.type)) return;
     const nextText = stripMemoryAsOf(draftText);
-    if (!nextText || Array.from(nextText).length > MEMORY_TEXT_MAX_LENGTH) {
-      Alert.alert(t("common.error"), t("memory.edit_failed"));
-      return;
-    }
+    // The counter + disabled Save already communicate this inline.
+    if (!nextText || Array.from(nextText).length > MEMORY_TEXT_MAX_LENGTH) return;
     savingRef.current = true;
     setSavingEdit(true);
     const ok = await updateMemoryText(editing.id, nextText);
@@ -111,9 +109,9 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       setEditing(null);
       setDraftText("");
     } else {
-      Alert.alert(t("common.error"), t("memory.edit_failed"));
+      reportRecoverableError(feedback, t("memory.edit_failed"));
     }
-  }, [isCurrentView, editing, draftText, updateMemoryText, pendingTypes, t]);
+  }, [isCurrentView, editing, draftText, updateMemoryText, pendingTypes, feedback, t]);
 
   const rows = useMemo<MemoryRow[]>(() => {
     const out: MemoryRow[] = [];
@@ -211,6 +209,9 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     },
     [token, isCurrentView, pendingTypes, muteMemory, feedback, t],
   );
+
+  const draftLength = useMemo(() => Array.from(stripMemoryAsOf(draftText)).length, [draftText]);
+  const draftTooLong = draftLength > MEMORY_TEXT_MAX_LENGTH;
 
   if (!token) return <Redirect href="/login" />;
 
@@ -325,7 +326,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         <View style={s.editBody}>
           <Text style={s.editHint}>{t("memory.edit_hint")}</Text>
           <TextInput
-            style={s.editInput}
+            style={[s.editInput, draftTooLong && s.editInputError]}
             accessibilityLabel={t("memory.edit_title")}
             value={draftText}
             onChangeText={setDraftText}
@@ -334,6 +335,9 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
             autoFocus
             textAlignVertical="top"
           />
+          <Text style={[s.editCounter, draftTooLong && s.editCounterOver]}>
+            {t("memory.edit_count", { count: draftLength, max: MEMORY_TEXT_MAX_LENGTH })}
+          </Text>
         </View>
       </AppSheet>
     </>
@@ -381,5 +385,13 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       backgroundColor: theme.bg,
     },
+    editInputError: { borderColor: theme.danger },
+    editCounter: {
+      ...Type.caption,
+      color: theme.textTertiary,
+      textAlign: "right",
+      marginTop: Space.xs,
+    },
+    editCounterOver: { color: theme.danger },
   });
 }

@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import { AddFab } from "@/components/AddFab";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { AddReminderSheet } from "@/components/todos/AddReminderSheet";
-import { DuePickerModal } from "@/components/todos/DuePickerModal";
 import { TodosScrollList } from "@/components/todos/TodosScrollList";
 import { TodosScreenHeader } from "@/components/todos/TodosScreenHeader";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
@@ -192,7 +191,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         busyTodoIds={actions.busyTodoIds}
         suggestionBusyId={calendar.suggestionBusyId}
         onToggle={actions.handleToggle}
-        onDue={actions.openDuePicker}
+        onDue={actions.openReminderEditor}
         onDeleteItem={actions.handleDeleteItem}
         onAddSuggestion={calendar.handleAddSuggestion}
         onDismissSuggestion={calendar.handleDismissSuggestion}
@@ -218,18 +217,20 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }
       />
 
-      <DuePickerModal
-        todos={todos}
-        duePicker={actions.duePicker}
+      <AddReminderSheet
+        visible={actions.editingReminder != null}
+        editTodo={actions.editingReminder}
         saving={
-          actions.duePicker
-            ? actions.busyTodoIds.has(actions.duePicker.todo.id)
+          actions.editingReminder
+            ? actions.busyTodoIds.has(actions.editingReminder.id)
             : false
         }
-        onDismiss={() => actions.setDuePicker(null)}
-        onChange={actions.onDuePickerChange}
-        onRecurrenceChange={actions.onDueRecurrenceChange}
-        onConfirm={() => void actions.confirmDuePicker()}
+        todos={todos}
+        onClose={actions.closeReminderEditor}
+        onSave={(content, dueDate, recurrence) => {
+          const target = actions.editingReminder;
+          if (target) void actions.handleUpdateReminder(target, content, dueDate, recurrence);
+        }}
       />
     </View>
   );
