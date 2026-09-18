@@ -1,6 +1,6 @@
 import json
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, cast
 from uuid import uuid4
 
 import pytest
@@ -97,13 +97,13 @@ def test_schema_normalizes_duplicate_profile_values() -> None:
 
 @pytest.mark.parametrize("count", [5, 10, 15])
 def test_profile_result_counts_are_bounded(
-    count: Literal[5, 10, 15],
+    count: int,
 ) -> None:
     body = JobSearchUpsert(
         target_roles=["Backend Engineer"],
         work_modes=["remote"],
         experience_levels=["entry"],
-        result_count=count,
+        result_count=cast(Literal[5, 10, 15], count),
         frequency="weekly",
         next_run_at=datetime.now(UTC),
     )
