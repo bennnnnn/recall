@@ -355,6 +355,7 @@
   "drawer.today": "Heute",
   "drawer.yesterday": "Gestern",
   "gallery.empty": "Noch nichts in der Bibliothek",
+  "gallery.empty_hint": "Photos and files you share in chat show up here.",
   "gallery.empty_files": "Noch keine Dateien",
   "gallery.empty_generated": "Noch keine generierten Bilder",
   "gallery.empty_search": "Keine Treffer",
@@ -973,5 +974,8 @@
   "my_job.error_update": "Could not update your job search",
   "my_job.error_match": "Could not update this job",
   "my_job.error_run": "Could not start the job search",
-  "my_job.error_delete": "Could not delete your job search"
+  "my_job.error_delete": "Could not delete your job search",
+  "memory": {
+    "mute_failed": "Couldn’t update that. Try again."
+  }
 }

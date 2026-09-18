@@ -355,6 +355,7 @@
   "drawer.today": "ዛሬ",
   "drawer.yesterday": "ትናንት",
   "gallery.empty": "እስካሁን ምንም የለም",
+  "gallery.empty_hint": "Photos and files you share in chat show up here.",
   "gallery.empty_files": "እስካሁን ምንም ፋይል የለም",
   "gallery.empty_generated": "እስካሁን የተፈጠረ ምስል የለም",
   "gallery.empty_search": "ምንም አልተገኘም",
@@ -973,5 +974,8 @@
   "my_job.error_update": "Could not update your job search",
   "my_job.error_match": "Could not update this job",
   "my_job.error_run": "Could not start the job search",
-  "my_job.error_delete": "Could not delete your job search"
+  "my_job.error_delete": "Could not delete your job search",
+  "memory": {
+    "mute_failed": "Couldn’t update that. Try again."
+  }
 }

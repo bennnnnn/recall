@@ -112,7 +112,6 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
             variant="empty"
             icon="book-outline"
             title={t("lesson.chapter_empty")}
-            onRetry={retryLoad}
           />
         ) : null}
         {paneKey ? (

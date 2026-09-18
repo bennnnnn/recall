@@ -35,20 +35,23 @@ export default function SecuritySettingsScreen() {
   const feedback = useActionFeedbackOptional();
   const [sessions, setSessions] = useState<AuthSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    setLoadError(false);
     try {
       const data = await api.listSessions(token);
       setSessions(data.sessions ?? []);
     } catch {
-      reportRecoverableError(feedback, t("common.error"));
+      // A failed load must not look like "no other sessions".
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [token, feedback, t]);
+  }, [token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -113,8 +116,15 @@ export default function SecuritySettingsScreen() {
       style={s.scroll}
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
     >
-      {loading && sessions.length === 0 ? (
+      {loading && sessions.length === 0 && !loadError ? (
         <StateView variant="loading" title={t("settings.security")} />
+      ) : null}
+      {loadError && sessions.length === 0 ? (
+        <StateView
+          variant="error"
+          title={t("common.error")}
+          onRetry={() => void load()}
+        />
       ) : null}
       {sessions.map((session) => (
         <SettingsGroup key={session.id} styles={s}>

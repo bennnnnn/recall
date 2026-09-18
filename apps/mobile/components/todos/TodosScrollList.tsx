@@ -25,7 +25,10 @@ export function TodosScrollList({
   return (
     <ScrollView
       style={s.list}
-      contentContainerStyle={showRemindersEmptyHero && !error ? s.listEmpty : undefined}
+      contentContainerStyle={[
+        showRemindersEmptyHero && !error ? s.listEmpty : undefined,
+        s.listContent,
+      ]}
       keyboardShouldPersistTaps="handled"
       refreshControl={
         onRefresh ? (
