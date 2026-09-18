@@ -47,9 +47,9 @@ describe("decoded attachment frame proportions", () => {
     expect(view.getByTestId("chat-image-preview").props.resizeMode).toBe("contain");
   });
 
-  it("uses authenticated remote onLoad dimensions without changing the image source", async () => {
+  it("uses authenticated remote onLoad dimensions and requests a 2x-width server thumb", async () => {
     const view = await render(<ChatMessageImage attachmentId="a" animatedReveal={false} previewFit="contain" width={148} height={189} />);
-    expect(resolveAttachmentUri).toHaveBeenLastCalledWith({ attachmentId: "a", localUri: undefined, path: undefined });
+    expect(resolveAttachmentUri).toHaveBeenLastCalledWith({ attachmentId: "a", localUri: undefined, path: undefined, width: 296 });
     expect(view.getByTestId("chat-image-preview").props.source).toEqual({ uri: "https://api.test/attachments/a/file", headers: { Authorization: "Bearer test-token" } });
     await fireEvent(view.getByTestId("chat-image-preview"), "load", load(1600, 900));
     expect(view.getByTestId("chat-image-frame")).toHaveStyle({ width: 148, height: 83.25 });

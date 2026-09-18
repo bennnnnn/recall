@@ -41,8 +41,8 @@ describe("chatMessageLogic", () => {
   });
 
   describe("streamVisualActiveForRow", () => {
-    it("returns the real value for a user row while a turn is active", () => {
-      expect(streamVisualActiveForRow("user", "u1", "a2", true, false)).toBe(true);
+    it("returns a stable false for user rows regardless of stream state", () => {
+      expect(streamVisualActiveForRow("user", "u1", "a2", true, false)).toBe(false);
       expect(streamVisualActiveForRow("user", "u1", "a2", false, false)).toBe(false);
     });
 

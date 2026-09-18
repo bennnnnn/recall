@@ -126,7 +126,16 @@ function RevealingImage({
 }
 
 export function ChatMessageImage(props: Props) {
-  const uri = resolveAttachmentUri({ attachmentId: props.attachmentId, localUri: props.localUri, path: props.path });
+  // Request a server-resized thumb (?w=) at 2× the layout width — pulling the
+  // full-resolution original into a ~148px bubble wastes decode time and data.
+  const thumb = useThumbnailSize();
+  const maxWidth = props.width ?? thumb.width;
+  const uri = resolveAttachmentUri({
+    attachmentId: props.attachmentId,
+    localUri: props.localUri,
+    path: props.path,
+    width: Math.round(maxWidth * 2),
+  });
   if (!uri) return null;
   // A new source owns new load/error state; a late event from the old image
   // cannot resize the next attachment, including local-to-remote replacement.
