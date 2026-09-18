@@ -5,27 +5,30 @@ import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
+const TASK_RADIUS = 28;
+
 export function makeAutomationsStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
-    content: { padding: Space.md, paddingBottom: 96 },
+    content: { paddingHorizontal: Space.md, paddingTop: Space.lg, paddingBottom: 116 },
     listGap: { height: Space.md },
 
     card: {
-      backgroundColor: C.surfaceAlt,
-      borderRadius: Radius.sheet,
+      backgroundColor: C.surface,
+      borderRadius: TASK_RADIUS,
       paddingHorizontal: Space.lg,
       paddingTop: Space.lg,
-      paddingBottom: Space.md,
+      paddingBottom: Space.lg,
       gap: Space.xs,
     },
-    cardPressed: { opacity: 0.82 },
-    cardPaused: { opacity: 0.62 },
+    cardPressed: { opacity: 0.76 },
+    cardPaused: {},
     cardEyebrow: {
       ...Type.overline,
       color: C.primary,
       marginBottom: Space.xs,
     },
+    cardEyebrowMuted: { color: C.textTertiary },
     cardTitle: {
       ...Type.title,
       fontWeight: "700",
@@ -33,6 +36,8 @@ export function makeAutomationsStyles(C: Theme) {
     },
     cardDescription: {
       ...Type.body,
+      fontSize: 18,
+      lineHeight: 27,
       color: C.textSecondary,
       marginTop: Space.xxs,
     },
@@ -42,14 +47,14 @@ export function makeAutomationsStyles(C: Theme) {
       marginTop: Space.md,
     },
     cardFooter: {
-      ...Type.secondary,
+      ...Type.body,
+      fontSize: 16,
+      lineHeight: 22,
       color: C.textTertiary,
       marginTop: Space.sm,
     },
 
-    // Legacy status/meta roles are still used by older snapshots/tests and by
-    // the paused detail treatment. Keep them neutral while the card itself
-    // uses the simpler Tasks-style hierarchy above.
+    // Retained for the edit sheet and older component tests.
     cardMetaRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -129,14 +134,16 @@ export function makeAutomationsStyles(C: Theme) {
     },
     sheetBody: { padding: Space.md, paddingBottom: Space.xl, gap: Space.xs },
 
+    detailScroll: { flex: 1 },
     detailContent: {
       paddingHorizontal: Space.md,
-      paddingTop: Space.md,
+      paddingTop: Space.lg,
+      paddingBottom: Space.xl,
       gap: Space.md,
     },
     detailTaskCard: {
-      backgroundColor: C.surfaceAlt,
-      borderRadius: Radius.sheet,
+      backgroundColor: C.surface,
+      borderRadius: TASK_RADIUS,
       overflow: "hidden",
     },
     detailTaskSection: {
@@ -150,28 +157,32 @@ export function makeAutomationsStyles(C: Theme) {
     },
     detailPrompt: {
       ...Type.body,
+      fontSize: 18,
+      lineHeight: 27,
       color: C.text,
     },
     detailDivider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: C.border,
-      marginLeft: Space.lg,
     },
     detailSettingsGroup: {
-      backgroundColor: C.surfaceAlt,
-      borderRadius: Radius.sheet,
+      backgroundColor: C.surface,
+      borderRadius: TASK_RADIUS,
       overflow: "hidden",
     },
     detailSettingRow: {
-      minHeight: 70,
+      minHeight: 82,
       paddingHorizontal: Space.lg,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       gap: Space.md,
     },
+    detailSettingPressed: { opacity: 0.68 },
     detailSettingLabel: {
       ...Type.body,
+      fontSize: 18,
+      lineHeight: 24,
       color: C.text,
       flexShrink: 0,
     },
@@ -183,8 +194,9 @@ export function makeAutomationsStyles(C: Theme) {
       gap: Space.xs,
     },
     detailSettingValue: {
-      ...Type.navTitle,
-      fontWeight: "400",
+      ...Type.body,
+      fontSize: 18,
+      lineHeight: 24,
       color: C.textSecondary,
       textAlign: "right",
       flexShrink: 1,
@@ -192,14 +204,18 @@ export function makeAutomationsStyles(C: Theme) {
     detailHeaderActions: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 2,
       paddingHorizontal: Space.xxs,
       borderRadius: Radius.full,
-      backgroundColor: C.surfaceAlt,
+      backgroundColor: C.surface,
+    },
+    detailHeaderSeparator: {
+      width: StyleSheet.hairlineWidth,
+      height: 24,
+      backgroundColor: C.border,
     },
 
-    // Kept for the latest run history below the task controls. The task editor
-    // is the primary surface; history only appears once the automation has run.
+    // Kept for the internal history component, though task detail no longer
+    // renders a transcript or a large "Not run yet" empty state.
     transcriptList: { flex: 1, marginTop: Space.sm },
     transcriptContent: {
       paddingHorizontal: Space.md,
