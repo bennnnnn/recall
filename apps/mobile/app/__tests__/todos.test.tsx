@@ -46,8 +46,14 @@ jest.mock("@/lib/i18n", () => ({
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/components/SkeletonLoader", () => ({ SkeletonList: () => null }));
 jest.mock("@/components/AddFab", () => ({ AddFab: (props: typeof mockAdd) => { mockAdd = props; return null; } }));
-jest.mock("@/components/todos/AddReminderSheet", () => ({ AddReminderSheet: (props: typeof mockSheet) => { mockSheet = props; return null; } }));
-jest.mock("@/components/todos/DuePickerModal", () => ({ DuePickerModal: () => null }));
+jest.mock("@/components/todos/AddReminderSheet", () => ({
+  AddReminderSheet: (props: typeof mockSheet & { editTodo?: unknown }) => {
+    // The screen renders two instances: the add sheet (no editTodo prop) and
+    // the edit sheet (editTodo, possibly null). Tests observe the add sheet.
+    if (!("editTodo" in props)) mockSheet = props;
+    return null;
+  },
+}));
 jest.mock("@/components/todos/TodosScrollList", () => ({ TodosScrollList: (props: typeof mockList & { listHeader: React.ReactNode }) => { mockList = props; return props.listHeader; } }));
 jest.mock("@/components/todos/TodosScreenHeader", () => ({ TodosScreenHeader: (props: typeof mockHeader) => { mockHeader = props; return null; } }));
 jest.mock("@/hooks/useTodosCalendarIntegration", () => ({
@@ -61,7 +67,7 @@ jest.mock("@/hooks/useTodosCalendarIntegration", () => ({
 }));
 jest.mock("@/hooks/useTodosActions", () => ({ useTodosActions: (params: typeof mockActionParams) => {
   mockActionParams = params;
-  return { busyTodoIds: new Set(), duePicker: null, savingReminder: false };
+  return { busyTodoIds: new Set(), editingReminder: null, savingReminder: false };
 } }));
 jest.mock("@/contexts/TodosContext", () => ({ useTodos: () => ({ todos: [], loading: false, error: false,
   getTodos: mockGetTodos, isCurrentSession: mockCurrentSession, markSeenIds: mockMarkSeenIds, refresh: mockRefresh,

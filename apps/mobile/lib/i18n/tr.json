@@ -824,7 +824,6 @@
   "settings.quiet_hours": "Sessiz saatler",
   "settings.quiet_hours_desc": "Bu aralıkta bildirim ve hatırlatma e-postalarını atla",
   "settings.quiet_hours_end": "Bitiş",
-  "settings.quiet_hours_range": "{{start}} – {{end}}",
   "settings.quiet_hours_start": "Başlangıç",
   "settings.report_problem": "Sorun bildir",
   "settings.restore_purchases": "Satın alımları geri yükle",
@@ -979,5 +978,7 @@
     "mute_failed": "Couldn’t update that. Try again."
   },
   "my_job.searching": "Searching…",
-  "my_job.run_timeout": "Still searching — new matches will show up here when they're ready."
+  "my_job.run_timeout": "Still searching — new matches will show up here when they're ready.",
+  "todos.edit_reminder": "Edit reminder",
+  "memory.edit_count": "{{count}} / {{max}}"
 }

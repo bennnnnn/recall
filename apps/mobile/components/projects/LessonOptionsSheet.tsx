@@ -1,8 +1,9 @@
-import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
+import { SwitchRow } from "@/components/SwitchRow";
 import type { LessonFontSize, LessonPrefs } from "@/lib/lessonPrefs";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -38,15 +39,13 @@ export function LessonOptionsSheet({ visible, prefs, onClose, onChange }: Props)
         label={t("lesson.effect_sound")}
         value={prefs.effectSound}
         onValueChange={(effectSound) => onChange({ effectSound })}
-        styles={s}
-        theme={theme}
+        style={s.row}
       />
       <SwitchRow
         label={t("lesson.read_words")}
         value={prefs.readWords}
         onValueChange={(readWords) => onChange({ readWords })}
-        styles={s}
-        theme={theme}
+        style={s.row}
       />
       <Text style={s.fontLabel}>{t("lesson.font_size")}</Text>
       <View style={s.fonts}>
@@ -72,41 +71,6 @@ export function LessonOptionsSheet({ visible, prefs, onClose, onChange }: Props)
   );
 }
 
-function SwitchRow({
-  label,
-  value,
-  onValueChange,
-  styles: s,
-  theme,
-}: {
-  label: string;
-  value: boolean;
-  onValueChange: (next: boolean) => void;
-  styles: ReturnType<typeof makeStyles>;
-  theme: Theme;
-}) {
-  return (
-    <Pressable
-      style={s.row}
-      accessibilityRole="switch"
-      accessibilityLabel={label}
-      accessibilityState={{ checked: value }}
-      onPress={() => onValueChange(!value)}
-    >
-      <Text style={s.rowLabel}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        thumbColor={theme.bg}
-        trackColor={{ false: theme.border, true: theme.primary }}
-        pointerEvents="none"
-        importantForAccessibility="no-hide-descendants"
-        accessibilityElementsHidden
-      />
-    </Pressable>
-  );
-}
-
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     title: {
@@ -118,17 +82,8 @@ function makeStyles(theme: Theme) {
       paddingBottom: Space.sm,
     },
     row: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
       paddingHorizontal: 18,
       paddingVertical: 14,
-      gap: Space.md,
-    },
-    rowLabel: {
-      ...Type.navTitle,
-      color: theme.text,
-      flex: 1,
     },
     fontLabel: {
       ...Type.caption,
