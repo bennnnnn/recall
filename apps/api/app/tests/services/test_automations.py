@@ -22,6 +22,12 @@ def _settings(**overrides) -> Settings:
     return Settings(automations_enabled=True, **overrides)
 
 
+def _generic_automation() -> MagicMock:
+    automation = MagicMock()
+    automation.kind = "generic"
+    return automation
+
+
 @pytest.mark.asyncio
 async def test_list_automations_404s_when_disabled():
     session = AsyncMock()
@@ -35,13 +41,13 @@ async def test_list_automations_404s_when_disabled():
 async def test_list_automations_delegates_to_repo():
     session = AsyncMock()
     user = _user()
-    items = [MagicMock()]
+    items = [_generic_automation()]
     with patch.object(
         automations_crud.automations_repo, "list_for_user", AsyncMock(return_value=items)
     ) as list_for_user:
         result = await automations_crud.list_automations(session, user, _settings())
     assert result is items
-    list_for_user.assert_awaited_once_with(session, user.id)
+    list_for_user.assert_awaited_once_with(session, user.id, kind="generic")
 
 
 @pytest.mark.asyncio
@@ -49,6 +55,22 @@ async def test_get_automation_raises_404_when_missing():
     session = AsyncMock()
     user = _user()
     with patch.object(automations_crud.automations_repo, "get_by_id", AsyncMock(return_value=None)):
+        with pytest.raises(automations_crud.AutomationsError) as exc:
+            await automations_crud.get_automation(session, user, _settings(), uuid4())
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_automation_hides_job_search_rows():
+    session = AsyncMock()
+    user = _user()
+    automation = MagicMock()
+    automation.kind = "job_search"
+    with patch.object(
+        automations_crud.automations_repo,
+        "get_by_id",
+        AsyncMock(return_value=automation),
+    ):
         with pytest.raises(automations_crud.AutomationsError) as exc:
             await automations_crud.get_automation(session, user, _settings(), uuid4())
     assert exc.value.status_code == 404
@@ -95,7 +117,7 @@ async def test_create_automation_creates_dedicated_chat_and_commits_once():
     user = _user()
     chat = MagicMock()
     chat.id = uuid4()
-    automation = MagicMock()
+    automation = _generic_automation()
 
     with (
         patch.object(
@@ -120,6 +142,7 @@ async def test_create_automation_creates_dedicated_chat_and_commits_once():
     assert result is automation
     create_chat.assert_awaited_once_with(session, user_id=user.id, model="smart-chat", commit=False)
     assert create_automation.await_args.kwargs["chat_id"] == chat.id
+    assert create_automation.await_args.kwargs["kind"] == "generic"
     assert create_automation.await_args.kwargs["commit"] is False
     session.commit.assert_awaited_once()
     session.refresh.assert_awaited_once_with(automation)
@@ -129,7 +152,7 @@ async def test_create_automation_creates_dedicated_chat_and_commits_once():
 async def test_update_automation_normalizes_next_run_at():
     session = AsyncMock()
     user = _user()
-    automation = MagicMock()
+    automation = _generic_automation()
     with (
         patch.object(
             automations_crud.automations_repo, "get_by_id", AsyncMock(return_value=automation)
@@ -164,7 +187,7 @@ async def test_delete_automation_deletes_the_dedicated_chat():
     session = AsyncMock()
     user = _user()
     settings = _settings()
-    automation = MagicMock()
+    automation = _generic_automation()
     automation.chat_id = uuid4()
     with (
         patch.object(
