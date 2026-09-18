@@ -12,13 +12,16 @@ from app.core.db import Base
 AUTOMATION_FREQUENCIES = ("once", "daily", "weekdays", "weekly", "monthly")
 AUTOMATION_STATUSES = ("active", "paused", "completed")
 AUTOMATION_RUN_STATUSES = ("ok", "skipped_quota", "error")
+AUTOMATION_KINDS = ("generic", "job_search")
 
 
 class Automation(Base):
-    """A recurring prompt the worker runs unattended through the chat turn
-    engine (read-only tools only — see services/automations/run.py), posting
-    into its own dedicated `chat_id` thread. Not a Schedule reminder: nothing
-    here just re-fires static text, every run is a real LLM+tool turn.
+    """A scheduled headless chat turn.
+
+    ``generic`` rows are the original open-ended automation primitive.
+    ``job_search`` rows power the purpose-built My Job product and keep their
+    structured preferences/status map in ``config_json``. Both use the same
+    durable scheduler and hidden result chat.
     """
 
     __tablename__ = "automations"
@@ -38,6 +41,10 @@ class Automation(Base):
             "last_run_status IS NULL OR last_run_status IN ('ok', 'skipped_quota', 'error')",
             name="ck_automations_last_run_status",
         ),
+        CheckConstraint(
+            "kind IN ('generic', 'job_search')",
+            name="ck_automations_kind",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -55,6 +62,12 @@ class Automation(Base):
     frequency: Mapped[str] = mapped_column(String(16), nullable=False)
     next_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    kind: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="generic", server_default="generic"
+    )
+    # Versioned JSON owned by the feature named in ``kind``. My Job stores its
+    # search profile, extracted resume text, and per-match Saved/Applied state.
+    config_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_run_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
