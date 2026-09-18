@@ -28,6 +28,39 @@ export function formatScheduleAt(iso: string): string {
   return `${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, ${time}`;
 }
 
+/** A short display title for the task card/detail surface. Automations currently
+ * store only the user prompt, so keep this deterministic and presentation-only
+ * rather than inventing a second persisted title field. */
+export function automationDisplayTitle(prompt: string): string {
+  const normalized = prompt.trim().replace(/\s+/g, " ");
+  if (!normalized) return "";
+
+  const withoutLead = normalized.replace(
+    /^(?:please\s+)?(?:check(?:\s+for)?|search(?:\s+for)?|find|look\s+for|monitor|give\s+me|send\s+me|tell\s+me)\s+/i,
+    "",
+  );
+  const firstClause = (withoutLead.split(/[.;\n]/, 1)[0] || withoutLead).trim();
+  const words = firstClause.split(/\s+/).filter(Boolean);
+  const clipped = words.slice(0, 7).join(" ");
+  const titled = clipped ? clipped.charAt(0).toUpperCase() + clipped.slice(1) : normalized;
+  return words.length > 7 ? `${titled}…` : titled;
+}
+
+/** Schedule-only label for the middle row on the detail screen. Repeat and time
+ * are rendered separately, like ChatGPT Tasks. */
+export function formatAutomationScheduleDay(automation: Automation): string {
+  const date = new Date(automation.next_run_at);
+  if (Number.isNaN(date.getTime())) return "";
+
+  if (automation.frequency === "daily") return date.toLocaleDateString(undefined, { weekday: "long" });
+  if (automation.frequency === "weekdays") return date.toLocaleDateString(undefined, { weekday: "long" });
+  if (automation.frequency === "weekly") return date.toLocaleDateString(undefined, { weekday: "long" });
+  if (automation.frequency === "monthly") {
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
 export function describeLastRun(automation: Automation, t: TFunction): string {
   if (!automation.last_run_at || !automation.last_run_status) {
     return t("automations.last_run_never");
