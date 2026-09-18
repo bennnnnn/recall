@@ -311,7 +311,7 @@ def _build_prompt(config: dict[str, Any]) -> str:
             _prompt_example(),
             "```",
             "Use null for unknown optional fields.",
-            'If no strong verified matches exist, return {"jobs":[]}.' ,
+            'If no strong verified matches exist, return {"jobs":[]}.',
         ]
     )
     return "\n".join(lines)
@@ -387,9 +387,7 @@ def _profile_out(
     raw_status = automation.status
     status = raw_status if raw_status in _VALID_AUTOMATION_STATUSES else "paused"
     raw_run_status = automation.last_run_status
-    last_run_status = (
-        raw_run_status if raw_run_status in _VALID_RUN_STATUSES else None
-    )
+    last_run_status = raw_run_status if raw_run_status in _VALID_RUN_STATUSES else None
     return JobSearchProfileOut(
         id=automation.id,
         target_roles=_string_list(config, "target_roles"),
@@ -397,28 +395,16 @@ def _profile_out(
         location=str(config["location"]) if config.get("location") else None,
         work_modes=_work_modes(config),
         experience_levels=_experience_levels(config),
-        salary_min=(
-            config.get("salary_min")
-            if isinstance(config.get("salary_min"), int)
-            else None
-        ),
+        salary_min=(config.get("salary_min") if isinstance(config.get("salary_min"), int) else None),
         requires_sponsorship=(
             config.get("requires_sponsorship")
             if isinstance(config.get("requires_sponsorship"), bool)
             else None
         ),
         excluded_companies=_string_list(config, "excluded_companies"),
-        background=(
-            str(config["background"])
-            if config.get("background")
-            else None
-        ),
+        background=(str(config["background"]) if config.get("background") else None),
         resume_attachment_id=_uuid_or_none(config.get("resume_attachment_id")),
-        resume_filename=(
-            str(config["resume_filename"])
-            if config.get("resume_filename")
-            else None
-        ),
+        resume_filename=(str(config["resume_filename"]) if config.get("resume_filename") else None),
         result_count=cast(Literal[5, 10, 15], count),
         frequency=_frequency(automation.frequency),
         next_run_at=automation.next_run_at,
@@ -471,9 +457,7 @@ async def _collect_matches(
             seen.add(match_id)
             raw_status = statuses.get(match_id, "new")
             status: JobMatchStatus = (
-                raw_status
-                if raw_status in {"new", "saved", "applied", "hidden"}
-                else "new"
+                raw_status if raw_status in {"new", "saved", "applied", "hidden"} else "new"
             )
             if status == "hidden" and not include_hidden:
                 continue
@@ -550,11 +534,7 @@ async def upsert_profile(
         "requires_sponsorship": body.requires_sponsorship,
         "excluded_companies": body.excluded_companies,
         "background": body.background,
-        "resume_attachment_id": (
-            str(body.resume_attachment_id)
-            if body.resume_attachment_id
-            else None
-        ),
+        "resume_attachment_id": (str(body.resume_attachment_id) if body.resume_attachment_id else None),
         "resume_filename": resume_filename,
         "resume_text": resume_text,
         "result_count": body.result_count,
@@ -663,9 +643,8 @@ async def run_now(
     if automation is None:
         raise JobSearchError("Set up your job search first", status_code=404)
     now = datetime.now(UTC)
-    ran_recently = (
-        automation.last_run_at is not None
-        and now - automation.last_run_at < timedelta(minutes=10)
+    ran_recently = automation.last_run_at is not None and now - automation.last_run_at < timedelta(
+        minutes=10
     )
     if ran_recently:
         raise JobSearchError(
