@@ -8,18 +8,18 @@ from app.routers import job_search
 
 
 @pytest.mark.asyncio
-async def test_run_now_enqueues_the_due_search_immediately() -> None:
+async def test_run_now_enqueues_a_manual_occurrence_immediately() -> None:
     profile = MagicMock()
     profile.id = uuid4()
-    profile.next_run_at = datetime(2026, 9, 18, 8, tzinfo=UTC)
+    profile.last_run_at = datetime(2026, 9, 17, 8, tzinfo=UTC)
     dashboard = MagicMock()
     dashboard.profile = profile
     redis = AsyncMock()
 
     with (
         patch.object(
-            job_search.job_search_service,
-            "run_now",
+            job_search.job_search_run_now_service,
+            "prepare_manual_run",
             AsyncMock(return_value=dashboard),
         ),
         patch.object(job_search, "enqueue", AsyncMock()) as enqueue,
@@ -36,22 +36,52 @@ async def test_run_now_enqueues_the_due_search_immediately() -> None:
         redis,
         "automation_run",
         {"automation_id": str(profile.id)},
-        dedupe_key=(f"automation_run:{profile.id}:{profile.next_run_at.isoformat()}"),
+        dedupe_key=(
+            f"automation_run_manual:{profile.id}:{profile.last_run_at.isoformat()}"
+        ),
     )
 
 
 @pytest.mark.asyncio
-async def test_run_now_keeps_scheduler_fallback_when_immediate_enqueue_fails() -> None:
+async def test_run_now_uses_stable_first_run_dedupe_key() -> None:
     profile = MagicMock()
     profile.id = uuid4()
-    profile.next_run_at = datetime(2026, 9, 18, 8, tzinfo=UTC)
+    profile.last_run_at = None
     dashboard = MagicMock()
     dashboard.profile = profile
 
     with (
         patch.object(
-            job_search.job_search_service,
-            "run_now",
+            job_search.job_search_run_now_service,
+            "prepare_manual_run",
+            AsyncMock(return_value=dashboard),
+        ),
+        patch.object(job_search, "enqueue", AsyncMock()) as enqueue,
+    ):
+        await job_search.run_job_search_now(
+            user=MagicMock(),
+            session=AsyncMock(),
+            settings=MagicMock(),
+            redis=AsyncMock(),
+        )
+
+    assert enqueue.await_args.kwargs["dedupe_key"] == (
+        f"automation_run_manual:{profile.id}:never"
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_now_returns_dashboard_when_immediate_enqueue_raises() -> None:
+    profile = MagicMock()
+    profile.id = uuid4()
+    profile.last_run_at = None
+    dashboard = MagicMock()
+    dashboard.profile = profile
+
+    with (
+        patch.object(
+            job_search.job_search_run_now_service,
+            "prepare_manual_run",
             AsyncMock(return_value=dashboard),
         ),
         patch.object(
