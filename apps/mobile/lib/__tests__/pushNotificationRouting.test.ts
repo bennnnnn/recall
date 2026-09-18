@@ -36,29 +36,41 @@ function fakeRouter() {
 }
 
 describe("handlePushNotificationResponse: automation_run", () => {
-  it("opens the automation's detail screen when automation_id is present", async () => {
+  it("opens the completed result conversation when chat_id is present", async () => {
     const router = fakeRouter();
     await handlePushNotificationResponse(router, "tok", {
       type: "automation_run",
       screen: "automations",
       automation_id: "auto-1",
       chat_id: "chat-1",
-    } as never);
+    });
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/open-chat",
+      params: { chatId: "chat-1" },
+    });
+  });
+
+  it("falls back to automation detail when a result chat id is missing", async () => {
+    const router = fakeRouter();
+    await handlePushNotificationResponse(router, "tok", {
+      type: "automation_run",
+      automation_id: "auto-1",
+    });
     expect(router.push).toHaveBeenCalledWith("/automations/auto-1");
   });
 
-  it("falls back to the Automations list when automation_id is missing", async () => {
+  it("falls back to the Automations list when all ids are missing", async () => {
     const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", { type: "automation_run" } as never);
+    await handlePushNotificationResponse(router, "tok", { type: "automation_run" });
     expect(router.push).toHaveBeenCalledWith("/automations");
   });
 
-  it("also routes on screen=automations without the automation_run type", async () => {
+  it("routes a generic screen=automations link to task detail", async () => {
     const router = fakeRouter();
     await handlePushNotificationResponse(router, "tok", {
       screen: "automations",
       automation_id: "auto-2",
-    } as never);
+    });
     expect(router.push).toHaveBeenCalledWith("/automations/auto-2");
   });
 
@@ -67,7 +79,7 @@ describe("handlePushNotificationResponse: automation_run", () => {
     await handlePushNotificationResponse(router, "tok", {
       type: "automation_run",
       automation_id: "auto-3",
-    } as never);
+    });
     expect(router.push).not.toHaveBeenCalledWith(
       expect.objectContaining({ pathname: "/todos" }),
     );
