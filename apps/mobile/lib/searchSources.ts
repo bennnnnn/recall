@@ -58,6 +58,8 @@ export function resolveSearchSources(
   attached?: SearchSource[] | null,
 ): SearchSource[] {
   if (attached && attached.length > 0) return attached;
+  // Sources only ever arrive inside a fence — skip the scan otherwise.
+  if (!content.includes("```")) return [];
   return parseSearchSources(content);
 }
 

@@ -122,37 +122,88 @@ function fenceInfoFromLine(line: string): string {
 }
 
 /**
- * Collect html/css/js fences from a markdown message. Linear scan — no
- * regex on the body (CodeQL).
+ * State for an incremental preview-file scan. While a reply streams, content
+ * grows append-only, so each flush rescans just the new suffix (from the
+ * opener of the fence that was still open at the last scan) instead of
+ * splitting and scanning the whole message every time.
  */
-export function collectPreviewFiles(markdown: string): PreviewFile[] {
-  const files: PreviewFile[] = [];
-  const used = new Set<string>();
-  const lines = markdown.split("\n");
+export type PreviewScanState = {
+  /** Markdown the scan is based on. */
+  source: string;
+  /** Char offset to resume from — always at a line start. */
+  resumeFrom: number;
+  files: PreviewFile[];
+  /** The last file came from a fence still open at scan time — it is
+   *  replaced by the rescan from `resumeFrom` on the next advance. */
+  trailingOpen: boolean;
+};
+
+type CollectResult = {
+  files: PreviewFile[];
+  /** Offset of the unclosed preview fence's opener, or `markdown.length`. */
+  openFenceStart: number;
+  trailingOpen: boolean;
+};
+
+/**
+ * Collect html/css/js fences from `markdown`, appending to `files`/`used`.
+ * Linear scan by line-start offsets — no regex on the body (CodeQL).
+ */
+function collectPreviewFilesInto(
+  markdown: string,
+  files: PreviewFile[],
+  used: Set<string>,
+): CollectResult {
   let i = 0;
-  while (i < lines.length && files.length < HTML_PREVIEW_MAX_FILES) {
-    const line = lines[i];
+  let openFenceStart = markdown.length;
+  let trailingOpen = false;
+  while (i < markdown.length && files.length < HTML_PREVIEW_MAX_FILES) {
+    const nl = markdown.indexOf("\n", i);
+    const lineEnd = nl === -1 ? markdown.length : nl;
+    const line = markdown.slice(i, lineEnd);
+    const nextLine = nl === -1 ? markdown.length : nl + 1;
     if (!isFenceOpenerLine(line)) {
-      i += 1;
+      i = nextLine;
       continue;
     }
     const info = fenceInfoFromLine(line);
     const lang = fenceLangFromInfo(info);
     const kind = kindForLang(lang);
     if (kind == null) {
-      i += 1;
+      i = nextLine;
       continue;
     }
     const { rest } = firstToken(info.trim());
     const hinted = rest ? sanitizePreviewFilename(firstToken(rest).token, kind) : null;
-    const body: string[] = [];
-    i += 1;
-    while (i < lines.length && !isFenceOpenerLine(lines[i])) {
-      body.push(lines[i]);
-      i += 1;
+    const bodyStart = nextLine;
+    let cursor = nextLine;
+    let bodyEnd = markdown.length;
+    let closed = false;
+    while (cursor < markdown.length) {
+      const bnl = markdown.indexOf("\n", cursor);
+      const bLineEnd = bnl === -1 ? markdown.length : bnl;
+      if (isFenceOpenerLine(markdown.slice(cursor, bLineEnd))) {
+        closed = true;
+        bodyEnd = cursor;
+        cursor = bnl === -1 ? markdown.length : bnl + 1;
+        break;
+      }
+      if (bnl === -1) {
+        cursor = markdown.length;
+        break;
+      }
+      cursor = bnl + 1;
     }
-    if (i < lines.length && isFenceOpenerLine(lines[i])) i += 1;
-    const content = body.join("\n");
+    if (!closed) {
+      // Unclosed fence (mid-stream): collect the partial body, and resume
+      // from this opener next time so the file is replaced, not duplicated.
+      openFenceStart = i;
+      trailingOpen = true;
+      i = markdown.length;
+    } else {
+      i = cursor;
+    }
+    const content = markdown.slice(bodyStart, bodyEnd).replace(/\n$/, "");
     if (!content.trim()) continue;
     const clipped =
       content.length > HTML_PREVIEW_MAX_FILE_CHARS
@@ -162,7 +213,40 @@ export function collectPreviewFiles(markdown: string): PreviewFile[] {
     used.add(name.toLowerCase());
     files.push({ kind, name, content: clipped });
   }
-  return files;
+  return { files, openFenceStart, trailingOpen };
+}
+
+/**
+ * Collect html/css/js fences from a markdown message. Linear scan — no
+ * regex on the body (CodeQL).
+ */
+export function collectPreviewFiles(markdown: string): PreviewFile[] {
+  return collectPreviewFilesInto(markdown, [], new Set()).files;
+}
+
+/**
+ * Advance an incremental scan for grown `markdown`. Append-only growth
+ * rescans only the suffix; a non-extending change (new stream, rewrite)
+ * resets and scans from scratch.
+ */
+export function advancePreviewFilesScan(
+  prev: PreviewScanState | null,
+  markdown: string,
+): PreviewScanState {
+  let base = prev ?? { source: "", resumeFrom: 0, files: [] as PreviewFile[], trailingOpen: false };
+  if (markdown === base.source) return base;
+  if (base.resumeFrom > 0 && !markdown.startsWith(base.source.slice(0, base.resumeFrom))) {
+    base = { source: "", resumeFrom: 0, files: [], trailingOpen: false };
+  }
+  const files = base.trailingOpen ? base.files.slice(0, -1) : base.files.slice();
+  const used = new Set(files.map((file) => file.name.toLowerCase()));
+  const result = collectPreviewFilesInto(markdown.slice(base.resumeFrom), files, used);
+  return {
+    source: markdown,
+    resumeFrom: base.resumeFrom + result.openFenceStart,
+    files: result.files,
+    trailingOpen: result.trailingOpen,
+  };
 }
 
 function attrValue(tag: string, attr: string): string | null {

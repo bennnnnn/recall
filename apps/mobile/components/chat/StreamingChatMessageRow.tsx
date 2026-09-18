@@ -2,7 +2,6 @@ import React, { memo } from "react";
 
 import { MessageBubble } from "@/components/MessageBubble";
 import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
-import { useThrottledStreamText } from "@/hooks/useThrottledStreamText";
 import type { Message } from "@/lib/api";
 
 type Props = {
@@ -41,16 +40,12 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   onOpenLesson,
   onRetryImageGen,
 }: Props) {
+  // Already throttled once at the store→UI boundary (useStreamingDraft) —
+  // read directly; a second throttle here would only add latency.
   const streamingDraft = useStreamingDraft();
-  const liveContent = useThrottledStreamText(streamingDraft?.content, streamVisualActive);
-  const streamStatus = useThrottledStreamText(
-    imageGenPending ? "image_gen" : streamingDraft?.status,
-    streamVisualActive,
-  );
-  const streamStatusDetail = useThrottledStreamText(
-    imageGenPending ? undefined : streamingDraft?.statusDetail,
-    streamVisualActive,
-  );
+  const liveContent = streamingDraft?.content;
+  const streamStatus = imageGenPending ? "image_gen" : streamingDraft?.status;
+  const streamStatusDetail = imageGenPending ? undefined : streamingDraft?.statusDetail;
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
 
   return (
