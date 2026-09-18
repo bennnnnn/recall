@@ -1,10 +1,10 @@
 """Schemas for the purpose-built My Job search assistant."""
 
 from datetime import datetime
-from typing import Literal, Self
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 JobSearchFrequency = Literal["daily", "weekdays", "weekly", "monthly"]
 JobSearchStatus = Literal["active", "paused"]
@@ -49,8 +49,10 @@ class JobSearchUpsert(BaseModel):
 
     @field_validator("target_roles", "skills", "excluded_companies")
     @classmethod
-    def normalize_lists(cls, value: list[str], info) -> list[str]:  # type: ignore[no-untyped-def]
-        limit = {"target_roles": 6, "skills": 30, "excluded_companies": 20}[info.field_name]
+    def normalize_lists(cls, value: list[str], info: ValidationInfo) -> list[str]:
+        limit = {"target_roles": 6, "skills": 30, "excluded_companies": 20}[
+            info.field_name
+        ]
         cleaned = _clean_list(value, limit=limit)
         if info.field_name == "target_roles" and not cleaned:
             raise ValueError("at least one target role is required")
@@ -133,7 +135,3 @@ class JobSearchStateUpdate(BaseModel):
     model_config = ConfigDict(title="JobSearchStateUpdate")
 
     status: JobSearchStatus
-
-    @model_validator(mode="after")
-    def keep_valid_state(self) -> Self:
-        return self
