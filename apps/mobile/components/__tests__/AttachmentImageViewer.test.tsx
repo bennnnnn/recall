@@ -176,6 +176,10 @@ describe("AttachmentImageViewer", () => {
     );
     const root = getByTestId("attachment-image-viewer");
     expect(root.props.collapsable).toBe(false);
-    expect(StyleSheet.flatten(root.props.style).transform).toEqual([{ translateY: 0 }]);
+    // Pan translateY composed with the scale-in entrance (0.94 → 1 on open).
+    expect(StyleSheet.flatten(root.props.style).transform).toEqual([
+      { translateY: 0 },
+      { scale: 0.94 },
+    ]);
   });
 });

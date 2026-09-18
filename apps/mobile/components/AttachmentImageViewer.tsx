@@ -10,7 +10,12 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated from "react-native-reanimated";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -62,7 +67,10 @@ export function AttachmentImageViewer({
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
-  const { pan, panStyle, translateY } = useSheetPanDismiss(true, reduceMotion, onClose);
+  const { pan, translateY } = useSheetPanDismiss(true, reduceMotion, onClose);
+  // Fade/scale-in entrance (the Modal fade covers opacity; this adds the
+  // scale). Reduce Motion skips it — content appears at final scale.
+  const entrance = useSharedValue(reduceMotion ? 1 : 0);
   const [busy, setBusy] = useState<"download" | "share" | null>(null);
   const [pageIndex, setPageIndex] = useState(initialIndex);
   const [chromeVisible, setChromeVisible] = useState(true);
@@ -86,13 +94,36 @@ export function AttachmentImageViewer({
     wasVisibleRef.current = visible;
   }, [visible, safeIndex]);
 
+  // Reanimated shared values are designed to be mutated from effects —
+  // reset so a leftover drag doesn't reopen mid-slide.
+  /* eslint-disable react-hooks/immutability */
   useEffect(() => {
-    if (!visible) return;
-    // Reanimated shared values are designed to be mutated from effects —
-    // reset so a leftover drag doesn't reopen mid-slide.
-    // eslint-disable-next-line react-hooks/immutability
+    if (!visible) {
+      translateY.value = 0;
+      entrance.value = reduceMotion ? 1 : 0;
+      return;
+    }
     translateY.value = 0;
-  }, [visible, translateY]);
+    if (reduceMotion) {
+      entrance.value = 1;
+      return;
+    }
+    entrance.value = 0;
+    entrance.value = withTiming(1, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [visible, reduceMotion, translateY, entrance]);
+  /* eslint-enable react-hooks/immutability */
+
+  // Single animated style: panStyle's transform would override a separate
+  // entrance transform, so compose translateY + scale in one place.
+  const rootAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: translateY.value },
+      { scale: 0.94 + 0.06 * entrance.value },
+    ],
+  }));
 
   const current = items[Math.min(pageIndex, items.length - 1)] ?? items[0];
   const remoteUri = resolveAttachmentUri({
@@ -178,7 +209,7 @@ export function AttachmentImageViewer({
           <Animated.View
             testID="attachment-image-viewer"
             collapsable={false}
-            style={[s.root, panStyle]}
+            style={[s.root, rootAnimatedStyle]}
           >
             {items.length > 1 ? (
               <FlatList

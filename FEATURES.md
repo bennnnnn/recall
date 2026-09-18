@@ -474,6 +474,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Compact chip/pill controls stay specialized (not the shared Button). Login
   wordmark and 11px stat chips keep their one-off sizes.
 
+**UX decisions from the 2026-09 frontend audit (do not relitigate):**
+- Model selection is **settings-only** (Settings → Models); no composer model picker.
+- My Job keeps one combined route (empty state → dashboard); split only if the empty
+  state grows.
+- User-message copy stays **long-press only** (with a "Long press to copy"
+  accessibility hint); no visible copy button on user bubbles.
+- Onboarding keeps a single CTA.
+- Schedule/Learning secondary meta uses the shared `Type.caption` token — no new
+  pill component.
+
 ## 12. Monetization
 - ✅ **Pro subscription (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
   (dev/production builds only; skipped in Expo Go). Restore purchases supported.
