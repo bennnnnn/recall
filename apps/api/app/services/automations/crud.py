@@ -1,5 +1,7 @@
-"""HTTP-facing Automations CRUD (Pro-only; execution lives in services/automations/run.py,
-added in the next phase). Mirrors services/todos/crud.py's shape.
+"""HTTP-facing CRUD for the legacy generic automation primitive.
+
+My Job is now a dedicated job-search product under ``/job-search``. These
+endpoints remain for backward compatibility but never expose job-search rows.
 """
 
 from __future__ import annotations
@@ -30,21 +32,26 @@ def _require_enabled(settings: Settings) -> None:
         raise AutomationsError("Not available", status_code=404)
 
 
+def _generic_or_not_found(automation: Automation | None) -> Automation:
+    if automation is None or automation.kind != "generic":
+        raise AutomationsError("Automation not found", status_code=404)
+    return automation
+
+
 async def list_automations(
     session: AsyncSession, user: User, settings: Settings
 ) -> list[Automation]:
     _require_enabled(settings)
-    return await automations_repo.list_for_user(session, user.id)
+    return await automations_repo.list_for_user(session, user.id, kind="generic")
 
 
 async def get_automation(
     session: AsyncSession, user: User, settings: Settings, automation_id: UUID
 ) -> Automation:
     _require_enabled(settings)
-    automation = await automations_repo.get_by_id(session, automation_id, user.id)
-    if automation is None:
-        raise AutomationsError("Automation not found", status_code=404)
-    return automation
+    return _generic_or_not_found(
+        await automations_repo.get_by_id(session, automation_id, user.id)
+    )
 
 
 async def create_automation(
@@ -60,7 +67,9 @@ async def create_automation(
     if not plan_service.is_pro(user):
         raise AutomationsError("Automations require Recall Pro", status_code=403)
 
-    active_count = await automations_repo.count_active_for_user(session, user.id)
+    active_count = await automations_repo.count_active_for_user(
+        session, user.id, kind="generic"
+    )
     if active_count >= settings.automations_max_active_per_user:
         raise AutomationsError(
             f"You can have up to {settings.automations_max_active_per_user} "
@@ -72,9 +81,6 @@ async def create_automation(
     if normalized_next_run is None:
         raise AutomationsError("next_run_at is required", status_code=422)
 
-    # The automation owns a dedicated chat purely as run-history storage —
-    # create it in the same transaction (flush only) so a mid-write failure
-    # cannot leave an orphan chat with no automation row.
     chat = await chats_repo.create(session, user_id=user.id, model="smart-chat", commit=False)
     automation = await automations_repo.create(
         session,
@@ -83,6 +89,7 @@ async def create_automation(
         prompt=prompt,
         frequency=frequency,
         next_run_at=normalized_next_run,
+        kind="generic",
         commit=False,
     )
     await session.commit()
@@ -98,28 +105,24 @@ async def update_automation(
     fields: dict[str, Any],
 ) -> Automation:
     _require_enabled(settings)
-    automation = await automations_repo.get_by_id(session, automation_id, user.id)
-    if automation is None:
-        raise AutomationsError("Automation not found", status_code=404)
+    automation = _generic_or_not_found(
+        await automations_repo.get_by_id(session, automation_id, user.id)
+    )
 
     patch = dict(fields)
     if "next_run_at" in patch and patch["next_run_at"] is not None:
         patch["next_run_at"] = normalize_due_at(patch["next_run_at"], user.timezone)
 
-    updated = await automations_repo.update(session, automation, **patch)
-    return updated
+    return await automations_repo.update(session, automation, **patch)
 
 
 async def delete_automation(
     session: AsyncSession, user: User, settings: Settings, automation_id: UUID
 ) -> None:
     _require_enabled(settings)
-    automation = await automations_repo.get_by_id(session, automation_id, user.id)
-    if automation is None:
-        raise AutomationsError("Automation not found", status_code=404)
-    # Deletes the dedicated chat through the same path normal chat delete
-    # uses; the automation row cascade-deletes at the DB level (chat_id FK
-    # ON DELETE CASCADE) so this also covers a bulk "delete all chats" wipe.
+    automation = _generic_or_not_found(
+        await automations_repo.get_by_id(session, automation_id, user.id)
+    )
     try:
         await chats_service.delete_chat(session, user, automation.chat_id, settings=settings)
     except chats_service.ChatsError as exc:
