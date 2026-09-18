@@ -181,6 +181,11 @@ async def run_automation(settings: Settings, redis: Redis, *, automation_id: UUI
                 )
 
     if run_status == "ok" and automation_snapshot is not None:
+        # The job-search prompt can contain the candidate's profile and resume.
+        # Notification bodies must never expose that private source text. This
+        # object is detached, so changing it here does not persist to the row.
+        if automation_snapshot.kind == "job_search":
+            automation_snapshot.prompt = "Your latest job matches are ready to review."
         async with SessionLocal() as session:
             await push_notifications.notify_automation_run(
                 session, redis, settings, automation_snapshot
