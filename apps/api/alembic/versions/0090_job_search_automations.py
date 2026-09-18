@@ -27,7 +27,15 @@ def upgrade() -> None:
         "kind IN ('generic', 'job_search')",
     )
     # My Job is one durable search profile per user. Generic automations remain
-    # unconstrained and continue to use the same execution engine internally.
+    # available to legacy clients for inspection/deletion, but the product no
+    # longer exposes them. Pause existing active rows so an invisible retired
+    # task cannot keep running after users upgrade to the job-search-only UI.
+    op.execute(
+        sa.text(
+            "UPDATE automations SET status = 'paused' "
+            "WHERE kind = 'generic' AND status = 'active'"
+        )
+    )
     op.create_index(
         "uq_automations_job_search_user",
         "automations",
