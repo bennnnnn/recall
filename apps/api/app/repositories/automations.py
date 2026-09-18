@@ -64,11 +64,15 @@ async def list_for_user(
     limit: int = 100,
     kind: str | None = None,
 ) -> list[Automation]:
-    stmt = select(Automation).where(Automation.user_id == user_id)
-    if kind is not None:
-        stmt = stmt.where(Automation.kind == kind)
+    if kind is None:
+        query = select(Automation).where(Automation.user_id == user_id)
+    else:
+        query = select(Automation).where(
+            Automation.user_id == user_id,
+            Automation.kind == kind,
+        )
     result = await session.execute(
-        stmt.order_by(Automation.created_at.desc(), Automation.id.desc()).limit(limit)
+        query.order_by(Automation.created_at.desc(), Automation.id.desc()).limit(limit)
     )
     return list(result.scalars().all())
 
@@ -76,13 +80,18 @@ async def list_for_user(
 async def count_active_for_user(
     session: AsyncSession, user_id: UUID, *, kind: str | None = None
 ) -> int:
-    stmt = select(Automation).where(
-        Automation.user_id == user_id,
-        Automation.status == "active",
-    )
-    if kind is not None:
-        stmt = stmt.where(Automation.kind == kind)
-    result = await session.execute(stmt)
+    if kind is None:
+        query = select(Automation).where(
+            Automation.user_id == user_id,
+            Automation.status == "active",
+        )
+    else:
+        query = select(Automation).where(
+            Automation.user_id == user_id,
+            Automation.status == "active",
+            Automation.kind == kind,
+        )
+    result = await session.execute(query)
     return len(result.scalars().all())
 
 
