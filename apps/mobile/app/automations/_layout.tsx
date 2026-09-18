@@ -28,7 +28,10 @@ export default function AutomationsLayout() {
       <Stack.Screen name="index" options={{ title: t("automations.title") }} />
       <Stack.Screen
         name="[id]"
-        options={{ headerLeft: () => <StackBackButton fallback="/automations" /> }}
+        options={{
+          title: "",
+          headerLeft: () => <StackBackButton fallback="/automations" icon="close" />,
+        }}
       />
     </Stack>
   );
