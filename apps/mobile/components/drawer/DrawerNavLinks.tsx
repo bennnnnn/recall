@@ -79,7 +79,7 @@ export function DrawerNavLinks({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.automations")}
       >
-        <Icon name="flash-outline" size={18} />
+        <Icon name="briefcase-outline" size={18} />
         <Text style={s.todosLinkText}>{t("drawer.automations")}</Text>
         <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
