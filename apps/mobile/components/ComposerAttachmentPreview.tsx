@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Image, type ImageLoadEvent, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, type ImageLoadEventData } from "expo-image";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
@@ -59,8 +60,8 @@ function ComposerImagePreview({ attachment, uploading, onRemove }: Props) {
   const bounds = { width: 88, height: 112 };
   const [decodedSize, setDecodedSize] = useState<ImageSize | null>(null);
   const size = (decodedSize && fitAttachmentImage(decodedSize, bounds)) || bounds;
-  const onLoad = (event: ImageLoadEvent) => {
-    const loaded = event.nativeEvent.source;
+  const onLoad = (event: ImageLoadEventData) => {
+    const loaded = event.source;
     if (fitAttachmentImage(loaded, bounds)) {
       setDecodedSize({ width: loaded.width, height: loaded.height });
     }
@@ -76,7 +77,8 @@ function ComposerImagePreview({ attachment, uploading, onRemove }: Props) {
         <Image
           source={{ uri: attachment.localUri }}
           style={s.image}
-          resizeMode="contain"
+          contentFit="contain"
+          cachePolicy="memory-disk"
           onLoad={onLoad}
           testID="composer-image-preview"
         />

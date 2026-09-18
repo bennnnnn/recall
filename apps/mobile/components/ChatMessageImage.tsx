@@ -1,13 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Image,
-  ImageSourcePropType,
-  type ImageLoadEvent,
   Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
 } from "react-native";
+import { Image, type ImageLoadEventData, type ImageSource } from "expo-image";
 import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
@@ -53,11 +51,11 @@ export function useThumbnailSize() {
 }
 
 type RevealingImageProps = {
-  source: ImageSourcePropType;
+  source: ImageSource;
   style: ReturnType<typeof makeStyles>["preview"];
   layerStyle: ReturnType<typeof makeStyles>["layer"];
   onError: () => void;
-  onLoad: (event: ImageLoadEvent) => void;
+  onLoad: (event: ImageLoadEventData) => void;
   reduceMotion: boolean;
   previewFit: "cover" | "contain";
 };
@@ -78,7 +76,7 @@ function RevealingImage({
   const sharpStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: 1 - reveal.value }));
 
-  const handleLoad = (event: ImageLoadEvent) => {
+  const handleLoad = (event: ImageLoadEventData) => {
     onLoad(event);
     // Reanimated shared values are designed to be mutated from any JS-thread
     // callback, including a plain event handler like this one — this isn't
@@ -97,7 +95,8 @@ function RevealingImage({
       <AnimatedImage
         source={source}
         style={[style, layerStyle]}
-        resizeMode={previewFit}
+        contentFit={previewFit}
+        cachePolicy="memory-disk"
         onError={onError}
         onLoad={onLoad}
       />
@@ -111,13 +110,15 @@ function RevealingImage({
       <AnimatedImage
         source={source}
         style={[style, layerStyle, blurStyle]}
-        resizeMode={previewFit}
+        contentFit={previewFit}
+        cachePolicy="memory-disk"
         blurRadius={REVEAL_BLUR_RADIUS}
       />
       <AnimatedImage
         source={source}
         style={[style, layerStyle, sharpStyle]}
-        resizeMode={previewFit}
+        contentFit={previewFit}
+        cachePolicy="memory-disk"
         onLoad={handleLoad}
         onError={onError}
       />
@@ -166,9 +167,9 @@ function ChatMessageImageContent({
     ? fitAttachmentImage(decodedSize, { width: maxWidth, height: maxHeight })
     : null;
   const { width, height } = fitted ?? { width: maxWidth, height: maxHeight };
-  const onLoad = (event: ImageLoadEvent) => {
+  const onLoad = (event: ImageLoadEventData) => {
     if (previewFit !== "contain") return;
-    const size = event.nativeEvent.source;
+    const size = event.source;
     if (fitAttachmentImage(size, { width: maxWidth, height: maxHeight })) {
       setDecodedSize({ width: size.width, height: size.height });
     }
@@ -234,7 +235,8 @@ function ChatMessageImageContent({
             <Image
               source={localUri ? { uri: localUri } : source}
               style={s.preview}
-              resizeMode={previewFit}
+              contentFit={previewFit}
+              cachePolicy="memory-disk"
               onError={() => setFailed(true)}
               onLoad={onLoad}
               testID="chat-image-preview"

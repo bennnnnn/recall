@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Image } from "expo-image";
 
 import { Icon } from "@/components/Icon";
 import { MediaLoadRetry } from "@/components/MediaLoadRetry";
@@ -122,7 +123,8 @@ function GalleryThumbnailBase({
             testID="gallery-thumb-image"
             source={source}
             style={[dimension, s.image]}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="memory-disk"
             onLoad={() => {
               clearLoadTimer();
               setLoaded(true);

@@ -105,3 +105,25 @@ jestGlobals.mock("expo-haptics", () => ({
   ImpactFeedbackStyle: { Light: "light", Medium: "medium", Heavy: "heavy" },
   NotificationFeedbackType: { Success: "success", Warning: "warning", Error: "error" },
 }));
+
+// expo-image's Image is a native view (requireNativeViewManager) that cannot
+// load here. Wrap RN's Image and translate the load event into expo-image's
+// shape ({ source } instead of { nativeEvent: { source } }) so components
+// under test see the real contract.
+jestGlobals.mock("expo-image", () => {
+  const React = require("react");
+  const { Image: RNImage } = require("react-native");
+  const Image = React.forwardRef(
+    ({ onLoad, contentFit, cachePolicy, transition, ...rest }, ref) =>
+      React.createElement(RNImage, {
+        ...rest,
+        ref,
+        resizeMode: contentFit,
+        onLoad: onLoad
+          ? (event) => onLoad({ source: event?.nativeEvent?.source ?? {} })
+          : undefined,
+      }),
+  );
+  Image.displayName = "ExpoImageMock";
+  return { Image };
+});

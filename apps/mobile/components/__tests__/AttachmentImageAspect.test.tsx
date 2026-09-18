@@ -89,7 +89,7 @@ describe("decoded attachment frame proportions", () => {
     const view = await render(<ChatMessageImage path="https://images.test/generated.jpg" width={148} height={189} />);
     const layers = view.getAllByTestId("animated-image");
     expect(layers).toHaveLength(2);
-    expect(layers.every((layer) => layer.props.resizeMode === "cover")).toBe(true);
+    expect(layers.every((layer) => layer.props.contentFit === "cover")).toBe(true);
     await fireEvent(layers[1], "load", load(1200, 300));
     expect(view.getByTestId("chat-image-frame")).toHaveStyle({ width: 148, height: 189 });
   });

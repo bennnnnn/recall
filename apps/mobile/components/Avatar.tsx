@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 
 import { getInitials } from "@/lib/profile";
 import { attachmentRequestHeaders, resolveAttachmentUri } from "@/lib/attachmentUri";
@@ -28,6 +29,8 @@ export function Avatar({
         testID="avatar-image"
         source={{ uri: resolvedUri, headers: attachmentRequestHeaders(resolvedUri, token) }}
         style={[dim, { backgroundColor: theme.surface }]}
+        contentFit="cover"
+        cachePolicy="memory-disk"
       />
     );
   }
