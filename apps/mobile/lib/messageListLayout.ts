@@ -1,7 +1,8 @@
 import { hasSettingsProposalFence } from "@/lib/settingsProposal";
 
-/** Typical bubble height for FlashList layout hints (variable-height items). */
-export const ESTIMATED_MESSAGE_HEIGHT = 88;
+// Note: no estimatedItemSize / size hints here — FlashList v2 measures items
+// itself and `overrideItemLayout` only supports span. Recycling quality comes
+// from `getItemType` (messageListItemType below).
 
 /** Delay post-stream rich chrome (sources, full markdown) so layout settles once. */
 export const STREAM_LAYOUT_SETTLE_MS = 280;
