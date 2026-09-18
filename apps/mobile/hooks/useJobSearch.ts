@@ -26,6 +26,9 @@ export function useJobSearch(isCurrent: () => boolean) {
   const [dashboard, setDashboard] = useState<JobSearchDashboard>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  // A manual "Find jobs now" run polls for up to a minute — that must not hold
+  // the shared `busy` flag or Pause/Edit/Delete freeze with it.
+  const [running, setRunning] = useState(false);
   const [error, setError] = useState(false);
 
   const refresh = useCallback(
@@ -113,9 +116,9 @@ export function useJobSearch(isCurrent: () => boolean) {
   );
 
   const runNow = useCallback(async () => {
-    if (!token || busy) return;
+    if (!token || running) return;
     const previousRunAt = dashboard.profile?.last_run_at ?? null;
-    setBusy(true);
+    setRunning(true);
     try {
       const started = await api.runJobSearchNow(token);
       if (!isCurrent()) return;
@@ -140,15 +143,18 @@ export function useJobSearch(isCurrent: () => boolean) {
           // search failed. Keep polling until the bounded window expires.
         }
       }
+      // The bounded window expired without a fresh run landing — say so instead
+      // of silently stopping, or the spinner just vanishes with no new matches.
+      feedback?.info(t("my_job.run_timeout"));
     } catch (err) {
       if (isCurrent()) {
         const message = err instanceof Error ? err.message : t("my_job.error_run");
         reportRecoverableError(feedback, message);
       }
     } finally {
-      if (isCurrent()) setBusy(false);
+      if (isCurrent()) setRunning(false);
     }
-  }, [token, busy, dashboard.profile?.last_run_at, isCurrent, feedback, t]);
+  }, [token, running, dashboard.profile?.last_run_at, isCurrent, feedback, t]);
 
   const remove = useCallback(async (): Promise<boolean> => {
     if (!token || busy) return false;
@@ -170,6 +176,7 @@ export function useJobSearch(isCurrent: () => boolean) {
     dashboard,
     loading,
     busy,
+    running,
     error,
     refresh,
     save,

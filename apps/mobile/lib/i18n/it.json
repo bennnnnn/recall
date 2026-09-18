@@ -977,5 +977,7 @@
   "my_job.error_delete": "Could not delete your job search",
   "memory": {
     "mute_failed": "Couldn’t update that. Try again."
-  }
+  },
+  "my_job.searching": "Searching…",
+  "my_job.run_timeout": "Still searching — new matches will show up here when they're ready."
 }
