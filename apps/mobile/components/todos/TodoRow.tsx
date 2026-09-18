@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import type { Todo } from "@/lib/api";
 import { describeDueAt } from "@/lib/todos/dueDate";
-import { notifyWarning } from "@/lib/haptics";
+import { notifyWarning, selection } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
 
@@ -52,11 +52,15 @@ export const TodoRow = memo(function TodoRow({
   const row = (
     <View style={[s.todoRow, highlighted && s.todoRowHighlighted]}>
       <Pressable
-        onPress={() => onToggle(todo)}
+        onPress={() => {
+          selection();
+          onToggle(todo);
+        }}
         hitSlop={10}
         style={s.checkbox}
         disabled={busy}
         accessibilityRole="checkbox"
+        accessibilityLabel={todo.content}
         accessibilityState={{ checked: todo.checked, disabled: busy, busy }}
       >
         {busy ? (

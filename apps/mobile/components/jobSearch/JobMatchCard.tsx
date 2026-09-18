@@ -158,12 +158,15 @@ function makeStyles(C: Theme) {
     title: { ...Type.navTitle, color: C.text, fontWeight: "700" },
     company: { ...Type.secondary, color: C.textSecondary, marginTop: 2 },
     hideButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: C.surfaceAlt,
+      // Keep the card's heading row height driven by the 48px logo.
+      marginVertical: -4,
+      marginRight: -4,
     },
     meta: { ...Type.compact, color: C.textTertiary },
     summary: { ...Type.body, color: C.textSecondary },
@@ -192,7 +195,7 @@ function makeStyles(C: Theme) {
     },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
     action: {
-      minHeight: 40,
+      minHeight: 44,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",

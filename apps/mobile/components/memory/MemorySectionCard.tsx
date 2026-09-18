@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/Icon";
+import { IconButton } from "@/components/IconButton";
 import type { Memory } from "@/lib/api";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -47,16 +47,15 @@ export function MemorySectionCard({
     <View style={s.group}>
       <View style={s.groupHeader}>
         <Text style={s.groupTitle}>{memoryTypeLabel(type, t)}</Text>
-        <Pressable
-          hitSlop={14}
+        <IconButton
+          name="trash-outline"
+          size={16}
+          color={theme.danger}
           onPress={onDeleteSection}
           disabled={pending}
-          accessibilityState={{ disabled: pending, busy: pending }}
-          accessibilityRole="button"
           accessibilityLabel={t("memory.delete_section_a11y")}
-        >
-          <Icon name="trash-outline" size={16} danger />
-        </Pressable>
+          style={s.headerAction}
+        />
       </View>
       <View style={s.card}>
         {facts.map((fact) => {
@@ -83,29 +82,24 @@ export function MemorySectionCard({
                 {muted ? <Text style={s.meta}>{t("memory.muted")}</Text> : null}
               </Pressable>
               <View style={s.factActions}>
-                <Pressable
-                  hitSlop={8}
+                <IconButton
+                  name={muted ? "eye-off-outline" : "eye-outline"}
+                  size={18}
+                  color={theme.textTertiary}
                   onPress={() => onMuteFact(fact)}
                   disabled={pending}
-                  accessibilityRole="button"
                   accessibilityLabel={muted ? t("memory.unmute") : t("memory.mute")}
-                >
-                  <Icon
-                    name={muted ? "eye-off-outline" : "eye-outline"}
-                    size={18}
-                    color={theme.textTertiary}
-                  />
-                </Pressable>
-                <Pressable
-                  hitSlop={8}
+                  style={s.factAction}
+                />
+                <IconButton
+                  name="close-circle-outline"
+                  size={18}
+                  color={theme.danger}
                   onPress={() => onDeleteFact(fact)}
                   disabled={pending}
-                  accessibilityState={{ disabled: pending, busy: pending }}
-                  accessibilityRole="button"
                   accessibilityLabel={t("memory.delete_fact_a11y")}
-                >
-                  <Icon name="close-circle-outline" size={18} danger />
-                </Pressable>
+                  style={s.factAction}
+                />
               </View>
             </View>
           );
@@ -147,8 +141,11 @@ function makeStyles(theme: Theme) {
     factActions: {
       flexDirection: "row",
       alignItems: "center",
-      gap: Space.xs,
     },
+    // 44×44 IconButton boxes; negative vertical margin keeps the row height
+    // driven by the fact text, not the touch targets.
+    factAction: { marginVertical: -12 },
+    headerAction: { marginVertical: -12, marginRight: -12 },
     factText: { flex: 1, ...Type.body, color: theme.text },
     mutedText: { color: theme.textSecondary },
     meta: { ...Type.meta, color: theme.textTertiary, marginTop: 4 },

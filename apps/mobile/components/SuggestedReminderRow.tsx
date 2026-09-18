@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
+import { selection, tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import type { SuggestedReminder } from "@/lib/api";
@@ -44,10 +45,30 @@ export function SuggestedReminderRow({ reminder, busy, onAdd, onDismiss }: Props
           </Text>
         ) : null}
         <View style={s.actions}>
-          <Pressable style={s.addBtn} onPress={onAdd} disabled={busy}>
+          <Pressable
+            style={s.addBtn}
+            onPress={() => {
+              tap();
+              onAdd();
+            }}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={t("suggested.add")}
+            accessibilityState={{ disabled: Boolean(busy), busy: Boolean(busy) }}
+          >
             <Text style={s.addText}>{t("suggested.add")}</Text>
           </Pressable>
-          <Pressable style={s.dismissBtn} onPress={onDismiss} disabled={busy}>
+          <Pressable
+            style={s.dismissBtn}
+            onPress={() => {
+              selection();
+              onDismiss();
+            }}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={t("suggested.dismiss")}
+            accessibilityState={{ disabled: Boolean(busy), busy: Boolean(busy) }}
+          >
             <Text style={s.dismissText}>{t("suggested.dismiss")}</Text>
           </Pressable>
         </View>

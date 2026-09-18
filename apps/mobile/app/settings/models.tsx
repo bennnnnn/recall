@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
+import { selection } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
@@ -156,6 +157,7 @@ export default function ModelsSettingsScreen() {
                           return;
                         }
                         if (v && !option.available) return;
+                        selection();
                         toggleModel(option.id, v);
                       }}
                     />

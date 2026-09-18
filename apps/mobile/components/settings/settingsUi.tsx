@@ -9,6 +9,7 @@ import {
 import { Icon } from "@/components/Icon";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { type SettingsStyles } from "@/components/settings/settingsStyles";
+import { selection } from "@/lib/haptics";
 import { type IoniconName } from "@/lib/icons";
 import { Theme } from "@/lib/theme";
 
@@ -287,7 +288,10 @@ export function SettingsSwitchRow({
       accessibilityHint={subtitle}
       accessibilityState={{ checked: value, disabled: Boolean(disabled) }}
       disabled={disabled}
-      onPress={() => onValueChange(!value)}
+      onPress={() => {
+        selection();
+        onValueChange(!value);
+      }}
     >
       {body}
     </Pressable>

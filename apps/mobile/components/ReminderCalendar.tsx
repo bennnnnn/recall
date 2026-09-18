@@ -154,6 +154,8 @@ export function ReminderCalendar({
           onVisibleMonthChange(startOfMonth(today));
           onSelectDay(todayKey);
         }}
+        accessibilityRole="button"
+        accessibilityLabel={t("calendar.jump_today")}
       >
         <Text style={s.todayBtnText}>{t("calendar.jump_today")}</Text>
       </Pressable>
@@ -176,11 +178,11 @@ function makeStyles(theme: Theme) {
       marginBottom: 8,
     },
     navBtn: {
-      width: 36,
-      height: 36,
+      width: 44,
+      height: 44,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: 18,
+      borderRadius: 22,
     },
     monthLabel: {
       ...Type.navTitle,
@@ -261,6 +263,8 @@ function makeStyles(theme: Theme) {
     todayBtn: {
       alignSelf: "center",
       marginTop: 8,
+      minHeight: 44,
+      justifyContent: "center",
       paddingHorizontal: 12,
       paddingVertical: 6,
     },

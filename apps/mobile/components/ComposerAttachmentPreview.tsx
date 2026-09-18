@@ -41,7 +41,7 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
       ) : (
         <Pressable
           onPress={onRemove}
-          hitSlop={12}
+          hitSlop={13}
           accessibilityRole="button"
           accessibilityLabel={t("chat.remove_attachment_a11y")}
         >
@@ -89,12 +89,13 @@ function ComposerImagePreview({ attachment, uploading, onRemove }: Props) {
       <Pressable
         style={s.removeBtn}
         onPress={onRemove}
-        hitSlop={12}
         accessibilityRole="button"
         accessibilityLabel={t("chat.remove_attachment_a11y")}
         disabled={uploading}
       >
-        <Icon name="close" size={14} color={C.text} />
+        <View style={s.removeBtnCircle}>
+          <Icon name="close" size={14} color={C.text} />
+        </View>
       </Pressable>
     </View>
   );
@@ -122,8 +123,16 @@ function makeStyles(C: Theme) {
     },
     removeBtn: {
       position: "absolute",
-      top: 4,
-      right: 4,
+      // 44×44 touch target; the visible 22px circle keeps its old center
+      // (top/right 4 + 11) via the negative offsets.
+      top: -7,
+      right: -7,
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    removeBtnCircle: {
       width: 22,
       height: 22,
       borderRadius: 11,

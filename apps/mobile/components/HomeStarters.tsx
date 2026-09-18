@@ -69,11 +69,12 @@ function OverdueReminderRow({
             tap();
             onDismiss(todo.id);
           }}
-          hitSlop={14}
           accessibilityRole="button"
           accessibilityLabel={t("chat.home.dismiss_reminder")}
         >
-          <Icon name="close" size={14} color={theme.textSecondary} />
+          <View style={s.urgentDismissCircle}>
+            <Icon name="close" size={14} color={theme.textSecondary} />
+          </View>
         </Pressable>
       </View>
     </View>
@@ -187,8 +188,16 @@ function makeStyles(t: Theme) {
     },
     urgentDismiss: {
       position: "absolute",
-      top: 6,
-      right: 6,
+      // 44×44 touch target; negative offsets keep the visible 24px circle at
+      // its old center (top 6 + 12).
+      top: -4,
+      right: -4,
+      width: Space.minTouch,
+      height: Space.minTouch,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    urgentDismissCircle: {
       width: Space.lg,
       height: Space.lg,
       borderRadius: Radius.md,

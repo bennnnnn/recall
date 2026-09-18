@@ -88,13 +88,13 @@ export function AttachmentPdfViewer({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
-          <Pressable onPress={onClose} hitSlop={8} accessibilityLabel={t("chat.pdf_close_a11y")}>
+          <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("chat.pdf_close_a11y")}>
             <Icon name="close" size={IconSize.lg} color={theme.text} />
           </Pressable>
           <Text style={s.title} numberOfLines={1}>
             {fileName}
           </Text>
-          <Pressable onPress={onShare} hitSlop={8} accessibilityLabel={t("chat.pdf_share_a11y")}>
+          <Pressable onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("chat.pdf_share_a11y")}>
             <Icon name="share-outline" size={IconSize.md} color={theme.primary} />
           </Pressable>
         </View>
