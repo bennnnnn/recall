@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.models.orm import Automation, Chat, Message
+from app.models.orm import Chat, Message
 from app.models.schemas import ChatOut, SearchResultItem
 from app.repositories import chats as chats_repo
 from app.services import chats as chats_service
@@ -23,9 +23,6 @@ def metadata_session():
     engine = create_engine("sqlite://")
     Chat.__table__.create(engine)
     Message.__table__.create(engine)
-    # chats_repo.list_for_user's automations exclusion NOT EXISTS subquery
-    # references this table even when the test never inserts a row.
-    Automation.__table__.create(engine)
     with Session(engine, expire_on_commit=False) as sync_session:
         session = AsyncMock(spec=AsyncSession)
         session.execute.side_effect = sync_session.execute

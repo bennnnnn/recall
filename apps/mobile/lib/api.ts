@@ -1,18 +1,19 @@
 import { accountApi } from "@/lib/api/account";
 import { analyticsApi } from "@/lib/api/analytics";
 import { attachmentsApi } from "@/lib/api/attachments";
-import { automationsApi } from "@/lib/api/automations";
 import { chatsApi } from "@/lib/api/chats";
 import { discoverApi } from "@/lib/api/discover";
 import { imagesApi } from "@/lib/api/images";
 import { integrationsApi } from "@/lib/api/integrations";
-import { memoriesApi } from "@/lib/api/memories";
+import { jobSearchApi } from "@/lib/api/jobSearch";
 import { learningApi } from "@/lib/api/learning";
+import { memoriesApi } from "@/lib/api/memories";
 import { speechApi } from "@/lib/api/speech";
 import { todosApi } from "@/lib/api/todos";
 
 export type * from "@/lib/api/types";
 export type { ProductEventName } from "@/lib/api/analytics";
+export type * from "@/lib/api/jobSearch";
 export {
   attachmentRecordExists,
   type AttachmentListItem,
@@ -42,5 +43,5 @@ export const api = {
   ...attachmentsApi,
   ...imagesApi,
   ...speechApi,
-  ...automationsApi,
+  ...jobSearchApi,
 };

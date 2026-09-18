@@ -172,6 +172,11 @@ export function ConversationList(_props: unknown) {
     startNewChatGlobal();
   }, []);
 
+  const openMyJob = useCallback(() => {
+    closeDrawer();
+    router.push("/my-job");
+  }, [router]);
+
   const openReminders = useCallback(() => {
     closeDrawer();
     router.push({ pathname: "/todos", params: { focus: "reminders" } });
@@ -180,11 +185,6 @@ export function ConversationList(_props: unknown) {
   const openProjects = useCallback(() => {
     closeDrawer();
     router.push("/projects");
-  }, [router]);
-
-  const openAutomations = useCallback(() => {
-    closeDrawer();
-    router.push("/automations");
   }, [router]);
 
   const openGallery = useCallback(() => {
@@ -246,9 +246,9 @@ export function ConversationList(_props: unknown) {
           theme={theme}
           showIndicator={showIndicator}
           unseenCount={unseenCount}
+          onMyJob={openMyJob}
           onProjects={openProjects}
           onReminders={openReminders}
-          onAutomations={openAutomations}
           onGallery={openGallery}
         />
         <DrawerListHeader
@@ -270,9 +270,9 @@ export function ConversationList(_props: unknown) {
       theme,
       showIndicator,
       unseenCount,
+      openMyJob,
       openProjects,
       openReminders,
-      openAutomations,
       openGallery,
       loading,
       error,

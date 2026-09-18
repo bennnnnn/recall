@@ -240,43 +240,4 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownContent).not.toContain("learning_launch");
     expect(result.markdownContent).not.toContain(projectId);
   });
-
-  it("exposes an automation_created fence and hides the raw JSON", () => {
-    const automationId = "22222222-2222-4222-8222-222222222222";
-    const result = deriveAssistantMessageContent({
-      ...base,
-      content: [
-        "Done — every day at 8am I'll check for new postings.",
-        "```automation_created",
-        JSON.stringify({
-          id: automationId,
-          prompt: "Find L3 backend jobs",
-          frequency: "daily",
-          next_run_at: "2026-09-19T08:00:00-04:00",
-        }),
-        "```",
-      ].join("\n"),
-    });
-
-    expect(result.automationCreated).toEqual({
-      id: automationId,
-      prompt: "Find L3 backend jobs",
-      frequency: "daily",
-      nextRunAt: "2026-09-19T08:00:00-04:00",
-    });
-    expect(result.markdownContent).toContain("every day at 8am");
-    expect(result.markdownContent).not.toContain("automation_created");
-    expect(result.markdownContent).not.toContain(automationId);
-  });
-
-  it("does not expose automation_created while still streaming (partial fence)", () => {
-    const result = deriveAssistantMessageContent({
-      ...base,
-      content: 'Done — every day.\n```automation_created\n{"id":"x"',
-      isGenerating: true,
-    });
-
-    expect(result.automationCreated).toBeNull();
-    expect(result.markdownContent).not.toContain("automation_created");
-  });
 });

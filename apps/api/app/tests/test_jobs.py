@@ -203,26 +203,6 @@ async def test_process_entries_moves_unknown_type_to_dlq(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_handle_automation_run_delegates():
-    automation_id = uuid4()
-    with patch("app.background.handlers.automations_run.run_automation", AsyncMock()) as job:
-        await job_handlers._handle_automation_run(Settings(), {"automation_id": str(automation_id)})
-    job.assert_awaited_once()
-    assert job.call_args.kwargs["automation_id"] == automation_id
-
-
-@pytest.mark.asyncio
-async def test_handle_automation_run_discards_bad_id():
-    with pytest.raises(jobs.JobDiscardError, match="invalid automation_id"):
-        await job_handlers._handle_automation_run(Settings(), {"automation_id": "not-a-uuid"})
-
-
-def test_register_all_registers_automation_run():
-    job_handlers.register_all()
-    assert jobs._HANDLERS.get("automation_run") is job_handlers._handle_automation_run
-
-
-@pytest.mark.asyncio
 async def test_handle_compress_delegates():
     cid = uuid4()
     with patch("app.background.handlers.compaction.compress_chat_history", AsyncMock()) as job:

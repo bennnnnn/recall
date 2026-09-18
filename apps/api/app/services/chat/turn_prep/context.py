@@ -125,9 +125,6 @@ class StreamContext:
     terminal_image_message_id: str | None = None
     terminal_image_content: str | None = None
     terminal_image_model: str | None = None
-    # Automations (unattended worker-run turns) get read-only tools only —
-    # see tool_loop.run_tool_rounds. Never set by a user-initiated turn.
-    is_automation: bool = False
 
 
 @dataclass
@@ -165,7 +162,6 @@ def stream_context_from_bundle(
     regenerate_backup: RegenerateBackup | None = None,
     indexable_attachment_ids: list[str] | None = None,
     user_message_persist: asyncio.Task[list[str]] | None = None,
-    is_automation: bool = False,
 ) -> StreamContext:
     """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics."""
     if run_title is None:
@@ -203,7 +199,6 @@ def stream_context_from_bundle(
         web_search_classified=getattr(bundle, "web_search_classified", None),
         indexable_attachment_ids=list(indexable_attachment_ids or []),
         user_message_persist=user_message_persist,
-        is_automation=is_automation,
     )
 
 

@@ -35,41 +35,20 @@ function fakeRouter() {
   return { push: jest.fn(), replace: jest.fn() };
 }
 
-describe("handlePushNotificationResponse: automation_run", () => {
-  it("opens the automation's detail screen when automation_id is present", async () => {
+describe("handlePushNotificationResponse: job_search_ready", () => {
+  it("opens the dedicated My Job dashboard", async () => {
     const router = fakeRouter();
     await handlePushNotificationResponse(router, "tok", {
-      type: "automation_run",
-      screen: "automations",
-      automation_id: "auto-1",
-      chat_id: "chat-1",
-    } as never);
-    expect(router.push).toHaveBeenCalledWith("/automations/auto-1");
+      type: "job_search_ready",
+      screen: "my-job",
+      profile_id: "profile-1",
+    });
+    expect(router.push).toHaveBeenCalledWith("/my-job");
   });
 
-  it("falls back to the Automations list when automation_id is missing", async () => {
+  it("also routes on the dedicated screen value", async () => {
     const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", { type: "automation_run" } as never);
-    expect(router.push).toHaveBeenCalledWith("/automations");
-  });
-
-  it("also routes on screen=automations without the automation_run type", async () => {
-    const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", {
-      screen: "automations",
-      automation_id: "auto-2",
-    } as never);
-    expect(router.push).toHaveBeenCalledWith("/automations/auto-2");
-  });
-
-  it("does not route automation_run through the reminders path", async () => {
-    const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", {
-      type: "automation_run",
-      automation_id: "auto-3",
-    } as never);
-    expect(router.push).not.toHaveBeenCalledWith(
-      expect.objectContaining({ pathname: "/todos" }),
-    );
+    await handlePushNotificationResponse(router, "tok", { screen: "my-job" });
+    expect(router.push).toHaveBeenCalledWith("/my-job");
   });
 });

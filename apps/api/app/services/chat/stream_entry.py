@@ -196,7 +196,6 @@ async def stream_chat_response(
     chat: Chat | None = None,
     skip_usage_seed: bool = False,
     resources: Any | None = None,
-    is_automation: bool = False,
 ) -> AsyncIterator[str]:
     content = content.strip()
     if not content and not attachment_ids:
@@ -308,35 +307,25 @@ async def stream_chat_response(
         )
         timing.mark_phase("user_quota")
 
-        # Automations are read-only (web_search only) — never intercept into
-        # image lookup/generation, which are autonomous side effects.
-        if (
-            not is_automation
-            and not attachment_ids
-            and await seams._try_image_lookup_for_turn(
-                settings,
-                user=user,
-                chat_id=chat_id,
-                content=content,
-                result=result,
-                create_user_message=True,
-            )
+        if not attachment_ids and await seams._try_image_lookup_for_turn(
+            settings,
+            user=user,
+            chat_id=chat_id,
+            content=content,
+            result=result,
+            create_user_message=True,
         ):
             await res.refund()
             return
-        if (
-            not is_automation
-            and not attachment_ids
-            and await seams._try_image_gen_for_turn(
-                settings,
-                user=user,
-                chat_id=chat_id,
-                content=content,
-                result=result,
-                create_user_message=True,
-                skip_revision_lookup=prior_count == 0,
-                recent_messages=recent,
-            )
+        if not attachment_ids and await seams._try_image_gen_for_turn(
+            settings,
+            user=user,
+            chat_id=chat_id,
+            content=content,
+            result=result,
+            create_user_message=True,
+            skip_revision_lookup=prior_count == 0,
+            recent_messages=recent,
         ):
             await res.refund()
             return
@@ -380,7 +369,6 @@ async def stream_chat_response(
             prior_count=prior_count,
             recent_messages=recent,
             resolved_model=model,
-            is_automation=is_automation,
         )
         try:
             await seams._top_up_reserve_for_prompt(

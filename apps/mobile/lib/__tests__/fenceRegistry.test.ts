@@ -128,7 +128,6 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "result",
   "final",
   "learning_launch",
-  "automation_created",
 ];
 
 describe("fence registry reproduces the legacy language sets", () => {
@@ -210,7 +209,6 @@ describe("fence registry lookups", () => {
   it("does not add fence types without an explicit contract change", () => {
     expect(FENCES.map((spec) => spec.id).sort()).toEqual([
       "answer",
-      "automation_created",
       "callout",
       "chart",
       "chemistry",
@@ -289,7 +287,6 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       copy: "hidden",
       sources: "hidden",
       learning_launch: "hidden",
-      automation_created: "hidden",
     };
     for (const spec of FENCES) {
       expect(renderSlot[spec.id]).toBe(spec.structured ? "component" : "hidden");
@@ -302,7 +299,6 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
     expect(isVisualDiagramFenceLang("smiles")).toBe(true);
     expect(isVisualDiagramFenceLang("chart")).toBe(false);
     expect(isControlFenceLang("sources")).toBe(true);
-    expect(isControlFenceLang("automation_created")).toBe(true);
     expect(isControlFenceLang("reminder")).toBe(true);
     expect(isControlFenceLang("vocab_quiz")).toBe(true);
     expect(isControlFenceLang("python")).toBe(false);

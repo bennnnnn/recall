@@ -17,7 +17,6 @@ import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { LearningLaunchButton } from "@/components/LearningLaunchButton";
-import { AutomationCreatedChip } from "@/components/automations/AutomationCreatedChip";
 import { AssistantMessageScope } from "@/contexts/emailDraftPersist";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
@@ -346,7 +345,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     markdownStreamMode,
     markdownResetKey,
     learningLaunch,
-    automationCreated,
   } = assistant;
 
   const imageGenFailure = message.image_gen_failure;
@@ -466,9 +464,6 @@ export const MessageBubble = React.memo(function MessageBubble({
                 />
               ) : null;
             })()}
-            {!isStreaming && automationCreated ? (
-              <AutomationCreatedChip automation={automationCreated} />
-            ) : null}
             {showCalendarProposals
               ? calendarProposals.map((proposal, index) => (
                   <CalendarProposalCard
