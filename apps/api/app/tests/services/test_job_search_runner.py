@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.services.job_search_runner import (
+from app.services.job_search.runner import (
     _Candidate,
     _obvious_mismatch,
     _ProfileSnapshot,
