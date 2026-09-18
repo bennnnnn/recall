@@ -1,44 +1,106 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, RefreshControl, StyleSheet, View } from "react-native";
-import { FlashList } from "@shopify/flash-list";
-import { Redirect, useFocusEffect, useRouter } from "expo-router";
-import { useTranslation } from "react-i18next";
+import { useCallback, useMemo, useState } from "react";
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { Redirect, useFocusEffect } from "expo-router";
 
-import { AddAutomationSheet } from "@/components/automations/AddAutomationSheet";
-import { AutomationActionsSheet } from "@/components/automations/AutomationActionsSheet";
-import { AutomationCard } from "@/components/automations/AutomationCard";
+import { Icon } from "@/components/Icon";
+import { JobMatchCard } from "@/components/jobSearch/JobMatchCard";
+import { JobSearchSetupSheet } from "@/components/jobSearch/JobSearchSetupSheet";
 import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAutomationsList } from "@/hooks/useAutomationsList";
-import type { Automation } from "@/lib/api";
-import { shareAutomation } from "@/lib/automations/schedule";
-import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { useJobSearch } from "@/hooks/useJobSearch";
+import type { JobMatch, JobMatchStatus, JobSearchProfile } from "@/lib/api";
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Theme, useTheme } from "@/lib/theme";
+import { type Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
-export default function AutomationsScreen() {
-  const owner = useAccountViewOwner();
-  return <AutomationsContent key={owner.key} isCurrent={owner.isCurrent} />;
+type Tab = "matches" | "saved" | "applied";
+
+function cadence(profile: JobSearchProfile): string {
+  const frequency = {
+    daily: "daily",
+    weekdays: "every weekday",
+    weekly: "weekly",
+    monthly: "monthly",
+  }[profile.frequency];
+  return `Up to ${profile.result_count} jobs ${frequency}`;
 }
 
-// Creation is chat-only (the model emits a ```automation fence — see
-// services/automations/fences.py); there is no "+" here. This screen is
-// list + long-press actions (edit/share/pause/delete) only.
-function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
-  const { token } = useAuth();
-  const { t } = useTranslation();
-  const feedback = useActionFeedbackOptional();
+function nextDelivery(profile: JobSearchProfile): string {
+  const date = new Date(profile.next_run_at);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function TabButton({
+  label,
+  count,
+  active,
+  onPress,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onPress: () => void;
+}) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
-  const router = useRouter();
-  const { automations, loading, error, refresh, update, remove } = useAutomationsList(isCurrent);
-  const [pullRefreshing, setPullRefreshing] = useState(false);
-  const [actionsTarget, setActionsTarget] = useState<Automation | null>(null);
-  const [editTarget, setEditTarget] = useState<Automation | null>(null);
-  const sharing = useRef(false);
+  return (
+    <Pressable
+      style={({ pressed }) => [s.tab, active && s.tabActive, pressed && s.pressed]}
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[s.tabText, active && s.tabTextActive]}>{label}</Text>
+      {count > 0 ? (
+        <View style={[s.tabCount, active && s.tabCountActive]}>
+          <Text style={[s.tabCountText, active && s.tabCountTextActive]}>{count}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+export default function MyJobScreen() {
+  const owner = useAccountViewOwner();
+  return <MyJobContent key={owner.key} isCurrent={owner.isCurrent} />;
+}
+
+function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
+  const { token, user } = useAuth();
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
+  const {
+    dashboard,
+    loading,
+    busy,
+    error,
+    refresh,
+    save,
+    setSearchStatus,
+    setMatchStatus,
+    runNow,
+    remove,
+  } = useJobSearch(isCurrent);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("matches");
+  const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -46,141 +108,237 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
     }, [refresh]),
   );
 
-  const openAutomation = useCallback(
-    (id: string) => {
-      if (isCurrent()) router.push(`/automations/${id}`);
-    },
-    [router, isCurrent],
+  const profile = dashboard.profile;
+  const counts = useMemo(
+    () => ({
+      matches: dashboard.matches.filter((item) => item.status === "new").length,
+      saved: dashboard.matches.filter((item) => item.status === "saved").length,
+      applied: dashboard.matches.filter((item) => item.status === "applied").length,
+    }),
+    [dashboard.matches],
   );
+  const visibleMatches = useMemo(() => {
+    const status: JobMatchStatus = tab === "matches" ? "new" : tab;
+    return dashboard.matches.filter((item) => item.status === status);
+  }, [dashboard.matches, tab]);
 
-  const confirmDelete = useCallback(
-    (automation: Automation) => {
-      setActionsTarget(null);
-      Alert.alert(
-        t("automations.delete_confirm_title"),
-        t("automations.delete_confirm_body"),
-        [
-          { text: t("common.cancel"), style: "cancel" },
-          {
-            text: t("common.delete"),
-            style: "destructive",
-            onPress: () => void remove(automation.id),
-          },
-        ],
-      );
-    },
-    [t, remove],
-  );
+  const confirmDelete = () => {
+    Alert.alert(
+      "Delete My Job search?",
+      "This removes your search profile and match history. Saved and applied jobs will also be removed.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => void remove(),
+        },
+      ],
+    );
+  };
 
   if (!token) return <Redirect href="/login" />;
+  if (loading && !profile) return <SkeletonList />;
+
+  if (!profile) {
+    return (
+      <View style={s.root}>
+        <View style={s.onboarding}>
+          <View style={s.heroIcon}>
+            <Icon name="briefcase-outline" size={34} color={C.primary} />
+          </View>
+          <Text style={s.heroTitle}>Jobs that fit you, delivered</Text>
+          <Text style={s.heroBody}>
+            Share what you are looking for once. Recall will search for fresh openings, remove
+            weak matches, and explain why each job is worth your time.
+          </Text>
+
+          <View style={s.benefits}>
+            {[
+              ["search-outline", "Fresh, verified openings", "Direct job links instead of duplicate listings."],
+              ["sparkles-outline", "Matched to your background", "Roles are ranked against your skills, level, and location."],
+              ["notifications-outline", "Delivered on your schedule", "Choose 5, 10, or 15 matches daily, weekly, or monthly."],
+            ].map(([icon, title, body]) => (
+              <View key={title} style={s.benefitRow}>
+                <View style={s.benefitIcon}>
+                  <Icon name={icon as "search-outline"} size={21} color={C.primary} />
+                </View>
+                <View style={s.benefitCopy}>
+                  <Text style={s.benefitTitle}>{title}</Text>
+                  <Text style={s.benefitBody}>{body}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
+            onPress={() => setSetupOpen(true)}
+          >
+            <Text style={s.primaryButtonText}>Set up my job search</Text>
+            <Icon name="arrow-forward" size={20} color={C.onPrimary} />
+          </Pressable>
+          <Text style={s.planNote}>
+            {user?.plan === "pro"
+              ? "Pro includes up to 15 matches per delivery."
+              : "Free includes up to 5 matches every week."}
+          </Text>
+        </View>
+
+        <JobSearchSetupSheet
+          visible={setupOpen}
+          initial={null}
+          busy={busy}
+          onClose={() => setSetupOpen(false)}
+          onSave={save}
+        />
+      </View>
+    );
+  }
+
+  const emptyTitle =
+    tab === "matches" ? "No new matches yet" : tab === "saved" ? "No saved jobs" : "No applications yet";
+  const emptyBody =
+    tab === "matches"
+      ? profile.last_run_at
+        ? "The latest search did not find a strong new match. Recall will try again on your schedule."
+        : `Your first search is scheduled for ${nextDelivery(profile)}.`
+      : tab === "saved"
+        ? "Save promising jobs so you can return to them here."
+        : "Mark a job as applied to keep your search organized.";
 
   return (
     <View style={s.root}>
-      {loading && automations.length === 0 && !error ? (
-        <SkeletonList />
-      ) : (
-        <FlashList
-          data={automations}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={s.content}
-          ItemSeparatorComponent={() => <View style={s.listGap} />}
-          refreshControl={
-            <RefreshControl
-              refreshing={pullRefreshing}
-              onRefresh={async () => {
-                if (!isCurrent()) return;
-                setPullRefreshing(true);
-                await refresh({ silent: true });
-                if (isCurrent()) setPullRefreshing(false);
-              }}
-              tintColor={C.primary}
-            />
-          }
-          ListHeaderComponent={
-            <>
-              {!error && automations.length === 0 ? (
-                <StateView
-                  variant="empty"
-                  icon="flash-outline"
-                  title={t("automations.empty_title")}
-                  message={t("automations.empty_message")}
-                />
-              ) : null}
-              {error ? (
-                <StateView
-                  variant="error"
-                  title={t("common.error")}
-                  onRetry={() => {
-                    if (isCurrent()) void refresh();
-                  }}
-                  retryLabel={t("common.retry")}
-                />
-              ) : null}
-            </>
-          }
-          renderItem={({ item }) => (
-            <AutomationCard automation={item} onOpen={openAutomation} onLongPress={setActionsTarget} />
-          )}
-        />
-      )}
+      <FlatList<JobMatch>
+        data={visibleMatches}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={s.listContent}
+        ItemSeparatorComponent={() => <View style={s.cardGap} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            tintColor={C.primary}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await refresh({ silent: true });
+              if (isCurrent()) setRefreshing(false);
+            }}
+          />
+        }
+        ListHeaderComponent={
+          <View style={s.headerStack}>
+            <View style={s.searchCard}>
+              <View style={s.searchTopRow}>
+                <View style={s.searchCopy}>
+                  <Text style={s.overline}>{profile.status === "paused" ? "PAUSED" : "YOUR SEARCH"}</Text>
+                  <Text style={s.searchTitle} numberOfLines={2}>
+                    {profile.target_roles.join(" · ")}
+                  </Text>
+                </View>
+                <Pressable
+                  style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
+                  onPress={() => setSetupOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit job search"
+                >
+                  <Icon name="options-outline" size={21} color={C.text} />
+                </Pressable>
+              </View>
 
-      <AutomationActionsSheet
-        visible={!!actionsTarget}
-        status={actionsTarget?.status ?? "active"}
-        onClose={() => {
-          if (isCurrent()) setActionsTarget(null);
-        }}
-        onEdit={() => {
-          const target = actionsTarget;
-          setActionsTarget(null);
-          if (target) setEditTarget(target);
-        }}
-        onShare={() => {
-          // Keep the sheet mounted until Share.share resolves — closing it
-          // first can make iOS drop the OS activity controller.
-          if (sharing.current || !actionsTarget) return;
-          sharing.current = true;
-          void shareAutomation(actionsTarget, t)
-            .catch(() => {
-              if (isCurrent()) reportRecoverableError(feedback, t("automations.share_failed"));
-            })
-            .finally(() => {
-              sharing.current = false;
-              if (isCurrent()) setActionsTarget(null);
-            });
-        }}
-        onTogglePause={() => {
-          const target = actionsTarget;
-          setActionsTarget(null);
-          if (target) void update(target.id, { status: target.status === "paused" ? "active" : "paused" });
-        }}
-        onDelete={() => {
-          if (actionsTarget) confirmDelete(actionsTarget);
-        }}
+              <Text style={s.searchMeta}>
+                {[profile.location, profile.work_modes.join(" / "), profile.experience_levels.join(" / ")]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Text>
+              <View style={s.searchDivider} />
+              <View style={s.deliveryRow}>
+                <View style={s.deliveryIcon}>
+                  <Icon name="notifications-outline" size={19} color={C.primary} />
+                </View>
+                <View style={s.deliveryCopy}>
+                  <Text style={s.deliveryTitle}>{cadence(profile)}</Text>
+                  <Text style={s.deliveryMeta}>Next: {nextDelivery(profile)}</Text>
+                </View>
+              </View>
+
+              <View style={s.searchActions}>
+                <Pressable
+                  style={({ pressed }) => [s.secondaryButton, pressed && s.pressed]}
+                  onPress={() =>
+                    void setSearchStatus(profile.status === "paused" ? "active" : "paused")
+                  }
+                  disabled={busy}
+                >
+                  <Icon
+                    name={profile.status === "paused" ? "play-outline" : "pause-outline"}
+                    size={18}
+                    color={C.text}
+                  />
+                  <Text style={s.secondaryButtonText}>
+                    {profile.status === "paused" ? "Resume" : "Pause"}
+                  </Text>
+                </Pressable>
+                {user?.plan === "pro" ? (
+                  <Pressable
+                    style={({ pressed }) => [s.secondaryButton, pressed && s.pressed]}
+                    onPress={() => void runNow()}
+                    disabled={busy}
+                  >
+                    <Icon name="refresh" size={18} color={C.text} />
+                    <Text style={s.secondaryButtonText}>Find jobs now</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  style={({ pressed }) => [s.moreButton, pressed && s.pressed]}
+                  onPress={confirmDelete}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete job search"
+                >
+                  <Icon name="trash-outline" size={19} color={C.danger} />
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={s.tabs} accessibilityRole="tablist">
+              <TabButton label="Matches" count={counts.matches} active={tab === "matches"} onPress={() => setTab("matches")} />
+              <TabButton label="Saved" count={counts.saved} active={tab === "saved"} onPress={() => setTab("saved")} />
+              <TabButton label="Applied" count={counts.applied} active={tab === "applied"} onPress={() => setTab("applied")} />
+            </View>
+
+            {error ? (
+              <Pressable style={s.errorCard} onPress={() => void refresh()}>
+                <Icon name="alert-circle-outline" size={20} color={C.danger} />
+                <Text style={s.errorText}>Could not refresh My Job. Tap to retry.</Text>
+              </Pressable>
+            ) : null}
+
+            {visibleMatches.length === 0 ? (
+              <View style={s.emptyCard}>
+                <View style={s.emptyIcon}>
+                  <Icon
+                    name={tab === "matches" ? "search-outline" : tab === "saved" ? "bookmark-outline" : "checkmark-circle-outline"}
+                    size={28}
+                    color={C.primary}
+                  />
+                </View>
+                <Text style={s.emptyTitle}>{emptyTitle}</Text>
+                <Text style={s.emptyBody}>{emptyBody}</Text>
+              </View>
+            ) : null}
+          </View>
+        }
+        renderItem={({ item }) => (
+          <JobMatchCard match={item} onStatus={(status) => void setMatchStatus(item.id, status)} />
+        )}
       />
 
-      <AddAutomationSheet
-        visible={!!editTarget}
-        saving={false}
-        initial={
-          editTarget
-            ? {
-                prompt: editTarget.prompt,
-                frequency: editTarget.frequency,
-                nextRunAt: new Date(editTarget.next_run_at),
-              }
-            : null
-        }
-        onClose={() => {
-          if (isCurrent()) setEditTarget(null);
-        }}
-        onSave={(prompt, frequency, nextRunAt) => {
-          const target = editTarget;
-          setEditTarget(null);
-          if (target) {
-            void update(target.id, { prompt, frequency, next_run_at: nextRunAt.toISOString() });
-          }
-        }}
+      <JobSearchSetupSheet
+        visible={setupOpen}
+        initial={profile}
+        busy={busy}
+        onClose={() => setSetupOpen(false)}
+        onSave={save}
       />
     </View>
   );
@@ -189,7 +347,159 @@ function AutomationsContent({ isCurrent }: { isCurrent: () => boolean }) {
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
-    content: { padding: Space.md, paddingBottom: 96 },
-    listGap: { height: Space.sm },
+    onboarding: {
+      flex: 1,
+      paddingHorizontal: Space.lg,
+      paddingTop: Space.xl,
+      paddingBottom: Space.xl,
+      alignItems: "center",
+    },
+    heroIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: 24,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.primaryLight,
+      marginBottom: Space.lg,
+    },
+    heroTitle: { ...Type.display, color: C.text, textAlign: "center" },
+    heroBody: {
+      ...Type.body,
+      color: C.textSecondary,
+      textAlign: "center",
+      maxWidth: 520,
+      marginTop: Space.sm,
+    },
+    benefits: { width: "100%", maxWidth: 560, gap: Space.md, marginTop: Space.xl },
+    benefitRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.sm },
+    benefitIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.surface,
+    },
+    benefitCopy: { flex: 1 },
+    benefitTitle: { ...Type.label, color: C.text },
+    benefitBody: { ...Type.secondary, color: C.textSecondary, marginTop: 2 },
+    primaryButton: {
+      width: "100%",
+      maxWidth: 560,
+      minHeight: 56,
+      borderRadius: Radius.full,
+      backgroundColor: C.primary,
+      paddingHorizontal: Space.lg,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: Space.xs,
+      marginTop: Space.xl,
+    },
+    primaryButtonText: { ...Type.body, color: C.onPrimary, fontWeight: "700" },
+    planNote: { ...Type.caption, color: C.textTertiary, marginTop: Space.sm },
+    listContent: { padding: Space.md, paddingBottom: Space.xl },
+    headerStack: { gap: Space.md, marginBottom: Space.md },
+    searchCard: { backgroundColor: C.surface, borderRadius: 26, padding: Space.lg, gap: Space.sm },
+    searchTopRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.sm },
+    searchCopy: { flex: 1 },
+    overline: { ...Type.overline, color: C.primary },
+    searchTitle: { ...Type.title, color: C.text, fontWeight: "700", marginTop: Space.xs },
+    searchMeta: { ...Type.secondary, color: C.textSecondary },
+    iconButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.surfaceAlt,
+    },
+    searchDivider: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginVertical: Space.xs },
+    deliveryRow: { flexDirection: "row", alignItems: "center", gap: Space.sm },
+    deliveryIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.primaryLight,
+    },
+    deliveryCopy: { flex: 1 },
+    deliveryTitle: { ...Type.label, color: C.text },
+    deliveryMeta: { ...Type.caption, color: C.textTertiary, marginTop: 2 },
+    searchActions: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, marginTop: Space.sm },
+    secondaryButton: {
+      minHeight: 42,
+      paddingHorizontal: Space.md,
+      borderRadius: Radius.full,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: Space.xxs,
+      backgroundColor: C.surfaceAlt,
+    },
+    secondaryButtonText: { ...Type.compact, color: C.text, fontWeight: "600" },
+    moreButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.dangerLight,
+    },
+    tabs: {
+      flexDirection: "row",
+      padding: 4,
+      borderRadius: Radius.full,
+      backgroundColor: C.surface,
+    },
+    tab: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: Radius.full,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: Space.xxs,
+    },
+    tabActive: { backgroundColor: C.bg },
+    tabText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    tabTextActive: { color: C.text },
+    tabCount: {
+      minWidth: 22,
+      height: 22,
+      borderRadius: 11,
+      paddingHorizontal: 6,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.surfaceAlt,
+    },
+    tabCountActive: { backgroundColor: C.primaryLight },
+    tabCountText: { ...Type.caption, color: C.textSecondary },
+    tabCountTextActive: { color: C.primary },
+    cardGap: { height: Space.md },
+    emptyCard: { alignItems: "center", paddingVertical: 48, paddingHorizontal: Space.lg },
+    emptyIcon: {
+      width: 58,
+      height: 58,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.primaryLight,
+    },
+    emptyTitle: { ...Type.title, color: C.text, marginTop: Space.md, textAlign: "center" },
+    emptyBody: { ...Type.secondary, color: C.textSecondary, marginTop: Space.xs, textAlign: "center", maxWidth: 420 },
+    errorCard: {
+      minHeight: 52,
+      paddingHorizontal: Space.md,
+      borderRadius: Radius.xl,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.sm,
+      backgroundColor: C.dangerLight,
+    },
+    errorText: { ...Type.secondary, color: C.danger, flex: 1 },
+    pressed: { opacity: 0.68 },
   });
 }
