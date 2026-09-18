@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +21,7 @@ function delay(milliseconds: number): Promise<void> {
 
 export function useJobSearch(isCurrent: () => boolean) {
   const { token } = useAuth();
+  const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
   const [dashboard, setDashboard] = useState<JobSearchDashboard>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -61,7 +63,7 @@ export function useJobSearch(isCurrent: () => boolean) {
         return true;
       } catch (err) {
         if (isCurrent()) {
-          const message = err instanceof Error ? err.message : "Could not save your job search";
+          const message = err instanceof Error ? err.message : t("my_job.error_save");
           reportRecoverableError(feedback, message);
         }
         return false;
@@ -69,7 +71,7 @@ export function useJobSearch(isCurrent: () => boolean) {
         if (isCurrent()) setBusy(false);
       }
     },
-    [token, busy, isCurrent, feedback],
+    [token, busy, isCurrent, feedback, t],
   );
 
   const setSearchStatus = useCallback(
@@ -80,12 +82,12 @@ export function useJobSearch(isCurrent: () => boolean) {
         const next = await api.setJobSearchStatus(token, status);
         if (isCurrent()) setDashboard(next);
       } catch {
-        if (isCurrent()) reportRecoverableError(feedback, "Could not update your job search");
+        if (isCurrent()) reportRecoverableError(feedback, t("my_job.error_update"));
       } finally {
         if (isCurrent()) setBusy(false);
       }
     },
-    [token, busy, isCurrent, feedback],
+    [token, busy, isCurrent, feedback, t],
   );
 
   const setMatchStatus = useCallback(
@@ -104,10 +106,10 @@ export function useJobSearch(isCurrent: () => boolean) {
       } catch {
         if (!isCurrent()) return;
         setDashboard(previous);
-        reportRecoverableError(feedback, "Could not update this job");
+        reportRecoverableError(feedback, t("my_job.error_match"));
       }
     },
-    [token, dashboard, isCurrent, feedback],
+    [token, dashboard, isCurrent, feedback, t],
   );
 
   const runNow = useCallback(async () => {
@@ -140,13 +142,13 @@ export function useJobSearch(isCurrent: () => boolean) {
       }
     } catch (err) {
       if (isCurrent()) {
-        const message = err instanceof Error ? err.message : "Could not start the job search";
+        const message = err instanceof Error ? err.message : t("my_job.error_run");
         reportRecoverableError(feedback, message);
       }
     } finally {
       if (isCurrent()) setBusy(false);
     }
-  }, [token, busy, dashboard.profile?.last_run_at, isCurrent, feedback]);
+  }, [token, busy, dashboard.profile?.last_run_at, isCurrent, feedback, t]);
 
   const remove = useCallback(async (): Promise<boolean> => {
     if (!token || busy) return false;
@@ -157,12 +159,12 @@ export function useJobSearch(isCurrent: () => boolean) {
       setDashboard(EMPTY);
       return true;
     } catch {
-      if (isCurrent()) reportRecoverableError(feedback, "Could not delete your job search");
+      if (isCurrent()) reportRecoverableError(feedback, t("my_job.error_delete"));
       return false;
     } finally {
       if (isCurrent()) setBusy(false);
     }
-  }, [token, busy, isCurrent, feedback]);
+  }, [token, busy, isCurrent, feedback, t]);
 
   return {
     dashboard,

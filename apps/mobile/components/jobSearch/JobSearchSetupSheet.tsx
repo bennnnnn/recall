@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
@@ -31,43 +32,11 @@ import { Type } from "@/lib/type";
 
 type Step = 0 | 1 | 2;
 
-const STEP_COPY = [
-  {
-    eyebrow: "YOUR SEARCH",
-    title: "What work do you want?",
-    body: "Set the hard filters first. Recall will use them to reject weak listings before ranking anything.",
-  },
-  {
-    eyebrow: "YOUR BACKGROUND",
-    title: "Help Recall understand your fit",
-    body: "A résumé is optional, but it makes the match reasons and skill-gap notes much more useful.",
-  },
-  {
-    eyebrow: "DELIVERY",
-    title: "Choose how jobs reach you",
-    body: "Recall will send up to your selected number of strong matches. It will never add filler just to hit the count.",
-  },
-] as const;
+const STEP_KEYS = [0, 1, 2] as const;
 
-const WORK_MODE_OPTIONS: Array<{ value: JobSearchWorkMode; label: string }> = [
-  { value: "remote", label: "Remote" },
-  { value: "hybrid", label: "Hybrid" },
-  { value: "onsite", label: "On-site" },
-];
-
-const EXPERIENCE_OPTIONS: Array<{ value: JobSearchExperience; label: string }> = [
-  { value: "internship", label: "Internship" },
-  { value: "entry", label: "Entry / L3" },
-  { value: "mid", label: "Mid-level" },
-  { value: "senior", label: "Senior" },
-];
-
-const FREQUENCY_OPTIONS: Array<{ value: JobSearchFrequency; label: string }> = [
-  { value: "daily", label: "Daily" },
-  { value: "weekdays", label: "Weekdays" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-];
+const WORK_MODE_VALUES: JobSearchWorkMode[] = ["remote", "hybrid", "onsite"];
+const EXPERIENCE_VALUES: JobSearchExperience[] = ["internship", "entry", "mid", "senior"];
+const FREQUENCY_VALUES: JobSearchFrequency[] = ["daily", "weekdays", "weekly", "monthly"];
 
 function nextMorning(): Date {
   const value = new Date();
@@ -134,11 +103,12 @@ function SelectChip<T extends string>({
 
 function FieldLabel({ children, optional }: { children: string; optional?: boolean }) {
   const C = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
   return (
     <View style={s.labelRow}>
       <Text style={s.label}>{children}</Text>
-      {optional ? <Text style={s.optional}>Optional</Text> : null}
+      {optional ? <Text style={s.optional}>{t("my_job.optional")}</Text> : null}
     </View>
   );
 }
@@ -157,6 +127,7 @@ export function JobSearchSetupSheet({
   onSave: (input: JobSearchInput) => Promise<boolean>;
 }) {
   const { token, user } = useAuth();
+  const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const isPro = user?.plan === "pro";
@@ -224,7 +195,7 @@ export function JobSearchSetupSheet({
         picked.contentType ===
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       if (!allowed) {
-        Alert.alert("Choose a résumé", "Upload a PDF, DOCX, or text file.");
+        Alert.alert(t("my_job.resume_pick_title"), t("my_job.resume_pick_body"));
         return;
       }
       setUploadingResume(true);
@@ -233,8 +204,8 @@ export function JobSearchSetupSheet({
       setResumeName(picked.fileName);
     } catch (error) {
       Alert.alert(
-        "Could not upload résumé",
-        error instanceof Error ? error.message : "Please try another file.",
+        t("my_job.resume_upload_failed_title"),
+        error instanceof Error ? error.message : t("my_job.resume_upload_failed_body"),
       );
     } finally {
       setUploadingResume(false);
@@ -244,13 +215,13 @@ export function JobSearchSetupSheet({
   const save = async () => {
     const targetRoles = split(roles);
     if (targetRoles.length === 0) {
-      Alert.alert("Add a target role", "For example: Backend Engineer or Platform Engineer.");
+      Alert.alert(t("my_job.role_required_title"), t("my_job.role_required_body"));
       setStep(0);
       return;
     }
     const parsedSalary = salary.trim() ? Number(salary.replace(/[$,\s]/g, "")) : null;
     if (parsedSalary != null && (!Number.isFinite(parsedSalary) || parsedSalary < 0)) {
-      Alert.alert("Check the salary", "Enter a yearly minimum such as 100000.");
+      Alert.alert(t("my_job.salary_invalid_title"), t("my_job.salary_invalid_body"));
       setStep(1);
       return;
     }
@@ -290,7 +261,7 @@ export function JobSearchSetupSheet({
     Keyboard.dismiss();
     setShowPicker(false);
     if (step === 0 && split(roles).length === 0) {
-      Alert.alert("Add a target role", "For example: Backend Engineer or Platform Engineer.");
+      Alert.alert(t("my_job.role_required_title"), t("my_job.role_required_body"));
       return;
     }
     if (step < 2) {
@@ -307,11 +278,17 @@ export function JobSearchSetupSheet({
     hour: "numeric",
     minute: "2-digit",
   });
-  const frequencyLabel =
-    FREQUENCY_OPTIONS.find((option) => option.value === frequency)?.label ?? "Weekly";
-  const roleSummary = split(roles).slice(0, 2).join(" · ") || "Your target roles";
-  const currentCopy = STEP_COPY[step];
-  const finalLabel = initial ? "Save" : "Start search";
+  const workModeLabel = (value: JobSearchWorkMode) => t(`my_job.work_${value}`);
+  const experienceLabel = (value: JobSearchExperience) => t(`my_job.level_${value}`);
+  const frequencyOptionLabel = (value: JobSearchFrequency) => t(`my_job.freq_${value}`);
+  const frequencyLabel = frequencyOptionLabel(frequency);
+  const roleSummary = split(roles).slice(0, 2).join(" · ") || t("my_job.summary_roles_fallback");
+  const currentCopy = {
+    eyebrow: t(`my_job.step${step}_eyebrow`),
+    title: t(`my_job.step${step}_title`),
+    body: t(`my_job.step${step}_body`),
+  };
+  const finalLabel = initial ? t("common.save") : t("my_job.start_search");
 
   return (
     <AppSheet
@@ -323,25 +300,27 @@ export function JobSearchSetupSheet({
       contentContainerStyle={s.sheet}
     >
       <SheetFormHeader
-        title={initial ? "Edit My Job" : "Set up My Job"}
+        title={initial ? t("my_job.edit_title") : t("my_job.setup_title")}
         onCancel={moveBack}
         onSave={() => void moveForward()}
-        cancelLabel={step === 0 ? "Cancel" : "Back"}
-        saveLabel={step === 2 ? finalLabel : "Next"}
+        cancelLabel={step === 0 ? t("common.cancel") : t("common.back")}
+        saveLabel={step === 2 ? finalLabel : t("common.next")}
         saving={busy}
         saveDisabled={step === 0 && split(roles).length === 0}
       />
 
       <View style={s.progressWrap}>
         <View style={s.progressBars}>
-          {[0, 1, 2].map((value) => (
+          {STEP_KEYS.map((value) => (
             <View
               key={value}
               style={[s.progressBar, value <= step && s.progressBarActive]}
             />
           ))}
         </View>
-        <Text style={s.progressText}>Step {step + 1} of 3</Text>
+        <Text style={s.progressText}>
+          {t("my_job.step_progress", { step: step + 1, total: STEP_KEYS.length })}
+        </Text>
       </View>
 
       <View style={s.body}>
@@ -354,27 +333,27 @@ export function JobSearchSetupSheet({
         {step === 0 ? (
           <>
             <View style={s.fieldGroup}>
-              <FieldLabel>Target roles</FieldLabel>
+              <FieldLabel>{t("my_job.roles_label")}</FieldLabel>
               <TextInput
                 style={s.input}
                 value={roles}
                 onChangeText={setRoles}
-                placeholder="Backend Engineer, Platform Engineer"
+                placeholder={t("my_job.roles_placeholder")}
                 placeholderTextColor={C.textDisabled}
                 editable={!busy}
                 autoCapitalize="words"
                 returnKeyType="next"
               />
-              <Text style={s.helper}>Separate multiple roles with commas.</Text>
+              <Text style={s.helper}>{t("my_job.roles_helper")}</Text>
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel optional>Skills to prioritize</FieldLabel>
+              <FieldLabel optional>{t("my_job.skills_label")}</FieldLabel>
               <TextInput
                 style={s.input}
                 value={skills}
                 onChangeText={setSkills}
-                placeholder="Python, FastAPI, APIs, Kubernetes"
+                placeholder={t("my_job.skills_placeholder")}
                 placeholderTextColor={C.textDisabled}
                 editable={!busy}
                 autoCapitalize="none"
@@ -382,26 +361,27 @@ export function JobSearchSetupSheet({
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel optional>Preferred location</FieldLabel>
+              <FieldLabel optional>{t("my_job.location_label")}</FieldLabel>
               <TextInput
                 style={s.input}
                 value={location}
                 onChangeText={setLocation}
-                placeholder="Remote in the United States"
+                placeholder={t("my_job.location_placeholder")}
                 placeholderTextColor={C.textDisabled}
                 editable={!busy}
               />
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel>Work mode</FieldLabel>
+              <FieldLabel>{t("my_job.work_mode_label")}</FieldLabel>
               <View style={s.chipRow}>
-                {WORK_MODE_OPTIONS.map((option) => (
+                {WORK_MODE_VALUES.map((value) => (
                   <SelectChip
-                    key={option.value}
-                    {...option}
-                    selected={workModes.includes(option.value)}
-                    onPress={(value) => toggle(value, workModes, setWorkModes)}
+                    key={value}
+                    value={value}
+                    label={workModeLabel(value)}
+                    selected={workModes.includes(value)}
+                    onPress={(next) => toggle(next, workModes, setWorkModes)}
                     disabled={busy}
                   />
                 ))}
@@ -413,14 +393,15 @@ export function JobSearchSetupSheet({
         {step === 1 ? (
           <>
             <View style={s.fieldGroup}>
-              <FieldLabel>Experience level</FieldLabel>
+              <FieldLabel>{t("my_job.experience_label")}</FieldLabel>
               <View style={s.chipRow}>
-                {EXPERIENCE_OPTIONS.map((option) => (
+                {EXPERIENCE_VALUES.map((value) => (
                   <SelectChip
-                    key={option.value}
-                    {...option}
-                    selected={levels.includes(option.value)}
-                    onPress={(value) => toggle(value, levels, setLevels)}
+                    key={value}
+                    value={value}
+                    label={experienceLabel(value)}
+                    selected={levels.includes(value)}
+                    onPress={(next) => toggle(next, levels, setLevels)}
                     disabled={busy}
                   />
                 ))}
@@ -428,13 +409,15 @@ export function JobSearchSetupSheet({
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel optional>Résumé</FieldLabel>
+              <FieldLabel optional>{t("my_job.resume_label")}</FieldLabel>
               <Pressable
                 style={({ pressed }) => [s.resumeCard, pressed && s.pressed]}
                 onPress={() => void chooseResume()}
                 disabled={busy || uploadingResume}
                 accessibilityRole="button"
-                accessibilityLabel={resumeName ? "Replace résumé" : "Upload résumé"}
+                accessibilityLabel={
+                  resumeName ? t("my_job.resume_replace_a11y") : t("my_job.resume_upload_a11y")
+                }
               >
                 <View style={s.resumeIcon}>
                   <Icon name="document-text-outline" size={23} color={C.primary} />
@@ -442,13 +425,13 @@ export function JobSearchSetupSheet({
                 <View style={s.resumeCopy}>
                   <Text style={s.resumeTitle} numberOfLines={1}>
                     {uploadingResume
-                      ? "Uploading…"
+                      ? t("my_job.resume_uploading")
                       : resumeName
                         ? resumeName
-                        : "Upload your résumé"}
+                        : t("my_job.resume_upload_cta")}
                   </Text>
                   <Text style={s.resumeMeta}>
-                    {resumeName ? "Tap to replace" : "PDF, DOCX, or text · used only for matching"}
+                    {resumeName ? t("my_job.resume_tap_replace") : t("my_job.resume_meta")}
                   </Text>
                 </View>
                 <Icon name="chevron-forward" size={19} color={C.textTertiary} />
@@ -462,18 +445,18 @@ export function JobSearchSetupSheet({
                   }}
                   disabled={busy}
                 >
-                  <Text style={s.removeResumeText}>Remove résumé</Text>
+                  <Text style={s.removeResumeText}>{t("my_job.resume_remove")}</Text>
                 </Pressable>
               ) : null}
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel optional>Professional background</FieldLabel>
+              <FieldLabel optional>{t("my_job.background_label")}</FieldLabel>
               <TextInput
                 style={[s.input, s.multiline]}
                 value={background}
                 onChangeText={setBackground}
-                placeholder="Example: 10 months of platform engineering experience, focused on Python APIs and AI tooling."
+                placeholder={t("my_job.background_placeholder")}
                 placeholderTextColor={C.textDisabled}
                 editable={!busy}
                 multiline
@@ -483,7 +466,7 @@ export function JobSearchSetupSheet({
 
             <View style={s.twoColumnRow}>
               <View style={s.flexField}>
-                <FieldLabel optional>Minimum salary</FieldLabel>
+                <FieldLabel optional>{t("my_job.salary_label")}</FieldLabel>
                 <TextInput
                   style={s.input}
                   value={salary}
@@ -497,25 +480,25 @@ export function JobSearchSetupSheet({
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel optional>Sponsorship</FieldLabel>
+              <FieldLabel optional>{t("my_job.sponsorship_label")}</FieldLabel>
               <View style={s.chipRow}>
                 <SelectChip
                   value="no"
-                  label="Not needed"
+                  label={t("my_job.sponsorship_no")}
                   selected={sponsorship === false}
                   onPress={() => setSponsorship(false)}
                   disabled={busy}
                 />
                 <SelectChip
                   value="yes"
-                  label="Required"
+                  label={t("my_job.sponsorship_yes")}
                   selected={sponsorship === true}
                   onPress={() => setSponsorship(true)}
                   disabled={busy}
                 />
                 <SelectChip
                   value="skip"
-                  label="No preference"
+                  label={t("my_job.sponsorship_skip")}
                   selected={sponsorship == null}
                   onPress={() => setSponsorship(null)}
                   disabled={busy}
@@ -524,12 +507,12 @@ export function JobSearchSetupSheet({
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel optional>Companies to avoid</FieldLabel>
+              <FieldLabel optional>{t("my_job.excluded_label")}</FieldLabel>
               <TextInput
                 style={s.input}
                 value={excluded}
                 onChangeText={setExcluded}
-                placeholder="Staffing agencies, specific employers"
+                placeholder={t("my_job.excluded_placeholder")}
                 placeholderTextColor={C.textDisabled}
                 editable={!busy}
               />
@@ -540,7 +523,7 @@ export function JobSearchSetupSheet({
         {step === 2 ? (
           <>
             <View style={s.fieldGroup}>
-              <FieldLabel>Jobs per delivery</FieldLabel>
+              <FieldLabel>{t("my_job.count_label")}</FieldLabel>
               <View style={s.countRow}>
                 {([5, 10, 15] as const).map((option) => {
                   const locked = !isPro && option !== 5;
@@ -563,7 +546,7 @@ export function JobSearchSetupSheet({
                         {option}
                       </Text>
                       <Text style={[s.countLabel, selected && s.countLabelSelected]}>
-                        {locked ? "Pro" : "jobs"}
+                        {locked ? t("my_job.count_pro") : t("my_job.count_jobs")}
                       </Text>
                     </Pressable>
                   );
@@ -572,15 +555,16 @@ export function JobSearchSetupSheet({
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel>Frequency</FieldLabel>
+              <FieldLabel>{t("my_job.frequency_label")}</FieldLabel>
               <View style={s.chipRow}>
-                {FREQUENCY_OPTIONS.map((option) => {
-                  const locked = !isPro && option.value !== "weekly";
+                {FREQUENCY_VALUES.map((value) => {
+                  const locked = !isPro && value !== "weekly";
                   return (
                     <SelectChip
-                      key={option.value}
-                      {...option}
-                      selected={frequency === option.value}
+                      key={value}
+                      value={value}
+                      label={frequencyOptionLabel(value)}
+                      selected={frequency === value}
                       onPress={setFrequency}
                       disabled={busy || locked}
                     />
@@ -588,12 +572,12 @@ export function JobSearchSetupSheet({
                 })}
               </View>
               {!isPro ? (
-                <Text style={s.helper}>Free includes 5 matches weekly. Faster delivery is Pro.</Text>
+                <Text style={s.helper}>{t("my_job.frequency_free_note")}</Text>
               ) : null}
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel>First delivery</FieldLabel>
+              <FieldLabel>{t("my_job.first_delivery_label")}</FieldLabel>
               <Pressable
                 style={({ pressed }) => [s.dateCard, pressed && s.pressed]}
                 onPress={() => {
@@ -609,7 +593,7 @@ export function JobSearchSetupSheet({
                 </View>
                 <View style={s.dateCopy}>
                   <Text style={s.dateTitle}>{timeLabel}</Text>
-                  <Text style={s.dateMeta}>Uses your current time zone</Text>
+                  <Text style={s.dateMeta}>{t("my_job.first_delivery_meta")}</Text>
                 </View>
                 <Icon
                   name={showPicker ? "chevron-up" : "chevron-down"}
@@ -634,7 +618,7 @@ export function JobSearchSetupSheet({
                   <Icon name="briefcase-outline" size={22} color={C.primary} />
                 </View>
                 <View style={s.summaryCopy}>
-                  <Text style={s.summaryEyebrow}>YOUR MY JOB SEARCH</Text>
+                  <Text style={s.summaryEyebrow}>{t("my_job.summary_eyebrow")}</Text>
                   <Text style={s.summaryTitle} numberOfLines={2}>
                     {roleSummary}
                   </Text>
@@ -642,17 +626,20 @@ export function JobSearchSetupSheet({
               </View>
               <View style={s.summaryDivider} />
               <View style={s.summaryRow}>
-                <Text style={s.summaryLabel}>Delivery</Text>
+                <Text style={s.summaryLabel}>{t("my_job.summary_delivery")}</Text>
                 <Text style={s.summaryValue}>
-                  Up to {isPro ? count : 5} · {isPro ? frequencyLabel : "Weekly"}
+                  {t("my_job.summary_delivery_value", {
+                    count: isPro ? count : 5,
+                    frequency: isPro ? frequencyLabel : t("my_job.freq_weekly"),
+                  })}
                 </Text>
               </View>
               <View style={s.summaryRow}>
-                <Text style={s.summaryLabel}>Work mode</Text>
-                <Text style={s.summaryValue}>{workModes.join(" / ")}</Text>
+                <Text style={s.summaryLabel}>{t("my_job.summary_work_mode")}</Text>
+                <Text style={s.summaryValue}>{workModes.map(workModeLabel).join(" / ")}</Text>
               </View>
               <View style={s.summaryRow}>
-                <Text style={s.summaryLabel}>Starts</Text>
+                <Text style={s.summaryLabel}>{t("my_job.summary_starts")}</Text>
                 <Text style={s.summaryValue}>{timeLabel}</Text>
               </View>
             </View>

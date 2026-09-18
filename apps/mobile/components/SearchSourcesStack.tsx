@@ -72,13 +72,14 @@ function SearchSourcesSheet({
   sources: SearchSource[];
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeSheetStyles(theme), [theme]);
   const listMaxHeight = Math.round(Dimensions.get("window").height * 0.55);
 
   return (
     <AppSheet visible={visible} onClose={onClose} minBottomPadding={16} contentContainerStyle={s.sheet}>
-      <Text style={s.title}>Sources</Text>
+      <Text style={s.title}>{t("chat.sources_title")}</Text>
       <ScrollView
         style={[s.list, { maxHeight: listMaxHeight }]}
         bounces={false}

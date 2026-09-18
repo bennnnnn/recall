@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import { StackBackButton } from "@/components/StackBackButton";
 import { useReduceMotion } from "@/lib/reduceMotion";
@@ -9,6 +10,7 @@ import { useTheme } from "@/lib/theme";
 
 export default function MyJobLayout() {
   const theme = useTheme();
+  const { t } = useTranslation();
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
   const reduceMotion = useReduceMotion();
 
@@ -23,7 +25,7 @@ export default function MyJobLayout() {
         headerLeft: () => <StackBackButton fallback="/" />,
       }}
     >
-      <Stack.Screen name="index" options={{ title: "My Job" }} />
+      <Stack.Screen name="index" options={{ title: t("my_job.title") }} />
     </Stack>
   );
 }
