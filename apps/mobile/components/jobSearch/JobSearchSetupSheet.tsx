@@ -112,7 +112,9 @@ export function JobSearchSetupSheet({
   const [levels, setLevels] = useState<JobSearchExperience[]>(["entry"]);
   const [sponsorship, setSponsorship] = useState<boolean | null>(null);
   const [count, setCount] = useState<5 | 10 | 15>(isPro ? 10 : 5);
-  const [frequency, setFrequency] = useState<JobSearchFrequency>(isPro ? "weekdays" : "weekly");
+  const [frequency, setFrequency] = useState<JobSearchFrequency>(
+    isPro ? "weekdays" : "weekly",
+  );
   const [nextRunAt, setNextRunAt] = useState(nextMorning);
   const [showPicker, setShowPicker] = useState(Platform.OS === "ios");
   const [resumeId, setResumeId] = useState<string | null>(null);
@@ -138,7 +140,11 @@ export function JobSearchSetupSheet({
     setShowPicker(Platform.OS === "ios");
   }, [visible, initial, user, isPro]);
 
-  const toggle = <T extends string>(value: T, values: T[], setValues: (next: T[]) => void) => {
+  const toggle = <T extends string,>(
+    value: T,
+    values: T[],
+    setValues: (next: T[]) => void,
+  ) => {
     if (values.includes(value)) {
       if (values.length > 1) setValues(values.filter((item) => item !== value));
     } else {
@@ -292,7 +298,14 @@ export function JobSearchSetupSheet({
             <Chip
               key={value}
               value={value}
-              label={{ internship: "Internship", entry: "Entry / L3", mid: "Mid-level", senior: "Senior" }[value]}
+              label={
+                {
+                  internship: "Internship",
+                  entry: "Entry / L3",
+                  mid: "Mid-level",
+                  senior: "Senior",
+                }[value]
+              }
               selected={levels.includes(value)}
               onPress={(next) => toggle(next, levels, setLevels)}
             />
@@ -311,9 +324,24 @@ export function JobSearchSetupSheet({
 
         <Text style={s.label}>Sponsorship</Text>
         <View style={s.chipRow}>
-          <Chip value="unknown" label="Not specified" selected={sponsorship == null} onPress={() => setSponsorship(null)} />
-          <Chip value="no" label="Not needed" selected={sponsorship === false} onPress={() => setSponsorship(false)} />
-          <Chip value="yes" label="Required" selected={sponsorship === true} onPress={() => setSponsorship(true)} />
+          <Chip
+            value="unknown"
+            label="Not specified"
+            selected={sponsorship == null}
+            onPress={() => setSponsorship(null)}
+          />
+          <Chip
+            value="no"
+            label="Not needed"
+            selected={sponsorship === false}
+            onPress={() => setSponsorship(false)}
+          />
+          <Chip
+            value="yes"
+            label="Required"
+            selected={sponsorship === true}
+            onPress={() => setSponsorship(true)}
+          />
         </View>
 
         <Text style={s.sectionTitle}>Your background</Text>
@@ -323,7 +351,11 @@ export function JobSearchSetupSheet({
           disabled={uploadingResume}
         >
           <View style={s.resumeIcon}>
-            <Icon name={resumeName ? "document-text" : "cloud-upload-outline"} size={22} color={C.primary} />
+            <Icon
+              name={resumeName ? "document-text" : "cloud-upload-outline"}
+              size={22}
+              color={C.primary}
+            />
           </View>
           <View style={s.resumeCopy}>
             <Text style={s.resumeTitle} numberOfLines={1}>
@@ -405,7 +437,11 @@ export function JobSearchSetupSheet({
         <Text style={s.label}>First delivery</Text>
         {Platform.OS === "ios" && showPicker ? (
           <View style={s.pickerWrap}>
-            <ReminderDateTimePicker value={nextRunAt} onChange={onPickerChange} disabled={busy} />
+            <ReminderDateTimePicker
+              value={nextRunAt}
+              onChange={onPickerChange}
+              disabled={busy}
+            />
           </View>
         ) : (
           <Pressable
@@ -420,7 +456,11 @@ export function JobSearchSetupSheet({
           </Pressable>
         )}
         {Platform.OS === "android" && showPicker ? (
-          <ReminderDateTimePicker value={nextRunAt} onChange={onPickerChange} disabled={busy} />
+          <ReminderDateTimePicker
+            value={nextRunAt}
+            onChange={onPickerChange}
+            disabled={busy}
+          />
         ) : null}
       </View>
     </AppSheet>
@@ -437,14 +477,24 @@ function makeStyles(C: Theme) {
       paddingTop: 0,
     },
     body: { padding: Space.md, paddingBottom: Space.xl, gap: Space.xs },
-    intro: { ...Type.secondary, color: C.textSecondary, lineHeight: 21, marginBottom: Space.md },
+    intro: {
+      ...Type.secondary,
+      color: C.textSecondary,
+      lineHeight: 21,
+      marginBottom: Space.md,
+    },
     sectionTitle: {
       ...Type.title,
       color: C.text,
       marginTop: Space.lg,
       marginBottom: Space.sm,
     },
-    label: { ...Type.label, color: C.text, marginTop: Space.md, marginBottom: Space.xxs },
+    label: {
+      ...Type.label,
+      color: C.text,
+      marginTop: Space.md,
+      marginBottom: Space.xxs,
+    },
     help: { ...Type.caption, color: C.textTertiary, marginTop: Space.xxs },
     input: {
       ...Type.body,
@@ -496,7 +546,12 @@ function makeStyles(C: Theme) {
     resumeCopy: { flex: 1 },
     resumeTitle: { ...Type.body, color: C.text, fontWeight: "600" },
     resumeMeta: { ...Type.caption, color: C.textTertiary, marginTop: 2 },
-    removeResume: { ...Type.secondary, color: C.danger, alignSelf: "flex-start", paddingVertical: Space.xs },
+    removeResume: {
+      ...Type.secondary,
+      color: C.danger,
+      alignSelf: "flex-start",
+      paddingVertical: Space.xs,
+    },
     timeButton: {
       minHeight: 52,
       flexDirection: "row",
@@ -509,6 +564,10 @@ function makeStyles(C: Theme) {
       borderColor: C.border,
     },
     timeText: { ...Type.body, color: C.text, flex: 1 },
-    pickerWrap: { backgroundColor: C.surface, borderRadius: Radius.xl, overflow: "hidden" },
+    pickerWrap: {
+      backgroundColor: C.surface,
+      borderRadius: Radius.xl,
+      overflow: "hidden",
+    },
   });
 }
