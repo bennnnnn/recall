@@ -21,9 +21,7 @@ def upgrade() -> None:
     # than hidden behind a new kind/config blob. Delete its private chat rows
     # first so they cannot reappear in the normal chat drawer after the table
     # that marked them as hidden is removed.
-    op.execute(
-        sa.text("DELETE FROM chats WHERE id IN (SELECT chat_id FROM automations)")
-    )
+    op.execute(sa.text("DELETE FROM chats WHERE id IN (SELECT chat_id FROM automations)"))
     op.drop_table("automations")
 
     op.create_table(
