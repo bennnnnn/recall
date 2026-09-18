@@ -3,71 +3,128 @@ import * as Notifications from "expo-notifications";
 import { AppState, type AppStateStatus, Platform } from "react-native";
 
 import { api } from "@/lib/api";
+import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
-import type { AppRouter } from "@/lib/router";
+import { trackProductEvent } from "@/lib/productAnalytics";
 
-const ANDROID_CHANNEL_ID = "default";
+type AppRouter = {
+  push: (href: unknown) => void;
+  replace: (href: unknown) => void;
+};
 
-function projectId(): string | undefined {
-  return (
-    Constants.expoConfig?.extra?.eas?.projectId ??
-    (Constants as unknown as { easConfig?: { projectId?: string } }).easConfig?.projectId
-  );
+let androidChannelReady = false;
+const ANDROID_CHANNEL = "recall-notifications";
+
+export async function getNotificationPermissionGranted(): Promise<boolean> {
+  if (Platform.OS === "web") return false;
+  const { status } = await Notifications.getPermissionsAsync();
+  return status === "granted";
+}
+
+export async function ensureNotificationPermission(analyticsToken?: string): Promise<boolean> {
+  if (Platform.OS === "web") return false;
+  await ensureAndroidChannel();
+  const { status: existing } = await Notifications.getPermissionsAsync();
+  if (existing === "granted") return true;
+  const { status } = await Notifications.requestPermissionsAsync();
+  trackProductEvent(analyticsToken ?? null, "push_permission", {
+    status: status === "granted" ? "granted" : "denied",
+  });
+  return status === "granted";
 }
 
 async function ensureAndroidChannel(): Promise<void> {
-  if (Platform.OS !== "android") return;
-  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: "Recall",
+  if (Platform.OS !== "android" || androidChannelReady) return;
+  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL, {
+    name: i18n.t("notifications.app_channel"),
     importance: Notifications.AndroidImportance.HIGH,
-    sound: "default",
+    vibrationPattern: [0, 250, 250, 250],
   });
+  androidChannelReady = true;
 }
 
+function resolveEasProjectId(): string | null {
+  const fromExtra = Constants.expoConfig?.extra?.eas?.projectId;
+  if (typeof fromExtra === "string" && fromExtra.trim()) {
+    return fromExtra.trim();
+  }
+  const fromEas = Constants.easConfig?.projectId;
+  if (typeof fromEas === "string" && fromEas.trim()) {
+    return fromEas.trim();
+  }
+  return null;
+}
+
+async function resolveExpoPushToken(): Promise<string | null> {
+  const projectId = resolveEasProjectId();
+  if (!projectId) return null;
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    return tokenData.data || null;
+  } catch {
+    return null;
+  }
+}
+
+export type PushRegisterResult = "registered" | "skipped" | "disabled_permission";
+
+/** Register Expo push token with the backend for remote notifications.
+ *
+ * Gated on ``pushNotificationsEnabled`` (the user's ``push_notifications_enabled``
+ * pref): when the user has disabled push, we must NOT register the token —
+ * without this gate, the backend would hold a live push token for a user who
+ * opted out and keep sending them notifications. The OS-level permission
+ * prompt is separate (and still required); this gate is the user-level opt-out.
+ *
+ * If the pref is on but the OS denies permission, flip the server pref off so
+ * Settings and local/catch-up delivery agree (remote + local both fail on iOS
+ * without permission; the pref lie is what froze recurring catch-up).
+ */
 export async function registerRemotePushToken(
   apiToken: string,
-  requestPermission = false,
-): Promise<"registered" | "disabled_permission" | "unavailable"> {
-  await ensureAndroidChannel();
-
-  let permission = await Notifications.getPermissionsAsync();
-  if (requestPermission && permission.status !== "granted") {
-    permission = await Notifications.requestPermissionsAsync();
+  pushNotificationsEnabled: boolean,
+): Promise<PushRegisterResult> {
+  if (Platform.OS === "web") return "skipped";
+  if (!pushNotificationsEnabled) return "skipped";
+  const granted = await ensureNotificationPermission(apiToken);
+  if (!granted) {
+    await api.updateMe(apiToken, { push_notifications_enabled: false });
+    return "disabled_permission";
   }
-  if (permission.status !== "granted") return "disabled_permission";
 
-  const easProjectId = projectId();
-  if (!easProjectId) return "unavailable";
+  const expoPushToken = await resolveExpoPushToken();
+  if (!expoPushToken) {
+    throw new Error("push_token_unavailable");
+  }
 
-  const token = (await Notifications.getExpoPushTokenAsync({ projectId: easProjectId })).data;
-  if (!token) return "unavailable";
-
-  const installationId = await getInstallationId();
+  const deviceId = await getInstallationId();
   await api.registerPushToken(apiToken, {
-    expo_push_token: token,
+    expo_push_token: expoPushToken,
     platform: Platform.OS,
-    device_id: installationId,
+    device_id: deviceId ?? undefined,
   });
   return "registered";
 }
 
+/** Unregister the Expo push token from the backend.
+ *
+ * Called when the user disables ``push_notifications_enabled`` — without
+ * this, the backend keeps a live push token for a user who opted out and
+ * continues sending them notifications. Best-effort: a network failure here
+ * doesn't block the pref change (the next foreground sync retries).
+ */
 export async function unregisterRemotePushToken(apiToken: string): Promise<void> {
-  const permission = await Notifications.getPermissionsAsync();
-  if (permission.status !== "granted") return;
-
-  const easProjectId = projectId();
-  if (!easProjectId) return;
-
+  if (Platform.OS === "web") return;
+  const expoPushToken = await resolveExpoPushToken();
+  if (!expoPushToken) return;
   try {
-    const token = (await Notifications.getExpoPushTokenAsync({ projectId: easProjectId })).data;
-    if (token) await api.unregisterPushToken(apiToken, token);
+    await api.unregisterPushToken(apiToken, { expo_push_token: expoPushToken });
   } catch {
-    // The user already disabled notifications or the device is temporarily
-    // offline. The server preference still stops delivery.
+    /* best-effort */
   }
 }
 
-export function keepRemotePushRegistrationFresh(
+export function attachPushForegroundSync(
   apiToken: string | null,
   pushNotificationsEnabled: boolean,
   onPushPrefChange?: (enabled: boolean) => void,
@@ -132,9 +189,8 @@ export async function handlePushNotificationResponse(
   }
 
   if (data.type === "automation_run") {
-    // The Tasks-style detail page is deliberately configuration-only. A run
-    // notification opens the dedicated result conversation so the completed
-    // answer remains accessible instead of being hidden behind task settings.
+    // Keep the Tasks-style detail screen focused on configuration. Tapping a
+    // completed-run notification opens its dedicated result conversation.
     if (data.chat_id) {
       router.push({ pathname: "/open-chat", params: { chatId: data.chat_id } });
     } else if (data.automation_id) {
