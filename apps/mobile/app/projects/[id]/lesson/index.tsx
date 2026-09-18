@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -100,8 +100,8 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
     });
   };
 
-  return (
-    <ScrollView style={s.root} contentContainerStyle={s.content}>
+  const mapHeader = (
+    <>
       {loadError ? (
         <StateView
           compact
@@ -142,28 +142,32 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
           </View>
         </View>
       ) : null}
+    </>
+  );
 
-      {domains.length === 0 ? (
-        <StateView
-          variant="empty"
-          icon="book-outline"
-          title={t("lesson.chapter_empty")}
-        />
-      ) : null}
+  return (
+    <View style={s.root}>
       <LearningPathList
         domains={domains}
         projectId={project.id}
         upNext={project.up_next}
         onOpenChapter={startChapter}
+        header={mapHeader}
+        empty={
+          <StateView
+            variant="empty"
+            icon="book-outline"
+            title={t("lesson.chapter_empty")}
+          />
+        }
       />
-    </ScrollView>
+    </View>
   );
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg },
-    content: { padding: Space.lg, paddingBottom: 48 },
     todayCard: {
       marginBottom: Space.md,
       gap: 6,

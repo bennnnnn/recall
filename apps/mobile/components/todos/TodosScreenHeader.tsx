@@ -1,12 +1,9 @@
 import { useMemo } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { CalendarMeetingRow } from "@/components/CalendarMeetingRow";
 import { ReminderCalendar } from "@/components/ReminderCalendar";
 import { StateView } from "@/components/StateView";
-import { SuggestedReminderRow } from "@/components/SuggestedReminderRow";
-import { TodoRow } from "@/components/todos/TodoRow";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import type {
   GoogleCalendarEvent,
@@ -30,21 +27,10 @@ type Props = {
   onRetryCalendar: () => void;
   suggestedLoadError: boolean;
   onRetrySuggested: () => void;
-  selectedDaySuggestions: SuggestedReminder[];
-  selectedDayHeading: string;
-  selectedDayMeetings: GoogleCalendarEvent[];
-  selectedDayReminders: Todo[];
-  suggestionBusyId: string | null;
-  onAddSuggestion: (reminder: SuggestedReminder) => void;
-  onDismissSuggestion: (reminder: SuggestedReminder) => void;
-  highlight?: string;
-  overlapNotes: Map<string, string>;
-  busyTodoIds: ReadonlySet<string>;
-  onToggle: (todo: Todo) => void;
-  onDue: (todo: Todo) => void;
-  onDeleteItem: (todo: Todo) => void;
 };
 
+/** Schedule header: hero states + calendar. The day-items body is the
+ *  virtualized TodosScrollList below — do not add rows back here. */
 export function TodosScreenHeader({
   error,
   onRetry,
@@ -60,19 +46,6 @@ export function TodosScreenHeader({
   onRetryCalendar,
   suggestedLoadError,
   onRetrySuggested,
-  selectedDaySuggestions,
-  selectedDayHeading,
-  selectedDayMeetings,
-  selectedDayReminders,
-  suggestionBusyId,
-  onAddSuggestion,
-  onDismissSuggestion,
-  highlight,
-  overlapNotes,
-  busyTodoIds,
-  onToggle,
-  onDue,
-  onDeleteItem,
 }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
@@ -123,44 +96,6 @@ export function TodosScreenHeader({
             retryLabel={t("common.retry")}
           />
         ) : null}
-        {selectedDaySuggestions.length > 0 ? (
-          <>
-            <Text style={s.sectionHeading}>{t("calendar.from_email")}</Text>
-            {selectedDaySuggestions.map((reminder) => (
-              <SuggestedReminderRow
-                key={reminder.id}
-                reminder={reminder}
-                busy={suggestionBusyId === reminder.id}
-                onAdd={() => onAddSuggestion(reminder)}
-                onDismiss={() => onDismissSuggestion(reminder)}
-              />
-            ))}
-          </>
-        ) : null}
-        <Text style={s.dayHeading}>{selectedDayHeading}</Text>
-        {selectedDayMeetings.length === 0 &&
-        selectedDayReminders.length === 0 &&
-        selectedDaySuggestions.length === 0 ? (
-          <Text style={s.sectionEmpty}>{t("calendar.no_items_day")}</Text>
-        ) : (
-          <>
-            {selectedDayMeetings.map((event) => (
-              <CalendarMeetingRow key={event.id} event={event} />
-            ))}
-            {selectedDayReminders.map((todo) => (
-              <TodoRow
-                key={todo.id}
-                todo={todo}
-                highlighted={highlight === todo.id}
-                overlapWith={overlapNotes.get(todo.id)}
-                busy={busyTodoIds.has(todo.id)}
-                onToggle={onToggle}
-                onDue={onDue}
-                onDelete={onDeleteItem}
-              />
-            ))}
-          </>
-        )}
       </View>
     </>
   );

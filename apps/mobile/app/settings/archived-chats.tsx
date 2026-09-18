@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { Alert, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -118,12 +119,13 @@ export default function ArchivedChatsScreen() {
   }
 
   return (
-    <ScrollView
+    <FlashList
+      data={chats}
+      keyExtractor={(chat) => chat.id}
       style={s.scroll}
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-    >
-      {chats.map((chat) => (
-        <SettingsGroup key={chat.id} styles={s}>
+      renderItem={({ item: chat }) => (
+        <SettingsGroup styles={s}>
           <SettingsLinkRow
             title={chat.title?.trim() || t("common.untitled")}
             onPress={() => void unarchive(chat)}
@@ -140,7 +142,7 @@ export default function ArchivedChatsScreen() {
             theme={theme}
           />
         </SettingsGroup>
-      ))}
-    </ScrollView>
+      )}
+    />
   );
 }

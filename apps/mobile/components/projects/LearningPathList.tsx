@@ -1,10 +1,16 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState, type ReactElement } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { LearningPathNode } from "@/components/projects/LearningPathNode";
-import { branchAccess, domainAccess, type DomainProgress } from "@/lib/projects/domainPath";
+import {
+  branchAccess,
+  domainAccess,
+  type DomainProgress,
+} from "@/lib/projects/domainPath";
+import type { ChapterAccess } from "@/lib/projects/chapterAccess";
 import { acknowledgeMapUnlocks, syncMapUnlocks } from "@/lib/projects/mapUnlock";
 import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
@@ -12,37 +18,141 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
+type ChapterRow = {
+  kind: "chapter";
+  chapter: DomainProgress["chapters"][number];
+  access: ChapterAccess;
+  domainTitle: string;
+};
+
+type LessonMapRow = { kind: "domain"; title: string } | ChapterRow;
+
 type Props = {
   domains: DomainProgress[];
   projectId?: string;
   upNext?: string | null;
   onOpenChapter: (title: string) => void;
+  /** Screen chrome above the map (today card, overflow menu, inline error). */
+  header?: ReactElement;
+  /** Shown when the project has no chapters yet. */
+  empty?: ReactElement;
 };
 
-export function LearningPathList({ domains, projectId, upNext, onOpenChapter }: Props) {
+const DomainHeader = memo(function DomainHeader({ title }: { title: string }) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <Text style={s.domainHeading} accessibilityRole="header">
+      {title}
+    </Text>
+  );
+});
+
+const ChapterCard = memo(function ChapterCard({
+  row,
+  justCompleted,
+  onOpenChapter,
+}: {
+  row: ChapterRow;
+  justCompleted: boolean;
+  onOpenChapter: (title: string) => void;
+}) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const { chapter, access } = row;
+  const locked = access === "locked";
+  const current = access === "current";
+  const done = access === "done";
+  const wordsLabel =
+    access === "done"
+      ? t("projects.group_review_meta", { count: chapter.total })
+      : t("projects.chapter_words", {
+          done: chapter.mastered,
+          total: chapter.total,
+        });
+  const progressPct =
+    current && chapter.total > 0
+      ? Math.min(1, Math.max(0, chapter.mastered / chapter.total))
+      : 0;
+
+  return (
+    <Pressable
+      style={[s.card, done || current ? shadowRaised(theme) : null]}
+      onPress={() => {
+        if (locked) return;
+        onOpenChapter(chapter.title);
+      }}
+      disabled={locked}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: locked }}
+      accessibilityLabel={`${chapter.title}. ${wordsLabel}`}
+    >
+      <LearningPathNode
+        access={access}
+        domainTitle={row.domainTitle}
+        justCompleted={justCompleted}
+      />
+
+      <View style={s.copy}>
+        <Text style={[s.title, locked ? s.titleLocked : null]} numberOfLines={2}>
+          {chapter.title}
+        </Text>
+        <Text style={[s.meta, locked ? null : s.metaActive]}>{wordsLabel}</Text>
+        {current ? (
+          <View style={s.progressTrack}>
+            <View style={[s.progressFill, { width: `${progressPct * 100}%` }]} />
+          </View>
+        ) : null}
+      </View>
+
+      {locked ? null : <Icon name="chevron-forward" size={18} color={theme.textTertiary} />}
+    </Pressable>
+  );
+});
+
+export function LearningPathList({
+  domains,
+  projectId,
+  upNext,
+  onOpenChapter,
+  header,
+  empty,
+}: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [unlocked, setUnlocked] = useState<ReadonlySet<string>>(() => new Set());
 
-  const rows = useMemo(
+  const rows = useMemo<LessonMapRow[]>(
     () =>
       domains.flatMap((domain) => {
         const domainState = domainAccess(domains, domain.title, upNext);
         const domainLocked = domainState === "locked";
-        return domain.chapters.map((chapter, index) => ({
-          firstInDomain: index === 0,
+        const hideDomain =
+          domain.chapters.length === 1 && domain.chapters[0]?.title === domain.title;
+        const chapterRows: LessonMapRow[] = domain.chapters.map((chapter) => ({
+          kind: "chapter",
           chapter,
           access: branchAccess(chapter, upNext, domainLocked),
-          hideDomain: domain.chapters.length === 1 && chapter.title === domain.title,
           domainTitle: domain.title,
         }));
+        return hideDomain
+          ? chapterRows
+          : [{ kind: "domain", title: domain.title } as LessonMapRow, ...chapterRows];
       }),
     [domains, upNext],
   );
 
+  const stickyHeaderIndices = useMemo(
+    () => rows.flatMap((row, index) => (row.kind === "domain" ? [index] : [])),
+    [rows],
+  );
+
   const doneTitles = useMemo(
-    () => rows.filter((row) => row.access === "done").map((row) => row.chapter.title),
+    () =>
+      rows.flatMap((row) =>
+        row.kind === "chapter" && row.access === "done" ? [row.chapter.title] : [],
+      ),
     [rows],
   );
   const doneKey = doneTitles.join("\0");
@@ -65,71 +175,28 @@ export function LearningPathList({ domains, projectId, upNext, onOpenChapter }: 
     acknowledgeMapUnlocks(projectId, fresh);
   }, [doneKey, doneTitles, projectId]);
 
-  if (domains.length === 0) {
-    return null;
-  }
-
   return (
-    <View style={s.list}>
-      {rows.map((row) => {
-        const { chapter, access } = row;
-        const locked = access === "locked";
-        const current = access === "current";
-        const done = access === "done";
-        const wordsLabel =
-          access === "done"
-            ? t("projects.group_review_meta", { count: chapter.total })
-            : t("projects.chapter_words", {
-                done: chapter.mastered,
-                total: chapter.total,
-              });
-        const progressPct =
-          current && chapter.total > 0
-            ? Math.min(1, Math.max(0, chapter.mastered / chapter.total))
-            : 0;
-
-        return (
-          <Fragment key={chapter.title}>
-            {row.firstInDomain && !row.hideDomain ? (
-              <Text style={s.domainHeading} accessibilityRole="header">
-                {row.domainTitle}
-              </Text>
-            ) : null}
-            <Pressable
-              style={[s.card, done || current ? shadowRaised(theme) : null]}
-              onPress={() => {
-                if (locked) return;
-                onOpenChapter(chapter.title);
-              }}
-              disabled={locked}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: locked }}
-              accessibilityLabel={`${chapter.title}. ${wordsLabel}`}
-            >
-              <LearningPathNode
-                access={access}
-                domainTitle={row.domainTitle}
-                justCompleted={done && unlocked.has(chapter.title)}
-              />
-
-              <View style={s.copy}>
-                <Text style={[s.title, locked ? s.titleLocked : null]} numberOfLines={2}>
-                  {chapter.title}
-                </Text>
-                <Text style={[s.meta, locked ? null : s.metaActive]}>{wordsLabel}</Text>
-                {current ? (
-                  <View style={s.progressTrack}>
-                    <View style={[s.progressFill, { width: `${progressPct * 100}%` }]} />
-                  </View>
-                ) : null}
-              </View>
-
-              {locked ? null : <Icon name="chevron-forward" size={18} color={theme.textTertiary} />}
-            </Pressable>
-          </Fragment>
-        );
-      })}
-    </View>
+    <FlashList
+      data={rows}
+      keyExtractor={(row) => (row.kind === "domain" ? `domain-${row.title}` : row.chapter.title)}
+      getItemType={(row) => row.kind}
+      stickyHeaderIndices={stickyHeaderIndices}
+      style={s.list}
+      contentContainerStyle={s.content}
+      ListHeaderComponent={header}
+      ListEmptyComponent={empty}
+      renderItem={({ item }) =>
+        item.kind === "domain" ? (
+          <DomainHeader title={item.title} />
+        ) : (
+          <ChapterCard
+            row={item}
+            justCompleted={item.access === "done" && unlocked.has(item.chapter.title)}
+            onOpenChapter={onOpenChapter}
+          />
+        )
+      }
+    />
   );
 }
 
@@ -138,15 +205,19 @@ function makeStyles(theme: Theme) {
     domainHeading: {
       ...Type.navTitle,
       color: theme.text,
-      marginTop: Space.lg,
-      marginBottom: Space.sm,
+      paddingTop: Space.lg,
+      paddingBottom: Space.sm,
+      // Sticky headers scroll over chapter cards — must be opaque.
+      backgroundColor: theme.bg,
     },
-    list: { gap: Space.sm },
+    list: { flex: 1, backgroundColor: theme.bg },
+    content: { padding: Space.lg, paddingBottom: 48 },
     card: {
       flexDirection: "row",
       alignItems: "center",
       gap: Space.sm,
       padding: Space.md,
+      marginBottom: Space.sm,
       borderRadius: Radius.lg,
       backgroundColor: theme.surface,
       borderWidth: StyleSheet.hairlineWidth,

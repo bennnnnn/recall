@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { Alert, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -112,22 +113,24 @@ export default function SecuritySettingsScreen() {
   if (!token) return <Redirect href="/login" />;
 
   return (
-    <ScrollView
+    <FlashList
+      data={sessions}
+      keyExtractor={(session) => session.id}
       style={s.scroll}
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-    >
-      {loading && sessions.length === 0 && !loadError ? (
-        <StateView variant="loading" title={t("settings.security")} />
-      ) : null}
-      {loadError && sessions.length === 0 ? (
-        <StateView
-          variant="error"
-          title={t("common.error")}
-          onRetry={() => void load()}
-        />
-      ) : null}
-      {sessions.map((session) => (
-        <SettingsGroup key={session.id} styles={s}>
+      ListEmptyComponent={
+        loading && !loadError ? (
+          <StateView variant="loading" title={t("settings.security")} />
+        ) : loadError ? (
+          <StateView
+            variant="error"
+            title={t("common.error")}
+            onRetry={() => void load()}
+          />
+        ) : null
+      }
+      renderItem={({ item: session }) => (
+        <SettingsGroup styles={s}>
           <SettingsValueRow
             title={session.device_label?.trim() || t("settings.unknown_device")}
             subtitle={formatSeen(session.last_seen_at, t)}
@@ -148,16 +151,18 @@ export default function SecuritySettingsScreen() {
             </>
           )}
         </SettingsGroup>
-      ))}
-      <SettingsGroup styles={s}>
-        <SettingsLinkRow
-          title={t("settings.sign_out_all")}
-          danger
-          onPress={confirmLogoutAll}
-          styles={s}
-          theme={theme}
-        />
-      </SettingsGroup>
-    </ScrollView>
+      )}
+      ListFooterComponent={
+        <SettingsGroup styles={s}>
+          <SettingsLinkRow
+            title={t("settings.sign_out_all")}
+            danger
+            onPress={confirmLogoutAll}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
+      }
+    />
   );
 }
