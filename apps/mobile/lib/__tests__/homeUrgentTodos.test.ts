@@ -1,19 +1,9 @@
-import type { TFunction } from "i18next";
-
 import type { Todo } from "@/lib/api";
 import {
   DEFAULT_HOME_URGENT_LEAD,
   firstOverdueHomeTodo,
-  homeUrgentPrompt,
   listHomeUrgentTodos,
 } from "@/lib/homeUrgentTodos";
-
-const mockT = ((key: string, opts?: Record<string, unknown>) => {
-  if (key === "chat.home.urgent_prompt_overdue") {
-    return `overdue: ${opts?.content}`;
-  }
-  return key;
-}) as TFunction;
 
 function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   return {
@@ -118,22 +108,5 @@ describe("listHomeUrgentTodos", () => {
     const dueAt = new Date(now.getTime() + (DEFAULT_HOME_URGENT_LEAD - 1) * 60_000).toISOString();
     const justInside = todo({ id: "1", content: "Soon", due_at: dueAt });
     expect(listHomeUrgentTodos([justInside], now)).toHaveLength(1);
-  });
-});
-
-describe("homeUrgentPrompt", () => {
-  it("uses overdue prompt text", () => {
-    expect(
-      homeUrgentPrompt(
-        {
-          id: "1",
-          content: "D",
-          topic: "General",
-          due_at: "2026-06-26T12:00:00.000Z",
-          minutes_until: -1440,
-        },
-        mockT,
-      ),
-    ).toContain("overdue");
   });
 });

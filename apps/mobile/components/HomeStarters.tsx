@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
@@ -10,7 +11,7 @@ import type { HomeUrgentTodo } from "@/lib/api";
 import { describeDueAt } from "@/lib/todos/dueDate";
 import { instantHomePlaceholder, welcomeStarterIcon, welcomeStarters } from "@/lib/homeWelcome";
 import { filterHomeNudgeTodos } from "@/lib/homeReminderNudges";
-import { firstOverdueHomeTodo, homeUrgentPrompt, listHomeUrgentTodos } from "@/lib/homeUrgentTodos";
+import { firstOverdueHomeTodo, listHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { tap } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -23,18 +24,17 @@ type Props = {
 
 function OverdueReminderRow({
   todo,
-  onSelect,
   onDismiss,
   styles: s,
   theme,
 }: {
   todo: HomeUrgentTodo;
-  onSelect: (prompt: string, chatId?: string) => void;
   onDismiss: (todoId: string) => void;
   styles: ReturnType<typeof makeStyles>;
   theme: Theme;
 }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const due = describeDueAt(todo.due_at);
 
   return (
@@ -45,7 +45,11 @@ function OverdueReminderRow({
           style={[s.urgentCard, s.urgentCardOverdue]}
           onPress={() => {
             tap();
-            onSelect(homeUrgentPrompt(todo, t));
+            // Same target as a due-reminder push: Schedule with the row lit up.
+            router.push({
+              pathname: "/todos",
+              params: { highlight: todo.id },
+            });
           }}
           accessibilityRole="button"
           accessibilityLabel={todo.content}
@@ -121,7 +125,6 @@ export function HomeStarters({ onSelect }: Props) {
       {overdueTodo ? (
         <OverdueReminderRow
           todo={overdueTodo}
-          onSelect={onSelect}
           onDismiss={(id) => void dismissReminderNudge(id)}
           styles={s}
           theme={theme}

@@ -1,5 +1,3 @@
-import type { TFunction } from "i18next";
-
 import type { HomeUrgentTodo, Todo } from "@/lib/api";
 
 /**
@@ -48,11 +46,4 @@ export function firstOverdueHomeTodo(
   urgent: HomeUrgentTodo[],
 ): HomeUrgentTodo | undefined {
   return urgent.find((item) => item.minutes_until < 0);
-}
-
-export function homeUrgentPrompt(todo: HomeUrgentTodo, t: TFunction): string {
-  if (todo.minutes_until < 0) {
-    return t("chat.home.urgent_prompt_overdue", { content: todo.content });
-  }
-  return t("chat.home.urgent_prompt_soon", { content: todo.content });
 }
