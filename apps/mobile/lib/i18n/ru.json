@@ -106,8 +106,6 @@
   "chat.home.starter_help_think_prompt": "I want to talk something through — ask me a good opening question.",
   "chat.home.starter_what_can_you": "Что ты умеешь?",
   "chat.home.starter_what_can_you_prompt": "Чем ты можешь помочь? Приведи несколько конкретных примеров.",
-  "chat.home.urgent_prompt_overdue": "Моё напоминание «{{content}}» просрочено — помоги разобраться.",
-  "chat.home.urgent_prompt_soon": "Скоро «{{content}}» — помоги подготовиться.",
   "chat.image_gen_canceled": "Создание изображения отменено",
   "chat.image_gen_failed": "Не удалось создать изображение",
   "chat.image_unavailable_a11y": "Image unavailable",

@@ -106,8 +106,6 @@
   "chat.home.starter_help_think_prompt": "I want to talk something through — ask me a good opening question.",
   "chat.home.starter_what_can_you": "ምን ማድረግ ትችላለህ?",
   "chat.home.starter_what_can_you_prompt": "በምን ልረዳኝ ትችላለህ? ጥቂት ተጨባጭ ምሳሌዎችን ንገረኝ።",
-  "chat.home.urgent_prompt_overdue": "የእኔ ማስታወሻ \"{{content}}\" ጊዜው አልፏል — እንድረዳኝ።",
-  "chat.home.urgent_prompt_soon": "\"{{content}}\" በቅርቡ ነው — እንድዘጋጅ እርዳኝ።",
   "chat.image_gen_canceled": "Image generation canceled",
   "chat.image_gen_failed": "Couldn't create the image",
   "chat.image_unavailable_a11y": "Image unavailable",

@@ -106,8 +106,6 @@
   "chat.home.starter_help_think_prompt": "I want to talk something through — ask me a good opening question.",
   "chat.home.starter_what_can_you": "Ne yapabilirsin?",
   "chat.home.starter_what_can_you_prompt": "Bana nasıl yardımcı olabilirsin? Birkaç somut örnek ver.",
-  "chat.home.urgent_prompt_overdue": "\"{{content}}\" hatırlatmam gecikti — yardımcı ol.",
-  "chat.home.urgent_prompt_soon": "Yakında \"{{content}}\" var — hazırlanmama yardım et.",
   "chat.image_gen_canceled": "Görsel oluşturma iptal edildi",
   "chat.image_gen_failed": "Görsel oluşturulamadı",
   "chat.image_unavailable_a11y": "Image unavailable",

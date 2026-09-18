@@ -17,6 +17,7 @@ type Props = {
   onProjects: () => void;
   onReminders: () => void;
   onGallery: () => void;
+  onMemory: () => void;
 };
 
 export function DrawerNavLinks({
@@ -28,6 +29,7 @@ export function DrawerNavLinks({
   onProjects,
   onReminders,
   onGallery,
+  onMemory,
 }: Props) {
   const { t } = useTranslation();
 
@@ -95,6 +97,21 @@ export function DrawerNavLinks({
       >
         <Icon name="library-outline" size={18} />
         <Text style={s.todosLinkText}>{t("drawer.gallery")}</Text>
+        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
+      </Pressable>
+
+      {/* Secondary entry — Memory stays reachable without going through Settings. */}
+      <Pressable
+        style={s.todosLink}
+        onPress={() => {
+          tap();
+          onMemory();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t("memory.title")}
+      >
+        <Icon name="bookmark-outline" size={18} color={theme.textSecondary} />
+        <Text style={s.todosLinkTextSecondary}>{t("memory.title")}</Text>
         <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
     </View>

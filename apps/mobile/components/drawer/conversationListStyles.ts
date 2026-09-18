@@ -131,6 +131,14 @@ export function makeConversationListStyles(theme: Theme) {
       fontWeight: "600",
       color: theme.text,
     },
+    // Secondary drawer entries (Memory) sit a notch quieter than the four
+    // primary destinations.
+    todosLinkTextSecondary: {
+      flex: 1,
+      ...Type.secondary,
+      fontWeight: "500",
+      color: theme.textSecondary,
+    },
     todosChevron: { marginLeft: "auto" },
     navIconWrap: {
       width: 22,

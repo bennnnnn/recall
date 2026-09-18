@@ -106,8 +106,6 @@
   "chat.home.starter_help_think_prompt": "I want to talk something through — ask me a good opening question.",
   "chat.home.starter_what_can_you": "What can you do?",
   "chat.home.starter_what_can_you_prompt": "What can you help me with? Give a few concrete examples.",
-  "chat.home.urgent_prompt_overdue": "My reminder \"{{content}}\" is overdue — help me handle it.",
-  "chat.home.urgent_prompt_soon": "I have \"{{content}}\" coming up soon — help me prepare.",
   "chat.image_gen_canceled": "Image generation canceled",
   "chat.image_gen_failed": "Couldn't create the image",
   "chat.image_unavailable_a11y": "Image unavailable",
