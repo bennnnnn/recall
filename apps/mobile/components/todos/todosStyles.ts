@@ -31,7 +31,6 @@ export function makeTodosStyles(C: Theme) {
     },
     sectionHeading: {
       ...Type.caption,
-      fontSize: 12,
       fontWeight: "700",
       color: C.textTertiary,
       textTransform: "uppercase",
@@ -70,18 +69,18 @@ export function makeTodosStyles(C: Theme) {
       gap: 2,
     },
     swipeDeleteText: {
-      fontSize: 12,
+      ...Type.caption,
       fontWeight: "600",
       color: C.onPrimary,
     },
     checkbox: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
     todoMain: { flex: 1, gap: Space.xxs },
     todoText: { ...Type.body, color: C.text },
-    dueLabel: { fontSize: 12, fontWeight: "600" },
+    dueLabel: { ...Type.caption, fontWeight: "600" },
     dueOverdue: { color: C.danger },
     dueToday: { color: C.primary },
     dueSoon: { color: C.textSecondary },
-    overlapLabel: { fontSize: 12, fontWeight: "500", color: C.danger },
+    overlapLabel: { ...Type.caption, color: C.danger },
     overlapNote: {
       flexDirection: "row",
       alignItems: "flex-start",
@@ -91,7 +90,7 @@ export function makeTodosStyles(C: Theme) {
       borderRadius: Radius.sm,
       backgroundColor: C.dangerLight,
     },
-    overlapNoteText: { flex: 1, ...Type.caption, fontWeight: "400", lineHeight: 18, color: C.danger },
+    overlapNoteText: { flex: 1, ...Type.caption, fontWeight: "400", color: C.danger },
     pickerOverlapNote: { marginHorizontal: Space.md, marginBottom: Space.xs },
     dueBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
     todoDone: {

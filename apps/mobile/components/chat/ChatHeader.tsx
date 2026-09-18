@@ -1,8 +1,9 @@
 import { memo, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { usePathname, useRouter } from "expo-router";
 import { Icon } from "@/components/Icon";
+import { IconButton } from "@/components/IconButton";
 import { useTranslation } from "react-i18next";
 
 import { HamburgerIcon } from "@/components/HamburgerIcon";
@@ -68,11 +69,9 @@ export const ChatHeader = memo(function ChatHeader({
         ]}
         pointerEvents="box-none"
       >
-        <Pressable
-          style={({ pressed }) => [
-            s.headerBtn,
-            pressed && !menuOverlayOpen && s.headerBtnPressed,
-          ]}
+        <IconButton
+          style={s.headerBtn}
+          pressedStyle={menuOverlayOpen ? undefined : s.headerBtnPressed}
           onPress={() => {
             if (fromLibrary) {
               if (router.canGoBack()) router.back();
@@ -81,16 +80,15 @@ export const ChatHeader = memo(function ChatHeader({
             }
             onOpenDrawer();
           }}
-          hitSlop={12}
-          accessibilityRole="button"
           accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
-        >
-          {fromLibrary ? (
-            <Icon name="chevron-back" size={IconSize.md} color={theme.text} />
-          ) : (
-            <HamburgerIcon size={IconSize.md} color={theme.text} />
-          )}
-        </Pressable>
+          icon={
+            fromLibrary ? (
+              <Icon name="chevron-back" size={IconSize.md} color={theme.text} />
+            ) : (
+              <HamburgerIcon size={IconSize.md} color={theme.text} />
+            )
+          }
+        />
         {headerTitleLabel ? (
           <View style={s.headerCenter} pointerEvents="none">
             <Text
@@ -110,30 +108,22 @@ export const ChatHeader = memo(function ChatHeader({
           {/* Home (no turns): drawer only. New-chat + ⋮ only once there are messages. */}
           {hasMessages ? (
             <View style={s.actionGroup}>
-              <Pressable
-                style={({ pressed }) => [
-                  s.actionGroupBtn,
-                  pressed && s.actionGroupBtnPressed,
-                ]}
+              <IconButton
+                style={s.actionGroupBtn}
+                pressedStyle={s.actionGroupBtnPressed}
                 onPress={onNewChat}
-                hitSlop={8}
-                accessibilityRole="button"
                 accessibilityLabel={t("chat.new_chat")}
-              >
-                <NewChatIcon size={IconSize.md} color={theme.text} />
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  s.actionGroupBtn,
-                  pressed && s.actionGroupBtnPressed,
-                ]}
+                icon={<NewChatIcon size={IconSize.md} color={theme.text} />}
+              />
+              <IconButton
+                style={s.actionGroupBtn}
+                pressedStyle={s.actionGroupBtnPressed}
                 onPress={onOpenMenu}
-                hitSlop={8}
-                accessibilityRole="button"
                 accessibilityLabel={t("chat.menu")}
-              >
-                <Icon name="ellipsis-vertical" size={IconSize.md} color={theme.text} />
-              </Pressable>
+                name="ellipsis-vertical"
+                size={IconSize.md}
+                color={theme.text}
+              />
             </View>
           ) : null}
         </View>

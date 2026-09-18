@@ -49,7 +49,9 @@ export function SheetFormHeader({
         testID="sheet-form-header-cancel"
         style={s.side}
       >
-        <Text style={s.cancelText}>{cancelLabel}</Text>
+        <Text style={s.cancelText} numberOfLines={1}>
+          {cancelLabel}
+        </Text>
       </Pressable>
       <Text style={s.title} numberOfLines={1}>
         {title}
@@ -71,7 +73,9 @@ export function SheetFormHeader({
         {saving ? (
           <ActivityIndicator size="small" color={theme.primary} />
         ) : (
-          <Text style={[s.saveText, saveDisabled && s.saveDisabled]}>{saveLabel}</Text>
+          <Text style={[s.saveText, saveDisabled && s.saveDisabled]} numberOfLines={1}>
+            {saveLabel}
+          </Text>
         )}
       </Pressable>
     </View>
@@ -91,7 +95,10 @@ function makeStyles(C: Theme) {
       gap: Space.sm,
     },
     side: {
+      // minWidth (not fixed width) so long translations (e.g. German
+      // "Abbrechen") grow the button instead of wrapping or clipping.
       minWidth: 64,
+      flexShrink: 0,
       minHeight: Space.minTouch,
       justifyContent: "center",
     },

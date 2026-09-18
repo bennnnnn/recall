@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, ViewStyle } from "react-native";
+import { StyleSheet, ViewStyle } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { IconButton } from "@/components/IconButton";
 import { notifySuccess, tap } from "@/lib/haptics";
 import { inkIconColor } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
@@ -13,7 +13,6 @@ type Props = {
   /** Disable haptic feedback if a parent already fired one. */
   haptic?: boolean;
   style?: ViewStyle;
-  hitSlop?: number;
   /** Override the a11y label (defaults to "Copy" / "Copied"). */
   accessibilityLabel?: string;
 };
@@ -25,7 +24,6 @@ export function CopyButton({
   text,
   haptic = true,
   style,
-  hitSlop = 0,
   accessibilityLabel,
 }: Props) {
   const { t } = useTranslation();
@@ -55,20 +53,14 @@ export function CopyButton({
   const ink = copied ? theme.primary : inkIconColor(theme);
 
   return (
-    <Pressable
-      style={[s.btn, style]}
-      onPress={onCopy}
-      hitSlop={hitSlop}
-      accessibilityRole="button"
+    <IconButton
+      name={copied ? "checkmark-outline" : "copy-outline"}
+      size={ICON_SIZE}
+      color={ink}
+      onPress={() => void onCopy()}
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={copied ? { selected: true } : undefined}
-    >
-      <Icon
-        name={copied ? "checkmark-outline" : "copy-outline"}
-        size={ICON_SIZE}
-        color={ink}
-      />
-    </Pressable>
+      style={[s.btn, style]}
+    />
   );
 }
 
@@ -80,8 +72,6 @@ function makeStyles() {
       width: 44,
       height: 44,
       margin: -6,
-      alignItems: "center",
-      justifyContent: "center",
     },
   });
 }
