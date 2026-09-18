@@ -265,10 +265,10 @@ async def _find_candidates(
 
 
 def _obvious_mismatch(profile: _ProfileSnapshot, candidate: _Candidate) -> bool:
-    text = f"candidate.title} {candidate.snippet} {candidate.source}".casefold()
+    text = f"{candidate.title} {candidate.snippet} {candidate.source}".casefold()
     if any(company.casefold() in text for company in profile.excluded_companies):
         return True
-    junior_only = set(profile.experience_levels).issubset({internship, entry})
+    junior_only = set(profile.experience_levels).issubset({"internship", "entry"})
     if junior_only and _SENIOR_TERMS.search(text):
         return True
     remote_only = set(profile.work_modes) == {"remote"}
@@ -363,11 +363,7 @@ def _fallback_rank(
         title, company = _title_and_company(candidate.title, candidate.source)
         reasons = ["Title and description align with your target roles"]
         snippet = candidate.snippet.casefold()
-        matched_skills = [
-            skill
-            for skill in profile.skills
-            if skill.casefold() in snippet
-        ]
+        matched_skills = [skill for skill in profile.skills if skill.casefold() in snippet]
         if matched_skills:
             reasons.append(f"Mentions {', '.join(matched_skills[:3])}")
         accepted.append(
