@@ -84,11 +84,7 @@ async def test_retired_fence_keeps_surrounding_prose() -> None:
 
 @pytest.mark.asyncio
 async def test_every_legacy_fence_in_a_reply_is_removed() -> None:
-    text = (
-        "```automation\n{}\n```\n\n"
-        "and\n\n"
-        "```automation\n{\"prompt\":\"another\"}\n```"
-    )
+    text = '```automation\n{}\n```\n\nand\n\n```automation\n{"prompt":"another"}\n```'
     updated, created = await automation_fences.materialize_automation_fences(
         AsyncMock(),
         user=_user(),
