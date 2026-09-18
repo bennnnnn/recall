@@ -17,6 +17,8 @@ async def create(
     prompt: str,
     frequency: str,
     next_run_at: datetime,
+    kind: str = "generic",
+    config_json: str | None = None,
     commit: bool = True,
 ) -> Automation:
     automation = Automation(
@@ -26,6 +28,8 @@ async def create(
         frequency=frequency,
         next_run_at=next_run_at,
         status="active",
+        kind=kind,
+        config_json=config_json,
     )
     session.add(automation)
     if commit:
@@ -43,22 +47,42 @@ async def get_by_id(session: AsyncSession, automation_id: UUID, user_id: UUID) -
     return result.scalar_one_or_none()
 
 
-async def list_for_user(
-    session: AsyncSession, user_id: UUID, *, limit: int = 100
-) -> list[Automation]:
+async def get_job_search_for_user(session: AsyncSession, user_id: UUID) -> Automation | None:
     result = await session.execute(
         select(Automation)
-        .where(Automation.user_id == user_id)
+        .where(Automation.user_id == user_id, Automation.kind == "job_search")
         .order_by(Automation.created_at.desc(), Automation.id.desc())
-        .limit(limit)
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def list_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    limit: int = 100,
+    kind: str | None = None,
+) -> list[Automation]:
+    stmt = select(Automation).where(Automation.user_id == user_id)
+    if kind is not None:
+        stmt = stmt.where(Automation.kind == kind)
+    result = await session.execute(
+        stmt.order_by(Automation.created_at.desc(), Automation.id.desc()).limit(limit)
     )
     return list(result.scalars().all())
 
 
-async def count_active_for_user(session: AsyncSession, user_id: UUID) -> int:
-    result = await session.execute(
-        select(Automation).where(Automation.user_id == user_id, Automation.status == "active")
+async def count_active_for_user(
+    session: AsyncSession, user_id: UUID, *, kind: str | None = None
+) -> int:
+    stmt = select(Automation).where(
+        Automation.user_id == user_id,
+        Automation.status == "active",
     )
+    if kind is not None:
+        stmt = stmt.where(Automation.kind == kind)
+    result = await session.execute(stmt)
     return len(result.scalars().all())
 
 
