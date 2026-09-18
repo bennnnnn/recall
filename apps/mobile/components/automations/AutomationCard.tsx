@@ -28,15 +28,11 @@ export function AutomationCard({
     ? t("automations.status_paused")
     : completed
       ? t("automations.status_completed")
-      : t("automations.title");
+      : "Monitoring";
 
   return (
     <Pressable
-      style={({ pressed }) => [
-        s.card,
-        paused && s.cardPaused,
-        pressed && s.cardPressed,
-      ]}
+      style={({ pressed }) => [s.card, pressed && s.cardPressed]}
       onPress={() => {
         tap();
         onOpen(automation.id);
@@ -48,7 +44,9 @@ export function AutomationCard({
       accessibilityRole="button"
       accessibilityLabel={automation.prompt}
     >
-      <Text style={s.cardEyebrow}>{eyebrow}</Text>
+      <Text style={[s.cardEyebrow, (paused || completed) && s.cardEyebrowMuted]}>
+        {eyebrow.toUpperCase()}
+      </Text>
       <Text style={s.cardTitle} numberOfLines={2}>
         {automationDisplayTitle(automation.prompt)}
       </Text>
