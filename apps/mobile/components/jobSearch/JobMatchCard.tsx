@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "@/components/Icon";
 import type { JobMatch, JobMatchStatus } from "@/lib/api";
@@ -12,24 +12,40 @@ function Action({
   icon,
   label,
   active,
+  primary,
   onPress,
 }: {
   icon: "bookmark-outline" | "bookmark" | "checkmark-circle-outline" | "open-outline" | "close";
   label: string;
   active?: boolean;
+  primary?: boolean;
   onPress: () => void;
 }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const iconColor = primary ? C.onPrimary : active ? C.primary : C.textSecondary;
   return (
     <Pressable
-      style={({ pressed }) => [s.action, active && s.actionActive, pressed && s.pressed]}
+      style={({ pressed }) => [
+        s.action,
+        primary && s.actionPrimary,
+        active && !primary && s.actionActive,
+        pressed && s.pressed,
+      ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: !!active }}
     >
-      <Icon name={icon} size={18} color={active ? C.primary : C.textSecondary} />
-      <Text style={[s.actionText, active && s.actionTextActive]}>{label}</Text>
+      <Icon name={icon} size={18} color={iconColor} />
+      <Text
+        style={[
+          s.actionText,
+          primary && s.actionTextPrimary,
+          active && !primary && s.actionTextActive,
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -47,6 +63,17 @@ export function JobMatchCard({
   const meta = [match.location, match.work_mode, match.salary, match.posted_at]
     .filter(Boolean)
     .join(" · ");
+
+  const openJob = async () => {
+    try {
+      await Linking.openURL(match.url);
+    } catch {
+      Alert.alert(
+        "Could not open this job",
+        "The listing may have moved or expired. Recall will remove stale links in future searches.",
+      );
+    }
+  };
 
   return (
     <View style={s.card}>
@@ -92,11 +119,7 @@ export function JobMatchCard({
 
       <View style={s.divider} />
       <View style={s.actions}>
-        <Action
-          icon="open-outline"
-          label="View job"
-          onPress={() => void Linking.openURL(match.url)}
-        />
+        <Action icon="open-outline" label="View job" primary onPress={() => void openJob()} />
         <Action
           icon={match.status === "saved" ? "bookmark" : "bookmark-outline"}
           label={match.status === "saved" ? "Saved" : "Save"}
@@ -163,7 +186,11 @@ function makeStyles(C: Theme) {
     reasonText: { ...Type.secondary, color: C.textSecondary, flex: 1 },
     gapRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.xs },
     gapText: { ...Type.compact, color: C.textTertiary, flex: 1 },
-    divider: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginTop: Space.xs },
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: C.border,
+      marginTop: Space.xs,
+    },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
     action: {
       minHeight: 40,
@@ -175,8 +202,13 @@ function makeStyles(C: Theme) {
       borderRadius: Radius.full,
       backgroundColor: C.surfaceAlt,
     },
+    actionPrimary: {
+      backgroundColor: C.primary,
+      flexGrow: 1,
+    },
     actionActive: { backgroundColor: C.primaryLight },
     actionText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    actionTextPrimary: { color: C.onPrimary },
     actionTextActive: { color: C.primary },
     pressed: { opacity: 0.68 },
   });
