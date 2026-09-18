@@ -1,21 +1,18 @@
-"""Tests for app.services.automations.fences — chat-based ```automation creation."""
+"""Tests for the retired generic ```automation chat protocol."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
 from app.services.automations import fences as automation_fences
-from app.services.automations.crud import AutomationsError
 
 
-def _user(*, plan: str = "pro") -> MagicMock:
+def _user() -> MagicMock:
     user = MagicMock()
     user.id = uuid4()
-    user.plan = plan
-    user.timezone = "UTC"
     return user
 
 
@@ -23,145 +20,87 @@ def _settings() -> Settings:
     return Settings(automations_enabled=True)
 
 
-def _automation(**overrides: object) -> MagicMock:
+def _automation() -> MagicMock:
     automation = MagicMock()
-    automation.id = overrides.get("id", uuid4())
-    automation.prompt = overrides.get("prompt", "Find L3 backend jobs")
-    automation.frequency = overrides.get("frequency", "daily")
-    automation.next_run_at = overrides.get("next_run_at", datetime(2026, 9, 18, 8, tzinfo=UTC))
+    automation.id = uuid4()
+    automation.prompt = "Find L3 backend jobs"
+    automation.frequency = "daily"
+    automation.next_run_at = datetime(2026, 9, 18, 8, tzinfo=UTC)
     return automation
 
 
 @pytest.mark.asyncio
-async def test_no_fence_is_a_noop():
-    session = AsyncMock()
+async def test_no_fence_is_a_noop() -> None:
     text, created = await automation_fences.materialize_automation_fences(
-        session, user=_user(), settings=_settings(), assistant_text="Sure, what should it do?"
+        AsyncMock(),
+        user=_user(),
+        settings=_settings(),
+        assistant_text="Open My Job to configure your search.",
     )
-    assert text == "Sure, what should it do?"
+    assert text == "Open My Job to configure your search."
     assert created == 0
 
 
 @pytest.mark.asyncio
-async def test_valid_fence_creates_and_strips_to_confirm_fence():
-    session = AsyncMock()
-    automation = _automation()
+async def test_legacy_create_fence_is_stripped_and_never_materialized() -> None:
     text = (
         "```automation\n"
         '{"prompt":"Find L3 backend jobs","frequency":"daily",'
         '"next_run_at":"2026-09-19T08:00:00-04:00"}\n'
         "```"
     )
-    with patch.object(
-        automation_fences, "create_automation", AsyncMock(return_value=automation)
-    ) as create:
-        updated, created_count = await automation_fences.materialize_automation_fences(
-            session, user=_user(), settings=_settings(), assistant_text=text
-        )
-    assert created_count == 1
-    assert "```automation\n" not in updated
-    assert "```automation_created" in updated
-    assert str(automation.id) in updated
-    assert create.await_args.kwargs["prompt"] == "Find L3 backend jobs"
-    assert create.await_args.kwargs["frequency"] == "daily"
-
-
-@pytest.mark.asyncio
-async def test_fence_keeps_surrounding_prose():
-    session = AsyncMock()
-    automation = _automation()
-    text = (
-        "Done — every day at 8am I'll check for new postings.\n\n"
-        "```automation\n"
-        '{"prompt":"Find L3 backend jobs","frequency":"daily",'
-        '"next_run_at":"2026-09-19T08:00:00-04:00"}\n'
-        "```"
+    updated, created = await automation_fences.materialize_automation_fences(
+        AsyncMock(),
+        user=_user(),
+        settings=_settings(),
+        assistant_text=text,
     )
-    with patch.object(automation_fences, "create_automation", AsyncMock(return_value=automation)):
-        updated, _created = await automation_fences.materialize_automation_fences(
-            session, user=_user(), settings=_settings(), assistant_text=text
-        )
-    assert updated.startswith("Done — every day at 8am I'll check for new postings.")
-
-
-@pytest.mark.asyncio
-async def test_invalid_json_fence_is_replaced_with_explanation():
-    session = AsyncMock()
-    text = '```automation\n{"prompt":"x"}\n```'  # missing frequency/next_run_at
-    with patch.object(automation_fences, "create_automation", AsyncMock()) as create:
-        updated, created = await automation_fences.materialize_automation_fences(
-            session, user=_user(), settings=_settings(), assistant_text=text
-        )
     assert created == 0
     assert "```automation" not in updated
-    assert "could not create" in updated.lower()
-    create.assert_not_awaited()
+    assert "Open My Job" in updated
 
 
 @pytest.mark.asyncio
-async def test_blank_prompt_is_rejected():
-    session = AsyncMock()
+async def test_retired_fence_keeps_surrounding_prose() -> None:
     text = (
+        "I can help with that.\n\n"
         "```automation\n"
-        '{"prompt":"   ","frequency":"daily","next_run_at":"2026-09-19T08:00:00-04:00"}\n'
-        "```"
+        '{"prompt":"Find jobs","frequency":"weekly",'
+        '"next_run_at":"2026-09-19T08:00:00Z"}\n'
+        "```\n\n"
+        "Use the search profile to control the results."
     )
-    with patch.object(automation_fences, "create_automation", AsyncMock()) as create:
-        _updated, created = await automation_fences.materialize_automation_fences(
-            session, user=_user(), settings=_settings(), assistant_text=text
-        )
+    updated, created = await automation_fences.materialize_automation_fences(
+        AsyncMock(),
+        user=_user(),
+        settings=_settings(),
+        assistant_text=text,
+    )
     assert created == 0
-    create.assert_not_awaited()
+    assert updated.startswith("I can help with that.")
+    assert updated.endswith("Use the search profile to control the results.")
+    assert "Open My Job" in updated
 
 
 @pytest.mark.asyncio
-async def test_free_user_gets_the_service_error_instead_of_a_created_chip():
-    session = AsyncMock()
+async def test_every_legacy_fence_in_a_reply_is_removed() -> None:
     text = (
-        "```automation\n"
-        '{"prompt":"Find L3 backend jobs","frequency":"daily",'
-        '"next_run_at":"2026-09-19T08:00:00-04:00"}\n'
-        "```"
+        "```automation\n{}\n```\n\n"
+        "and\n\n"
+        "```automation\n{\"prompt\":\"another\"}\n```"
     )
-    with patch.object(
-        automation_fences,
-        "create_automation",
-        AsyncMock(side_effect=AutomationsError("Automations require Recall Pro", status_code=403)),
-    ):
-        updated, created = await automation_fences.materialize_automation_fences(
-            session, user=_user(plan="free"), settings=_settings(), assistant_text=text
-        )
-    assert created == 0
-    assert "```automation_created" not in updated
-    assert "Recall Pro" in updated
-
-
-@pytest.mark.asyncio
-async def test_active_cap_reached_gets_the_service_error():
-    session = AsyncMock()
-    text = (
-        "```automation\n"
-        '{"prompt":"Find L3 backend jobs","frequency":"daily",'
-        '"next_run_at":"2026-09-19T08:00:00-04:00"}\n'
-        "```"
+    updated, created = await automation_fences.materialize_automation_fences(
+        AsyncMock(),
+        user=_user(),
+        settings=_settings(),
+        assistant_text=text,
     )
-    with patch.object(
-        automation_fences,
-        "create_automation",
-        AsyncMock(
-            side_effect=AutomationsError(
-                "You can have up to 5 active automations at a time", status_code=422
-            )
-        ),
-    ):
-        updated, created = await automation_fences.materialize_automation_fences(
-            session, user=_user(), settings=_settings(), assistant_text=text
-        )
     assert created == 0
-    assert "up to 5 active automations" in updated
+    assert "```automation" not in updated
+    assert updated.count("Open My Job") == 2
 
 
-def test_confirm_fence_carries_id_prompt_frequency_and_time():
+def test_legacy_confirm_fence_remains_readable_for_stored_messages() -> None:
     automation = _automation()
     fence = automation_fences.format_automation_confirm_fence(automation)
     assert fence.strip().startswith("```automation_created")
