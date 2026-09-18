@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { ActionShimmer } from "@/components/ActionShimmer";
@@ -63,6 +63,15 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
   speakRef.current = audio.speak;
   const celebrateRef = useRef(audio.celebrate);
   celebrateRef.current = audio.celebrate;
+  const stopRef = useRef(audio.stop);
+  stopRef.current = audio.stop;
+  // Swipe-back bypasses the header close button — stop speech on ANY exit.
+  const navigation = useNavigation();
+  useEffect(() => {
+    return navigation.addListener("beforeRemove", () => {
+      stopRef.current();
+    });
+  }, [navigation]);
   const language = project && isLanguageProject(project.kind) ? project.target_language : "en";
   const teachWord = step?.kind === "teach" ? step.card.word : null;
   useEffect(() => {

@@ -33,7 +33,7 @@ type Props = {
   reduceMotion: boolean;
 };
 
-export function LiveTalkOrb({ theme, phase, reduceMotion }: Props) {
+export function LiveTalkOrb({ theme, phase, meterLevel, recording, reduceMotion }: Props) {
   const s = useMemo(() => makeOrbStyles(theme), [theme]);
   const mode = liveTalkOrbMode(phase);
   const lookX = useSharedValue(PARK_LOOK_X);
@@ -42,6 +42,15 @@ export function LiveTalkOrb({ theme, phase, reduceMotion }: Props) {
   const drift = useSharedValue(0);
   const scaleX = useSharedValue(1);
   const scaleY = useSharedValue(1);
+  const meter = useSharedValue(0);
+
+  // Halo breathes with the user's voice while listening (same meter
+  // smoothing as VoiceComposerWaveform).
+  useEffect(() => {
+    const target =
+      mode === "listen" && recording ? Math.min(1, Math.max(0, meterLevel)) : 0;
+    meter.value = withTiming(target, { duration: reduceMotion ? 0 : 70 });
+  }, [meterLevel, mode, recording, meter, reduceMotion]);
 
   useEffect(() => {
     cancelAnimation(lookX);
@@ -79,6 +88,10 @@ export function LiveTalkOrb({ theme, phase, reduceMotion }: Props) {
   const rightEyeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: drift.value * 1.6 }, { translateY: drift.value * -0.8 }],
   }));
+  const haloStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + meter.value * 0.25 }],
+    opacity: 0.5 + meter.value * 0.5,
+  }));
 
   const inner = theme.isDark
     ? ([theme.primaryDark, theme.primary, theme.primaryLight] as const)
@@ -86,9 +99,13 @@ export function LiveTalkOrb({ theme, phase, reduceMotion }: Props) {
 
   return (
     <View style={s.stage} testID={`live-talk-orb-${mode}`}>
-      <View
+      <Animated.View
         pointerEvents="none"
-        style={[s.halo, { backgroundColor: withAlpha(theme.primary, 0.2) }]}
+        style={[
+          s.halo,
+          { backgroundColor: withAlpha(theme.primary, 0.35) },
+          haloStyle,
+        ]}
       />
       <Animated.View style={[s.core, bodyStyle]}>
         <LinearGradient colors={[...inner]} start={{ x: 0.22, y: 0 }} end={{ x: 0.85, y: 1 }} style={s.fill} />

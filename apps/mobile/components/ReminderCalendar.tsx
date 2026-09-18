@@ -41,7 +41,9 @@ export function ReminderCalendar({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const todayKey = localDateKey(new Date());
+  // Computed once per mount — a fresh `new Date()` every render busted the
+  // countsByDay memo below on each parent re-render.
+  const todayKey = useMemo(() => localDateKey(new Date()), []);
   const countsByDay = useMemo(
     () =>
       mergeDayCounts(
