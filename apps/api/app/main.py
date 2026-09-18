@@ -21,6 +21,7 @@ from app.routers import (
     home,
     images,
     integrations,
+    job_search,
     learning,
     legal,
     link_preview,
@@ -100,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(chats.router)
     app.include_router(chat_stream.router)
     app.include_router(automations.router)
+    app.include_router(job_search.router)
     app.include_router(memories.router)
     app.include_router(models.router)
     app.include_router(todos.router)
