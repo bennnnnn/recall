@@ -49,9 +49,7 @@ async def get_automation(
     session: AsyncSession, user: User, settings: Settings, automation_id: UUID
 ) -> Automation:
     _require_enabled(settings)
-    return _generic_or_not_found(
-        await automations_repo.get_by_id(session, automation_id, user.id)
-    )
+    return _generic_or_not_found(await automations_repo.get_by_id(session, automation_id, user.id))
 
 
 async def create_automation(
@@ -67,9 +65,7 @@ async def create_automation(
     if not plan_service.is_pro(user):
         raise AutomationsError("Automations require Recall Pro", status_code=403)
 
-    active_count = await automations_repo.count_active_for_user(
-        session, user.id, kind="generic"
-    )
+    active_count = await automations_repo.count_active_for_user(session, user.id, kind="generic")
     if active_count >= settings.automations_max_active_per_user:
         raise AutomationsError(
             f"You can have up to {settings.automations_max_active_per_user} "
