@@ -21,8 +21,8 @@ from app.core.db import SessionLocal
 from app.core.redis_lock import acquire_lock, release_lock
 from app.gateways import litellm_gateway, web_search_gateway
 from app.models.orm import JobMatch, JobSearchProfile, User
-from app.services import plan as plan_service
 from app.services import job_search_notifications
+from app.services import plan as plan_service
 from app.services.prompt_safety import wrap_untrusted
 from app.services.todos.recurrence import next_recurring_due
 
@@ -361,10 +361,9 @@ def _fallback_rank(
     for _, candidate in scored[: profile.result_count]:
         title, company = _title_and_company(candidate.title, candidate.source)
         reasons = ["Title and description align with your target roles"]
+        snippet = candidate.snippet.casefold()
         matched_skills = [
-            skill
-            for skill in profile.skills
-            if skill.casefold() in candidate.snippet.casefold()
+            skill for skill in profile.skills if skill.casefold() in snippet
         ]
         if matched_skills:
             reasons.append(f"Mentions {', '.join(matched_skills[:3])}")

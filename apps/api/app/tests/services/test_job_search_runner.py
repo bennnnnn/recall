@@ -2,8 +2,8 @@ from uuid import uuid4
 
 from app.services.job_search_runner import (
     _Candidate,
-    _ProfileSnapshot,
     _obvious_mismatch,
+    _ProfileSnapshot,
     canonicalize_job_url,
 )
 
