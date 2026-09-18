@@ -187,6 +187,11 @@ export default function GalleryScreen() {
               variant="empty"
               icon="library-outline"
               title={t(galleryEmptyKey(filter, searchQuery))}
+              message={
+                searchQuery.trim()
+                  ? undefined
+                  : t("gallery.empty_hint")
+              }
             />
           }
           renderItem={renderItem}

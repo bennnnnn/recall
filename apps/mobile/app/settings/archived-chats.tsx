@@ -27,20 +27,23 @@ export default function ArchivedChatsScreen() {
   const feedback = useActionFeedbackOptional();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    setLoadError(false);
     try {
       const list = await api.listChats(token);
       setChats(list.archived ?? []);
     } catch {
-      reportRecoverableError(feedback, t("common.error"));
+      // A failed load must not masquerade as an empty list.
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [token, feedback, t]);
+  }, [token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -90,8 +93,18 @@ export default function ArchivedChatsScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
-  if (loading && chats.length === 0) {
+  if (loading && chats.length === 0 && !loadError) {
     return <StateView variant="loading" title={t("settings.archived_chats")} />;
+  }
+
+  if (loadError && chats.length === 0) {
+    return (
+      <StateView
+        variant="error"
+        title={t("common.error")}
+        onRetry={() => void load()}
+      />
+    );
   }
 
   if (!loading && chats.length === 0) {

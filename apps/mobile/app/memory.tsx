@@ -227,7 +227,12 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
             }}
             onMuteFact={(fact) => {
               if (!token || !isCurrentView() || pendingTypes.has(section.type)) return;
-              void muteMemory(fact.id, fact.status !== "muted");
+              void (async () => {
+                const ok = await muteMemory(fact.id, fact.status !== "muted");
+                if (isCurrentView() && !ok) {
+                  reportRecoverableError(feedback, t("memory.mute_failed"));
+                }
+              })();
             }}
           />
         ))}

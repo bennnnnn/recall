@@ -23,6 +23,8 @@ export function makeTodosStyles(C: Theme) {
     },
     list: { flex: 1 },
     listEmpty: { flexGrow: 1 },
+    // Keep the last row clear of the bottom-right add FAB (56px + offset).
+    listContent: { paddingBottom: 96 },
     section: {
       paddingTop: Space.xs,
       paddingBottom: Space.xxs,

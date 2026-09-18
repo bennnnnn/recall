@@ -148,7 +148,6 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
           variant="empty"
           icon="book-outline"
           title={t("lesson.chapter_empty")}
-          onRetry={() => void load({ force: true })}
         />
       ) : null}
       <LearningPathList
