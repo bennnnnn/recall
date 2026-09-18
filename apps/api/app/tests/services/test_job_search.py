@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
@@ -31,17 +32,38 @@ def test_job_search_prompt_is_strict_and_profile_grounded() -> None:
 
 
 def test_parse_job_matches_accepts_verified_shape_and_rejects_bad_url() -> None:
-    valid = """Summary
-```job_matches
-{"jobs":[{"title":"Software Engineer I","company":"Acme","location":"Remote - US","work_mode":"remote","salary":null,"url":"https://jobs.acme.test/123","source":"Acme","posted_at":"today","summary":"Build APIs","match_reasons":["Python"],"gap":null}]}
-```"""
+    valid_payload = {
+        "jobs": [
+            {
+                "title": "Software Engineer I",
+                "company": "Acme",
+                "location": "Remote - US",
+                "work_mode": "remote",
+                "salary": None,
+                "url": "https://jobs.acme.test/123",
+                "source": "Acme",
+                "posted_at": "today",
+                "summary": "Build APIs",
+                "match_reasons": ["Python"],
+                "gap": None,
+            }
+        ]
+    }
+    valid = f"Summary\n```job_matches\n{json.dumps(valid_payload)}\n```"
     rows = job_search._parse_message_jobs(valid)
     assert len(rows) == 1
     assert rows[0].company == "Acme"
 
-    invalid = """```job_matches
-{"jobs":[{"title":"Bad","company":"Bad","url":"javascript:alert(1)"}]}
-```"""
+    invalid_payload = {
+        "jobs": [
+            {
+                "title": "Bad",
+                "company": "Bad",
+                "url": "javascript:alert(1)",
+            }
+        ]
+    }
+    invalid = f"```job_matches\n{json.dumps(invalid_payload)}\n```"
     assert job_search._parse_message_jobs(invalid) == []
 
 
