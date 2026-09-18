@@ -17,6 +17,7 @@ import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/contexts/TodosContext";
 import { ensureNotificationPermission } from "@/lib/todos/todoReminders";
+import { buildScheduleRows } from "@/lib/todos/dayListRows";
 import { useTheme } from "@/lib/theme";
 
 export default function TodosScreen() {
@@ -116,49 +117,39 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         onRetryCalendar={calendar.loadCalendarEvents}
         suggestedLoadError={calendar.suggestedLoadError}
         onRetrySuggested={calendar.loadSuggestedReminders}
-        selectedDaySuggestions={calendar.selectedDaySuggestions}
-        selectedDayHeading={calendar.selectedDayHeading}
-        selectedDayMeetings={calendar.selectedDayMeetings}
-        selectedDayReminders={calendar.selectedDayReminders}
-        suggestionBusyId={calendar.suggestionBusyId}
-        onAddSuggestion={calendar.handleAddSuggestion}
-        onDismissSuggestion={calendar.handleDismissSuggestion}
-        highlight={highlight}
-        overlapNotes={calendar.overlapNotes}
-        busyTodoIds={actions.busyTodoIds}
-        onToggle={actions.handleToggle}
-        onDue={actions.openDuePicker}
-        onDeleteItem={actions.handleDeleteItem}
       />
     ),
     [
-      actions.busyTodoIds,
-      actions.handleDeleteItem,
-      actions.handleToggle,
-      actions.openDuePicker,
       calendar.calendarEvents,
       calendar.calendarLoadError,
       calendar.goToDay,
-      calendar.handleAddSuggestion,
-      calendar.handleDismissSuggestion,
       calendar.loadCalendarEvents,
       calendar.loadSuggestedReminders,
-      calendar.overlapNotes,
       calendar.selectedDay,
-      calendar.selectedDayHeading,
-      calendar.selectedDayMeetings,
-      calendar.selectedDayReminders,
-      calendar.selectedDaySuggestions,
       calendar.setVisibleMonth,
       calendar.suggestedLoadError,
       calendar.suggestedReminders,
-      calendar.suggestionBusyId,
       calendar.visibleMonth,
       error,
-      highlight,
       openReminders,
       retry,
       showRemindersEmptyHero,
+    ],
+  );
+
+  const dayRows = useMemo(
+    () =>
+      buildScheduleRows({
+        selectedDaySuggestions: calendar.selectedDaySuggestions,
+        selectedDayHeading: calendar.selectedDayHeading,
+        selectedDayMeetings: calendar.selectedDayMeetings,
+        selectedDayReminders: calendar.selectedDayReminders,
+      }),
+    [
+      calendar.selectedDaySuggestions,
+      calendar.selectedDayHeading,
+      calendar.selectedDayMeetings,
+      calendar.selectedDayReminders,
     ],
   );
 
@@ -190,11 +181,21 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     // here steals gesture routing (see lessons: drawer pan vs mic press).
     <View style={s.root}>
       <TodosScrollList
+        rows={dayRows}
         showRemindersEmptyHero={showRemindersEmptyHero}
         error={Boolean(error)}
         listHeader={listHeader}
         refreshing={pullRefreshing}
         onRefresh={onPullRefresh}
+        highlight={highlight}
+        overlapNotes={calendar.overlapNotes}
+        busyTodoIds={actions.busyTodoIds}
+        suggestionBusyId={calendar.suggestionBusyId}
+        onToggle={actions.handleToggle}
+        onDue={actions.openDuePicker}
+        onDeleteItem={actions.handleDeleteItem}
+        onAddSuggestion={calendar.handleAddSuggestion}
+        onDismissSuggestion={calendar.handleDismissSuggestion}
       />
 
       <AddFab

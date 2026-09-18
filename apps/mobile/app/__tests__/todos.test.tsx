@@ -50,7 +50,15 @@ jest.mock("@/components/todos/AddReminderSheet", () => ({ AddReminderSheet: (pro
 jest.mock("@/components/todos/DuePickerModal", () => ({ DuePickerModal: () => null }));
 jest.mock("@/components/todos/TodosScrollList", () => ({ TodosScrollList: (props: typeof mockList & { listHeader: React.ReactNode }) => { mockList = props; return props.listHeader; } }));
 jest.mock("@/components/todos/TodosScreenHeader", () => ({ TodosScreenHeader: (props: typeof mockHeader) => { mockHeader = props; return null; } }));
-jest.mock("@/hooks/useTodosCalendarIntegration", () => ({ useTodosCalendarIntegration: () => ({}) }));
+jest.mock("@/hooks/useTodosCalendarIntegration", () => ({
+  useTodosCalendarIntegration: () => ({
+    selectedDaySuggestions: [],
+    selectedDayHeading: "",
+    selectedDayMeetings: [],
+    selectedDayReminders: [],
+    overlapNotes: new Map(),
+  }),
+}));
 jest.mock("@/hooks/useTodosActions", () => ({ useTodosActions: (params: typeof mockActionParams) => {
   mockActionParams = params;
   return { busyTodoIds: new Set(), duePicker: null, savingReminder: false };

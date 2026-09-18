@@ -2,17 +2,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { MemorySectionCard } from "@/components/memory/MemorySectionCard";
+import {
+  MemoryFactRow,
+  MemorySectionHeader,
+  memoryRowKey,
+  type MemoryRow,
+} from "@/components/memory/MemoryRows";
 import { AppSheet } from "@/components/AppSheet";
 import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { SkeletonList } from "@/components/SkeletonLoader";
@@ -110,6 +115,103 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     }
   }, [isCurrentView, editing, draftText, updateMemoryText, pendingTypes, t]);
 
+  const rows = useMemo<MemoryRow[]>(() => {
+    const out: MemoryRow[] = [];
+    for (const section of sections) {
+      const pending = pendingTypes.has(section.type);
+      out.push({ kind: "section", type: section.type, pending });
+      section.facts.forEach((fact, index) =>
+        out.push({
+          kind: "fact",
+          sectionType: section.type,
+          fact,
+          pending,
+          first: index === 0,
+          last: index === section.facts.length - 1,
+        }),
+      );
+    }
+    return out;
+  }, [sections, pendingTypes]);
+
+  const stickyHeaderIndices = useMemo(
+    () =>
+      rows.flatMap((row, index) => (row.kind === "section" ? [index] : [])),
+    [rows],
+  );
+
+  const handleEditFact = useCallback(
+    (fact: Memory) => {
+      if (!isCurrentView() || pendingTypes.has(fact.type)) return;
+      setEditing(fact);
+      setDraftText(stripMemoryAsOf(fact.text));
+    },
+    [isCurrentView, pendingTypes],
+  );
+
+  const handleDeleteSection = useCallback(
+    (type: string) => {
+      if (!token || !isCurrentView()) return;
+      Alert.alert(
+        t("memory.delete_confirm_title"),
+        t("memory.delete_confirm_body"),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("common.delete"),
+            style: "destructive",
+            onPress: async () => {
+              if (!isCurrentView()) return;
+              const ok = await deleteSection(type);
+              if (isCurrentView() && !ok) {
+                reportRecoverableError(feedback, t("memory.delete_failed"));
+              }
+            },
+          },
+        ],
+      );
+    },
+    [token, isCurrentView, t, deleteSection, feedback],
+  );
+
+  const handleDeleteFact = useCallback(
+    (fact: Memory) => {
+      if (!token || !isCurrentView()) return;
+      Alert.alert(
+        t("memory.delete_fact_title"),
+        t("memory.delete_fact_body"),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("common.delete"),
+            style: "destructive",
+            onPress: async () => {
+              if (!isCurrentView()) return;
+              const ok = await deleteFact(fact);
+              if (isCurrentView() && !ok) {
+                reportRecoverableError(feedback, t("memory.delete_failed"));
+              }
+            },
+          },
+        ],
+      );
+    },
+    [token, isCurrentView, t, deleteFact, feedback],
+  );
+
+  const handleMuteFact = useCallback(
+    (fact: Memory) => {
+      if (!token || !isCurrentView() || pendingTypes.has(fact.type)) return;
+      void (async () => {
+        const ok = await muteMemory(fact.id, fact.status !== "muted");
+        if (isCurrentView() && !ok) {
+          reportRecoverableError(feedback, t("memory.mute_failed"));
+        }
+      })();
+    },
+    [token, isCurrentView, pendingTypes, muteMemory, feedback, t],
+  );
+
   if (!token) return <Redirect href="/login" />;
 
   if (loading && memories.length === 0) {
@@ -146,7 +248,11 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   return (
     <>
-      <ScrollView
+      <FlashList
+        data={rows}
+        keyExtractor={memoryRowKey}
+        getItemType={(row) => row.kind}
+        stickyHeaderIndices={stickyHeaderIndices}
         style={s.root}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
         refreshControl={
@@ -163,80 +269,40 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
             }}
           />
         }
-      >
-        <Text style={s.heading}>{t("memory.heading")}</Text>
-        <Text style={s.subheading}>{t("memory.section_hint")}</Text>
-        {error ? <StateView
-          variant="error"
-          title={t("common.error")}
-          onRetry={() => { if (isCurrentView()) void load({ force: true }); }}
-          retryLabel={t("common.retry")}
-        /> : null}
-        {sections.map((section) => (
-          <MemorySectionCard
-            key={section.type}
-            type={section.type}
-            facts={section.facts}
-            pending={pendingTypes.has(section.type)}
-            onEditFact={(fact) => {
-              if (!isCurrentView() || pendingTypes.has(section.type)) return;
-              setEditing(fact);
-              setDraftText(stripMemoryAsOf(fact.text));
-            }}
-            onDeleteSection={() => {
-              if (!token || !isCurrentView()) return;
-              Alert.alert(
-                t("memory.delete_confirm_title"),
-                t("memory.delete_confirm_body"),
-                [
-                  { text: t("common.cancel"), style: "cancel" },
-                  {
-                    text: t("common.delete"),
-                    style: "destructive",
-                    onPress: async () => {
-                      if (!isCurrentView()) return;
-                      const ok = await deleteSection(section.type);
-                      if (isCurrentView() && !ok) {
-                        reportRecoverableError(feedback, t("memory.delete_failed"));
-                      }
-                    },
-                  },
-                ],
-              );
-            }}
-            onDeleteFact={(fact) => {
-              if (!token || !isCurrentView()) return;
-              Alert.alert(
-                t("memory.delete_fact_title"),
-                t("memory.delete_fact_body"),
-                [
-                  { text: t("common.cancel"), style: "cancel" },
-                  {
-                    text: t("common.delete"),
-                    style: "destructive",
-                    onPress: async () => {
-                      if (!isCurrentView()) return;
-                      const ok = await deleteFact(fact);
-                      if (isCurrentView() && !ok) {
-                        reportRecoverableError(feedback, t("memory.delete_failed"));
-                      }
-                    },
-                  },
-                ],
-              );
-            }}
-            onMuteFact={(fact) => {
-              if (!token || !isCurrentView() || pendingTypes.has(section.type)) return;
-              void (async () => {
-                const ok = await muteMemory(fact.id, fact.status !== "muted");
-                if (isCurrentView() && !ok) {
-                  reportRecoverableError(feedback, t("memory.mute_failed"));
-                }
-              })();
-            }}
-          />
-        ))}
-      </ScrollView>
+        ListHeaderComponent={
+          <View>
+            <Text style={s.heading}>{t("memory.heading")}</Text>
+            <Text style={s.subheading}>{t("memory.section_hint")}</Text>
+            {error ? (
+              <StateView
+                variant="error"
+                title={t("common.error")}
+                onRetry={() => { if (isCurrentView()) void load({ force: true }); }}
+                retryLabel={t("common.retry")}
+              />
+            ) : null}
+          </View>
+        }
+        renderItem={({ item }) =>
+          item.kind === "section" ? (
+            <MemorySectionHeader
+              type={item.type}
+              pending={item.pending}
+              onDeleteSection={handleDeleteSection}
+            />
+          ) : (
+            <MemoryFactRow
+              fact={item.fact}
+              pending={item.pending}
+              first={item.first}
+              last={item.last}
+              onEditFact={handleEditFact}
+              onDeleteFact={handleDeleteFact}
+              onMuteFact={handleMuteFact}
+            />
+          )
+        }
+      />
 
       <AppSheet
         visible={editing != null}
