@@ -1,7 +1,14 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
 import React, { useEffect, useMemo, useRef } from "react";
-import { Animated, View } from "react-native";
+import { View } from "react-native";
 import Markdown from "react-native-markdown-display";
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
@@ -54,8 +61,7 @@ const MarkdownStreamChunk = React.memo(function MarkdownStreamChunk({
   );
 });
 
-/** Pulsing placeholder for open math/diagram fences during streaming.
- *  Uses RN's built-in Animated (no Reanimated worklet dependency). */
+/** Pulsing placeholder for open math/diagram fences during streaming. */
 const StreamingPlaceholder = React.memo(function StreamingPlaceholder({
   height,
 }: {
@@ -63,39 +69,29 @@ const StreamingPlaceholder = React.memo(function StreamingPlaceholder({
 }) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  const opacity = useSharedValue(0.5);
   useEffect(() => {
+    cancelAnimation(opacity);
     if (reduceMotion) {
-      opacity.setValue(0.75);
+      opacity.value = 0.75;
       return;
     }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.5,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
+    opacity.value = withRepeat(withTiming(1, { duration: 1200 }), -1, true);
+    return () => cancelAnimation(opacity);
   }, [opacity, reduceMotion]);
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
     <View style={{ marginVertical: 8 }}>
       <Animated.View
-        style={{
-          width: "100%",
-          height,
-          borderRadius: 10,
-          backgroundColor: theme.border,
-          opacity,
-        }}
+        style={[
+          {
+            width: "100%",
+            height,
+            borderRadius: 10,
+            backgroundColor: theme.border,
+          },
+          pulseStyle,
+        ]}
       />
     </View>
   );

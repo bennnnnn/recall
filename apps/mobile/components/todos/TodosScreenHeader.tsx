@@ -151,7 +151,6 @@ export function TodosScreenHeader({
               <TodoRow
                 key={todo.id}
                 todo={todo}
-                variant="open"
                 highlighted={highlight === todo.id}
                 overlapWith={overlapNotes.get(todo.id)}
                 busy={busyTodoIds.has(todo.id)}

@@ -13,7 +13,6 @@ import { IconSize } from "@/lib/icons";
 
 type Props = {
   todo: Todo;
-  variant?: "open" | "done";
   busy?: boolean;
   highlighted?: boolean;
   /** Stable parent callbacks (take the todo) — avoid per-row closures that defeat memo. */
@@ -25,7 +24,6 @@ type Props = {
 
 export const TodoRow = memo(function TodoRow({
   todo,
-  variant,
   busy,
   highlighted,
   onToggle,
@@ -36,7 +34,6 @@ export const TodoRow = memo(function TodoRow({
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
-  const rowVariant = variant ?? (todo.checked ? "done" : "open");
   const due = describeDueAt(todo.due_at);
   const dueToneStyle =
     due?.tone === "overdue"
@@ -94,7 +91,7 @@ export const TodoRow = memo(function TodoRow({
           </Text>
         ) : null}
       </View>
-      {rowVariant === "open" && !todo.checked && onDue ? (
+      {!todo.checked && onDue ? (
         <Pressable
           onPress={() => onDue(todo)}
           hitSlop={8}
@@ -111,25 +108,8 @@ export const TodoRow = memo(function TodoRow({
           />
         </Pressable>
       ) : null}
-      {rowVariant === "done" ? (
-        <Pressable
-          onPress={handleDelete}
-          hitSlop={8}
-          style={s.dueBtn}
-          accessibilityRole="button"
-          accessibilityLabel={t("common.delete")}
-          disabled={busy}
-          accessibilityState={{ disabled: busy, busy }}
-        >
-          <Icon name="trash-outline" size={16} color={C.textTertiary} />
-        </Pressable>
-      ) : null}
     </View>
   );
-
-  if (rowVariant !== "open") {
-    return row;
-  }
 
   return (
     <Swipeable
