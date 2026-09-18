@@ -93,8 +93,8 @@ class JobMatch(Base):
     __table_args__ = (
         UniqueConstraint(
             "profile_id",
-            "canonical_url",
-            name="uq_job_matches_profile_url",
+            "canonical_url_hash",
+            name="uq_job_matches_profile_url_hash",
         ),
         Index(
             "ix_job_matches_profile_status_found",
@@ -118,6 +118,7 @@ class JobMatch(Base):
         nullable=False,
     )
     canonical_url: Mapped[str] = mapped_column(String(2000), nullable=False)
+    canonical_url_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     url: Mapped[str] = mapped_column(String(2000), nullable=False)
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     company: Mapped[str] = mapped_column(String(180), nullable=False)

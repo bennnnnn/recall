@@ -85,6 +85,7 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("profile_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("canonical_url", sa.String(length=2000), nullable=False),
+        sa.Column("canonical_url_hash", sa.String(length=64), nullable=False),
         sa.Column("url", sa.String(length=2000), nullable=False),
         sa.Column("title", sa.String(length=240), nullable=False),
         sa.Column("company", sa.String(length=180), nullable=False),
@@ -116,8 +117,8 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "profile_id",
-            "canonical_url",
-            name="uq_job_matches_profile_url",
+            "canonical_url_hash",
+            name="uq_job_matches_profile_url_hash",
         ),
     )
     op.create_index(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
@@ -160,6 +161,10 @@ def canonicalize_job_url(value: str) -> str:
     )
 
 
+def _canonical_url_hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 def _source_for_url(url: str) -> str:
     host = (urlsplit(url).hostname or "").lower()
     return host.removeprefix("www.")[:120]
@@ -260,10 +265,10 @@ async def _find_candidates(
 
 
 def _obvious_mismatch(profile: _ProfileSnapshot, candidate: _Candidate) -> bool:
-    text = f"{candidate.title} {candidate.snippet} {candidate.source}".casefold()
+    text = f"candidate.title} {candidate.snippet} {candidate.source}".casefold()
     if any(company.casefold() in text for company in profile.excluded_companies):
         return True
-    junior_only = set(profile.experience_levels).issubset({"internship", "entry"})
+    junior_only = set(profile.experience_levels).issubset({internship, entry})
     if junior_only and _SENIOR_TERMS.search(text):
         return True
     remote_only = set(profile.work_modes) == {"remote"}
@@ -358,7 +363,11 @@ def _fallback_rank(
         title, company = _title_and_company(candidate.title, candidate.source)
         reasons = ["Title and description align with your target roles"]
         snippet = candidate.snippet.casefold()
-        matched_skills = [skill for skill in profile.skills if skill.casefold() in snippet]
+        matched_skills = [
+            skill
+            for skill in profile.skills
+            if skill.casefold() in snippet
+        ]
         if matched_skills:
             reasons.append(f"Mentions {', '.join(matched_skills[:3])}")
         accepted.append(
@@ -473,6 +482,7 @@ async def _finish_run(
                 match = JobMatch(
                     profile_id=profile.id,
                     canonical_url=item.candidate.canonical_url,
+                    canonical_url_hash=_canonical_url_hash(item.candidate.canonical_url),
                     url=item.candidate.url,
                     title=item.title,
                     company=item.company,
@@ -515,13 +525,21 @@ async def _finish_run(
         await session.commit()
 
         if run_status == "ok" and new_count > 0:
-            await job_search_notifications.notify_job_matches_ready(
-                session,
-                settings,
-                user_id=profile.user_id,
-                profile_id=profile.id,
-                new_match_count=new_count,
-            )
+            try:
+                await job_search_notifications.notify_job_matches_ready(
+                    session,
+                    settings,
+                    user_id=profile.user_id,
+                    profile_id=profile.id,
+                    new_match_count=new_count,
+                )
+            except Exception:
+                # A push outage must never turn a successfully persisted search
+                # into a failed run or advance its schedule twice.
+                logger.exception(
+                    "My Job notification failed profile_id=%s",
+                    profile.id,
+                )
 
 
 async def run_job_search(
