@@ -64,7 +64,10 @@ async def test_run_now_uses_stable_first_run_dedupe_key() -> None:
             redis=AsyncMock(),
         )
 
-    assert enqueue.await_args.kwargs["dedupe_key"] == (f"automation_run_manual:{profile.id}:never")
+    assert enqueue.await_args is not None
+    assert enqueue.await_args.kwargs["dedupe_key"] == (
+        f"automation_run_manual:{profile.id}:never"
+    )
 
 
 @pytest.mark.asyncio
