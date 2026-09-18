@@ -37,6 +37,8 @@ type Props = {
    * also get a max-height + scroll so the input is not pushed off-screen.
    */
   keyboardAvoiding?: boolean;
+  /** Reset a keyboard-avoiding sheet to the top when this value changes. */
+  scrollResetKey?: string | number;
   /** Render the grabber handle at the top of a bottom sheet. */
   withHandle?: boolean;
   /** Override the grabber color when using a different sheet surface. */
@@ -66,6 +68,7 @@ export function AppSheet({
   variant = "bottom",
   animation,
   keyboardAvoiding = false,
+  scrollResetKey,
   withHandle,
   handleColor,
   backdropDismiss = true,
@@ -82,6 +85,7 @@ export function AppSheet({
   const keyboardHeight = useKeyboardHeight(keyboardAvoiding && visible);
   const reduceMotion = useReduceMotion();
   const dialogRef = useRef<View>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const dismissible = backdropDismiss;
   const { pan, panStyle } = useSheetPanDismiss(
     dismissible && variant === "bottom",
@@ -113,8 +117,17 @@ export function AppSheet({
     return () => cancelAnimationFrame(frame);
   }, [visible]);
 
+  useEffect(() => {
+    if (!visible || !keyboardAvoiding) return;
+    const frame = requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [visible, keyboardAvoiding, scrollResetKey]);
+
   const body = keyboardAvoiding ? (
     <ScrollView
+      ref={scrollRef}
       keyboardShouldPersistTaps="handled"
       bounces={false}
       showsVerticalScrollIndicator={false}
