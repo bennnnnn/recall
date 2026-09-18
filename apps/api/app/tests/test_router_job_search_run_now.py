@@ -36,9 +36,7 @@ async def test_run_now_enqueues_the_due_search_immediately() -> None:
         redis,
         "automation_run",
         {"automation_id": str(profile.id)},
-        dedupe_key=(
-            f"automation_run:{profile.id}:{profile.next_run_at.isoformat()}"
-        ),
+        dedupe_key=(f"automation_run:{profile.id}:{profile.next_run_at.isoformat()}"),
     )
 
 
