@@ -106,7 +106,8 @@ async def run_automation(settings: Settings, redis: Redis, *, automation_id: UUI
         if user is None:
             logger.info("automation_run: user gone id=%s", automation_id)
             return
-        if not plan_service.is_pro(user) and not _free_job_search_allowed(automation):
+        is_pro = plan_service.is_pro(user)
+        if not is_pro and not _free_job_search_allowed(automation):
             await automations_repo.update(
                 session,
                 automation,
@@ -132,6 +133,10 @@ async def run_automation(settings: Settings, redis: Redis, *, automation_id: UUI
         chat_id = automation.chat_id
         user_id = user.id
         prompt = automation.prompt
+        # ``smart-chat`` is a Pro-only concrete override. Free My Job searches
+        # must route inside the user's allowed free model pool; otherwise the
+        # chat engine rejects the scheduled run as an unavailable override.
+        model_alias = _AUTOMATION_MODEL_ALIAS if is_pro else None
 
     run_status = "ok"
     result: dict[str, str] = {}
@@ -142,7 +147,7 @@ async def run_automation(settings: Settings, redis: Redis, *, automation_id: UUI
             user_id=user_id,
             chat_id=chat_id,
             content=prompt,
-            model_alias=_AUTOMATION_MODEL_ALIAS,
+            model_alias=model_alias,
             is_automation=True,
             result=result,
         ):
