@@ -380,20 +380,28 @@ export function useChatRouteLoader({
       }
       setChatLoading(true);
       setHasMoreOlder(false);
-      // Detach the previous conversation immediately; its pending work must not
-      // paint into this route while the cache or network is still loading.
-      setChatId(openChatId);
-      setMessages([]);
-      setChatTitle(null);
-      setPinned(false);
-      setArchived(false);
       try {
+        // Stale-while-revalidate: keep the previous thread painted during the
+        // (fast) cache read, then swap in one shot — no blank flash on open.
+        // The old thread's pending work still cannot paint into this route
+        // because every set below is guarded by isCurrent().
         const cached = await readCachedChatMessages(openChatId);
         if (!isCurrent()) return;
         const listed = getCachedChat(openChatId);
+        setChatId(openChatId);
+        setMessages((prev) => {
+          const incoming = cached?.messages ?? [];
+          // Orphan local-URI carry-over only makes sense when prev is the same
+          // thread; on a chat swap it could leak the old chat's local image
+          // onto the new chat's row.
+          const incomingIds = new Set(incoming.map((m) => m.id));
+          const sameThread = prev.some((m) => incomingIds.has(m.id));
+          return sameThread ? mergeLocalAttachmentUris(prev, incoming) : incoming;
+        });
+        setChatTitle(null);
+        setPinned(false);
+        setArchived(false);
         if (cached) {
-          setChatId(openChatId);
-          setMessages((prev) => mergeLocalAttachmentUris(prev, cached.messages));
           setHasMoreOlder(cached.has_more);
           if (listed) {
             applyMetadata(listed);

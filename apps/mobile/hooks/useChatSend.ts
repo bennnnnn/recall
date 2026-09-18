@@ -356,13 +356,17 @@ export function useChatSend({
       const sendThreadKey = getThreadKey();
       sendInFlightRef.current = true;
       setSendPhase(attached ? "uploading" : "preparing");
-      const draftsSaved = await flushEmailDrafts();
-      if (!isCurrentView()) return;
-      if (!draftsSaved) {
+
+      // Geo intents: resolve the OS permission before painting anything, so a
+      // deny never makes a just-painted bubble vanish. Instant for non-geo text.
+      const geoResult = await resolveClientGeoForQuery(authToken, text, t, updateUser);
+      if (!geoResult.ok || !isCurrentView()) {
         sendInFlightRef.current = false;
         setSendPhase("idle");
         return;
       }
+      const clientGeo = geoResult.clientGeo;
+
       // Clear the composer immediately so the next draft can be typed.
       // Keep Send/Attach busy until the turn is accepted — an idle button
       // with sendInFlightRef set looked finished and ate the next tap.
@@ -406,6 +410,10 @@ export function useChatSend({
         setSendPhase("idle");
       };
 
+      // Flush in-progress email card edits in parallel with the attachment
+      // upload instead of blocking the optimistic bubble on the flush.
+      const draftsPromise = flushEmailDrafts();
+
       let attachmentIds: string[] | undefined;
       if (attached) {
         try {
@@ -425,12 +433,12 @@ export function useChatSend({
         }
       }
 
-      const geoResult = await resolveClientGeoForQuery(authToken, text, t, updateUser);
-      if (!geoResult.ok || !isCurrentView()) {
+      const draftsSaved = await draftsPromise;
+      if (!isCurrentView()) return;
+      if (!draftsSaved) {
         restoreDraft();
         return;
       }
-      const clientGeo = geoResult.clientGeo;
 
       if (!chatId) {
         creatingRef.current = true;
