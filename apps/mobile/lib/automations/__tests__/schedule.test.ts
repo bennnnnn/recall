@@ -9,7 +9,13 @@ jest.mock("expo-print", () => ({ printToFileAsync: jest.fn() }));
 
 import { Share } from "react-native";
 
-import { describeLastRun, formatScheduleAt, shareAutomation } from "@/lib/automations/schedule";
+import {
+  automationDisplayTitle,
+  compactFrequencyLabel,
+  describeLastRun,
+  formatScheduleAt,
+  shareAutomation,
+} from "@/lib/automations/schedule";
 import type { Automation } from "@/lib/api/types";
 
 const t = ((key: string, opts?: Record<string, unknown>) =>
@@ -36,6 +42,31 @@ describe("formatScheduleAt", () => {
   it("labels today as just the time", () => {
     const now = new Date();
     expect(formatScheduleAt(now.toISOString())).not.toMatch(/Tomorrow|Yesterday/);
+  });
+});
+
+describe("automationDisplayTitle", () => {
+  it("turns a generic job-search prompt into a useful title", () => {
+    expect(automationDisplayTitle("Search for job postings")).toBe("Job Search");
+  });
+
+  it("keeps the target role in a job-search title", () => {
+    expect(automationDisplayTitle("Search for L3-level software engineer job postings")).toBe(
+      "L3 Software Engineer Jobs",
+    );
+  });
+});
+
+describe("compactFrequencyLabel", () => {
+  it("uses compact English labels on the detail screen", () => {
+    expect(compactFrequencyLabel("Every day")).toBe("Daily");
+    expect(compactFrequencyLabel("Every week")).toBe("Weekly");
+    expect(compactFrequencyLabel("Every month")).toBe("Monthly");
+  });
+
+  it("preserves translated or already-compact labels", () => {
+    expect(compactFrequencyLabel("Weekdays")).toBe("Weekdays");
+    expect(compactFrequencyLabel("Tous les jours")).toBe("Tous les jours");
   });
 });
 
@@ -84,7 +115,7 @@ describe("shareAutomation", () => {
     const [payload] = jest.mocked(Share.share).mock.calls[0];
     expect(payload.message).toContain(baseAutomation.prompt);
     expect(payload.message).toContain("automations.frequency_daily");
-    expect(payload.title).toBe(baseAutomation.prompt);
+    expect(payload.title).toBe("L3 Backend Jobs");
   });
 
   it("does not throw when the user dismisses the share sheet", async () => {
