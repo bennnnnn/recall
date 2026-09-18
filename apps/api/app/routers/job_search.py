@@ -114,8 +114,16 @@ async def run_job_search_now(
                 {"automation_id": str(profile.id)},
                 dedupe_key=f"automation_run_manual:{profile.id}:{previous_run}",
             )
-        except Exception:
+        except Exception as exc:
             logger.exception("Immediate My Job enqueue failed profile_id=%s", profile.id)
+            # The recurring schedule intentionally remains in the future, so
+            # there is no scheduler fallback for this extra occurrence. Tell
+            # the client the manual search did not start instead of returning
+            # a misleading successful response.
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Could not start the job search. Try again.",
+            ) from exc
     return dashboard
 
 
