@@ -116,41 +116,10 @@ export function makeAutomationsStyles(C: Theme) {
     detailStatusPill: { alignSelf: "flex-start" },
     detailHeaderActions: { flexDirection: "row", alignItems: "center", gap: 2 },
 
-    // ChatGPT Task-detail-style "Repeat / Time / Last run" card — Repeat and
-    // Time are directly editable in place (tap → inline picker, same
-    // components AddAutomationSheet uses), auto-saving on select/close. Last
-    // run is read-only. Editing the prompt text itself still goes through
-    // the kebab → Edit sheet.
-    detailInfoCard: {
-      margin: Space.md,
-      backgroundColor: C.surface,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: C.border,
-      overflow: "hidden",
-    },
-    detailInfoRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      minHeight: Space.minTouch,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      gap: Space.sm,
-    },
-    detailInfoRowBorder: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: C.border,
-    },
-    detailInfoRowOpen: { backgroundColor: C.surfaceAlt },
-    detailInfoLabel: { ...Type.body, color: C.text },
-    detailInfoValue: { ...Type.secondary, color: C.textSecondary, flexShrink: 1, textAlign: "right" },
-    detailInfoValueGroup: { flexDirection: "row", alignItems: "center", gap: Space.xxs },
-    detailPickerWrap: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: C.border,
-      paddingVertical: Space.xs,
-      backgroundColor: C.surfaceAlt,
-    },
+    // Read-only run-history transcript — reuses MessageBubble so a run's
+    // reply (search sources, tables, etc.) renders exactly like a normal
+    // chat message. Frequency/Time/prompt editing lives behind kebab → Edit.
+    transcriptList: { flex: 1 },
+    transcriptContent: { padding: Space.md, paddingBottom: Space.xl, flexGrow: 1 },
   });
 }

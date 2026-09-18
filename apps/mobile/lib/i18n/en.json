@@ -23,6 +23,7 @@
   "automations.title": "My Job",
   "automations.empty_title": "No automations yet",
   "automations.empty_message": "Ask me in chat to create one",
+  "automations.transcript_empty": "Not run yet",
   "automations.menu_a11y": "Automation options",
   "automations.sheet_title_create": "New automation",
   "automations.sheet_title_edit": "Edit automation",

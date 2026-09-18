@@ -23,6 +23,7 @@
   "automations.title": "İşim",
   "automations.empty_title": "Henüz otomasyon yok",
   "automations.empty_message": "Bir tane oluşturmak için sohbette benden isteyin",
+  "automations.transcript_empty": "Henüz çalışmadı",
   "automations.menu_a11y": "Otomasyon seçenekleri",
   "automations.sheet_title_create": "Yeni otomasyon",
   "automations.sheet_title_edit": "Otomasyonu düzenle",

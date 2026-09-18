@@ -23,6 +23,7 @@
   "automations.title": "Моя работа",
   "automations.empty_title": "Пока нет автоматизаций",
   "automations.empty_message": "Попросите меня в чате, чтобы создать одну",
+  "automations.transcript_empty": "Ещё не запускалось",
   "automations.menu_a11y": "Настройки автоматизации",
   "automations.sheet_title_create": "Новая автоматизация",
   "automations.sheet_title_edit": "Изменить автоматизацию",

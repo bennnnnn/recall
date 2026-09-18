@@ -23,6 +23,7 @@
   "automations.title": "የኔ ስራ",
   "automations.empty_title": "እስካሁን አውቶሜሽን የለም",
   "automations.empty_message": "አንዱን ለመፍጠር በውይይት ውስጥ ጠይቀኝ",
+  "automations.transcript_empty": "እስካሁን አልሰራም",
   "automations.menu_a11y": "የአውቶሜሽን አማራጮች",
   "automations.sheet_title_create": "አዲስ አውቶሜሽን",
   "automations.sheet_title_edit": "አውቶሜሽን አርትዕ",
