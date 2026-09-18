@@ -11,6 +11,12 @@ import {
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const EMPTY: JobSearchDashboard = { profile: null, matches: [] };
+const RUN_POLL_INTERVAL_MS = 2500;
+const RUN_POLL_ATTEMPTS = 24;
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 export function useJobSearch(isCurrent: () => boolean) {
   const { token } = useAuth();
@@ -106,10 +112,32 @@ export function useJobSearch(isCurrent: () => boolean) {
 
   const runNow = useCallback(async () => {
     if (!token || busy) return;
+    const previousRunAt = dashboard.profile?.last_run_at ?? null;
     setBusy(true);
     try {
-      const next = await api.runJobSearchNow(token);
-      if (isCurrent()) setDashboard(next);
+      const started = await api.runJobSearchNow(token);
+      if (!isCurrent()) return;
+      setDashboard(started);
+      setError(false);
+
+      // The search runs on the durable worker after this HTTP request returns.
+      // Keep the dashboard live so a user who tapped "Find jobs now" sees the
+      // new matches without guessing when to pull-to-refresh.
+      for (let attempt = 0; attempt < RUN_POLL_ATTEMPTS; attempt += 1) {
+        await delay(RUN_POLL_INTERVAL_MS);
+        if (!isCurrent()) return;
+        try {
+          const next = await api.getJobSearch(token);
+          if (!isCurrent()) return;
+          setDashboard(next);
+          setError(false);
+          const completedAt = next.profile?.last_run_at ?? null;
+          if (completedAt && completedAt !== previousRunAt) return;
+        } catch {
+          // A temporary refresh failure does not mean the already-enqueued
+          // search failed. Keep polling until the bounded window expires.
+        }
+      }
     } catch (err) {
       if (isCurrent()) {
         const message = err instanceof Error ? err.message : "Could not start the job search";
@@ -118,7 +146,7 @@ export function useJobSearch(isCurrent: () => boolean) {
     } finally {
       if (isCurrent()) setBusy(false);
     }
-  }, [token, busy, isCurrent, feedback]);
+  }, [token, busy, dashboard.profile?.last_run_at, isCurrent, feedback]);
 
   const remove = useCallback(async (): Promise<boolean> => {
     if (!token || busy) return false;
