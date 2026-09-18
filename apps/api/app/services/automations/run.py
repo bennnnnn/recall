@@ -62,7 +62,10 @@ def _free_job_search_allowed(automation: Automation) -> bool:
         config = json.loads(automation.config_json or "{}")
     except (TypeError, json.JSONDecodeError):
         return False
-    return isinstance(config, dict) and config.get("result_count") == 5
+    if not isinstance(config, dict):
+        return False
+    result_count = config.get("result_count")
+    return isinstance(result_count, int) and result_count == 5
 
 
 def _advance_or_complete(
