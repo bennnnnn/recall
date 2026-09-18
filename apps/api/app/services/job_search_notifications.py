@@ -28,11 +28,7 @@ async def notify_job_matches_ready(
         return
 
     rows = list(
-        (
-            await session.scalars(
-                select(PushToken).where(PushToken.user_id == user_id)
-            )
-        ).all()
+        (await session.scalars(select(PushToken).where(PushToken.user_id == user_id))).all()
     )
     if not rows:
         return
@@ -56,8 +52,6 @@ async def notify_job_matches_ready(
     result = await expo_push_gateway.send_push_messages(messages)
     if result.invalid_tokens:
         await session.execute(
-            delete(PushToken).where(
-                PushToken.expo_push_token.in_(result.invalid_tokens)
-            )
+            delete(PushToken).where(PushToken.expo_push_token.in_(result.invalid_tokens))
         )
         await session.commit()

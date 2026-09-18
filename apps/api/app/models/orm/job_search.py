@@ -48,8 +48,7 @@ class JobSearchProfile(Base):
             name="ck_job_search_profiles_status",
         ),
         CheckConstraint(
-            "last_run_status IS NULL OR "
-            "last_run_status IN ('ok', 'error', 'skipped_quota')",
+            "last_run_status IS NULL OR last_run_status IN ('ok', 'error', 'skipped_quota')",
             name="ck_job_search_profiles_last_run_status",
         ),
     )

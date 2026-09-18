@@ -206,16 +206,12 @@ def _search_queries(profile: _ProfileSnapshot) -> list[str]:
         "mid": "mid level",
         "senior": "senior",
     }
-    levels = " ".join(
-        level_terms.get(level, level) for level in profile.experience_levels
-    )
+    levels = " ".join(level_terms.get(level, level) for level in profile.experience_levels)
     work_mode = " ".join(profile.work_modes)
     location = profile.location or "United States"
     queries: list[str] = []
     for role in profile.target_roles[:_MAX_SEARCH_ROLES]:
-        queries.append(
-            f'"{role}" {levels} {work_mode} {location} job opening posted recently'
-        )
+        queries.append(f'"{role}" {levels} {work_mode} {location} job opening posted recently')
     if profile.target_roles:
         role = profile.target_roles[0]
         queries.append(
@@ -362,9 +358,7 @@ def _fallback_rank(
         title, company = _title_and_company(candidate.title, candidate.source)
         reasons = ["Title and description align with your target roles"]
         snippet = candidate.snippet.casefold()
-        matched_skills = [
-            skill for skill in profile.skills if skill.casefold() in snippet
-        ]
+        matched_skills = [skill for skill in profile.skills if skill.casefold() in snippet]
         if matched_skills:
             reasons.append(f"Mentions {', '.join(matched_skills[:3])}")
         accepted.append(
@@ -470,9 +464,7 @@ async def _finish_run(
         existing = {
             match.canonical_url: match
             for match in (
-                await session.scalars(
-                    select(JobMatch).where(JobMatch.profile_id == profile.id)
-                )
+                await session.scalars(select(JobMatch).where(JobMatch.profile_id == profile.id))
             ).all()
         }
         for item in accepted:

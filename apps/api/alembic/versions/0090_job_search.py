@@ -18,8 +18,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # The generic unattended-prompt product is intentionally retired rather
-    # than hidden behind a new kind/config blob. Existing rows are discarded;
-    # My Job owns purpose-built profile and match records below.
+    # than hidden behind a new kind/config blob. Delete its private chat rows
+    # first so they cannot reappear in the normal chat drawer after the table
+    # that marked them as hidden is removed.
+    op.execute(
+        sa.text("DELETE FROM chats WHERE id IN (SELECT chat_id FROM automations)")
+    )
     op.drop_table("automations")
 
     op.create_table(
@@ -59,8 +63,7 @@ def upgrade() -> None:
             name="ck_job_search_profiles_status",
         ),
         sa.CheckConstraint(
-            "last_run_status IS NULL OR "
-            "last_run_status IN ('ok', 'error', 'skipped_quota')",
+            "last_run_status IS NULL OR last_run_status IN ('ok', 'error', 'skipped_quota')",
             name="ck_job_search_profiles_last_run_status",
         ),
         sa.ForeignKeyConstraint(
@@ -157,8 +160,7 @@ def downgrade() -> None:
             name="ck_automations_status",
         ),
         sa.CheckConstraint(
-            "last_run_status IS NULL OR "
-            "last_run_status IN ('ok', 'skipped_quota', 'error')",
+            "last_run_status IS NULL OR last_run_status IN ('ok', 'skipped_quota', 'error')",
             name="ck_automations_last_run_status",
         ),
         sa.ForeignKeyConstraint(["chat_id"], ["chats.id"], ondelete="CASCADE"),

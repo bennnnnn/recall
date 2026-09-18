@@ -57,9 +57,7 @@ async def get_profile_for_user(
     session: AsyncSession,
     user_id: UUID,
 ) -> JobSearchProfile | None:
-    return await session.scalar(
-        select(JobSearchProfile).where(JobSearchProfile.user_id == user_id)
-    )
+    return await session.scalar(select(JobSearchProfile).where(JobSearchProfile.user_id == user_id))
 
 
 async def _resume_details(

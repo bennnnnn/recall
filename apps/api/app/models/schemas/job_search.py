@@ -45,9 +45,7 @@ class JobSearchUpsert(BaseModel):
     skills: list[str] = Field(default_factory=list, max_length=30)
     location: str | None = Field(default=None, max_length=160)
     work_modes: list[JobSearchWorkMode] = Field(default_factory=_default_work_modes)
-    experience_levels: list[JobSearchExperience] = Field(
-        default_factory=_default_experience_levels
-    )
+    experience_levels: list[JobSearchExperience] = Field(default_factory=_default_experience_levels)
     salary_min: int | None = Field(default=None, ge=0, le=1_000_000)
     requires_sponsorship: bool | None = None
     excluded_companies: list[str] = Field(default_factory=list, max_length=20)

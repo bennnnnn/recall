@@ -19,9 +19,7 @@ async def _handle_job_search_run(
     try:
         profile_id = UUID(str(raw_profile_id))
     except (TypeError, ValueError) as exc:
-        raise JobDiscardError(
-            f"job_search_run: invalid profile_id={raw_profile_id!r}"
-        ) from exc
+        raise JobDiscardError(f"job_search_run: invalid profile_id={raw_profile_id!r}") from exc
 
     await job_search_runner.run_job_search(
         settings,
