@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Alert, Platform, Pressable, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -21,12 +21,28 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAutomationDetail } from "@/hooks/useAutomationDetail";
 import type { AutomationFrequency } from "@/lib/api";
-import { describeLastRun, formatScheduleAt, shareAutomation } from "@/lib/automations/schedule";
+import {
+  type TimePreset,
+  TIME_PRESETS,
+  adjustDayOfMonth,
+  adjustWeekday,
+  applyTimePreset,
+  describeLastRun,
+  describeSchedule,
+  describeTime,
+  shareAutomation,
+  timePresetLabel,
+  weekdayOfNextRun,
+} from "@/lib/automations/schedule";
 import { IconSize } from "@/lib/icons";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { selection } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
-type OpenField = "frequency" | "time" | null;
+type OpenField = "frequency" | "schedule" | "time" | null;
+
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_OF_MONTH_OPTIONS = Array.from({ length: 28 }, (_, i) => i + 1);
 
 export default function AutomationDetailScreen() {
   const owner = useAccountViewOwner();
@@ -57,7 +73,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: automation ? automation.prompt : t("automations.title"),
+      title: automation?.title || automation?.prompt || t("automations.title"),
       headerRight: automation
         ? () => (
             <View style={s.detailHeaderActions}>
@@ -88,10 +104,19 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
     setPendingTime(null);
   }, []);
 
-  const toggleFrequencyField = useCallback(() => {
-    if (!isEditable) return;
-    setOpenField((field) => (field === "frequency" ? null : "frequency"));
-  }, [isEditable]);
+  const toggleField = useCallback(
+    (field: OpenField) => {
+      if (!isEditable) return;
+      if (openField === "time" && field !== "time" && pendingTime && automation) {
+        if (pendingTime.getTime() !== new Date(automation.next_run_at).getTime()) {
+          void update({ next_run_at: pendingTime.toISOString() });
+        }
+      }
+      setOpenField((prev) => (prev === field ? null : field));
+      setPendingTime(null);
+    },
+    [isEditable, openField, pendingTime, automation, update],
+  );
 
   const toggleTimeField = useCallback(() => {
     if (!isEditable || !automation) return;
@@ -109,6 +134,44 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
   const onSelectFrequency = useCallback(
     (frequency: AutomationFrequency) => {
       if (automation && frequency !== automation.frequency) void update({ frequency });
+      closeFields();
+    },
+    [automation, update, closeFields],
+  );
+
+  const onSelectWeekday = useCallback(
+    (day: number) => {
+      if (!automation) return;
+      selection();
+      const adjusted = adjustWeekday(automation.next_run_at, day);
+      void update({ next_run_at: adjusted.toISOString() });
+      closeFields();
+    },
+    [automation, update, closeFields],
+  );
+
+  const onSelectDayOfMonth = useCallback(
+    (day: number) => {
+      if (!automation) return;
+      selection();
+      const adjusted = adjustDayOfMonth(automation.next_run_at, day);
+      void update({ next_run_at: adjusted.toISOString() });
+      closeFields();
+    },
+    [automation, update, closeFields],
+  );
+
+  const onSelectTimePreset = useCallback(
+    (preset: TimePreset) => {
+      if (!automation) return;
+      selection();
+      if (preset === "custom") {
+        setPendingTime(new Date(automation.next_run_at));
+        setOpenField("time");
+        return;
+      }
+      const adjusted = applyTimePreset(automation.next_run_at, preset);
+      void update({ next_run_at: adjusted.toISOString() });
       closeFields();
     },
     [automation, update, closeFields],
@@ -149,6 +212,12 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
     );
   }, [t, remove, isCurrent, router]);
 
+  const openRunHistory = useCallback(() => {
+    if (!automation) return;
+    setMenuOpen(false);
+    router.push({ pathname: "/", params: { chatId: automation.chat_id } });
+  }, [automation, router]);
+
   if (!token) return <Redirect href="/login" />;
   if (deleted) return <Redirect href="/automations" />;
 
@@ -171,14 +240,32 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
     automation.status === "completed"
       ? t("automations.status_completed")
       : t(automationFrequencyMessageKey(automation.frequency));
-  const timeLabel = formatScheduleAt(
+  const scheduleLabel = describeSchedule(automation.frequency, automation.next_run_at);
+  const timeLabel = describeTime(
     openField === "time" && pendingTime ? pendingTime.toISOString() : automation.next_run_at,
+    t,
   );
+  const isScheduleEditable =
+    isEditable && (automation.frequency === "weekly" || automation.frequency === "monthly");
+  const currentWeekday = weekdayOfNextRun(automation.next_run_at);
 
   return (
     <View style={s.root}>
-      <View style={s.detailHeader}>
-        <Text style={s.detailPrompt}>{automation.prompt}</Text>
+      <ScrollView>
+        {/* Title + Prompt card */}
+        <View style={s.detailPromptCard}>
+          <View style={s.detailTitleRow}>
+            <Text style={s.detailTitle}>
+              {automation.title || automation.prompt}
+            </Text>
+          </View>
+          {automation.title ? (
+            <View style={s.detailPromptRow}>
+              <Text style={s.detailPrompt}>{automation.prompt}</Text>
+            </View>
+          ) : null}
+        </View>
+
         {automation.status === "paused" ? (
           <View style={[s.cardStatusPill, s.cardStatusPillPaused, s.detailStatusPill]}>
             <Text style={[s.cardStatusPillText, s.cardStatusPillTextPaused]}>
@@ -186,78 +273,192 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
             </Text>
           </View>
         ) : null}
-      </View>
 
-      <View style={s.detailInfoCard}>
-        <Pressable
-          style={[s.detailInfoRow, openField === "frequency" && s.detailInfoRowOpen]}
-          onPress={toggleFrequencyField}
-          disabled={!isEditable}
-          accessibilityRole={isEditable ? "button" : undefined}
-          accessibilityLabel={`${t("automations.frequency_label")}, ${frequencyLabel}`}
-          accessibilityState={{ expanded: openField === "frequency" }}
-        >
-          <Text style={s.detailInfoLabel}>{t("automations.frequency_label")}</Text>
-          <View style={s.detailInfoValueGroup}>
-            <Text style={s.detailInfoValue}>{frequencyLabel}</Text>
-            {isEditable ? (
-              <Icon
-                name={openField === "frequency" ? "chevron-up" : "chevron-down"}
-                size={16}
-                color={C.textTertiary}
-              />
-            ) : null}
-          </View>
-        </Pressable>
-        {openField === "frequency" ? (
-          <View style={s.detailPickerWrap}>
-            <AutomationFrequencyPicker selected={automation.frequency} onSelect={onSelectFrequency} />
-          </View>
-        ) : null}
-
-        {automation.status !== "completed" ? (
-          <>
-            <Pressable
-              style={[s.detailInfoRow, s.detailInfoRowBorder, openField === "time" && s.detailInfoRowOpen]}
-              onPress={toggleTimeField}
-              disabled={!isEditable}
-              accessibilityRole={isEditable ? "button" : undefined}
-              accessibilityLabel={`${t("automations.field_time")}, ${timeLabel}`}
-              accessibilityState={{ expanded: openField === "time" }}
-            >
-              <Text style={s.detailInfoLabel}>{t("automations.field_time")}</Text>
-              <View style={s.detailInfoValueGroup}>
-                <Text style={s.detailInfoValue}>{timeLabel}</Text>
-                {isEditable ? (
-                  <Icon
-                    name={openField === "time" ? "chevron-up" : "chevron-down"}
-                    size={16}
-                    color={C.textTertiary}
-                  />
-                ) : null}
-              </View>
-            </Pressable>
-            {openField === "time" ? (
-              <View style={s.detailPickerWrap}>
-                <ReminderDateTimePicker
-                  value={pendingTime ?? new Date(automation.next_run_at)}
-                  onChange={onTimePickerChange}
-                  disabled={saving}
+        {/* Repeat / Schedule / Time / Last run card */}
+        <View style={s.detailInfoCard}>
+          {/* Repeat */}
+          <Pressable
+            style={[s.detailInfoRow, openField === "frequency" && s.detailInfoRowOpen]}
+            onPress={() => toggleField("frequency")}
+            disabled={!isEditable}
+            accessibilityRole={isEditable ? "button" : undefined}
+            accessibilityLabel={`${t("automations.frequency_label")}, ${frequencyLabel}`}
+            accessibilityState={{ expanded: openField === "frequency" }}
+          >
+            <Text style={s.detailInfoLabel}>{t("automations.frequency_label")}</Text>
+            <View style={s.detailInfoValueGroup}>
+              <Text style={s.detailInfoValue}>{frequencyLabel}</Text>
+              {isEditable ? (
+                <Icon
+                  name={openField === "frequency" ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color={C.textTertiary}
                 />
-              </View>
-            ) : null}
-          </>
-        ) : null}
+              ) : null}
+            </View>
+          </Pressable>
+          {openField === "frequency" ? (
+            <View style={s.detailPickerWrap}>
+              <AutomationFrequencyPicker selected={automation.frequency} onSelect={onSelectFrequency} />
+            </View>
+          ) : null}
 
-        <View style={[s.detailInfoRow, s.detailInfoRowBorder]}>
-          <Text style={s.detailInfoLabel}>{t("automations.field_last_run")}</Text>
-          <Text style={s.detailInfoValue}>{describeLastRun(automation, t)}</Text>
+          {/* Schedule (day-of-week / day-of-month) */}
+          {automation.status !== "completed" ? (
+            <>
+              <Pressable
+                style={[
+                  s.detailInfoRow,
+                  s.detailInfoRowBorder,
+                  openField === "schedule" && s.detailInfoRowOpen,
+                ]}
+                onPress={() => toggleField("schedule")}
+                disabled={!isScheduleEditable}
+                accessibilityRole={isScheduleEditable ? "button" : undefined}
+                accessibilityLabel={`${t("automations.field_schedule")}, ${scheduleLabel}`}
+                accessibilityState={{ expanded: openField === "schedule" }}
+              >
+                <Text style={s.detailInfoLabel}>{t("automations.field_schedule")}</Text>
+                <View style={s.detailInfoValueGroup}>
+                  <Text style={s.detailInfoValue}>{scheduleLabel}</Text>
+                  {isScheduleEditable ? (
+                    <Icon
+                      name={openField === "schedule" ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color={C.textTertiary}
+                    />
+                  ) : null}
+                </View>
+              </Pressable>
+              {openField === "schedule" && automation.frequency === "weekly" ? (
+                <View style={s.detailPickerWrap}>
+                  {WEEKDAY_LABELS.map((label, idx) => (
+                    <Pressable
+                      key={idx}
+                      style={[s.detailInfoRow, idx === currentWeekday && s.detailInfoRowOpen]}
+                      onPress={() => onSelectWeekday(idx)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: idx === currentWeekday }}
+                    >
+                      <Text
+                        style={[
+                          s.detailInfoLabel,
+                          idx === currentWeekday && { color: C.primary, fontWeight: "600" },
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                      {idx === currentWeekday ? (
+                        <Icon name="checkmark" size={18} color={C.primary} />
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+              {openField === "schedule" && automation.frequency === "monthly" ? (
+                <View style={s.detailPickerWrap}>
+                  <ScrollView style={{ maxHeight: 200 }}>
+                    {DAY_OF_MONTH_OPTIONS.map((day) => {
+                      const current = new Date(automation.next_run_at).getDate();
+                      const active = day === current;
+                      return (
+                        <Pressable
+                          key={day}
+                          style={[s.detailInfoRow, active && s.detailInfoRowOpen]}
+                          onPress={() => onSelectDayOfMonth(day)}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: active }}
+                        >
+                          <Text
+                            style={[
+                              s.detailInfoLabel,
+                              active && { color: C.primary, fontWeight: "600" },
+                            ]}
+                          >
+                            {day}
+                          </Text>
+                          {active ? <Icon name="checkmark" size={18} color={C.primary} /> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+
+          {/* Time */}
+          {automation.status !== "completed" ? (
+            <>
+              <Pressable
+                style={[
+                  s.detailInfoRow,
+                  s.detailInfoRowBorder,
+                  openField === "time" && s.detailInfoRowOpen,
+                ]}
+                onPress={toggleTimeField}
+                disabled={!isEditable}
+                accessibilityRole={isEditable ? "button" : undefined}
+                accessibilityLabel={`${t("automations.field_time")}, ${timeLabel}`}
+                accessibilityState={{ expanded: openField === "time" }}
+              >
+                <Text style={s.detailInfoLabel}>{t("automations.field_time")}</Text>
+                <View style={s.detailInfoValueGroup}>
+                  <Text style={s.detailInfoValue}>{timeLabel}</Text>
+                  {isEditable ? (
+                    <Icon
+                      name={openField === "time" ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color={C.textTertiary}
+                    />
+                  ) : null}
+                </View>
+              </Pressable>
+              {openField === "time" ? (
+                <View style={s.detailPickerWrap}>
+                  {TIME_PRESETS.map((p) => (
+                    <Pressable
+                      key={p.key}
+                      style={s.detailInfoRow}
+                      onPress={() => onSelectTimePreset(p.key)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={s.detailInfoLabel}>{timePresetLabel(p.key, t)}</Text>
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    style={s.detailInfoRow}
+                    onPress={() => onSelectTimePreset("custom")}
+                    accessibilityRole="button"
+                  >
+                    <Text style={s.detailInfoLabel}>{timePresetLabel("custom", t)}</Text>
+                  </Pressable>
+                  {pendingTime ? (
+                    <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+                      <ReminderDateTimePicker
+                        value={pendingTime}
+                        onChange={onTimePickerChange}
+                        disabled={saving}
+                      />
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+            </>
+          ) : null}
+
+          {/* Last run */}
+          <View style={[s.detailInfoRow, s.detailInfoRowBorder]}>
+            <Text style={s.detailInfoLabel}>{t("automations.field_last_run")}</Text>
+            <Text style={s.detailInfoValue}>{describeLastRun(automation, t)}</Text>
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
       <AutomationActionsSheet
         visible={menuOpen}
         status={automation.status}
+        chatId={automation.chat_id}
         hideTogglePause
         onClose={() => {
           if (isCurrent()) setMenuOpen(false);
@@ -267,8 +468,6 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
           setEditOpen(true);
         }}
         onShare={() => {
-          // Keep the sheet mounted until Share.share resolves — closing it
-          // first can make iOS drop the OS activity controller.
           if (sharing.current || !automation) return;
           sharing.current = true;
           void shareAutomation(automation, t)
@@ -284,6 +483,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
           setMenuOpen(false);
           togglePause();
         }}
+        onRunHistory={openRunHistory}
         onDelete={confirmDelete}
       />
 
@@ -291,6 +491,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
         visible={editOpen}
         saving={saving}
         initial={{
+          title: automation.title,
           prompt: automation.prompt,
           frequency: automation.frequency,
           nextRunAt: new Date(automation.next_run_at),
@@ -298,8 +499,8 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
         onClose={() => {
           if (isCurrent()) setEditOpen(false);
         }}
-        onSave={(prompt, frequency, nextRunAt) => {
-          void update({ prompt, frequency, next_run_at: nextRunAt.toISOString() });
+        onSave={(title, prompt, frequency, nextRunAt) => {
+          void update({ title, prompt, frequency, next_run_at: nextRunAt.toISOString() });
           setEditOpen(false);
         }}
       />

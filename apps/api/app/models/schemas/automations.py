@@ -18,6 +18,7 @@ class AutomationOut(BaseModel):
 
     id: UUID
     chat_id: UUID
+    title: str | None = None
     prompt: str
     frequency: AutomationFrequency
     next_run_at: datetime
@@ -31,6 +32,7 @@ class AutomationOut(BaseModel):
 class AutomationCreate(BaseModel):
     model_config = ConfigDict(title="AutomationCreate")
 
+    title: str | None = Field(default=None, max_length=200)
     prompt: str = Field(min_length=1, max_length=2000)
     frequency: AutomationFrequency
     next_run_at: datetime
@@ -47,6 +49,7 @@ class AutomationCreate(BaseModel):
 class AutomationUpdate(BaseModel):
     model_config = ConfigDict(title="AutomationUpdate")
 
+    title: str | None = Field(default=None, max_length=200)
     prompt: str | None = Field(default=None, min_length=1, max_length=2000)
     frequency: AutomationFrequency | None = None
     next_run_at: datetime | None = None

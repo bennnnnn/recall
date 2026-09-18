@@ -20,19 +20,23 @@ type Action = {
 export function AutomationActionsSheet({
   visible,
   status,
+  chatId,
   onClose,
   onEdit,
   onShare,
   onTogglePause,
+  onRunHistory,
   onDelete,
   hideTogglePause = false,
 }: {
   visible: boolean;
   status: AutomationStatus;
+  chatId?: string;
   onClose: () => void;
   onEdit: () => void;
   onShare: () => void;
   onTogglePause: () => void;
+  onRunHistory?: () => void;
   onDelete: () => void;
   /** The detail screen already has a header pause/resume icon — omit the
    * duplicate row there. The list's long-press sheet keeps it (no header). */
@@ -55,6 +59,14 @@ export function AutomationActionsSheet({
         onPress: onTogglePause,
       });
     }
+    if (onRunHistory && chatId) {
+      rows.push({
+        key: "run-history",
+        icon: "time-outline",
+        label: t("automations.see_run_history"),
+        onPress: onRunHistory,
+      });
+    }
     rows.push({
       key: "delete",
       icon: "trash-outline",
@@ -63,7 +75,7 @@ export function AutomationActionsSheet({
       danger: true,
     });
     return rows;
-  }, [status, hideTogglePause, onEdit, onShare, onTogglePause, onDelete, t]);
+  }, [status, chatId, hideTogglePause, onEdit, onShare, onTogglePause, onRunHistory, onDelete, t]);
 
   return (
     <AppSheet

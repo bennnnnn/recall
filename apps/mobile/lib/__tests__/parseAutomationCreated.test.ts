@@ -11,6 +11,7 @@ describe("parseAutomationCreated", () => {
   it("reads a valid fence", () => {
     expect(parseAutomationCreated(`Done — every day at 8am.\n\n${VALID_FENCE}`)).toEqual({
       id: AUTOMATION_ID,
+      title: null,
       prompt: "Find L3 backend jobs",
       frequency: "daily",
       nextRunAt: "2026-09-19T08:00:00-04:00",

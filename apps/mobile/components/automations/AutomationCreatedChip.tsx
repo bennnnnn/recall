@@ -26,6 +26,7 @@ export function AutomationCreatedChip({ automation }: { automation: ParsedAutoma
   const s = useMemo(() => makeStyles(C), [C]);
   const router = useRouter();
   const frequencyLabel = t(automationFrequencyMessageKey(automation.frequency));
+  const displayName = automation.title || automation.prompt;
 
   return (
     <Pressable
@@ -35,12 +36,12 @@ export function AutomationCreatedChip({ automation }: { automation: ParsedAutoma
         router.push(`/automations/${automation.id}`);
       }}
       accessibilityRole="button"
-      accessibilityLabel={`${frequencyLabel} · ${automation.prompt}`}
+      accessibilityLabel={`${frequencyLabel} · ${displayName}`}
     >
       <Text style={s.frequency}>{frequencyLabel}</Text>
       <Text style={s.separator}> · </Text>
       <Text style={s.prompt} numberOfLines={1}>
-        {automation.prompt}
+        {displayName}
       </Text>
     </Pressable>
   );

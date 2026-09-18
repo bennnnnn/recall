@@ -32,6 +32,7 @@ _MAX_PER_TURN = 1
 class _AutomationFence(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    title: str | None = Field(default=None, max_length=200)
     prompt: str = Field(min_length=1, max_length=2000)
     frequency: AutomationFrequency
     next_run_at: datetime
@@ -89,8 +90,9 @@ def format_automation_confirm_fence(automation: Automation) -> str:
     (frequency + prompt), matching the reminder-fence "saved result" line
     but as a rich block instead of prose — see `fenceRegistry.ts` `automation_created`.
     """
-    payload = {
+    payload: dict[str, str | None] = {
         "id": str(automation.id),
+        "title": automation.title,
         "prompt": automation.prompt,
         "frequency": automation.frequency,
         "next_run_at": automation.next_run_at.isoformat(),
@@ -127,6 +129,7 @@ async def materialize_automation_fences(
             session,
             user,
             settings,
+            title=draft.title.strip() if draft.title else None,
             prompt=draft.prompt.strip(),
             frequency=draft.frequency,
             next_run_at=draft.next_run_at,

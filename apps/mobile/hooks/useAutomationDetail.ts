@@ -45,6 +45,7 @@ export function useAutomationDetail(automationId: string, isCurrent: () => boole
   const update = useCallback(
     async (
       patch: Partial<{
+        title: string | null;
         prompt: string;
         frequency: AutomationFrequency;
         next_run_at: string;

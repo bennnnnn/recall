@@ -106,6 +106,7 @@ export type AutomationRunStatus = "ok" | "skipped_quota" | "error";
 export type Automation = {
   id: string;
   chat_id: string;
+  title: string | null;
   prompt: string;
   frequency: AutomationFrequency;
   next_run_at: string;

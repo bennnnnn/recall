@@ -14,6 +14,7 @@ async def create(
     *,
     user_id: UUID,
     chat_id: UUID,
+    title: str | None = None,
     prompt: str,
     frequency: str,
     next_run_at: datetime,
@@ -22,6 +23,7 @@ async def create(
     automation = Automation(
         user_id=user_id,
         chat_id=chat_id,
+        title=title.strip() if title else None,
         prompt=prompt.strip(),
         frequency=frequency,
         next_run_at=next_run_at,

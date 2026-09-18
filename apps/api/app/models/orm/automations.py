@@ -51,6 +51,7 @@ class Automation(Base):
     chat_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, unique=True
     )
+    title: Mapped[str | None] = mapped_column(String(200), nullable=True)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     frequency: Mapped[str] = mapped_column(String(16), nullable=False)
     next_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
