@@ -1,4 +1,4 @@
-"""Focused coverage for the free My Job scheduled-run path."""
+"""Focused coverage for the My Job scheduled-run model boundary."""
 
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -37,7 +37,8 @@ def _session(automation: MagicMock, user: MagicMock) -> AsyncMock:
 
 
 @pytest.mark.asyncio
-async def test_free_weekly_job_search_routes_within_free_model_pool() -> None:
+@pytest.mark.parametrize("plan", ["free", "pro"])
+async def test_job_search_routes_within_the_users_enabled_model_pool(plan: str) -> None:
     automation = MagicMock()
     automation.id = uuid4()
     automation.user_id = uuid4()
@@ -51,7 +52,7 @@ async def test_free_weekly_job_search_routes_within_free_model_pool() -> None:
 
     user = MagicMock()
     user.id = automation.user_id
-    user.plan = "free"
+    user.plan = plan
     user.timezone = "UTC"
 
     gate_session = _session(automation, user)
