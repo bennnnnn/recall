@@ -53,9 +53,7 @@ async def update_job_search_status(
     settings: Settings = Depends(get_settings_dep),
 ) -> JobSearchDashboardOut:
     try:
-        return await job_search_service.set_search_status(
-            session, user, settings, body.status
-        )
+        return await job_search_service.set_search_status(session, user, settings, body.status)
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc
 
@@ -70,7 +68,11 @@ async def update_job_match_status(
 ) -> JobSearchDashboardOut:
     try:
         return await job_search_service.set_match_status(
-            session, user, settings, match_id, body.status
+            session,
+            user,
+            settings,
+            match_id,
+            body.status,
         )
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc
