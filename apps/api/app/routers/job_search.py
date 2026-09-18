@@ -16,6 +16,7 @@ from app.models.schemas.job_search import (
     JobSearchUpsert,
 )
 from app.services import job_search as job_search_service
+from app.services import job_search_run_now as job_search_run_now_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/job-search", tags=["job-search"])
@@ -91,27 +92,29 @@ async def run_job_search_now(
     redis: Redis = Depends(get_redis),
 ) -> JobSearchDashboardOut:
     try:
-        dashboard = await job_search_service.run_now(session, user, settings)
+        dashboard = await job_search_run_now_service.prepare_manual_run(
+            session,
+            user,
+            settings,
+        )
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc
 
-    # The periodic scheduler remains the durable fallback, but a user who taps
-    # "Find jobs now" should not wait for its next 60-second tick. Use the same
-    # occurrence-specific dedupe key as the scheduler so both paths can race
-    # safely without running the search twice.
     profile = dashboard.profile
     if profile is not None:
+        # A manual run is an extra occurrence, not a reschedule. Key the queue
+        # claim to the previous completed occurrence so repeated taps before
+        # the worker starts collapse into one job while a later run remains
+        # possible after the ten-minute guard expires.
+        previous_run = profile.last_run_at.isoformat() if profile.last_run_at else "never"
         try:
             await enqueue(
                 redis,
                 "automation_run",
                 {"automation_id": str(profile.id)},
-                dedupe_key=(f"automation_run:{profile.id}:{profile.next_run_at.isoformat()}"),
+                dedupe_key=f"automation_run_manual:{profile.id}:{previous_run}",
             )
         except Exception:
-            # ``run_now`` already made the row due. A transient Redis enqueue
-            # failure therefore degrades to the normal scheduler rather than
-            # turning a valid user action into a misleading HTTP failure.
             logger.exception("Immediate My Job enqueue failed profile_id=%s", profile.id)
     return dashboard
 
