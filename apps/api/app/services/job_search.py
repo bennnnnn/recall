@@ -384,6 +384,8 @@ def _profile_out(
     count = int(config.get("result_count") or 5)
     if count not in {5, 10, 15}:
         count = 5
+    raw_salary_min = config.get("salary_min")
+    salary_min = raw_salary_min if isinstance(raw_salary_min, int) else None
     raw_status = automation.status
     status = raw_status if raw_status in _VALID_AUTOMATION_STATUSES else "paused"
     raw_run_status = automation.last_run_status
@@ -395,11 +397,7 @@ def _profile_out(
         location=str(config["location"]) if config.get("location") else None,
         work_modes=_work_modes(config),
         experience_levels=_experience_levels(config),
-        salary_min=(
-            config.get("salary_min")
-            if isinstance(config.get("salary_min"), int)
-            else None
-        ),
+        salary_min=salary_min,
         requires_sponsorship=(
             config.get("requires_sponsorship")
             if isinstance(config.get("requires_sponsorship"), bool)
@@ -526,6 +524,9 @@ async def upsert_profile(
     )
     raw_statuses = previous.get("match_statuses")
     statuses = raw_statuses if isinstance(raw_statuses, dict) else {}
+    resume_attachment_id = (
+        str(body.resume_attachment_id) if body.resume_attachment_id else None
+    )
 
     config: dict[str, Any] = {
         "version": _CONFIG_VERSION,
@@ -538,9 +539,7 @@ async def upsert_profile(
         "requires_sponsorship": body.requires_sponsorship,
         "excluded_companies": body.excluded_companies,
         "background": body.background,
-        "resume_attachment_id": (
-            str(body.resume_attachment_id) if body.resume_attachment_id else None
-        ),
+        "resume_attachment_id": resume_attachment_id,
         "resume_filename": resume_filename,
         "resume_text": resume_text,
         "result_count": body.result_count,
