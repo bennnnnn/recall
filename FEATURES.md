@@ -287,13 +287,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 5. Models & routing
 - ✅ **Multiple tiers** — **Flash** (`free-chat`) and **Pro** (`smart-chat`), plus named
   models in the picker (Llama, GPT 5.5, GLM, …). No OpenRouter-auto “Max” chip.
-- ✅ **Manual switching** — model picker in the composer + a default in Settings (respected).
+- ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by
+  design; the composer picker was removed to keep the composer single-purpose). Respected
+  per chat turn.
 - ✅ **Chat settings from natural language** — small allowlist, confirm-then-write
   (calendar-proposal style): model (Flash / Pro / Auto, nicknames like “GPT” → GPT 5.5),
   tone (funny / professional / casual / soft), app language, and appearance
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
   No open settings tool. Daily learning goal lives on the lesson map ⋯ menu.
-- ✅ **Auto routing** — an **Auto** chip (composer + Settings) picks Flash vs Pro per message via a
+- ✅ **Auto routing** — an **Auto** option (Settings → Models) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). Short follow-ups of a hard turn inherit
   that turn’s tier; a new topic drops back to Flash. No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
@@ -455,7 +457,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 11. Navigation & UX
 - ✅ **Drawer** — custom slide-in: search, New chat, chat history, profile + settings.
-- ✅ **Chat screen** — composer with model picker, top-right `＋` (new) and `⋯` (Share / Rename /
+- ✅ **Chat screen** — single-purpose composer, top-right `＋` (new) and `⋯` (Share / Rename /
   Pin / Delete).
 - ✅ **States** — login, loading, empty chat ("How can I help?"), empty memory, drawer offline/retry.
 - ✅ **Onboarding** — a first-run welcome screen (value props + "Get started"), shown once before
