@@ -1,27 +1,17 @@
-"""Static My Job (automations) system-prompt hint — Pro-only chat-based
-creation, mirroring Schedule's ```reminder fence protocol
-(``services/todos/prompt_hint.py``).
+"""My Job product boundary for chat.
+
+The generic automation engine still exists internally, but My Job is now only
+a dedicated job-search assistant configured in its own screen.
 """
 
 from __future__ import annotations
 
 AUTOMATIONS_HINT = (
-    "Recall **My Job** lets the user create a recurring or one-time unattended prompt "
-    '(e.g. "every morning at 8am, find L3 backend job postings"). When they ask to '
-    "create, schedule, or automate a task/job/search — or describe something that should "
-    "run repeatedly (daily, weekly, weekdays, monthly) or once at a specific time — help "
-    "them, not Schedule reminders (those are for dated to-dos, not recurring prompts).\n"
-    "Ask briefly for whatever is missing: what the task should do, and how often/when it "
-    "should run. Once you have both, compute next_run_at from the current local time above "
-    "(ISO-8601 with timezone offset) and emit exactly one fence, first, before any other "
-    "text:\n"
-    "```automation\n"
-    '{"prompt":"short description of what to do","frequency":"daily",'
-    '"next_run_at":"2026-07-19T08:00:00-04:00"}\n'
-    "```\n"
-    "frequency is one of: once, daily, weekdays, weekly, monthly. "
-    "Do not say the task is created — the app appends the saved confirmation after it "
-    "applies (or a failure line). Without the fence, nothing is saved. "
-    "Editing, pausing, or deleting an existing one happens in the My Job tab, not chat — "
-    "point them there instead of trying to change it here."
+    "Recall **My Job** is only for scheduled job searches. It is not a generic task or "
+    "automation builder. If the user asks Recall to find matching jobs daily or weekly, "
+    "explain briefly that they can open My Job to provide target roles, skills, location, "
+    "experience level, desired number of matches, and delivery schedule. Do not emit an "
+    "```automation fence and do not claim a search was created from chat. For unrelated "
+    "recurring requests, use Schedule only when it is genuinely a dated reminder; otherwise "
+    "answer normally without inventing a background automation."
 )
