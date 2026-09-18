@@ -68,8 +68,9 @@ const makeS = (C: Theme) =>
       top: -4,
       right: -4,
       minWidth: 18,
-      height: 18,
-      borderRadius: 9,
+      // minHeight (not fixed height) so larger Dynamic Type grows the pill.
+      minHeight: 18,
+      borderRadius: 999,
       paddingHorizontal: 4,
       backgroundColor: C.primary,
       alignItems: "center",

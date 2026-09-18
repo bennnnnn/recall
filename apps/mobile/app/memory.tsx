@@ -360,7 +360,7 @@ function makeStyles(theme: Theme) {
       fontWeight: "400",
       color: theme.textSecondary,
       marginBottom: 20,
-      lineHeight: 20,
+      // No fixed lineHeight: let it scale with Dynamic Type.
     },
     editSheet: {
       paddingHorizontal: 0,
@@ -371,7 +371,7 @@ function makeStyles(theme: Theme) {
       ...Type.label,
       fontWeight: "400",
       color: theme.textSecondary,
-      lineHeight: 20,
+      // No fixed lineHeight: let it scale with Dynamic Type.
       marginBottom: Space.sm,
     },
     editInput: {

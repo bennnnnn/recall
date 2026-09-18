@@ -1,7 +1,7 @@
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { IconButton } from "@/components/IconButton";
 import { liveTalkMuteA11yKey } from "@/lib/liveTalkLogic";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
@@ -19,7 +19,7 @@ export function LiveTalkComposerControls({ muted, onMutePress, onClose }: Props)
 
   return (
     <View style={styles.row}>
-      <Pressable
+      <IconButton
         onPress={onMutePress}
         style={[
           styles.round,
@@ -27,25 +27,21 @@ export function LiveTalkComposerControls({ muted, onMutePress, onClose }: Props)
             ? { backgroundColor: theme.danger, borderColor: theme.danger }
             : { backgroundColor: theme.inputBg, borderColor: theme.composerBorder },
         ]}
-        accessibilityRole="button"
         accessibilityLabel={t(liveTalkMuteA11yKey(muted))}
         testID="live-talk-mute"
-      >
-        <Icon
-          name={muted ? "mic-off" : "mic-outline"}
-          size={IconSize.lg}
-          color={muted ? theme.onPrimary : theme.text}
-        />
-      </Pressable>
-      <Pressable
+        name={muted ? "mic-off" : "mic-outline"}
+        size={IconSize.lg}
+        color={muted ? theme.onPrimary : theme.text}
+      />
+      <IconButton
         onPress={onClose}
         style={[styles.round, { backgroundColor: theme.text }]}
-        accessibilityRole="button"
         accessibilityLabel={t("chat.live_talk_close_a11y")}
         testID="live-talk-close"
-      >
-        <Icon name="close" size={IconSize.md} color={theme.onPrimary} />
-      </Pressable>
+        name="close"
+        size={IconSize.md}
+        color={theme.onPrimary}
+      />
     </View>
   );
 }

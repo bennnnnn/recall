@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -10,7 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
+import { IconButton } from "@/components/IconButton";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
@@ -88,15 +87,23 @@ export function AttachmentPdfViewer({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
-          <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("chat.pdf_close_a11y")}>
-            <Icon name="close" size={IconSize.lg} color={theme.text} />
-          </Pressable>
+          <IconButton
+            onPress={onClose}
+            accessibilityLabel={t("chat.pdf_close_a11y")}
+            name="close"
+            size={IconSize.lg}
+            color={theme.text}
+          />
           <Text style={s.title} numberOfLines={1}>
             {fileName}
           </Text>
-          <Pressable onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("chat.pdf_share_a11y")}>
-            <Icon name="share-outline" size={IconSize.md} color={theme.primary} />
-          </Pressable>
+          <IconButton
+            onPress={onShare}
+            accessibilityLabel={t("chat.pdf_share_a11y")}
+            name="share-outline"
+            size={IconSize.md}
+            color={theme.primary}
+          />
         </View>
         <View style={s.body}>
           {loading ? (

@@ -24,8 +24,10 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     badge: {
       minWidth: 18,
-      height: 18,
-      borderRadius: 9,
+      // minHeight + padding (not a fixed height) so larger Dynamic Type
+      // sizes grow the pill instead of clipping the count.
+      minHeight: 18,
+      borderRadius: 999,
       paddingHorizontal: 5,
       backgroundColor: theme.danger,
       alignItems: "center",
@@ -37,7 +39,7 @@ function makeStyles(theme: Theme) {
       fontSize: 11,
       fontWeight: "700",
       color: theme.onPrimary,
-      lineHeight: 13,
+      // No fixed lineHeight: let RN scale it with Dynamic Type.
     },
   });
 }

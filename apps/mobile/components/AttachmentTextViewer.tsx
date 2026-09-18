@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +10,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
+import { IconButton } from "@/components/IconButton";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { fetchAttachmentBytes } from "@/lib/fetchAttachmentBytes";
@@ -83,15 +82,23 @@ export function AttachmentTextViewer({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
-          <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("preview.close")}>
-            <Icon name="close" size={IconSize.lg} color={theme.text} />
-          </Pressable>
+          <IconButton
+            onPress={onClose}
+            accessibilityLabel={t("preview.close")}
+            name="close"
+            size={IconSize.lg}
+            color={theme.text}
+          />
           <Text style={s.title} numberOfLines={1}>
             {fileName}
           </Text>
-          <Pressable onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("preview.share")}>
-            <Icon name="share-outline" size={IconSize.md} color={theme.primary} />
-          </Pressable>
+          <IconButton
+            onPress={onShare}
+            accessibilityLabel={t("preview.share")}
+            name="share-outline"
+            size={IconSize.md}
+            color={theme.primary}
+          />
         </View>
         <View style={s.body}>
           {loading ? (
