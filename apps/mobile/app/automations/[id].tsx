@@ -1,12 +1,11 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AddAutomationSheet } from "@/components/automations/AddAutomationSheet";
 import { AutomationActionsSheet } from "@/components/automations/AutomationActionsSheet";
 import { automationFrequencyMessageKey } from "@/components/automations/AutomationFrequencyPicker";
-import { AutomationTranscript } from "@/components/automations/AutomationTranscript";
 import { makeAutomationsStyles } from "@/components/automations/automationsStyles";
 import { Icon } from "@/components/Icon";
 import { IconButton } from "@/components/IconButton";
@@ -18,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAutomationDetail } from "@/hooks/useAutomationDetail";
 import {
   automationDisplayTitle,
+  compactFrequencyLabel,
   formatAutomationScheduleDay,
   shareAutomation,
 } from "@/lib/automations/schedule";
@@ -39,7 +39,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
   const s = useMemo(() => makeAutomationsStyles(C), [C]);
   const navigation = useNavigation();
   const router = useRouter();
-  const { automation, messages, loading, error, saving, deleted, refresh, update, togglePause, remove } =
+  const { automation, loading, error, saving, deleted, refresh, update, togglePause, remove } =
     useAutomationDetail(id ?? "", isCurrent);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -60,14 +60,17 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
         ? () => (
             <View style={s.detailHeaderActions}>
               {automation.status !== "completed" ? (
-                <IconButton
-                  name={automation.status === "paused" ? "play-outline" : "pause-outline"}
-                  size={IconSize.md}
-                  accessibilityLabel={t(
-                    automation.status === "paused" ? "automations.resume" : "automations.pause",
-                  )}
-                  onPress={togglePause}
-                />
+                <>
+                  <IconButton
+                    name={automation.status === "paused" ? "play-outline" : "pause-outline"}
+                    size={IconSize.md}
+                    accessibilityLabel={t(
+                      automation.status === "paused" ? "automations.resume" : "automations.pause",
+                    )}
+                    onPress={togglePause}
+                  />
+                  <View style={s.detailHeaderSeparator} />
+                </>
               ) : null}
               <IconButton
                 name="ellipsis-vertical"
@@ -79,7 +82,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
           )
         : undefined,
     });
-  }, [navigation, automation, t, openMenu, togglePause, s.detailHeaderActions]);
+  }, [navigation, automation, t, openMenu, togglePause, s]);
 
   const confirmDelete = useCallback(() => {
     setMenuOpen(false);
@@ -119,8 +122,12 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
   }
 
   const canEdit = automation.status !== "completed";
-  const frequencyLabel = t(automationFrequencyMessageKey(automation.frequency));
-  const scheduleLabel =\n    automation.frequency === "daily" || automation.frequency === "weekdays"\n      ? frequencyLabel\n      : formatAutomationScheduleDay(automation);
+  const fullFrequencyLabel = t(automationFrequencyMessageKey(automation.frequency));
+  const repeatLabel = compactFrequencyLabel(fullFrequencyLabel);
+  const scheduleLabel =
+    automation.frequency === "daily"
+      ? fullFrequencyLabel
+      : formatAutomationScheduleDay(automation) || fullFrequencyLabel;
   const runDate = new Date(automation.next_run_at);
   const timeLabel = Number.isNaN(runDate.getTime())
     ? ""
@@ -129,7 +136,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
   const settingRow = (label: string, value: string, key: string) => (
     <Pressable
       key={key}
-      style={s.detailSettingRow}
+      style={({ pressed }) => [s.detailSettingRow, pressed && canEdit && s.detailSettingPressed]}
       onPress={openEditor}
       disabled={!canEdit}
       accessibilityRole={canEdit ? "button" : undefined}
@@ -147,8 +154,18 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
 
   return (
     <View style={s.root}>
-      <View style={s.detailContent}>
-        <View style={s.detailTaskCard}>
+      <ScrollView
+        style={s.detailScroll}
+        contentContainerStyle={s.detailContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Pressable
+          style={({ pressed }) => [s.detailTaskCard, pressed && canEdit && s.detailSettingPressed]}
+          onPress={openEditor}
+          disabled={!canEdit}
+          accessibilityRole={canEdit ? "button" : undefined}
+          accessibilityLabel={automation.prompt}
+        >
           <View style={s.detailTaskSection}>
             <Text style={s.detailTaskTitle}>{automationDisplayTitle(automation.prompt)}</Text>
           </View>
@@ -156,10 +173,10 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
           <View style={s.detailTaskSection}>
             <Text style={s.detailPrompt}>{automation.prompt}</Text>
           </View>
-        </View>
+        </Pressable>
 
         <View style={s.detailSettingsGroup}>
-          {settingRow(t("automations.frequency_label"), frequencyLabel, "repeat")}
+          {settingRow(t("automations.frequency_label"), repeatLabel, "repeat")}
           <View style={s.detailDivider} />
           {settingRow(t("drawer.reminders"), scheduleLabel, "schedule")}
         </View>
@@ -167,11 +184,7 @@ function AutomationDetailContent({ isCurrent }: { isCurrent: () => boolean }) {
         <View style={s.detailSettingsGroup}>
           {settingRow(t("automations.field_time"), timeLabel, "time")}
         </View>
-      </View>
-
-      {messages.length > 0 ? (
-        <AutomationTranscript chatId={automation.chat_id} messages={messages} />
-      ) : null}
+      </ScrollView>
 
       <AutomationActionsSheet
         visible={menuOpen}
