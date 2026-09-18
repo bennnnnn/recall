@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -18,13 +18,17 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.gateways.storage_gateway import get_storage_gateway
 from app.models.orm import Automation, User
 from app.models.schemas.job_search import (
     JobMatchOut,
     JobMatchStatus,
     JobSearchDashboardOut,
+    JobSearchExperience,
+    JobSearchFrequency,
     JobSearchProfileOut,
     JobSearchUpsert,
+    JobSearchWorkMode,
 )
 from app.repositories import attachments as attachments_repo
 from app.repositories import automations as automations_repo
@@ -33,13 +37,24 @@ from app.repositories import messages as messages_repo
 from app.services import chats as chats_service
 from app.services import plan as plan_service
 from app.services.attachments import content as attachment_content_service
-from app.gateways.storage_gateway import get_storage_gateway
+from app.services.prompt_safety import wrap_untrusted
 from app.services.time_context import normalize_due_at
 
 _CONFIG_VERSION = 1
 _MAX_RESUME_CHARS = 10_000
 _MATCH_FENCE_RE = re.compile(r"```job_matches\s*\n([\s\S]*?)```", re.IGNORECASE)
-_ALLOWED_TRACKING_QUERY_KEYS = {"gh_jid", "jobid", "job_id", "lever-origin", "ashby_jid"}
+_ALLOWED_TRACKING_QUERY_KEYS = {
+    "ashby_jid",
+    "gh_jid",
+    "job_id",
+    "jobid",
+    "lever-origin",
+}
+_VALID_WORK_MODES = {"remote", "hybrid", "onsite"}
+_VALID_EXPERIENCE_LEVELS = {"internship", "entry", "mid", "senior"}
+_VALID_FREQUENCIES = {"daily", "weekdays", "weekly", "monthly"}
+_VALID_AUTOMATION_STATUSES = {"active", "paused", "completed"}
+_VALID_RUN_STATUSES = {"ok", "skipped_quota", "error"}
 
 
 class JobSearchError(Exception):
@@ -62,7 +77,16 @@ class _JobPayloadItem(BaseModel):
     match_reasons: list[str] = Field(default_factory=list, max_length=5)
     gap: str | None = Field(default=None, max_length=500)
 
-    @field_validator("title", "company", "location", "salary", "source", "posted_at", "summary", "gap")
+    @field_validator(
+        "title",
+        "company",
+        "location",
+        "salary",
+        "source",
+        "posted_at",
+        "summary",
+        "gap",
+    )
     @classmethod
     def clean_text(cls, value: str | None) -> str | None:
         if value is None:
@@ -112,14 +136,45 @@ def _load_config(raw: str | None) -> dict[str, Any]:
 
 
 def _dump_config(value: dict[str, Any]) -> str:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
 
 
-def _string_list(config: dict[str, Any], key: str, default: list[str] | None = None) -> list[str]:
+def _string_list(
+    config: dict[str, Any],
+    key: str,
+    default: list[str] | None = None,
+) -> list[str]:
     raw = config.get(key)
     if not isinstance(raw, list):
         return list(default or [])
     return [str(item) for item in raw if isinstance(item, str) and item.strip()]
+
+
+def _work_modes(config: dict[str, Any]) -> list[JobSearchWorkMode]:
+    result: list[JobSearchWorkMode] = []
+    for value in _string_list(config, "work_modes", ["remote"]):
+        if value in _VALID_WORK_MODES:
+            result.append(cast(JobSearchWorkMode, value))
+    return result or ["remote"]
+
+
+def _experience_levels(config: dict[str, Any]) -> list[JobSearchExperience]:
+    result: list[JobSearchExperience] = []
+    for value in _string_list(config, "experience_levels", ["entry"]):
+        if value in _VALID_EXPERIENCE_LEVELS:
+            result.append(cast(JobSearchExperience, value))
+    return result or ["entry"]
+
+
+def _frequency(value: str) -> JobSearchFrequency:
+    if value in _VALID_FREQUENCIES:
+        return cast(JobSearchFrequency, value)
+    return "weekly"
 
 
 def _uuid_or_none(value: object) -> UUID | None:
@@ -139,7 +194,15 @@ def _normalize_job_url(value: str) -> str:
         if key.lower() in _ALLOWED_TRACKING_QUERY_KEYS
     ]
     path = re.sub(r"/{2,}", "/", parsed.path).rstrip("/") or "/"
-    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), path, urlencode(query), ""))
+    return urlunsplit(
+        (
+            parsed.scheme.lower(),
+            parsed.netloc.lower(),
+            path,
+            urlencode(query),
+            "",
+        )
+    )
 
 
 def _job_id(item: _JobPayloadItem) -> str:
@@ -149,66 +212,109 @@ def _job_id(item: _JobPayloadItem) -> str:
     return str(uuid5(NAMESPACE_URL, stable))
 
 
+def _prompt_example() -> str:
+    example = {
+        "jobs": [
+            {
+                "title": "Software Engineer I",
+                "company": "Example",
+                "location": "Remote - US",
+                "work_mode": "remote",
+                "salary": "$110k-$140k",
+                "url": "https://company.example/jobs/123",
+                "source": "Company careers",
+                "posted_at": "2 days ago",
+                "summary": "Build production APIs.",
+                "match_reasons": [
+                    "Python API work",
+                    "Accepts 0-2 years",
+                ],
+                "gap": "Kubernetes is preferred",
+            }
+        ]
+    }
+    return json.dumps(example, ensure_ascii=True, separators=(",", ":"))
+
+
 def _build_prompt(config: dict[str, Any]) -> str:
     roles = ", ".join(_string_list(config, "target_roles"))
-    skills = ", ".join(_string_list(config, "skills")) or "No required skills specified"
+    skills = ", ".join(_string_list(config, "skills"))
     work_modes = ", ".join(_string_list(config, "work_modes", ["remote"]))
     levels = ", ".join(_string_list(config, "experience_levels", ["entry"]))
     excluded = ", ".join(_string_list(config, "excluded_companies")) or "None"
     location = str(config.get("location") or "Any location")
     salary_min = config.get("salary_min")
-    salary = f"At least ${int(salary_min):,} when salary is disclosed" if isinstance(salary_min, int) else "No minimum"
+    if isinstance(salary_min, int):
+        salary = f"At least ${salary_min:,} when salary is disclosed"
+    else:
+        salary = "No minimum"
     sponsorship = config.get("requires_sponsorship")
-    sponsorship_text = (
-        "Sponsorship required"
-        if sponsorship is True
-        else "No sponsorship required"
-        if sponsorship is False
-        else "Not specified"
-    )
+    if sponsorship is True:
+        sponsorship_text = "Sponsorship required"
+    elif sponsorship is False:
+        sponsorship_text = "No sponsorship required"
+    else:
+        sponsorship_text = "Not specified"
     background = str(config.get("background") or "").strip()
     resume_text = str(config.get("resume_text") or "").strip()
     result_count = int(config.get("result_count") or 5)
 
-    candidate = "\n".join(
-        part
-        for part in [
-            f"Target roles: {roles}",
-            f"Experience levels: {levels}",
-            f"Skills: {skills}",
-            f"Location: {location}",
-            f"Work modes: {work_modes}",
-            f"Salary: {salary}",
-            f"Work authorization: {sponsorship_text}",
-            f"Exclude companies: {excluded}",
-            f"Candidate background: {background}" if background else "",
-            f"Resume text:\n{resume_text}" if resume_text else "",
-        ]
-        if part
+    profile_lines = [
+        f"Target roles: {roles}",
+        f"Experience levels: {levels}",
+        f"Skills: {skills or 'No required skills specified'}",
+        f"Location: {location}",
+        f"Work modes: {work_modes}",
+        f"Salary: {salary}",
+        f"Work authorization: {sponsorship_text}",
+        f"Exclude companies: {excluded}",
+    ]
+    if background:
+        profile_lines.append(f"Candidate background: {background}")
+
+    profile_block = wrap_untrusted(
+        "candidate profile",
+        "\n".join(profile_lines),
+        first_party=True,
     )
+    resume_block = wrap_untrusted("resume", resume_text) if resume_text else ""
 
-    return f"""Run the user's dedicated My Job search now.
-
-CANDIDATE PROFILE
-{candidate}
-
-SEARCH RULES
-- Search the public web for fresh, real, currently open jobs that fit this profile.
-- Return up to {result_count} strong matches. Never add weak jobs merely to reach the count.
-- Treat location, work mode, experience level, sponsorship, exclusions, and salary minimum as hard filters when the listing states them.
-- Prefer jobs posted in the last 14 days and direct employer/ATS application pages.
-- Exclude duplicate URLs, expired listings, staffing spam, scraped copies, and roles whose stated seniority clearly conflicts with the profile.
-- Do not apply, email, or take any write action.
-- Explain the strongest match reasons and one meaningful gap when present.
-- Every URL must point to the specific job listing you verified.
-
-RESPONSE FORMAT
-First write a brief human-readable summary. Then emit exactly one fenced JSON block with no comments:
-```job_matches
-{{"jobs":[{{"title":"Software Engineer I","company":"Example","location":"Remote — US","work_mode":"remote","salary":"$110k–$140k","url":"https://company.example/jobs/123","source":"Company careers","posted_at":"2 days ago","summary":"What the role does","match_reasons":["Python API work","Accepts 0–2 years"],"gap":"Kubernetes is preferred"}}]}}
-```
-Use null for unknown optional fields. If no strong verified matches exist, return {{"jobs":[]}}.
-"""
+    lines = [
+        "Run the user's dedicated My Job search now.",
+        "",
+        "CANDIDATE PROFILE",
+        profile_block,
+    ]
+    if resume_block:
+        lines.extend(["", "RESUME", resume_block])
+    lines.extend(
+        [
+            "",
+            "SEARCH RULES",
+            "- Search the public web for fresh, real, currently open jobs.",
+            f"- Return up to {result_count} strong matches.",
+            "- Never add weak jobs merely to reach the selected count.",
+            "- Treat stated location, work mode, experience, sponsorship,",
+            "  exclusions, and salary minimum as hard filters.",
+            "- Prefer jobs posted in the last 14 days and direct employer or",
+            "  applicant-tracking-system application pages.",
+            "- Exclude duplicate URLs, expired listings, staffing spam, scraped",
+            "  copies, and roles whose seniority clearly conflicts with the profile.",
+            "- Do not apply, email, or take any write action.",
+            "- Explain the strongest match reasons and one meaningful gap.",
+            "- Every URL must point to the specific job listing you verified.",
+            "",
+            "RESPONSE FORMAT",
+            "First write a brief human-readable summary.",
+            "Then emit exactly one fenced JSON block with no comments:",
+            "```job_matches",
+            _prompt_example(),
+            "```",
+            "Use null for unknown optional fields.",
+            'If no strong verified matches exist, return {"jobs":[]}.' ,
+        ]
+    )
+    return "\n".join(lines)
 
 
 async def _resume_details(
@@ -228,12 +334,21 @@ async def _resume_details(
 
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
     if row is None or row.verified_at is None:
-        raise JobSearchError("Resume file was not found or is still uploading", status_code=422)
+        raise JobSearchError(
+            "Resume file was not found or is still uploading",
+            status_code=422,
+        )
     if row.content_type not in attachment_content_service.EXTRACTABLE_CONTENT_TYPES:
-        raise JobSearchError("Upload a PDF, DOCX, or text resume", status_code=422)
+        raise JobSearchError(
+            "Upload a PDF, DOCX, or text resume",
+            status_code=422,
+        )
 
     gateway = get_storage_gateway(settings)
-    data = await attachment_content_service.read_attachment_bytes(gateway, row.storage_key)
+    data = await attachment_content_service.read_attachment_bytes(
+        gateway,
+        row.storage_key,
+    )
     if not data:
         raise JobSearchError("Could not read the resume file", status_code=422)
     details = await attachment_content_service.extract_text_details_async(
@@ -244,7 +359,10 @@ async def _resume_details(
         ocr_max_pages=min(settings.attachment_ocr_index_max_pages, 20),
     )
     if details is None or not details.text.strip():
-        raise JobSearchError("Could not extract readable text from the resume", status_code=422)
+        raise JobSearchError(
+            "Could not extract readable text from the resume",
+            status_code=422,
+        )
     return details.text.strip()[:_MAX_RESUME_CHARS], row.original_filename
 
 
@@ -253,38 +371,63 @@ def _enforce_plan(user: User, body: JobSearchUpsert) -> None:
         return
     if body.result_count != 5 or body.frequency != "weekly":
         raise JobSearchError(
-            "Free My Job searches deliver up to 5 matches weekly. Upgrade for more jobs or faster delivery.",
+            "Free My Job searches deliver up to 5 matches weekly. "
+            "Upgrade for more jobs or faster delivery.",
             status_code=403,
         )
 
 
-def _profile_out(automation: Automation, config: dict[str, Any]) -> JobSearchProfileOut:
+def _profile_out(
+    automation: Automation,
+    config: dict[str, Any],
+) -> JobSearchProfileOut:
     count = int(config.get("result_count") or 5)
     if count not in {5, 10, 15}:
         count = 5
+    raw_status = automation.status
+    status = raw_status if raw_status in _VALID_AUTOMATION_STATUSES else "paused"
+    raw_run_status = automation.last_run_status
+    last_run_status = (
+        raw_run_status if raw_run_status in _VALID_RUN_STATUSES else None
+    )
     return JobSearchProfileOut(
         id=automation.id,
         target_roles=_string_list(config, "target_roles"),
         skills=_string_list(config, "skills"),
         location=str(config["location"]) if config.get("location") else None,
-        work_modes=_string_list(config, "work_modes", ["remote"]),
-        experience_levels=_string_list(config, "experience_levels", ["entry"]),
-        salary_min=config.get("salary_min") if isinstance(config.get("salary_min"), int) else None,
+        work_modes=_work_modes(config),
+        experience_levels=_experience_levels(config),
+        salary_min=(
+            config.get("salary_min")
+            if isinstance(config.get("salary_min"), int)
+            else None
+        ),
         requires_sponsorship=(
             config.get("requires_sponsorship")
             if isinstance(config.get("requires_sponsorship"), bool)
             else None
         ),
         excluded_companies=_string_list(config, "excluded_companies"),
-        background=str(config["background"]) if config.get("background") else None,
+        background=(
+            str(config["background"])
+            if config.get("background")
+            else None
+        ),
         resume_attachment_id=_uuid_or_none(config.get("resume_attachment_id")),
-        resume_filename=str(config["resume_filename"]) if config.get("resume_filename") else None,
-        result_count=count,
-        frequency=automation.frequency,
+        resume_filename=(
+            str(config["resume_filename"])
+            if config.get("resume_filename")
+            else None
+        ),
+        result_count=cast(Literal[5, 10, 15], count),
+        frequency=_frequency(automation.frequency),
         next_run_at=automation.next_run_at,
-        status=automation.status,
+        status=cast(Literal["active", "paused", "completed"], status),
         last_run_at=automation.last_run_at,
-        last_run_status=automation.last_run_status,
+        last_run_status=cast(
+            Literal["ok", "skipped_quota", "error"] | None,
+            last_run_status,
+        ),
         created_at=automation.created_at,
         updated_at=automation.updated_at,
     )
@@ -308,7 +451,11 @@ async def _collect_matches(
     *,
     include_hidden: bool = False,
 ) -> list[JobMatchOut]:
-    messages = await messages_repo.list_recent(session, automation.chat_id, limit=120)
+    messages = await messages_repo.list_recent(
+        session,
+        automation.chat_id,
+        limit=120,
+    )
     raw_statuses = config.get("match_statuses")
     statuses = raw_statuses if isinstance(raw_statuses, dict) else {}
     seen: set[str] = set()
@@ -324,7 +471,9 @@ async def _collect_matches(
             seen.add(match_id)
             raw_status = statuses.get(match_id, "new")
             status: JobMatchStatus = (
-                raw_status if raw_status in {"new", "saved", "applied", "hidden"} else "new"
+                raw_status
+                if raw_status in {"new", "saved", "applied", "hidden"}
+                else "new"
             )
             if status == "hidden" and not include_hidden:
                 continue
@@ -350,7 +499,9 @@ async def _collect_matches(
 
 
 async def get_dashboard(
-    session: AsyncSession, user: User, settings: Settings
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
 ) -> JobSearchDashboardOut:
     _require_enabled(settings)
     automation = await automations_repo.get_job_search_for_user(session, user.id)
@@ -358,7 +509,10 @@ async def get_dashboard(
         return JobSearchDashboardOut()
     config = _load_config(automation.config_json)
     matches = await _collect_matches(session, automation, config)
-    return JobSearchDashboardOut(profile=_profile_out(automation, config), matches=matches)
+    return JobSearchDashboardOut(
+        profile=_profile_out(automation, config),
+        matches=matches,
+    )
 
 
 async def upsert_profile(
@@ -376,11 +530,14 @@ async def upsert_profile(
     existing = await automations_repo.get_job_search_for_user(session, user.id)
     previous = _load_config(existing.config_json if existing else None)
     resume_text, resume_filename = await _resume_details(
-        session, user, settings, body.resume_attachment_id, previous
+        session,
+        user,
+        settings,
+        body.resume_attachment_id,
+        previous,
     )
-    statuses = previous.get("match_statuses")
-    if not isinstance(statuses, dict):
-        statuses = {}
+    raw_statuses = previous.get("match_statuses")
+    statuses = raw_statuses if isinstance(raw_statuses, dict) else {}
 
     config: dict[str, Any] = {
         "version": _CONFIG_VERSION,
@@ -393,7 +550,11 @@ async def upsert_profile(
         "requires_sponsorship": body.requires_sponsorship,
         "excluded_companies": body.excluded_companies,
         "background": body.background,
-        "resume_attachment_id": str(body.resume_attachment_id) if body.resume_attachment_id else None,
+        "resume_attachment_id": (
+            str(body.resume_attachment_id)
+            if body.resume_attachment_id
+            else None
+        ),
         "resume_filename": resume_filename,
         "resume_text": resume_text,
         "result_count": body.result_count,
@@ -403,7 +564,12 @@ async def upsert_profile(
     encoded = _dump_config(config)
 
     if existing is None:
-        chat = await chats_repo.create(session, user_id=user.id, model="smart-chat", commit=False)
+        chat = await chats_repo.create(
+            session,
+            user_id=user.id,
+            model="smart-chat",
+            commit=False,
+        )
         automation = await automations_repo.create(
             session,
             user_id=user.id,
@@ -429,7 +595,10 @@ async def upsert_profile(
         )
 
     matches = await _collect_matches(session, automation, config)
-    return JobSearchDashboardOut(profile=_profile_out(automation, config), matches=matches)
+    return JobSearchDashboardOut(
+        profile=_profile_out(automation, config),
+        matches=matches,
+    )
 
 
 async def set_search_status(
@@ -458,7 +627,13 @@ async def set_match_status(
     if automation is None:
         raise JobSearchError("Job search not found", status_code=404)
     config = _load_config(automation.config_json)
-    known = {match.id for match in await _collect_matches(session, automation, config, include_hidden=True)}
+    existing_matches = await _collect_matches(
+        session,
+        automation,
+        config,
+        include_hidden=True,
+    )
+    known = {match.id for match in existing_matches}
     if match_id not in known:
         raise JobSearchError("Job match not found", status_code=404)
     raw_statuses = config.get("match_statuses")
@@ -468,12 +643,18 @@ async def set_match_status(
     else:
         statuses[match_id] = status
     config["match_statuses"] = statuses
-    await automations_repo.update(session, automation, config_json=_dump_config(config))
+    await automations_repo.update(
+        session,
+        automation,
+        config_json=_dump_config(config),
+    )
     return await get_dashboard(session, user, settings)
 
 
 async def run_now(
-    session: AsyncSession, user: User, settings: Settings
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
 ) -> JobSearchDashboardOut:
     _require_enabled(settings)
     if not plan_service.is_pro(user):
@@ -482,20 +663,39 @@ async def run_now(
     if automation is None:
         raise JobSearchError("Set up your job search first", status_code=404)
     now = datetime.now(UTC)
-    if automation.last_run_at is not None and now - automation.last_run_at < timedelta(minutes=10):
-        raise JobSearchError("A job search ran recently. Try again in a few minutes.", status_code=429)
-    await automations_repo.update(session, automation, status="active", next_run_at=now)
+    ran_recently = (
+        automation.last_run_at is not None
+        and now - automation.last_run_at < timedelta(minutes=10)
+    )
+    if ran_recently:
+        raise JobSearchError(
+            "A job search ran recently. Try again in a few minutes.",
+            status_code=429,
+        )
+    await automations_repo.update(
+        session,
+        automation,
+        status="active",
+        next_run_at=now,
+    )
     return await get_dashboard(session, user, settings)
 
 
 async def delete_profile(
-    session: AsyncSession, user: User, settings: Settings
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
 ) -> None:
     _require_enabled(settings)
     automation = await automations_repo.get_job_search_for_user(session, user.id)
     if automation is None:
         return
     try:
-        await chats_service.delete_chat(session, user, automation.chat_id, settings=settings)
+        await chats_service.delete_chat(
+            session,
+            user,
+            automation.chat_id,
+            settings=settings,
+        )
     except chats_service.ChatsError as exc:
         raise JobSearchError(exc.detail, status_code=exc.status_code) from exc
