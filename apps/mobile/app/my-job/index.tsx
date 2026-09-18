@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
@@ -16,6 +17,7 @@ import { Icon } from "@/components/Icon";
 import { JobMatchCard } from "@/components/jobSearch/JobMatchCard";
 import { JobSearchSetupSheet } from "@/components/jobSearch/JobSearchSetupSheet";
 import { SkeletonList } from "@/components/SkeletonLoader";
+import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useJobSearch } from "@/hooks/useJobSearch";
@@ -91,6 +93,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     dashboard,
     loading,
     busy,
+    running,
     error,
     refresh,
     save,
@@ -289,10 +292,17 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                       tap();
                       void runNow();
                     }}
-                    disabled={busy}
+                    disabled={running}
+                    accessibilityState={{ busy: running }}
                   >
-                    <Icon name="refresh" size={18} color={C.text} />
-                    <Text style={s.secondaryButtonText}>{t("my_job.find_now")}</Text>
+                    {running ? (
+                      <ActivityIndicator size="small" color={C.text} />
+                    ) : (
+                      <Icon name="refresh" size={18} color={C.text} />
+                    )}
+                    <Text style={s.secondaryButtonText}>
+                      {running ? t("my_job.searching") : t("my_job.find_now")}
+                    </Text>
                   </Pressable>
                 ) : null}
                 <Pressable
@@ -321,17 +331,13 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             ) : null}
 
             {visibleMatches.length === 0 ? (
-              <View style={s.emptyCard}>
-                <View style={s.emptyIcon}>
-                  <Icon
-                    name={tab === "matches" ? "search-outline" : tab === "saved" ? "bookmark-outline" : "checkmark-circle-outline"}
-                    size={28}
-                    color={C.primary}
-                  />
-                </View>
-                <Text style={s.emptyTitle}>{emptyTitle}</Text>
-                <Text style={s.emptyBody}>{emptyBody}</Text>
-              </View>
+              <StateView
+                variant="empty"
+                compact
+                icon={tab === "matches" ? "search-outline" : tab === "saved" ? "bookmark-outline" : "checkmark-circle-outline"}
+                title={emptyTitle}
+                message={emptyBody}
+              />
             ) : null}
           </View>
         }
@@ -486,17 +492,6 @@ function makeStyles(C: Theme) {
     tabCountText: { ...Type.caption, color: C.textSecondary },
     tabCountTextActive: { color: C.primary },
     cardGap: { height: Space.md },
-    emptyCard: { alignItems: "center", paddingVertical: 48, paddingHorizontal: Space.lg },
-    emptyIcon: {
-      width: 58,
-      height: 58,
-      borderRadius: 20,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: C.primaryLight,
-    },
-    emptyTitle: { ...Type.title, color: C.text, marginTop: Space.md, textAlign: "center" },
-    emptyBody: { ...Type.secondary, color: C.textSecondary, marginTop: Space.xs, textAlign: "center", maxWidth: 420 },
     errorCard: {
       minHeight: 52,
       paddingHorizontal: Space.md,

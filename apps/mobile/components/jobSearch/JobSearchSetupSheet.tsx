@@ -150,10 +150,14 @@ export function JobSearchSetupSheet({
   const [resumeId, setResumeId] = useState<string | null>(null);
   const [resumeName, setResumeName] = useState<string | null>(null);
   const [uploadingResume, setUploadingResume] = useState(false);
+  const [roleError, setRoleError] = useState(false);
+  const [salaryError, setSalaryError] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
     setStep(0);
+    setRoleError(false);
+    setSalaryError(false);
     setRoles(join(initial?.target_roles ?? (user?.job ? [user.job] : [])));
     setSkills(join(initial?.skills ?? []));
     setLocation(initial?.location ?? user?.location ?? user?.country ?? "");
@@ -215,13 +219,13 @@ export function JobSearchSetupSheet({
   const save = async () => {
     const targetRoles = split(roles);
     if (targetRoles.length === 0) {
-      Alert.alert(t("my_job.role_required_title"), t("my_job.role_required_body"));
+      setRoleError(true);
       setStep(0);
       return;
     }
     const parsedSalary = salary.trim() ? Number(salary.replace(/[$,\s]/g, "")) : null;
     if (parsedSalary != null && (!Number.isFinite(parsedSalary) || parsedSalary < 0)) {
-      Alert.alert(t("my_job.salary_invalid_title"), t("my_job.salary_invalid_body"));
+      setSalaryError(true);
       setStep(1);
       return;
     }
@@ -261,7 +265,7 @@ export function JobSearchSetupSheet({
     Keyboard.dismiss();
     setShowPicker(false);
     if (step === 0 && split(roles).length === 0) {
-      Alert.alert(t("my_job.role_required_title"), t("my_job.role_required_body"));
+      setRoleError(true);
       return;
     }
     if (step < 2) {
@@ -306,7 +310,6 @@ export function JobSearchSetupSheet({
         cancelLabel={step === 0 ? t("common.cancel") : t("common.back")}
         saveLabel={step === 2 ? finalLabel : t("common.next")}
         saving={busy}
-        saveDisabled={step === 0 && split(roles).length === 0}
       />
 
       <View style={s.progressWrap}>
@@ -335,16 +338,24 @@ export function JobSearchSetupSheet({
             <View style={s.fieldGroup}>
               <FieldLabel>{t("my_job.roles_label")}</FieldLabel>
               <TextInput
-                style={s.input}
+                style={[s.input, roleError && s.inputError]}
                 value={roles}
-                onChangeText={setRoles}
+                onChangeText={(value) => {
+                  setRoles(value);
+                  if (roleError) setRoleError(false);
+                }}
                 placeholder={t("my_job.roles_placeholder")}
                 placeholderTextColor={C.textDisabled}
                 editable={!busy}
                 autoCapitalize="words"
                 returnKeyType="next"
+                autoFocus={!initial}
               />
-              <Text style={s.helper}>{t("my_job.roles_helper")}</Text>
+              {roleError ? (
+                <Text style={s.errorText}>{t("my_job.role_required_body")}</Text>
+              ) : (
+                <Text style={s.helper}>{t("my_job.roles_helper")}</Text>
+              )}
             </View>
 
             <View style={s.fieldGroup}>
@@ -468,14 +479,20 @@ export function JobSearchSetupSheet({
               <View style={s.flexField}>
                 <FieldLabel optional>{t("my_job.salary_label")}</FieldLabel>
                 <TextInput
-                  style={s.input}
+                  style={[s.input, salaryError && s.inputError]}
                   value={salary}
-                  onChangeText={setSalary}
+                  onChangeText={(value) => {
+                    setSalary(value);
+                    if (salaryError) setSalaryError(false);
+                  }}
                   placeholder="100000"
                   placeholderTextColor={C.textDisabled}
                   editable={!busy}
                   keyboardType="number-pad"
                 />
+                {salaryError ? (
+                  <Text style={s.errorText}>{t("my_job.salary_invalid_body")}</Text>
+                ) : null}
               </View>
             </View>
 
@@ -710,6 +727,8 @@ function makeStyles(C: Theme) {
       borderColor: C.border,
     },
     multiline: { minHeight: 112 },
+    inputError: { borderColor: C.danger },
+    errorText: { ...Type.caption, color: C.danger },
     helper: { ...Type.caption, color: C.textTertiary },
     chipRow: {
       flexDirection: "row",
