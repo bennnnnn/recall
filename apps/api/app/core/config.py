@@ -183,6 +183,10 @@ class Settings(BaseSettings):
     # Paid Tavily queries per user per UTC day; when exceeded, fall back to DuckDuckGo.
     daily_tavily_searches: int = 20
     daily_tavily_searches_pro: int = 150
+    # My Job: fetch full posting pages (Tavily extract) for the shortlisted
+    # candidates before LLM ranking so salary/experience come from real text.
+    job_search_page_fetch_enabled: bool = True
+    job_search_page_fetch_max: int = 12
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
