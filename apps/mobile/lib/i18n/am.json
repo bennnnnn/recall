@@ -998,5 +998,6 @@
   "upgrade.restore_empty": "ለዚህ መለያ aktiv subscription አልተገኘም።",
   "upgrade.subscribe": "Pro ይሁኑ — {{price}}/ወር",
   "upgrade.subscription_terms": "የደንበኝነት ምዝገባው በApp Store ወይም Google Play መለያዎ ውስጥ ካልተሰረዘ በየወሩ በራሱ ይታደሳል።",
-  "upgrade.title": "ወደ Pro ይሂዱ"
+  "upgrade.title": "ወደ Pro ይሂዱ",
+  "my_job.field_next_delivery": "ቀጣይ ርክክብ"
 }

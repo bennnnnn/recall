@@ -14,8 +14,8 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { JobMatchCard } from "@/components/jobSearch/JobMatchCard";
-import { MetaChipsRow } from "@/components/jobSearch/JobMatchMetaChips";
 import { JobSearchActionsSheet } from "@/components/jobSearch/JobSearchActionsSheet";
+import { SearchProfileFields } from "@/components/jobSearch/SearchProfileFields";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
@@ -23,7 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useJobSearch } from "@/hooks/useJobSearch";
 import type { JobMatch, JobSearchProfile } from "@/lib/api";
 import { filterAndSortMatches } from "@/lib/jobSearch/matchList";
-import { nextDeliveryDate, searchProfileChips } from "@/lib/jobSearch/searchChips";
+import { nextDeliveryDate } from "@/lib/jobSearch/searchFields";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { notifyWarning, selection, tap } from "@/lib/haptics";
@@ -272,7 +272,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 </Pressable>
               </View>
 
-              <MetaChipsRow chips={searchProfileChips(profile, t)} />
+              <SearchProfileFields profile={profile} />
             </View>
 
             <View style={s.tabs} accessibilityRole="tablist">

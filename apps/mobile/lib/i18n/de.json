@@ -998,5 +998,6 @@
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
   "upgrade.subscribe": "Pro werden — {{price}}/Monat",
   "upgrade.subscription_terms": "Das Abo verlängert sich jeden Monat automatisch, sofern es nicht im App-Store- oder Google-Play-Konto gekündigt wird.",
-  "upgrade.title": "Upgrade auf Pro"
+  "upgrade.title": "Upgrade auf Pro",
+  "my_job.field_next_delivery": "Nächste Zustellung"
 }
