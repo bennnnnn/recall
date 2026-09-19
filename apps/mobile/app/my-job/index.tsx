@@ -31,7 +31,6 @@ import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 type Tab = "all" | "matches" | "saved" | "applied";
-type SortMode = "best" | "newest";
 
 function cadence(profile: JobSearchProfile, t: TFunction): string {
   return t(`my_job.cadence_${profile.frequency}`, { count: profile.result_count });
@@ -47,32 +46,6 @@ function nextDelivery(profile: JobSearchProfile): string {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function SortChip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  const C = useTheme();
-  const s = useMemo(() => makeStyles(C), [C]);
-  return (
-    <Pressable
-      style={({ pressed }) => [s.sortChip, active && s.sortChipActive, pressed && s.pressed]}
-      onPress={() => {
-        selection();
-        onPress();
-      }}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-    >
-      <Text style={[s.sortChipText, active && s.sortChipTextActive]}>{label}</Text>
-    </Pressable>
-  );
 }
 
 function TabButton({
@@ -136,7 +109,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     router.push("/my-job/setup");
   }, [router]);
   const [tab, setTab] = useState<Tab>("matches");
-  const [sort, setSort] = useState<SortMode>("best");
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -157,13 +129,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     [dashboard.matches],
   );
   const visibleMatches = useMemo(
-    () =>
-      filterAndSortMatches(
-        dashboard.matches,
-        tab === "matches" ? "new" : tab,
-        sort,
-      ),
-    [dashboard.matches, tab, sort],
+    () => filterAndSortMatches(dashboard.matches, tab === "matches" ? "new" : tab, "best"),
+    [dashboard.matches, tab],
   );
 
   const confirmDelete = () => {
@@ -367,11 +334,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               <TabButton label={t("my_job.tab_applied")} count={counts.applied} active={tab === "applied"} onPress={() => setTab("applied")} />
             </View>
 
-            <View style={s.sortRow}>
-              <SortChip label={t("my_job.sort_best")} active={sort === "best"} onPress={() => setSort("best")} />
-              <SortChip label={t("my_job.sort_newest")} active={sort === "newest"} onPress={() => setSort("newest")} />
-            </View>
-
             {error ? (
               <Pressable style={s.errorCard} onPress={() => void refresh()}>
                 <Icon name="alert-circle-outline" size={20} color={C.danger} />
@@ -508,21 +470,6 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
     },
     secondaryButtonText: { ...Type.compact, color: C.text, fontWeight: "600" },
-    sortRow: {
-      flexDirection: "row",
-      justifyContent: "flex-end",
-      gap: Space.xs,
-    },
-    sortChip: {
-      minHeight: 32,
-      justifyContent: "center",
-      paddingHorizontal: Space.sm,
-      borderRadius: Radius.full,
-      backgroundColor: C.surface,
-    },
-    sortChipActive: { backgroundColor: C.primaryLight },
-    sortChipText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
-    sortChipTextActive: { color: C.primary },
     tabs: {
       flexDirection: "row",
       padding: 4,
