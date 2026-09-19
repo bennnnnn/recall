@@ -99,7 +99,7 @@ def _confirmed_pole_xs(points: list[list[float]], pole_xs: list[float]) -> list[
     test cannot separate them (a small-magnitude curve makes y≈1 look
     "large"), so confirmation is a ratio: the sample nearest the pole must
     dwarf the curve's own median |y| (pole-adjacent samples are orders of
-    magnitude larger; sin(x)/x's center is only ~5× its median).
+    magnitude larger; sin(x)/x's center is only ~5x its median).
     """
     if not points or not pole_xs:
         return []
