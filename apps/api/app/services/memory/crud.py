@@ -266,32 +266,3 @@ async def delete_all_memories(seams: Any, session: AsyncSession, user_id: UUID) 
         return removed
     finally:
         await seams.release_memory_write_lock(user_id, lock_token)
-
-
-async def disable_and_clear_memories(
-    seams: Any,
-    session: AsyncSession,
-    user_id: UUID,
-) -> int:
-    from app.repositories import memories as memories_repo
-    from app.repositories import users as users_repo
-
-    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
-    try:
-        try:
-            if not await memories_repo.lock_memory_enabled(session, user_id):
-                # Still allow wipe + disable even when already off.
-                pass
-            user = await users_repo.get_by_id(session, user_id)
-            if user is None:
-                return 0
-            removed = await memories_repo.delete_all_for_user(session, user_id, commit=False)
-            user.memory_enabled = False
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        await _invalidate_caches(seams, user_id)
-        return removed
-    finally:
-        await seams.release_memory_write_lock(user_id, lock_token)

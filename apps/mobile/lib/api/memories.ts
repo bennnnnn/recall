@@ -21,8 +21,6 @@ export const memoriesApi = {
     request<void>(`/memories/type/${type}`, token, { method: "DELETE" }),
   clearMemories: (token: string) =>
     request<void>("/memories", token, { method: "DELETE" }),
-  disableAndClearMemories: (token: string) =>
-    request<void>("/memories/disable-and-clear", token, { method: "POST" }),
   deleteMemoryFact: async (token: string, memoryId: string, factIndex: number, factText: string) => {
     if ([...factText].length > MAX_MEMORY_FACT_TEXT_LENGTH) {
       throw new RangeError("Memory fact text exceeds the deletion selector limit");

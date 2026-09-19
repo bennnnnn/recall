@@ -16,7 +16,7 @@ let mockRetry: () => void;
 let mockCached: unknown[] | undefined;
 const mockCacheListeners = new Set<() => void>();
 jest.mock("@/lib/api", () => ({
-  api: { clearMemories: jest.fn(), disableAndClearMemories: jest.fn() },
+  api: { clearMemories: jest.fn() },
 }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: mockToken, user: { memory_enabled: true }, updateUser: mockUpdate }) }));
