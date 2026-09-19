@@ -40,6 +40,20 @@ export function clampGraphView(view: GraphView): GraphView {
   };
 }
 
+/**
+ * Widen a window around its center. The Skia explorer samples curves over an
+ * expanded window so mid-gesture pan/zoom has runway before the JS resample
+ * lands on gesture end.
+ */
+export function expandGraphView(view: GraphView, factor: number): GraphView {
+  const f = Number.isFinite(factor) && factor > 0 ? factor : 1;
+  const cx = (view.xMin + view.xMax) / 2;
+  const cy = (view.yMin + view.yMax) / 2;
+  const xHalf = ((view.xMax - view.xMin) / 2) * f;
+  const yHalf = ((view.yMax - view.yMin) / 2) * f;
+  return { xMin: cx - xHalf, xMax: cx + xHalf, yMin: cy - yHalf, yMax: cy + yHalf };
+}
+
 /** Pinch scale > 1 zooms in (smaller world window) around a data-space focal point. */
 export function zoomGraphView(
   start: GraphView,

@@ -4,7 +4,9 @@
 const RN_TRANSFORM_ALLOWLIST =
   "(?:(?:jest-)?react-native|@react-native(?:-community)?|@react-native-google-signin|" +
   "@react-native-masked-view|expo(?:nent)?|@expo(?:nent)?|@expo-google-fonts|" +
-  "react-navigation|@react-navigation|@sentry|native-base|react-native-svg)";
+  "react-navigation|@react-navigation|@sentry|native-base|react-native-svg|" +
+  // Bare scope: pnpm encodes the package as "@shopify+react-native-skia@…".
+  "@shopify)";
 
 /** @type {import('jest').Config} */
 module.exports = {
@@ -47,6 +49,14 @@ module.exports = {
       // project's `.test.ts` matcher above.
       testMatch: ["**/__tests__/**/*.test.tsx"],
       preset: "@react-native/jest-preset",
+      // The preset's asset transformer omits fonts; Skia's useFont() requires a
+      // .ttf asset, so extend the same transformer to font files.
+      transform: {
+        "^.+\\.(js|ts|tsx)$": "babel-jest",
+        "^.+\\.(bmp|gif|jpg|jpeg|mp4|png|psd|svg|webp|ttf|otf)$": require.resolve(
+          "@react-native/jest-preset/jest/assetFileTransformer.js",
+        ),
+      },
       // AppSheet pan-to-dismiss imports RNGH + Reanimated (no native modules
       // in this env). Keep the RN preset setup and add those mocks.
       setupFiles: [
@@ -56,6 +66,8 @@ module.exports = {
       moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/$1",
+        // See jest.skiaMock.js — the shipped jestSetup misses the ESM build.
+        "^@shopify/react-native-skia$": "<rootDir>/jest.skiaMock.js",
       },
       // react-native's own preset only allow-lists react-native packages for
       // transform; Expo packages (expo, @expo/*, expo-*) ship untranspiled
