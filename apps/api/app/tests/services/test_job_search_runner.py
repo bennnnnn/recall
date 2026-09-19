@@ -1,14 +1,20 @@
+from dataclasses import replace
+from typing import Any
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
+from app.services.job_search import runner
 from app.services.job_search.runner import (
     _Candidate,
     _fallback_rank,
+    _fetch_posting_pages,
     _obvious_mismatch,
     _ProfileSnapshot,
     _RankedJob,
+    _ranking_messages,
     _search_queries,
     canonicalize_job_url,
 )
@@ -103,3 +109,49 @@ def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
     assert scores[0] is not None and scores[1] is not None
     assert scores[0] >= scores[1]
     assert accepted[0].experience is None
+
+
+def test_ranking_messages_prefer_page_text_over_snippet() -> None:
+    candidate = _candidate("Backend Engineer", "short snippet")
+    with_page = _ranking_messages(_profile(), [replace(candidate, page_text="full posting text")])
+    assert "full posting text" in with_page[1]["content"]
+    assert "short snippet" not in with_page[1]["content"]
+    without_page = _ranking_messages(_profile(), [candidate])
+    assert "short snippet" in without_page[1]["content"]
+
+
+async def test_fetch_posting_pages_shortlists_and_attaches_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = MagicMock(job_search_page_fetch_enabled=True, job_search_page_fetch_max=1)
+    weak = _candidate("Unrelated role", "nothing here")
+    strong = replace(_candidate("Backend Engineer", "Python FastAPI remote"), candidate_id=1)
+
+    async def fake_extract(_settings: Any, urls: list[str]) -> dict[str, str]:
+        return {urls[0]: "full page text"}
+
+    monkeypatch.setattr(runner.web_search_gateway, "extract_pages", fake_extract)
+    result = await _fetch_posting_pages(settings, _profile(), [weak, strong])
+    assert [item.candidate_id for item in result] == [1]
+    assert result[0].page_text == "full page text"
+
+
+async def test_fetch_posting_pages_keeps_full_list_when_extract_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = MagicMock(job_search_page_fetch_enabled=True, job_search_page_fetch_max=1)
+    candidates = [_candidate("Backend Engineer", "Python"), _candidate("Other", "none")]
+
+    async def fake_extract(_settings: Any, _urls: list[str]) -> dict[str, str]:
+        return {}
+
+    monkeypatch.setattr(runner.web_search_gateway, "extract_pages", fake_extract)
+    result = await _fetch_posting_pages(settings, _profile(), candidates)
+    assert result == candidates
+
+
+async def test_fetch_posting_pages_disabled_flag_is_passthrough() -> None:
+    settings = MagicMock(job_search_page_fetch_enabled=False)
+    candidates = [_candidate("Backend Engineer", "Python")]
+    result = await _fetch_posting_pages(settings, _profile(), candidates)
+    assert result == candidates
