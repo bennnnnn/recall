@@ -50,6 +50,13 @@ describe("JobMatchCard", () => {
     expect(getByText("Remote fits your preference")).toBeTruthy();
   });
 
+  it("does not render the summary body paragraph", async () => {
+    const { queryByText } = await render(
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
+    );
+    expect(queryByText("Build production APIs.")).toBeNull();
+  });
+
   it("falls back to the company initial when there is no score", async () => {
     const { getByText, queryByText } = await render(
       <JobMatchCard match={{ ...baseMatch, match_score: null }} onStatus={jest.fn()} />,

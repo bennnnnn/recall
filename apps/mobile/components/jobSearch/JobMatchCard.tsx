@@ -97,7 +97,7 @@ export function JobMatchCard({
           )}
         </View>
         <View style={s.headingCopy}>
-          <Text style={s.title}>{match.title}</Text>
+          <Text style={s.title} numberOfLines={2}>{match.title}</Text>
           <View style={s.companyRow}>
             <Text style={s.company}>{match.company}</Text>
             {match.status === "interviewing" ||
@@ -134,7 +134,6 @@ export function JobMatchCard({
       </View>
 
       <JobMatchMetaChips match={match} />
-      {match.summary ? <Text style={s.summary} numberOfLines={3}>{match.summary}</Text> : null}
 
       {match.match_reasons.length > 0 ? (
         <View style={s.reasonBlock}>
@@ -224,7 +223,6 @@ function makeStyles(C: Theme) {
       marginVertical: -4,
       marginRight: -4,
     },
-    summary: { ...Type.body, color: C.textSecondary },
     reasonBlock: {
       backgroundColor: C.contentSurface,
       borderRadius: Radius.xl,
