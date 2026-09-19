@@ -851,6 +851,77 @@ def test_one_line_arithmetic_does_not_append_duplicate_answer() -> None:
     assert "```answer" not in out
 
 
+def test_symbolic_equivalence_skips_duplicate_answer_chip() -> None:
+    """Prose $0.5$ next to a canonical \\frac{1}{2}: string matching misses the
+    equivalence, SymPy proves it — no duplicate chip."""
+    verified = _verified({"type": "answer", "content": "x = \\frac{1}{2}"})
+    out = validate_math_fences("Dividing both sides gives $x = 0.5$.", verified=verified)
+    assert "```answer" not in out
+
+
+def test_symbolic_equivalence_handles_latex_prose_against_decimal_canonical() -> None:
+    verified = _verified({"type": "answer", "content": "0.25"})
+    out = validate_math_fences("The probability is $\\frac{1}{4}$.", verified=verified)
+    assert "```answer" not in out
+
+
+def test_symbolic_mismatch_still_appends_canonical_chip() -> None:
+    """The model's prose answer is wrong — the verified chip must win."""
+    verified = _verified({"type": "answer", "content": "x = \\frac{7}{2}"})
+    out = validate_math_fences("The steps give $x = 4$.", verified=verified)
+    assert "```answer\nx = \\frac{7}{2}\n```" in out
+
+
+def test_symbolic_check_skipped_when_string_path_already_matched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """String hit → zero SymPy work (the audit only runs on a string miss)."""
+    from app.services.math import solve as math_solve
+
+    def _boom(expr: str, *args: object, **kwargs: object) -> None:
+        raise AssertionError("symbolic audit must not run on a string-path hit")
+
+    monkeypatch.setattr(math_solve, "_parse_expression", _boom)
+    verified = _verified({"type": "answer", "content": "2.02 s"})
+    out = validate_math_fences("The ball lands at $t = 2.02$ s.", verified=verified)
+    assert "```answer" not in out
+
+
+def test_symbolic_audit_parses_at_most_two_prose_spans(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.math import solve as math_solve
+
+    real_parse = math_solve._parse_expression
+    calls: list[str] = []
+
+    def counting(expr: str, *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        calls.append(expr)
+        return real_parse(expr, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(math_solve, "_parse_expression", counting)
+    verified = _verified({"type": "answer", "content": "x = 5"})
+    # No "<letter>=N" shape (that path is the conflict guard, which runs first);
+    # each span is a parseable result statement never equivalent to 5.
+    content = " ".join(f"$y + 1 = {i}$" for i in range(10, 18))
+    out = validate_math_fences(content, verified=verified)
+    # 1 canonical parse + at most 2 prose-span parses, however many spans exist.
+    assert len(calls) <= 3
+    assert "```answer\nx = 5\n```" in out
+
+
+def test_symbolic_audit_failure_falls_back_to_append() -> None:
+    """Unparseable canonical (multi-branch answer) → today's behavior unchanged."""
+    verified = _verified(
+        {
+            "type": "answer",
+            "content": "x = 2 \\pi k + \\frac{\\pi}{6} \\text{ or } x = 2 \\pi k + \\frac{5 \\pi}{6}",
+        }
+    )
+    out = validate_math_fences("The solutions are periodic.", verified=verified)
+    assert "```answer" in out
+
+
 def test_does_not_duplicate_existing_answer_fence() -> None:
     verified = _verified({"type": "answer", "content": "x = 2"})
     content = "Worked steps…\n```answer\nx = 99\n```"
