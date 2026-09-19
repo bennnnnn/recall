@@ -52,13 +52,8 @@ it("updates search and match states", async () => {
   });
 });
 
-it("runs and deletes the search through dedicated endpoints", async () => {
+it("deletes the search through the dedicated endpoint", async () => {
   jest.mocked(request).mockResolvedValue({ profile: {}, matches: [] });
-
-  await jobSearchApi.runJobSearchNow("token");
-  expect(request).toHaveBeenCalledWith("/job-search/run-now", "token", {
-    method: "POST",
-  });
 
   await jobSearchApi.deleteJobSearch("token");
   expect(request).toHaveBeenCalledWith("/job-search", "token", {

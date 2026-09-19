@@ -93,8 +93,6 @@ export const jobSearchApi = {
       method: "PATCH",
       body: JSON.stringify(notes === undefined ? { status } : { status, notes }),
     }),
-  runJobSearchNow: (token: string) =>
-    request<JobSearchDashboard>("/job-search/run-now", token, { method: "POST" }),
   generateCoverLetter: (token: string, id: string) =>
     request<{ cover_letter: string }>(`/job-search/matches/${id}/cover-letter`, token, {
       method: "POST",
