@@ -13,12 +13,6 @@ import { cacheJobMatches } from "@/lib/jobSearch/matchCache";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const EMPTY: JobSearchDashboard = { profile: null, matches: [] };
-const RUN_POLL_INTERVAL_MS = 2500;
-const RUN_POLL_ATTEMPTS = 24;
-
-function delay(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
 
 export function useJobSearch(isCurrent: () => boolean) {
   const { token } = useAuth();
@@ -27,9 +21,6 @@ export function useJobSearch(isCurrent: () => boolean) {
   const [dashboard, setDashboard] = useState<JobSearchDashboard>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  // A manual "Find jobs now" run polls for up to a minute — that must not hold
-  // the shared `busy` flag or Pause/Edit/Delete freeze with it.
-  const [running, setRunning] = useState(false);
   const [error, setError] = useState(false);
 
   const refresh = useCallback(
@@ -118,47 +109,6 @@ export function useJobSearch(isCurrent: () => boolean) {
     [token, dashboard, isCurrent, feedback, t],
   );
 
-  const runNow = useCallback(async () => {
-    if (!token || running) return;
-    const previousRunAt = dashboard.profile?.last_run_at ?? null;
-    setRunning(true);
-    try {
-      const started = await api.runJobSearchNow(token);
-      if (!isCurrent()) return;
-      setDashboard(started);
-      setError(false);
-
-      // The search runs on the durable worker after this HTTP request returns.
-      // Keep the dashboard live so a user who tapped "Find jobs now" sees the
-      // new matches without guessing when to pull-to-refresh.
-      for (let attempt = 0; attempt < RUN_POLL_ATTEMPTS; attempt += 1) {
-        await delay(RUN_POLL_INTERVAL_MS);
-        if (!isCurrent()) return;
-        try {
-          const next = await api.getJobSearch(token);
-          if (!isCurrent()) return;
-          setDashboard(next);
-          setError(false);
-          const completedAt = next.profile?.last_run_at ?? null;
-          if (completedAt && completedAt !== previousRunAt) return;
-        } catch {
-          // A temporary refresh failure does not mean the already-enqueued
-          // search failed. Keep polling until the bounded window expires.
-        }
-      }
-      // The bounded window expired without a fresh run landing — say so instead
-      // of silently stopping, or the spinner just vanishes with no new matches.
-      feedback?.info(t("my_job.run_timeout"));
-    } catch (err) {
-      if (isCurrent()) {
-        const message = err instanceof Error ? err.message : t("my_job.error_run");
-        reportRecoverableError(feedback, message);
-      }
-    } finally {
-      if (isCurrent()) setRunning(false);
-    }
-  }, [token, running, dashboard.profile?.last_run_at, isCurrent, feedback, t]);
-
   const remove = useCallback(async (): Promise<boolean> => {
     if (!token || busy) return false;
     setBusy(true);
@@ -179,13 +129,11 @@ export function useJobSearch(isCurrent: () => boolean) {
     dashboard,
     loading,
     busy,
-    running,
     error,
     refresh,
     save,
     setSearchStatus,
     setMatchStatus,
-    runNow,
     remove,
   };
 }

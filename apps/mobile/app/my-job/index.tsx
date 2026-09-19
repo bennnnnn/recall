@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Pressable,
@@ -85,12 +84,10 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     dashboard,
     loading,
     busy,
-    running,
     error,
     refresh,
     setSearchStatus,
     setMatchStatus,
-    runNow,
     remove,
   } = useJobSearch(isCurrent);
   const router = useRouter();
@@ -276,29 +273,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               </View>
 
               <MetaChipsRow chips={searchProfileChips(profile, t)} />
-
-              {user?.plan === "pro" ? (
-                <View style={s.searchActions}>
-                  <Pressable
-                    style={({ pressed }) => [s.secondaryButton, pressed && s.pressed]}
-                    onPress={() => {
-                      tap();
-                      void runNow();
-                    }}
-                    disabled={running}
-                    accessibilityState={{ busy: running }}
-                  >
-                    {running ? (
-                      <ActivityIndicator size="small" color={C.text} />
-                    ) : (
-                      <Icon name="refresh" size={18} color={C.text} />
-                    )}
-                    <Text style={s.secondaryButtonText}>
-                      {running ? t("my_job.searching") : t("my_job.find_now")}
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : null}
             </View>
 
             <View style={s.tabs} accessibilityRole="tablist">
@@ -418,18 +392,6 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
       backgroundColor: C.surfaceAlt,
     },
-    searchActions: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, marginTop: Space.sm },
-    secondaryButton: {
-      minHeight: 42,
-      paddingHorizontal: Space.md,
-      borderRadius: Radius.full,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.xxs,
-      backgroundColor: C.surfaceAlt,
-    },
-    secondaryButtonText: { ...Type.compact, color: C.text, fontWeight: "600" },
     tabs: {
       flexDirection: "row",
       padding: 4,

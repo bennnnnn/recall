@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any, Literal, cast
 from uuid import UUID
 
@@ -444,27 +444,6 @@ async def generate_cover_letter(
     if result is None:
         raise JobSearchError("Could not write the cover letter", status_code=502)
     return result
-
-
-async def prepare_manual_run(
-    session: AsyncSession,
-    user: User,
-    settings: Settings,
-) -> JobSearchDashboardOut:
-    if not plan_service.is_pro(user):
-        raise JobSearchError("Run now requires Recall Pro", status_code=403)
-    profile = await get_profile_for_user(session, user.id)
-    if profile is None:
-        raise JobSearchError("Set up your job search first", status_code=404)
-    now = datetime.now(UTC)
-    if profile.last_run_at is not None and now - profile.last_run_at < timedelta(minutes=10):
-        raise JobSearchError(
-            "A job search ran recently. Try again in a few minutes.",
-            status_code=429,
-        )
-    profile.status = "active"
-    await session.commit()
-    return await get_dashboard(session, user, settings)
 
 
 async def delete_profile(
