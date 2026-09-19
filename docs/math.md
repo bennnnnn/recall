@@ -4,15 +4,15 @@ Server-side SymPy verifies and samples; the mobile app only renders. Do not add 
 
 ## Default product path (heuristic SymPy, always)
 
-1. **Heuristic pre-stream** ([`math/tools/`](../apps/api/app/services/math/tools/)) — if `needs_symbolic_math`, SymPy runs in isolated worker slots (default 3; interactive slot wait 2s, then the 5s solve timeout). A verified system block is injected (numbers + `canonical_fence` / `canonical_answer` for ` ```geometry` / ` ```graph` / ` ```answer `). The hint tells the model **not** to emit those fences.
+1. **Heuristic pre-stream** ([`math/tools/`](../apps/api/app/services/math/tools/)) — if `needs_symbolic_math`, SymPy runs in isolated worker slots (default 3; interactive slot wait 2s, then the 5s solve timeout). A verified system block is injected (numbers + `canonical_fence` / `canonical_answer` for ` ```geometry` / ` ```graph` / ` ```answer `). The hint tells the model **not** to emit those fences. When the gate fires but no regex extractor matches, one bounded structured-extraction call on `title-model` (`math/tools/llm_extract.py`, flag `math_llm_extract_enabled`, 2.5s timeout, no fallback retry) proposes a candidate `MathIntent` — it still has to survive SymPy, and only that already-failing path pays for the call.
 2. **Direct verified reply** — short closed answers and supported plain graph requests can **skip the LLM** through the instant-reply seam. Whole literal requests for supported 2D measurements return the requested answer plus the canonical diagram; closed cube, rectangular-prism, cylinder, cone, sphere, and square-pyramid volume/surface-area requests return one answer with units. The guards require the requested dimensions, units, and quantity to agree with the verified result. An exact AAA drawing returns relative lengths only; an area/perimeter request with angles alone asks for a side length instead of inventing a scale. Closed literal physics requests return the canonical quantity and any existing trajectory directly. Linear, pure-power, and quadratic **equation lessons** are server-rendered from verified `key_steps` (Given + one transformation per line + the ```answer chip) when the style is Detailed, the user asks for steps, or Balanced and the trace has two or more operations. Short / “just the answer” stays a chip. Explanations that have no trace, hints, mixed/qualified requests, camera homework, and requests outside these complete grammars retain the model response path.
 3. **LLM stream** (when language adds value) — model answers briefly in Markdown + `$...$`. A reply instruction immediately after the verified working distinguishes supporting solver data from a user request for teaching.
-4. **Post-stream** ([`math/fence.py`](../apps/api/app/services/math/fence.py)) — rewrite any leftover geometry/graph/`answer` fences from the model with the canonical body; append missing solver-owned results, avoiding an extra answer card when equivalent math is already visible; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget. Direct replies run this rewrite in-process (they already carry the fence). `*Couldn't verify this with SymPy.*` is an honest label when the gate fired, SymPy produced nothing, **and** the reply contains math. It is **not** stamped on prose with no math (the old anatomy / “show me” class) and is not the outcome for verified arithmetic, graphs, or physics that now extract.
-5. **Mobile** — preprocess delimiters, then render: ordinary inline `$...$` → native `MathText` (stacked fractions, radicals, red `\cancel` slash on divide steps); heavy inline calculus/matrices and display ` ```math` → KaTeX/MathJax WebView (`react-native-webview` in dev builds or `@expo/dom-webview` in Expo Go; tall blocks offer Expand → fullscreen scroll); diagrams → SVG. Algebra ` ```answer ` uses the chat-window background, not a gray pill. Crash fallback still draws geometry/graph as SVG (not raw JSON).
+4. **Post-stream** ([`math/fence.py`](../apps/api/app/services/math/fence.py)) — rewrite any leftover geometry/graph/`answer` fences from the model with the canonical body; append missing solver-owned results, avoiding an extra answer card when equivalent math is already visible (string fast-path first, then a SymPy equivalence audit — `$0.5$` vs `\frac{1}{2}` — capped at two prose-span parses inside the same worker budget); schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget. Direct replies run this rewrite in-process (they already carry the fence). `*Couldn't verify this with SymPy.*` is an honest label when the gate fired, SymPy produced nothing, **and** the reply contains math. It is **not** stamped on prose with no math (the old anatomy / “show me” class) and is not the outcome for verified arithmetic, graphs, or physics that now extract.
+5. **Mobile** — preprocess delimiters, then render: ordinary inline `$...$` → native `MathText` (stacked fractions, radicals, red `\cancel` slash on divide steps); display ` ```math` and heavy answers → **MathJax-SVG** (`MathSvgView` + `lib/math/svgMath.ts`: `mathjax-full` converts LaTeX to SVG lazily behind an LRU cache, rendered via `react-native-svg` — no WebView, no flicker; conversion failure falls back to readable `MathText`); diagrams → SVG. Interactive graphs open a **Skia explorer** (`components/rich/skia/SkiaGraphExplorer.tsx`, dev builds only, `isSkiaAvailable()` gate): pinch/pan/double-tap run on the UI thread via Reanimated worklets (`lib/math/graphWorklets.ts`), with the SVG canvas as the Expo Go / fallback path. Algebra ` ```answer ` uses the chat-window background, not a gray pill. Crash fallback still draws geometry/graph as SVG (not raw JSON).
 
 Camera math is a specialization of step 1: an image with the scanner prompt or another recognized math caption goes through Mathpix when configured, with vision fallback for semantic or uncertain reads, then the supported SymPy extraction path. A plain photo with no math caption does not automatically trigger this verified OCR path. Image turns retain the model response path.
 
-**KaTeX cold start (deliberate):** `lib/katexRender.ts` statically imports KaTeX plus its CSS. That bundle loads on the first markdown message that can reach `MathView` / `AnswerBlock`, whether or not the reply contains display math. MathJax stays behind a dynamic `import()` for `multline`/`eqnarray` only. Do not lazy-load KaTeX to “fix” chat start — the sync path is the documented trade-off (`lib/math/html.ts`). Vendored CSS/fonts must match the installed KaTeX renderer; `lib/vendor/__tests__/katexParity.test.ts` checks version, CSS, and font parity.
+**Display math is MathJax-SVG, not a WebView.** `mathjax-full` (tex → svg) loads behind a dynamic `import()` on the first display-math block, and converted formulas sit in an LRU cache (`lib/math/svgMath.ts`), so chat cold start pays nothing. The old KaTeX/MathJax WebView host (`MathFormulaWebView`, `lib/katexRender.ts`, `lib/math/html*.ts`) is deleted; KaTeX remains only as a `lib/printDocument.ts` dependency. The Skia graph explorer is likewise lazy (`React.lazy` + `isSkiaAvailable()`), so Expo Go and non-graph chats never bundle or probe it.
 
 ## Tool-loop path (`MCP_TOOL_LOOP_ENABLED=true`, default)
 
@@ -35,7 +35,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 - **Ordinary typing and native paste** preserve the exact input and native caret. Autocorrect and spellcheck stay disabled so notation such as `sqrt` and assignment expressions cannot be rewritten while typing.
 - **Explicit math keypad / Paste controls** opt into formatted math editing. `mathPasteNormalize.ts` maps pasted Unicode math glyphs to LaTeX (the same glyph set spirit as `_UNICODE_OP_SUBS` in `math/solve/parse.py`). The in-app Paste button reads clipboard text only; it does not import an image. Use Scan Math or a photo attachment for image input.
 - **Scan Math** captures a camera frame or imports a photo. Imported photos fit inside the preview so the initial crop contains the full image; camera previews retain their fill/crop behavior. Solve crops and sends immediately, using the existing draft or the default math prompt. There is no OCR text-review step in the current mobile scanner.
-- Backslashes, `_`, and `*` inside math are protected during Markdown preprocessing and restored at the native/KaTeX parser boundary, so Markdown cannot consume math escapes or reinterpret subscripts/multiplication as emphasis.
+- Backslashes, `_`, and `*` inside math are protected during Markdown preprocessing and restored at the native/MathJax-SVG parser boundary, so Markdown cannot consume math escapes or reinterpret subscripts/multiplication as emphasis.
 
 ## Key files
 
@@ -50,13 +50,13 @@ The stored user text preserves what the composer submitted. Explicit math contro
 | Prompt hints | `apps/api/app/services/chat/prompt_constants/` (`math.py`, …) |
 | Mobile preprocess | `apps/mobile/lib/markdown/markdownPreprocess.ts`, `apps/mobile/lib/math/normalizeImplicit.ts` |
 | Composer math input | `apps/mobile/lib/math/pasteNormalize.ts`, `keyboardSymbols.ts`, `components/chat/MathKeyboardBar.tsx` |
-| Render | `MathText`, `MathView` / `MathFormulaWebView`, `GeometryBlock`, `FunctionGraphBlock` |
+| Render | `MathText`, `MathView` / `MathSvgView` (MathJax-SVG), `GeometryBlock`, `FunctionGraphBlock` + `skia/SkiaGraphExplorer` |
 
 ## Curriculum coverage (K–12 through undergrad homework)
 
 The LLM can **talk** about almost any homework. **Verified** work (pre-stream SymPy + canonical fences) covers two disjoint kind spaces: the `MathIntent.kind` list in [`schemas/math/intent.py`](../apps/api/app/models/schemas/math/intent.py) (**32 kinds**) and the separate `PhysicsIntent.kind` list in [`schemas/physics/intent.py`](../apps/api/app/models/schemas/physics/intent.py) (**20 kinds**) — physics is a peer subject, not a `MathIntent` kind (see [SUBJECT_SEPARATION_TICKETS.md](./SUBJECT_SEPARATION_TICKETS.md)). Anything else is unverified prose. That is intentional: Golden Rule 7 — the app renders; the server verifies what SymPy can close. Proof-based analysis and abstract algebra stay LLM-only. Count kinds from those Literals, not from this table.
 
-[`math/tools/`](../apps/api/app/services/math/tools/) is the feature split: ordered `_INTENT_EXTRACTORS` in `extract.py` plus `kind → _verified_block_*` in `block/`. Do **not** add a second kind table. Do **not** add Skia; display math stays KaTeX/MathJax WebView, inline `MathText`, diagrams `react-native-svg`.
+[`math/tools/`](../apps/api/app/services/math/tools/) is the feature split: ordered `_INTENT_EXTRACTORS` in `extract.py` plus `kind → _verified_block_*` in `block/`. Do **not** add a second kind table. Rendering: inline `MathText`, display math MathJax-SVG (`MathSvgView`), diagrams `react-native-svg`, interactive graphs Skia (`SkiaGraphExplorer`, dev builds).
 
 Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / series / Newton / solid).
 
@@ -79,7 +79,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Calc I–II | simplify, factor, expand, d/dx, ∫ (+C), definite ∫, limits (one-sided), series sum (do not certify oscillating divergent series), Newton; Taylor/Maclaurin, partials, gradient/div/curl of an explicit formula, directional derivative, linear approximation, average value, implicit `dy/dx`, first-order `dsolve`, 2nd/3rd derivative, double/triple integrals over named axis-aligned boxes. **Applications:** area between two explicit curves on an explicit interval, arc length, volume of revolution about a named axis. Written proofs stay LLM. | `calculus`, `limit`, `series`, `numerical_method` |
 | Probability | Binomial / geometric / Poisson PMF, complement, Bayes with three probabilities, expected value of a list | `probability` |
 | Complex / units | Simplify `a+bi`; modulus / argument / conjugate / polar form; Pint unit convert (SI case-sensitive symbols) | `complex`, `unit` |
-| Graphs | y=f(x), two curves, vertical line, point, axis-aligned ellipse, polar `r=f(θ)`, parametric `x(t), y(t)`. `f(x)=0` with no y is a plot of lhs−rhs (a parabola), not two vertical lines. Direct verified plots skip the LLM. | `graph` / `graph_pair` |
+| Graphs | y=f(x), two curves, vertical line, point, axis-aligned ellipse, polar `r=f(θ)`, parametric `x(t), y(t)`. `f(x)=0` with no y is a plot of lhs−rhs (a parabola), not two vertical lines. Direct verified plots skip the LLM. Sampled segments split at SymPy-detected poles confirmed diverging by the samples (even-order poles like `1/x²` included); non-decidable cases keep the numeric sign-flip heuristic. | `graph` / `graph_pair` |
 | Stats (descriptive + bivariate) | mean, median, mode, variance, stdev, range, quartiles, IQR, percentile. Correlation, covariance (sample/population), linear regression — only with two explicit equal-length lists. Weighted data cannot silently become a different calculation. | `statistics` |
 | Discrete (intro) | n!, nCr, nPr; gcd/lcm/primes/mod; modular inverse, totient, two-congruence CRT | `combinatorics`, `number_theory` |
 
@@ -90,13 +90,16 @@ flowchart TB
   ask[User homework]
   need{needs_symbolic_math}
   ext[First matching extractor]
+  llmx[LLM extract fallback — bounded, flag-gated]
   sympy[SymPy verified block]
   llm[LLM only unverified]
   ask --> need
   need -->|yes| ext
   need -->|no| llm
   ext -->|kind hit| sympy
-  ext -->|no kind| llm
+  ext -->|no kind| llmx
+  llmx -->|candidate intent| sympy
+  llmx -->|found=false / timeout| llm
 ```
 
 ### School-homework gaps (unverified LLM)
