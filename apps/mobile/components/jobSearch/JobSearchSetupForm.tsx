@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,9 +14,9 @@ import {
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useTranslation } from "react-i18next";
 
+import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
-import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { ReminderDateTimePicker } from "@/components/todos/ReminderDateTimePicker";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -42,8 +44,6 @@ import { Type } from "@/lib/type";
 
 type Step = 0 | 1 | 2 | 3;
 
-const STEP_KEYS = [0, 1, 2, 3] as const;
-
 const WORK_MODE_VALUES: JobSearchWorkMode[] = ["remote", "hybrid", "onsite"];
 const EXPERIENCE_VALUES: JobSearchExperience[] = ["internship", "entry", "mid", "senior"];
 const FREQUENCY_VALUES: JobSearchFrequency[] = ["daily", "weekdays", "weekly", "monthly"];
@@ -64,22 +64,6 @@ function usableRunDate(value: string | undefined): Date {
   const parsed = new Date(value);
   if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) return nextMorning();
   return parsed;
-}
-
-function join(values: string[]): string {
-  return values.join(", ");
-}
-
-function split(value: string): string[] {
-  return Array.from(
-    new Map(
-      value
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .map((item) => [item.toLowerCase(), item]),
-    ).values(),
-  );
 }
 
 function SelectChip<T extends string>({
@@ -147,7 +131,6 @@ export function JobSearchSetupForm({
   const [roles, setRoles] = useState<string[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
   const [place, setPlace] = useState<PlaceValue>(EMPTY_PLACE);
-  const [excluded, setExcluded] = useState("");
   const [salary, setSalary] = useState("");
   const [workModes, setWorkModes] = useState<JobSearchWorkMode[]>(["remote"]);
   const [level, setLevel] = useState<JobSearchExperience>("entry");
@@ -175,7 +158,6 @@ export function JobSearchSetupForm({
     setRoles(initial?.target_roles ?? (user?.job ? [user.job] : []));
     setSkills(initial?.skills ?? []);
     setPlace(parsePlace(initial?.location ?? user?.location ?? user?.country ?? ""));
-    setExcluded(join(initial?.excluded_companies ?? []));
     setSalary(initial?.salary_min ? String(initial.salary_min) : "");
     setWorkModes(initial?.work_modes ?? ["remote"]);
     setLevel(initial?.experience_levels?.[0] ?? "entry");
@@ -251,7 +233,9 @@ export function JobSearchSetupForm({
       experience_levels: [level],
       salary_min: parsedSalary == null ? null : Math.round(parsedSalary),
       requires_sponsorship: null,
-      excluded_companies: split(excluded),
+      // The setup form no longer edits exclusions — keep whatever the profile
+      // already has so an edit never silently wipes it.
+      excluded_companies: initial?.excluded_companies ?? [],
       background: null,
       resume_attachment_id: resumeId,
       result_count: isPro ? count : 5,
@@ -300,14 +284,6 @@ export function JobSearchSetupForm({
   const experienceLabel = (value: JobSearchExperience) => t(`my_job.level_${value}`);
   const frequencyOptionLabel = (value: JobSearchFrequency) => t(`my_job.freq_${value}`);
   const frequencyLabel = frequencyOptionLabel(frequency);
-  const roleSummary = roles.slice(0, 2).join(" · ") || t("my_job.summary_roles_fallback");
-  const parsedSalarySummary = salary.trim()
-    ? Number(salary.replace(/[$,\s]/g, ""))
-    : null;
-  const salarySummary =
-    parsedSalarySummary != null && Number.isFinite(parsedSalarySummary)
-      ? `$${parsedSalarySummary.toLocaleString()}+`
-      : t("my_job.summary_salary_any");
   const currentCopy = {
     eyebrow: t(`my_job.step${step}_eyebrow`),
     title: t(`my_job.step${step}_title`),
@@ -317,30 +293,30 @@ export function JobSearchSetupForm({
 
   return (
     <View style={s.screen}>
-      <SheetFormHeader
-        title={initial ? t("my_job.edit_title") : t("my_job.setup_title")}
-        onCancel={moveBack}
-        onSave={() => void moveForward()}
-        cancelLabel={step === 0 ? t("common.cancel") : t("common.back")}
-        saveLabel={step === 3 ? finalLabel : t("common.next")}
-        saving={busy}
-      />
-
-      <View style={s.progressWrap}>
-        <View style={s.progressBars}>
-          {STEP_KEYS.map((value) => (
-            <View
-              key={value}
-              style={[s.progressBar, value <= step && s.progressBarActive]}
-            />
-          ))}
-        </View>
-        <Text style={s.progressText}>
-          {t("my_job.step_progress", { step: step + 1, total: STEP_KEYS.length })}
+      <View style={s.header}>
+        <Pressable
+          onPress={moveBack}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={step === 0 ? t("common.cancel") : t("common.back")}
+          style={s.headerSide}
+        >
+          <Text style={s.headerCancel} numberOfLines={1}>
+            {step === 0 ? t("common.cancel") : t("common.back")}
+          </Text>
+        </Pressable>
+        <Text style={s.headerTitle} numberOfLines={1}>
+          {initial ? t("my_job.edit_title") : t("my_job.setup_title")}
         </Text>
+        <View style={s.headerSide} />
       </View>
 
-      <View style={s.body}>
+      <ScrollView
+        style={s.flex}
+        contentContainerStyle={s.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={s.body}>
         <View style={s.intro}>
           <Text style={s.eyebrow}>{currentCopy.eyebrow}</Text>
           <Text style={s.title}>{currentCopy.title}</Text>
@@ -496,18 +472,6 @@ export function JobSearchSetupForm({
                 ) : null}
               </View>
             </View>
-
-            <View style={s.fieldGroup}>
-              <FieldLabel optional>{t("my_job.excluded_label")}</FieldLabel>
-              <TextInput
-                style={s.input}
-                value={excluded}
-                onChangeText={setExcluded}
-                placeholder={t("my_job.excluded_placeholder")}
-                placeholderTextColor={C.textDisabled}
-                editable={!busy}
-              />
-            </View>
           </>
         ) : null}
 
@@ -558,11 +522,10 @@ export function JobSearchSetupForm({
                 style={({ pressed }) => [s.dateCard, pressed && s.pressed]}
                 onPress={() => {
                   Keyboard.dismiss();
-                  setShowPicker((current) => !current);
+                  setShowPicker(true);
                 }}
                 disabled={busy}
                 accessibilityRole="button"
-                accessibilityState={{ expanded: showPicker }}
               >
                 <View style={s.dateIcon}>
                   <Icon name="calendar-outline" size={22} color={C.primary} />
@@ -571,66 +534,30 @@ export function JobSearchSetupForm({
                   <Text style={s.dateTitle}>{timeLabel}</Text>
                   <Text style={s.dateMeta}>{t("my_job.first_delivery_meta")}</Text>
                 </View>
-                <Icon
-                  name={showPicker ? "chevron-up" : "chevron-down"}
-                  size={19}
-                  color={C.textTertiary}
-                />
+                <Icon name="chevron-down" size={19} color={C.textTertiary} />
               </Pressable>
-              {showPicker ? (
-                <View style={s.pickerWrap}>
-                  <ReminderDateTimePicker
-                    value={nextRunAt}
-                    onChange={onPickerChange}
-                    disabled={busy}
-                  />
-                </View>
-              ) : null}
             </View>
 
-            <View style={s.summaryCard}>
-              <View style={s.summaryTop}>
-                <View style={s.summaryIcon}>
-                  <Icon name="briefcase-outline" size={22} color={C.primary} />
-                </View>
-                <View style={s.summaryCopy}>
-                  <Text style={s.summaryEyebrow}>{t("my_job.summary_eyebrow")}</Text>
-                  <Text style={s.summaryTitle} numberOfLines={2}>
-                    {roleSummary}
-                  </Text>
-                </View>
-              </View>
-              <View style={s.summaryDivider} />
-              {composePlace(place) ? (
-                <View style={s.summaryRow}>
-                  <Text style={s.summaryLabel}>{t("my_job.summary_location")}</Text>
-                  <Text style={s.summaryValue}>{composePlace(place)}</Text>
-                </View>
-              ) : null}
-              <View style={s.summaryRow}>
-                <Text style={s.summaryLabel}>{t("my_job.summary_salary")}</Text>
-                <Text style={s.summaryValue}>{salarySummary}</Text>
-              </View>
-              <View style={s.summaryRow}>
-                <Text style={s.summaryLabel}>{t("my_job.summary_delivery")}</Text>
-                <Text style={s.summaryValue}>
-                  {t("my_job.summary_delivery_value", {
-                    count: isPro ? count : 5,
-                    frequency: isPro ? frequencyLabel : t("my_job.freq_weekly"),
-                  })}
-                </Text>
-              </View>
-              <View style={s.summaryRow}>
-                <Text style={s.summaryLabel}>{t("my_job.summary_work_mode")}</Text>
-                <Text style={s.summaryValue}>{workModes.map(workModeLabel).join(" / ")}</Text>
-              </View>
-              <View style={s.summaryRow}>
-                <Text style={s.summaryLabel}>{t("my_job.summary_starts")}</Text>
-                <Text style={s.summaryValue}>{timeLabel}</Text>
-              </View>
-            </View>
           </>
         ) : null}
+        </View>
+      </ScrollView>
+
+      <View style={s.footer}>
+        <Pressable
+          style={({ pressed }) => [s.primaryButton, pressed && s.pressed, busy && s.disabled]}
+          onPress={() => void moveForward()}
+          disabled={busy}
+          accessibilityRole="button"
+        >
+          {busy ? (
+            <ActivityIndicator color={C.onPrimary} />
+          ) : (
+            <Text style={s.primaryButtonText}>
+              {step === 3 ? finalLabel : t("common.next")}
+            </Text>
+          )}
+        </Pressable>
       </View>
 
       <SettingsPickerSheet
@@ -669,6 +596,27 @@ export function JobSearchSetupForm({
         onClose={() => setShowFrequency(false)}
         onSelect={(key) => setFrequency(key as JobSearchFrequency)}
       />
+
+      {/* Android fires native date→time dialogs from the rendered picker itself;
+          iOS gets the spinner inside a floating sheet with a Done button. */}
+      {Platform.OS === "android" && showPicker ? (
+        <ReminderDateTimePicker value={nextRunAt} onChange={onPickerChange} disabled={busy} />
+      ) : null}
+      <AppSheet
+        visible={Platform.OS === "ios" && showPicker}
+        onClose={() => setShowPicker(false)}
+        withHandle
+      >
+        <Text style={s.pickerTitle}>{t("my_job.first_delivery_label")}</Text>
+        <ReminderDateTimePicker value={nextRunAt} onChange={onPickerChange} disabled={busy} />
+        <Pressable
+          style={({ pressed }) => [s.pickerDone, pressed && s.pressed]}
+          onPress={() => setShowPicker(false)}
+          accessibilityRole="button"
+        >
+          <Text style={s.pickerDoneText}>{t("common.done")}</Text>
+        </Pressable>
+      </AppSheet>
     </View>
   );
 }
@@ -676,25 +624,31 @@ export function JobSearchSetupForm({
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     screen: {
+      flex: 1,
       backgroundColor: C.bg,
     },
-    progressWrap: {
+    flex: { flex: 1 },
+    scrollContent: { flexGrow: 1 },
+    footer: {
       paddingHorizontal: Space.lg,
-      paddingTop: Space.md,
-      gap: Space.xs,
+      paddingTop: Space.xs,
+      paddingBottom: Space.md,
     },
-    progressBars: {
+    header: {
       flexDirection: "row",
-      gap: Space.xs,
+      alignItems: "center",
+      paddingHorizontal: Space.md,
+      paddingTop: Space.sm,
+      gap: Space.sm,
     },
-    progressBar: {
+    headerSide: { minWidth: 64, minHeight: 44, justifyContent: "center" },
+    headerCancel: { ...Type.body, color: C.textSecondary },
+    headerTitle: {
+      ...Type.navTitle,
+      color: C.text,
       flex: 1,
-      height: 4,
-      borderRadius: Radius.full,
-      backgroundColor: C.surfaceAlt,
+      textAlign: "center",
     },
-    progressBarActive: { backgroundColor: C.primary },
-    progressText: { ...Type.caption, color: C.textTertiary },
     body: {
       paddingHorizontal: Space.lg,
       paddingTop: Space.lg,
@@ -816,47 +770,31 @@ function makeStyles(C: Theme) {
     dateCopy: { flex: 1, gap: 2 },
     dateTitle: { ...Type.label, color: C.text },
     dateMeta: { ...Type.caption, color: C.textTertiary },
-    pickerWrap: {
-      borderRadius: Radius.xl,
-      overflow: "hidden",
-      backgroundColor: C.surface,
-      paddingVertical: Platform.OS === "ios" ? Space.xs : 0,
+    pickerTitle: {
+      ...Type.navTitle,
+      color: C.text,
+      fontWeight: "700",
+      textAlign: "center",
+      marginBottom: Space.xs,
     },
-    summaryCard: {
-      borderRadius: Radius.xl,
-      backgroundColor: C.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-      padding: Space.md,
-      gap: Space.sm,
-    },
-    summaryTop: { flexDirection: "row", alignItems: "center", gap: Space.sm },
-    summaryIcon: {
-      width: 46,
-      height: 46,
-      borderRadius: Radius.md,
-      backgroundColor: C.primaryLight,
+    pickerDone: {
+      minHeight: 50,
+      borderRadius: Radius.full,
+      backgroundColor: C.primary,
       alignItems: "center",
       justifyContent: "center",
+      marginTop: Space.sm,
     },
-    summaryCopy: { flex: 1, gap: 2 },
-    summaryEyebrow: { ...Type.overline, color: C.primary },
-    summaryTitle: { ...Type.navTitle, color: C.text },
-    summaryDivider: { height: StyleSheet.hairlineWidth, backgroundColor: C.border },
-    summaryRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "flex-start",
-      gap: Space.md,
+    pickerDoneText: { ...Type.secondary, fontWeight: "700", color: C.onPrimary },
+    primaryButton: {
+      minHeight: 56,
+      borderRadius: Radius.full,
+      backgroundColor: C.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: Space.xs,
     },
-    summaryLabel: { ...Type.secondary, color: C.textSecondary },
-    summaryValue: {
-      ...Type.secondary,
-      fontWeight: "600",
-      color: C.text,
-      textAlign: "right",
-      flex: 1,
-    },
+    primaryButtonText: { ...Type.body, fontWeight: "700", color: C.onPrimary },
     pressed: { opacity: 0.72 },
     disabled: { opacity: 0.45 },
   });
