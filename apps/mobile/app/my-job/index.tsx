@@ -21,7 +21,8 @@ import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useJobSearch } from "@/hooks/useJobSearch";
-import type { JobMatch, JobMatchStatus, JobSearchProfile } from "@/lib/api";
+import type { JobMatch, JobSearchProfile } from "@/lib/api";
+import { filterAndSortMatches } from "@/lib/jobSearch/matchList";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { notifyWarning, selection, tap } from "@/lib/haptics";
@@ -29,7 +30,8 @@ import { presentShareSheet } from "@/lib/share";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-type Tab = "matches" | "saved" | "applied";
+type Tab = "all" | "matches" | "saved" | "applied";
+type SortMode = "best" | "newest";
 
 function cadence(profile: JobSearchProfile, t: TFunction): string {
   return t(`my_job.cadence_${profile.frequency}`, { count: profile.result_count });
@@ -45,6 +47,32 @@ function nextDelivery(profile: JobSearchProfile): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function SortChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const C = useTheme();
+  const s = useMemo(() => makeStyles(C), [C]);
+  return (
+    <Pressable
+      style={({ pressed }) => [s.sortChip, active && s.sortChipActive, pressed && s.pressed]}
+      onPress={() => {
+        selection();
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[s.sortChipText, active && s.sortChipTextActive]}>{label}</Text>
+    </Pressable>
+  );
 }
 
 function TabButton({
@@ -108,6 +136,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     router.push("/my-job/setup");
   }, [router]);
   const [tab, setTab] = useState<Tab>("matches");
+  const [sort, setSort] = useState<SortMode>("best");
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -120,16 +149,22 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const profile = dashboard.profile;
   const counts = useMemo(
     () => ({
+      all: dashboard.matches.filter((item) => item.status !== "hidden").length,
       matches: dashboard.matches.filter((item) => item.status === "new").length,
       saved: dashboard.matches.filter((item) => item.status === "saved").length,
       applied: dashboard.matches.filter((item) => item.status === "applied").length,
     }),
     [dashboard.matches],
   );
-  const visibleMatches = useMemo(() => {
-    const status: JobMatchStatus = tab === "matches" ? "new" : tab;
-    return dashboard.matches.filter((item) => item.status === status);
-  }, [dashboard.matches, tab]);
+  const visibleMatches = useMemo(
+    () =>
+      filterAndSortMatches(
+        dashboard.matches,
+        tab === "matches" ? "new" : tab,
+        sort,
+      ),
+    [dashboard.matches, tab, sort],
+  );
 
   const confirmDelete = () => {
     Alert.alert(t("my_job.delete_title"), t("my_job.delete_body"), [
@@ -226,19 +261,19 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   }
 
   const emptyTitle =
-    tab === "matches"
-      ? t("my_job.empty_matches")
-      : tab === "saved"
-        ? t("my_job.empty_saved")
-        : t("my_job.empty_applied");
+    tab === "saved"
+      ? t("my_job.empty_saved")
+      : tab === "applied"
+        ? t("my_job.empty_applied")
+        : t("my_job.empty_matches");
   const emptyBody =
-    tab === "matches"
-      ? profile.last_run_at
-        ? t("my_job.empty_matches_body_ran")
-        : t("my_job.empty_matches_body_scheduled", { date: nextDelivery(profile) })
-      : tab === "saved"
-        ? t("my_job.empty_saved_body")
-        : t("my_job.empty_applied_body");
+    tab === "saved"
+      ? t("my_job.empty_saved_body")
+      : tab === "applied"
+        ? t("my_job.empty_applied_body")
+        : profile.last_run_at
+          ? t("my_job.empty_matches_body_ran")
+          : t("my_job.empty_matches_body_scheduled", { date: nextDelivery(profile) });
 
   return (
     <View style={s.root}>
@@ -326,9 +361,15 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             </View>
 
             <View style={s.tabs} accessibilityRole="tablist">
+              <TabButton label={t("my_job.tab_all")} count={counts.all} active={tab === "all"} onPress={() => setTab("all")} />
               <TabButton label={t("my_job.tab_matches")} count={counts.matches} active={tab === "matches"} onPress={() => setTab("matches")} />
               <TabButton label={t("my_job.tab_saved")} count={counts.saved} active={tab === "saved"} onPress={() => setTab("saved")} />
               <TabButton label={t("my_job.tab_applied")} count={counts.applied} active={tab === "applied"} onPress={() => setTab("applied")} />
+            </View>
+
+            <View style={s.sortRow}>
+              <SortChip label={t("my_job.sort_best")} active={sort === "best"} onPress={() => setSort("best")} />
+              <SortChip label={t("my_job.sort_newest")} active={sort === "newest"} onPress={() => setSort("newest")} />
             </View>
 
             {error ? (
@@ -342,7 +383,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               <StateView
                 variant="empty"
                 compact
-                icon={tab === "matches" ? "search-outline" : tab === "saved" ? "bookmark-outline" : "checkmark-circle-outline"}
+                icon={tab === "saved" ? "bookmark-outline" : tab === "applied" ? "checkmark-circle-outline" : "search-outline"}
                 title={emptyTitle}
                 message={emptyBody}
               />
@@ -467,6 +508,21 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
     },
     secondaryButtonText: { ...Type.compact, color: C.text, fontWeight: "600" },
+    sortRow: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: Space.xs,
+    },
+    sortChip: {
+      minHeight: 32,
+      justifyContent: "center",
+      paddingHorizontal: Space.sm,
+      borderRadius: Radius.full,
+      backgroundColor: C.surface,
+    },
+    sortChipActive: { backgroundColor: C.primaryLight },
+    sortChipText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    sortChipTextActive: { color: C.primary },
     tabs: {
       flexDirection: "row",
       padding: 4,
