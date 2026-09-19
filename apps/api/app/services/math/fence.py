@@ -22,6 +22,7 @@ not duplicated as a result card).
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import TYPE_CHECKING
 
@@ -48,6 +49,8 @@ from app.services.md_fence_scan import (
 
 if TYPE_CHECKING:
     from app.services.math.tools import VerifiedMathBlock
+
+logger = logging.getLogger(__name__)
 
 # Below this count a continuous y=f(x) fence is treated as "sparse key points"
 # the model listed for prose, not a renderable curve sample.
@@ -678,12 +681,18 @@ def _prose_symbolically_states_answer(content: str, answer_body: str) -> bool:
         if candidate is None:
             continue
         checks += 1
-        try:
-            if bool(candidate.equals(canonical)):
-                return True
-        except Exception:
-            continue
+        if _sympy_equivalent(candidate, canonical):
+            return True
     return False
+
+
+def _sympy_equivalent(a, b) -> bool:  # type: ignore[no-untyped-def]
+    """SymPy ``equals`` with the undecidable/exception cases folded to False."""
+    try:
+        return bool(a.equals(b))
+    except Exception:
+        logger.debug("symbolic answer comparison failed", exc_info=True)
+        return False
 
 
 # Emphasis and code ticks trailing the question mark: "**...?**", "...?*".
