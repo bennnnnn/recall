@@ -188,9 +188,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `expo-audio` / attachment URLs. Do not start until image-gen’s storage/cap path is the
   template. Not TTS / not humming into the mic.
 - ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
-  display ` ```math` uses KaTeX (or MathJax for heavy expressions) in a WebView on a
-  **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
-  fullscreen scroll. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
+  display ` ```math` renders as **MathJax-SVG** (`MathSvgView` + `mathjax-full`, lazy-loaded
+  and LRU-cached, themed via `currentColor`) on every build — no WebView — with a readable
+  `MathText` fallback if conversion fails. Interactive graphs open a **Skia explorer**
+  (pinch/pan/trace on the UI thread) in dev builds, with the SVG canvas as fallback. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
   `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
   verified answers (`1+1=x`, factor a quadratic) return directly without an LLM
@@ -851,8 +852,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   from the composer on send (daily cap; no separate prompt sheet).
 - ✅ **Per-chat Redis prepare lock** — `chatprep:{chat_id}` around prepare + stream; concurrent
   turns get `ChatBusyError` / `code: "busy"` (#536).
-- ✅ **Math WebView expand / fullscreen** — tall KaTeX/MathJax blocks offer Expand → full-screen
-  modal (`MathFormulaWebView`; #537).
+- ✅ **Math display rendering** — display math renders as MathJax-SVG (`MathSvgView`;
+  replaced the WebView host from #537). Wide formulas scroll horizontally inline.
 - ✅ **Algebra `canonical_fence` / ` ```answer ` rewrite** — SymPy attaches canonical answer
   fences; post-stream `validate_math_fences` rewrites drifted finals (#538). Multi-root
   answers group ± reals and conjugates (`x^6 = 1` → three `aligned` lines, not six
@@ -1014,8 +1015,8 @@ Shipped after the Phase 1/2 code review (and follow-up PRs):
 - ✅ **Real-SQL repository tests** — `test_*_db.py` for chats / messages / memories / usage
 - ✅ **RTL test infra** — `@testing-library/react-native` + WebView sandbox / mount-queue tests
   (expand coverage over time; foundation is in)
-- ✅ **Deferred WebView mount queue** — `useDeferredWebViewMount` caps concurrent chart/math/Mermaid
-  WebViews so multi-block messages stay smooth
+- ✅ **Deferred WebView mount queue** — `useDeferredWebViewMount` caps concurrent chart/Mermaid/chemistry
+  WebViews so multi-block messages stay smooth (math is SVG-native now, no WebView)
 - ✅ **Hung-worker heartbeat** — `is_worker_alive` tracks loop heartbeat, not only `task.done()`
 - ✅ **Claude review waves (#533–#539)** — product/reliability fixes + deferred items: chatprep
   lock, math expand, algebra answer fences, hard-disconnect persist, RevenueCat SET NX

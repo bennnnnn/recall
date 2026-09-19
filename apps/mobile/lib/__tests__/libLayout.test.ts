@@ -44,7 +44,8 @@ function flatModules(): string[] {
 }
 
 /**
- * `mathHtml` shadows `math/`; `cachedUser` does not shadow `cache/`.
+ * A flat `mathFoo.ts` beside `math/` shadows the domain folder; `cachedUser`
+ * does not shadow `cache/`.
  *
  * An exact match is the barrel idiom, not a split: lib/api.ts re-exports
  * lib/api/* on purpose and CLAUDE.md requires it to stay the single network
