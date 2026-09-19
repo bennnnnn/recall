@@ -125,6 +125,8 @@ class JobMatch(Base):
     location: Mapped[str | None] = mapped_column(String(180), nullable=True)
     work_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
     salary: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    experience: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    match_score: Mapped[int | None] = mapped_column(nullable=True)
     source: Mapped[str | None] = mapped_column(String(120), nullable=True)
     posted_at: Mapped[str | None] = mapped_column(String(120), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)

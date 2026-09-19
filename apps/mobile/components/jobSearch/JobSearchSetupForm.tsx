@@ -13,9 +13,18 @@ import type { DateTimePickerEvent } from "@react-native-community/datetimepicker
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { ReminderDateTimePicker } from "@/components/todos/ReminderDateTimePicker";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  composePlace,
+  EMPTY_PLACE,
+  LocationFields,
+  parsePlace,
+  type PlaceValue,
+} from "@/components/jobSearch/LocationFields";
+import { SearchableMultiSelect } from "@/components/jobSearch/SearchableMultiSelect";
 import {
   type JobSearchExperience,
   type JobSearchFrequency,
@@ -24,18 +33,24 @@ import {
   type JobSearchWorkMode,
 } from "@/lib/api";
 import { pickDocument, uploadChatAttachment } from "@/lib/attachments";
+import { JOB_TITLES } from "@/lib/jobSearch/jobTitles";
+import { SKILLS } from "@/lib/jobSearch/skills";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-type Step = 0 | 1 | 2;
+type Step = 0 | 1 | 2 | 3;
 
-const STEP_KEYS = [0, 1, 2] as const;
+const STEP_KEYS = [0, 1, 2, 3] as const;
 
 const WORK_MODE_VALUES: JobSearchWorkMode[] = ["remote", "hybrid", "onsite"];
 const EXPERIENCE_VALUES: JobSearchExperience[] = ["internship", "entry", "mid", "senior"];
 const FREQUENCY_VALUES: JobSearchFrequency[] = ["daily", "weekdays", "weekly", "monthly"];
+
+/** Backend caps (JobSearchUpsert): target_roles ≤ 6, skills ≤ 30. */
+const MAX_ROLES = 6;
+const MAX_SKILLS = 30;
 
 function nextMorning(): Date {
   const value = new Date();
@@ -129,19 +144,20 @@ export function JobSearchSetupForm({
   const s = useMemo(() => makeStyles(C), [C]);
   const isPro = user?.plan === "pro";
   const [step, setStep] = useState<Step>(0);
-  const [roles, setRoles] = useState("");
-  const [skills, setSkills] = useState("");
-  const [location, setLocation] = useState("");
+  const [roles, setRoles] = useState<string[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
+  const [place, setPlace] = useState<PlaceValue>(EMPTY_PLACE);
   const [excluded, setExcluded] = useState("");
-  const [background, setBackground] = useState("");
   const [salary, setSalary] = useState("");
   const [workModes, setWorkModes] = useState<JobSearchWorkMode[]>(["remote"]);
-  const [levels, setLevels] = useState<JobSearchExperience[]>(["entry"]);
-  const [sponsorship, setSponsorship] = useState<boolean | null>(null);
+  const [level, setLevel] = useState<JobSearchExperience>("entry");
+  const [showExperience, setShowExperience] = useState(false);
   const [count, setCount] = useState<5 | 10 | 15>(isPro ? 10 : 5);
   const [frequency, setFrequency] = useState<JobSearchFrequency>(
     isPro ? "weekdays" : "weekly",
   );
+  const [showCount, setShowCount] = useState(false);
+  const [showFrequency, setShowFrequency] = useState(false);
   const [nextRunAt, setNextRunAt] = useState(nextMorning);
   const [showPicker, setShowPicker] = useState(false);
   const [resumeId, setResumeId] = useState<string | null>(null);
@@ -156,17 +172,18 @@ export function JobSearchSetupForm({
     setStep(0);
     setRoleError(false);
     setSalaryError(false);
-    setRoles(join(initial?.target_roles ?? (user?.job ? [user.job] : [])));
-    setSkills(join(initial?.skills ?? []));
-    setLocation(initial?.location ?? user?.location ?? user?.country ?? "");
+    setRoles(initial?.target_roles ?? (user?.job ? [user.job] : []));
+    setSkills(initial?.skills ?? []);
+    setPlace(parsePlace(initial?.location ?? user?.location ?? user?.country ?? ""));
     setExcluded(join(initial?.excluded_companies ?? []));
-    setBackground(initial?.background ?? "");
     setSalary(initial?.salary_min ? String(initial.salary_min) : "");
     setWorkModes(initial?.work_modes ?? ["remote"]);
-    setLevels(initial?.experience_levels ?? ["entry"]);
-    setSponsorship(initial?.requires_sponsorship ?? null);
+    setLevel(initial?.experience_levels?.[0] ?? "entry");
+    setShowExperience(false);
     setCount(isPro ? (initial?.result_count ?? 10) : 5);
     setFrequency(isPro ? (initial?.frequency ?? "weekdays") : "weekly");
+    setShowCount(false);
+    setShowFrequency(false);
     setNextRunAt(usableRunDate(initial?.next_run_at));
     setResumeId(initial?.resume_attachment_id ?? null);
     setResumeName(initial?.resume_filename ?? null);
@@ -215,28 +232,27 @@ export function JobSearchSetupForm({
   };
 
   const save = async () => {
-    const targetRoles = split(roles);
-    if (targetRoles.length === 0) {
+    if (roles.length === 0) {
       setRoleError(true);
-      setStep(0);
+      setStep(1);
       return;
     }
     const parsedSalary = salary.trim() ? Number(salary.replace(/[$,\s]/g, "")) : null;
     if (parsedSalary != null && (!Number.isFinite(parsedSalary) || parsedSalary < 0)) {
       setSalaryError(true);
-      setStep(1);
+      setStep(2);
       return;
     }
     const ok = await onSave({
-      target_roles: targetRoles,
-      skills: split(skills),
-      location: location.trim() || null,
+      target_roles: roles,
+      skills,
+      location: composePlace(place) || null,
       work_modes: workModes,
-      experience_levels: levels,
+      experience_levels: [level],
       salary_min: parsedSalary == null ? null : Math.round(parsedSalary),
-      requires_sponsorship: sponsorship,
+      requires_sponsorship: null,
       excluded_companies: split(excluded),
-      background: background.trim() || null,
+      background: null,
       resume_attachment_id: resumeId,
       result_count: isPro ? count : 5,
       frequency: isPro ? frequency : "weekly",
@@ -262,11 +278,11 @@ export function JobSearchSetupForm({
   const moveForward = async () => {
     Keyboard.dismiss();
     setShowPicker(false);
-    if (step === 0 && split(roles).length === 0) {
+    if (step === 1 && roles.length === 0) {
       setRoleError(true);
       return;
     }
-    if (step < 2) {
+    if (step < 3) {
       setStep((step + 1) as Step);
       return;
     }
@@ -284,7 +300,14 @@ export function JobSearchSetupForm({
   const experienceLabel = (value: JobSearchExperience) => t(`my_job.level_${value}`);
   const frequencyOptionLabel = (value: JobSearchFrequency) => t(`my_job.freq_${value}`);
   const frequencyLabel = frequencyOptionLabel(frequency);
-  const roleSummary = split(roles).slice(0, 2).join(" · ") || t("my_job.summary_roles_fallback");
+  const roleSummary = roles.slice(0, 2).join(" · ") || t("my_job.summary_roles_fallback");
+  const parsedSalarySummary = salary.trim()
+    ? Number(salary.replace(/[$,\s]/g, ""))
+    : null;
+  const salarySummary =
+    parsedSalarySummary != null && Number.isFinite(parsedSalarySummary)
+      ? `$${parsedSalarySummary.toLocaleString()}+`
+      : t("my_job.summary_salary_any");
   const currentCopy = {
     eyebrow: t(`my_job.step${step}_eyebrow`),
     title: t(`my_job.step${step}_title`),
@@ -299,7 +322,7 @@ export function JobSearchSetupForm({
         onCancel={moveBack}
         onSave={() => void moveForward()}
         cancelLabel={step === 0 ? t("common.cancel") : t("common.back")}
-        saveLabel={step === 2 ? finalLabel : t("common.next")}
+        saveLabel={step === 3 ? finalLabel : t("common.next")}
         saving={busy}
       />
 
@@ -327,51 +350,8 @@ export function JobSearchSetupForm({
         {step === 0 ? (
           <>
             <View style={s.fieldGroup}>
-              <FieldLabel>{t("my_job.roles_label")}</FieldLabel>
-              <TextInput
-                style={[s.input, roleError && s.inputError]}
-                value={roles}
-                onChangeText={(value) => {
-                  setRoles(value);
-                  if (roleError) setRoleError(false);
-                }}
-                placeholder={t("my_job.roles_placeholder")}
-                placeholderTextColor={C.textDisabled}
-                editable={!busy}
-                autoCapitalize="words"
-                returnKeyType="next"
-                autoFocus={!initial}
-              />
-              {roleError ? (
-                <Text style={s.errorText}>{t("my_job.role_required_body")}</Text>
-              ) : (
-                <Text style={s.helper}>{t("my_job.roles_helper")}</Text>
-              )}
-            </View>
-
-            <View style={s.fieldGroup}>
-              <FieldLabel optional>{t("my_job.skills_label")}</FieldLabel>
-              <TextInput
-                style={s.input}
-                value={skills}
-                onChangeText={setSkills}
-                placeholder={t("my_job.skills_placeholder")}
-                placeholderTextColor={C.textDisabled}
-                editable={!busy}
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={s.fieldGroup}>
               <FieldLabel optional>{t("my_job.location_label")}</FieldLabel>
-              <TextInput
-                style={s.input}
-                value={location}
-                onChangeText={setLocation}
-                placeholder={t("my_job.location_placeholder")}
-                placeholderTextColor={C.textDisabled}
-                editable={!busy}
-              />
+              <LocationFields value={place} onChange={setPlace} disabled={busy} />
             </View>
 
             <View style={s.fieldGroup}>
@@ -395,21 +375,47 @@ export function JobSearchSetupForm({
         {step === 1 ? (
           <>
             <View style={s.fieldGroup}>
-              <FieldLabel>{t("my_job.experience_label")}</FieldLabel>
-              <View style={s.chipRow}>
-                {EXPERIENCE_VALUES.map((value) => (
-                  <SelectChip
-                    key={value}
-                    value={value}
-                    label={experienceLabel(value)}
-                    selected={levels.includes(value)}
-                    onPress={(next) => toggle(next, levels, setLevels)}
-                    disabled={busy}
-                  />
-                ))}
-              </View>
+              <FieldLabel>{t("my_job.roles_label")}</FieldLabel>
+              <SearchableMultiSelect
+                values={roles}
+                onChange={(next) => {
+                  setRoles(next);
+                  if (roleError) setRoleError(false);
+                }}
+                options={JOB_TITLES}
+                placeholder={t("my_job.roles_select_placeholder")}
+                sheetTitle={t("my_job.roles_label")}
+                searchPlaceholder={t("my_job.roles_search_placeholder")}
+                maxSelections={MAX_ROLES}
+                disabled={busy}
+                invalid={roleError}
+              />
+              {roleError ? (
+                <Text style={s.errorText}>{t("my_job.role_required_body")}</Text>
+              ) : (
+                <Text style={s.helper}>{t("my_job.roles_helper")}</Text>
+              )}
             </View>
 
+            <View style={s.fieldGroup}>
+              <FieldLabel optional>{t("my_job.skills_label")}</FieldLabel>
+              <SearchableMultiSelect
+                values={skills}
+                onChange={setSkills}
+                options={SKILLS}
+                placeholder={t("my_job.skills_select_placeholder")}
+                sheetTitle={t("my_job.skills_label")}
+                searchPlaceholder={t("my_job.skills_search_placeholder")}
+                maxSelections={MAX_SKILLS}
+                disabled={busy}
+              />
+              <Text style={s.helper}>{t("my_job.skills_helper")}</Text>
+            </View>
+          </>
+        ) : null}
+
+        {step === 2 ? (
+          <>
             <View style={s.fieldGroup}>
               <FieldLabel optional>{t("my_job.resume_label")}</FieldLabel>
               <Pressable
@@ -453,17 +459,21 @@ export function JobSearchSetupForm({
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel optional>{t("my_job.background_label")}</FieldLabel>
-              <TextInput
-                style={[s.input, s.multiline]}
-                value={background}
-                onChangeText={setBackground}
-                placeholder={t("my_job.background_placeholder")}
-                placeholderTextColor={C.textDisabled}
-                editable={!busy}
-                multiline
-                textAlignVertical="top"
-              />
+              <FieldLabel>{t("my_job.experience_label")}</FieldLabel>
+              <Pressable
+                style={({ pressed }) => [s.selectRow, pressed && s.pressed, busy && s.disabled]}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowExperience(true);
+                }}
+                disabled={busy}
+                accessibilityRole="button"
+              >
+                <Text style={s.selectValue} numberOfLines={1}>
+                  {experienceLabel(level)}
+                </Text>
+                <Icon name="chevron-down" size={18} color={C.textTertiary} />
+              </Pressable>
             </View>
 
             <View style={s.twoColumnRow}>
@@ -488,33 +498,6 @@ export function JobSearchSetupForm({
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel optional>{t("my_job.sponsorship_label")}</FieldLabel>
-              <View style={s.chipRow}>
-                <SelectChip
-                  value="no"
-                  label={t("my_job.sponsorship_no")}
-                  selected={sponsorship === false}
-                  onPress={() => setSponsorship(false)}
-                  disabled={busy}
-                />
-                <SelectChip
-                  value="yes"
-                  label={t("my_job.sponsorship_yes")}
-                  selected={sponsorship === true}
-                  onPress={() => setSponsorship(true)}
-                  disabled={busy}
-                />
-                <SelectChip
-                  value="skip"
-                  label={t("my_job.sponsorship_skip")}
-                  selected={sponsorship == null}
-                  onPress={() => setSponsorship(null)}
-                  disabled={busy}
-                />
-              </View>
-            </View>
-
-            <View style={s.fieldGroup}>
               <FieldLabel optional>{t("my_job.excluded_label")}</FieldLabel>
               <TextInput
                 style={s.input}
@@ -528,57 +511,42 @@ export function JobSearchSetupForm({
           </>
         ) : null}
 
-        {step === 2 ? (
+        {step === 3 ? (
           <>
             <View style={s.fieldGroup}>
               <FieldLabel>{t("my_job.count_label")}</FieldLabel>
-              <View style={s.countRow}>
-                {([5, 10, 15] as const).map((option) => {
-                  const locked = !isPro && option !== 5;
-                  const selected = count === option;
-                  return (
-                    <Pressable
-                      key={option}
-                      style={({ pressed }) => [
-                        s.countCard,
-                        selected && s.countCardSelected,
-                        pressed && !locked && s.pressed,
-                        locked && s.disabled,
-                      ]}
-                      onPress={() => setCount(option)}
-                      disabled={busy || locked}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected, disabled: locked }}
-                    >
-                      <Text style={[s.countNumber, selected && s.countNumberSelected]}>
-                        {option}
-                      </Text>
-                      <Text style={[s.countLabel, selected && s.countLabelSelected]}>
-                        {locked ? t("my_job.count_pro") : t("my_job.count_jobs")}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Pressable
+                style={({ pressed }) => [s.selectRow, pressed && s.pressed, busy && s.disabled]}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowCount(true);
+                }}
+                disabled={busy}
+                accessibilityRole="button"
+              >
+                <Text style={s.selectValue} numberOfLines={1}>
+                  {count} {t("my_job.count_jobs")}
+                </Text>
+                <Icon name="chevron-down" size={18} color={C.textTertiary} />
+              </Pressable>
             </View>
 
             <View style={s.fieldGroup}>
               <FieldLabel>{t("my_job.frequency_label")}</FieldLabel>
-              <View style={s.chipRow}>
-                {FREQUENCY_VALUES.map((value) => {
-                  const locked = !isPro && value !== "weekly";
-                  return (
-                    <SelectChip
-                      key={value}
-                      value={value}
-                      label={frequencyOptionLabel(value)}
-                      selected={frequency === value}
-                      onPress={setFrequency}
-                      disabled={busy || locked}
-                    />
-                  );
-                })}
-              </View>
+              <Pressable
+                style={({ pressed }) => [s.selectRow, pressed && s.pressed, busy && s.disabled]}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowFrequency(true);
+                }}
+                disabled={busy}
+                accessibilityRole="button"
+              >
+                <Text style={s.selectValue} numberOfLines={1}>
+                  {frequencyLabel}
+                </Text>
+                <Icon name="chevron-down" size={18} color={C.textTertiary} />
+              </Pressable>
               {!isPro ? (
                 <Text style={s.helper}>{t("my_job.frequency_free_note")}</Text>
               ) : null}
@@ -633,6 +601,16 @@ export function JobSearchSetupForm({
                 </View>
               </View>
               <View style={s.summaryDivider} />
+              {composePlace(place) ? (
+                <View style={s.summaryRow}>
+                  <Text style={s.summaryLabel}>{t("my_job.summary_location")}</Text>
+                  <Text style={s.summaryValue}>{composePlace(place)}</Text>
+                </View>
+              ) : null}
+              <View style={s.summaryRow}>
+                <Text style={s.summaryLabel}>{t("my_job.summary_salary")}</Text>
+                <Text style={s.summaryValue}>{salarySummary}</Text>
+              </View>
               <View style={s.summaryRow}>
                 <Text style={s.summaryLabel}>{t("my_job.summary_delivery")}</Text>
                 <Text style={s.summaryValue}>
@@ -654,6 +632,43 @@ export function JobSearchSetupForm({
           </>
         ) : null}
       </View>
+
+      <SettingsPickerSheet
+        visible={showExperience}
+        options={EXPERIENCE_VALUES.map((value) => ({
+          key: value,
+          label: experienceLabel(value),
+        }))}
+        selectedKey={level}
+        onClose={() => setShowExperience(false)}
+        onSelect={(key) => setLevel(key as JobSearchExperience)}
+      />
+
+      <SettingsPickerSheet
+        visible={showCount}
+        options={([5, 10, 15] as const).map((option) => ({
+          key: String(option),
+          label: `${option} ${t("my_job.count_jobs")}`,
+          disabled: !isPro && option !== 5,
+          note: !isPro && option !== 5 ? t("my_job.count_pro") : undefined,
+        }))}
+        selectedKey={String(count)}
+        onClose={() => setShowCount(false)}
+        onSelect={(key) => setCount(Number(key) as 5 | 10 | 15)}
+      />
+
+      <SettingsPickerSheet
+        visible={showFrequency}
+        options={FREQUENCY_VALUES.map((value) => ({
+          key: value,
+          label: frequencyOptionLabel(value),
+          disabled: !isPro && value !== "weekly",
+          note: !isPro && value !== "weekly" ? t("my_job.count_pro") : undefined,
+        }))}
+        selectedKey={frequency}
+        onClose={() => setShowFrequency(false)}
+        onSelect={(key) => setFrequency(key as JobSearchFrequency)}
+      />
     </View>
   );
 }
@@ -715,8 +730,19 @@ function makeStyles(C: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
     },
-    multiline: { minHeight: 112 },
     inputError: { borderColor: C.danger },
+    selectRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.sm,
+      minHeight: 54,
+      borderRadius: Radius.xl,
+      backgroundColor: C.surface,
+      paddingHorizontal: Space.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border,
+    },
+    selectValue: { ...Type.body, color: C.text, flex: 1 },
     errorText: { ...Type.caption, color: C.danger },
     helper: { ...Type.caption, color: C.textTertiary },
     chipRow: {
@@ -767,26 +793,6 @@ function makeStyles(C: Theme) {
     removeResumeText: { ...Type.secondary, fontWeight: "600", color: C.danger },
     twoColumnRow: { flexDirection: "row", gap: Space.sm },
     flexField: { flex: 1, gap: Space.xs },
-    countRow: { flexDirection: "row", gap: Space.sm },
-    countCard: {
-      flex: 1,
-      minHeight: 82,
-      borderRadius: Radius.xl,
-      backgroundColor: C.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 2,
-    },
-    countCardSelected: {
-      backgroundColor: C.primaryLight,
-      borderColor: C.primary,
-    },
-    countNumber: { ...Type.title, fontWeight: "700", color: C.text },
-    countNumberSelected: { color: C.primary },
-    countLabel: { ...Type.caption, color: C.textTertiary },
-    countLabelSelected: { color: C.primary },
     dateCard: {
       minHeight: 72,
       borderRadius: Radius.xl,

@@ -35,6 +35,8 @@ export type JobMatch = {
   location: string | null;
   work_mode: JobSearchWorkMode | null;
   salary: string | null;
+  experience: string | null;
+  match_score: number | null;
   url: string;
   source: string | null;
   posted_at: string | null;

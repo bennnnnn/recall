@@ -11,7 +11,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-type Option = { key: string; label: string };
+type Option = { key: string; label: string; disabled?: boolean; note?: string };
 
 type Props = {
   visible: boolean;
@@ -55,22 +55,32 @@ export function SettingsPickerSheet({
       >
         {options.map((option) => {
           const active = option.key === selectedKey;
+          const optionDisabled = locked || Boolean(option.disabled);
           return (
             <Pressable
               key={option.key}
-              style={({ pressed }) => [s.option, pressed && s.optionPressed]}
-              disabled={locked}
+              style={({ pressed }) => [
+                s.option,
+                pressed && !optionDisabled && s.optionPressed,
+              ]}
+              disabled={optionDisabled}
               accessibilityRole="radio"
-              accessibilityState={{ selected: active, disabled: locked }}
+              accessibilityState={{ selected: active, disabled: optionDisabled }}
               accessibilityLabel={option.label}
               onPress={() => {
-                if (locked) return;
+                if (optionDisabled) return;
                 if (!active) onSelect(option.key);
                 onClose();
               }}
             >
-              <Text style={s.optionText}>{option.label}</Text>
-              {active ? <Icon name="checkmark" size={22} color={theme.primary} /> : null}
+              <Text style={[s.optionText, optionDisabled && s.optionTextDisabled]}>
+                {option.label}
+              </Text>
+              {active ? (
+                <Icon name="checkmark" size={22} color={theme.primary} />
+              ) : option.note ? (
+                <Text style={s.optionNote}>{option.note}</Text>
+              ) : null}
             </Pressable>
           );
         })}
@@ -112,6 +122,14 @@ function makeStyles(t: Theme) {
       ...Type.body,
       fontSize: 18,
       color: t.text,
+    },
+    optionTextDisabled: {
+      color: t.textTertiary,
+    },
+    optionNote: {
+      ...Type.caption,
+      color: t.primary,
+      fontWeight: "600",
     },
   });
 }
