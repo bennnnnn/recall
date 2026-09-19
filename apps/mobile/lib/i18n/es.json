@@ -998,5 +998,6 @@
   "upgrade.restore_empty": "No se encontró suscripción activa para esta cuenta.",
   "upgrade.subscribe": "Hazte Pro — {{price}}/mes",
   "upgrade.subscription_terms": "La suscripción se renueva automáticamente cada mes, salvo que la canceles en tu cuenta de App Store o Google Play.",
-  "upgrade.title": "Pásate a Pro"
+  "upgrade.title": "Pásate a Pro",
+  "my_job.field_next_delivery": "Próxima entrega"
 }

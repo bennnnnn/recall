@@ -998,5 +998,6 @@
   "upgrade.restore_empty": "No active subscription found for this account.",
   "upgrade.subscribe": "Go Pro — {{price}}/month",
   "upgrade.subscription_terms": "Subscription renews automatically each month unless canceled in your App Store or Google Play account.",
-  "upgrade.title": "Upgrade to Pro"
+  "upgrade.title": "Upgrade to Pro",
+  "my_job.field_next_delivery": "Next delivery"
 }
