@@ -360,9 +360,7 @@ export function JobSearchSetupForm({
               />
               {roleError ? (
                 <Text style={s.errorText}>{t("my_job.role_required_body")}</Text>
-              ) : (
-                <Text style={s.helper}>{t("my_job.roles_helper")}</Text>
-              )}
+              ) : null}
             </View>
 
             <View style={s.fieldGroup}>
