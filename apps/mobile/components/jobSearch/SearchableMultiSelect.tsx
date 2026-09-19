@@ -133,6 +133,11 @@ export function SearchableMultiSelect({
         contentContainerStyle={s.sheetContent}
       >
         <Text style={s.sheetTitle}>{sheetTitle}</Text>
+        {atMax ? (
+          <Text style={s.sheetMaxHint}>
+            {t("my_job.picker_max_reached", { max: maxSelections })}
+          </Text>
+        ) : null}
         <View style={s.sheetSearchRow}>
           <Icon name="search" size={18} color={C.textTertiary} />
           <TextInput
@@ -167,8 +172,13 @@ export function SearchableMultiSelect({
             }
             renderItem={({ item }) => (
               <Pressable
-                style={({ pressed }) => [s.sheetRow, pressed && s.sheetRowPressed]}
+                style={({ pressed }) => [
+                  s.sheetRow,
+                  pressed && s.sheetRowPressed,
+                  atMax && s.disabled,
+                ]}
                 onPress={() => addValue(item)}
+                disabled={atMax}
                 accessibilityRole="button"
               >
                 <Icon name="add-circle-outline" size={20} color={C.primary} />
@@ -242,6 +252,7 @@ function makeStyles(C: Theme) {
       textAlign: "center",
       paddingBottom: Space.xxs,
     },
+    sheetMaxHint: { ...Type.caption, color: C.warning, textAlign: "center" },
     sheetSearchRow: {
       flexDirection: "row",
       alignItems: "center",
