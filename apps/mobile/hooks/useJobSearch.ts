@@ -9,6 +9,7 @@ import {
   type JobSearchDashboard,
   type JobSearchInput,
 } from "@/lib/api";
+import { cacheJobMatches } from "@/lib/jobSearch/matchCache";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const EMPTY: JobSearchDashboard = { profile: null, matches: [] };
@@ -37,6 +38,7 @@ export function useJobSearch(isCurrent: () => boolean) {
       if (!opts?.silent) setLoading(true);
       try {
         const next = await api.getJobSearch(token);
+        cacheJobMatches(next.matches);
         if (!isCurrent()) return;
         setDashboard(next);
         setError(false);
@@ -105,6 +107,7 @@ export function useJobSearch(isCurrent: () => boolean) {
       }));
       try {
         const next = await api.setJobMatchStatus(token, id, status);
+        cacheJobMatches(next.matches);
         if (isCurrent()) setDashboard(next);
       } catch {
         if (!isCurrent()) return;

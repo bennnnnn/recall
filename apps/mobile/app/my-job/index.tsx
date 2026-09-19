@@ -350,7 +350,11 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
           </View>
         }
         renderItem={({ item }) => (
-          <JobMatchCard match={item} onStatus={(status) => void setMatchStatus(item.id, status)} />
+          <JobMatchCard
+            match={item}
+            onStatus={(status) => void setMatchStatus(item.id, status)}
+            onPress={() => router.push(`/my-job/match/${item.id}`)}
+          />
         )}
       />
       <JobSearchActionsSheet
