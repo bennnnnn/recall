@@ -876,12 +876,10 @@
   "my_job.empty_applied_body": "Mark a job as applied to keep your search organized.",
   "my_job.status_paused": "PAUSED",
   "my_job.status_your_search": "YOUR SEARCH",
-  "my_job.edit_a11y": "Edit job search",
   "my_job.next_delivery": "Next: {{date}}",
   "my_job.pause": "Pause",
   "my_job.resume": "Resume",
   "my_job.find_now": "Find jobs now",
-  "my_job.delete_a11y": "Delete job search",
   "my_job.tab_matches": "Matches",
   "my_job.tab_saved": "Saved",
   "my_job.tab_applied": "Applied",
@@ -978,5 +976,9 @@
   "my_job.searching": "Searching…",
   "my_job.run_timeout": "Still searching — new matches will show up here when they're ready.",
   "todos.edit_reminder": "Edit reminder",
-  "memory.edit_count": "{{count}} / {{max}}"
+  "memory.edit_count": "{{count}} / {{max}}",
+  "my_job.menu_a11y": "Azioni ricerca lavoro",
+  "my_job.edit": "Modifica ricerca",
+  "my_job.share": "Condividi ricerca",
+  "my_job.share_failed": "Impossibile condividere la ricerca. Riprova."
 }
