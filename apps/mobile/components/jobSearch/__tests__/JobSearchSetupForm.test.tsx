@@ -104,3 +104,28 @@ test("keeps setup open when save returns false", async () => {
   expect(onClose).not.toHaveBeenCalled();
   expect(screen.getByText("my_job.start_search")).toBeTruthy();
 });
+
+test("moves through all setup steps and back without saving", async () => {
+  const onSave = jest.fn(async () => true);
+  const screen = await render(
+    <JobSearchSetupForm
+      initial={null}
+      busy={false}
+      onClose={jest.fn()}
+      onSave={onSave}
+    />,
+  );
+
+  expect(screen.getByText("my_job.step0_title")).toBeTruthy();
+  await fireEvent.press(screen.getByText("common.next"));
+  expect(screen.getByText("my_job.step1_title")).toBeTruthy();
+  await fireEvent.press(screen.getByText("common.next"));
+  expect(screen.getByText("my_job.step2_title")).toBeTruthy();
+  await fireEvent.press(screen.getByText("common.next"));
+  expect(screen.getByText("my_job.step3_title")).toBeTruthy();
+
+  await fireEvent.press(screen.getByText("common.back"));
+
+  expect(screen.getByText("my_job.step2_title")).toBeTruthy();
+  expect(onSave).not.toHaveBeenCalled();
+});
