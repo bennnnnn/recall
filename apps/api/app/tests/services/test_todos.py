@@ -953,6 +953,64 @@ async def test_materialize_reminder_fences_skips_invalid():
 
 
 @pytest.mark.asyncio
+async def test_materialize_reminder_fences_matches_uppercase_tag():
+    """The linear scanner keeps the old regex's IGNORECASE language tag."""
+    session = AsyncMock()
+    text = 'Sure!\n```REMINDER\n{"title":"Water plants","due_at":"2026-09-07T18:00:00"}\n```\n'
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+        )
+    assert created == 1
+    assert "```REMINDER" not in updated
+    create_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_ignores_unclosed_fence():
+    """No closing triple backtick → no match, text untouched (regex parity)."""
+    session = AsyncMock()
+    text = 'Here you go:\n```reminder\n{"title":"Water plants","due_at":"2026-09-07T18:00:00"}\n'
+    with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+        )
+    assert created == 0
+    assert updated == text
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_requires_newline_after_tag():
+    """A one-line ```reminder {...}``` fence never matched the regex either."""
+    session = AsyncMock()
+    text = '```reminder {"title":"Water plants","due_at":"2026-09-07T18:00:00"}```'
+    with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+        )
+    assert created == 0
+    assert updated == text
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_materialize_reminder_fences_rejects_date_only_due():
     session = AsyncMock()
     text = '```reminder\n{"title":"Water plants","due_at":"2026-09-07"}\n```\n'

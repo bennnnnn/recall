@@ -38,7 +38,6 @@ from app.services.todos.recurrence import snap_first_due
 
 logger = logging.getLogger(__name__)
 
-_REMINDER_FENCE = re.compile(r"```reminder\s*\n([\s\S]*?)```", re.IGNORECASE)
 _INVALID_FENCE = "*Could not set that reminder — the format was invalid.*"
 _WEEKDAYS = (
     "monday",
@@ -177,6 +176,41 @@ def _parse_fence(raw: str) -> _ReminderFence | None:
         return _ReminderFence.model_validate(data)
     except ValidationError:
         return None
+
+
+def _find_reminder_fences(text: str) -> list[tuple[int, int, str]]:
+    """Linear scan for ```reminder fences → (start, end, body) spans.
+
+    CodeQL py/polynomial-redos flagged the old `` ```reminder\\s*\\n([\\s\\S]*?)``` ``
+    regex: on uncontrolled LLM output the ``\\s*\\n`` / lazy-any combination
+    backtracks over whitespace and backtick runs. This scan is ``str.find``
+    plus a whitespace walk only — every character is visited O(1) times.
+
+    Semantics match the regex: the language tag is case-insensitive, the
+    whitespace run after it must contain a newline, the body is everything
+    up to the next triple backtick, and unclosed fences do not match.
+    """
+    spans: list[tuple[int, int, str]] = []
+    lowered = text.lower()
+    pos = 0
+    length = len(text)
+    while True:
+        start = lowered.find("```reminder", pos)
+        if start < 0:
+            return spans
+        index = start + len("```reminder")
+        saw_newline = False
+        while index < length and text[index].isspace():
+            saw_newline = saw_newline or text[index] == "\n"
+            index += 1
+        if not saw_newline:
+            pos = start + 1
+            continue
+        end_ticks = text.find("```", index)
+        if end_ticks < 0:
+            return spans
+        spans.append((start, end_ticks + 3, text[index:end_ticks]))
+        pos = end_ticks + 3
 
 
 def _find_phrase(haystack: str, needle: str, *, start: int = 0) -> int:
@@ -478,7 +512,8 @@ async def materialize_reminder_fences(
     today/tomorrow at 6pm" (clock required) is applied so the item still lands
     on Schedule.
     """
-    if not _REMINDER_FENCE.search(assistant_text):
+    spans = _find_reminder_fences(assistant_text)
+    if not spans:
         draft = _explicit_user_remind(user_text, user_timezone)
         if draft is None:
             return assistant_text, 0
@@ -509,12 +544,12 @@ async def materialize_reminder_fences(
     result_lines: list[str] = []
     last = 0
     created_any = False
-    for match in _REMINDER_FENCE.finditer(assistant_text):
-        parts.append(assistant_text[last : match.start()])
-        last = match.end()
+    for fence_start, fence_end, fence_body in spans:
+        parts.append(assistant_text[last:fence_start])
+        last = fence_end
         if state.applied >= MAX_TODO_ACTIONS_PER_TURN:
             continue
-        draft = _parse_fence(match.group(1))
+        draft = _parse_fence(fence_body)
         if draft is None:
             logger.warning("Invalid reminder fence payload for user_id=%s", state.user_id)
             fallback = _explicit_user_remind(user_text, user_timezone)
