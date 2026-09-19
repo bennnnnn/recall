@@ -12,6 +12,7 @@ from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.core.jobs import enqueue
 from app.models.orm import User
 from app.models.schemas.job_search import (
+    CoverLetterOut,
     JobMatchStatusUpdate,
     JobSearchDashboardOut,
     JobSearchStateUpdate,
@@ -82,6 +83,26 @@ async def update_job_match_status(
             match_id,
             body.status,
             body.notes,
+        )
+    except job_search_service.JobSearchError as exc:
+        raise _map_error(exc) from exc
+
+
+@router.post("/matches/{match_id}/cover-letter", response_model=CoverLetterOut)
+async def generate_job_cover_letter(
+    match_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
+) -> CoverLetterOut:
+    try:
+        return await job_search_service.generate_cover_letter(
+            session,
+            user,
+            settings,
+            redis,
+            match_id,
         )
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc
