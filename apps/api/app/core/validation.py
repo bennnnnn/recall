@@ -106,13 +106,31 @@ _TITLE_TRAIL_PUNCT = ".!?,;:"
 _TITLE_WRAP_RE = re.compile(
     rf"^[{re.escape(_TITLE_QUOTES)}]+|[{re.escape(_TITLE_QUOTES)}]+[{re.escape(_TITLE_TRAIL_PUNCT)}]*$"
 )
+# Markdown emphasis the title model occasionally emits ("**Document Summaries**",
+# once "**D**ocument** Summaries"). Bold runs never belong in a title; single
+# `*`/`_` pairs are stripped only at word boundaries so "x*2" and snake_case
+# survive.
+_TITLE_BOLD_RE = re.compile(r"\*\*|__")
+_TITLE_EM_STAR_RE = re.compile(r"(?<!\w)\*([^*\n]+)\*(?!\w)")
+_TITLE_EM_UNDER_RE = re.compile(r"(?<!\w)_([^_\n]+)_(?!\w)")
+
+
+def _strip_title_emphasis(title: str) -> str:
+    title = _TITLE_BOLD_RE.sub("", title)
+    prev = None
+    while prev != title:
+        prev = title
+        title = _TITLE_EM_STAR_RE.sub(r"\1", title)
+        title = _TITLE_EM_UNDER_RE.sub(r"\1", title)
+    return title
 
 
 def unwrap_chat_title(raw: str) -> str:
-    """Strip wrapping quotes/punct until stable (fixes '"My Trip Plan".')."""
+    """Strip wrapping quotes/punct/emphasis until stable (fixes '"My Trip Plan".')."""
     title = raw.strip()
     while True:
         prev = title
+        title = _strip_title_emphasis(title)
         title = _TITLE_WRAP_RE.sub("", title).strip()
         title = title.rstrip(_TITLE_TRAIL_PUNCT).strip()
         title = title.strip(_TITLE_QUOTES).strip()

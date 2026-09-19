@@ -88,6 +88,7 @@ async def generate_title(
             "role": "system",
             "content": (
                 "You title conversations in 3-6 words. Reply with ONLY the title. "
+                "Plain text only — no markdown, no asterisks, no quotes. "
                 "Never copy the user's message verbatim. "
                 "Never use generic labels like 'New chat', 'Untitled', or 'Chat'. "
                 "Greetings (hi, hello, good morning) get a short topic label such as Greeting."
