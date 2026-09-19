@@ -1,10 +1,12 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import MyJobScreen from "@/app/my-job";
+import type { JobSearchDashboard, JobSearchProfile } from "@/lib/api";
 
 const mockRefresh = jest.fn(async () => {});
 let mockLoading = true;
 let mockError = false;
+let mockDashboard: JobSearchDashboard = { profile: null, matches: [] };
 
 jest.mock("expo-router", () => {
   const React = jest.requireActual<typeof import("react")>("react");
@@ -22,7 +24,7 @@ jest.mock("@/hooks/useAccountViewOwner", () => ({
 }));
 jest.mock("@/hooks/useJobSearch", () => ({
   useJobSearch: () => ({
-    dashboard: { profile: null, matches: [] },
+    dashboard: mockDashboard,
     loading: mockLoading,
     busy: false,
     error: mockError,
@@ -32,6 +34,7 @@ jest.mock("@/hooks/useJobSearch", () => ({
     remove: jest.fn(),
   }),
 }));
+jest.mock("@shopify/flash-list");
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -79,7 +82,33 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockLoading = true;
   mockError = false;
+  mockDashboard = { profile: null, matches: [] };
 });
+
+function profile(): JobSearchProfile {
+  return {
+    id: "profile-a",
+    target_roles: ["Registered Nurse"],
+    skills: [],
+    location: "Berlin",
+    work_modes: ["onsite"],
+    experience_levels: ["mid"],
+    salary_min: null,
+    requires_sponsorship: null,
+    excluded_companies: [],
+    background: null,
+    resume_attachment_id: null,
+    resume_filename: null,
+    result_count: 5,
+    frequency: "weekly",
+    next_run_at: "2026-09-20T08:00:00.000Z",
+    status: "active",
+    last_run_at: null,
+    last_run_status: null,
+    created_at: "2026-09-18T00:00:00.000Z",
+    updated_at: "2026-09-18T00:00:00.000Z",
+  };
+}
 
 test("shows a skeleton while the first dashboard request is pending", async () => {
   const screen = await render(<MyJobScreen />);
@@ -104,4 +133,15 @@ test("shows onboarding only after a successful empty response", async () => {
   const screen = await render(<MyJobScreen />);
   expect(screen.getByText("my_job.hero_title")).toBeTruthy();
   expect(screen.queryByText("my_job.refresh_error")).toBeNull();
+  expect(screen.getByRole("button", { name: "my_job.setup_cta" })).toBeTruthy();
+});
+
+test("uses a minimum 44 point menu target", async () => {
+  mockLoading = false;
+  mockDashboard = { profile: profile(), matches: [] };
+  const screen = await render(<MyJobScreen />);
+  expect(screen.getByLabelText("my_job.menu_a11y")).toHaveStyle({
+    width: 44,
+    height: 44,
+  });
 });

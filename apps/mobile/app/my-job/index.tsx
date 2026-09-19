@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
   Alert,
-  FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -212,6 +212,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
           <Pressable
             style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
             onPress={openSetup}
+            accessibilityRole="button"
+            accessibilityLabel={t("my_job.setup_cta")}
           >
             <Text style={s.primaryButtonText}>{t("my_job.setup_cta")}</Text>
             <Icon name="arrow-forward" size={20} color={C.onPrimary} />
@@ -241,7 +243,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
 
   return (
     <View style={s.root}>
-      <FlatList<JobMatch>
+      <FlashList<JobMatch>
         data={visibleMatches}
         keyExtractor={(item) => item.id}
         contentContainerStyle={s.listContent}
@@ -395,9 +397,9 @@ function makeStyles(C: Theme) {
     overline: { ...Type.overline, color: C.primary },
     searchTitle: { ...Type.title, color: C.text, fontWeight: "700", marginTop: Space.xs },
     iconButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      width: Space.minTouch,
+      height: Space.minTouch,
+      borderRadius: Space.minTouch / 2,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: C.surfaceAlt,

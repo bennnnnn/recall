@@ -197,10 +197,10 @@ export function JobSearchSetupForm({
       const id = await uploadChatAttachment(token, picked);
       setResumeId(id);
       setResumeName(picked.fileName);
-    } catch (error) {
+    } catch {
       Alert.alert(
         t("my_job.resume_upload_failed_title"),
-        error instanceof Error ? error.message : t("my_job.resume_upload_failed_body"),
+        t("my_job.resume_upload_failed_body"),
       );
     } finally {
       setUploadingResume(false);

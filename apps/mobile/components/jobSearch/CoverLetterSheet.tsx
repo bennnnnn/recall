@@ -1,5 +1,13 @@
 import { useMemo } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { setStringAsync } from "expo-clipboard";
 
@@ -38,7 +46,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
     try {
       await presentShareSheet({ message: letter });
     } catch {
-      // User cancelled or share failed — nothing to recover.
+      Alert.alert(t("common.share_failed"), t("my_job.share_failed"));
     }
   };
 
@@ -103,9 +111,9 @@ function makeStyles(C: Theme) {
     },
     headerTitle: { ...Type.navTitle, color: C.text, fontWeight: "700" },
     closeButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: Space.minTouch,
+      height: Space.minTouch,
+      borderRadius: Space.minTouch / 2,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: C.surfaceAlt,
