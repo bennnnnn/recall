@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { JobMatchCard } from "@/components/jobSearch/JobMatchCard";
+import { JobSearchActionsSheet } from "@/components/jobSearch/JobSearchActionsSheet";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
@@ -24,6 +25,7 @@ import type { JobMatch, JobMatchStatus, JobSearchProfile } from "@/lib/api";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { notifyWarning, selection, tap } from "@/lib/haptics";
+import { presentShareSheet } from "@/lib/share";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -107,6 +109,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   }, [router]);
   const [tab, setTab] = useState<Tab>("matches");
   const [refreshing, setRefreshing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -140,6 +143,40 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
         },
       },
     ]);
+  };
+
+  const handleEdit = () => {
+    setMenuOpen(false);
+    openSetup();
+  };
+  const handleTogglePause = () => {
+    if (!profile) return;
+    selection();
+    setMenuOpen(false);
+    void setSearchStatus(profile.status === "paused" ? "active" : "paused");
+  };
+  const handleShare = async () => {
+    if (!profile) return;
+    const message = [
+      profile.target_roles.join(" · "),
+      [profile.location, profile.work_modes.join(" / ")].filter(Boolean).join(" · "),
+      cadence(profile, t),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    // Keep the AppSheet up until the share sheet returns — closing the Modal
+    // first tears down the presenter and iOS dismisses the activity sheet.
+    try {
+      await presentShareSheet({ message, title: t("my_job.title") });
+    } catch {
+      Alert.alert(t("my_job.share_failed"));
+    } finally {
+      setMenuOpen(false);
+    }
+  };
+  const handleDelete = () => {
+    setMenuOpen(false);
+    confirmDelete();
   };
 
   if (!token) return <Redirect href="/login" />;
@@ -235,11 +272,14 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 </View>
                 <Pressable
                   style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
-                  onPress={openSetup}
+                  onPress={() => {
+                    tap();
+                    setMenuOpen(true);
+                  }}
                   accessibilityRole="button"
-                  accessibilityLabel={t("my_job.edit_a11y")}
+                  accessibilityLabel={t("my_job.menu_a11y")}
                 >
-                  <Icon name="options-outline" size={21} color={C.text} />
+                  <Icon name="ellipsis-horizontal" size={21} color={C.text} />
                 </Pressable>
               </View>
 
@@ -261,25 +301,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 </View>
               </View>
 
-              <View style={s.searchActions}>
-                <Pressable
-                  style={({ pressed }) => [s.secondaryButton, pressed && s.pressed]}
-                  onPress={() => {
-                    selection();
-                    void setSearchStatus(profile.status === "paused" ? "active" : "paused");
-                  }}
-                  disabled={busy}
-                >
-                  <Icon
-                    name={profile.status === "paused" ? "play-outline" : "pause-outline"}
-                    size={18}
-                    color={C.text}
-                  />
-                  <Text style={s.secondaryButtonText}>
-                    {profile.status === "paused" ? t("my_job.resume") : t("my_job.pause")}
-                  </Text>
-                </Pressable>
-                {user?.plan === "pro" ? (
+              {user?.plan === "pro" ? (
+                <View style={s.searchActions}>
                   <Pressable
                     style={({ pressed }) => [s.secondaryButton, pressed && s.pressed]}
                     onPress={() => {
@@ -298,17 +321,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                       {running ? t("my_job.searching") : t("my_job.find_now")}
                     </Text>
                   </Pressable>
-                ) : null}
-                <Pressable
-                  style={({ pressed }) => [s.moreButton, pressed && s.pressed]}
-                  onPress={confirmDelete}
-                  disabled={busy}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("my_job.delete_a11y")}
-                >
-                  <Icon name="trash-outline" size={19} color={C.danger} />
-                </Pressable>
-              </View>
+                </View>
+              ) : null}
             </View>
 
             <View style={s.tabs} accessibilityRole="tablist">
@@ -338,6 +352,16 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
         renderItem={({ item }) => (
           <JobMatchCard match={item} onStatus={(status) => void setMatchStatus(item.id, status)} />
         )}
+      />
+      <JobSearchActionsSheet
+        visible={menuOpen}
+        paused={profile.status === "paused"}
+        busy={busy}
+        onClose={() => setMenuOpen(false)}
+        onEdit={handleEdit}
+        onTogglePause={handleTogglePause}
+        onShare={() => void handleShare()}
+        onDelete={handleDelete}
       />
     </View>
   );
@@ -439,14 +463,6 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
     },
     secondaryButtonText: { ...Type.compact, color: C.text, fontWeight: "600" },
-    moreButton: {
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: C.dangerLight,
-    },
     tabs: {
       flexDirection: "row",
       padding: 4,
