@@ -492,6 +492,11 @@ async def test_augment_prompt_no_intent_forbids_invented_geometry(
     from app.services.math.tools import prompt as math_prompt
 
     monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
+
+    async def _no_llm_extract(_text: str, _settings: Settings) -> None:
+        return None
+
+    monkeypatch.setattr(math_prompt, "llm_extract_math_intent", _no_llm_extract)
     settings = Settings(math_tools_enabled=True)
     note, verified = await math_prompt.build_math_augmentation(
         "find the angle",
@@ -1542,7 +1547,43 @@ async def test_augment_prompt_calculus_attaches_answer_fence() -> None:
 
 
 @pytest.mark.asyncio
-async def test_english_calculus_does_not_produce_verified_block() -> None:
+async def test_english_calculus_verifies_via_llm_extract_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Was: English calculus the regex can't parse stayed unverified. The LLM
+    extraction fallback (gate-fired + regex-None) now closes it — SymPy still
+    does the actual math."""
+    from app.gateways import litellm_gateway
+    from app.services.math.tools.llm_extract import LLMMathExtract
+
+    async def fake_extract(**kwargs: object) -> LLMMathExtract:
+        return LLMMathExtract(
+            found=True, kind="calculus", operation="differentiate", expr="x^2 + 3*x"
+        )
+
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake_extract)
+    settings = Settings(math_tools_enabled=True)
+    text = "what's the derivative of x squared plus 3x"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert verified.canonical_answer is not None
+    compact = verified.canonical_answer.replace(" ", "")
+    assert "2*x" in compact or "2x" in compact
+
+
+@pytest.mark.asyncio
+async def test_english_calculus_stays_unverified_when_llm_extract_finds_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.gateways import litellm_gateway
+    from app.services.math.tools.llm_extract import LLMMathExtract
+
+    async def fake_extract(**kwargs: object) -> LLMMathExtract:
+        return LLMMathExtract(found=False)
+
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake_extract)
     settings = Settings(math_tools_enabled=True)
     text = "what's the derivative of x squared plus 3x"
     _out, verified = await math_tools.augment_prompt_messages(
