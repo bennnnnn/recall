@@ -40,6 +40,7 @@ from app.services.math.tools.extract import trig_domain_would_be_dropped
 from app.services.mcp.calendar_adapter import bind_calendar_context
 from app.services.mcp.image_gen_adapter import bind_image_gen_context
 from app.services.mcp.image_search_adapter import bind_image_search_context
+from app.services.mcp.job_search_adapter import bind_job_search_context
 from app.services.mcp.web_search_adapter import bind_search_quota_context
 from app.services.model_catalog import auto_fast_alias, is_reasoning_alias
 
@@ -311,12 +312,15 @@ def turn_needs_tool_loop(
 
     from app.services.images.gen_intent import extract_image_gen_prompt
     from app.services.images.lookup_intent import extract_image_lookup_query
+    from app.services.job_search.chat_intent import wants_job_search
     from app.services.math.tools import needs_symbolic_math
     from app.services.web_search.detection import needs_web_search
 
     if web_search is True:
         return True
     if web_search is not False and not has_search_sources and needs_web_search(text):
+        return True
+    if wants_job_search(text):
         return True
     math_on = settings is None or settings.math_tools_enabled
     if math_on and needs_symbolic_math(text):
@@ -391,6 +395,7 @@ async def run_tool_rounds(
         bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
         bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
         bind_calendar_context(user=user, redis=redis, settings=settings),
+        bind_job_search_context(user=user, redis=redis),
     ):
         working, verified, terminal, hits = await _run_tool_rounds_bound(
             settings=settings,
