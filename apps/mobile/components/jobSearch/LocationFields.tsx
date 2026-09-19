@@ -110,14 +110,21 @@ export function LocationFields({ value, onChange, disabled }: Props) {
     try {
       const result = await requestDevicePlace();
       if (result.status === "granted") {
-        const country = result.place.country
-          ? (matchCountry(result.place.country) ?? result.place.country)
+        const { place } = result;
+        if (!place.country && !place.region && !place.city) {
+          // Permission was fine but the geocoder returned nothing (e.g. no
+          // simulated location) — say so instead of wiping the fields.
+          setGeoHint("error");
+          return;
+        }
+        const country = place.country
+          ? (matchCountry(place.country) ?? place.country)
           : "";
         const region =
-          country && result.place.region
-            ? (matchSubdivision(country, result.place.region) ?? result.place.region)
+          country && place.region
+            ? (matchSubdivision(country, place.region) ?? place.region)
             : "";
-        onChange({ country, region, city: result.place.city ?? "" });
+        onChange({ country, region, city: place.city ?? "" });
       } else {
         setGeoHint(result.status === "expo_go" ? "expo_go" : result.status === "error" ? "error" : "denied");
       }
@@ -228,7 +235,6 @@ export function LocationFields({ value, onChange, disabled }: Props) {
           style={s.input}
           value={value.city}
           onChangeText={(city) => onChange({ ...value, city })}
-          placeholder={t("my_job.location_city_placeholder")}
           placeholderTextColor={C.textDisabled}
           editable={!disabled}
           autoCapitalize="words"
