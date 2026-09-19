@@ -431,6 +431,44 @@ def test_sample_function_does_not_split_a_smooth_function(expr: str) -> None:
     assert len(result.segments) == 1
 
 
+def test_sample_function_splits_even_order_pole_without_sign_flip() -> None:
+    """1/x**2 diverges to +inf on BOTH sides of x=0 — no sign flip, so the
+    numeric heuristic cannot see it. The symbolic pole split catches it."""
+    result = math_solve.sample_function(
+        GraphSampleInput(expr="1/x**2", variable="x", x_min=-10, x_max=10, n=200)
+    )
+    assert len(result.segments) == 2
+    assert all(p[0] < 0 for p in result.segments[0])
+    assert all(p[0] > 0 for p in result.segments[1])
+    assert sum(len(seg) for seg in result.segments) == len(result.points)
+
+
+def test_sample_function_splits_shifted_pole_at_the_true_x() -> None:
+    result = math_solve.sample_function(
+        GraphSampleInput(expr="1/(x - 2)", variable="x", x_min=-10, x_max=10, n=200)
+    )
+    assert len(result.segments) == 2
+    assert max(p[0] for p in result.segments[0]) < 2
+    assert min(p[0] for p in result.segments[1]) > 2
+
+
+def test_sample_function_does_not_split_removable_singularity() -> None:
+    """sin(x)/x is bounded near x=0 (y → 1): even if SymPy names 0 a
+    singularity, the samples do not confirm divergence — no visual gap."""
+    result = math_solve.sample_function(
+        GraphSampleInput(expr="sin(x)/x", variable="x", x_min=-10, x_max=10, n=200)
+    )
+    assert len(result.segments) == 1
+
+
+def test_sample_function_symbolic_pole_outside_window_is_ignored() -> None:
+    """1/(x - 50)'s pole sits outside [-10, 10] — the curve is smooth in view."""
+    result = math_solve.sample_function(
+        GraphSampleInput(expr="1/(x - 50)", variable="x", x_min=-10, x_max=10, n=200)
+    )
+    assert len(result.segments) == 1
+
+
 def test_sample_function_zooms_undersampled_sine() -> None:
     """sin(x) on [-1000, 1000] at 96 points aliases (~20 units/sample vs period 2π)."""
     result = math_solve.sample_function(
