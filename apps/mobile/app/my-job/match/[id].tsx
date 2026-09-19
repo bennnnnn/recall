@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/Icon";
+import { CoverLetterSheet } from "@/components/jobSearch/CoverLetterSheet";
 import { JobMatchMetaChips, matchScoreColor } from "@/components/jobSearch/JobMatchMetaChips";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,7 +33,8 @@ export default function JobMatchDetailScreen() {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const { t } = useTranslation();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isPro = user?.plan === "pro";
 
   const [match, setMatch] = useState<JobMatch | null>(() =>
     id ? getCachedJobMatch(id) : null,
@@ -40,6 +42,9 @@ export default function JobMatchDetailScreen() {
   const [loading, setLoading] = useState(match == null);
   const [stageOpen, setStageOpen] = useState(false);
   const [notesDraft, setNotesDraft] = useState(match?.notes ?? "");
+  const [letterOpen, setLetterOpen] = useState(false);
+  const [letterLoading, setLetterLoading] = useState(false);
+  const [letter, setLetter] = useState<string | null>(null);
 
   useEffect(() => {
     if (match != null || !id || !token) return;
@@ -102,6 +107,22 @@ export default function JobMatchDetailScreen() {
     if ((match.notes ?? "") === notes) return;
     void updateStatus(match.status, notes === "" ? null : notes);
   }, [match, notesDraft, updateStatus]);
+
+  const generateLetter = useCallback(async () => {
+    if (!match || !token || letterLoading) return;
+    tap();
+    setLetterOpen(true);
+    setLetterLoading(true);
+    try {
+      const result = await api.generateCoverLetter(token, match.id);
+      setLetter(result.cover_letter);
+    } catch {
+      setLetterOpen(false);
+      Alert.alert(t("my_job.cover_letter_error"));
+    } finally {
+      setLetterLoading(false);
+    }
+  }, [match, token, letterLoading, t]);
 
   // A cold-loaded match (deep link) arrives after first render — sync the
   // notes draft when a different match id lands, not on every status update.
@@ -275,6 +296,18 @@ export default function JobMatchDetailScreen() {
             </Pressable>
           </View>
 
+          {isPro ? (
+            <Pressable
+              style={({ pressed }) => [s.letterCta, pressed && s.pressed]}
+              onPress={() => void generateLetter()}
+              accessibilityRole="button"
+            >
+              <Icon name="sparkles-outline" size={18} color={C.primary} />
+              <Text style={s.letterCtaText}>{t("my_job.cover_letter_cta")}</Text>
+              <Icon name="chevron-forward" size={16} color={C.textTertiary} />
+            </Pressable>
+          ) : null}
+
           <Pressable
             style={({ pressed }) => [s.stageRow, pressed && s.pressed]}
             onPress={() => {
@@ -320,6 +353,13 @@ export default function JobMatchDetailScreen() {
           }}
         />
       ) : null}
+
+      <CoverLetterSheet
+        visible={letterOpen}
+        loading={letterLoading}
+        letter={letter}
+        onClose={() => setLetterOpen(false)}
+      />
     </View>
   );
 }
@@ -410,6 +450,21 @@ function makeStyles(C: Theme) {
     actionText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
     actionTextPrimary: { color: C.onPrimary },
     actionTextActive: { color: C.primary },
+    letterCta: {
+      minHeight: 52,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.xs,
+      backgroundColor: C.primaryLight,
+      borderRadius: Radius.xl,
+      paddingHorizontal: Space.md,
+    },
+    letterCtaText: {
+      ...Type.secondary,
+      color: C.primary,
+      fontWeight: "700",
+      flex: 1,
+    },
     stageRow: {
       minHeight: 52,
       flexDirection: "row",

@@ -172,6 +172,14 @@ class JobSearchDashboardOut(BaseModel):
     matches: list[JobMatchOut] = Field(default_factory=list)
 
 
+class CoverLetterOut(BaseModel):
+    """Generated cover letter — also the structured LLM output schema."""
+
+    model_config = ConfigDict(title="CoverLetterOut")
+
+    cover_letter: str = Field(min_length=1, max_length=6000)
+
+
 class JobMatchStatusUpdate(BaseModel):
     model_config = ConfigDict(title="JobMatchStatusUpdate")
 

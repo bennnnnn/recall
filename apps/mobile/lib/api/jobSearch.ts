@@ -95,6 +95,10 @@ export const jobSearchApi = {
     }),
   runJobSearchNow: (token: string) =>
     request<JobSearchDashboard>("/job-search/run-now", token, { method: "POST" }),
+  generateCoverLetter: (token: string, id: string) =>
+    request<{ cover_letter: string }>(`/job-search/matches/${id}/cover-letter`, token, {
+      method: "POST",
+    }),
   deleteJobSearch: (token: string) =>
     request<void>("/job-search", token, { method: "DELETE" }),
 };

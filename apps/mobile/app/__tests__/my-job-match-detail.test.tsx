@@ -5,16 +5,18 @@ import type { JobMatch } from "@/lib/api";
 import { cacheJobMatches, clearJobMatchCache } from "@/lib/jobSearch/matchCache";
 
 let mockId = "m1";
+let mockPlan: "free" | "pro" = "free";
 const mockBack = jest.fn();
 const mockGetJobSearch = jest.fn();
 const mockSetJobMatchStatus = jest.fn(async () => ({ profile: null, matches: [] }));
+const mockGenerateCoverLetter = jest.fn(async () => ({ cover_letter: "Dear team, ..." }));
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ id: mockId }),
   useRouter: () => ({ back: mockBack, push: jest.fn() }),
 }));
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ token: "token-a", user: { id: "user" } }),
+  useAuth: () => ({ token: "token-a", user: { id: "user", plan: mockPlan } }),
 }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -22,6 +24,8 @@ jest.mock("react-i18next", () => ({
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn(async () => {}) }));
+jest.mock("@/lib/share", () => ({ presentShareSheet: jest.fn(async () => ({})) }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   selection: jest.fn(),
@@ -31,6 +35,7 @@ jest.mock("@/lib/api", () => ({
   api: {
     getJobSearch: (...args: unknown[]) => mockGetJobSearch(...args),
     setJobMatchStatus: (...args: unknown[]) => mockSetJobMatchStatus(...args),
+    generateCoverLetter: (...args: unknown[]) => mockGenerateCoverLetter(...args),
   },
 }));
 
@@ -59,6 +64,7 @@ function match(overrides: Partial<JobMatch> = {}): JobMatch {
 
 afterEach(() => {
   clearJobMatchCache();
+  mockPlan = "free";
   jest.clearAllMocks();
 });
 
@@ -116,4 +122,18 @@ test("notes save on blur", async () => {
       "Call recruiter Friday",
     ),
   );
+});
+
+test("cover letter CTA is Pro-only and generates into the sheet", async () => {
+  cacheJobMatches([match()]);
+  const { queryByText, rerender, getByText } = await render(<JobMatchDetailScreen />);
+  expect(queryByText("my_job.cover_letter_cta")).toBeNull();
+
+  mockPlan = "pro";
+  await rerender(<JobMatchDetailScreen />);
+  await fireEvent.press(getByText("my_job.cover_letter_cta"));
+  await waitFor(() =>
+    expect(mockGenerateCoverLetter).toHaveBeenCalledWith("token-a", "m1"),
+  );
+  await waitFor(() => expect(getByText("Dear team, ...")).toBeTruthy());
 });
