@@ -50,3 +50,6 @@ tmp/
 
 # Local Redis dev fallback (Homebrew Redis / raw redis-server) dumps here by default
 *.rdb
+
+# Hypothesis property-test example database
+.hypothesis/
