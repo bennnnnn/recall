@@ -150,6 +150,8 @@ def match_out(match: JobMatch) -> JobMatchOut:
         location=match.location,
         work_mode=cast(JobSearchWorkMode | None, match.work_mode),
         salary=match.salary,
+        experience=match.experience,
+        match_score=match.match_score,
         url=match.url,
         source=match.source,
         posted_at=match.posted_at,

@@ -1,9 +1,14 @@
 from uuid import uuid4
 
+import pytest
+from pydantic import ValidationError
+
 from app.services.job_search.runner import (
     _Candidate,
+    _fallback_rank,
     _obvious_mismatch,
     _ProfileSnapshot,
+    _RankedJob,
     canonicalize_job_url,
 )
 
@@ -61,3 +66,30 @@ def test_profile_rejects_excluded_company() -> None:
         _profile(excluded_companies=["Acme"]),
         _candidate("Backend Engineer at Acme"),
     )
+
+
+def test_ranked_job_rejects_out_of_range_match_score() -> None:
+    with pytest.raises(ValidationError):
+        _RankedJob(candidate_id=0, match_score=150)
+
+
+def test_ranked_job_accepts_score_and_experience() -> None:
+    job = _RankedJob(candidate_id=0, match_score=82, experience="  3+ years  ")
+    assert job.match_score == 82
+    assert job.experience == "3+ years"
+
+
+def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
+    profile = _profile()
+    candidates = [
+        _candidate("Backend Engineer", "Python FastAPI remote"),
+        _candidate("Backend Engineer", "Python"),
+    ]
+    accepted = _fallback_rank(profile, candidates)
+    assert len(accepted) == 2
+    scores = [job.match_score for job in accepted]
+    assert all(score is not None and 0 <= score <= 100 for score in scores)
+    # More keyword hits must not rank below fewer hits.
+    assert scores[0] is not None and scores[1] is not None
+    assert scores[0] >= scores[1]
+    assert accepted[0].experience is None

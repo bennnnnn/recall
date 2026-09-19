@@ -117,6 +117,8 @@ class JobMatchOut(BaseModel):
     location: str | None = None
     work_mode: JobSearchWorkMode | None = None
     salary: str | None = None
+    experience: str | None = None
+    match_score: int | None = None
     url: str
     source: str | None = None
     posted_at: str | None = None
