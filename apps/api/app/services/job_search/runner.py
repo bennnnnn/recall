@@ -50,6 +50,34 @@ _NO_SPONSORSHIP = re.compile(
     r"\b(no|without|unable to provide)\s+(visa\s+)?sponsorship\b",
     re.IGNORECASE,
 )
+_COMPANY_SUFFIXES = re.compile(
+    r"\b(inc|llc|ltd|gmbh|corp|corporation|co|company|sarl|sas|ag)\b\.?",
+    re.IGNORECASE,
+)
+
+
+def _normalize_key_part(value: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9 ]+", " ", value.casefold()).split())
+
+
+def _title_company_key(title: str, company: str) -> str:
+    """Cross-source identity: the same opening posted on several boards shares
+    a title+company pair even though every URL differs."""
+    normalized_company = _normalize_key_part(_COMPANY_SUFFIXES.sub("", company))
+    return f"{_normalize_key_part(title)}|{normalized_company}"
+
+
+def _dedupe_accepted(accepted: list[_AcceptedJob]) -> list[_AcceptedJob]:
+    """Drop same-job repeats inside one batch (different boards, same opening)."""
+    seen: set[str] = set()
+    unique: list[_AcceptedJob] = []
+    for item in accepted:
+        key = _title_company_key(item.title, item.company)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
 
 
 @dataclass(frozen=True, slots=True)
@@ -553,8 +581,16 @@ async def _finish_run(
                 await session.scalars(select(JobMatch).where(JobMatch.profile_id == profile.id))
             ).all()
         }
-        for item in accepted:
+        # Cross-source identity: the same opening on another board must update
+        # the existing card, not insert a duplicate under a second URL.
+        existing_keys = {
+            _title_company_key(match.title, match.company): match
+            for match in existing.values()
+        }
+        for item in _dedupe_accepted(accepted):
             match = existing.get(item.candidate.canonical_url)
+            if match is None:
+                match = existing_keys.get(_title_company_key(item.title, item.company))
             if match is None:
                 match = JobMatch(
                     profile_id=profile.id,

@@ -10,6 +10,7 @@ from app.models.schemas.job_search import ResumeProfile
 from app.services.job_search import runner
 from app.services.job_search.runner import (
     _Candidate,
+    _dedupe_accepted,
     _fallback_rank,
     _fetch_posting_pages,
     _obvious_mismatch,
@@ -17,6 +18,7 @@ from app.services.job_search.runner import (
     _RankedJob,
     _ranking_messages,
     _search_queries,
+    _title_company_key,
     canonicalize_job_url,
 )
 
@@ -186,3 +188,45 @@ def test_ranking_messages_include_structured_resume_profile() -> None:
     assert '"resume_profile"' in payload
     assert '"years_experience": 4' in payload
     assert "raw resume text" in payload
+
+
+def test_title_company_key_ignores_case_punctuation_and_suffixes() -> None:
+    assert _title_company_key("Backend Engineer", "Acme, Inc.") == _title_company_key(
+        "backend engineer", "Acme"
+    )
+    assert _title_company_key("Backend Engineer", "Acme") != _title_company_key(
+        "Frontend Engineer", "Acme"
+    )
+
+
+def test_dedupe_accepted_drops_cross_source_repeats() -> None:
+    def accepted(title: str, company: str, url: str) -> runner._AcceptedJob:
+        return runner._AcceptedJob(
+            candidate=_Candidate(
+                candidate_id=0,
+                title=title,
+                url=url,
+                canonical_url=url,
+                snippet="",
+                source="board.example.com",
+            ),
+            title=title,
+            company=company,
+            location=None,
+            work_mode=None,
+            salary=None,
+            experience=None,
+            match_score=None,
+            posted_at=None,
+            summary=None,
+            match_reasons=[],
+            gap=None,
+        )
+
+    batch = [
+        accepted("Backend Engineer", "Acme Inc", "https://linkedin.example.com/1"),
+        accepted("Backend Engineer", "Acme", "https://indeed.example.com/2"),
+        accepted("Backend Engineer", "Other Co", "https://indeed.example.com/3"),
+    ]
+    unique = _dedupe_accepted(batch)
+    assert [item.company for item in unique] == ["Acme Inc", "Other Co"]
