@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/Icon";
 import { JobMatchMetaChips, matchScoreColor } from "@/components/jobSearch/JobMatchMetaChips";
+import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type JobMatch, type JobMatchStatus } from "@/lib/api";
 import { notifyWarning, selection, tap } from "@/lib/haptics";
@@ -14,6 +15,15 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+
+const STAGES: JobMatchStatus[] = [
+  "new",
+  "saved",
+  "applied",
+  "interviewing",
+  "offer",
+  "rejected",
+];
 
 export default function JobMatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,6 +38,8 @@ export default function JobMatchDetailScreen() {
     id ? getCachedJobMatch(id) : null,
   );
   const [loading, setLoading] = useState(match == null);
+  const [stageOpen, setStageOpen] = useState(false);
+  const [notesDraft, setNotesDraft] = useState(match?.notes ?? "");
 
   useEffect(() => {
     if (match != null || !id || !token) return;
@@ -62,14 +74,18 @@ export default function JobMatchDetailScreen() {
   }, [match, t]);
 
   const updateStatus = useCallback(
-    async (status: JobMatchStatus) => {
+    async (status: JobMatchStatus, notes?: string | null) => {
       if (!match || !token) return;
       const previous = match;
-      const next = { ...match, status };
+      const next: JobMatch = {
+        ...match,
+        status,
+        notes: notes === undefined ? match.notes : notes,
+      };
       setMatch(next);
       cacheJobMatch(next);
       try {
-        await api.setJobMatchStatus(token, match.id, status);
+        await api.setJobMatchStatus(token, match.id, status, notes);
         if (status === "hidden") router.back();
       } catch {
         setMatch(previous);
@@ -80,8 +96,28 @@ export default function JobMatchDetailScreen() {
     [match, token, router, t],
   );
 
+  const saveNotes = useCallback(() => {
+    if (!match) return;
+    const notes = notesDraft.trim();
+    if ((match.notes ?? "") === notes) return;
+    void updateStatus(match.status, notes === "" ? null : notes);
+  }, [match, notesDraft, updateStatus]);
+
+  // A cold-loaded match (deep link) arrives after first render — sync the
+  // notes draft when a different match id lands, not on every status update.
+  useEffect(() => {
+    setNotesDraft(match?.notes ?? "");
+  }, [match?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const score = match?.match_score ?? null;
   const scoreColor = matchScoreColor(score, C);
+
+  const stageLabel = (status: JobMatchStatus): string => {
+    if (status === "saved") return t("my_job.saved");
+    if (status === "applied") return t("my_job.applied");
+    if (status === "hidden") return t("my_job.not_interested");
+    return t(`my_job.stage_${status}`);
+  };
 
   return (
     <View style={[s.screen, { paddingTop: insets.top }]}>
@@ -238,8 +274,52 @@ export default function JobMatchDetailScreen() {
               <Text style={s.actionText}>{t("my_job.not_interested")}</Text>
             </Pressable>
           </View>
+
+          <Pressable
+            style={({ pressed }) => [s.stageRow, pressed && s.pressed]}
+            onPress={() => {
+              tap();
+              setStageOpen(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t("my_job.stage_label")}
+          >
+            <Text style={s.sectionTitle}>{t("my_job.stage_label")}</Text>
+            <View style={s.stageValue}>
+              <Text style={s.stageValueText}>{stageLabel(match.status)}</Text>
+              <Icon name="chevron-down" size={16} color={C.textTertiary} />
+            </View>
+          </Pressable>
+
+          <View style={s.notesBlock}>
+            <Text style={s.sectionTitle}>{t("my_job.notes_label")}</Text>
+            <TextInput
+              style={s.notesInput}
+              value={notesDraft}
+              onChangeText={setNotesDraft}
+              onBlur={saveNotes}
+              placeholder={t("my_job.notes_placeholder")}
+              placeholderTextColor={C.textTertiary}
+              multiline
+            />
+          </View>
         </ScrollView>
       )}
+
+      {match != null ? (
+        <SettingsPickerSheet
+          visible={stageOpen}
+          title={t("my_job.stage_label")}
+          options={STAGES.map((stage) => ({ key: stage, label: stageLabel(stage) }))}
+          selectedKey={match.status}
+          onClose={() => setStageOpen(false)}
+          onSelect={(key) => {
+            setStageOpen(false);
+            selection();
+            void updateStatus(key as JobMatchStatus);
+          }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -330,6 +410,32 @@ function makeStyles(C: Theme) {
     actionText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
     actionTextPrimary: { color: C.onPrimary },
     actionTextActive: { color: C.primary },
+    stageRow: {
+      minHeight: 52,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: C.surface,
+      borderRadius: Radius.xl,
+      paddingHorizontal: Space.md,
+    },
+    stageValue: { flexDirection: "row", alignItems: "center", gap: Space.xxs },
+    stageValueText: { ...Type.secondary, color: C.primary, fontWeight: "600" },
+    notesBlock: {
+      backgroundColor: C.surface,
+      borderRadius: Radius.xl,
+      padding: Space.md,
+      gap: Space.xs,
+    },
+    notesInput: {
+      ...Type.secondary,
+      color: C.text,
+      minHeight: 88,
+      textAlignVertical: "top",
+      backgroundColor: C.surfaceAlt,
+      borderRadius: Radius.md,
+      padding: Space.sm,
+    },
     pressed: { opacity: 0.68 },
   });
 }

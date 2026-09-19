@@ -81,6 +81,7 @@ async def update_job_match_status(
             settings,
             match_id,
             body.status,
+            body.notes,
         )
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc

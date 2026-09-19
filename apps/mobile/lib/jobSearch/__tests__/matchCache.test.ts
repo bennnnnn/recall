@@ -23,6 +23,7 @@ function match(id: string, title = "Nurse"): JobMatch {
     url: "https://jobs.example.com/1",
     source: "jobs.example.com",
     status: "new",
+    notes: null,
     found_at: "2026-09-18T00:00:00Z",
   };
 }

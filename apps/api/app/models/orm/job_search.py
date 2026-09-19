@@ -24,7 +24,15 @@ from app.core.db import Base
 JOB_SEARCH_FREQUENCIES = ("daily", "weekdays", "weekly", "monthly")
 JOB_SEARCH_STATUSES = ("active", "paused")
 JOB_SEARCH_RUN_STATUSES = ("ok", "error", "skipped_quota")
-JOB_MATCH_STATUSES = ("new", "saved", "applied", "hidden")
+JOB_MATCH_STATUSES = (
+    "new",
+    "saved",
+    "applied",
+    "interviewing",
+    "offer",
+    "rejected",
+    "hidden",
+)
 JOB_WORK_MODES = ("remote", "hybrid", "onsite")
 
 
@@ -109,7 +117,7 @@ class JobMatch(Base):
             name="ck_job_matches_work_mode",
         ),
         CheckConstraint(
-            "status IN ('new', 'saved', 'applied', 'hidden')",
+            "status IN ('new', 'saved', 'applied', 'interviewing', 'offer', 'rejected', 'hidden')",
             name="ck_job_matches_status",
         ),
     )
@@ -135,6 +143,8 @@ class JobMatch(Base):
     match_reasons: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     gap: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="new")
+    # User's own application notes (contacts, follow-ups, interview prep).
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     found_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

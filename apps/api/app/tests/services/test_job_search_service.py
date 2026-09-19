@@ -2,8 +2,24 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.models.schemas.job_search import ResumeProfile
+import pytest
+from pydantic import ValidationError
+
+from app.models.schemas.job_search import JobMatchStatusUpdate, ResumeProfile
 from app.services import job_search as job_search_service
+
+
+def test_match_status_update_accepts_stages_and_notes() -> None:
+    body = JobMatchStatusUpdate(status="interviewing", notes="  Call Friday  ")
+    assert body.status == "interviewing"
+    assert body.notes == "Call Friday"
+    assert JobMatchStatusUpdate(status="offer").notes is None
+    assert JobMatchStatusUpdate(status="rejected", notes="   ").notes is None
+
+
+def test_match_status_update_rejects_unknown_status() -> None:
+    with pytest.raises(ValidationError):
+        JobMatchStatusUpdate(status="ghosted")  # type: ignore[arg-type]
 
 
 async def test_extract_resume_profile_returns_parsed_model() -> None:

@@ -21,6 +21,7 @@ function match(
     url: `https://jobs.example.com/${id}`,
     source: "jobs.example.com",
     status: "new",
+    notes: null,
     found_at: "2026-09-01T00:00:00Z",
     ...overrides,
   };
