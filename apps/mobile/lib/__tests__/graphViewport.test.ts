@@ -1,6 +1,7 @@
 import { graphAxisTicks, graphTickCount } from "@/lib/math/graphBlock";
 import {
   defaultInteractiveBounds,
+  expandGraphView,
   panGraphView,
   zoomGraphView,
 } from "@/lib/math/graphViewport";
@@ -72,5 +73,15 @@ describe("interactive graph viewport", () => {
     const moved = panGraphView(start, 100, 0, 360, 220, 28);
     expect(moved.xMin).toBeLessThan(start.xMin);
     expect(moved.xMax - moved.xMin).toBeCloseTo(start.xMax - start.xMin);
+  });
+
+  it("expandGraphView widens around the center", () => {
+    const view = { xMin: -2, xMax: 4, yMin: -1, yMax: 5 };
+    const wide = expandGraphView(view, 3);
+    expect(wide.xMax - wide.xMin).toBeCloseTo(18);
+    expect(wide.yMax - wide.yMin).toBeCloseTo(18);
+    expect((wide.xMin + wide.xMax) / 2).toBeCloseTo(1);
+    expect((wide.yMin + wide.yMax) / 2).toBeCloseTo(2);
+    expect(expandGraphView(view, Number.NaN)).toEqual(view);
   });
 });

@@ -11,6 +11,7 @@ import {
   type GraphCmp,
 } from "@/lib/math/graphExpr";
 import {
+  clampGraphView,
   defaultInteractiveBounds,
   panGraphView,
   zoomGraphView,
@@ -48,11 +49,12 @@ export function sampleInView(
   expr: string,
   variable: string,
   bounds: GraphView,
+  samples = 160,
 ): SampledCurve | null {
   const rel = parseGraphRelation(expr, variable);
   if (!rel) return null;
   const padX = (bounds.xMax - bounds.xMin) * 0.02;
-  const sampled = sampleGraphExpr(rel.node, bounds.xMin - padX, bounds.xMax + padX, 160);
+  const sampled = sampleGraphExpr(rel.node, bounds.xMin - padX, bounds.xMax + padX, samples);
   return { ...sampled, cmp: rel.cmp };
 }
 
@@ -84,8 +86,9 @@ export function drawGraphSeries(
   color: string,
   variable: string,
   bounds: GraphView,
+  samples = 160,
 ): DrawnSeries {
-  const sampled = series.expr.trim() ? sampleInView(series.expr, variable, bounds) : null;
+  const sampled = series.expr.trim() ? sampleInView(series.expr, variable, bounds, samples) : null;
   const dirty =
     series.seedExpr != null &&
     displayGraphExpr(series.expr) !== displayGraphExpr(series.seedExpr);
@@ -184,6 +187,11 @@ export function useGraphViewport({ width, height, pad }: ViewportArgs) {
 
   const resetView = useCallback(() => setBounds(initialView), [initialView]);
 
+  /** Skia explorer commit: one JS resample per gesture end, not per frame. */
+  const commitBounds = useCallback((next: GraphView) => {
+    setBounds(clampGraphView(next));
+  }, []);
+
   const gesture = useMemo(() => {
     // Pinch must not sit behind Exclusive(doubleTap, …) — that waits for a
     // second tap timeout and the in-chat FlashList never receives the pinch.
@@ -211,5 +219,5 @@ export function useGraphViewport({ width, height, pad }: ViewportArgs) {
     return Gesture.Simultaneous(pinch, pan, doubleTap);
   }, [applyPan, applyPinch, captureStart, resetView]);
 
-  return { bounds, gesture, resetView };
+  return { bounds, gesture, resetView, commitBounds };
 }

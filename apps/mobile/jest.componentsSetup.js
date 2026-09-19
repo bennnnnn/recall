@@ -47,6 +47,10 @@ jestGlobals.mock("react-native-reanimated", () => {
     runOnUI: (fn) => (...args) => fn(...args),
     useAnimatedStyle: (factory) => (typeof factory === "function" ? factory() : {}),
     useAnimatedProps: (factory) => (typeof factory === "function" ? factory() : {}),
+    // Evaluate once so tests see the initial derived value (no UI thread here).
+    useDerivedValue: (factory) => ({
+      value: typeof factory === "function" ? factory() : undefined,
+    }),
     useAnimatedReaction: () => undefined,
     useSharedValue: (value) => ({ value }),
     withSpring: id,
@@ -80,6 +84,7 @@ jestGlobals.mock("react-native-gesture-handler", () => {
       Pan: () => chain(),
       Pinch: () => chain(),
       Tap: () => chain(),
+      LongPress: () => chain(),
       Simultaneous: () => chain(),
       Exclusive: () => chain(),
     },
@@ -93,6 +98,14 @@ jestGlobals.mock("react-native-gesture-handler", () => {
 
 jestGlobals.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
+}));
+
+// expo-constants pulls expo-modules-core's native EventEmitter in this env.
+// Standalone (not Expo Go) so native-module gates probe their module mock.
+jestGlobals.mock("expo-constants", () => ({
+  __esModule: true,
+  default: { executionEnvironment: "standalone", appOwnership: null },
+  ExecutionEnvironment: { Bare: "bare", Standalone: "standalone", StoreClient: "storeClient" },
 }));
 
 // expo-haptics is a native module (expo-modules-core EventEmitter) that cannot
