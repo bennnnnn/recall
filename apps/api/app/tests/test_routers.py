@@ -975,19 +975,6 @@ def test_delete_memory_ok():
     assert r.status_code == 204
 
 
-def test_disable_and_clear_memories_ok():
-    user = _fake_user()
-    app = _app_with_user(user)
-    with patch(
-        "app.routers.memories.memory_service.disable_and_clear_memories",
-        AsyncMock(return_value=3),
-    ) as disable:
-        client = TestClient(app)
-        r = client.post("/memories/disable-and-clear", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 204
-    disable.assert_awaited_once()
-
-
 def test_delete_memory_write_lock_busy_returns_409_not_404():
     """A background extraction/consolidation pass holds the memory write
     lock — the router must surface this as a distinct, retryable 409, not

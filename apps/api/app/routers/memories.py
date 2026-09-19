@@ -63,17 +63,6 @@ async def delete_all_memories(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
 
 
-@router.post("/disable-and-clear", status_code=status.HTTP_204_NO_CONTENT)
-async def disable_and_clear_memories(
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> None:
-    try:
-        await memory_service.disable_and_clear_memories(session, user.id)
-    except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
-
-
 @router.delete("/type/{memory_type}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_memory_section(
     memory_type: MemoryType,

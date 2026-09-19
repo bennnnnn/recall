@@ -107,38 +107,6 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
     );
   }, [token, isCurrentView, busy, t, onError]);
 
-  const confirmDeleteAndOff = useCallback(() => {
-    if (!token || !isCurrentView() || busy) return;
-    Alert.alert(
-      t("settings.memory_delete_and_off_confirm_title"),
-      t("settings.memory_delete_and_off_confirm_body"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("settings.memory_delete_and_off"),
-          style: "destructive",
-          onPress: () => {
-            void (async () => {
-              if (!isCurrentView()) return;
-              setBusy(true);
-              try {
-                await api.disableAndClearMemories(token);
-                if (!isCurrentView()) return;
-                setMemoriesCache([]);
-                setMemCount(0);
-                await updateUser({ memory_enabled: false });
-              } catch {
-                if (isCurrentView()) onError();
-              } finally {
-                if (isCurrentView()) setBusy(false);
-              }
-            })();
-          },
-        },
-      ],
-    );
-  }, [token, isCurrentView, busy, t, onError, updateUser]);
-
   if (!token) return <Redirect href="/login" />;
 
   return (
@@ -194,15 +162,6 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
           title={t("settings.memory_clear_all")}
           danger
           onPress={confirmClearAll}
-          styles={s}
-          theme={theme}
-        />
-        <View style={s.menuSeparator} />
-        <SettingsLinkRow
-          icon="close-circle-outline"
-          title={t("settings.memory_delete_and_off")}
-          danger
-          onPress={confirmDeleteAndOff}
           styles={s}
           theme={theme}
         />
