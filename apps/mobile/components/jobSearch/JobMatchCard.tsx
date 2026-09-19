@@ -1,8 +1,9 @@
-import { ComponentProps, useMemo } from "react";
+import { useMemo } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { JobMatchMetaChips, matchScoreColor } from "@/components/jobSearch/JobMatchMetaChips";
 import type { JobMatch, JobMatchStatus } from "@/lib/api";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -54,25 +55,18 @@ function Action({
 export function JobMatchCard({
   match,
   onStatus,
+  onPress,
 }: {
   match: JobMatch;
   onStatus: (status: JobMatchStatus) => void;
+  onPress?: () => void;
 }) {
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
   const initial = match.company.trim().charAt(0).toUpperCase() || "J";
   const score = match.match_score;
-  const scoreColor =
-    score == null ? C.primary : score >= 70 ? C.primary : score >= 40 ? C.warning : C.textTertiary;
-  const metaChips: { icon: ComponentProps<typeof Icon>["name"]; label: string }[] = [];
-  if (match.location) metaChips.push({ icon: "location-outline", label: match.location });
-  if (match.work_mode)
-    metaChips.push({ icon: "laptop-outline", label: t(`my_job.work_${match.work_mode}`) });
-  if (match.salary) metaChips.push({ icon: "cash-outline", label: match.salary });
-  if (match.experience)
-    metaChips.push({ icon: "bar-chart-outline", label: match.experience });
-  if (match.posted_at) metaChips.push({ icon: "time-outline", label: match.posted_at });
+  const scoreColor = matchScoreColor(score, C);
 
   const openJob = async () => {
     try {
@@ -83,7 +77,12 @@ export function JobMatchCard({
   };
 
   return (
-    <View style={s.card}>
+    <Pressable
+      style={({ pressed }) => [s.card, pressed && onPress != null && s.pressed]}
+      onPress={onPress}
+      disabled={onPress == null}
+      accessibilityRole={onPress != null ? "button" : undefined}
+    >
       <View style={s.headingRow}>
         <View
           style={s.logo}
@@ -111,19 +110,8 @@ export function JobMatchCard({
         </Pressable>
       </View>
 
-      {metaChips.length > 0 ? (
-        <View style={s.metaChips}>
-          {metaChips.map((chip) => (
-            <View key={`${chip.icon}-${chip.label}`} style={s.metaChip}>
-              <Icon name={chip.icon} size={14} color={C.textTertiary} />
-              <Text style={s.metaChipText} numberOfLines={1}>
-                {chip.label}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-      {match.summary ? <Text style={s.summary}>{match.summary}</Text> : null}
+      <JobMatchMetaChips match={match} />
+      {match.summary ? <Text style={s.summary} numberOfLines={3}>{match.summary}</Text> : null}
 
       {match.match_reasons.length > 0 ? (
         <View style={s.reasonBlock}>
@@ -160,7 +148,7 @@ export function JobMatchCard({
           onPress={() => onStatus(match.status === "applied" ? "new" : "applied")}
         />
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -196,18 +184,6 @@ function makeStyles(C: Theme) {
       marginVertical: -4,
       marginRight: -4,
     },
-    metaChips: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
-    metaChip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      minHeight: 28,
-      paddingHorizontal: Space.xs,
-      borderRadius: Radius.full,
-      backgroundColor: C.surfaceAlt,
-      maxWidth: "100%",
-    },
-    metaChipText: { ...Type.compact, color: C.textSecondary, flexShrink: 1 },
     summary: { ...Type.body, color: C.textSecondary },
     reasonBlock: {
       backgroundColor: C.contentSurface,
