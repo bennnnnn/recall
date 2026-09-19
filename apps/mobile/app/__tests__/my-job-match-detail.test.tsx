@@ -18,6 +18,9 @@ jest.mock("expo-router", () => ({
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "token-a", user: { id: "user", plan: mockPlan } }),
 }));
+jest.mock("@/hooks/useAccountViewOwner", () => ({
+  useAccountViewOwner: () => ({ key: "owner", isCurrent: () => true }),
+}));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -62,6 +65,14 @@ function match(overrides: Partial<JobMatch> = {}): JobMatch {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 afterEach(() => {
   clearJobMatchCache();
   mockPlan = "free";
@@ -69,7 +80,7 @@ afterEach(() => {
 });
 
 test("renders the cached match instantly without fetching", async () => {
-  cacheJobMatches([match()]);
+  cacheJobMatches("user", [match()]);
   const { getByText, getAllByText, queryByText } = await render(<JobMatchDetailScreen />);
   expect(getByText("Registered Nurse")).toBeTruthy();
   // Company shows in the header and under the title.
@@ -84,11 +95,34 @@ test("renders the cached match instantly without fetching", async () => {
   expect(mockGetJobSearch).not.toHaveBeenCalled();
 });
 
+test("shows the structured skeleton during a cold load", async () => {
+  const pending = deferred<{ profile: null; matches: JobMatch[] }>();
+  mockGetJobSearch.mockReturnValue(pending.promise);
+  const screen = await render(<JobMatchDetailScreen />);
+  expect(screen.getByTestId("job-match-detail-skeleton")).toBeTruthy();
+
+  pending.resolve({ profile: null, matches: [match()] });
+  await waitFor(() => expect(screen.getByText("Registered Nurse")).toBeTruthy());
+});
+
 test("cold start fetches the dashboard and shows a missing-match state", async () => {
   mockGetJobSearch.mockResolvedValue({ profile: null, matches: [match({ id: "other" })] });
   const { getByText } = await render(<JobMatchDetailScreen />);
   await waitFor(() => expect(getByText("my_job.detail_not_found")).toBeTruthy());
   expect(mockGetJobSearch).toHaveBeenCalledWith("token-a");
+});
+
+test("cold-load failure shows Retry instead of not-found and can recover", async () => {
+  mockGetJobSearch
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce({ profile: null, matches: [match()] });
+  const { getByText, queryByText } = await render(<JobMatchDetailScreen />);
+  await waitFor(() => expect(getByText("my_job.refresh_error")).toBeTruthy());
+  expect(queryByText("my_job.detail_not_found")).toBeNull();
+
+  await fireEvent.press(getByText("common.retry"));
+  await waitFor(() => expect(getByText("Registered Nurse")).toBeTruthy());
+  expect(mockGetJobSearch).toHaveBeenCalledTimes(2);
 });
 
 test("cold start renders a fetched match", async () => {
@@ -98,7 +132,7 @@ test("cold start renders a fetched match", async () => {
 });
 
 test("stage picker updates the match status", async () => {
-  cacheJobMatches([match()]);
+  cacheJobMatches("user", [match()]);
   const { getAllByText, getByText } = await render(<JobMatchDetailScreen />);
   // The stage row and the sheet title share the label — the row is first.
   await fireEvent.press(getAllByText("my_job.stage_label")[0]);
@@ -109,7 +143,7 @@ test("stage picker updates the match status", async () => {
 });
 
 test("notes save on blur", async () => {
-  cacheJobMatches([match()]);
+  cacheJobMatches("user", [match()]);
   const { getByPlaceholderText } = await render(<JobMatchDetailScreen />);
   const input = getByPlaceholderText("my_job.notes_placeholder");
   await fireEvent.changeText(input, "Call recruiter Friday");
@@ -125,7 +159,7 @@ test("notes save on blur", async () => {
 });
 
 test("cover letter CTA is Pro-only and generates into the sheet", async () => {
-  cacheJobMatches([match()]);
+  cacheJobMatches("user", [match()]);
   const { queryByText, rerender, getByText } = await render(<JobMatchDetailScreen />);
   expect(queryByText("my_job.cover_letter_cta")).toBeNull();
 
@@ -136,4 +170,13 @@ test("cover letter CTA is Pro-only and generates into the sheet", async () => {
     expect(mockGenerateCoverLetter).toHaveBeenCalledWith("token-a", "m1"),
   );
   await waitFor(() => expect(getByText("Dear team, ...")).toBeTruthy());
+});
+
+test("keeps notes usable above the keyboard", async () => {
+  cacheJobMatches("user", [match()]);
+  const screen = await render(<JobMatchDetailScreen />);
+  expect(screen.getByTestId("job-match-detail-keyboard-view")).toBeTruthy();
+  expect(screen.getByTestId("job-match-detail-scroll").props.keyboardShouldPersistTaps).toBe(
+    "handled",
+  );
 });

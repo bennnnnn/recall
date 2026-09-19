@@ -31,13 +31,18 @@ function match(id: string, title = "Nurse"): JobMatch {
 afterEach(() => clearJobMatchCache());
 
 test("caches and returns matches by id", () => {
-  cacheJobMatches([match("a"), match("b")]);
-  expect(getCachedJobMatch("b")?.id).toBe("b");
-  expect(getCachedJobMatch("missing")).toBeNull();
+  cacheJobMatches("account-a", [match("a"), match("b")]);
+  expect(getCachedJobMatch("account-a", "b")?.id).toBe("b");
+  expect(getCachedJobMatch("account-a", "missing")).toBeNull();
 });
 
 test("single-match cache updates an existing entry", () => {
-  cacheJobMatches([match("a")]);
-  cacheJobMatch({ ...match("a"), status: "saved" });
-  expect(getCachedJobMatch("a")?.status).toBe("saved");
+  cacheJobMatches("account-a", [match("a")]);
+  cacheJobMatch("account-a", { ...match("a"), status: "saved" });
+  expect(getCachedJobMatch("account-a", "a")?.status).toBe("saved");
+});
+
+test("keeps cached matches isolated by account", () => {
+  cacheJobMatches("account-a", [match("a")]);
+  expect(getCachedJobMatch("account-b", "a")).toBeNull();
 });

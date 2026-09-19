@@ -15,7 +15,7 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 const EMPTY: JobSearchDashboard = { profile: null, matches: [] };
 
 export function useJobSearch(isCurrent: () => boolean) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
   const [dashboard, setDashboard] = useState<JobSearchDashboard>(EMPTY);
@@ -29,7 +29,7 @@ export function useJobSearch(isCurrent: () => boolean) {
       if (!opts?.silent) setLoading(true);
       try {
         const next = await api.getJobSearch(token);
-        cacheJobMatches(next.matches);
+        if (user?.id) cacheJobMatches(user.id, next.matches);
         if (!isCurrent()) return;
         setDashboard(next);
         setError(false);
@@ -39,7 +39,7 @@ export function useJobSearch(isCurrent: () => boolean) {
         if (isCurrent()) setLoading(false);
       }
     },
-    [token, isCurrent],
+    [token, user?.id, isCurrent],
   );
 
   useEffect(() => {
@@ -98,7 +98,7 @@ export function useJobSearch(isCurrent: () => boolean) {
       }));
       try {
         const next = await api.setJobMatchStatus(token, id, status);
-        cacheJobMatches(next.matches);
+        if (user?.id) cacheJobMatches(user.id, next.matches);
         if (isCurrent()) setDashboard(next);
       } catch {
         if (!isCurrent()) return;
@@ -106,7 +106,7 @@ export function useJobSearch(isCurrent: () => boolean) {
         reportRecoverableError(feedback, t("my_job.error_match"));
       }
     },
-    [token, dashboard, isCurrent, feedback, t],
+    [token, user?.id, dashboard, isCurrent, feedback, t],
   );
 
   const remove = useCallback(async (): Promise<boolean> => {

@@ -171,6 +171,16 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   if (!token) return <Redirect href="/login" />;
   if (loading && !profile) return <SkeletonList />;
 
+  if (error && !profile) {
+    return (
+      <StateView
+        variant="error"
+        title={t("my_job.refresh_error")}
+        onRetry={() => void refresh()}
+      />
+    );
+  }
+
   if (!profile) {
     return (
       <View style={s.root}>

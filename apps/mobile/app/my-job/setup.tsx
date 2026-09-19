@@ -1,8 +1,11 @@
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { JobSearchSetupForm } from "@/components/jobSearch/JobSearchSetupForm";
+import { SkeletonList } from "@/components/SkeletonLoader";
+import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useJobSearch } from "@/hooks/useJobSearch";
@@ -17,10 +20,11 @@ export default function MyJobSetupScreen() {
  *  multi-step forms are screens, short forms are sheets). */
 function MyJobSetupView({ isCurrent }: { isCurrent: () => boolean }) {
   const { token } = useAuth();
+  const { t } = useTranslation();
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { dashboard, loading, busy, save } = useJobSearch(isCurrent);
+  const { dashboard, loading, busy, error, refresh, save } = useJobSearch(isCurrent);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -36,9 +40,13 @@ function MyJobSetupView({ isCurrent }: { isCurrent: () => boolean }) {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {loading && !dashboard.profile ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color={theme.primary} size="large" />
-          </View>
+          <SkeletonList />
+        ) : error && !dashboard.profile ? (
+          <StateView
+            variant="error"
+            title={t("my_job.refresh_error")}
+            onRetry={() => void refresh()}
+          />
         ) : (
           <JobSearchSetupForm
             initial={dashboard.profile}
@@ -55,5 +63,4 @@ function MyJobSetupView({ isCurrent }: { isCurrent: () => boolean }) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
-  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
