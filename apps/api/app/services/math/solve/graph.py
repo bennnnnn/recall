@@ -60,6 +60,77 @@ def _split_into_segments(
     return [seg for seg in segments if seg]
 
 
+def _symbolic_pole_xs(parsed: Any, sym: Symbol, x_min: float, x_max: float) -> list[float]:
+    """Real poles of ``parsed`` strictly inside the window, via SymPy.
+
+    Only finite, exactly-known singularities are returned — ConditionSet /
+    ImageSet results (tan(x), 1/sin(x), …) are left to the numeric heuristic
+    in ``_split_into_segments``. Never raises: any SymPy failure means "no
+    symbolic poles", not a failed graph.
+    """
+    try:
+        from sympy import FiniteSet, Union
+        from sympy.calculus.singularities import singularities
+
+        found = singularities(parsed, sym)
+    except Exception:
+        return []
+    sets = list(found.args) if isinstance(found, Union) else [found]
+    xs: list[float] = []
+    for item in sets:
+        if not isinstance(item, FiniteSet):
+            continue
+        for value in item:
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                continue
+            if x_min < numeric < x_max and math.isfinite(numeric):
+                xs.append(numeric)
+    return sorted(xs)
+
+
+def _confirmed_pole_xs(points: list[list[float]], pole_xs: list[float]) -> list[float]:
+    """Keep only symbolic poles the samples confirm as diverging.
+
+    sin(x)/x has a *removable* singularity at 0 — y stays near 1 — and must
+    render as one smooth curve; 1/x**2 has an even-order pole (no sign flip)
+    that the numeric sign-flip heuristic misses entirely. A percentile-of-|y|
+    test cannot separate them (a small-magnitude curve makes y≈1 look
+    "large"), so confirmation is a ratio: the sample nearest the pole must
+    dwarf the curve's own median |y| (pole-adjacent samples are orders of
+    magnitude larger; sin(x)/x's center is only ~5x its median).
+    """
+    if not points or not pole_xs:
+        return []
+    abs_ys = sorted(abs(p[1]) for p in points)
+    median = abs_ys[len(abs_ys) // 2]
+    scale = max(median, 1e-9)
+    confirmed: list[float] = []
+    for pole in pole_xs[:8]:  # a pathological expr cannot explode segment count
+        nearest = min(points, key=lambda p: abs(p[0] - pole))
+        if abs(nearest[1]) > 25 * scale:
+            confirmed.append(pole)
+    return confirmed
+
+
+def _split_at_xs(points: list[list[float]], pole_xs: list[float]) -> list[list[list[float]]]:
+    """Split an x-sorted point list at each pole (one segment per side)."""
+    segments: list[list[list[float]]] = []
+    current: list[list[float]] = []
+    idx = 0
+    for point in points:
+        while idx < len(pole_xs) and point[0] > pole_xs[idx]:
+            idx += 1
+            if current:
+                segments.append(current)
+                current = []
+        current.append(point)
+    if current:
+        segments.append(current)
+    return segments
+
+
 _MAX_GRAPH_SAMPLES = 500
 _OSCILLATION_SAMPLES_PER_PERIOD = 16
 _OSCILLATION_PERIODS_IN_VIEW = 8
@@ -135,13 +206,19 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
             continue
         points.append([round(float(x_val), 4), round(float(y_val), 4)])
 
+    # Symbolic poles (confirmed diverging by the samples) split at the true
+    # singularity x — including even-order poles like 1/x**2 whose samples
+    # never flip sign, which the numeric heuristic below cannot see. When
+    # SymPy finds nothing decidable (tan, 1/sin, …) the numeric sign-flip
+    # heuristic stays the fallback.
+    pole_xs = _confirmed_pole_xs(points, _symbolic_pole_xs(parsed, sym, x_min, x_max))
     return GraphSampleResult(
         expr=data.expr,
         variable=data.variable,
         x_min=x_min,
         x_max=x_max,
         points=points,
-        segments=_split_into_segments(points),
+        segments=_split_at_xs(points, pole_xs) if pole_xs else _split_into_segments(points),
     )
 
 
