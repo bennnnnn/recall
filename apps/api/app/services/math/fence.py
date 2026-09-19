@@ -627,6 +627,65 @@ def _prose_already_states_answer(content: str, answer_body: str) -> bool:
     return False
 
 
+_MAX_SYMBOLIC_ANSWER_CHECKS = 2
+
+
+def _answer_rhs(text: str) -> str:
+    """Right-hand side of the last ``=`` (or the whole body for a bare result)."""
+    body = text.strip().strip("$").strip()
+    equals = body.rfind("=")
+    return body[equals + 1 :].strip() if equals >= 0 else body
+
+
+def _sympy_expr_or_none(text: str):  # type: ignore[no-untyped-def]
+    """Parse a prose/latex answer candidate into a SymPy expression; None on failure."""
+    candidate = _answer_rhs(text)
+    if not candidate or len(candidate) > 120:
+        return None
+    try:
+        return math_solve._parse_expression(candidate)
+    except Exception:
+        return None
+
+
+def _prose_symbolically_states_answer(content: str, answer_body: str) -> bool:
+    """SymPy-proven equivalence between the canonical answer and a prose math span.
+
+    The string paths above miss harmless value spelling differences — prose
+    ``$0.5$`` next to a canonical ``\\frac{1}{2}`` used to earn a duplicate
+    answer chip. validate_math_fences runs inside the SymPy worker
+    (``validate_math_fences_worker``), so this shares the existing post-stream
+    budget; it adds no new latency class. This only ever *suppresses* a
+    duplicate chip on proof of equivalence — every failure returns False,
+    which appends the chip exactly as today.
+    """
+    canonical = _sympy_expr_or_none(answer_body)
+    if canonical is None:
+        return False
+    # A bare prose expression (no "=") only counts when the canonical answer is
+    # a bare number. Symbolically ``x^12`` == ``x^{12}``, but as *rendered*
+    # prose the unbraced grouping displays differently — the chip must stay.
+    canonical_is_bare_number = "=" not in answer_body and not any(
+        ch.isalpha() for ch in _answer_rhs(answer_body)
+    )
+    checks = 0
+    for span in _math_spans(content):
+        if checks >= _MAX_SYMBOLIC_ANSWER_CHECKS:
+            break
+        if "=" not in span and not canonical_is_bare_number:
+            continue
+        candidate = _sympy_expr_or_none(span)
+        if candidate is None:
+            continue
+        checks += 1
+        try:
+            if bool(candidate.equals(canonical)):
+                return True
+        except Exception:
+            continue
+    return False
+
+
 # Emphasis and code ticks trailing the question mark: "**...?**", "...?*".
 _TRAILING_MARKUP = "*_`~ \t"
 
@@ -685,6 +744,7 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
         and not any(has_closed_fence(content, lang) for lang in _ANSWER_FENCE_LANGS)
         and not _prose_already_states_answer(content, answer_body)
         and not _prose_states_conflicting_var_equals(content, answer_body)
+        and not _prose_symbolically_states_answer(content, answer_body)
     ):
         extras.append(_markdown_fence("answer", answer_body))
 
