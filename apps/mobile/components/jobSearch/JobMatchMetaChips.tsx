@@ -16,18 +16,12 @@ export function matchScoreColor(score: number | null, C: Theme): string {
   return C.textTertiary;
 }
 
-/** Icon chips for location / work mode / salary / experience / posted age. */
-export function JobMatchMetaChips({ match }: { match: JobMatch }) {
+export type MetaChip = { icon: ComponentProps<typeof Icon>["name"]; label: string };
+
+/** Wrapping row of icon chips — shared by match cards and the search card. */
+export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
   const C = useTheme();
-  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
-  const chips: { icon: ComponentProps<typeof Icon>["name"]; label: string }[] = [];
-  if (match.location) chips.push({ icon: "location-outline", label: match.location });
-  if (match.work_mode)
-    chips.push({ icon: "laptop-outline", label: t(`my_job.work_${match.work_mode}`) });
-  if (match.salary) chips.push({ icon: "cash-outline", label: match.salary });
-  if (match.experience) chips.push({ icon: "bar-chart-outline", label: match.experience });
-  if (match.posted_at) chips.push({ icon: "time-outline", label: match.posted_at });
   if (chips.length === 0) return null;
   return (
     <View style={s.chips}>
@@ -41,6 +35,19 @@ export function JobMatchMetaChips({ match }: { match: JobMatch }) {
       ))}
     </View>
   );
+}
+
+/** Icon chips for location / work mode / salary / experience / posted age. */
+export function JobMatchMetaChips({ match }: { match: JobMatch }) {
+  const { t } = useTranslation();
+  const chips: MetaChip[] = [];
+  if (match.location) chips.push({ icon: "location-outline", label: match.location });
+  if (match.work_mode)
+    chips.push({ icon: "laptop-outline", label: t(`my_job.work_${match.work_mode}`) });
+  if (match.salary) chips.push({ icon: "cash-outline", label: match.salary });
+  if (match.experience) chips.push({ icon: "bar-chart-outline", label: match.experience });
+  if (match.posted_at) chips.push({ icon: "time-outline", label: match.posted_at });
+  return <MetaChipsRow chips={chips} />;
 }
 
 function makeStyles(C: Theme) {

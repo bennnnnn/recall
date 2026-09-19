@@ -552,6 +552,7 @@
   "my_job.salary_invalid_body": "Enter a yearly minimum such as 100000.",
   "my_job.salary_invalid_title": "Check the salary",
   "my_job.salary_label": "Minimum salary",
+  "my_job.salary_min_chip": "${{amount}}+",
   "my_job.save": "Save",
   "my_job.saved": "Saved",
   "my_job.searching": "Searching…",
