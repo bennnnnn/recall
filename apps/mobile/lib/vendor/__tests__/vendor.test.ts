@@ -3,7 +3,6 @@
 // empty file or a re-introduced CDN URL is caught at test time rather than at
 // runtime (blank WebView offline).
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
-import { MATHJAX_TEX_SVG_JS } from "@/lib/vendor/mathjaxTexSvgJs";
 import { MERMAID_MIN_JS } from "@/lib/vendor/mermaidMinJs";
 import { PDF_MIN_JS } from "@/lib/vendor/pdfMinJs";
 import { PDF_WORKER_MIN_JS } from "@/lib/vendor/pdfWorkerMinJs";
@@ -13,7 +12,6 @@ import { VEGA_MIN_JS } from "@/lib/vendor/vegaMinJs";
 
 describe("vendored CDN assets", () => {
   const jsBundles: Array<[string, string]> = [
-    ["MATHJAX_TEX_SVG_JS", MATHJAX_TEX_SVG_JS],
     ["MERMAID_MIN_JS", MERMAID_MIN_JS],
     ["VEGA_MIN_JS", VEGA_MIN_JS],
     ["VEGA_LITE_MIN_JS", VEGA_LITE_MIN_JS],
@@ -47,13 +45,6 @@ describe("vendored CDN assets", () => {
     expect(KATEX_CSS).toContain("data:font/woff2;base64,");
     expect(KATEX_CSS).not.toContain("cdn.jsdelivr.net");
     expect(KATEX_CSS).not.toMatch(/url\(fonts\//);
-  });
-
-  it("MathJax bundle is the tex-svg build (SVG output, no font fetches)", () => {
-    // tex-svg renders as SVG paths and does not fetch woff fonts at render
-    // time (unlike tex-chtml). Spot-check markers from the bundle.
-    expect(MATHJAX_TEX_SVG_JS).toContain("__webpack_modules__");
-    expect(MATHJAX_TEX_SVG_JS.length).toBeGreaterThan(500_000);
   });
 
   it("pdf.js main + worker are both present and substantial", () => {

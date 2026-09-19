@@ -2,7 +2,7 @@ import { render } from "@testing-library/react-native";
 
 import { HtmlPreviewModal } from "@/components/HtmlPreviewModal";
 
-// Same guard pattern as MermaidBlock.test.tsx / MathFormulaWebView.test.tsx —
+// Same guard pattern as MermaidBlock.test.tsx —
 // without either WebView backend linked, the Run tab must fall back to the
 // static renderer.
 jest.mock("react-native-webview", () => {

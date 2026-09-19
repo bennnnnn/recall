@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
+import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
 import { splitAnswerBranches } from "@/lib/math/answerLayout";
 import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
@@ -11,8 +11,6 @@ import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
-import { supportsInlineHtmlMathWebView } from "@/lib/math/webViewSupport";
-import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
 
@@ -28,7 +26,7 @@ function normalizeAnswerContent(raw: string): string {
   );
 }
 
-function answerNeedsKatex(text: string): boolean {
+function answerNeedsDisplayMath(text: string): boolean {
   if (isHeavyInlineMath(text)) return true;
   return splitInlineMath(text).some((p) => p.type === "math" && isHeavyInlineMath(p.value));
 }
@@ -38,9 +36,9 @@ function answerNeedsKatex(text: string): boolean {
  * (```answer / short numeric or simplified-expression finals only.)
  *
  * Light answers stay on native `MathText`. Heavy LaTeX environments
- * (`\begin{cases|matrix|aligned|…}`) use the KaTeX WebView in **stretch
- * displayMode** — never `compact` + centered zero-width wrap, which used to
- * collapse into a thin vertical sliver / tall pill inside this box.
+ * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in the **stretch**
+ * box — never `compact` + centered zero-width wrap, which used to collapse
+ * into a thin vertical sliver / tall pill inside this box.
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
@@ -49,8 +47,7 @@ export function AnswerBlock({ content }: Props) {
   const text = normalizeAnswerContent(content);
   const parts = splitInlineMath(text);
   const hasInlineMath = parts.some((p) => p.type === "math");
-  const preview = getPreviewWebView();
-  const useKatex = answerNeedsKatex(text) && supportsInlineHtmlMathWebView(preview?.mode);
+  const useSvgMath = answerNeedsDisplayMath(text);
   // A nested math View (stacked frac / sqrt) must be a direct child of the box,
   // NOT wrapped in a Text. iOS clips a View nested inside a Text to the line
   // box — which cut the radicand's bottom (the digit under √ lost its baseline)
@@ -77,14 +74,9 @@ export function AnswerBlock({ content }: Props) {
       accessibilityRole="text"
       accessibilityLabel={t("rich.answer_a11y", { text: readableLatexFallback(text) })}
     >
-      <View testID="answer-box" style={[s.box, useKatex || hasNestedView ? s.boxStretch : null]}>
-        {useKatex ? (
-          <MathFormulaWebView
-            latex={text}
-            displayMode
-            textColor={theme.text}
-            bgColor={theme.bg}
-          />
+      <View testID="answer-box" style={[s.box, useSvgMath || hasNestedView ? s.boxStretch : null]}>
+        {useSvgMath ? (
+          <MathSvgView latex={text} textColor={theme.text} minHeight={48} />
         ) : hasNestedView ? (
           <View style={s.answerLines}>
             {nativeLines.map((line, lineIndex) => (
@@ -153,7 +145,7 @@ const makeStyles = (t: Theme) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    // Full-width chrome so the KaTeX WebView gets a real layout width
+    // Full-width chrome so the MathJax-SVG view gets a real layout width
     // (compact + alignSelf:center was the thin-sliver bug).
     boxStretch: {
       alignSelf: "stretch",
