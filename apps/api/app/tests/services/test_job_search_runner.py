@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from app.gateways.web_search_gateway import WebSearchHit
 from app.models.schemas.job_search import ResumeProfile
 from app.services.job_search import runner
 from app.services.job_search.runner import (
@@ -13,11 +14,16 @@ from app.services.job_search.runner import (
     _dedupe_accepted,
     _fallback_rank,
     _fetch_posting_pages,
+    _find_candidates,
+    _is_listing_page,
     _obvious_mismatch,
     _ProfileSnapshot,
+    _rank_candidates,
     _RankedJob,
+    _RankedPayload,
     _ranking_messages,
     _search_queries,
+    _title_and_company,
     _title_company_key,
     canonicalize_job_url,
 )
@@ -251,3 +257,156 @@ def test_dedupe_accepted_drops_cross_source_repeats() -> None:
     ]
     unique = _dedupe_accepted(batch)
     assert [item.company for item in unique] == ["Acme Inc", "Other Co"]
+
+
+@pytest.mark.parametrize(
+    ("url", "title"),
+    [
+        # Search-result / category pages — never one specific opening.
+        ("https://de.indeed.com/jobs?q=registered+nurse&l=Berlin", "Registered Nurse Jobs"),
+        ("https://www.linkedin.com/jobs/search/?keywords=nurse", "Nurse openings"),
+        ("https://www.stepstone.de/jobs/intensivpfleger", "500+ Intensivpfleger Jobs"),
+        ("https://www.glassdoor.com/Job/berlin-nurse-jobs-SRCH_IL.0,6_IC2622109.htm", "Nurse"),
+        ("https://boards.example.com/careers", "Careers"),
+        ("https://jobs.example.com/page", "Registered Nurse jobs in Berlin"),
+        ("https://jobs.example.com/page", "1,200+ Pflege Jobs bei Kliniken"),
+        ("https://jobs.example.com/page", "Alle Stellenangebote im Landkreis"),
+    ],
+)
+def test_listing_pages_are_detected(url: str, title: str) -> None:
+    assert _is_listing_page(url, title)
+
+
+@pytest.mark.parametrize(
+    ("url", "title"),
+    [
+        # Specific postings — one opening on its own page.
+        ("https://boards.greenhouse.io/acme/jobs/12345", "Registered Nurse, ICU - Acme"),
+        ("https://www.linkedin.com/jobs/view/3981234567", "Charité hiring Intensivpfleger"),
+        ("https://de.indeed.com/viewjob?jk=abc123def", "Intensivpfleger (m/w/d)"),
+        ("https://www.charite.de/karriere/stellenangebote/12345", "Pflegefachkraft"),
+        ("https://jobs.lever.co/acme/9f0e2a", "Backend Engineer"),
+    ],
+)
+def test_specific_posting_pages_pass(url: str, title: str) -> None:
+    assert not _is_listing_page(url, title)
+
+
+async def test_find_candidates_drops_listing_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    hits = [
+        WebSearchHit(
+            title="Registered Nurse Jobs in Berlin",
+            url="https://de.indeed.com/jobs?q=registered+nurse&l=Berlin",
+            snippet="Browse 500+ openings",
+        ),
+        WebSearchHit(
+            title="Intensivpfleger (m/w/d) - Charité",
+            url="https://www.charite.de/karriere/stellenangebote/12345",
+            snippet="Zum nächstmöglichen Zeitpunkt",
+        ),
+    ]
+
+    async def fake_search(
+        _settings: object, _query: str, *, max_results: int
+    ) -> list[WebSearchHit]:
+        return hits
+
+    monkeypatch.setattr(runner.web_search_gateway, "search_web", fake_search)
+    candidates = await _find_candidates(MagicMock(), _profile())
+    assert [item.url for item in candidates] == [
+        "https://www.charite.de/karriere/stellenangebote/12345"
+    ]
+
+
+def test_title_and_company_strips_board_suffix() -> None:
+    assert _title_and_company("Registered Nurse at Acme | Indeed.com", "indeed.com") == (
+        "Registered Nurse",
+        "Acme",
+    )
+    assert _title_and_company("Intensivpfleger (m/w/d) - StepStone", "stepstone.de") == (
+        "Intensivpfleger (m/w/d)",
+        "Unknown employer",
+    )
+
+
+def test_title_and_company_never_names_the_board_as_employer() -> None:
+    title, company = _title_and_company("Registered Nurse ICU", "de.indeed.com")
+    assert title == "Registered Nurse ICU"
+    assert company == "Unknown employer"
+    # A company's own career site still derives a readable name.
+    _, company = _title_and_company("Registered Nurse ICU", "charite.de")
+    assert company == "Charite"
+
+
+def _rank_settings() -> MagicMock:
+    return MagicMock(job_search_page_fetch_enabled=False)
+
+
+async def test_rank_keeps_exact_grounded_posting_title(monkeypatch: pytest.MonkeyPatch) -> None:
+    candidate = _candidate("Intensivpfleger (m/w/d) Intensivstation - Charité", "snippet")
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[
+                _RankedJob(
+                    candidate_id=0,
+                    title="Intensivpfleger (m/w/d) Intensivstation",
+                    company="Charité",
+                )
+            ]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
+    assert len(accepted) == 1
+    assert accepted[0].title == "Intensivpfleger (m/w/d) Intensivstation"
+    assert accepted[0].company == "Charité"
+
+
+async def test_rank_rejects_composed_title_in_favor_of_page_headline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = _candidate("Intensivpfleger (m/w/d) Intensivstation - Charité", "snippet")
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[_RankedJob(candidate_id=0, title="Registered Nurse (ICU) — Berlin")]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
+    assert len(accepted) == 1
+    # The composed label is ungrounded — the real page headline wins.
+    assert accepted[0].title == "Intensivpfleger (m/w/d) Intensivstation"
+    assert accepted[0].company == "Charité"
+
+
+async def test_rank_drops_listing_titled_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    candidate = _candidate("Registered Nurse jobs in Berlin", "browse openings")
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(jobs=[_RankedJob(candidate_id=0)])
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
+    assert accepted == []
+
+
+async def test_rank_rejects_board_name_as_company(monkeypatch: pytest.MonkeyPatch) -> None:
+    candidate = _candidate("Backend Engineer - Acme", "Python APIs")
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[_RankedJob(candidate_id=0, title="Backend Engineer", company="LinkedIn")]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
+    assert len(accepted) == 1
+    assert accepted[0].company == "Acme"
+
+
+def test_ranking_prompt_requires_exact_posting_title() -> None:
+    system = _ranking_messages(_profile(), [_candidate("Backend Engineer")])[0]["content"]
+    assert "Copy title exactly" in system
+    assert "never the job board" in system
