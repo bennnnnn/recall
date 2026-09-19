@@ -9,6 +9,7 @@ from app.services.job_search.runner import (
     _obvious_mismatch,
     _ProfileSnapshot,
     _RankedJob,
+    _search_queries,
     canonicalize_job_url,
 )
 
@@ -77,6 +78,15 @@ def test_ranked_job_accepts_score_and_experience() -> None:
     job = _RankedJob(candidate_id=0, match_score=82, experience="  3+ years  ")
     assert job.match_score == 82
     assert job.experience == "3+ years"
+
+
+def test_search_queries_stay_sector_neutral_for_entry_level() -> None:
+    profile = _profile(target_roles=["Registered Nurse"], experience_levels=["entry"])
+    queries = _search_queries(profile)
+    assert queries
+    for query in queries:
+        assert "software" not in query.casefold()
+    assert any("entry level" in query for query in queries)
 
 
 def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:

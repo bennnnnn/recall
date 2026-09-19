@@ -212,9 +212,11 @@ def _profile_from_rows(profile: JobSearchProfile, user: User) -> _ProfileSnapsho
 def _search_queries(profile: _ProfileSnapshot) -> list[str]:
     level_terms = {
         "internship": "intern internship",
-        "entry": "entry level junior software engineer I",
-        "mid": "mid level",
-        "senior": "senior",
+        # Sector-neutral on purpose: My Job is cross-sector, so "entry" must
+        # not inject tech terms into e.g. a nurse's query.
+        "entry": "entry level junior",
+        "mid": "mid level experienced",
+        "senior": "senior experienced",
     }
     levels = " ".join(level_terms.get(level, level) for level in profile.experience_levels)
     work_mode = " ".join(profile.work_modes)
