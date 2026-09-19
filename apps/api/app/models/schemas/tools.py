@@ -12,6 +12,10 @@ class WebSearchToolInput(BaseModel):
     query: str = Field(min_length=1, max_length=500)
 
 
+class JobSearchToolInput(BaseModel):
+    action: Literal["list", "search_now"] = "list"
+
+
 class SympyToolInput(BaseModel):
     action: Literal[
         "solve",
