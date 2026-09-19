@@ -3,7 +3,14 @@ import { request } from "@/lib/api/client";
 export type JobSearchFrequency = "daily" | "weekdays" | "weekly" | "monthly";
 export type JobSearchWorkMode = "remote" | "hybrid" | "onsite";
 export type JobSearchExperience = "internship" | "entry" | "mid" | "senior";
-export type JobMatchStatus = "new" | "saved" | "applied" | "hidden";
+export type JobMatchStatus =
+  | "new"
+  | "saved"
+  | "applied"
+  | "interviewing"
+  | "offer"
+  | "rejected"
+  | "hidden";
 
 export type JobSearchProfile = {
   id: string;
@@ -45,6 +52,7 @@ export type JobMatch = {
   gap: string | null;
   found_at: string;
   status: JobMatchStatus;
+  notes: string | null;
 };
 
 export type JobSearchDashboard = {
@@ -80,10 +88,10 @@ export const jobSearchApi = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
-  setJobMatchStatus: (token: string, id: string, status: JobMatchStatus) =>
+  setJobMatchStatus: (token: string, id: string, status: JobMatchStatus, notes?: string | null) =>
     request<JobSearchDashboard>(`/job-search/matches/${id}`, token, {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(notes === undefined ? { status } : { status, notes }),
     }),
   runJobSearchNow: (token: string) =>
     request<JobSearchDashboard>("/job-search/run-now", token, { method: "POST" }),

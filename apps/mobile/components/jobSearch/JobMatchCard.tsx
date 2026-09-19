@@ -98,7 +98,30 @@ export function JobMatchCard({
         </View>
         <View style={s.headingCopy}>
           <Text style={s.title}>{match.title}</Text>
-          <Text style={s.company}>{match.company}</Text>
+          <View style={s.companyRow}>
+            <Text style={s.company}>{match.company}</Text>
+            {match.status === "interviewing" ||
+            match.status === "offer" ||
+            match.status === "rejected" ? (
+              <View
+                style={[
+                  s.stageBadge,
+                  match.status === "offer" && s.stageBadgeOffer,
+                  match.status === "rejected" && s.stageBadgeRejected,
+                ]}
+              >
+                <Text
+                  style={[
+                    s.stageBadgeText,
+                    match.status === "offer" && s.stageBadgeTextOffer,
+                    match.status === "rejected" && s.stageBadgeTextRejected,
+                  ]}
+                >
+                  {t(`my_job.stage_${match.status}`)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
         <Pressable
           style={({ pressed }) => [s.hideButton, pressed && s.pressed]}
@@ -172,7 +195,24 @@ function makeStyles(C: Theme) {
     logoText: { ...Type.secondary, color: C.primary, fontWeight: "700" },
     headingCopy: { flex: 1, minWidth: 0 },
     title: { ...Type.navTitle, color: C.text, fontWeight: "700" },
-    company: { ...Type.secondary, color: C.textSecondary, marginTop: 2 },
+    companyRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.xs,
+      marginTop: 2,
+    },
+    company: { ...Type.secondary, color: C.textSecondary, flexShrink: 1 },
+    stageBadge: {
+      paddingHorizontal: Space.xs,
+      paddingVertical: 2,
+      borderRadius: Radius.full,
+      backgroundColor: C.primaryLight,
+    },
+    stageBadgeOffer: { backgroundColor: C.successLight },
+    stageBadgeRejected: { backgroundColor: C.surfaceAlt },
+    stageBadgeText: { ...Type.compact, color: C.primary, fontWeight: "700" },
+    stageBadgeTextOffer: { color: C.success },
+    stageBadgeTextRejected: { color: C.textTertiary },
     hideButton: {
       width: 44,
       height: 44,

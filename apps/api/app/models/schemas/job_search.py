@@ -10,7 +10,15 @@ JobSearchFrequency = Literal["daily", "weekdays", "weekly", "monthly"]
 JobSearchStatus = Literal["active", "paused"]
 JobSearchWorkMode = Literal["remote", "hybrid", "onsite"]
 JobSearchExperience = Literal["internship", "entry", "mid", "senior"]
-JobMatchStatus = Literal["new", "saved", "applied", "hidden"]
+JobMatchStatus = Literal[
+    "new",
+    "saved",
+    "applied",
+    "interviewing",
+    "offer",
+    "rejected",
+    "hidden",
+]
 
 
 def _default_work_modes() -> list[JobSearchWorkMode]:
@@ -154,6 +162,7 @@ class JobMatchOut(BaseModel):
     gap: str | None = None
     found_at: datetime
     status: JobMatchStatus = "new"
+    notes: str | None = None
 
 
 class JobSearchDashboardOut(BaseModel):
@@ -167,6 +176,15 @@ class JobMatchStatusUpdate(BaseModel):
     model_config = ConfigDict(title="JobMatchStatusUpdate")
 
     status: JobMatchStatus
+    notes: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("notes")
+    @classmethod
+    def clean_notes(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
 
 
 class JobSearchStateUpdate(BaseModel):

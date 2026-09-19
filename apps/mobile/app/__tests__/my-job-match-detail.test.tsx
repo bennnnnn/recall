@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import JobMatchDetailScreen from "@/app/my-job/match/[id]";
 import type { JobMatch } from "@/lib/api";
@@ -7,6 +7,7 @@ import { cacheJobMatches, clearJobMatchCache } from "@/lib/jobSearch/matchCache"
 let mockId = "m1";
 const mockBack = jest.fn();
 const mockGetJobSearch = jest.fn();
+const mockSetJobMatchStatus = jest.fn(async () => ({ profile: null, matches: [] }));
 
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ id: mockId }),
@@ -29,7 +30,7 @@ jest.mock("@/lib/haptics", () => ({
 jest.mock("@/lib/api", () => ({
   api: {
     getJobSearch: (...args: unknown[]) => mockGetJobSearch(...args),
-    setJobMatchStatus: jest.fn(async () => ({ profile: null, matches: [] })),
+    setJobMatchStatus: (...args: unknown[]) => mockSetJobMatchStatus(...args),
   },
 }));
 
@@ -50,6 +51,7 @@ function match(overrides: Partial<JobMatch> = {}): JobMatch {
     url: "https://jobs.example.com/1",
     source: "jobs.example.com",
     status: "new",
+    notes: null,
     found_at: "2026-09-18T00:00:00Z",
     ...overrides,
   };
@@ -87,4 +89,31 @@ test("cold start renders a fetched match", async () => {
   mockGetJobSearch.mockResolvedValue({ profile: null, matches: [match()] });
   const { getByText } = await render(<JobMatchDetailScreen />);
   await waitFor(() => expect(getByText("Registered Nurse")).toBeTruthy());
+});
+
+test("stage picker updates the match status", async () => {
+  cacheJobMatches([match()]);
+  const { getAllByText, getByText } = await render(<JobMatchDetailScreen />);
+  // The stage row and the sheet title share the label — the row is first.
+  await fireEvent.press(getAllByText("my_job.stage_label")[0]);
+  await fireEvent.press(getByText("my_job.stage_interviewing"));
+  await waitFor(() =>
+    expect(mockSetJobMatchStatus).toHaveBeenCalledWith("token-a", "m1", "interviewing", undefined),
+  );
+});
+
+test("notes save on blur", async () => {
+  cacheJobMatches([match()]);
+  const { getByPlaceholderText } = await render(<JobMatchDetailScreen />);
+  const input = getByPlaceholderText("my_job.notes_placeholder");
+  await fireEvent.changeText(input, "Call recruiter Friday");
+  await fireEvent(input, "blur");
+  await waitFor(() =>
+    expect(mockSetJobMatchStatus).toHaveBeenCalledWith(
+      "token-a",
+      "m1",
+      "new",
+      "Call recruiter Friday",
+    ),
+  );
 });

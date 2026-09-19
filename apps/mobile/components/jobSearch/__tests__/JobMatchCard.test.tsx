@@ -30,6 +30,7 @@ const baseMatch: JobMatch = {
   gap: null,
   found_at: "2026-09-18T00:00:00Z",
   status: "new",
+    notes: null,
 };
 
 describe("JobMatchCard", () => {
@@ -67,5 +68,14 @@ describe("JobMatchCard", () => {
     expect(queryByText("Berlin, Germany")).toBeNull();
     expect(queryByText("3+ years")).toBeNull();
     expect(queryByText("$90,000 - $120,000")).toBeNull();
+  });
+
+  it("shows a stage badge for interviewing/offer/rejected only", async () => {
+    const { getByText, rerender, queryByText } = await render(
+      <JobMatchCard match={{ ...baseMatch, status: "interviewing" }} onStatus={jest.fn()} />,
+    );
+    expect(getByText("my_job.stage_interviewing")).toBeTruthy();
+    await rerender(<JobMatchCard match={{ ...baseMatch, status: "new" }} onStatus={jest.fn()} />);
+    expect(queryByText("my_job.stage_interviewing")).toBeNull();
   });
 });

@@ -217,6 +217,7 @@ def match_out(match: JobMatch) -> JobMatchOut:
         gap=match.gap,
         found_at=match.found_at,
         status=cast(JobMatchStatus, match.status),
+        notes=match.notes,
     )
 
 
@@ -327,6 +328,7 @@ async def set_match_status(
     settings: Settings,
     match_id: UUID,
     status: JobMatchStatus,
+    notes: str | None = None,
 ) -> JobSearchDashboardOut:
     match = await session.scalar(
         select(JobMatch)
@@ -339,6 +341,8 @@ async def set_match_status(
     if match is None:
         raise JobSearchError("Job match not found", status_code=404)
     match.status = status
+    if notes is not None:
+        match.notes = notes
     await session.commit()
     return await get_dashboard(session, user, settings)
 
