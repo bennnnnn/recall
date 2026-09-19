@@ -1,4 +1,4 @@
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -6,7 +6,6 @@ import { JobSearchSetupForm } from "@/components/jobSearch/JobSearchSetupForm";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useJobSearch } from "@/hooks/useJobSearch";
-import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
 export default function MyJobSetupScreen() {
@@ -41,18 +40,12 @@ function MyJobSetupView({ isCurrent }: { isCurrent: () => boolean }) {
             <ActivityIndicator color={theme.primary} size="large" />
           </View>
         ) : (
-          <ScrollView
-            style={styles.flex}
-            contentContainerStyle={styles.content}
-            keyboardShouldPersistTaps="handled"
-          >
-            <JobSearchSetupForm
-              initial={dashboard.profile}
-              busy={busy}
-              onClose={() => router.back()}
-              onSave={save}
-            />
-          </ScrollView>
+          <JobSearchSetupForm
+            initial={dashboard.profile}
+            busy={busy}
+            onClose={() => router.back()}
+            onSave={save}
+          />
         )}
       </KeyboardAvoidingView>
     </View>
@@ -63,5 +56,4 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { paddingBottom: Space.xl },
 });

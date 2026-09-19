@@ -26,7 +26,7 @@ export default function MyJobLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: t("my_job.title") }} />
-      {/* The setup wizard renders its own step-aware SheetFormHeader. */}
+      {/* The setup wizard renders its own step-aware header. */}
       <Stack.Screen name="setup" options={{ headerShown: false }} />
     </Stack>
   );
