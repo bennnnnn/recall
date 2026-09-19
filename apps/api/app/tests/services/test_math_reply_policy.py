@@ -52,7 +52,13 @@ async def test_detected_but_unextractable_problem_has_final_local_clarification_
     query = "Draw a triangle with angles 60,60,70"
     assert needs_symbolic_math(query) and extract_math_intent(query) is None
     initial = _messages(query)
-    with patch("app.services.math.tools._build_verified_block_async", AsyncMock()) as solve:
+    with (
+        patch("app.services.math.tools._build_verified_block_async", AsyncMock()) as solve,
+        patch(
+            "app.services.math.tools.prompt.llm_extract_math_intent",
+            AsyncMock(return_value=None),
+        ),
+    ):
         prepared, verified = await augment_prompt_messages(
             initial, query, Settings(math_tools_enabled=True)
         )

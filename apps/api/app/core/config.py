@@ -158,6 +158,14 @@ class Settings(BaseSettings):
     # budget (sized for CPU-bound solve/integrate) cut off OCR calls that
     # were still legitimately in flight.
     math_image_extract_timeout_seconds: float = 20.0
+    # Gate-fired-but-regex-extract-None turns get one hidden structured
+    # extraction call on a fast alias before the honesty note (the "Couldn't
+    # verify under a correct ∫ x²" path). Only that already-failing path pays;
+    # gate-miss and regex-hit turns make no LLM call. The result is never
+    # trusted — it reaches the user only when SymPy verifies it. No fallback
+    # retry: bounded latency beats best-effort on a best-effort path.
+    math_llm_extract_enabled: bool = True
+    math_llm_extract_timeout_seconds: float = 2.5
     # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
     # Images always send metadata.improve_mathpix=false — student homework is
     # not opted into Mathpix QA storage.

@@ -19,6 +19,7 @@ from app.services.math.tools.extract import (
     resolve_graph_followup,
     trig_domain_would_be_dropped,
 )
+from app.services.math.tools.llm_extract import llm_extract_math_intent
 from app.services.prompt_inject import inject_before_last_user
 
 logger = logging.getLogger(__name__)
@@ -189,6 +190,20 @@ async def build_math_augmentation(
             MATH_REPLY_POLICY,
         ]
         return "\n".join(lines), None
+
+    if intent is None:
+        # The gate fired but no regex extractor matched (the "Couldn't verify
+        # under a correct ∫ x²" class). One bounded structured-extraction call
+        # on a fast alias; the candidate still has to survive SymPy below.
+        # Only this already-failing path pays — gate-miss and regex-hit turns
+        # never make this call.
+        intent = await llm_extract_math_intent(user_content, settings)
+        if (
+            intent is not None
+            and intent.kind == "equation"
+            and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
+        ):
+            intent = None
 
     if intent is None:
         return (
