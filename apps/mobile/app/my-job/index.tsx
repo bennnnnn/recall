@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { JobMatchCard } from "@/components/jobSearch/JobMatchCard";
+import { MetaChipsRow } from "@/components/jobSearch/JobMatchMetaChips";
 import { JobSearchActionsSheet } from "@/components/jobSearch/JobSearchActionsSheet";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
@@ -23,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useJobSearch } from "@/hooks/useJobSearch";
 import type { JobMatch, JobSearchProfile } from "@/lib/api";
 import { filterAndSortMatches } from "@/lib/jobSearch/matchList";
+import { nextDeliveryDate, searchProfileChips } from "@/lib/jobSearch/searchChips";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { notifyWarning, selection, tap } from "@/lib/haptics";
@@ -34,18 +36,6 @@ type Tab = "all" | "matches" | "saved" | "applied";
 
 function cadence(profile: JobSearchProfile, t: TFunction): string {
   return t(`my_job.cadence_${profile.frequency}`, { count: profile.result_count });
-}
-
-function nextDelivery(profile: JobSearchProfile): string {
-  const date = new Date(profile.next_run_at);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function TabButton({
@@ -240,7 +230,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
         ? t("my_job.empty_applied_body")
         : profile.last_run_at
           ? t("my_job.empty_matches_body_ran")
-          : t("my_job.empty_matches_body_scheduled", { date: nextDelivery(profile) });
+          : t("my_job.empty_matches_body_scheduled", { date: nextDeliveryDate(profile) });
 
   return (
     <View style={s.root}>
@@ -285,23 +275,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 </Pressable>
               </View>
 
-              <Text style={s.searchMeta}>
-                {[profile.location, profile.work_modes.join(" / "), profile.experience_levels.join(" / ")]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </Text>
-              <View style={s.searchDivider} />
-              <View style={s.deliveryRow}>
-                <View style={s.deliveryIcon}>
-                  <Icon name="notifications-outline" size={19} color={C.primary} />
-                </View>
-                <View style={s.deliveryCopy}>
-                  <Text style={s.deliveryTitle}>{cadence(profile, t)}</Text>
-                  <Text style={s.deliveryMeta}>
-                    {t("my_job.next_delivery", { date: nextDelivery(profile) })}
-                  </Text>
-                </View>
-              </View>
+              <MetaChipsRow chips={searchProfileChips(profile, t)} />
 
               {user?.plan === "pro" ? (
                 <View style={s.searchActions}>
@@ -436,7 +410,6 @@ function makeStyles(C: Theme) {
     searchCopy: { flex: 1 },
     overline: { ...Type.overline, color: C.primary },
     searchTitle: { ...Type.title, color: C.text, fontWeight: "700", marginTop: Space.xs },
-    searchMeta: { ...Type.secondary, color: C.textSecondary },
     iconButton: {
       width: 42,
       height: 42,
@@ -445,19 +418,6 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
       backgroundColor: C.surfaceAlt,
     },
-    searchDivider: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginVertical: Space.xs },
-    deliveryRow: { flexDirection: "row", alignItems: "center", gap: Space.sm },
-    deliveryIcon: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: C.primaryLight,
-    },
-    deliveryCopy: { flex: 1 },
-    deliveryTitle: { ...Type.label, color: C.text },
-    deliveryMeta: { ...Type.caption, color: C.textTertiary, marginTop: 2 },
     searchActions: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, marginTop: Space.sm },
     secondaryButton: {
       minHeight: 42,
