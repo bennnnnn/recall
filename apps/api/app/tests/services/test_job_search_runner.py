@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from app.models.schemas.job_search import ResumeProfile
 from app.services.job_search import runner
 from app.services.job_search.runner import (
     _Candidate,
@@ -36,6 +37,7 @@ def _profile(**overrides: object) -> _ProfileSnapshot:
         "excluded_companies": [],
         "background": None,
         "resume_text": None,
+        "resume_profile": None,
         "result_count": 10,
         "frequency": "weekdays",
     }
@@ -155,3 +157,32 @@ async def test_fetch_posting_pages_disabled_flag_is_passthrough() -> None:
     candidates = [_candidate("Backend Engineer", "Python")]
     result = await _fetch_posting_pages(settings, _profile(), candidates)
     assert result == candidates
+
+
+def test_search_queries_use_resume_skills_and_alt_title() -> None:
+    resume = ResumeProfile(
+        titles=["Platform Engineer"],
+        skills=["Kubernetes", "Terraform"],
+    )
+    profile = _profile(resume_profile=resume)
+    queries = _search_queries(profile)
+    assert any("Kubernetes" in query for query in queries)
+    assert any('"Platform Engineer"' in query for query in queries)
+
+
+def test_search_queries_skip_resume_title_already_targeted() -> None:
+    resume = ResumeProfile(titles=["Backend Engineer"], skills=[])
+    queries = _search_queries(_profile(resume_profile=resume))
+    assert sum('"Backend Engineer"' in query for query in queries) == 2
+
+
+def test_ranking_messages_include_structured_resume_profile() -> None:
+    resume = ResumeProfile(titles=["Backend Engineer"], skills=["Python"], years_experience=4)
+    messages = _ranking_messages(
+        _profile(resume_profile=resume, resume_text="raw resume text"),
+        [_candidate("Backend Engineer", "Python")],
+    )
+    payload = messages[1]["content"]
+    assert '"resume_profile"' in payload
+    assert '"years_experience": 4' in payload
+    assert "raw resume text" in payload
