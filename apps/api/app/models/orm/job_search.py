@@ -72,6 +72,8 @@ class JobSearchProfile(Base):
     )
     resume_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     resume_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Structured ResumeProfile dump, extracted once per uploaded resume.
+    resume_profile: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     result_count: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     frequency: Mapped[str] = mapped_column(String(16), nullable=False)
     next_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -108,6 +108,33 @@ class JobSearchProfileOut(BaseModel):
     updated_at: datetime
 
 
+class ResumeProfile(BaseModel):
+    """Structured facts extracted once from an uploaded resume.
+
+    Stored as JSON on the profile so each run can target queries and ranking
+    without re-reading the raw resume text.
+    """
+
+    model_config = ConfigDict(title="ResumeProfile")
+
+    titles: list[str] = Field(default_factory=list, max_length=8)
+    skills: list[str] = Field(default_factory=list, max_length=25)
+    years_experience: float | None = None
+    domains: list[str] = Field(default_factory=list, max_length=6)
+    education: str | None = Field(default=None, max_length=200)
+    summary: str | None = Field(default=None, max_length=400)
+
+    @field_validator("titles", "skills", "domains")
+    @classmethod
+    def clean_items(cls, values: list[str]) -> list[str]:
+        result: list[str] = []
+        for raw in values:
+            value = " ".join(raw.strip().split())[:80]
+            if value and value.casefold() not in {item.casefold() for item in result}:
+                result.append(value)
+        return result
+
+
 class JobMatchOut(BaseModel):
     model_config = ConfigDict(title="JobMatchOut")
 

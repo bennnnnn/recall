@@ -22,6 +22,7 @@ from app.core.db import SessionLocal
 from app.core.redis_lock import acquire_lock, release_lock
 from app.gateways import litellm_gateway, web_search_gateway
 from app.models.orm import JobMatch, JobSearchProfile, User
+from app.models.schemas.job_search import ResumeProfile
 from app.services import plan as plan_service
 from app.services.job_search import notifications as job_search_notifications
 from app.services.prompt_safety import wrap_untrusted
@@ -67,6 +68,7 @@ class _ProfileSnapshot:
     excluded_companies: list[str]
     background: str | None
     resume_text: str | None
+    resume_profile: ResumeProfile | None
     result_count: int
     frequency: str
 
@@ -191,6 +193,13 @@ def _title_and_company(raw: str, source: str) -> tuple[str, str]:
 
 
 def _profile_from_rows(profile: JobSearchProfile, user: User) -> _ProfileSnapshot:
+    resume_profile: ResumeProfile | None = None
+    if profile.resume_profile:
+        try:
+            resume_profile = ResumeProfile.model_validate(profile.resume_profile)
+        except ValueError:
+            # A malformed stored profile must not kill the whole run.
+            logger.warning("Ignoring malformed resume_profile profile_id=%s", profile.id)
     return _ProfileSnapshot(
         id=profile.id,
         user_id=profile.user_id,
@@ -206,6 +215,7 @@ def _profile_from_rows(profile: JobSearchProfile, user: User) -> _ProfileSnapsho
         excluded_companies=list(profile.excluded_companies),
         background=profile.background,
         resume_text=profile.resume_text,
+        resume_profile=resume_profile,
         result_count=profile.result_count,
         frequency=profile.frequency,
     )
@@ -223,9 +233,20 @@ def _search_queries(profile: _ProfileSnapshot) -> list[str]:
     levels = " ".join(level_terms.get(level, level) for level in profile.experience_levels)
     work_mode = " ".join(profile.work_modes)
     location = profile.location or "United States"
+    # The structured resume profile sharpens queries with skills/titles the
+    # user never typed into the setup form.
+    skill_pool = list(profile.skills)
+    if profile.resume_profile is not None:
+        known = {skill.casefold() for skill in skill_pool}
+        skill_pool += [
+            skill for skill in profile.resume_profile.skills if skill.casefold() not in known
+        ]
+    skills_hint = " ".join(skill_pool[:3])
     queries: list[str] = []
     for role in profile.target_roles[:_MAX_SEARCH_ROLES]:
-        queries.append(f'"{role}" {levels} {work_mode} {location} job opening posted recently')
+        queries.append(
+            f'"{role}" {levels} {work_mode} {skills_hint} {location} job opening posted recently'
+        )
     if profile.target_roles:
         role = profile.target_roles[0]
         queries.append(
@@ -233,6 +254,10 @@ def _search_queries(profile: _ProfileSnapshot) -> list[str]:
             "(site:boards.greenhouse.io OR site:jobs.lever.co OR "
             "site:jobs.ashbyhq.com OR site:myworkdayjobs.com)"
         )
+    if profile.resume_profile is not None and profile.resume_profile.titles:
+        alt_title = profile.resume_profile.titles[0]
+        if all(alt_title.casefold() != role.casefold() for role in profile.target_roles):
+            queries.append(f'"{alt_title}" {work_mode} {location} job opening posted recently')
     return list(dict.fromkeys(queries))
 
 
@@ -302,7 +327,8 @@ def _ranking_messages(
         "requires_sponsorship": profile.requires_sponsorship,
         "excluded_companies": profile.excluded_companies,
         "background": profile.background,
-        "resume": (profile.resume_text or "")[:6000] or None,
+        "resume_profile": (profile.resume_profile.model_dump() if profile.resume_profile else None),
+        "resume_excerpt": (profile.resume_text or "")[:1500] or None,
         "maximum_results": profile.result_count,
     }
     candidate_payload = [
