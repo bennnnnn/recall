@@ -99,16 +99,10 @@ function SelectChip<T extends string>({
   );
 }
 
-function FieldLabel({ children, optional }: { children: string; optional?: boolean }) {
+function FieldLabel({ children }: { children: string }) {
   const C = useTheme();
-  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
-  return (
-    <View style={s.labelRow}>
-      <Text style={s.label}>{children}</Text>
-      {optional ? <Text style={s.optional}>{t("my_job.optional")}</Text> : null}
-    </View>
-  );
+  return <Text style={s.label}>{children}</Text>;
 }
 
 export function JobSearchSetupForm({
@@ -285,7 +279,6 @@ export function JobSearchSetupForm({
   const frequencyOptionLabel = (value: JobSearchFrequency) => t(`my_job.freq_${value}`);
   const frequencyLabel = frequencyOptionLabel(frequency);
   const currentCopy = {
-    eyebrow: t(`my_job.step${step}_eyebrow`),
     title: t(`my_job.step${step}_title`),
     body: t(`my_job.step${step}_body`),
   };
@@ -318,7 +311,6 @@ export function JobSearchSetupForm({
       >
         <View style={s.body}>
         <View style={s.intro}>
-          <Text style={s.eyebrow}>{currentCopy.eyebrow}</Text>
           <Text style={s.title}>{currentCopy.title}</Text>
           <Text style={s.subtitle}>{currentCopy.body}</Text>
         </View>
@@ -326,7 +318,7 @@ export function JobSearchSetupForm({
         {step === 0 ? (
           <>
             <View style={s.fieldGroup}>
-              <FieldLabel optional>{t("my_job.location_label")}</FieldLabel>
+              <FieldLabel>{t("my_job.location_label")}</FieldLabel>
               <LocationFields value={place} onChange={setPlace} disabled={busy} />
             </View>
 
@@ -374,7 +366,7 @@ export function JobSearchSetupForm({
             </View>
 
             <View style={s.fieldGroup}>
-              <FieldLabel optional>{t("my_job.skills_label")}</FieldLabel>
+              <FieldLabel>{t("my_job.skills_label")}</FieldLabel>
               <SearchableMultiSelect
                 values={skills}
                 onChange={setSkills}
@@ -393,7 +385,7 @@ export function JobSearchSetupForm({
         {step === 2 ? (
           <>
             <View style={s.fieldGroup}>
-              <FieldLabel optional>{t("my_job.resume_label")}</FieldLabel>
+              <FieldLabel>{t("my_job.resume_label")}</FieldLabel>
               <Pressable
                 style={({ pressed }) => [s.resumeCard, pressed && s.pressed]}
                 onPress={() => void chooseResume()}
@@ -454,7 +446,7 @@ export function JobSearchSetupForm({
 
             <View style={s.twoColumnRow}>
               <View style={s.flexField}>
-                <FieldLabel optional>{t("my_job.salary_label")}</FieldLabel>
+                <FieldLabel>{t("my_job.salary_label")}</FieldLabel>
                 <TextInput
                   style={[s.input, salaryError && s.inputError]}
                   value={salary}
@@ -656,7 +648,6 @@ function makeStyles(C: Theme) {
       gap: Space.lg,
     },
     intro: { gap: Space.xs },
-    eyebrow: { ...Type.overline, color: C.primary },
     title: {
       ...Type.display,
       fontSize: 26,
@@ -665,14 +656,7 @@ function makeStyles(C: Theme) {
     },
     subtitle: { ...Type.body, color: C.textSecondary },
     fieldGroup: { gap: Space.xs },
-    labelRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: Space.sm,
-    },
     label: { ...Type.label, color: C.text },
-    optional: { ...Type.caption, color: C.textTertiary },
     input: {
       ...Type.body,
       minHeight: 54,
