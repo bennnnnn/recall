@@ -2,7 +2,6 @@
   "generatedAt": "2026-09-12T20:08:33.929Z",
   "versions": {
     "katex": "0.18.4",
-    "mathjax": "3.2.1",
     "mermaid": "10",
     "vega": "5",
     "vegaLite": "5",
@@ -12,7 +11,6 @@
   },
   "sha256": {
     "katexCss": "e449da720739183c",
-    "mathjaxTexSvgJs": "d4295dc337448369",
     "mermaidMinJs": "eda3a0ad572bbe69",
     "vegaMinJs": "463f3db6a40b20e9",
     "vegaLiteMinJs": "58c27358e26f2d31",

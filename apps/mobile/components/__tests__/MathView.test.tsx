@@ -2,23 +2,11 @@ import { render } from "@testing-library/react-native";
 
 import { MathBlock, MathInline } from "@/components/rich/MathView";
 
-// Same guard pattern as MermaidBlock.test.tsx: force both WebView backends
-// unavailable so MathBlock takes its no-WebView (MathText) rendering path,
-// matching a real device without either native module linked (Expo Go).
-jest.mock("react-native-webview", () => {
-  throw new Error("react-native-webview native module is not linked (test)");
-});
-jest.mock("@expo/dom-webview", () => {
-  throw new Error("@expo/dom-webview native module is not linked (test)");
-});
-// MathFormulaWebView (expand/fullscreen) pulls Ionicons + safe-area; mock
-// before the suite imports that path through MathView.
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
-jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+// Capture what MathBlock hands to the MathJax-SVG renderer; the renderer
+// itself (incl. its native-fallback branch) is covered in MathSvgView tests.
+const mockSvgView = jest.fn((_props: { latex: string }) => null);
+jest.mock("@/components/rich/MathSvgView", () => ({
+  MathSvgView: (props: { latex: string }) => mockSvgView(props),
 }));
 
 describe("MathInline", () => {
@@ -29,56 +17,34 @@ describe("MathInline", () => {
 });
 
 describe("MathBlock", () => {
-  it("renders a single equation as one block via the MathText fallback path", async () => {
-    const { getByText } = await render(<MathBlock latex="x + 1 = 2" />);
-    expect(getByText("x + 1 = 2")).toBeOnTheScreen();
+  beforeEach(() => mockSvgView.mockClear());
+
+  it("renders a single equation through MathSvgView", async () => {
+    await render(<MathBlock latex="x + 1 = 2" />);
+    expect(mockSvgView).toHaveBeenCalledWith(
+      expect.objectContaining({ latex: "x + 1 = 2" }),
+    );
   });
 
   it("renders nothing for an empty/redundant-dollar-wrapped-to-empty body", async () => {
     const { toJSON } = await render(<MathBlock latex="   " />);
     expect(toJSON()).toBeNull();
+    expect(mockSvgView).not.toHaveBeenCalled();
   });
 
-  it("splits a multi-line fence body into one MathBlock per line", async () => {
-    const { getByText } = await render(<MathBlock latex={"x = 1\ny = 2"} />);
-    expect(getByText("x = 1")).toBeOnTheScreen();
-    expect(getByText("y = 2")).toBeOnTheScreen();
+  it("splits a multi-line fence body into one MathSvgView per line", async () => {
+    await render(<MathBlock latex={"x = 1\ny = 2"} />);
+    expect(mockSvgView.mock.calls.map((c) => c[0].latex)).toEqual(["x = 1", "y = 2"]);
   });
 
   it("BUG FIX regression: strips a scattered $...$ wrap around one command, not just a whole-body wrap", async () => {
     // Reported live (screenshot): "n! = n $\times$ (n-1)!" rendered in red.
     // The model wrapped only \times in $...$, leaving the rest of the fence
     // body bare — stripRedundantDollarWrap only catches a wrap around the
-    // ENTIRE body, so the literal "$" survived into what KaTeX/MathText saw.
-    const { getByText, queryByText } = await render(
-      <MathBlock latex={String.raw`n! = n $\times$ (n-1)!`} />,
+    // ENTIRE body, so the literal "$" must be stripped before rendering.
+    await render(<MathBlock latex={String.raw`n! = n $\times$ (n-1)!`} />);
+    expect(mockSvgView).toHaveBeenCalledWith(
+      expect.objectContaining({ latex: String.raw`n! = n \times (n-1)!` }),
     );
-    expect(getByText("n! = n × (n-1)!")).toBeOnTheScreen();
-    expect(queryByText(String.raw`n! = n $\times$ (n-1)!`)).toBeNull();
-  });
-
-  it("BUG FIX regression: nested \\frac/\\sqrt renders via a View, not clipped inside a Text", async () => {
-    // A stacked frac/sqrt is a nested View. iOS clips a View nested inside a
-    // Text to the line box — the radicand's bottom was cut off in the
-    // no-WebView fallback. MathBlock must render MathText directly in a View
-    // (testID="math-block-nested") when latexHasNestedMathView is true.
-    const { getByTestId } = await render(
-      <MathBlock latex={String.raw`\frac{1}{2} + \sqrt{4}`} />,
-    );
-    expect(getByTestId("math-block-nested")).toBeOnTheScreen();
-  });
-
-  it("non-nested math still renders via the Text path (no nested View guard)", async () => {
-    const { queryByTestId, getByText } = await render(
-      <MathBlock latex="x + 1 = 2" />,
-    );
-    expect(queryByTestId("math-block-nested")).toBeNull();
-    expect(getByText("x + 1 = 2")).toBeOnTheScreen();
-  });
-
-  it("hosts fractional exponents outside Text so the raised run is not clipped on iOS", async () => {
-    const { getByTestId } = await render(<MathBlock latex="9^{1/6}" />);
-    expect(getByTestId("math-block-nested")).toBeOnTheScreen();
-    expect(getByTestId("math-fractional-sup")).toBeOnTheScreen();
   });
 });

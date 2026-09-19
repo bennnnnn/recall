@@ -6,15 +6,11 @@ import { lightTheme } from "@/lib/theme";
 
 const mockFormula = jest.fn((_props: Record<string, unknown>) => null);
 
-jest.mock("@/components/rich/MathFormulaWebView", () => ({
-  MathFormulaWebView: (props: Record<string, unknown>) => {
+jest.mock("@/components/rich/MathSvgView", () => ({
+  MathSvgView: (props: Record<string, unknown>) => {
     mockFormula(props);
     return null;
   },
-}));
-
-jest.mock("@/lib/webView", () => ({
-  getPreviewWebView: () => ({ mode: "expo-dom" }),
 }));
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
@@ -33,7 +29,7 @@ describe("AnswerBlock", () => {
     mockFormula.mockClear();
   });
 
-  it("keeps light finals on MathText (no KaTeX WebView)", async () => {
+  it("keeps light finals on MathText (no display-math renderer)", async () => {
     const { getByLabelText } = await render(<AnswerBlock content={String.raw`x = \pm 2`} />);
     expect(getByLabelText("Answer: x = ± 2")).toBeOnTheScreen();
     expect(mockFormula).not.toHaveBeenCalled();
@@ -85,13 +81,11 @@ describe("AnswerBlock", () => {
     expect(queryByText(/x = -2/)).toBeOnTheScreen();
   });
 
-  it("routes heavy \\begin{…} answers to stretch displayMode KaTeX (never compact)", async () => {
+  it("routes heavy \\begin{…} answers to the MathJax-SVG display path", async () => {
     const latex = String.raw`\begin{cases} x = 1 \\ y = 2 \end{cases}`;
     await render(<AnswerBlock content={latex} />);
     expect(mockFormula).toHaveBeenCalledTimes(1);
     const props = mockFormula.mock.calls[0][0];
-    expect(props.displayMode).toBe(true);
-    expect(props.compact).toBeUndefined();
     expect(props.latex).toBe(latex);
   });
 
@@ -107,7 +101,7 @@ describe("AnswerBlock", () => {
     expect(mockFormula).not.toHaveBeenCalled();
   });
 
-  it("uses KaTeX for heavy answers when only expo-dom WebView is available (Expo Go)", async () => {
+  it("uses MathJax-SVG for heavy answers regardless of WebView availability", async () => {
     const latex = String.raw`\begin{matrix}a&b\\c&d\end{matrix}`;
     await render(<AnswerBlock content={latex} />);
     expect(mockFormula).toHaveBeenCalled();

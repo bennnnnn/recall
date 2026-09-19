@@ -28,7 +28,6 @@ const VERSIONS = {
   // Pinned exactly to the committed bundle version (MathJax's internal
   // version is 3.2.1). A floating "3" would silently pull whatever 3.x
   // jsDelivr serves on the next vendor regen. Bump deliberately.
-  mathjax: "3.2.1",
   mermaid: "10",
   vega: "5",
   vegaLite: "5",
@@ -87,12 +86,7 @@ async function main() {
     return;
   }
 
-  // 2. MathJax tex-svg (self-contained, no font fetches).
-  const mathjaxUrl = `https://cdn.jsdelivr.net/npm/mathjax@${VERSIONS.mathjax}/es5/tex-svg.js`;
-  const mathjaxBuf = await download(mathjaxUrl, join(TMP_DIR, "tex-svg.js"));
-  writeStringTs("mathjaxTexSvgJs", mathjaxBuf.toString("utf8"), `MathJax ${VERSIONS.mathjax} tex-svg.js — SVG output, no runtime font fetches.`);
-
-  // 3. Mermaid
+  // 2. Mermaid
   const mermaidBuf = await download(`https://cdn.jsdelivr.net/npm/mermaid@${VERSIONS.mermaid}/dist/mermaid.min.js`, join(TMP_DIR, "mermaid.min.js"));
   writeStringTs("mermaidMinJs", mermaidBuf.toString("utf8"), `Mermaid ${VERSIONS.mermaid} min.`);
 
@@ -126,7 +120,6 @@ async function main() {
 
   // Manifest for traceability
   const allJs = [
-    ["mathjaxTexSvgJs", mathjaxBuf.toString("utf8")],
     ["mermaidMinJs", mermaidBuf.toString("utf8")],
     ["vegaMinJs", vegaBuf.toString("utf8")],
     ["vegaLiteMinJs", vegaLiteBuf.toString("utf8")],
@@ -149,7 +142,6 @@ async function main() {
     versions: VERSIONS,
     sha256: {
       katexCss: sha(katexCss),
-      mathjaxTexSvgJs: sha(mathjaxBuf),
       mermaidMinJs: sha(mermaidBuf),
       vegaMinJs: sha(vegaBuf),
       vegaLiteMinJs: sha(vegaLiteBuf),

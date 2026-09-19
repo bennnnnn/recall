@@ -126,32 +126,6 @@ export function prepareHtmlRunDocument(html: string): string {
 }
 
 /**
- * CSP for the math WebView (MathJax path).
- *
- * The math WebView renders a *trusted* template (our own LaTeX + a vendored,
- * inlined MathJax tex-svg bundle) — not model-generated HTML/JS. MathJax's
- * tex-svg output renders as inline SVG paths with no runtime font fetches,
- * and the ams/noerrors/noundefined tex extensions are pre-bundled, so the
- * loader never needs to reach the network. That lets us keep `connect-src
- * 'none'` — the same hard egress block as the user-HTML preview CSP. (The
- * bundle does contain dormant speech-rule-engine CDN URLs, but those only
- * execute under an a11y config we don't load, and `connect-src 'none'`
- * blocks them regardless.)
- */
-export const MATH_PREVIEW_CSP = [
-  "default-src 'none'",
-  "style-src 'unsafe-inline'",
-  "script-src 'unsafe-inline'",
-  "img-src data: blob: https:",
-  "font-src data: https:",
-  "media-src data: blob: https:",
-  "connect-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-  "sandbox allow-scripts",
-].join("; ");
-
-/**
  * CSP for the PDF preview WebView (pdf.js).
  *
  * pdf.js + its worker are vendored and inlined (the worker is built from a

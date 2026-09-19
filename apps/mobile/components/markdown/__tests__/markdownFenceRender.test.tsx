@@ -70,6 +70,15 @@ jest.mock("@/components/rich/LazyHeavyRich", () => {
 jest.mock("@/components/rich/CircularClockBlock", () => ({
   CircularClockBlock: "CircularClockBlock",
 }));
+// Display math renders via MathJax-SVG now; this suite asserts fence
+// dispatch, so stand in the native MathText fallback for MathBlock.
+jest.mock("@/components/rich/MathSvgView", () => {
+  const React = jest.requireActual("react");
+  const { MathText } = jest.requireActual("@/components/rich/MathText");
+  return {
+    MathSvgView: ({ latex }: { latex: string }) => React.createElement(MathText, { latex }),
+  };
+});
 // CodeBlock's real syntax-tokenizer loads via a dynamic import() that Jest's
 // CJS transform can't resolve without --experimental-vm-modules — a stub
 // that just echoes its props is enough to assert dispatch reached it.

@@ -28,11 +28,14 @@ jest.mock("@/components/rich/CircularClockBlock", () => ({
 jest.mock("@/components/rich/AnswerBlock", () => ({
   AnswerBlock: "AnswerBlock",
 }));
-jest.mock("react-native-webview", () => {
-  throw new Error("react-native-webview native module is not linked (test)");
-});
-jest.mock("@expo/dom-webview", () => {
-  throw new Error("@expo/dom-webview native module is not linked (test)");
+// Display math renders via MathJax-SVG now; this suite asserts markdown
+// splitting/punctuation, so stand in the native MathText fallback.
+jest.mock("@/components/rich/MathSvgView", () => {
+  const React = jest.requireActual("react");
+  const { MathText } = jest.requireActual("@/components/rich/MathText");
+  return {
+    MathSvgView: ({ latex }: { latex: string }) => React.createElement(MathText, { latex }),
+  };
 });
 jest.mock("@/components/CodeBlock", () => {
   const { Text: RNText } = jest.requireActual("react-native");
