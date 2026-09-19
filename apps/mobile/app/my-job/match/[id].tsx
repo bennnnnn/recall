@@ -1,17 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useMemo } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/Icon";
 import { CoverLetterSheet } from "@/components/jobSearch/CoverLetterSheet";
+import { JobMatchDetailSkeleton } from "@/components/jobSearch/JobMatchDetailSkeleton";
 import { JobMatchMetaChips, matchScoreColor } from "@/components/jobSearch/JobMatchMetaChips";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
+import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type JobMatch, type JobMatchStatus } from "@/lib/api";
+import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { useJobMatchDetail } from "@/hooks/useJobMatchDetail";
+import { type JobMatchStatus } from "@/lib/api";
 import { notifyWarning, selection, tap } from "@/lib/haptics";
-import { cacheJobMatch, cacheJobMatches, getCachedJobMatch } from "@/lib/jobSearch/matchCache";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -28,107 +40,48 @@ const STAGES: JobMatchStatus[] = [
 
 export default function JobMatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const owner = useAccountViewOwner();
+  return (
+    <JobMatchDetailView
+      key={`${owner.key}:${id ?? ""}`}
+      id={id}
+      isCurrent={owner.isCurrent}
+    />
+  );
+}
+
+function JobMatchDetailView({
+  id,
+  isCurrent,
+}: {
+  id: string | undefined;
+  isCurrent: () => boolean;
+}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const { t } = useTranslation();
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const isPro = user?.plan === "pro";
-
-  const [match, setMatch] = useState<JobMatch | null>(() =>
-    id ? getCachedJobMatch(id) : null,
-  );
-  const [loading, setLoading] = useState(match == null);
-  const [stageOpen, setStageOpen] = useState(false);
-  const [notesDraft, setNotesDraft] = useState(match?.notes ?? "");
-  const [letterOpen, setLetterOpen] = useState(false);
-  const [letterLoading, setLetterLoading] = useState(false);
-  const [letter, setLetter] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (match != null || !id || !token) return;
-    let alive = true;
-    // Cold start / deep link: the cache is empty, so load the dashboard once.
-    void api
-      .getJobSearch(token)
-      .then((dashboard) => {
-        if (!alive) return;
-        cacheJobMatches(dashboard.matches);
-        setMatch(dashboard.matches.find((item) => item.id === id) ?? null);
-      })
-      .catch(() => {
-        if (alive) setMatch(null);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, token]);
-
-  const openJob = useCallback(async () => {
-    if (!match) return;
-    try {
-      await Linking.openURL(match.url);
-    } catch {
-      Alert.alert(t("my_job.open_failed_title"), t("my_job.open_failed_body"));
-    }
-  }, [match, t]);
-
-  const updateStatus = useCallback(
-    async (status: JobMatchStatus, notes?: string | null) => {
-      if (!match || !token) return;
-      const previous = match;
-      const next: JobMatch = {
-        ...match,
-        status,
-        notes: notes === undefined ? match.notes : notes,
-      };
-      setMatch(next);
-      cacheJobMatch(next);
-      try {
-        await api.setJobMatchStatus(token, match.id, status, notes);
-        if (status === "hidden") router.back();
-      } catch {
-        setMatch(previous);
-        cacheJobMatch(previous);
-        Alert.alert(t("my_job.refresh_error"));
-      }
-    },
-    [match, token, router, t],
-  );
-
-  const saveNotes = useCallback(() => {
-    if (!match) return;
-    const notes = notesDraft.trim();
-    if ((match.notes ?? "") === notes) return;
-    void updateStatus(match.status, notes === "" ? null : notes);
-  }, [match, notesDraft, updateStatus]);
-
-  const generateLetter = useCallback(async () => {
-    if (!match || !token || letterLoading) return;
-    tap();
-    setLetterOpen(true);
-    setLetterLoading(true);
-    try {
-      const result = await api.generateCoverLetter(token, match.id);
-      setLetter(result.cover_letter);
-    } catch {
-      setLetterOpen(false);
-      Alert.alert(t("my_job.cover_letter_error"));
-    } finally {
-      setLetterLoading(false);
-    }
-  }, [match, token, letterLoading, t]);
-
-  // A cold-loaded match (deep link) arrives after first render — sync the
-  // notes draft when a different match id lands, not on every status update.
-  useEffect(() => {
-    setNotesDraft(match?.notes ?? "");
-  }, [match?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const {
+    match,
+    loading,
+    loadError,
+    load,
+    updateStatus,
+    notesDraft,
+    setNotesDraft,
+    saveNotes,
+    openJob,
+    stageOpen,
+    setStageOpen,
+    letterOpen,
+    setLetterOpen,
+    letterLoading,
+    letter,
+    generateLetter,
+  } = useJobMatchDetail(id, isCurrent);
 
   const score = match?.match_score ?? null;
   const scoreColor = matchScoreColor(score, C);
@@ -157,19 +110,31 @@ export default function JobMatchDetailScreen() {
         <View style={s.headerButton} />
       </View>
 
+      <KeyboardAvoidingView
+        style={s.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        testID="job-match-detail-keyboard-view"
+      >
       {loading ? (
-        <View style={s.center}>
-          <ActivityIndicator color={C.primary} />
-        </View>
+        <JobMatchDetailSkeleton />
+      ) : loadError && match == null ? (
+        <StateView
+          variant="error"
+          title={t("my_job.refresh_error")}
+          onRetry={() => void load()}
+        />
       ) : match == null ? (
-        <View style={s.center}>
-          <Icon name="briefcase-outline" size={40} color={C.textTertiary} />
-          <Text style={s.notFound}>{t("my_job.detail_not_found")}</Text>
-        </View>
+        <StateView
+          variant="empty"
+          icon="briefcase-outline"
+          title={t("my_job.detail_not_found")}
+        />
       ) : (
         <ScrollView
           contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          testID="job-match-detail-scroll"
         >
           <View style={s.headingRow}>
             <View
@@ -338,6 +303,7 @@ export default function JobMatchDetailScreen() {
           </View>
         </ScrollView>
       )}
+      </KeyboardAvoidingView>
 
       {match != null ? (
         <SettingsPickerSheet
@@ -367,6 +333,7 @@ export default function JobMatchDetailScreen() {
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: C.bg },
+    flex: { flex: 1 },
     header: {
       flexDirection: "row",
       alignItems: "center",
@@ -387,14 +354,6 @@ function makeStyles(C: Theme) {
       flex: 1,
       textAlign: "center",
     },
-    center: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.sm,
-      padding: Space.lg,
-    },
-    notFound: { ...Type.body, color: C.textSecondary, textAlign: "center" },
     content: { padding: Space.md, gap: Space.md },
     headingRow: { flexDirection: "row", alignItems: "center", gap: Space.sm },
     logo: {
