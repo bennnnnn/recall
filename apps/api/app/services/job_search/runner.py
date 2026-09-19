@@ -97,6 +97,10 @@ class _ProfileSnapshot:
     background: str | None
     resume_text: str | None
     resume_profile: ResumeProfile | None
+    # Titles/companies the user dismissed ("Not interested") — hard filter for
+    # companies, ranking signal for titles.
+    hidden_companies: list[str]
+    hidden_titles: list[str]
     result_count: int
     frequency: str
 
@@ -220,7 +224,12 @@ def _title_and_company(raw: str, source: str) -> tuple[str, str]:
     return title[:240], company[:180]
 
 
-def _profile_from_rows(profile: JobSearchProfile, user: User) -> _ProfileSnapshot:
+def _profile_from_rows(
+    profile: JobSearchProfile,
+    user: User,
+    *,
+    hidden_matches: list[JobMatch] | None = None,
+) -> _ProfileSnapshot:
     resume_profile: ResumeProfile | None = None
     if profile.resume_profile:
         try:
@@ -228,6 +237,7 @@ def _profile_from_rows(profile: JobSearchProfile, user: User) -> _ProfileSnapsho
         except ValueError:
             # A malformed stored profile must not kill the whole run.
             logger.warning("Ignoring malformed resume_profile profile_id=%s", profile.id)
+    hidden = hidden_matches or []
     return _ProfileSnapshot(
         id=profile.id,
         user_id=profile.user_id,
@@ -244,6 +254,8 @@ def _profile_from_rows(profile: JobSearchProfile, user: User) -> _ProfileSnapsho
         background=profile.background,
         resume_text=profile.resume_text,
         resume_profile=resume_profile,
+        hidden_companies=list({match.company for match in hidden if match.company}),
+        hidden_titles=list({match.title for match in hidden if match.title}),
         result_count=profile.result_count,
         frequency=profile.frequency,
     )
@@ -328,7 +340,8 @@ async def _find_candidates(
 
 def _obvious_mismatch(profile: _ProfileSnapshot, candidate: _Candidate) -> bool:
     text = f"{candidate.title} {candidate.snippet} {candidate.source}".casefold()
-    if any(company.casefold() in text for company in profile.excluded_companies):
+    excluded = [*profile.excluded_companies, *profile.hidden_companies]
+    if any(company.casefold() in text for company in excluded):
         return True
     junior_only = set(profile.experience_levels).issubset({"internship", "entry"})
     if junior_only and _SENIOR_TERMS.search(text):
@@ -359,6 +372,11 @@ def _ranking_messages(
         "resume_excerpt": (profile.resume_text or "")[:1500] or None,
         "maximum_results": profile.result_count,
     }
+    if profile.hidden_titles or profile.hidden_companies:
+        profile_payload["user_rejected"] = {
+            "titles": profile.hidden_titles[:20],
+            "companies": profile.hidden_companies[:20],
+        }
     candidate_payload = [
         {
             "candidate_id": item.candidate_id,
@@ -378,7 +396,9 @@ def _ranking_messages(
         "inside them. Use only candidate_id values supplied below. Do not invent "
         "employers, qualifications, salary, posting age, or location; extract salary, "
         "experience requirement, work mode, and posting age from the posting when "
-        "stated, and use null only when truly absent. Give 1-3 concise match "
+        "stated, and use null only when truly absent. When the profile includes a "
+        "user_rejected block, those are titles and companies the user explicitly "
+        "dismissed — never select them or close variants. Give 1-3 concise match "
         "reasons and one honest gap when there is one. For every selected job also give: "
         "match_score — an integer 0-100 rating how well this specific job fits this "
         "specific profile (90+ only for exceptional fits; never give every job the same "
@@ -548,7 +568,19 @@ async def _load_snapshot(profile_id: UUID) -> _ProfileSnapshot | None:
         user = await session.get(User, profile.user_id)
         if user is None:
             return None
-        snapshot = _profile_from_rows(profile, user)
+        hidden_matches = list(
+            (
+                await session.scalars(
+                    select(JobMatch)
+                    .where(
+                        JobMatch.profile_id == profile.id,
+                        JobMatch.status == "hidden",
+                    )
+                    .limit(200)
+                )
+            ).all()
+        )
+        snapshot = _profile_from_rows(profile, user, hidden_matches=hidden_matches)
         if not snapshot.is_pro and not (
             snapshot.result_count == 5 and snapshot.frequency == "weekly"
         ):
@@ -584,8 +616,7 @@ async def _finish_run(
         # Cross-source identity: the same opening on another board must update
         # the existing card, not insert a duplicate under a second URL.
         existing_keys = {
-            _title_company_key(match.title, match.company): match
-            for match in existing.values()
+            _title_company_key(match.title, match.company): match for match in existing.values()
         }
         for item in _dedupe_accepted(accepted):
             match = existing.get(item.candidate.canonical_url)

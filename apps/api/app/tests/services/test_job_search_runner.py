@@ -40,6 +40,8 @@ def _profile(**overrides: object) -> _ProfileSnapshot:
         "background": None,
         "resume_text": None,
         "resume_profile": None,
+        "hidden_companies": [],
+        "hidden_titles": [],
         "result_count": 10,
         "frequency": "weekdays",
     }
@@ -188,6 +190,25 @@ def test_ranking_messages_include_structured_resume_profile() -> None:
     assert '"resume_profile"' in payload
     assert '"years_experience": 4' in payload
     assert "raw resume text" in payload
+
+
+def test_hidden_company_is_filtered_like_an_excluded_company() -> None:
+    profile = _profile(hidden_companies=["Acme Health"])
+    assert _obvious_mismatch(profile, _candidate("Nurse", "Acme Health is hiring")) is True
+    assert _obvious_mismatch(profile, _candidate("Nurse", "Other Hospital hiring")) is False
+
+
+def test_ranking_messages_include_user_rejected_block() -> None:
+    profile = _profile(hidden_titles=["Sales Manager"], hidden_companies=["Acme"])
+    messages = _ranking_messages(profile, [_candidate("Backend Engineer", "Python")])
+    payload = messages[1]["content"]
+    assert '"user_rejected"' in payload
+    assert "Sales Manager" in payload
+    assert "Acme" in payload
+    assert "never select them or close variants" in messages[0]["content"]
+    # No rejections → no block at all.
+    clean = _ranking_messages(_profile(), [_candidate("Backend Engineer", "Python")])
+    assert "user_rejected" not in clean[1]["content"]
 
 
 def test_title_company_key_ignores_case_punctuation_and_suffixes() -> None:
