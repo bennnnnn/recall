@@ -114,9 +114,7 @@ def _confirmed_pole_xs(points: list[list[float]], pole_xs: list[float]) -> list[
     return confirmed
 
 
-def _split_at_xs(
-    points: list[list[float]], pole_xs: list[float]
-) -> list[list[list[float]]]:
+def _split_at_xs(points: list[list[float]], pole_xs: list[float]) -> list[list[list[float]]]:
     """Split an x-sorted point list at each pole (one segment per side)."""
     segments: list[list[list[float]]] = []
     current: list[list[float]] = []
