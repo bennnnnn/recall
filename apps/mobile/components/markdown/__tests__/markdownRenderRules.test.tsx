@@ -274,11 +274,27 @@ describe("markdown render rules", () => {
     expect(queryByText("2.")).toBeNull();
   });
 
-  it("exposes markdown image alt text to the screen reader", async () => {
+  it("renders allowed markdown images through the memory-disk cache", async () => {
     const { getByLabelText } = await render(
       <MarkdownContent content={"![A red triangle](https://example.com/tri.png)"} />,
     );
-    expect(getByLabelText("A red triangle")).toBeOnTheScreen();
+    const image = getByLabelText("A red triangle");
+    expect(image).toBeOnTheScreen();
+    expect(image.props.source).toEqual({ uri: "https://example.com/tri.png" });
+    expect(image.props.contentFit).toBe("contain");
+    expect(image.props.cachePolicy).toBe("memory-disk");
+  });
+
+  it.each([
+    "http://example.com/tracker.png",
+    "file:///private/secret.png",
+    "content://private/secret.png",
+    "javascript:alert(1)",
+  ])("does not load unsafe markdown image URI %s", async (uri) => {
+    const { queryByRole } = await render(
+      <MarkdownContent content={`![unsafe](${uri})`} />,
+    );
+    expect(queryByRole("image")).toBeNull();
   });
 
   it("marks markdown links with the link role", async () => {

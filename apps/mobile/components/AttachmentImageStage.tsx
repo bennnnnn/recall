@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, View } from "react-native";
+import { Image, type ImageLoadEventData } from "expo-image";
+import {
+  ActivityIndicator,
+  Image as ReactNativeImage,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 
 import { MediaLoadRetry } from "@/components/MediaLoadRetry";
 import { useAuthToken } from "@/contexts/AuthContext";
@@ -94,7 +101,7 @@ export function AttachmentImageStage({ item, active, onPress }: Props) {
     const uri = cachedUri ?? (item.localUri?.startsWith("file://") ? item.localUri : null);
     if (!uri) return;
     let cancelled = false;
-    Image.getSize(
+    ReactNativeImage.getSize(
       uri,
       (width, height) => {
         if (!cancelled && width > 0 && height > 0) setNatural({ width, height });
@@ -109,8 +116,28 @@ export function AttachmentImageStage({ item, active, onPress }: Props) {
   const source = useMemo(() => {
     if (!displayUri) return null;
     const headers = attachmentRequestHeaders(displayUri, token);
-    return Object.keys(headers).length ? { uri: displayUri, headers } : { uri: displayUri };
-  }, [displayUri, token]);
+    if (!Object.keys(headers).length) return { uri: displayUri };
+    return {
+      uri: displayUri,
+      headers,
+      // Authenticated attachment URLs can be identical across accounts.
+      // Scope expo-image's disk cache to the current session, and let Retry
+      // bypass a possibly corrupt cached response without leaking file keys.
+      cacheKey: `attachment:${sessionGeneration}:${attempt}:${displayUri}`,
+    };
+  }, [attempt, displayUri, sessionGeneration, token]);
+
+  const handleLoad = (event: ImageLoadEventData) => {
+    const { width, height } = event.source;
+    if (
+      Number.isFinite(width) &&
+      Number.isFinite(height) &&
+      width > 0 &&
+      height > 0
+    ) {
+      setNatural({ width, height });
+    }
+  };
 
   if (failed) {
     return (
@@ -153,7 +180,9 @@ export function AttachmentImageStage({ item, active, onPress }: Props) {
         testID="attachment-viewer-image"
         source={source}
         style={fitted ?? s.imageFill}
-        resizeMode="contain"
+        contentFit="contain"
+        cachePolicy="memory-disk"
+        onLoad={handleLoad}
         onError={() => setFailed(true)}
       />
     </Pressable>

@@ -1,6 +1,7 @@
 import { Children, Fragment, ReactNode } from "react";
+import { Image } from "expo-image";
 import { Icon } from "@/components/Icon";
-import { Image, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { MathText } from "@/components/rich/MathText";
@@ -284,7 +285,8 @@ function makeSharedRules(
           key={node.key}
           source={{ uri: src }}
           style={mdImg.image}
-          resizeMode="contain"
+          contentFit="contain"
+          cachePolicy="memory-disk"
           accessibilityRole="image"
           accessibilityLabel={alt || undefined}
           accessible={alt.length > 0}

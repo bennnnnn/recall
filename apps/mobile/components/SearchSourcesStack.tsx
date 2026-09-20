@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
@@ -179,8 +180,11 @@ function FaviconCircle({
   return (
     <View style={frame}>
       <Image
+        testID="search-source-favicon"
         source={{ uri }}
         style={{ width: size - ring * 2, height: size - ring * 2 }}
+        contentFit="contain"
+        cachePolicy="memory-disk"
         onError={() => setFailed(true)}
       />
     </View>
