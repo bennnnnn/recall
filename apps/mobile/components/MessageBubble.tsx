@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Icon } from "@/components/Icon";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
@@ -65,6 +65,29 @@ function userMessageCopyText(content: string): string {
   return caption || content.trim();
 }
 
+function useCopyFeedback() {
+  const [copied, setCopied] = useState(false);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showCopied = useCallback(() => {
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    setCopied(true);
+    resetTimerRef.current = setTimeout(() => {
+      resetTimerRef.current = null;
+      setCopied(false);
+    }, 1500);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    },
+    [],
+  );
+
+  return { copied, showCopied };
+}
+
 function UserActions({
   content,
   theme,
@@ -73,15 +96,14 @@ function UserActions({
   theme: Theme;
 }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { copied, showCopied } = useCopyFeedback();
 
   const handleCopy = async () => {
     if (!content.trim()) return;
     tap();
     await copyText(content);
-    setCopied(true);
+    showCopied();
     notifySuccess();
-    setTimeout(() => setCopied(false), 1500);
   };
 
   return (
@@ -130,7 +152,7 @@ function AssistantActions({
   const { user } = useAuth();
   const token = useAuthToken();
   const feedbackApi = useActionFeedbackOptional();
-  const [copied, setCopied] = useState(false);
+  const { copied, showCopied } = useCopyFeedback();
   const [speaking, setSpeaking] = useState(false);
   const speakGenRef = useRef(0);
   const copyPayload = extractPrimaryCopyText(markdown);
@@ -139,9 +161,8 @@ function AssistantActions({
     if (!copyPayload.trim()) return;
     tap();
     await copyText(copyPayload);
-    setCopied(true);
+    showCopied();
     notifySuccess();
-    setTimeout(() => setCopied(false), 1500);
   };
 
   const handleSpeak = async () => {

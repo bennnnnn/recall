@@ -52,7 +52,12 @@ export function ChatInlineError({
         <Text style={s.text}>{error.message}</Text>
       </View>
       {error.kind === "quota" && onUpgrade && upgradeLabel ? (
-        <Pressable style={s.cta} onPress={onUpgrade}>
+        <Pressable
+          style={s.cta}
+          onPress={onUpgrade}
+          accessibilityRole="button"
+          accessibilityLabel={upgradeLabel}
+        >
           <Text style={s.ctaText}>{upgradeLabel}</Text>
         </Pressable>
       ) : null}

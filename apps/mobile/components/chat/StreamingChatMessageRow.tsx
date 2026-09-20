@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useCallback } from "react";
 
 import { MessageBubble } from "@/components/MessageBubble";
 import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
@@ -47,6 +47,9 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   const streamStatus = imageGenPending ? "image_gen" : streamingDraft?.status;
   const streamStatusDetail = imageGenPending ? undefined : streamingDraft?.statusDetail;
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
+  const handleRegenerate = useCallback(() => {
+    onRegenerate(selectedModel);
+  }, [onRegenerate, selectedModel]);
 
   return (
     <MessageBubble
@@ -59,7 +62,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       streamStatusDetail={streamStatusDetail}
       isLastAssistant={isLastAssistant}
       onRegenerate={
-        isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined
+        isLastAssistant && !streamVisualActive ? handleRegenerate : undefined
       }
       regenerating={isLastAssistant && regenerating}
       onRetryImageGen={item.image_gen_failure ? onRetryImageGen : undefined}

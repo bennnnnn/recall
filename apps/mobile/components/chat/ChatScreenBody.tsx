@@ -8,7 +8,6 @@ import { AttachmentSourceSheet } from "@/components/AttachmentSourceSheet";
 import { MathEquationScanner } from "@/components/MathEquationScanner";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { ChatInlineError } from "@/components/chat/ChatInlineError";
-import { ChatOfflineStrip } from "@/components/chat/ChatOfflineStrip";
 import { ChatMessageList } from "@/components/chat/ChatMessageList";
 import { ChatQuotaNudge } from "@/components/chat/ChatQuotaNudge";
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
@@ -70,6 +69,7 @@ export type ChatScreenBodyProps = {
   attachBusy: boolean;
   attachPicking: boolean;
   sendBusy: boolean;
+  sendStatus?: string;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
   onPickAttachment: () => void;
@@ -143,6 +143,7 @@ export function ChatScreenBody({
   attachBusy,
   attachPicking,
   sendBusy,
+  sendStatus,
   pendingAttachment,
   onRemoveAttachment,
   onPickAttachment,
@@ -255,19 +256,15 @@ export function ChatScreenBody({
         onDismiss={onDismissChatError}
       />
 
-      {/* Same slot as the error card / quota nudge — never stack them. */}
-      {!chatError && !quotaNudgeVisible ? (
-        <ChatOfflineStrip offline={isOffline} bottom={composerClearance + 8} />
-      ) : null}
-
       <ChatComposer
         visible={!drawerOpen}
         animatedContainerStyle={composerAnimatedStyle}
         token={token}
         streaming={streaming}
         attachBusy={attachBusy}
-            attachPicking={attachPicking}
-            sendBusy={sendBusy}
+        attachPicking={attachPicking}
+        sendBusy={sendBusy}
+        sendStatus={sendStatus}
         pendingAttachment={pendingAttachment}
         onRemoveAttachment={onRemoveAttachment}
         onCloseAttachSheet={onCloseAttachSheet}

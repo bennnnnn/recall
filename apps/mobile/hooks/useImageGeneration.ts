@@ -59,6 +59,10 @@ export type ImageGenSubmit = {
   aspectRatio?: string | null;
   referenceAttachmentIds?: string[];
   referenceAttachment?: PendingAttachment;
+  /** Already-running persistence gate; optimistic image UI does not wait on it. */
+  persistenceReady?: Promise<boolean>;
+  /** Restores the composer draft when the persistence gate rejects the turn. */
+  onPersistenceFailure?: () => void;
 };
 
 /** Pro image generation from composer text — no confirmation sheet. */
@@ -186,6 +190,35 @@ export function useImageGeneration({
       onScrollToLatest();
 
       try {
+        const persistenceReady = input.persistenceReady
+          ? await input.persistenceReady.catch(() => false)
+          : true;
+        if (!persistenceReady) {
+          setMessages((prev) =>
+            prev.filter(
+              (row) =>
+                row.id !== optimisticUserId &&
+                row.id !== IMAGE_GEN_PENDING_ASSISTANT_ID,
+            ),
+          );
+          if (!priorUserId) {
+            newMessageCountRef.current = Math.max(
+              0,
+              newMessageCountRef.current - 2,
+            );
+          }
+          optimisticUserIdRef.current = null;
+          lastSubmitRef.current = null;
+          input.onPersistenceFailure?.();
+          return;
+        }
+        const persistedInput = {
+          ...input,
+          persistenceReady: undefined,
+          onPersistenceFailure: undefined,
+        };
+        lastSubmitRef.current = persistedInput;
+
         const activeChatId = await ensureChatId();
         if (!activeChatId) {
           setMessages((prev) => applyImageGenFailure(prev, "failed", t("chat.error_generic")));
@@ -195,7 +228,11 @@ export function useImageGeneration({
           ? [await uploadChatAttachment(authToken, input.referenceAttachment)]
           : input.referenceAttachmentIds;
         // Retry the same upload/reference, not whatever image is newest later.
-        lastSubmitRef.current = { ...input, referenceAttachment: undefined, referenceAttachmentIds: referenceIds };
+        lastSubmitRef.current = {
+          ...persistedInput,
+          referenceAttachment: undefined,
+          referenceAttachmentIds: referenceIds,
+        };
         if (abort.signal.aborted) throw new Error("Image request cancelled");
         const result = await api.generateImage(
           authToken,

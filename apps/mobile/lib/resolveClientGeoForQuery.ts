@@ -15,6 +15,14 @@ type PersistLocation = (patch: {
   location_enabled: boolean;
 }) => void | Promise<void>;
 
+export function queryNeedsClientGeo(queryText: string): boolean {
+  return Boolean(
+    queryText &&
+      isGeoQuery(queryText) &&
+      !isAmbiguousLocalPlacesQuery(queryText),
+  );
+}
+
 function formatCoordLabel(latitude: number, longitude: number): string {
   return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
 }
@@ -42,7 +50,7 @@ export async function resolveClientGeoForQuery(
   t: Translate,
   persistLocation: PersistLocation,
 ): Promise<ClientGeoResolveResult> {
-  if (!queryText || !isGeoQuery(queryText) || isAmbiguousLocalPlacesQuery(queryText)) {
+  if (!queryNeedsClientGeo(queryText)) {
     return { ok: true, clientGeo: null };
   }
 

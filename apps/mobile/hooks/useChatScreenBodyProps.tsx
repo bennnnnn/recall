@@ -102,6 +102,7 @@ export type UseChatScreenBodyPropsParams = {
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
   sendBusy: boolean;
+  sendStatus?: string;
   stopGeneration: () => void;
   isOffline: boolean;
   voice: {
@@ -180,6 +181,7 @@ export function useChatScreenBodyProps({
   composerAnimatedStyle,
   streaming,
   sendBusy,
+  sendStatus,
   stopGeneration,
   isOffline,
   voice: {
@@ -334,6 +336,7 @@ export function useChatScreenBodyProps({
       attachBusy,
       attachPicking,
       sendBusy,
+      sendStatus,
       pendingAttachment,
       onRemoveAttachment,
       onPickAttachment: handlePickAttachment,
@@ -399,6 +402,7 @@ export function useChatScreenBodyProps({
       attachBusy,
       attachPicking,
       sendBusy,
+      sendStatus,
       pendingAttachment,
       onRemoveAttachment,
       handlePickAttachment,
