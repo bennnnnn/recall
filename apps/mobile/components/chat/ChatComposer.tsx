@@ -28,6 +28,7 @@ import {
   useComposerDraftApiOptional,
   useComposerDraftValueOptional,
 } from "@/contexts/ComposerDraftContext";
+import { useAuthToken } from "@/contexts/AuthContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chat/composerLogic";
@@ -61,7 +62,6 @@ type Props = {
   bottom?: number;
   paddingBottom?: number;
   animatedContainerStyle?: AnimatedStyle<ViewStyle>;
-  token: string | null;
   /** Tests pass these; production reads ComposerDraftContext. */
   input?: string;
   onChangeInput?: (text: string) => void;
@@ -103,7 +103,6 @@ export const ChatComposer = memo(function ChatComposer({
   bottom,
   paddingBottom,
   animatedContainerStyle,
-  token,
   input: inputProp,
   onChangeInput: onChangeInputProp,
   streaming,
@@ -131,6 +130,7 @@ export const ChatComposer = memo(function ChatComposer({
   mathContext = false,
 }: Props) {
   const { t } = useTranslation();
+  const token = useAuthToken();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const draft = useComposerDraftValueOptional();
