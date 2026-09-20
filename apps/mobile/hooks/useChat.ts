@@ -10,7 +10,6 @@ import {
   applyStreamEndModel,
   buildDoneMergeInput,
   mergeDoneIntoMessages,
-  parseChatWsPayload,
   shouldIgnoreStoppedStreamEvent,
 } from "@/lib/chat/socketReduce";
 import {
@@ -24,9 +23,11 @@ import {
 import { replaceStreamingMessageWithPartial } from "@/lib/chat/partialStream";
 import {
   EAGER_CONNECT_DEBOUNCE_MS,
-  WS_CONNECT_TIMEOUT_MS,
-  WS_FIRST_EVENT_TIMEOUT_MS,
 } from "@/lib/chat/wsConnect";
+import {
+  ChatWsTransport,
+  type ChatWsFallbackSignal,
+} from "@/lib/chat/wsTransport";
 
 import type { ComposerSendDraft } from "@/lib/chat/sendLogic";
 
@@ -56,10 +57,6 @@ type PendingSend = {
 
 type RejectedSend = PendingSend & { reason: "send_rejected" | "attachment_rejected" };
 
-const WS_TURN_EVENT_TYPES = new Set([
-  "start", "status", "token", "reasoning", "stream_end", "done", "error",
-]);
-
 type UseChatOptions = {
   /** Called with the new title when the server sends one after first reply */
   onFirstReply?: () => void;
@@ -81,13 +78,11 @@ export function useChat(
   const [streaming, setStreaming] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [sendingMessageId, setSendingMessageId] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const wsTurnRef = useRef<WebSocket | null>(null);
-  const wsFirstEventTimerRef = useRef<{
-    socket: WebSocket;
-    timer: ReturnType<typeof setTimeout>;
+  const wsTransportRef = useRef<ChatWsTransport | null>(null);
+  const wsAuthFallbackRef = useRef<{
+    transport: ChatWsTransport;
+    retry: () => Promise<void>;
   } | null>(null);
-  const wsAuthFallbackRef = useRef<{ socket: WebSocket; retry: () => Promise<void> } | null>(null);
   const sendAttemptRef = useRef(0);
   const pendingSendRef = useRef<PendingSend | null>(null);
   // Only explicit pre-persistence rejections belong here. Keep them across
@@ -95,8 +90,6 @@ export function useChat(
   const rejectedSendsRef = useRef(new Map<string, RejectedSend[]>());
   const [rejectedSend, setRejectedSend] = useState<RejectedSend | null>(null);
   const mountedRef = useRef(true);
-  const connectingRef = useRef<Promise<void> | null>(null);
-  const preferSseRef = useRef(false);
   const sseAbortRef = useRef<AbortController | null>(null);
   const sseAbortChatIdRef = useRef<string | null>(null);
   const viewingChatIdRef = useRef(chatId);
@@ -167,13 +160,6 @@ export function useChat(
   onFirstReplyRef.current = options.onFirstReply;
   onErrorRef.current = options.onError;
   onTodosSyncRef.current = options.onTodosSync;
-
-  const clearWsFirstEventTimer = useCallback((socket?: WebSocket) => {
-    const pending = wsFirstEventTimerRef.current;
-    if (!pending || (socket && pending.socket !== socket)) return;
-    clearTimeout(pending.timer);
-    wsFirstEventTimerRef.current = null;
-  }, []);
 
   const reportError = useCallback((message: string, code?: string) => {
     onErrorRef.current?.(message, code);
@@ -260,23 +246,20 @@ export function useChat(
         cancelAnimationFrame(draftRafRef.current);
       }
       clearTodoSyncTimers();
-      clearWsFirstEventTimer();
       updateStreamingDraft(null);
       // Do not abort SSE on unmount — New chat / leave must drain like WS.
-      const socket = wsRef.current;
-      wsRef.current = null;
-      socket?.close();
+      const transport = wsTransportRef.current;
+      wsTransportRef.current = null;
+      transport?.close();
     };
-  }, [clearTodoSyncTimers, clearWsFirstEventTimer, updateStreamingDraft]);
+  }, [clearTodoSyncTimers, updateStreamingDraft]);
 
   // Close and reset socket when chat changes. Do not abort SSE — Stop is the
   // only hard cancel. Leftover SSE events are ignored via viewingChatIdRef.
   useEffect(() => {
-    clearWsFirstEventTimer();
-    const socket = wsRef.current;
-    wsRef.current = null;
-    socket?.close();
-    wsTurnRef.current = null;
+    const transport = wsTransportRef.current;
+    wsTransportRef.current = null;
+    transport?.close();
     wsAuthFallbackRef.current = null;
     sendAttemptRef.current += 1;
     const pendingRetry = pendingSendRef.current;
@@ -292,8 +275,6 @@ export function useChat(
     // Detach the old fetch without aborting its server-side finalization.
     sseAbortRef.current = null;
     sseAbortChatIdRef.current = null;
-    connectingRef.current = null;
-    preferSseRef.current = false;
     assistantBuffer.current = "";
     firstReplyRef.current = false;
     regenerateBackupRef.current = null;
@@ -308,7 +289,7 @@ export function useChat(
     streamingRef.current = false;
     finalizingRef.current = false;
     setSendingMessageId(null);
-  }, [viewIdentity, chatId, sessionGeneration, updateStreamingDraft, clearTodoSyncTimers, clearWsFirstEventTimer]);
+  }, [viewIdentity, chatId, sessionGeneration, updateStreamingDraft, clearTodoSyncTimers]);
 
   const handleChatPayload = useCallback(
     (payload: ChatSsePayload, ttftTurnId?: string | null) => {
@@ -371,7 +352,6 @@ export function useChat(
         pendingSendRef.current = null;
         regenerateUiActiveRef.current = false;
         wsAuthFallbackRef.current = null;
-        wsTurnRef.current = null;
         regenerateBackupRef.current = null;
         ttftTurnIdRef.current = null;
         setSendingMessageId(null);
@@ -418,7 +398,6 @@ export function useChat(
         if (pending && reason) queueUnsavedSend(pending, reason);
         regenerateUiActiveRef.current = false;
         wsAuthFallbackRef.current = null;
-        wsTurnRef.current = null;
         stoppedStreamedIdRef.current = null;
         setSendingMessageId(null);
         setStreaming(false);
@@ -496,191 +475,126 @@ export function useChat(
     return true;
   }, [updateStreamingDraft]);
 
-  // OPEN only proves the socket handshake succeeded. Bound the wait for a
-  // turn's first server event; once acknowledged, long-running work is allowed.
-  const waitForWsFirstEvent = useCallback((socket: WebSocket) => {
-    clearWsFirstEventTimer();
-    const timer = setTimeout(() => {
-      if (wsFirstEventTimerRef.current?.timer !== timer) return;
-      wsFirstEventTimerRef.current = null;
-      if (!isCurrentView() || wsRef.current !== socket || wsTurnRef.current !== socket) return;
-      // No event does not prove the server missed the request. Detach late
-      // frames, retain the user bubble, and never replay this uncertain turn.
-      wsRef.current = null;
-      wsTurnRef.current = null;
+  const handleWsFallback = useCallback((
+    transport: ChatWsTransport,
+    signal: ChatWsFallbackSignal,
+  ) => {
+    if (!isCurrentView() || wsTransportRef.current !== transport) return;
+    if (signal.reason === "connect_timeout") return;
+
+    if (signal.reason === "unauthorized") {
+      // The server rejects auth before accepting the turn. Only this explicit
+      // rejection is safe to replay through REST's token refresh.
+      const fallback = wsAuthFallbackRef.current;
+      if (!fallback && signal.duringTurn) {
+        handleChatPayloadForChat(chatId, signal.payload, ttftTurnIdRef.current);
+        return;
+      }
       wsAuthFallbackRef.current = null;
-      connectingRef.current = null;
-      preferSseRef.current = true;
+      if (fallback?.transport === transport) void fallback.retry();
+      return;
+    }
+
+    if (signal.reason === "first_event_timeout") {
+      // No event does not prove the server missed the request. Retain the user
+      // bubble and never replay this uncertain turn.
+      wsAuthFallbackRef.current = null;
       pendingSendRef.current = null;
       clearPendingChatTtft(ttftTurnIdRef.current);
       ttftTurnIdRef.current = null;
       setSendingMessageId(null);
       assistantBuffer.current = "";
       restoreRegenerateBackup();
-      socket.close();
       reportError(t("chat.error_unreachable"));
-    }, WS_FIRST_EVENT_TIMEOUT_MS);
-    wsFirstEventTimerRef.current = { socket, timer };
-  }, [clearWsFirstEventTimer, isCurrentView, restoreRegenerateBackup, reportError, t]);
+      return;
+    }
+
+    if (!signal.duringTurn) return;
+    const pending = pendingSendRef.current;
+    pendingSendRef.current = null;
+    if (streamingRef.current || finalizingRef.current) {
+      setStreaming(false);
+      setFinalizing(false);
+      streamingRef.current = false;
+      finalizingRef.current = false;
+      const hadContent = assistantBuffer.current.trim().length > 0;
+      const draft = streamingDraftRef.current;
+      const failedRegenerateBackup = regenerateBackupRef.current;
+      regenerateBackupRef.current = null;
+      assistantBuffer.current = "";
+      updateStreamingDraft(null);
+      setSendingMessageId(null);
+      if (!hadContent) {
+        clearPendingChatTtft(ttftTurnIdRef.current ?? pending?.messageId);
+        ttftTurnIdRef.current = null;
+      }
+      setMessages((prev) => {
+        const streamingMsg = prev.find((m) => m.id === "streaming");
+        if (!streamingMsg) return prev;
+        if (!hadContent) {
+          const withoutStreaming = prev.filter((m) => m.id !== "streaming");
+          if (failedRegenerateBackup) {
+            return restoreAssistantMessage(withoutStreaming, failedRegenerateBackup);
+          }
+          return withoutStreaming;
+        }
+        return prev.map((m) =>
+          m.id === "streaming"
+            ? {
+                ...m,
+                id: `streamed-${Date.now()}`,
+                content: draft?.content ?? m.content,
+                search_sources: draft?.search_sources ?? m.search_sources,
+                generationStopped: true,
+              }
+            : m,
+        );
+      });
+      if (hadContent) {
+        reportError(t("chat.error_connection_lost"));
+      } else if (!failedRegenerateBackup) {
+        if (pending) {
+          queueUnsavedSend(pending, "send_rejected");
+          reportError(t("chat.error_unreachable"), "send_rejected");
+        } else {
+          reportError(t("chat.error_connection_lost"));
+        }
+      }
+    }
+  }, [
+    chatId,
+    handleChatPayloadForChat,
+    isCurrentView,
+    queueUnsavedSend,
+    reportError,
+    restoreRegenerateBackup,
+    t,
+    updateStreamingDraft,
+  ]);
 
   const connect = useCallback((): Promise<void> => {
     if (!token || !chatId || !isCurrentView()) return Promise.resolve();
-    if (preferSseRef.current) return Promise.resolve();
-    if (wsRef.current?.readyState === WebSocket.OPEN) return Promise.resolve();
-    // Reuse an in-flight connection so concurrent callers don't tear each other down
-    if (connectingRef.current) return connectingRef.current;
-
-    if (wsRef.current) {
-      const socket = wsRef.current;
-      wsRef.current = null;
-      socket.close();
+    let transport = wsTransportRef.current;
+    if (!transport) {
+      transport = new ChatWsTransport({
+        url: chatWebSocketUrl(chatId),
+        token,
+        clientTimezone: getDeviceTimezone(),
+        onPayload: (payload) => {
+          if (wsTransportRef.current !== transport) return;
+          handleChatPayloadForChat(chatId, payload, ttftTurnIdRef.current);
+        },
+        onFallback: (signal) => handleWsFallback(transport!, signal),
+      });
+      wsTransportRef.current = transport;
     }
-
-    const connectPromise = new Promise<void>((resolve) => {
-      const ws = new WebSocket(chatWebSocketUrl(chatId));
-      wsRef.current = ws;
-      const isCurrentSocket = () => isCurrentView() && wsRef.current === ws;
-
-      const timer = setTimeout(() => {
-        if (isCurrentSocket()) {
-          wsRef.current = null;
-          preferSseRef.current = true;
-        }
-        resolve();
-        ws.close();
-      }, WS_CONNECT_TIMEOUT_MS);
-
-      ws.onopen = () => {
-        clearTimeout(timer);
-        if (!isCurrentSocket()) {
-          resolve();
-          ws.close();
-          return;
-        }
-        ws.send(
-          JSON.stringify({
-            token,
-            client_timezone: getDeviceTimezone(),
-          }),
-        );
-        resolve();
-      };
-
-      const disconnect = () => {
-        clearWsFirstEventTimer(ws);
-        clearTimeout(timer);
-        resolve();
-        if (!isCurrentSocket()) return;
-        wsRef.current = null;
-        // SSE shares REST's token refresh when WS authentication fails.
-        preferSseRef.current = true;
-        // A failed handshake must let the waiting send fall back to SSE.
-        if (wsTurnRef.current !== ws) return;
-        wsTurnRef.current = null;
-        const pending = pendingSendRef.current;
-        pendingSendRef.current = null;
-        if (streamingRef.current || finalizingRef.current) {
-          setStreaming(false);
-          setFinalizing(false);
-          streamingRef.current = false;
-          finalizingRef.current = false;
-          const hadContent = assistantBuffer.current.trim().length > 0;
-          const draft = streamingDraftRef.current;
-          const failedRegenerateBackup = regenerateBackupRef.current;
-          regenerateBackupRef.current = null;
-          assistantBuffer.current = "";
-          updateStreamingDraft(null);
-          setSendingMessageId(null);
-          if (!hadContent) {
-            clearPendingChatTtft(ttftTurnIdRef.current ?? pending?.messageId);
-            ttftTurnIdRef.current = null;
-          }
-          setMessages((prev) => {
-            const streamingMsg = prev.find((m) => m.id === "streaming");
-            if (!streamingMsg) return prev;
-            if (!hadContent) {
-              const withoutStreaming = prev.filter((m) => m.id !== "streaming");
-              if (failedRegenerateBackup) {
-                return restoreAssistantMessage(withoutStreaming, failedRegenerateBackup);
-              }
-              return withoutStreaming;
-            }
-            return prev.map((m) =>
-              m.id === "streaming"
-                ? {
-                    ...m,
-                    id: `streamed-${Date.now()}`,
-                    content: draft?.content ?? m.content,
-                    search_sources: draft?.search_sources ?? m.search_sources,
-                    generationStopped: true,
-                  }
-                : m,
-            );
-          });
-          if (hadContent) {
-            reportError(t("chat.error_connection_lost"));
-          } else if (!failedRegenerateBackup) {
-            if (pending) {
-              queueUnsavedSend(pending, "send_rejected");
-              reportError(t("chat.error_unreachable"), "send_rejected");
-            } else {
-              reportError(t("chat.error_connection_lost"));
-            }
-          }
-        }
-      };
-
-      ws.onclose = disconnect;
-      ws.onerror = () => {
-        disconnect();
-        ws.close();
-      };
-
-      ws.onmessage = (event) => {
-        if (!isCurrentSocket()) return;
-        const payload = parseChatWsPayload(String(event.data));
-        if (!payload) return;
-        if (WS_TURN_EVENT_TYPES.has(payload.type)) clearWsFirstEventTimer(ws);
-        // The server rejects auth before accepting the turn. Only this
-        // explicit rejection is safe to replay through REST's token refresh.
-        if (payload.type === "error" && payload.message === "Unauthorized") {
-          const fallback = wsAuthFallbackRef.current;
-          if (!fallback && wsTurnRef.current === ws) {
-            handleChatPayloadForChat(chatId, payload, ttftTurnIdRef.current);
-            return;
-          }
-          wsAuthFallbackRef.current = null;
-          wsTurnRef.current = null;
-          wsRef.current = null;
-          preferSseRef.current = true;
-          ws.close();
-          if (fallback?.socket === ws) void fallback.retry();
-          return;
-        }
-        handleChatPayloadForChat(chatId, payload, ttftTurnIdRef.current);
-      };
-    });
-
-    connectingRef.current = connectPromise;
-    connectPromise.then(
-      () => {
-        if (connectingRef.current === connectPromise) connectingRef.current = null;
-      },
-      () => {
-        if (connectingRef.current === connectPromise) connectingRef.current = null;
-      },
-    );
-    return connectPromise;
+    return transport.connect();
   }, [
     token,
     chatId,
-    reportError,
     handleChatPayloadForChat,
-    queueUnsavedSend,
-    clearWsFirstEventTimer,
-    updateStreamingDraft,
+    handleWsFallback,
     isCurrentView,
-    t,
   ]);
 
   // Eagerly open the WebSocket once the user has settled on a chat, so the
@@ -831,10 +745,9 @@ export function useChat(
       // Stop may still have a final frame in flight. A fresh connection keeps
       // that old frame from finalizing the next turn's placeholder.
       if (stoppedStreamedIdRef.current) {
-        const socket = wsRef.current;
-        wsRef.current = null;
-        connectingRef.current = null;
-        socket?.close();
+        const transport = wsTransportRef.current;
+        wsTransportRef.current = null;
+        transport?.close();
         stoppedStreamedIdRef.current = null;
       }
 
@@ -903,7 +816,8 @@ export function useChat(
       }
       if (pendingSendRef.current) pendingSendRef.current.dispatched = true;
 
-      if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
+      const transport = wsTransportRef.current;
+      if (!transport?.isOpen() || transport.shouldUseSse()) {
         await sendViaSse(content, {
           attachmentIds: options?.attachmentIds,
           model: options?.model,
@@ -913,9 +827,8 @@ export function useChat(
         return;
       }
 
-      wsTurnRef.current = wsRef.current;
       wsAuthFallbackRef.current = {
-        socket: wsRef.current,
+        transport,
         retry: () => sendViaSse(content, {
           attachmentIds: options?.attachmentIds,
           model: options?.model,
@@ -923,18 +836,14 @@ export function useChat(
           ttftTurnId: trackedId,
         }),
       };
-      waitForWsFirstEvent(wsRef.current);
-      wsRef.current.send(
-        JSON.stringify({
-          type: "message",
-          content,
-          attachment_ids: options?.attachmentIds ?? [],
-          model: options?.model ?? null,
-          ...clientGeoWsFields(options?.clientGeo),
-        }),
-      );
+      transport.sendMessage({
+        content,
+        attachment_ids: options?.attachmentIds ?? [],
+        model: options?.model ?? null,
+        ...clientGeoWsFields(options?.clientGeo),
+      });
     },
-    [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft, sendViaSse, isCurrentView, waitForWsFirstEvent],
+    [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft, sendViaSse, isCurrentView],
   );
 
   const sendMessage = useCallback((content: string, options?: SendMessageOptions) =>
@@ -996,10 +905,9 @@ export function useChat(
     async (model?: string | null, clientGeo?: ClientGeo | null) => {
       if (!token || !chatId || !isCurrentView()) return;
       if (stoppedStreamedIdRef.current) {
-        const socket = wsRef.current;
-        wsRef.current = null;
-        connectingRef.current = null;
-        socket?.close();
+        const transport = wsTransportRef.current;
+        wsTransportRef.current = null;
+        transport?.close();
         stoppedStreamedIdRef.current = null;
       }
 
@@ -1010,31 +918,26 @@ export function useChat(
 
       await ensureConnected();
       if (!isCurrentView() || sendAttemptRef.current !== attempt) return;
-      if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
+      const transport = wsTransportRef.current;
+      if (!transport?.isOpen() || transport.shouldUseSse()) {
         await regenerateViaSse(model, clientGeo);
         return;
       }
 
-      wsTurnRef.current = wsRef.current;
       wsAuthFallbackRef.current = {
-        socket: wsRef.current,
+        transport,
         retry: () => regenerateViaSse(model, clientGeo),
       };
-      waitForWsFirstEvent(wsRef.current);
-      wsRef.current.send(
-        JSON.stringify({
-          type: "regenerate",
-          model: model ?? null,
-          ...clientGeoWsFields(clientGeo),
-        }),
-      );
+      transport.sendRegenerate({
+        model: model ?? null,
+        ...clientGeoWsFields(clientGeo),
+      });
     },
-    [token, chatId, ensureConnected, beginRegenerateUi, regenerateViaSse, isCurrentView, waitForWsFirstEvent],
+    [token, chatId, ensureConnected, beginRegenerateUi, regenerateViaSse, isCurrentView],
   );
 
   const stopGeneration = useCallback(() => {
     if (!isCurrentView()) return;
-    clearWsFirstEventTimer();
     sendAttemptRef.current += 1;
     const pendingRetry = pendingSendRef.current;
     if (pendingRetry?.retryingRejected && !pendingRetry.dispatched) {
@@ -1049,9 +952,7 @@ export function useChat(
     ttftTurnIdRef.current = null;
     sseAbortRef.current?.abort();
     sseAbortRef.current = null;
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "cancel" }));
-    }
+    wsTransportRef.current?.cancel();
     setStreaming(false);
     setFinalizing(false);
     streamingRef.current = false;
@@ -1087,7 +988,7 @@ export function useChat(
     // Track the committed bubble id so the server's late `done` reconciles
     // it (real message_id + final_content) instead of appending a duplicate.
     stoppedStreamedIdRef.current = stoppedId;
-  }, [updateStreamingDraft, isCurrentView, chatId, clearWsFirstEventTimer]);
+  }, [updateStreamingDraft, isCurrentView, chatId]);
 
   return {
     messages,
