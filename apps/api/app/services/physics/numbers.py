@@ -19,6 +19,42 @@ _MAX_LITERAL_CHARS = 36
 _MAX_INPUT_CHARS = 12_000
 
 
+_UNIT_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(
+            r"\b(?:met(?:er|re)s?|m)\s*(?:/|per)\s*(?:seconds?|secs?|s)\s+squared\b",
+            re.IGNORECASE,
+        ),
+        "m/s^2",
+    ),
+    (
+        re.compile(r"\bsquare\s+met(?:er|re)s?\b|\bm\s+squared\b", re.IGNORECASE),
+        "m^2",
+    ),
+    (
+        re.compile(r"\bcubic\s+met(?:er|re)s?\b|\bm\s+cubed\b", re.IGNORECASE),
+        "m^3",
+    ),
+    (
+        re.compile(r"\bmicrocoulombs?\b|(?<!\w)[µμ]C\b", re.IGNORECASE),
+        "uC",
+    ),
+)
+
+
+def normalize_physics_units(text: str) -> str:
+    """Canonicalize common spoken unit spellings before cue detection.
+
+    This is lexical only. It deliberately does not infer a unit that the user
+    did not write; it makes equivalent written forms visible to the existing
+    dimension-checked extractors and Pint conversion layer.
+    """
+    normalized = text
+    for pattern, replacement in _UNIT_NORMALIZATIONS:
+        normalized = pattern.sub(replacement, normalized)
+    return normalized
+
+
 def normalize_physics_numbers(text: str) -> str | None:
     """Return equivalent decimal spellings, or None for an unsafe token.
 
@@ -29,7 +65,7 @@ def normalize_physics_numbers(text: str) -> str | None:
     """
     if len(text) > _MAX_INPUT_CHARS:
         return None
-    text = text.replace("\u2212", "-")
+    text = normalize_physics_units(text).replace("\u2212", "-")
     if re.search(
         r"[A-Za-z_]\.\d|(?<!\w)[+-]{2,}(?=\d|\.\d)"
         r"|(?<!\w)[+-]\s+(?=\d|\.\d)|\d\s*/\s*[+-]?(?:\d|\.)",

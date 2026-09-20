@@ -64,7 +64,12 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
     assert f"```answer\n{answer}\n```\n" in reply
     assert reply.count("```graph") == int(graph)
     assert reply.endswith("```\n")
-    assert "\\frac" not in reply  # P01's incorrect model-derived formula cannot appear.
+    if verified.physics_working:
+        headings = ["**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"]
+        assert all(reply.count(heading) == 1 for heading in headings)
+        assert [reply.index(heading) for heading in headings] == sorted(
+            reply.index(heading) for heading in headings
+        )
     assert "Explanation" not in reply
     finalized = validate_math_fences(reply, verified=verified)
     # Finalization may compact the blank line between the two canonical fences.
@@ -129,7 +134,7 @@ def test_other_quantities_units_signs_and_existing_precision(query: str, answer:
 def test_signed_free_fall_answer_states_reference_direction(index: int) -> None:
     query, _, _ = _CASES[index]
     reply = maybe_direct_math_reply(_verified(query), query)
-    assert reply is not None and reply.startswith("Upward is positive.\n\n```answer")
+    assert reply is not None and reply.startswith("Upward is positive.\n\n**Given**")
 
 
 @pytest.mark.parametrize("query,answer,graph", _CASES)

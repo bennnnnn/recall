@@ -135,9 +135,12 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "E_mod": "pascal",
     "L0": "meter",
     "dL": "meter",
+    "half_life": "second",
+    "elapsed": "second",
     "F1": "newton",
     "F2": "newton",
     "d1": "meter",
+    "tau": "newton * meter",
     # SUVAT initial velocity. "v" and "a" and "t" and "d" are already above.
     "u": "meter / second",
     # Pendulum length.
@@ -168,6 +171,9 @@ _UNIT_ALIASES = {
     "kilowatts": "kilowatt",
     "c": "coulomb",
     "coulombs": "coulomb",
+    "uc": "microcoulomb",
+    "microcoulomb": "microcoulomb",
+    "microcoulombs": "microcoulomb",
     "f": "farad",
     "farads": "farad",
     "j": "joule",
@@ -221,6 +227,13 @@ _UNIT_ALIASES = {
     "n": "newton",
     "newtons": "newton",
     "gpa": "gigapascal",
+    "nm": "nanometer",
+    "nanometer": "nanometer",
+    "nanometers": "nanometer",
+    "um": "micrometer",
+    "µm": "micrometer",
+    "micrometer": "micrometer",
+    "micrometers": "micrometer",
 }
 
 
@@ -345,6 +358,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     elif op in ("velocity", "speed"):
         # Need a time — look for a time param, else use time_to_ground.
         t_param = p.get("t")
+        impact_without_time = t_param is None
         if t_param is None:
             landed = _time_to_ground()
             if landed is None:
@@ -352,11 +366,28 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             t_param = landed
         t_val = float(t_param)
         v_val = float(v0 - g * t_val)
-        if op == "speed":
+        if impact_without_time:
+            impact_magnitude = math.sqrt(v0 * v0 + 2 * g * h0)
+            v_val = impact_magnitude if op == "speed" else -impact_magnitude
+            symbol = "v" if op == "velocity" else r"v_{impact}"
+            sign = "-" if op == "velocity" else ""
+            answer_latex = (
+                rf"{symbol} = {sign}\sqrt{{v_0^2 + 2gh_0}} = "
+                rf"{sign}\sqrt{{{_latex_num(v0, square=True)} + 2 \cdot {g:g} \cdot {h0:g}}} "
+                rf"\approx {v_val:.2f} \text{{ m/s}}"
+            )
+        elif op == "speed":
             v_val = abs(v_val)
-            answer_latex = rf"v = \lvert v_0 - g \cdot t\rvert \approx {v_val:.2f} \text{{ m/s}}"
+            answer_latex = (
+                rf"v = \lvert v_0 - g \cdot t\rvert = "
+                rf"\lvert {_latex_num(v0)} - {g:g} \cdot {t_val:g}\rvert "
+                rf"\approx {v_val:.2f} \text{{ m/s}}"
+            )
         else:
-            answer_latex = rf"v = v_0 - g \cdot t \approx {v_val:.2f} \text{{ m/s}}"
+            answer_latex = (
+                rf"v = v_0 - g t = {_latex_num(v0)} - {g:g} \cdot {t_val:g} "
+                rf"\approx {v_val:.2f} \text{{ m/s}}"
+            )
         answer_value = f"{v_val:.2f} m/s"
     elif op == "position":
         t_param = p.get("t")
@@ -364,13 +395,18 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             raise MathServiceError("position requires a time t")
         t_val = float(t_param)
         h_val = float(h0 + v0 * t_val - 0.5 * g * t_val**2)
-        answer_latex = rf"h = h_0 + v_0 t - \frac{{1}}{{2}} g t^2 \approx {h_val:.2f} \text{{ m}}"
+        answer_latex = (
+            rf"h = h_0 + v_0 t - \frac{{1}}{{2}} g t^2 = "
+            rf"{h0:g} + {_latex_num(v0)} \cdot {t_val:g} - "
+            rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)} "
+            rf"\approx {h_val:.2f} \text{{ m}}"
+        )
         answer_value = f"{h_val:.2f} m"
     elif op == "acceleration":
         # Constant g for free-fall templates only. The extractor returns
         # None unless a gravity-motion cue is present — do not use this
         # for two-point velocity acceleration.
-        answer_latex = rf"a = -g = {-g:g} \text{{ m/s}}^2"
+        answer_latex = rf"a = -g = -{g:g} \text{{ m/s}}^2"
         answer_value = f"{-g:g} m/s^2"
         return PhysicsResult(answer=answer_latex, answer_value=answer_value)
     else:
@@ -887,8 +923,18 @@ def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[Si
             type="free_body",
             title="Atwood Machine",
             bodies=[
-                SimulationBody(path=heavy, radius=0.3 * (m1 ** (1 / 3)), role="primary"),
-                SimulationBody(path=light, radius=0.3 * (m2 ** (1 / 3)), role="secondary"),
+                SimulationBody(
+                    path=heavy,
+                    radius=0.3 * (m1 ** (1 / 3)),
+                    label=f"{m1:g} kg",
+                    role="primary",
+                ),
+                SimulationBody(
+                    path=light,
+                    radius=0.3 * (m2 ** (1 / 3)),
+                    label=f"{m2:g} kg",
+                    role="secondary",
+                ),
             ],
             vectors=[
                 SimulationVector(
@@ -995,6 +1041,8 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
                 rf"2 \cdot {f1:g} \cdot {f2:g}\cos({math.degrees(phi):g}^\circ)}} "
                 rf"\approx {r_val:.2f} \text{{ N}}, \quad "
                 rf"\theta = \arctan\frac{{F_2\sin\phi}}{{F_1 + F_2\cos\phi}} "
+                rf"= \arctan\frac{{{f2:g}\sin({math.degrees(phi):g}^\circ)}}"
+                rf"{{{f1:g} + {f2:g}\cos({math.degrees(phi):g}^\circ)}} "
                 rf"\approx {theta:.2f}^\circ"
             ),
             answer_value=f"{r_val:.2f} N at {theta:.2f}°",
@@ -1317,8 +1365,8 @@ def _collision_scene(
         type="collision",
         title="Collision",
         bodies=[
-            SimulationBody(path=path1, radius=r1, role="primary"),
-            SimulationBody(path=path2, radius=r2, role="secondary"),
+            SimulationBody(path=path1, radius=r1, label=f"{m1:g} kg", role="primary"),
+            SimulationBody(path=path2, radius=r2, label=f"{m2:g} kg", role="secondary"),
         ],
         x_min=lo,
         x_max=hi,
@@ -1532,8 +1580,18 @@ def _orbit_scene(r: float) -> SimulationBlockSpec:
 def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "centripetal_acceleration"
+    if op == "angular_velocity" and "rpm" in p:
+        omega_val = p["rpm"] * 2 * math.pi / 60
+        return PhysicsResult(
+            answer=(
+                rf"\omega = n\frac{{2\pi}}{{60}} = {p['rpm']:g}\cdot\frac{{2\pi}}{{60}} "
+                rf"\approx {omega_val:.2f} \text{{ rad/s}}"
+            ),
+            answer_value=f"{omega_val:.2f} rad/s",
+        )
     r = p["r"]
-    v = p["v"]
+    omega = p.get("omega")
+    v = p.get("v", abs(omega) * r if omega is not None else 0.0)
     if r <= 0:
         raise MathServiceError("radius must be positive")
 
@@ -1553,7 +1611,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "angular_velocity":
-        omega_val = abs(v) / r
+        omega_val = abs(omega) if omega is not None else abs(v) / r
         return PhysicsResult(
             answer=(
                 rf"\omega = \frac{{v}}{{r}} = \frac{{{abs(v):g}}}{{{r:g}}} "
@@ -1565,11 +1623,13 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
 
     a_c = v * v / r
     if op == "centripetal_acceleration":
+        formula = (
+            rf"a_c = \omega^2 r = {_latex_num(omega or 0, square=True)} \cdot {r:g}"
+            if omega is not None
+            else rf"a_c = \frac{{v^2}}{{r}} = \frac{{{_latex_num(v, square=True)}}}{{{r:g}}}"
+        )
         return PhysicsResult(
-            answer=(
-                rf"a_c = \frac{{v^2}}{{r}} = \frac{{{_latex_num(v, square=True)}}}{{{r:g}}} "
-                rf"\approx {a_c:.2f} \text{{ m/s}}^2"
-            ),
+            answer=(rf"{formula} \approx {a_c:.2f} \text{{ m/s}}^2"),
             answer_value=f"{a_c:.2f} m/s^2",
             simulation_specs=scene,
         )
@@ -1578,11 +1638,15 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
         if "m" not in p:
             raise MathServiceError("centripetal force needs a mass")
         f_val = p["m"] * a_c
+        working = (
+            rf"F_c = m\omega^2r = {p['m']:g} \cdot "
+            rf"{_latex_num(omega or 0, square=True)} \cdot {r:g}"
+            if omega is not None
+            else rf"F_c = \frac{{m v^2}}{{r}} = "
+            rf"\frac{{{p['m']:g} \cdot {_latex_num(v, square=True)}}}{{{r:g}}}"
+        )
         return PhysicsResult(
-            answer=(
-                rf"F_c = \frac{{m v^2}}{{r}} = \frac{{{p['m']:g} \cdot "
-                rf"{_latex_num(v, square=True)}}}{{{r:g}}} \approx {f_val:.2f} \text{{ N}}"
-            ),
+            answer=rf"{working} \approx {f_val:.2f} \text{{ N}}",
             answer_value=f"{f_val:.2f} N",
             simulation_specs=scene,
         )
@@ -1898,23 +1962,62 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
     op = intent.physics_op or "torque"
 
     if op == "moment_balance":
-        f1, d1, f2 = p["F1"], p["d1"], p["F2"]
+        uses_masses = "m1" in p and "m2" in p
+        f1, d1, f2 = (p["m1"], p["d1"], p["m2"]) if uses_masses else (p["F1"], p["d1"], p["F2"])
         if f2 == 0:
             raise MathServiceError("balancing force must be nonzero")
         d2 = f1 * d1 / f2
+        balance_formula = (
+            r"m_1 g d_1 = m_2 g d_2 \Rightarrow d_2 = \frac{m_1 d_1}{m_2}"
+            if uses_masses
+            else r"F_1 d_1 = F_2 d_2 \Rightarrow d_2 = \frac{F_1 d_1}{F_2}"
+        )
         return PhysicsResult(
             answer=(
-                r"F_1 d_1 = F_2 d_2 \Rightarrow d_2 = \frac{F_1 d_1}{F_2} = "
-                rf"\frac{{{f1:g} \cdot {d1:g}}}{{{f2:g}}} \approx {d2:.2f} \text{{ m}}"
+                rf"{balance_formula} = \frac{{{f1:g} \cdot {d1:g}}}{{{f2:g}}} "
+                rf"\approx {d2:.2f} \text{{ m}}"
             ),
             answer_value=f"{d2:.2f} m",
             # The known load on the left, the one whose arm was the question on
             # the right, so the answer is the arm you can see.
             simulation_specs=_lever_scene(
                 [
-                    (-d1, f1, f"{f1:g} N at {d1:g} m", False),
-                    (d2, f2, f"{f2:g} N at {d2:.2f} m", True),
+                    (-d1, f1, f"{f1:g} {'kg' if uses_masses else 'N'} at {d1:g} m", False),
+                    (d2, f2, f"{f2:g} {'kg' if uses_masses else 'N'} at {d2:.2f} m", True),
                 ]
+            ),
+        )
+
+    if op == "lever_arm":
+        force = p["F"]
+        if force == 0:
+            raise MathServiceError("force must be nonzero to find a lever arm")
+        distance = p["tau"] / force
+        return PhysicsResult(
+            answer=(
+                r"\tau = Fd \Rightarrow d = \frac{\tau}{F} = "
+                rf"\frac{{{p['tau']:g}}}{{{force:g}}} \approx {distance:.2f} \text{{ m}}"
+            ),
+            answer_value=f"{distance:.2f} m",
+            simulation_specs=_lever_scene(
+                [(distance, force, f"{force:g} N at {distance:.2f} m", True)]
+            ),
+        )
+
+    if op == "net_torque":
+        torques = [value for key, value in p.items() if key.startswith("tau")]
+        if len(torques) < 2:
+            raise MathServiceError("net torque needs at least two torques")
+        net = sum(torques)
+        net_direction = "counterclockwise" if net > 0 else "clockwise" if net < 0 else "balanced"
+        terms = " + ".join(f"({value:g})" for value in torques)
+        return PhysicsResult(
+            answer=(
+                rf"\tau_{{net}} = \sum \tau = {terms} \approx {net:.2f} "
+                r"\text{ N}\cdot\text{m}"
+            ),
+            answer_value=(
+                f"{abs(net):.2f} N*m ({net_direction})" if net else "0.00 N*m (balanced)"
             ),
         )
 
@@ -2000,6 +2103,10 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "wave_speed":
+        if p["freq"] <= 0:
+            raise MathServiceError("frequency must be positive")
+        if p["wavelength"] <= 0:
+            raise MathServiceError("wavelength must be positive")
         value = p["freq"] * p["wavelength"]
         return PhysicsResult(
             answer=(
@@ -2055,6 +2162,17 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "refractive_index":
+        if "v_wave" in p:
+            if p["v_wave"] <= 0:
+                raise MathServiceError("light speed in a medium must be positive")
+            n = _SPEED_OF_LIGHT / p["v_wave"]
+            return PhysicsResult(
+                answer=(
+                    rf"n = \frac{{c}}{{v}} = \frac{{{_SPEED_OF_LIGHT:.0f}}}"
+                    rf"{{{p['v_wave']:g}}} \approx {n:.3g}"
+                ),
+                answer_value=f"{n:.3g}",
+            )
         t1, t2 = p["angle"], p["angle2"]
         if math.sin(t2) == 0:
             raise MathServiceError("the refracted angle cannot be zero")
@@ -2371,14 +2489,15 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "magnetic_force_charge":
         value = p["Q"] * p["v"] * p["b_field"]
+        display_value = f"{value:.4g}" if 0 < abs(value) < 0.01 else f"{value:.2f}"
         return PhysicsResult(
             answer=(
                 rf"F = qvB = {p['Q']:g} \cdot {p['v']:g} \cdot {p['b_field']:g} "
-                rf"\approx {value:.2f} \text{{ N}}"
+                rf"\approx {display_value} \text{{ N}}"
             ),
             # The full form carries sin(theta); this is the perpendicular case,
             # which is the one every school question states.
-            answer_value=f"{value:.2f} N (field perpendicular to the motion)",
+            answer_value=f"{display_value} N (field perpendicular to the motion)",
         )
 
     if op == "magnetic_flux":
@@ -2445,11 +2564,27 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
     op = intent.physics_op or ""
 
     if op == "photon_energy":
-        value = _PLANCK_H * p["freq"]
+        if "freq" in p:
+            freq = p["freq"]
+            if freq <= 0:
+                raise MathServiceError("photon frequency must be positive")
+            value = _PLANCK_H * freq
+            substitution = rf"{_PLANCK_H:.5g} \cdot {freq:.4g}"
+            formula = "E = hf"
+        else:
+            wavelength = p["wavelength"]
+            if wavelength <= 0:
+                raise MathServiceError("photon wavelength must be positive")
+            value = _PLANCK_H * _SPEED_OF_LIGHT / wavelength
+            substitution = (
+                rf"\frac{{{_PLANCK_H:.5g} \cdot {_SPEED_OF_LIGHT:.0f}}}"
+                rf"{{{wavelength:.4g}}}"
+            )
+            formula = r"E = \frac{hc}{\lambda}"
         ev = value / _ELEMENTARY_CHARGE
         return PhysicsResult(
             answer=(
-                rf"E = hf = {_PLANCK_H:.5g} \cdot {p['freq']:.4g} "
+                rf"{formula} = {substitution} "
                 rf"\approx {value:.4g} \text{{ J}}"
             ),
             answer_value=f"{value:.4g} J ({ev:.2f} eV)",
@@ -2469,7 +2604,13 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "half_life_remaining":
-        halves = p["n_halves"]
+        halves = p.get("n_halves")
+        if halves is None:
+            if p["half_life"] <= 0:
+                raise MathServiceError("half-life must be positive")
+            if p["elapsed"] < 0:
+                raise MathServiceError("elapsed time cannot be negative")
+            halves = p["elapsed"] / p["half_life"]
         if halves < 0:
             raise MathServiceError("the number of half lives cannot be negative")
         # Answer in the unit the question used. A sample given in grams should

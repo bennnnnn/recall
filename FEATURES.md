@@ -207,17 +207,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   F=ma with resultants and components, KE / PE / work / power, momentum /
   impulse / 1D collisions, friction (`f = μN`, incline acceleration, `μ = tanθ`
   at the slipping angle, minimum force to move), circular motion
-  (`a_c`, `F_c`, period, `ω = v/r`), springs and SHM (`F = kx`, `U`, spring and
+  (`a_c`, `F_c`, period, RPM and `ω = v/r`), springs and SHM (`F = kx`, `U`, spring and
   pendulum periods, `f = 1/T`, `v_max = Aω`), torque and moment balance.
   Beyond mechanics: **circuits** (Ohm's law, power, n-resistor networks,
   `Q = It`, `E = Pt`, `C = Q/V`, terminal voltage), **waves** (`v = fλ`,
-  `f = 1/T`, Doppler), **optics** (thin lens, magnification, Snell, critical
+  `f = 1/T`, Doppler), **optics** (thin lens/mirror, speed-derived refractive
+  index, magnification, Snell, critical
   angle), **thermal** (`Q = mcΔT`, `PV = nRT`, efficiency), **gravitation**
   (`F = GMm/r²`, orbital and escape velocity, surface gravity, with a named-body
   table), **fluids** (`P = F/A`, `ρgh`, upthrust, density, continuity, flow
   rate), **rotation** (`ω = θ/t`, moment of inertia, `L = Iω`, rotational KE),
   **magnetism** (`F = BIL`, `F = qvB`, `Φ = BA`), **materials** (`σ = F/A`,
-  `ε = ΔL/L`, `E = σ/ε`) and **modern** (`E = hf`, de Broglie, half-life,
+  `ε = ΔL/L`, `E = σ/ε`) and **modern** (`E = hf` or `hc/λ`, de Broglie, half-life,
   `E = mc²`).
   **What it refuses is the design.** An unstated collision type, a 2D collision,
   a diverging lens (the sign conventions disagree), an absolute temperature
@@ -230,13 +231,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   field. The system prompt names the verified list and states plainly that
   anything outside it (relativity, quantum states, alternating current, entropy,
   interference) is **not** checked, and a test ties that list to the solver
-  registry so it cannot drift. Trajectory ` ```graph ` fences only for
+  registry so it cannot drift. Every complete, single-request verified physics
+  answer returns directly with Given / Find / Formula / Substitution / Answer,
+  without waiting on the language model. Trajectory ` ```graph ` fences only for
   kinematics/SUVAT (height or velocity against time), projectile (x-y path) and
   SHM (displacement against time); a speed/velocity ask plots `v(t)`, not
-  height. Projectile and kinematics trajectories **play back on tap** — a dot
-  walks the sampled points, which the solver spaces by uniform time, so the
-  motion is real rather than eased. Never autoplays; Reduce Motion keeps the
-  static curve. The solver gate is the union of those extractor cues, and every
+  height. Trajectories and simulation scenes render in native Skia and autoplay;
+  `=` stops and `<` restarts playback. A dot walks the sampled points, which the
+  solver spaces by uniform time, so the motion is real rather than eased.
+  Reduce Motion keeps the static curve. The solver gate is the union of those extractor cues, and every
   param declares an SI dimension (Pint reads a bare `pa` as a *petayear*, so a
   missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
   whole-token match (`marsh` stays Earth). See [docs/math.md](./docs/math.md).

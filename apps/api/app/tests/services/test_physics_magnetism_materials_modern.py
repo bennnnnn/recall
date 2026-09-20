@@ -126,6 +126,12 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "10 g",
     ),
     (
+        "how much of a 80 g sample is left after 15 days if the half life is 5 days",
+        "modern",
+        "half_life_remaining",
+        "10 g",
+    ),
+    (
         "what is the energy equivalent of 2 kg of mass",
         "modern",
         "mass_energy",
@@ -216,9 +222,7 @@ def test_the_answer_keeps_the_unit_the_question_used() -> None:
 REFUSED = [
     # A particle that is not an electron has to state its own mass.
     "what is the de broglie wavelength of a proton at 1e6 m/s",
-    # An elapsed time with a stated half-life is a different question, and
-    # "how long until it is safe" needs a threshold nobody stated.
-    "how much of a 80 g sample is left after 15 days if the half life is 5 days",
+    # "How long until safe" needs a threshold nobody stated.
     "how long until a 80 g radioactive sample is safe",
     # Strain needs both lengths.
     "what is the strain if a wire extends by 4 mm",

@@ -120,6 +120,8 @@ class PhysicsIntent(BaseModel):
             "terminal_voltage",
             "torque",
             "moment_balance",
+            "lever_arm",
+            "net_torque",
             # SUVAT — the op names the unknown, and the solver picks whichever
             # of the four equations the givens support (P8's approach).
             # Round 3 waves. Never a bare "frequency" or "period": the spring

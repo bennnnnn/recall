@@ -134,6 +134,35 @@ def test_is_calendar_create_request(text, expected):
     assert is_calendar_create_request(text) is expected
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Block off Friday afternoon for focused work",
+        "Block two hours for the lab",
+        "Block from 3 to 4 for a meeting",
+        "Block my calendar tomorrow",
+    ],
+)
+def test_is_calendar_create_request_accepts_block_with_time_context(text):
+    from app.services.calendar import is_calendar_create_request
+
+    assert is_calendar_create_request(text) is True
+
+
+def test_physics_blocks_do_not_trigger_calendar_creation():
+    from app.services.calendar import is_calendar_create_request
+
+    text = (
+        "A 4.00 kg block rests on a 30.0 degree incline and is connected by a "
+        "light, non-slipping cord over a massive pulley to a hanging 3.00 kg block. "
+        "The pulley is a uniform solid disk. After the hanging block descends 1.50 m, "
+        "the cord breaks when the incline block contacts a spring."
+    )
+
+    assert is_calendar_create_request(text) is False
+    assert should_inject_calendar_block(text) is False
+
+
 def test_datetime_from_iso_parses_z_suffix():
     from app.services.calendar import datetime_from_iso
 

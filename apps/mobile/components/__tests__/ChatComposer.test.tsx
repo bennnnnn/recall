@@ -193,6 +193,37 @@ describe("ChatComposer math keyboard", () => {
     );
   });
 
+  it("returns an expanded multiline input to its default height after send", async () => {
+    function Harness() {
+      const [input, setInput] = useState(
+        "A long message that wraps across several lines in the composer before it is sent.",
+      );
+      return (
+        <ChatComposer
+          {...baseProps}
+          input={input}
+          onChangeInput={setInput}
+          onSend={() => setInput("")}
+        />
+      );
+    }
+
+    const { getByTestId, getByLabelText } = await render(<Harness />);
+    const composerInput = getByTestId("chat-composer-input");
+
+    await fireEvent(composerInput, "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 112 } },
+    });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112 });
+
+    await fireEvent.press(getByLabelText("chat.send_a11y"));
+
+    await waitFor(() => {
+      expect(getByTestId("chat-composer-input").props.value).toBe("");
+      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 25 });
+    });
+  });
+
   it("uses Ionicon send and stop glyphs instead of text arrows", async () => {
     const { queryByText, getByLabelText, rerender } = await render(
       <ChatComposer {...baseProps} input="hi" />,

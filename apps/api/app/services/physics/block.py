@@ -95,6 +95,22 @@ def _build_physics_block(
             "Working uses uniform gravity, no air resistance, and heights measured from "
             "the landing plane. Copy each verified formula; do not recalculate its numbers."
         )
+    lines.append(
+        "Required user-visible layout for this verified physics solution: use the headings "
+        "**Given**, **Find**, **Formula**, **Substitution**, and **Answer**, in that order. "
+        "Put every heading and every equation on its own line; never compress the working "
+        "into one equation or paragraph. Under Given, list the supplied quantities with "
+        "units. Under Find, name the requested quantity. Under Formula, show the symbolic "
+        "relationship only. Under Substitution, insert the supplied numbers. Under Answer, "
+        "state the verified result exactly once."
+    )
+    if result.simulation_specs:
+        lines.append(
+            "A verified native physics visual will render with this answer and will animate "
+            "automatically when the scene contains motion. Never claim that you cannot show, "
+            "embed, or provide an animation or diagram. Do not discuss how the visual is attached "
+            "and do not emit a simulation fence yourself."
+        )
     # Append the verified answer to the hint lines.
     lines.append(f"Verified answer: ${result.answer}$ ({result.answer_value})")
 
@@ -104,7 +120,8 @@ def _build_physics_block(
     # primary stays first for the callers that read `canonical_fence` alone.
     specs = [spec.model_dump() for spec in (*result.graph_specs, *result.simulation_specs)]
     if not specs:
-        return _finish_with_answer(lines, result.answer_value, allow_direct=False)
+        block = _finish_with_answer(lines, result.answer_value, allow_direct=False)
+        return replace(block, physics_working=result.answer)
 
     if result.graph_specs:
         # A graph *is* the answer in visual form, so it leads and the turn may
@@ -112,9 +129,9 @@ def _build_physics_block(
         block = _diagram_block(lines, specs[0], result.answer_value)
     else:
         # A scene attached to a scalar answer is decoration, not a second
-        # answer. Force and energy are unlabeled quantities deliberately kept
-        # on the model path so the prompt can name the symbol; giving them a
-        # picture must not silently grant the direct reply they were denied.
+        # answer. Keep the answer fence primary; the physics direct guard
+        # separately requires the solver-owned working before it can format a
+        # complete response, so the picture never grants directness by itself.
         block = _finish_with_answer(lines, result.answer_value, allow_direct=False)
 
     # Extras only. Every reader of `canonical_fences` already prepends
@@ -122,7 +139,7 @@ def _build_physics_block(
     # the primary still finds a copy — and for a scalar answer the primary
     # *is* the authorisation for a direct reply.
     extras = [spec for spec in specs if spec is not block.canonical_fence]
-    return replace(block, canonical_fences=extras)
+    return replace(block, canonical_fences=extras, physics_working=result.answer)
 
 
 # Any, not PhysicsIntent: the generic dispatch in math/tools/block/__init__.py

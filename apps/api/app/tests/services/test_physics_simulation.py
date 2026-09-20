@@ -664,6 +664,15 @@ def test_an_atwood_pair_moves_in_opposite_directions_at_one_rate() -> None:
     )
 
 
+def test_moving_pairs_keep_their_mass_labels() -> None:
+    """The renderer cannot identify two moving bodies if their labels vanish."""
+    atwood = _scene(ATWOOD_Q)
+    collision = _scene(ELASTIC_Q)
+
+    assert [body.label for body in atwood.bodies] == ["5 kg", "3 kg"]
+    assert [body.label for body in collision.bodies] == ["2 kg", "1 kg"]
+
+
 def test_a_resultant_out_reaches_the_components_it_came_from() -> None:
     """Here the arrow *lengths* carry meaning, unlike every other scene.
 

@@ -22,7 +22,11 @@ from app.services.physics.extract import (
     _VELOCITY_UNIT_PATTERN,
     has_supported_physics_cue,
 )
-from app.services.physics.numbers import normalize_physics_numbers, numeric_spans
+from app.services.physics.numbers import (
+    normalize_physics_numbers,
+    normalize_physics_units,
+    numeric_spans,
+)
 
 _MASS = re.compile(rf"({_NUMBER})\s*({_MASS_UNITS})(?![A-Za-z0-9/^])", re.IGNORECASE)
 _SPEED = re.compile(rf"({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)
@@ -180,9 +184,10 @@ def _projectile_parts(text: str) -> tuple[ProjectileQuantity, ...] | None:
 
 def prepare_physics_request(text: str) -> PhysicsRequest:
     """Preflight at the dispatch boundary so refusals cannot fall into algebra."""
-    if not has_supported_physics_cue(text):
-        return PhysicsRequest(text)
-    normalized = normalize_physics_numbers(text)
+    unit_normalized = normalize_physics_units(text)
+    if not has_supported_physics_cue(unit_normalized):
+        return PhysicsRequest(unit_normalized)
+    normalized = normalize_physics_numbers(unit_normalized)
     if normalized is None:
         return PhysicsRequest(text, rejected=True)
     if _COLLISION_SUBJECT_RE.search(normalized) and len(list(_MASS.finditer(normalized))) >= 2:
