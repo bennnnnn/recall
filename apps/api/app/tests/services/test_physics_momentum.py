@@ -181,14 +181,7 @@ def test_the_same_numbers_still_route_by_the_question_asked() -> None:
     assert _verified_answer("kinetic energy of a 2 kg object moving at 3 m/s") == "9.00 J"
 
 
-def test_momentum_never_claims_a_direct_reply() -> None:
-    """A new kind must not trip the trajectory branch of the direct guard.
-
-    `can_direct_physics` demands a trajectory fence for any kind outside its
-    scalar set. Momentum produces no graph, so it has to fall through to False
-    rather than matching on a fence that isn't there — the same silent-failure
-    class P3 found in this guard.
-    """
+def test_momentum_direct_reply_uses_the_solver_owned_answer() -> None:
     from app.services.math.tools.direct import maybe_direct_math_reply
 
     text = "momentum of a 2 kg mass moving at 3 m/s"
@@ -197,7 +190,12 @@ def test_momentum_never_claims_a_direct_reply() -> None:
     block = _build_verified_block(intent, _settings())
     assert block is not None
 
-    assert maybe_direct_math_reply(block, text) is None
+    reply = maybe_direct_math_reply(block, text)
+    assert reply is not None
+    assert "**Given**" in reply
+    assert "**Formula**" in reply
+    assert "**Answer**" in reply
+    assert "6.00 kg*m/s" in reply
 
 
 # --- P11: an angled collision was answered as a projectile -------------------

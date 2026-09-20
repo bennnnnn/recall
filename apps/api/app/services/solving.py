@@ -62,6 +62,9 @@ class VerifiedMathBlock:
     # this field holds a math-kind intent rather than a PhysicsIntent); guards
     # compare every parameter/unit without re-solving.
     physics_intent: MathIntent | PhysicsIntent | None = None
+    # Exact solver-produced equation chain used by the instant physics path to
+    # present Formula and Substitution without asking a model to recompute it.
+    physics_working: str | None = None
     # The one line that shows where the answer came from — e.g. the
     # factorization behind a quadratic's roots. Shown on the direct-reply
     # path for the balanced/detailed response styles, omitted for short.

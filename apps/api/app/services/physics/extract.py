@@ -27,6 +27,7 @@ _NUMBER = r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
 
 _LENGTH_UNIT_PATTERN = (
     r"kilometers?|km|centimeters?|cm|millimeters?|mm|"
+    r"nanometers?|nm|micrometers?|micrometres?|um|µm|"
     r"miles?|mi|meters?|metres?|m|feet|ft|yards?|yd|inches?|in"
 )
 _VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
@@ -36,6 +37,7 @@ _VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
 _G_DEFAULT = 9.81
 # CODATA 2018.
 _ELECTRON_MASS = 9.1093837015e-31
+_ELEMENTARY_CHARGE = 1.602176634e-19
 
 # A number followed by an optional unit word. Captures the numeric value and
 # the trailing unit (m, cm, km, ft, mi, m/s, m/s^2, kg, g, N, J, W, ...).
@@ -215,10 +217,14 @@ def _detect_gravity(text: str) -> float:
 
 
 _PARAM_ASSIGN_RE = re.compile(
-    r"\b(?:gravity|theta|angle|h0|v0|h|F|m|g)\s*=\s*(?=-?\d)",
+    r"\b(?:gravity|theta|angle|h0|v0|omega|mu|rho|delta|[hFmgMRIcR])\s*=\s*(?=-?\d)",
     re.IGNORECASE,
 )
 _T_ASSIGN_RE = re.compile(r"\bt\s*=\s*(?=-?\d)", re.IGNORECASE)
+_NAMED_FORMULA_RE = re.compile(
+    r"\b(?:using|from|with)\s+E\s*=\s*m\s*c(?:\^?2|²)\b",
+    re.IGNORECASE,
+)
 
 
 def _strip_param_assignments(text: str) -> str:
@@ -228,7 +234,7 @@ def _strip_param_assignments(text: str) -> str:
     Do not strip ``t`` / ``v`` / ``a`` / ``d`` — those are often the unknown
     (``find v when t = 1 s``) and stripping them silently solves the wrong op.
     """
-    return _PARAM_ASSIGN_RE.sub("", text)
+    return _PARAM_ASSIGN_RE.sub("", _NAMED_FORMULA_RE.sub("", text))
 
 
 # ---------------------------------------------------------------------------
@@ -266,6 +272,8 @@ _KINEMATICS_CUES = (
     "velocity after",
     "speed after",
     "speed when",
+    "impact speed",
+    "speed at impact",
     "height after",
     "position after",
     "acceleration of",
@@ -288,7 +296,9 @@ _H0_KEYWORDS = (
 
 
 def _asks_speed(lower: str) -> bool:
-    if "speed after" in lower or "speed when" in lower:
+    if any(
+        cue in lower for cue in ("speed after", "speed when", "impact speed", "speed at impact")
+    ):
         return True
     # "how fast is it going after 2 s" is the spoken form of "speed after".
     return "how fast" in lower
@@ -394,8 +404,19 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         )
     if vu is not None:
         v0, v0_unit = vu
-    if v0 > 0 and any(
-        cue in lower for cue in ("thrown down", "thrown downward", "launched downward")
+    if v0 > 0 and (
+        any(
+            cue in lower
+            for cue in (
+                "thrown down",
+                "thrown downward",
+                "launched downward",
+                "velocity downward",
+                "speed downward",
+                "downward velocity",
+            )
+        )
+        or ("downward" in lower and ("initial velocity" in lower or "initial speed" in lower))
     ):
         v0 = -v0
 
@@ -429,11 +450,13 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
             cleaned,
             r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h",
         )
-        if time_match is None:
+        impact_speed = op == "speed" and ("impact speed" in lower or "speed at impact" in lower)
+        if time_match is None and not impact_speed:
             # "velocity after" / "height after" without a duration is
             # ambiguous; do not silently answer with impact time.
             return None
-        time_value, time_unit = time_match
+        if time_match is not None:
+            time_value, time_unit = time_match
 
     g = _detect_gravity(cleaned)
     params: dict[str, float] = {"g": g}
@@ -483,6 +506,12 @@ _SUVAT_CUE_RES: tuple[re.Pattern[str], ...] = (
         r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\bto\s+(?:rest|a\s+(?:stop|halt))\b", re.IGNORECASE
     ),
     re.compile(r"\b(?:constant|uniform)\s+(?:ac|de)celeration\b", re.IGNORECASE),
+    re.compile(r"\bslows?\b.{0,80}?\d\s*m/s\^?2", re.IGNORECASE),
+    re.compile(
+        r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\d\s*(?:m/s|km/h|mph)\b"
+        r".{0,80}?\d\s*(?:seconds?|secs?|sec|s)\b.{0,80}?\bacceleration\b",
+        re.IGNORECASE,
+    ),
 )
 
 # "from rest" / "at rest" as the *starting* state, so u = 0.
@@ -532,7 +561,7 @@ _SUVAT_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
         "suvat_time",
         re.compile(
             r"\bhow long\b|\bhow much time\b|\bwhat time\b|\bfind the time\b"
-            r"|\btime (?:does|will|is) it take\b",
+            r"|\btime (?:does|will|is) it take\b|\bstopping time\b|\btime to stop\b",
             re.IGNORECASE,
         ),
     ),
@@ -1056,6 +1085,11 @@ _FRICTION_GIVEN = r"coefficient|\bmu\s*(?:=|is)|\u03bc\s*(?:=|is)|\d+\s*(?:degre
 _FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(rf"(?:{_FRICTION_SUBJECT}).{{0,80}}?(?:{_FRICTION_GIVEN})", re.IGNORECASE),
     re.compile(rf"(?:{_FRICTION_GIVEN}).{{0,80}}?(?:{_FRICTION_SUBJECT})", re.IGNORECASE),
+    re.compile(
+        r"\b(?:minimum|least|smallest)\s+(?:horizontal\s+)?force\b.{0,100}?"
+        r"\b(?:mu|μ)\s*(?:=|is)\s*\d",
+        re.IGNORECASE,
+    ),
 )
 
 # Asking *about* friction is not the same as mentioning it. "what is the net
@@ -1089,7 +1123,8 @@ _MU_ASK_RE = re.compile(
 _SLIPPING_RE = re.compile(
     r"\bstarts?\s+to\s+(?:slide|slip|move)\b|\bbegins?\s+to\s+(?:slide|slip|move)\b"
     r"|\bslipping\s+begins?\b|\bjust\s+(?:slides?|slips?|begins)\b"
-    r"|\bslides?\s+(?:at|when|down\s+a)\b|\bon\s+the\s+point\s+of\b",
+    r"|\bslides?\s+(?:at|when|down\s+a)\b|\bon\s+the\s+point\s+of\b"
+    r"|\bjust\s+prevents?\s+(?:it\s+from\s+)?slid(?:e|ing)\b",
     re.IGNORECASE,
 )
 # The force that just overcomes static friction on the flat.
@@ -1333,6 +1368,8 @@ _OPTICS_CUES = (
     "index of refraction",
     "converging lens",
     "convex lens",
+    "concave mirror",
+    "converging mirror",
     "magnification",
     "snell",
 )
@@ -1399,13 +1436,46 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
                 physics_units={"angle": "deg", "angle2": "deg"},
                 operation="solve",
             )
+        medium_speed = _find_value_with_specific_unit(
+            cleaned,
+            _VELOCITY_UNIT_PATTERN,
+            ("travels", "speed", "in glass", "in water", "in the medium"),
+        )
+        if medium_speed is not None and not index_values:
+            return PhysicsIntent(
+                kind="optics",
+                physics_op="refractive_index",
+                physics_params={"v_wave": medium_speed[0]},
+                physics_units={"v_wave": medium_speed[1] or "m/s"},
+                operation="solve",
+            )
         return None
 
-    focal = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("focal length", "focal"), require_keyword=True
+    focal_match = re.search(
+        rf"\bfocal(?:\s+length)?\b\s*(?:of|is|=|:)?\s*({_NUMBER})\s*"
+        rf"({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
+        cleaned,
+        re.IGNORECASE,
     )
-    obj = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("object",), require_keyword=True
+    focal = (
+        (float(focal_match.group(1)), focal_match.group(2))
+        if focal_match is not None
+        else _find_value_with_specific_unit(
+            cleaned, _LENGTH_UNIT_PATTERN, ("focal length", "focal"), require_keyword=True
+        )
+    )
+    obj_match = re.search(
+        rf"\bobject(?:\s+distance)?\b\s*(?:of|is|=|:)?\s*({_NUMBER})\s*"
+        rf"({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
+        cleaned,
+        re.IGNORECASE,
+    )
+    obj = (
+        (float(obj_match.group(1)), obj_match.group(2))
+        if obj_match is not None
+        else _find_value_with_specific_unit(
+            cleaned, _LENGTH_UNIT_PATTERN, ("object",), require_keyword=True
+        )
     )
     if "magnification" in lower:
         img = _find_value_with_specific_unit(
@@ -1441,7 +1511,7 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
 # multi-word forms and a signature.
 _THERMAL_CUES = ("specific heat", "heat capacity", "ideal gas", "gas constant")
 _KELVIN_PATTERN = r"K|kelvins?"
-_CELSIUS_PATTERN = r"°C|degrees?\s+c(?:elsius)?|celsius"
+_CELSIUS_PATTERN = r"°C|degrees?\s+c(?:elsius)?|celsius|C(?![A-Za-z])"
 _THERMAL_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(
         rf"\b(?:heat|warm|cool)\w*\b.{{0,80}}?\d\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})",
@@ -1557,7 +1627,9 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
     if mass is None or rise is None:
         return None
     capacity = _find_value_with_specific_unit(
-        cleaned, r"J/kg/K|J/\(kg\s*K\)|J/kgK", ("specific heat", "capacity")
+        cleaned,
+        r"J/kg/K|J/\(kg\s*(?:K|°?C)\)|J/kgK|J/(?:kg\s*[·*]\s*(?:K|°?C))",
+        ("specific heat", "capacity", "c =", "c is"),
     )
     if capacity is not None:
         c_value = capacity[0]
@@ -1586,6 +1658,7 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
 # neither is a cue. Every entry here is unambiguous gravitation vocabulary.
 _GRAVITATION_CUES = (
     "gravitational force",
+    "gravitational attraction",
     "gravitational constant",
     "gravitational field",
     "orbital velocity",
@@ -1618,7 +1691,7 @@ _BODY_PROPERTIES: dict[str, tuple[float, float]] = {
 # "two 1000 kg masses", "a pair of 5 kg spheres" - one number, two bodies.
 _IDENTICAL_PAIR_RE = re.compile(
     r"\b(?:two|a\s+pair\s+of|both)\b[^.?!]{0,40}?"
-    r"\b(?:masses|spheres|balls|objects|bodies|blocks|stars|planets)\b",
+    r"\b(?:masses|spheres|balls|objects|bodies|blocks|stars|planets|satellites)\b",
     re.IGNORECASE,
 )
 
@@ -1642,6 +1715,13 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
     radius = _find_value_with_specific_unit(
         cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
+    if radius is None:
+        radius_assignment = re.search(
+            rf"\bR\s*=\s*({_NUMBER})\s*({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
+            cleaned,
+        )
+        if radius_assignment is not None:
+            radius = (float(radius_assignment.group(1)), radius_assignment.group(2))
     altitude = _find_value_with_specific_unit(
         cleaned, _LENGTH_UNIT_PATTERN, ("above", "altitude", "height"), require_keyword=True
     )
@@ -1760,6 +1840,11 @@ _FLUIDS_CUE_RES: tuple[re.Pattern[str], ...] = (
     ),
     re.compile(r"\bpressure\b.{0,80}?\bdepth\b", re.IGNORECASE),
     re.compile(rf"\bdensity\b.{{0,80}}?\d\s*(?:{_VOLUME_PATTERN})\b", re.IGNORECASE),
+    re.compile(
+        rf"(?=.*\bdensity\b)(?=.*\d\s*(?:{_MASS_UNITS})\b)"
+        rf"(?=.*\d\s*(?:{_VOLUME_PATTERN})\b)",
+        re.IGNORECASE | re.DOTALL,
+    ),
     re.compile(rf"\d\s*(?:{_DENSITY_PATTERN})\b", re.IGNORECASE),
     re.compile(rf"\bpipe\b.{{0,80}}?\d\s*(?:{_AREA_PATTERN})\b", re.IGNORECASE),
 )
@@ -2029,6 +2114,11 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
     )
     area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN)
 
+    if charge is None and re.search(r"\b(?:proton|electron)\b", cleaned, re.IGNORECASE):
+        # Magnetic force here is a magnitude; the sign distinguishes the
+        # direction, which this scalar template intentionally does not infer.
+        charge = (_ELEMENTARY_CHARGE, "C")
+
     # F = q v B, checked before F = B I L: a moving charge names both.
     if charge is not None and speed is not None:
         return PhysicsIntent(
@@ -2110,7 +2200,9 @@ def _extract_materials_intent(cleaned: str) -> PhysicsIntent | None:
         cleaned, _LENGTH_UNIT_PATTERN, ("wire", "rod", "bar", "long", "length", "original")
     )
     extension = _find_value_with_specific_unit(
-        cleaned, _LENGTH_UNIT_PATTERN, ("extends", "extension", "stretches", "elongat")
+        cleaned,
+        _LENGTH_UNIT_PATTERN,
+        ("extends", "extension", "stretches", "lengthens", "elongat"),
     )
 
     if "modulus" in lower:
@@ -2129,6 +2221,8 @@ def _extract_materials_intent(cleaned: str) -> PhysicsIntent | None:
         # matches both keyword sets on the same value, which would give a
         # strain of exactly 1 for any wire.
         lengths = _ordered_values(cleaned, _LENGTH_UNIT_PATTERN)
+        if len(lengths) == 2:
+            original, extension = lengths
         if original is None or extension is None or len(lengths) < 2:
             return None
         if original[0] == extension[0]:
@@ -2178,6 +2272,9 @@ _MODERN_CUE_RES: tuple[re.Pattern[str], ...] = (
 # the half-life itself is a third question. Only the fraction remaining after a
 # stated elapsed time, or after a stated number of half lives, is answered.
 _HALF_LIFE_COUNT_RE = re.compile(rf"({_NUMBER})\s*half[- ]li(?:ves|fe)", re.IGNORECASE)
+_DECAY_TIME_UNITS = (
+    r"seconds?|secs?|s|minutes?|mins?|min|hours?|hrs?|hr|days?|weeks?|months?|years?|yr"
+)
 
 
 def _extract_modern_intent(cleaned: str) -> PhysicsIntent | None:
@@ -2189,13 +2286,27 @@ def _extract_modern_intent(cleaned: str) -> PhysicsIntent | None:
 
     if "photon" in lower or "planck" in lower or "photoelectric" in lower:
         freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
-        if freq is None:
+        wavelength = _find_value_with_specific_unit(
+            cleaned,
+            _LENGTH_UNIT_PATTERN,
+            ("wavelength",),
+            require_keyword=True,
+        )
+        if freq is None and wavelength is None:
             return None
+        if freq is not None:
+            photon_params = {"freq": freq[0]}
+            photon_units = {"freq": freq[1] or "Hz"}
+        else:
+            if wavelength is None:
+                return None
+            photon_params = {"wavelength": wavelength[0]}
+            photon_units = {"wavelength": wavelength[1] or "m"}
         return PhysicsIntent(
             kind="modern",
             physics_op="photon_energy",
-            physics_params={"freq": freq[0]},
-            physics_units={"freq": freq[1] or "Hz"},
+            physics_params=photon_params,
+            physics_units=photon_units,
             operation="solve",
         )
 
@@ -2222,15 +2333,39 @@ def _extract_modern_intent(cleaned: str) -> PhysicsIntent | None:
     if "half li" in lower or "half-li" in lower:
         count = _HALF_LIFE_COUNT_RE.search(cleaned)
         amount = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("sample", "of"))
-        if count is None or amount is None:
-            # An elapsed time with a stated half-life, or a threshold to reach,
-            # are different questions. Neither is guessed at from this one.
+        if amount is None:
             return None
+        params: dict[str, float] = {"m": amount[0]}
+        units: dict[str, str] = {"m": amount[1] or "kg"}
+        if count is not None:
+            params["n_halves"] = float(count.group(1))
+            units["n_halves"] = ""
+        else:
+            half_life_match = re.search(
+                rf"\bhalf[- ]life\b\s*(?:of|is|=|:)?\s*({_NUMBER})\s*({_DECAY_TIME_UNITS})\b",
+                cleaned,
+                re.IGNORECASE,
+            )
+            elapsed_match = re.search(
+                rf"\bafter\s+({_NUMBER})\s*({_DECAY_TIME_UNITS})\b",
+                cleaned,
+                re.IGNORECASE,
+            )
+            if half_life_match is None or elapsed_match is None:
+                return None
+            params.update(
+                half_life=float(half_life_match.group(1)),
+                elapsed=float(elapsed_match.group(1)),
+            )
+            units.update(
+                half_life=half_life_match.group(2),
+                elapsed=elapsed_match.group(2),
+            )
         return PhysicsIntent(
             kind="modern",
             physics_op="half_life_remaining",
-            physics_params={"m": amount[0], "n_halves": float(count.group(1))},
-            physics_units={"m": amount[1] or "kg", "n_halves": ""},
+            physics_params=params,
+            physics_units=units,
             operation="solve",
         )
 
@@ -2269,6 +2404,7 @@ _CIRCULAR_CUES = (
 # version numbers, so "angular 17 released 3 new features" would qualify. It
 # counts beside the circle it is angular about.
 _ANGULAR_ASK_RE = re.compile(r"\bangular\s+(?:velocity|speed|frequency)\b", re.IGNORECASE)
+_RPM_RE = re.compile(rf"({_NUMBER})\s*(?:rpm|revolutions?\s+per\s+minute)\b", re.IGNORECASE)
 _CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bperiod\b.{0,80}?\bradius\b", re.IGNORECASE),
     re.compile(r"\bradius\b.{0,80}?\bperiod\b", re.IGNORECASE),
@@ -2280,6 +2416,11 @@ _CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
         r"\b(?:radius|circular|circle|track|orbit)\b.{0,80}?\bangular\s+(?:velocity|speed)\b",
         re.IGNORECASE,
     ),
+    re.compile(
+        r"\b(?:rotates?|spins?|turns?)\b.{0,80}?\d\s*(?:rpm|revolutions?\s+per\s+minute)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bomega\s*=?.{0,30}?\brad(?:ians?)?/s\b.{0,80}?\bradius\b", re.IGNORECASE),
 )
 
 
@@ -2290,11 +2431,22 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
     if has_equation(_strip_param_assignments(cleaned)):
         return None
 
+    rpm_match = _RPM_RE.search(cleaned)
+    if rpm_match is not None and _ANGULAR_ASK_RE.search(cleaned):
+        return PhysicsIntent(
+            kind="circular",
+            physics_op="angular_velocity",
+            physics_params={"rpm": float(rpm_match.group(1))},
+            physics_units={"rpm": ""},
+            operation="solve",
+        )
+
     radius = _find_value_with_specific_unit(
         cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
     speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
-    if radius is None or speed is None:
+    omega = _ANGULAR_FREQ_RE.search(cleaned)
+    if radius is None or (speed is None and omega is None):
         return None
 
     mass = _find_value_with_specific_unit(
@@ -2324,8 +2476,14 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
     else:
         return None
 
-    params: dict[str, float] = {"r": radius[0], "v": speed[0]}
-    units: dict[str, str] = {"r": radius[1] or "m", "v": speed[1] or "m/s"}
+    params: dict[str, float] = {"r": radius[0]}
+    units: dict[str, str] = {"r": radius[1] or "m"}
+    if speed is not None:
+        params["v"] = speed[0]
+        units["v"] = speed[1] or "m/s"
+    elif omega is not None:
+        params["omega"] = float(omega.group(1))
+        units["omega"] = "rad/s"
     if mass is not None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
@@ -2632,7 +2790,7 @@ _ELECTRICAL_ENERGY_RE = re.compile(
     re.IGNORECASE,
 )
 
-_COULOMB_PATTERN = r"C|coulombs?"
+_COULOMB_PATTERN = r"uC|µC|C|microcoulombs?|coulombs?"
 _CIRCUIT_TIME_UNITS = r"seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
 # The EMF is the other answer to "what voltage", so the ask has to say which.
 _TERMINAL_ASK_RE = re.compile(
@@ -2841,6 +2999,14 @@ _TORQUE_CUE_RES: tuple[re.Pattern[str], ...] = (
 
 # Moment of inertia is a different quantity (kg*m^2) and is not solved here.
 _TORQUE_UNSUPPORTED = ("moment of inertia", "angular momentum", "rotational inertia")
+_TORQUE_VALUE_RE = re.compile(
+    rf"({_NUMBER})\s*(?:N|newtons?)\s*(?:[·*]\s*)?(?:m|met(?:er|re)s?)(?![A-Za-z0-9/^])",
+    re.IGNORECASE,
+)
+_PLAIN_FORCE_RE = re.compile(
+    rf"({_NUMBER})\s*(N|newtons?)(?!\s*(?:[·*]\s*)?(?:m|met(?:er|re)s?)\b)",
+    re.IGNORECASE,
+)
 
 
 def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
@@ -2852,6 +3018,105 @@ def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
     if has_equation(_strip_param_assignments(cleaned)):
         return None
 
+    torque_values = [
+        (match.start(), float(match.group(1))) for match in _TORQUE_VALUE_RE.finditer(cleaned)
+    ]
+    if len(torque_values) >= 2 and (
+        "clockwise" in lower or "counterclockwise" in lower or "anticlockwise" in lower
+    ):
+        direction_marks = [
+            (match.start(), -1.0 if match.group(1).lower() == "clockwise" else 1.0)
+            for match in re.finditer(
+                r"\b(clockwise|counterclockwise|anticlockwise)\b", cleaned, re.I
+            )
+        ]
+        if not direction_marks:
+            return None
+        clause_spans: list[tuple[int, int, float]] = []
+        clause_start = 0
+        for separator in re.finditer(r"\b(?:against|versus|vs\.?)\b", cleaned, re.I):
+            clause = cleaned[clause_start : separator.start()]
+            direction = re.search(r"\b(clockwise|counterclockwise|anticlockwise)\b", clause, re.I)
+            if direction is not None:
+                clause_spans.append(
+                    (
+                        clause_start,
+                        separator.start(),
+                        -1.0 if direction.group(1).lower() == "clockwise" else 1.0,
+                    )
+                )
+            clause_start = separator.end()
+        final_clause = cleaned[clause_start:]
+        final_direction = re.search(
+            r"\b(clockwise|counterclockwise|anticlockwise)\b", final_clause, re.I
+        )
+        if final_direction is not None:
+            clause_spans.append(
+                (
+                    clause_start,
+                    len(cleaned),
+                    -1.0 if final_direction.group(1).lower() == "clockwise" else 1.0,
+                )
+            )
+        signed: list[float] = []
+        for position, value in torque_values:
+            clause_sign = next(
+                (sign for start, end, sign in clause_spans if start <= position < end),
+                None,
+            )
+            if clause_sign is None:
+                _, clause_sign = min(direction_marks, key=lambda item: abs(item[0] - position))
+            signed.append(clause_sign * value)
+        return PhysicsIntent(
+            kind="torque",
+            physics_op="net_torque",
+            physics_params={f"tau{index}": value for index, value in enumerate(signed, start=1)},
+            physics_units={f"tau{index}": "N*m" for index in range(1, len(signed) + 1)},
+            operation="solve",
+        )
+
+    plain_forces = [
+        (match.start(), float(match.group(1)), match.group(2))
+        for match in _PLAIN_FORCE_RE.finditer(cleaned)
+    ]
+    if (
+        len(torque_values) == 1
+        and len(plain_forces) == 1
+        and re.search(
+            r"\b(?:lever arm|perpendicular distance|distance from (?:the )?pivot)\b", cleaned, re.I
+        )
+    ):
+        return PhysicsIntent(
+            kind="torque",
+            physics_op="lever_arm",
+            physics_params={"tau": torque_values[0][1], "F": plain_forces[0][1]},
+            physics_units={"tau": "N*m", "F": plain_forces[0][2] or "N"},
+            operation="solve",
+        )
+
+    placed_masses = _positioned_values(cleaned, _MASS_UNITS)
+    placed_distances = _positioned_values(cleaned, _LENGTH_UNIT_PATTERN)
+    balancing = "balance" in lower or "see-saw" in lower or "seesaw" in lower
+    if balancing and len(placed_masses) >= 2 and placed_distances:
+        d_pos, d_val, d_unit = placed_distances[0]
+        preceding = [mass for mass in placed_masses if mass[0] < d_pos]
+        known = preceding[-1] if preceding else placed_masses[0]
+        others = [mass for mass in placed_masses if mass[0] != known[0]]
+        if not others:
+            return None
+        unknown = others[0]
+        return PhysicsIntent(
+            kind="torque",
+            physics_op="moment_balance",
+            physics_params={"m1": known[1], "d1": d_val, "m2": unknown[1]},
+            physics_units={
+                "m1": known[2] or "kg",
+                "d1": d_unit or "m",
+                "m2": unknown[2] or "kg",
+            },
+            operation="solve",
+        )
+
     placed_forces = _positioned_values(cleaned, r"N")
     placed_distances = _positioned_values(cleaned, _LENGTH_UNIT_PATTERN)
     if not placed_forces or not placed_distances:
@@ -2862,7 +3127,6 @@ def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
     # written order: "the distance for a 10 N force to balance a 5 N force at
     # 2 m" mentions the 10 N first, but the 2 m is the *5 N* force's arm.
     # Written order answers 4 m there; the true answer is 1 m.
-    balancing = "balance" in lower or "see-saw" in lower or "seesaw" in lower
     if balancing and len(placed_forces) >= 2:
         d_pos, d_val, d_unit = placed_distances[0]
         preceding = [f for f in placed_forces if f[0] < d_pos]
@@ -3293,6 +3557,9 @@ _ENERGY_CUES = (
     "energy of",
     "what power",
     "how much power",
+    "find the power",
+    "find its power",
+    "calculate the power",
     "power needed",
     "power required",
     "power is needed",

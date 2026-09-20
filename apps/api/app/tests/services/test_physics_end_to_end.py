@@ -187,11 +187,18 @@ def test_car_acceleration_is_not_verified_minus_g() -> None:
             assert "-9.81" not in block.canonical_answer
 
 
-def test_force_energy_do_not_direct_reply() -> None:
+def test_force_direct_reply_uses_the_structured_verified_layout() -> None:
     message = "A net force of 10 N acts on a 2 kg mass. What is the acceleration?"
     intent = extract_math_intent(message)
     assert intent is not None
     block = _build_verified_block(intent, _SETTINGS)
     assert block is not None
     assert block.allow_direct is False
-    assert maybe_direct_math_reply(block, message) is None
+    reply = maybe_direct_math_reply(block, message)
+    assert reply is not None
+    assert "**Given**" in reply
+    assert "**Find**" in reply
+    assert "**Formula**" in reply
+    assert "**Substitution**" in reply
+    assert "**Answer**" in reply
+    assert "5.00 m/s^2" in reply

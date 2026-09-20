@@ -372,6 +372,41 @@ def test_physics_block_logs_expected_solver_rejection(
     assert "position requires a time t" in caplog.text
 
 
+def test_physics_block_requires_multiline_worked_layout() -> None:
+    intent = PhysicsIntent(
+        kind="force",
+        physics_op="acceleration",
+        physics_params={"F": 20.0, "m": 5.0},
+        physics_units={"F": "N", "m": "kg"},
+        operation="solve",
+    )
+
+    block = physics_block._build_physics_block(intent, Settings(), [])
+
+    assert block is not None
+    for heading in ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"):
+        assert heading in block.text
+    assert "every equation on its own line" in block.text
+    assert block.text.index("**Given**") < block.text.index("**Answer**")
+
+
+def test_physics_block_does_not_disclaim_its_native_visual() -> None:
+    intent = PhysicsIntent(
+        kind="friction",
+        physics_op="incline_acceleration",
+        physics_params={"angle": 30.0, "mu": 0.2, "g": 9.81, "m": 4.0},
+        physics_units={"angle": "deg", "g": "m/s^2", "m": "kg"},
+        operation="solve",
+    )
+
+    block = physics_block._build_physics_block(intent, Settings(), [])
+
+    assert block is not None
+    assert "verified native physics visual" in block.text
+    assert "Never claim that you cannot show" in block.text
+    assert "do not emit a simulation fence" in block.text
+
+
 def test_velocity_unit_metres_raises_dimension_error() -> None:
     intent = PhysicsIntent(
         kind="kinematics",

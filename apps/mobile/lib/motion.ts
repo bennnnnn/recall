@@ -32,6 +32,12 @@ export const Motion = {
      * The axis states the real time; the animation shows the shape.
      */
     trajectory: 1600,
+    /**
+     * A scene needs enough time for the user to inspect forces and stop the
+     * motion deliberately. Graph playback stays compact; moving bodies use a
+     * slower pass because their labels and vectors are part of the lesson.
+     */
+    simulation: 4000,
   },
   easing: {
     inOut: Easing.inOut(Easing.ease),

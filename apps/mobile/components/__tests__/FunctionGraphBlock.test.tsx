@@ -208,7 +208,7 @@ describe("FunctionGraphBlock", () => {
     expect(queryByText(/y = 2x/)).toBeNull();
   });
 
-  it("renders a verified trajectory as an SVG curve", async () => {
+  it("renders a verified trajectory on the native Skia canvas", async () => {
     const content = JSON.stringify({
       type: "trajectory",
       expr: "h(t) = 20 - 0.5*9.81*t^2",
@@ -222,10 +222,10 @@ describe("FunctionGraphBlock", () => {
         [2, 0.38],
       ],
     });
-    const { getByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
+    const { getByText, getByTestId } = await render(<FunctionGraphBlock content={content} />);
 
     expect(getByText("Height vs. Time")).toBeOnTheScreen();
-    expect(JSON.stringify(toJSON())).toContain("RNSVGPath");
+    expect(getByTestId("trajectory-canvas")).toBeOnTheScreen();
   });
 
   it("formats a backend-supplied SymPy title", async () => {

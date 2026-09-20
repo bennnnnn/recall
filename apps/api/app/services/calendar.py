@@ -69,7 +69,16 @@ _CALENDAR_PROPOSAL_FENCE = re.compile(
 
 _CREATE_CALENDAR_EVENT = re.compile(
     r"\b("
-    r"schedule|book|block(?:\s+off)?|add(?:\s+to)?\s+(?:my\s+)?calendar|"
+    r"schedule|book|"
+    # ``block`` by itself is a common physics noun. Only treat it as a
+    # calendar verb when the following words make the time intent explicit.
+    r"block\s+(?:"
+    r"off\b|(?:out\s+)?(?:my\s+)?(?:calendar|schedule)\b|"
+    r"(?:some\s+)?time\b|from\s+\d{1,2}(?::\d{2})?\b|"
+    r"(?:an?|one|two|three|four|\d+(?:\.\d+)?)\s+(?:minutes?|hours?|days?)\b|"
+    r"(?:today|tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|"
+    r"\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b"
+    r")|add(?:\s+to)?\s+(?:my\s+)?calendar|"
     r"create(?:\s+an?)?\s+(?:calendar\s+)?event|set up a meeting|"
     r"put (?:it|that) on my calendar|calendar invite"
     r")\b",

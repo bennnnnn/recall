@@ -1,3 +1,10 @@
+import {
+  formatAxisNumber,
+  graphAxisTicks,
+  graphTickCount,
+  mapGraphPoint,
+} from "@/lib/math/graphBlock";
+
 /**
  * Geometry for the played-back trajectory dot.
  *
@@ -7,6 +14,72 @@
  */
 
 export type ScreenPoint = { px: number; py: number };
+
+export type TrajectoryBounds = {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+};
+
+export type TrajectoryAxisLabel = {
+  value: number;
+  text: string;
+  px: number;
+  py: number;
+};
+
+export type TrajectoryAxisLayout = {
+  origin: ScreenPoint;
+  xAxisY: number;
+  yAxisX: number;
+  xTicks: TrajectoryAxisLabel[];
+  yTicks: TrajectoryAxisLabel[];
+};
+
+/**
+ * Static trajectory-axis geometry shared by the native Skia renderer and its
+ * tests. Text anchoring is applied by the renderer after measuring the font;
+ * these coordinates remain the exact mathematical tick positions.
+ */
+export function trajectoryAxisLayout(
+  bounds: TrajectoryBounds,
+  width: number,
+  height: number,
+  pad = 28,
+): TrajectoryAxisLayout {
+  const origin = mapGraphPoint(0, 0, bounds, width, height, pad);
+  const xTicks = graphAxisTicks(
+    bounds.xMin,
+    bounds.xMax,
+    graphTickCount(bounds.xMin, bounds.xMax),
+    true,
+  )
+    .filter((value) => Math.abs(value) >= 1e-9)
+    .map((value) => {
+      const { px } = mapGraphPoint(value, 0, bounds, width, height, pad);
+      return { value, text: formatAxisNumber(value, true), px, py: origin.py + 16 };
+    });
+  const yTicks = graphAxisTicks(
+    bounds.yMin,
+    bounds.yMax,
+    graphTickCount(bounds.yMin, bounds.yMax),
+    true,
+  )
+    .filter((value) => Math.abs(value) >= 1e-9)
+    .map((value) => {
+      const { py } = mapGraphPoint(0, value, bounds, width, height, pad);
+      return { value, text: formatAxisNumber(value, true), px: origin.px - 6, py: py + 4 };
+    })
+    .filter((tick) => tick.py - 4 >= pad + 12);
+  return {
+    origin,
+    xAxisY: origin.py,
+    yAxisX: origin.px,
+    xTicks,
+    yTicks,
+  };
+}
 
 /**
  * Position along the sampled path at `progress` (0 → 1).

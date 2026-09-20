@@ -22,6 +22,11 @@ _MASS = r"kg|mg|g|lbs|lb|oz"
 _ACCELERATION = r"m/s\^?2"
 _ASK = r"(?:find|calculate|compute|determine|what is) (?:the|its) "
 _GRAVITY = re.compile(rf"g\s*=\s*(?P<g>{_NUMBER})(?:\s+m/s\^?2)?", re.IGNORECASE)
+_EXTRA_REQUEST = re.compile(
+    r"\b(?:hint|air resistance|drag|wind|convert the answer|convert (?:it|this|that))\b"
+    r"|\b(?:and|also|then)\s+(?:solve|calculate|compute|find|convert|explain|show|tell)\b",
+    re.IGNORECASE,
+)
 
 
 def _quantity(name: str, unit: str) -> str:
@@ -272,7 +277,8 @@ def can_direct_physics(
     verified: VerifiedMathBlock, text: str, fences: list[dict[str, Any]]
 ) -> bool:
     expected = _expected_intent(text)
-    if expected is None or expected != verified.physics_intent:
+    intent = verified.physics_intent
+    if intent is None:
         return False
     answer = verified.canonical_answer
     # P14 attaches a scene alongside the trajectory graph, so a projectile
@@ -283,9 +289,37 @@ def can_direct_physics(
     # projectile back to the provider path: this returned False, the
     # pre-computed reply was dropped, and nothing anywhere reported it.
     answering = [f for f in fences if f.get("type") not in SIMULATION_SPEC_TYPES]
-    if not answer or len(answer) > 400 or len(answering) != 1:
+    if not answer or len(answer) > 800 or len(answering) != 1:
+        return False
+    if isinstance(intent, PhysicsIntent) and not verified.physics_working:
         return False
     fence = answering[0]
+    # The legacy exact grammars remain a useful second check for their closed
+    # subset. Every other physics kind is already guarded by deterministic
+    # extraction plus a solver-owned canonical fence, so it can return without
+    # waiting for a language model as well.
+    if expected is None:
+        if not isinstance(intent, PhysicsIntent):
+            return False
+        if _EXTRA_REQUEST.search(text):
+            return False
+        if fence.get("type") == "answer":
+            return fence.get("content") == answer
+        if fence.get("type") != "trajectory" or fence.get("expr2") or fence.get("points2"):
+            return False
+        points = fence.get("points")
+        return bool(
+            isinstance(points, list)
+            and len(points) >= 2
+            and all(
+                isinstance(point, list)
+                and len(point) == 2
+                and all(type(value) in {int, float} and math.isfinite(value) for value in point)
+                for point in points
+            )
+        )
+    if expected != intent:
+        return False
     if not isinstance(expected, PhysicsIntent):
         # Only the average-speed cross-check (a MathIntent, kind="arithmetic")
         # reaches here — it has no trajectory, just a scalar answer.
@@ -311,3 +345,204 @@ def can_direct_physics(
         and fence["x_min"] < fence["x_max"]
         and fence.get("trajectory_type") == _expected_trajectory_type(expected)
     )
+
+
+_SYMBOLS = {
+    "angle": r"\theta",
+    "h0": r"h_0",
+    "v0": r"v_0",
+    "d_obj": "u",
+    "focal": "f",
+    "delta_temp": r"\Delta T",
+    "c_heat": "c",
+    "b_field": "B",
+    "wire_L": "L",
+    "radius_body": "R",
+    "inertia": "I",
+    "wavelength": r"\lambda",
+    "freq": "f",
+}
+
+_RESULT_SYMBOLS = {
+    "position": "h",
+    "velocity": "v",
+    "time_to_ground": "t",
+    "speed": "v",
+    "acceleration": "a",
+    "range": "R",
+    "max_height": "H_{max}",
+    "time_of_flight": "t_{flight}",
+    "impact_speed": "v_{impact}",
+    "launch_angle": r"\theta",
+    "net_force": "F",
+    "tension": "T",
+    "atwood": r"a,\ T",
+    "resultant_force": "R",
+    "resolve_force": r"F_x,\ F_y",
+    "kinetic_energy": "KE",
+    "potential_energy": "PE",
+    "work": "W",
+    "power": "P",
+    "momentum": "p",
+    "impulse": "J",
+    "final_velocity": "v_f",
+    "friction_force": "f",
+    "normal_force": "N",
+    "incline_acceleration": "a",
+    "friction_coefficient": r"\mu",
+    "minimum_force": "F_{min}",
+    "centripetal_force": "F_c",
+    "centripetal_acceleration": "a_c",
+    "orbital_period": "T",
+    "angular_velocity": r"\omega",
+    "spring_force": "F",
+    "spring_energy": "E_s",
+    "shm_period": "T",
+    "pendulum_period": "T",
+    "shm_frequency": "f",
+    "shm_max_speed": "v_{max}",
+    "voltage": "V",
+    "current": "I",
+    "resistance": "R",
+    "electrical_power": "P",
+    "series_resistance": "R_s",
+    "parallel_resistance": "R_p",
+    "charge": "Q",
+    "electrical_energy": "E",
+    "capacitance": "C",
+    "terminal_voltage": "V_{terminal}",
+    "torque": r"\tau",
+    "moment_balance": "d_2",
+    "suvat_velocity": "v",
+    "suvat_distance": "s",
+    "suvat_time": "t",
+    "suvat_acceleration": "a",
+    "wave_speed": "v",
+    "wavelength": r"\lambda",
+    "wave_frequency": "f",
+    "wave_frequency_from_period": "f",
+    "wave_period": "T",
+    "doppler_frequency": "f'",
+    "image_distance": "v",
+    "magnification": "m",
+    "refractive_index": "n",
+    "critical_angle": r"\theta_c",
+    "heat_energy": "Q",
+    "ideal_gas_pressure": "P",
+    "thermal_efficiency": r"\eta",
+    "gravitational_force": "F",
+    "orbital_velocity": "v",
+    "escape_velocity": "v_e",
+    "surface_gravity": "g",
+    "pressure_from_force": "P",
+    "pressure_at_depth": "P",
+    "upthrust": "F_b",
+    "density": r"\rho",
+    "continuity_velocity": "v_2",
+    "flow_rate": "Q",
+    "moment_of_inertia": "I",
+    "angular_momentum": "L",
+    "rotational_kinetic_energy": "E_k",
+    "magnetic_force_wire": "F",
+    "magnetic_force_charge": "F",
+    "magnetic_flux": r"\Phi",
+    "stress": r"\sigma",
+    "strain": r"\varepsilon",
+    "youngs_modulus": "E",
+    "half_life_remaining": "N",
+    "mass_energy": "E",
+    "photon_energy": "E",
+    "de_broglie_wavelength": r"\lambda",
+    "lever_arm": "d",
+    "net_torque": r"\tau_{net}",
+}
+
+
+def _display_number(value: float) -> str:
+    magnitude = abs(value)
+    if magnitude and (magnitude >= 1e6 or magnitude < 1e-4):
+        return f"{value:.6g}"
+    return str(int(value)) if value.is_integer() else f"{value:g}"
+
+
+def _equation_layout(
+    working: str,
+    *,
+    result_symbol: str | None,
+) -> tuple[list[str], list[str]]:
+    """Separate solver-owned equation chains into symbolic and numeric rows."""
+    chains = [chain.strip() for chain in working.split(r", \quad ")]
+    formulas: list[str] = []
+    substitutions: list[str] = []
+    for chain in chains:
+        parts = chain.split(" = ")
+        lhs = result_symbol if len(chains) == 1 and result_symbol else parts[0].strip()
+        arrow_rearrangement = len(parts) >= 3 and r"\Rightarrow" in parts[1]
+        if arrow_rearrangement:
+            formulas.append(f"{lhs} = {parts[2].split(r'\approx', 1)[0].strip()}")
+        elif len(parts) >= 2:
+            formula_rhs = parts[1].split(r"\approx", 1)[0].strip()
+            formulas.append(f"{parts[0].strip()} = {formula_rhs}")
+        else:
+            formulas.append(chain)
+
+        if len(parts) >= 3:
+            substitution_rhs = parts[-1].split(r"\approx", 1)[0].strip()
+            substitutions.append(f"{lhs} = {substitution_rhs}")
+        else:
+            substitutions.append(chain.split(r"\approx", 1)[0].strip())
+    return formulas, substitutions
+
+
+def format_direct_physics_working(verified: VerifiedMathBlock) -> str | None:
+    """Five-section worked layout for a solver-verified instant reply.
+
+    This formats the intent and the solver's exact equation chain; it never
+    derives a result. The answer remains the canonical answer fence appended
+    by the generic direct formatter.
+    """
+    intent = verified.physics_intent
+    working = verified.physics_working
+    if not isinstance(intent, PhysicsIntent) or not working:
+        return None
+
+    params = intent.physics_params or {}
+    units = intent.physics_units or {}
+    given = []
+    for name, value in params.items():
+        symbol = _SYMBOLS.get(name, name)
+        unit = units.get(name)
+        suffix = rf"\,\mathrm{{{unit}}}" if unit else ""
+        given.append(rf"${symbol} = {_display_number(value)}{suffix}$")
+
+    result_symbol = _RESULT_SYMBOLS.get(intent.physics_op or "")
+    if intent.kind == "kinematics" and intent.physics_op == "speed" and "t" not in params:
+        result_symbol = "v_{impact}"
+    formulas, substitutions = _equation_layout(working, result_symbol=result_symbol)
+    if (
+        " = " not in working
+        and intent.kind == "kinematics"
+        and intent.physics_op
+        in {
+            "velocity",
+            "speed",
+        }
+    ):
+        if "t" in params:
+            substitutions = [
+                rf"v = {_display_number(params['v0'])} - "
+                rf"{_display_number(params['g'])} \cdot {_display_number(params['t'])}"
+            ]
+        else:
+            substitutions = [
+                rf"v = \sqrt{{({_display_number(params['v0'])})^2 + 2 \cdot "
+                rf"{_display_number(params['g'])} \cdot {_display_number(params.get('h0', 0.0))}}}"
+            ]
+
+    find_symbol = result_symbol or formulas[0].split(" = ", 1)[0]
+    rows = ["**Given**", *given, "**Find**", f"${find_symbol}$", "**Formula**"]
+    rows.extend(f"${formula}$" for formula in formulas)
+    rows.append("**Substitution**")
+    rows.extend(f"${substitution}$" for substitution in substitutions)
+    rows.append("**Answer**")
+    return "\n\n".join(rows)

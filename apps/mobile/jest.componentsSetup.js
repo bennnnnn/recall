@@ -52,7 +52,10 @@ jestGlobals.mock("react-native-reanimated", () => {
       value: typeof factory === "function" ? factory() : undefined,
     }),
     useAnimatedReaction: () => undefined,
-    useSharedValue: (value) => ({ value }),
+    // Reanimated keeps one shared-value object for the lifetime of a component.
+    // Preserve that identity so a React state update does not look like a fresh
+    // animation mount and retrigger effects in component tests.
+    useSharedValue: (value) => React.useRef({ value }).current,
     withSpring: id,
     withTiming: id,
     withRepeat: id,

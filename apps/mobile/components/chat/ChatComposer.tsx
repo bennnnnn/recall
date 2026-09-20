@@ -142,6 +142,7 @@ export const ChatComposer = memo(function ChatComposer({
     onChangeInputProp ??
     (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
   const [scanHint, setScanHint] = useState(false);
+  const [inputHeight, setInputHeight] = useState(COMPOSER_INPUT_MIN_HEIGHT);
   const inputRef = useRef<TextInput>(null);
   const math = useMathKeyboardInsert({
     input,
@@ -173,6 +174,13 @@ export const ChatComposer = memo(function ChatComposer({
     const id = requestAnimationFrame(() => inputRef.current?.focus());
     return () => cancelAnimationFrame(id);
   }, [math.mathBarOpen]);
+
+  useEffect(() => {
+    // iOS can retain the last multiline content size after a controlled
+    // TextInput is cleared. Pin the empty draft back to the single-line
+    // height so a sent long message cannot leave a tall blank composer.
+    if (!input) setInputHeight(COMPOSER_INPUT_MIN_HEIGHT);
+  }, [input]);
 
   const onToggleMathBar = useCallback(() => {
     const wasOpen = math.mathBarOpen;
@@ -307,7 +315,11 @@ export const ChatComposer = memo(function ChatComposer({
                   <TextInput
                     ref={inputRef}
                     testID="chat-composer-input"
-                    style={[s.input, parkInput ? s.inputParked : null]}
+                    style={[
+                      s.input,
+                      { height: inputHeight },
+                      parkInput ? s.inputParked : null,
+                    ]}
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
                     placeholderTextColor={theme.textDisabled}
                     value={input}
@@ -317,6 +329,14 @@ export const ChatComposer = memo(function ChatComposer({
                     spellCheck={false}
                     autoCapitalize="none"
                     onChangeText={math.onChangeText}
+                    onContentSizeChange={(event) => {
+                      const measured = Math.ceil(event.nativeEvent.contentSize.height);
+                      const next = Math.min(
+                        COMPOSER_INPUT_MAX_HEIGHT,
+                        Math.max(COMPOSER_INPUT_MIN_HEIGHT, measured),
+                      );
+                      setInputHeight((current) => (current === next ? current : next));
+                    }}
                     onSelectionChange={math.onSelectionChange}
                     selection={
                       showMathPreview

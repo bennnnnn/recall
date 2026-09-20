@@ -505,11 +505,19 @@ def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -
     scenes = [f for f in fences if f.get("type") in SIMULATION_SPEC_TYPES]
     fences = [f for f in fences if f not in scenes]
     answer = (verified.canonical_answer or "").strip()
+    physics_working: str | None = None
+    if verified.physics_intent is not None:
+        from app.services.physics.direct import format_direct_physics_working
+
+        physics_working = format_direct_physics_working(verified)
     if scenes:
         body = _format_direct_math_body(verified, user_text, fences, answer)
+        if physics_working:
+            body = f"{physics_working}\n\n{body}"
         scene_fence = f"```simulation\n{json.dumps(scenes[0], separators=(',', ':'))}\n```\n"
         return f"{body}\n{scene_fence}" if body.endswith("\n") else f"{body}\n\n{scene_fence}"
-    return _format_direct_math_body(verified, user_text, fences, answer)
+    body = _format_direct_math_body(verified, user_text, fences, answer)
+    return f"{physics_working}\n\n{body}" if physics_working else body
 
 
 def _format_direct_math_body(

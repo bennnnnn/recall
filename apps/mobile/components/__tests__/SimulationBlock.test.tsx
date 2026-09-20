@@ -7,7 +7,7 @@
  * still gets a real diagram rather than an empty box, and that an arrow is
  * never drawn without the thing it points at.
  */
-import { render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 
 import { SimulationBlock } from "@/components/rich/SimulationBlock";
 
@@ -89,12 +89,17 @@ describe("SimulationBlock", () => {
     expect(queryByTestId("simulation-ground")).toBeNull();
   });
 
-  it("offers play rather than starting on its own", async () => {
-    // Same rule P3 settled: a chat scrolling past should not set half a dozen
-    // animations running.
-    const { getByTestId } = await render(<SimulationBlock content={PROJECTILE} />);
+  it("starts moving scenes automatically and lets the user stop or replay them", async () => {
+    const { getByLabelText, getByTestId } = await render(
+      <SimulationBlock content={PROJECTILE} />,
+    );
 
-    expect(getByTestId("simulation-play")).toBeTruthy();
+    expect(getByTestId("simulation-control")).toBeTruthy();
+    expect(getByTestId("simulation-stop-symbol").props.children).toBe("=");
+    await fireEvent.press(getByLabelText("rich.simulation_stop_a11y"));
+    expect(getByTestId("simulation-restart-symbol").props.children).toBe("<");
+    await fireEvent.press(getByLabelText("rich.simulation_restart_a11y"));
+    expect(getByTestId("simulation-stop-symbol").props.children).toBe("=");
   });
 
   it("falls back to a static diagram under Reduce Motion", async () => {
@@ -107,7 +112,7 @@ describe("SimulationBlock", () => {
     expect(getByTestId("simulation-body")).toBeTruthy();
     expect(getByTestId("simulation-arrow-gravity")).toBeTruthy();
     expect(getByTestId("simulation-ground")).toBeTruthy();
-    expect(queryByTestId("simulation-play")).toBeNull();
+    expect(queryByTestId("simulation-control")).toBeNull();
   });
 
   it("never draws a centripetal arrow without a centre", async () => {
@@ -126,7 +131,7 @@ describe("SimulationBlock", () => {
     const { queryByTestId } = await render(<SimulationBlock content="{ not json" />);
 
     expect(queryByTestId("simulation-body")).toBeNull();
-    expect(queryByTestId("simulation-play")).toBeNull();
+    expect(queryByTestId("simulation-control")).toBeNull();
   });
 
   it("renders every body in a multi-body scene", async () => {
@@ -204,7 +209,7 @@ describe("SimulationBlock: collisions and inclines", () => {
     expect(getByTestId("simulation-arrow-normal")).toBeTruthy();
     expect(getByTestId("simulation-arrow-friction")).toBeTruthy();
     expect(getByTestId("simulation-slope")).toBeTruthy();
-    expect(queryByTestId("simulation-play")).toBeNull();
+    expect(queryByTestId("simulation-control")).toBeNull();
   });
 
   it("never draws a normal or friction arrow without a slope", async () => {
@@ -267,7 +272,7 @@ describe("SimulationBlock: still figures", () => {
     // A button that does nothing when pressed is worse than no button.
     const { queryByTestId } = await render(<SimulationBlock content={LEVER} />);
 
-    expect(queryByTestId("simulation-play")).toBeNull();
+    expect(queryByTestId("simulation-control")).toBeNull();
   });
 
   it("shows each stated force with the magnitude the solver computed", async () => {
@@ -285,12 +290,23 @@ describe("SimulationBlock: still figures", () => {
   });
 
   it("draws the block a free-body diagram is about", async () => {
-    const { getByTestId, queryByTestId } = await render(<SimulationBlock content={FREE_BODY} />);
+    const { getByLabelText, getByTestId, queryByTestId } = await render(
+      <SimulationBlock content={FREE_BODY} />,
+    );
 
     expect(getByTestId("simulation-body")).toBeTruthy();
+    expect(getByTestId("simulation-body-label")).toBeTruthy();
+    expect(getByLabelText("5 kg")).toBeTruthy();
     // Still figure: no beam, and nothing to play.
     expect(queryByTestId("simulation-beam")).toBeNull();
-    expect(queryByTestId("simulation-play")).toBeNull();
+    expect(queryByTestId("simulation-control")).toBeNull();
+  });
+
+  it("describes replay as a simulation rather than a trajectory", async () => {
+    const { getByLabelText } = await render(<SimulationBlock content={PROJECTILE} />);
+
+    await fireEvent.press(getByLabelText("rich.simulation_stop_a11y"));
+    expect(getByLabelText("rich.simulation_restart_a11y")).toBeTruthy();
   });
 
   it("keeps its figure under Reduce Motion", async () => {
