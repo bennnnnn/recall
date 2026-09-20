@@ -5,7 +5,7 @@ jest.mock("expo-modules-core", () => ({
   requireOptionalNativeModule: () => ({ isDevice: false }),
 }));
 
-jest.mock("@/lib/voiceAudio", () => ({
+jest.mock("@/lib/speech/voiceAudio", () => ({
   yieldMicToWebRtc: jest.fn(async () => undefined),
 }));
 
@@ -17,7 +17,7 @@ jest.mock("@/lib/api/speech", () => ({
   speechApi: { createRealtimeSession: jest.fn() },
 }));
 
-import { createRealtimeVoiceSession, isRealtimeVoiceAvailable, webRtcMicConstraints } from "@/lib/realtimeVoice";
+import { createRealtimeVoiceSession, isRealtimeVoiceAvailable, webRtcMicConstraints } from "@/lib/speech/realtimeVoice";
 
 describe("realtimeVoice", () => {
   it("is unavailable when WebRTC is not in this native binary", () => {

@@ -8,7 +8,7 @@ import {
   TTS_DEVICE_MODEL,
   TTS_FAST_MODEL,
   TTS_QUALITY_MODEL,
-} from "@/lib/ttsPreference";
+} from "@/lib/speech/ttsPreference";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),

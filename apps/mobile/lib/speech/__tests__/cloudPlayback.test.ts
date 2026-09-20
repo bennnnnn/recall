@@ -3,7 +3,7 @@ import {
   playbackStatusFinished,
   playbackWaitMs,
   wavDurationMsFromBase64,
-} from "@/lib/cloudPlayback";
+} from "@/lib/speech/cloudPlayback";
 
 function pcmToWavBase64(pcm: Uint8Array, sampleRate = 24000): string {
   const header = new ArrayBuffer(44);

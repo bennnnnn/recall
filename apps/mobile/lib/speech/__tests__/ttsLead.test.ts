@@ -5,7 +5,7 @@ import {
   TTS_LEAD_MAX_CHARS,
   TTS_LEAD_MIN_CHARS,
   TTS_PREFETCH_CHUNK_LIMIT,
-} from "@/lib/ttsLead";
+} from "@/lib/speech/ttsLead";
 
 describe("splitTtsLead", () => {
   it("keeps a short reply intact", () => {

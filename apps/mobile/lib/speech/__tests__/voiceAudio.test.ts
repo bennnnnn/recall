@@ -26,7 +26,7 @@ import {
   normalizeRecordingUri,
   recordingOptionsForFormat,
   speechUploadFromUri,
-} from "@/lib/voiceAudio";
+} from "@/lib/speech/voiceAudio";
 
 const mockCanUseVoiceInput = canUseVoiceInput as jest.MockedFunction<
   typeof canUseVoiceInput

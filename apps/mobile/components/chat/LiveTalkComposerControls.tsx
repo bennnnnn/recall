@@ -2,7 +2,7 @@ import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { IconButton } from "@/components/IconButton";
-import { liveTalkMuteA11yKey } from "@/lib/liveTalkLogic";
+import { liveTalkMuteA11yKey } from "@/lib/speech/liveTalkLogic";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
 

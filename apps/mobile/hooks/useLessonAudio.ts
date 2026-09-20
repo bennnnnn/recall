@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { AppState } from "react-native";
-import { createLessonAudio } from "@/lib/lessonAudio";
+import { createLessonAudio } from "@/lib/speech/lessonAudio";
 
 /** Pronunciation and practice effects belong to one focused visit. */
 export function useLessonAudio(isCurrent: () => boolean) {

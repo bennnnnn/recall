@@ -1,5 +1,5 @@
 import { request } from "@/lib/api/client";
-import type { LiveTalkStatus } from "@/lib/liveTalkLogic";
+import type { LiveTalkStatus } from "@/lib/speech/liveTalkLogic";
 import type { Message, SearchSource } from "@/lib/api/types";
 
 export type RealtimeSessionCredential = {

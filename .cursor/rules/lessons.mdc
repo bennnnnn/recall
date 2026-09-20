@@ -639,5 +639,5 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 - **Mobile deps won't install in this env.** npm points at an auth-gated internal registry, so
   `tsc`/Expo can't run here — verify mobile changes with `pnpm typecheck`/`pnpm lint` locally.
 - **expo-av / voice crash (`ExponentAV` not found).** `expo-av` is incompatible with SDK 56 — use
-  `expo-audio` instead; lazy-load via `lib/voiceAudio.ts` for Expo Go; rebuild dev client with
+  `expo-audio` instead; lazy-load via `lib/speech/voiceAudio.ts` for Expo Go; rebuild dev client with
   `pnpm expo run:ios` (not Expo Go).

@@ -3,11 +3,11 @@
 import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 
 import { requestRaw } from "@/lib/api/client";
-import { playbackStatusFinished } from "@/lib/cloudPlayback";
+import { playbackStatusFinished } from "@/lib/speech/cloudPlayback";
 import { markdownToSpeechText } from "@/lib/markdown/plain";
-import { splitTtsChunks } from "@/lib/ttsLead";
-import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/ttsPreference";
-import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/voiceAudio";
+import { splitTtsChunks } from "@/lib/speech/ttsLead";
+import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/lib/speech/ttsPreference";
+import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/speech/voiceAudio";
 
 type SpeechModule = typeof import("expo-speech");
 

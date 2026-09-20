@@ -18,7 +18,7 @@ jest.mock("@/lib/haptics", () => ({
   tap: () => mockTap(),
 }));
 
-jest.mock("@/lib/voiceAudio", () => ({
+jest.mock("@/lib/speech/voiceAudio", () => ({
   loadExpoAudio: () => ({ createAudioPlayer: mockCreateAudioPlayer }),
 }));
 
@@ -26,7 +26,7 @@ import {
   LIVE_TALK_CUE_TONES,
   buildLiveTalkCueWavBase64,
   playLiveTalkCue,
-} from "@/lib/liveTalkSfx";
+} from "@/lib/speech/liveTalkSfx";
 
 describe("liveTalkSfx", () => {
   beforeEach(() => {

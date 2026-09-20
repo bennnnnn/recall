@@ -1,4 +1,4 @@
-import { readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
+import { readRecordingBase64, speechUploadFromUri } from "@/lib/speech/voiceAudio";
 import i18n from "@/lib/i18n";
 
 import { apiUrl, fetchWithTimeout, request } from "@/lib/api/client";

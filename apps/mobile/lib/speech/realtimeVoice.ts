@@ -10,9 +10,10 @@ import {
   liveTalkDataChannelText,
   liveTalkLocalMicEnabled,
   liveTalkShouldCreateResponse,
-} from "@/lib/liveTalkLogic";
-import { yieldMicToWebRtc } from "@/lib/voiceAudio";
-import { realtimeFunctionCalls, runRealtimeFunctionCall } from "@/lib/realtimeTools";
+} from "@/lib/speech/liveTalkLogic";
+import { yieldMicToWebRtc } from "@/lib/speech/voiceAudio";
+import { realtimeFunctionCalls, runRealtimeFunctionCall } from "@/lib/speech/realtimeTools";
+import { exchangeRealtimeSdp } from "@/lib/speech/realtimeSdp";
 import type { SearchSource } from "@/lib/api/types";
 
 export type RealtimeVoiceEvent =
@@ -43,10 +44,8 @@ export type RealtimeVoiceSession = {
   close: () => void;
 };
 
-const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 const ICE_GATHER_TIMEOUT_MS = 2_500;
 const CONNECTION_TIMEOUT_MS = 10_000;
-const SDP_EXCHANGE_TIMEOUT_MS = 10_000;
 const PLAYBACK_UNMUTE_FALLBACK_MS = 12_000;
 const DEBUG_PREFIX = "[LiveTalk/WebRTC]";
 const SILENCE_HALLUCINATIONS = new Set([
@@ -220,36 +219,6 @@ function enableRemoteAudioTrack(track: any): void {
     if (typeof track._setVolume === "function") track._setVolume(1);
   } catch {
     /* best-effort */
-  }
-}
-
-async function exchangeSdpDirectly(clientSecret: string, sdp: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SDP_EXCHANGE_TIMEOUT_MS);
-  try {
-    const response = await fetch(OPENAI_REALTIME_CALLS_URL, {
-      method: "POST",
-      body: sdp,
-      headers: {
-        Authorization: `Bearer ${clientSecret}`,
-        "Content-Type": "application/sdp",
-      },
-      signal: controller.signal,
-    });
-    const answerSdp = await response.text();
-    if (!response.ok) {
-      const error = new Error(
-        `OpenAI Realtime SDP exchange failed (${response.status}): ${answerSdp.slice(0, 240)}`,
-      ) as Error & { status?: number };
-      error.status = response.status;
-      throw error;
-    }
-    if (!answerSdp.includes("v=0")) {
-      throw new Error("OpenAI Realtime returned an invalid SDP answer");
-    }
-    return answerSdp;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -699,7 +668,7 @@ export async function createRealtimeVoiceSession(options: {
       expiresAt: credential.expires_at,
     });
 
-    const answerSdp = await exchangeSdpDirectly(credential.client_secret, sdp);
+    const answerSdp = await exchangeRealtimeSdp(credential.client_secret, sdp);
     debug("received-sdp-answer", {
       transport: "direct-ephemeral",
       hasAudio: answerSdp.includes("m=audio"),

@@ -1,5 +1,5 @@
-import { stopSpeaking } from "@/lib/pronunciation";
-import { loadExpoAudio } from "@/lib/voiceAudio";
+import { stopSpeaking } from "@/lib/speech/pronunciation";
+import { loadExpoAudio } from "@/lib/speech/voiceAudio";
 
 type Player = ReturnType<NonNullable<ReturnType<typeof loadExpoAudio>>["createAudioPlayer"]>;
 let active: object | null = null;

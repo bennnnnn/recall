@@ -1,5 +1,5 @@
 import { speechApi } from "@/lib/api/speech";
-import { createRealtimeVoiceSession, webRtcMicConstraints, type RealtimeVoiceEvent } from "@/lib/realtimeVoice";
+import { createRealtimeVoiceSession, webRtcMicConstraints, type RealtimeVoiceEvent } from "@/lib/speech/realtimeVoice";
 import * as webrtc from "react-native-webrtc";
 
 jest.mock("react-native", () => ({
@@ -10,7 +10,7 @@ jest.mock("react-native", () => ({
 jest.mock("expo-modules-core", () => ({
   requireOptionalNativeModule: () => ({ isDevice: true }),
 }));
-jest.mock("@/lib/voiceAudio", () => ({ yieldMicToWebRtc: jest.fn(async () => undefined) }));
+jest.mock("@/lib/speech/voiceAudio", () => ({ yieldMicToWebRtc: jest.fn(async () => undefined) }));
 jest.mock("@/lib/api/speech", () => ({ speechApi: { createRealtimeSession: jest.fn(), realtimeTool: jest.fn() } }));
 jest.mock("react-native-webrtc", () => ({
   mediaDevices: { getUserMedia: jest.fn() },

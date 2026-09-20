@@ -12,7 +12,7 @@ import {
   VOICE_MAX_RECORDING_MS,
   type VoiceRecorder,
   type VoiceRecordingFormat,
-} from "@/lib/voiceAudio";
+} from "@/lib/speech/voiceAudio";
 
 type TranscribeFail = "empty" | "network" | "failed";
 
