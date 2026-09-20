@@ -19,6 +19,7 @@ import { api } from "@/lib/api";
 import { invalidateChatListCache } from "@/lib/cache/chatListCache";
 import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
+import { notifyDestructive } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
@@ -75,6 +76,7 @@ export default function DataControlsScreen() {
   const runDelete = async () => {
     const deleted = await deleteAccount();
     if (deleted) {
+      notifyDestructive();
       router.replace("/login");
     } else {
       reportRecoverableError(feedback, t("settings.delete_failed"));
@@ -143,6 +145,7 @@ export default function DataControlsScreen() {
             setBulkBusy("delete");
             try {
               await api.deleteAllChats(token);
+              notifyDestructive();
               invalidateChatListCache();
             } catch {
               reportRecoverableError(feedback, t("common.error"));

@@ -57,6 +57,8 @@ export type Theme = {
 
   // Status
   danger: string;
+  /** Readable ink on `danger` fills — destructive badges must pass WCAG AA. */
+  onDanger: string;
   dangerLight: string;
   warning: string;
   /** Ink on `warning` — banner labels must pass WCAG AA. */
@@ -130,6 +132,7 @@ export const lightTheme: Theme = {
   contentSurface: "#F7F7F8",
 
   danger: "#D92D20",
+  onDanger: "#FFFFFF",
   dangerLight: "#FDECEC",
   warning: "#B54708",
   onWarning: "#FFFFFF",
@@ -185,6 +188,7 @@ export const darkTheme: Theme = {
   contentSurface: "#202023",
 
   danger: "#FF6B6B",
+  onDanger: "#0F0F10",
   dangerLight: "#3B1513",
   warning: "#F5A524",
   onWarning: "#111113",

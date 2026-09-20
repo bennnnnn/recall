@@ -23,6 +23,7 @@ import {
   setMemoriesCache,
   subscribeMemoriesCache,
 } from "@/lib/cache/memoryListCache";
+import { notifyDestructive } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
@@ -93,6 +94,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
               try {
                 await api.clearMemories(token);
                 if (!isCurrentView()) return;
+                notifyDestructive();
                 setMemoriesCache([]);
                 setMemCount(0);
               } catch {

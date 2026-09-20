@@ -8,6 +8,7 @@ import { beginChatMutation } from "@/lib/chat/mutationLock";
 
 let mockSession = 0;
 const mockError = jest.fn();
+const mockDestructive = jest.fn();
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
@@ -18,6 +19,10 @@ jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: () => false }));
 jest.mock("@/lib/share", () => ({ shareConversation: jest.fn() }));
 jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
+jest.mock("@/lib/haptics", () => ({
+  ...jest.requireActual("@/lib/haptics"),
+  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
+}));
 const chat: Chat = { id: "one", title: "Original", model: "free-chat", pinned: true, archived: false, created_at: "2026-01-01", updated_at: "2026-01-01" };
 const patch = jest.fn();
 const moveArchive = jest.fn();
@@ -116,6 +121,7 @@ it("reaffirms successful deletion after a concurrent list read", async () => {
   await act(async () => { await confirm(); });
   expect(remove).toHaveBeenCalledTimes(2);
   expect(insert).not.toHaveBeenCalled();
+  expect(mockDestructive).toHaveBeenCalledTimes(1);
 });
 
 it.each(["pin", "archive"])("uses the returned state for the drawer %s confirmation", async (kind) => {

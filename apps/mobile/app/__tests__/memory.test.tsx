@@ -8,6 +8,7 @@ let mockFocused = true;
 const mockLoad = jest.fn(async () => {});
 const mockDeleteSection = jest.fn(async () => true);
 const mockDeleteFact = jest.fn(async () => true);
+const mockDestructive = jest.fn();
 const mockUpdate = jest.fn(async () => true);
 const mockFeedback = { error: jest.fn() };
 const mockRouter = { replace: jest.fn() };
@@ -30,6 +31,10 @@ jest.mock("@/contexts/AuthContext", () => {
 });
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: (...args: unknown[]) => mockFeedback.error(...args) }));
+jest.mock("@/lib/haptics", () => ({
+  ...jest.requireActual("@/lib/haptics"),
+  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
+}));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
@@ -89,6 +94,24 @@ it.each(["account", "blur", "blur-refocus", "unmount"])("ignores a retained dele
   await act(async () => { await confirm(); });
   expect(mockDeleteSection).not.toHaveBeenCalled();
   expect(mockFeedback.error).not.toHaveBeenCalled();
+});
+
+it("haptics only after the confirmed memory deletion succeeds", async () => {
+  let resolve!: (ok: boolean) => void;
+  mockDeleteSection.mockReturnValueOnce(
+    new Promise<boolean>((done) => { resolve = done; }),
+  );
+  const ui = await render(<MemoryScreen />);
+
+  await fireEvent.press(ui.getByLabelText("memory.delete_section_a11y"));
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  let pending!: Promise<void>;
+  await act(async () => { pending = confirmDelete()(); });
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  await act(async () => { resolve(true); await pending; });
+  expect(mockDestructive).toHaveBeenCalledTimes(1);
 });
 
 it("clears an account's editor before showing the next account", async () => {

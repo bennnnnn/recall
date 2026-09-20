@@ -78,3 +78,11 @@ export function notifyWarning(): void {
   }
   tap();
 }
+
+/**
+ * Feedback for a confirmed destructive action. Call once, after the
+ * destructive operation succeeds — never when opening or cancelling an alert.
+ */
+export function notifyDestructive(): void {
+  notifyWarning();
+}

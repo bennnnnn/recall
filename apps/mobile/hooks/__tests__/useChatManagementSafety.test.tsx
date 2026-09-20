@@ -10,6 +10,7 @@ import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 
 let mockSession = 0;
 const mockError = jest.fn();
+const mockDestructive = jest.fn();
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
 jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: jest.fn(), peekCreatedChat: jest.fn() }));
@@ -23,7 +24,11 @@ jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.
 jest.mock("@/lib/exportMessagePdf", () => ({ exportConversationAsPdf: jest.fn() }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: jest.fn() }));
 jest.mock("@/lib/share", () => ({ shareConversation: jest.fn() }));
-jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
+jest.mock("@/lib/haptics", () => ({
+  ...jest.requireActual("@/lib/haptics"),
+  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
+  tap: jest.fn(),
+}));
 
 const chat: Chat = {
   id: "chat-1", title: "Old title", model: "free-chat", pinned: false, archived: false,
@@ -136,6 +141,22 @@ it("clears the active deleted conversation through the registered new-chat actio
   expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith(["chat-1"]);
   expect(router.back).not.toHaveBeenCalled();
   expect(router.replace).not.toHaveBeenCalled();
+});
+
+it("haptics only after the confirmed chat deletion succeeds", async () => {
+  const request = deferred<void>();
+  (api.deleteChat as jest.Mock).mockReturnValue(request.promise);
+  await render(<Probe />);
+
+  await act(async () => { actions.confirmDelete(); });
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  let pending!: Promise<void>;
+  await act(async () => { pending = deletePress()(); });
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  await act(async () => { request.resolve(); await pending; });
+  expect(mockDestructive).toHaveBeenCalledTimes(1);
 });
 
 it("coalesces repeated archive taps while the mutation is pending, including token refresh", async () => {
