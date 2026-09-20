@@ -1,6 +1,6 @@
 import type { Learning, LearningKind } from "@/lib/api";
 import { LEARNING_LANGUAGES, languageLabel } from "@/lib/i18n/languages";
-import { isLanguageProject } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/projects/languageLevels";
 import { findLanguageProject } from "@/lib/projects/languageProject";
 
 export type CreateStep = "language" | "daily";

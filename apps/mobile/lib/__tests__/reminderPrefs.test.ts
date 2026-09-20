@@ -6,7 +6,7 @@ import {
   getReminderLeadMinutes,
   resetReminderLeadCache,
   setReminderLeadMinutes,
-} from "@/lib/reminderPrefs";
+} from "@/lib/todos/reminderPrefs";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),

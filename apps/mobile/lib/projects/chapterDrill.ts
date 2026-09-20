@@ -1,5 +1,5 @@
 import type { LearningItem } from "@/lib/api";
-import type { ParsedVocabQuiz, QuizChoice } from "@/lib/parseVocabQuiz";
+import type { ParsedVocabQuiz, QuizChoice } from "@/lib/projects/parseVocabQuiz";
 
 import { wholeWordIndex } from "@/lib/projects/wordBoundary";
 import { cardMeaning, itemToCard } from "@/lib/projects/chapterLesson";

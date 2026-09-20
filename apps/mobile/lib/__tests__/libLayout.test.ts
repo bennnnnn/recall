@@ -23,6 +23,9 @@ const LIB = `${__dirname}/..`;
 /** Folders whose domain is also spelled as a different module prefix. */
 const PREFIX_ALIASES: Record<string, string[]> = {
   chemistry: ["molecule"],
+  images: ["image"],
+  projects: ["exportProject", "language", "parseLearning", "parseVocab", "project"],
+  todos: ["homeReminder", "homeUrgent", "reminder", "todo"],
 };
 
 /** Vendored code keeps upstream names; it is not one of our domains. */

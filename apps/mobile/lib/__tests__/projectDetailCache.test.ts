@@ -7,7 +7,7 @@ import {
   isLearningDetailFresh,
   prefetchLearningDetail,
   setLearningDetailCache,
-} from "@/lib/cache/projectDetailCache";
+} from "@/lib/projects/projectDetailCache";
 
 jest.mock("@/lib/api", () => ({
   api: {

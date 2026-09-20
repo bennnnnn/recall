@@ -22,7 +22,7 @@ import {
   DEFAULT_REMINDER_LEAD_MINUTES,
   getReminderLeadMinutes,
   REMINDER_LEAD_OPTIONS,
-} from "@/lib/reminderPrefs";
+} from "@/lib/todos/reminderPrefs";
 import { normalizeReminderLeadMinutes } from "@/lib/todos/reminderTiming";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";

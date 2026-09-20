@@ -3,7 +3,7 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useProjectActions } from "@/hooks/useProjectActions";
 import { api } from "@/lib/api";
-import { invalidateLearningDetail } from "@/lib/cache/projectDetailCache";
+import { invalidateLearningDetail } from "@/lib/projects/projectDetailCache";
 let mockSession = 1;
 let mockToken = "token";
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
@@ -15,7 +15,7 @@ jest.mock("@/lib/auth", () => ({
 jest.mock("@/lib/api", () => ({
   api: { createProject: jest.fn(), updateProject: jest.fn(), getProject: jest.fn() },
 }));
-jest.mock("@/lib/cache/projectDetailCache", () => ({ invalidateLearningDetail: jest.fn() }));
+jest.mock("@/lib/projects/projectDetailCache", () => ({ invalidateLearningDetail: jest.fn() }));
 let actions: ReturnType<typeof useProjectActions>;
 function Probe() {
   const result = useProjectActions();

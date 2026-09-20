@@ -3,7 +3,7 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { api, type LearningDetail, type LearningItem } from "@/lib/api";
 import { useLessonSession } from "@/hooks/useLessonSession";
-import { updateLearningDetailCache } from "@/lib/cache/projectDetailCache";
+import { updateLearningDetailCache } from "@/lib/projects/projectDetailCache";
 let mockSession = 1;
 let mockToken = "token";
 let mockFocused = true;
@@ -28,7 +28,7 @@ jest.mock("@/hooks/useLearningDetail", () => ({
   }),
 }));
 jest.mock("@/lib/api", () => ({ api: { recordProjectPractice: jest.fn() } }));
-jest.mock("@/lib/cache/projectDetailCache", () => ({
+jest.mock("@/lib/projects/projectDetailCache", () => ({
   updateLearningDetailCache: jest.fn(),
   fetchLearningDetail: jest.fn(),
 }));

@@ -9,7 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useReduceMotion } from "@/lib/motion";
-import type { QuizChoice } from "@/lib/parseVocabQuiz";
+import type { QuizChoice } from "@/lib/projects/parseVocabQuiz";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";

@@ -223,8 +223,6 @@ export function DrawerShell({ children }: { children: ReactNode }) {
     opacity: overlayOpacity.value,
   }));
 
-  const fakeNav = { openDrawer: open, closeDrawer: close } as any;
-  const fakeProps = { navigation: fakeNav } as any;
   const drawerValue = useMemo(
     () => ({ isOpen: drawerOpen, open, close }),
     [drawerOpen, open, close],
@@ -278,7 +276,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
                 drawerStyle,
               ]}
             >
-              <ConversationList {...fakeProps} />
+              <ConversationList />
             </Animated.View>
           </View>
         </View>

@@ -10,7 +10,7 @@ const todo: Todo = { id: "t1", content: "Flight", topic: "Reminders", checked: f
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/lib/pushNotifications", () => ({ ensureNotificationPermission: jest.fn(async () => true) }));
-jest.mock("@/lib/reminderPrefs", () => ({ getReminderLeadMs: jest.fn(async () => 600_000) }));
+jest.mock("@/lib/todos/reminderPrefs", () => ({ getReminderLeadMs: jest.fn(async () => 600_000) }));
 jest.mock("@/lib/i18n", () => ({ t: (key: string) => key }));
 jest.mock("expo-notifications", () => ({
   getPermissionsAsync: jest.fn(), getAllScheduledNotificationsAsync: jest.fn(),

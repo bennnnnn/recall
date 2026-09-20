@@ -10,13 +10,13 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   IMAGE_GEN_FAILED_ASSISTANT_ID,
   IMAGE_GEN_PENDING_ASSISTANT_ID,
-} from "@/lib/imageGenIntent";
+} from "@/lib/images/imageGenIntent";
 import {
   applyImageGenFailure,
   hasImageGenFailedAssistant,
   imageGenUserBubble,
   restoreImageGenPending,
-} from "@/lib/imageGenTurn";
+} from "@/lib/images/imageGenTurn";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 import { uploadChatAttachment, type PendingAttachment } from "@/lib/attachments";

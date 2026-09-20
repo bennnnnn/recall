@@ -5,7 +5,7 @@ import {
   clearSeenReminderIds,
   loadSeenReminderIds,
   saveSeenReminderIds,
-} from "@/lib/reminderSeen";
+} from "@/lib/todos/reminderSeen";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),

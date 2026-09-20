@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { api, type Learning, type LearningKind } from "@/lib/api";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
-import { invalidateLearningDetail } from "@/lib/cache/projectDetailCache";
+import { invalidateLearningDetail } from "@/lib/projects/projectDetailCache";
 
 type CreateProjectInput = {
   title: string;

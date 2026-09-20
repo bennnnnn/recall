@@ -5,7 +5,7 @@ import {
   parseLessonPrefs,
   resetLessonPrefsCache,
   setLessonPrefs,
-} from "@/lib/lessonPrefs";
+} from "@/lib/projects/lessonPrefs";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),

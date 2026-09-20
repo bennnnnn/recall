@@ -7,7 +7,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { tap } from "@/lib/haptics";
-import { cleanQuizWord } from "@/lib/parseVocabQuiz";
+import { cleanQuizWord } from "@/lib/projects/parseVocabQuiz";
 import { speakWord } from "@/lib/pronunciation";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { IconSize } from "@/lib/icons";

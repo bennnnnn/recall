@@ -4,7 +4,7 @@ import { Platform } from "react-native";
 import type { Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import i18n from "@/lib/i18n";
-import { getReminderLeadMs } from "@/lib/reminderPrefs";
+import { getReminderLeadMs } from "@/lib/todos/reminderPrefs";
 import { leadMsFromMinutes, reminderNotifyDate } from "@/lib/todos/reminderTiming";
 import { shouldSyncLocalTodoReminders } from "@/lib/todos/todoReminderPush";
 

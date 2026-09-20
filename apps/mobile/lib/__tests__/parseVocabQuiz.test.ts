@@ -5,7 +5,7 @@ import {
   stripVocabQuizBlock,
   stripVocabQuizPrologue,
   stripVocabSessionMetadata,
-} from "@/lib/parseVocabQuiz";
+} from "@/lib/projects/parseVocabQuiz";
 
 describe("parseVocabQuiz", () => {
   it("parses a formatted quiz block", () => {

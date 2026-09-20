@@ -1,4 +1,4 @@
-import { isLanguageProject } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/projects/languageLevels";
 import { languageLabel } from "@/lib/i18n/languages";
 
 /** User-facing title for vocabulary learning screens (list + detail). */

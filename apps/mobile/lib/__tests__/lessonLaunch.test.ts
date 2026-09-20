@@ -3,7 +3,7 @@ import {
   lessonPath,
   queueLessonLaunch,
   takeQueuedLessonLaunch,
-} from "@/lib/lessonLaunch";
+} from "@/lib/projects/lessonLaunch";
 
 let mockSession = 1;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));

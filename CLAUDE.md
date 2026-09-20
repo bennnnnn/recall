@@ -126,7 +126,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Attachments + RAG | `routers/attachments.py`, `services/attachments/`, `background/attachment_*.py` | `lib/api/attachments.ts`, composer attach |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
 | Image gen (Pro) | `routers/images.py`, `services/images/generation.py`, `images/gen_intent.py` | composer send only (no prompt sheet) |
-| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `services/images/search.py`, `images/lookup_intent.py`, MCP `search_image` adapter | `lib/imageLookupIntent.ts` (checked before image-gen intent in `useChatSend`) |
+| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `services/images/search.py`, `images/lookup_intent.py`, MCP `search_image` adapter | `lib/images/imageLookupIntent.ts` (checked before image-gen intent in `useChatSend`) |
 | Speech STT/TTS + live talk | `routers/speech.py`, `services/speech.py`, `quota.py` | `useVoiceInput`, `useLiveTalk`, message speaker |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `services/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |

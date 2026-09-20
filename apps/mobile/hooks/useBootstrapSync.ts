@@ -104,7 +104,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     if (reminderLeadMinutes == null) return;
     const generation = getSessionGeneration();
     let cancelled = false;
-    void import("@/lib/reminderPrefs").then(({ syncReminderLeadFromServer }) => {
+    void import("@/lib/todos/reminderPrefs").then(({ syncReminderLeadFromServer }) => {
       if (cancelled || generation !== getSessionGeneration()) return;
       return syncReminderLeadFromServer(reminderLeadMinutes);
     }).catch(() => {});

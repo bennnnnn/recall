@@ -6,10 +6,10 @@ import { dayKeyForDue } from "@/components/todos/todoHelpers";
 import { api, type RecurrenceRule, type Todo } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { toDueAtIso } from "@/lib/todos/dueDate";
-import { markReminderIdsSeen } from "@/lib/reminderSeen";
+import { markReminderIdsSeen } from "@/lib/todos/reminderSeen";
 import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/lib/todos/optimisticTodo";
 import { beginTodoMutation, getTodoMutationState } from "@/lib/todos/todoMutationState";
-import { DEFAULT_TOPIC } from "@/lib/todoTopics";
+import { DEFAULT_TOPIC } from "@/lib/todos/todoTopics";
 
 type Params = {
   token: string | null;

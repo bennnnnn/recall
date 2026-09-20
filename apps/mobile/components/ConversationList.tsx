@@ -40,7 +40,7 @@ import {
   TOP_CHROME,
 } from "@/components/drawer/conversationListStyles";
 
-export function ConversationList(_props: unknown) {
+export function ConversationList() {
   const token = useAuthToken();
   const { isOpen } = useDrawer();
   const theme = useTheme();

@@ -25,7 +25,7 @@ jest.mock("@/lib/todos/todoReminders", () => ({
   syncTodoReminders: jest.fn(),
 }));
 
-jest.mock("@/lib/reminderSeen", () => ({
+jest.mock("@/lib/todos/reminderSeen", () => ({
   markReminderIdsSeen: jest.fn(),
 }));
 

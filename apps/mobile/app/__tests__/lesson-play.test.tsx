@@ -71,7 +71,7 @@ jest.mock("@/hooks/useLearningDetail", () => ({
 }));
 jest.mock("@/lib/api", () => ({ api: { recordProjectPractice: jest.fn() } }));
 jest.mock("expo-crypto", () => ({ randomUUID: () => `attempt-${++mockId}` }));
-jest.mock("@/lib/cache/projectDetailCache", () => ({
+jest.mock("@/lib/projects/projectDetailCache", () => ({
   updateLearningDetailCache: jest.fn(),
   fetchLearningDetail: jest.fn(),
 }));

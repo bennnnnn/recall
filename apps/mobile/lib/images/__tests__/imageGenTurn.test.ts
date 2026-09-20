@@ -1,10 +1,10 @@
-import { IMAGE_GEN_FAILED_ASSISTANT_ID, IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
+import { IMAGE_GEN_FAILED_ASSISTANT_ID, IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/images/imageGenIntent";
 import {
   applyImageGenFailure,
   hasImageGenFailedAssistant,
   imageGenUserBubble,
   restoreImageGenPending,
-} from "@/lib/imageGenTurn";
+} from "@/lib/images/imageGenTurn";
 import type { Message } from "@/lib/api";
 
 function row(id: string, role: Message["role"], content: string): Message {

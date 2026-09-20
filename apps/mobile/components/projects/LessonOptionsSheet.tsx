@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AppSheet } from "@/components/AppSheet";
 import { makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
 import { SwitchRow } from "@/components/SwitchRow";
-import type { LessonFontSize, LessonPrefs } from "@/lib/lessonPrefs";
+import type { LessonFontSize, LessonPrefs } from "@/lib/projects/lessonPrefs";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
