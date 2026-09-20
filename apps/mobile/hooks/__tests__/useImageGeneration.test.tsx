@@ -38,6 +38,59 @@ describe("image generation queued state and cancellation", () => {
     expect(count.current).toBe(2);
   });
 
+  it("shows the optimistic turn while persistence gates provider generation", async () => {
+    let finishPersistence!: (saved: boolean) => void;
+    const persistenceReady = new Promise<boolean>((resolve) => {
+      finishPersistence = resolve;
+    });
+    (api.generateImage as jest.Mock).mockResolvedValue({
+      user_message: { id: "saved-user", role: "user", content: "Draw a cat" },
+      assistant_message: { id: "saved-image", role: "assistant", content: "image" },
+    });
+    const { result, replay } = await setup();
+
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = result.current.submitPrompt({
+        prompt: "cat",
+        userMessage: "Draw a cat",
+        persistenceReady,
+      });
+      await Promise.resolve();
+    });
+
+    expect(replay().map((row) => row.id)).toEqual([
+      expect.stringMatching(/^local-img-/),
+      "image-gen-pending",
+    ]);
+    expect(api.generateImage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishPersistence(true);
+      await pending;
+    });
+    expect(api.generateImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts generation and restores the composer when persistence fails", async () => {
+    const onPersistenceFailure = jest.fn();
+    const { result, replay, count } = await setup();
+
+    await act(async () => {
+      await result.current.submitPrompt({
+        prompt: "cat",
+        userMessage: "Draw a cat",
+        persistenceReady: Promise.resolve(false),
+        onPersistenceFailure,
+      });
+    });
+
+    expect(api.generateImage).not.toHaveBeenCalled();
+    expect(replay()).toEqual([]);
+    expect(count.current).toBe(0);
+    expect(onPersistenceFailure).toHaveBeenCalledTimes(1);
+  });
+
   it("cancels during upload and retries with that same reference without another upload", async () => {
     let finishUpload!: (id: string) => void;
     (uploadChatAttachment as jest.Mock).mockImplementation(() => new Promise((resolve) => { finishUpload = resolve; }));

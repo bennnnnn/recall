@@ -6,11 +6,15 @@ import { act, render } from "@testing-library/react-native";
 import { useChatSend } from "@/hooks/useChatSend";
 import { pickDocument, uploadChatAttachment } from "@/lib/attachments";
 import { registerEmailDraftFlusher } from "@/lib/emailDraftFlush";
-import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
+import {
+  queryNeedsClientGeo,
+  resolveClientGeoForQuery,
+} from "@/lib/resolveClientGeoForQuery";
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: jest.fn(() => 0) }));
 beforeEach(() => { (getSessionGeneration as jest.Mock).mockReturnValue(0); });
 
 const resolveGeo = resolveClientGeoForQuery as jest.Mock;
+const needsGeo = queryNeedsClientGeo as jest.Mock;
 const uploadAttachment = uploadChatAttachment as jest.Mock;
 
 const inputRef = { current: "hello" };
@@ -59,6 +63,7 @@ jest.mock("@/lib/haptics", () => ({
   notifyWarning: jest.fn(),
 }));
 jest.mock("@/lib/resolveClientGeoForQuery", () => ({
+  queryNeedsClientGeo: jest.fn(() => false),
   resolveClientGeoForQuery: jest.fn(async () => ({ ok: true, clientGeo: null })),
 }));
 jest.mock("@/lib/scheduleIdle", () => ({
@@ -130,6 +135,7 @@ describe("useChatSend", () => {
     jest.clearAllMocks();
     inputRef.current = "hello";
     mockThreadKey = "new";
+    needsGeo.mockReturnValue(false);
     resolveGeo.mockResolvedValue({ ok: true, clientGeo: null });
   });
 
@@ -154,7 +160,62 @@ describe("useChatSend", () => {
     expect(onGenerateImage).toHaveBeenCalledWith(
       "a lighthouse",
       "Generate an image of a lighthouse",
+      undefined,
+      expect.objectContaining({
+        ready: expect.any(Promise),
+        onFailure: expect.any(Function),
+      }),
     );
+  });
+
+  it("clears image requests before the email draft flush settles", async () => {
+    inputRef.current = "Generate an image of a lighthouse";
+    let finishFlush!: (saved: boolean) => void;
+    const unregisterFlush = registerEmailDraftFlusher(
+      () => new Promise((resolve) => { finishFlush = resolve; }),
+    );
+    try {
+      await render(<Probe />);
+      await act(async () => {
+        await current.handleSend();
+      });
+
+      expect(mockSetInput).toHaveBeenCalledWith("");
+      expect(onGenerateImage).toHaveBeenCalledTimes(1);
+      const persistence = onGenerateImage.mock.calls[0][3];
+      expect(persistence.ready).toBeInstanceOf(Promise);
+
+      await act(async () => {
+        finishFlush(true);
+        await expect(persistence.ready).resolves.toBe(true);
+      });
+    } finally {
+      unregisterFlush();
+    }
+  });
+
+  it("restores an image request when the email draft flush fails", async () => {
+    inputRef.current = "Generate an image of a lighthouse";
+    const unregisterFlush = registerEmailDraftFlusher(
+      () => Promise.resolve(false),
+    );
+    try {
+      await render(<Probe />);
+      await act(async () => {
+        await current.handleSend();
+      });
+
+      const persistence = onGenerateImage.mock.calls[0][3];
+      await expect(persistence.ready).resolves.toBe(false);
+      await act(async () => {
+        persistence.onFailure();
+      });
+      expect(mockSetInput).toHaveBeenLastCalledWith(
+        "Generate an image of a lighthouse",
+      );
+    } finally {
+      unregisterFlush();
+    }
   });
 
   it("routes reference-photo lookup phrasing to a normal send, not generation", async () => {
@@ -210,6 +271,8 @@ describe("useChatSend", () => {
   });
 
   it("paints the user bubble only after geo resolves", async () => {
+    inputRef.current = "coffee near me";
+    needsGeo.mockReturnValue(true);
     let finishGeo: (value: { ok: true; clientGeo: null }) => void = () => undefined;
     resolveGeo.mockReturnValue(
       new Promise((resolve) => {
@@ -233,7 +296,7 @@ describe("useChatSend", () => {
     expect(setMessages).not.toHaveBeenCalled();
     expect(mockSetInput).not.toHaveBeenCalledWith("");
     expect(sendMessage).not.toHaveBeenCalled();
-    expect(current.sendPhase).toBe("preparing");
+    expect(current.sendPhase).toBe("locating");
 
     await act(async () => {
       finishGeo({ ok: true, clientGeo: null });
@@ -241,7 +304,7 @@ describe("useChatSend", () => {
     });
 
     const appended = setMessages.mock.calls[0][0]([{ id: "prior", role: "assistant" }]);
-    expect(appended.at(-1)).toMatchObject({ role: "user", content: "hello" });
+    expect(appended.at(-1)).toMatchObject({ role: "user", content: "coffee near me" });
     expect(sendMessage).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ skipUserBubble: true }),
@@ -251,6 +314,8 @@ describe("useChatSend", () => {
   });
 
   it("leaves the draft untouched when geo is cancelled", async () => {
+    inputRef.current = "coffee near me";
+    needsGeo.mockReturnValue(true);
     resolveGeo.mockResolvedValue({ ok: false });
     const setMessages = jest.fn((updater) =>
       typeof updater === "function" ? updater([]) : updater,

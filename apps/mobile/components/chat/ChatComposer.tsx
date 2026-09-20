@@ -69,6 +69,7 @@ type Props = {
   attachBusy: boolean;
   attachPicking?: boolean;
   sendBusy?: boolean;
+  sendStatus?: string;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
   onCloseAttachSheet: () => void;
@@ -109,6 +110,7 @@ export const ChatComposer = memo(function ChatComposer({
   attachBusy,
   attachPicking = false,
   sendBusy = false,
+  sendStatus,
   pendingAttachment,
   onRemoveAttachment,
   onCloseAttachSheet,
@@ -411,6 +413,16 @@ export const ChatComposer = memo(function ChatComposer({
                 {t("chat.draft_tokens", { count: draftTokens })}
               </Text>
             ) : null}
+            {sendStatus ? (
+              <Text
+                style={s.sendStatus}
+                testID="composer-send-status"
+                accessibilityRole="text"
+                accessibilityLiveRegion="polite"
+              >
+                {sendStatus}
+              </Text>
+            ) : null}
           </View>
           {liveTalkChrome && showLiveTalkSideChrome ? (
             <LiveTalkComposerControls
@@ -490,6 +502,12 @@ function makeStyles(theme: Theme) {
       marginLeft: 40,
       ...Type.meta,
       color: theme.textTertiary,
+    },
+    sendStatus: {
+      marginTop: Space.xxs,
+      marginLeft: 40,
+      ...Type.meta,
+      color: theme.textSecondary,
     },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: Space.xs },
     inputField: { flex: 1, justifyContent: "center", minHeight: 22, position: "relative" },

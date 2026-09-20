@@ -295,9 +295,16 @@ function ChatScreen() {
     isOffline,
     resolveQuizProjectId,
     imageGenerating: imageGen.generating,
-    onGenerateImage: (prompt, userMessage, reference) => {
-      void imageGen.submitPrompt({ prompt, userMessage, aspectRatio: null,
-        referenceAttachment: reference?.attachment, referenceAttachmentIds: reference?.ids });
+    onGenerateImage: (prompt, userMessage, reference, persistence) => {
+      void imageGen.submitPrompt({
+        prompt,
+        userMessage,
+        aspectRatio: null,
+        referenceAttachment: reference?.attachment,
+        referenceAttachmentIds: reference?.ids,
+        persistenceReady: persistence?.ready,
+        onPersistenceFailure: persistence?.onFailure,
+      });
     },
   });
 
@@ -558,6 +565,7 @@ function ChatScreen() {
     composerAnimatedStyle,
     streaming: streamActive,
     sendBusy: chatLoading || sendPhase !== "idle",
+    sendStatus: sendPhase === "locating" ? t("chat.locating") : undefined,
     stopGeneration: stopTurn,
     isOffline,
     voice: {

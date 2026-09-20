@@ -174,6 +174,22 @@ describe("ChatComposer math keyboard", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
+  it("shows an immediate locating status without clearing the draft", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer
+        {...baseProps}
+        input="coffee near me"
+        sendBusy
+        sendStatus="chat.locating"
+      />,
+    );
+
+    expect(getByTestId("chat-composer-input").props.value).toBe("coffee near me");
+    expect(getByTestId("composer-send-status").props.children).toBe(
+      "chat.locating",
+    );
+  });
+
   it("uses Ionicon send and stop glyphs instead of text arrows", async () => {
     const { queryByText, getByLabelText, rerender } = await render(
       <ChatComposer {...baseProps} input="hi" />,

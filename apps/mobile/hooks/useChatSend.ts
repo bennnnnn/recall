@@ -31,7 +31,10 @@ import {
 import { extractImageLookupQuery } from "@/lib/imageLookupIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
-import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
+import {
+  queryNeedsClientGeo,
+  resolveClientGeoForQuery,
+} from "@/lib/resolveClientGeoForQuery";
 import {
   pickDocument,
   HeicUnsupportedError,
@@ -53,7 +56,12 @@ import {
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
 type ChatScroll = ReturnType<typeof useChatScroll>;
-export type ChatSendPhase = "idle" | "preparing" | "uploading" | "creating";
+export type ChatSendPhase =
+  | "idle"
+  | "locating"
+  | "preparing"
+  | "uploading"
+  | "creating";
 
 type SendMessageFn = (
   text: string,
@@ -98,7 +106,15 @@ type Options = {
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
-  onGenerateImage?: (prompt: string, userMessage: string, reference?: { attachment?: PendingAttachment; ids?: string[] }) => void;
+  onGenerateImage?: (
+    prompt: string,
+    userMessage: string,
+    reference?: { attachment?: PendingAttachment; ids?: string[] },
+    persistence?: {
+      ready: Promise<boolean>;
+      onFailure: () => void;
+    },
+  ) => void;
   imageGenerating?: boolean;
 };
 
@@ -305,6 +321,7 @@ export function useChatSend({
       tap();
       if (onBeforeSend?.(text) === true) return;
       const queuedAttachment = pendingAttachmentRef.current;
+      const sendThreadKey = getThreadKey();
 
       // Reference-photo lookup ("show me an ear") wants a real photo, not AI
       // art — checked first so generation's bare colloquial fallback can't
@@ -332,19 +349,35 @@ export function useChatSend({
           if (imageGenerating) return;
           sendInFlightRef.current = true;
           setSendPhase("preparing");
-          const draftsSaved = await flushEmailDrafts();
-          if (!isCurrentView()) return;
-          sendInFlightRef.current = false;
-          setSendPhase("idle");
-          if (!draftsSaved) return;
+          const draftsPromise = flushEmailDrafts();
           setInput("");
           setPendingAttachment(null);
           Keyboard.dismiss();
+          const restoreImageDraft = () => {
+            if (!isCurrentSession()) return;
+            if (!isCurrentView() || getThreadKey() !== sendThreadKey) {
+              stashFailedDraftForThread(sendThreadKey, composerText);
+              return;
+            }
+            if (
+              !pendingAttachmentRef.current &&
+              shouldRestoreFailedSend(inputRef.current, composerText)
+            ) {
+              setInput(composerText);
+              setPendingAttachment(queuedAttachment);
+              return;
+            }
+            feedback?.error(t("chat.restore_draft_blocked"));
+          };
           const reference = queuedAttachment ? { attachment: queuedAttachment }
             : revision && revisionContext.referenceAttachmentId
               ? { ids: [revisionContext.referenceAttachmentId] } : undefined;
-          if (reference) onGenerateImage(imagePrompt, text, reference);
-          else onGenerateImage(imagePrompt, text);
+          onGenerateImage(imagePrompt, text, reference, {
+            ready: draftsPromise,
+            onFailure: restoreImageDraft,
+          });
+          sendInFlightRef.current = false;
+          setSendPhase("idle");
           return;
         }
       }
@@ -353,9 +386,11 @@ export function useChatSend({
       if (!authToken) return;
 
       let attached = queuedAttachment;
-      const sendThreadKey = getThreadKey();
+      const needsClientGeo = queryNeedsClientGeo(text);
       sendInFlightRef.current = true;
-      setSendPhase(attached ? "uploading" : "preparing");
+      setSendPhase(
+        needsClientGeo ? "locating" : attached ? "uploading" : "preparing",
+      );
 
       // Geo intents: resolve the OS permission before painting anything, so a
       // deny never makes a just-painted bubble vanish. Instant for non-geo text.
@@ -366,6 +401,7 @@ export function useChatSend({
         return;
       }
       const clientGeo = geoResult.clientGeo;
+      setSendPhase(attached ? "uploading" : "preparing");
 
       // Clear the composer immediately so the next draft can be typed.
       // Keep Send/Attach busy until the turn is accepted — an idle button
