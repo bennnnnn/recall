@@ -13,6 +13,7 @@ import { type IoniconName } from "@/lib/icons";
 import { beginChatMutation } from "@/lib/chat/mutationLock";
 import { sanitizeManualChatTitle } from "@/lib/chat/title";
 import { isShareCancelled } from "@/lib/exportPdf";
+import { notifyDestructive } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
@@ -173,6 +174,7 @@ export function useChatMenuActions({
         try {
           await api.deleteChat(token, chat.id);
           if (!current()) return;
+          notifyDestructive();
           removeChatFromGroupsById(chat.id);
           void clearCachedChatMessages(chat.id);
           invalidateGalleryCache();

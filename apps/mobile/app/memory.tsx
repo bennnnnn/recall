@@ -29,6 +29,7 @@ import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { Memory } from "@/lib/api";
 import { getCachedMemories } from "@/lib/cache/memoryListCache";
 import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/lib/memoryFacts";
+import { notifyDestructive } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -161,8 +162,9 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
             onPress: async () => {
               if (!isCurrentView()) return;
               const ok = await deleteSection(type);
-              if (isCurrentView() && !ok) {
-                reportRecoverableError(feedback, t("memory.delete_failed"));
+              if (isCurrentView()) {
+                if (ok) notifyDestructive();
+                else reportRecoverableError(feedback, t("memory.delete_failed"));
               }
             },
           },
@@ -186,8 +188,9 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
             onPress: async () => {
               if (!isCurrentView()) return;
               const ok = await deleteFact(fact);
-              if (isCurrentView() && !ok) {
-                reportRecoverableError(feedback, t("memory.delete_failed"));
+              if (isCurrentView()) {
+                if (ok) notifyDestructive();
+                else reportRecoverableError(feedback, t("memory.delete_failed"));
               }
             },
           },

@@ -10,6 +10,7 @@ import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 
 let mockSession = 0;
 const mockError = jest.fn();
+const mockDestructive = jest.fn();
 const mockT = jest.fn((key: string, _options?: Record<string, unknown>) => key);
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
@@ -19,6 +20,10 @@ jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
 jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: jest.fn() }));
 jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/lib/haptics", () => ({
+  ...jest.requireActual("@/lib/haptics"),
+  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
+}));
 const first: Chat = {
   id: "first", title: "First", pinned: true, archived: false, model: "free-chat",
   created_at: "2026-01-01", updated_at: "2026-01-01",
@@ -68,6 +73,23 @@ it("keeps successful deletes removed, clears their cache and abandons only delet
   expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith([first.id]);
   expect(complete).not.toHaveBeenCalled();
   expect(mockError).toHaveBeenCalledWith("chat.delete_failed");
+  expect(mockDestructive).not.toHaveBeenCalled();
+});
+
+it("haptics once only after confirmed bulk deletion has a successful result", async () => {
+  const request = deferred<void>();
+  (api.deleteChat as jest.Mock).mockReturnValue(request.promise);
+  await render(<Probe />);
+
+  await act(async () => { actions.bulkDeleteChats([first]); });
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  let pending!: Promise<void>;
+  await act(async () => { pending = confirmation()(); });
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  await act(async () => { request.resolve(); await pending; });
+  expect(mockDestructive).toHaveBeenCalledTimes(1);
 });
 
 it("waits for all archive results and restores only failed snapshots, including their pins", async () => {

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { JobMatchMetaChips, matchScoreColor } from "@/components/jobSearch/JobMatchMetaChips";
+import { StatusPill } from "@/components/StatusPill";
 import type { JobMatch, JobMatchStatus } from "@/lib/api";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -103,23 +104,16 @@ export function JobMatchCard({
             {match.status === "interviewing" ||
             match.status === "offer" ||
             match.status === "rejected" ? (
-              <View
-                style={[
-                  s.stageBadge,
-                  match.status === "offer" && s.stageBadgeOffer,
-                  match.status === "rejected" && s.stageBadgeRejected,
-                ]}
-              >
-                <Text
-                  style={[
-                    s.stageBadgeText,
-                    match.status === "offer" && s.stageBadgeTextOffer,
-                    match.status === "rejected" && s.stageBadgeTextRejected,
-                  ]}
-                >
-                  {t(`my_job.stage_${match.status}`)}
-                </Text>
-              </View>
+              <StatusPill
+                label={t(`my_job.stage_${match.status}`)}
+                tone={
+                  match.status === "offer"
+                    ? "success"
+                    : match.status === "rejected"
+                      ? "neutral"
+                      : "accent"
+                }
+              />
             ) : null}
           </View>
         </View>
@@ -201,17 +195,6 @@ function makeStyles(C: Theme) {
       marginTop: 2,
     },
     company: { ...Type.secondary, color: C.textSecondary, flexShrink: 1 },
-    stageBadge: {
-      paddingHorizontal: Space.xs,
-      paddingVertical: 2,
-      borderRadius: Radius.full,
-      backgroundColor: C.primaryLight,
-    },
-    stageBadgeOffer: { backgroundColor: C.successLight },
-    stageBadgeRejected: { backgroundColor: C.surfaceAlt },
-    stageBadgeText: { ...Type.compact, color: C.primary, fontWeight: "700" },
-    stageBadgeTextOffer: { color: C.success },
-    stageBadgeTextRejected: { color: C.textTertiary },
     hideButton: {
       width: 44,
       height: 44,

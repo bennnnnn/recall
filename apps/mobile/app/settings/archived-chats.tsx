@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type Chat } from "@/lib/api";
 import { invalidateChatListCache } from "@/lib/cache/chatListCache";
+import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
@@ -80,6 +81,7 @@ export default function ArchivedChatsScreen() {
             setBusyId(chat.id);
             try {
               await api.deleteChat(token, chat.id);
+              notifyDestructive();
               invalidateChatListCache();
               setChats((rows) => rows.filter((row) => row.id !== chat.id));
             } catch {

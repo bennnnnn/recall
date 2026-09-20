@@ -1,8 +1,11 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
+import { Alert } from "react-native";
 
 import SecuritySettingsScreen from "@/app/settings/security";
 
 const mockListSessions = jest.fn();
+const mockRevokeSession = jest.fn();
+const mockDestructive = jest.fn();
 
 jest.mock("@shopify/flash-list", () => {
   const React = jest.requireActual<typeof import("react")>("react");
@@ -52,9 +55,13 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({
 jest.mock("@/lib/api", () => ({
   api: {
     listSessions: (...args: unknown[]) => mockListSessions(...args),
-    revokeSession: jest.fn(),
+    revokeSession: (...args: unknown[]) => mockRevokeSession(...args),
     logoutAll: jest.fn(),
   },
+}));
+jest.mock("@/lib/haptics", () => ({
+  ...jest.requireActual("@/lib/haptics"),
+  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
 }));
 jest.mock("@/lib/theme", () => ({
   useTheme: () => ({
@@ -78,8 +85,12 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  jest.clearAllMocks();
   mockListSessions.mockReset();
+  mockRevokeSession.mockReset();
+  jest.spyOn(Alert, "alert").mockImplementation(() => {});
 });
+afterEach(() => jest.restoreAllMocks());
 
 it("replaces the initial security spinner with the shared settings skeleton", async () => {
   const pending = deferred<{
@@ -123,4 +134,32 @@ it("keeps security load errors distinct and retryable", async () => {
   expect(ui.queryByTestId("settings-loading-skeleton")).toBeNull();
   await fireEvent.press(ui.getByText("common.retry"));
   expect(mockListSessions).toHaveBeenCalledTimes(2);
+});
+
+it("haptics only after confirmed session revocation succeeds", async () => {
+  const pending = deferred<void>();
+  mockListSessions.mockResolvedValue({
+    sessions: [{
+      id: "other",
+      device_label: "Other iPhone",
+      platform: "ios",
+      created_at: "2026-09-18T12:00:00Z",
+      last_seen_at: "2026-09-18T12:00:00Z",
+      current: false,
+    }],
+  });
+  mockRevokeSession.mockReturnValue(pending.promise);
+  const ui = await render(<SecuritySettingsScreen />);
+
+  await fireEvent.press(ui.getByText("settings.revoke_session"));
+  expect(mockDestructive).not.toHaveBeenCalled();
+  const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)[2];
+  const confirm = buttons.find(
+    (button: { style?: string }) => button.style === "destructive",
+  ).onPress;
+  await act(() => { confirm(); });
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  await act(async () => { pending.resolve(); });
+  expect(mockDestructive).toHaveBeenCalledTimes(1);
 });

@@ -1,8 +1,11 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
+import { Alert } from "react-native";
 
 import ArchivedChatsScreen from "@/app/settings/archived-chats";
 
 const mockListChats = jest.fn();
+const mockDeleteChat = jest.fn();
+const mockDestructive = jest.fn();
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -30,8 +33,12 @@ jest.mock("@/lib/api", () => ({
   api: {
     listChats: (...args: unknown[]) => mockListChats(...args),
     setArchive: jest.fn(),
-    deleteChat: jest.fn(),
+    deleteChat: (...args: unknown[]) => mockDeleteChat(...args),
   },
+}));
+jest.mock("@/lib/haptics", () => ({
+  ...jest.requireActual("@/lib/haptics"),
+  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
 }));
 jest.mock("@/lib/theme", () => ({
   useTheme: () => ({
@@ -55,8 +62,12 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  jest.clearAllMocks();
   mockListChats.mockReset();
+  mockDeleteChat.mockReset();
+  jest.spyOn(Alert, "alert").mockImplementation(() => {});
 });
+afterEach(() => jest.restoreAllMocks());
 
 it("uses the settings skeleton only for the initial archived-chat load", async () => {
   const pending = deferred<{ archived: [] }>();
@@ -83,4 +94,32 @@ it("keeps archived-chat failures retryable instead of showing an empty state", a
   expect(ui.queryByText("settings.archived_chats_empty")).toBeNull();
   await fireEvent.press(ui.getByText("common.retry"));
   expect(mockListChats).toHaveBeenCalledTimes(2);
+});
+
+it("haptics only after confirmed archived-chat deletion succeeds", async () => {
+  const chat = {
+    id: "archived",
+    title: "Archived chat",
+    model: "free-chat",
+    pinned: false,
+    archived: true,
+    created_at: "2026-01-01",
+    updated_at: "2026-01-01",
+  };
+  const pending = deferred<void>();
+  mockListChats.mockResolvedValue({ archived: [chat] });
+  mockDeleteChat.mockReturnValue(pending.promise);
+  const ui = await render(<ArchivedChatsScreen />);
+
+  await fireEvent.press(ui.getByText("chat.delete"));
+  expect(mockDestructive).not.toHaveBeenCalled();
+  const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)[2];
+  const confirm = buttons.find(
+    (button: { style?: string }) => button.style === "destructive",
+  ).onPress;
+  await act(() => { confirm(); });
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  await act(async () => { pending.resolve(); });
+  expect(mockDestructive).toHaveBeenCalledTimes(1);
 });

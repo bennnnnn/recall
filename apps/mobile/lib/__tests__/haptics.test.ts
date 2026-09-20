@@ -18,7 +18,14 @@ jest.mock("expo-haptics", () => ({
 
 import { Platform } from "react-native";
 
-import { impactMedium, notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
+import {
+  impactMedium,
+  notifyDestructive,
+  notifySuccess,
+  notifyWarning,
+  selection,
+  tap,
+} from "@/lib/haptics";
 
 describe("haptics", () => {
   beforeEach(() => {
@@ -54,6 +61,13 @@ describe("haptics", () => {
     notifySuccess();
     notifyWarning();
     expect(mockNotificationAsync).toHaveBeenCalledWith("success");
+    expect(mockNotificationAsync).toHaveBeenCalledWith("warning");
+  });
+
+  it("emits one warning notification for a confirmed destructive action", () => {
+    Platform.OS = "ios";
+    notifyDestructive();
+    expect(mockNotificationAsync).toHaveBeenCalledTimes(1);
     expect(mockNotificationAsync).toHaveBeenCalledWith("warning");
   });
 });

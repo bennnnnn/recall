@@ -10,7 +10,7 @@ import { beginChatMutation } from "@/lib/chat/mutationLock";
 import { sanitizeManualChatTitle } from "@/lib/chat/title";
 import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
-import { tap } from "@/lib/haptics";
+import { notifyDestructive, tap } from "@/lib/haptics";
 import type { IoniconName } from "@/lib/icons";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
@@ -166,6 +166,7 @@ export function useChatManagementActions({
           try {
             await api.deleteChat(token, chatId);
             if (!currentSession()) return;
+            notifyDestructive();
             removeChatGlobal(chatId);
             void clearCachedChatMessages(chatId);
             invalidateGalleryCache();

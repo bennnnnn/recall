@@ -11,6 +11,7 @@ import { getCachedChat } from "@/lib/cache/chatListCache";
 import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { archiveBulkTargets } from "@/lib/drawerChatSelection";
+import { notifyDestructive } from "@/lib/haptics";
 import { type IoniconName } from "@/lib/icons";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
@@ -139,6 +140,7 @@ export function useChatBulkActions({
                   reloadChats();
                   if (currentView()) reportRecoverableError(feedback, t("chat.delete_failed"));
                 } else if (currentView()) {
+                  notifyDestructive();
                   showActionBanner(t("drawer.bulk_deleted_toast", { count: deletedIds.length }), "trash-outline");
                   onSuccess?.();
                 }

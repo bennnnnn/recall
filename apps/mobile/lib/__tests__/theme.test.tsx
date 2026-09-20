@@ -25,6 +25,10 @@ describe("surface hierarchy", () => {
     expect(lightTheme.userBubble).not.toBe(lightTheme.successLight);
     expect(lightTheme.onWarning).toBe("#FFFFFF");
     expect(darkTheme.onWarning).toBe("#111113");
+    expect(lightTheme.onDanger).toBe("#FFFFFF");
+    expect(darkTheme.onDanger).toBe("#0F0F10");
+    expect(lightTheme.onMedia).toBe("#FFFFFF");
+    expect(darkTheme.mediaScrim).toBe("#000000");
   });
 });
 

@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type AuthSession } from "@/lib/api";
+import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
@@ -74,6 +75,7 @@ export default function SecuritySettingsScreen() {
             setBusyId(session.id);
             try {
               await api.revokeSession(token, session.id);
+              notifyDestructive();
               setSessions((rows) => rows.filter((row) => row.id !== session.id));
             } catch {
               reportRecoverableError(feedback, t("common.error"));
@@ -100,6 +102,7 @@ export default function SecuritySettingsScreen() {
             try {
               await api.logoutAll(token);
               await signOut();
+              notifyDestructive();
               router.replace("/login");
             } catch {
               reportRecoverableError(feedback, t("common.error"));
