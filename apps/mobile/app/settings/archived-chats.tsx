@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/components/StateView";
+import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -95,7 +96,11 @@ export default function ArchivedChatsScreen() {
   if (!token) return <Redirect href="/login" />;
 
   if (loading && chats.length === 0 && !loadError) {
-    return <StateView variant="loading" title={t("settings.archived_chats")} />;
+    return (
+      <SettingsSkeleton
+        accessibilityLabel={t("settings.archived_chats")}
+      />
+    );
   }
 
   if (loadError && chats.length === 0) {

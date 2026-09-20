@@ -166,3 +166,65 @@ it("turns the server pref off when enabling push is blocked by the OS", async ()
   expect(registerRemotePushToken).not.toHaveBeenCalled();
   expect(mockUpdate).toHaveBeenCalledWith({ push_notifications_enabled: false });
 });
+
+it("optimistically turns push on while registration is pending", async () => {
+  const registration = deferred<void>();
+  jest.mocked(registerRemotePushToken).mockReturnValueOnce(registration.promise);
+  await render(<NotificationsSettingsScreen />);
+
+  let pending!: Promise<void>;
+  await act(async () => {
+    pending = mockSwitches["settings.push_notifications"].onValueChange(true);
+    await Promise.resolve();
+  });
+  expect(mockSwitches["settings.push_notifications"].value).toBe(true);
+  expect(mockSwitches["settings.push_notifications"].disabled).toBe(true);
+  expect(mockUpdate).not.toHaveBeenCalled();
+
+  await act(async () => {
+    registration.resolve();
+    await pending;
+  });
+  expect(mockUpdate).toHaveBeenCalledWith({ push_notifications_enabled: true });
+});
+
+it("rolls an optimistic push enablement back when registration fails", async () => {
+  jest.mocked(registerRemotePushToken).mockRejectedValueOnce(new Error("offline"));
+  await render(<NotificationsSettingsScreen />);
+
+  await act(async () => {
+    await mockSwitches["settings.push_notifications"].onValueChange(true);
+  });
+
+  expect(mockSwitches["settings.push_notifications"].value).toBe(false);
+  expect(mockUpdate).not.toHaveBeenCalled();
+  expect(mockFeedback.error).toHaveBeenCalledWith("settings.push_register_failed");
+});
+
+it("rolls an optimistic push disablement back when the preference save fails", async () => {
+  mockUser = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: true };
+  mockUpdate.mockRejectedValueOnce(new Error("offline"));
+  await render(<NotificationsSettingsScreen />);
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  await act(async () => {
+    await mockSwitches["settings.push_notifications"].onValueChange(false);
+  });
+
+  expect(mockSwitches["settings.push_notifications"].value).toBe(true);
+  expect(unregisterRemotePushToken).not.toHaveBeenCalled();
+  expect(mockFeedback.error).toHaveBeenCalledWith("settings.push_register_failed");
+});
+
+it("surfaces an initial OS permission read failure and stays off", async () => {
+  jest.mocked(getNotificationPermissionGranted).mockRejectedValueOnce(new Error("native failure"));
+  await render(<NotificationsSettingsScreen />);
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(mockSwitches["settings.push_notifications"].value).toBe(false);
+  expect(mockFeedback.error).toHaveBeenCalledWith("settings.push_register_failed");
+});
