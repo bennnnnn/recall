@@ -510,7 +510,6 @@ function ChatScreen() {
   const chatScreenBody = useChatScreenBodyProps({
     styles: s,
     theme: C,
-    token: token ?? "",
     drawerOpen,
     routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
     layout,

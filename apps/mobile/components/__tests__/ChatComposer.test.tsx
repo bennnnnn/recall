@@ -6,6 +6,10 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 
+jest.mock("@/contexts/AuthContext", () => ({
+  useAuthToken: () => "t",
+}));
+
 jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(),
   getStringAsync: jest.fn(async () => ""),
@@ -58,7 +62,6 @@ jest.mock("@/components/ComposerAttachmentPreview", () => ({
 
 const baseProps = {
   visible: true,
-  token: "t",
   input: "",
   onChangeInput: jest.fn(),
   streaming: false,

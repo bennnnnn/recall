@@ -18,7 +18,14 @@ import { type IoniconName } from "@/lib/icons";
 type Router = ReturnType<typeof useRouter>;
 
 import { ChatHeader } from "@/components/chat/ChatHeader";
-import type { ChatScreenBodyProps } from "@/components/chat/ChatScreenBody";
+import type {
+  ChatScreenBodyProps,
+  ChatScreenChromeProps,
+  ChatScreenComposerProps,
+  ChatScreenLayoutProps,
+  ChatScreenListProps,
+  ChatScreenSheetsProps,
+} from "@/components/chat/ChatScreenBody";
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
@@ -36,7 +43,6 @@ type QuotaNudge = {
 export type UseChatScreenBodyPropsParams = {
   styles: ChatScreenStyles;
   theme: Theme;
-  token: string;
   drawerOpen: boolean;
   routeChatId?: string;
   layout: {
@@ -126,7 +132,6 @@ export type UseChatScreenBodyPropsParams = {
 export function useChatScreenBodyProps({
   styles,
   theme,
-  token,
   drawerOpen,
   routeChatId,
   layout,
@@ -238,10 +243,11 @@ export function useChatScreenBodyProps({
     },
     [handleSend],
   );
+  const quotaDismiss = quotaNudge.dismiss;
   const onQuotaUpgrade = useCallback(() => {
-    quotaNudge.dismiss();
+    quotaDismiss();
     setUpgradeVisible(true);
-  }, [quotaNudge]);
+  }, [quotaDismiss]);
   const onUpgrade = useCallback(() => setUpgradeVisible(true), []);
   const onChangeModel = useCallback(() => {
     dismissChatError();
@@ -258,6 +264,23 @@ export function useChatScreenBodyProps({
     void toggleVoiceInput();
   }, [toggleVoiceInput]);
   const onCloseUpgrade = useCallback(() => setUpgradeVisible(false), []);
+  const stableLiveTalkSession = useMemo(
+    () =>
+      liveTalkSession
+        ? {
+            muted: liveTalkSession.muted,
+            onClose: liveTalkSession.onClose,
+            onMutePress: liveTalkSession.onMutePress,
+            onYield: liveTalkSession.onYield,
+          }
+        : null,
+    [
+      liveTalkSession?.muted,
+      liveTalkSession?.onClose,
+      liveTalkSession?.onMutePress,
+      liveTalkSession?.onYield,
+    ],
+  );
 
   const listHeader = useMemo(
     () =>
@@ -292,46 +315,65 @@ export function useChatScreenBodyProps({
     ],
   );
 
-  const bodyProps = useMemo(
-    (): ChatScreenBodyProps => ({
+  const layoutProps = useMemo(
+    (): ChatScreenLayoutProps => ({
       styles,
       theme,
-      token,
       drawerOpen,
       composerClearance,
-      actionBanner,
-      onDismissActionBanner: dismissActionBanner,
-      listRef,
-      messages,
       headerInset,
       listBottomPad,
+      emptyHeight,
+    }),
+    [
+      styles,
+      theme,
+      drawerOpen,
+      composerClearance,
+      headerInset,
+      listBottomPad,
+      emptyHeight,
+    ],
+  );
+
+  const listProps = useMemo(
+    (): ChatScreenListProps => ({
+      listRef,
+      messages,
       hasMoreOlder,
       loadingOlder,
       chatLoading,
       routeChatId,
-      emptyHeight,
       renderItem,
       onLoadOlder,
       onScroll: handleScroll,
       onScrollEnd: handleScrollEnd,
       onSelectStarter,
+      header: listHeader,
+      footer: listFooter,
+      hideHomeStarters,
+    }),
+    [
+      listRef,
+      messages,
+      hasMoreOlder,
+      loadingOlder,
+      chatLoading,
+      routeChatId,
+      renderItem,
+      onLoadOlder,
+      handleScroll,
+      handleScrollEnd,
+      onSelectStarter,
       listHeader,
-      showScrollToBottom,
-      scrollAwayCount,
-      onScrollToLatest: scrollToLatest,
-      attachSheetOpen,
-      onCloseAttachSheet: closeAttachSheet,
-      quotaNudgeVisible: quotaNudge.show,
-      quotaUsedPct: quotaNudge.usedPct,
-      onQuotaUpgrade,
-      onQuotaDismiss: quotaNudge.dismiss,
-      chatError,
-      isPro,
-      onUpgrade,
-      onRetryChatError: retryChatError,
-      onChangeModel,
-      onDismissChatError: dismissChatError,
-      composerAnimatedStyle,
+      listFooter,
+      hideHomeStarters,
+    ],
+  );
+
+  const composerProps = useMemo(
+    (): ChatScreenComposerProps => ({
+      animatedStyle: composerAnimatedStyle,
       streaming,
       attachBusy,
       attachPicking,
@@ -340,10 +382,6 @@ export function useChatScreenBodyProps({
       pendingAttachment,
       onRemoveAttachment,
       onPickAttachment: handlePickAttachment,
-      onAttachmentSource,
-      mathScannerOpen,
-      onCloseMathScanner: closeMathScanner,
-      onMathScanCaptured: handleMathScanCaptured,
       onOpenMathScanner,
       onMathChromeHeightChange,
       onSend,
@@ -355,48 +393,9 @@ export function useChatScreenBodyProps({
       voiceMeterLevel,
       onVoicePress,
       onLiveTalkPress,
-      liveTalkSession,
-      upgradeVisible,
-      onCloseUpgrade,
-      listFooter,
-      hideHomeStarters,
+      liveTalkSession: stableLiveTalkSession,
     }),
     [
-      styles,
-      theme,
-      token,
-      drawerOpen,
-      composerClearance,
-      actionBanner,
-      dismissActionBanner,
-      listRef,
-      messages,
-      headerInset,
-      listBottomPad,
-      hasMoreOlder,
-      loadingOlder,
-      chatLoading,
-      routeChatId,
-      emptyHeight,
-      renderItem,
-      onLoadOlder,
-      handleScroll,
-      handleScrollEnd,
-      onSelectStarter,
-      listHeader,
-      showScrollToBottom,
-      scrollAwayCount,
-      scrollToLatest,
-      attachSheetOpen,
-      closeAttachSheet,
-      quotaNudge,
-      onQuotaUpgrade,
-      chatError,
-      isPro,
-      onUpgrade,
-      retryChatError,
-      onChangeModel,
-      dismissChatError,
       composerAnimatedStyle,
       streaming,
       attachBusy,
@@ -406,10 +405,6 @@ export function useChatScreenBodyProps({
       pendingAttachment,
       onRemoveAttachment,
       handlePickAttachment,
-      onAttachmentSource,
-      mathScannerOpen,
-      closeMathScanner,
-      handleMathScanCaptured,
       onOpenMathScanner,
       onMathChromeHeightChange,
       onSend,
@@ -421,12 +416,79 @@ export function useChatScreenBodyProps({
       voiceMeterLevel,
       onVoicePress,
       onLiveTalkPress,
-      liveTalkSession,
+      stableLiveTalkSession,
+    ],
+  );
+
+  const chromeProps = useMemo(
+    (): ChatScreenChromeProps => ({
+      actionBanner,
+      onDismissActionBanner: dismissActionBanner,
+      showScrollToBottom,
+      scrollAwayCount,
+      onScrollToLatest: scrollToLatest,
+      quotaNudgeVisible: quotaNudge.show,
+      quotaUsedPct: quotaNudge.usedPct,
+      onQuotaUpgrade,
+      onQuotaDismiss: quotaDismiss,
+      chatError,
+      isPro,
+      onUpgrade,
+      onRetryChatError: retryChatError,
+      onChangeModel,
+      onDismissChatError: dismissChatError,
+    }),
+    [
+      actionBanner,
+      dismissActionBanner,
+      showScrollToBottom,
+      scrollAwayCount,
+      scrollToLatest,
+      quotaNudge.show,
+      quotaNudge.usedPct,
+      onQuotaUpgrade,
+      quotaDismiss,
+      chatError,
+      isPro,
+      onUpgrade,
+      retryChatError,
+      onChangeModel,
+      dismissChatError,
+    ],
+  );
+
+  const sheetsProps = useMemo(
+    (): ChatScreenSheetsProps => ({
+      attachSheetOpen,
+      onCloseAttachSheet: closeAttachSheet,
+      onAttachmentSource,
+      mathScannerOpen,
+      onCloseMathScanner: closeMathScanner,
+      onMathScanCaptured: handleMathScanCaptured,
       upgradeVisible,
       onCloseUpgrade,
-      listFooter,
-      hideHomeStarters,
+    }),
+    [
+      attachSheetOpen,
+      closeAttachSheet,
+      onAttachmentSource,
+      mathScannerOpen,
+      closeMathScanner,
+      handleMathScanCaptured,
+      upgradeVisible,
+      onCloseUpgrade,
     ],
+  );
+
+  const bodyProps = useMemo(
+    (): ChatScreenBodyProps => ({
+      layout: layoutProps,
+      list: listProps,
+      composer: composerProps,
+      chrome: chromeProps,
+      sheets: sheetsProps,
+    }),
+    [layoutProps, listProps, composerProps, chromeProps, sheetsProps],
   );
 
   return { bodyProps, openUpgradeSheet };
