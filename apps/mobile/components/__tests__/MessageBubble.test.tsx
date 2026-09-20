@@ -124,7 +124,7 @@ jest.mock("@/lib/haptics", () => ({
   selection: jest.fn(),
   tap: jest.fn(),
 }));
-jest.mock("@/lib/pronunciation", () => ({
+jest.mock("@/lib/speech/pronunciation", () => ({
   speakPlainText: jest.fn(async () => ({ ok: true })),
   stopSpeaking: jest.fn(),
 }));

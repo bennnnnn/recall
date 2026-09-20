@@ -25,7 +25,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       platform,
     );
   }
-  // Metro still extracts require("react-native-webrtc") from realtimeVoice.ts
+  // Metro still extracts require("react-native-webrtc") from speech/realtimeVoice.ts
   // at bundle time. Without a fallback, a missing install red-screens the
   // whole chat screen — not just Live Talk.
   if (moduleName === "react-native-webrtc" && !webrtcInstalled) {

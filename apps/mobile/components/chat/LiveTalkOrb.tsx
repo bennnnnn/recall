@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { liveTalkOrbMode, type LiveTalkPhase } from "@/lib/liveTalkLogic";
+import { liveTalkOrbMode, type LiveTalkPhase } from "@/lib/speech/liveTalkLogic";
 import { Motion } from "@/lib/motion";
 import { Theme, withAlpha } from "@/lib/theme";
 

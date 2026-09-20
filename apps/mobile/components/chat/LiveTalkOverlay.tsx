@@ -10,7 +10,7 @@ import Animated, {
 import { useTranslation } from "react-i18next";
 
 import { LiveTalkOrb } from "@/components/chat/LiveTalkOrb";
-import { liveTalkOrbA11yKey, liveTalkOrbAction, type LiveTalkPhase } from "@/lib/liveTalkLogic";
+import { liveTalkOrbA11yKey, liveTalkOrbAction, type LiveTalkPhase } from "@/lib/speech/liveTalkLogic";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 

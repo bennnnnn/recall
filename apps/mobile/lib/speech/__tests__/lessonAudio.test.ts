@@ -1,9 +1,9 @@
-import { createLessonAudio } from "@/lib/lessonAudio";
-import { stopSpeaking } from "@/lib/pronunciation";
-import { loadExpoAudio } from "@/lib/voiceAudio";
+import { createLessonAudio } from "@/lib/speech/lessonAudio";
+import { stopSpeaking } from "@/lib/speech/pronunciation";
+import { loadExpoAudio } from "@/lib/speech/voiceAudio";
 import * as Speech from "expo-speech";
-jest.mock("@/lib/pronunciation", () => ({ stopSpeaking: jest.fn() }));
-jest.mock("@/lib/voiceAudio", () => ({ loadExpoAudio: jest.fn() }));
+jest.mock("@/lib/speech/pronunciation", () => ({ stopSpeaking: jest.fn() }));
+jest.mock("@/lib/speech/voiceAudio", () => ({ loadExpoAudio: jest.fn() }));
 jest.mock("expo-speech", () => ({ speak: jest.fn() }));
 jest.mock("@/assets/audio/lesson-correct.wav", () => 1);
 jest.mock("@/assets/audio/lesson-incorrect.wav", () => 2);

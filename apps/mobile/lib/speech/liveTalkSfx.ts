@@ -1,7 +1,7 @@
 import { EncodingType, cacheDirectory, writeAsStringAsync } from "expo-file-system/legacy";
 
 import { notifySuccess, tap } from "@/lib/haptics";
-import { loadExpoAudio } from "@/lib/voiceAudio";
+import { loadExpoAudio } from "@/lib/speech/voiceAudio";
 
 export type LiveTalkCue = "start" | "end";
 

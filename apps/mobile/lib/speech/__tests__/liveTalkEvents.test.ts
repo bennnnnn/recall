@@ -1,5 +1,5 @@
 import type { Message } from "@/lib/api/types";
-import { applyLiveTalkChatEvent, dropLiveTalkLocalTurn } from "@/lib/liveTalkEvents";
+import { applyLiveTalkChatEvent, dropLiveTalkLocalTurn } from "@/lib/speech/liveTalkEvents";
 
 describe("liveTalkEvents", () => {
   it("reconciles an old turn without moving it below the next utterance", () => {

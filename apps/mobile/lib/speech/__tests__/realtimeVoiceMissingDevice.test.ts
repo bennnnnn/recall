@@ -4,7 +4,7 @@ jest.mock("react-native", () => ({
 jest.mock("expo-modules-core", () => ({
   requireOptionalNativeModule: () => null,
 }));
-jest.mock("@/lib/voiceAudio", () => ({
+jest.mock("@/lib/speech/voiceAudio", () => ({
   yieldMicToWebRtc: jest.fn(async () => undefined),
 }));
 jest.mock("react-native-webrtc", () => ({
@@ -14,7 +14,7 @@ jest.mock("@/lib/api/speech", () => ({
   speechApi: { createRealtimeSession: jest.fn() },
 }));
 
-import { isRealtimeVoiceAvailable, webRtcMicConstraints } from "@/lib/realtimeVoice";
+import { isRealtimeVoiceAvailable, webRtcMicConstraints } from "@/lib/speech/realtimeVoice";
 
 describe("realtimeVoice without ExpoDevice", () => {
   it("imports without crashing when the native module is missing", () => {

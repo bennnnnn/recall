@@ -15,7 +15,7 @@ import {
   liveTalkShouldCreateResponse,
   isLikelyAssistantEcho,
   type LiveTalkStatus,
-} from "@/lib/liveTalkLogic";
+} from "@/lib/speech/liveTalkLogic";
 
 const proReady: LiveTalkStatus = {
   enabled: true,

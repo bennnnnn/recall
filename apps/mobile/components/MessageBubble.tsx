@@ -28,7 +28,7 @@ import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
-import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
+import { speakPlainText, stopSpeaking } from "@/lib/speech/pronunciation";
 import { speechLocale } from "@/lib/i18n/languages";
 import { useAuth, useAuthToken } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";

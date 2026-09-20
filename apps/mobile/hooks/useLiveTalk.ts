@@ -6,7 +6,7 @@ import { useDrawer } from "@/contexts/DrawerContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
-import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/lib/liveTalkEvents";
+import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/lib/speech/liveTalkEvents";
 import {
   LIVE_TALK_MAX_SESSION_MS,
   liveTalkErrorGate,
@@ -17,14 +17,14 @@ import {
   type LiveTalkGate,
   type LiveTalkPhase,
   type LiveTalkStatus,
-} from "@/lib/liveTalkLogic";
-import { playLiveTalkCue } from "@/lib/liveTalkSfx";
+} from "@/lib/speech/liveTalkLogic";
+import { playLiveTalkCue } from "@/lib/speech/liveTalkSfx";
 import {
   createRealtimeVoiceSession,
   isRealtimeVoiceAvailable,
   type RealtimeVoiceEvent,
   type RealtimeVoiceSession,
-} from "@/lib/realtimeVoice";
+} from "@/lib/speech/realtimeVoice";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type DraftChat = {
