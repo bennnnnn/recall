@@ -46,7 +46,9 @@ export type UseChatScreenBodyPropsParams = {
   drawerOpen: boolean;
   routeChatId?: string;
   layout: {
+    headerMinimumHeight: number;
     headerInset: number;
+    onHeaderHeightChange: (height: number) => void;
     composerClearance: number;
     listBottomPad: number;
     emptyHeight: number;
@@ -204,7 +206,14 @@ export function useChatScreenBodyProps({
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const openUpgradeSheet = useCallback(() => setUpgradeVisible(true), []);
 
-  const { headerInset, composerClearance, listBottomPad, emptyHeight } = layout;
+  const {
+    headerMinimumHeight,
+    headerInset,
+    onHeaderHeightChange,
+    composerClearance,
+    listBottomPad,
+    emptyHeight,
+  } = layout;
   listBottomPadRef.current = listBottomPad;
 
   // Keep list-facing callbacks identity-stable. Composer text lives in
@@ -287,7 +296,8 @@ export function useChatScreenBodyProps({
       !drawerOpen ? (
         <ChatHeader
           paddingTop={insetsTop}
-          height={headerInset}
+          minimumHeight={headerMinimumHeight}
+          onHeightChange={onHeaderHeightChange}
           menuOverlayOpen={menuOverlayOpen}
           headerTitleLabel={headerTitleLabel}
           titleGenerating={titleGenerating}
@@ -303,7 +313,8 @@ export function useChatScreenBodyProps({
     [
       drawerOpen,
       insetsTop,
-      headerInset,
+      headerMinimumHeight,
+      onHeaderHeightChange,
       menuOverlayOpen,
       headerTitleLabel,
       titleGenerating,

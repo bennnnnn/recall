@@ -43,7 +43,6 @@ export function makeChatScreenStyles(C: Theme) {
       ...Type.caption,
       fontWeight: "400",
       color: C.text,
-      lineHeight: 18,
     },
     quotaNudgeCta: {
       backgroundColor: C.primary,

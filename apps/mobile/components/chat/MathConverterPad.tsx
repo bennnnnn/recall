@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { MathConverterUnitSheet } from "@/components/chat/MathConverterUnitSheet";
 import { selection as hapticSelection } from "@/lib/haptics";
 import { converterResultSpec, type MathKeyboardSymbol } from "@/lib/math/keyboardSymbols";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import {
   CONVERTER_DEFAULT_DIGITS,
@@ -267,7 +268,7 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       justifyContent: "center",
       gap: 4,
-      minHeight: 40,
+      minHeight: Space.minTouch,
       paddingHorizontal: 10,
       borderRadius: 8,
       backgroundColor: theme.surface,
@@ -275,12 +276,17 @@ const makeStyles = (theme: Theme) =>
       borderColor: theme.border,
     },
     unitBtnLabel: { fontSize: 16, fontWeight: "700", color: theme.text },
-    swap: { paddingHorizontal: 4, paddingVertical: 6 },
+    swap: {
+      minWidth: Space.minTouch,
+      minHeight: Space.minTouch,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     pad: { gap: 6, marginTop: 2 },
     row: { flexDirection: "row", alignItems: "stretch", gap: 6 },
     key: {
       flex: 1,
-      height: 42,
+      minHeight: Space.minTouch,
       borderRadius: 8,
       alignItems: "center",
       justifyContent: "center",

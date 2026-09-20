@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -47,7 +48,8 @@ jest.mock("@/components/NewChatIcon", () => {
 
 const props = {
   paddingTop: 47,
-  height: 96,
+  minimumHeight: 96,
+  onHeightChange: jest.fn(),
   menuOverlayOpen: false,
   headerTitleLabel: "Trip",
   titleGenerating: false,
@@ -91,5 +93,28 @@ describe("ChatHeader", () => {
     await fireEvent.press(getByLabelText("common.back"));
     expect(mockBack).toHaveBeenCalled();
     expect(onOpenDrawer).not.toHaveBeenCalled();
+  });
+
+  it("uses a minimum height and reports a grown Dynamic Type layout once", async () => {
+    const onHeightChange = jest.fn();
+    const { getByTestId, getByText } = await render(
+      <ChatHeader {...props} onHeightChange={onHeightChange} />,
+    );
+    const header = getByTestId("chat-header");
+
+    expect(StyleSheet.flatten(header.props.style)).toMatchObject({
+      minHeight: 96,
+      paddingTop: 47,
+    });
+    expect(StyleSheet.flatten(getByText("Trip").props.style)).toMatchObject({
+      fontSize: 17,
+      fontWeight: "700",
+    });
+
+    const layout = { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 118 } } };
+    await fireEvent(header, "layout", layout);
+    await fireEvent(header, "layout", layout);
+    expect(onHeightChange).toHaveBeenCalledTimes(1);
+    expect(onHeightChange).toHaveBeenCalledWith(118);
   });
 });

@@ -5,7 +5,6 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { makeMdStyles } from "@/components/markdown/markdownContentStyles";
 import { lightTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 
 jest.mock("@/components/LinkPreviewCard", () => {
   const { Pressable, Text } = jest.requireActual("react-native") as typeof import("react-native");
@@ -84,9 +83,9 @@ describe("markdown render rules", () => {
       padding: 0,
       backgroundColor: lightTheme.surfaceAlt,
       fontSize: 14,
-      lineHeight: Type.body.lineHeight,
       paddingHorizontal: 4,
     });
+    expect(inline.lineHeight).toBeUndefined();
     expect(inline.padding).not.toBe(10);
   });
 

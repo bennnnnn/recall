@@ -13,7 +13,6 @@ export function inlineCodeTextStyle(t: Theme): TextStyle {
   return {
     fontFamily: CODE_FONT,
     fontSize: 14,
-    lineHeight: Type.body.lineHeight,
     fontWeight: Type.body.fontWeight,
     color: t.text,
     backgroundColor: t.surfaceAlt,
@@ -89,12 +88,11 @@ export function makeMdMath(t: Theme) {
 
 export function makeMdTable(t: Theme) {
   return StyleSheet.create({
-    cellText: { fontSize: 15, lineHeight: 22, color: t.text, flexShrink: 1 },
+    cellText: { fontSize: 15, color: t.text, flexShrink: 1 },
     headerText: { fontWeight: "600", color: t.text },
     cellCode: {
       ...inlineCodeTextStyle(t),
       fontSize: 13,
-      lineHeight: 18,
     },
   });
 }

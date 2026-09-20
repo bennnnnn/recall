@@ -48,6 +48,8 @@ export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 44;
 const MATH_KEYBOARD_CHIP_HEIGHT = 44;
+const COMPOSER_INPUT_MIN_HEIGHT = 25;
+const COMPOSER_INPUT_MAX_HEIGHT = COMPOSER_INPUT_MIN_HEIGHT * 6;
 /** Space above the floating keypad so message action icons are not flush with it. */
 const MATH_KEYBOARD_CHIP_GAP = Space.sm;
 export const COMPOSER_TOKEN_HINT_HEIGHT = 18;
@@ -544,11 +546,12 @@ function makeStyles(theme: Theme) {
     input: {
       flex: 1,
       fontSize: Type.body.fontSize,
-      lineHeight: Type.body.lineHeight,
       color: theme.text,
-      maxHeight: Type.body.lineHeight * 6,
+      // Let the native line box scale with Dynamic Type. The bounds only
+      // control when the multiline input starts scrolling.
+      maxHeight: COMPOSER_INPUT_MAX_HEIGHT,
       paddingVertical: 0,
-      minHeight: Type.body.lineHeight,
+      minHeight: COMPOSER_INPUT_MIN_HEIGHT,
     },
     inputParked: {
       position: "absolute",

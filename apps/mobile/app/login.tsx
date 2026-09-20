@@ -365,7 +365,6 @@ function makeStyles(theme: Theme) {
     },
     subtitle: {
       ...Type.body,
-      lineHeight: 24,
       color: theme.textSecondary,
       marginTop: Space.xs,
       textAlign: "center",

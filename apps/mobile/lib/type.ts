@@ -5,17 +5,15 @@
 import type { TextStyle } from "react-native";
 
 export const Type = {
-  /** Primary body copy */
+  /** Primary body copy. Multiline roles use the platform's scaled line box. */
   body: {
     fontSize: 16,
     fontWeight: "400",
-    lineHeight: 25,
   },
   /** Secondary body / supporting paragraphs */
   secondary: {
     fontSize: 14,
     fontWeight: "400",
-    lineHeight: 20,
   },
   /** Captions / compact meta */
   caption: {
@@ -41,7 +39,6 @@ export const Type = {
   compact: {
     fontSize: 13,
     fontWeight: "400",
-    lineHeight: 18,
   },
   /** Compact control labels */
   label: {
@@ -53,34 +50,29 @@ export const Type = {
   callout: {
     fontSize: 15,
     fontWeight: "600",
-    lineHeight: 21,
   },
   /** Screen / section titles */
   title: {
     fontSize: 20,
     fontWeight: "600",
-    lineHeight: 26,
   },
   /** Nav bar & sheet titles — the 17pt role the scale was missing (8+ sites
    *  invented it as `...Type.title, fontSize: 17` or a bare 17/700). */
   navTitle: {
     fontSize: 17,
     fontWeight: "600",
-    lineHeight: 22,
   },
   /** Onboarding / marketing display */
   display: {
     fontSize: 28,
     fontWeight: "700",
-    lineHeight: 34,
   },
-  /** Markdown heading ladder (h1–h6). lineHeight prevents clipping when a
-   *  heading wraps to two lines. */
-  h1: { fontSize: 22, fontWeight: "700", lineHeight: 28 },
-  h2: { fontSize: 19, fontWeight: "700", lineHeight: 26 },
-  h3: { fontSize: 17, fontWeight: "700", lineHeight: 24 },
+  /** Markdown heading ladder (h1–h6). Wrapped headings keep scaled line boxes. */
+  h1: { fontSize: 22, fontWeight: "700" },
+  h2: { fontSize: 19, fontWeight: "700" },
+  h3: { fontSize: 17, fontWeight: "700" },
   /** Section label — never smaller than body, or hierarchy inverts. */
-  h4: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
-  h5: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
-  h6: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
+  h4: { fontSize: 16, fontWeight: "700" },
+  h5: { fontSize: 16, fontWeight: "700" },
+  h6: { fontSize: 16, fontWeight: "700" },
 } as const satisfies Record<string, TextStyle>;

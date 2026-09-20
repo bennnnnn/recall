@@ -169,6 +169,7 @@ describe("ChatScreenBody", () => {
         onScroll,
         onScrollEnd,
         onSelectStarter,
+        headerInset: 72,
         streamActive: false,
       }),
     );
