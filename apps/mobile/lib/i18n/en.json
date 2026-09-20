@@ -686,6 +686,7 @@
   "rich.graph_boundary_included": "Solid boundary: included",
   "rich.graph_error": "Could not render function graph.",
   "rich.graph_expr_a11y": "Function to plot",
+  "rich.graph_expr_placeholder": "y = x^2",
   "rich.graph_hide_series": "Hide function",
   "rich.graph_invalid": "Could not plot that expression.",
   "rich.graph_play": "Play",

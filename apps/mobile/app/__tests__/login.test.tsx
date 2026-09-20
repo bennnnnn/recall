@@ -75,9 +75,11 @@ describe("LoginScreen", () => {
   });
 
   it("BUG FIX regression: only the tapped button shows its spinner, not every visible button", async () => {
-    const { getByText, queryByText } = await render(<LoginScreen />);
+    const { getByLabelText, getByText, queryByText } = await render(<LoginScreen />);
 
     // Both buttons rendered with their normal (non-busy) content.
+    expect(getByText("app.name")).toBeOnTheScreen();
+    expect(getByLabelText("app.name")).toBeOnTheScreen();
     expect(getByText("login.apple")).toBeOnTheScreen();
     expect(getByText("login.google")).toBeOnTheScreen();
 

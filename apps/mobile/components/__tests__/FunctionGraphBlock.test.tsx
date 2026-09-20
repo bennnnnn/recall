@@ -288,6 +288,9 @@ describe("FunctionGraphBlock", () => {
       ],
     });
     const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+    expect(getByTestId("graph-expr-input").props.placeholder).toBe(
+      "rich.graph_expr_placeholder",
+    );
     await fireEvent.changeText(getByTestId("graph-expr-input"), "x^2/3");
     expect(getByTestId("graph-expr-input").props.value).toBe("x^2/3");
   });

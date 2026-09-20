@@ -1,4 +1,5 @@
 import type { GoogleCalendarEvent, SuggestedReminder, Todo } from "@/lib/api";
+import { formatClockTime, formatLongWeekdayDate } from "@/lib/datetime/format";
 import i18n from "@/lib/i18n";
 
 /** Local calendar date `YYYY-MM-DD` (device timezone). */
@@ -115,12 +116,10 @@ export function formatCalendarEventTime(event: GoogleCalendarEvent): string {
   if (event.all_day) return i18n.t("calendar.all_day");
   const start = new Date(event.start_at);
   const end = event.end_at ? new Date(event.end_at) : null;
-  const time = (date: Date) =>
-    date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   if (end && end.getTime() > start.getTime()) {
-    return `${time(start)} – ${time(end)}`;
+    return `${formatClockTime(start)} – ${formatClockTime(end)}`;
   }
-  return time(start);
+  return formatClockTime(start);
 }
 
 export function remindersOnDay(reminders: Todo[], dayKey: string): Todo[] {
@@ -138,7 +137,7 @@ export function remindersOnDay(reminders: Todo[], dayKey: string): Todo[] {
 
 const WEEKDAY_IDS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
-export function weekdayHeaders(): ReadonlyArray<{ id: string; label: string }> {
+export function weekdayHeaders(): readonly { id: string; label: string }[] {
   return WEEKDAY_IDS.map((id) => ({
     id,
     label: i18n.t(`calendar.weekday_${id}`),
@@ -153,23 +152,10 @@ export function formatDayHeading(dayKey: string, now = new Date()): string {
   const tomorrowKey = localDateKey(tomorrow);
 
   if (dayKey === todayKey) {
-    return date.toLocaleDateString(undefined, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
+    return formatLongWeekdayDate(date);
   }
   if (dayKey === tomorrowKey) {
-    return date.toLocaleDateString(undefined, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
+    return formatLongWeekdayDate(date);
   }
-  return date.toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-  });
+  return formatLongWeekdayDate(date, date.getFullYear() !== now.getFullYear());
 }

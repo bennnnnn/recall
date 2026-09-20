@@ -686,6 +686,7 @@
   "rich.graph_boundary_included": "Düz sınır: dahil",
   "rich.graph_error": "Fonksiyon grafiği oluşturulamadı.",
   "rich.graph_expr_a11y": "Çizilecek fonksiyon",
+  "rich.graph_expr_placeholder": "y = x^2",
   "rich.graph_hide_series": "Fonksiyonu gizle",
   "rich.graph_invalid": "Bu ifade çizilemedi.",
   "rich.graph_play": "Oynat",

@@ -686,6 +686,7 @@
   "rich.graph_boundary_included": "Confine continuo: incluso",
   "rich.graph_error": "Impossibile visualizzare il grafico della funzione.",
   "rich.graph_expr_a11y": "Funzione da tracciare",
+  "rich.graph_expr_placeholder": "y = x^2",
   "rich.graph_hide_series": "Nascondi funzione",
   "rich.graph_invalid": "Impossibile tracciare questa espressione.",
   "rich.graph_play": "Riproduci",

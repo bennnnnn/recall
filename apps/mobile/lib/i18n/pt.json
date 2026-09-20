@@ -686,6 +686,7 @@
   "rich.graph_boundary_included": "Limite contínuo: incluído",
   "rich.graph_error": "Não foi possível renderizar o gráfico da função.",
   "rich.graph_expr_a11y": "Função a traçar",
+  "rich.graph_expr_placeholder": "y = x^2",
   "rich.graph_hide_series": "Ocultar função",
   "rich.graph_invalid": "Não foi possível traçar essa expressão.",
   "rich.graph_play": "Reproduzir",
