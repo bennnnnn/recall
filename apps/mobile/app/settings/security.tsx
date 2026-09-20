@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/components/StateView";
+import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -120,7 +121,11 @@ export default function SecuritySettingsScreen() {
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       ListEmptyComponent={
         loading && !loadError ? (
-          <StateView variant="loading" title={t("settings.security")} />
+          <SettingsSkeleton
+            rows={3}
+            contained
+            accessibilityLabel={t("settings.security")}
+          />
         ) : loadError ? (
           <StateView
             variant="error"

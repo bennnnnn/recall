@@ -6,6 +6,7 @@ import type { Usage } from "@/lib/api";
 const mockRefresh = jest.fn();
 let mockUsage: Usage | null;
 let mockError = false;
+let mockLoading = false;
 let mockPlan = "free";
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
@@ -27,7 +28,7 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/hooks/useUsage", () => ({
   useUsage: () => ({
     usage: mockUsage,
-    loading: !mockUsage && !mockError,
+    loading: mockLoading,
     error: mockError,
     refresh: mockRefresh,
   }),
@@ -37,6 +38,7 @@ jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 beforeEach(() => {
   mockRefresh.mockReset().mockResolvedValue(undefined);
   mockError = false;
+  mockLoading = false;
   mockPlan = "free";
   mockUsage = {
     date: "2026-09-12",
@@ -77,8 +79,10 @@ it("shows Pro limit information without a free-plan upgrade message", async () =
 
 it("never reports an unloaded value as zero usage", async () => {
   mockUsage = null;
-  const { getByRole, queryByText } = await render(<UsageSettingsScreen />);
+  mockLoading = true;
+  const { getByRole, getByTestId, queryByText } = await render(<UsageSettingsScreen />);
   const loading = getByRole("progressbar");
+  expect(getByTestId("settings-loading-skeleton")).toBeTruthy();
   expect(loading.props.accessibilityState).toEqual({ busy: true });
   expect(loading.props.accessibilityValue).toBeUndefined();
   expect(queryByText(/0 \/ 0/)).toBeNull();
@@ -86,10 +90,19 @@ it("never reports an unloaded value as zero usage", async () => {
 });
 
 it("offers a forced retry after a failed fetch instead of displaying cached values", async () => {
+  mockUsage = null;
   mockError = true;
   const { getByText, queryByText, queryByRole } = await render(<UsageSettingsScreen />);
   expect(queryByRole("progressbar")).toBeNull();
   expect(queryByText("12,000 / 100,000")).toBeNull();
   await fireEvent.press(getByText("Retry"));
   expect(mockRefresh).toHaveBeenCalledWith({ force: true });
+});
+
+it("keeps cached usage content visible during a background refresh", async () => {
+  mockLoading = true;
+  const { getByText, queryByTestId } = await render(<UsageSettingsScreen />);
+
+  expect(getByText("12,000 / 100,000")).toBeTruthy();
+  expect(queryByTestId("settings-loading-skeleton")).toBeNull();
 });
