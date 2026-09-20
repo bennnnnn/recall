@@ -11,7 +11,7 @@ import { ChatMessageImageStrip } from "@/components/ChatMessageImageStrip";
 import { ImageGenPlaceholder } from "@/components/ImageGenPlaceholder";
 import { ActionShimmer } from "@/components/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
-import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
+import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
@@ -450,7 +450,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             ) : null}
             {showImages ? <ChatMessageImageStrip images={images} /> : null}
             {showLiveClock ? (
-              <CircularClockBlock content={clockTimezone} />
+              <LazyCircularClockBlock content={clockTimezone} />
             ) : null}
             {hasMarkdown ? (
               <AssistantMessageScope messageId={message.id}>

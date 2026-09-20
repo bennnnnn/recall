@@ -1,10 +1,12 @@
 import { Text } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
-import { WebPreviewCodeBlock } from "@/components/WebPreviewCodeBlock";
 import { CopyBlock } from "@/components/CopyBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
-import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
+import {
+  LazyCircularClockBlock,
+  LazyWebPreviewCodeBlock,
+} from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
 import {
   renderCopyStyleBlock,
@@ -57,7 +59,7 @@ function renderFenceInner(
   if (decision.kind === "hide") return null;
 
   if (decision.kind === "html") {
-    return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
+    return <LazyWebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
 
   if (decision.kind === "answer") {
@@ -71,7 +73,7 @@ function renderFenceInner(
   }
 
   if (decision.kind === "clock") {
-    return <CircularClockBlock key={key} content={content} />;
+    return <LazyCircularClockBlock key={key} content={content} />;
   }
 
   if (decision.kind === "prose") {

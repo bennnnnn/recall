@@ -5,6 +5,8 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import { MessageBubble } from "@/components/MessageBubble";
 import type { Message } from "@/lib/api";
 
+let mockShowLiveClock = false;
+
 jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(async () => undefined),
 }));
@@ -59,8 +61,12 @@ jest.mock("@/components/ActionShimmer", () => ({
 jest.mock("@/components/SearchSourcesStack", () => ({
   SearchSourcesStack: () => null,
 }));
-jest.mock("@/components/rich/CircularClockBlock", () => ({
-  CircularClockBlock: () => null,
+jest.mock("@/components/rich/LazyHeavyRich", () => ({
+  LazyCircularClockBlock: ({ content }: { content: string }) => {
+    const { Text: MockText } =
+      jest.requireActual("react-native") as typeof import("react-native");
+    return <MockText testID="lazy-message-clock">{content}</MockText>;
+  },
 }));
 jest.mock("@/components/StreamingCursor", () => ({
   StreamingCursor: () => null,
@@ -93,8 +99,8 @@ jest.mock("@/hooks/useAssistantMessageContent", () => ({
     hasContent: true,
     showActionSlot: !isUser,
     actionsReady: !isUser,
-    showLiveClock: false,
-    clockTimezone: "",
+    showLiveClock: mockShowLiveClock,
+    clockTimezone: "America/New_York",
     calendarProposals: [],
     showCalendarProposals: false,
     settingsProposals: [],
@@ -151,6 +157,7 @@ const assistantMessage = {
 describe("MessageBubble copy feedback timers", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockShowLiveClock = false;
     jest.useFakeTimers();
   });
 
@@ -202,5 +209,13 @@ describe("MessageBubble copy feedback timers", () => {
     });
     expect(clearSpy).toHaveBeenCalled();
     clearSpy.mockRestore();
+  });
+
+  it("dispatches live clocks through the lazy rich boundary", async () => {
+    mockShowLiveClock = true;
+    const view = await render(<MessageBubble message={assistantMessage} />);
+    expect(view.getByTestId("lazy-message-clock")).toHaveTextContent(
+      "America/New_York",
+    );
   });
 });

@@ -132,6 +132,9 @@ jestGlobals.mock("expo-image", () => {
         ...rest,
         ref,
         resizeMode: contentFit,
+        contentFit,
+        cachePolicy,
+        transition,
         onLoad: onLoad
           ? (event) => onLoad({ source: event?.nativeEvent?.source ?? {} })
           : undefined,

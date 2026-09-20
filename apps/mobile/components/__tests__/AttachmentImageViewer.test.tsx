@@ -54,12 +54,41 @@ describe("AttachmentImageViewer", () => {
     const { getByTestId, queryByTestId } = await render(
       <AttachmentImageViewer visible attachmentId="a" />,
     );
+    const firstSource = getByTestId("attachment-viewer-image").props.source;
     await act(async () => {
       getByTestId("attachment-viewer-image").props.onError();
     });
     await fireEvent.press(getByTestId("media-load-retry"));
     expect(getByTestId("attachment-viewer-image")).toBeTruthy();
     expect(queryByTestId("media-load-retry")).toBeNull();
+    expect(getByTestId("attachment-viewer-image").props.source.cacheKey).not.toBe(
+      firstSource.cacheKey,
+    );
+  });
+
+  it("keeps auth headers, cached loading, and decoded aspect sizing", async () => {
+    const view = await render(
+      <AttachmentImageViewer visible attachmentId="a" />,
+    );
+    const image = view.getByTestId("attachment-viewer-image");
+    expect(image.props.source).toEqual({
+      uri: "http://test.local/a",
+      headers: { Authorization: "Bearer tok" },
+      cacheKey: "attachment:0:0:http://test.local/a",
+    });
+    expect(image.props.contentFit).toBe("contain");
+    expect(image.props.cachePolicy).toBe("memory-disk");
+
+    await fireEvent(view.getByTestId("attachment-viewer-tap"), "layout", {
+      nativeEvent: { layout: { width: 400, height: 300 } },
+    });
+    await fireEvent(image, "load", {
+      nativeEvent: { source: { width: 800, height: 400 } },
+    });
+    expect(view.getByTestId("attachment-viewer-image")).toHaveStyle({
+      width: 400,
+      height: 200,
+    });
   });
   it("never displays a previous image's cached file when the selected attachment changes", async () => {
     jest.mocked(ensureLocalAttachmentFile).mockResolvedValueOnce("file:///cache/first.jpg");
@@ -79,7 +108,11 @@ describe("AttachmentImageViewer", () => {
     const view = await render(<AttachmentImageViewer visible attachmentId="first" />);
     mockGeneration++;
     await view.rerender(<AttachmentImageViewer visible attachmentId="first" />);
-    expect(view.getByTestId("attachment-viewer-image").props.source.uri).toBe("http://test.local/first");
+    expect(view.getByTestId("attachment-viewer-image").props.source).toEqual({
+      uri: "http://test.local/first",
+      headers: { Authorization: "Bearer tok" },
+      cacheKey: "attachment:1:0:http://test.local/first",
+    });
   });
 
   it("pages across photos from the same generation", async () => {

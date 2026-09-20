@@ -8,12 +8,12 @@ import { parsePlacesJson } from "@/lib/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
-import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { EmailCard } from "@/components/rich/EmailCard";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import {
   LazyChartBlock,
   LazyChemistryBlock,
+  LazyCircularClockBlock,
   LazyFunctionGraphBlock,
   LazyGeometryBlock,
   LazyMermaidBlock,
@@ -85,7 +85,7 @@ export function renderRichFenceById(
       return null;
     }
     case "clock":
-      return <CircularClockBlock key={key} content={content} />;
+      return <LazyCircularClockBlock key={key} content={content} />;
     case "callout":
       return <CalloutBlock key={key} kind={parseCalloutKind(lang)} content={content} />;
     case "collapsible": {
