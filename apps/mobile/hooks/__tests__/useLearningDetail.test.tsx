@@ -2,7 +2,7 @@ import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useLearningDetail } from "@/hooks/useLearningDetail";
-import { fetchLearningDetail, getCachedLearningDetail } from "@/lib/cache/projectDetailCache";
+import { fetchLearningDetail, getCachedLearningDetail } from "@/lib/projects/projectDetailCache";
 let mockSession = 1;
 let mockToken = "token";
 jest.mock("expo-router", () => ({
@@ -11,7 +11,7 @@ jest.mock("expo-router", () => ({
 }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => mockToken }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
-jest.mock("@/lib/cache/projectDetailCache", () => ({
+jest.mock("@/lib/projects/projectDetailCache", () => ({
   fetchLearningDetail: jest.fn(),
   getCachedLearningDetail: jest.fn(),
   subscribeLearningDetailCache: () => () => {},

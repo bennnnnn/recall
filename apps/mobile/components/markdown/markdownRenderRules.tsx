@@ -44,7 +44,7 @@ import { renderFence } from "@/components/markdown/markdownFenceRender";
 import { VerifyCheckmark } from "@/components/markdown/VerifyCheckmark";
 import { isGenericSearchUrl } from "@/lib/placesList";
 import { openPlaceLink } from "@/lib/openPlaceLink";
-import { isAllowedImageUri } from "@/lib/imageUriPolicy";
+import { isAllowedImageUri } from "@/lib/images/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { parseQuoteAttribution } from "@/lib/richBlocks";

@@ -5,7 +5,7 @@ import {
   imageGenRevisionContext,
   isImageOnlyAssistantContent,
   subjectFromImageGenUserMessage,
-} from "@/lib/imageGenIntent";
+} from "@/lib/images/imageGenIntent";
 import {
   MATH_CAMERA_PROMPT,
   composerTextAfterMathScanConfirm,

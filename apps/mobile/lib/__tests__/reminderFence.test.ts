@@ -1,4 +1,4 @@
-import { hasReminderFence, stripReminderFences } from "@/lib/reminderFence";
+import { hasReminderFence, stripReminderFences } from "@/lib/todos/reminderFence";
 import { deriveAssistantMessageContent } from "@/lib/markdown/assistantMessageContent";
 
 describe("stripReminderFences", () => {

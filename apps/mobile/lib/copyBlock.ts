@@ -148,7 +148,7 @@ function hasDefiniteAdvisorySignals(content: string): boolean {
 }
 
 /** Recommendations, comparisons, career/stack advice — not paste-and-send text. */
-export function looksLikeAdvisoryNote(content: string): boolean {
+function looksLikeAdvisoryNote(content: string): boolean {
   const sample = content.slice(0, 1600).trim();
   if (hasDefiniteAdvisorySignals(sample)) return true;
   if (

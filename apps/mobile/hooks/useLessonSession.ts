@@ -6,9 +6,9 @@ import { useProjects } from "@/contexts/ProjectsContext";
 import { useLearningDetail } from "@/hooks/useLearningDetail";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
-import { fetchLearningDetail, updateLearningDetailCache } from "@/lib/cache/projectDetailCache";
-import { peekQueuedLessonLaunch, takeQueuedLessonLaunch } from "@/lib/lessonLaunch";
-import type { QuizChoice } from "@/lib/parseVocabQuiz";
+import { fetchLearningDetail, updateLearningDetailCache } from "@/lib/projects/projectDetailCache";
+import { peekQueuedLessonLaunch, takeQueuedLessonLaunch } from "@/lib/projects/lessonLaunch";
+import type { QuizChoice } from "@/lib/projects/parseVocabQuiz";
 import { buildChapterDrills, isLastStepForWord, type DrillStep } from "@/lib/projects/chapterDrill";
 import {
   chapterItems,

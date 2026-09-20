@@ -6,7 +6,7 @@ import {
   lessonTextScale,
   setLessonPrefs,
   type LessonPrefs,
-} from "@/lib/lessonPrefs";
+} from "@/lib/projects/lessonPrefs";
 
 export function useLessonPrefs() {
   const [prefs, setPrefs] = useState(DEFAULT_LESSON_PREFS);

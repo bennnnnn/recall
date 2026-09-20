@@ -1,5 +1,5 @@
 import type { LearningDetail } from "@/lib/api";
-import { projectHasExportableItems } from "@/lib/exportProjectPdf";
+import { projectHasExportableItems } from "@/lib/projects/exportProjectPdf";
 
 function baseDetail(overrides: Partial<LearningDetail> = {}): LearningDetail {
   return {

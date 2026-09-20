@@ -3,8 +3,8 @@ import { act, render, waitFor } from "@testing-library/react-native";
 import { TodosProvider, useTodos } from "@/contexts/TodosContext";
 import { api, type Todo } from "@/lib/api";
 import { syncTodoReminders } from "@/lib/todos/todoReminders";
-import { loadSeenReminderIds, markReminderIdsSeen, saveSeenReminderIds } from "@/lib/reminderSeen";
-import { loadHomeNudgeState, saveHomeNudgeState } from "@/lib/homeReminderNudges";
+import { loadSeenReminderIds, markReminderIdsSeen, saveSeenReminderIds } from "@/lib/todos/reminderSeen";
+import { loadHomeNudgeState, saveHomeNudgeState } from "@/lib/todos/homeReminderNudges";
 import { beginTodoMutation, getTodoMutationState } from "@/lib/todos/todoMutationState";
 
 let mockSession = 1;
@@ -24,14 +24,14 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession, requir
 jest.mock("@/lib/filePrefs", () => ({}));
 jest.mock("@/lib/api", () => ({ api: { listTodos: jest.fn(), updateTodo: jest.fn() } }));
 jest.mock("@/lib/todos/todoReminders", () => ({ syncTodoReminders: jest.fn(async () => {}) }));
-jest.mock("@/lib/reminderSeen", () => ({
-  ...jest.requireActual("@/lib/reminderSeen"),
+jest.mock("@/lib/todos/reminderSeen", () => ({
+  ...jest.requireActual("@/lib/todos/reminderSeen"),
   loadSeenReminderIds: jest.fn(async () => new Set(mockSeen)),
   saveSeenReminderIds: jest.fn(async (_id: string, ids: Set<string>) => { mockSeen = new Set(ids); }),
   markReminderIdsSeen: jest.fn(async (_id: string, ids: string[]) => { ids.forEach((id) => mockSeen.add(id)); }),
 }));
-jest.mock("@/lib/homeReminderNudges", () => ({
-  ...jest.requireActual("@/lib/homeReminderNudges"),
+jest.mock("@/lib/todos/homeReminderNudges", () => ({
+  ...jest.requireActual("@/lib/todos/homeReminderNudges"),
   loadHomeNudgeState: jest.fn(async () => ({ dismissed: new Set(mockDismissed) })),
   saveHomeNudgeState: jest.fn(async (_id: string, state: { dismissed: Set<string> }) => {
     mockDismissed = new Set(state.dismissed);

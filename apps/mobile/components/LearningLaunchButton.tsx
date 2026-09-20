@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/Button";
 import { Space } from "@/lib/space";
-import type { LearningLaunchAction } from "@/lib/parseLearningLaunch";
+import type { LearningLaunchAction } from "@/lib/projects/parseLearningLaunch";
 
 type Props = {
   action?: LearningLaunchAction;

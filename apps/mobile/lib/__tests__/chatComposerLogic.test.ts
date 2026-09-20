@@ -10,7 +10,7 @@ import {
   resolveSelectedModelLabel,
   shouldReserveComposerActionGap,
 } from "@/lib/chat/composerLogic";
-import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/images/imageGenIntent";
 
 describe("chatComposerLogic", () => {
   const catalog = [

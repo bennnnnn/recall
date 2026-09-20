@@ -1,4 +1,4 @@
-import { isAllowedImageUri } from "@/lib/imageUriPolicy";
+import { isAllowedImageUri } from "@/lib/images/imageUriPolicy";
 
 describe("isAllowedImageUri", () => {
   it("allows https, data, and blob schemes", () => {

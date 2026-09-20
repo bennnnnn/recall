@@ -6,7 +6,7 @@ import { Icon } from "@/components/Icon";
 import type { Learning } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { IconSize, type IoniconName } from "@/lib/icons";
-import { isLanguageProject } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/projects/languageLevels";
 import { learningProjectTitle } from "@/lib/projects/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
 

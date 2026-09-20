@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Todo } from "@/lib/api";
-import { loadSeenReminderIds, pruneSeenReminderIds, saveSeenReminderIds } from "@/lib/reminderSeen";
-import { loadHomeNudgeState, pruneHomeNudgeState, saveHomeNudgeState } from "@/lib/homeReminderNudges";
+import { loadSeenReminderIds, pruneSeenReminderIds, saveSeenReminderIds } from "@/lib/todos/reminderSeen";
+import { loadHomeNudgeState, pruneHomeNudgeState, saveHomeNudgeState } from "@/lib/todos/homeReminderNudges";
 import { countUnseenUrgentReminders, listUrgentReminderIds } from "@/lib/todos/reminderBadge";
 
 type Options = { userId?: string; leadMinutes?: number; todos: Todo[]; retainedOpenIds?: Set<string>;

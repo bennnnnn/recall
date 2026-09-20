@@ -6,7 +6,7 @@ import {
   loadHomeNudgeState,
   pruneHomeNudgeState,
   saveHomeNudgeState,
-} from "@/lib/homeReminderNudges";
+} from "@/lib/todos/homeReminderNudges";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),

@@ -11,7 +11,7 @@ import { StateView } from "@/components/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
-import { isLanguageProject } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/projects/languageLevels";
 import { type IoniconName } from "@/lib/icons";
 import { formatDailyGoalShort, resolveDailyGoal } from "@/lib/projects/dailyGoals";
 import { lessonMapPath } from "@/lib/projects/chapterAccess";

@@ -2,7 +2,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
 import { LessonQuizCards } from "@/components/projects/LessonQuizCards";
-import type { QuizChoice } from "@/lib/parseVocabQuiz";
+import type { QuizChoice } from "@/lib/projects/parseVocabQuiz";
 
 jest.mock("@/lib/haptics", () => ({
   notifySuccess: jest.fn(),

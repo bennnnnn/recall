@@ -2,7 +2,7 @@ import type { CalendarProposal } from "@/lib/calendarProposal";
 import { parseCalendarProposals, stripCalendarProposalFences } from "@/lib/calendarProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
-import { stripReminderFences } from "@/lib/reminderFence";
+import { stripReminderFences } from "@/lib/todos/reminderFence";
 import type { SearchSource } from "@/lib/api";
 import {
   hasVocabQuizFence,
@@ -12,14 +12,14 @@ import {
   stripVocabQuizPrologue,
   stripVocabSessionMetadata,
   type ParsedVocabQuiz,
-} from "@/lib/parseVocabQuiz";
-import { hasVocabCardFence, stripVocabCardBlock } from "@/lib/parseVocabCard";
+} from "@/lib/projects/parseVocabQuiz";
+import { hasVocabCardFence, stripVocabCardBlock } from "@/lib/projects/parseVocabCard";
 import {
   hasLearningLaunchFence,
   parseLearningLaunch,
   stripLearningLaunchBlock,
   type ParsedLearningLaunch,
-} from "@/lib/parseLearningLaunch";
+} from "@/lib/projects/parseLearningLaunch";
 
 import { isLocationQuestion } from "@/lib/localPlacesQuery";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";

@@ -1,5 +1,5 @@
 import type { Todo } from "@/lib/api";
-import { DEFAULT_HOME_URGENT_LEAD } from "@/lib/homeUrgentTodos";
+import { DEFAULT_HOME_URGENT_LEAD } from "@/lib/todos/homeUrgentTodos";
 
 /**
  * Urgent = overdue OR due within the user's reminder lead (minutes). Unified

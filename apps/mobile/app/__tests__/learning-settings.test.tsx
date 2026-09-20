@@ -30,7 +30,7 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({
 }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ primary: "#000" }) }));
-jest.mock("@/lib/exportProjectPdf", () => ({
+jest.mock("@/lib/projects/exportProjectPdf", () => ({
   projectHasExportableItems: () => true,
   exportProjectAsPdf: (...args: unknown[]) => mockPrint(...args),
 }));

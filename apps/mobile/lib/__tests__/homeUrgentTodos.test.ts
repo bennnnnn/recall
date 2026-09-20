@@ -3,7 +3,7 @@ import {
   DEFAULT_HOME_URGENT_LEAD,
   firstOverdueHomeTodo,
   listHomeUrgentTodos,
-} from "@/lib/homeUrgentTodos";
+} from "@/lib/todos/homeUrgentTodos";
 
 function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   return {

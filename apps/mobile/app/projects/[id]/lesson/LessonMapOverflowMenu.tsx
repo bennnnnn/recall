@@ -14,7 +14,7 @@ import { useProjectActions } from "@/hooks/useProjectActions";
 import { getSessionGeneration } from "@/lib/auth";
 import { type Learning } from "@/lib/api";
 import { isShareCancelled } from "@/lib/exportPdf";
-import { exportProjectAsPdf, projectHasExportableItems } from "@/lib/exportProjectPdf";
+import { exportProjectAsPdf, projectHasExportableItems } from "@/lib/projects/exportProjectPdf";
 import {
   dailyGoalPickerOptions,
   formatDailyGoalShort,

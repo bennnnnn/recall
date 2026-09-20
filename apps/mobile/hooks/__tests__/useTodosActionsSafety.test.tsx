@@ -14,7 +14,7 @@ jest.mock("@/lib/i18n", () => ({
   ensureLocale: jest.fn(),
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
-jest.mock("@/lib/reminderSeen", () => ({ markReminderIdsSeen: jest.fn(async () => undefined) }));
+jest.mock("@/lib/todos/reminderSeen", () => ({ markReminderIdsSeen: jest.fn(async () => undefined) }));
 jest.mock("@/lib/todos/todoReminders", () => ({
   syncTodoReminders: jest.fn(), cancelTodoReminder: jest.fn(async () => undefined),
 }));

@@ -18,7 +18,7 @@ import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useLessonFeedback } from "@/hooks/useLessonFeedback";
 import { useLessonPrefs } from "@/hooks/useLessonPrefs";
 import { useLessonSession } from "@/hooks/useLessonSession";
-import { isLanguageProject } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/projects/languageLevels";
 import { lessonMapPath } from "@/lib/projects/chapterAccess";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";

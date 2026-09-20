@@ -6,7 +6,7 @@ import {
   fetchLearningDetail,
   getCachedLearningDetail,
   subscribeLearningDetailCache,
-} from "@/lib/cache/projectDetailCache";
+} from "@/lib/projects/projectDetailCache";
 
 export function useLearningDetail(projectId: string | undefined) {
   const token = useAuthToken();

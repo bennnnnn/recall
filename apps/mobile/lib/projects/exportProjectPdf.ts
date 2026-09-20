@@ -2,7 +2,7 @@
 
 import type { LearningDetail, LearningItem } from "@/lib/api";
 import { escapeHtml, wrapPrintDocument } from "@/lib/printDocument";
-import { isLanguageProject } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/projects/languageLevels";
 
 const STATUS_ORDER: LearningItem["status"][] = ["mastered", "learning", "new"];
 

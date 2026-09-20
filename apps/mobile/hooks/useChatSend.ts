@@ -27,8 +27,8 @@ import {
   extractAttachedImageEditPrompt,
   extractImageRevisionPrompt,
   imageGenRevisionContext,
-} from "@/lib/imageGenIntent";
-import { extractImageLookupQuery } from "@/lib/imageLookupIntent";
+} from "@/lib/images/imageGenIntent";
+import { extractImageLookupQuery } from "@/lib/images/imageLookupIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
 import {

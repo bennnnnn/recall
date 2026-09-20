@@ -40,7 +40,7 @@ jest.mock("@/components/settings/TimePickerSheet", () => ({
     return null;
   },
 }));
-jest.mock("@/lib/reminderPrefs", () => ({
+jest.mock("@/lib/todos/reminderPrefs", () => ({
   DEFAULT_REMINDER_LEAD_MINUTES: 10, REMINDER_LEAD_OPTIONS: [0, 10, 30],
   getReminderLeadMinutes: jest.fn(async () => 10), setReminderLeadMinutes: jest.fn(async () => undefined),
   syncReminderLeadFromServer: jest.fn(async () => 10),

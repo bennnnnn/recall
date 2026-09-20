@@ -1,5 +1,5 @@
 import type { Learning } from "@/lib/api";
-import { isLanguageProject } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/projects/languageLevels";
 
 /** One vocabulary workspace per target language (e.g. a single English project). */
 export function findLanguageProject(

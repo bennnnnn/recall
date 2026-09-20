@@ -59,7 +59,7 @@ jest.mock("@/hooks/useLearningDetail", () => ({
     isCurrentOwner: mockCurrent,
   }),
 }));
-jest.mock("@/lib/lessonLaunch", () => ({
+jest.mock("@/lib/projects/lessonLaunch", () => ({
   openLearningLesson: (...args: unknown[]) => mockOpen(...args),
 }));
 jest.mock("@/components/Icon", () => ({ Icon: () => null }));
