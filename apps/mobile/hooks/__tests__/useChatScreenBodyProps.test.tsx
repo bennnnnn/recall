@@ -42,6 +42,7 @@ const retryChatError = jest.fn();
 const dismissChatError = jest.fn();
 const stopGeneration = jest.fn();
 const toggleVoiceInput = jest.fn(async () => undefined);
+const handleHeaderHeightChange = jest.fn();
 const styles = {} as never;
 const listRef = { current: null };
 const listBottomPadRef = { current: 0 };
@@ -51,14 +52,16 @@ const router = {
   push: jest.fn(),
 } as never;
 
-function useHarness(streaming: boolean, messages: Message[]) {
+function useHarness(streaming: boolean, messages: Message[], drawerOpen = false) {
   return useChatScreenBodyProps({
     styles,
     theme: lightTheme,
-    drawerOpen: false,
+    drawerOpen,
     routeChatId: "chat-1",
     layout: {
+      headerMinimumHeight: 72,
       headerInset: 72,
+      onHeaderHeightChange: handleHeaderHeightChange,
       composerClearance: 96,
       listBottomPad: 104,
       emptyHeight: 500,
@@ -190,5 +193,12 @@ describe("useChatScreenBodyProps", () => {
     expect(updated.composer).toBe(initial.composer);
     expect(updated.chrome).toBe(initial.chrome);
     expect(updated.sheets).toBe(initial.sheets);
+  });
+
+  it("hides header chrome while the drawer is open without dropping the measured list inset", async () => {
+    const { result } = await renderHook(() => useHarness(false, [message], true));
+
+    expect(result.current.bodyProps.list.header).toBeNull();
+    expect(result.current.bodyProps.layout.headerInset).toBe(72);
   });
 });

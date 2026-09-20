@@ -297,6 +297,33 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-converter")).toBeTruthy();
   });
 
+  it("keeps math navigation and converter controls at least 44pt", async () => {
+    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+
+    expect(getByTestId("math-keyboard-tab-basics")).toHaveStyle({ minHeight: 44 });
+    expect(getByTestId("math-key-caret-left")).toHaveStyle({
+      minWidth: 44,
+      minHeight: 44,
+    });
+    expect(getByTestId("math-keyboard-abc")).toHaveStyle({ minHeight: 44 });
+
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    expect(getByTestId("math-converter-5")).toHaveStyle({ minHeight: 44 });
+    expect(getByTestId("math-converter-swap")).toHaveStyle({
+      minWidth: 44,
+      minHeight: 44,
+    });
+    expect(getByTestId("math-converter-from-unit")).toHaveStyle({ minHeight: 44 });
+
+    await fireEvent.press(getByTestId("math-converter-from-unit"));
+    expect(getByTestId("math-converter-picker-close")).toHaveStyle({
+      minWidth: 44,
+      minHeight: 44,
+    });
+    expect(getByTestId("math-converter-cat-length")).toHaveStyle({ minHeight: 44 });
+  });
+
   it("inserts the converter result into the composer as math", async () => {
     let latest = "";
     function Harness() {

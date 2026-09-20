@@ -1,7 +1,9 @@
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
+import { Type } from "@/lib/type";
 
 export const CHAT_HEADER_BAR_HEIGHT = 52;
-export const CHAT_HEADER_FADE_EXTRA = 48;
+const CHAT_HEADER_TITLE_LINE_HEIGHT_RATIO = 1.3;
+const CHAT_HEADER_TITLE_VERTICAL_AIR = 8;
 /** Matches the in-bubble action row (34px icons + 4px margin). */
 export const CHAT_ACTION_ROW_HEIGHT = 44;
 export const CHAT_KEYBOARD_LIFT_EXTRA = 0;
@@ -136,8 +138,8 @@ export function shouldReserveComposerActionGap(lastMessageId?: string): boolean 
 }
 
 export type ChatLayoutMetrics = {
+  headerMinimumHeight: number;
   headerInset: number;
-  fadeHeight: number;
   composerLift: number;
   composerBottomPad: number;
   composerBlockHeight: number;
@@ -145,6 +147,19 @@ export type ChatLayoutMetrics = {
   listBottomPad: number;
   emptyHeight: number;
 };
+
+export function computeChatHeaderMinimumHeight(insetsTop: number, fontScale = 1): number {
+  const scaledTitleHeight = Math.ceil(
+    Type.navTitle.fontSize *
+      Math.max(1, fontScale) *
+      CHAT_HEADER_TITLE_LINE_HEIGHT_RATIO,
+  );
+  const headerBarMinimumHeight = Math.max(
+    CHAT_HEADER_BAR_HEIGHT,
+    scaledTitleHeight + CHAT_HEADER_TITLE_VERTICAL_AIR,
+  );
+  return insetsTop + headerBarMinimumHeight;
+}
 
 export function computeChatLayoutMetrics(options: {
   insetsTop: number;
@@ -157,9 +172,14 @@ export function computeChatLayoutMetrics(options: {
   messagesLength: number;
   streaming: boolean;
   lastMessageId?: string;
+  measuredHeaderHeight?: number;
+  fontScale?: number;
 }): ChatLayoutMetrics {
-  const headerInset = options.insetsTop + CHAT_HEADER_BAR_HEIGHT;
-  const fadeHeight = headerInset + CHAT_HEADER_FADE_EXTRA;
+  const headerMinimumHeight = computeChatHeaderMinimumHeight(
+    options.insetsTop,
+    options.fontScale,
+  );
+  const headerInset = Math.max(headerMinimumHeight, options.measuredHeaderHeight ?? 0);
   const composerLift =
     options.keyboardHeight > 0
       ? options.keyboardHeight + CHAT_KEYBOARD_LIFT_EXTRA
@@ -186,8 +206,8 @@ export function computeChatLayoutMetrics(options: {
   );
 
   return {
+    headerMinimumHeight,
     headerInset,
-    fadeHeight,
     composerLift,
     composerBottomPad,
     composerBlockHeight,

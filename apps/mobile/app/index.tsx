@@ -61,7 +61,7 @@ function ChatScreen() {
   const s = useMemo(() => makeChatScreenStyles(C), [C]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, fontScale } = useWindowDimensions();
   const drawerOpen = useDrawer().isOpen;
   const { chatId: routeChatId, highlightMessage: routeHighlightMessage } =
     useLocalSearchParams<{ chatId?: string; highlightMessage?: string }>();
@@ -496,6 +496,7 @@ function ChatScreen() {
     insetsTop: insets.top,
     insetsBottom: insets.bottom,
     windowHeight,
+    fontScale,
     keyboardHeight,
     composerHeight: COMPOSER_HEIGHT,
     attachmentExtra: composerAttachmentExtra(pendingAttachment),

@@ -1,5 +1,5 @@
-import { memo, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { memo, useCallback, useMemo, useRef } from "react";
+import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Icon } from "@/components/Icon";
@@ -15,10 +15,12 @@ import {
 } from "@/lib/chromeFade";
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
+import { Type } from "@/lib/type";
 
 type Props = {
   paddingTop: number;
-  height: number;
+  minimumHeight: number;
+  onHeightChange: (height: number) => void;
   menuOverlayOpen: boolean;
   headerTitleLabel: string | null;
   titleGenerating: boolean;
@@ -32,7 +34,8 @@ type Props = {
 
 export const ChatHeader = memo(function ChatHeader({
   paddingTop,
-  height,
+  minimumHeight,
+  onHeightChange,
   menuOverlayOpen,
   headerTitleLabel,
   titleGenerating,
@@ -48,6 +51,16 @@ export const ChatHeader = memo(function ChatHeader({
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const router = useRouter();
   const fromLibrary = returnTo === "gallery";
+  const lastReportedHeight = useRef(0);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const next = Math.ceil(event.nativeEvent.layout.height);
+      if (next <= 0 || next === lastReportedHeight.current) return;
+      lastReportedHeight.current = next;
+      onHeightChange(next);
+    },
+    [onHeightChange],
+  );
 
   return (
     <View
@@ -58,15 +71,17 @@ export const ChatHeader = memo(function ChatHeader({
       <LinearGradient
         colors={topChromeFadeColors(theme) as [string, string, ...string[]]}
         locations={[...TOP_CHROME_FADE_LOCATIONS]}
-        style={[s.headerFade, { height: height + CHROME_FADE_EXTRA }]}
+        style={s.headerFade}
         pointerEvents="none"
       />
       <View
         style={[
           s.header,
-          { paddingTop, height },
+          { paddingTop, minHeight: minimumHeight },
           menuOverlayOpen && s.headerMuted,
         ]}
+        onLayout={handleLayout}
+        testID="chat-header"
         pointerEvents="box-none"
       >
         <IconButton
@@ -147,6 +162,7 @@ function makeStyles(theme: Theme) {
       top: 0,
       left: 0,
       right: 0,
+      bottom: -CHROME_FADE_EXTRA,
     },
     header: {
       flexDirection: "row",
@@ -186,7 +202,7 @@ function makeStyles(theme: Theme) {
       minWidth: 0,
     },
     headerTitleText: {
-      fontSize: 16,
+      ...Type.navTitle,
       fontWeight: "700",
       color: theme.text,
       textAlign: "center",

@@ -212,6 +212,17 @@ These need a **dev build on hardware**. Simulator FPS and memory are not evidenc
 
 ---
 
+## 16. Accessibility layout stress
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 16.1 | Maximum system text size / Dynamic Type | ☐ | n/a | Chat title, multiline messages, count pills, Settings, sheets, and composer text do not clip; first chat row stays below the measured header. |
+| 16.2 | Maximum Android font size and display size | n/a | ☐ | Repeat 16.1; math tabs, converter keys, unit chips, swap, and close controls remain reachable and at least 44dp. |
+| 16.3 | Narrow phone portrait layout | ☐ | ☐ | Use the narrowest supported simulator/emulator; long translated labels wrap or truncate intentionally without overlapping header actions. Open and close the drawer and confirm the first message keeps its inset. |
+| 16.4 | Reduce Motion enabled | ☐ | ☐ | Navigation, drawer, sheets, lesson transitions, streaming chrome, and loading states remain understandable without required motion or flicker. |
+
+---
+
 ## Sign-off
 
 | Platform | Build profile | Tester | Date | Pass/Fail |

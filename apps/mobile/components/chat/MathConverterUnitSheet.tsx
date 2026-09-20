@@ -6,6 +6,7 @@ import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 import {
   UNIT_CATEGORIES,
   UNITS_BY_CATEGORY,
@@ -51,7 +52,7 @@ export function MathConverterUnitSheet({
         <Text style={s.title}>{t("chat.math_converter_select_unit")}</Text>
         <Pressable
           onPress={onClose}
-          hitSlop={8}
+          style={s.close}
           testID="math-converter-picker-close"
           accessibilityRole="button"
           accessibilityLabel={t("common.close")}
@@ -72,6 +73,8 @@ export function MathConverterUnitSheet({
               onPress={() => onPickCategory(id)}
               style={[s.cat, selected && s.catSelected]}
               testID={`math-converter-cat-${id}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
             >
               <Text style={[s.catLabel, selected && s.catLabelSelected]}>
                 {t(`chat.math_converter_cat_${id}`)}
@@ -122,10 +125,17 @@ const makeStyles = (theme: Theme) =>
       marginBottom: 10,
     },
     title: { ...Type.navTitle, color: theme.text },
+    close: {
+      minWidth: Space.minTouch,
+      minHeight: Space.minTouch,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     cats: { gap: 8, paddingBottom: 12 },
     cat: {
       paddingHorizontal: 12,
-      paddingVertical: 8,
+      minHeight: Space.minTouch,
+      justifyContent: "center",
       borderRadius: 16,
       backgroundColor: theme.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,

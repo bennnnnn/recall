@@ -10,12 +10,31 @@ describe("type and space tokens", () => {
     expect(Type.secondary.fontSize).toBe(14);
     expect(Type.caption.fontSize).toBe(12);
     expect(Type.compact.fontSize).toBe(13);
-    expect(Type.body.lineHeight).toBe(25);
     expect(Type.label.fontSize).toBe(14);
     expect(Type.callout.fontSize).toBe(15);
     expect(Type.navTitle.fontSize).toBe(17);
     expect(Type.title.fontSize).toBe(20);
     expect(Type.display.fontSize).toBe(28);
+  });
+
+  it("lets multiline roles use scaled platform line boxes", () => {
+    for (const role of [
+      Type.body,
+      Type.secondary,
+      Type.compact,
+      Type.callout,
+      Type.title,
+      Type.navTitle,
+      Type.display,
+      Type.h1,
+      Type.h2,
+      Type.h3,
+      Type.h4,
+      Type.h5,
+      Type.h6,
+    ]) {
+      expect(role).not.toHaveProperty("lineHeight");
+    }
   });
 
   it("uses a 4pt spacing scale", () => {

@@ -10,7 +10,6 @@ import {
 } from "@/lib/math/text";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 
 type Props = {
   latex: string;
@@ -32,6 +31,9 @@ const FRAC_PAD_PX = 14;
 const FRAC_STACK_HEIGHT = 44;
 const FRAC_LINE_HEIGHT = 18;
 const FRACTIONAL_SCRIPT_HEIGHT = 30;
+/** Math glyph layout needs a numeric line box; unlike prose Type roles, this
+ * scales with the requested math size and React Native's system font scale. */
+const MATH_BODY_LINE_HEIGHT = 25;
 /** Radical sign and radicand share this tight line box so the vinculum (drawn
  * as the radicand's top border) lands on the √ hook. With the base 28px line
  * box the bar floats in the leading, well above both the hook and the digits. */
@@ -356,9 +358,9 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
   return StyleSheet.create({
     base: {
       fontSize,
-      // Match body lineHeight (22). 28 made nested `$m$` / `$y=mx+b$` Text
+      // Match body rhythm. 28 made nested `$m$` / `$y=mx+b$` Text
       // wrap onto its own line inside list items ("Slope (" / "m" / "): 3").
-      lineHeight: (compact ? SQRT_LINE_HEIGHT : Type.body.lineHeight) * scale,
+      lineHeight: (compact ? SQRT_LINE_HEIGHT : MATH_BODY_LINE_HEIGHT) * scale,
       color,
     },
     glyph: {

@@ -145,7 +145,7 @@ function makeStyles(theme: Theme) {
       color: theme.text,
       marginBottom: 2,
     },
-    featureBody: { ...Type.label, fontWeight: "400", color: theme.textSecondary, lineHeight: 20 },
+    featureBody: { ...Type.label, fontWeight: "400", color: theme.textSecondary },
     cta: {
       alignSelf: "stretch",
     },

@@ -19,10 +19,11 @@ import {
 } from "@/lib/math/keyboardSymbols";
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
+import { Space } from "@/lib/space";
 
 const PAD_PADDING_V = 20;
 const PAD_GAP = 6;
-const KEY_HEIGHT_MIN = 44;
+const KEY_HEIGHT_MIN = Space.minTouch;
 const KEY_HEIGHT_MAX = 72;
 
 function fillKeyHeight(padHeight: number, tabHeight: number, keyRows: number): number {
@@ -418,15 +419,25 @@ const makeStyles = (theme: Theme) =>
     tabRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingRight: 4 },
     tab: {
       paddingHorizontal: 6,
-      paddingVertical: 4,
+      minHeight: Space.minTouch,
+      justifyContent: "center",
       borderRadius: 8,
     },
     tabSelected: { backgroundColor: theme.primaryLight },
     tabLabel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
     tabLabelSelected: { color: theme.primary },
     nav: { marginLeft: "auto", flexDirection: "row", alignItems: "center" },
-    caretBtn: { paddingHorizontal: 4, paddingVertical: 4 },
-    abc: { paddingHorizontal: 10, paddingVertical: 4 },
+    caretBtn: {
+      minWidth: Space.minTouch,
+      minHeight: Space.minTouch,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    abc: {
+      minHeight: Space.minTouch,
+      justifyContent: "center",
+      paddingHorizontal: 10,
+    },
     abcLabel: { fontSize: 15, fontWeight: "700", color: theme.primary },
     numpad: { gap: 6, marginTop: 2 },
     keySpacer: { flex: 1 },
@@ -437,7 +448,7 @@ const makeStyles = (theme: Theme) =>
     },
     key: {
       flex: 1,
-      height: 44,
+      minHeight: Space.minTouch,
       borderRadius: 8,
       alignItems: "center",
       justifyContent: "center",

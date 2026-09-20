@@ -189,6 +189,8 @@ describe("chatComposerLogic", () => {
       streaming: false,
       lastMessageId: "msg-1",
     });
+    expect(idle.headerMinimumHeight).toBe(96);
+    expect(idle.headerInset).toBe(96);
     expect(idle.composerLift).toBe(0);
     expect(idle.composerBottomPad).toBe(20);
     expect(idle.listBottomPad).toBe(idle.composerClearance);
@@ -247,6 +249,35 @@ describe("chatComposerLogic", () => {
       streaming: false,
     });
     expect(withMathBar.composerBlockHeight).toBe(144);
+
+    const grownHeader = computeChatLayoutMetrics({
+      insetsTop: 44,
+      insetsBottom: 20,
+      windowHeight: 800,
+      keyboardHeight: 0,
+      composerHeight: 100,
+      attachmentExtra: 0,
+      messagesLength: 2,
+      streaming: false,
+      measuredHeaderHeight: 124,
+    });
+    expect(grownHeader.headerMinimumHeight).toBe(96);
+    expect(grownHeader.headerInset).toBe(124);
+    expect(grownHeader.emptyHeight).toBe(idle.emptyHeight - 28);
+
+    const scaledHeader = computeChatLayoutMetrics({
+      insetsTop: 44,
+      insetsBottom: 20,
+      windowHeight: 800,
+      fontScale: 3,
+      keyboardHeight: 0,
+      composerHeight: 100,
+      attachmentExtra: 0,
+      messagesLength: 2,
+      streaming: false,
+    });
+    expect(scaledHeader.headerMinimumHeight).toBeGreaterThan(96);
+    expect(scaledHeader.headerInset).toBe(scaledHeader.headerMinimumHeight);
   });
 
   it("shouldReserveComposerActionGap only for in-flight placeholders", () => {
