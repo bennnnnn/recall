@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Platform,
   Pressable,
@@ -17,14 +16,10 @@ import { AuthScrollLayout } from "@/components/AuthScrollLayout";
 import { Button } from "@/components/Button";
 import { Icon } from "@/components/Icon";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import {
-  formatAppleSignInError,
-  shouldShowAppleSignInButton,
-} from "@/lib/apple-auth";
+import { useLoginActions } from "@/hooks/useLoginActions";
+import { shouldShowAppleSignInButton } from "@/lib/apple-auth";
 import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
-import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
-import { tap } from "@/lib/haptics";
+import { isExpoGo } from "@/lib/google-auth";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Space } from "@/lib/space";
@@ -45,15 +40,12 @@ const HIGHLIGHTS = [
 ];
 
 export default function LoginScreen() {
-  const { token, loading, onboarded, signInWithApple, signInWithGoogle, signInWithDev } =
-    useAuth();
+  const { token, loading, onboarded } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const feedback = useActionFeedbackOptional();
-  const busyRef = useRef(false);
-  const [busyProvider, setBusyProvider] = useState<"apple" | "google" | "dev" | null>(null);
-  const busy = busyProvider !== null;
+  const { busyProvider, busy, handleApple, handleGoogle, handleDev } =
+    useLoginActions();
   const showDevLogin = config.devAuthEnabled && __DEV__;
   const showGoogleLogin =
     !isExpoGo() &&
@@ -62,10 +54,6 @@ export default function LoginScreen() {
   const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
   const expoGoIos = isExpoGo() && Platform.OS === "ios";
   const expoGoAndroid = isExpoGo() && Platform.OS === "android";
-  const showSignInError = (message: string) => {
-    if (feedback) feedback.error(message);
-    else Alert.alert(t("login.sign_in_failed"), message);
-  };
 
   if (loading) {
     return (
@@ -78,80 +66,6 @@ export default function LoginScreen() {
   if (token) return <Redirect href="/" />;
   if (!onboarded) return <Redirect href="/onboarding" />;
 
-  const signInErrorMessage = (error: unknown, provider: "google" | "apple") => {
-    const key =
-      provider === "google" ? formatGoogleSignInError(error) : formatAppleSignInError(error);
-    if (key === "cancelled") return null;
-    if (key === "bundle_load_failed") return t("login.error_bundle");
-    if (key === "native_module_missing") return t("login.error_native_module");
-    if (key === "not_configured") return t("login.error_not_configured");
-    if (key === "android_oauth_setup") return t("login.error_android_google");
-    if (key === "generic") return t("login.error_generic");
-    return key;
-  };
-
-  const handleApple = async () => {
-    if (busyRef.current) return;
-    tap();
-    busyRef.current = true;
-    setBusyProvider("apple");
-    try {
-      await signInWithApple();
-    } catch (e) {
-      const message = signInErrorMessage(e, "apple");
-      if (message) showSignInError(message);
-    } finally {
-      busyRef.current = false;
-      setBusyProvider(null);
-    }
-  };
-
-  const handleGoogle = async () => {
-    if (busyRef.current) return;
-    tap();
-    if (isExpoGo()) {
-      Alert.alert(
-        t("login.google_unavailable_title"),
-        t("login.google_unavailable_body"),
-      );
-      return;
-    }
-    if (!isGoogleWebClientConfigured()) {
-      showSignInError(t("login.error_not_configured"));
-      return;
-    }
-    if (Platform.OS === "ios" && !isGoogleSignInConfigured()) {
-      showSignInError(t("login.error_not_configured"));
-      return;
-    }
-    busyRef.current = true;
-    setBusyProvider("google");
-    try {
-      await signInWithGoogle();
-    } catch (e) {
-      const message = signInErrorMessage(e, "google");
-      if (message) showSignInError(message);
-    } finally {
-      busyRef.current = false;
-      setBusyProvider(null);
-    }
-  };
-
-  const handleDev = async () => {
-    if (busyRef.current) return;
-    tap();
-    busyRef.current = true;
-    setBusyProvider("dev");
-    try {
-      await signInWithDev();
-    } catch (e) {
-      showSignInError(e instanceof Error ? e.message : t("login.error_generic"));
-    } finally {
-      busyRef.current = false;
-      setBusyProvider(null);
-    }
-  };
-
   const gradientColors = [theme.primaryLight, theme.bg] as const;
 
   return (
@@ -159,9 +73,9 @@ export default function LoginScreen() {
       <AuthScrollLayout justify="space-between">
         <View style={s.hero}>
           <View style={s.logoGlow}>
-            <Image source={APP_ICON} style={s.logo} accessibilityLabel="Recall" />
+            <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
           </View>
-          <Text style={s.title}>Recall</Text>
+          <Text style={s.title}>{t("app.name")}</Text>
           <Text style={s.subtitle}>{t("login.tagline")}</Text>
 
           <View style={s.highlights}>

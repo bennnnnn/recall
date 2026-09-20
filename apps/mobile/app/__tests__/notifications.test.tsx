@@ -10,12 +10,17 @@ const mockUpdate = jest.fn();
 const mockFeedback = { error: jest.fn() };
 const mockT = (key: string) => key;
 const mockSwitches: Record<string, { onValueChange: (value: boolean) => Promise<void>; disabled: boolean; value?: boolean }> = {};
+const mockLinks: Record<string, { onPress: () => void; value: string }> = {};
 let mockPicker: { onSelect: (key: string) => void };
+let mockTimePicker: { visible: boolean; onSave: (minutes: number) => void };
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 let mockUser: {
   id: string;
   reminder_lead_minutes: number;
   push_notifications_enabled: boolean;
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start_minute?: number;
+  quiet_hours_end_minute?: number;
 } = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: false };
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token", user: mockUser, updateUser: mockUpdate }) }));
 jest.mock("@/contexts/TodosContext", () => ({ useTodos: () => ({ todos: [{ id: "stale-row" }] }) }));
@@ -26,7 +31,14 @@ jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/components/settings/settingsUi", () => ({
   makeSettingsStyles: () => ({}), SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
   SettingsSwitchRow: (props: { title: string } & (typeof mockSwitches)[string]) => { mockSwitches[props.title] = props; return null; },
+  SettingsLinkRow: (props: { title: string } & (typeof mockLinks)[string]) => { mockLinks[props.title] = props; return null; },
   SettingsInlinePicker: (props: typeof mockPicker) => { mockPicker = props; return null; },
+}));
+jest.mock("@/components/settings/TimePickerSheet", () => ({
+  TimePickerSheet: (props: typeof mockTimePicker) => {
+    mockTimePicker = props;
+    return null;
+  },
 }));
 jest.mock("@/lib/reminderPrefs", () => ({
   DEFAULT_REMINDER_LEAD_MINUTES: 10, REMINDER_LEAD_OPTIONS: [0, 10, 30],
@@ -68,6 +80,43 @@ it("never resyncs a captured todo list after a delayed settings save", async () 
   expect(mockUpdate).toHaveBeenCalledWith({ reminder_lead_minutes: 30 });
   expect(syncTodoReminders).not.toHaveBeenCalled();
   expect(cancelAllTodoReminders).not.toHaveBeenCalled();
+});
+
+it("saves one quiet-hours selection for the current account", async () => {
+  mockUser = {
+    id: "user",
+    reminder_lead_minutes: 10,
+    push_notifications_enabled: false,
+    quiet_hours_enabled: true,
+    quiet_hours_start_minute: 1320,
+    quiet_hours_end_minute: 420,
+  };
+  await render(<NotificationsSettingsScreen />);
+  await act(() => mockLinks["settings.quiet_hours_start"].onPress());
+  expect(mockTimePicker.visible).toBe(true);
+
+  await act(() => mockTimePicker.onSave(23 * 60 + 15));
+
+  expect(mockUpdate).toHaveBeenCalledTimes(1);
+  expect(mockUpdate).toHaveBeenCalledWith({ quiet_hours_start_minute: 1395 });
+});
+
+it("rejects a quiet-hours save after the account changes", async () => {
+  mockUser = {
+    id: "user",
+    reminder_lead_minutes: 10,
+    push_notifications_enabled: false,
+    quiet_hours_enabled: true,
+    quiet_hours_start_minute: 1320,
+    quiet_hours_end_minute: 420,
+  };
+  await render(<NotificationsSettingsScreen />);
+  await act(() => mockLinks["settings.quiet_hours_start"].onPress());
+  mockSession++;
+
+  await act(() => mockTimePicker.onSave(23 * 60 + 15));
+
+  expect(mockUpdate).not.toHaveBeenCalled();
 });
 
 it("does not register push or change the next account after delayed permission", async () => {

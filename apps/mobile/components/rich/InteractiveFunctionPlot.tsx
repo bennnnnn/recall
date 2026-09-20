@@ -471,7 +471,7 @@ function SeriesRow({
         spellCheck={false}
         accessibilityLabel={t("rich.graph_expr_a11y")}
         testID={inputId}
-        placeholder="y = x^2"
+        placeholder={t("rich.graph_expr_placeholder")}
         placeholderTextColor={theme.textSecondary}
         style={[
           styles.input,

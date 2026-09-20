@@ -686,6 +686,7 @@
   "rich.graph_boundary_included": "Сплошная граница: включена",
   "rich.graph_error": "Не удалось отобразить график функции.",
   "rich.graph_expr_a11y": "Функция для графика",
+  "rich.graph_expr_placeholder": "y = x^2",
   "rich.graph_hide_series": "Скрыть функцию",
   "rich.graph_invalid": "Не удалось построить это выражение.",
   "rich.graph_play": "Воспроизвести",

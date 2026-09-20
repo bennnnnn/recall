@@ -686,6 +686,7 @@
   "rich.graph_boundary_included": "ቀጣይ ድንበር፦ ተካትቷል",
   "rich.graph_error": "የተግባር ግራፍ ማሳየት አልተቻለም።",
   "rich.graph_expr_a11y": "የሚገለጽ ተግባር",
+  "rich.graph_expr_placeholder": "y = x^2",
   "rich.graph_hide_series": "ተግባር ደብቅ",
   "rich.graph_invalid": "ይህን አገላለጽ መሳል አልተቻለም።",
   "rich.graph_play": "አጫውት",

@@ -686,6 +686,7 @@
   "rich.graph_boundary_included": "Durchgezogene Grenze: enthalten",
   "rich.graph_error": "Funktionsgraph konnte nicht gerendert werden.",
   "rich.graph_expr_a11y": "Funktion zum Zeichnen",
+  "rich.graph_expr_placeholder": "y = x^2",
   "rich.graph_hide_series": "Funktion ausblenden",
   "rich.graph_invalid": "Dieser Ausdruck konnte nicht gezeichnet werden.",
   "rich.graph_play": "Abspielen",

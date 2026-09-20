@@ -1,3 +1,5 @@
+import { formatClockTime, formatShortWeekdayDate } from "@/lib/datetime/format";
+
 export type CalendarProposal = {
   proposal_id?: string;
   title: string;
@@ -55,19 +57,9 @@ export function formatProposalWhen(startAt: string, endAt: string): string {
   try {
     const start = new Date(startAt);
     const end = new Date(endAt);
-    const date = start.toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-    const startTime = start.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    const endTime = end.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    });
+    const date = formatShortWeekdayDate(start);
+    const startTime = formatClockTime(start);
+    const endTime = formatClockTime(end);
     return `${date} · ${startTime} – ${endTime}`;
   } catch {
     return `${startAt} – ${endAt}`;
