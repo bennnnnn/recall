@@ -645,7 +645,8 @@ def test_extract_circle_diameter_intent() -> None:
     assert intent is not None
     assert intent.kind == "circle"
     assert intent.radius == 5
-    assert intent.wants_diameter is True
+    assert intent.wants_diameter is False
+    assert intent.given_diameter is True
 
 
 def test_extract_circle_intent_defaults_without_dims() -> None:

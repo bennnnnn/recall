@@ -30,6 +30,14 @@ def _wants_geometry_angles(lower: str) -> bool:
     return any(word_index(lower, w) != -1 for w in ("angle", "angles", "degree", "degrees"))
 
 
+def _geometry_request_mode(lower: str, has_requested_quantity: bool) -> str | None:
+    if has_requested_quantity:
+        return None
+    if any(verb in lower for verb in ("draw ", "show ", "sketch ", "visualize ", "visualise ")):
+        return "geometry_draw"
+    return "geometry_clarify"
+
+
 def _extract_solid_intent(cleaned: str) -> MathIntent | None:
     from app.services.math import match as mtm
 
@@ -53,6 +61,7 @@ def _extract_solid_intent(cleaned: str) -> MathIntent | None:
         operation="solve",
         wants_volume=parsed.wants_volume,
         wants_surface_area=parsed.wants_surface_area,
+        school_op=_geometry_request_mode(lower, parsed.wants_volume or parsed.wants_surface_area),
     )
 
 
@@ -85,10 +94,28 @@ def _extract_rectangle_intent(cleaned: str) -> MathIntent | None:
             wants_angle=" angle" in padded or "angles" in lower,
             wants_area=" area" in padded or padded.startswith("area "),
             wants_perimeter=" perimeter" in padded or padded.startswith("perimeter "),
+            school_op=_geometry_request_mode(
+                lower,
+                any(
+                    (
+                        " diagonal" in padded or padded.startswith("diagonal "),
+                        " angle" in padded or "angles" in lower,
+                        " area" in padded or padded.startswith("area "),
+                        " perimeter" in padded or padded.startswith("perimeter "),
+                    )
+                ),
+            ),
         )
 
     if mtm.has_draw_shape(lower, "rectangle") and not _requests_geometry_measurement(lower):
-        return MathIntent(kind="rectangle", width=6, height=4, unit="cm", operation="solve")
+        return MathIntent(
+            kind="rectangle",
+            width=6,
+            height=4,
+            unit="cm",
+            operation="solve",
+            school_op="geometry_draw",
+        )
     return None
 
 
@@ -129,6 +156,10 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
             wants_perimeter="perimeter" in lower,
             wants_diagonal="diagonal" in lower,
             wants_area="area" in lower,
+            school_op=_geometry_request_mode(
+                lower,
+                any(word in lower for word in ("area", "perimeter", "diagonal")),
+            ),
         )
     # Default dimensions only when the user asked to draw/show the shape —
     # never invent a square for bare prose that merely contains "square".
@@ -143,6 +174,7 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
             wants_perimeter="perimeter" in lower,
             wants_diagonal="diagonal" in lower,
             wants_area="area" in lower,
+            school_op="geometry_draw",
         )
     return None
 
@@ -176,6 +208,10 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
             wants_area=wants_area,
             wants_circumference=wants_circumference,
             wants_diameter="diameter" in lower,
+            school_op=_geometry_request_mode(
+                lower,
+                wants_area or wants_circumference or "diameter" in lower,
+            ),
         )
     diameter = mtm.number_after(cleaned, "diameter")
     if diameter is not None:
@@ -184,9 +220,11 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
             radius=diameter / 2,
             unit="cm",
             operation="solve",
-            wants_diameter=True,
+            wants_diameter=False,
+            given_diameter=True,
             wants_area=wants_area,
             wants_circumference=wants_circumference,
+            school_op=_geometry_request_mode(lower, wants_area or wants_circumference),
         )
     # Default radius only on an explicit draw/show/sketch — never invent a
     # 5 cm circle for "what is a circle?" / "unit circle" / algebra that
@@ -199,6 +237,7 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
             operation="solve",
             wants_area=wants_area,
             wants_circumference=wants_circumference,
+            school_op="geometry_draw",
         )
     return None
 
@@ -216,7 +255,10 @@ def _right_triangle_named_legs(cleaned: str) -> tuple[float, float, str] | None:
 
 def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
     from app.services.math import match as mtm
-    from app.services.math.match.literal_geometry import literal_hypotenuse_legs
+    from app.services.math.match.literal_geometry import (
+        literal_hypotenuse_legs,
+        measurement_request,
+    )
 
     lower = cleaned.lower()
     if "right triangle" not in lower:
@@ -238,6 +280,18 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
             wants_perimeter="perimeter" in cleaned.lower(),
             wants_area=wants_area,
             wants_angle=_wants_geometry_angles(lower),
+            school_op=_geometry_request_mode(
+                lower,
+                any(
+                    (
+                        literal_hypotenuse_legs(cleaned) == (base, height),
+                        "perimeter" in lower,
+                        wants_area,
+                        _wants_geometry_angles(lower),
+                        measurement_request(cleaned) is not None,
+                    )
+                ),
+            ),
         )
     if mtm.has_draw_shape(lower, "right triangle") and not _requests_geometry_measurement(lower):
         return MathIntent(
@@ -249,6 +303,7 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
             wants_perimeter="perimeter" in cleaned.lower(),
             wants_area=wants_area,
             wants_angle=_wants_geometry_angles(lower),
+            school_op="geometry_draw",
         )
     return None
 
@@ -276,6 +331,16 @@ def _extract_triangle_sides_intent(cleaned: str) -> MathIntent | None:
         wants_perimeter="perimeter" in cleaned.lower(),
         wants_angle=_wants_geometry_angles(cleaned.lower()),
         wants_area="area" in cleaned.lower(),
+        school_op=_geometry_request_mode(
+            cleaned.lower(),
+            any(
+                (
+                    "perimeter" in cleaned.lower(),
+                    _wants_geometry_angles(cleaned.lower()),
+                    "area" in cleaned.lower(),
+                )
+            ),
+        ),
     )
 
 
@@ -299,7 +364,11 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
             height=height,
             unit="cm",
             operation="solve",
+            wants_area="area" in lower,
             wants_angle=_wants_geometry_angles(lower),
+            school_op=_geometry_request_mode(
+                lower, "area" in lower or _wants_geometry_angles(lower)
+            ),
         )
     shape = "trapezoid" if "trapezoid" in lower else "trapezium"
     if mtm.has_draw_shape(lower, shape) and not _requests_geometry_measurement(lower):
@@ -311,6 +380,7 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
             unit="cm",
             operation="solve",
             wants_angle=_wants_geometry_angles(lower),
+            school_op="geometry_draw",
         )
     return None
 
@@ -339,8 +409,13 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
             side=side if side is not None else height,
             unit="cm",
             operation="solve",
+            wants_area="area" in lower,
             wants_perimeter="perimeter" in cleaned.lower(),
             wants_angle=_wants_geometry_angles(lower),
+            school_op=_geometry_request_mode(
+                lower,
+                "area" in lower or "perimeter" in lower or _wants_geometry_angles(lower),
+            ),
         )
     if mtm.has_draw_shape(lower, "parallelogram") and not _requests_geometry_measurement(lower):
         return MathIntent(
@@ -352,6 +427,7 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
             operation="solve",
             wants_perimeter="perimeter" in cleaned.lower(),
             wants_angle=_wants_geometry_angles(lower),
+            school_op="geometry_draw",
         )
     return None
 
@@ -381,14 +457,15 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
             if last is not None:
                 angle = float(last.group(0))
     if radius is not None and angle is not None:
-        wants_area = "arc" not in lower or "area" in lower
         return MathIntent(
             kind="sector",
             radius=radius,
             sector_angle_deg=angle,
             unit="cm",
             operation="solve",
-            wants_area=wants_area,
+            wants_area="area" in lower,
+            wants_arc_length="arc" in lower,
+            school_op=_geometry_request_mode(lower, "area" in lower or "arc" in lower),
         )
     # Defaults only when the user asked to draw the shape — never invent a
     # 90° / 5 cm sector for "sector of a circle with radius 5" alone.
@@ -401,6 +478,7 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
             sector_angle_deg=angle if angle is not None else 90,
             unit="cm",
             operation="solve",
+            school_op="geometry_draw",
         )
     return None
 
@@ -455,7 +533,11 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
             height=height_n,
             unit="cm",
             operation="solve",
+            wants_area="area" in lower,
             wants_angle=_wants_geometry_angles(lower),
+            school_op=_geometry_request_mode(
+                lower, "area" in lower or _wants_geometry_angles(lower)
+            ),
         )
 
     # "area of a triangle" is a definition question — do not invent base/height.
@@ -474,6 +556,7 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
             unit="cm",
             operation="solve",
             wants_angle=_wants_geometry_angles(lower),
+            school_op="geometry_draw",
         )
     return None
 

@@ -117,6 +117,10 @@ class MathIntent(BaseModel):
     # Same idea for circles: only annotate diameter/circumference when asked.
     wants_diameter: bool = False
     wants_circumference: bool = False
+    # A supplied diameter is diagram input, not automatically a request to
+    # calculate the diameter. Keep the two meanings separate so an incomplete
+    # "circle diameter 6" prompt does not echo 6 as a solved answer.
+    given_diameter: bool = False
     # Statistics — one raw list for descriptive stats, or two equal-length lists
     # for correlation/covariance/simple linear regression.
     stats_op: (
@@ -185,6 +189,7 @@ class MathIntent(BaseModel):
     trapezoid_bottom: float | None = None
     # Parallelogram/sector reuse `base`/`height`/`side`/`radius` above.
     sector_angle_deg: float | None = None
+    wants_arc_length: bool = False
     # Second function for a "graph y=x^2 and y=2x" comparison plot — `expr`/
     # `variable` above hold the first curve, unchanged for every other kind.
     expr2: str | None = None

@@ -145,8 +145,6 @@ def parse_solid(cleaned: str) -> SolidParse | None:
     wants_sa = "surface area" in lower or "surface-area" in lower
     if wants_sa and "volume" in padded:
         wants_volume = True
-    if not wants_volume and not wants_sa:
-        wants_volume = True
 
     unit = solid_length_unit(cleaned)
     if unit is None:

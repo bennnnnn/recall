@@ -33,6 +33,15 @@ from app.services.solving import (
 )
 
 
+def _finish_geometry(
+    _intent: MathIntent, lines: list[str], spec: object, answer: str | None = None
+) -> VerifiedMathBlock:
+    # Dimensions are enough to draw the shape, but not to choose a measurement.
+    # Keep the native diagram while leaving the answer empty; the direct layer
+    # asks which quantity the user wants instead of inventing one.
+    return _diagram_block(lines, spec, answer)
+
+
 def _verified_block_rectangle(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -46,15 +55,11 @@ def _verified_block_rectangle(
         f"height={rect_geo.height:g} {rect_geo.unit} "
         f"diagonal={rect_geo.diagonal:g} angle={rect_geo.angle_deg:g}°"
     )
-    # Only annotate the diagram with what was actually asked for —
-    # e.g. "rectangle area 4 by 5" should draw area, not an
-    # unrequested diagonal + angle. If nothing specific was asked,
-    # default to the diagonal (a reasonable generic illustration)
-    # without the angle number, since a bare "draw a rectangle" isn't
-    # asking about any particular angle.
+    # Only annotate the diagram with what was actually asked for. Supplying
+    # dimensions alone is not an implicit area or diagonal request.
     show_area = intent.wants_area
     show_perimeter = intent.wants_perimeter
-    show_diagonal = intent.wants_diagonal or intent.wants_angle or not (show_area or show_perimeter)
+    show_diagonal = intent.wants_diagonal or intent.wants_angle
     show_angle = intent.wants_angle
     spec = GeometryBlockSpec(
         type="rectangle",
@@ -80,9 +85,11 @@ def _verified_block_rectangle(
         answer = f"{rect_geo.perimeter:g}"
     elif intent.wants_diagonal and not intent.wants_area:
         answer = f"{rect_geo.diagonal:g}"
-    else:
+    elif intent.wants_area:
         answer = f"{rect_geo.area:g}"
-    return _diagram_block(lines, spec, answer)
+    else:
+        answer = None
+    return _finish_geometry(intent, lines, spec, answer)
 
 
 def _verified_block_square(
@@ -104,25 +111,23 @@ def _verified_block_square(
         width=square_geo.side,
         height=square_geo.side,
         unit=square_geo.unit,
-        show_diagonal=intent.wants_diagonal or not (intent.wants_area or intent.wants_perimeter),
-        show_area=intent.wants_area or not (intent.wants_diagonal or intent.wants_perimeter),
-        show_perimeter=intent.wants_perimeter or not (intent.wants_area or intent.wants_diagonal),
+        show_diagonal=intent.wants_diagonal,
+        show_area=intent.wants_area,
+        show_perimeter=intent.wants_perimeter,
         show_ticks=True,
         diagonal=square_geo.diagonal,
         area=square_geo.area,
         perimeter=square_geo.perimeter,
         labels=square_geo.labels,
     )
-    answer = (
-        square_geo.perimeter
-        if intent.wants_perimeter
-        else (
-            square_geo.diagonal
-            if intent.wants_diagonal and not intent.wants_area
-            else square_geo.area
-        )
-    )
-    return _diagram_block(lines, spec, f"{answer:g}")
+    answer: float | None = None
+    if intent.wants_perimeter:
+        answer = square_geo.perimeter
+    elif intent.wants_diagonal and not intent.wants_area:
+        answer = square_geo.diagonal
+    elif intent.wants_area:
+        answer = square_geo.area
+    return _finish_geometry(intent, lines, spec, f"{answer:g}" if answer is not None else None)
 
 
 def _verified_block_solid(
@@ -149,6 +154,8 @@ def _verified_block_solid(
         if key in {"volume", "surface_area"}:
             continue
         lines.append(f"{key}={value}")
+    if not (intent.wants_volume or intent.wants_surface_area):
+        return VerifiedMathBlock(text="\n".join(lines))
     if intent.wants_surface_area and not intent.wants_volume:
         answer, unit = geo.labels["surface_area"].rsplit(" ", 1)
     else:
@@ -175,7 +182,7 @@ def _verified_block_circle(
         type="circle",
         radius=circle_geo.radius,
         unit=circle_geo.unit,
-        show_diameter=intent.wants_diameter,
+        show_diameter=intent.wants_diameter or intent.given_diameter,
         show_area=intent.wants_area,
         show_circumference=intent.wants_circumference,
         diameter=circle_geo.diameter,
@@ -192,9 +199,11 @@ def _verified_block_circle(
         answer = math_solve.format_geometry_decimal(circle_geo.circumference)
     elif intent.wants_diameter and not intent.wants_area:
         answer = f"{circle_geo.diameter:g}"
-    else:
+    elif intent.wants_area:
         answer = math_solve.format_geometry_decimal(circle_geo.area)
-    return _diagram_block(lines, circle_spec, answer)
+    else:
+        answer = None
+    return _finish_geometry(intent, lines, circle_spec, answer)
 
 
 def _verified_block_triangle(
@@ -221,7 +230,9 @@ def _verified_block_triangle(
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
-    return _diagram_block(lines, tri_spec, f"{tri_geo.area:g}")
+    return _finish_geometry(
+        intent, lines, tri_spec, f"{tri_geo.area:g}" if intent.wants_area else None
+    )
 
 
 def _verified_block_right_triangle(
@@ -265,7 +276,7 @@ def _verified_block_right_triangle(
         answer = f"{rt_geo.hypotenuse:g}"
     if intent.wants_perimeter:
         answer = f"{rt_geo.base + rt_geo.height + rt_geo.hypotenuse:g}"
-    return _diagram_block(lines, rt_spec, answer)
+    return _finish_geometry(intent, lines, rt_spec, answer)
 
 
 def _verified_block_triangle_sides(
@@ -326,18 +337,24 @@ def _verified_block_triangle_sides(
         else "Area via Heron's formula; angles via the law of cosines."
     )
     if relative and (intent.wants_area or intent.wants_perimeter):
-        return _diagram_block(lines, tri_spec)
+        return _finish_geometry(intent, lines, tri_spec)
     if relative and not (intent.wants_angle or intent.wants_area or intent.wants_perimeter):
         # Pure AAA drawings already label the supplied angles. Retaining a
         # canonical answer would make finalization append a redundant card.
-        return _diagram_block(lines, tri_spec)
+        return _finish_geometry(intent, lines, tri_spec)
     if intent.wants_angle and not (intent.wants_area or intent.wants_perimeter):
         answer = (
             f"{tri_geo.labels['angle_a']}, {tri_geo.labels['angle_b']}, {tri_geo.labels['angle_c']}"
         )
-        return _diagram_block(lines, tri_spec, answer)
-    quantity = tri_geo.perimeter if intent.wants_perimeter else tri_geo.area
-    return _diagram_block(lines, tri_spec, f"{quantity:g}")
+        return _finish_geometry(intent, lines, tri_spec, answer)
+    quantity: float | None = None
+    if intent.wants_perimeter:
+        quantity = tri_geo.perimeter
+    elif intent.wants_area:
+        quantity = tri_geo.area
+    return _finish_geometry(
+        intent, lines, tri_spec, f"{quantity:g}" if quantity is not None else None
+    )
 
 
 def _verified_block_trapezoid(
@@ -370,7 +387,9 @@ def _verified_block_trapezoid(
         labels=trap_geo.labels,
     )
     lines.append("area = (top + bottom) / 2 \\times height")
-    return _diagram_block(lines, trap_spec, f"{trap_geo.area:g}")
+    return _finish_geometry(
+        intent, lines, trap_spec, f"{trap_geo.area:g}" if intent.wants_area else None
+    )
 
 
 def _verified_block_parallelogram(
@@ -401,8 +420,12 @@ def _verified_block_parallelogram(
         perimeter=para_geo.perimeter,
         labels=para_geo.labels,
     )
-    answer = para_geo.perimeter if intent.wants_perimeter else para_geo.area
-    return _diagram_block(lines, para_spec, f"{answer:g}")
+    answer: float | None = None
+    if intent.wants_perimeter:
+        answer = para_geo.perimeter
+    elif intent.wants_area:
+        answer = para_geo.area
+    return _finish_geometry(intent, lines, para_spec, f"{answer:g}" if answer is not None else None)
 
 
 def _verified_block_sector(
@@ -430,9 +453,9 @@ def _verified_block_sector(
         area=sector_geo.area,
         labels=sector_geo.labels,
     )
-    answer = (
-        f"{sector_geo.area:g}"
-        if intent.wants_area
-        else math_solve.format_geometry_decimal(sector_geo.arc_length)
-    )
-    return _diagram_block(lines, sector_spec, answer)
+    answer: str | None = None
+    if intent.wants_area:
+        answer = f"{sector_geo.area:g}"
+    elif intent.wants_arc_length:
+        answer = math_solve.format_geometry_decimal(sector_geo.arc_length)
+    return _finish_geometry(intent, lines, sector_spec, answer)
