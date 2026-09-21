@@ -89,7 +89,9 @@ export function equalSideTickCounts(
   let groupMark = 1;
   for (const side of sides) {
     if (used.has(side.key)) continue;
-    const group = sides.filter((other) => Math.abs(other.len - side.len) <= eps);
+    const group = sides.filter(
+      (other) => Math.abs(other.len - side.len) <= eps,
+    );
     if (group.length < 2) {
       used.add(side.key);
       continue;
@@ -119,27 +121,48 @@ export function footOfPerpendicular(
   return { x: ax + t * abx, y: ay + t * aby };
 }
 
-export function midpoint(ax: number, ay: number, bx: number, by: number): { x: number; y: number } {
+export function midpoint(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+): { x: number; y: number } {
   return { x: (ax + bx) / 2, y: (ay + by) / 2 };
 }
 
 /** True when two of the three sides match (isosceles, including equilateral). */
-export function isIsoscelesSides(a: number, b: number, c: number, eps = 1e-6): boolean {
+export function isIsoscelesSides(
+  a: number,
+  b: number,
+  c: number,
+  eps = 1e-6,
+): boolean {
   return (
     Math.abs(a - b) <= eps || Math.abs(a - c) <= eps || Math.abs(b - c) <= eps
   );
 }
 
 /** Whether congruence ticks should render (explicit flag, else default on). */
-export function shouldShowTicks(showTicks: boolean | undefined, defaultOn = true): boolean {
+export function shouldShowTicks(
+  showTicks: boolean | undefined,
+  defaultOn = true,
+): boolean {
   if (showTicks === false) return false;
   if (showTicks === true) return true;
   return defaultOn;
 }
 
 /** Reserve the entire SVG dimension label plus its gap and a small ink margin. */
-export function geometryLabelInset(label: string, fontSize = 13, gap = 8, minimum = 40): number {
-  return Math.max(minimum, Math.ceil(Array.from(label).length * fontSize * 0.65) + gap + 4);
+export function geometryLabelInset(
+  label: string,
+  fontSize = 13,
+  gap = 8,
+  minimum = 40,
+): number {
+  return Math.max(
+    minimum,
+    Math.ceil(Array.from(label).length * fontSize * 0.65) + gap + 4,
+  );
 }
 
 export function scaleToFit(
@@ -154,7 +177,11 @@ export function scaleToFit(
 }
 
 /** Horizontal span of a parallelogram: base plus the shear of the slanted side. */
-export function parallelogramSpan(base: number, height: number, side: number): number {
+export function parallelogramSpan(
+  base: number,
+  height: number,
+  side: number,
+): number {
   const shear = Math.sqrt(Math.max(0, side * side - height * height));
   return base + shear;
 }
@@ -198,12 +225,27 @@ export function parallelogramLayout(
   // Leftmost point is tx0 = padding.left; rightmost is bx1 = offsetX + b.
   // Do not add shear again — offsetX already contains it.
   const svgW = b + shear + padding.left + padding.right;
-  const svgH = h + offsetY + 40;
+  const svgH = h + offsetY + 52;
   const bx0 = offsetX;
   const bx1 = offsetX + b;
   const by = offsetY + h;
   const tx0 = offsetX - shear;
   const tx1 = tx0 + b;
   const ty = offsetY;
-  return { b, h, s, shear, offsetX, offsetY, svgW, svgH, bx0, bx1, by, tx0, tx1, ty };
+  return {
+    b,
+    h,
+    s,
+    shear,
+    offsetX,
+    offsetY,
+    svgW,
+    svgH,
+    bx0,
+    bx1,
+    by,
+    tx0,
+    tx1,
+    ty,
+  };
 }

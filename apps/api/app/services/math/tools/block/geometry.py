@@ -167,8 +167,9 @@ def _verified_block_circle(
     lines.append(
         f"Circle: radius={circle_geo.radius:g} {circle_geo.unit} "
         f"diameter={circle_geo.diameter:g} {circle_geo.unit} "
-        f"area={circle_geo.area:.2f} {circle_geo.unit}² "
-        f"circumference={circle_geo.circumference:.2f} {circle_geo.unit}"
+        f"area={math_solve.format_geometry_decimal(circle_geo.area)} {circle_geo.unit}² "
+        f"circumference={math_solve.format_geometry_decimal(circle_geo.circumference)} "
+        f"{circle_geo.unit}"
     )
     circle_spec = CircleGeometryBlockSpec(
         type="circle",
@@ -188,11 +189,11 @@ def _verified_block_circle(
     # explicit circumference or diameter request; fall back to area when
     # only area or nothing specific was asked.
     if intent.wants_circumference:
-        answer = f"{circle_geo.circumference:.2f}"
+        answer = math_solve.format_geometry_decimal(circle_geo.circumference)
     elif intent.wants_diameter and not intent.wants_area:
         answer = f"{circle_geo.diameter:g}"
     else:
-        answer = f"{circle_geo.area:.2f}"
+        answer = math_solve.format_geometry_decimal(circle_geo.area)
     return _diagram_block(lines, circle_spec, answer)
 
 
@@ -414,8 +415,10 @@ def _verified_block_sector(
     )
     lines.append(
         f"Circle sector: radius={sector_geo.radius:g} {sector_geo.unit} "
-        f"angle={sector_geo.angle_deg:g}° arc_length={sector_geo.arc_length:.2f} {sector_geo.unit} "
-        f"area={sector_geo.area:.2f} {sector_geo.unit}²"
+        f"angle={sector_geo.angle_deg:g}° "
+        f"arc_length={math_solve.format_geometry_decimal(sector_geo.arc_length)} "
+        f"{sector_geo.unit} area={math_solve.format_geometry_decimal(sector_geo.area)} "
+        f"{sector_geo.unit}²"
     )
     sector_spec = SectorGeometryBlockSpec(
         type="sector",
@@ -427,5 +430,9 @@ def _verified_block_sector(
         area=sector_geo.area,
         labels=sector_geo.labels,
     )
-    answer = f"{sector_geo.area:g}" if intent.wants_area else f"{sector_geo.arc_length:.2f}"
+    answer = (
+        f"{sector_geo.area:g}"
+        if intent.wants_area
+        else math_solve.format_geometry_decimal(sector_geo.arc_length)
+    )
     return _diagram_block(lines, sector_spec, answer)

@@ -19,6 +19,7 @@ from app.services.math.match.units import solid_length_unit, strip_geometry_leng
 from app.services.solving import VerifiedMathBlock
 
 _DIMENSIONS = re.compile(rf"({_DECIMAL})\s*(?:by|x|\u00d7|\*)\s*({_DECIMAL})")
+_SIDES = re.compile(rf"sides?\s+({_DECIMAL})\s*(?:,|and)\s*({_DECIMAL})")
 
 
 def _finite_number(value: object) -> float | None:
@@ -47,10 +48,13 @@ def can_direct_rectangle(
     if not request.startswith("rectangle "):
         return False
     dimensions = request[10:]
+    if dimensions.startswith("with "):
+        dimensions = dimensions[5:]
     unit = solid_length_unit(dimensions)
     if unit is None:
         return False
-    pair = _DIMENSIONS.fullmatch(strip_geometry_length_units(dimensions).strip())
+    literal_dimensions = strip_geometry_length_units(dimensions).strip()
+    pair = _DIMENSIONS.fullmatch(literal_dimensions) or _SIDES.fullmatch(literal_dimensions)
     if pair is None:
         return False
     width, height = (float(value) for value in pair.groups())
@@ -176,10 +180,13 @@ def can_direct_curved_or_slanted_geometry(
         return False
     # These blocks already round circle measures/arc lengths to two places;
     # compare their existing presentation, without tolerances or recomputation.
-    precision = (
-        ".2f" if (kind == "circle" and quantity != "diameter") or field == "arc_length" else "g"
-    )
-    return (verified.canonical_answer or "").strip() == format(value, precision)
+    if (kind == "circle" and quantity != "diameter") or field == "arc_length":
+        from app.services.math.solve.geometry import format_geometry_decimal
+
+        expected = format_geometry_decimal(value)
+    else:
+        expected = format(value, "g")
+    return (verified.canonical_answer or "").strip() == expected
 
 
 def can_direct_triangle_angles(user_text: str, fences: list[dict[str, object]]) -> bool:

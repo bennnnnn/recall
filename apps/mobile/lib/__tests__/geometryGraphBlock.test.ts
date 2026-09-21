@@ -36,7 +36,9 @@ import {
 
 describe("geometryBlock", () => {
   it("parses square spec from side", () => {
-    const spec = parseGeometrySpec('{"type":"square","side":5,"unit":"cm","show_area":true}');
+    const spec = parseGeometrySpec(
+      '{"type":"square","side":5,"unit":"cm","show_area":true}',
+    );
     expect(spec?.type).toBe("square");
     if (spec?.type === "square" || spec?.type === "rectangle") {
       expect(spec.width).toBe(5);
@@ -45,7 +47,9 @@ describe("geometryBlock", () => {
   });
 
   it("parses rect alias with length and breadth", () => {
-    const spec = parseGeometrySpec('{"type":"rect","length":8,"breadth":5,"unit":"cm"}');
+    const spec = parseGeometrySpec(
+      '{"type":"rect","length":8,"breadth":5,"unit":"cm"}',
+    );
     expect(spec?.type).toBe("rectangle");
     if (spec?.type === "rectangle" || spec?.type === "square") {
       expect(spec.width).toBe(8);
@@ -65,7 +69,9 @@ describe("geometryBlock", () => {
   });
 
   it("computes right triangle labels", () => {
-    const spec = parseGeometrySpec('{"type":"right_triangle","base":6,"height":4}');
+    const spec = parseGeometrySpec(
+      '{"type":"right_triangle","base":6,"height":4}',
+    );
     expect(spec?.type).toBe("right_triangle");
     if (spec?.type === "right_triangle") {
       const labels = computeRightTriangleLabels(spec);
@@ -122,12 +128,17 @@ describe("geometryBlock", () => {
       { x: 0, y: 0 },
     ];
     const marks = polygonInteriorAngleMarks(vertices);
-    const tight = marks.filter((m) => Math.round(m.deg) <= 12 || isRightAngleDeg(m.deg));
+    const tight = marks.filter(
+      (m) => Math.round(m.deg) <= 12 || isRightAngleDeg(m.deg),
+    );
     expect(tight.length).toBeGreaterThanOrEqual(2);
     for (const mark of tight) {
       expect(mark.leader).not.toBeNull();
       const inBox =
-        mark.labelX >= 2 && mark.labelX <= 18 && mark.labelY >= 2 && mark.labelY <= 198;
+        mark.labelX >= 2 &&
+        mark.labelX <= 18 &&
+        mark.labelY >= 2 &&
+        mark.labelY <= 198;
       expect(inBox).toBe(false);
     }
     const padded = padDiagramForAngleLabels(vertices, 20, 200);
@@ -224,7 +235,9 @@ describe("geometryBlock", () => {
 
   it("rejects dimensions above backend max", () => {
     expect(parseGeometrySpec('{"type":"square","side":2000000}')).toBeNull();
-    expect(parseGeometrySpec('{"type":"triangle","base":2000000,"height":5}')).toBeNull();
+    expect(
+      parseGeometrySpec('{"type":"triangle","base":2000000,"height":5}'),
+    ).toBeNull();
   });
 
   it("BUG FIX regression: parses a circle spec (circles were previously unsupported entirely)", () => {
@@ -287,7 +300,7 @@ describe("geometryBlock", () => {
       expect(result.showDiagonalAngleLabel).toBe(false);
     });
 
-    it("always shows both corner brackets for a square regardless of angle/diagonal flags", () => {
+    it("always requests uniform corner marks for a square regardless of angle/diagonal flags", () => {
       const result = rectangleAngleDisplay({ type: "square" });
       expect(result.showCornerBracket).toBe(true);
       expect(result.showDiagonalAngleLabel).toBe(false);
@@ -319,7 +332,9 @@ describe("geometryBlock", () => {
       expect(marks).toHaveLength(1);
       expect(marks[0]?.x1).toBeCloseTo(5);
       expect(marks[0]?.x2).toBeCloseTo(5);
-      expect(Math.abs((marks[0]?.y2 ?? 0) - (marks[0]?.y1 ?? 0))).toBeCloseTo(10);
+      expect(Math.abs((marks[0]?.y2 ?? 0) - (marks[0]?.y1 ?? 0))).toBeCloseTo(
+        10,
+      );
     });
 
     it("computes the altitude foot and median midpoint", () => {
@@ -388,7 +403,9 @@ describe("graphBlock", () => {
         type: "number_line",
         expr: "x > 3",
         title: "x > 3",
-        intervals: [{ start: 3, end: null, start_inclusive: false, end_inclusive: false }],
+        intervals: [
+          { start: 3, end: null, start_inclusive: false, end_inclusive: false },
+        ],
       }),
     );
     expect(spec?.type).toBe("number_line");
@@ -427,16 +444,23 @@ describe("graphBlock", () => {
     // Requiring 2+ points made sense for a function curve but not for
     // "plot the point (2, 3)" — a single point by definition. This used
     // to fail parsing entirely and fall back to "Could not render".
-    const spec = parseGraphSpec('{"type":"function","expr":"(2, 3)","points":[[2,3]]}');
+    const spec = parseGraphSpec(
+      '{"type":"function","expr":"(2, 3)","points":[[2,3]]}',
+    );
     expect(spec?.points).toEqual([[2, 3]]);
   });
 
   it("rejects an empty points array", () => {
-    expect(parseGraphSpec('{"type":"function","expr":"x","points":[]}')).toBeNull();
+    expect(
+      parseGraphSpec('{"type":"function","expr":"x","points":[]}'),
+    ).toBeNull();
   });
 
   it("BUG FIX regression: downsamples oversized point dumps instead of rejecting them", () => {
-    const points = Array.from({ length: 600 }, (_, i) => [i / 10, (i / 10) ** 2]);
+    const points = Array.from({ length: 600 }, (_, i) => [
+      i / 10,
+      (i / 10) ** 2,
+    ]);
     const spec = parseGraphSpec(
       JSON.stringify({ type: "function", expr: "x**2", points }),
     );
@@ -483,7 +507,9 @@ describe("graphBlock", () => {
   });
 
   it("leaves segments undefined when absent (the common, no-discontinuity case)", () => {
-    const spec = parseGraphSpec('{"type":"function","expr":"x**2","points":[[-2,4],[0,0],[2,4]]}');
+    const spec = parseGraphSpec(
+      '{"type":"function","expr":"x**2","points":[[-2,4],[0,0],[2,4]]}',
+    );
     expect(spec?.segments).toBeUndefined();
   });
 
@@ -534,7 +560,12 @@ describe("graphBlock", () => {
     ];
     const sharedBounds = graphBounds(allPoints);
     const segment: [number, number][] = [[0, 0]];
-    const withSharedBounds = graphPolylinePoints(segment, 200, 120, sharedBounds);
+    const withSharedBounds = graphPolylinePoints(
+      segment,
+      200,
+      120,
+      sharedBounds,
+    );
     const withOwnBounds = graphPolylinePoints(segment, 200, 120);
     // A lone point at the origin maps to different screen coordinates
     // depending on whether it's scaled against the full [0,100] y-range
@@ -543,15 +574,22 @@ describe("graphBlock", () => {
   });
 
   it("downsamples oversized points and rejects overlong expr", () => {
-    const tooMany = Array.from({ length: 301 }, (_, i) => [i, i] as [number, number]);
+    const tooMany = Array.from(
+      { length: 301 },
+      (_, i) => [i, i] as [number, number],
+    );
     const dense = parseGraphSpec(
       JSON.stringify({ type: "function", expr: "x", points: tooMany }),
     );
     expect(dense?.points.length).toBe(301);
-    const huge = Array.from({ length: 600 }, (_, i) => [i, i] as [number, number]);
+    const huge = Array.from(
+      { length: 600 },
+      (_, i) => [i, i] as [number, number],
+    );
     expect(
-      parseGraphSpec(JSON.stringify({ type: "function", expr: "x", points: huge }))
-        ?.points.length,
+      parseGraphSpec(
+        JSON.stringify({ type: "function", expr: "x", points: huge }),
+      )?.points.length,
     ).toBe(500);
     expect(
       parseGraphSpec(
@@ -648,9 +686,16 @@ describe("graphBlock", () => {
     expect(formatGraphExpr("Abs(x) + Abs(y)")).toBe("|x| + |y|");
   });
 
-  it.each(["Abs(sin(x))", "Abs((x-2)/3)", "Abs(Abs(x)-2)", "Abs(|x|-2)", "Abs()", "Abs(x-2", "myAbs(x)"])(
-    "preserves unsupported or nonfunction absolute-value syntax: %s",
-    (expr) => expect(formatGraphExpr(expr)).toBe(expr),
+  it.each([
+    "Abs(sin(x))",
+    "Abs((x-2)/3)",
+    "Abs(Abs(x)-2)",
+    "Abs(|x|-2)",
+    "Abs()",
+    "Abs(x-2",
+    "myAbs(x)",
+  ])("preserves unsupported or nonfunction absolute-value syntax: %s", (expr) =>
+    expect(formatGraphExpr(expr)).toBe(expr),
   );
 
   it.each(["x^2.5", "x^-2.5", "x^2e3", "x^(1/2)", "x^{2}", "x^", "x^-"])(
@@ -659,7 +704,9 @@ describe("graphBlock", () => {
   );
 
   it("composes formatGraphExpr then formatInequalityExpr for inequality titles", () => {
-    expect(formatInequalityExpr(formatGraphExpr("3*x - 6 >= 0"))).toBe("3x - 6 ≥ 0");
+    expect(formatInequalityExpr(formatGraphExpr("3*x - 6 >= 0"))).toBe(
+      "3x - 6 ≥ 0",
+    );
   });
 
   it("expandBoundsForAxes includes the origin so axes are not the data min", () => {
@@ -708,7 +755,9 @@ describe("graphBlock", () => {
     expect(view.xMax).toBe(6);
     expect(view.yMin).toBe(-1);
     expect(view.yMax).toBe(6);
-    expect(graphAxisTicks(view.xMin, view.xMax)).toEqual([-6, -4, -2, 0, 2, 4, 6]);
+    expect(graphAxisTicks(view.xMin, view.xMax)).toEqual([
+      -6, -4, -2, 0, 2, 4, 6,
+    ]);
     expect(graphAxisTicks(view.yMin, view.yMax)).toEqual([0, 2, 4, 6]);
   });
 
@@ -731,10 +780,7 @@ describe("graphBlock", () => {
   });
 
   it("schoolViewBounds keeps a short x² sample on screen", () => {
-    const view = schoolViewBounds(
-      { xMin: 0, xMax: 2, yMin: 0, yMax: 4 },
-      1.75,
-    );
+    const view = schoolViewBounds({ xMin: 0, xMax: 2, yMin: 0, yMax: 4 }, 1.75);
     expect(view.xMax).toBe(2);
     expect(view.yMax).toBe(4);
   });
@@ -840,7 +886,8 @@ describe("graphBlock", () => {
       }),
     );
     expect(spec?.type).toBe("trajectory");
-    if (spec?.type === "trajectory") expect(spec.trajectory_type).toBe(expected);
+    if (spec?.type === "trajectory")
+      expect(spec.trajectory_type).toBe(expected);
   });
 
   it("rejects a trajectory fence with fewer than 2 points", () => {

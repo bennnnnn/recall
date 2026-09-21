@@ -64,7 +64,14 @@ def _extract_rectangle_intent(cleaned: str) -> MathIntent | None:
         return None
     from app.services.math.match.units import strip_geometry_length_units
 
-    dims = mtm.first_dim_pair(strip_geometry_length_units(cleaned))
+    dimensions = strip_geometry_length_units(cleaned)
+    dims = mtm.first_dim_pair(dimensions)
+    if dims is None and "rectangle" in lower:
+        sides = mtm.two_numbers_after(dimensions, "sides")
+        if sides is None:
+            sides = mtm.two_numbers_after(dimensions, "side lengths")
+        if sides is not None:
+            dims = (sides[0], sides[1], "cm")
     padded = f" {lower} "
     if dims is not None and ("rectangle" in lower or " rect " in padded or "diagonal" in lower):
         width, height, unit = dims

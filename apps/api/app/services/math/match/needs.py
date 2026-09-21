@@ -118,7 +118,13 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if geometry_dim_context(lower):
         from app.services.math.match.units import strip_geometry_length_units
 
-        if first_dim_pair(strip_geometry_length_units(cleaned)) is not None:
+        dimensions = strip_geometry_length_units(cleaned)
+        if first_dim_pair(dimensions) is not None:
+            return True
+        if "rectangle" in lower and (
+            two_numbers_after(dimensions, "sides") is not None
+            or two_numbers_after(dimensions, "side lengths") is not None
+        ):
             return True
     if (
         "circle" in lower

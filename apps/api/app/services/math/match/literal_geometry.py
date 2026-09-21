@@ -42,14 +42,64 @@ def measurement_request(user_text: str) -> tuple[str, str] | None:
             break
     if request.startswith("the "):
         request = request[4:]
-    quantity, separator, request = request.partition(" of ")
-    if not separator:
-        return None
+    quantity, separator, body = request.partition(" of ")
+    if separator:
+        for article in ("a ", "the "):
+            if body.startswith(article):
+                body = body[len(article) :]
+                break
+        return quantity, body
+
+    # Natural school prompts also put the shape first: “a rectangle area
+    # with sides 4, 5”.  Normalize that into the same shape body used by the
+    # strict direct guards.  Longer names/quantities run first so “surface
+    # area” and “right triangle” are never truncated to a shorter phrase.
     for article in ("a ", "the "):
         if request.startswith(article):
             request = request[len(article) :]
             break
-    return quantity, request
+    shapes = (
+        "rectangular prism",
+        "right triangle",
+        "square pyramid",
+        "circle sector",
+        "parallelogram",
+        "trapezoid",
+        "trapezium",
+        "rectangle",
+        "triangle",
+        "cylinder",
+        "sphere",
+        "sector",
+        "square",
+        "circle",
+        "cuboid",
+        "cube",
+        "cone",
+    )
+    quantities = (
+        "total surface area",
+        "surface area",
+        "circumference",
+        "arc length",
+        "hypotenuse",
+        "perimeter",
+        "diagonal",
+        "diameter",
+        "volume",
+        "area",
+    )
+    for shape in shapes:
+        prefix = shape + " "
+        if not request.startswith(prefix):
+            continue
+        remainder = request[len(prefix) :]
+        for candidate in quantities:
+            quantity_prefix = candidate + " "
+            if remainder.startswith(quantity_prefix):
+                dimensions = remainder[len(quantity_prefix) :].lstrip()
+                return candidate, f"{shape} {dimensions}"
+    return None
 
 
 def literal_hypotenuse_legs(text: str) -> tuple[float, float] | None:

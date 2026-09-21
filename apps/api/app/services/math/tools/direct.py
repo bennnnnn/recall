@@ -551,8 +551,15 @@ def _format_direct_math_body(
         "circle",
         "sector",
     }:
+        from app.services.math.tools.direct_geometry_working import (
+            format_direct_geometry_working,
+        )
+
+        working = format_direct_geometry_working(user_text, fences[0], answer)
+        prefix = f"{working}\n\n" if working else ""
         return (
-            f"```answer\n{answer}\n```\n\n"
+            f"{prefix}```answer\n{answer}\n```\n\n"
+            "**Diagram**\n\n"
             f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
         )
     if len(fences) == 1 and fences[0].get("type") == "number_line":
@@ -563,7 +570,11 @@ def _format_direct_math_body(
     # The answer fence already typesets the result. Emitting a second math
     # paragraph repeats the same answer on the phone. The final newline also
     # lets the streaming client close and render this fence immediately.
-    return f"```answer\n{answer}\n```\n"
+    from app.services.math.tools.direct_geometry_working import format_direct_solid_working
+
+    solid_working = format_direct_solid_working(user_text, answer)
+    prefix = f"{solid_working}\n\n" if solid_working else ""
+    return f"{prefix}```answer\n{answer}\n```\n"
 
 
 def maybe_direct_math_reply(

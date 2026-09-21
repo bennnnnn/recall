@@ -31,6 +31,11 @@ from app.services.solving import MathServiceError
 _ANGLE_INT_TOL_DEG = 0.11
 
 
+def format_geometry_decimal(value: float, places: int = 2) -> str:
+    """Round for display without turning 20.2 into 20.20 or 20 into 20.00."""
+    return f"{value:.{places}f}".rstrip("0").rstrip(".") or "0"
+
+
 def format_degree_label(deg: float) -> str:
     """School labels: ``120°`` not ``119.9°`` when the value is a near-integer."""
     nearest = round(deg)
@@ -67,7 +72,7 @@ def rectangle_geometry(data: RectangleGeometryInput) -> RectangleGeometryResult:
     labels = {
         "width": f"{w:g} {unit}",
         "height": f"{h:g} {unit}",
-        "diagonal": f"{diagonal:.2f} {unit}",
+        "diagonal": f"{format_geometry_decimal(diagonal)} {unit}",
         "angle": f"{angle_deg:.1f}°",
         "area": f"{area:g} {unit}²",
         "perimeter": f"{perimeter:g} {unit}",
@@ -92,7 +97,7 @@ def square_geometry(data: SquareGeometryInput) -> SquareGeometryResult:
     unit = data.unit
     labels = {
         "side": f"{s:g} {unit}",
-        "diagonal": f"{diagonal:.2f} {unit}",
+        "diagonal": f"{format_geometry_decimal(diagonal)} {unit}",
         "area": f"{area:g} {unit}²",
         "perimeter": f"{perimeter:g} {unit}",
     }
@@ -147,7 +152,7 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         surface = math.pi * r * (r + slant)
         extra["radius"] = f"{r:g} {unit}"
         extra["height"] = f"{h:g} {unit}"
-        extra["slant"] = f"{slant:.2f} {unit}"
+        extra["slant"] = f"{format_geometry_decimal(slant)} {unit}"
     elif shape == "sphere":
         if data.radius is None:
             raise MathServiceError("sphere requires radius")
@@ -180,8 +185,10 @@ def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
         raise MathServiceError(f"unsupported solid {shape}")
 
     uses_pi = shape in {"cylinder", "cone", "sphere"}
-    vol_label = f"{volume:.2f} {unit}³" if uses_pi else f"{volume:g} {unit}³"
-    sa_label = f"{surface:.2f} {unit}²" if uses_pi else f"{surface:g} {unit}²"
+    volume_text = format_geometry_decimal(volume) if uses_pi else f"{volume:g}"
+    surface_text = format_geometry_decimal(surface) if uses_pi else f"{surface:g}"
+    vol_label = f"{volume_text} {unit}³"
+    sa_label = f"{surface_text} {unit}²"
     labels = {**extra, "volume": vol_label, "surface_area": sa_label}
     return SolidGeometryResult(
         shape=shape,
@@ -220,7 +227,7 @@ def right_triangle_geometry(data: RightTriangleGeometryInput) -> RightTriangleGe
     labels = {
         "base": f"{b:g} {unit}",
         "height": f"{h:g} {unit}",
-        "hypotenuse": f"{hypotenuse:.2f} {unit}",
+        "hypotenuse": f"{format_geometry_decimal(hypotenuse)} {unit}",
         "area": f"{area:g} {unit}²",
         "angle": "90°",
         "angle_at_base": format_degree_label(angle_at_base),
@@ -245,8 +252,8 @@ def circle_geometry(data: CircleGeometryInput) -> CircleGeometryResult:
     labels = {
         "radius": f"{r:g} {unit}",
         "diameter": f"{diameter:g} {unit}",
-        "area": f"{area:.2f} {unit}²",
-        "circumference": f"{circumference:.2f} {unit}",
+        "area": f"{format_geometry_decimal(area)} {unit}²",
+        "circumference": f"{format_geometry_decimal(circumference)} {unit}",
     }
     return CircleGeometryResult(
         radius=r,
@@ -273,7 +280,7 @@ def triangle_sides_geometry(data: TriangleSidesInput) -> TriangleSidesResult:
         "a": f"{a:g} {unit}",
         "b": f"{b:g} {unit}",
         "c": f"{c:g} {unit}",
-        "area": f"{area:.2f} {unit}²",
+        "area": f"{format_geometry_decimal(area)} {unit}²",
         "perimeter": f"{perimeter:g} {unit}",
         "angle_a": format_degree_label(angle_a),
         "angle_b": format_degree_label(angle_b),
@@ -343,8 +350,8 @@ def sector_geometry(data: SectorInput) -> SectorResult:
     labels = {
         "radius": f"{r:g} {unit}",
         "angle": f"{theta_deg:g}°",
-        "arc_length": f"{arc_length:.2f} {unit}",
-        "area": f"{area:.2f} {unit}²",
+        "arc_length": f"{format_geometry_decimal(arc_length)} {unit}",
+        "area": f"{format_geometry_decimal(area)} {unit}²",
     }
     return SectorResult(
         radius=r,

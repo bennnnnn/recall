@@ -36,6 +36,7 @@ from app.services.math.solve.extract_eq import (
 from app.services.math.solve.geometry import (
     circle_geometry,
     format_degree_label,
+    format_geometry_decimal,
     parallelogram_geometry,
     rectangle_geometry,
     right_triangle_geometry,
@@ -97,6 +98,7 @@ __all__ = [
     "factor_expression",
     "factored_key_step",
     "format_degree_label",
+    "format_geometry_decimal",
     "format_verified_latex",
     "guess_variables",
     "integrate_definite",
