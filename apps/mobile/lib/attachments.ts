@@ -272,11 +272,11 @@ export async function pickFromCamera(): Promise<PendingAttachment | null> {
   });
 }
 
-export async function pickDocument(): Promise<PendingAttachment | null> {
+async function pickDocumentWithTypes(types: string[]): Promise<PendingAttachment | null> {
   return withNativePicker(async () => {
     await sleep(150);
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["image/*", ...DOCUMENT_MIME_TYPES],
+      type: types,
       copyToCacheDirectory: true,
       multiple: false,
     });
@@ -291,6 +291,15 @@ export async function pickDocument(): Promise<PendingAttachment | null> {
       asset.name ?? `file-${Date.now()}`,
     );
   });
+}
+
+/** Native Files picker for scanner images; it never requests photo-library access. */
+export async function pickImageDocument(): Promise<PendingAttachment | null> {
+  return pickDocumentWithTypes(["image/*"]);
+}
+
+export async function pickDocument(): Promise<PendingAttachment | null> {
+  return pickDocumentWithTypes(["image/*", ...DOCUMENT_MIME_TYPES]);
 }
 
 export async function uploadChatAttachment(

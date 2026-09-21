@@ -18,9 +18,10 @@ from app.core.config import Settings
 from app.gateways import pubchem_gateway
 from app.services import chemistry as chemistry_service
 from app.services.chemistry.stoichiometry import PERIODIC_TABLE
-from app.services.subject_scan import scanner_camera_subject
 
 logger = logging.getLogger(__name__)
+
+_CHEMISTRY_CUE = re.compile(r"\bchemistry\b", re.IGNORECASE)
 
 # Detect chemical equations: "H2 + O2 -> H2O" or "H2 + O2 → H2O"
 # Match a sequence of chemical formulas separated by +, with an arrow.
@@ -162,7 +163,7 @@ def is_chemistry_question(content: str) -> bool:
     """True when the user message is chemistry compute or compound lookup."""
     if not content.strip():
         return False
-    if scanner_camera_subject(content) == "chemistry":
+    if _CHEMISTRY_CUE.search(content):
         return True
     eq_match = _EQUATION_RE.search(content)
     if eq_match is not None and _BALANCE_CUE.search(content):

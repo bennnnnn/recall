@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { File } from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,14 +20,14 @@ import { useTranslation } from "react-i18next";
 
 import { MathScannerChrome } from "@/components/mathScanner/MathScannerChrome";
 import { MathScannerCropOverlay } from "@/components/mathScanner/MathScannerCropOverlay";
+import { ScannerSubjectGuide } from "@/components/mathScanner/ScannerSubjectGuide";
 import { useMathScannerCrop } from "@/hooks/useMathScannerCrop";
 import type { PendingAttachment } from "@/lib/attachments";
 import {
   HeicUnsupportedError,
   NativePickerBusyError,
   NativePickerTimeoutError,
-  PhotoLibraryPermissionError,
-  pickFromPhotoLibrary,
+  pickImageDocument,
 } from "@/lib/attachments";
 import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
 import { impactMedium, selection } from "@/lib/haptics";
@@ -38,12 +39,12 @@ import {
   scanChromeInset,
   type ScanRegion,
 } from "@/lib/math/scannerRegion";
-import { useLastPhotoThumb } from "@/lib/lastPhotoThumbnail";
+import { isLowLightExif } from "@/lib/scanner/lowLight";
 import {
   playScannerSwitchCue,
   stopScannerSwitchCue,
 } from "@/lib/scanner/switchCue";
-import type { ScannerSubject } from "@/lib/scanner/subjects";
+import { SCANNER_SUBJECTS, type ScannerSubject } from "@/lib/scanner/subjects";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -59,6 +60,8 @@ type Props = {
 type ScanShot = PendingAttachment & { width: number; height: number };
 
 const ANDROID_DISMISS_MS = 400;
+const FIRST_LIGHT_CHECK_MS = 1_300;
+const LIGHT_RECHECK_MS = 10_000;
 
 /**
  * Capture the unobstructed camera frame, then let the user crop the still.
@@ -78,10 +81,12 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ScanShot | null>(null);
   const [torchOn, setTorchOn] = useState(false);
+  const [lowLight, setLowLight] = useState(false);
   const [subject, setSubject] = useState<ScannerSubject>("math");
   const [zoom, setZoom] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
-  const lastPhotoUri = useLastPhotoThumb(visible);
+  const lightSampleRef = useRef<Promise<void> | null>(null);
+  const capturePendingRef = useRef(false);
   const handleCameraReady = useCallback(() => setCameraReady(true), []);
   const inset = useMemo(
     () => scanChromeInset(windowWidth, windowHeight, insets),
@@ -113,6 +118,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       setPreview(null);
       setError(null);
       setTorchOn(false);
+      setLowLight(false);
       crop.resetRegion();
       crop.resetZoom();
       return;
@@ -126,6 +132,54 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   }, [visible]);
 
   useEffect(() => stopScannerSwitchCue, []);
+
+  useEffect(() => {
+    if (!visible || preview || !cameraReady || busy || torchOn) {
+      if (torchOn) setLowLight(false);
+      return;
+    }
+
+    let cancelled = false;
+    const sampleLight = () => {
+      if (!cameraRef.current || lightSampleRef.current || capturePendingRef.current) return;
+      let sampleUri: string | undefined;
+      const sample = (async () => {
+        try {
+          const photo = await cameraRef.current?.takePictureAsync({
+            quality: 0.05,
+            exif: true,
+            shutterSound: false,
+          });
+          sampleUri = photo?.uri;
+          const reading = isLowLightExif(photo?.exif);
+          if (!cancelled && reading !== null) setLowLight(reading);
+        } catch {
+          // Some camera devices omit exposure metadata; leave the control neutral.
+        } finally {
+          if (sampleUri) {
+            try {
+              const sampleFile = new File(sampleUri);
+              if (sampleFile.exists) sampleFile.delete();
+            } catch {
+              // Temporary camera samples are also reclaimed by the OS cache.
+            }
+          }
+        }
+      })();
+      lightSampleRef.current = sample;
+      void sample.finally(() => {
+        if (lightSampleRef.current === sample) lightSampleRef.current = null;
+      });
+    };
+
+    const firstCheck = setTimeout(sampleLight, FIRST_LIGHT_CHECK_MS);
+    const repeatedCheck = setInterval(sampleLight, LIGHT_RECHECK_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(firstCheck);
+      clearInterval(repeatedCheck);
+    };
+  }, [busy, cameraReady, preview, torchOn, visible]);
 
   const showShot = useCallback(
     async (pending: PendingAttachment, width = 0, height = 0) => {
@@ -141,11 +195,14 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   );
 
   const capture = useCallback(async () => {
-    if (!cameraRef.current || busy || preview || !cameraReady) return;
-    impactMedium();
-    setBusy(true);
-    setError(null);
+    if (!cameraRef.current || busy || preview || !cameraReady || capturePendingRef.current) return;
+    capturePendingRef.current = true;
     try {
+      if (lightSampleRef.current) await lightSampleRef.current;
+      if (!cameraRef.current || busy || preview || !cameraReady) return;
+      impactMedium();
+      setBusy(true);
+      setError(null);
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.9,
         shutterSound: true,
@@ -169,6 +226,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       setError(t("chat.math_scan_failed"));
     } finally {
       setBusy(false);
+      capturePendingRef.current = false;
     }
   }, [busy, cameraReady, preview, showShot, subject, t]);
 
@@ -188,8 +246,8 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
 
   const changeSubject = useCallback((next: ScannerSubject) => {
     if (next === subject) return;
-    const currentIndex = next === "math" ? 0 : next === "physics" ? 1 : 2;
-    const previousIndex = subject === "math" ? 0 : subject === "physics" ? 1 : 2;
+    const currentIndex = SCANNER_SUBJECTS.indexOf(next);
+    const previousIndex = SCANNER_SUBJECTS.indexOf(subject);
     selection();
     void playScannerSwitchCue(currentIndex > previousIndex ? 1 : -1);
     setSubject(next);
@@ -200,15 +258,13 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     setBusy(true);
     setError(null);
     try {
+      if (lightSampleRef.current) await lightSampleRef.current;
       await scheduleIdlePromise();
-      const picked = await pickFromPhotoLibrary();
+      const picked = await pickImageDocument();
       if (picked) await showShot(picked);
     } catch (caught) {
       if (caught instanceof HeicUnsupportedError) {
         setError(t("chat.heic_unsupported_body"));
-      } else if (caught instanceof PhotoLibraryPermissionError) {
-        if (caught.needsSettings) void Linking.openSettings();
-        setError(t("chat.photos_permission"));
       } else if (caught instanceof NativePickerBusyError || caught instanceof NativePickerTimeoutError) {
         setError(t("chat.picker_busy"));
       } else {
@@ -291,6 +347,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
                 onMountError={() => setError(t("chat.math_scan_camera_unavailable"))}
               />
             </View> : null}
+            {granted && !preview ? <ScannerSubjectGuide subject={subject} /> : null}
             {preview ? (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.mediaScrim }]}>
                 <Image
@@ -336,9 +393,9 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           preview={Boolean(preview)}
           busy={busy}
           torchOn={torchOn}
+          lowLight={lowLight}
           subject={subject}
           error={error}
-          lastPhotoUri={lastPhotoUri}
           onClose={onClose}
           onSubjectChange={changeSubject}
           onToggleTorch={() => {

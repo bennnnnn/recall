@@ -397,7 +397,7 @@ async def test_prepare_chat_turn_ocr_skipped_for_unrelated_caption():
     "caption",
     [
         "Solve the physics problem in this image step by step.",
-        "Solve the chemistry problem in this image step by step.",
+        "Solve the biology problem in this image step by step.",
     ],
 )
 async def test_subject_scanners_do_not_run_math_specific_ocr(caption: str):

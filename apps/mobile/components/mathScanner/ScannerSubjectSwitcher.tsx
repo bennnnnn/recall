@@ -25,7 +25,7 @@ type Props = {
 const LABEL_KEYS: Record<ScannerSubject, string> = {
   math: "chat.math_scan_subject_math",
   physics: "chat.math_scan_subject_physics",
-  chemistry: "chat.math_scan_subject_chemistry",
+  biology: "chat.math_scan_subject_biology",
 };
 
 function subjectAt(index: number): ScannerSubject {

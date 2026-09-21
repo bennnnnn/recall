@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from app.services.subject_scan import (
-    CHEMISTRY_CAMERA_PROMPT,
+    BIOLOGY_CAMERA_PROMPT,
     MATH_CAMERA_PROMPT,
     PHYSICS_CAMERA_PROMPT,
     is_scanner_camera_prompt,
@@ -26,12 +26,12 @@ def test_subject_scan_prompts_match_mobile_protocol() -> None:
     subject_source = (mobile / "scanner" / "subjects.ts").read_text(encoding="utf-8")
     assert MATH_CAMERA_PROMPT == _ts_exported_string(math_source, "MATH_CAMERA_PROMPT")
     assert PHYSICS_CAMERA_PROMPT == _ts_exported_string(subject_source, "PHYSICS_CAMERA_PROMPT")
-    assert CHEMISTRY_CAMERA_PROMPT == _ts_exported_string(subject_source, "CHEMISTRY_CAMERA_PROMPT")
+    assert BIOLOGY_CAMERA_PROMPT == _ts_exported_string(subject_source, "BIOLOGY_CAMERA_PROMPT")
 
 
 def test_scanner_camera_subject_matches_only_protocol_prefixes() -> None:
     assert scanner_camera_subject(MATH_CAMERA_PROMPT) == "math"
     assert scanner_camera_subject(PHYSICS_CAMERA_PROMPT.upper()) == "physics"
-    assert scanner_camera_subject(CHEMISTRY_CAMERA_PROMPT) == "chemistry"
+    assert scanner_camera_subject(BIOLOGY_CAMERA_PROMPT) == "biology"
     assert is_scanner_camera_prompt(f"{PHYSICS_CAMERA_PROMPT}\n\nextra")
     assert scanner_camera_subject("What's in this image?") is None

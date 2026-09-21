@@ -253,7 +253,7 @@ async def _process_attachment_inputs(
     caption = content.strip()
     scan_subject = scanner_camera_subject(content)
     looks_like_math_caption = (
-        scan_subject not in {"physics", "chemistry"}
+        scan_subject not in {"physics", "biology"}
         and bool(caption)
         and math_match.has_math_keyword(caption.lower())
     )

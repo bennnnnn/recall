@@ -11,7 +11,7 @@ import {
   composerTextAfterMathScanConfirm,
 } from "@/lib/math/cameraPrompt";
 import {
-  CHEMISTRY_CAMERA_PROMPT,
+  BIOLOGY_CAMERA_PROMPT,
   PHYSICS_CAMERA_PROMPT,
 } from "@/lib/scanner/subjects";
 
@@ -55,7 +55,7 @@ describe("extractImageGenPrompt", () => {
   it("does not treat scanner protocol captions as image generation", () => {
     expect(extractImageGenPrompt(MATH_CAMERA_PROMPT)).toBeNull();
     expect(extractImageGenPrompt(PHYSICS_CAMERA_PROMPT)).toBeNull();
-    expect(extractImageGenPrompt(CHEMISTRY_CAMERA_PROMPT)).toBeNull();
+    expect(extractImageGenPrompt(BIOLOGY_CAMERA_PROMPT)).toBeNull();
     expect(extractImageGenPrompt(composerTextAfterMathScanConfirm("x=2"))).toBeNull();
   });
 

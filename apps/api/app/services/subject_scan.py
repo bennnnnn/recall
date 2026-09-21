@@ -4,16 +4,16 @@ from __future__ import annotations
 
 from typing import Literal
 
-ScannerSubject = Literal["math", "physics", "chemistry"]
+ScannerSubject = Literal["math", "physics", "biology"]
 
 MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step."
 PHYSICS_CAMERA_PROMPT = "Solve the physics problem in this image step by step."
-CHEMISTRY_CAMERA_PROMPT = "Solve the chemistry problem in this image step by step."
+BIOLOGY_CAMERA_PROMPT = "Solve the biology problem in this image step by step."
 
 SCANNER_CAMERA_PROMPTS: dict[ScannerSubject, str] = {
     "math": MATH_CAMERA_PROMPT,
     "physics": PHYSICS_CAMERA_PROMPT,
-    "chemistry": CHEMISTRY_CAMERA_PROMPT,
+    "biology": BIOLOGY_CAMERA_PROMPT,
 }
 
 

@@ -12,7 +12,7 @@ from app.services.images.gen_intent import (
     is_image_only_assistant_content,
 )
 from app.services.subject_scan import (
-    CHEMISTRY_CAMERA_PROMPT,
+    BIOLOGY_CAMERA_PROMPT,
     MATH_CAMERA_PROMPT,
     PHYSICS_CAMERA_PROMPT,
 )
@@ -67,7 +67,7 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "pic",
         MATH_CAMERA_PROMPT,
         PHYSICS_CAMERA_PROMPT,
-        CHEMISTRY_CAMERA_PROMPT,
+        BIOLOGY_CAMERA_PROMPT,
         f"{MATH_CAMERA_PROMPT}\n\nI read this as: x=2",
     ],
 )

@@ -9,7 +9,7 @@ import { File } from "expo-file-system";
 import { api } from "@/lib/api";
 import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
 import { requestRaw } from "@/lib/api/client";
-import { pickDocument, pickFromPhotoLibrary, uploadChatAttachment, NativePickerBusyError } from "@/lib/attachments";
+import { pickDocument, pickFromPhotoLibrary, pickImageDocument, uploadChatAttachment, NativePickerBusyError } from "@/lib/attachments";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -154,6 +154,23 @@ it("throws instead of silently no-oping when a native picker is already open", a
 it("does not classify unknown document types as JPEG photos", async () => {
   jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({ canceled: false, assets: [{ uri: "file:///archive.bin", name: "archive.bin", lastModified: 0 }] });
   await expect(pickDocument()).resolves.toMatchObject({ contentType: "application/octet-stream", kind: "file" });
+});
+
+it("opens scanner images through Files without requesting photo permission", async () => {
+  jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+    canceled: false,
+    assets: [{ uri: "file:///problem.png", name: "problem.png", mimeType: "image/png", lastModified: 0 }],
+  });
+  await expect(pickImageDocument()).resolves.toMatchObject({
+    contentType: "image/png",
+    kind: "image",
+  });
+  expect(DocumentPicker.getDocumentAsync).toHaveBeenCalledWith({
+    type: ["image/*"],
+    copyToCacheDirectory: true,
+    multiple: false,
+  });
+  expect(ImagePicker.requestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
 });
 
 

@@ -1,15 +1,20 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { Pressable as GHPressable } from "react-native-gesture-handler";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -34,9 +39,9 @@ type Props = {
   preview: boolean;
   busy: boolean;
   torchOn: boolean;
+  lowLight: boolean;
   subject: ScannerSubject;
   error: string | null;
-  lastPhotoUri: string | null;
   onClose: () => void;
   onSubjectChange: (subject: ScannerSubject) => void;
   onToggleTorch: () => void;
@@ -52,9 +57,9 @@ export function MathScannerChrome({
   preview,
   busy,
   torchOn,
+  lowLight,
   subject,
   error,
-  lastPhotoUri,
   onClose,
   onSubjectChange,
   onToggleTorch,
@@ -68,10 +73,28 @@ export function MathScannerChrome({
   const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const shutterScale = useSharedValue(1);
+  const torchPulse = useSharedValue(0);
   const pressMs = motionMs(Motion.duration.press, reduceMotion);
 
   const shutterStyle = useAnimatedStyle(() => ({
     transform: [{ scale: shutterScale.value }],
+  }));
+
+  useEffect(() => {
+    cancelAnimation(torchPulse);
+    torchPulse.value = 0;
+    if (!lowLight || torchOn || reduceMotion) return;
+    torchPulse.value = withRepeat(
+      withTiming(1, { duration: 720 }),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(torchPulse);
+  }, [lowLight, reduceMotion, torchOn, torchPulse]);
+
+  const torchPulseStyle = useAnimatedStyle(() => ({
+    opacity: 0.3 + torchPulse.value * 0.55,
+    transform: [{ scale: 1 + torchPulse.value * 0.22 }],
   }));
 
   const bottomPad = Math.max(insets.bottom, Space.md) + Space.sm;
@@ -145,11 +168,7 @@ export function MathScannerChrome({
               accessibilityState={{ disabled: busy }}
               accessibilityLabel={t("chat.math_scan_photos_a11y")}
             >
-              {lastPhotoUri ? (
-                <Image source={{ uri: lastPhotoUri }} style={s.photosThumb} />
-              ) : (
-                <Icon name="images-outline" size={IconSize.lg} color={theme.onMedia} />
-              )}
+              <Icon name="folder-open-outline" size={IconSize.lg} color={theme.onMedia} />
             </GHPressable>
             <GHPressable
               onPressIn={() => {
@@ -169,24 +188,33 @@ export function MathScannerChrome({
                 {busy ? <ActivityIndicator color={theme.text} /> : <View style={s.shutterInner} />}
               </Animated.View>
             </GHPressable>
-            <GHPressable
-              style={[s.sideControl, torchOn ? s.torchOn : null]}
-              onPress={onToggleTorch}
-              disabled={busy}
-              testID="math-scanner-torch"
-              accessibilityRole="button"
-              accessibilityState={{ selected: torchOn, disabled: busy }}
-              accessibilityLabel={
-                torchOn ? t("chat.math_scan_torch_on_a11y") : t("chat.math_scan_torch_off_a11y")
-              }
-            >
-              <Icon
-                name={torchOn ? "flashlight" : "flashlight-outline"}
-                size={IconSize.lg}
-                color={torchOn ? theme.primary : theme.onMedia}
-                style={s.torchIcon}
-              />
-            </GHPressable>
+            <View style={s.sideSlot}>
+              {lowLight && !torchOn ? (
+                <Animated.View
+                  pointerEvents="none"
+                  testID="math-scanner-low-light"
+                  style={[s.torchPulse, torchPulseStyle]}
+                />
+              ) : null}
+              <GHPressable
+                style={[s.sideControl, torchOn ? s.torchOn : null]}
+                onPress={onToggleTorch}
+                disabled={busy}
+                testID="math-scanner-torch"
+                accessibilityRole="button"
+                accessibilityState={{ selected: torchOn, disabled: busy }}
+                accessibilityLabel={
+                  torchOn ? t("chat.math_scan_torch_on_a11y") : t("chat.math_scan_torch_off_a11y")
+                }
+              >
+                <Icon
+                  name={torchOn ? "flashlight" : "flashlight-outline"}
+                  size={IconSize.lg}
+                  color={torchOn ? theme.primary : theme.onMedia}
+                  style={s.torchIcon}
+                />
+              </GHPressable>
+            </View>
           </View>
         </View>
       ) : null}
@@ -266,7 +294,6 @@ function makeStyles(theme: Theme) {
     sideControl: {
       width: 52,
       height: 52,
-      marginHorizontal: 10,
       borderRadius: Radius.full,
       alignItems: "center",
       justifyContent: "center",
@@ -274,11 +301,20 @@ function makeStyles(theme: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: withAlpha(theme.onMedia, 0.24),
     },
-    photosThumb: {
-      width: Space.minTouch,
-      height: Space.minTouch,
-      borderRadius: Radius.sm,
-      backgroundColor: withAlpha(theme.onMedia, 0.18),
+    sideSlot: {
+      width: 72,
+      height: 52,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    torchPulse: {
+      position: "absolute",
+      width: 56,
+      height: 56,
+      borderRadius: Radius.full,
+      borderWidth: 2,
+      borderColor: theme.primary,
+      backgroundColor: withAlpha(theme.primary, 0.18),
     },
     shutter: {
       width: SCANNER_SHUTTER_PX,
