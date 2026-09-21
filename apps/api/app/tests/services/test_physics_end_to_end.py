@@ -126,7 +126,7 @@ def _answer_number(answer: str) -> float:
         (
             "What is the energy of a 2 kg object moving at 3 m/s?",
             "energy",
-            ("9.00 J", 0.5 * 2 * 9),
+            ("9 J", 0.5 * 2 * 9),
         ),
         (
             "What is the potential energy of a 3 kg object at a height of 5 m?",
@@ -136,22 +136,22 @@ def _answer_number(answer: str) -> float:
         (
             "How much work is done by a 10 N force over a distance of 5 m?",
             "energy",
-            ("50.00 J", 50.0),
+            ("50 J", 50.0),
         ),
         (
             "What is the power of a 200 N force at 3 m/s?",
             "energy",
-            ("600.00 W", 600.0),
+            ("600 W", 600.0),
         ),
         (
             "A force of 200 N moves an object at 3 m/s. What is the power?",
             "energy",
-            ("600.00 W", 600.0),
+            ("600 W", 600.0),
         ),
         (
             "A net force of 10 N acts on a 2 kg mass. What is the acceleration?",
             "force",
-            ("5.00 m/s^2", 5.0),
+            ("5 m/s^2", 5.0),
         ),
     ],
 )
@@ -201,4 +201,4 @@ def test_force_direct_reply_uses_the_structured_verified_layout() -> None:
     assert "**Formula**" in reply
     assert "**Substitution**" in reply
     assert "**Answer**" in reply
-    assert "5.00 m/s^2" in reply
+    assert "5 m/s^2" in reply

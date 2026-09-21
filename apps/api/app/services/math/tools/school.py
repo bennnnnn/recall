@@ -770,8 +770,9 @@ def _extract_set_intent(cleaned: str, lower: str) -> MathIntent | None:
 
 
 def extract_average_speed_intent(cleaned: str) -> MathIntent | None:
+    """Extract the complete speed law, including distance/time rearrangements."""
     lower = cleaned.lower()
-    if "average speed" not in lower and "average velocity" not in lower:
+    if not any(word in lower for word in ("speed", "velocity", "distance", "how far", "how long")):
         return None
     from app.services.math.match.units import (
         LENGTH_UNITS,
@@ -780,38 +781,132 @@ def extract_average_speed_intent(cleaned: str) -> MathIntent | None:
         unit_after_quantity,
     )
 
+    def speed_unit_after_quantity(number_end: int) -> tuple[str, str, int] | None:
+        match = re.match(
+            r"\s*([A-Za-z]+)\s*(?:/|\bper\b)\s*([A-Za-z]+)\b",
+            cleaned[number_end:],
+            re.IGNORECASE,
+        )
+        if match is None:
+            return None
+        length_name, time_name = (group.lower() for group in match.groups())
+        if length_name not in LENGTH_UNITS or time_name not in TIME_UNITS:
+            return None
+        return LENGTH_UNITS[length_name], TIME_UNITS[time_name], number_end + match.end()
+
     nums = list(QUANTITY_NUMBER.finditer(cleaned))
     if len(nums) != 2:
         return None
-    measures: list[tuple[float, str, int]] = []
+    measures: list[tuple[str, float, str, str | None, int]] = []
     for number in nums:
+        speed_unit = speed_unit_after_quantity(number.end())
+        if speed_unit is not None:
+            length_unit, time_unit, end = speed_unit
+            measures.append(("speed", float(number.group(0)), length_unit, time_unit, end))
+            continue
         unit_hit = unit_after_quantity(cleaned, number.end())
         if unit_hit is None:
             return None
-        measures.append((float(number.group(0)), unit_hit[0].lower(), unit_hit[1]))
-    # A second request or requested output unit needs the model; do not certify
-    # the first two numbers as an answer to an unparsed compound instruction.
-    if cleaned[measures[-1][2] :].strip(" .?!").lower() not in {"", "please"}:
-        return None
-    distance: tuple[float, str] | None = None
-    duration: tuple[float, str] | None = None
-    for value, unit, _end in measures:
+        unit = unit_hit[0].lower()
         if unit in LENGTH_UNITS:
-            distance = value, LENGTH_UNITS[unit]
+            measures.append(
+                ("distance", float(number.group(0)), LENGTH_UNITS[unit], None, unit_hit[1])
+            )
         elif unit in TIME_UNITS:
-            duration = value, TIME_UNITS[unit]
+            measures.append(("time", float(number.group(0)), TIME_UNITS[unit], None, unit_hit[1]))
         else:
             return None
-    if distance is None or duration is None or duration[0] <= 0:
+    # A second request or requested output unit needs the model; do not certify
+    # the first two numbers as an answer to an unparsed compound instruction.
+    # Natural word problems commonly put the question after both quantities,
+    # so admit that one closed question while continuing to reject every other
+    # tail (conversions, another leg, explanations, and unrelated requests).
+    tail = cleaned[measures[-1][4] :].strip()
+    plain_tail = tail.strip(" .?!").lower()
+    speed_question = re.fullmatch(
+        r"[.?!]*\s*(?:what\s+is|what's|find|calculate|compute|determine)\s+"
+        r"(?:the|its)\s+(?:average\s+)?(?:speed|velocity)(?:\s+please)?[.?!]*",
+        tail,
+        re.IGNORECASE,
+    )
+    distance_question = re.fullmatch(
+        r"[.?!]*\s*(?:(?:what\s+(?:is\s+)?(?:the|its)?\s*distance)|"
+        r"(?:how\s+far(?:\s+does\s+it\s+travel)?)|"
+        r"(?:(?:find|calculate|compute|determine)\s+(?:the|its)?\s*distance))"
+        r"(?:\s+(?:does\s+it\s+travel|travelled|traveled))?(?:\s+please)?[.?!]*",
+        tail,
+        re.IGNORECASE,
+    )
+    time_question = re.fullmatch(
+        r"[.?!]*\s*(?:(?:how\s+long(?:\s+does\s+it\s+take)?)|"
+        r"(?:(?:what\s+is|find|calculate|compute|determine)\s+(?:the|its)?\s*time))"
+        r"(?:\s+does\s+it\s+take)?(?:\s+please)?[.?!]*",
+        tail,
+        re.IGNORECASE,
+    )
+    prefix = cleaned[: nums[0].start()].strip(" .?!").lower()
+    requested: str | None = None
+    if speed_question is not None or (
+        plain_tail in {"", "please"}
+        and re.search(r"(?:average\s+)?(?:speed|velocity)\s*(?:for|of)?\s*$", prefix)
+    ):
+        requested = "speed"
+    elif distance_question is not None or (
+        plain_tail in {"", "please"}
+        and re.search(r"(?:find|calculate|compute|determine)\s+(?:the\s+)?distance\b", prefix)
+    ):
+        requested = "distance"
+    elif time_question is not None or (
+        plain_tail in {"", "please"}
+        and re.search(r"(?:find|calculate|compute|determine)\s+(?:the\s+)?time\b", prefix)
+    ):
+        requested = "time"
+    if requested is None:
         return None
-    if "average speed" in lower and distance[0] < 0:
+
+    distance = next((measure for measure in measures if measure[0] == "distance"), None)
+    duration = next((measure for measure in measures if measure[0] == "time"), None)
+    speed = next((measure for measure in measures if measure[0] == "speed"), None)
+    if requested == "speed":
+        if distance is None or duration is None or speed is not None:
+            return None
+        if distance[1] < 0 or duration[1] <= 0:
+            return None
+        return MathIntent(
+            kind="arithmetic",
+            school_op="average_speed" if "average" in lower else "speed_formula_speed",
+            expr=f"{distance[1]}/{duration[1]}",
+            unit_from=distance[2],
+            unit_to=duration[2],
+            percent_base=distance[1],
+            point_x=duration[1],
+            operation="solve",
+        )
+    if speed is None or speed[1] < 0:
+        return None
+    if requested == "distance":
+        if duration is None or distance is not None or duration[1] < 0 or speed[3] != duration[2]:
+            return None
+        return MathIntent(
+            kind="arithmetic",
+            school_op="speed_formula_distance",
+            expr=f"{speed[1]}*{duration[1]}",
+            unit_from=speed[2],
+            unit_to=speed[3],
+            percent_rate=speed[1],
+            point_x=duration[1],
+            operation="solve",
+        )
+    if distance is None or duration is not None or speed[1] == 0 or speed[2] != distance[2]:
         return None
     return MathIntent(
         kind="arithmetic",
-        school_op="average_speed",
-        expr=f"{distance[0]}/{duration[0]}",
-        unit_from=distance[1],
-        unit_to=duration[1],
+        school_op="speed_formula_time",
+        expr=f"{distance[1]}/{speed[1]}",
+        unit_from=distance[2],
+        unit_to=speed[3],
+        percent_base=distance[1],
+        percent_rate=speed[1],
         operation="solve",
     )
 
@@ -1001,6 +1096,10 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
 _ELASTIC_MODULUS_RE = re.compile(
     r"\b(?:young(?:'s)?|bulk|shear|elastic|rigidity)\s+modulus\b", re.IGNORECASE
 )
+_PHYSICS_RESULTANT_MAGNITUDE_RE = re.compile(
+    r"(?=.*\bresultant\b)(?=.*\bmagnitude\b)(?=.*\d\s*N\b)",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _extract_complex_intent(cleaned: str) -> MathIntent | None:
@@ -1008,6 +1107,11 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
     # Before anything else: an elastic modulus is not the modulus of a complex
     # number, and this extractor runs before the physics ones.
     if _ELASTIC_MODULUS_RE.search(cleaned):
+        return None
+    # “Resultant magnitude” is ordinary vector-force language, not the
+    # modulus of a complex number. Physics runs after this extractor, so this
+    # narrow refusal is what lets a unit-bearing force question reach it.
+    if _PHYSICS_RESULTANT_MAGNITUDE_RE.search(cleaned):
         return None
     from app.services.math.tools.extractors.formulas import extract_complex_op
 
@@ -1342,8 +1446,21 @@ def _verified_block_arithmetic(
     if not intent.expr:
         return None
     answer = math_school.evaluate_arithmetic(intent.expr)
-    if intent.school_op == "average_speed" and intent.unit_from and intent.unit_to:
-        answer = format_quantity(answer, f"{intent.unit_from}/{intent.unit_to}")
+    if (
+        intent.school_op
+        in {"average_speed", "speed_formula_speed", "speed_formula_distance", "speed_formula_time"}
+        and intent.unit_from
+        and intent.unit_to
+    ):
+        if re.fullmatch(r"[+-]?\d+\.\d+", answer):
+            answer = answer.rstrip("0").rstrip(".")
+        if intent.school_op in {"average_speed", "speed_formula_speed"}:
+            result_unit = f"{intent.unit_from}/{intent.unit_to}"
+        elif intent.school_op == "speed_formula_distance":
+            result_unit = intent.unit_from
+        else:
+            result_unit = intent.unit_to
+        answer = format_quantity(answer, result_unit)
     lines.append(f"Result: {answer}")
     return _finish_with_answer(lines, answer)
 

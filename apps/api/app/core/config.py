@@ -276,8 +276,9 @@ class Settings(BaseSettings):
     # brevity is driven by the STYLE_HINTS prompt guidance (short/balanced/
     # detailed). Set high enough that real deliverables (HTML pages, graph
     # JSON, long code) complete instead of truncating mid-fence. The daily
-    # token quota (above) is the real per-user cost guardrail. 8192 is safe
-    # across the catalog (DeepSeek/GLM/GPT/Gemini/Llama/Qwen all support >=8k).
+    # token quota (above) is the real per-user cost guardrail. Keep deployed
+    # environment overrides aligned with this 8192 default; lower legacy caps
+    # can cut advanced derivations off mid-step.
     max_output_tokens: int = 8192
     recent_message_window: int = 20  # hard cap on verbatim messages
 

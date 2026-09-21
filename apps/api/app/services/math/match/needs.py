@@ -239,9 +239,26 @@ _DIGIT_FREE_PHYSICS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Advanced physics still belongs on the math/physics prompt path even when it
+# cannot be reduced to one safe scalar template. This prevents a Hamiltonian,
+# Schrödinger, Maxwell, or Lagrangian problem from being mistaken for an app
+# action (the calendar misroute), while `turn_needs_tool_loop` still refuses a
+# symbolic tool round when no exact extractor exists.
+_ADVANCED_PHYSICS_RE = re.compile(
+    r"\b(?:schr[oö]dinger|hamilton(?:ian|'s equations?)?|lagrang(?:ian|e)|"
+    r"maxwell(?:'s)? equations?|gauss(?:'s)? law|kirchhoff(?:'s)? laws?|"
+    r"quantum harmonic oscillator|wave ?function|probability density|"
+    r"diffraction grating|poiseuille|capillary rise|inductor|rl circuit|"
+    r"ac circuit|impedance|reactance|transformer|nuclear reaction|binding energy|"
+    r"mass defect|rydberg|blackbody distribution|planck distribution|gear ratio)\b",
+    re.IGNORECASE,
+)
+
 
 def supported_physics_cue(cleaned: str) -> bool:
-    """A numeric problem supported by the narrow verified physics solver."""
+    """A verified numeric template or an unmistakable advanced-physics ask."""
+    if _ADVANCED_PHYSICS_RE.search(cleaned) is not None:
+        return True
     if not any(ch.isdigit() for ch in cleaned):
         return _DIGIT_FREE_PHYSICS_RE.search(cleaned) is not None
     from app.services.physics.extract import has_supported_physics_cue
@@ -430,11 +447,13 @@ def school_homework_cue(cleaned: str) -> bool:
         return True
     if "area" in lower and "triangle" in lower and "angle" in lower and "sides" in lower:
         return True
-    if "average speed" in lower or "average velocity" in lower:
-        from app.services.math.tools.school import extract_average_speed_intent
+    # The complete speed law includes its distance and time rearrangements;
+    # let the strict extractor decide rather than keying only on the words
+    # "average speed" and accidentally sending the other two forms to the LLM.
+    from app.services.math.tools.school import extract_average_speed_intent
 
-        if extract_average_speed_intent(cleaned) is not None:
-            return True
+    if extract_average_speed_intent(cleaned) is not None:
+        return True
     if "convert" in lower and " to " in lower and any(ch.isdigit() for ch in cleaned):
         return True
     if any(w in lower for w in ("midpoint", "distance between", "slope of")) and "(" in cleaned:

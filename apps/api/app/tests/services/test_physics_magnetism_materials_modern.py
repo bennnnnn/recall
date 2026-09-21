@@ -66,25 +66,32 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the force on a 2 m wire carrying 3 A in a 0.5 T magnetic field",
         "magnetism",
         "magnetic_force_wire",
-        "3.00 N",
+        "3 N",
     ),
     (
         "a 4 m conductor carries 2 A in a 0.25 T magnetic field, what is the force",
         "magnetism",
         "magnetic_force_wire",
-        "2.00 N",
+        "2 N",
     ),
     (
         "what is the force on a charge of 2 C moving at 10 m/s in a 0.4 T magnetic field",
         "magnetism",
         "magnetic_force_charge",
-        "8.00 N (field perpendicular to the motion)",
+        "8 N (field perpendicular to the motion)",
     ),
     (
         "what is the magnetic flux through 0.2 m^2 in a 0.5 T field",
         "magnetism",
         "magnetic_flux",
         "0.1 Wb",
+    ),
+    (
+        "Two point charges of 2 microcoulombs and 3 microcoulombs are separated by 0.5 m. "
+        "Find the electric force.",
+        "magnetism",
+        "electric_force",
+        "0.2157 N",
     ),
     # --- materials --------------------------------------------------------
     (
@@ -170,9 +177,7 @@ def test_stress_and_pressure_are_the_same_arithmetic_and_different_kinds() -> No
     assert _verified_answer("what is the stress on a wire from a 200 N force over 0.01 m^2") == (
         "2e+04 Pa"
     )
-    assert _verified_answer("what is the pressure of a 200 N force over 0.01 m^2") == (
-        "20000.00 Pa"
-    )
+    assert _verified_answer("what is the pressure of a 200 N force over 0.01 m^2") == ("20000 Pa")
 
 
 def test_an_elastic_modulus_is_not_a_complex_number() -> None:
@@ -208,6 +213,44 @@ def test_each_half_life_halves_what_is_left() -> None:
     three = _verified_answer("how much is left after 3 half lives of a 80 g sample")
     assert two is not None and three is not None
     assert float(two.split()[0]) == pytest.approx(2 * float(three.split()[0]), rel=0.01)
+
+
+@pytest.mark.parametrize(
+    "text,answer",
+    [
+        (
+            "Find the Coulomb force between charges -2 uC and 3 uC separated by 50 cm.",
+            "0.2157 N",
+        ),
+        (
+            "Two charges of 1 microcoulomb each are 1 m apart. Find the electric force.",
+            "0.008988 N",
+        ),
+    ],
+)
+def test_electric_force_unit_variants_and_magnitude(text: str, answer: str) -> None:
+    intent = extract_math_intent(text)
+    assert isinstance(intent, PhysicsIntent)
+    assert intent.physics_op == "electric_force"
+    assert _verified_answer(text) == answer
+
+
+def test_electric_force_obeys_inverse_square_law() -> None:
+    near = _verified_answer(
+        "Two point charges of 2 uC and 3 uC are separated by 0.5 m. Find the electric force."
+    )
+    far = _verified_answer(
+        "Two point charges of 2 uC and 3 uC are separated by 1 m. Find the electric force."
+    )
+    assert near is not None and far is not None
+    assert float(near.split()[0]) == pytest.approx(4 * float(far.split()[0]), rel=0.001)
+
+
+def test_electric_force_refuses_three_body_partial_answer() -> None:
+    intent = extract_math_intent(
+        "Three point charges of 1 uC, 2 uC, and 3 uC are separated by 1 m. Find the force."
+    )
+    assert not isinstance(intent, PhysicsIntent) or intent.physics_op != "electric_force"
 
 
 def test_the_answer_keeps_the_unit_the_question_used() -> None:

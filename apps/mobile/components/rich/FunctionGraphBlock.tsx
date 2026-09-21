@@ -91,7 +91,7 @@ const makeStyles = (theme: Theme) =>
       fontSize: 15,
       fontWeight: "600",
       color: theme.text,
-      marginBottom: 6,
+      marginBottom: 2,
       textAlign: "center",
     },
     legendRow: {

@@ -9,6 +9,7 @@ from app.models.schemas.physics import PhysicsIntent
 from app.services.calendar import is_calendar_create_request, should_inject_calendar_block
 from app.services.math.tools import _build_verified_block, extract_math_intent
 from app.services.math.tools.direct import maybe_direct_math_reply
+from app.services.physics.direct import _FORMULA_LAW_NAMES, _RESULT_SYMBOLS
 
 _SETTINGS = Settings(math_tools_enabled=True)
 _HEADINGS = ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**")
@@ -174,14 +175,37 @@ def test_audit_prompts_are_verified_instant_structured_physics(
     assert (intent.kind, intent.physics_op) == (kind, op)
     verified = _build_verified_block(intent, _SETTINGS)
     assert verified is not None
+    assert "name the governing law" in verified.text
+    assert "show its universal/base equation first" in verified.text
     reply = maybe_direct_math_reply(verified, query)
     assert reply is not None
     assert reply.count("```answer") == 1
     assert [reply.index(heading) for heading in _HEADINGS] == sorted(
         reply.index(heading) for heading in _HEADINGS
     )
+    assert f"**Formula**\n\n{_FORMULA_LAW_NAMES[op]}:" in reply
     assert not is_calendar_create_request(query)
     assert not should_inject_calendar_block(query)
+
+
+def test_every_supported_physics_operation_has_a_named_governing_law() -> None:
+    assert set(_FORMULA_LAW_NAMES) == set(_RESULT_SYMBOLS)
+    assert all(name.strip() and name != "Physics formula" for name in _FORMULA_LAW_NAMES.values())
+
+
+def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> None:
+    query = "power dissipated by a 4 ohm resistor carrying 3 A"
+    intent = extract_math_intent(query)
+    assert isinstance(intent, PhysicsIntent)
+    verified = _build_verified_block(intent, _SETTINGS)
+    assert verified is not None
+    reply = maybe_direct_math_reply(verified, query)
+    assert reply is not None
+    assert "**Formula**\n\nElectrical-power formula:" in reply
+    assert "$P = VI$" in reply
+    assert "Equivalent form for the given quantities:" in reply
+    assert "$P = I^2 R$" in reply
+    assert "**Substitution**\n\n$P = 3^{2} \\cdot 4$" in reply
 
 
 def test_negative_wavelength_is_never_verified() -> None:
@@ -204,7 +228,7 @@ def test_negative_wavelength_is_never_verified() -> None:
         ),
         (
             "Two clockwise torques of 8 N m and 5 N m act against a 20 N m counterclockwise torque. Find net torque.",
-            "7.00 N*m (counterclockwise)",
+            "7 N·m (counterclockwise)",
         ),
     ],
 )
@@ -217,36 +241,58 @@ def test_small_and_directional_results_keep_meaning(query: str, expected: str) -
 
 
 @pytest.mark.parametrize(
-    "query,find_line,formula_line,substitution_line",
+    "query,find_line,law_name,base_formula,rearranged_formula,substitution_line",
     [
         (
             "A 15 N force produces 6 N m of torque. Find the perpendicular lever arm.",
             "$d$",
+            "Torque formula",
+            r"$\tau = Fd\sin(\theta)$",
             r"$d = \frac{\tau}{F}$",
             r"$d = \frac{6}{15}$",
         ),
         (
             "A converging lens has focal length 10 cm and an object is 30 cm away. Find image distance.",
             "$v$",
+            "Thin-lens and mirror equation",
+            r"$\frac{1}{f} = \frac{1}{u} + \frac{1}{v}$",
             r"$v = \frac{uf}{u - f}$",
             r"$v = \frac{0.3 \cdot 0.1}{0.3 - 0.1}$",
         ),
         (
             "A 30 kg child sits 2 m from the pivot of a seesaw. Where should a 20 kg child sit to balance it?",
             "$d_2$",
+            "Principle of moments",
+            r"$F_1d_1 = F_2d_2$",
             r"$d_2 = \frac{m_1 d_1}{m_2}$",
             r"$d_2 = \frac{30 \cdot 2}{20}$",
         ),
         (
+            "A 50 N downward force acts 2 m to the left of a pivot. "
+            "What downward force 4 m to the right balances the lever?",
+            "$F_2$",
+            "Principle of moments",
+            r"$F_1d_1 = F_2d_2$",
+            r"$F_2 = \frac{F_1 d_1}{d_2}$",
+            r"$F_2 = \frac{50 \cdot 2}{4}$",
+        ),
+        (
             "a 3 N force east and a 4 N force north, what is the resultant",
             "$R$",
+            "Vector addition and components",
             r"$R = \sqrt{F_1^2 + F_2^2 + 2F_1F_2\cos\phi}$",
+            None,
             r"$R = \sqrt{3^{2} + 4^{2} + 2 \cdot 3 \cdot 4\cos(90^\circ)}$",
         ),
     ],
 )
 def test_worked_layout_names_the_requested_unknown(
-    query: str, find_line: str, formula_line: str, substitution_line: str
+    query: str,
+    find_line: str,
+    law_name: str,
+    base_formula: str,
+    rearranged_formula: str | None,
+    substitution_line: str,
 ) -> None:
     intent = extract_math_intent(query)
     assert isinstance(intent, PhysicsIntent)
@@ -255,7 +301,11 @@ def test_worked_layout_names_the_requested_unknown(
     reply = maybe_direct_math_reply(verified, query)
     assert reply is not None
     assert f"**Find**\n\n{find_line}" in reply
-    assert f"**Formula**\n\n{formula_line}" in reply
+    assert f"**Formula**\n\n{law_name}:" in reply
+    assert base_formula in reply
+    if rearranged_formula is not None:
+        assert f"Rearranged for {find_line}:" in reply
+        assert rearranged_formula in reply
     assert f"**Substitution**\n\n{substitution_line}" in reply
 
 

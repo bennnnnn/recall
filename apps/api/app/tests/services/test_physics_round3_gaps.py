@@ -56,27 +56,27 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the angular velocity of a car going 10 m/s around a 20 m radius track",
         "circular",
         "angular_velocity",
-        "0.50 rad/s",
+        "0.5 rad/s",
     ),
     (
         "what is the angular speed of an object moving at 8 m/s in a circle of radius 4 m",
         "circular",
         "angular_velocity",
-        "2.00 rad/s",
+        "2 rad/s",
     ),
     (
         "find the angular velocity for a speed of 6 m/s on a circular path of radius 3 m",
         "circular",
         "angular_velocity",
-        "2.00 rad/s",
+        "2 rad/s",
     ),
     # --- SHM: f = 1 / T ----------------------------------------------
-    ("what is the frequency of a pendulum with period 2 s", "spring", "shm_frequency", "0.50 Hz"),
+    ("what is the frequency of a pendulum with period 2 s", "spring", "shm_frequency", "0.5 Hz"),
     (
         "what is the frequency of an oscillator with a period of 0.5 s",
         "spring",
         "shm_frequency",
-        "2.00 Hz",
+        "2 Hz",
     ),
     (
         "a mass on a spring has a period of 4 s, what is the frequency",
@@ -89,20 +89,20 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the maximum speed of an oscillator with amplitude 0.5 m at 2 rad/s",
         "spring",
         "shm_max_speed",
-        "1.00 m/s",
+        "1 m/s",
     ),
     (
         "find the maximum speed of a mass oscillating with amplitude 0.2 m "
         "and angular frequency 5 rad/s",
         "spring",
         "shm_max_speed",
-        "1.00 m/s",
+        "1 m/s",
     ),
     (
         "peak velocity of a body oscillating with amplitude 0.1 m at 10 rad/s",
         "spring",
         "shm_max_speed",
-        "1.00 m/s",
+        "1 m/s",
     ),
     # --- friction: mu = tan(theta) at the slipping angle -------------
     (

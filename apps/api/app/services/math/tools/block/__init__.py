@@ -135,8 +135,13 @@ def _build_verified_block(
         from app.services.solving import wrap_verified_math
 
         physics_intent = None
-        is_average_speed = getattr(intent, "school_op", None) == "average_speed"
-        if intent.kind in PHYSICS_BLOCK_BUILDERS or is_average_speed:
+        is_speed_formula = getattr(intent, "school_op", None) in {
+            "average_speed",
+            "speed_formula_speed",
+            "speed_formula_distance",
+            "speed_formula_time",
+        }
+        if intent.kind in PHYSICS_BLOCK_BUILDERS or is_speed_formula:
             physics_intent = intent.model_copy(deep=True)
         return replace(block, text=wrap_verified_math(block.text), physics_intent=physics_intent)
     except math_solve.MathServiceError as exc:

@@ -693,6 +693,7 @@
   "rich.graph_play_a11y": "Riproduci l'animazione della traiettoria",
   "rich.simulation_play_a11y": "Riproduci l'animazione di fisica",
   "rich.simulation_stop_a11y": "Interrompi l'animazione di fisica",
+  "rich.simulation_pause_a11y": "Metti in pausa l'animazione di fisica",
   "rich.simulation_restart_a11y": "Riavvia l'animazione di fisica",
   "rich.graph_plot_a11y": "Grafico interattivo. Pizzica per lo zoom.",
   "rich.graph_remove_series": "Rimuovi funzione",

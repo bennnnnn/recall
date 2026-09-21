@@ -269,6 +269,50 @@ export type SimulationTransform = {
 };
 
 /**
+ * Size the viewport to the scene instead of vertically centring every scene
+ * in a fixed tall box. Wide scenes (projectiles and collisions) therefore sit
+ * directly below their title, while square/tall scenes retain the full canvas.
+ */
+export function simulationViewportHeight(
+  spec: SimulationSpec,
+  width: number,
+  pad: number,
+  minHeight: number,
+  maxHeight: number,
+): number {
+  const innerW = Math.max(width - pad * 2, 1);
+  const worldW = spec.xMax - spec.xMin;
+  const worldH = spec.yMax - spec.yMin;
+  const heightAtFullWidth = (worldH / worldW) * innerW + pad * 2;
+  return Math.max(minHeight, Math.min(maxHeight, heightAtFullWidth));
+}
+
+/** Keep measured canvas text fully inside the drawable viewport. */
+export function clampCanvasLabelX(
+  desiredX: number,
+  labelWidth: number,
+  canvasWidth: number,
+  inset = 4,
+): number {
+  "worklet";
+  const maxX = Math.max(inset, canvasWidth - inset - Math.max(0, labelWidth));
+  return Math.max(inset, Math.min(maxX, desiredX));
+}
+
+/** Skia text uses a baseline, so the top also needs one font-height of room. */
+export function clampCanvasLabelBaseline(
+  desiredY: number,
+  fontSize: number,
+  canvasHeight: number,
+  inset = 4,
+): number {
+  "worklet";
+  const minY = inset + Math.max(0, fontSize);
+  const maxY = Math.max(minY, canvasHeight - inset);
+  return Math.max(minY, Math.min(maxY, desiredY));
+}
+
+/**
  * World units to screen pixels, with **one** scale for both axes.
  *
  * Stretching each axis to fill the box is what a graph does, and it would be

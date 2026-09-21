@@ -68,57 +68,57 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "a car accelerates from rest at 3 m/s^2 for 5 s, what is its final velocity",
         "suvat_velocity",
-        "15.00 m/s",
+        "15 m/s",
     ),
     (
         "a train starting from rest accelerates at 2 m/s^2, how fast after 10 s",
         "suvat_velocity",
-        "20.00 m/s",
+        "20 m/s",
     ),
     (
         "a cyclist at 4 m/s accelerates at 2 m/s^2 for 3 s, what is the final speed",
         "suvat_velocity",
-        "10.00 m/s",
+        "10 m/s",
     ),
     # s = ut + ½at²
     (
         "how far does a car go in 5 s accelerating from rest at 3 m/s^2",
         "suvat_distance",
-        "37.50 m",
+        "37.5 m",
     ),
     # v² = u² + 2as
     (
         "a car travelling at 20 m/s decelerates at 4 m/s^2, how far before it stops",
         "suvat_distance",
-        "50.00 m",
+        "50 m",
     ),
     (
         "what distance does a car cover accelerating from 10 m/s to 30 m/s at 2 m/s^2",
         "suvat_distance",
-        "200.00 m",
+        "200 m",
     ),
     # s = ½(u + v)t — the equation with no acceleration in it at all
     (
         "a cyclist decelerates from 12 m/s to rest in 4 s, how far do they travel",
         "suvat_distance",
-        "24.00 m",
+        "24 m",
     ),
     # solving for t
     (
         "a car accelerates from rest at 3 m/s^2, how long to reach 15 m/s",
         "suvat_time",
-        "5.00 s",
+        "5 s",
     ),
     # solving for a
     (
         "a car goes from rest to 30 m/s in 10 s, what is the acceleration",
         "suvat_acceleration",
-        "3.00 m/s^2",
+        "3 m/s^2",
     ),
     (
         "a train slows down from 20 m/s to rest over 100 m, what is the deceleration",
         "suvat_acceleration",
-        "-2.00 m/s^2",
+        "-2 m/s^2",
     ),
 ]
 
@@ -290,9 +290,9 @@ def test_a_graph_needs_a_time_span_to_be_honest() -> None:
 
 
 NEWTONS_SECOND_LAW = [
-    ("a 5 kg mass accelerates at 2 m/s^2, what is the net force", "10.00 N"),
-    ("what is the force on a 10 kg object accelerating at 3 m/s^2", "30.00 N"),
-    ("what force accelerates a 2 kg mass at 4 m/s^2", "8.00 N"),
+    ("a 5 kg mass accelerates at 2 m/s^2, what is the net force", "10 N"),
+    ("what is the force on a 10 kg object accelerating at 3 m/s^2", "30 N"),
+    ("what force accelerates a 2 kg mass at 4 m/s^2", "8 N"),
 ]
 
 
@@ -343,8 +343,8 @@ def test_free_fall_still_belongs_to_kinematics() -> None:
 
 
 STOLEN_BY_FREE_FALL = [
-    ("a car accelerates from rest at 3 m/s^2, how long to reach 15 m/s", "5.00 s"),
-    ("a car accelerates from rest at 2 m/s^2, how long to reach 20 m/s", "10.00 s"),
+    ("a car accelerates from rest at 3 m/s^2, how long to reach 15 m/s", "5 s"),
+    ("a car accelerates from rest at 2 m/s^2, how long to reach 20 m/s", "10 s"),
 ]
 
 
@@ -375,7 +375,7 @@ def test_the_old_answer_was_gravity_wearing_the_question_s_clothes() -> None:
 
 NAMED_GRAVITY = [
     ("a ball is dropped on the moon from 20 m, how long until it hits the ground", "4.97 s"),
-    ("a ball is dropped from 20 m with g = 1.6 m/s^2, how long until it hits the ground", "5.00 s"),
+    ("a ball is dropped from 20 m with g = 1.6 m/s^2, how long until it hits the ground", "5 s"),
     (
         "a ball is dropped from 20 m with gravity of 9.81 m/s^2, how long to hit the ground",
         "2.02 s",

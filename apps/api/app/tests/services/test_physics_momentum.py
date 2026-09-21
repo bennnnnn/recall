@@ -37,38 +37,38 @@ def _verified_answer(text: str) -> str | None:
 # phrasing cannot pass by binding the right number to the wrong parameter.
 VERIFIED: list[tuple[str, str, str]] = [
     # p = m v
-    ("momentum of a 2 kg object moving at 3 m/s", "momentum", "6.00 kg*m/s"),
-    ("what is the momentum of a 5 kg mass with velocity 4 m/s", "momentum", "20.00 kg*m/s"),
-    ("calculate the momentum of a 2 kg ball travelling at 3 m/s", "momentum", "6.00 kg*m/s"),
+    ("momentum of a 2 kg object moving at 3 m/s", "momentum", "6 kg·m/s"),
+    ("what is the momentum of a 5 kg mass with velocity 4 m/s", "momentum", "20 kg·m/s"),
+    ("calculate the momentum of a 2 kg ball travelling at 3 m/s", "momentum", "6 kg·m/s"),
     # J = F dt
-    ("impulse of a 10 N force over 2 seconds", "impulse", "20.00 N*s"),
-    ("what is the impulse when a 10 N force acts for 2 s", "impulse", "20.00 N*s"),
-    ("find the impulse delivered by a 10 N force in 2 s", "impulse", "20.00 N*s"),
-    # J = m dv — same quantity, and N*s and kg*m/s are the same unit.
-    ("impulse on a 2 kg mass going from 3 m/s to 8 m/s", "impulse", "10.00 N*s"),
+    ("impulse of a 10 N force over 2 seconds", "impulse", "20 N·s"),
+    ("what is the impulse when a 10 N force acts for 2 s", "impulse", "20 N·s"),
+    ("find the impulse delivered by a 10 N force in 2 s", "impulse", "20 N·s"),
+    # J = m dv — same quantity, and N·s and kg·m/s are the same unit.
+    ("impulse on a 2 kg mass going from 3 m/s to 8 m/s", "impulse", "10 N·s"),
     # 1D collisions, type always stated
     (
         "a 2 kg ball at 3 m/s hits a 1 kg ball at rest and they stick together, "
         "find the final velocity",
         "final_velocity",
-        "2.00 m/s",
+        "2 m/s",
     ),
     (
         "a 2 kg cart moving at 3 m/s collides perfectly inelastically with a 1 kg cart at rest, "
         "what is the final velocity",
         "final_velocity",
-        "2.00 m/s",
+        "2 m/s",
     ),
     (
         "in an elastic collision a 2 kg ball at 3 m/s hits a 1 kg ball at rest, "
         "find the final velocity",
         "final_velocity",
-        "1.00 m/s and 4.00 m/s",
+        "1 m/s and 4 m/s",
     ),
     (
         "a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest",
         "final_velocity",
-        "1.00 m/s and 4.00 m/s",
+        "1 m/s and 4 m/s",
     ),
 ]
 
@@ -98,7 +98,7 @@ def test_every_momentum_op_has_at_least_three_phrasings() -> None:
 def test_elastic_collision_conserves_momentum_and_energy() -> None:
     """The property that defines an elastic collision, checked rather than assumed.
 
-    Pinning "1.00 m/s and 4.00 m/s" proves the formula was transcribed; this
+    Pinning "1 m/s and 4 m/s" proves the formula was transcribed; this
     proves it was the right formula.
     """
     from app.services.physics.solver import solve_physics
@@ -178,7 +178,7 @@ def test_the_same_numbers_still_route_by_the_question_asked() -> None:
         extract_math_intent("kinetic energy of a 2 kg object moving at 3 m/s").kind  # type: ignore[union-attr]
         == "energy"
     )
-    assert _verified_answer("kinetic energy of a 2 kg object moving at 3 m/s") == "9.00 J"
+    assert _verified_answer("kinetic energy of a 2 kg object moving at 3 m/s") == "9 J"
 
 
 def test_momentum_direct_reply_uses_the_solver_owned_answer() -> None:
@@ -195,7 +195,7 @@ def test_momentum_direct_reply_uses_the_solver_owned_answer() -> None:
     assert "**Given**" in reply
     assert "**Formula**" in reply
     assert "**Answer**" in reply
-    assert "6.00 kg*m/s" in reply
+    assert "6 kg·m/s" in reply
 
 
 # --- P11: an angled collision was answered as a projectile -------------------
@@ -271,21 +271,21 @@ def test_1d_collisions_are_untouched_by_the_guards() -> None:
             "a 2 kg ball at 3 m/s hits a 1 kg ball at rest and they stick together, "
             "find the final velocity"
         )
-        == "2.00 m/s"
+        == "2 m/s"
     )
     assert (
         _verified_answer(
             "in an elastic collision a 2 kg ball at 3 m/s hits a 1 kg ball at rest, "
             "find the final velocities"
         )
-        == "1.00 m/s and 4.00 m/s"
+        == "1 m/s and 4 m/s"
     )
 
 
 REAL_PROJECTILES = [
     ("a ball is thrown at 20 m/s at 30 degrees, what is the range", "35.31 m"),
     ("projectile launched at 20 m/s at 30 degrees find the range", "35.31 m"),
-    ("a ball is kicked at 20 m/s at 30 degrees, how high does it go", "5.10 m"),
+    ("a ball is kicked at 20 m/s at 30 degrees, how high does it go", "5.1 m"),
 ]
 
 
@@ -300,8 +300,8 @@ COLLISION_WORD_ELSEWHERE = [
         "a stone is dropped and falls for 3 s before it hits the ground, how fast is it going",
         "29.43 m/s",
     ),
-    ("a hammer strikes a nail with 20 N of force over 0.1 s, what is the impulse", "2.00 N*s"),
-    ("what is the momentum of a 2 kg ball that hits a wall at 3 m/s", "6.00 kg*m/s"),
+    ("a hammer strikes a nail with 20 N of force over 0.1 s, what is the impulse", "2 N·s"),
+    ("what is the momentum of a 2 kg ball that hits a wall at 3 m/s", "6 kg·m/s"),
 ]
 
 

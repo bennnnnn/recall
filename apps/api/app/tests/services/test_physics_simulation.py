@@ -180,6 +180,14 @@ def test_the_scene_reaches_the_reply_as_a_simulation_fence() -> None:
     assert len(body["bodies"][0]["path"]) == 100
 
 
+def test_canvas_labels_drop_redundant_decimal_zeros() -> None:
+    body = _fence_body(FMA_Q)
+
+    assert body is not None
+    labels = [vector["label"] for vector in body["vectors"]]
+    assert labels == ["F = 10 N", "a = 2 m/s²"]
+
+
 def test_a_circular_answer_gets_a_scene_and_no_graph() -> None:
     """Circular motion has no curve to plot — its picture is the scene."""
     intent = extract_math_intent(CIRCULAR_Q)
@@ -287,7 +295,7 @@ def test_the_title_defaults_rather_than_rendering_blank() -> None:
 # --- second slice: collisions and inclines ----------------------------------
 #
 # The two scenes the ticket named after the orbit. A collision is the case a
-# number genuinely cannot carry — "1.00 m/s and 4.00 m/s" is the right answer
+# number genuinely cannot carry — "1 m/s and 4 m/s" is the right answer
 # and says nothing about which ball ends up ahead, whether either turns round,
 # or that the pair keeps moving together when they stick. An incline is mostly
 # a *diagram*: for two of the three friction ops the block never moves, and the
@@ -465,7 +473,7 @@ def test_a_block_friction_holds_does_not_move() -> None:
 
     Showing it slide would contradict the answer directly.
     """
-    assert _verified_answer(HELD_Q) == "0.00 m/s^2"
+    assert _verified_answer(HELD_Q) == "0 m/s^2"
     path = _scene(HELD_Q).bodies[0].path
 
     assert all(point == path[0] for point in path)

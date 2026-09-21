@@ -8,6 +8,7 @@
  * never drawn without the thing it points at.
  */
 import { fireEvent, render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { SimulationBlock } from "@/components/rich/SimulationBlock";
 
@@ -89,17 +90,17 @@ describe("SimulationBlock", () => {
     expect(queryByTestId("simulation-ground")).toBeNull();
   });
 
-  it("starts moving scenes automatically and lets the user stop or replay them", async () => {
+  it("starts moving scenes automatically and lets the user pause or resume them", async () => {
     const { getByLabelText, getByTestId } = await render(
       <SimulationBlock content={PROJECTILE} />,
     );
 
     expect(getByTestId("simulation-control")).toBeTruthy();
-    expect(getByTestId("simulation-stop-symbol").props.children).toBe("=");
-    await fireEvent.press(getByLabelText("rich.simulation_stop_a11y"));
-    expect(getByTestId("simulation-restart-symbol").props.children).toBe("<");
-    await fireEvent.press(getByLabelText("rich.simulation_restart_a11y"));
-    expect(getByTestId("simulation-stop-symbol").props.children).toBe("=");
+    expect(getByTestId("simulation-stop-symbol").props.name).toBe("pause");
+    await fireEvent.press(getByLabelText("rich.simulation_pause_a11y"));
+    expect(getByTestId("simulation-play-symbol").props.name).toBe("play");
+    await fireEvent.press(getByLabelText("rich.simulation_play_a11y"));
+    expect(getByTestId("simulation-stop-symbol").props.name).toBe("pause");
   });
 
   it("falls back to a static diagram under Reduce Motion", async () => {
@@ -302,11 +303,27 @@ describe("SimulationBlock: still figures", () => {
     expect(queryByTestId("simulation-control")).toBeNull();
   });
 
-  it("describes replay as a simulation rather than a trajectory", async () => {
+  it("describes resuming as playing the physics animation", async () => {
     const { getByLabelText } = await render(<SimulationBlock content={PROJECTILE} />);
 
-    await fireEvent.press(getByLabelText("rich.simulation_stop_a11y"));
-    expect(getByLabelText("rich.simulation_restart_a11y")).toBeTruthy();
+    await fireEvent.press(getByLabelText("rich.simulation_pause_a11y"));
+    expect(getByLabelText("rich.simulation_play_a11y")).toBeTruthy();
+  });
+
+  it("keeps wide scenes close to their titles and full-height scenes spacious", async () => {
+    const projectile = await render(<SimulationBlock content={PROJECTILE} />);
+    const projectileStyle = projectile.getByTestId("simulation-canvas").props.style;
+    expect(projectileStyle.height).toBeLessThan(240);
+    expect(StyleSheet.flatten(projectile.getByText("Projectile").props.style).position).toBe(
+      "absolute",
+    );
+
+    const orbit = await render(<SimulationBlock content={ORBIT} />);
+    const orbitStyle = orbit.getByTestId("simulation-canvas").props.style;
+    expect(orbitStyle.height).toBe(240);
+    expect(StyleSheet.flatten(orbit.getByText("Circular Motion").props.style).position).not.toBe(
+      "absolute",
+    );
   });
 
   it("keeps its figure under Reduce Motion", async () => {

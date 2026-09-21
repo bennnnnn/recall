@@ -1,7 +1,7 @@
 """P16: tension and Atwood machines.
 
 The one topic round 1 **refused on purpose**. P2 found "the tension supporting a
-5 kg mass accelerating at 2 m/s^2" answered `10.00 N` — m*a — when the answer is
+5 kg mass accelerating at 2 m/s^2" answered `10 N` — m*a — when the answer is
 T = m(g + a) = 59.05 N, and put `tension` and `pulley` into
 `_UNSUPPORTED_FORCE_CONTEXT` rather than let a confidently wrong number ship.
 The refusal was right; the gap is that it was never filled.
@@ -101,7 +101,7 @@ def test_both_ops_have_at_least_three_phrasings() -> None:
 
 
 def test_the_answer_p2_refused_is_the_answer_p16_gives() -> None:
-    """59.05 N, and specifically not the 10.00 N that caused the refusal.
+    """59.05 N, and specifically not the 10 N that caused the refusal.
 
     Asserting the right number alone would catch a regression; asserting it is
     not *that* number records what the bug looked like, since 10 N is a
@@ -243,9 +243,7 @@ def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:
     intent = extract_math_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
 
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == "net_force"
-    assert (
-        _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10.00 N"
-    )
+    assert _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10 N"
 
 
 def test_a_rope_in_free_fall_is_refused_rather_than_reported_slack() -> None:

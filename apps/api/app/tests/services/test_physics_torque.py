@@ -45,25 +45,41 @@ def _verified_answer(text: str) -> str | None:
 
 
 VERIFIED: list[tuple[str, str, str]] = [
-    ("torque of a 5 N force at 2 m from the pivot", "torque", "10.00 N*m"),
-    ("what is the torque when a 5 N force acts 2 m from the fulcrum", "torque", "10.00 N*m"),
-    ("find the moment of a 5 N force 2 m from the pivot", "torque", "10.00 N*m"),
+    ("torque of a 5 N force at 2 m from the pivot", "torque", "10 N·m"),
+    ("what is the torque when a 5 N force acts 2 m from the fulcrum", "torque", "10 N·m"),
+    ("find the moment of a 5 N force 2 m from the pivot", "torque", "10 N·m"),
     # F d sin(theta): 5 * 2 * sin(30) = 5
-    ("torque of a 5 N force applied 2 m from the pivot at 30 degrees", "torque", "5.00 N*m"),
+    ("torque of a 5 N force applied 2 m from the pivot at 30 degrees", "torque", "5 N·m"),
     (
         "a 5 N force is 2 m from the pivot, how far must a 10 N force be to balance it",
         "moment_balance",
-        "1.00 m",
+        "1 m",
     ),
     (
         "two forces balance on a see-saw: 5 N at 2 m and 10 N at what distance",
         "moment_balance",
-        "1.00 m",
+        "1 m",
     ),
     (
         "find the distance for a 10 N force to balance a 5 N force at 2 m from the fulcrum",
         "moment_balance",
-        "1.00 m",
+        "1 m",
+    ),
+    (
+        "A 50 N downward force acts 2 m to the left of a pivot. "
+        "What downward force 4 m to the right balances the lever?",
+        "moment_balance",
+        "25 N",
+    ),
+    (
+        "What force at 4 m balances a 50 N load acting 2 m from the pivot?",
+        "moment_balance",
+        "25 N",
+    ),
+    (
+        "Balance a lever with 50 N at 2 m using an unknown force at 4 m.",
+        "moment_balance",
+        "25 N",
     ),
 ]
 
@@ -107,7 +123,7 @@ def test_the_distance_binds_to_the_force_that_owns_it() -> None:
         ),
     }
 
-    assert answers == {"1.00 m"}
+    assert answers == {"1 m"}
 
 
 def test_the_balance_actually_balances() -> None:
@@ -118,6 +134,16 @@ def test_the_balance_actually_balances() -> None:
 
     assert arm is not None
     assert 5.0 * 2.0 == pytest.approx(10.0 * float(arm.split()[0]))
+
+
+def test_a_requested_balancing_force_uses_both_stated_arms() -> None:
+    force = _verified_answer(
+        "A 50 N downward force acts 2 m to the left of a pivot. "
+        "What downward force 4 m to the right balances the lever?"
+    )
+
+    assert force is not None
+    assert float(force.split()[0]) * 4.0 == pytest.approx(50.0 * 2.0)
 
 
 def test_an_angled_force_gives_less_torque() -> None:
@@ -149,7 +175,7 @@ def test_moment_alone_is_not_a_torque_cue(text: str) -> None:
 
 
 def test_moment_of_inertia_is_not_confused_with_torque() -> None:
-    """A different quantity entirely (kg*m^2), sharing the word "moment".
+    """A different quantity entirely (kg·m^2), sharing the word "moment".
 
     P9 named it in `_TORQUE_UNSUPPORTED` rather than leaving it to chance, and
     that refusal is kept: it is what stops *torque* claiming it. Round 3 added
@@ -166,7 +192,7 @@ def test_moment_of_inertia_is_not_confused_with_torque() -> None:
     assert intent is not None
     assert intent.kind == "rotation"
     assert intent.physics_op == "moment_of_inertia"
-    assert _verified_answer(text) == "10.00 kg*m^2"
+    assert _verified_answer(text) == "10 kg·m^2"
 
 
 def test_a_shapeless_moment_of_inertia_is_still_refused() -> None:
@@ -183,9 +209,7 @@ def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:
     intent = extract_math_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
 
     assert intent is not None and intent.kind == "force"
-    assert (
-        _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10.00 N"
-    )
+    assert _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10 N"
 
 
 UNDERSPECIFIED = [

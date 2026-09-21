@@ -48,27 +48,27 @@ def _verified_answer(text: str) -> str | None:
 # k = 200 N/m, x = 0.1 m, m = 0.5 kg throughout:
 # F = 20, U = 1, T = 2*pi*sqrt(0.5/200) = 0.314.
 VERIFIED: list[tuple[str, str, str]] = [
-    ("force of a spring with k = 200 N/m stretched 0.1 m", "spring_force", "20.00 N"),
+    ("force of a spring with k = 200 N/m stretched 0.1 m", "spring_force", "20 N"),
     (
         "what is the spring force when the spring constant is 200 N/m and it is stretched 0.1 m",
         "spring_force",
-        "20.00 N",
+        "20 N",
     ),
     (
         "find the restoring force for a 200 N/m spring compressed 0.1 m",
         "spring_force",
-        "20.00 N",
+        "20 N",
     ),
-    ("energy stored in a spring with k = 200 N/m stretched 0.1 m", "spring_energy", "1.00 J"),
+    ("energy stored in a spring with k = 200 N/m stretched 0.1 m", "spring_energy", "1 J"),
     (
         "what is the elastic potential energy of a 200 N/m spring stretched 0.1 m",
         "spring_energy",
-        "1.00 J",
+        "1 J",
     ),
     (
         "find the energy stored when a spring constant 200 N/m is compressed 0.1 m",
         "spring_energy",
-        "1.00 J",
+        "1 J",
     ),
     ("period of a 0.5 kg mass on a spring with k = 200 N/m", "shm_period", "0.31 s"),
     (
@@ -221,8 +221,8 @@ def test_a_season_does_not_engage_the_math_path() -> None:
 @pytest.mark.parametrize(
     "text,answer",
     [
-        ("kinetic energy of a 2 kg object moving at 3 m/s", "9.00 J"),
-        ("potential energy of a 2 kg mass at 5 m", "98.10 J"),
+        ("kinetic energy of a 2 kg object moving at 3 m/s", "9 J"),
+        ("potential energy of a 2 kg mass at 5 m", "98.1 J"),
     ],
 )
 def test_ordinary_energy_questions_are_untouched(text: str, answer: str) -> None:

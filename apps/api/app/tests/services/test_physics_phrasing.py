@@ -40,29 +40,29 @@ def _verified_answer(text: str) -> str | None:
 # phrasing cannot "pass" by binding the wrong number to the right parameter.
 VERIFIED: list[tuple[str, str, str]] = [
     # Force: F = m a, in all three unknowns and question-first word order.
-    ("a 5 kg mass accelerates at 2 m/s^2, what is the net force", "net_force", "10.00 N"),
-    ("what force accelerates 5 kg at 2 m/s^2", "net_force", "10.00 N"),
-    ("how much force is needed to accelerate a 5 kg box at 2 m/s^2", "net_force", "10.00 N"),
-    ("calculate the force on a 5 kg object accelerating at 2 m/s^2", "net_force", "10.00 N"),
-    ("a 5 kg trolley accelerates at 2 m/s^2. find F", "net_force", "10.00 N"),
-    ("if a 20 N force acts on a 5 kg mass what is the acceleration", "net_force", "4.00 m/s^2"),
+    ("a 5 kg mass accelerates at 2 m/s^2, what is the net force", "net_force", "10 N"),
+    ("what force accelerates 5 kg at 2 m/s^2", "net_force", "10 N"),
+    ("how much force is needed to accelerate a 5 kg box at 2 m/s^2", "net_force", "10 N"),
+    ("calculate the force on a 5 kg object accelerating at 2 m/s^2", "net_force", "10 N"),
+    ("a 5 kg trolley accelerates at 2 m/s^2. find F", "net_force", "10 N"),
+    ("if a 20 N force acts on a 5 kg mass what is the acceleration", "net_force", "4 m/s^2"),
     (
         "a 20 N force gives an object an acceleration of 4 m/s^2, find the mass",
         "net_force",
-        "5.00 kg",
+        "5 kg",
     ),
     # Projectile: recognized by speed + angle, whatever verb throws it.
     ("projectile launched at 20 m/s at 30 degrees find the range", "range", "35.31 m"),
     ("a ball is thrown at 20 m/s at 30 degrees, what is the range?", "range", "35.31 m"),
     ("how far does a ball go if thrown at 20 m/s at 30 degrees", "range", "35.31 m"),
-    ("a ball is kicked at 20 m/s at 30 degrees, how high does it go", "max_height", "5.10 m"),
+    ("a ball is kicked at 20 m/s at 30 degrees, how high does it go", "max_height", "5.1 m"),
     (
         "what is the maximum height of a projectile launched at 20 m/s at 30 degrees",
         "max_height",
-        "5.10 m",
+        "5.1 m",
     ),
-    ("how high does a ball launched at 20 m/s at 30 degrees rise", "max_height", "5.10 m"),
-    ("find the max height of a ball thrown at 20 m/s at 30 degrees", "max_height", "5.10 m"),
+    ("how high does a ball launched at 20 m/s at 30 degrees rise", "max_height", "5.1 m"),
+    ("find the max height of a ball thrown at 20 m/s at 30 degrees", "max_height", "5.1 m"),
     # Kinematics.
     ("a ball is dropped from 20 m, how long until it hits the ground", "time_to_ground", "2.02 s"),
     ("how long does it take a stone to fall 20 m", "time_to_ground", "2.02 s"),
@@ -82,25 +82,25 @@ VERIFIED: list[tuple[str, str, str]] = [
     ("what is the acceleration of a ball in free fall from 20 m", "acceleration", "-9.81 m/s^2"),
     ("a rock falls from a 20 m cliff, what is its acceleration", "acceleration", "-9.81 m/s^2"),
     # Energy, including the KE abbreviation and both school forms of power.
-    ("kinetic energy of a 2 kg mass at 3 m/s", "kinetic_energy", "9.00 J"),
-    ("how much kinetic energy does a 2 kg ball have at 3 m/s", "kinetic_energy", "9.00 J"),
-    ("what is the KE of a 2 kg object moving at 3 m/s", "kinetic_energy", "9.00 J"),
-    ("potential energy of a 2 kg mass at 5 m", "potential_energy", "98.10 J"),
+    ("kinetic energy of a 2 kg mass at 3 m/s", "kinetic_energy", "9 J"),
+    ("how much kinetic energy does a 2 kg ball have at 3 m/s", "kinetic_energy", "9 J"),
+    ("what is the KE of a 2 kg object moving at 3 m/s", "kinetic_energy", "9 J"),
+    ("potential energy of a 2 kg mass at 5 m", "potential_energy", "98.1 J"),
     (
         "how much potential energy does a 2 kg book on a 5 m shelf have",
         "potential_energy",
-        "98.10 J",
+        "98.1 J",
     ),
-    ("what is the PE of a 2 kg mass at 5 m", "potential_energy", "98.10 J"),
-    ("work done by a 10 N force over 3 m", "work", "30.00 J"),
-    ("how much work does a 10 N force do pushing a box 3 m", "work", "30.00 J"),
-    ("what work is done by a 10 N force over 3 m", "work", "30.00 J"),
-    ("power of 100 J in 5 s", "power", "20.00 W"),
-    ("power of 100 joules in 5 s", "power", "20.00 W"),
-    ("power of 2 kJ in 5 s", "power", "400.00 W"),
-    ("what power is needed to do 100 J of work in 5 s", "power", "20.00 W"),
+    ("what is the PE of a 2 kg mass at 5 m", "potential_energy", "98.1 J"),
+    ("work done by a 10 N force over 3 m", "work", "30 J"),
+    ("how much work does a 10 N force do pushing a box 3 m", "work", "30 J"),
+    ("what work is done by a 10 N force over 3 m", "work", "30 J"),
+    ("power of 100 J in 5 s", "power", "20 W"),
+    ("power of 100 joules in 5 s", "power", "20 W"),
+    ("power of 2 kJ in 5 s", "power", "400 W"),
+    ("what power is needed to do 100 J of work in 5 s", "power", "20 W"),
     # P = F v, the form that already worked — the W/t branch must not shadow it.
-    ("power of a 10 N force moving at 3 m/s", "power", "30.00 W"),
+    ("power of a 10 N force moving at 3 m/s", "power", "30 W"),
 ]
 
 
@@ -173,7 +173,7 @@ def test_unsupported_free_body_problems_are_refused_not_guessed(text: str) -> No
 def test_the_p2_example_is_the_one_p16_solves() -> None:
     """The refusal above was always meant to be temporary.
 
-    P2 found this exact sentence answered 10.00 N — m*a — when the answer is
+    P2 found this exact sentence answered 10 N — m*a — when the answer is
     T = m(g + a) = 59.05 N, and refused it rather than ship the wrong number.
     P16 filled the gap, so the row moved from that table to this assertion
     rather than quietly disappearing from the file.

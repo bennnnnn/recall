@@ -1,4 +1,4 @@
-/** Native trajectory playback behavior: autoplay, stop/restart, and reduced motion. */
+/** Native trajectory playback behavior: autoplay, pause/resume, and reduced motion. */
 import { fireEvent, render } from "@testing-library/react-native";
 import { Dimensions } from "react-native";
 
@@ -55,21 +55,21 @@ describe("native trajectory playback", () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  it("renders on Skia and starts automatically with the requested = stop symbol", async () => {
+  it("renders on Skia and starts automatically with the pause icon", async () => {
     const { getByTestId } = await draw(PARAMETRIC);
 
     expect(getByTestId("trajectory-canvas")).toBeTruthy();
     expect(getByTestId("trajectory-control")).toBeTruthy();
-    expect(getByTestId("trajectory-stop-symbol").props.children).toBe("=");
+    expect(getByTestId("trajectory-stop-symbol").props.name).toBe("pause");
   });
 
-  it("stops with = and restarts from <", async () => {
+  it("pauses and resumes from the triangle play button", async () => {
     const { getByLabelText, getByTestId } = await draw(PARAMETRIC);
 
-    await fireEvent.press(getByLabelText("rich.simulation_stop_a11y"));
-    expect(getByTestId("trajectory-restart-symbol").props.children).toBe("<");
-    await fireEvent.press(getByLabelText("rich.simulation_restart_a11y"));
-    expect(getByTestId("trajectory-stop-symbol").props.children).toBe("=");
+    await fireEvent.press(getByLabelText("rich.simulation_pause_a11y"));
+    expect(getByTestId("trajectory-play-symbol").props.name).toBe("play");
+    await fireEvent.press(getByLabelText("rich.simulation_play_a11y"));
+    expect(getByTestId("trajectory-stop-symbol").props.name).toBe("pause");
   });
 
   it("keeps a complete static chart under Reduce Motion", async () => {
