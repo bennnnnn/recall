@@ -42,6 +42,11 @@ describe("geo intent", () => {
         "A car accelerates at 2 m/s^2. How far does it travel in 10 s?",
       ),
     ).toBe(false);
+    expect(
+      isDistanceQuery(
+        "A 5 N force is 2 m from the pivot. How far must a 10 N force be from the pivot to balance the lever?",
+      ),
+    ).toBe(false);
   });
 
   it("detects where-am-I asks and requires geo", () => {

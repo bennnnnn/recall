@@ -774,6 +774,31 @@ def _display_number(value: float) -> str:
     return str(int(value)) if value.is_integer() else f"{value:g}"
 
 
+def _parameter_symbol(name: str) -> str:
+    """Turn solver parameter names into readable mathematical symbols."""
+    mapped = _SYMBOLS.get(name)
+    if mapped is not None:
+        return mapped
+    numbered = re.fullmatch(r"([A-Za-z]+)([0-9]+)", name)
+    if numbered is not None:
+        stem, index = numbered.groups()
+        return f"{stem}_{index}" if len(index) == 1 else f"{stem}_{{{index}}}"
+    return name
+
+
+def _given_unit_suffix(unit: str | None) -> str:
+    if not unit:
+        return ""
+    if unit.lower() in {"deg", "degree", "degrees", "°"}:
+        return r"^\circ"
+    return rf"\,\mathrm{{{unit}}}"
+
+
+def _formula_identity(formula: str) -> str:
+    """Ignore presentation-only multiplication dots when comparing laws."""
+    return formula.replace(r"\cdot", "").replace(" ", "")
+
+
 def _result_symbol(intent: PhysicsIntent, params: dict[str, float]) -> str | None:
     """Return the quantity the solver derived, not merely its shared operation."""
     if intent.kind == "force" and intent.physics_op == "net_force":
@@ -824,7 +849,7 @@ def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
     base_lhs = base.split(" = ", 1)[0].strip()
     for formula in formulas:
         formula_lhs = formula.split(" = ", 1)[0].strip()
-        if formula.strip() == base.strip():
+        if _formula_identity(formula) == _formula_identity(base):
             continue
         if formula_lhs == base_lhs:
             rows.append("Equivalent form for the given quantities:")
@@ -968,13 +993,12 @@ def format_direct_physics_working(verified: VerifiedMathBlock) -> str | None:
     for name, value in params.items():
         if name in {"elastic", "mode_factor"}:
             continue
-        symbol = _SYMBOLS.get(name, name)
+        symbol = _parameter_symbol(name)
         if intent.physics_op == "carnot_efficiency" and name == "temp":
             symbol = "T_H"
         if intent.physics_op == "beat_frequency" and name == "freq":
             symbol = "f_1"
-        unit = units.get(name)
-        suffix = rf"\,\mathrm{{{unit}}}" if unit else ""
+        suffix = _given_unit_suffix(units.get(name))
         given_rows.append(rf"${symbol} = {_display_number(value)}{suffix}$")
 
     result_symbol = _result_symbol(intent, params)

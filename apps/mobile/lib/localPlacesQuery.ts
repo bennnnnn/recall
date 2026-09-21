@@ -20,7 +20,7 @@ const DISTANCE_INTENT =
 
 /** Keep in sync with apps/api/app/services/web_search/patterns.py `_MOTION_HOMEWORK`. */
 const MOTION_HOMEWORK =
-  /\b(?:accelerat(?:e|es|ed|ing|ion)|decelerat(?:e|es|ed|ing|ion)|from\s+rest|kinematics|projectile|free\s*falls?|constant\s+(?:rate|acceleration|speed|velocity)|m\s*\/\s*s|metres?\s+per\s+second|meters?\s+per\s+second)\b/i;
+  /\b(?:accelerat(?:e|es|ed|ing|ion)|decelerat(?:e|es|ed|ing|ion)|from\s+rest|kinematics|projectile|free\s*falls?|pivot|fulcrum|lever|torque|constant\s+(?:rate|acceleration|speed|velocity)|m\s*\/\s*s|metres?\s+per\s+second|meters?\s+per\s+second)\b/i;
 
 const FROM_USER =
   /\b(?:from\s+(?:me|here|my\s+(?:location|place))|to\s+me|where\s+i\s+am)\b/i;

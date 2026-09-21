@@ -208,6 +208,33 @@ def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> Non
     assert "**Substitution**\n\n$P = 3^{2} \\cdot 4$" in reply
 
 
+def test_identical_base_law_is_not_repeated_as_an_equivalent_form() -> None:
+    query = "a 5 kg mass accelerates at 2 m/s^2, what is the net force"
+    intent = extract_math_intent(query)
+    assert isinstance(intent, PhysicsIntent)
+    verified = _build_verified_block(intent, _SETTINGS)
+    assert verified is not None
+    reply = maybe_direct_math_reply(verified, query)
+
+    assert reply is not None
+    assert "$F = ma$" in reply
+    assert "Equivalent form for the given quantities:" not in reply
+
+
+def test_numbered_givens_and_degree_units_use_mathematical_notation() -> None:
+    query = "a 3 N force east and a 4 N force north, what is the resultant"
+    intent = extract_math_intent(query)
+    assert isinstance(intent, PhysicsIntent)
+    verified = _build_verified_block(intent, _SETTINGS)
+    assert verified is not None
+    reply = maybe_direct_math_reply(verified, query)
+
+    assert reply is not None
+    assert "$F_1 = 3\\,\\mathrm{N}$" in reply
+    assert "$F_2 = 4\\,\\mathrm{N}$" in reply
+    assert "$\\theta = 90^\\circ$" in reply
+
+
 def test_negative_wavelength_is_never_verified() -> None:
     query = "A wave has wavelength -2 m and frequency 5 Hz. Find speed."
     intent = extract_math_intent(query)

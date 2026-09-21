@@ -73,6 +73,10 @@ def test_is_local_places_query():
     )
     assert not is_distance_query(kinematics)
     assert not is_geo_query(kinematics)
+    assert not is_geo_query(
+        "A 5 N force is 2 m from the pivot. "
+        "How far must a 10 N force be from the pivot to balance the lever?"
+    )
     assert not is_distance_query("How long does it take the ball to fall 20 meters?")
     assert not is_distance_query("A car accelerates at 2 m/s^2. How far does it travel in 10 s?")
     assert not is_proximity_query("explain Python decorators")
