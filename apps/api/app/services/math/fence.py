@@ -413,6 +413,8 @@ def _replace_fence(
 def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
     if verified is None:
         return None
+    if verified.display_answer and verified.display_answer.strip():
+        return verified.display_answer.strip()
     if verified.canonical_answer and verified.canonical_answer.strip():
         return verified.canonical_answer.strip()
     fences: list[dict[str, object]] = []

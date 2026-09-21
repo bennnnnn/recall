@@ -23,18 +23,18 @@ def _reply(query: str) -> str:
     [
         (
             "Find the area of a rectangle 4 by 5",
-            r"$A = w \times h$",
-            r"$A = 4 \times 5 = 20$",
+            r"$A = l \times w$",
+            r"$A = 5 \times 4 = 20$",
         ),
         (
             "Find the perimeter of a rectangle 4 by 5",
-            r"$P = 2(w + h)$",
-            r"$P = 2(4 + 5) = 18$",
+            r"$P = 2(l + w)$",
+            r"$P = 2(5 + 4) = 18$",
         ),
         (
             "Find the diagonal of a rectangle 3 by 4",
-            r"$d^2 = w^2 + h^2$",
-            r"$d = \sqrt{3^2 + 4^2} = 5$",
+            r"$d^2 = l^2 + w^2$",
+            r"$d = \sqrt{4^2 + 3^2} = 5$",
         ),
         ("Find the area of a square side 4", r"$A = s^2$", r"$A = 4^2 = 16$"),
         ("Find the perimeter of a square side 4", r"$P = 4s$", r"$P = 4 \times 4 = 16$"),
@@ -127,7 +127,52 @@ def test_geometry_formula_and_substitution_are_separate_verified_lines(
 def test_natural_rectangle_wording_draws_exact_sides_and_trims_decimal_zeroes() -> None:
     reply = _reply("a rectangle area with sides 4.04, 5")
     assert "Width: $w = 4.04" in reply
-    assert "Height: $h = 5" in reply
-    assert r"$A = 4.04 \times 5 = 20.2$" in reply
+    assert "Length: $l = 5" in reply
+    assert r"$A = 5 \times 4.04 = 20.2$" in reply
     assert "20.20" not in reply
     assert '"width":4.04' in reply and '"height":5.0' in reply
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "A rectangle has a length of 4 units and a width of 3 units. What is the area?",
+        "What is the area of a rectangle with width 3 and length 4?",
+        "A rectangle is 3 units wide and 4 units long. Find its area.",
+    ],
+)
+def test_natural_named_rectangle_uses_compact_verified_working(query: str) -> None:
+    reply = _reply(query)
+    assert "Length: $l = 4" in reply
+    assert "Width: $w = 3" in reply
+    assert r"$A = l \times w$" in reply
+    assert r"$A = 4 \times 3 = 12$" in reply
+    assert r"```answer" + "\n" + r"12\ \mathrm{units}^{2}" + "\n```" in reply
+    assert "**Given**  \nLength:" in reply
+    assert "units}$  \nWidth:" in reply
+
+
+@pytest.mark.parametrize(
+    "query,target,symbol",
+    [
+        (
+            "A rectangle has area 12 square units and width 3 units. Find the length.",
+            "Length ($l$)",
+            "l",
+        ),
+        (
+            "Find the width of a rectangle with area 12 and length 4.",
+            "Width ($w$)",
+            "w",
+        ),
+    ],
+)
+def test_rectangle_area_and_one_side_finds_the_other_side(
+    query: str, target: str, symbol: str
+) -> None:
+    reply = _reply(query)
+    assert target in reply
+    assert r"$A = l \times w$" in reply
+    assert rf"${symbol} = \frac{{A}}" in reply
+    assert "```answer\n" in reply
+    assert reply.count("```answer") == 1

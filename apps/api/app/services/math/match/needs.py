@@ -28,6 +28,7 @@ from app.services.math.match.graph import (
     plot_point,
     vertical_line_x,
 )
+from app.services.math.match.literal_geometry import parse_named_rectangle_request
 from app.services.math.match.scan import (
     bare_arithmetic_expr,
     first_dim_pair,
@@ -55,6 +56,8 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if has_image_attachment and is_math_camera_prompt(cleaned):
         return True
     lower = cleaned.lower()
+    if parse_named_rectangle_request(cleaned) is not None:
+        return True
     if (
         has_draw_shape(lower, "rectangle")
         or has_draw_shape(lower, "right triangle")

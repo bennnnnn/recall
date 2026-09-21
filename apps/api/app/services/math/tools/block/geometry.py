@@ -34,12 +34,28 @@ from app.services.solving import (
 
 
 def _finish_geometry(
-    _intent: MathIntent, lines: list[str], spec: object, answer: str | None = None
+    intent: MathIntent, lines: list[str], spec: object, answer: str | None = None
 ) -> VerifiedMathBlock:
     # Dimensions are enough to draw the shape, but not to choose a measurement.
     # Keep the native diagram while leaving the answer empty; the direct layer
     # asks which quantity the user wants instead of inventing one.
-    return _diagram_block(lines, spec, answer)
+    display_answer: str | None = None
+    if answer:
+        if intent.wants_angle and intent.wants_diagonal:
+            display_answer = answer
+        elif intent.geometry_target is not None:
+            display_answer = format_quantity(answer, intent.unit)
+        elif intent.wants_circumference or intent.wants_diameter:
+            display_answer = format_quantity(answer, intent.unit)
+        elif intent.wants_perimeter:
+            display_answer = format_quantity(answer, intent.unit)
+        elif intent.wants_area:
+            display_answer = format_quantity(answer, f"{intent.unit}²")
+        elif intent.wants_diagonal or intent.wants_hypotenuse or intent.wants_arc_length:
+            display_answer = format_quantity(answer, intent.unit)
+        elif intent.wants_angle:
+            display_answer = answer
+    return _diagram_block(lines, spec, answer, display_answer=display_answer)
 
 
 def _verified_block_rectangle(
@@ -57,7 +73,7 @@ def _verified_block_rectangle(
     )
     # Only annotate the diagram with what was actually asked for. Supplying
     # dimensions alone is not an implicit area or diagonal request.
-    show_area = intent.wants_area
+    show_area = intent.wants_area or intent.given_area is not None
     show_perimeter = intent.wants_perimeter
     show_diagonal = intent.wants_diagonal or intent.wants_angle
     show_angle = intent.wants_angle
@@ -77,7 +93,11 @@ def _verified_block_rectangle(
         perimeter=rect_geo.perimeter,
         labels=rect_geo.labels,
     )
-    if intent.wants_angle and intent.wants_diagonal:
+    if intent.geometry_target == "width":
+        answer = f"{rect_geo.width:g}"
+    elif intent.geometry_target == "length":
+        answer = f"{rect_geo.height:g}"
+    elif intent.wants_angle and intent.wants_diagonal:
         # “Angle made by the diagonal” mentions the diagonal as a reference,
         # not as a request to substitute its length for the angle.
         answer = rf"{rect_geo.angle_deg:g}^\circ"

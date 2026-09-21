@@ -49,7 +49,7 @@ async def test_each_closed_solid_emits_one_exact_answer_without_model(
     assert verified.canonical_answer == expected
     reply = maybe_direct_math_reply(verified, query)
     assert reply is not None
-    assert reply.startswith("**Given**\n\n")
+    assert reply.startswith("**Given**  \n")
     assert all(
         heading in reply
         for heading in ("**Find**", "**Formula**", "**Substitution**", "**Answer**")

@@ -115,10 +115,10 @@ def test_known_side_measurement_still_returns_determined_area() -> None:
     query = "Find the area of a triangle with sides 3,4,5"
     reply = maybe_direct_math_reply(_verified(query), query)
     assert reply is not None
-    assert reply.startswith("**Given**\n\n")
+    assert reply.startswith("**Given**  \n")
     assert "**Formula**" in reply and "Heron's formula:" in reply
     assert "**Substitution**" in reply
-    assert "```answer\n6\n```" in reply
+    assert "```answer\n6\\ \\mathrm{units}^{2}\n```" in reply
     assert "cannot be determined" not in reply
 
 

@@ -114,6 +114,11 @@ class MathIntent(BaseModel):
     wants_angle: bool = False
     wants_area: bool = False
     wants_perimeter: bool = False
+    # Inverse geometry keeps the original known measurement and the requested
+    # missing dimension so the response can show the universal formula first,
+    # then its rearrangement (for example A = lw, then l = A / w).
+    given_area: float | None = None
+    geometry_target: Literal["width", "length"] | None = None
     # Same idea for circles: only annotate diameter/circumference when asked.
     wants_diameter: bool = False
     wants_circumference: bool = False

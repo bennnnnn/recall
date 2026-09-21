@@ -771,18 +771,19 @@ def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -
     scenes = [f for f in fences if f.get("type") in SIMULATION_SPEC_TYPES]
     fences = [f for f in fences if f not in scenes]
     answer = (verified.canonical_answer or "").strip()
+    display_answer = (verified.display_answer or answer).strip()
     physics_working: str | None = None
     if verified.physics_intent is not None:
         from app.services.physics.direct import format_direct_physics_working
 
         physics_working = format_direct_physics_working(verified)
     if scenes:
-        body = _format_direct_math_body(verified, user_text, fences, answer)
+        body = _format_direct_math_body(verified, user_text, fences, answer, display_answer)
         if physics_working:
             body = f"{physics_working}\n\n{body}"
         scene_fence = f"```simulation\n{json.dumps(scenes[0], separators=(',', ':'))}\n```\n"
         return f"{body}\n{scene_fence}" if body.endswith("\n") else f"{body}\n\n{scene_fence}"
-    body = _format_direct_math_body(verified, user_text, fences, answer)
+    body = _format_direct_math_body(verified, user_text, fences, answer, display_answer)
     return f"{physics_working}\n\n{body}" if physics_working else body
 
 
@@ -791,6 +792,7 @@ def _format_direct_math_body(
     user_text: str,
     fences: list[dict[str, object]],
     answer: str,
+    display_answer: str,
 ) -> str:
     if len(fences) == 1 and fences[0].get("relative_lengths") is True:
         return f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
@@ -804,7 +806,7 @@ def _format_direct_math_body(
         # to render the graph immediately, before the done event arrives.
         graph_reply = f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
         if answer:
-            return f"```answer\n{answer}\n```\n\n{graph_reply}"
+            return f"```answer\n{display_answer}\n```\n\n{graph_reply}"
         return graph_reply
     if len(fences) == 1 and fences[0].get("type") in {
         "rectangle",
@@ -824,13 +826,13 @@ def _format_direct_math_body(
         working = format_direct_geometry_working(user_text, fences[0], answer)
         prefix = f"{working}\n\n" if working else ""
         return (
-            f"{prefix}```answer\n{answer}\n```\n\n"
+            f"{prefix}```answer\n{display_answer}\n```\n\n"
             "**Diagram**\n\n"
             f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
         )
     if len(fences) == 1 and fences[0].get("type") == "number_line":
         return (
-            f"```answer\n{answer}\n```\n\n"
+            f"```answer\n{display_answer}\n```\n\n"
             f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
         )
     # The answer fence already typesets the result. Emitting a second math
@@ -840,7 +842,7 @@ def _format_direct_math_body(
 
     solid_working = format_direct_solid_working(user_text, answer)
     prefix = f"{solid_working}\n\n" if solid_working else ""
-    return f"{prefix}```answer\n{answer}\n```\n"
+    return f"{prefix}```answer\n{display_answer}\n```\n"
 
 
 def maybe_direct_math_reply(

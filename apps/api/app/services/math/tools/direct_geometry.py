@@ -11,7 +11,10 @@ from app.services.math.match.literal_geometry import (
 from app.services.math.match.literal_geometry import (
     RIGHT_TRIANGLE_LEGS as _RIGHT_LEGS,
 )
-from app.services.math.match.literal_geometry import literal_triangle_angles_draw
+from app.services.math.match.literal_geometry import (
+    literal_triangle_angles_draw,
+    parse_named_rectangle_request,
+)
 from app.services.math.match.literal_geometry import (
     measurement_request as _measurement_request,
 )
@@ -39,6 +42,30 @@ def can_direct_rectangle(
     """
     if len(user_text) > 1000 or len(fences) != 1 or fences[0].get("type") != "rectangle":
         return False
+    named = parse_named_rectangle_request(user_text)
+    if named is not None:
+        geometry = fences[0]
+        if (
+            _finite_number(geometry.get("width")) != named.width
+            or _finite_number(geometry.get("height")) != named.length
+            or geometry.get("unit") != named.unit
+            or geometry.get("show_angle") is not False
+            or geometry.get("show_diagonal") is not (named.quantity == "diagonal")
+            or geometry.get("show_perimeter") is not (named.quantity == "perimeter")
+            or geometry.get("show_area")
+            is not (named.quantity == "area" or named.given_area is not None)
+        ):
+            return False
+        field = named.target or named.quantity
+        field = "height" if field == "length" else field
+        value = _finite_number(geometry.get(field))
+        answer = (verified.canonical_answer or "").strip()
+        if value is None or value <= 0 or not answer or len(answer) > 64:
+            return False
+        try:
+            return float(answer) == value
+        except ValueError:
+            return False
     parsed = _measurement_request(user_text)
     if parsed is None:
         return False

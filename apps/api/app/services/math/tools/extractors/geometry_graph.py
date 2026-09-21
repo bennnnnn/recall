@@ -67,10 +67,25 @@ def _extract_solid_intent(cleaned: str) -> MathIntent | None:
 
 def _extract_rectangle_intent(cleaned: str) -> MathIntent | None:
     from app.services.math import match as mtm
+    from app.services.math.match.literal_geometry import parse_named_rectangle_request
 
     lower = cleaned.lower()
     if mtm.classify_solid_shape(lower) is not None:
         return None
+    named = parse_named_rectangle_request(cleaned)
+    if named is not None:
+        return MathIntent(
+            kind="rectangle",
+            width=named.width,
+            height=named.length,
+            unit=named.unit,
+            operation="solve",
+            wants_diagonal=named.quantity == "diagonal",
+            wants_area=named.quantity == "area",
+            wants_perimeter=named.quantity == "perimeter",
+            given_area=named.given_area,
+            geometry_target=named.target,
+        )
     from app.services.math.match.units import strip_geometry_length_units
 
     dimensions = strip_geometry_length_units(cleaned)

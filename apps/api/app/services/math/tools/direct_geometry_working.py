@@ -10,7 +10,10 @@ from __future__ import annotations
 import math
 
 from app.services.math.match.geometry import parse_solid
-from app.services.math.match.literal_geometry import measurement_request
+from app.services.math.match.literal_geometry import (
+    measurement_request,
+    parse_named_rectangle_request,
+)
 
 
 def _number(value: object) -> float | None:
@@ -42,12 +45,14 @@ def _section(
     formulas: list[str],
     substitutions: list[str],
 ) -> str:
-    rows = ["**Given**", *given, "**Find**", find, "**Formula**", f"{formula_name}:"]
-    rows.extend(f"${formula}$" for formula in formulas)
-    rows.append("**Substitution**")
-    rows.extend(f"${substitution}$" for substitution in substitutions)
-    rows.append("**Answer**")
-    return "\n\n".join(rows)
+    sections = [
+        "**Given**  \n" + "  \n".join(given),
+        f"**Find**  \n{find}",
+        f"**Formula**  \n{formula_name}:  \n" + "  \n".join(f"${formula}$" for formula in formulas),
+        "**Substitution**  \n" + "  \n".join(f"${line}$" for line in substitutions),
+        "**Answer**",
+    ]
+    return "\n\n".join(sections)
 
 
 def _quantity(user_text: str) -> str | None:
@@ -64,8 +69,9 @@ def format_direct_geometry_working(
     answer: str,
 ) -> str | None:
     """Format one complete 2D measurement without recomputing its answer."""
-    quantity = _quantity(user_text)
     kind = spec.get("type")
+    named_rectangle = parse_named_rectangle_request(user_text) if kind == "rectangle" else None
+    quantity = named_rectangle.quantity if named_rectangle is not None else _quantity(user_text)
     unit_value = spec.get("unit")
     unit = unit_value if isinstance(unit_value, str) else "units"
     result = answer.strip()
@@ -76,31 +82,59 @@ def format_direct_geometry_working(
         width, height = _number(spec.get("width")), _number(spec.get("height"))
         if width is None or height is None:
             return None
-        given = [_given("Width", "w", width, unit), _given("Height", "h", height, unit)]
+        if named_rectangle is not None and named_rectangle.target == "length":
+            return _section(
+                [
+                    rf"Area: $A = {_display(named_rectangle.given_area or 0)}\,{_unit(unit)}^2$",
+                    _given("Width", "w", width, unit),
+                ],
+                "Length ($l$)",
+                "Rectangle area formula",
+                [r"A = l \times w", r"l = \frac{A}{w}"],
+                [
+                    rf"l = \frac{{{_display(named_rectangle.given_area or 0)}}}"
+                    rf"{{{_display(width)}}} = {result}"
+                ],
+            )
+        if named_rectangle is not None and named_rectangle.target == "width":
+            return _section(
+                [
+                    rf"Area: $A = {_display(named_rectangle.given_area or 0)}\,{_unit(unit)}^2$",
+                    _given("Length", "l", height, unit),
+                ],
+                "Width ($w$)",
+                "Rectangle area formula",
+                [r"A = l \times w", r"w = \frac{A}{l}"],
+                [
+                    rf"w = \frac{{{_display(named_rectangle.given_area or 0)}}}"
+                    rf"{{{_display(height)}}} = {result}"
+                ],
+            )
+        given = [_given("Length", "l", height, unit), _given("Width", "w", width, unit)]
         if quantity == "area":
             return _section(
                 given,
                 "Area ($A$)",
                 "Rectangle area formula",
-                [r"A = w \times h"],
-                [rf"A = {_display(width)} \times {_display(height)} = {result}"],
+                [r"A = l \times w"],
+                [rf"A = {_display(height)} \times {_display(width)} = {result}"],
             )
         if quantity == "perimeter":
             return _section(
                 given,
                 "Perimeter ($P$)",
                 "Rectangle perimeter formula",
-                [r"P = 2(w + h)"],
-                [rf"P = 2({_display(width)} + {_display(height)}) = {result}"],
+                [r"P = 2(l + w)"],
+                [rf"P = 2({_display(height)} + {_display(width)}) = {result}"],
             )
         if quantity == "diagonal":
             return _section(
                 given,
                 "Diagonal ($d$)",
                 "Pythagorean theorem",
-                [r"d^2 = w^2 + h^2", r"d = \sqrt{w^2 + h^2}"],
+                [r"d^2 = l^2 + w^2", r"d = \sqrt{l^2 + w^2}"],
                 [
-                    rf"d = \sqrt{{{_display(width)}^2 + {_display(height)}^2}}"
+                    rf"d = \sqrt{{{_display(height)}^2 + {_display(width)}^2}}"
                     rf" = {result}"
                 ],
             )

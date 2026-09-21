@@ -52,6 +52,10 @@ class VerifiedMathBlock:
     text: str
     canonical_fence: dict[str, Any] | None = None
     canonical_answer: str | None = None
+    # Optional user-facing spelling of the same verified value. Geometry uses
+    # this to retain a numeric canonical value for guards while showing the
+    # correct linear/square unit in the checked answer card.
+    display_answer: str | None = None
     canonical_fences: list[dict[str, Any]] = field(default_factory=list)
     # Force/energy answers are unlabeled quantities — keep the LLM so
     # MATH_SOLVER_HINT can name the symbol. Geometry stays on the model path;
@@ -143,6 +147,8 @@ def _diagram_block(
     lines: list[str],
     spec: Any,
     answer: str | None = None,
+    *,
+    display_answer: str | None = None,
 ) -> VerifiedMathBlock:
     """Diagram JSON on canonical_fence; optional numeric answer for post-stream attach."""
     if answer:
@@ -152,4 +158,5 @@ def _diagram_block(
         text="\n".join(lines),
         canonical_fence=dump,
         canonical_answer=answer,
+        display_answer=display_answer,
     )

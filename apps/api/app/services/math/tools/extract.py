@@ -209,10 +209,22 @@ def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
                 # A natural-language measurement must not inherit the public
                 # structured-input schema's legacy centimetre default. AAA
                 # triangles already carry relative side lengths in generic units.
+                from app.services.math.match.literal_geometry import (
+                    parse_named_rectangle_request,
+                )
                 from app.services.math.match.units import solid_length_unit
 
                 if intent.kind != "triangle_sides" or intent.unit != "units":
-                    unit = solid_length_unit(cleaned)
+                    named_rectangle = (
+                        parse_named_rectangle_request(cleaned)
+                        if intent.kind == "rectangle"
+                        else None
+                    )
+                    unit = (
+                        named_rectangle.unit
+                        if named_rectangle is not None
+                        else solid_length_unit(cleaned)
+                    )
                     if unit is None:
                         return None
                     intent = intent.model_copy(update={"unit": unit})
