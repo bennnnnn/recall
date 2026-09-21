@@ -18,6 +18,7 @@ from app.services.math.match.discrete import (
 )
 from app.services.math.match.geometry import (
     parse_solid,
+    trapezoid_dimensions,
     triangle_angles_signal,
     triangle_sides_signal,
 )
@@ -27,6 +28,7 @@ from app.services.math.match.graph import (
     plot_point,
     vertical_line_x,
 )
+from app.services.math.match.literal_geometry import parse_named_rectangle_request
 from app.services.math.match.scan import (
     bare_arithmetic_expr,
     first_dim_pair,
@@ -54,6 +56,8 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if has_image_attachment and is_math_camera_prompt(cleaned):
         return True
     lower = cleaned.lower()
+    if parse_named_rectangle_request(cleaned) is not None:
+        return True
     if (
         has_draw_shape(lower, "rectangle")
         or has_draw_shape(lower, "right triangle")
@@ -70,11 +74,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # Shape words alone must NOT trigger verified geometry — bare
     # "what is a trapezoid?" used to invent dimensions and sell them as
     # SymPy-verified. Require printed measures (or the draw gates above).
-    if ("trapezoid" in lower or "trapezium" in lower) and (
-        number_after(cleaned, "top") is not None
-        and number_after(cleaned, "bottom") is not None
-        and number_after(cleaned, "height") is not None
-    ):
+    if ("trapezoid" in lower or "trapezium" in lower) and trapezoid_dimensions(cleaned):
         return True
     if "parallelogram" in lower and (
         number_after(cleaned, "base") is not None and number_after(cleaned, "height") is not None
@@ -121,7 +121,13 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if geometry_dim_context(lower):
         from app.services.math.match.units import strip_geometry_length_units
 
-        if first_dim_pair(strip_geometry_length_units(cleaned)) is not None:
+        dimensions = strip_geometry_length_units(cleaned)
+        if first_dim_pair(dimensions) is not None:
+            return True
+        if "rectangle" in lower and (
+            two_numbers_after(dimensions, "sides") is not None
+            or two_numbers_after(dimensions, "side lengths") is not None
+        ):
             return True
     if (
         "circle" in lower

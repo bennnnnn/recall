@@ -1,5 +1,5 @@
 import { attachmentIdFromRef } from "@/lib/attachmentRef";
-import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
+import { SCANNER_CAMERA_PROMPTS } from "@/lib/scanner/subjects";
 
 const IMAGE_MARKER = /^\[Image:\s*(.+?)\s*\]$/;
 const FILE_MARKER = /^\[File:\s*(.+?)\s*\]$/;
@@ -10,7 +10,7 @@ const UNTRUSTED_FENCE = /^\[(?:BEGIN|END) UNTRUSTED CONTENT/;
 const ATTACHMENT_BOILERPLATE = new Set([
   "What's in this image?",
   "Summarize this file.",
-  MATH_CAMERA_PROMPT,
+  ...Object.values(SCANNER_CAMERA_PROMPTS),
 ]);
 
 const UNTRUSTED_PREAMBLE_SNIPPET =
@@ -18,6 +18,17 @@ const UNTRUSTED_PREAMBLE_SNIPPET =
 
 export function isAttachmentBoilerplate(text: string): boolean {
   return ATTACHMENT_BOILERPLATE.has(text.trim());
+}
+
+function stripScannerProtocolCaption(text: string): string {
+  const trimmed = text.trim();
+  for (const prompt of Object.values(SCANNER_CAMERA_PROMPTS)) {
+    if (trimmed === prompt) return "";
+    if (trimmed.startsWith(`${prompt}\n`)) {
+      return trimmed.slice(prompt.length).trim();
+    }
+  }
+  return trimmed;
 }
 
 export type ParsedMessageImage = {
@@ -107,8 +118,11 @@ export function parseUserMessageContent(content: string): ParsedUserMessageConte
   }
 
   const caption = captionLines.join("\n").trim();
+  const withoutScannerProtocol = stripScannerProtocolCaption(caption);
   const visibleCaption =
-    (images.length > 0 || files.length > 0) && isAttachmentBoilerplate(caption) ? "" : caption;
+    (images.length > 0 || files.length > 0) && isAttachmentBoilerplate(withoutScannerProtocol)
+      ? ""
+      : withoutScannerProtocol;
   return { caption: visibleCaption, images, files, hasFileAttachment };
 }
 

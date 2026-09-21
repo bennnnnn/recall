@@ -51,13 +51,19 @@ export function SectorDiagram({
   const y2 = cy + endY;
   const largeArc = spec.angle_deg > 180 ? 1 : 0;
   // A single SVG arc with coincident endpoints cannot draw a full circle.
-  const path = spec.angle_deg === 360
-    ? `M${cx},${cy} L${x1},${y1} A${r},${r} 0 1 1 ${cx},${cy + r} A${r},${r} 0 1 1 ${x1},${y1} Z`
-    : `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`;
+  const path =
+    spec.angle_deg === 360
+      ? `M${cx},${cy} L${x1},${y1} A${r},${r} 0 1 1 ${cx},${cy + r} A${r},${r} 0 1 1 ${x1},${y1} Z`
+      : `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`;
 
   return (
     <Svg width={svgW} height={svgH}>
-      <Path d={path} fill={theme.contentSurface} stroke={theme.primary} strokeWidth={2} />
+      <Path
+        d={path}
+        fill={theme.contentSurface}
+        stroke={theme.primary}
+        strokeWidth={2}
+      />
       {showLabels ? (
         <>
           <SvgText
@@ -70,13 +76,45 @@ export function SectorDiagram({
           >
             {labels.angle}
           </SvgText>
-          <SvgText x={(cx + x1) / 2 - 6} y={(cy + y1) / 2} fill={theme.accent} fontSize={12} fontWeight="600" textAnchor="end">
+          <SvgText
+            x={(cx + x1) / 2 - 6}
+            y={(cy + y1) / 2}
+            fill={theme.accent}
+            fontSize={12}
+            fontWeight="600"
+            textAnchor="end"
+          >
             {labels.radius}
           </SvgText>
-          <SvgText x={svgW / 2} y={plotBottom + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+          {spec.angle_deg < 360 ? (
+            <SvgText
+              testID="sector-second-radius-label"
+              x={(cx + x2) / 2 + 8 * Math.cos(endRad + Math.PI / 2)}
+              y={(cy + y2) / 2 + 8 * Math.sin(endRad + Math.PI / 2)}
+              fill={theme.accent}
+              fontSize={12}
+              fontWeight="600"
+              textAnchor="middle"
+            >
+              {labels.radius}
+            </SvgText>
+          ) : null}
+          <SvgText
+            x={svgW / 2}
+            y={plotBottom + 34}
+            fill={theme.textSecondary}
+            fontSize={12}
+            textAnchor="middle"
+          >
             {`${i18n.t("rich.area")}\u00A0${labels.area}`}
           </SvgText>
-          <SvgText x={svgW / 2} y={plotBottom + 50} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+          <SvgText
+            x={svgW / 2}
+            y={plotBottom + 50}
+            fill={theme.textSecondary}
+            fontSize={12}
+            textAnchor="middle"
+          >
             {`${i18n.t("rich.arc_length")}\u00A0${labels.arc_length}`}
           </SvgText>
         </>

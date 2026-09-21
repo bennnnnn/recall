@@ -27,6 +27,7 @@ from app.services.math.match.geometry import (
     geometry_deferred_for_algebra,
     parse_solid,
     solid_homework_cue,
+    trapezoid_dimensions,
     triangle_angles_signal,
     triangle_sides_signal,
 )
@@ -105,6 +106,7 @@ __all__ = [
     "school_homework_cue",
     "solid_homework_cue",
     "stats_signal",
+    "trapezoid_dimensions",
     "triangle_angles_signal",
     "triangle_sides_signal",
     "two_numbers_after",

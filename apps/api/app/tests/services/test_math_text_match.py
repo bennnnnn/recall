@@ -504,6 +504,8 @@ class TestCombinatoricsSignal:
             ("5C2", "combinations"),
             ("P(5,2)", "permutations"),
             ("5P2", "permutations"),
+            ("5 permute 2", "permutations"),
+            ("5 permutation 2", "permutations"),
         ],
     )
     def test_combinatorics_signal(self, text, expected_op):

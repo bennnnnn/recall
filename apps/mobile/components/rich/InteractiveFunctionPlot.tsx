@@ -54,11 +54,16 @@ const MODAL_PLOT_MIN = 200;
 const SKIA_SAMPLE_EXPAND = 3;
 const SKIA_SAMPLES = 480;
 
-// Skia stays out of the import graph unless the modal actually opens on a
-// build that has the native module (Expo Go keeps the SVG explorer).
+// Skia stays out of the import graph unless a native graph actually renders
+// (Expo Go and stale clients keep the SVG compatibility path).
 const SkiaGraphExplorerLazy = lazy(() =>
   import("@/components/rich/skia/SkiaGraphExplorer").then((m) => ({
     default: m.SkiaGraphExplorer,
+  })),
+);
+const SkiaGraphCanvasLazy = lazy(() =>
+  import("@/components/rich/skia/SkiaGraphExplorer").then((m) => ({
+    default: m.SkiaGraphCanvas,
   })),
 );
 
@@ -101,6 +106,14 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
   const cardWidth = Math.max(1, plotWidth);
   const cardAspect = (cardWidth - GRAPH_AXIS_PAD * 2) / (CHART_HEIGHT - GRAPH_AXIS_PAD * 2 || 1);
   const cardBounds = useMemo(() => defaultInteractiveBounds(cardAspect), [cardAspect]);
+  const ignoreCardCommit = useCallback(() => {}, []);
+  const cardSkiaViewport = useSkiaGraphViewport({
+    width: cardWidth,
+    height: CHART_HEIGHT,
+    pad: GRAPH_AXIS_PAD,
+    initialView: cardBounds,
+    onCommit: ignoreCardCommit,
+  });
   const cardDrawn = useMemo(
     () => series.map((row, i) => drawGraphSeries(row, palette[i % palette.length], variable, cardBounds)),
     [cardBounds, palette, series, variable],
@@ -187,16 +200,46 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
         accessibilityLabel={t("rich.expand")}
         style={[explorerStyles.plotPress, { width: cardWidth, height: CHART_HEIGHT }]}
       >
-        <GraphCanvas
-          spec={spec}
-          theme={theme}
-          clipId={cardClipId}
-          width={cardWidth}
-          height={CHART_HEIGHT}
-          bounds={cardBounds}
-          drawn={cardDrawn}
-          verticalX={verticalX}
-        />
+        {skiaExplorer ? (
+          <Suspense
+            fallback={
+              <GraphCanvas
+                spec={spec}
+                theme={theme}
+                clipId={cardClipId}
+                width={cardWidth}
+                height={CHART_HEIGHT}
+                bounds={cardBounds}
+                drawn={cardDrawn}
+                verticalX={verticalX}
+              />
+            }
+          >
+            <SkiaGraphCanvasLazy
+              drawn={cardDrawn}
+              verticalX={verticalX}
+              xName={spec.variable ?? "x"}
+              yName="y"
+              width={cardWidth}
+              height={CHART_HEIGHT}
+              pad={GRAPH_AXIS_PAD}
+              theme={theme}
+              viewport={cardSkiaViewport}
+              testID="skia-graph-card"
+            />
+          </Suspense>
+        ) : (
+          <GraphCanvas
+            spec={spec}
+            theme={theme}
+            clipId={cardClipId}
+            width={cardWidth}
+            height={CHART_HEIGHT}
+            bounds={cardBounds}
+            drawn={cardDrawn}
+            verticalX={verticalX}
+          />
+        )}
         <View style={explorerStyles.expandBadge} pointerEvents="none">
           <Icon name="expand-outline" size={16} color={theme.textSecondary} />
         </View>

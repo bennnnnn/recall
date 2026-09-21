@@ -235,6 +235,7 @@ async def _process_attachment_inputs(
     # Camera math solver: vision-extract equation so SymPy can verify.
     from app.services.math import image_extract as math_image_extract_service
     from app.services.math import match as math_match
+    from app.services.subject_scan import scanner_camera_subject
 
     # BUG FIX: this used to require the sent text to be BYTE-FOR-BYTE
     # identical to the preset camera caption — the composer pre-fills that
@@ -250,16 +251,17 @@ async def _process_attachment_inputs(
     # default blank caption every plain image attachment sends) is left
     # alone — this must not fire a vision call on every unrelated photo.
     caption = content.strip()
-    looks_like_math_caption = bool(caption) and math_match.has_math_keyword(caption.lower())
+    scan_subject = scanner_camera_subject(content)
+    looks_like_math_caption = (
+        scan_subject not in {"physics", "biology"}
+        and bool(caption)
+        and math_match.has_math_keyword(caption.lower())
+    )
     confirmed_reading = math_image_extract_service.confirmed_math_reading(content)
     if (
         has_image_attachment
         and image_attachments
-        and (
-            confirmed_reading
-            or math_image_extract_service.is_math_camera_prompt(content)
-            or looks_like_math_caption
-        )
+        and (confirmed_reading or scan_subject == "math" or looks_like_math_caption)
     ):
         if on_status is not None:
             await on_status("calculating")

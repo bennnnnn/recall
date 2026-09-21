@@ -190,8 +190,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
   display ` ```math` renders as **MathJax-SVG** (`MathSvgView` + `mathjax-full`, lazy-loaded
   and LRU-cached, themed via `currentColor`) on every build — no WebView — with a readable
-  `MathText` fallback if conversion fails. Interactive graphs open a **Skia explorer**
-  (pinch/pan/trace on the UI thread) in dev builds, with the SVG canvas as fallback. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
+  `MathText` fallback if conversion fails. Native builds use **Skia** for inline function
+  graphs, the expanded pinch/pan graph explorer, number-line solutions, and shaded
+  two-dimensional inequalities, with SVG as the Expo Go / stale-client fallback. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
   `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
   verified answers (`1+1=x`, factor a quadratic) return directly without an LLM

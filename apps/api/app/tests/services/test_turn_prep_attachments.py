@@ -393,6 +393,20 @@ async def test_prepare_chat_turn_ocr_skipped_for_unrelated_caption():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "caption",
+    [
+        "Solve the physics problem in this image step by step.",
+        "Solve the biology problem in this image step by step.",
+    ],
+)
+async def test_subject_scanners_do_not_run_math_specific_ocr(caption: str):
+    """An explicit non-math scanner tab must keep the image on its vision path."""
+    extract_mock = await _run_prepare_chat_turn_with_caption(caption)
+    extract_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_prepare_chat_turn_skips_ocr_when_student_confirmed_reading():
     """A scanner-confirmed reading must not be overwritten by a second vision call."""
     extract_mock = await _run_prepare_chat_turn_with_caption(

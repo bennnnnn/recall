@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 
 from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.services.math.tools.lesson import (
@@ -181,6 +182,266 @@ def _solver_fences(verified: VerifiedMathBlock) -> list[dict[str, object]]:
         if fence is not None and fence not in fences:
             fences.append(fence)
     return fences
+
+
+_GEOMETRY_DECLARATION_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "angle",
+        "angles",
+        "base",
+        "bases",
+        "bottom",
+        "by",
+        "circle",
+        "cm",
+        "cone",
+        "cube",
+        "cuboid",
+        "cylinder",
+        "degree",
+        "degrees",
+        "depth",
+        "diameter",
+        "draw",
+        "edge",
+        "edges",
+        "feet",
+        "foot",
+        "ft",
+        "height",
+        "in",
+        "inch",
+        "inches",
+        "km",
+        "leg",
+        "legs",
+        "length",
+        "lengths",
+        "m",
+        "meter",
+        "meters",
+        "metre",
+        "metres",
+        "mm",
+        "of",
+        "parallelogram",
+        "pie",
+        "please",
+        "prism",
+        "pyramid",
+        "radius",
+        "rect",
+        "rectangle",
+        "rectangular",
+        "right",
+        "sector",
+        "show",
+        "side",
+        "sides",
+        "sketch",
+        "slice",
+        "sphere",
+        "square",
+        "the",
+        "top",
+        "trapezium",
+        "trapezoid",
+        "triangle",
+        "unit",
+        "units",
+        "visualise",
+        "visualize",
+        "width",
+        "with",
+        "x",
+    }
+)
+_GEOMETRY_SHAPE_ALIASES: dict[str, tuple[str, ...]] = {
+    "rectangle": ("rectangle", "rect"),
+    "square": ("square",),
+    "triangle": ("triangle",),
+    "right_triangle": ("right triangle",),
+    "triangle_sides": ("triangle",),
+    "parallelogram": ("parallelogram",),
+    "trapezoid": ("trapezoid", "trapezium"),
+    "circle": ("circle",),
+    "sector": ("circle sector", "sector", "pie slice"),
+}
+_GEOMETRY_QUESTIONS = {
+    "rectangle": "Do you want the area, perimeter, or diagonal?",
+    "square": "Do you want the area, perimeter, or diagonal?",
+    "triangle": "Do you want the area, or only a labeled diagram?",
+    "right_triangle": "Do you want the area, perimeter, hypotenuse, or angles?",
+    "triangle_sides": "Do you want the area, perimeter, or angles?",
+    "parallelogram": "Do you want the area or perimeter?",
+    "trapezoid": "Do you want the area, or only a labeled diagram?",
+    "circle": "Do you want the area, circumference, or diameter?",
+    "sector": "Do you want the area or arc length?",
+}
+_DRAW_WORDS = frozenset({"draw", "show", "sketch", "visualize", "visualise"})
+_GEOMETRY_NUMBER_COUNTS: dict[str, frozenset[int]] = {
+    "rectangle": frozenset({2}),
+    "square": frozenset({1}),
+    "triangle": frozenset({2}),
+    "right_triangle": frozenset({2}),
+    "triangle_sides": frozenset({3}),
+    "parallelogram": frozenset({2, 3}),
+    "trapezoid": frozenset({3}),
+    "circle": frozenset({1}),
+    "sector": frozenset({2}),
+    "cube": frozenset({1}),
+    "rectangular_prism": frozenset({3}),
+    "cylinder": frozenset({2}),
+    "cone": frozenset({2}),
+    "sphere": frozenset({1}),
+    "pyramid": frozenset({2}),
+}
+
+
+def _geometry_shape_mentions(lower: str) -> list[str]:
+    """Return semantic shape mentions, collapsing compound shape names."""
+    normalized = lower
+    compounds = (
+        (r"\bsector\s+of\s+(?:a\s+)?circle\b", "sector"),
+        (r"\bcircle\s+sector\b", "sector"),
+        (r"\bpie\s+slice\b", "sector"),
+        (r"\bright\s+triangle\b", "right_triangle"),
+        (r"\brectangular\s+prism\b", "rectangular_prism"),
+        (r"\bsquare\s+pyramid\b", "pyramid"),
+    )
+    mentions: list[str] = []
+    for pattern, kind in compounds:
+        matches = re.findall(pattern, normalized)
+        mentions.extend(kind for _ in matches)
+        normalized = re.sub(pattern, " ", normalized)
+    aliases = {
+        "rect": "rectangle",
+        "trapezium": "trapezoid",
+    }
+    for shape in re.findall(
+        r"\b(?:rectangle|rect|square|triangle|parallelogram|trapezoid|trapezium|"
+        r"circle|sector|cube|cuboid|cylinder|cone|sphere|pyramid)\b",
+        normalized,
+    ):
+        mentions.append(aliases.get(shape, shape))
+    return mentions
+
+
+def _plain_geometry_description(
+    user_text: str, aliases: tuple[str, ...], kind: str
+) -> tuple[bool, bool]:
+    """Return (is plain shape description, explicitly asks for a drawing)."""
+    if len(user_text) > 1000 or any(char in user_text for char in "+=^;!-"):
+        return False, False
+    lower = " ".join(user_text.lower().split()).strip().rstrip(".?")
+    words = re.findall(r"[a-z]+", lower)
+    if not words or any(word not in _GEOMETRY_DECLARATION_WORDS for word in words):
+        return False, False
+    draw = any(word in _DRAW_WORDS for word in words)
+    if len(_geometry_shape_mentions(lower)) != 1:
+        return False, False
+    number_count = len(re.findall(r"(?:\d+(?:\.\d+)?|\.\d+)", lower))
+    expected_counts = _GEOMETRY_NUMBER_COUNTS[kind]
+    if number_count not in expected_counts and not (draw and number_count == 0):
+        return False, False
+    request = lower
+    if request.startswith("please "):
+        request = request[7:].lstrip()
+    if draw:
+        for verb in _DRAW_WORDS:
+            if request.startswith(verb + " "):
+                request = request[len(verb) + 1 :].lstrip()
+                break
+    for article in ("a ", "an ", "the "):
+        if request.startswith(article):
+            request = request[len(article) :].lstrip()
+            break
+    starts_with_shape = any(
+        request == alias or request.startswith(alias + " ") for alias in aliases
+    )
+    return starts_with_shape and (any(char.isdigit() for char in lower) or draw), draw
+
+
+def _nonmeasurement_geometry_reply(verified: VerifiedMathBlock, user_text: str) -> str | None:
+    """Clarify a dimension-only shape instead of inventing area/volume.
+
+    Explicit draw/show requests are complete as written and return only their
+    solver-owned diagram. The narrow vocabulary check keeps mixed requests on
+    the normal language path.
+    """
+    from app.services.math.match.literal_geometry import measurement_request
+
+    # Never reinterpret an answering block as a draw/clarification request.
+    # This also prevents a stale verified measurement from being hidden by a
+    # later, less specific drawing phrase.
+    if verified.canonical_answer is not None:
+        return None
+
+    requested_measurement = measurement_request(user_text)
+    fences = _solver_fences(verified)
+    if len(fences) == 1:
+        # Angle-only triangles already have a strict whole-request validator.
+        # Let it reject added sides, shapes, calculations, or explanations.
+        if fences[0].get("relative_lengths") is True:
+            return None
+        kind = fences[0].get("type")
+        aliases = _GEOMETRY_SHAPE_ALIASES.get(str(kind))
+        if aliases is not None:
+            plain, draw = _plain_geometry_description(user_text, aliases, str(kind))
+            if not plain:
+                return None
+            if draw:
+                return f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
+            question = _GEOMETRY_QUESTIONS[str(kind)]
+            diagram = json.dumps(fences[0], separators=(",", ":"))
+            return (
+                f"You gave the dimensions, but not what to calculate. {question}\n\n"
+                f"```geometry\n{diagram}\n```\n"
+            )
+        if requested_measurement is not None:
+            return None
+
+    if verified.canonical_answer is None and not fences:
+        for kind, aliases in _GEOMETRY_SHAPE_ALIASES.items():
+            # Both SSS and base-height inputs say "triangle". Preserve the
+            # more specific choices when the user supplied all three sides.
+            if kind == "triangle" and re.search(r"\bsides?\b", user_text, re.IGNORECASE):
+                continue
+            if kind == "triangle_sides" and not re.search(r"\bsides?\b", user_text, re.IGNORECASE):
+                continue
+            plain, draw = _plain_geometry_description(user_text, aliases, kind)
+            if plain and not draw:
+                return (
+                    "You gave the dimensions, but not what to calculate. "
+                    f"{_GEOMETRY_QUESTIONS[kind]}"
+                )
+
+    if requested_measurement is not None:
+        return None
+
+    from app.services.math.match.geometry import parse_solid
+
+    solid = parse_solid(user_text)
+    if solid is None or solid.wants_volume or solid.wants_surface_area:
+        return None
+    aliases = {
+        "cube": ("cube",),
+        "rectangular_prism": ("rectangular prism", "cuboid"),
+        "cylinder": ("cylinder",),
+        "cone": ("cone",),
+        "sphere": ("sphere",),
+        "pyramid": ("square pyramid", "pyramid"),
+    }[solid.shape]
+    plain, draw = _plain_geometry_description(user_text, aliases, solid.shape)
+    if not plain or draw:
+        return None
+    return (
+        "You gave the dimensions, but not what to calculate. "
+        "Do you want the volume or surface area?"
+    )
 
 
 def _plain_prime_factorization_request(text: str) -> bool:
@@ -389,6 +650,8 @@ def can_direct_verified_math_reply(
     """
     if has_image_attachment:
         return False
+    if _nonmeasurement_geometry_reply(verified, user_text) is not None:
+        return True
     lesson = should_render_equation_lesson(verified, user_text, response_style)
     if wants_math_explanation(user_text) and not lesson:
         return False
@@ -489,6 +752,9 @@ def can_direct_verified_math_reply(
 
 def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -> str:
     """Display a verified value, diagram, or the missing scale for an AAA request."""
+    geometry_reply = _nonmeasurement_geometry_reply(verified, user_text)
+    if geometry_reply is not None:
+        return geometry_reply
     if verified.newton_input is not None:
         from app.services.math.tools.direct_newton import format_newton_reply
 
@@ -505,18 +771,19 @@ def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -
     scenes = [f for f in fences if f.get("type") in SIMULATION_SPEC_TYPES]
     fences = [f for f in fences if f not in scenes]
     answer = (verified.canonical_answer or "").strip()
+    display_answer = (verified.display_answer or answer).strip()
     physics_working: str | None = None
     if verified.physics_intent is not None:
         from app.services.physics.direct import format_direct_physics_working
 
         physics_working = format_direct_physics_working(verified)
     if scenes:
-        body = _format_direct_math_body(verified, user_text, fences, answer)
+        body = _format_direct_math_body(verified, user_text, fences, answer, display_answer)
         if physics_working:
             body = f"{physics_working}\n\n{body}"
         scene_fence = f"```simulation\n{json.dumps(scenes[0], separators=(',', ':'))}\n```\n"
         return f"{body}\n{scene_fence}" if body.endswith("\n") else f"{body}\n\n{scene_fence}"
-    body = _format_direct_math_body(verified, user_text, fences, answer)
+    body = _format_direct_math_body(verified, user_text, fences, answer, display_answer)
     return f"{physics_working}\n\n{body}" if physics_working else body
 
 
@@ -525,6 +792,7 @@ def _format_direct_math_body(
     user_text: str,
     fences: list[dict[str, object]],
     answer: str,
+    display_answer: str,
 ) -> str:
     if len(fences) == 1 and fences[0].get("relative_lengths") is True:
         return f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
@@ -538,7 +806,7 @@ def _format_direct_math_body(
         # to render the graph immediately, before the done event arrives.
         graph_reply = f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
         if answer:
-            return f"```answer\n{answer}\n```\n\n{graph_reply}"
+            return f"```answer\n{display_answer}\n```\n\n{graph_reply}"
         return graph_reply
     if len(fences) == 1 and fences[0].get("type") in {
         "rectangle",
@@ -551,19 +819,30 @@ def _format_direct_math_body(
         "circle",
         "sector",
     }:
+        from app.services.math.tools.direct_geometry_working import (
+            format_direct_geometry_working,
+        )
+
+        working = format_direct_geometry_working(user_text, fences[0], answer)
+        prefix = f"{working}\n\n" if working else ""
         return (
-            f"```answer\n{answer}\n```\n\n"
+            f"{prefix}```answer\n{display_answer}\n```\n\n"
+            "**Diagram**\n\n"
             f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
         )
     if len(fences) == 1 and fences[0].get("type") == "number_line":
         return (
-            f"```answer\n{answer}\n```\n\n"
+            f"```answer\n{display_answer}\n```\n\n"
             f"```graph\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
         )
     # The answer fence already typesets the result. Emitting a second math
     # paragraph repeats the same answer on the phone. The final newline also
     # lets the streaming client close and render this fence immediately.
-    return f"```answer\n{answer}\n```\n"
+    from app.services.math.tools.direct_geometry_working import format_direct_solid_working
+
+    solid_working = format_direct_solid_working(user_text, answer)
+    prefix = f"{solid_working}\n\n" if solid_working else ""
+    return f"{prefix}```answer\n{display_answer}\n```\n"
 
 
 def maybe_direct_math_reply(

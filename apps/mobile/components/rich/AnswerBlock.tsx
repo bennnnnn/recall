@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -5,7 +6,11 @@ import { useTranslation } from "react-i18next";
 import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
 import { splitAnswerBranches } from "@/lib/math/answerLayout";
-import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
+import {
+  isHeavyInlineMath,
+  stripEmbeddedDollarWraps,
+  stripRedundantDollarWrap,
+} from "@/lib/math/fenceRetag";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
@@ -28,7 +33,9 @@ function normalizeAnswerContent(raw: string): string {
 
 function answerNeedsDisplayMath(text: string): boolean {
   if (isHeavyInlineMath(text)) return true;
-  return splitInlineMath(text).some((p) => p.type === "math" && isHeavyInlineMath(p.value));
+  return splitInlineMath(text).some(
+    (p) => p.type === "math" && isHeavyInlineMath(p.value),
+  );
 }
 
 /**
@@ -60,69 +67,115 @@ export function AnswerBlock({ content }: Props) {
   // Drop a trailing lone ":" when nested math Views are present — the colon
   // can't share the math View's line box and strands as a lone "two dots".
   // Mirrors markdownRenderRules' trailing-colon drop (MO-020).
-  const trimmedParts = hasNestedView && hasInlineMath
-    ? parts.filter((p, i) => {
-        if (p.type !== "text") return true;
-        if (i !== parts.length - 1) return true;
-        return p.value.trim() !== ":";
-      })
-    : parts;
+  const trimmedParts =
+    hasNestedView && hasInlineMath
+      ? parts.filter((p, i) => {
+          if (p.type !== "text") return true;
+          if (i !== parts.length - 1) return true;
+          return p.value.trim() !== ":";
+        })
+      : parts;
 
   return (
     <View
       style={s.row}
       accessibilityRole="text"
-      accessibilityLabel={t("rich.answer_a11y", { text: readableLatexFallback(text) })}
+      accessibilityLabel={t("rich.answer_a11y", {
+        text: readableLatexFallback(text),
+      })}
     >
-      <View testID="answer-box" style={[s.box, useSvgMath || hasNestedView ? s.boxStretch : null]}>
-        {useSvgMath ? (
-          <MathSvgView latex={text} textColor={theme.text} minHeight={48} />
-        ) : hasNestedView ? (
-          <View style={s.answerLines}>
-            {nativeLines.map((line, lineIndex) => (
-              <ScrollView
-                key={lineIndex}
-                testID={`answer-line-scroll-${lineIndex}`}
-                horizontal
-                nestedScrollEnabled
-                showsHorizontalScrollIndicator
-                bounces={false}
-                style={s.lineViewport}
-                contentContainerStyle={s.lineScroll}
-              >
-                <View style={s.answerRow} testID={lineIndex === 0 ? "answer-row" : `answer-row-${lineIndex}`}>
-                  {hasInlineMath
-                    ? trimmedParts.map((part, i) =>
+      <View
+        style={[
+          s.answerAndCheck,
+          useSvgMath || hasNestedView ? s.answerAndCheckStretch : null,
+        ]}
+      >
+        <View
+          testID="answer-box"
+          style={[s.box, useSvgMath || hasNestedView ? s.boxStretch : null]}
+        >
+          {useSvgMath ? (
+            <MathSvgView latex={text} textColor={theme.text} minHeight={48} />
+          ) : hasNestedView ? (
+            <View style={s.answerLines}>
+              {nativeLines.map((line, lineIndex) => (
+                <ScrollView
+                  key={lineIndex}
+                  testID={`answer-line-scroll-${lineIndex}`}
+                  horizontal
+                  nestedScrollEnabled
+                  showsHorizontalScrollIndicator
+                  bounces={false}
+                  style={s.lineViewport}
+                  contentContainerStyle={s.lineScroll}
+                >
+                  <View
+                    style={s.answerRow}
+                    testID={
+                      lineIndex === 0 ? "answer-row" : `answer-row-${lineIndex}`
+                    }
+                  >
+                    {hasInlineMath ? (
+                      trimmedParts.map((part, i) =>
                         part.type === "math" ? (
-                          <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
+                          <MathText
+                            key={i}
+                            latex={part.value}
+                            textColor={theme.text}
+                            fontSize={ANSWER_FONT_SIZE}
+                          />
                         ) : (
                           <Text key={i} style={s.answer} selectable>
                             {part.value}
                           </Text>
                         ),
                       )
-                    : <MathText latex={line} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />}
-                </View>
-              </ScrollView>
-            ))}
-          </View>
-        ) : hasInlineMath ? (
-          <Text style={s.answer} selectable>
-            {parts.map((part, i) =>
-              part.type === "math" ? (
-                <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
-              ) : (
-                <Text key={i} style={s.answer}>
-                  {part.value}
-                </Text>
-              ),
-            )}
-          </Text>
-        ) : (
-          <Text style={s.answer} selectable>
-            <MathText latex={text} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
-          </Text>
-        )}
+                    ) : (
+                      <MathText
+                        latex={line}
+                        textColor={theme.text}
+                        fontSize={ANSWER_FONT_SIZE}
+                      />
+                    )}
+                  </View>
+                </ScrollView>
+              ))}
+            </View>
+          ) : hasInlineMath ? (
+            <Text style={s.answer} selectable>
+              {parts.map((part, i) =>
+                part.type === "math" ? (
+                  <MathText
+                    key={i}
+                    latex={part.value}
+                    textColor={theme.text}
+                    fontSize={ANSWER_FONT_SIZE}
+                  />
+                ) : (
+                  <Text key={i} style={s.answer}>
+                    {part.value}
+                  </Text>
+                ),
+              )}
+            </Text>
+          ) : (
+            <Text style={s.answer} selectable>
+              <MathText
+                latex={text}
+                textColor={theme.text}
+                fontSize={ANSWER_FONT_SIZE}
+              />
+            </Text>
+          )}
+        </View>
+        <Ionicons
+          testID="answer-success-check"
+          name="checkmark-circle"
+          size={22}
+          color={theme.success}
+          accessible={false}
+          style={s.successCheck}
+        />
       </View>
     </View>
   );
@@ -134,6 +187,15 @@ const makeStyles = (t: Theme) =>
       alignSelf: "stretch",
       alignItems: "center",
       marginVertical: 10,
+    },
+    answerAndCheck: {
+      maxWidth: "100%",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    answerAndCheckStretch: {
+      alignSelf: "stretch",
     },
     box: {
       alignSelf: "center",
@@ -148,9 +210,12 @@ const makeStyles = (t: Theme) =>
     // Full-width chrome so the MathJax-SVG view gets a real layout width
     // (compact + alignSelf:center was the thin-sliver bug).
     boxStretch: {
-      alignSelf: "stretch",
+      flex: 1,
       alignItems: "stretch",
       paddingHorizontal: 10,
+    },
+    successCheck: {
+      marginLeft: 6,
     },
     // Hosts a nested math View (sqrt/frac) as a direct child so iOS doesn't
     // clip it to a Text line box. Centers the run like the `answer` Text would.

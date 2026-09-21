@@ -21,8 +21,8 @@ from app.services.solving import VerifiedMathBlock
 _MATRIX = [
     ("cube side 3", "27", "54"),
     ("rectangular prism 2 by 3 by 4", "24", "52"),
-    ("cylinder radius 2 height 3", "37.70", "62.83"),
-    ("cone radius 3 height 4", "37.70", "75.40"),
+    ("cylinder radius 2 height 3", "37.7", "62.83"),
+    ("cone radius 3 height 4", "37.7", "75.4"),
     ("sphere radius 2", "33.51", "50.27"),
     ("square pyramid side 6 height 4", "48", "96"),
 ]
@@ -48,7 +48,14 @@ async def test_each_closed_solid_emits_one_exact_answer_without_model(
     expected = rf"{volume if quantity == 'volume' else surface}\ \mathrm{{units}}^{{{power}}}"
     assert verified.canonical_answer == expected
     reply = maybe_direct_math_reply(verified, query)
-    assert reply == f"```answer\n{expected}\n```\n"
+    assert reply is not None
+    assert reply.startswith("**Given**  \n")
+    assert all(
+        heading in reply
+        for heading in ("**Find**", "**Formula**", "**Substitution**", "**Answer**")
+    )
+    assert reply.endswith(f"```answer\n{expected}\n```\n")
+    assert reply.count("```answer") == 1
     assert validate_math_fences(reply, verified=verified).strip() == reply.strip()
     ctx = StreamContext(
         user_id=uuid4(),
@@ -82,8 +89,8 @@ async def test_each_closed_solid_emits_one_exact_answer_without_model(
         ("Please compute the volume of the cube with edge 0.5 m.", r"0.125\ \mathrm{m}^{3}"),
         ("What is the total surface area of a cube side 3 cm?", r"54\ \mathrm{cm}^{2}"),
         ("Find the volume of a cuboid 2 by 3 by 4 cm", r"24\ \mathrm{cm}^{3}"),
-        ("Find the volume of a cylinder with radius 2 m and height 3 m", r"37.70\ \mathrm{m}^{3}"),
-        ("Find the surface area of a cone radius 3 cm height 4 cm", r"75.40\ \mathrm{cm}^{2}"),
+        ("Find the volume of a cylinder with radius 2 m and height 3 m", r"37.7\ \mathrm{m}^{3}"),
+        ("Find the surface area of a cone radius 3 cm height 4 cm", r"75.4\ \mathrm{cm}^{2}"),
         ("Find the volume of a sphere radius .5 m", r"0.52\ \mathrm{m}^{3}"),
         (
             "Find the surface area of a square pyramid with side 6 cm and height 4 cm",
@@ -94,7 +101,10 @@ async def test_each_closed_solid_emits_one_exact_answer_without_model(
 def test_units_and_existing_numeric_precision_are_preserved(query: str, answer: str) -> None:
     verified = _verified(query)
     assert verified.canonical_answer == answer
-    assert maybe_direct_math_reply(verified, query) == f"```answer\n{answer}\n```\n"
+    reply = maybe_direct_math_reply(verified, query)
+    assert reply is not None
+    assert "**Formula**" in reply and "**Substitution**" in reply
+    assert reply.endswith(f"```answer\n{answer}\n```\n")
 
 
 @pytest.mark.parametrize("shape,volume,surface", _MATRIX)

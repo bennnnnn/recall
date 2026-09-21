@@ -31,6 +31,7 @@ from app.services.chemistry import context as chemistry_context
         ("A gas at 2 atm and 300 K occupies what volume? PV=nRT", True),
         ("How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?", True),
         ("What is the LogP of CC(=O)OC1=CC=CC=C1C(=O)O?", True),
+        ("Solve the chemistry problem in this image step by step.", True),
         ("how many days until the trip", False),
         ("what is 2 + 2?", False),
         ("", False),

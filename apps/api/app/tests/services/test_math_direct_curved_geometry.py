@@ -35,6 +35,11 @@ _CASES = [
         "30",
     ),
     (
+        "Find the area of a trapezoid with bases 3 cm and 5 cm and height 4 cm",
+        "trapezoid",
+        "16",
+    ),
+    (
         "Find the area of a parallelogram with base 8 m and height 4 m and side 5 m",
         "parallelogram",
         "32",
@@ -64,6 +69,8 @@ async def test_complete_shape_measurement_emits_without_model(
     reply = maybe_direct_math_reply(verified, query)
     assert reply is not None and reply.endswith("```\n")
     assert reply.count("```answer") == 1 and reply.count("```geometry") == 1
+    assert "**Given**" in reply and "**Formula**" in reply and "**Substitution**" in reply
+    assert "**Diagram**" in reply
     finalized = validate_math_fences(reply, verified=verified)
     assert (
         json.loads(finalized.split("```geometry\n", 1)[1].split("\n```", 1)[0])

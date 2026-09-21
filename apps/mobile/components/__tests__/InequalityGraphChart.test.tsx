@@ -2,6 +2,8 @@ import { render } from "@testing-library/react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 
+jest.mock("@/lib/skiaAvailability", () => ({ isSkiaAvailable: () => false }));
+
 const base = {
   type: "inequality", expr: "y < 2*x", a: -2, b: 1, c: 0, comparator: "<",
   x_min: -10, x_max: 10, y_min: -10, y_max: 10, points: [],

@@ -50,7 +50,6 @@ jest.mock("@/lib/attachments", () => ({
   pickFromPhotoLibrary: jest.fn(),
   uploadChatAttachment: jest.fn(),
   messageTextForSend: jest.fn((text: string) => text),
-  defaultMathCameraPrompt: () => "Solve this",
   HeicUnsupportedError: class extends Error {},
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},

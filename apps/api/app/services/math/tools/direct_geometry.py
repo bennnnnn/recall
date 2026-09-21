@@ -11,7 +11,10 @@ from app.services.math.match.literal_geometry import (
 from app.services.math.match.literal_geometry import (
     RIGHT_TRIANGLE_LEGS as _RIGHT_LEGS,
 )
-from app.services.math.match.literal_geometry import literal_triangle_angles_draw
+from app.services.math.match.literal_geometry import (
+    literal_triangle_angles_draw,
+    parse_named_rectangle_request,
+)
 from app.services.math.match.literal_geometry import (
     measurement_request as _measurement_request,
 )
@@ -19,6 +22,7 @@ from app.services.math.match.units import solid_length_unit, strip_geometry_leng
 from app.services.solving import VerifiedMathBlock
 
 _DIMENSIONS = re.compile(rf"({_DECIMAL})\s*(?:by|x|\u00d7|\*)\s*({_DECIMAL})")
+_SIDES = re.compile(rf"sides?\s+({_DECIMAL})\s*(?:,|and)\s*({_DECIMAL})")
 
 
 def _finite_number(value: object) -> float | None:
@@ -38,6 +42,30 @@ def can_direct_rectangle(
     """
     if len(user_text) > 1000 or len(fences) != 1 or fences[0].get("type") != "rectangle":
         return False
+    named = parse_named_rectangle_request(user_text)
+    if named is not None:
+        geometry = fences[0]
+        if (
+            _finite_number(geometry.get("width")) != named.width
+            or _finite_number(geometry.get("height")) != named.length
+            or geometry.get("unit") != named.unit
+            or geometry.get("show_angle") is not False
+            or geometry.get("show_diagonal") is not (named.quantity == "diagonal")
+            or geometry.get("show_perimeter") is not (named.quantity == "perimeter")
+            or geometry.get("show_area")
+            is not (named.quantity == "area" or named.given_area is not None)
+        ):
+            return False
+        field = named.target or named.quantity
+        field = "height" if field == "length" else field
+        value = _finite_number(geometry.get(field))
+        answer = (verified.canonical_answer or "").strip()
+        if value is None or value <= 0 or not answer or len(answer) > 64:
+            return False
+        try:
+            return float(answer) == value
+        except ValueError:
+            return False
     parsed = _measurement_request(user_text)
     if parsed is None:
         return False
@@ -47,10 +75,13 @@ def can_direct_rectangle(
     if not request.startswith("rectangle "):
         return False
     dimensions = request[10:]
+    if dimensions.startswith("with "):
+        dimensions = dimensions[5:]
     unit = solid_length_unit(dimensions)
     if unit is None:
         return False
-    pair = _DIMENSIONS.fullmatch(strip_geometry_length_units(dimensions).strip())
+    literal_dimensions = strip_geometry_length_units(dimensions).strip()
+    pair = _DIMENSIONS.fullmatch(literal_dimensions) or _SIDES.fullmatch(literal_dimensions)
     if pair is None:
         return False
     width, height = (float(value) for value in pair.groups())
@@ -87,6 +118,9 @@ _PARALLELOGRAM = re.compile(
 )
 _TRAPEZOID = re.compile(
     rf"top\s+({_DECIMAL})\s+(?:and\s+)?bottom\s+({_DECIMAL})\s+(?:and\s+)?height\s+({_DECIMAL})"
+)
+_TRAPEZOID_BASES = re.compile(
+    rf"bases\s+({_DECIMAL})\s+(?:and|,)\s+({_DECIMAL})\s+(?:and\s+)?height\s+({_DECIMAL})"
 )
 _CIRCLE = re.compile(rf"(radius|diameter)\s+({_DECIMAL})")
 _DEGREE_ANGLE = re.compile(rf"{_DECIMAL}(?:\s*(?:degrees|degree|°))?")
@@ -136,7 +170,10 @@ def can_direct_curved_or_slanted_geometry(
     unit = solid_length_unit(dimensions)
     if unit is None or geometry.get("unit") != unit:
         return False
-    match = pattern.fullmatch(strip_geometry_length_units(dimensions).strip())
+    literal_dimensions = strip_geometry_length_units(dimensions).strip()
+    match = pattern.fullmatch(literal_dimensions)
+    if match is None and kind == "trapezoid":
+        match = _TRAPEZOID_BASES.fullmatch(literal_dimensions)
     if match is None:
         return False
     values: tuple[float, ...]
@@ -170,10 +207,13 @@ def can_direct_curved_or_slanted_geometry(
         return False
     # These blocks already round circle measures/arc lengths to two places;
     # compare their existing presentation, without tolerances or recomputation.
-    precision = (
-        ".2f" if (kind == "circle" and quantity != "diameter") or field == "arc_length" else "g"
-    )
-    return (verified.canonical_answer or "").strip() == format(value, precision)
+    if (kind == "circle" and quantity != "diameter") or field == "arc_length":
+        from app.services.math.solve.geometry import format_geometry_decimal
+
+        expected = format_geometry_decimal(value)
+    else:
+        expected = format(value, "g")
+    return (verified.canonical_answer or "").strip() == expected
 
 
 def can_direct_triangle_angles(user_text: str, fences: list[dict[str, object]]) -> bool:

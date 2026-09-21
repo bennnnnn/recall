@@ -12,7 +12,9 @@ from app.core.config import Settings
 from app.services.chat.stream_pipeline import stream_and_finalize
 from app.services.chat.turn_prep.context import StreamContext
 from app.services.math.fence import validate_math_fences
+from app.services.math.tools.block import _build_verified_block
 from app.services.math.tools.direct import maybe_direct_math_reply
+from app.services.math.tools.extract import extract_math_intent
 from app.services.math.tools.prompt import build_math_augmentation
 from app.services.solving import VerifiedMathBlock
 
@@ -22,6 +24,7 @@ from app.services.solving import VerifiedMathBlock
     "query,answer,unit",
     [
         ("Find the area of a rectangle 3 by 4", "12", "units"),
+        ("a rectangle area with sides 4, 5", "20", "units"),
         ("Find the perimeter of a rectangle 3 cm by 4 cm", "14", "cm"),
         ("Find the diagonal of a rectangle 3 by 4 m", "5", "m"),
         ("Please calculate the area of the rectangle 2.5 x 4 m.", "10", "m"),
@@ -38,6 +41,11 @@ async def test_rectangle_streams_one_answer_and_exact_diagram_without_model(
     reply = maybe_direct_math_reply(verified, query)
     assert reply is not None and reply.endswith("```\n")
     assert reply.count("```answer") == 1 and reply.count("```geometry") == 1
+    assert "**Given**" in reply
+    assert "**Find**" in reply
+    assert "**Formula**" in reply
+    assert "**Substitution**" in reply
+    assert "**Diagram**" in reply
     finalized = validate_math_fences(reply, verified=verified)
     assert (
         json.loads(finalized.split("```geometry\n", 1)[1].split("\n```", 1)[0])
@@ -109,11 +117,20 @@ def _rectangle(**changes: object) -> VerifiedMathBlock:
         "Find the area of a rectangle 3 m by 4 cm",
         "Find the perimeter of a rectangle 3 by 4",
         "Find the area of a rectangle 3 by 4 rounded to the nearest 10",
-        "Draw a rectangle",
     ],
 )
 def test_rectangle_direct_requires_complete_literal_request(query: str) -> None:
     assert maybe_direct_math_reply(_rectangle(), query) is None
+
+
+def test_draw_rectangle_returns_only_the_diagram() -> None:
+    intent = extract_math_intent("Draw a rectangle")
+    assert intent is not None
+    verified = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert verified is not None
+    reply = maybe_direct_math_reply(verified, "Draw a rectangle")
+    assert reply is not None and reply.startswith("```geometry\n")
+    assert "```answer" not in reply
 
 
 @pytest.mark.parametrize(

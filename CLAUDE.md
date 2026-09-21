@@ -41,7 +41,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **integration** — a connected Google account: `user_calendar_connections` and `user_gmail_connections`, feeding calendar context and `suggested_reminders`.
 - **push token** — a registered Expo device token for reminder/nudge notifications.
 
-**Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry/graph SVG, physics scenes and free-body diagrams (`simulation`), chemistry (SMILES). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
+**Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry SVG, native Skia math graphs (SVG fallback), physics scenes and free-body diagrams (`simulation`), chemistry (SMILES). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
 **Owned tool loop, on by default:** `services/mcp/` adapters (`web_search`, `calendar`, `sympy`, `generate_image`, `search_image`) registered through `gateways/mcp/` plus `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. The legacy one-shot `mcp_tools_enabled` pre-stream round stays **off**. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 

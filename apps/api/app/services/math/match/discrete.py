@@ -184,14 +184,24 @@ def _ncr_npr_signal(text: str, word: str | None, letter: str) -> tuple[int, int]
 
 def combinatorics_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] | None:
     """Factorial / combinations ("choose", "C(n,k)", "nCk") / permutations
-    ("P(n,k)", "nPk"). Returns (op, n, k) — k is None for factorial."""
+    ("permute", "permutation", "P(n,k)", "nPk"). Returns (op, n, k) — k is
+    None for factorial."""
     n = _factorial_signal(text)
     if n is not None:
         return "factorial", n, None
     combo = _ncr_npr_signal(text, "choose", "C")
     if combo is not None:
         return "combinations", combo[0], combo[1]
-    perm = _ncr_npr_signal(text, None, "P")
+    perm = next(
+        (
+            signal
+            for word in ("permute", "permutation", "permutations")
+            if (signal := _ncr_npr_signal(text, word, "P")) is not None
+        ),
+        None,
+    )
+    if perm is None:
+        perm = _ncr_npr_signal(text, None, "P")
     if perm is not None:
         return "permutations", perm[0], perm[1]
     return None

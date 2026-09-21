@@ -10,6 +10,10 @@ import {
   MATH_CAMERA_PROMPT,
   composerTextAfterMathScanConfirm,
 } from "@/lib/math/cameraPrompt";
+import {
+  BIOLOGY_CAMERA_PROMPT,
+  PHYSICS_CAMERA_PROMPT,
+} from "@/lib/scanner/subjects";
 
 describe("extractImageGenPrompt", () => {
   it("extracts from create a cat pic", () => {
@@ -48,8 +52,10 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("explain quantum entanglement")).toBeNull();
   });
 
-  it("does not treat the camera-math caption as image gen", () => {
+  it("does not treat scanner protocol captions as image generation", () => {
     expect(extractImageGenPrompt(MATH_CAMERA_PROMPT)).toBeNull();
+    expect(extractImageGenPrompt(PHYSICS_CAMERA_PROMPT)).toBeNull();
+    expect(extractImageGenPrompt(BIOLOGY_CAMERA_PROMPT)).toBeNull();
     expect(extractImageGenPrompt(composerTextAfterMathScanConfirm("x=2"))).toBeNull();
   });
 

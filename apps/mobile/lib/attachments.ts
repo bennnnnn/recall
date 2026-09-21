@@ -8,7 +8,6 @@ import { api } from "@/lib/api";
 import { uploadAttachmentBytes } from "@/lib/api/attachments";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
-import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
 
 export type AttachmentKind = "image" | "file";
 
@@ -189,12 +188,6 @@ export function defaultAttachmentPrompt(pending: PendingAttachment): string {
   return pending.kind === "image" ? "" : "Summarize this file.";
 }
 
-export { MATH_CAMERA_PROMPT };
-
-export function defaultMathCameraPrompt(): string {
-  return MATH_CAMERA_PROMPT;
-}
-
 /** Text sent to the API for a message that may include an attachment. */
 export function messageTextForSend(
   text: string,
@@ -279,11 +272,11 @@ export async function pickFromCamera(): Promise<PendingAttachment | null> {
   });
 }
 
-export async function pickDocument(): Promise<PendingAttachment | null> {
+async function pickDocumentWithTypes(types: string[]): Promise<PendingAttachment | null> {
   return withNativePicker(async () => {
     await sleep(150);
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["image/*", ...DOCUMENT_MIME_TYPES],
+      type: types,
       copyToCacheDirectory: true,
       multiple: false,
     });
@@ -298,6 +291,15 @@ export async function pickDocument(): Promise<PendingAttachment | null> {
       asset.name ?? `file-${Date.now()}`,
     );
   });
+}
+
+/** Native Files picker for scanner images; it never requests photo-library access. */
+export async function pickImageDocument(): Promise<PendingAttachment | null> {
+  return pickDocumentWithTypes(["image/*"]);
+}
+
+export async function pickDocument(): Promise<PendingAttachment | null> {
+  return pickDocumentWithTypes(["image/*", ...DOCUMENT_MIME_TYPES]);
 }
 
 export async function uploadChatAttachment(

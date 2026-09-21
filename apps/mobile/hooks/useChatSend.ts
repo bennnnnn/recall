@@ -44,10 +44,12 @@ import {
   pickFromCamera,
   pickFromPhotoLibrary,
   uploadChatAttachment,
-  defaultMathCameraPrompt,
   type PendingAttachment,
 } from "@/lib/attachments";
-import { composerTextAfterMathScan } from "@/lib/math/cameraPrompt";
+import {
+  composerTextAfterSubjectScan,
+  type ScannerSubject,
+} from "@/lib/scanner/subjects";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -668,9 +670,9 @@ export function useChatSend({
     [attachBusy, composerThread, feedback, router, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
   );
 
-  const handleMathScanCaptured = useCallback((pending: PendingAttachment) => {
+  const handleMathScanCaptured = useCallback((pending: PendingAttachment, subject: ScannerSubject) => {
     setPendingAttachment(pending);
-    const text = composerTextAfterMathScan(inputRef.current, defaultMathCameraPrompt());
+    const text = composerTextAfterSubjectScan(inputRef.current, subject);
     setInput(text);
     setMathScannerOpen(false);
     void handleSend(text);

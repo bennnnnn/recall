@@ -34,8 +34,8 @@ async def test_live_inequality_injects_concise_guidance_nearest_result_and_user(
     }
     assert verified.text.endswith("[END VERIFIED MATH]")
     assert VERIFIED_MATH_REPLY_HINT not in verified.text
-    assert "give one concise answer with at most the key transformation" in updated[-2]["content"]
-    assert "Do not add unsolicited headings" in updated[-2]["content"]
+    assert "Given, Find, Formula, Substitution, then the final Answer" in updated[-2]["content"]
+    assert "do not wrap the calculation in prose paragraphs" in updated[-2]["content"]
     assert "repeat the result in equivalent forms" in updated[-2]["content"]
 
 

@@ -1,10 +1,12 @@
 """Request-aware math presentation shared by heuristic and tool-result prompts."""
 
 MATH_REPLY_POLICY = (
-    "Math reply policy for this request: Unless the user requested steps, an explanation, "
-    "a proof, examples, or hints, give one concise answer with at most the key transformation. "
-    "Do not add unsolicited headings, tutorial bullets, sample substitutions, examples, "
-    "alternatives, or Note/Tip cards, or repeat the result in equivalent forms. "
+    "Math reply policy for this request: For a concrete calculation, use a compact worked "
+    "layout: Given, Find, Formula, Substitution, then the final Answer. Put each value or "
+    "equation on its own short line and do not wrap the calculation in prose paragraphs. "
+    "Name the governing formula and show its universal form before rearranging it for an "
+    "unknown. Do not add tutorial bullets, examples, alternatives, Note/Tip cards, or repeat "
+    "the result in equivalent forms. "
     "For an invalid or underspecified problem, state the single reason it cannot be "
     "answered as written, and ask at most one necessary clarification question. "
     "Do not assume missing dimensions or replace the problem with a different example. "
