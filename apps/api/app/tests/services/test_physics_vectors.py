@@ -54,17 +54,23 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "a 3 N force east and a 4 N force north, what is the resultant",
         "resultant_force",
-        "5.00 N at 53.13°",
+        "5 N at 53.13°",
     ),
     (
         "what is the resultant of a 3 N and a 4 N force at right angles",
         "resultant_force",
-        "5.00 N at 53.13°",
+        "5 N at 53.13°",
     ),
     (
         "find the resultant of a 3 N horizontal force and a 4 N vertical force",
         "resultant_force",
-        "5.00 N at 53.13°",
+        "5 N at 53.13°",
+    ),
+    (
+        "Two forces act on an object: 3 N east and 4 N north. "
+        "Find the resultant magnitude and direction.",
+        "resultant_force",
+        "5 N at 53.13°",
     ),
     # Not perpendicular: the general parallelogram law.
     (
@@ -75,17 +81,17 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "resolve a 10 N force at 30 degrees into components",
         "resolve_force",
-        "8.66 N horizontally and 5.00 N vertically",
+        "8.66 N horizontally and 5 N vertically",
     ),
     (
         "find the components of a 10 N force acting at 30 degrees",
         "resolve_force",
-        "8.66 N horizontally and 5.00 N vertically",
+        "8.66 N horizontally and 5 N vertically",
     ),
     (
         "resolve a 10 N force acting at 30 degrees into horizontal and vertical components",
         "resolve_force",
-        "8.66 N horizontally and 5.00 N vertically",
+        "8.66 N horizontally and 5 N vertically",
     ),
 ]
 
@@ -126,7 +132,7 @@ def test_perpendicular_is_the_general_law_at_ninety_degrees() -> None:
         "what is the resultant of a 3 N and a 4 N force at 90 degrees to each other"
     )
 
-    assert perpendicular == stated == "5.00 N at 53.13°"
+    assert perpendicular == stated == "5 N at 53.13°"
 
 
 def test_the_components_rebuild_the_force_they_came_from() -> None:
@@ -225,9 +231,7 @@ def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:
     intent = extract_math_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
 
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == "net_force"
-    assert (
-        _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10.00 N"
-    )
+    assert _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10 N"
 
 
 UNDERSPECIFIED = [

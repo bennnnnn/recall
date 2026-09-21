@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from cryptography.fernet import Fernet
 
@@ -7,6 +9,17 @@ from app.core.rate_limit import allow_request
 # A valid Fernet key (32 bytes, urlsafe-base64). validate_production_settings
 # now parses the key at boot, so placeholder strings like "key" no longer pass.
 _VALID_FERNET_KEY = Fernet.generate_key().decode()
+
+
+def test_example_env_keeps_long_response_ceiling_in_sync():
+    example = (Path(__file__).resolve().parents[2] / ".env.example").read_text()
+    configured = next(
+        line.split("=", 1)[1]
+        for line in example.splitlines()
+        if line.startswith("MAX_OUTPUT_TOKENS=")
+    )
+
+    assert int(configured) == Settings.model_fields["max_output_tokens"].default == 8192
 
 
 def test_validate_production_settings_ok():

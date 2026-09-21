@@ -91,22 +91,22 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "how fast is a ball going when it lands, thrown at 20 m/s at 30 degrees",
         "impact_speed",
-        "20.00 m/s",
+        "20 m/s",
     ),
     (
         "what is the speed at impact of a ball thrown at 20 m/s at 30 degrees",
         "impact_speed",
-        "20.00 m/s",
+        "20 m/s",
     ),
     (
         "what is the landing speed of a ball thrown at 20 m/s at 30 degrees",
         "impact_speed",
-        "20.00 m/s",
+        "20 m/s",
     ),
     (
         "what is the impact velocity of a projectile launched at 20 m/s at 30 degrees",
         "impact_speed",
-        "20.00 m/s",
+        "20 m/s",
     ),
     # --- launch angle: theta = 1/2 arcsin(R g / v0^2) --------------------
     (
@@ -131,17 +131,17 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "a ball is kicked at 20 m/s at 30 degrees, how high does it go",
         "max_height",
-        "5.10 m",
+        "5.1 m",
     ),
     (
         "what is the maximum height of a projectile launched at 20 m/s at 30 degrees",
         "max_height",
-        "5.10 m",
+        "5.1 m",
     ),
     (
         "find the max height of a ball thrown at 20 m/s at 30 degrees",
         "max_height",
-        "5.10 m",
+        "5.1 m",
     ),
 ]
 
@@ -252,7 +252,7 @@ def test_a_ball_hitting_the_ground_is_not_a_collision() -> None:
         _verified_answer(
             "a ball is thrown at 20 m/s at 30 degrees, how fast does it hit the ground"
         )
-        == "20.00 m/s"
+        == "20 m/s"
     )
     assert (
         _verified_answer("a 2 kg ball at 3 m/s hits a 1 kg ball at rest elastically at 30 degrees")

@@ -4,7 +4,7 @@ Three things here were not formula work at all, and each was a wrong answer
 waiting rather than a gap:
 
 1. **Scientific notation did not parse.** "a planet of mass 6e24 kg" matched as
-   *24 kg*, and the surface gravity came out 0.00 m/s^2. Astronomy is written
+   *24 kg*, and the surface gravity came out 0 m/s^2. Astronomy is written
    this way and nothing else in the package reads it, so the fix is in the
    shared value scanners, not here.
 2. **An altitude is not in the same unit as a radius.** "400 km above the
@@ -101,19 +101,19 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the pressure of a 200 N force over 0.01 m^2",
         "fluids",
         "pressure_from_force",
-        "20000.00 Pa",
+        "20000 Pa",
     ),
     (
         "what is the pressure at 3 m depth in water",
         "fluids",
         "pressure_at_depth",
-        "29430.00 Pa (gauge)",
+        "29430 Pa (gauge)",
     ),
     (
         "what is the density of a 12 kg block of volume 0.004 m^3",
         "fluids",
         "density",
-        "3000.00 kg/m^3",
+        "3000 kg/m^3",
     ),
     (
         "what is the upthrust on a 0.002 m^3 object fully submerged in water",
@@ -125,7 +125,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the velocity in a pipe narrowing from 0.04 m^2 to 0.01 m^2 at 2 m/s",
         "fluids",
         "continuity_velocity",
-        "8.00 m/s",
+        "8 m/s",
     ),
     (
         "what is the flow rate through a 0.02 m^2 pipe at 3 m/s",
@@ -138,37 +138,37 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the angular velocity of a wheel turning 10 radians in 2 s",
         "rotation",
         "angular_velocity",
-        "5.00 rad/s",
+        "5 rad/s",
     ),
     (
         "what is the moment of inertia of a 5 kg disc of radius 2 m",
         "rotation",
         "moment_of_inertia",
-        "10.00 kg*m^2",
+        "10 kg·m^2",
     ),
     (
         "what is the moment of inertia of a 5 kg solid sphere of radius 2 m",
         "rotation",
         "moment_of_inertia",
-        "8.00 kg*m^2",
+        "8 kg·m^2",
     ),
     (
         "what is the moment of inertia of a 3 kg hoop of radius 2 m",
         "rotation",
         "moment_of_inertia",
-        "12.00 kg*m^2",
+        "12 kg·m^2",
     ),
     (
         "what is the angular momentum of a 4 kg m^2 disc at 3 rad/s",
         "rotation",
         "angular_momentum",
-        "12.00 kg*m^2/s",
+        "12 kg·m^2/s",
     ),
     (
         "what is the rotational kinetic energy of a 4 kg m^2 disc at 3 rad/s",
         "rotation",
         "rotational_kinetic_energy",
-        "18.00 J",
+        "18 J",
     ),
 ]
 
@@ -189,7 +189,7 @@ def test_round_three_second_wave_phrasings(text: str, kind: str, op: str, answer
 
 
 def test_scientific_notation_is_read_as_written() -> None:
-    """6e24 kg matched as 24 kg, and the answer was 0.00 m/s^2."""
+    """6e24 kg matched as 24 kg, and the answer was 0 m/s^2."""
     assert (
         _verified_answer("what is g on a planet of mass 6e24 kg and radius 6.4e6 m") == "9.78 m/s^2"
     )
@@ -311,7 +311,7 @@ def test_displacing_states_the_submerged_volume() -> None:
     """ "displacing 2 m^3 of water" says it as plainly as "submerged" does."""
     assert (
         _verified_answer("what is the buoyant force on a body displacing 2 m^3 of water")
-        == "19620.00 N"
+        == "19620 N"
     )
 
 
@@ -323,5 +323,5 @@ def test_a_narrowing_pipe_writes_its_unit_once() -> None:
     """
     assert (
         _verified_answer("what is the velocity in a pipe narrowing from 0.04 to 0.01 m^2 at 2 m/s")
-        == "8.00 m/s"
+        == "8 m/s"
     )

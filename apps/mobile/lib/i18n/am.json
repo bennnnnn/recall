@@ -693,6 +693,7 @@
   "rich.graph_play_a11y": "የመንገዱን እንቅስቃሴ አጫውት",
   "rich.simulation_play_a11y": "የፊዚክስ እንቅስቃሴውን አጫውት",
   "rich.simulation_stop_a11y": "የፊዚክስ እንቅስቃሴውን አቁም",
+  "rich.simulation_pause_a11y": "የፊዚክስ እንቅስቃሴውን ለአፍታ አቁም",
   "rich.simulation_restart_a11y": "የፊዚክስ እንቅስቃሴውን እንደገና ጀምር",
   "rich.graph_plot_a11y": "በመቆንጠጥ የሚቀረብ ግራፍ። ለማጉላት ይቆንጡ።",
   "rich.graph_remove_series": "ተግባር አስወግድ",

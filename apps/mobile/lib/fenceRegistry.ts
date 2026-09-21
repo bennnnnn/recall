@@ -342,7 +342,8 @@ export function isVisualDiagramFenceLang(lang: string): boolean {
     id === "mermaid" ||
     id === "chemistry" ||
     id === "molecule" ||
-    id === "molecule3d"
+    id === "molecule3d" ||
+    id === "simulation"
   );
 }
 
@@ -354,7 +355,8 @@ export function isDiagramFenceId(id: FenceId | undefined): boolean {
     id === "mermaid" ||
     id === "chemistry" ||
     id === "molecule" ||
-    id === "molecule3d"
+    id === "molecule3d" ||
+    id === "simulation"
   );
 }
 

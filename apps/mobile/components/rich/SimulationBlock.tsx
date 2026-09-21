@@ -23,11 +23,14 @@ import {
 } from "react-native-reanimated";
 
 import {
+  clampCanvasLabelBaseline,
+  clampCanvasLabelX,
   inclineDirections,
   inclineSurface,
   parseSimulationSpec,
   projectPath,
   simulationTransform,
+  simulationViewportHeight,
   tangentAt,
   worldToScreen,
   type SimulationArrow,
@@ -36,12 +39,18 @@ import {
   type SimulationVector,
   type ScreenPoint,
 } from "@/lib/math/simulation";
+import {
+  playbackStart,
+  remainingPlaybackDuration,
+} from "@/lib/animationPlayback";
+import { Icon } from "@/components/Icon";
 import { trajectoryPointAt } from "@/lib/math/trajectory";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
 export const SIMULATION_PAD = 24;
 export const SIMULATION_HEIGHT = 240;
+export const SIMULATION_MIN_HEIGHT = 136;
 
 const ARROW_LENGTH = 38;
 const ARROW_HEAD = 7;
@@ -115,9 +124,22 @@ export function SimulationBlock({ content }: Props) {
   const spec = useMemo(() => parseSimulationSpec(content), [content]);
   const width = Math.min(screenWidth - 48, 360);
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const transform = useMemo(
-    () => (spec ? simulationTransform(spec, width, SIMULATION_HEIGHT, SIMULATION_PAD) : null),
+  const height = useMemo(
+    () =>
+      spec
+        ? simulationViewportHeight(
+            spec,
+            width,
+            SIMULATION_PAD,
+            SIMULATION_MIN_HEIGHT,
+            SIMULATION_HEIGHT,
+          )
+        : SIMULATION_HEIGHT,
     [spec, width],
+  );
+  const transform = useMemo(
+    () => (spec ? simulationTransform(spec, width, height, SIMULATION_PAD) : null),
+    [height, spec, width],
   );
   const tracks = useMemo(
     () => (spec && transform ? spec.bodies.map((body) => projectPath(body.path, transform)) : []),
@@ -133,21 +155,41 @@ export function SimulationBlock({ content }: Props) {
       ) ?? false,
     [spec],
   );
+  const compactTitleTop = useMemo(() => {
+    if (!spec || !transform || !animated || height >= SIMULATION_HEIGHT) return null;
+    const bodyTop = tracks.reduce((sceneTop, track, index) => {
+      const radius = Math.max(
+        spec.bodies[index].radius * transform.scale,
+        MIN_BODY_RADIUS,
+      );
+      const trackTop = track.reduce(
+        (top, point) => Math.min(top, point.py - radius),
+        Number.POSITIVE_INFINITY,
+      );
+      return Math.min(sceneTop, trackTop);
+    }, Number.POSITIVE_INFINITY);
+    if (!Number.isFinite(bodyTop)) return null;
+    return Math.max(4, bodyTop - 24);
+  }, [animated, height, spec, tracks, transform]);
 
   const markStopped = useCallback(() => setIsPlaying(false), []);
   const play = useCallback(() => {
     cancelAnimation(progress);
-    progress.value = 0;
+    const start = playbackStart(progress.value);
+    progress.value = start;
     setIsPlaying(true);
     progress.value = withTiming(
       1,
-      { duration: Motion.duration.simulation, easing: Motion.easing.linear },
+      {
+        duration: remainingPlaybackDuration(Motion.duration.simulation, start),
+        easing: Motion.easing.linear,
+      },
       (finished) => {
         if (finished) runOnJS(markStopped)();
       },
     );
   }, [markStopped, progress]);
-  const stop = useCallback(() => {
+  const pause = useCallback(() => {
     cancelAnimation(progress);
     setIsPlaying(false);
   }, [progress]);
@@ -180,11 +222,13 @@ export function SimulationBlock({ content }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>{spec.title ?? t("rich.simulation_title")}</Text>
-      <View style={{ width, height: SIMULATION_HEIGHT }}>
+      {compactTitleTop === null ? (
+        <Text style={styles.title}>{spec.title ?? t("rich.simulation_title")}</Text>
+      ) : null}
+      <View style={{ width, height }}>
         <Canvas
           testID="simulation-canvas"
-          style={{ width, height: SIMULATION_HEIGHT }}
+          style={{ width, height }}
         >
           {trackPaths.map((path, index) => (
             <Path
@@ -230,6 +274,8 @@ export function SimulationBlock({ content }: Props) {
               transform={transform}
               theme={theme}
               font={font}
+              canvasWidth={width}
+              canvasHeight={height}
             />
           ))}
           {centre ? <Circle cx={centre.px} cy={centre.py} r={3} color={theme.textSecondary} /> : null}
@@ -246,9 +292,19 @@ export function SimulationBlock({ content }: Props) {
               progress={progress}
               theme={theme}
               font={font}
+              canvasWidth={width}
+              canvasHeight={height}
             />
           ))}
         </Canvas>
+        {compactTitleTop !== null ? (
+          <Text
+            pointerEvents="none"
+            style={[styles.title, styles.titleOverlay, { top: compactTitleTop, width }]}
+          >
+            {spec.title ?? t("rich.simulation_title")}
+          </Text>
+        ) : null}
         <SceneMarkers
           spec={spec}
           surface={surface !== null}
@@ -263,20 +319,20 @@ export function SimulationBlock({ content }: Props) {
           testID="simulation-control"
           accessibilityRole="button"
           accessibilityLabel={t(
-            isPlaying ? "rich.simulation_stop_a11y" : "rich.simulation_restart_a11y",
+            isPlaying ? "rich.simulation_pause_a11y" : "rich.simulation_play_a11y",
           )}
-          onPress={isPlaying ? stop : play}
+          onPress={isPlaying ? pause : play}
           style={({ pressed }) => [
             styles.control,
             { borderColor: theme.border, opacity: pressed ? 0.6 : 1 },
           ]}
         >
-          <Text
-            testID={isPlaying ? "simulation-stop-symbol" : "simulation-restart-symbol"}
-            style={[styles.symbol, { color: theme.primary }]}
-          >
-            {isPlaying ? "=" : "<"}
-          </Text>
+          <Icon
+            testID={isPlaying ? "simulation-stop-symbol" : "simulation-play-symbol"}
+            name={isPlaying ? "pause" : "play"}
+            size={20}
+            color={theme.primary}
+          />
         </Pressable>
       ) : null}
     </View>
@@ -294,6 +350,8 @@ function BodyMarks({
   progress,
   theme,
   font,
+  canvasWidth,
+  canvasHeight,
 }: {
   track: ScreenPoint[];
   radius: number;
@@ -305,15 +363,22 @@ function BodyMarks({
   progress: SharedValue<number>;
   theme: Theme;
   font: SkFont | null;
+  canvasWidth: number;
+  canvasHeight: number;
 }) {
   const color = role === "primary" ? theme.primary : theme.textSecondary;
   const at = useDerivedValue(() => trajectoryPointAt(track, progress.value));
   const bodyX = useDerivedValue(() => at.value.px);
   const bodyY = useDerivedValue(() => at.value.py);
-  const labelX = useDerivedValue(
-    () => at.value.px - radius - LABEL_OFFSET - (label && font ? font.measureText(label).width : 0),
+  const labelWidth = label && font ? font.measureText(label).width : 0;
+  const labelX = useDerivedValue(() => {
+    const left = at.value.px - radius - LABEL_OFFSET - labelWidth;
+    const preferred = left >= 4 ? left : at.value.px + radius + LABEL_OFFSET;
+    return clampCanvasLabelX(preferred, labelWidth, canvasWidth);
+  });
+  const labelY = useDerivedValue(() =>
+    clampCanvasLabelBaseline(at.value.py + 4, LABEL_FONT_SIZE, canvasHeight),
   );
-  const labelY = useDerivedValue(() => at.value.py + 4);
   const gravity = useDerivedValue(() =>
     arrowPath(at.value, 0, 1, ARROW_LENGTH, ARROW_HEAD),
   );
@@ -380,11 +445,15 @@ function StatedVector({
   transform,
   theme,
   font,
+  canvasWidth,
+  canvasHeight,
 }: {
   vector: SimulationVector;
   transform: SimulationTransform;
   theme: Theme;
   font: SkFont | null;
+  canvasWidth: number;
+  canvasHeight: number;
 }) {
   const from = worldToScreen(vector.anchor.x, vector.anchor.y, transform);
   const worldLength = Math.hypot(vector.dx, vector.dy);
@@ -395,9 +464,16 @@ function StatedVector({
   const tipX = from.px + (vector.dx / (worldLength || 1)) * length;
   const tipY = from.py - (vector.dy / (worldLength || 1)) * length;
   const labelWidth = vector.label && font ? font.measureText(vector.label).width : 0;
-  const textX =
-    tipX + (vector.dx >= 0 ? LABEL_OFFSET : -LABEL_OFFSET - labelWidth);
-  const textY = tipY + (vector.dy > 0 ? -LABEL_OFFSET : LABEL_OFFSET * 1.6);
+  const textX = clampCanvasLabelX(
+    tipX + (vector.dx >= 0 ? LABEL_OFFSET : -LABEL_OFFSET - labelWidth),
+    labelWidth,
+    canvasWidth,
+  );
+  const textY = clampCanvasLabelBaseline(
+    tipY + (vector.dy > 0 ? -LABEL_OFFSET : LABEL_OFFSET * 1.6),
+    LABEL_FONT_SIZE,
+    canvasHeight,
+  );
 
   return (
     <>
@@ -495,7 +571,13 @@ function makeStyles(theme: Theme) {
       fontSize: 13,
       fontWeight: "600",
       color: theme.textSecondary,
-      marginBottom: 6,
+      marginBottom: 2,
+      textAlign: "center",
+    },
+    titleOverlay: {
+      position: "absolute",
+      left: 0,
+      zIndex: 1,
     },
     fallback: {
       marginVertical: 8,
@@ -516,11 +598,6 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       borderRadius: 18,
       borderWidth: StyleSheet.hairlineWidth,
-    },
-    symbol: {
-      fontSize: 19,
-      lineHeight: 21,
-      fontWeight: "700",
     },
   });
 }

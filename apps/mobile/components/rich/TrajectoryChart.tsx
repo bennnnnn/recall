@@ -28,7 +28,13 @@ import {
   type GraphSpec,
 } from "@/lib/math/graphBlock";
 import {
+  playbackStart,
+  remainingPlaybackDuration,
+} from "@/lib/animationPlayback";
+import { Icon } from "@/components/Icon";
+import {
   trajectoryAxisLayout,
+  trajectoryAxisCaptionPosition,
   trajectoryPointAt,
   type ScreenPoint,
 } from "@/lib/math/trajectory";
@@ -36,7 +42,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme } from "@/lib/theme";
 
 /** Changing either breaks TrajectoryGraphTicks.test.tsx, which pins tick geometry. */
-export const TRAJECTORY_PAD = 28;
+export const TRAJECTORY_PAD = 40;
 export const TRAJECTORY_CHART_HEIGHT = 220;
 
 const DOT_RADIUS = 5.5;
@@ -186,17 +192,21 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
   const markStopped = useCallback(() => setIsPlaying(false), []);
   const play = useCallback(() => {
     cancelAnimation(progress);
-    progress.value = 0;
+    const start = playbackStart(progress.value);
+    progress.value = start;
     setIsPlaying(true);
     progress.value = withTiming(
       1,
-      { duration: Motion.duration.trajectory, easing: Motion.easing.linear },
+      {
+        duration: remainingPlaybackDuration(Motion.duration.trajectory, start),
+        easing: Motion.easing.linear,
+      },
       (finished) => {
         if (finished) runOnJS(markStopped)();
       },
     );
   }, [markStopped, progress]);
-  const stop = useCallback(() => {
+  const pause = useCallback(() => {
     cancelAnimation(progress);
     setIsPlaying(false);
   }, [progress]);
@@ -221,6 +231,12 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
   const measure = useCallback(
     (value: string) => font?.measureText(value).width ?? value.length * 6.7,
     [font],
+  );
+  const xCaption = trajectoryAxisCaptionPosition(
+    measure(xLabel),
+    chartWidth,
+    TRAJECTORY_CHART_HEIGHT,
+    TRAJECTORY_PAD,
   );
 
   return (
@@ -273,15 +289,15 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
           {font ? (
             <>
               <SkiaText
-                x={chartWidth - TRAJECTORY_PAD - measure(xLabel)}
-                y={axes.xAxisY - 6}
+                x={xCaption.px}
+                y={xCaption.py}
                 text={xLabel}
                 font={font}
                 color={theme.textSecondary}
               />
               <SkiaText
-                x={Math.max(axes.yAxisX - TICK_FONT_SIZE, 2)}
-                y={TRAJECTORY_PAD - 2}
+                x={TRAJECTORY_PAD}
+                y={TRAJECTORY_PAD - 10}
                 text={yLabel}
                 font={font}
                 color={theme.textSecondary}
@@ -334,20 +350,20 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
           testID="trajectory-control"
           accessibilityRole="button"
           accessibilityLabel={t(
-            isPlaying ? "rich.simulation_stop_a11y" : "rich.simulation_restart_a11y",
+            isPlaying ? "rich.simulation_pause_a11y" : "rich.simulation_play_a11y",
           )}
-          onPress={isPlaying ? stop : play}
+          onPress={isPlaying ? pause : play}
           style={({ pressed }) => [
             localStyles.control,
             { borderColor: theme.border, opacity: pressed ? 0.6 : 1 },
           ]}
         >
-          <Text
-            testID={isPlaying ? "trajectory-stop-symbol" : "trajectory-restart-symbol"}
-            style={[localStyles.symbol, { color: theme.primary }]}
-          >
-            {isPlaying ? "=" : "<"}
-          </Text>
+          <Icon
+            testID={isPlaying ? "trajectory-stop-symbol" : "trajectory-play-symbol"}
+            name={isPlaying ? "pause" : "play"}
+            size={20}
+            color={theme.primary}
+          />
         </Pressable>
       ) : null}
     </View>
@@ -363,11 +379,6 @@ const localStyles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-  },
-  symbol: {
-    fontSize: 19,
-    lineHeight: 21,
-    fontWeight: "700",
   },
   marker: {
     position: "absolute",

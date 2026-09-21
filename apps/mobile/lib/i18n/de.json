@@ -693,6 +693,7 @@
   "rich.graph_play_a11y": "Flugbahn-Animation abspielen",
   "rich.simulation_play_a11y": "Physik-Animation abspielen",
   "rich.simulation_stop_a11y": "Physik-Animation stoppen",
+  "rich.simulation_pause_a11y": "Physik-Animation pausieren",
   "rich.simulation_restart_a11y": "Physik-Animation neu starten",
   "rich.graph_plot_a11y": "Interaktives Diagramm. Zum Zoomen zwei Finger verwenden.",
   "rich.graph_remove_series": "Funktion entfernen",

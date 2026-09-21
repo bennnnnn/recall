@@ -12,11 +12,14 @@
  */
 import {
   arrowPolyline,
+  clampCanvasLabelBaseline,
+  clampCanvasLabelX,
   inclineDirections,
   inclineSurface,
   parseSimulationSpec,
   projectPath,
   simulationTransform,
+  simulationViewportHeight,
   tangentAt,
   worldToScreen,
 } from "@/lib/math/simulation";
@@ -134,6 +137,14 @@ describe("parseSimulationSpec", () => {
 });
 
 describe("simulationTransform", () => {
+  it("uses a compact viewport for every wide scene and a full one for square scenes", () => {
+    const wide = parse({ ...PROJECTILE, x_max: 42, y_max: 14 })!;
+    const square = parse(ORBIT)!;
+
+    expect(simulationViewportHeight(wide, 360, 24, 136, 240)).toBe(152);
+    expect(simulationViewportHeight(square, 360, 24, 136, 240)).toBe(240);
+  });
+
   it("uses one scale for both axes", () => {
     // The whole reason this is not `mapGraphPoint`. A 12x12 world in a
     // 360x240 box is limited by height, so both axes take the height's scale.
@@ -173,6 +184,18 @@ describe("simulationTransform", () => {
     const t = simulationTransform(spec, 360, 240, 24);
 
     expect(worldToScreen(0, 10, t).py).toBeLessThan(worldToScreen(0, 0, t).py);
+  });
+});
+
+describe("canvas label safety", () => {
+  it("keeps labels inside both horizontal edges", () => {
+    expect(clampCanvasLabelX(-30, 80, 360)).toBe(4);
+    expect(clampCanvasLabelX(350, 80, 360)).toBe(276);
+  });
+
+  it("keeps the full line of text inside both vertical edges", () => {
+    expect(clampCanvasLabelBaseline(-20, 11, 152)).toBe(15);
+    expect(clampCanvasLabelBaseline(180, 11, 152)).toBe(148);
   });
 });
 

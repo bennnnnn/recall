@@ -693,6 +693,7 @@
   "rich.graph_play_a11y": "Play the trajectory animation",
   "rich.simulation_play_a11y": "Play the physics animation",
   "rich.simulation_stop_a11y": "Stop the physics animation",
+  "rich.simulation_pause_a11y": "Pause the physics animation",
   "rich.simulation_restart_a11y": "Restart the physics animation",
   "rich.graph_plot_a11y": "Interactive graph. Pinch to zoom, drag to pan.",
   "rich.graph_remove_series": "Remove function",

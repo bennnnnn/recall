@@ -52,7 +52,7 @@ def test_find_f_without_primes_still_normalizes_physics_quantities() -> None:
     assert intent.kind == "force"
     assert intent.physics_params == {"m": 0.5, "a": 2.0}
     block = _build_verified_block(intent, Settings(math_tools_enabled=True))
-    assert block is not None and block.canonical_answer == "1.00 N"
+    assert block is not None and block.canonical_answer == "1 N"
 
 
 @pytest.mark.parametrize(
@@ -60,7 +60,7 @@ def test_find_f_without_primes_still_normalizes_physics_quantities() -> None:
     [
         "find f for a 1/2 kg object with acceleration 2 m/s^2",
         "find f for a 1.2.3 kg object with acceleration 2 m/s^2",
-        "range of a projectile launched at 1,000 m/s at 30 degrees",
+        "range of a projectile launched at 1,00 m/s at 30 degrees",
         "range of a projectile launched at 1e+ m/s at 30 degrees",
     ],
 )

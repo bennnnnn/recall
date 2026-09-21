@@ -13,6 +13,8 @@ from decimal import Decimal, InvalidOperation
 
 _START = re.compile(r"(?<![\w.])(?=[+-]?(?:\d|\.\d))")
 _LITERAL = re.compile(r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?")
+_GROUPED_CANDIDATE = re.compile(r"(?<![\w.])[+-]?\d(?:[\d,]*\d)?(?:\.\d+)?(?:[eE][+-]?\d+)?")
+_GROUPED_LITERAL = re.compile(r"[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:[eE][+-]?\d+)?")
 # Legacy keyword scanners inspect 40-character windows. Never expand a
 # literal beyond that window and thereby make a prefix look like the value.
 _MAX_LITERAL_CHARS = 36
@@ -59,13 +61,20 @@ def normalize_physics_numbers(text: str) -> str | None:
     """Return equivalent decimal spellings, or None for an unsafe token.
 
     Signed decimals, leading-dot decimals, and scientific notation are
-    supported. Ambiguous thousands separators, incomplete exponents, and
-    repeated decimal points fail closed. Decimal bounds are checked before
-    expansion so an exponent cannot allocate an unbounded string.
+    supported. Standard comma-grouped thousands are ungrouped before parsing;
+    malformed separators, incomplete exponents, and repeated decimal points
+    fail closed. Decimal bounds are checked before expansion so an exponent
+    cannot allocate an unbounded string.
     """
     if len(text) > _MAX_INPUT_CHARS:
         return None
     text = normalize_physics_units(text).replace("\u2212", "-")
+    text = _GROUPED_CANDIDATE.sub(
+        lambda match: match.group().replace(",", "")
+        if "," in match.group() and _GROUPED_LITERAL.fullmatch(match.group())
+        else match.group(),
+        text,
+    )
     if re.search(
         r"[A-Za-z_]\.\d|(?<!\w)[+-]{2,}(?=\d|\.\d)"
         r"|(?<!\w)[+-]\s+(?=\d|\.\d)|\d\s*/\s*[+-]?(?:\d|\.)",

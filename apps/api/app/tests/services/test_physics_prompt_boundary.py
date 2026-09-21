@@ -88,6 +88,8 @@ def test_the_hint_states_the_boundary() -> None:
 
     assert "do not claim verification" in lower
     assert "be cautious and say when you are unsure" in lower
+    assert "governing equation first" in lower
+    assert "at most 4 short steps" in lower
 
 
 # "pendulum" was one of these until P15 solved it, and "waves", "optics" and
@@ -95,11 +97,11 @@ def test_the_hint_states_the_boundary() -> None:
 # gap" list: the point of this table is what the model must still be cautious
 # about, and a solved topic belongs in the coverage test above instead.
 _KNOWN_GAPS = [
-    "relativity",
     "quantum states",
     "alternating current",
-    "entropy",
-    "interference",
+    "maxwell boundary problems",
+    "lagrangian mechanics",
+    "hamiltonian mechanics",
 ]
 
 

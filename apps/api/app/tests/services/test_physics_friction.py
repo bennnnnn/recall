@@ -48,8 +48,8 @@ VERIFIED: list[tuple[str, str, str]] = [
         "19.62 N",
     ),
     # N = m g, and N = m g cos(theta) on a slope
-    ("normal force on a 10 kg block on level ground", "normal_force", "98.10 N"),
-    ("what is the normal force on a 10 kg box resting on a table", "normal_force", "98.10 N"),
+    ("normal force on a 10 kg block on level ground", "normal_force", "98.1 N"),
+    ("what is the normal force on a 10 kg box resting on a table", "normal_force", "98.1 N"),
     ("find the normal force for a 10 kg mass on a 30 degree incline", "normal_force", "84.96 N"),
     # a = g(sin(theta) - mu cos(theta))
     (
@@ -61,7 +61,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "what is the acceleration of a block on a frictionless 30 degree incline",
         "incline_acceleration",
-        "4.90 m/s^2",
+        "4.9 m/s^2",
     ),
     (
         "a crate slides down a 30 degree ramp with mu = 0.2, find the acceleration",
@@ -106,7 +106,7 @@ def test_incline_acceleration_does_not_depend_on_mass() -> None:
         "what is the acceleration of a 250 kg block on a frictionless 30 degree incline"
     )
 
-    assert without == "4.90 m/s^2"
+    assert without == "4.9 m/s^2"
     assert with_mass == without
 
 
@@ -121,7 +121,7 @@ def test_a_block_that_cannot_slide_is_reported_as_stationary() -> None:
             "a block on a 10 degree incline with coefficient of friction 0.5, "
             "what is the acceleration"
         )
-        == "0.00 m/s^2"
+        == "0 m/s^2"
     )
 
 
@@ -207,6 +207,4 @@ def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:
     intent = extract_math_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
 
     assert intent is not None and intent.kind == "force"
-    assert (
-        _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10.00 N"
-    )
+    assert _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10 N"

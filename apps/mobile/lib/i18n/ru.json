@@ -693,6 +693,7 @@
   "rich.graph_play_a11y": "Воспроизвести анимацию траектории",
   "rich.simulation_play_a11y": "Воспроизвести физическую анимацию",
   "rich.simulation_stop_a11y": "Остановить физическую анимацию",
+  "rich.simulation_pause_a11y": "Приостановить физическую анимацию",
   "rich.simulation_restart_a11y": "Перезапустить физическую анимацию",
   "rich.graph_plot_a11y": "Интерактивный график. Сожмите пальцы для масштаба.",
   "rich.graph_remove_series": "Удалить функцию",

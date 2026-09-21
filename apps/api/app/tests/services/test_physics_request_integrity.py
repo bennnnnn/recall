@@ -36,6 +36,9 @@ from app.services.physics.request import (
         ("0e1000000", "0"),
         ("6e24", "6000000000000000000000000"),
         ("1e-2", "0.01"),
+        ("1,000", "1000"),
+        ("1,234,567.50", "1234567.5"),
+        ("-12,500", "-12500"),
     ],
 )
 def test_complete_number_spellings(literal: str, expected: str) -> None:
@@ -52,7 +55,9 @@ def test_complete_number_spellings(literal: str, expected: str) -> None:
         "1e",
         "1.2.3",
         "1..2",
-        "1,000",
+        "1,00",
+        "12,34",
+        "1,000,00",
         "1_000",
         "--.5",
         "- .5",
@@ -212,11 +217,19 @@ def test_pipeline_leading_decimal_and_scientific_notation() -> None:
     assert intent.physics_params["g"] == 0.01
 
 
-@pytest.mark.parametrize("mass", ["1.2.3", "1e+", "1,000", "1/2"])
+@pytest.mark.parametrize("mass", ["1.2.3", "1e+", "1,00", "1/2"])
 def test_pipeline_invalid_quantity_never_falls_through_to_algebra(mass: str) -> None:
     from app.services.math.tools import extract_math_intent
 
     assert extract_math_intent(f"kinetic energy of a {mass} kg object moving at 2 m/s") is None
+
+
+def test_pipeline_accepts_standard_grouped_thousands() -> None:
+    from app.services.math.tools import extract_math_intent
+
+    intent = extract_math_intent("kinetic energy of a 1,000 kg object moving at 2 m/s")
+    assert isinstance(intent, PhysicsIntent)
+    assert intent.physics_params is not None and intent.physics_params["m"] == 1000
 
 
 def test_pipeline_rejects_missing_collision_conditions() -> None:
@@ -241,7 +254,7 @@ def test_pipeline_all_projectile_answers_share_one_visual() -> None:
     assert intent.requested_ops == ["time_of_flight", "max_height", "range"]
     block = _build_verified_block(intent, Settings(math_tools_enabled=True))
     assert block is not None and block.canonical_answer is not None
-    for value in ("2.04", "5.10", "35.35"):
+    for value in ("2.04", "5.1", "35.35"):
         assert value in block.canonical_answer
     fences = [block.canonical_fence, *block.canonical_fences]
     assert sum(f is not None and f.get("type") == "trajectory" for f in fences) == 1

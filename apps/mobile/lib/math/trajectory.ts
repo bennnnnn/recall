@@ -37,6 +37,19 @@ export type TrajectoryAxisLayout = {
   yTicks: TrajectoryAxisLabel[];
 };
 
+/** Put the horizontal caption in its own band below the plotted motion. */
+export function trajectoryAxisCaptionPosition(
+  labelWidth: number,
+  width: number,
+  height: number,
+  pad: number,
+): ScreenPoint {
+  return {
+    px: Math.max(4, width - pad - Math.max(0, labelWidth)),
+    py: height - 4,
+  };
+}
+
 /**
  * Static trajectory-axis geometry shared by the native Skia renderer and its
  * tests. Text anchoring is applied by the renderer after measuring the font;

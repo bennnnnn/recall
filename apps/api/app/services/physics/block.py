@@ -8,6 +8,7 @@ optional trajectory graph Recall attaches after the stream.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -31,6 +32,24 @@ _PROJECTILE_LABELS = {
     "range": "R",
     "impact_speed": r"v_{\mathrm{impact}}",
 }
+
+_DECIMAL_VALUE = re.compile(r"(?<![\d.])([+-]?\d+\.\d+)(?![\d.])")
+
+
+def _format_visible_answer(answer: str) -> str:
+    """Remove display-only solver artifacts from a verified final answer."""
+    answer = _DECIMAL_VALUE.sub(lambda match: match.group(1).rstrip("0").rstrip("."), answer)
+    # Keep compound units readable in every renderer and accessibility output.
+    return answer.replace("*", "·")
+
+
+def _format_simulation_labels(spec: dict[str, Any]) -> dict[str, Any]:
+    """Apply answer-number formatting to text rendered on the native canvas."""
+    for item in (*spec.get("bodies", []), *spec.get("vectors", [])):
+        label = item.get("label")
+        if isinstance(label, str):
+            item["label"] = _format_visible_answer(label)
+    return spec
 
 
 def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
@@ -100,9 +119,10 @@ def _build_physics_block(
         "**Given**, **Find**, **Formula**, **Substitution**, and **Answer**, in that order. "
         "Put every heading and every equation on its own line; never compress the working "
         "into one equation or paragraph. Under Given, list the supplied quantities with "
-        "units. Under Find, name the requested quantity. Under Formula, show the symbolic "
-        "relationship only. Under Substitution, insert the supplied numbers. Under Answer, "
-        "state the verified result exactly once."
+        "units. Under Find, name the requested quantity. Under Formula, name the governing "
+        "law, show its universal/base equation first, and then show any rearrangement needed "
+        "for the requested unknown. Under Substitution, insert the supplied numbers. Under "
+        "Answer, state the verified result exactly once."
     )
     if result.simulation_specs:
         lines.append(
@@ -111,28 +131,32 @@ def _build_physics_block(
             "embed, or provide an animation or diagram. Do not discuss how the visual is attached "
             "and do not emit a simulation fence yourself."
         )
+    visible_answer = _format_visible_answer(result.answer_value)
     # Append the verified answer to the hint lines.
-    lines.append(f"Verified answer: ${result.answer}$ ({result.answer_value})")
+    lines.append(f"Verified answer: ${result.answer}$ ({visible_answer})")
 
     # A solve may produce both a plot and a scene — a projectile's parabola and
     # the ball flying along it. `canonical_fences` is what carries more than one
     # fence through `validate_math_fences`, so every spec goes there and the
     # primary stays first for the callers that read `canonical_fence` alone.
-    specs = [spec.model_dump() for spec in (*result.graph_specs, *result.simulation_specs)]
+    specs = [
+        _format_simulation_labels(spec.model_dump())
+        for spec in (*result.graph_specs, *result.simulation_specs)
+    ]
     if not specs:
-        block = _finish_with_answer(lines, result.answer_value, allow_direct=False)
+        block = _finish_with_answer(lines, visible_answer, allow_direct=False)
         return replace(block, physics_working=result.answer)
 
     if result.graph_specs:
         # A graph *is* the answer in visual form, so it leads and the turn may
         # take the direct path exactly as it always could.
-        block = _diagram_block(lines, specs[0], result.answer_value)
+        block = _diagram_block(lines, specs[0], visible_answer)
     else:
         # A scene attached to a scalar answer is decoration, not a second
         # answer. Keep the answer fence primary; the physics direct guard
         # separately requires the solver-owned working before it can format a
         # complete response, so the picture never grants directness by itself.
-        block = _finish_with_answer(lines, result.answer_value, allow_direct=False)
+        block = _finish_with_answer(lines, visible_answer, allow_direct=False)
 
     # Extras only. Every reader of `canonical_fences` already prepends
     # `canonical_fence`, so repeating it here would mean a caller that clears

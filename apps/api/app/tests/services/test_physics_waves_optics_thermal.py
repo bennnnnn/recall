@@ -66,32 +66,32 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the wavelength of a 50 Hz wave travelling at 340 m/s",
         "waves",
         "wavelength",
-        "6.80 m",
+        "6.8 m",
     ),
     (
         "what is the speed of a wave of wavelength 2 m and frequency 5 Hz",
         "waves",
         "wave_speed",
-        "10.00 m/s",
+        "10 m/s",
     ),
     (
         "what is the frequency of a wave with a wavelength of 4 m travelling at 20 m/s",
         "waves",
         "wave_frequency",
-        "5.00 Hz",
+        "5 Hz",
     ),
     (
         "a sound wave of wavelength 0.5 m travels at 340 m/s, what is its frequency",
         "waves",
         "wave_frequency",
-        "680.00 Hz",
+        "680 Hz",
     ),
     # --- waves: f = 1/T and T = 1/f -------------------------------------
     (
         "what is the frequency of a wave with period 0.02 s",
         "waves",
         "wave_frequency_from_period",
-        "50.00 Hz",
+        "50 Hz",
     ),
     ("what is the period of a 50 Hz wave", "waves", "wave_period", "0.02 s"),
     ("what is the period of a 200 Hz wave", "waves", "wave_period", "0.005 s"),
@@ -137,7 +137,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "find the critical angle for a refractive index of 2",
         "optics",
         "critical_angle",
-        "30.00 deg",
+        "30 deg",
     ),
     (
         "what is the refractive index if light bends from 30 to 20 degrees",
@@ -149,15 +149,15 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the magnification of an image 6 cm tall from a 2 cm object",
         "optics",
         "magnification",
-        "3.00",
+        "3",
     ),
     # --- thermal ---------------------------------------------------------
-    ("how much heat to raise 2 kg of water by 20 K", "thermal", "heat_energy", "167440.00 J"),
+    ("how much heat to raise 2 kg of water by 20 K", "thermal", "heat_energy", "167440 J"),
     (
         "how much heat is needed to warm 0.5 kg of water by 10 K",
         "thermal",
         "heat_energy",
-        "20930.00 J",
+        "20930 J",
     ),
     (
         "what is the pressure of 2 moles of ideal gas at 300 K in 0.05 m^3",
@@ -169,13 +169,13 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the efficiency of an engine doing 300 J of work from 1000 J",
         "thermal",
         "thermal_efficiency",
-        "0.30 (30.0%)",
+        "0.3 (30%)",
     ),
     (
         "an engine supplied with 2000 J does 500 J of work, what is its efficiency",
         "thermal",
         "thermal_efficiency",
-        "0.25 (25.0%)",
+        "0.25 (25%)",
     ),
 ]
 
@@ -317,7 +317,7 @@ def test_a_temperature_rise_may_omit_its_scale() -> None:
     water by 10 degrees" is answerable where "at 300 degrees" is not.
     """
     assert _verified_answer("how much heat is needed to raise 2 kg of water by 10 degrees") == (
-        "83720.00 J"
+        "83720 J"
     )
 
 

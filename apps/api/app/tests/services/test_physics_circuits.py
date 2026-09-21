@@ -46,34 +46,34 @@ def _verified_answer(text: str) -> str | None:
 
 # V = 12, I = 3, R = 4 throughout, so all three rearrangements share one triangle.
 VERIFIED: list[tuple[str, str, str]] = [
-    ("what is the current if the voltage is 12 V and resistance is 4 ohms", "current", "3.00 A"),
-    ("find the current for a 12 V supply across a 4 ohm resistor", "current", "3.00 A"),
+    ("what is the current if the voltage is 12 V and resistance is 4 ohms", "current", "3 A"),
+    ("find the current for a 12 V supply across a 4 ohm resistor", "current", "3 A"),
     (
         "a 12 V battery is connected to a 4 ohm resistance, what is the current",
         "current",
-        "3.00 A",
+        "3 A",
     ),
-    ("find the voltage with current 3 A and resistance 4 ohms", "voltage", "12.00 V"),
-    ("what is the voltage across a 4 ohm resistor carrying 3 A", "voltage", "12.00 V"),
-    ("calculate the voltage for 3 amps through 4 ohms", "voltage", "12.00 V"),
-    ("resistance when voltage is 12 V and current is 3 A", "resistance", "4.00 ohm"),
+    ("find the voltage with current 3 A and resistance 4 ohms", "voltage", "12 V"),
+    ("what is the voltage across a 4 ohm resistor carrying 3 A", "voltage", "12 V"),
+    ("calculate the voltage for 3 amps through 4 ohms", "voltage", "12 V"),
+    ("resistance when voltage is 12 V and current is 3 A", "resistance", "4 ohm"),
     (
         "what is the resistance of a resistor with 12 V across it and 3 A through it",
         "resistance",
-        "4.00 ohm",
+        "4 ohm",
     ),
-    ("find the resistance for 12 volts and 3 amps", "resistance", "4.00 ohm"),
-    ("power dissipated by a 4 ohm resistor carrying 3 A", "electrical_power", "36.00 W"),
-    ("what is the electrical power for 12 V and 3 A", "electrical_power", "36.00 W"),
+    ("find the resistance for 12 volts and 3 amps", "resistance", "4 ohm"),
+    ("power dissipated by a 4 ohm resistor carrying 3 A", "electrical_power", "36 W"),
+    ("what is the electrical power for 12 V and 3 A", "electrical_power", "36 W"),
     (
         "two resistors of 4 ohms and 6 ohms in series, what is the total resistance",
         "series_resistance",
-        "10.00 ohm",
+        "10 ohm",
     ),
     (
         "two resistors of 4 ohms and 6 ohms in parallel, what is the total resistance",
         "parallel_resistance",
-        "2.40 ohm",
+        "2.4 ohm",
     ),
 ]
 
@@ -157,7 +157,7 @@ def test_mechanical_power_is_untouched() -> None:
 
     assert intent is not None and intent.kind == "energy"
     assert intent.physics_op == "power"
-    assert _verified_answer("what is the power of a force of 10 N moving at 3 m/s") == "30.00 W"
+    assert _verified_answer("what is the power of a force of 10 N moving at 3 m/s") == "30 W"
 
 
 @pytest.mark.parametrize(
@@ -233,9 +233,9 @@ def _reaches_the_tool_path(text: str) -> bool:
 
 
 UNIT_ONLY = [
-    ("what is the electrical power for 12 V and 3 A", "electrical_power", "36.00 W"),
-    ("a 12 V battery with 4 A of current, what is the resistance", "resistance", "3.00 ohm"),
-    ("what is the current for 12 V and 4 ohms", "current", "3.00 A"),
+    ("what is the electrical power for 12 V and 3 A", "electrical_power", "36 W"),
+    ("a 12 V battery with 4 A of current, what is the resistance", "resistance", "3 ohm"),
+    ("what is the current for 12 V and 4 ohms", "current", "3 A"),
 ]
 
 
@@ -275,43 +275,43 @@ def test_lowercase_bare_letters_are_still_not_units(text: str) -> None:
 # (question, expected op, expected answer)
 NETWORKS: list[tuple[str, str, str]] = [
     # Three resistors were read and only two were used, so these were wrong
-    # answers rather than gaps: 5.00 ohm for a series of 2, 3 and 5.
+    # answers rather than gaps: 5 ohm for a series of 2, 3 and 5.
     (
         "what is the total resistance of 2 ohms, 3 ohms and 5 ohms in series",
         "series_resistance",
-        "10.00 ohm",
+        "10 ohm",
     ),
     (
         "what is the total resistance of 4 ohms, 6 ohms and 12 ohms in parallel",
         "parallel_resistance",
-        "2.00 ohm",
+        "2 ohm",
     ),
     (
         "three resistors of 2 ohms, 3 ohms and 6 ohms in parallel, what is the total",
         "parallel_resistance",
-        "1.00 ohm",
+        "1 ohm",
     ),
     # One unit for the whole list: these returned nothing at all.
     (
         "two resistors of 4 and 6 ohms in series, what is the total resistance",
         "series_resistance",
-        "10.00 ohm",
+        "10 ohm",
     ),
     (
         "three resistors of 2, 3 and 6 ohms in parallel, what is the total resistance",
         "parallel_resistance",
-        "1.00 ohm",
+        "1 ohm",
     ),
     # A unit each, two resistors: the shape that already worked.
     (
         "what is the combined resistance of 4 ohms and 6 ohms in parallel",
         "parallel_resistance",
-        "2.40 ohm",
+        "2.4 ohm",
     ),
     (
         "what is the total resistance of a 4 ohm and 6 ohm resistor in series",
         "series_resistance",
-        "10.00 ohm",
+        "10 ohm",
     ),
 ]
 
@@ -330,29 +330,29 @@ def test_a_network_larger_than_the_table_is_refused_not_truncated() -> None:
 
 
 NEW_OPS: list[tuple[str, str, str]] = [
-    ("what is the charge if a current of 3 A flows for 5 s", "charge", "15.00 C"),
-    ("how much charge passes when 2 A flows for 10 s", "charge", "20.00 C"),
-    ("what charge is delivered by 4 A over 3 s", "charge", "12.00 C"),
-    ("what is the energy used by a 2000 W heater in 3 hours", "electrical_energy", "21600000.00 J"),
-    ("how much energy does a 100 W bulb use in 10 hours", "electrical_energy", "3600000.00 J"),
-    ("energy consumed by a 500 W device in 2 hours", "electrical_energy", "3600000.00 J"),
-    ("what is the capacitance storing 6 C at 3 V", "capacitance", "2.00 F"),
-    ("a capacitor holds 12 C at 4 V, what is the capacitance", "capacitance", "3.00 F"),
-    ("find the capacitance of a capacitor with 10 C at 5 V", "capacitance", "2.00 F"),
+    ("what is the charge if a current of 3 A flows for 5 s", "charge", "15 C"),
+    ("how much charge passes when 2 A flows for 10 s", "charge", "20 C"),
+    ("what charge is delivered by 4 A over 3 s", "charge", "12 C"),
+    ("what is the energy used by a 2000 W heater in 3 hours", "electrical_energy", "21600000 J"),
+    ("how much energy does a 100 W bulb use in 10 hours", "electrical_energy", "3600000 J"),
+    ("energy consumed by a 500 W device in 2 hours", "electrical_energy", "3600000 J"),
+    ("what is the capacitance storing 6 C at 3 V", "capacitance", "2 F"),
+    ("a capacitor holds 12 C at 4 V, what is the capacitance", "capacitance", "3 F"),
+    ("find the capacitance of a capacitor with 10 C at 5 V", "capacitance", "2 F"),
     (
         "what is the terminal voltage of a 12 V cell with 0.5 ohm internal resistance drawing 2 A",
         "terminal_voltage",
-        "11.00 V",
+        "11 V",
     ),
     (
         "a 9 V battery with 1 ohm internal resistance supplies 2 A, what is the terminal voltage",
         "terminal_voltage",
-        "7.00 V",
+        "7 V",
     ),
     (
         "find the voltage across the terminals of a 6 V cell, internal resistance 0.5 ohm, 2 A",
         "terminal_voltage",
-        "5.00 V",
+        "5 V",
     ),
 ]
 
