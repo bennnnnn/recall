@@ -58,7 +58,7 @@ def test_shared_multi_number_scan_preserves_leading_decimals() -> None:
         (
             "Find the area of a circle diameter .5 m",
             "circle",
-            "0.20",
+            "0.2",
             {"radius": 0.25, "diameter": 0.5},
         ),
         (

@@ -14,6 +14,10 @@ from app.services.math.tools.extract import extract_math_intent
 
 _CASES = [
     ("Differentiate x^3", "3 x^{2}"),
+    (
+        "Differentiate x^3*sin(x)",
+        r"x^{2} \left(x \cos{\left(x \right)} + 3 \sin{\left(x \right)}\right)",
+    ),
     ("Find the second derivative of x^4", "12 x^{2}"),
     ("Find the third derivative of x^4", "24 x"),
     ("Find the partial derivative of x^2*y with respect to y", "x^{2}"),

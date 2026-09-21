@@ -42,7 +42,11 @@ def format_verified_latex(expr: Any) -> str:
     tex = str(latex(val))
     if len(tex) <= _EXACT_LATEX_DECIMAL_THRESHOLD:
         return tex
-    return str(latex(val.evalf(6)))
+    approximate = str(latex(val.evalf(6)))
+    # ``evalf`` also converts harmless exact integer coefficients inside a
+    # symbolic expression (``3`` -> ``3.0``).  Only use the approximation when
+    # it actually makes a long exact result easier to read.
+    return approximate if len(approximate) < len(tex) else tex
 
 
 # Shallow LaTeX → SymPy-ish text. Nested \frac needs repeated passes (capped).
