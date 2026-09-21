@@ -47,6 +47,7 @@ from app.services.chat.turn_prep.mode import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.chemistry import context as chemistry_context_service
+from app.services.chemistry.block import VerifiedChemistry
 from app.services.email import context as email_service
 from app.services.math.tools import VerifiedMathBlock, needs_symbolic_math
 from app.services.settings_intent import extract_settings_changes
@@ -490,7 +491,7 @@ async def build_stream_prompt_context(
         ]
         | None
     ) = None
-    chem_coro: Awaitable[str | None] | None = None
+    chem_coro: Awaitable[tuple[str | None, VerifiedChemistry | None]] | None = None
     write_coro: Awaitable[bool] | None = None
     if augment:
 
@@ -518,7 +519,7 @@ async def build_stream_prompt_context(
 
         web_coro = _fetch_web_with_priors()
         if settings.chemistry_enabled and needs_chem:
-            chem_coro = chemistry_context_service.build_chemistry_context(
+            chem_coro = chemistry_context_service.build_chemistry_augmentation(
                 content, settings, redis=redis
             )
         if settings.mcp_tools_enabled and calendar_service.is_calendar_create_request(content):
@@ -529,6 +530,7 @@ async def build_stream_prompt_context(
     web_block: str | None = None
     math_block: str | None = None
     chem_block: str | None = None
+    verified_chemistry: VerifiedChemistry | None = None
     fetch_jobs: list[Awaitable[Any]] = []
     fetch_keys: list[str] = []
     if integration_coro is not None:
@@ -590,11 +592,20 @@ async def build_stream_prompt_context(
                 "web"
             ]
         if "chem" in by_key:
-            chem_block = by_key["chem"]
+            chem_block, verified_chemistry = by_key["chem"]
         if "cal_write" in by_key:
             has_calendar_write = by_key["cal_write"]
         if "classify" in by_key:
             web_search_classified = by_key["classify"]
+
+    # Chemistry notation such as ``ΔH=-40`` can look like a small algebra
+    # system to the generic math extractor. Once Chemistry has produced a
+    # complete typed result, that domain owns the turn: retaining the
+    # incidental math result would make finalization append a second, bogus
+    # answer fence beneath the verified Chemistry reply.
+    if verified_chemistry is not None:
+        math_block = None
+        verified_math = None
 
     # Phase C: inject in the stable order (integration -> web -> math) so the
     # final prompt is byte-identical to the prior serial pipeline.
@@ -636,6 +647,13 @@ async def build_stream_prompt_context(
             content,
             has_image_attachment=has_image_attachment,
             response_style=getattr(user, "response_style", None) or "balanced",
+        )
+    if instant_reply is None and verified_chemistry is not None:
+        from app.services.chemistry.direct import maybe_direct_chemistry_reply
+
+        instant_reply = maybe_direct_chemistry_reply(
+            verified_chemistry,
+            has_image_attachment=has_image_attachment,
         )
     return TurnPromptBundle(
         prompt_messages=prompt_messages,

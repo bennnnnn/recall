@@ -28,10 +28,10 @@ correctness and was verified against the full suite.
 | | Math | Physics | Chemistry |
 |---|---|---|---|
 | Own top-level `services/` package | yes | yes | yes |
-| Own intent/schema type | `MathIntent` (`models/schemas/math/intent.py`, 32 kinds) | **fixed (S1)** — `PhysicsIntent` (`models/schemas/physics/intent.py`, 20 kinds); disjoint from `MathIntent.kind`, guarded by a test | n/a (no structured intent schema; own gate function instead) |
+| Own intent/schema type | `MathIntent` (`models/schemas/math/intent.py`, 32 kinds) | **fixed (S1)** — `PhysicsIntent` (`models/schemas/physics/intent.py`, 20 kinds); disjoint from `MathIntent.kind`, guarded by a test | `ChemistryIntent` (`models/schemas/chemistry/intent.py`; grouped operation registry) |
 | Own schema package for domain-specific fence types | `models/schemas/math/` (geometry, graph, algebra, discrete) | **fixed (S7)** — `models/schemas/physics/simulation.py` (`SimulationBlockSpec` and friends), moved out of `models/schemas/math/` | n/a |
 | Own turn_prep gate + context local | `needs_math` / `math_block` (`turn_prep/context.py`) | **none** — rides inside `needs_math` / `math_block`; unblocked by S1 but not yet done (Phase 2) | `needs_chem` / `chem_block` — already separate |
-| Own detection gate | `needs_symbolic_math` | shares `needs_symbolic_math`; contributes cues via `has_supported_physics_cue` | `is_chemistry_question` (`services/chemistry/context.py`) — already separate |
+| Own detection gate | `needs_symbolic_math` | shares `needs_symbolic_math`; contributes cues via `has_supported_physics_cue` | `is_chemistry_question` (`services/chemistry/request.py`) — separate |
 | Prompt hint, conditionally injected only when relevant | n/a (always injected on math turns) | **none, and staying that way** (S6 descoped) — its verified-kinds paragraph is deliberately unconditional inside `MATH_SOLVER_HINT` | `CHEMISTRY_FENCE_HINT` (`prompt_constants/visuals.py`), injected only when turn_prep actually found chemistry context |
 | Imports another subject's private (`_`-prefixed) internals | — | **fixed (S3)** — both helpers are now public (`extract_average_speed_intent`, `get_unit_registry`); physics calls them as intentional cross-subject API, not private reach-ins | no (checked; clean) |
 | Duplicate cue list maintained outside its own package | — | kept as-is (S8) — see note below; not the bug it first looked like | no |

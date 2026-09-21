@@ -1,8 +1,10 @@
 /**
- * Molecule3DBlock — native SVG ball-and-stick from SDF coordinates.
+ * Molecule3DBlock — native-first Skia ball-and-stick with an SVG fallback.
  */
 import React from "react";
-import { render } from "@testing-library/react-native";
+import { render, waitFor } from "@testing-library/react-native";
+
+let mockSkiaAvailable = true;
 
 jest.mock("@/components/Icon", () => ({
   Icon: () => null,
@@ -32,6 +34,10 @@ jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+jest.mock("@/lib/skiaAvailability", () => ({
+  isSkiaAvailable: () => mockSkiaAvailable,
+}));
+
 import { Molecule3DBlock } from "@/components/rich/Molecule3DBlock";
 
 const VALID_SDF = `Ethanol
@@ -46,14 +52,28 @@ const VALID_SDF = `Ethanol
 M  END`;
 
 describe("Molecule3DBlock", () => {
-  it("renders atom labels from a valid SDF", async () => {
-    const { getByText, queryByText } = await render(
+  afterEach(() => {
+    mockSkiaAvailable = true;
+  });
+
+  it("uses the native Skia renderer when the module is available", async () => {
+    const { getByText, getByTestId, queryByText } = await render(
       <Molecule3DBlock content={VALID_SDF} />,
     );
     expect(getByText("rich.chemistry_structure")).toBeTruthy();
     expect(getByText("Ball")).toBeTruthy();
     expect(getByText("Sphere")).toBeTruthy();
+    await waitFor(() => expect(getByTestId("molecule-skia-canvas")).toBeTruthy());
     expect(queryByText(/V2000/)).toBeNull();
+  });
+
+  it("uses the SVG renderer when native Skia is unavailable", async () => {
+    mockSkiaAvailable = false;
+    const { getByTestId, queryByTestId } = await render(
+      <Molecule3DBlock content={VALID_SDF} />,
+    );
+    expect(getByTestId("molecule-svg-fallback")).toBeTruthy();
+    expect(queryByTestId("molecule-skia-canvas")).toBeNull();
   });
 
   it("renders an invalid-structure hint when there is no SDF", async () => {

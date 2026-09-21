@@ -244,13 +244,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   param declares an SI dimension (Pint reads a bare `pa` as a *petayear*, so a
   missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
   whole-token match (`marsh` stays Earth). See [docs/math.md](./docs/math.md).
-- ✅ **Chemistry (verified kinds)** — server-side RDKit / SymPy + PubChem. Balancing,
-  molar mass (Hill formulas vs organic SMILES — `CO` is 28 g/mol, `CCO` is ethanol),
-  hydrates, stoich / limiting reagent, pH, ideal gas, molarity / dilution, element
-  lookup, descriptors, and compound lookup. Structures: model ` ```smiles `
-  (alias ` ```chemistry `); the server attaches ` ```molecule3d ` (first two valid
-  molecules). Buffers, Ka, thermo, and a `ChemIntent` registry stay deferred. See
-  [docs/chemistry.md](./docs/chemistry.md).
+- ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction plus grouped
+  deterministic solvers cover balancing; amount conversions; composition/yield;
+  stoichiometry/limiting reagent; solution concentration; pH/pOH and buffers; ideal gas;
+  heat/Gibbs; simple Kc/Qc; first-order/Arrhenius kinetics; cell/Nernst/electrolysis;
+  half-life decay; and Beer–Lambert. Complete typed questions return the same compact
+  Given / Find / named Formula / Substitution / Answer layout as Physics, with no
+  unnecessary trailing zeros. RDKit / SymPy + PubChem still verify structures,
+  descriptors, elements, and compounds. Structures use ` ```smiles ` (alias
+  ` ```chemistry `); the server attaches ` ```molecule3d ` for the first two valid
+  molecules. Chemically aware 2D layout remains smiles-drawer; interactive 3D now
+  renders on a native Skia canvas, with an SVG fallback for Expo Go or a stale native
+  client. See [docs/chemistry.md](./docs/chemistry.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
   triangle, trapezoid, sector, …) via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays
@@ -914,9 +919,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   “Chemical structure” label for that pair. Verified compute coverage is
   [docs/chemistry.md](./docs/chemistry.md); do not treat SMILES rendering as the
   whole chemistry product.
-- 🔜 **ChemIntent extractor registry** — wire new verified kinds through
-  `build_chemistry_context` extractors for now. A math-style `ChemIntent` table is
-  deferred; do not implement buffers / Ka / thermo as fake `[Verified]` blocks.
+- ✅ **Chemistry intent boundary** — `models/schemas/chemistry/ChemistryIntent` separates
+  extraction, solving, and presentation. Incomplete questions deliberately stay on the
+  model path; only successful deterministic results receive verified labels.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching, full duplex live voice (later).
 - 🔜 **Math scanner capture-quality** — on-device blur/glare/perspective correction and a

@@ -788,6 +788,95 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
 
 
 @pytest.mark.asyncio
+async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> None:
+    """Unit-bearing chemistry must not receive a second algebra answer fence."""
+    from app.services.chemistry.block import build_verified_chemistry
+    from app.services.chemistry.extract import extract_chemistry_intent
+    from app.services.solving import VerifiedMathBlock
+
+    user = _make_user()
+    chat = _make_chat()
+    content = "Find Gibbs free energy when delta H=-40 kJ, delta S=-100 J and T=300 K"
+    intent = extract_chemistry_intent(content)
+    assert intent is not None
+    verified_chemistry = build_verified_chemistry(intent)
+    assert verified_chemistry is not None
+    incidental_math = VerifiedMathBlock(
+        text="incidental algebra",
+        canonical_fence={"type": "answer", "content": "H = 2Sk/5"},
+        canonical_answer="H = 2Sk/5",
+    )
+    messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
+
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=list(messages)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            AsyncMock(return_value=(None, "MATH_BLOCK", [], incidental_math)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.chemistry_context_service."
+            "build_chemistry_augmentation",
+            AsyncMock(return_value=(verified_chemistry.prompt_text, verified_chemistry)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+        patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
+        patch(
+            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models",
+            return_value=[],
+        ),
+    ):
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            content,
+            "free-chat",
+            Settings(
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=True,
+                chemistry_enabled=True,
+                web_search_enabled=False,
+                gmail_enabled=False,
+                google_calendar_enabled=False,
+            ),
+            fake_redis,
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+
+    assert bundle.verified_math is None
+    assert bundle.instant_reply is not None
+    assert "**ΔG = -10 kJ/mol** ✅" in bundle.instant_reply
+    assert "H = 2Sk/5" not in bundle.instant_reply
+    assert "```answer" not in bundle.instant_reply
+
+
+@pytest.mark.asyncio
 async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None:
     from app.services.solving import VerifiedMathBlock
 

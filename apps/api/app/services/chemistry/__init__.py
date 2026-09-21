@@ -26,6 +26,7 @@ from app.services.chemistry.solutions import (
     ph_from_poh,
     pHResult,
 )
+from app.services.chemistry.solvers import ChemistryResult, solve_chemistry
 from app.services.chemistry.stoichiometry import (
     PERIODIC_TABLE,
     LimitingReagentResult,
@@ -39,6 +40,7 @@ from app.services.chemistry.stoichiometry import (
 __all__ = [
     "PERIODIC_TABLE",
     "BalancedEquation",
+    "ChemistryResult",
     "GasLawResult",
     "LimitingReagentResult",
     "MolecularDescriptors",
@@ -62,6 +64,7 @@ __all__ = [
     "pHResult",
     "ph_from_concentration",
     "ph_from_poh",
+    "solve_chemistry",
     "stoichiometry",
     "validate_smiles",
 ]

@@ -227,7 +227,8 @@ async def test_build_chemistry_context_ph() -> None:
     )
     assert block is not None
     assert "Verified pH calculation" in block
-    assert "3.00" in block
+    assert "pH = 3" in block
+    assert "3.00" not in block
 
 
 # ---------------------------------------------------------------------------
