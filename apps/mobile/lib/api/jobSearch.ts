@@ -97,6 +97,10 @@ export const jobSearchApi = {
     request<{ cover_letter: string }>(`/job-search/matches/${id}/cover-letter`, token, {
       method: "POST",
     }),
+  runJobSearch: (token: string) =>
+    request<{ queued: boolean }>("/job-search/run", token, {
+      method: "POST",
+    }),
   deleteJobSearch: (token: string) =>
     request<void>("/job-search", token, { method: "DELETE" }),
 };

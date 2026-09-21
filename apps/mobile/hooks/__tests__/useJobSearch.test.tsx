@@ -30,6 +30,7 @@ jest.mock("@/lib/api", () => ({
     saveJobSearch: jest.fn(),
     setJobSearchStatus: jest.fn(),
     setJobMatchStatus: jest.fn(),
+    runJobSearch: jest.fn(),
     deleteJobSearch: jest.fn(),
   },
 }));
@@ -301,4 +302,28 @@ test("keeps match status optimistic with success reconciliation and rollback", a
   });
   expect(result.current.dashboard).toEqual(reconciled);
   expect(mockFeedbackError).toHaveBeenCalledWith("my_job.error_match");
+});
+
+test("retries a failed run optimistically and restores the error on failure", async () => {
+  const initial = {
+    profile: profile({ last_run_status: "error" }),
+    matches: [match()],
+  };
+  const request = deferred<{ queued: boolean }>();
+  mockApi.runJobSearch.mockReturnValue(request.promise);
+  const { result } = await renderSearch(initial);
+
+  let pending!: Promise<boolean>;
+  await act(() => {
+    pending = result.current.runNow();
+  });
+  expect(result.current.dashboard.profile?.last_run_status).toBeNull();
+  expect(result.current.busy).toBe(true);
+
+  await act(async () => {
+    request.reject(new Error("offline"));
+    await expect(pending).resolves.toBe(false);
+  });
+  expect(result.current.dashboard).toEqual(initial);
+  expect(mockFeedbackError).toHaveBeenCalledWith("my_job.error_run");
 });

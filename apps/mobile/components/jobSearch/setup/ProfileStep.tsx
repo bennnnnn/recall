@@ -2,34 +2,48 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import type { JobSearchExperience } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 
-import { FieldLabel, useSetupStyles } from "./setupShared";
+import {
+  EXPERIENCE_VALUES,
+  FieldLabel,
+  SelectChip,
+  useSetupStyles,
+} from "./setupShared";
 
 type Props = {
   resumeName: string | null;
   uploadingResume: boolean;
-  levelLabel: string;
+  levels: JobSearchExperience[];
   salary: string;
+  requiresSponsorship: boolean | null;
+  excludedCompanies: string;
   salaryError: boolean;
   busy: boolean;
   onChooseResume: () => void;
   onRemoveResume: () => void;
-  onOpenExperience: () => void;
+  onExperiencePress: (level: JobSearchExperience) => void;
   onSalaryChange: (salary: string) => void;
+  onSponsorshipChange: (value: boolean | null) => void;
+  onExcludedCompaniesChange: (value: string) => void;
 };
 
 export function ProfileStep({
   resumeName,
   uploadingResume,
-  levelLabel,
+  levels,
   salary,
+  requiresSponsorship,
+  excludedCompanies,
   salaryError,
   busy,
   onChooseResume,
   onRemoveResume,
-  onOpenExperience,
+  onExperiencePress,
   onSalaryChange,
+  onSponsorshipChange,
+  onExcludedCompaniesChange,
 }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
@@ -82,21 +96,18 @@ export function ProfileStep({
 
       <View style={s.fieldGroup}>
         <FieldLabel>{t("my_job.experience_label")}</FieldLabel>
-        <Pressable
-          style={({ pressed }) => [
-            s.selectRow,
-            pressed && s.pressed,
-            busy && s.disabled,
-          ]}
-          onPress={onOpenExperience}
-          disabled={busy}
-          accessibilityRole="button"
-        >
-          <Text style={s.selectValue} numberOfLines={1}>
-            {levelLabel}
-          </Text>
-          <Icon name="chevron-down" size={18} color={C.textTertiary} />
-        </Pressable>
+        <View style={s.chipRow}>
+          {EXPERIENCE_VALUES.map((level) => (
+            <SelectChip
+              key={level}
+              value={level}
+              label={t(`my_job.level_${level}`)}
+              selected={levels.includes(level)}
+              onPress={onExperiencePress}
+              disabled={busy}
+            />
+          ))}
+        </View>
       </View>
 
       <View style={s.twoColumnRow}>
@@ -115,6 +126,43 @@ export function ProfileStep({
             <Text style={s.errorText}>{t("my_job.salary_invalid_body")}</Text>
           ) : null}
         </View>
+      </View>
+
+      <View style={s.fieldGroup}>
+        <FieldLabel>{t("my_job.sponsorship_label")}</FieldLabel>
+        <View style={s.chipRow}>
+          {([true, false, null] as const).map((value) => (
+            <SelectChip
+              key={value === null ? "unsure" : String(value)}
+              value={value === null ? "unsure" : String(value)}
+              label={
+                value === true
+                  ? t("my_job.sponsorship_yes")
+                  : value === false
+                    ? t("my_job.sponsorship_no")
+                    : t("my_job.sponsorship_unsure")
+              }
+              selected={requiresSponsorship === value}
+              onPress={() => onSponsorshipChange(value)}
+              disabled={busy}
+            />
+          ))}
+        </View>
+        <Text style={s.helper}>{t("my_job.sponsorship_helper")}</Text>
+      </View>
+
+      <View style={s.fieldGroup}>
+        <FieldLabel>{t("my_job.excluded_companies_label")}</FieldLabel>
+        <TextInput
+          style={s.input}
+          value={excludedCompanies}
+          onChangeText={onExcludedCompaniesChange}
+          placeholder={t("my_job.excluded_companies_placeholder")}
+          placeholderTextColor={C.textDisabled}
+          editable={!busy}
+          autoCapitalize="words"
+        />
+        <Text style={s.helper}>{t("my_job.excluded_companies_helper")}</Text>
       </View>
     </>
   );

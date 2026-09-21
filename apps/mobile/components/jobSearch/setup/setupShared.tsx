@@ -139,6 +139,20 @@ function makeStyles(C: Theme) {
       gap: Space.lg,
     },
     intro: { gap: Space.xs },
+    progressWrap: {
+      paddingHorizontal: Space.lg,
+      paddingTop: Space.sm,
+      gap: Space.xs,
+    },
+    progressRow: { flexDirection: "row", gap: Space.xs },
+    progressSegment: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: C.surfaceAlt,
+    },
+    progressSegmentActive: { backgroundColor: C.primary },
+    progressText: { ...Type.caption, color: C.textTertiary, textAlign: "right" },
     title: {
       ...Type.display,
       fontSize: 26,
@@ -234,6 +248,15 @@ function makeStyles(C: Theme) {
       alignItems: "center",
       gap: Space.sm,
     },
+    reviewCard: {
+      borderRadius: Radius.xl,
+      backgroundColor: C.primaryLight,
+      padding: Space.md,
+      gap: Space.xs,
+    },
+    reviewTitle: { ...Type.label, color: C.text, marginBottom: Space.xxs },
+    reviewRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.xs },
+    reviewText: { ...Type.secondary, color: C.textSecondary, flex: 1 },
     dateIcon: {
       width: 44,
       height: 44,

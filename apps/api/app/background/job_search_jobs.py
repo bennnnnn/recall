@@ -26,6 +26,11 @@ async def _handle_job_search_run(
         get_redis_client(),
         profile_id=profile_id,
         manual=bool(payload.get("manual")),
+        overrides=(
+            payload.get("overrides")
+            if isinstance(payload.get("overrides"), dict)
+            else None
+        ),
     )
 
 

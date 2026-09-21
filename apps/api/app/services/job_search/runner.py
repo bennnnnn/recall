@@ -8,8 +8,8 @@ import json
 import logging
 import re
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
-from typing import Literal
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import UUID
 
@@ -22,7 +22,7 @@ from app.core.db import SessionLocal
 from app.core.redis_lock import acquire_lock, release_lock
 from app.gateways import litellm_gateway, web_search_gateway
 from app.models.orm import JobMatch, JobSearchProfile, User
-from app.models.schemas.job_search import ResumeProfile
+from app.models.schemas.job_search import JobSearchPreferencesPatch, ResumeProfile
 from app.services import plan as plan_service
 from app.services.job_search import notifications as job_search_notifications
 from app.services.prompt_safety import wrap_untrusted
@@ -31,6 +31,7 @@ from app.services.todos.recurrence import next_recurring_due
 logger = logging.getLogger(__name__)
 
 _RUN_LOCK_SECONDS = 10 * 60
+_RETRY_DELAY = timedelta(minutes=15)
 _MAX_SEARCH_ROLES = 3
 _MAX_CANDIDATES = 36
 _TRACKING_KEYS = {
@@ -46,9 +47,22 @@ _SENIOR_TERMS = re.compile(
     r"\b(senior|staff|principal|lead|manager|director|architect|head of|vp)\b",
     re.IGNORECASE,
 )
+_JUNIOR_TERMS = re.compile(
+    r"\b(intern(?:ship)?|entry[ -]?level|junior|graduate|new grad)\b",
+    re.IGNORECASE,
+)
 _NO_SPONSORSHIP = re.compile(
     r"\b(no|without|unable to provide)\s+(visa\s+)?sponsorship\b",
     re.IGNORECASE,
+)
+_SPONSORSHIP_AVAILABLE = re.compile(
+    r"\b(visa sponsorship|sponsorship (is )?(available|provided|offered)|"
+    r"will sponsor|sponsor eligible)\b",
+    re.IGNORECASE,
+)
+_SALARY_NUMBER = re.compile(
+    r"(?<!\w)(\d{2,3}(?:[,.]\d{3})+|\d{1,3}(?:[,.]\d{1,2})(?=\s*[kK]\b)|"
+    r"\d{4,7}|\d{2,3})(\s*[kK])?"
 )
 _COMPANY_SUFFIXES = re.compile(
     r"\b(inc|llc|ltd|gmbh|corp|corporation|co|company|sarl|sas|ag)\b\.?",
@@ -263,6 +277,10 @@ class _AcceptedJob:
     gap: str | None
 
 
+class PostingVerificationError(RuntimeError):
+    """Candidate pages could not be verified as readable live postings."""
+
+
 def canonicalize_job_url(value: str) -> str:
     parsed = urlsplit(value.strip())
     if parsed.scheme.lower() not in {"http", "https"} or not parsed.netloc:
@@ -355,6 +373,40 @@ def _profile_from_rows(
     )
 
 
+def _snapshot_with_overrides(
+    profile: _ProfileSnapshot,
+    overrides: dict[str, Any] | None,
+) -> _ProfileSnapshot:
+    if not overrides:
+        return profile
+    patch = JobSearchPreferencesPatch.model_validate(overrides)
+    changes: dict[str, Any] = {}
+    allowed = {
+        "target_roles",
+        "skills",
+        "location",
+        "work_modes",
+        "experience_levels",
+        "salary_min",
+        "requires_sponsorship",
+        "excluded_companies",
+        "background",
+        "result_count",
+        "frequency",
+    }
+    for field in patch.model_fields_set & allowed:
+        value = getattr(patch, field)
+        if field in {"target_roles", "work_modes", "experience_levels"} and not value:
+            raise ValueError(f"{field} cannot be empty")
+        changes[field] = value
+    if not profile.is_pro and (
+        changes.get("result_count", profile.result_count) != 5
+        or changes.get("frequency", profile.frequency) != "weekly"
+    ):
+        raise ValueError("Free My Job searches are limited to 5 weekly matches")
+    return replace(profile, **changes)
+
+
 def _search_queries(profile: _ProfileSnapshot) -> list[str]:
     level_terms = {
         "internship": "intern internship",
@@ -435,12 +487,17 @@ async def _find_candidates(
 
 
 def _obvious_mismatch(profile: _ProfileSnapshot, candidate: _Candidate) -> bool:
-    text = f"{candidate.title} {candidate.snippet} {candidate.source}".casefold()
+    text = (
+        f"{candidate.title} {candidate.snippet} {candidate.page_text or ''} {candidate.source}"
+    ).casefold()
     excluded = [*profile.excluded_companies, *profile.hidden_companies]
     if any(company.casefold() in text for company in excluded):
         return True
     junior_only = set(profile.experience_levels).issubset({"internship", "entry"})
     if junior_only and _SENIOR_TERMS.search(text):
+        return True
+    senior_only = set(profile.experience_levels) == {"senior"}
+    if senior_only and _JUNIOR_TERMS.search(text):
         return True
     remote_only = set(profile.work_modes) == {"remote"}
     if remote_only and "on-site only" in text and "remote" not in text:
@@ -448,6 +505,69 @@ def _obvious_mismatch(profile: _ProfileSnapshot, candidate: _Candidate) -> bool:
     if profile.requires_sponsorship is True and _NO_SPONSORSHIP.search(text):
         return True
     return False
+
+
+def _salary_ceiling(value: str | None) -> int | None:
+    if not value:
+        return None
+    numbers: list[int] = []
+    for raw, suffix in _SALARY_NUMBER.findall(value):
+        try:
+            if suffix.strip() and re.fullmatch(r"\d{1,3}[,.]\d{1,2}", raw):
+                number = round(float(raw.replace(",", ".")) * 1000)
+            else:
+                number = int(raw.replace(",", "").replace(".", ""))
+                if suffix.strip():
+                    number *= 1000
+        except ValueError:
+            continue
+        # Ignore hourly/monthly-looking small values; comparing them with an
+        # annual minimum would create false confidence.
+        if number >= 1000:
+            numbers.append(number)
+    return max(numbers) if numbers else None
+
+
+def _specific_location_term(location: str | None) -> str | None:
+    if not location or "," not in location:
+        return None
+    city = location.split(",", 1)[0].strip().casefold()
+    return city if len(city) >= 3 else None
+
+
+def _passes_verified_constraints(
+    profile: _ProfileSnapshot,
+    candidate: _Candidate,
+    *,
+    work_mode: str | None,
+    salary: str | None,
+    location: str | None,
+) -> bool:
+    text = f"{candidate.title} {candidate.snippet} {candidate.page_text or ''}".casefold()
+    allowed_modes = set(profile.work_modes)
+    if work_mode is not None and work_mode not in allowed_modes:
+        return False
+    if allowed_modes != {"remote", "hybrid", "onsite"} and work_mode not in allowed_modes:
+        return False
+    if work_mode == "remote" and not re.search(
+        r"\b(remote|telecommut(?:e|ing)|work from home)\b",
+        text,
+    ):
+        return False
+    if work_mode == "hybrid" and "hybrid" not in text:
+        return False
+    if profile.salary_min is not None:
+        ceiling = _salary_ceiling(salary)
+        if ceiling is None or ceiling < profile.salary_min:
+            return False
+    if profile.requires_sponsorship is True and not _SPONSORSHIP_AVAILABLE.search(text):
+        return False
+    city = _specific_location_term(profile.location)
+    if city and work_mode != "remote":
+        location_text = f"{location or ''} {text}".casefold()
+        if city not in location_text:
+            return False
+    return True
 
 
 def _ranking_messages(
@@ -561,6 +681,24 @@ def _fallback_rank(
 
     accepted: list[_AcceptedJob] = []
     for keyword_score, candidate in scored[: profile.result_count]:
+        evidence = f"{candidate.snippet} {candidate.page_text or ''}".casefold()
+        inferred_mode = (
+            "hybrid"
+            if "hybrid" in evidence
+            else "remote"
+            if re.search(r"\b(remote|telecommut(?:e|ing)|work from home)\b", evidence)
+            else "onsite"
+            if re.search(r"\b(on[ -]?site|in[ -]?person)\b", evidence)
+            else None
+        )
+        if not _passes_verified_constraints(
+            profile,
+            candidate,
+            work_mode=inferred_mode,
+            salary=None,
+            location=None,
+        ):
+            continue
         title, company = _title_and_company(candidate.title, candidate.source)
         reasons = ["Title and description align with your target roles"]
         snippet = candidate.snippet.casefold()
@@ -573,7 +711,7 @@ def _fallback_rank(
                 title=title,
                 company=company,
                 location=None,
-                work_mode="remote" if "remote" in candidate.snippet.casefold() else None,
+                work_mode=inferred_mode,
                 salary=None,
                 experience=None,
                 # Rough keyword-fit stand-in for the LLM score: a bare title hit
@@ -596,17 +734,25 @@ async def _fetch_posting_pages(
     """Narrow to a keyword shortlist and attach full posting text when possible.
 
     Snippets rarely disclose salary or experience, so ranking over page text is
-    much sharper. On any extract failure we keep the full eligible list with
-    snippets rather than narrowing blind.
+    much sharper. If no posting can be fetched, fail visibly instead of turning
+    unverifiable snippets into confident job cards.
     """
     if not settings.job_search_page_fetch_enabled:
         return eligible
     limit = max(1, settings.job_search_page_fetch_max)
     shortlist = [candidate for _, candidate in _keyword_scores(profile, eligible)[:limit]]
-    pages = await web_search_gateway.extract_pages(settings, [item.url for item in shortlist])
-    if not pages:
-        return eligible
-    return [replace(item, page_text=pages.get(item.url)) for item in shortlist]
+    if shortlist and all(item.page_text for item in shortlist):
+        return shortlist
+    missing = [item.url for item in shortlist if not item.page_text]
+    pages = await web_search_gateway.extract_pages(settings, missing)
+    verified = [
+        replace(item, page_text=item.page_text or pages.get(item.url))
+        for item in shortlist
+        if item.page_text or pages.get(item.url)
+    ]
+    if not verified:
+        raise PostingVerificationError("No candidate posting page could be verified")
+    return verified
 
 
 async def _rank_candidates(
@@ -654,6 +800,14 @@ async def _rank_candidates(
             continue
         if item.company is not None and not _is_board_name(item.company):
             company = item.company
+        if not _passes_verified_constraints(
+            profile,
+            candidate,
+            work_mode=item.work_mode,
+            salary=item.salary,
+            location=item.location,
+        ):
+            continue
         accepted.append(
             _AcceptedJob(
                 candidate=candidate,
@@ -675,10 +829,14 @@ async def _rank_candidates(
     return accepted
 
 
-async def _load_snapshot(profile_id: UUID) -> _ProfileSnapshot | None:
+async def _load_snapshot(
+    profile_id: UUID,
+    *,
+    require_active: bool = True,
+) -> _ProfileSnapshot | None:
     async with SessionLocal() as session:
         profile = await session.get(JobSearchProfile, profile_id)
-        if profile is None or profile.status != "active":
+        if profile is None or (require_active and profile.status != "active"):
             return None
         user = await session.get(User, profile.user_id)
         if user is None:
@@ -705,6 +863,40 @@ async def _load_snapshot(profile_id: UUID) -> _ProfileSnapshot | None:
             await session.commit()
             return None
         return snapshot
+
+
+async def analyze_job_url(
+    settings: Settings,
+    *,
+    profile_id: UUID,
+    url: str,
+) -> _AcceptedJob | None:
+    """Verify and compare one specific posting without changing the saved search."""
+    canonical = canonicalize_job_url(url)
+    if not canonical or _is_listing_page(url, ""):
+        return None
+    profile = await _load_snapshot(profile_id, require_active=False)
+    if profile is None:
+        return None
+    pages = await web_search_gateway.extract_pages(settings, [url])
+    posting = (pages.get(url) or "").strip()
+    if not posting:
+        return None
+    first_line = next(
+        (line.strip() for line in posting.splitlines() if line.strip()),
+        "Job posting",
+    )
+    candidate = _Candidate(
+        candidate_id=0,
+        title=first_line[:240],
+        url=url,
+        canonical_url=canonical[:2000],
+        snippet=" ".join(posting.split())[:800],
+        source=_source_for_url(url),
+        page_text=posting,
+    )
+    accepted = await _rank_candidates(settings, profile, [candidate])
+    return accepted[0] if accepted else None
 
 
 async def _finish_run(
@@ -778,13 +970,17 @@ async def _finish_run(
 
         current.last_run_at = now
         current.last_run_status = run_status
-        if not manual and current.status == "active":
+        if not manual and current.status == "active" and run_status == "ok":
             current.next_run_at = next_recurring_due(
                 current.next_run_at,
                 current.frequency,  # type: ignore[arg-type]
                 now=now,
                 timezone=profile.timezone,
             )
+        elif not manual and current.status == "active" and run_status == "error":
+            # Keep failures retryable soon instead of silently skipping a full
+            # daily/weekly cadence. The durable worker also retries immediately.
+            current.next_run_at = now + _RETRY_DELAY
         await session.commit()
 
         if run_status == "ok" and new_count > 0:
@@ -811,6 +1007,7 @@ async def run_job_search(
     *,
     profile_id: UUID,
     manual: bool = False,
+    overrides: dict[str, Any] | None = None,
 ) -> None:
     """Search, rank, persist, and notify for one profile occurrence."""
     token = await acquire_lock(
@@ -826,6 +1023,7 @@ async def run_job_search(
         profile = await _load_snapshot(profile_id)
         if profile is None:
             return
+        profile = _snapshot_with_overrides(profile, overrides)
         candidates = await _find_candidates(settings, profile)
         accepted = await _rank_candidates(settings, profile, candidates)
         await _finish_run(
@@ -845,6 +1043,7 @@ async def run_job_search(
                 manual=manual,
                 run_status="error",
             )
+        raise
     finally:
         await release_lock(
             redis,

@@ -7,13 +7,33 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.schemas.job_search import (
+    JobMatchStatus,
+    JobSearchPreferencesPatch,
+    JobSearchStatus,
+)
+
 
 class WebSearchToolInput(BaseModel):
     query: str = Field(min_length=1, max_length=500)
 
 
 class JobSearchToolInput(BaseModel):
-    action: Literal["list", "search_now"] = "list"
+    action: Literal[
+        "list",
+        "get_profile",
+        "update_profile",
+        "update_status",
+        "search_now",
+        "analyze_job",
+        "update_match",
+    ] = "list"
+    preferences: JobSearchPreferencesPatch | None = None
+    search_status: JobSearchStatus | None = None
+    job_url: str | None = Field(default=None, max_length=2000)
+    match_id: UUID | None = None
+    match_status: JobMatchStatus | None = None
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class SympyToolInput(BaseModel):

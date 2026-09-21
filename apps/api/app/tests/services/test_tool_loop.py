@@ -27,6 +27,18 @@ def test_status_detail_for_tool_uses_query_for_search_image():
     assert tool_loop._status_detail_for_tool("generate_image", '{"prompt": "a fox"}') == "a fox"
 
 
+def test_direct_job_update_parses_experience_and_work_mode() -> None:
+    assert tool_loop._direct_job_tool_args(
+        "Change My Job experience to senior and work mode to hybrid."
+    ) == {
+        "action": "update_profile",
+        "preferences": {
+            "work_modes": ["hybrid"],
+            "experience_levels": ["senior"],
+        },
+    }
+
+
 def _settings(**kwargs: object) -> Settings:
     s = Settings()
     for key, value in kwargs.items():
@@ -645,13 +657,13 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
     complete.assert_awaited_once()
 
 
-def test_tool_loop_completion_alias_avoids_reasoning_models():
-    assert tool_loop._tool_loop_completion_alias("smart-chat") == "free-chat"
-    assert tool_loop._tool_loop_completion_alias("free-chat") == "free-chat"
+def test_tool_loop_completion_alias_uses_dedicated_tool_model():
+    assert tool_loop._tool_loop_completion_alias("smart-chat") == "gemini-flash"
+    assert tool_loop._tool_loop_completion_alias("free-chat") == "gemini-flash"
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_uses_fast_alias_for_smart_chat(web_search_registered):
+async def test_tool_loop_uses_dedicated_alias_for_smart_chat(web_search_registered):
     messages = [{"role": "user", "content": "search the latest news"}]
     complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
     with (
@@ -667,7 +679,73 @@ async def test_tool_loop_uses_fast_alias_for_smart_chat(web_search_registered):
             messages=messages,
             usage={},
         )
-    assert complete.await_args.kwargs["model_alias"] == "free-chat"
+    assert complete.await_args.kwargs["model_alias"] == "gemini-flash"
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_reads_my_job_profile_without_model_selection(web_search_registered):
+    messages = [{"role": "user", "content": "Show my saved My Job search preferences."}]
+    complete = AsyncMock(side_effect=AssertionError("selector must not run"))
+    invoke = AsyncMock(
+        return_value=ToolResult(
+            name="job_search",
+            content="roles=Account Manager; frequency=weekdays",
+        )
+    )
+    job_tool = {
+        "type": "function",
+        "function": {"name": "job_search", "description": "My Job", "parameters": {}},
+    }
+    with (
+        patch("app.services.tool_loop._tools_for_user", return_value=[job_tool]),
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+    ):
+        out, verified, terminal, hits = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+            user=MagicMock(),
+        )
+
+    complete.assert_not_awaited()
+    invoke.assert_awaited_once_with("job_search", {"action": "get_profile"})
+    assert out[-1]["role"] == "tool"
+    assert "Account Manager" in out[-1]["content"]
+    assert verified is None and terminal is None and hits == []
+
+
+@pytest.mark.asyncio
+async def test_job_turn_exposes_only_job_tool_to_selector(web_search_registered):
+    job_tool = {
+        "type": "function",
+        "function": {"name": "job_search", "description": "My Job", "parameters": {}},
+    }
+    web_tool = {
+        "type": "function",
+        "function": {"name": "web_search", "description": "Web", "parameters": {}},
+    }
+    complete = AsyncMock(return_value={"content": None, "tool_calls": []})
+    with (
+        patch("app.services.tool_loop._tools_for_user", return_value=[web_tool, job_tool]),
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+    ):
+        out, _verified, _terminal, _hits = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True),
+            model_alias="free-chat",
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Change My Job target role to clinical account executive.",
+                }
+            ],
+            usage={},
+            user=MagicMock(),
+        )
+
+    assert complete.await_args.kwargs["tools"] == [job_tool]
+    assert "requires the My Job tool" in out[-1]["content"]
 
 
 @pytest.mark.asyncio

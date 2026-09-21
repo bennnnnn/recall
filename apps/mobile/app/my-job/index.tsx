@@ -88,6 +88,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     refresh,
     setSearchStatus,
     setMatchStatus,
+    runNow,
     remove,
   } = useJobSearch(isCurrent);
   const router = useRouter();
@@ -301,6 +302,24 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               </Pressable>
             ) : null}
 
+            {profile.last_run_status === "error" ? (
+              <View style={s.runErrorCard} accessibilityRole="alert">
+                <Icon name="alert-circle-outline" size={21} color={C.danger} />
+                <View style={s.runErrorCopy}>
+                  <Text style={s.runErrorTitle}>{t("my_job.run_failed_title")}</Text>
+                  <Text style={s.runErrorBody}>{t("my_job.run_failed_body")}</Text>
+                </View>
+                <Pressable
+                  style={({ pressed }) => [s.retryButton, pressed && s.pressed]}
+                  onPress={() => void runNow()}
+                  disabled={busy}
+                  accessibilityRole="button"
+                >
+                  <Text style={s.retryButtonText}>{t("common.retry")}</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             {visibleMatches.length === 0 ? (
               <StateView
                 variant="empty"
@@ -445,6 +464,27 @@ function makeStyles(C: Theme) {
       backgroundColor: C.dangerLight,
     },
     errorText: { ...Type.secondary, color: C.danger, flex: 1 },
+    runErrorCard: {
+      minHeight: 72,
+      padding: Space.md,
+      borderRadius: Radius.xl,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.sm,
+      backgroundColor: C.dangerLight,
+    },
+    runErrorCopy: { flex: 1, minWidth: 0 },
+    runErrorTitle: { ...Type.label, color: C.danger },
+    runErrorBody: { ...Type.compact, color: C.textSecondary, marginTop: 2 },
+    retryButton: {
+      minHeight: 40,
+      paddingHorizontal: Space.md,
+      borderRadius: Radius.full,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.surface,
+    },
+    retryButtonText: { ...Type.compact, color: C.danger, fontWeight: "700" },
     pressed: { opacity: 0.68 },
   });
 }

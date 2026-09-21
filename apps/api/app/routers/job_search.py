@@ -9,11 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
+from app.core.jobs import enqueue
 from app.models.orm import User
 from app.models.schemas.job_search import (
     CoverLetterOut,
     JobMatchStatusUpdate,
     JobSearchDashboardOut,
+    JobSearchRunOut,
     JobSearchStateUpdate,
     JobSearchUpsert,
 )
@@ -46,6 +48,31 @@ async def upsert_job_search(
         return await job_search_service.upsert_profile(session, user, settings, body)
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc
+
+
+@router.post("/run", response_model=JobSearchRunOut, status_code=status.HTTP_202_ACCEPTED)
+async def run_job_search_now(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> JobSearchRunOut:
+    """Queue a retry or first run from the dedicated My Job UI.
+
+    Pro users may run on demand. Free users can retry a failed run so a
+    transient provider outage never costs them an entire weekly delivery.
+    """
+    profile = await job_search_service.get_profile_for_user(session, user.id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Job search not found")
+    if not job_search_service.can_request_manual_run(user, profile):
+        raise HTTPException(status_code=403, detail="On-demand searches require Recall Pro")
+    await enqueue(
+        redis,
+        "job_search_run",
+        {"profile_id": str(profile.id), "manual": True},
+        dedupe_key=f"job_search_retry:{profile.id}:{profile.last_run_at or 'never'}",
+    )
+    return JobSearchRunOut()
 
 
 @router.patch("/status", response_model=JobSearchDashboardOut)

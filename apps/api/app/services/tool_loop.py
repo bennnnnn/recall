@@ -42,7 +42,6 @@ from app.services.mcp.image_gen_adapter import bind_image_gen_context
 from app.services.mcp.image_search_adapter import bind_image_search_context
 from app.services.mcp.job_search_adapter import bind_job_search_context
 from app.services.mcp.web_search_adapter import bind_search_quota_context
-from app.services.model_catalog import auto_fast_alias, is_reasoning_alias
 
 logger = logging.getLogger(__name__)
 
@@ -238,14 +237,107 @@ def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
 
 
 def _tool_loop_completion_alias(model_alias: str) -> str:
-    """Tool selection is a non-streaming round with a hard timeout.
+    """Use one fast, function-capable selector independent of chat choice."""
+    del model_alias
+    return "gemini-flash"
 
-    smart/max aliases (R1, …) think silently and blow that budget, which
-    surfaces as ``ModelUnavailableError`` after ~30s on a simple equation.
+
+def _direct_job_tool_args(text: str) -> dict[str, Any] | None:
+    """Return safe My Job actions that need no model interpretation.
+
+    This keeps common reads and unambiguous preference edits reliable during a
+    model-provider outage. More complex edits still use the structured selector.
     """
-    if is_reasoning_alias(model_alias):
-        return auto_fast_alias()
-    return model_alias
+    lower = text.casefold()
+    if not lower.strip():
+        return None
+    if "http://" in lower or "https://" in lower:
+        if any(cue in lower for cue in ("check", "analyze", "analyse", "compare", "fit")):
+            starts = [
+                index
+                for index in (lower.find("https://"), lower.find("http://"))
+                if index >= 0
+            ]
+            if starts:
+                start = min(starts)
+                url = text[start:].split()[0].rstrip('.,;:!?)"]}')
+                return {"action": "analyze_job", "job_url": url}
+    if "pause" in lower and ("my job" in lower or "job search" in lower):
+        return {"action": "update_status", "search_status": "paused"}
+    if "resume" in lower and ("my job" in lower or "job search" in lower):
+        return {"action": "update_status", "search_status": "active"}
+    mutation_cues = (
+        "change",
+        "update",
+        "set ",
+        "switch",
+        "make it",
+        "prefer",
+        "only want",
+    )
+    if any(cue in lower for cue in mutation_cues):
+        preferences: dict[str, Any] = {}
+        work_modes = [
+            mode
+            for mode, patterns in (
+                ("remote", ("remote",)),
+                ("hybrid", ("hybrid",)),
+                ("onsite", ("onsite", "on-site", "on site")),
+            )
+            if any(pattern in lower for pattern in patterns)
+        ]
+        if work_modes:
+            preferences["work_modes"] = work_modes
+        experience_levels = [
+            level
+            for level, patterns in (
+                ("internship", ("internship", "intern level")),
+                ("entry", ("entry level", "entry-level")),
+                ("mid", ("mid level", "mid-level")),
+                ("senior", ("senior",)),
+            )
+            if any(pattern in lower for pattern in patterns)
+        ]
+        if experience_levels:
+            preferences["experience_levels"] = experience_levels
+        frequency = next(
+            (
+                value
+                for value, patterns in (
+                    ("weekdays", ("weekdays", "every weekday")),
+                    ("daily", ("daily", "every day")),
+                    ("weekly", ("weekly", "every week")),
+                    ("monthly", ("monthly", "every month")),
+                )
+                if any(pattern in lower for pattern in patterns)
+            ),
+            None,
+        )
+        if frequency is not None:
+            preferences["frequency"] = frequency
+        if preferences:
+            return {"action": "update_profile", "preferences": preferences}
+    if any(cue in lower for cue in ("preference", "setting", "profile")) and (
+        "my job" in lower or "job search" in lower
+    ):
+        return {"action": "get_profile"}
+    if any(cue in lower for cue in ("match", "listing", "saved job", "applied job")) and (
+        "job" in lower or "role" in lower
+    ):
+        return {"action": "list"}
+    return None
+
+
+def _job_tool_unavailable_message() -> dict[str, Any]:
+    return {
+        "role": "system",
+        "content": (
+            "This request requires the My Job tool, but no verified My Job tool result "
+            "was produced. Never infer saved preferences, matches, schedules, or job-search "
+            "state from memories or past conversation. Briefly say My Job could not be "
+            "checked or changed right now and ask the user to retry."
+        ),
+    }
 
 
 def _has_whole_word(lower: str, word: str) -> bool:
@@ -390,12 +482,26 @@ async def run_tool_rounds(
     if not tools:
         return messages, None, None, []
 
+    # A classified My Job turn must never spill into calendar, reminders, web,
+    # or another tool family. Restricting the selector is both more accurate
+    # and prevents an unrelated side effect when the request is an edit.
+    from app.services.job_search.chat_intent import wants_job_search
+
+    if wants_job_search(_last_user_content(messages)):
+        tools = [
+            tool
+            for tool in tools
+            if (tool.get("function") or {}).get("name") == "job_search"
+        ]
+        if not tools:
+            return [*messages, _job_tool_unavailable_message()], None, None, []
+
     with (
         bind_search_quota_context(user=user, redis=redis, settings=settings),
         bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
         bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
         bind_calendar_context(user=user, redis=redis, settings=settings),
-        bind_job_search_context(user=user, redis=redis),
+        bind_job_search_context(user=user, redis=redis, settings=settings),
     ):
         working, verified, terminal, hits = await _run_tool_rounds_bound(
             settings=settings,
@@ -436,6 +542,33 @@ async def _run_tool_rounds_bound(
 ]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     user_text = _last_user_content(messages)
+    from app.services.job_search.chat_intent import wants_job_search
+
+    direct_job_args = _direct_job_tool_args(user_text) if wants_job_search(user_text) else None
+    if direct_job_args is not None:
+        call_id = "job_search_direct"
+        result = await mcp_registry.invoke_validated("job_search", direct_job_args)
+        content = result.content if result else "My Job is unavailable right now."
+        working.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "type": "function",
+                            "function": {
+                                "name": "job_search",
+                                "arguments": json.dumps(direct_job_args),
+                            },
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": call_id, "content": content},
+            ]
+        )
+        return working, None, None, []
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
     # Collect canonical fences across rounds keyed by type so a geometry
     # fence from round 1 isn't lost when round 2 produces a graph fence.
@@ -461,10 +594,14 @@ async def _run_tool_rounds_bound(
         except ModelUnavailableError:
             logger.warning("Tool-loop completion failed; falling through to stream")
             working.append(_tool_selection_unavailable_message())
+            if wants_job_search(user_text):
+                working.append(_job_tool_unavailable_message())
             break
         except Exception:
             logger.exception("Tool-loop completion failed; falling through to stream")
             working.append(_tool_selection_unavailable_message())
+            if wants_job_search(user_text):
+                working.append(_job_tool_unavailable_message())
             break
 
         if should_cancel and should_cancel():
@@ -475,6 +612,8 @@ async def _run_tool_rounds_bound(
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
             # Explicit no-tool decision; the caller streams the answer.
+            if wants_job_search(user_text):
+                working.append(_job_tool_unavailable_message())
             break
 
         assistant_msg: dict[str, Any] = {

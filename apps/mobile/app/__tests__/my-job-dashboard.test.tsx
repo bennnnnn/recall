@@ -4,6 +4,7 @@ import MyJobScreen from "@/app/my-job";
 import type { JobSearchDashboard, JobSearchProfile } from "@/lib/api";
 
 const mockRefresh = jest.fn(async () => {});
+const mockRunNow = jest.fn(async () => true);
 let mockLoading = true;
 let mockError = false;
 let mockDashboard: JobSearchDashboard = { profile: null, matches: [] };
@@ -31,6 +32,7 @@ jest.mock("@/hooks/useJobSearch", () => ({
     refresh: mockRefresh,
     setSearchStatus: jest.fn(),
     setMatchStatus: jest.fn(),
+    runNow: mockRunNow,
     remove: jest.fn(),
   }),
 }));
@@ -144,4 +146,18 @@ test("uses a minimum 44 point menu target", async () => {
     width: 44,
     height: 44,
   });
+});
+
+test("shows a retry action when the last search failed", async () => {
+  mockLoading = false;
+  mockDashboard = {
+    profile: profile(),
+    matches: [],
+  };
+  mockDashboard.profile!.last_run_status = "error";
+  const screen = await render(<MyJobScreen />);
+
+  expect(screen.getByText("my_job.run_failed_title")).toBeTruthy();
+  await fireEvent.press(screen.getByText("common.retry"));
+  expect(mockRunNow).toHaveBeenCalledTimes(1);
 });

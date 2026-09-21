@@ -100,32 +100,45 @@ describe("job search setup steps", () => {
   it("routes resume, experience, and salary controls", async () => {
     const onChooseResume = jest.fn();
     const onRemoveResume = jest.fn();
-    const onOpenExperience = jest.fn();
+    const onExperiencePress = jest.fn();
     const onSalaryChange = jest.fn();
+    const onSponsorshipChange = jest.fn();
+    const onExcludedCompaniesChange = jest.fn();
     const screen = await render(
       <ProfileStep
         resumeName="resume.pdf"
         uploadingResume={false}
-        levelLabel="Entry level"
+        levels={["entry"]}
         salary="100000"
+        requiresSponsorship={null}
+        excludedCompanies="Acme"
         salaryError
         busy={false}
         onChooseResume={onChooseResume}
         onRemoveResume={onRemoveResume}
-        onOpenExperience={onOpenExperience}
+        onExperiencePress={onExperiencePress}
         onSalaryChange={onSalaryChange}
+        onSponsorshipChange={onSponsorshipChange}
+        onExcludedCompaniesChange={onExcludedCompaniesChange}
       />,
     );
 
     await fireEvent.press(screen.getByText("resume.pdf"));
     await fireEvent.press(screen.getByText("my_job.resume_remove"));
-    await fireEvent.press(screen.getByText("Entry level"));
-    fireEvent.changeText(screen.getByPlaceholderText("100000"), "120000");
+    await fireEvent.press(screen.getByText("my_job.level_entry"));
+    await fireEvent.press(screen.getByText("my_job.sponsorship_yes"));
+    await fireEvent.changeText(screen.getByPlaceholderText("100000"), "120000");
+    await fireEvent.changeText(
+      screen.getByPlaceholderText("my_job.excluded_companies_placeholder"),
+      "Acme, Contoso",
+    );
 
     expect(onChooseResume).toHaveBeenCalledTimes(1);
     expect(onRemoveResume).toHaveBeenCalledTimes(1);
-    expect(onOpenExperience).toHaveBeenCalledTimes(1);
+    expect(onExperiencePress).toHaveBeenCalledWith("entry");
+    expect(onSponsorshipChange).toHaveBeenCalledWith(true);
     expect(onSalaryChange).toHaveBeenCalledWith("120000");
+    expect(onExcludedCompaniesChange).toHaveBeenCalledWith("Acme, Contoso");
     expect(screen.getByText("my_job.salary_invalid_body")).toBeTruthy();
   });
 
@@ -140,6 +153,7 @@ describe("job search setup steps", () => {
         timeLabel="Tomorrow at 8:00 AM"
         isPro
         busy={false}
+        summary={["Nurse", "Berlin"]}
         onOpenCount={onOpenCount}
         onOpenFrequency={onOpenFrequency}
         onOpenDatePicker={onOpenDatePicker}
@@ -149,6 +163,9 @@ describe("job search setup steps", () => {
     await fireEvent.press(screen.getByText("10 my_job.count_jobs"));
     await fireEvent.press(screen.getByText("Weekdays"));
     await fireEvent.press(screen.getByText("Tomorrow at 8:00 AM"));
+
+    expect(screen.getByText("Nurse")).toBeTruthy();
+    expect(screen.getByText("Berlin")).toBeTruthy();
 
     expect(onOpenCount).toHaveBeenCalledTimes(1);
     expect(onOpenFrequency).toHaveBeenCalledTimes(1);

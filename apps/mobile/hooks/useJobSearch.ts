@@ -181,6 +181,35 @@ export function useJobSearch(isCurrent: () => boolean) {
     }
   }, [token, isCurrent, feedback, t]);
 
+  const runNow = useCallback(async (): Promise<boolean> => {
+    if (!token || mutationBusyRef.current || !isCurrent()) return false;
+    const previous = dashboardRef.current;
+    mutationBusyRef.current = true;
+    setBusy(true);
+    if (previous.profile) {
+      const optimistic = {
+        ...previous,
+        profile: { ...previous.profile, last_run_status: null },
+      };
+      dashboardRef.current = optimistic;
+      setDashboard(optimistic);
+    }
+    try {
+      await api.runJobSearch(token);
+      return true;
+    } catch {
+      if (isCurrent()) {
+        dashboardRef.current = previous;
+        setDashboard(previous);
+        reportRecoverableError(feedback, t("my_job.error_run"));
+      }
+      return false;
+    } finally {
+      mutationBusyRef.current = false;
+      if (isCurrent()) setBusy(false);
+    }
+  }, [token, isCurrent, feedback, t]);
+
   return {
     dashboard,
     loading,
@@ -190,6 +219,7 @@ export function useJobSearch(isCurrent: () => boolean) {
     save,
     setSearchStatus,
     setMatchStatus,
+    runNow,
     remove,
   };
 }

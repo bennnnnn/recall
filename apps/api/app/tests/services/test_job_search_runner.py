@@ -10,6 +10,7 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.schemas.job_search import ResumeProfile
 from app.services.job_search import runner
 from app.services.job_search.runner import (
+    PostingVerificationError,
     _Candidate,
     _dedupe_accepted,
     _fallback_rank,
@@ -22,6 +23,7 @@ from app.services.job_search.runner import (
     _RankedJob,
     _RankedPayload,
     _ranking_messages,
+    _salary_ceiling,
     _search_queries,
     _title_and_company,
     _title_company_key,
@@ -38,9 +40,9 @@ def _profile(**overrides: object) -> _ProfileSnapshot:
         "target_roles": ["Backend Engineer"],
         "skills": ["Python", "FastAPI"],
         "location": "United States",
-        "work_modes": ["remote"],
+        "work_modes": ["remote", "hybrid", "onsite"],
         "experience_levels": ["entry"],
-        "salary_min": 100_000,
+        "salary_min": None,
         "requires_sponsorship": False,
         "excluded_companies": [],
         "background": None,
@@ -123,6 +125,19 @@ def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
     assert accepted[0].experience is None
 
 
+@pytest.mark.parametrize(
+    ("salary", "expected"),
+    [
+        ("$100,000-$125,000 per year", 125_000),
+        ("€75.5k–€92k", 92_000),
+        ("£80k", 80_000),
+        ("$45 per hour", None),
+    ],
+)
+def test_salary_ceiling_parses_annual_ranges(salary: str, expected: int | None) -> None:
+    assert _salary_ceiling(salary) == expected
+
+
 def test_ranking_messages_prefer_page_text_over_snippet() -> None:
     candidate = _candidate("Backend Engineer", "short snippet")
     with_page = _ranking_messages(_profile(), [replace(candidate, page_text="full posting text")])
@@ -148,7 +163,7 @@ async def test_fetch_posting_pages_shortlists_and_attaches_text(
     assert result[0].page_text == "full page text"
 
 
-async def test_fetch_posting_pages_keeps_full_list_when_extract_fails(
+async def test_fetch_posting_pages_rejects_unverified_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     settings = MagicMock(job_search_page_fetch_enabled=True, job_search_page_fetch_max=1)
@@ -158,8 +173,8 @@ async def test_fetch_posting_pages_keeps_full_list_when_extract_fails(
         return {}
 
     monkeypatch.setattr(runner.web_search_gateway, "extract_pages", fake_extract)
-    result = await _fetch_posting_pages(settings, _profile(), candidates)
-    assert result == candidates
+    with pytest.raises(PostingVerificationError):
+        await _fetch_posting_pages(settings, _profile(), candidates)
 
 
 async def test_fetch_posting_pages_disabled_flag_is_passthrough() -> None:
@@ -410,3 +425,55 @@ def test_ranking_prompt_requires_exact_posting_title() -> None:
     system = _ranking_messages(_profile(), [_candidate("Backend Engineer")])[0]["content"]
     assert "Copy title exactly" in system
     assert "never the job board" in system
+
+
+def test_fallback_rejects_result_without_required_salary_evidence() -> None:
+    accepted = _fallback_rank(
+        _profile(salary_min=100_000),
+        [_candidate("Backend Engineer", "Python remote role")],
+    )
+    assert accepted == []
+
+
+async def test_rank_rejects_salary_below_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = _candidate("Backend Engineer - Acme", "Python remote $80,000-$90,000")
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[
+                _RankedJob(
+                    candidate_id=0,
+                    work_mode="remote",
+                    salary="$80,000-$90,000",
+                )
+            ]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(salary_min=100_000, work_modes=["remote"]),
+        [candidate],
+    )
+    assert accepted == []
+
+
+async def test_rank_requires_positive_sponsorship_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = _candidate("Backend Engineer - Acme", "Python remote role")
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[_RankedJob(candidate_id=0, work_mode="remote")]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(requires_sponsorship=True, work_modes=["remote"]),
+        [candidate],
+    )
+    assert accepted == []

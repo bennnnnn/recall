@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from app.models.schemas.job_search import JobMatchStatusUpdate, ResumeProfile
+from app.models.schemas.job_search import (
+    JobMatchStatusUpdate,
+    JobSearchPreferencesPatch,
+    ResumeProfile,
+)
 from app.services import job_search as job_search_service
 
 
@@ -21,6 +25,96 @@ def test_match_status_update_accepts_stages_and_notes() -> None:
 def test_match_status_update_rejects_unknown_status() -> None:
     with pytest.raises(ValidationError):
         JobMatchStatusUpdate(status="ghosted")  # type: ignore[arg-type]
+
+
+def test_preference_patch_adds_and_removes_without_replacing_profile() -> None:
+    profile = MagicMock(
+        target_roles=["Registered Nurse"],
+        skills=["Triage", "CPR"],
+        excluded_companies=["Acme"],
+    )
+    values = job_search_service.preference_values(
+        profile,
+        JobSearchPreferencesPatch(
+            target_roles=["Clinical Educator"],
+            target_roles_mode="add",
+            skills=["CPR"],
+            skills_mode="remove",
+            location="Hamburg, Germany",
+        ),
+    )
+    assert values["target_roles"] == ["Registered Nurse", "Clinical Educator"]
+    assert values["skills"] == ["Triage"]
+    assert values["location"] == "Hamburg, Germany"
+    assert "salary_min" not in values
+
+
+def test_preference_patch_rejects_removing_every_target_role() -> None:
+    profile = MagicMock(
+        target_roles=["Registered Nurse"],
+        skills=[],
+        excluded_companies=[],
+    )
+    with pytest.raises(job_search_service.JobSearchError) as excinfo:
+        job_search_service.preference_values(
+            profile,
+            JobSearchPreferencesPatch(
+                target_roles=["Registered Nurse"],
+                target_roles_mode="remove",
+            ),
+        )
+    assert excinfo.value.status_code == 422
+
+
+def test_preference_patch_normalizes_common_tool_aliases() -> None:
+    patch = JobSearchPreferencesPatch.model_validate(
+        {
+            "role": "Product Manager",
+            "skill": "Roadmapping",
+            "work_mode": "hybrid",
+            "experience_level": "senior",
+            "excluded_company": "Acme",
+        }
+    )
+    assert patch.target_roles == ["Product Manager"]
+    assert patch.skills == ["Roadmapping"]
+    assert patch.work_modes == ["hybrid"]
+    assert patch.experience_levels == ["senior"]
+    assert patch.excluded_companies == ["Acme"]
+
+
+def test_preference_patch_canonical_fields_win_over_tool_aliases() -> None:
+    patch = JobSearchPreferencesPatch.model_validate(
+        {
+            "target_roles": ["Nurse"],
+            "role": "Product Manager",
+            "work_modes": ["remote"],
+            "work_mode": "hybrid",
+        }
+    )
+    assert patch.target_roles == ["Nurse"]
+    assert patch.work_modes == ["remote"]
+
+
+@pytest.mark.parametrize(
+    ("last_run_at", "last_run_status", "is_pro", "expected"),
+    [
+        (None, None, False, True),
+        (MagicMock(), "error", False, True),
+        (MagicMock(), "ok", True, True),
+        (MagicMock(), "ok", False, False),
+    ],
+)
+def test_manual_run_policy(
+    last_run_at: object | None,
+    last_run_status: str | None,
+    is_pro: bool,
+    expected: bool,
+) -> None:
+    user = MagicMock()
+    profile = MagicMock(last_run_at=last_run_at, last_run_status=last_run_status)
+    with patch.object(job_search_service.plan_service, "is_pro", return_value=is_pro):
+        assert job_search_service.can_request_manual_run(user, profile) is expected
 
 
 async def test_extract_resume_profile_returns_parsed_model() -> None:

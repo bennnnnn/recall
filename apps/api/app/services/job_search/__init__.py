@@ -27,6 +27,7 @@ from app.models.schemas.job_search import (
     JobSearchDashboardOut,
     JobSearchExperience,
     JobSearchFrequency,
+    JobSearchPreferencesPatch,
     JobSearchProfileOut,
     JobSearchUpsert,
     JobSearchWorkMode,
@@ -63,11 +64,106 @@ def _enforce_plan(user: User, body: JobSearchUpsert) -> None:
         )
 
 
+def _merge_text_list(
+    current: list[str],
+    incoming: list[str],
+    mode: Literal["replace", "add", "remove"],
+    *,
+    limit: int,
+) -> list[str]:
+    if mode == "replace":
+        return incoming[:limit]
+    incoming_keys = {item.casefold() for item in incoming}
+    if mode == "remove":
+        return [item for item in current if item.casefold() not in incoming_keys]
+    result = list(current)
+    known = {item.casefold() for item in result}
+    for item in incoming:
+        if item.casefold() not in known:
+            result.append(item)
+            known.add(item.casefold())
+        if len(result) >= limit:
+            break
+    return result
+
+
+def preference_values(
+    profile: JobSearchProfile,
+    patch: JobSearchPreferencesPatch,
+) -> dict[str, Any]:
+    """Return validated effective preference values without mutating ``profile``."""
+    values: dict[str, Any] = {}
+    fields = patch.model_fields_set
+    if "target_roles" in fields:
+        roles = _merge_text_list(
+            list(profile.target_roles),
+            patch.target_roles or [],
+            patch.target_roles_mode,
+            limit=6,
+        )
+        if not roles:
+            raise JobSearchError("At least one target role is required", status_code=422)
+        values["target_roles"] = roles
+    if "skills" in fields:
+        values["skills"] = _merge_text_list(
+            list(profile.skills),
+            patch.skills or [],
+            patch.skills_mode,
+            limit=30,
+        )
+    if "excluded_companies" in fields:
+        values["excluded_companies"] = _merge_text_list(
+            list(profile.excluded_companies),
+            patch.excluded_companies or [],
+            patch.excluded_companies_mode,
+            limit=20,
+        )
+    for field in (
+        "location",
+        "work_modes",
+        "experience_levels",
+        "salary_min",
+        "requires_sponsorship",
+        "background",
+        "result_count",
+        "frequency",
+    ):
+        if field in fields:
+            values[field] = getattr(patch, field)
+    return values
+
+
+def _enforce_patch_plan(
+    user: User,
+    profile: JobSearchProfile,
+    values: dict[str, Any],
+) -> None:
+    if plan_service.is_pro(user):
+        return
+    count = values.get("result_count", profile.result_count)
+    frequency = values.get("frequency", profile.frequency)
+    if count != 5 or frequency != "weekly":
+        raise JobSearchError(
+            "Free My Job searches deliver up to 5 matches weekly. "
+            "Upgrade for more jobs or faster delivery.",
+            status_code=403,
+        )
+
+
 async def get_profile_for_user(
     session: AsyncSession,
     user_id: UUID,
 ) -> JobSearchProfile | None:
     return await session.scalar(select(JobSearchProfile).where(JobSearchProfile.user_id == user_id))
+
+
+def can_request_manual_run(user: User, profile: JobSearchProfile) -> bool:
+    """Allow first delivery, Pro on-demand search, and failed-run retries."""
+    return (
+        profile.last_run_at is None
+        or profile.last_run_status == "error"
+        or plan_service.is_pro(user)
+    )
 
 
 async def extract_resume_profile(
@@ -305,6 +401,27 @@ async def upsert_profile(
         for field, value in values.items():
             setattr(profile, field, value)
 
+    await session.commit()
+    await session.refresh(profile)
+    return await get_dashboard(session, user, settings)
+
+
+async def patch_profile(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    patch: JobSearchPreferencesPatch,
+) -> JobSearchDashboardOut:
+    """Apply a bounded partial preference update, preserving résumé state."""
+    profile = await get_profile_for_user(session, user.id)
+    if profile is None:
+        raise JobSearchError("Job search not found", status_code=404)
+    values = preference_values(profile, patch)
+    if not values:
+        return await get_dashboard(session, user, settings)
+    _enforce_patch_plan(user, profile, values)
+    for field, value in values.items():
+        setattr(profile, field, value)
     await session.commit()
     await session.refresh(profile)
     return await get_dashboard(session, user, settings)

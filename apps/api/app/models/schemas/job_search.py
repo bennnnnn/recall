@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 JobSearchFrequency = Literal["daily", "weekdays", "weekly", "monthly"]
 JobSearchStatus = Literal["active", "paused"]
@@ -19,6 +19,7 @@ JobMatchStatus = Literal[
     "rejected",
     "hidden",
 ]
+JobSearchListMode = Literal["replace", "add", "remove"]
 
 
 def _default_work_modes() -> list[JobSearchWorkMode]:
@@ -86,6 +87,116 @@ class JobSearchUpsert(BaseModel):
     @field_validator("work_modes", "experience_levels")
     @classmethod
     def require_selection(cls, value: list[str]) -> list[str]:
+        if not value:
+            raise ValueError("at least one option is required")
+        return list(dict.fromkeys(value))
+
+
+class JobSearchPreferencesPatch(BaseModel):
+    """Bounded partial update shared by chat and one-off searches.
+
+    ``model_fields_set`` distinguishes omitted nullable fields from an explicit
+    request to clear them. Role/skill/exclusion modes let natural chat requests
+    such as "add product manager" avoid replacing the user's whole profile.
+    """
+
+    model_config = ConfigDict(title="JobSearchPreferencesPatch", extra="forbid")
+
+    target_roles: list[str] | None = Field(
+        default=None,
+        max_length=6,
+        description="Target job titles as an array, for example ['Product Manager'].",
+    )
+    target_roles_mode: JobSearchListMode = "replace"
+    skills: list[str] | None = Field(
+        default=None,
+        max_length=30,
+        description="Desired skills as an array.",
+    )
+    skills_mode: JobSearchListMode = "replace"
+    location: str | None = Field(default=None, max_length=160)
+    work_modes: list[JobSearchWorkMode] | None = Field(
+        default=None,
+        description="Work modes as an array: remote, hybrid, or onsite.",
+    )
+    experience_levels: list[JobSearchExperience] | None = Field(
+        default=None,
+        description="Experience levels as an array: internship, entry, mid, or senior.",
+    )
+    salary_min: int | None = Field(default=None, ge=0, le=1_000_000)
+    requires_sponsorship: bool | None = None
+    excluded_companies: list[str] | None = Field(default=None, max_length=20)
+    excluded_companies_mode: JobSearchListMode = "replace"
+    background: str | None = Field(default=None, max_length=6000)
+    result_count: Literal[5, 10, 15] | None = None
+    frequency: JobSearchFrequency | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_tool_aliases(cls, value: object) -> object:
+        """Accept common singular keys emitted by function-calling models.
+
+        The public schema stays explicit and bounded, while My Job remains
+        resilient when a provider emits ``work_mode`` instead of
+        ``work_modes`` (or another equivalent singular spelling).
+        """
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        aliases = {
+            "target_role": "target_roles",
+            "role": "target_roles",
+            "job_type": "target_roles",
+            "skill": "skills",
+            "work_mode": "work_modes",
+            "experience": "experience_levels",
+            "experience_level": "experience_levels",
+            "excluded_company": "excluded_companies",
+        }
+        for alias, canonical in aliases.items():
+            alias_value = normalized.pop(alias, None)
+            if canonical not in normalized and alias_value is not None:
+                normalized[canonical] = alias_value
+        for field_name in (
+            "target_roles",
+            "skills",
+            "work_modes",
+            "experience_levels",
+            "excluded_companies",
+        ):
+            field_value = normalized.get(field_name)
+            if isinstance(field_value, str):
+                normalized[field_name] = [field_value]
+        return normalized
+
+    @field_validator("target_roles", "skills", "excluded_companies")
+    @classmethod
+    def normalize_optional_lists(
+        cls,
+        value: list[str] | None,
+        info: ValidationInfo,
+    ) -> list[str] | None:
+        if value is None:
+            return None
+        field_name = info.field_name
+        if field_name is None:
+            raise ValueError("field name is required")
+        limit = {"target_roles": 6, "skills": 30, "excluded_companies": 20}[field_name]
+        return _clean_list(value, limit=limit)
+
+    @field_validator("location", "background")
+    @classmethod
+    def normalize_patch_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = " ".join(value.strip().split()) if "\n" not in value else value.strip()
+        return cleaned or None
+
+    @field_validator("work_modes", "experience_levels")
+    @classmethod
+    def require_patch_selection(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
         if not value:
             raise ValueError("at least one option is required")
         return list(dict.fromkeys(value))
@@ -170,6 +281,12 @@ class JobSearchDashboardOut(BaseModel):
 
     profile: JobSearchProfileOut | None = None
     matches: list[JobMatchOut] = Field(default_factory=list)
+
+
+class JobSearchRunOut(BaseModel):
+    model_config = ConfigDict(title="JobSearchRunOut")
+
+    queued: bool = True
 
 
 class CoverLetterOut(BaseModel):
