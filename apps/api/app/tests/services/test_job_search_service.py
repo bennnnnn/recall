@@ -11,6 +11,7 @@ from app.models.schemas.job_search import (
     JobSearchPreferencesPatch,
     ResumeProfile,
 )
+from app.models.schemas.tools import JobSearchToolInput
 from app.services import job_search as job_search_service
 
 
@@ -71,9 +72,10 @@ def test_preference_patch_normalizes_common_tool_aliases() -> None:
         {
             "role": "Product Manager",
             "skill": "Roadmapping",
-            "work_mode": "hybrid",
-            "experience_level": "senior",
+            "work_mode": "Hybrid",
+            "experience_level": "Senior Level",
             "excluded_company": "Acme",
+            "location": "USA",
         }
     )
     assert patch.target_roles == ["Product Manager"]
@@ -81,6 +83,7 @@ def test_preference_patch_normalizes_common_tool_aliases() -> None:
     assert patch.work_modes == ["hybrid"]
     assert patch.experience_levels == ["senior"]
     assert patch.excluded_companies == ["Acme"]
+    assert patch.location == "United States"
 
 
 def test_preference_patch_canonical_fields_win_over_tool_aliases() -> None:
@@ -94,6 +97,22 @@ def test_preference_patch_canonical_fields_win_over_tool_aliases() -> None:
     )
     assert patch.target_roles == ["Nurse"]
     assert patch.work_modes == ["remote"]
+
+
+def test_job_tool_decodes_provider_stringified_preference_aliases() -> None:
+    tool_input = JobSearchToolInput.model_validate(
+        {
+            "action": "update_profile",
+            "preferences": (
+                '{"roles":"Software Engineer","experience":"entry level",'
+                '"locations":"USA"}'
+            ),
+        }
+    )
+    assert tool_input.preferences is not None
+    assert tool_input.preferences.target_roles == ["Software Engineer"]
+    assert tool_input.preferences.experience_levels == ["entry"]
+    assert tool_input.preferences.location == "United States"
 
 
 @pytest.mark.parametrize(

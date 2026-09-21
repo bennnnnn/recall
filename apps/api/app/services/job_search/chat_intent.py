@@ -48,6 +48,19 @@ _PREFERENCE_VALUE_INTENT = re.compile(
     r"senior|sponsorship|jobs?|roles?)\b",
     re.IGNORECASE,
 )
+_JOB_FOLLOW_UP = re.compile(
+    r"^\s*(?:yes[,.!]?\s*)?(?:please\s+)?(?:"
+    r"search(?:\s+(?:now|again|for))?|find|look(?:\s+again)?|go ahead|do it|start)"
+    r"(?:\s+(?:me\s+)?)?(?:\d{1,2}|one|two|three|four|five|six|seven|eight|nine|"
+    r"ten|eleven|twelve|thirteen|fourteen|fifteen)?(?:\s+(?:jobs?|roles?|matches))?"
+    r"[.!]?\s*$",
+    re.IGNORECASE,
+)
+_JOB_CONTEXT = re.compile(
+    r"\b(my job|job search|job matches|job openings|target roles?|work mode|"
+    r"experience level|start searching|searching for roles?|saved preferences)\b",
+    re.IGNORECASE,
+)
 
 
 def wants_job_search(text: str) -> bool:
@@ -59,4 +72,35 @@ def wants_job_search(text: str) -> bool:
         or _CHECK_JOB_INTENT.search(text)
         or _FIT_JOB_INTENT.search(text)
         or _PREFERENCE_VALUE_INTENT.search(text)
+    )
+
+
+def wants_job_search_turn(messages: list[dict[str, object]]) -> bool:
+    """Recognize terse My Job follow-ups using only recent conversation context.
+
+    A message such as ``search 2`` is intentionally ambiguous on its own. It is
+    a My Job action only when the immediately preceding exchange was about My
+    Job, which prevents ordinary numbered web searches from being rerouted.
+    """
+    user_text = ""
+    current_index = -1
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            user_text = content.strip()
+            current_index = index
+            break
+    if wants_job_search(user_text):
+        return True
+    if not user_text or not _JOB_FOLLOW_UP.fullmatch(user_text):
+        return False
+    recent = messages[max(0, current_index - 4) : current_index]
+    return any(
+        isinstance(message.get("content"), str)
+        and bool(_JOB_CONTEXT.search(str(message["content"])))
+        for message in recent
+        if message.get("role") in {"user", "assistant"}
     )

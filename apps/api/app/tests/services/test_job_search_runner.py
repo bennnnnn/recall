@@ -41,7 +41,7 @@ def _profile(**overrides: object) -> _ProfileSnapshot:
         "skills": ["Python", "FastAPI"],
         "location": "United States",
         "work_modes": ["remote", "hybrid", "onsite"],
-        "experience_levels": ["entry"],
+        "experience_levels": ["entry", "mid", "senior"],
         "salary_min": None,
         "requires_sponsorship": False,
         "excluded_companies": [],
@@ -77,9 +77,15 @@ def test_canonicalize_job_url_removes_tracking_but_keeps_job_identifier() -> Non
 
 def test_entry_profile_rejects_obviously_senior_role() -> None:
     assert _obvious_mismatch(
-        _profile(),
+        _profile(experience_levels=["entry"]),
         _candidate("Principal Backend Engineer"),
     )
+
+
+def test_entry_profile_does_not_treat_requested_manager_title_as_seniority() -> None:
+    profile = _profile(target_roles=["Account Manager"], experience_levels=["entry"])
+    assert not _obvious_mismatch(profile, _candidate("Account Manager"))
+    assert _obvious_mismatch(profile, _candidate("Senior Account Manager"))
 
 
 def test_profile_rejects_excluded_company() -> None:
@@ -112,8 +118,8 @@ def test_search_queries_stay_sector_neutral_for_entry_level() -> None:
 def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
     profile = _profile()
     candidates = [
-        _candidate("Backend Engineer", "Python FastAPI remote"),
-        _candidate("Backend Engineer", "Python"),
+        _candidate("Entry-Level Backend Engineer", "Python FastAPI remote"),
+        _candidate("Junior Backend Engineer", "Python"),
     ]
     accepted = _fallback_rank(profile, candidates)
     assert len(accepted) == 2
@@ -284,8 +290,15 @@ def test_dedupe_accepted_drops_cross_source_repeats() -> None:
         ("https://www.glassdoor.com/Job/berlin-nurse-jobs-SRCH_IL.0,6_IC2622109.htm", "Nurse"),
         ("https://boards.example.com/careers", "Careers"),
         ("https://jobs.example.com/page", "Registered Nurse jobs in Berlin"),
+        ("https://workingnomads.com/remote", "Remote Entry Level Account Manager Jobs"),
+        ("https://builtin.com/jobs/remote", "Best Remote Account Manager Jobs 2026"),
         ("https://jobs.example.com/page", "1,200+ Pflege Jobs bei Kliniken"),
         ("https://jobs.example.com/page", "Alle Stellenangebote im Landkreis"),
+        (
+            "https://www.workingnomads.com/remote-entry-level-software-engineer-jobs",
+            "Remote Entry Level Software Engineer Jobs Explore",
+        ),
+        ("https://arc.dev/remote-jr-jobs", "Remote Junior Developer Jobs & Internships"),
     ],
 )
 def test_listing_pages_are_detected(url: str, title: str) -> None:
@@ -435,6 +448,56 @@ def test_fallback_rejects_result_without_required_salary_evidence() -> None:
     assert accepted == []
 
 
+def test_entry_fallback_requires_entry_level_evidence() -> None:
+    assert _fallback_rank(
+        _profile(target_roles=["Account Manager"], experience_levels=["entry"]),
+        [_candidate("Technical Account Manager", "Remote customer success role")],
+    ) == []
+
+
+async def test_rank_falls_back_to_verified_page_when_structured_result_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request: dict[str, object] = {}
+    candidate = _Candidate(
+        candidate_id=0,
+        title="(Remote) - Entry-Level Account Manager (20 - 27 per hour)",
+        url="https://apply.workable.com/nogigiddy/j/123",
+        canonical_url="https://apply.workable.com/nogigiddy/j/123",
+        snippet="Remote entry-level account manager",
+        source="apply.workable.com",
+        page_text=(
+            "[![Image 1: NoGigiddy](logo)](company) "
+            "# (Remote) - Entry-Level Account Manager (20 - 27 per hour) "
+            "**Remote** Remote Work Full time ## Description "
+            "NoGigiddy is seeking an entry-level account manager."
+        ),
+    )
+
+    async def empty_structured(**kwargs: object) -> _RankedPayload:
+        request.update(kwargs)
+        return _RankedPayload(jobs=[])
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", empty_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(
+            target_roles=["Account Manager"],
+            experience_levels=["entry"],
+            work_modes=["remote"],
+            result_count=2,
+        ),
+        [candidate],
+    )
+
+    assert len(accepted) == 1
+    assert accepted[0].title == "Entry-Level Account Manager (20 - 27 per hour)"
+    assert accepted[0].company == "NoGigiddy"
+    assert accepted[0].candidate.url == candidate.url
+    assert request["model_alias"] == "gemini-flash"
+    assert request["timeout_seconds"] == 20.0
+
+
 async def test_rank_rejects_salary_below_minimum(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -474,6 +537,38 @@ async def test_rank_requires_positive_sponsorship_evidence(
     accepted = await _rank_candidates(
         _rank_settings(),
         _profile(requires_sponsorship=True, work_modes=["remote"]),
+        [candidate],
+    )
+    assert accepted == []
+
+
+async def test_rank_requires_entry_level_evidence_for_entry_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = _candidate(
+        "Technical Account Manager - Smile Digital Health",
+        "Remote customer success and technical enablement role",
+    )
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[
+                _RankedJob(
+                    candidate_id=0,
+                    company="Smile Digital Health",
+                    work_mode="remote",
+                )
+            ]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(
+            target_roles=["Account Manager"],
+            experience_levels=["entry"],
+            work_modes=["remote"],
+        ),
         [candidate],
     )
     assert accepted == []

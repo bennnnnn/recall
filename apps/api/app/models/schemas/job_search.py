@@ -145,6 +145,7 @@ class JobSearchPreferencesPatch(BaseModel):
         normalized = dict(value)
         aliases = {
             "target_role": "target_roles",
+            "roles": "target_roles",
             "role": "target_roles",
             "job_type": "target_roles",
             "skill": "skills",
@@ -152,6 +153,7 @@ class JobSearchPreferencesPatch(BaseModel):
             "experience": "experience_levels",
             "experience_level": "experience_levels",
             "excluded_company": "excluded_companies",
+            "locations": "location",
         }
         for alias, canonical in aliases.items():
             alias_value = normalized.pop(alias, None)
@@ -167,6 +169,43 @@ class JobSearchPreferencesPatch(BaseModel):
             field_value = normalized.get(field_name)
             if isinstance(field_value, str):
                 normalized[field_name] = [field_value]
+        mode_aliases = {
+            "on site": "onsite",
+            "on-site": "onsite",
+            "work from home": "remote",
+        }
+        if isinstance(normalized.get("work_modes"), list):
+            normalized["work_modes"] = [
+                mode_aliases.get(str(item).strip().casefold(), str(item).strip().casefold())
+                for item in normalized["work_modes"]
+            ]
+        experience_aliases = {
+            "intern": "internship",
+            "entry level": "entry",
+            "entry-level": "entry",
+            "mid level": "mid",
+            "mid-level": "mid",
+            "senior level": "senior",
+            "senior-level": "senior",
+        }
+        if isinstance(normalized.get("experience_levels"), list):
+            normalized["experience_levels"] = [
+                experience_aliases.get(
+                    str(item).strip().casefold(),
+                    str(item).strip().casefold(),
+                )
+                for item in normalized["experience_levels"]
+            ]
+        frequency = normalized.get("frequency")
+        if isinstance(frequency, str):
+            normalized["frequency"] = frequency.strip().casefold()
+        location = normalized.get("location")
+        if isinstance(location, str) and location.strip().casefold().replace(".", "") in {
+            "us",
+            "usa",
+            "united states of america",
+        }:
+            normalized["location"] = "United States"
         return normalized
 
     @field_validator("target_roles", "skills", "excluded_companies")

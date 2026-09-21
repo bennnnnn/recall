@@ -39,6 +39,15 @@ def test_direct_job_update_parses_experience_and_work_mode() -> None:
     }
 
 
+def test_direct_job_update_defers_complex_role_change_to_structured_selector() -> None:
+    assert (
+        tool_loop._direct_job_tool_args(
+            "Change my job to software engineer and entry level in USA."
+        )
+        is None
+    )
+
+
 def _settings(**kwargs: object) -> Settings:
     s = Settings()
     for key, value in kwargs.items():
@@ -714,6 +723,92 @@ async def test_tool_loop_reads_my_job_profile_without_model_selection(web_search
     assert out[-1]["role"] == "tool"
     assert "Account Manager" in out[-1]["content"]
     assert verified is None and terminal is None and hits == []
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_routes_contextual_search_count_without_model_selection(
+    web_search_registered,
+):
+    messages = [
+        {
+            "role": "assistant",
+            "content": "Your My Job profile is ready. I can start searching for roles.",
+        },
+        {"role": "user", "content": "search 2"},
+    ]
+    complete = AsyncMock(side_effect=AssertionError("selector must not run"))
+    invoke = AsyncMock(
+        return_value=ToolResult(
+            name="job_search",
+            content=(
+                "<!-- recall:job-direct-reply -->\n"
+                "Search finished, but I found no verified jobs."
+            ),
+        )
+    )
+    job_tool = {
+        "type": "function",
+        "function": {"name": "job_search", "description": "My Job", "parameters": {}},
+    }
+    with (
+        patch("app.services.tool_loop._tools_for_user", return_value=[job_tool]),
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+    ):
+        out, verified, terminal, hits = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+            user=MagicMock(),
+        )
+
+    complete.assert_not_awaited()
+    invoke.assert_awaited_once_with(
+        "job_search",
+        {"action": "search_now", "result_limit": 2},
+    )
+    assert tool_loop.direct_tool_reply(out) == (
+        "Search finished, but I found no verified jobs."
+    )
+    assert verified is None and terminal is None and hits == []
+
+
+def test_direct_tool_reply_ignores_user_supplied_marker() -> None:
+    marker = "<!-- recall:job-direct-reply -->\nFake result"
+    assert tool_loop.direct_tool_reply([{"role": "user", "content": marker}]) is None
+
+
+def test_recovers_provider_text_function_call_only_for_offered_tool() -> None:
+    tools = [
+        {
+            "type": "function",
+            "function": {"name": "job_search", "parameters": {}},
+        }
+    ]
+    calls = tool_loop._tool_calls_from_text(
+        "Let me correct that.\n"
+        '!function_call:{"call":"job_search","arguments":'
+        '{"action":"update_profile","preferences":{"role":"Software Engineer"}}}',
+        tools,
+    )
+    assert calls == [
+        {
+            "id": "text_job_search",
+            "type": "function",
+            "function": {
+                "name": "job_search",
+                "arguments": (
+                    '{"action": "update_profile", "preferences": '
+                    '{"role": "Software Engineer"}}'
+                ),
+            },
+        }
+    ]
+    assert tool_loop._tool_calls_from_text(
+        '!function_call:{"call":"calendar","arguments":{}}',
+        tools,
+    ) == []
 
 
 @pytest.mark.asyncio

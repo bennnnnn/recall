@@ -102,6 +102,11 @@ _LISTING_TITLE_PLACE = re.compile(
     r"\bjob\s+search\b|\bvacancies\s+in\b",
     re.IGNORECASE,
 )
+_LISTING_TITLE_GENERIC = re.compile(
+    r"\bjobs?(?:\s*\((?:now hiring|hiring)\)|\s+(?:now hiring|hiring))?"
+    r"(?:\s+\d{4})?\s*$",
+    re.IGNORECASE,
+)
 _LISTING_QUERY_KEYS = {"q", "query", "search", "keyword", "keywords", "what", "where"}
 _LISTING_PATH_MARKERS = ("/jobs/search", "/jobsearch", "srch_", "/jobs-by-")
 _LISTING_PATH_ROOTS = ("/jobs", "/careers", "/stellenangebote", "/offene-stellen", "/jobboerse")
@@ -115,7 +120,11 @@ _BOARD_SUFFIX = re.compile(
 
 
 def _is_listing_title(title: str) -> bool:
-    return bool(_LISTING_TITLE_COUNT.search(title) or _LISTING_TITLE_PLACE.search(title))
+    return bool(
+        _LISTING_TITLE_COUNT.search(title)
+        or _LISTING_TITLE_PLACE.search(title)
+        or _LISTING_TITLE_GENERIC.search(title.strip(" ()"))
+    )
 
 
 def _is_listing_page(url: str, title: str) -> bool:
@@ -124,6 +133,8 @@ def _is_listing_page(url: str, title: str) -> bool:
         return True
     parsed = urlsplit(url)
     path = parsed.path.casefold().rstrip("/")
+    if path.endswith("-jobs") or path.endswith("/jobs"):
+        return True
     if path.endswith(_LISTING_PATH_ROOTS):
         return True
     if any(marker in path for marker in _LISTING_PATH_MARKERS):
@@ -199,6 +210,14 @@ class _ProfileSnapshot:
     hidden_titles: list[str]
     result_count: int
     frequency: str
+
+
+@dataclass(frozen=True, slots=True)
+class JobSearchRunResult:
+    """Verified outcome returned to synchronous callers such as chat."""
+
+    status: Literal["completed", "busy", "unavailable"]
+    canonical_urls: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -334,6 +353,46 @@ def _title_and_company(raw: str, source: str) -> tuple[str, str]:
         return title[:240], "Unknown employer"
     company = source.split(".")[0].replace("-", " ").title() or "Company"
     return title[:240], company[:180]
+
+
+def _verified_fallback_identity(candidate: _Candidate) -> tuple[str, str]:
+    """Extract an honest title/employer from a fetched posting page.
+
+    ATS search titles are inconsistent and ranking providers can occasionally
+    return an empty structured payload. The page heading and logo alt text are
+    stronger evidence than deriving an employer from a hostname like
+    ``apply.workable.com``.
+    """
+    page = " ".join((candidate.page_text or "").split())
+    heading_match = re.search(
+        r"(?:^|\s)#\s+(.{2,240}?)(?=\s+\*\*|\s+Remote\b|\s+Full[ -]?time\b|$)",
+        page,
+        re.IGNORECASE,
+    )
+    title = heading_match.group(1).strip() if heading_match else candidate.title.strip()
+    title = re.sub(
+        r"^\(remote\)\s*[-\u2013\u2014:]\s*",
+        "",
+        title,
+        flags=re.IGNORECASE,
+    )
+
+    company_match = re.search(
+        r"Image\s+\d+\s*:\s*([^\]]{2,100})\]",
+        page,
+        re.IGNORECASE,
+    )
+    if company_match is None:
+        company_match = re.search(
+            r"(?:Description|About)\s+([A-Z][A-Za-z0-9&.'\u2019+ -]{1,80}?)\s+"
+            r"(?:is|are)\s+(?:seeking|looking|hiring)",
+            page,
+        )
+    if company_match:
+        company = company_match.group(1).strip()
+    else:
+        _, company = _title_and_company(candidate.title, candidate.source)
+    return title[:240] or "Job opening", company[:180]
 
 
 def _profile_from_rows(
@@ -493,8 +552,19 @@ def _obvious_mismatch(profile: _ProfileSnapshot, candidate: _Candidate) -> bool:
     excluded = [*profile.excluded_companies, *profile.hidden_companies]
     if any(company.casefold() in text for company in excluded):
         return True
+    # Seniority words that are part of the requested title are not evidence of
+    # senior experience. "Account Manager" can be entry-level; "Senior Account
+    # Manager" still leaves "Senior" after removing the target phrase.
+    title_for_level = candidate.title.casefold()
+    for target_role in profile.target_roles:
+        title_for_level = re.sub(
+            re.escape(target_role.casefold()),
+            " ",
+            title_for_level,
+            flags=re.IGNORECASE,
+        )
     junior_only = set(profile.experience_levels).issubset({"internship", "entry"})
-    if junior_only and _SENIOR_TERMS.search(text):
+    if junior_only and _SENIOR_TERMS.search(title_for_level):
         return True
     senior_only = set(profile.experience_levels) == {"senior"}
     if senior_only and _JUNIOR_TERMS.search(text):
@@ -561,6 +631,12 @@ def _passes_verified_constraints(
         if ceiling is None or ceiling < profile.salary_min:
             return False
     if profile.requires_sponsorship is True and not _SPONSORSHIP_AVAILABLE.search(text):
+        return False
+    junior_only = set(profile.experience_levels).issubset({"internship", "entry"})
+    if junior_only and not _JUNIOR_TERMS.search(text):
+        return False
+    senior_only = set(profile.experience_levels) == {"senior"}
+    if senior_only and not _SENIOR_TERMS.search(text):
         return False
     city = _specific_location_term(profile.location)
     if city and work_mode != "remote":
@@ -681,7 +757,15 @@ def _fallback_rank(
 
     accepted: list[_AcceptedJob] = []
     for keyword_score, candidate in scored[: profile.result_count]:
+        if _is_listing_page(candidate.url, candidate.title):
+            continue
         evidence = f"{candidate.snippet} {candidate.page_text or ''}".casefold()
+        junior_only = set(profile.experience_levels).issubset({"internship", "entry"})
+        if junior_only and not _JUNIOR_TERMS.search(f"{candidate.title} {evidence}"):
+            continue
+        senior_only = set(profile.experience_levels) == {"senior"}
+        if senior_only and not _SENIOR_TERMS.search(f"{candidate.title} {evidence}"):
+            continue
         inferred_mode = (
             "hybrid"
             if "hybrid" in evidence
@@ -699,7 +783,9 @@ def _fallback_rank(
             location=None,
         ):
             continue
-        title, company = _title_and_company(candidate.title, candidate.source)
+        title, company = _verified_fallback_identity(candidate)
+        if company == "Unknown employer":
+            continue
         reasons = ["Title and description align with your target roles"]
         snippet = candidate.snippet.casefold()
         matched_skills = [skill for skill in profile.skills if skill.casefold() in snippet]
@@ -768,13 +854,16 @@ async def _rank_candidates(
 
     ranked = await litellm_gateway.complete_structured(
         settings=settings,
-        model_alias="memory-model",
+        # This is a foreground search. The fast function-capable route returns
+        # the ranking schema in seconds; the background memory route can take
+        # tens of seconds and sometimes emits prose instead of valid JSON.
+        model_alias="gemini-flash",
         messages=_ranking_messages(profile, eligible),
         schema=_RankedPayload,
-        max_tokens=3500,
-        timeout_seconds=45.0,
+        max_tokens=2500,
+        timeout_seconds=20.0,
     )
-    if ranked is None:
+    if ranked is None or not ranked.jobs:
         return _fallback_rank(profile, eligible)
 
     by_id = {item.candidate_id: item for item in eligible}
@@ -800,6 +889,8 @@ async def _rank_candidates(
             continue
         if item.company is not None and not _is_board_name(item.company):
             company = item.company
+        if company == "Unknown employer":
+            continue
         if not _passes_verified_constraints(
             profile,
             candidate,
@@ -826,7 +917,7 @@ async def _rank_candidates(
         )
         if len(accepted) >= profile.result_count:
             break
-    return accepted
+    return accepted or _fallback_rank(profile, eligible)
 
 
 async def _load_snapshot(
@@ -1008,7 +1099,8 @@ async def run_job_search(
     profile_id: UUID,
     manual: bool = False,
     overrides: dict[str, Any] | None = None,
-) -> None:
+    result_limit: int | None = None,
+) -> JobSearchRunResult:
     """Search, rank, persist, and notify for one profile occurrence."""
     token = await acquire_lock(
         redis,
@@ -1016,22 +1108,31 @@ async def run_job_search(
         _RUN_LOCK_SECONDS,
     )
     if token is None:
-        return
+        return JobSearchRunResult(status="busy")
 
     profile: _ProfileSnapshot | None = None
     try:
         profile = await _load_snapshot(profile_id)
         if profile is None:
-            return
+            return JobSearchRunResult(status="unavailable")
         profile = _snapshot_with_overrides(profile, overrides)
+        if result_limit is not None:
+            max_results = 15 if profile.is_pro else 5
+            if not 1 <= result_limit <= max_results:
+                raise ValueError(f"result_limit must be between 1 and {max_results}")
+            profile = replace(profile, result_count=result_limit)
         candidates = await _find_candidates(settings, profile)
-        accepted = await _rank_candidates(settings, profile, candidates)
+        accepted = _dedupe_accepted(await _rank_candidates(settings, profile, candidates))
         await _finish_run(
             settings,
             profile,
             accepted,
             manual=manual,
             run_status="ok",
+        )
+        return JobSearchRunResult(
+            status="completed",
+            canonical_urls=tuple(item.candidate.canonical_url for item in accepted),
         )
     except Exception:
         logger.exception("My Job search failed profile_id=%s", profile_id)

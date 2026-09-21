@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.models.schemas.job_search import (
     JobMatchStatus,
@@ -29,11 +30,35 @@ class JobSearchToolInput(BaseModel):
         "update_match",
     ] = "list"
     preferences: JobSearchPreferencesPatch | None = None
+    result_limit: int | None = Field(
+        default=None,
+        ge=1,
+        le=15,
+        description="Maximum verified jobs for this one search; does not change the saved profile.",
+    )
     search_status: JobSearchStatus | None = None
     job_url: str | None = Field(default=None, max_length=2000)
     match_id: UUID | None = None
     match_status: JobMatchStatus | None = None
     notes: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="before")
+    @classmethod
+    def decode_stringified_preferences(cls, value: object) -> object:
+        """Normalize providers that JSON-encode the nested object twice."""
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        preferences = normalized.get("preferences")
+        if not isinstance(preferences, str):
+            return normalized
+        try:
+            decoded = json.loads(preferences)
+        except (TypeError, ValueError):
+            return normalized
+        if isinstance(decoded, dict):
+            normalized["preferences"] = decoded
+        return normalized
 
 
 class SympyToolInput(BaseModel):
