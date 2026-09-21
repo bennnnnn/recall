@@ -851,7 +851,6 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
             content,
             "free-chat",
             Settings(
-                _env_file=None,
                 mcp_tool_loop_enabled=False,
                 mcp_tools_enabled=False,
                 math_tools_enabled=True,
