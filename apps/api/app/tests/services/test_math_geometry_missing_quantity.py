@@ -9,7 +9,7 @@ from app.services.math.fence import validate_math_fences
 from app.services.math.tools import _build_verified_block, extract_math_intent
 from app.services.math.tools.direct import maybe_direct_math_reply
 
-_SETTINGS = Settings(math_tools_enabled=True, _env_file=None)
+_SETTINGS = Settings(math_tools_enabled=True)
 
 
 @pytest.mark.parametrize(

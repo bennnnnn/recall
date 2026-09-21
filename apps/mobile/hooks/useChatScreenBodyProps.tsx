@@ -30,6 +30,7 @@ import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/lib/attachments";
+import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
 import { openDrawer } from "@/lib/drawer";
 import type { Theme } from "@/lib/theme";
@@ -98,7 +99,7 @@ export type UseChatScreenBodyPropsParams = {
     handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
     mathScannerOpen: boolean;
     closeMathScanner: () => void;
-    handleMathScanCaptured: (pending: PendingAttachment) => void;
+    handleMathScanCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
     onOpenMathScanner?: () => void;
     onMathChromeHeightChange?: (height: number) => void;
   };

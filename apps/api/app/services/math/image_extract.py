@@ -9,6 +9,7 @@ import logging
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
 from app.models.schemas.math import MathImageExtract
+from app.services.subject_scan import MATH_CAMERA_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +55,6 @@ _EXTRACT_PROMPT = (
     'If nothing extractable, set found=false and use lhs/rhs of "0".'
 )
 
-# Must stay byte-for-byte identical to MATH_CAMERA_PROMPT in
-# apps/mobile/lib/mathCameraPrompt.ts — this is an exact-match trigger phrase
-# (is_math_camera_prompt below), not user-facing copy, so it doesn't go
-# through i18n. If either side's wording changes without the other, the
-# verified-math augmentation silently stops firing for the camera flow.
-MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step."
 MATH_CAMERA_CONFIRMED_PREFIX = "I read this as:"
 
 _SOLVE_KINDS = frozenset({"equation", "system", "inequality"})

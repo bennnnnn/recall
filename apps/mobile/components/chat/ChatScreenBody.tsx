@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/lib/attachments";
+import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
 import { type IoniconName } from "@/lib/icons";
 import { messagesLookLikeMath } from "@/lib/math/composerIntent";
@@ -106,7 +107,7 @@ export interface ChatScreenSheetsProps {
   onAttachmentSource: (source: AttachmentSource) => void;
   mathScannerOpen: boolean;
   onCloseMathScanner: () => void;
-  onMathScanCaptured: (pending: PendingAttachment) => void;
+  onMathScanCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
 }

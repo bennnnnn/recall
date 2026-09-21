@@ -1,11 +1,20 @@
-import { type ComponentProps } from "react";
+import { type ComponentProps, useEffect, useMemo, useState } from "react";
 import { type AccessibilityActionEvent, StyleSheet, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { type AnimatedStyle } from "react-native-reanimated";
+import Animated, {
+  cancelAnimation,
+  type AnimatedStyle,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
+import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type AnimStyle = AnimatedStyle<Record<string, unknown>>;
@@ -26,6 +35,7 @@ type Props = {
   handleTRStyle: AnimStyle;
   handleBLStyle: AnimStyle;
   handleBRStyle: AnimStyle;
+  scanning: boolean;
   onGrow: () => void;
   onShrink: () => void;
 };
@@ -45,12 +55,32 @@ export function MathScannerCropOverlay({
   handleTRStyle,
   handleBLStyle,
   handleBRStyle,
+  scanning,
   onGrow,
   onShrink,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const s = makeStyles(theme);
+  const reduceMotion = useReduceMotion();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const [regionHeight, setRegionHeight] = useState(0);
+  const shimmerProgress = useSharedValue(0);
+
+  useEffect(() => {
+    cancelAnimation(shimmerProgress);
+    shimmerProgress.value = 0;
+    if (!scanning || reduceMotion || regionHeight <= 0) return;
+    shimmerProgress.value = withRepeat(
+      withTiming(1, { duration: 1850, easing: Motion.easing.linear }),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(shimmerProgress);
+  }, [reduceMotion, regionHeight, scanning, shimmerProgress]);
+
+  const shimmerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -18 + shimmerProgress.value * (regionHeight + 36) }],
+  }));
 
   const onA11yAction = (event: AccessibilityActionEvent) => {
     if (event.nativeEvent.actionName === "increment") onGrow();
@@ -77,7 +107,30 @@ export function MathScannerCropOverlay({
             { name: "decrement", label: t("chat.math_scan_frame_shrink") },
           ]}
           onAccessibilityAction={onA11yAction}
+          onLayout={(event) => setRegionHeight(event.nativeEvent.layout.height)}
         >
+          {scanning ? (
+            <View style={s.shimmerClip} pointerEvents="none">
+              <Animated.View
+                testID="math-scanner-shimmer"
+                style={[s.shimmerBand, reduceMotion ? s.shimmerStatic : shimmerStyle]}
+              >
+                <LinearGradient
+                  colors={[
+                    "transparent",
+                    withAlpha(theme.primary, 0.22),
+                    withAlpha(theme.primary, 0.82),
+                    withAlpha(theme.primary, 0.22),
+                    "transparent",
+                  ]}
+                  locations={[0, 0.28, 0.5, 0.72, 1]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              </Animated.View>
+            </View>
+          ) : null}
           <View style={s.cornerTL} />
           <View style={s.cornerTR} />
           <View style={s.cornerBL} />
@@ -136,6 +189,23 @@ function makeStyles(theme: Theme) {
       backgroundColor: "transparent",
       zIndex: 4,
       ...shadowElevated(theme, "fab"),
+    },
+    shimmerClip: {
+      ...StyleSheet.absoluteFill,
+      overflow: "hidden",
+      borderRadius: Radius.sm,
+    },
+    shimmerBand: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      height: 18,
+    },
+    shimmerStatic: {
+      top: "50%",
+      opacity: 0.42,
+      transform: [{ translateY: -9 }],
     },
     handle: {
       position: "absolute",

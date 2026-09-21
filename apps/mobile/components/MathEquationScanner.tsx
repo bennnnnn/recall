@@ -39,6 +39,11 @@ import {
   type ScanRegion,
 } from "@/lib/math/scannerRegion";
 import { useLastPhotoThumb } from "@/lib/lastPhotoThumbnail";
+import {
+  playScannerSwitchCue,
+  stopScannerSwitchCue,
+} from "@/lib/scanner/switchCue";
+import type { ScannerSubject } from "@/lib/scanner/subjects";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -48,16 +53,16 @@ import { Type } from "@/lib/type";
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onCaptured: (pending: PendingAttachment) => void;
+  onCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
 };
 
-type ScanShot = PendingAttachment & { width: number; height: number; fromLibrary: boolean };
+type ScanShot = PendingAttachment & { width: number; height: number };
 
 const ANDROID_DISMISS_MS = 400;
 
 /**
- * Live camera to frame a problem, then a still-photo crop. Solve crops that
- * rectangle and sends the image to chat — no separate OCR round-trip.
+ * Capture the unobstructed camera frame, then let the user crop the still.
+ * Solve sends only that crop to chat — no separate OCR round-trip.
  */
 export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const { t } = useTranslation();
@@ -73,6 +78,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ScanShot | null>(null);
   const [torchOn, setTorchOn] = useState(false);
+  const [subject, setSubject] = useState<ScannerSubject>("math");
   const [zoom, setZoom] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const lastPhotoUri = useLastPhotoThumb(visible);
@@ -91,7 +97,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   });
 
   const previewFrame = useMemo(
-    () => preview?.fromLibrary
+    () => preview
       ? containedPhotoRegion(preview.width, preview.height, windowWidth, windowHeight, inset)
       : null,
     [inset, preview, windowHeight, windowWidth],
@@ -111,6 +117,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       crop.resetZoom();
       return;
     }
+    stopScannerSwitchCue();
     if (Platform.OS === "ios") return;
     const timer = setTimeout(() => setHosted(false), ANDROID_DISMISS_MS);
     return () => clearTimeout(timer);
@@ -118,12 +125,14 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open-only reset
   }, [visible]);
 
+  useEffect(() => stopScannerSwitchCue, []);
+
   const showShot = useCallback(
-    async (pending: PendingAttachment, width = 0, height = 0, fromLibrary = false) => {
+    async (pending: PendingAttachment, width = 0, height = 0) => {
       try {
         const size =
           width > 0 && height > 0 ? { width, height } : await measureImageSize(pending.localUri);
-        setPreview({ ...pending, ...size, fromLibrary });
+        setPreview({ ...pending, ...size });
       } catch {
         setError(t("chat.math_scan_failed"));
       }
@@ -150,7 +159,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         {
           localUri: photo.uri,
           contentType: "image/jpeg",
-          fileName: `math-scan-${Date.now()}.jpg`,
+          fileName: `${subject}-scan-${Date.now()}.jpg`,
           kind: "image",
         },
         photo.width ?? 0,
@@ -161,7 +170,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [busy, cameraReady, preview, showShot, t]);
+  }, [busy, cameraReady, preview, showShot, subject, t]);
 
   const confirmPreview = useCallback(async () => {
     if (!preview || busy) return;
@@ -169,13 +178,22 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     setError(null);
     try {
       const cropped = await cropShotToRegion(preview, crop.readRegion(), windowWidth, windowHeight, previewFrame);
-      onCaptured(cropped);
+      onCaptured(cropped, subject);
     } catch {
       setError(t("chat.math_scan_failed"));
     } finally {
       setBusy(false);
     }
-  }, [busy, crop, onCaptured, preview, previewFrame, t, windowWidth, windowHeight]);
+  }, [busy, crop, onCaptured, preview, previewFrame, subject, t, windowWidth, windowHeight]);
+
+  const changeSubject = useCallback((next: ScannerSubject) => {
+    if (next === subject) return;
+    const currentIndex = next === "math" ? 0 : next === "physics" ? 1 : 2;
+    const previousIndex = subject === "math" ? 0 : subject === "physics" ? 1 : 2;
+    selection();
+    void playScannerSwitchCue(currentIndex > previousIndex ? 1 : -1);
+    setSubject(next);
+  }, [subject]);
 
   const openLibrary = useCallback(async () => {
     if (busy) return;
@@ -184,7 +202,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     try {
       await scheduleIdlePromise();
       const picked = await pickFromPhotoLibrary();
-      if (picked) await showShot(picked, 0, 0, true);
+      if (picked) await showShot(picked);
     } catch (caught) {
       if (caught instanceof HeicUnsupportedError) {
         setError(t("chat.heic_unsupported_body"));
@@ -285,28 +303,31 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
                     width: previewFrame.width * windowWidth,
                     height: previewFrame.height * windowHeight,
                   } : StyleSheet.absoluteFill}
-                  resizeMode={previewFrame ? "contain" : "cover"}
+                  resizeMode="contain"
                 />
               </View>
             ) : null}
-            <MathScannerCropOverlay
-              regionGesture={crop.regionGesture}
-              cornerTL={crop.cornerTL}
-              cornerTR={crop.cornerTR}
-              cornerBL={crop.cornerBL}
-              cornerBR={crop.cornerBR}
-              regionStyle={crop.regionStyle}
-              maskTopStyle={crop.maskTopStyle}
-              maskBottomStyle={crop.maskBottomStyle}
-              maskLeftStyle={crop.maskLeftStyle}
-              maskRightStyle={crop.maskRightStyle}
-              handleTLStyle={crop.handleTLStyle}
-              handleTRStyle={crop.handleTRStyle}
-              handleBLStyle={crop.handleBLStyle}
-              handleBRStyle={crop.handleBRStyle}
-              onGrow={crop.growRegion}
-              onShrink={crop.shrinkRegion}
-            />
+            {preview ? (
+              <MathScannerCropOverlay
+                regionGesture={crop.regionGesture}
+                cornerTL={crop.cornerTL}
+                cornerTR={crop.cornerTR}
+                cornerBL={crop.cornerBL}
+                cornerBR={crop.cornerBR}
+                regionStyle={crop.regionStyle}
+                maskTopStyle={crop.maskTopStyle}
+                maskBottomStyle={crop.maskBottomStyle}
+                maskLeftStyle={crop.maskLeftStyle}
+                maskRightStyle={crop.maskRightStyle}
+                handleTLStyle={crop.handleTLStyle}
+                handleTRStyle={crop.handleTRStyle}
+                handleBLStyle={crop.handleBLStyle}
+                handleBRStyle={crop.handleBRStyle}
+                scanning={!busy}
+                onGrow={crop.growRegion}
+                onShrink={crop.shrinkRegion}
+              />
+            ) : null}
           </View>
         )}
         <MathScannerChrome
@@ -315,10 +336,11 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           preview={Boolean(preview)}
           busy={busy}
           torchOn={torchOn}
+          subject={subject}
           error={error}
           lastPhotoUri={lastPhotoUri}
           onClose={onClose}
-          onResetFrame={() => crop.resetRegion(previewFrame ?? undefined)}
+          onSubjectChange={changeSubject}
           onToggleTorch={() => {
             selection();
             setTorchOn((on) => !on);
@@ -326,7 +348,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           onOpenLibrary={() => void openLibrary()}
           onCapture={() => void capture()}
           onRetake={() => {
-            if (preview?.fromLibrary) crop.resetRegion();
+            crop.resetRegion();
             setPreview(null);
             setError(null);
           }}

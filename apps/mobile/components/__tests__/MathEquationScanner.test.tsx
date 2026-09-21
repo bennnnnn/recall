@@ -6,6 +6,8 @@ import { pickFromPhotoLibrary } from "@/lib/attachments";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/components/MathEquationScanner";
+import { selection } from "@/lib/haptics";
+import { playScannerSwitchCue } from "@/lib/scanner/switchCue";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 const mockTakePictureAsync = jest.fn(async () => ({
@@ -38,6 +40,10 @@ jest.mock("expo-image-manipulator", () => ({
   SaveFormat: { JPEG: "jpeg" },
   manipulateAsync: jest.fn(async () => ({ uri: "file:///cropped.jpg" })),
 }));
+
+jest.mock("expo-linear-gradient", () => {
+  return { LinearGradient: "LinearGradient" };
+});
 
 jest.mock("@/lib/lastPhotoThumbnail", () => ({
   loadLastPhotoUri: jest.fn(async () => null),
@@ -72,6 +78,10 @@ jest.mock("@/lib/haptics", () => ({
   selection: jest.fn(),
   tap: jest.fn(),
 }));
+jest.mock("@/lib/scanner/switchCue", () => ({
+  playScannerSwitchCue: jest.fn(async () => undefined),
+  stopScannerSwitchCue: jest.fn(),
+}));
 jest.mock("@/lib/scheduleIdle", () => ({
   scheduleIdlePromise: () => Promise.resolve(),
 }));
@@ -99,14 +109,28 @@ describe("MathEquationScanner", () => {
     ).toBeTruthy();
   });
 
-  it("shows Photos and a labeled shutter when the camera is granted", async () => {
-    const { getByTestId, getByLabelText } = await render(
+  it("shows an unobstructed camera with the selector and torch beside the shutter", async () => {
+    const { getByTestId, getByLabelText, queryByLabelText } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
     );
     expect(getByTestId("math-scanner-photos")).toBeTruthy();
     expect(getByLabelText("chat.math_scan_capture_a11y")).toBeTruthy();
-    expect(getByLabelText("chat.math_scan_reset_frame")).toBeTruthy();
+    expect(queryByLabelText("chat.math_scan_reset_frame")).toBeNull();
+    expect(getByTestId("scanner-subject-switcher")).toBeTruthy();
+    expect(queryByLabelText("chat.math_scan_frame_a11y")).toBeNull();
+    expect(getByTestId("math-scanner-torch").parent).toBe(
+      getByTestId("math-scanner-shutter").parent,
+    );
     expect(getByTestId("math-scanner-camera")).toBeTruthy();
+  });
+
+  it("switches to physics with one directional sound and haptic cue", async () => {
+    const { getByTestId } = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    fireEvent.press(getByTestId("scanner-subject-physics"));
+    expect(selection).toHaveBeenCalled();
+    expect(playScannerSwitchCue).toHaveBeenCalledWith(1);
   });
 
   it("labels the permission CTA when the camera is denied", async () => {
@@ -128,6 +152,8 @@ describe("MathEquationScanner", () => {
     expect(mockTakePictureAsync).toHaveBeenCalled();
     expect(getByTestId("math-scanner-camera")).toBeTruthy();
     expect(getByLabelText("chat.math_scan_retake")).toBeTruthy();
+    expect(getByLabelText("chat.math_scan_frame_a11y")).toBeTruthy();
+    expect(getByTestId("math-scanner-shimmer")).toBeTruthy();
   });
 });
 
@@ -169,16 +195,19 @@ describe("imported math scanner photos", () => {
       [{ crop: { originX: 0, originY: 0, width: 1200, height: 700 } }],
       { compress: 0.9, format: "jpeg" },
     );
-    expect(onCaptured).toHaveBeenCalledWith(expect.objectContaining({ localUri: "file:///cropped.jpg" }));
+    expect(onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "math",
+    );
   });
 
-  it("keeps a captured camera photo on the existing cover preview", async () => {
+  it("shows the full captured camera photo before the user crops it", async () => {
     const { getByLabelText, getByTestId } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
     );
     await act(async () => {
       fireEvent.press(getByLabelText("chat.math_scan_capture_a11y"));
     });
-    expect(getByTestId("math-scanner-preview").props.resizeMode).toBe("cover");
+    expect(getByTestId("math-scanner-preview").props.resizeMode).toBe("contain");
   });
 });

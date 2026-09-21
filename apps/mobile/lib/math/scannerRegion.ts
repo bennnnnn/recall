@@ -35,6 +35,7 @@ export const HANDLE_HIT_MIN = 16;
 /** Pixel chrome used to derive `ScanChromeInset` (matches MathScannerChrome). */
 export const SCANNER_TOP_CONTROL_PX = 44;
 export const SCANNER_SHUTTER_PX = 76;
+export const SCANNER_SUBJECT_SWITCHER_PX = 42;
 
 export const ZERO_INSET: ScanChromeInset = { top: 0, right: 0, bottom: 0, left: 0 };
 
@@ -45,7 +46,8 @@ export function scanChromeInset(
 ): ScanChromeInset {
   if (windowWidth <= 0 || windowHeight <= 0) return ZERO_INSET;
   const topPx = safe.top + 8 + SCANNER_TOP_CONTROL_PX + 8;
-  const bottomPx = Math.max(safe.bottom, 16) + 12 + SCANNER_SHUTTER_PX + 12;
+  const bottomPx =
+    Math.max(safe.bottom, 16) + 12 + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + 44;
   return {
     top: Math.min(0.4, topPx / windowHeight),
     right: 0,

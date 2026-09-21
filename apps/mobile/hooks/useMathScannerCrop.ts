@@ -53,11 +53,11 @@ export function useMathScannerCrop({
   const lastPushedZoom = useSharedValue(0);
   const insetSv = useSharedValue(inset);
   const pinchStartZoom = useSharedValue(0);
-  const pinchStartRegion = useSharedValue<ScanRegion>(region.value);
-  const panBase = useSharedValue<ScanRegion>(region.value);
+  const pinchStartRegion = useSharedValue<ScanRegion>(defaultScanRegion(inset));
+  const panBase = useSharedValue<ScanRegion>(defaultScanRegion(inset));
   const panOriginX = useSharedValue(0);
   const panOriginY = useSharedValue(0);
-  const cornerBase = useSharedValue<ScanRegion>(region.value);
+  const cornerBase = useSharedValue<ScanRegion>(defaultScanRegion(inset));
 
   useEffect(() => {
     insetSv.value = inset;

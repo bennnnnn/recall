@@ -8,7 +8,6 @@ import { api } from "@/lib/api";
 import { uploadAttachmentBytes } from "@/lib/api/attachments";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
-import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
 
 export type AttachmentKind = "image" | "file";
 
@@ -187,12 +186,6 @@ async function assetToPending(
 
 export function defaultAttachmentPrompt(pending: PendingAttachment): string {
   return pending.kind === "image" ? "" : "Summarize this file.";
-}
-
-export { MATH_CAMERA_PROMPT };
-
-export function defaultMathCameraPrompt(): string {
-  return MATH_CAMERA_PROMPT;
 }
 
 /** Text sent to the API for a message that may include an attachment. */

@@ -1,9 +1,19 @@
 import { isAttachmentBoilerplate, parseUserMessageContent, isPdfContentType, stripLookupSourceCaption } from "@/lib/messageAttachments";
 import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
+import { CHEMISTRY_CAMERA_PROMPT, PHYSICS_CAMERA_PROMPT } from "@/lib/scanner/subjects";
 
 describe("messageAttachments", () => {
-  it("treats the math-camera prompt as boilerplate — must stay in sync with the backend's exact-match trigger", () => {
+  it("hides every scanner protocol caption from the user bubble", () => {
     expect(isAttachmentBoilerplate(MATH_CAMERA_PROMPT)).toBe(true);
+    expect(isAttachmentBoilerplate(PHYSICS_CAMERA_PROMPT)).toBe(true);
+    expect(isAttachmentBoilerplate(CHEMISTRY_CAMERA_PROMPT)).toBe(true);
+  });
+
+  it("keeps a custom caption but hides its scanner routing prefix", () => {
+    const parsed = parseUserMessageContent(
+      `${PHYSICS_CAMERA_PROMPT}\n\nFind the acceleration.\n\n[Image: /attachments/photo/file]`,
+    );
+    expect(parsed.caption).toBe("Find the acceleration.");
   });
 
   it("parses pdf file marker with attachment id", () => {

@@ -14,10 +14,16 @@ import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { ScannerSubjectSwitcher } from "@/components/mathScanner/ScannerSubjectSwitcher";
 import { IconSize } from "@/lib/icons";
-import { SCANNER_SHUTTER_PX, SCANNER_TOP_CONTROL_PX } from "@/lib/math/scannerRegion";
+import {
+  SCANNER_SHUTTER_PX,
+  SCANNER_SUBJECT_SWITCHER_PX,
+  SCANNER_TOP_CONTROL_PX,
+} from "@/lib/math/scannerRegion";
 import { Motion, motionMs, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
+import type { ScannerSubject } from "@/lib/scanner/subjects";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -28,10 +34,11 @@ type Props = {
   preview: boolean;
   busy: boolean;
   torchOn: boolean;
+  subject: ScannerSubject;
   error: string | null;
   lastPhotoUri: string | null;
   onClose: () => void;
-  onResetFrame: () => void;
+  onSubjectChange: (subject: ScannerSubject) => void;
   onToggleTorch: () => void;
   onOpenLibrary: () => void;
   onCapture: () => void;
@@ -45,10 +52,11 @@ export function MathScannerChrome({
   preview,
   busy,
   torchOn,
+  subject,
   error,
   lastPhotoUri,
   onClose,
-  onResetFrame,
+  onSubjectChange,
   onToggleTorch,
   onOpenLibrary,
   onCapture,
@@ -67,7 +75,7 @@ export function MathScannerChrome({
   }));
 
   const bottomPad = Math.max(insets.bottom, Space.md) + Space.sm;
-  const errorBottom = bottomPad + SCANNER_SHUTTER_PX + Space.lg;
+  const errorBottom = bottomPad + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + Space.xl;
 
   return (
     <View style={s.root} pointerEvents="box-none">
@@ -83,36 +91,6 @@ export function MathScannerChrome({
           >
             <Icon name="close" size={IconSize.lg} color={theme.onMedia} />
           </Pressable>
-          {granted ? (
-            <>
-              <Pressable
-                style={s.topBtn}
-                onPress={onResetFrame}
-                accessibilityRole="button"
-                accessibilityLabel={t("chat.math_scan_reset_frame")}
-              >
-                <Icon name="refresh-outline" size={IconSize.lg} color={theme.onMedia} />
-              </Pressable>
-              <Pressable
-                style={[s.topBtn, torchOn ? s.torchOn : null]}
-                onPress={onToggleTorch}
-                accessibilityRole="button"
-                accessibilityState={{ selected: torchOn }}
-                accessibilityLabel={
-                  torchOn ? t("chat.math_scan_torch_on_a11y") : t("chat.math_scan_torch_off_a11y")
-                }
-              >
-                <Icon
-                  name={torchOn ? "flashlight" : "flashlight-outline"}
-                  size={IconSize.lg}
-                  color={torchOn ? theme.primary : theme.onMedia}
-                  style={s.torchIcon}
-                />
-              </Pressable>
-            </>
-          ) : (
-            <View style={s.topBtn} />
-          )}
         </View>
       ) : null}
 
@@ -156,7 +134,7 @@ export function MathScannerChrome({
       ) : granted ? (
         <View style={[s.bottom, { paddingBottom: bottomPad }]}>
           <View style={s.bottomScrim} pointerEvents="none" />
-          {!preview ? <Text style={s.hint}>{t("chat.math_scan_hint")}</Text> : null}
+          <ScannerSubjectSwitcher value={subject} onChange={onSubjectChange} />
           <View style={s.controls}>
             <GHPressable
               style={s.photosBtn}
@@ -191,7 +169,24 @@ export function MathScannerChrome({
                 {busy ? <ActivityIndicator color={theme.text} /> : <View style={s.shutterInner} />}
               </Animated.View>
             </GHPressable>
-            <View style={s.photosBtn} />
+            <GHPressable
+              style={[s.sideControl, torchOn ? s.torchOn : null]}
+              onPress={onToggleTorch}
+              disabled={busy}
+              testID="math-scanner-torch"
+              accessibilityRole="button"
+              accessibilityState={{ selected: torchOn, disabled: busy }}
+              accessibilityLabel={
+                torchOn ? t("chat.math_scan_torch_on_a11y") : t("chat.math_scan_torch_off_a11y")
+              }
+            >
+              <Icon
+                name={torchOn ? "flashlight" : "flashlight-outline"}
+                size={IconSize.lg}
+                color={torchOn ? theme.primary : theme.onMedia}
+                style={s.torchIcon}
+              />
+            </GHPressable>
           </View>
         </View>
       ) : null}
@@ -212,7 +207,7 @@ function makeStyles(theme: Theme) {
       right: Space.md,
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
+      justifyContent: "flex-start",
       zIndex: 50,
     },
     topBtn: {
@@ -228,12 +223,6 @@ function makeStyles(theme: Theme) {
     },
     torchIcon: {
       transform: [{ rotate: "-45deg" }],
-    },
-    hint: {
-      ...Type.caption,
-      color: withAlpha(theme.onMedia, 0.9),
-      textAlign: "center",
-      marginBottom: Space.sm,
     },
     error: {
       position: "absolute",
@@ -266,12 +255,24 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "space-between",
       paddingHorizontal: Space.md,
+      marginTop: Space.sm,
     },
     photosBtn: {
       width: 72,
       height: SCANNER_TOP_CONTROL_PX,
       alignItems: "center",
       justifyContent: "center",
+    },
+    sideControl: {
+      width: 52,
+      height: 52,
+      marginHorizontal: 10,
+      borderRadius: Radius.full,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: withAlpha(theme.onMedia, 0.14),
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: withAlpha(theme.onMedia, 0.24),
     },
     photosThumb: {
       width: Space.minTouch,

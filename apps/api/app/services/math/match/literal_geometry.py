@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
+from typing import Literal
 
 from app.services.math.match.units import solid_length_unit, strip_geometry_length_units
 
@@ -25,7 +26,7 @@ class NamedRectangleRequest:
     unit: str
     quantity: str
     given_area: float | None = None
-    target: str | None = None
+    target: Literal["width", "length"] | None = None
 
 
 _NAMED_VALUE = rf"(?:is|equals|=|of|:)?\s*({GEOMETRY_DECIMAL})"
@@ -164,7 +165,7 @@ def parse_named_rectangle_request(text: str) -> NamedRectangleRequest | None:
         return None
     if quantity == "length" and width is not None and length is None:
         length = area / width
-        target = "length"
+        target: Literal["width", "length"] = "length"
     elif quantity == "width" and length is not None and width is None:
         width = area / length
         target = "width"
