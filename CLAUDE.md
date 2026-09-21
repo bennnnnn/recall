@@ -131,7 +131,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `services/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
 | Physics (20 verified kinds) | `services/physics/` (`extract.py` cues + extractors, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
-| Chemistry (RDKit / PubChem) | `services/chemistry/`, `gateways/pubchem_gateway.py` | `chemistryFence.ts`, smiles + `molecule3d` |
+| Chemistry (typed solvers / RDKit / PubChem) | `models/schemas/chemistry/`, `services/chemistry/`, `gateways/pubchem_gateway.py` | `chemistryFence.ts`, smiles-drawer 2D + native-first Skia `molecule3d` (SVG fallback) |
 | Calendar / Gmail | `routers/integrations.py`, `gmail_integrations.py`, `services/calendar.py`, `services/email/` | `settings/integrations.tsx` |
 | Push / email out | `services/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `routers/webhooks.py`, `gateways/revenuecat_gateway.py` | RevenueCat |

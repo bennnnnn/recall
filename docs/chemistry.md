@@ -1,105 +1,89 @@
 # Recall chemistry pipeline
 
-Server-side RDKit, SymPy, and PubChem verify numbers and structures; the mobile app
-only renders. Do not add on-device solving.
+Server-side typed extractors, pure solvers, RDKit, SymPy, and PubChem verify
+chemistry. The mobile app renders the result; it does not solve chemistry on-device.
 
 ## Default product path
 
-1. **Gate** (`is_chemistry_question`) — compute cues (balance, molar mass, stoich
-   *with an equation*, descriptors, pH, molarity/dilution, gas-law phrases, element
-   lookup) **or** compound-name lookup. Tight conjunctions: “how many” alone does not
-   fire; `pressure` + `volume` is not a gas-law cue (that stole PubChem).
-2. **Pre-stream** (`build_chemistry_context`) — conservative extractors call existing
-   solvers. A `[Verified …]` block is injected only when `error is None`. Missing
-   numbers omit the branch (LLM prose). Never invent a value.
-3. **LLM stream** — model explains in Markdown. Structures use ` ```smiles `
-   (alias ` ```chemistry `). The hint forbids emitting ` ```molecule3d ` or talking
-   about attaching fences.
-4. **Post-stream** (`enrich_chemistry_fences`) — `map_closed_fences` (bare-backtick
-   closers only). Invalid SMILES become an italic note. Every closed fence is
-   validated first; ` ```molecule3d ` is attached for the first two valid molecules
-   so one slow `EmbedMolecule` cannot skip stripping later invalid fences.
-5. **Mobile** — `parseChemistryFence` / smiles-drawer 2D; optional 3D from the
-   server SDF. Adjacent smiles + molecule3d collapse to one card.
+1. **Gate** (`request.py`) — recognizes supported calculations, chemistry-specific
+   language, element questions, descriptors, and compound lookup. Generic phrases such
+   as “how many” do not fire the chemistry path on their own.
+2. **Extract** (`extract.py`) — converts a complete, unambiguous text problem to a
+   validated `ChemistryIntent`. Missing or conflicting values return `None`; the
+   extractor never invents a value.
+3. **Solve** (`solvers/`) — grouped deterministic solvers return `ChemistryResult` with
+   Given, Find, named universal Formula, Substitution, and Answer fields.
+4. **Respond** (`direct.py`) — a complete typed calculation returns the exact compact
+   five-section answer without waiting for model prose. Image questions remain on the
+   vision/model path because OCR text was not the typed extractor input.
+5. **Enrich** (`fence.py`) — closed `smiles` / `chemistry` fences are validated. The
+   server appends `molecule3d` SDF for the first two valid structures.
+6. **Render** — smiles-drawer retains chemically aware 2D layout inside its sandboxed
+   WebView. The interactive 3D molecule projection uses a native Skia canvas, with the
+   same projected SVG scene as a safe Expo Go / stale-client fallback. Adjacent 2D and
+   3D fences collapse into one molecule card.
 
 ```mermaid
-flowchart TD
-  userMsg[User message]
-  gate[is_chemistry_question]
-  build[build_chemistry_context]
-  llm[LLM stream]
-  enrich[enrich_chemistry_fences]
-  mobile[Mobile smiles + molecule3d]
-  userMsg --> gate
-  gate -->|"compute cue or compound"| build
-  gate -->|no| llm
-  build --> llm
-  llm --> enrich
-  enrich --> mobile
+flowchart LR
+  message[User message] --> gate[Chemistry gate]
+  gate --> extract[Typed extraction]
+  extract -->|complete| solve[Pure solver]
+  solve --> direct[Given / Find / Formula / Substitution / Answer]
+  extract -->|incomplete| model[Model explanation]
+  gate -->|compound| pubchem[PubChem context]
+  model --> enrich[SMILES validation + 3D enrichment]
+  pubchem --> model
+  enrich --> mobile[2D smiles-drawer + native-first Skia 3D]
 ```
 
 ## Formula vs SMILES (`molar_mass`)
 
-Hill formulas (`CO`, `C`, `H2O`, hydrates like `CuSO4.5H2O`) are summed from
-`PERIODIC_TABLE` so RDKit cannot saturate them into hydrides (methanol / methane).
+Hill formulas (`CO`, `C`, `H2O`, hydrates such as `CuSO4.5H2O`) are summed from
+`PERIODIC_TABLE`, so RDKit cannot saturate them into hydrides. Organic strings that
+use SMILES-only syntax, or strings such as `CCO`, use RDKit. `NaCl` stays a formula.
 
-Prefer RDKit when the string looks like **organic SMILES**: SMILES-only chars
-`= # [ ] @`, or 3+ letters, no digits, and a Hill parse of only 1-letter elements
-(`CCO` is ethanol, not C₂O). `NaCl` stays a formula.
+## Verified calculation coverage
 
-## Verified today
+| Group | Operations |
+|---|---|
+| Equations | balancing with atom re-checking |
+| Amounts | molar mass, mass ↔ moles, moles ↔ particles, percent composition, percent yield |
+| Stoichiometry | mole ratios and limiting reagent |
+| Solutions | molarity, dilution, molality, mass percent |
+| Acid–base | pH from `[H+]` or pOH, `[H+]` from pH, pOH from `[OH-]`, Henderson–Hasselbalch buffers |
+| Gases | ideal-gas law with any one of P, V, n, or T unknown |
+| Thermochemistry | `q = mcΔT`, `ΔG = ΔH − TΔS` |
+| Equilibrium | `Kc` and `Qc` for simple balanceable concentration expressions |
+| Kinetics | first-order half-life/concentration and Arrhenius rate constant |
+| Electrochemistry | `ΔG° = −nFE°`, Nernst potential, Faraday electrolysis mass |
+| Nuclear | half-life decay |
+| Spectroscopy | Beer–Lambert absorbance or concentration |
 
-| Kind | How |
-|------|-----|
-| Equation balancing | SymPy nullspace; require a unique solution, every coeff ≥ 1, re-sum atoms. Else `balanced=False` (`underdetermined` / `non-positive coefficient` / `atoms do not balance`). |
-| Molar mass | Hill table or RDKit SMILES (rule above). Hydrates split on `.` / `·`. |
-| Stoichiometry | Balanced equation + `N mol FORMULA` → `stoichiometry`. No amount → mole-ratio hint from the balanced equation only. |
-| Limiting reagent | `limiting reagent` + two or more amounts. |
-| Ideal gas | `PV=nRT` / Boyle / Charles / Gay-Lussac / `gas law` **and** exactly one of P/V/n/T missing. |
-| Molarity / dilution | mol + L, or M1 V1 and one of M2/V2. |
-| pH | `[H+] =`, `pOH =`, or `pH =` asking `[H+]`. |
-| Element lookup | Atomic mass / element name → `PERIODIC_TABLE` (He/Ne/Ar have no electronegativity). |
-| Descriptors | LogP / TPSA / Lipinski when a SMILES is in the message. |
-| Compound lookup | PubChem PUG-REST by name (URL-quoted; Redis TTL ~24h, key `pubchem:name:{normalized}`). Failures are not cached. |
+Element lookup, molecular descriptors, and PubChem compound lookup are also verified
+context sources. A result is labelled verified only after extraction and solver success.
 
-Label `[Verified …]` only on solver success. Do **not** reintroduce `[Gas law hint]` /
-`[Solution chemistry hint]` blocks that pretend to verify.
+## Deliberate model-only boundary
 
-## Unreachable (implemented, not on this path)
-
-These exist on `services/chemistry` and stay unused on purpose:
-
-- `generate_2d_coordinates` — mobile smiles-drawer owns 2D
-- `lookup_by_smiles` / `fetch_3d_sdf` — 3D is local RDKit on the closed SMILES fence
-
-## Not implemented (LLM prose only)
-
-Same bargain as Golden Rule 7 for math: verified kinds only. The model may talk
-about the rest; it must **not** claim a verified result.
-
-Buffers, Ka/Kb, ICE tables, titration curves, thermochemistry (ΔH/ΔG/ΔS, Hess),
-kinetics, electrochemistry (Nernst, cells), organic mechanism/IUPAC naming,
-spectroscopy, crystal-field / MO theory, nuclear, and biochemistry pathways.
-
-A `ChemIntent` extractor registry (math-style `kind` + extractors) is **deferred**.
-New verified work still lands as a conservative extractor in `build_chemistry_context`
-plus pytest — do not add a second kind table in this round.
+The model may explain work outside the table, but must not call it verified. This
+includes Ka/Kb or ICE-table algebra beyond the buffer equation, titration curves,
+multi-reaction Hess problems, non-first-order or mechanism kinetics, organic reaction
+mechanisms and IUPAC naming, spectroscopy beyond Beer–Lambert, crystal-field/MO
+theory, balancing nuclear equations, and biochemistry pathways.
 
 ## Key files
 
 | Layer | Path |
-|-------|------|
-| Gate + inject | `apps/api/app/services/chemistry/context.py` |
-| Balance + hydrates | `apps/api/app/services/chemistry/equations.py` |
-| Mass / stoich / table | `apps/api/app/services/chemistry/stoichiometry.py` |
-| pH / gas / solutions | `apps/api/app/services/chemistry/solutions.py` |
-| SMILES / 3D | `apps/api/app/services/chemistry/smiles.py` |
-| Post-stream fences | `apps/api/app/services/chemistry/fence.py` |
+|---|---|
+| Intent schema | `apps/api/app/models/schemas/chemistry/intent.py` |
+| Gate / compound parsing | `apps/api/app/services/chemistry/request.py` |
+| Text extraction | `apps/api/app/services/chemistry/extract.py` |
+| Typed solver dispatcher | `apps/api/app/services/chemistry/solvers/solver.py` |
+| Grouped solvers | `apps/api/app/services/chemistry/solvers/amounts.py`, `solutions.py`, `physical.py` |
+| Verified block / direct reply | `apps/api/app/services/chemistry/block.py`, `direct.py` |
+| Turn integration | `apps/api/app/services/chemistry/context.py` |
+| Balance / formula primitives | `apps/api/app/services/chemistry/equations.py`, `stoichiometry.py` |
+| SMILES / 3D / post-stream | `apps/api/app/services/chemistry/smiles.py`, `fence.py` |
 | PubChem | `apps/api/app/gateways/pubchem_gateway.py` |
-| Prompt hint | `apps/api/app/services/chat/prompt_constants/visuals.py` |
-| Mobile parse / render | `apps/mobile/lib/chemistry/`, `components/rich/` |
+| Mobile parse / render | `apps/mobile/lib/chemistry/`, `apps/mobile/components/rich/` |
 
-The flat compatibility aliases are gone — `services/chemistry/` is the only
-path in. `test_domain_package_seams.py` asserts the old names no longer import.
-
-Flag: `chemistry_enabled` (default on).
+Feature flag: `chemistry_enabled` (on by default).
