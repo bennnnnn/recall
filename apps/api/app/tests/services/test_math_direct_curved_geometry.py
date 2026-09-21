@@ -35,6 +35,11 @@ _CASES = [
         "30",
     ),
     (
+        "Find the area of a trapezoid with bases 3 cm and 5 cm and height 4 cm",
+        "trapezoid",
+        "16",
+    ),
+    (
         "Find the area of a parallelogram with base 8 m and height 4 m and side 5 m",
         "parallelogram",
         "32",

@@ -69,6 +69,30 @@ class TestSectorGeometry:
 
 
 class TestNewShapeTextSignals:
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("trapezoid top 3 bottom 5 height 4", (3.0, 5.0, 4.0)),
+            ("trapezoid with bases 3 cm and 5 cm and height 4 cm", (3.0, 5.0, 4.0)),
+            ("trapezoid height 4 with bases 3 and 5", (3.0, 5.0, 4.0)),
+        ],
+    )
+    def test_trapezoid_dimension_phrasings(
+        self, text: str, expected: tuple[float, float, float]
+    ) -> None:
+        assert math_match.trapezoid_dimensions(text) == expected
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "trapezoid with bases 3 and height 4",
+            "trapezoid with bases 3 and 5",
+            "what is a trapezoid?",
+        ],
+    )
+    def test_incomplete_trapezoid_dimensions_are_not_invented(self, text: str) -> None:
+        assert math_match.trapezoid_dimensions(text) is None
+
     def test_triangle_sides_signal(self):
         assert math_match.triangle_sides_signal("triangle with sides 3, 4, 5") == (
             3.0,

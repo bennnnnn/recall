@@ -18,6 +18,7 @@ from app.services.math.match.discrete import (
 )
 from app.services.math.match.geometry import (
     parse_solid,
+    trapezoid_dimensions,
     triangle_angles_signal,
     triangle_sides_signal,
 )
@@ -70,11 +71,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # Shape words alone must NOT trigger verified geometry — bare
     # "what is a trapezoid?" used to invent dimensions and sell them as
     # SymPy-verified. Require printed measures (or the draw gates above).
-    if ("trapezoid" in lower or "trapezium" in lower) and (
-        number_after(cleaned, "top") is not None
-        and number_after(cleaned, "bottom") is not None
-        and number_after(cleaned, "height") is not None
-    ):
+    if ("trapezoid" in lower or "trapezium" in lower) and trapezoid_dimensions(cleaned):
         return True
     if "parallelogram" in lower and (
         number_after(cleaned, "base") is not None and number_after(cleaned, "height") is not None

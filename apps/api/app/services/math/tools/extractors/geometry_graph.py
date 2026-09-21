@@ -282,10 +282,9 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
         return None
     if mtm.geometry_deferred_for_algebra(lower):
         return None
-    top = mtm.number_after(cleaned, "top")
-    bottom = mtm.number_after(cleaned, "bottom")
-    height = mtm.number_after(cleaned, "height")
-    if top is not None and bottom is not None and height is not None:
+    dimensions = mtm.trapezoid_dimensions(cleaned)
+    if dimensions is not None:
+        top, bottom, height = dimensions
         return MathIntent(
             kind="trapezoid",
             trapezoid_top=top,

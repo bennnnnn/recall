@@ -1,11 +1,12 @@
-import { useId, useMemo } from "react";
+import { lazy, Suspense, useId, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import Svg, { Circle, G, Line, Polygon, Polyline } from "react-native-svg";
+import Svg, { Circle, G, Polygon, Polyline } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
 import { formatGraphExpr, formatInequalityExpr, graphPolylinePoints, mapGraphPoint, type InequalityGraphSpec } from "@/lib/math/graphBlock";
 import { clipInequalityRegion } from "@/lib/math/inequalityGraph";
+import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { useTheme } from "@/lib/theme";
 
 const CHART_HEIGHT = 220;
@@ -13,7 +14,13 @@ const PAD = 28;
 const REGION_OPACITY = 0.16;
 const STRICT_DASH = [6, 5];
 
-/** Native SVG for a verified half-plane; no expression evaluation on-device. */
+const SkiaInequalityGraphChartLazy = lazy(() =>
+  import("@/components/rich/skia/SkiaInequalityGraphChart").then((module) => ({
+    default: module.SkiaInequalityGraphChart,
+  })),
+);
+
+/** Verified half-plane rendered by Skia, with SVG as a compatibility fallback. */
 export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpec; width: number }) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -25,6 +32,7 @@ export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpe
   const strict = spec.comparator === "<" || spec.comparator === ">";
   const regionLabel = t("rich.graph_solution_region");
   const boundaryLabel = t(strict ? "rich.graph_boundary_excluded" : "rich.graph_boundary_included");
+  const accessibilityLabel = `${formula}. ${regionLabel}. ${boundaryLabel}.`;
   const mapped = (points: [number, number][]) => graphPolylinePoints(points, width, CHART_HEIGHT, bounds);
 
   if (!geometry) {
@@ -34,15 +42,13 @@ export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpe
     ? mapGraphPoint(geometry.boundary[0][0], geometry.boundary[0][1], bounds, width, CHART_HEIGHT)
     : null;
 
-  return (
-    <View style={styles.wrap}>
-      <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-      <Svg
+  const svgCanvas = (
+    <Svg
         width={width}
         height={CHART_HEIGHT}
         accessible
         accessibilityRole="image"
-        accessibilityLabel={`${formula}. ${regionLabel}. ${boundaryLabel}.`}
+        accessibilityLabel={accessibilityLabel}
         testID="inequality-graph"
       >
         {/* The polygon is already clipped to the viewport. Draw it before
@@ -68,16 +74,37 @@ export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpe
         {includedCorner ? (
           <Circle testID="inequality-boundary-point" cx={includedCorner.px} cy={includedCorner.py} r={3.5} fill={theme.primary} />
         ) : null}
-      </Svg>
+    </Svg>
+  );
+
+  return (
+    <View style={styles.wrap}>
+      <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
+      {isSkiaAvailable() ? (
+        <Suspense fallback={svgCanvas}>
+          <SkiaInequalityGraphChartLazy
+            spec={spec}
+            width={width}
+            height={CHART_HEIGHT}
+            theme={theme}
+            accessibilityLabel={accessibilityLabel}
+          />
+        </Suspense>
+      ) : (
+        svgCanvas
+      )}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.swatch, { backgroundColor: theme.primary, opacity: REGION_OPACITY }]} />
           <Text style={[styles.legendText, { color: theme.textSecondary }]}>{regionLabel}</Text>
         </View>
         <View style={styles.legendItem}>
-          <Svg width={24} height={8}>
-            <Line x1={0} y1={4} x2={24} y2={4} stroke={theme.primary} strokeWidth={2.5} strokeDasharray={strict ? STRICT_DASH : undefined} />
-          </Svg>
+          <View
+            style={[
+              styles.boundarySwatch,
+              { borderTopColor: theme.primary, borderStyle: strict ? "dashed" : "solid" },
+            ]}
+          />
           <Text style={[styles.legendText, { color: theme.textSecondary }]}>{boundaryLabel}</Text>
         </View>
       </View>
@@ -92,4 +119,5 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: "row", alignItems: "center", gap: 8 },
   legendText: { fontSize: 12, lineHeight: 17, flexShrink: 1 },
   swatch: { width: 24, height: 12, borderRadius: 2 },
+  boundarySwatch: { width: 24, height: 1, borderTopWidth: 2.5 },
 });

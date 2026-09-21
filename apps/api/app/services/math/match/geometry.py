@@ -10,6 +10,7 @@ from app.services.math.match.scan import (
     first_dim_pair,
     first_dim_triple,
     number_after,
+    two_numbers_after,
 )
 from app.services.math.match.types import SolidShape
 from app.services.text_match import word_index
@@ -21,6 +22,28 @@ _SOLID_ALGEBRA_PHRASES = (
     "cube of",
     "perfect cube",
 )
+
+
+def trapezoid_dimensions(text: str) -> tuple[float, float, float] | None:
+    """Read either ``top/bottom/height`` or natural ``bases a and b`` dimensions."""
+    top = number_after(text, "top")
+    bottom = number_after(text, "bottom")
+    height = number_after(text, "height")
+    if top is not None and bottom is not None and height is not None:
+        return top, bottom, height
+    if height is None:
+        return None
+
+    lower = text.lower()
+    bases_at = word_index(lower, "bases")
+    if bases_at == -1:
+        return None
+    height_at = word_index(lower, "height")
+    end = height_at if height_at > bases_at else len(text)
+    bases = two_numbers_after(text[bases_at:end], "bases")
+    if bases is None:
+        return None
+    return bases[0], bases[1], height
 
 
 def _solid_word_index(lower: str, stem: str) -> int:

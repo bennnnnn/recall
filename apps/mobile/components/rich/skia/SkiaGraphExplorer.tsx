@@ -222,7 +222,7 @@ function TickText({
   return <SkiaText x={x} y={y} text={text} font={font} color={color} />;
 }
 
-export function SkiaGraphExplorer({
+export function SkiaGraphCanvas({
   drawn,
   verticalX,
   xName = "x",
@@ -232,6 +232,8 @@ export function SkiaGraphExplorer({
   pad,
   theme,
   viewport,
+  interactive = false,
+  testID = "skia-graph-canvas",
 }: {
   drawn: DrawnSeries[];
   verticalX?: number;
@@ -242,6 +244,8 @@ export function SkiaGraphExplorer({
   pad: number;
   theme: Theme;
   viewport: Viewport;
+  interactive?: boolean;
+  testID?: string;
 }) {
   const font = useFont(
     require("../../../assets/fonts/SpaceMono-Regular.ttf"),
@@ -353,9 +357,8 @@ export function SkiaGraphExplorer({
   const yNameX = useDerivedValue(() => chrome.value.yNamePos.px);
   const yNameY = useDerivedValue(() => chrome.value.yNamePos.py);
 
-  return (
-    <GestureDetector gesture={gesture}>
-      <Canvas style={{ width, height }} testID="skia-graph-canvas">
+  const canvas = (
+      <Canvas style={{ width, height }} testID={testID}>
         <Path path={gridPath} color={theme.border} style="stroke" strokeWidth={1} />
         <Path
           path={axesPath}
@@ -431,7 +434,15 @@ export function SkiaGraphExplorer({
               />
             ))
           : null}
-        {font ? <SkiaText x={originX} y={originY} text="0" font={font} color={theme.textSecondary} /> : null}
+        {font ? (
+          <SkiaText
+            x={originX}
+            y={originY}
+            text="0"
+            font={font}
+            color={theme.textSecondary}
+          />
+        ) : null}
         {font ? (
           <SkiaText x={xNameX} y={xNameY} text={xName} font={font} color={theme.textSecondary} />
         ) : null}
@@ -458,6 +469,12 @@ export function SkiaGraphExplorer({
           />
         ) : null}
       </Canvas>
-    </GestureDetector>
   );
+  return interactive ? <GestureDetector gesture={gesture}>{canvas}</GestureDetector> : canvas;
+}
+
+export function SkiaGraphExplorer(
+  props: Omit<Parameters<typeof SkiaGraphCanvas>[0], "interactive">,
+) {
+  return <SkiaGraphCanvas {...props} interactive />;
 }

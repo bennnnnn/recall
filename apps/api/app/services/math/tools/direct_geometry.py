@@ -88,6 +88,9 @@ _PARALLELOGRAM = re.compile(
 _TRAPEZOID = re.compile(
     rf"top\s+({_DECIMAL})\s+(?:and\s+)?bottom\s+({_DECIMAL})\s+(?:and\s+)?height\s+({_DECIMAL})"
 )
+_TRAPEZOID_BASES = re.compile(
+    rf"bases\s+({_DECIMAL})\s+(?:and|,)\s+({_DECIMAL})\s+(?:and\s+)?height\s+({_DECIMAL})"
+)
 _CIRCLE = re.compile(rf"(radius|diameter)\s+({_DECIMAL})")
 _DEGREE_ANGLE = re.compile(rf"{_DECIMAL}(?:\s*(?:degrees|degree|°))?")
 _SECTOR = re.compile(
@@ -136,7 +139,10 @@ def can_direct_curved_or_slanted_geometry(
     unit = solid_length_unit(dimensions)
     if unit is None or geometry.get("unit") != unit:
         return False
-    match = pattern.fullmatch(strip_geometry_length_units(dimensions).strip())
+    literal_dimensions = strip_geometry_length_units(dimensions).strip()
+    match = pattern.fullmatch(literal_dimensions)
+    if match is None and kind == "trapezoid":
+        match = _TRAPEZOID_BASES.fullmatch(literal_dimensions)
     if match is None:
         return False
     values: tuple[float, ...]
