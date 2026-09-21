@@ -1018,9 +1018,7 @@ def format_direct_physics_working(verified: VerifiedMathBlock) -> str | None:
                 rf"{{{m1}+{m2}}}",
             ]
         else:
-            substitutions = [
-                rf"v_f = \frac{{{m1}\cdot {v1} + {m2}\cdot {v2}}}{{{m1}+{m2}}}"
-            ]
+            substitutions = [rf"v_f = \frac{{{m1}\cdot {v1} + {m2}\cdot {v2}}}{{{m1}+{m2}}}"]
     if intent.kind == "projectile" and intent.physics_op == "max_height":
         needed = {"v0", "angle", "g"}
         if needed <= params.keys():
