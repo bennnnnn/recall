@@ -104,8 +104,7 @@ def test_job_tool_decodes_provider_stringified_preference_aliases() -> None:
         {
             "action": "update_profile",
             "preferences": (
-                '{"roles":"Software Engineer","experience":"entry level",'
-                '"locations":"USA"}'
+                '{"roles":"Software Engineer","experience":"entry level","locations":"USA"}'
             ),
         }
     )

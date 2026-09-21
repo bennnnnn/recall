@@ -299,6 +299,7 @@ class JobMatchOut(BaseModel):
     id: UUID
     title: str
     company: str
+    company_logo_url: str | None = None
     location: str | None = None
     work_mode: JobSearchWorkMode | None = None
     salary: str | None = None
@@ -308,6 +309,7 @@ class JobMatchOut(BaseModel):
     source: str | None = None
     posted_at: str | None = None
     summary: str | None = None
+    required_skills: list[str] = Field(default_factory=list)
     match_reasons: list[str] = Field(default_factory=list)
     gap: str | None = None
     found_at: datetime

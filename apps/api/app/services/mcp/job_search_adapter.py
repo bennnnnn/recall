@@ -52,14 +52,9 @@ def bind_job_search_context(
 
 def _match_line(match: JobMatch) -> str:
     title = str(match.title).replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
-    company = (
-        str(match.company).replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
-    )
+    company = str(match.company).replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
     fit = f", {match.match_score}% fit" if match.match_score is not None else ""
-    return (
-        f"- [{title} at {company}]({match.url}){fit}; "
-        f"status={match.status}; match_id={match.id}"
-    )
+    return f"- [{title} at {company}]({match.url}){fit}; status={match.status}; match_id={match.id}"
 
 
 def _direct_reply(content: str) -> ToolResult:
@@ -180,8 +175,7 @@ class JobSearchAdapter:
                             content="My Job could not confirm the saved preferences.",
                         )
                     return _direct_reply(
-                        "Updated the saved My Job search. "
-                        + _profile_summary(saved_profile)
+                        "Updated the saved My Job search. " + _profile_summary(saved_profile)
                     )
 
                 if action == "update_status":
@@ -363,9 +357,7 @@ class JobSearchAdapter:
                     ).all()
                 )
             by_url = {match.canonical_url: match for match in rows}
-            verified_matches = [
-                by_url[url] for url in run_result.canonical_urls if url in by_url
-            ]
+            verified_matches = [by_url[url] for url in run_result.canonical_urls if url in by_url]
 
         if not verified_matches:
             return _direct_reply(

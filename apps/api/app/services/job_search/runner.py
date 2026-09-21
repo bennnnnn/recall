@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import html
+import ipaddress
 import json
 import logging
 import re
@@ -49,6 +51,10 @@ _SENIOR_TERMS = re.compile(
 )
 _JUNIOR_TERMS = re.compile(
     r"\b(intern(?:ship)?|entry[ -]?level|junior|graduate|new grad)\b",
+    re.IGNORECASE,
+)
+_EXPLICIT_SENIOR_LEVEL = re.compile(
+    r"\b(senior|staff|principal|director|head of|vp|vice president)\b",
     re.IGNORECASE,
 )
 _NO_SPONSORSHIP = re.compile(
@@ -243,6 +249,7 @@ class _RankedJob(BaseModel):
     match_score: int | None = Field(default=None, ge=0, le=100)
     posted_at: str | None = Field(default=None, max_length=120)
     summary: str | None = Field(default=None, max_length=1000)
+    required_skills: list[str] = Field(default_factory=list, max_length=12)
     match_reasons: list[str] = Field(default_factory=list, max_length=5)
     gap: str | None = Field(default=None, max_length=500)
 
@@ -262,6 +269,21 @@ class _RankedJob(BaseModel):
             return None
         cleaned = " ".join(value.strip().split())
         return cleaned or None
+
+    @field_validator("required_skills")
+    @classmethod
+    def clean_skills(cls, values: list[str]) -> list[str]:
+        result: list[str] = []
+        seen: set[str] = set()
+        for raw in values:
+            value = " ".join(raw.strip().split())[:80]
+            key = value.casefold()
+            if value and key not in seen:
+                seen.add(key)
+                result.append(value)
+            if len(result) == 12:
+                break
+        return result
 
     @field_validator("match_reasons")
     @classmethod
@@ -285,6 +307,7 @@ class _AcceptedJob:
     candidate: _Candidate
     title: str
     company: str
+    company_logo_url: str | None
     location: str | None
     work_mode: str | None
     salary: str | None
@@ -292,6 +315,7 @@ class _AcceptedJob:
     match_score: int | None
     posted_at: str | None
     summary: str | None
+    required_skills: list[str]
     match_reasons: list[str]
     gap: str | None
 
@@ -393,6 +417,196 @@ def _verified_fallback_identity(candidate: _Candidate) -> tuple[str, str]:
     else:
         _, company = _title_and_company(candidate.title, candidate.source)
     return title[:240] or "Job opening", company[:180]
+
+
+def _safe_logo_url(value: str) -> str | None:
+    """Accept only public HTTPS image URLs before a mobile client fetches them."""
+    url = html.unescape(value.strip())
+    parsed = urlsplit(url)
+    host = (parsed.hostname or "").casefold()
+    if parsed.scheme != "https" or not host or host == "localhost" or host.endswith(".local"):
+        return None
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        if not address.is_global:
+            return None
+    return url[:2000]
+
+
+def _extract_company_logo_url(candidate: _Candidate, company: str) -> str | None:
+    """Find an image explicitly labelled with the hiring company.
+
+    The image may be hosted by an ATS CDN, but its alt text must name the
+    employer. This deliberately rejects a board's own logo and never guesses a
+    logo from the posting hostname.
+    """
+    page = candidate.page_text or ""
+    company_key = _normalize_key_part(_COMPANY_SUFFIXES.sub("", company))
+    if not company_key or company == "Unknown employer":
+        return None
+
+    images: list[tuple[str, str]] = []
+    images.extend(
+        (alt, url)
+        for alt, url in re.findall(
+            r"!\[([^\]]*)\]\((https://[^\s)]+)",
+            page,
+            flags=re.IGNORECASE,
+        )
+    )
+    images.extend(
+        (alt, url)
+        for url, alt in re.findall(
+            r"<img\b[^>]*\bsrc=[\"'](https://[^\"']+)[\"'][^>]*\balt=[\"']([^\"']*)[\"'][^>]*>",
+            page,
+            flags=re.IGNORECASE,
+        )
+    )
+    images.extend(
+        (alt, url)
+        for alt, url in re.findall(
+            r"<img\b[^>]*\balt=[\"']([^\"']*)[\"'][^>]*\bsrc=[\"'](https://[^\"']+)[\"'][^>]*>",
+            page,
+            flags=re.IGNORECASE,
+        )
+    )
+    for alt, raw_url in images:
+        alt_key = _normalize_key_part(alt)
+        if company_key not in alt_key or _is_board_name(company):
+            continue
+        logo_url = _safe_logo_url(raw_url)
+        if logo_url is not None:
+            return logo_url
+    return None
+
+
+_PAY_TEXT = re.compile(
+    r"(?P<pay>(?:[$€£]\s*)?\d[\d,.]*(?:\s*[kK])?\s*"
+    r"(?:(?:-|\u2013|\u2014|to)\s*(?:[$€£]\s*)?\d[\d,.]*(?:\s*[kK])?)?"
+    r"\s*(?:(?:per|/)\s*(?:hour|hr|year|yr|month|annum|week))?)",
+    re.IGNORECASE,
+)
+_EXPERIENCE_TEXT = re.compile(
+    r"\b(?P<years>\d+(?:\.\d+)?\+?(?:\s*(?:-|to)\s*\d+(?:\.\d+)?\+?)?\s+"
+    r"years?(?:\s+of\s+(?:relevant\s+)?experience)?)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_salary(candidate: _Candidate) -> str | None:
+    text = f"{candidate.title} {candidate.snippet} {candidate.page_text or ''}"
+    for match in _PAY_TEXT.finditer(text):
+        value = " ".join(match.group("pay").split()).strip(" ,.;:()")
+        # Bare numbers and ranges could be dates, IDs, or required years.
+        has_currency_or_cadence = re.search(
+            r"[$€£]|\b(?:per|/)\s*(?:hour|hr|year|yr|month|annum|week)\b",
+            value,
+            re.IGNORECASE,
+        )
+        if not has_currency_or_cadence:
+            continue
+        return value[:160]
+    return None
+
+
+def _extract_experience(candidate: _Candidate) -> str | None:
+    text = f"{candidate.title} {candidate.snippet} {candidate.page_text or ''}"
+    years = _EXPERIENCE_TEXT.search(text)
+    if years:
+        return " ".join(years.group("years").split())[:120]
+    if _JUNIOR_TERMS.search(text):
+        return "Entry level"
+    if _EXPLICIT_SENIOR_LEVEL.search(text):
+        return "Senior level"
+    return None
+
+
+def _extract_work_mode(candidate: _Candidate) -> str | None:
+    # ATS metadata sits near the top; selecting the earliest explicit marker
+    # avoids a remote role becoming "hybrid" because the word appears later in
+    # a generic company paragraph.
+    text = f"{candidate.title} {candidate.snippet} {(candidate.page_text or '')[:1200]}".casefold()
+    matches: list[tuple[int, str]] = []
+    for mode, pattern in (
+        ("remote", r"\b(remote|telecommut(?:e|ing)|work from home)\b"),
+        ("hybrid", r"\bhybrid\b"),
+        ("onsite", r"\b(on[ -]?site|in[ -]?person)\b"),
+    ):
+        match = re.search(pattern, text)
+        if match is not None:
+            matches.append((match.start(), mode))
+    return min(matches)[1] if matches else None
+
+
+def _extract_location(candidate: _Candidate) -> str | None:
+    """Extract the compact ATS metadata location without guessing from profile data."""
+    page = " ".join((candidate.page_text or "").split())
+    match = re.search(
+        r"(?:Remote Work|Hybrid|On[ -]?site)\s+"
+        r"(?:Full[ -]?time|Part[ -]?time|Contract|Temporary)\s+"
+        r"(?P<location>.{2,120}?)(?=\s+\[Overview\]|\s+Overview\b|\s+##)",
+        page,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    location = " ".join(match.group("location").strip(" ,.;:-").split())
+    return location[:180] or None
+
+
+def _fallback_required_skills(
+    profile: _ProfileSnapshot,
+    candidate: _Candidate,
+) -> list[str]:
+    """Conservative fallback when structured ranking is unavailable.
+
+    A profile skill is shown only when the posting itself names it, so these
+    chips remain posting requirements rather than unsupported guesses.
+    """
+    text = f"{candidate.snippet} {candidate.page_text or ''}".casefold()
+    known = list(profile.skills)
+    if profile.resume_profile is not None:
+        known.extend(profile.resume_profile.skills)
+    result: list[str] = []
+    seen: set[str] = set()
+    for skill in known:
+        key = skill.casefold()
+        if key in text and key not in seen:
+            seen.add(key)
+            result.append(skill)
+        if len(result) == 8:
+            break
+
+    page = " ".join((candidate.page_text or "").split())
+    section = re.search(
+        r"(?:\*\*)?(?:skills? and qualifications|qualifications|requirements|"
+        r"what you(?:'|\u2019)ll need)\s*(?:\*\*)?\s*:?\s*(?:\*\*)?\s*"
+        r"(?P<body>.+?)(?=(?:\*\*|##)\s*(?:benefits|about|apply|what we offer)\b|$)",
+        page,
+        re.IGNORECASE,
+    )
+    if section is not None:
+        non_skill_labels = {
+            "benefits",
+            "compensation",
+            "location",
+            "remote work",
+            "salary",
+            "work environment",
+            "work schedule",
+        }
+        for raw in re.findall(r"\*\s+([^:*]{2,60})\s*:", section.group("body")):
+            skill = " ".join(raw.strip(" -*").split())
+            key = skill.casefold()
+            if 1 <= len(skill.split()) <= 6 and key not in seen and key not in non_skill_labels:
+                seen.add(key)
+                result.append(skill[:80])
+            if len(result) == 8:
+                break
+    return result
 
 
 def _profile_from_rows(
@@ -692,8 +906,12 @@ def _ranking_messages(
         "company is the employer named in the posting, never the job board or "
         "aggregator site (Indeed, LinkedIn, StepStone, …). Do not invent employers, "
         "qualifications, salary, posting age, or location; extract salary, experience "
-        "requirement, work mode, and posting age from the posting when stated, and use "
-        "null only when truly absent. When the profile includes a user_rejected block, "
+        "requirement, work mode, location, and posting age from the posting when stated, "
+        "and use null only when truly absent. Extract 3-8 required_skills as short, "
+        "specific chips (technologies, credentials, languages, or named hard skills) "
+        "that the posting explicitly requires or prefers; never copy skills only from "
+        "the candidate profile and never invent them. When the profile includes a "
+        "user_rejected block, "
         "those are titles and companies the user explicitly dismissed — never select "
         "them or close variants. Give 1-3 concise match reasons and one honest gap when "
         "there is one. For every selected job also give: match_score — an integer 0-100 "
@@ -766,21 +984,15 @@ def _fallback_rank(
         senior_only = set(profile.experience_levels) == {"senior"}
         if senior_only and not _SENIOR_TERMS.search(f"{candidate.title} {evidence}"):
             continue
-        inferred_mode = (
-            "hybrid"
-            if "hybrid" in evidence
-            else "remote"
-            if re.search(r"\b(remote|telecommut(?:e|ing)|work from home)\b", evidence)
-            else "onsite"
-            if re.search(r"\b(on[ -]?site|in[ -]?person)\b", evidence)
-            else None
-        )
+        inferred_mode = _extract_work_mode(candidate)
+        salary = _extract_salary(candidate)
+        location = _extract_location(candidate)
         if not _passes_verified_constraints(
             profile,
             candidate,
             work_mode=inferred_mode,
-            salary=None,
-            location=None,
+            salary=salary,
+            location=location,
         ):
             continue
         title, company = _verified_fallback_identity(candidate)
@@ -796,15 +1008,17 @@ def _fallback_rank(
                 candidate=candidate,
                 title=title,
                 company=company,
-                location=None,
+                company_logo_url=_extract_company_logo_url(candidate, company),
+                location=location,
                 work_mode=inferred_mode,
-                salary=None,
-                experience=None,
+                salary=salary,
+                experience=_extract_experience(candidate),
                 # Rough keyword-fit stand-in for the LLM score: a bare title hit
                 # reads as an okay match, many skill hits as a strong one.
                 match_score=min(90, 55 + keyword_score * 4),
                 posted_at=None,
                 summary=candidate.snippet or None,
+                required_skills=_fallback_required_skills(profile, candidate),
                 match_reasons=reasons,
                 gap=None,
             )
@@ -891,12 +1105,17 @@ async def _rank_candidates(
             company = item.company
         if company == "Unknown employer":
             continue
+        work_mode = item.work_mode or _extract_work_mode(candidate)
+        location = item.location or _extract_location(candidate)
+        salary = item.salary or _extract_salary(candidate)
+        experience = item.experience or _extract_experience(candidate)
+        required_skills = item.required_skills or _fallback_required_skills(profile, candidate)
         if not _passes_verified_constraints(
             profile,
             candidate,
-            work_mode=item.work_mode,
-            salary=item.salary,
-            location=item.location,
+            work_mode=work_mode,
+            salary=salary,
+            location=location,
         ):
             continue
         accepted.append(
@@ -904,13 +1123,15 @@ async def _rank_candidates(
                 candidate=candidate,
                 title=title,
                 company=company,
-                location=item.location,
-                work_mode=item.work_mode,
-                salary=item.salary,
-                experience=item.experience,
+                company_logo_url=_extract_company_logo_url(candidate, company),
+                location=location,
+                work_mode=work_mode,
+                salary=salary,
+                experience=experience,
                 match_score=item.match_score,
                 posted_at=item.posted_at,
                 summary=item.summary or candidate.snippet or None,
+                required_skills=required_skills,
                 match_reasons=item.match_reasons,
                 gap=item.gap,
             )
@@ -1028,6 +1249,7 @@ async def _finish_run(
                     url=item.candidate.url,
                     title=item.title,
                     company=item.company,
+                    company_logo_url=item.company_logo_url,
                     location=item.location,
                     work_mode=item.work_mode,
                     salary=item.salary,
@@ -1036,6 +1258,7 @@ async def _finish_run(
                     source=item.candidate.source,
                     posted_at=item.posted_at,
                     summary=item.summary,
+                    required_skills=item.required_skills,
                     match_reasons=item.match_reasons,
                     gap=item.gap,
                     status="new",
@@ -1048,6 +1271,7 @@ async def _finish_run(
                 match.url = item.candidate.url
                 match.title = item.title
                 match.company = item.company
+                match.company_logo_url = item.company_logo_url or match.company_logo_url
                 match.location = item.location
                 match.work_mode = item.work_mode
                 match.salary = item.salary
@@ -1056,6 +1280,7 @@ async def _finish_run(
                 match.source = item.candidate.source
                 match.posted_at = item.posted_at
                 match.summary = item.summary
+                match.required_skills = item.required_skills or match.required_skills
                 match.match_reasons = item.match_reasons
                 match.gap = item.gap
 

@@ -189,7 +189,9 @@ async def test_adapter_search_now_returns_only_persisted_verified_matches() -> N
     ):
         result = await adapter.invoke({"action": "search_now", "result_limit": 2})
     run_search.assert_awaited_once()
-    assert run_search.await_args.kwargs["result_limit"] == 2
+    run_args = run_search.await_args
+    assert run_args is not None
+    assert run_args.kwargs["result_limit"] == 2
     assert "found and saved 1 verified job" in result.content
     assert "[Nurse at Acme Health](https://jobs.example.com/1)" in result.content
     assert result.data is not None and "direct_reply" in result.data
@@ -307,7 +309,9 @@ async def test_adapter_update_profile_uses_structured_patch() -> None:
             }
         )
     patch_profile.assert_awaited_once()
-    patch_arg = patch_profile.await_args.args[3]
+    patch_args = patch_profile.await_args
+    assert patch_args is not None
+    patch_arg = patch_args.args[3]
     assert patch_arg.target_roles_mode == "add"
     assert patch_arg.experience_levels == ["senior"]
     assert "Clinical Educator" in result.content
@@ -318,9 +322,7 @@ async def test_adapter_temporary_search_passes_override_without_changing_profile
     user = MagicMock()
     profile = _profile()
     run_search = AsyncMock(
-        return_value=job_search_adapter.job_search_runner.JobSearchRunResult(
-            status="completed"
-        )
+        return_value=job_search_adapter.job_search_runner.JobSearchRunResult(status="completed")
     )
     with (
         bind_job_search_context(user=user, redis=MagicMock(), settings=MagicMock()),
@@ -354,7 +356,9 @@ async def test_adapter_temporary_search_passes_override_without_changing_profile
                 },
             }
         )
-    overrides = run_search.await_args.kwargs["overrides"]
+    run_args = run_search.await_args
+    assert run_args is not None
+    overrides = run_args.kwargs["overrides"]
     assert overrides["target_roles"] == ["Clinic Manager"]
     assert overrides["work_modes"] == ["onsite"]
     assert "no verified jobs" in result.content

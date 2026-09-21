@@ -287,9 +287,7 @@ def _direct_job_tool_args(text: str) -> dict[str, Any] | None:
     if "http://" in lower or "https://" in lower:
         if any(cue in lower for cue in ("check", "analyze", "analyse", "compare", "fit")):
             starts = [
-                index
-                for index in (lower.find("https://"), lower.find("http://"))
-                if index >= 0
+                index for index in (lower.find("https://"), lower.find("http://")) if index >= 0
             ]
             if starts:
                 start = min(starts)
@@ -618,11 +616,7 @@ async def run_tool_rounds(
     from app.services.job_search.chat_intent import wants_job_search_turn
 
     if wants_job_search_turn(messages):
-        tools = [
-            tool
-            for tool in tools
-            if (tool.get("function") or {}).get("name") == "job_search"
-        ]
+        tools = [tool for tool in tools if (tool.get("function") or {}).get("name") == "job_search"]
         if not tools:
             return [*messages, _job_tool_unavailable_message()], None, None, []
 

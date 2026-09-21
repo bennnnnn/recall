@@ -3,7 +3,10 @@ import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native"
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
-import { JobMatchMetaChips, matchScoreColor } from "@/components/jobSearch/JobMatchMetaChips";
+import { CompanyLogo } from "@/components/jobSearch/CompanyLogo";
+import { JobFitBadge } from "@/components/jobSearch/JobFitBadge";
+import { JobMatchMetaChips } from "@/components/jobSearch/JobMatchMetaChips";
+import { JobMatchReasons } from "@/components/jobSearch/JobMatchReasons";
 import { StatusPill } from "@/components/StatusPill";
 import type { JobMatch, JobMatchStatus } from "@/lib/api";
 import { Radius } from "@/lib/radius";
@@ -18,7 +21,7 @@ function Action({
   primary,
   onPress,
 }: {
-  icon: "bookmark-outline" | "bookmark" | "checkmark-circle-outline" | "open-outline" | "close";
+  icon: "bookmark-outline" | "bookmark" | "checkmark-circle-outline" | "open-outline";
   label: string;
   active?: boolean;
   primary?: boolean;
@@ -65,9 +68,6 @@ export function JobMatchCard({
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
-  const initial = match.company.trim().charAt(0).toUpperCase() || "J";
-  const score = match.match_score;
-  const scoreColor = matchScoreColor(score, C);
 
   const openJob = async () => {
     try {
@@ -78,75 +78,40 @@ export function JobMatchCard({
   };
 
   return (
-    <Pressable
-      style={({ pressed }) => [s.card, pressed && onPress != null && s.pressed]}
-      onPress={onPress}
-      disabled={onPress == null}
-      accessibilityRole={onPress != null ? "button" : undefined}
-    >
-      <View style={s.headingRow}>
-        <View
-          style={s.logo}
-          accessibilityLabel={
-            score != null ? t("my_job.match_fit", { score }) : match.company
-          }
-        >
-          {score != null ? (
-            <Text style={[s.logoText, { color: scoreColor }]}>{score}%</Text>
-          ) : (
-            <Text style={s.logoText}>{initial}</Text>
-          )}
-        </View>
-        <View style={s.headingCopy}>
-          <Text style={s.title} numberOfLines={2}>{match.title}</Text>
-          <View style={s.companyRow}>
-            <Text style={s.company}>{match.company}</Text>
-            {match.status === "interviewing" ||
-            match.status === "offer" ||
-            match.status === "rejected" ? (
-              <StatusPill
-                label={t(`my_job.stage_${match.status}`)}
-                tone={
-                  match.status === "offer"
-                    ? "success"
-                    : match.status === "rejected"
-                      ? "neutral"
-                      : "accent"
-                }
-              />
-            ) : null}
-          </View>
-        </View>
-        <Pressable
-          style={({ pressed }) => [s.hideButton, pressed && s.pressed]}
-          onPress={() => onStatus("hidden")}
-          accessibilityRole="button"
-          accessibilityLabel={t("my_job.not_interested")}
-        >
-          <Icon name="close" size={20} color={C.textTertiary} />
-        </Pressable>
-      </View>
-
-      <JobMatchMetaChips match={match} />
-
-      {match.match_reasons.length > 0 ? (
-        <View style={s.reasonBlock}>
-          <Text style={s.reasonTitle}>{t("my_job.why_matches")}</Text>
-          {match.match_reasons.slice(0, 3).map((reason) => (
-            <View key={reason} style={s.reasonRow}>
-              <View style={s.reasonDot} />
-              <Text style={s.reasonText}>{reason}</Text>
+    <View style={s.card}>
+      <Pressable
+        style={({ pressed }) => [s.cardLink, pressed && onPress != null && s.pressed]}
+        onPress={onPress}
+        disabled={onPress == null}
+        accessibilityRole={onPress != null ? "button" : undefined}
+      >
+        <View style={s.headingRow}>
+          <CompanyLogo company={match.company} uri={match.company_logo_url} />
+          <View style={s.headingCopy}>
+            <Text style={s.title} numberOfLines={2}>{match.title}</Text>
+            <View style={s.companyRow}>
+              <Text style={s.company}>{match.company}</Text>
+              {match.status === "interviewing" ||
+              match.status === "offer" ||
+              match.status === "rejected" ? (
+                <StatusPill
+                  label={t(`my_job.stage_${match.status}`)}
+                  tone={
+                    match.status === "offer"
+                      ? "success"
+                      : match.status === "rejected"
+                        ? "neutral"
+                        : "accent"
+                  }
+                />
+              ) : null}
             </View>
-          ))}
+          </View>
+          <JobFitBadge score={match.match_score} />
         </View>
-      ) : null}
-
-      {match.gap ? (
-        <View style={s.gapRow}>
-          <Icon name="information-circle-outline" size={18} color={C.textTertiary} />
-          <Text style={s.gapText}>{match.gap}</Text>
-        </View>
-      ) : null}
+        <JobMatchMetaChips match={match} />
+      </Pressable>
+      <JobMatchReasons match={match} maxReasons={3} />
 
       <View style={s.divider} />
       <View style={s.actions}>
@@ -164,7 +129,7 @@ export function JobMatchCard({
           onPress={() => onStatus(match.status === "applied" ? "new" : "applied")}
         />
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -176,16 +141,8 @@ function makeStyles(C: Theme) {
       padding: Space.md,
       gap: Space.sm,
     },
+    cardLink: { gap: Space.sm },
     headingRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.sm },
-    logo: {
-      width: 48,
-      height: 48,
-      borderRadius: 15,
-      backgroundColor: C.primaryLight,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    logoText: { ...Type.secondary, color: C.primary, fontWeight: "700" },
     headingCopy: { flex: 1, minWidth: 0 },
     title: { ...Type.navTitle, color: C.text, fontWeight: "700" },
     companyRow: {
@@ -195,35 +152,6 @@ function makeStyles(C: Theme) {
       marginTop: 2,
     },
     company: { ...Type.secondary, color: C.textSecondary, flexShrink: 1 },
-    hideButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: C.surfaceAlt,
-      // Keep the card's heading row height driven by the 48px logo.
-      marginVertical: -4,
-      marginRight: -4,
-    },
-    reasonBlock: {
-      backgroundColor: C.contentSurface,
-      borderRadius: Radius.xl,
-      padding: Space.sm,
-      gap: Space.xs,
-    },
-    reasonTitle: { ...Type.label, color: C.text },
-    reasonRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.xs },
-    reasonDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: C.primary,
-      marginTop: 7,
-    },
-    reasonText: { ...Type.secondary, color: C.textSecondary, flex: 1 },
-    gapRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.xs },
-    gapText: { ...Type.compact, color: C.textTertiary, flex: 1 },
     divider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: C.border,

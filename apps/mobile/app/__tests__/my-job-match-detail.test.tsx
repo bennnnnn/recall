@@ -47,6 +47,7 @@ function match(overrides: Partial<JobMatch> = {}): JobMatch {
     id: "m1",
     title: "Registered Nurse",
     company: "Acme Health",
+    company_logo_url: "https://cdn.acme.test/logo.png",
     location: "Berlin, Germany",
     work_mode: "onsite",
     salary: "€60,000+",
@@ -54,6 +55,7 @@ function match(overrides: Partial<JobMatch> = {}): JobMatch {
     match_score: 88,
     posted_at: "2d ago",
     summary: "Full summary of the role.",
+    required_skills: ["ACLS", "Triage"],
     match_reasons: ["ICU experience", "German license", "Shift fit"],
     gap: "No pediatric experience",
     url: "https://jobs.example.com/1",
@@ -79,15 +81,21 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-test("renders the cached match instantly without fetching", async () => {
+test("renders the cached match instantly with scan-first details", async () => {
   cacheJobMatches("user", [match()]);
-  const { getByText, getAllByText, queryByText } = await render(<JobMatchDetailScreen />);
+  const { getByLabelText, getByText, getAllByText, queryByText } = await render(
+    <JobMatchDetailScreen />,
+  );
   expect(getByText("Registered Nurse")).toBeTruthy();
   // Company shows in the header and under the title.
   expect(getAllByText("Acme Health").length).toBeGreaterThan(0);
   expect(getByText("88%")).toBeTruthy();
-  expect(getByText("Full summary of the role.")).toBeTruthy();
-  // All reasons render (the card truncates to three; detail shows all).
+  expect(getByText("ACLS")).toBeTruthy();
+  expect(queryByText("Full summary of the role.")).toBeNull();
+  expect(queryByText("my_job.not_interested")).toBeNull();
+  expect(queryByText("Shift fit")).toBeNull();
+  await fireEvent.press(getByLabelText("my_job.why_matches"));
+  // All reasons render after expansion (the card truncates to three).
   expect(getByText("Shift fit")).toBeTruthy();
   expect(getByText("No pediatric experience")).toBeTruthy();
   expect(getByText(/jobs\.example\.com/)).toBeTruthy();

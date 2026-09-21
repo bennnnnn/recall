@@ -741,8 +741,7 @@ async def test_tool_loop_routes_contextual_search_count_without_model_selection(
         return_value=ToolResult(
             name="job_search",
             content=(
-                "<!-- recall:job-direct-reply -->\n"
-                "Search finished, but I found no verified jobs."
+                "<!-- recall:job-direct-reply -->\nSearch finished, but I found no verified jobs."
             ),
         )
     )
@@ -768,9 +767,7 @@ async def test_tool_loop_routes_contextual_search_count_without_model_selection(
         "job_search",
         {"action": "search_now", "result_limit": 2},
     )
-    assert tool_loop.direct_tool_reply(out) == (
-        "Search finished, but I found no verified jobs."
-    )
+    assert tool_loop.direct_tool_reply(out) == ("Search finished, but I found no verified jobs.")
     assert verified is None and terminal is None and hits == []
 
 
@@ -799,16 +796,18 @@ def test_recovers_provider_text_function_call_only_for_offered_tool() -> None:
             "function": {
                 "name": "job_search",
                 "arguments": (
-                    '{"action": "update_profile", "preferences": '
-                    '{"role": "Software Engineer"}}'
+                    '{"action": "update_profile", "preferences": {"role": "Software Engineer"}}'
                 ),
             },
         }
     ]
-    assert tool_loop._tool_calls_from_text(
-        '!function_call:{"call":"calendar","arguments":{}}',
-        tools,
-    ) == []
+    assert (
+        tool_loop._tool_calls_from_text(
+            '!function_call:{"call":"calendar","arguments":{}}',
+            tools,
+        )
+        == []
+    )
 
 
 @pytest.mark.asyncio

@@ -39,6 +39,7 @@ export type JobMatch = {
   id: string;
   title: string;
   company: string;
+  company_logo_url: string | null;
   location: string | null;
   work_mode: JobSearchWorkMode | null;
   salary: string | null;
@@ -48,6 +49,7 @@ export type JobMatch = {
   source: string | null;
   posted_at: string | null;
   summary: string | null;
+  required_skills: string[];
   match_reasons: string[];
   gap: string | null;
   found_at: string;

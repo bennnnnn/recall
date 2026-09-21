@@ -37,15 +37,24 @@ export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
   );
 }
 
-/** Icon chips for location / work mode / salary / experience / posted age. */
-export function JobMatchMetaChips({ match }: { match: JobMatch }) {
+/** Scan-first chips for every verified posting fact. */
+export function JobMatchMetaChips({
+  match,
+  maxSkills = 4,
+}: {
+  match: JobMatch;
+  maxSkills?: number;
+}) {
   const { t } = useTranslation();
   const chips: MetaChip[] = [];
-  if (match.location) chips.push({ icon: "location-outline", label: match.location });
   if (match.work_mode)
     chips.push({ icon: "laptop-outline", label: t(`my_job.work_${match.work_mode}`) });
+  if (match.location) chips.push({ icon: "location-outline", label: match.location });
   if (match.salary) chips.push({ icon: "cash-outline", label: match.salary });
   if (match.experience) chips.push({ icon: "bar-chart-outline", label: match.experience });
+  for (const skill of match.required_skills.slice(0, maxSkills)) {
+    chips.push({ icon: "construct-outline", label: skill });
+  }
   if (match.posted_at) chips.push({ icon: "time-outline", label: match.posted_at });
   return <MetaChipsRow chips={chips} />;
 }

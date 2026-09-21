@@ -13,6 +13,10 @@ from app.services.job_search.runner import (
     PostingVerificationError,
     _Candidate,
     _dedupe_accepted,
+    _extract_company_logo_url,
+    _extract_experience,
+    _extract_salary,
+    _extract_work_mode,
     _fallback_rank,
     _fetch_posting_pages,
     _find_candidates,
@@ -100,10 +104,16 @@ def test_ranked_job_rejects_out_of_range_match_score() -> None:
         _RankedJob(candidate_id=0, match_score=150)
 
 
-def test_ranked_job_accepts_score_and_experience() -> None:
-    job = _RankedJob(candidate_id=0, match_score=82, experience="  3+ years  ")
+def test_ranked_job_accepts_score_experience_and_unique_skills() -> None:
+    job = _RankedJob(
+        candidate_id=0,
+        match_score=82,
+        experience="  3+ years  ",
+        required_skills=[" Python ", "python", "FastAPI"],
+    )
     assert job.match_score == 82
     assert job.experience == "3+ years"
+    assert job.required_skills == ["Python", "FastAPI"]
 
 
 def test_search_queries_stay_sector_neutral_for_entry_level() -> None:
@@ -128,7 +138,55 @@ def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
     # More keyword hits must not rank below fewer hits.
     assert scores[0] is not None and scores[1] is not None
     assert scores[0] >= scores[1]
-    assert accepted[0].experience is None
+    assert accepted[0].experience == "Entry level"
+
+
+def test_posting_fact_fallbacks_extract_salary_and_experience() -> None:
+    candidate = _candidate(
+        "Backend Engineer",
+        "Remote role paying $100,000 - $125,000 per year. Requires 3+ years of experience.",
+    )
+    assert _extract_salary(candidate) == "$100,000 - $125,000 per year"
+    assert _extract_experience(candidate) == "3+ years of experience"
+
+
+def test_experience_fallback_does_not_treat_manager_title_as_senior() -> None:
+    assert _extract_experience(_candidate("Account Manager", "Client services role")) is None
+
+
+def test_work_mode_fallback_uses_earliest_explicit_posting_metadata() -> None:
+    candidate = replace(
+        _candidate("Remote Backend Engineer", "Work from anywhere"),
+        page_text="Remote Work Full time. Our company also supports hybrid teams.",
+    )
+    assert _extract_work_mode(candidate) == "remote"
+
+
+def test_company_logo_must_be_https_and_labelled_with_employer() -> None:
+    candidate = replace(
+        _candidate("Backend Engineer - Acme"),
+        page_text=(
+            "[![Image 1: Acme](https://ats-cdn.example.com/acme-logo.png)](company) "
+            "![LinkedIn](https://cdn.example.com/linkedin.png)"
+        ),
+    )
+    assert _extract_company_logo_url(candidate, "Acme") == (
+        "https://ats-cdn.example.com/acme-logo.png"
+    )
+    assert _extract_company_logo_url(candidate, "LinkedIn") is None
+
+
+def test_company_logo_rejects_relative_and_private_urls() -> None:
+    relative = replace(
+        _candidate("Backend Engineer - Acme"),
+        page_text="![Acme](logo.png)",
+    )
+    private = replace(
+        _candidate("Backend Engineer - Acme"),
+        page_text="![Acme](https://127.0.0.1/logo.png)",
+    )
+    assert _extract_company_logo_url(relative, "Acme") is None
+    assert _extract_company_logo_url(private, "Acme") is None
 
 
 @pytest.mark.parametrize(
@@ -260,6 +318,7 @@ def test_dedupe_accepted_drops_cross_source_repeats() -> None:
             ),
             title=title,
             company=company,
+            company_logo_url=None,
             location=None,
             work_mode=None,
             salary=None,
@@ -267,6 +326,7 @@ def test_dedupe_accepted_drops_cross_source_repeats() -> None:
             match_score=None,
             posted_at=None,
             summary=None,
+            required_skills=[],
             match_reasons=[],
             gap=None,
         )
@@ -438,6 +498,7 @@ def test_ranking_prompt_requires_exact_posting_title() -> None:
     system = _ranking_messages(_profile(), [_candidate("Backend Engineer")])[0]["content"]
     assert "Copy title exactly" in system
     assert "never the job board" in system
+    assert "required_skills" in system
 
 
 def test_fallback_rejects_result_without_required_salary_evidence() -> None:
@@ -449,10 +510,13 @@ def test_fallback_rejects_result_without_required_salary_evidence() -> None:
 
 
 def test_entry_fallback_requires_entry_level_evidence() -> None:
-    assert _fallback_rank(
-        _profile(target_roles=["Account Manager"], experience_levels=["entry"]),
-        [_candidate("Technical Account Manager", "Remote customer success role")],
-    ) == []
+    assert (
+        _fallback_rank(
+            _profile(target_roles=["Account Manager"], experience_levels=["entry"]),
+            [_candidate("Technical Account Manager", "Remote customer success role")],
+        )
+        == []
+    )
 
 
 async def test_rank_falls_back_to_verified_page_when_structured_result_is_empty(
@@ -467,10 +531,14 @@ async def test_rank_falls_back_to_verified_page_when_structured_result_is_empty(
         snippet="Remote entry-level account manager",
         source="apply.workable.com",
         page_text=(
-            "[![Image 1: NoGigiddy](logo)](company) "
+            "[![Image 1: NoGigiddy](https://cdn.example.com/nogigiddy-logo.png)](company) "
             "# (Remote) - Entry-Level Account Manager (20 - 27 per hour) "
-            "**Remote** Remote Work Full time ## Description "
-            "NoGigiddy is seeking an entry-level account manager."
+            "**Remote** Remote Work Full time New York, New York, United States "
+            "[Overview](job) ## Description NoGigiddy is seeking an entry-level "
+            "account manager. **Skills and Qualifications:** "
+            "* Communication Skills: Strong written communication. "
+            "* Customer Service: Understand client needs. "
+            "* Remote Work: Enjoy flexibility. **Benefits:** * Health plan"
         ),
     )
 
@@ -493,6 +561,11 @@ async def test_rank_falls_back_to_verified_page_when_structured_result_is_empty(
     assert len(accepted) == 1
     assert accepted[0].title == "Entry-Level Account Manager (20 - 27 per hour)"
     assert accepted[0].company == "NoGigiddy"
+    assert accepted[0].company_logo_url == "https://cdn.example.com/nogigiddy-logo.png"
+    assert accepted[0].salary == "20 - 27 per hour"
+    assert accepted[0].location == "New York, New York, United States"
+    assert accepted[0].experience == "Entry level"
+    assert accepted[0].required_skills == ["Communication Skills", "Customer Service"]
     assert accepted[0].candidate.url == candidate.url
     assert request["model_alias"] == "gemini-flash"
     assert request["timeout_seconds"] == 20.0
@@ -529,9 +602,7 @@ async def test_rank_requires_positive_sponsorship_evidence(
     candidate = _candidate("Backend Engineer - Acme", "Python remote role")
 
     async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(
-            jobs=[_RankedJob(candidate_id=0, work_mode="remote")]
-        )
+        return _RankedPayload(jobs=[_RankedJob(candidate_id=0, work_mode="remote")])
 
     monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
     accepted = await _rank_candidates(

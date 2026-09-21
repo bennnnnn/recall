@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 
 import { JobMatchCard } from "@/components/jobSearch/JobMatchCard";
 import type { JobMatch } from "@/lib/api";
@@ -17,6 +17,7 @@ const baseMatch: JobMatch = {
   id: "m1",
   title: "Backend Engineer",
   company: "Acme",
+  company_logo_url: "https://cdn.acme.com/logo.png",
   location: "Berlin, Germany",
   work_mode: "remote",
   salary: "$90,000 - $120,000",
@@ -26,28 +27,45 @@ const baseMatch: JobMatch = {
   source: "jobs.example.com",
   posted_at: "2d ago",
   summary: "Build production APIs.",
+  required_skills: ["Python", "FastAPI"],
   match_reasons: ["Python matches your skills", "Remote fits your preference"],
   gap: null,
   found_at: "2026-09-18T00:00:00Z",
   status: "new",
-    notes: null,
+  notes: null,
 };
 
 describe("JobMatchCard", () => {
-  it("shows the fit score in the circle and salary/experience/location/type chips", async () => {
+  it("shows the fit score and all high-signal posting facts as chips", async () => {
     const { getByText } = await render(<JobMatchCard match={baseMatch} onStatus={jest.fn()} />);
     expect(getByText("87%")).toBeTruthy();
     expect(getByText("Berlin, Germany")).toBeTruthy();
     expect(getByText("my_job.work_remote")).toBeTruthy();
     expect(getByText("$90,000 - $120,000")).toBeTruthy();
     expect(getByText("3+ years")).toBeTruthy();
+    expect(getByText("Python")).toBeTruthy();
+    expect(getByText("FastAPI")).toBeTruthy();
     expect(getByText("2d ago")).toBeTruthy();
   });
 
-  it("lists the fit reasons as bullets", async () => {
-    const { getByText } = await render(<JobMatchCard match={baseMatch} onStatus={jest.fn()} />);
+  it("keeps fit reasons folded until the user expands them", async () => {
+    const { getByLabelText, getByText, queryByText } = await render(
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
+    );
+    expect(queryByText("Python matches your skills")).toBeNull();
+    await fireEvent.press(getByLabelText("my_job.why_matches"));
     expect(getByText("Python matches your skills")).toBeTruthy();
     expect(getByText("Remote fits your preference")).toBeTruthy();
+  });
+
+  it("shows the hiring-company logo and has no dismiss control", async () => {
+    const { getByTestId, queryByLabelText } = await render(
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
+    );
+    expect(getByTestId("company-logo-image").props.source).toEqual({
+      uri: "https://cdn.acme.com/logo.png",
+    });
+    expect(queryByLabelText("my_job.not_interested")).toBeNull();
   });
 
   it("does not render the summary body paragraph", async () => {
@@ -57,9 +75,12 @@ describe("JobMatchCard", () => {
     expect(queryByText("Build production APIs.")).toBeNull();
   });
 
-  it("falls back to the company initial when there is no score", async () => {
+  it("falls back to the company initial when there is no logo", async () => {
     const { getByText, queryByText } = await render(
-      <JobMatchCard match={{ ...baseMatch, match_score: null }} onStatus={jest.fn()} />,
+      <JobMatchCard
+        match={{ ...baseMatch, company_logo_url: null, match_score: null }}
+        onStatus={jest.fn()}
+      />,
     );
     expect(getByText("A")).toBeTruthy();
     expect(queryByText(/%$/)).toBeNull();
