@@ -24,8 +24,7 @@ CASES: list[tuple[str, str, str, str, str]] = [
         "Center-of-mass equation:",
     ),
     (
-        "Two masses of 2 kg and 3 kg are at x = 0 m and x = 10 m. "
-        "Find the center of mass.",
+        "Two masses of 2 kg and 3 kg are at x = 0 m and x = 10 m. Find the center of mass.",
         "momentum",
         "center_of_mass",
         "6 m",
