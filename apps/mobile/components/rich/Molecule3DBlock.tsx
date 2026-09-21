@@ -7,7 +7,7 @@
 import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, Line, Text as SvgText } from "react-native-svg";
+import Svg, { Circle, G, Line, Text as SvgText } from "react-native-svg";
 
 import { CopyButton } from "@/components/CopyButton";
 import {
@@ -106,34 +106,21 @@ function SvgMoleculeCanvas({
       {laidOut.depthOrder.map((index) => {
         const atom = laidOut.atoms[index]!;
         return (
-          <Circle
-            key={`outline-${index}`}
-            cx={atom.x}
-            cy={atom.y}
-            r={atom.radius + 1.75}
-            fill="#1a1a1a"
-          />
-        );
-      })}
-      {laidOut.depthOrder.map((index) => {
-        const atom = laidOut.atoms[index]!;
-        return (
-          <Circle
-            key={`atom-${index}`}
-            cx={atom.x}
-            cy={atom.y}
-            r={atom.radius}
-            fill={atomColor(atom.element)}
-          />
-        );
-      })}
-      {style !== "spacefill"
-        ? laidOut.depthOrder.map((index) => {
-            const atom = laidOut.atoms[index]!;
-            if (atom.radius < 8) return null;
-            return (
+          <G key={`atom-${index}`}>
+            <Circle
+              cx={atom.x}
+              cy={atom.y}
+              r={atom.radius + 1.75}
+              fill="#1a1a1a"
+            />
+            <Circle
+              cx={atom.x}
+              cy={atom.y}
+              r={atom.radius}
+              fill={atomColor(atom.element)}
+            />
+            {style !== "spacefill" && atom.radius >= 8 ? (
               <SvgText
-                key={`label-${index}`}
                 x={atom.x}
                 y={atom.y + 4}
                 fill={atomLabelColor(atom.element)}
@@ -143,9 +130,10 @@ function SvgMoleculeCanvas({
               >
                 {atom.element}
               </SvgText>
-            );
-          })
-        : null}
+            ) : null}
+          </G>
+        );
+      })}
     </Svg>
   );
 }

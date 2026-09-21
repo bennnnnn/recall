@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import {
   Canvas,
   Circle,
+  Group,
   Path,
   Skia,
   Text as SkiaText,
@@ -93,44 +94,31 @@ export function SkiaMoleculeCanvas({
       {laidOut.depthOrder.map((index) => {
         const atom = laidOut.atoms[index]!;
         return (
-          <Circle
-            key={`outline-${index}`}
-            cx={atom.x}
-            cy={atom.y}
-            r={atom.radius + 1.75}
-            color="#1a1a1a"
-          />
-        );
-      })}
-      {laidOut.depthOrder.map((index) => {
-        const atom = laidOut.atoms[index]!;
-        return (
-          <Circle
-            key={`atom-${index}`}
-            cx={atom.x}
-            cy={atom.y}
-            r={atom.radius}
-            color={atomColor(atom.element)}
-          />
-        );
-      })}
-      {style !== "spacefill"
-        ? laidOut.depthOrder.map((index) => {
-            const atom = laidOut.atoms[index]!;
-            if (atom.radius < 8 || !font) return null;
-            const measured = font.measureText(atom.element);
-            return (
+          <Group key={`atom-${index}`}>
+            <Circle
+              cx={atom.x}
+              cy={atom.y}
+              r={atom.radius + 1.75}
+              color="#1a1a1a"
+            />
+            <Circle
+              cx={atom.x}
+              cy={atom.y}
+              r={atom.radius}
+              color={atomColor(atom.element)}
+            />
+            {style !== "spacefill" && atom.radius >= 8 && font ? (
               <SkiaText
-                key={`label-${index}`}
-                x={atom.x - measured.width / 2}
+                x={atom.x - font.measureText(atom.element).width / 2}
                 y={atom.y + 4}
                 text={atom.element}
                 font={font}
                 color={atomLabelColor(atom.element)}
               />
-            );
-          })
-        : null}
+            ) : null}
+          </Group>
+        );
+      })}
     </Canvas>
   );
 }

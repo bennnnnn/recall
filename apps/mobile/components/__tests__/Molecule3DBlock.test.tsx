@@ -6,6 +6,19 @@ import { render, waitFor } from "@testing-library/react-native";
 
 let mockSkiaAvailable = true;
 
+type RenderNode = {
+  type?: string;
+  props?: Record<string, unknown>;
+  children?: unknown[];
+};
+
+function nodesIn(value: unknown): RenderNode[] {
+  if (Array.isArray(value)) return value.flatMap(nodesIn);
+  if (!value || typeof value !== "object") return [];
+  const node = value as RenderNode;
+  return [node, ...(node.children ?? []).flatMap(nodesIn)];
+}
+
 jest.mock("@/components/Icon", () => ({
   Icon: () => null,
 }));
@@ -69,11 +82,25 @@ describe("Molecule3DBlock", () => {
 
   it("uses the SVG renderer when native Skia is unavailable", async () => {
     mockSkiaAvailable = false;
-    const { getByTestId, queryByTestId } = await render(
+    const { getByTestId, queryByTestId, toJSON } = await render(
       <Molecule3DBlock content={VALID_SDF} />,
     );
     expect(getByTestId("molecule-svg-fallback")).toBeTruthy();
     expect(queryByTestId("molecule-skia-canvas")).toBeNull();
+    const atomGroups = nodesIn(toJSON()).filter(
+      (node) =>
+        node.type === "RNSVGGroup" &&
+        (node.children ?? []).filter(
+          (child) =>
+            child != null &&
+            typeof child === "object" &&
+            (child as RenderNode).type === "RNSVGCircle",
+        ).length === 2,
+    );
+    expect(atomGroups).toHaveLength(3);
+    atomGroups.forEach((group) => {
+      expect(nodesIn(group).filter((node) => node.type === "RNSVGCircle")).toHaveLength(2);
+    });
   });
 
   it("renders an invalid-structure hint when there is no SDF", async () => {

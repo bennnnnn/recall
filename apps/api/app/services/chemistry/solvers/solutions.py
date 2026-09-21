@@ -10,6 +10,7 @@ from app.services.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import MathServiceError
 
 GAS_R = 0.082057366080960  # L·atm·mol⁻¹·K⁻¹
+_VOLUME_TO_L = {"l": 1.0, "ml": 0.001}
 
 
 def _value(intent: ChemistryIntent, key: str, *, positive: bool = False) -> float:
@@ -20,6 +21,13 @@ def _value(intent: ChemistryIntent, key: str, *, positive: bool = False) -> floa
     if positive and value <= 0:
         raise MathServiceError(f"{key} must be positive")
     return value
+
+
+def _volume_in_l(value: float, unit: str) -> float:
+    try:
+        return value * _VOLUME_TO_L[unit.lower()]
+    except KeyError as exc:
+        raise MathServiceError(f"unsupported dilution volume unit: {unit}") from exc
 
 
 def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
@@ -44,34 +52,39 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
         v1 = _value(intent, "v1", positive=True)
         m2 = intent.params.get("m2")
         v2 = intent.params.get("v2")
-        unit = intent.units.get("v1", intent.units.get("v2", "L"))
+        v1_unit = intent.units.get("v1", "L")
         if (m2 is None) == (v2 is None):
             raise MathServiceError("exactly one of M2 or V2 must be unknown")
         if v2 is None:
             if m2 is None or m2 <= 0:
                 raise MathServiceError("M2 must be positive")
             result = m1 * v1 / m2
-            value = f"{format_number(result)} {unit}"
+            value = f"{format_number(result)} {v1_unit}"
             find = "Final volume, V2"
             substitution = f"V2 = ({format_number(m1)})({format_number(v1)}) / {format_number(m2)}"
             answer = f"V2 = {value}"
             given = (
                 f"M1 = {format_number(m1)} mol/L",
-                f"V1 = {format_number(v1)} {unit}",
+                f"V1 = {format_number(v1)} {v1_unit}",
                 f"M2 = {format_number(m2)} mol/L",
             )
         else:
             if v2 <= 0:
                 raise MathServiceError("V2 must be positive")
-            result = m1 * v1 / v2
+            v2_unit = intent.units.get("v2", v1_unit)
+            v1_l = _volume_in_l(v1, v1_unit)
+            v2_l = _volume_in_l(v2, v2_unit)
+            result = m1 * v1_l / v2_l
             value = f"{format_number(result)} mol/L"
             find = "Final concentration, M2"
-            substitution = f"M2 = ({format_number(m1)})({format_number(v1)}) / {format_number(v2)}"
+            substitution = (
+                f"M2 = ({format_number(m1)})({format_number(v1_l)} L) / ({format_number(v2_l)} L)"
+            )
             answer = f"M2 = {value}"
             given = (
                 f"M1 = {format_number(m1)} mol/L",
-                f"V1 = {format_number(v1)} {unit}",
-                f"V2 = {format_number(v2)} {unit}",
+                f"V1 = {format_number(v1)} {v1_unit}",
+                f"V2 = {format_number(v2)} {v2_unit}",
             )
         return ChemistryResult(
             "Verified dilution",
