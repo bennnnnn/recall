@@ -93,7 +93,7 @@ test("renders the cached match instantly with scan-first details", async () => {
   // Company shows in the header and under the title.
   expect(getAllByText("Acme Health").length).toBeGreaterThan(0);
   expect(getByText("88%")).toBeTruthy();
-  expect(getByText("ACLS")).toBeTruthy();
+  expect(getByLabelText("my_job.meta_skills: ACLS, Triage")).toBeTruthy();
   expect(queryByText("Full summary of the role.")).toBeNull();
   expect(queryByText("my_job.not_interested")).toBeNull();
   expect(queryByText("Shift fit")).toBeNull();

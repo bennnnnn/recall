@@ -27,6 +27,7 @@ import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useJobMatchDetail } from "@/hooks/useJobMatchDetail";
 import { type JobMatchStatus } from "@/lib/api";
 import { selection, tap } from "@/lib/haptics";
+import { canToggleApplied, hasApplied } from "@/lib/jobSearch/stages";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -91,6 +92,7 @@ function JobMatchDetailView({
     if (status === "hidden") return t("my_job.not_interested");
     return t(`my_job.stage_${status}`);
   };
+  const applicationStarted = match ? hasApplied(match.status) : false;
 
   return (
     <View style={[s.screen, { paddingTop: insets.top }]}>
@@ -161,7 +163,7 @@ function JobMatchDetailView({
               }}
               accessibilityRole="button"
             >
-              <Icon name="open-outline" size={18} color={C.onPrimary} />
+              <Icon name="open-outline" size={18} color={C.primary} />
               <Text style={[s.actionText, s.actionTextPrimary]}>{t("my_job.view_job")}</Text>
             </Pressable>
             <Pressable
@@ -191,7 +193,7 @@ function JobMatchDetailView({
             <Pressable
               style={({ pressed }) => [
                 s.action,
-                match.status === "applied" && s.actionActive,
+                applicationStarted && s.actionActive,
                 pressed && s.pressed,
               ]}
               onPress={() => {
@@ -199,17 +201,21 @@ function JobMatchDetailView({
                 void updateStatus(match.status === "applied" ? "new" : "applied");
               }}
               accessibilityRole="button"
-              accessibilityState={{ selected: match.status === "applied" }}
+              disabled={!canToggleApplied(match.status)}
+              accessibilityState={{
+                selected: applicationStarted,
+                disabled: !canToggleApplied(match.status),
+              }}
             >
               <Icon
                 name="checkmark-circle-outline"
                 size={18}
-                color={match.status === "applied" ? C.primary : C.textSecondary}
+                color={applicationStarted ? C.primary : C.textSecondary}
               />
               <Text
-                style={[s.actionText, match.status === "applied" && s.actionTextActive]}
+                style={[s.actionText, applicationStarted && s.actionTextActive]}
               >
-                {match.status === "applied" ? t("my_job.applied") : t("my_job.i_applied")}
+                {applicationStarted ? t("my_job.applied") : t("my_job.i_applied")}
               </Text>
             </Pressable>
           </View>
@@ -325,10 +331,13 @@ function makeStyles(C: Theme) {
       borderRadius: Radius.full,
       backgroundColor: C.surfaceAlt,
     },
-    actionPrimary: { backgroundColor: C.primary, flexGrow: 1 },
+    actionPrimary: {
+      backgroundColor: C.primaryLight,
+      paddingHorizontal: Space.xs,
+    },
     actionActive: { backgroundColor: C.primaryLight },
     actionText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
-    actionTextPrimary: { color: C.onPrimary },
+    actionTextPrimary: { color: C.primary },
     actionTextActive: { color: C.primary },
     letterCta: {
       minHeight: 52,

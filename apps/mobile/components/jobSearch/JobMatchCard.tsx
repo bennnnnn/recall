@@ -9,6 +9,7 @@ import { JobMatchMetaChips } from "@/components/jobSearch/JobMatchMetaChips";
 import { JobMatchReasons } from "@/components/jobSearch/JobMatchReasons";
 import { StatusPill } from "@/components/StatusPill";
 import type { JobMatch, JobMatchStatus } from "@/lib/api";
+import { canToggleApplied, hasApplied } from "@/lib/jobSearch/stages";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -19,17 +20,19 @@ function Action({
   label,
   active,
   primary,
+  disabled,
   onPress,
 }: {
   icon: "bookmark-outline" | "bookmark" | "checkmark-circle-outline" | "open-outline";
   label: string;
   active?: boolean;
   primary?: boolean;
+  disabled?: boolean;
   onPress: () => void;
 }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
-  const iconColor = primary ? C.onPrimary : active ? C.primary : C.textSecondary;
+  const iconColor = primary ? C.primary : active ? C.primary : C.textSecondary;
   return (
     <Pressable
       style={({ pressed }) => [
@@ -39,8 +42,9 @@ function Action({
         pressed && s.pressed,
       ]}
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
-      accessibilityState={{ selected: !!active }}
+      accessibilityState={{ selected: !!active, disabled: !!disabled }}
     >
       <Icon name={icon} size={18} color={iconColor} />
       <Text
@@ -70,6 +74,7 @@ export function JobMatchCard({
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
+  const applicationStarted = hasApplied(match.status);
 
   const openJob = async () => {
     try {
@@ -126,8 +131,9 @@ export function JobMatchCard({
         />
         <Action
           icon="checkmark-circle-outline"
-          label={match.status === "applied" ? t("my_job.applied") : t("my_job.i_applied")}
-          active={match.status === "applied"}
+          label={applicationStarted ? t("my_job.applied") : t("my_job.i_applied")}
+          active={applicationStarted}
+          disabled={!canToggleApplied(match.status)}
           onPress={() => onStatus(match.status === "applied" ? "new" : "applied")}
         />
       </View>
@@ -171,12 +177,12 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
     },
     actionPrimary: {
-      backgroundColor: C.primary,
-      flexGrow: 1,
+      backgroundColor: C.primaryLight,
+      paddingHorizontal: Space.xs,
     },
     actionActive: { backgroundColor: C.primaryLight },
     actionText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
-    actionTextPrimary: { color: C.onPrimary },
+    actionTextPrimary: { color: C.primary },
     actionTextActive: { color: C.primary },
     pressed: { opacity: 0.68 },
   });

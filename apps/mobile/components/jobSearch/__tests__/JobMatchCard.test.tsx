@@ -38,17 +38,16 @@ const baseMatch: JobMatch = {
 
 describe("JobMatchCard", () => {
   it("shows the fit score and all high-signal posting facts as chips", async () => {
-    const { getByText } = await render(
+    const { getByLabelText, getByText } = await render(
       <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
     );
     expect(getByText("87%")).toBeTruthy();
-    expect(getByText("Berlin, Germany")).toBeTruthy();
-    expect(getByText("my_job.work_remote")).toBeTruthy();
-    expect(getByText("$90,000 - $120,000")).toBeTruthy();
-    expect(getByText("3+ years")).toBeTruthy();
-    expect(getByText("Python")).toBeTruthy();
-    expect(getByText("FastAPI")).toBeTruthy();
-    expect(getByText("2d ago")).toBeTruthy();
+    expect(getByLabelText("my_job.meta_location: Berlin, Germany")).toBeTruthy();
+    expect(getByLabelText("my_job.meta_work_mode: my_job.work_remote")).toBeTruthy();
+    expect(getByLabelText("my_job.meta_salary: $90,000 - $120,000")).toBeTruthy();
+    expect(getByLabelText("my_job.meta_experience: 3+ years")).toBeTruthy();
+    expect(getByLabelText("my_job.meta_skills: Python, FastAPI")).toBeTruthy();
+    expect(getByLabelText("my_job.meta_posted: 2d ago")).toBeTruthy();
   });
 
   it("keeps fit reasons folded until the user expands them", async () => {
@@ -137,5 +136,31 @@ describe("JobMatchCard", () => {
 
     expect(onSavedChange).toHaveBeenCalledWith(true);
     expect(onStatus).not.toHaveBeenCalled();
+  });
+
+  it("keeps later pipeline stages visibly applied and prevents accidental regression", async () => {
+    const onStatus = jest.fn();
+    const { getByRole } = await render(
+      <JobMatchCard
+        match={{ ...baseMatch, status: "offer" }}
+        onStatus={onStatus}
+        onSavedChange={jest.fn()}
+      />,
+    );
+    const applied = getByRole("button", { name: "my_job.applied" });
+
+    expect(applied.props.accessibilityState).toEqual({ selected: true, disabled: true });
+    await fireEvent.press(applied);
+    expect(onStatus).not.toHaveBeenCalled();
+  });
+
+  it("keeps the external job action compact instead of stretching across the card", async () => {
+    const { getByRole } = await render(
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
+    );
+
+    expect(getByRole("button", { name: "my_job.view_job" })).not.toHaveStyle({
+      flexGrow: 1,
+    });
   });
 });
