@@ -5,7 +5,6 @@ export type JobSearchWorkMode = "remote" | "hybrid" | "onsite";
 export type JobSearchExperience = "internship" | "entry" | "mid" | "senior";
 export type JobMatchStatus =
   | "new"
-  | "saved"
   | "applied"
   | "interviewing"
   | "offer"
@@ -54,6 +53,7 @@ export type JobMatch = {
   gap: string | null;
   found_at: string;
   status: JobMatchStatus;
+  is_saved: boolean;
   notes: string | null;
 };
 
@@ -94,6 +94,11 @@ export const jobSearchApi = {
     request<JobSearchDashboard>(`/job-search/matches/${id}`, token, {
       method: "PATCH",
       body: JSON.stringify(notes === undefined ? { status } : { status, notes }),
+    }),
+  setJobMatchSaved: (token: string, id: string, isSaved: boolean) =>
+    request<JobSearchDashboard>(`/job-search/matches/${id}`, token, {
+      method: "PATCH",
+      body: JSON.stringify({ is_saved: isSaved }),
     }),
   generateCoverLetter: (token: string, id: string) =>
     request<{ cover_letter: string }>(`/job-search/matches/${id}/cover-letter`, token, {

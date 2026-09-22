@@ -23,6 +23,7 @@ from app.models.orm import JobMatch, JobSearchProfile, User
 from app.models.schemas.job_search import (
     CoverLetterOut,
     JobMatchOut,
+    JobMatchStage,
     JobMatchStatus,
     JobSearchDashboardOut,
     JobSearchExperience,
@@ -344,7 +345,8 @@ def match_out(
         match_reasons=match_reasons,
         gap=gap,
         found_at=match.found_at,
-        status=cast(JobMatchStatus, match.status),
+        status=cast(JobMatchStage, match.status),
+        is_saved=bool(getattr(match, "is_saved", False)),
         notes=match.notes,
     )
 
@@ -479,8 +481,10 @@ async def set_match_status(
     user: User,
     settings: Settings,
     match_id: UUID,
-    status: JobMatchStatus,
+    status: JobMatchStatus | None,
     notes: str | None = None,
+    *,
+    is_saved: bool | None = None,
 ) -> JobSearchDashboardOut:
     match = await session.scalar(
         select(JobMatch)
@@ -492,7 +496,13 @@ async def set_match_status(
     )
     if match is None:
         raise JobSearchError("Job match not found", status_code=404)
-    match.status = status
+    if status == "saved":
+        # Legacy/chat command: bookmark without changing the application stage.
+        match.is_saved = True
+    elif status is not None:
+        match.status = status
+    if is_saved is not None:
+        match.is_saved = is_saved
     if notes is not None:
         match.notes = notes
     await session.commit()

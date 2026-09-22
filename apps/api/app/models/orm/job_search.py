@@ -117,7 +117,7 @@ class JobMatch(Base):
             name="ck_job_matches_work_mode",
         ),
         CheckConstraint(
-            "status IN ('new', 'saved', 'applied', 'interviewing', 'offer', 'rejected', 'hidden')",
+            "status IN ('new', 'applied', 'interviewing', 'offer', 'rejected', 'hidden')",
             name="ck_job_matches_status",
         ),
     )
@@ -145,6 +145,8 @@ class JobMatch(Base):
     match_reasons: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     gap: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="new")
+    # Bookmarking is independent from the application pipeline stage.
+    is_saved: Mapped[bool] = mapped_column(nullable=False, default=False)
     # User's own application notes (contacts, follow-ups, interview prep).
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     found_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

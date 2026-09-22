@@ -33,6 +33,7 @@ jest.mock("@/hooks/useJobSearch", () => ({
     refresh: mockRefresh,
     setSearchStatus: jest.fn(),
     setMatchStatus: jest.fn(),
+    setMatchSaved: jest.fn(),
     runNow: mockRunNow,
     remove: jest.fn(),
   }),
@@ -120,7 +121,7 @@ function profile(): JobSearchProfile {
   };
 }
 
-function match(id: string, status: JobMatch["status"]): JobMatch {
+function match(id: string, status: JobMatch["status"], isSaved = false): JobMatch {
   return {
     id,
     title: `Job ${id}`,
@@ -140,6 +141,7 @@ function match(id: string, status: JobMatch["status"]): JobMatch {
     gap: null,
     found_at: "2026-09-18T00:00:00.000Z",
     status,
+    is_saved: isSaved,
     notes: null,
   };
 }
@@ -244,6 +246,25 @@ test("shows application pipeline lists and filters each stage", async () => {
   );
   expect(screen.getByText("Job applied")).toBeTruthy();
   expect(screen.getByText("my_job.tab_applied")).toBeTruthy();
+});
+
+test("keeps a bookmarked applied job in Saved and Applied", async () => {
+  mockLoading = false;
+  mockDashboard = {
+    profile: profile(),
+    matches: [match("applied-saved", "applied", true)],
+  };
+  const screen = await render(<MyJobScreen />);
+
+  expect(screen.queryByText("Job applied-saved")).toBeNull();
+  await fireEvent.press(screen.getByRole("tab", { name: /my_job\.tab_saved/ }));
+  expect(screen.getByText("Job applied-saved")).toBeTruthy();
+
+  await fireEvent.press(
+    screen.getByRole("button", { name: "my_job.pipeline: my_job.tab_all_stages" }),
+  );
+  await fireEvent.press(screen.getByRole("radio", { name: "my_job.tab_applied" }));
+  expect(screen.getByText("Job applied-saved")).toBeTruthy();
 });
 
 test("shows a retry action when the last search failed", async () => {

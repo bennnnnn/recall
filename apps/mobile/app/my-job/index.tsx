@@ -100,6 +100,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     refresh,
     setSearchStatus,
     setMatchStatus,
+    setMatchSaved,
     runNow,
     remove,
   } = useJobSearch(isCurrent);
@@ -123,8 +124,12 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const counts = useMemo(
     () => ({
       all: dashboard.matches.filter((item) => item.status !== "hidden").length,
-      matches: dashboard.matches.filter((item) => item.status === "new").length,
-      saved: dashboard.matches.filter((item) => item.status === "saved").length,
+      matches: dashboard.matches.filter(
+        (item) => item.status === "new" && !item.is_saved,
+      ).length,
+      saved: dashboard.matches.filter(
+        (item) => item.is_saved && item.status !== "hidden",
+      ).length,
       applied: dashboard.matches.filter((item) => item.status === "applied")
         .length,
       interviewing: dashboard.matches.filter(
@@ -434,6 +439,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
           <JobMatchCard
             match={item}
             onStatus={(status) => void setMatchStatus(item.id, status)}
+            onSavedChange={(saved) => void setMatchSaved(item.id, saved)}
             onPress={() => router.push(`/my-job/match/${item.id}`)}
           />
         )}

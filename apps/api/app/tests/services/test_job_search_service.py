@@ -24,11 +24,59 @@ def test_match_status_update_accepts_stages_and_notes() -> None:
     assert body.notes == "Call Friday"
     assert JobMatchStatusUpdate(status="offer").notes is None
     assert JobMatchStatusUpdate(status="rejected", notes="   ").notes is None
+    assert JobMatchStatusUpdate(is_saved=True).is_saved is True
+
+
+def test_match_status_update_requires_stage_or_bookmark() -> None:
+    with pytest.raises(ValidationError):
+        JobMatchStatusUpdate()
 
 
 def test_match_status_update_rejects_unknown_status() -> None:
     with pytest.raises(ValidationError):
         JobMatchStatusUpdate(status="ghosted")  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_bookmarking_preserves_applied_stage() -> None:
+    match = MagicMock(status="applied", is_saved=False)
+    session = AsyncMock()
+    session.scalar.return_value = match
+    dashboard = MagicMock()
+
+    with patch.object(job_search_service, "get_dashboard", AsyncMock(return_value=dashboard)):
+        output = await job_search_service.set_match_status(
+            session,
+            MagicMock(id=uuid4()),
+            MagicMock(),
+            uuid4(),
+            None,
+            is_saved=True,
+        )
+
+    assert match.status == "applied"
+    assert match.is_saved is True
+    session.commit.assert_awaited_once()
+    assert output is dashboard
+
+
+@pytest.mark.asyncio
+async def test_legacy_saved_command_bookmarks_without_replacing_stage() -> None:
+    match = MagicMock(status="interviewing", is_saved=False)
+    session = AsyncMock()
+    session.scalar.return_value = match
+
+    with patch.object(job_search_service, "get_dashboard", AsyncMock(return_value=MagicMock())):
+        await job_search_service.set_match_status(
+            session,
+            MagicMock(id=uuid4()),
+            MagicMock(),
+            uuid4(),
+            "saved",
+        )
+
+    assert match.status == "interviewing"
+    assert match.is_saved is True
 
 
 def test_preference_patch_adds_and_removes_without_replacing_profile() -> None:
@@ -328,7 +376,8 @@ def test_match_out_drops_stale_preference_reasons_after_profile_change() -> None
         ],
         gap=None,
         found_at=datetime.now(UTC),
-        status="saved",
+        status="new",
+        is_saved=True,
         notes=None,
     )
     current_profile = SimpleNamespace(

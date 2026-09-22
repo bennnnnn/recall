@@ -10,6 +10,16 @@ JobSearchFrequency = Literal["daily", "weekdays", "weekly", "monthly"]
 JobSearchStatus = Literal["active", "paused"]
 JobSearchWorkMode = Literal["remote", "hybrid", "onsite"]
 JobSearchExperience = Literal["internship", "entry", "mid", "senior"]
+JobMatchStage = Literal[
+    "new",
+    "applied",
+    "interviewing",
+    "offer",
+    "rejected",
+    "hidden",
+]
+# ``saved`` remains an accepted command for backwards-compatible chat actions.
+# Stored/output status is always a JobMatchStage; bookmark state lives in is_saved.
 JobMatchStatus = Literal[
     "new",
     "saved",
@@ -334,7 +344,8 @@ class JobMatchOut(BaseModel):
     match_reasons: list[str] = Field(default_factory=list)
     gap: str | None = None
     found_at: datetime
-    status: JobMatchStatus = "new"
+    status: JobMatchStage = "new"
+    is_saved: bool = False
     notes: str | None = None
 
 
@@ -362,8 +373,15 @@ class CoverLetterOut(BaseModel):
 class JobMatchStatusUpdate(BaseModel):
     model_config = ConfigDict(title="JobMatchStatusUpdate")
 
-    status: JobMatchStatus
+    status: JobMatchStatus | None = None
+    is_saved: bool | None = None
     notes: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def require_status_or_bookmark(self) -> "JobMatchStatusUpdate":
+        if self.status is None and self.is_saved is None:
+            raise ValueError("status or is_saved is required")
+        return self
 
     @field_validator("notes")
     @classmethod

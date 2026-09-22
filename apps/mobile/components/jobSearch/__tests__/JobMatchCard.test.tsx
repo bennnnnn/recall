@@ -32,12 +32,15 @@ const baseMatch: JobMatch = {
   gap: null,
   found_at: "2026-09-18T00:00:00Z",
   status: "new",
+  is_saved: false,
   notes: null,
 };
 
 describe("JobMatchCard", () => {
   it("shows the fit score and all high-signal posting facts as chips", async () => {
-    const { getByText } = await render(<JobMatchCard match={baseMatch} onStatus={jest.fn()} />);
+    const { getByText } = await render(
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
+    );
     expect(getByText("87%")).toBeTruthy();
     expect(getByText("Berlin, Germany")).toBeTruthy();
     expect(getByText("my_job.work_remote")).toBeTruthy();
@@ -50,7 +53,7 @@ describe("JobMatchCard", () => {
 
   it("keeps fit reasons folded until the user expands them", async () => {
     const { getByLabelText, getByText, queryByText } = await render(
-      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
     );
     expect(queryByText("Python matches your skills")).toBeNull();
     await fireEvent.press(getByLabelText("my_job.why_matches"));
@@ -60,7 +63,7 @@ describe("JobMatchCard", () => {
 
   it("shows the hiring-company logo and has no dismiss control", async () => {
     const { getByTestId, queryByLabelText } = await render(
-      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
     );
     expect(getByTestId("company-logo-image").props.source).toEqual({
       uri: "https://cdn.acme.com/logo.png",
@@ -70,7 +73,7 @@ describe("JobMatchCard", () => {
 
   it("does not render the summary body paragraph", async () => {
     const { queryByText } = await render(
-      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
     );
     expect(queryByText("Build production APIs.")).toBeNull();
   });
@@ -80,6 +83,7 @@ describe("JobMatchCard", () => {
       <JobMatchCard
         match={{ ...baseMatch, company_logo_url: null, match_score: null }}
         onStatus={jest.fn()}
+        onSavedChange={jest.fn()}
       />,
     );
     expect(getByText("A")).toBeTruthy();
@@ -91,6 +95,7 @@ describe("JobMatchCard", () => {
       <JobMatchCard
         match={{ ...baseMatch, salary: null, experience: null, location: null }}
         onStatus={jest.fn()}
+        onSavedChange={jest.fn()}
       />,
     );
     expect(queryByText("Berlin, Germany")).toBeNull();
@@ -100,10 +105,37 @@ describe("JobMatchCard", () => {
 
   it("shows a stage badge for interviewing/offer/rejected only", async () => {
     const { getByText, rerender, queryByText } = await render(
-      <JobMatchCard match={{ ...baseMatch, status: "interviewing" }} onStatus={jest.fn()} />,
+      <JobMatchCard
+        match={{ ...baseMatch, status: "interviewing" }}
+        onStatus={jest.fn()}
+        onSavedChange={jest.fn()}
+      />,
     );
     expect(getByText("my_job.stage_interviewing")).toBeTruthy();
-    await rerender(<JobMatchCard match={{ ...baseMatch, status: "new" }} onStatus={jest.fn()} />);
+    await rerender(
+      <JobMatchCard
+        match={{ ...baseMatch, status: "new" }}
+        onStatus={jest.fn()}
+        onSavedChange={jest.fn()}
+      />,
+    );
     expect(queryByText("my_job.stage_interviewing")).toBeNull();
+  });
+
+  it("bookmarks an applied job without changing its application stage", async () => {
+    const onStatus = jest.fn();
+    const onSavedChange = jest.fn();
+    const { getByText } = await render(
+      <JobMatchCard
+        match={{ ...baseMatch, status: "applied", is_saved: false }}
+        onStatus={onStatus}
+        onSavedChange={onSavedChange}
+      />,
+    );
+
+    await fireEvent.press(getByText("my_job.save"));
+
+    expect(onSavedChange).toHaveBeenCalledWith(true);
+    expect(onStatus).not.toHaveBeenCalled();
   });
 });

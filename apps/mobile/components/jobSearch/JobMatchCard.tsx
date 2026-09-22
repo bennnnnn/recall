@@ -59,10 +59,12 @@ function Action({
 export function JobMatchCard({
   match,
   onStatus,
+  onSavedChange,
   onPress,
 }: {
   match: JobMatch;
   onStatus: (status: JobMatchStatus) => void;
+  onSavedChange: (saved: boolean) => void;
   onPress?: () => void;
 }) {
   const C = useTheme();
@@ -117,10 +119,10 @@ export function JobMatchCard({
       <View style={s.actions}>
         <Action icon="open-outline" label={t("my_job.view_job")} primary onPress={() => void openJob()} />
         <Action
-          icon={match.status === "saved" ? "bookmark" : "bookmark-outline"}
-          label={match.status === "saved" ? t("my_job.saved") : t("my_job.save")}
-          active={match.status === "saved"}
-          onPress={() => onStatus(match.status === "saved" ? "new" : "saved")}
+          icon={match.is_saved ? "bookmark" : "bookmark-outline"}
+          label={match.is_saved ? t("my_job.saved") : t("my_job.save")}
+          active={match.is_saved}
+          onPress={() => onSavedChange(!match.is_saved)}
         />
         <Action
           icon="checkmark-circle-outline"

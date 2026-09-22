@@ -45,10 +45,10 @@ it("updates search and match states", async () => {
     body: JSON.stringify({ status: "paused" }),
   });
 
-  await jobSearchApi.setJobMatchStatus("token", "match-1", "saved");
+  await jobSearchApi.setJobMatchSaved("token", "match-1", true);
   expect(request).toHaveBeenCalledWith("/job-search/matches/match-1", "token", {
     method: "PATCH",
-    body: JSON.stringify({ status: "saved" }),
+    body: JSON.stringify({ is_saved: true }),
   });
 });
 

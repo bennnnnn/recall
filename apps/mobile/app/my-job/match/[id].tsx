@@ -34,7 +34,6 @@ import { Type } from "@/lib/type";
 
 const STAGES: JobMatchStatus[] = [
   "new",
-  "saved",
   "applied",
   "interviewing",
   "offer",
@@ -73,6 +72,7 @@ function JobMatchDetailView({
     loadError,
     load,
     updateStatus,
+    updateSaved,
     notesDraft,
     setNotesDraft,
     saveNotes,
@@ -87,7 +87,6 @@ function JobMatchDetailView({
   } = useJobMatchDetail(id, isCurrent);
 
   const stageLabel = (status: JobMatchStatus): string => {
-    if (status === "saved") return t("my_job.saved");
     if (status === "applied") return t("my_job.applied");
     if (status === "hidden") return t("my_job.not_interested");
     return t(`my_job.stage_${status}`);
@@ -168,25 +167,25 @@ function JobMatchDetailView({
             <Pressable
               style={({ pressed }) => [
                 s.action,
-                match.status === "saved" && s.actionActive,
+                match.is_saved && s.actionActive,
                 pressed && s.pressed,
               ]}
               onPress={() => {
                 selection();
-                void updateStatus(match.status === "saved" ? "new" : "saved");
+                void updateSaved(!match.is_saved);
               }}
               accessibilityRole="button"
-              accessibilityState={{ selected: match.status === "saved" }}
+              accessibilityState={{ selected: match.is_saved }}
             >
               <Icon
-                name={match.status === "saved" ? "bookmark" : "bookmark-outline"}
+                name={match.is_saved ? "bookmark" : "bookmark-outline"}
                 size={18}
-                color={match.status === "saved" ? C.primary : C.textSecondary}
+                color={match.is_saved ? C.primary : C.textSecondary}
               />
               <Text
-                style={[s.actionText, match.status === "saved" && s.actionTextActive]}
+                style={[s.actionText, match.is_saved && s.actionTextActive]}
               >
-                {match.status === "saved" ? t("my_job.saved") : t("my_job.save")}
+                {match.is_saved ? t("my_job.saved") : t("my_job.save")}
               </Text>
             </Pressable>
             <Pressable

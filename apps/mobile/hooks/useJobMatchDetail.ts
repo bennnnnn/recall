@@ -124,6 +124,34 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
     [accountId, isActive, router, setCurrentMatch, t],
   );
 
+  const updateSaved = useCallback(
+    async (isSaved: boolean) => {
+      const currentToken = tokenRef.current;
+      const previous = matchRef.current;
+      if (!currentToken || !previous || !isActive()) return false;
+      const request = ++mutationRequestRef.current;
+      const next: JobMatch = { ...previous, is_saved: isSaved };
+      setCurrentMatch(next);
+      if (accountId) cacheJobMatch(accountId, next);
+      try {
+        const dashboard = await api.setJobMatchSaved(currentToken, previous.id, isSaved);
+        if (!isActive() || request !== mutationRequestRef.current) return false;
+        if (accountId) cacheJobMatches(accountId, dashboard.matches);
+        const confirmed =
+          dashboard.matches.find((item) => item.id === previous.id) ?? next;
+        setCurrentMatch(confirmed);
+        return true;
+      } catch {
+        if (!isActive() || request !== mutationRequestRef.current) return false;
+        setCurrentMatch(previous);
+        if (accountId) cacheJobMatch(accountId, previous);
+        Alert.alert(t("my_job.refresh_error"));
+        return false;
+      }
+    },
+    [accountId, isActive, setCurrentMatch, t],
+  );
+
   const saveNotes = useCallback(() => {
     const current = matchRef.current;
     if (!current || !isActive()) return;
@@ -182,6 +210,7 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
     loadError,
     load,
     updateStatus,
+    updateSaved,
     notesDraft,
     setNotesDraft,
     saveNotes,

@@ -9,6 +9,7 @@ let mockPlan: "free" | "pro" = "free";
 const mockBack = jest.fn();
 const mockGetJobSearch = jest.fn();
 const mockSetJobMatchStatus = jest.fn(async () => ({ profile: null, matches: [] }));
+const mockSetJobMatchSaved = jest.fn(async () => ({ profile: null, matches: [] }));
 const mockGenerateCoverLetter = jest.fn(async () => ({ cover_letter: "Dear team, ..." }));
 
 jest.mock("expo-router", () => ({
@@ -38,6 +39,7 @@ jest.mock("@/lib/api", () => ({
   api: {
     getJobSearch: (...args: unknown[]) => mockGetJobSearch(...args),
     setJobMatchStatus: (...args: unknown[]) => mockSetJobMatchStatus(...args),
+    setJobMatchSaved: (...args: unknown[]) => mockSetJobMatchSaved(...args),
     generateCoverLetter: (...args: unknown[]) => mockGenerateCoverLetter(...args),
   },
 }));
@@ -61,6 +63,7 @@ function match(overrides: Partial<JobMatch> = {}): JobMatch {
     url: "https://jobs.example.com/1",
     source: "jobs.example.com",
     status: "new",
+    is_saved: false,
     notes: null,
     found_at: "2026-09-18T00:00:00Z",
     ...overrides,

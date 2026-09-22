@@ -20,6 +20,7 @@ function match(id: string, overrides: Partial<JobMatch> = {}): JobMatch {
     url: `https://jobs.example.com/${id}`,
     source: "jobs.example.com",
     status: "new",
+    is_saved: false,
     notes: null,
     found_at: "2026-09-01T00:00:00Z",
     ...overrides,
@@ -29,7 +30,7 @@ function match(id: string, overrides: Partial<JobMatch> = {}): JobMatch {
 const matches = [
   match("a", { match_score: 50, found_at: "2026-09-03T00:00:00Z" }),
   match("b", { match_score: 90, found_at: "2026-09-01T00:00:00Z" }),
-  match("c", { status: "saved", found_at: "2026-09-05T00:00:00Z" }),
+  match("c", { is_saved: true, found_at: "2026-09-05T00:00:00Z" }),
   match("d", { status: "hidden", match_score: 99 }),
   match("e", {
     status: "applied",
