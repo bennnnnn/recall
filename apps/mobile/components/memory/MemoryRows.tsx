@@ -11,10 +11,9 @@ import { useTheme, type Theme } from "@/lib/theme";
 
 /** Flattened row model for the Memory screen's sectioned FlashList. */
 export type MemoryRow =
-  | { kind: "section"; type: string }
+  | { kind: "section"; type: string; first: boolean }
   | {
       kind: "fact";
-      sectionType: string;
       fact: Memory;
       pending: boolean;
       first: boolean;
@@ -31,20 +30,20 @@ function memoryTypeLabel(type: string, t: (key: string) => string): string {
   return label === key ? type : label;
 }
 
-/** Sticky section header. Memory deletion belongs in Settings, not this view. */
-export function MemorySectionHeader({ type }: { type: string }) {
+/** A titled division inside the single unified memory card. */
+export function MemorySectionHeader({ type, first }: { type: string; first: boolean }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { t } = useTranslation();
 
   return (
-    <View style={s.groupHeader}>
+    <View style={[s.groupHeader, first ? s.groupHeaderFirst : s.groupHeaderNext]}>
       <Text style={s.groupTitle}>{memoryTypeLabel(type, t)}</Text>
     </View>
   );
 }
 
-/** One fact inside its section's card run (first/last carry the rounding). */
+/** One editable fact inside the unified memory card. */
 export function MemoryFactRow({
   fact,
   pending,
@@ -80,7 +79,7 @@ export function MemoryFactRow({
     <View
       style={[
         s.factRow,
-        first ? s.factRowFirst : null,
+        first ? null : s.factRowDivider,
         last ? s.factRowLast : null,
         editing ? s.factRowEditing : null,
       ]}
@@ -153,12 +152,18 @@ function makeStyles(theme: Theme) {
     groupHeader: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: Space.xs,
-      gap: Space.xs,
-      paddingTop: Space.sm,
-      // Sticky headers scroll over fact rows — must be opaque.
-      backgroundColor: theme.bg,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.md,
+      paddingBottom: Space.xs,
+      backgroundColor: theme.surfaceAlt,
+    },
+    groupHeaderFirst: {
+      borderTopLeftRadius: Radius.lg,
+      borderTopRightRadius: Radius.lg,
+    },
+    groupHeaderNext: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.border,
     },
     groupTitle: {
       ...Type.caption,
@@ -175,10 +180,9 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: Space.md,
       paddingVertical: 5,
     },
-    factRowFirst: {
-      borderTopLeftRadius: Radius.lg,
-      borderTopRightRadius: Radius.lg,
-      paddingTop: Space.md,
+    factRowDivider: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.border,
     },
     factRowLast: {
       borderBottomLeftRadius: Radius.lg,

@@ -103,28 +103,23 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   const rows = useMemo<MemoryRow[]>(() => {
     const out: MemoryRow[] = [];
-    for (const section of sections) {
+    sections.forEach((section, sectionIndex) => {
       const pending = pendingTypes.has(section.type);
-      out.push({ kind: "section", type: section.type });
+      out.push({ kind: "section", type: section.type, first: sectionIndex === 0 });
       section.facts.forEach((fact, index) =>
         out.push({
           kind: "fact",
-          sectionType: section.type,
           fact,
           pending,
           first: index === 0,
-          last: index === section.facts.length - 1,
+          last:
+            sectionIndex === sections.length - 1 &&
+            index === section.facts.length - 1,
         }),
       );
-    }
+    });
     return out;
   }, [sections, pendingTypes]);
-
-  const stickyHeaderIndices = useMemo(
-    () =>
-      rows.flatMap((row, index) => (row.kind === "section" ? [index] : [])),
-    [rows],
-  );
 
   const handleEditFact = useCallback(
     (fact: Memory) => {
@@ -177,7 +172,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         data={rows}
         keyExtractor={memoryRowKey}
         getItemType={(row) => row.kind}
-        stickyHeaderIndices={stickyHeaderIndices}
         style={s.root}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
         refreshControl={
@@ -210,7 +204,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }
         renderItem={({ item }) =>
           item.kind === "section" ? (
-            <MemorySectionHeader type={item.type} />
+            <MemorySectionHeader type={item.type} first={item.first} />
           ) : (
             <MemoryFactRow
               fact={item.fact}
