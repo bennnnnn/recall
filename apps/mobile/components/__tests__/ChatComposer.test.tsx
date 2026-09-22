@@ -224,7 +224,7 @@ describe("ChatComposer math keyboard", () => {
     });
   });
 
-  it("keeps an empty Return in the single-line placeholder state", async () => {
+  it("preserves a leading Return while keeping whitespace-only layout compact", async () => {
     function Harness() {
       const [input, setInput] = useState("");
       return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
@@ -241,10 +241,25 @@ describe("ChatComposer math keyboard", () => {
       nativeEvent: { contentSize: { width: 240, height: 50 } },
     });
 
-    expect(getByTestId("chat-composer-input").props.value).toBe("");
+    expect(getByTestId("chat-composer-input").props.value).toBe("\n");
     expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
     expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 25 });
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+  });
+
+  it("preserves leading indentation while typing a code block", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+
+    const { getByTestId } = await render(<Harness />);
+    const composerInput = getByTestId("chat-composer-input");
+
+    await fireEvent.changeText(composerInput, " ");
+    expect(getByTestId("chat-composer-input").props.value).toBe(" ");
+    await fireEvent.changeText(getByTestId("chat-composer-input"), "  const answer = 42;");
+    expect(getByTestId("chat-composer-input").props.value).toBe("  const answer = 42;");
   });
 
   it("bottom-aligns controls only after visible multiline text is entered", async () => {

@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import { HomeStarters } from "@/components/HomeStarters";
 import { retireHomeGuidance } from "@/lib/homeGuidancePrefs";
@@ -53,7 +53,7 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-it("hides all empty-home content as soon as typing starts", async () => {
+it("retires starter guidance as soon as typing starts", async () => {
   const view = await render(<HomeStarters onSelect={jest.fn()} />);
   expect(await view.findByText("Good morning")).toBeTruthy();
 
@@ -61,6 +61,14 @@ it("hides all empty-home content as soon as typing starts", async () => {
   await view.rerender(<HomeStarters onSelect={jest.fn()} />);
 
   expect(view.queryByText("Good morning")).toBeNull();
+  expect(view.queryByLabelText("Help me think")).toBeNull();
+  await waitFor(() => {
+    expect(retireHomeGuidance).toHaveBeenCalledWith("user-1");
+  });
+
+  mockComposerActive = false;
+  await view.rerender(<HomeStarters onSelect={jest.fn()} />);
+
   expect(view.queryByLabelText("Help me think")).toBeNull();
 });
 

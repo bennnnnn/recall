@@ -4,6 +4,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit, mock_search_results, search_web
+from app.models.schemas import WebSearchClassification
 from app.services.web_search import (
     augment_prompt_messages,
     build_search_queries,
@@ -15,6 +16,7 @@ from app.services.web_search import (
     needs_web_search,
     resolve_search_subject,
     should_web_search,
+    web_search_skip,
 )
 
 
@@ -1026,6 +1028,25 @@ async def test_should_web_search_skips_classifier_for_plain_personal_disclosure(
             is False
         )
     classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "We need a hotel in Paris",
+        "Our team needs current API pricing",
+    ],
+)
+async def test_collective_implicit_request_reaches_web_search_classifier(query):
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    assert web_search_skip(query) is False
+    with patch(
+        "app.services.web_search.detection.classify_web_search",
+        AsyncMock(return_value=WebSearchClassification(needs_search=True, query=query)),
+    ) as classify:
+        assert await should_web_search(query, settings) is True
+    classify.assert_awaited_once()
 
 
 @pytest.mark.asyncio

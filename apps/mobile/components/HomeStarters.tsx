@@ -123,6 +123,12 @@ export function HomeStarters({ onSelect }: Props) {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!composerActive || guidanceRetired !== false) return;
+    setGuidanceRetired(true);
+    if (user?.id) void retireHomeGuidance(user.id);
+  }, [composerActive, guidanceRetired, user?.id]);
+
   const overdueTodo = useMemo(() => {
     // Wait until todos + nudge-state are in sync. Silent refreshes used to paint
     // red urgent cards for a frame before persisted dismissals caught up.

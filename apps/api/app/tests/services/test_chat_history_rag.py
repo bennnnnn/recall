@@ -271,6 +271,21 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
     assert blocks.history_rag_query_vec == [0.2]
 
 
+def test_slim_memory_cap_keeps_complete_fact_boundaries():
+    from app.services.chat.prompt_builder import _cap_slim_memory_block
+
+    first_fact = "x" * 600
+    second_fact = "y" * 600
+    block = f"Known facts about the user:\n\n## Preferences\n- {first_fact}\n- {second_fact}"
+
+    capped = _cap_slim_memory_block(block)
+
+    assert len(capped) <= 1000
+    assert f"- {first_fact}" in capped
+    assert "y" not in capped
+    assert not capped.endswith("…")
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("rich_context", [True, False], ids=["rich", "slim"])
 @pytest.mark.parametrize(

@@ -708,3 +708,25 @@ def test_personal_context_with_a_real_request_is_not_only_a_disclosure(query):
     from app.services.chat.prompt_constants import is_personal_disclosure_turn
 
     assert not is_personal_disclosure_turn(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "We need a hotel in Paris",
+        "Our team needs current API pricing",
+        "We are looking for a restaurant nearby",
+        "Our company wants the latest tax guidance",
+    ],
+)
+def test_collective_implicit_requests_are_not_personal_disclosures(query):
+    from app.services.chat.prompt_constants import is_personal_disclosure_turn
+
+    assert not is_personal_disclosure_turn(query)
+
+
+@pytest.mark.parametrize("query", ["We moved to Boston", "We work in healthcare"])
+def test_collective_personal_facts_remain_disclosures(query):
+    from app.services.chat.prompt_constants import is_personal_disclosure_turn
+
+    assert is_personal_disclosure_turn(query)

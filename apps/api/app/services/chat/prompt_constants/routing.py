@@ -378,8 +378,6 @@ _PERSONAL_DISCLOSURE_PREFIXES = (
     "i finished ",
     "i decided ",
     "my ",
-    "we ",
-    "our ",
     "remember that ",
     "remember this ",
     "please remember ",
@@ -425,6 +423,18 @@ _PERSONAL_REQUEST_MARKERS = (
     " who ",
     " latest ",
     " news ",
+    " need ",
+    " needs ",
+    " looking for ",
+)
+
+_COLLECTIVE_DISCLOSURE = re.compile(
+    r"^(?:"
+    r"we\s+(?:work|live|study|learn|prefer|like|love|dislike|use|moved|started|finished|decided)\b|"
+    r"we\s+are\s+(?:based|employed|living|working|studying|learning|moving)\b|"
+    r"we(?:'|\u2019)re\s+(?:based|employed|living|working|studying|learning|moving)\b"
+    r")",
+    re.IGNORECASE,
 )
 
 
@@ -433,7 +443,9 @@ def is_personal_disclosure_turn(text: str) -> bool:
     cleaned = collapse_ws(text).casefold()
     if not cleaned or "?" in cleaned:
         return False
-    if not cleaned.startswith(_PERSONAL_DISCLOSURE_PREFIXES):
+    if not cleaned.startswith(_PERSONAL_DISCLOSURE_PREFIXES) and not _COLLECTIVE_DISCLOSURE.match(
+        cleaned
+    ):
         return False
     request_text = re.sub(r"[^\w']+", " ", cleaned)
     padded = f" {request_text} "

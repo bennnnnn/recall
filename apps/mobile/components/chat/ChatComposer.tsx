@@ -388,12 +388,7 @@ export const ChatComposer = memo(function ChatComposer({
                     autoCorrect={false}
                     spellCheck={false}
                     autoCapitalize="none"
-                    onChangeText={(text) => {
-                      // A leading Return creates an invisible draft that hides
-                      // the placeholder and changes the composer height. Keep
-                      // whitespace-only drafts in the true empty state.
-                      math.onChangeText(text.trim() ? text : "");
-                    }}
+                    onChangeText={math.onChangeText}
                     onContentSizeChange={(event) => {
                       const measured = Math.ceil(event.nativeEvent.contentSize.height);
                       const hasVisibleDraft = Boolean(input.trim());

@@ -120,8 +120,38 @@ _BROAD_SELF_HISTORY_QUERY = (
 def _cap_slim_memory_block(block: str) -> str:
     if len(block) <= _SLIM_MEMORY_MAX_CHARS:
         return block
-    cut = max(1, _SLIM_MEMORY_MAX_CHARS - 1)
-    return f"{block[:cut].rstrip()}…"
+
+    lines = block.splitlines()
+    if not lines:
+        return ""
+
+    # Memory blocks are rendered as a title followed by section headings and
+    # bullet facts. Keep complete facts and skip any one fact that does not fit;
+    # slicing the string can turn a remembered detail into a different claim.
+    packed = [lines[0]]
+    current_heading: str | None = None
+    emitted_heading: str | None = None
+    for line in lines[1:]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("## "):
+            current_heading = stripped
+            continue
+        if not stripped.startswith("- "):
+            continue
+
+        addition: list[str] = []
+        if current_heading and current_heading != emitted_heading:
+            addition.extend(["", current_heading])
+        addition.append(stripped)
+        trial = "\n".join([*packed, *addition])
+        if len(trial) > _SLIM_MEMORY_MAX_CHARS:
+            continue
+        packed.extend(addition)
+        emitted_heading = current_heading
+
+    return "\n".join(packed) if len(packed) > 1 else ""
 
 
 def _strip_prompt_owned_fences(content: str) -> str:
