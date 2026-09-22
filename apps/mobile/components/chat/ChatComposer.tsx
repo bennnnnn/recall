@@ -151,8 +151,10 @@ export const ChatComposer = memo(function ChatComposer({
     onImageOnlyPaste: onOpenMathScanner ? () => setScanHint(true) : undefined,
   });
   const showMathPreview = math.showMathPreview;
+  const mathBarOpen = math.mathBarOpen;
+  const toggleMathBar = math.toggleMathBar;
   const showMathChip =
-    !math.mathBarOpen && (mathContext || textLooksLikeMath(input));
+    !mathBarOpen && (mathContext || textLooksLikeMath(input));
   const draftTokens = estimateTokens(input);
   const showTokenHint = shouldShowDraftTokenHint(draftTokens);
   const mathChromeHeight =
@@ -183,16 +185,17 @@ export const ChatComposer = memo(function ChatComposer({
   }, [input]);
 
   const onToggleMathBar = useCallback(() => {
-    const wasOpen = math.mathBarOpen;
-    math.toggleMathBar();
+    const wasOpen = mathBarOpen;
+    toggleMathBar();
     if (wasOpen) {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [math.mathBarOpen, math.toggleMathBar]);
+  }, [mathBarOpen, toggleMathBar]);
 
   if (!visible) return null;
 
   const hasSendableContent = Boolean(input.trim() || pendingAttachment);
+  const attachmentDisabled = attachBusy || attachPicking || sendBusy || streaming;
   const showLiveTalkSideChrome =
     Boolean(liveTalkChrome) && liveTalkShowsSideChrome(input);
   const parkInput = showMathPreview;
@@ -259,24 +262,29 @@ export const ChatComposer = memo(function ChatComposer({
             ) : null}
             <View style={s.inputRowMain}>
               <Pressable
-                style={s.attachBtn}
+                style={[s.attachBtn, attachmentDisabled && s.controlDisabled]}
                 onPress={() => {
                   liveTalkChrome?.onYield();
                   onPickAttachment();
                 }}
-                disabled={attachBusy || attachPicking || sendBusy || streaming}
+                disabled={attachmentDisabled}
                 hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.attach_a11y")}
                 accessibilityState={{
-                  disabled: attachBusy || attachPicking || sendBusy || streaming,
+                  disabled: attachmentDisabled,
                   busy: attachPicking,
                 }}
               >
                 {attachPicking ? (
                   <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
-                  <Icon name="attach-outline" size={IconSize.md} color={theme.primary} />
+                  <Icon
+                    name="add"
+                    size={IconSize.lg}
+                    color={theme.primary}
+                    testID="composer-attachment-add-icon"
+                  />
                 )}
               </Pressable>
               {voiceRecording || voiceTranscribing ? (
@@ -544,10 +552,15 @@ function makeStyles(theme: Theme) {
     attachBtn: {
       width: Space.minTouch,
       height: Space.minTouch,
+      borderRadius: Space.minTouch / 2,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 0,
     },
+    controlDisabled: { opacity: 0.55 },
     chip: {
       position: "absolute",
       left: 0,

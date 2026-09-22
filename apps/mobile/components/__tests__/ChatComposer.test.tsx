@@ -861,6 +861,7 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("live-talk-close")).toBeTruthy();
     expect(getByTestId("chat-composer-input")).toBeTruthy();
     expect(getByLabelText("chat.attach_a11y")).toBeTruthy();
+    expect(getByTestId("composer-attachment-add-icon").props.name).toBe("add");
   });
 
   it("hides mute and close while the user is typing in live talk", async () => {

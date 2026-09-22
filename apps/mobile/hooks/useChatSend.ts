@@ -638,10 +638,6 @@ export function useChatSend({
           setMathScannerOpen(true);
           return;
         }
-        if (source === "library") {
-          router.push({ pathname: "/gallery", params: { pick: "1", composerThread } });
-          return;
-        }
         const picked =
           source === "camera"
             ? await pickFromCamera()
@@ -673,7 +669,7 @@ export function useChatSend({
         setAttachPicking(false);
       }
     },
-    [attachBusy, composerThread, feedback, router, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
+    [attachBusy, feedback, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
   );
 
   const handleMathScanCaptured = useCallback((pending: PendingAttachment, subject: ScannerSubject) => {
