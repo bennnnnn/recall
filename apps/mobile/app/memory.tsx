@@ -191,7 +191,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         ListHeaderComponent={
           <View>
             <Text style={s.heading}>{t("memory.heading")}</Text>
-            <Text style={s.subheading}>{t("memory.section_hint")}</Text>
             {error ? (
               <StateView
                 variant="error"
@@ -236,13 +235,6 @@ function makeStyles(theme: Theme) {
     },
     root: { flex: 1, backgroundColor: theme.bg },
     content: { padding: Space.md },
-    heading: { ...Type.title, color: theme.text, marginBottom: Space.xs },
-    subheading: {
-      ...Type.label,
-      fontWeight: "400",
-      color: theme.textSecondary,
-      marginBottom: 20,
-      // No fixed lineHeight: let it scale with Dynamic Type.
-    },
+    heading: { ...Type.title, color: theme.text, marginBottom: 20 },
   });
 }

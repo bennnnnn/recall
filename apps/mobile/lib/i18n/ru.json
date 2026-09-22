@@ -426,7 +426,6 @@
   "memory.empty_title": "Пока нет воспоминаний",
   "memory.heading": "Что Recall знает о вас",
   "memory.section": "{{type}} ({{count}})",
-  "memory.section_hint": "Each row is one fact Recall can use in chat.",
   "memory.summarizing": "Суммируем вашу память…",
   "memory.title": "Память",
   "memory.type.fact": "📌 Facts",
