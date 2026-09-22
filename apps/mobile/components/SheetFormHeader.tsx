@@ -17,7 +17,7 @@ type Props = {
   cancelDisabled?: boolean;
 };
 
-/** Cancel / title / Save row for form AppSheets (rename, settings, reminder, due, memory). */
+/** Cancel / title / Save row for form AppSheets (rename, settings, reminder, due). */
 export function SheetFormHeader({
   title,
   onCancel,

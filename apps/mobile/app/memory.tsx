@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,8 +11,6 @@ import {
   memoryRowKey,
   type MemoryRow,
 } from "@/components/memory/MemoryRows";
-import { AppSheet } from "@/components/AppSheet";
-import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,7 +49,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     hasLoaded,
     deleteSection,
     deleteFact,
-    muteMemory,
     updateMemoryText,
     pendingTypes,
   } = useMemoryActions(token);
@@ -200,19 +190,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     [token, isCurrentView, t, deleteFact, feedback],
   );
 
-  const handleMuteFact = useCallback(
-    (fact: Memory) => {
-      if (!token || !isCurrentView() || pendingTypes.has(fact.type)) return;
-      void (async () => {
-        const ok = await muteMemory(fact.id, fact.status !== "muted");
-        if (isCurrentView() && !ok) {
-          reportRecoverableError(feedback, t("memory.mute_failed"));
-        }
-      })();
-    },
-    [token, isCurrentView, pendingTypes, muteMemory, feedback, t],
-  );
-
   const draftLength = useMemo(() => Array.from(stripMemoryAsOf(draftText)).length, [draftText]);
   const draftTooLong = draftLength > MEMORY_TEXT_MAX_LENGTH;
 
@@ -251,7 +228,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   }
 
   return (
-    <>
       <FlashList
         data={rows}
         keyExtractor={memoryRowKey}
@@ -300,50 +276,19 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
               pending={item.pending}
               first={item.first}
               last={item.last}
+              editing={editing?.id === item.fact.id}
+              draftText={editing?.id === item.fact.id ? draftText : ""}
+              draftTooLong={editing?.id === item.fact.id && draftTooLong}
+              saving={editing?.id === item.fact.id && savingEdit}
               onEditFact={handleEditFact}
+              onChangeDraft={setDraftText}
+              onSaveEdit={() => void saveEdit()}
+              onCancelEdit={closeEdit}
               onDeleteFact={handleDeleteFact}
-              onMuteFact={handleMuteFact}
             />
           )
         }
       />
-
-      <AppSheet
-        visible={editing != null}
-        onClose={closeEdit}
-        variant="bottom"
-        keyboardAvoiding
-        withHandle={false}
-        backdropDismiss={!savingEdit}
-        contentContainerStyle={s.editSheet}
-      >
-        <SheetFormHeader
-          title={t("memory.edit_title")}
-          onCancel={closeEdit}
-          onSave={() => void saveEdit()}
-          cancelLabel={t("common.cancel")}
-          saveLabel={t("common.save")}
-          saving={savingEdit}
-          saveDisabled={!stripMemoryAsOf(draftText) || Array.from(stripMemoryAsOf(draftText)).length > MEMORY_TEXT_MAX_LENGTH}
-        />
-        <View style={s.editBody}>
-          <Text style={s.editHint}>{t("memory.edit_hint")}</Text>
-          <TextInput
-            style={[s.editInput, draftTooLong && s.editInputError]}
-            accessibilityLabel={t("memory.edit_title")}
-            value={draftText}
-            onChangeText={setDraftText}
-            multiline
-            editable={!savingEdit}
-            autoFocus
-            textAlignVertical="top"
-          />
-          <Text style={[s.editCounter, draftTooLong && s.editCounterOver]}>
-            {t("memory.edit_count", { count: draftLength, max: MEMORY_TEXT_MAX_LENGTH })}
-          </Text>
-        </View>
-      </AppSheet>
-    </>
   );
 }
 
@@ -365,36 +310,5 @@ function makeStyles(theme: Theme) {
       marginBottom: 20,
       // No fixed lineHeight: let it scale with Dynamic Type.
     },
-    editSheet: {
-      paddingHorizontal: 0,
-      paddingTop: 0,
-    },
-    editBody: { padding: Space.md },
-    editHint: {
-      ...Type.label,
-      fontWeight: "400",
-      color: theme.textSecondary,
-      // No fixed lineHeight: let it scale with Dynamic Type.
-      marginBottom: Space.sm,
-    },
-    editInput: {
-      minHeight: 140,
-      maxHeight: 240,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: 12,
-      padding: Space.sm,
-      ...Type.secondary,
-      color: theme.text,
-      backgroundColor: theme.bg,
-    },
-    editInputError: { borderColor: theme.danger },
-    editCounter: {
-      ...Type.caption,
-      color: theme.textTertiary,
-      textAlign: "right",
-      marginTop: Space.xs,
-    },
-    editCounterOver: { color: theme.danger },
   });
 }

@@ -50,6 +50,8 @@ from app.services.chat.prompt_constants import (
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
     MERMAID_FORMAT_HINT,
+    NON_DRAFT_TURN_HINT,
+    PERSONAL_DISCLOSURE_HINT,
     PRIVACY_HINT,
     PROSE_WRITING_HINT,
     QUOTE_FORMAT_HINT,
@@ -73,6 +75,7 @@ from app.services.chat.prompt_constants import (
     is_howto_question,
     is_learning_progress_question,
     is_mermaid_question,
+    is_personal_disclosure_turn,
     is_quote_question,
     is_sequence_diagram_question,
     is_short_confirmation,
@@ -676,8 +679,23 @@ def _style_format_hints(
             CAPABILITIES_FORMAT_HINT,
             MATH_FENCE_SAFETY_HINT,
         ]
+    if query_text and is_personal_disclosure_turn(query_text):
+        # A first-person update is not an invitation to generate a guide. Keep
+        # the contract small and decisive so the general rich-format pack
+        # cannot turn "I work at Uber..." into an unsolicited career plan.
+        return [
+            CLARIFICATION_HINT,
+            PRIVACY_HINT,
+            NON_DRAFT_TURN_HINT,
+            PERSONAL_DISCLOSURE_HINT,
+            UNIVERSAL_FORMAT_BASELINE,
+            SHORT_RESPONSE_FORMAT_HINT,
+            MATH_FENCE_SAFETY_HINT,
+        ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     writing = _writing_format_hint(query_text)
+    if query_text and writing is None:
+        parts.append(NON_DRAFT_TURN_HINT)
     math_intent, viz_intent = _math_viz_intent(query_text)
     if query_text and is_short_confirmation(query_text):
         parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
@@ -998,6 +1016,12 @@ async def build_prompt_messages(
 
     if math_followup:
         system_parts.extend([MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT])
+
+    # Keep the acknowledgement contract closest to the user turn. Memory and
+    # integration context is appended after the style pack and can otherwise
+    # tempt the model into an unsolicited plan even though no task was asked.
+    if query_text and is_personal_disclosure_turn(query_text):
+        system_parts.append(PERSONAL_DISCLOSURE_HINT)
 
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
     for msg in recent:

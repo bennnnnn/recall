@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "@/components/IconButton";
 import type { Memory } from "@/lib/api";
+import { MEMORY_TEXT_MAX_LENGTH } from "@/lib/memoryFacts";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
@@ -72,64 +73,120 @@ export function MemoryFactRow({
   pending,
   first,
   last,
+  editing,
+  draftText,
+  draftTooLong,
+  saving,
   onEditFact,
+  onChangeDraft,
+  onSaveEdit,
+  onCancelEdit,
   onDeleteFact,
-  onMuteFact,
 }: {
   fact: Memory;
   pending: boolean;
   first: boolean;
   last: boolean;
+  editing: boolean;
+  draftText: string;
+  draftTooLong: boolean;
+  saving: boolean;
   onEditFact: (fact: Memory) => void;
+  onChangeDraft: (text: string) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
   onDeleteFact: (fact: Memory) => void;
-  onMuteFact: (fact: Memory) => void;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { t } = useTranslation();
 
-  const muted = fact.status === "muted";
   const confirmed = confirmedLabel(fact.last_confirmed_at ?? fact.updated_at);
   return (
-    <View style={[s.factRow, first ? s.factRowFirst : null, last ? s.factRowLast : null]}>
-      <Pressable
-        style={s.factMain}
-        onPress={() => onEditFact(fact)}
-        disabled={pending}
-        accessibilityRole="button"
-        accessibilityLabel={t("memory.edit_fact_a11y")}
-      >
-        <Text style={[s.factText, muted ? s.mutedText : null]}>{fact.text}</Text>
-        {confirmed ? (
-          <Text style={s.meta}>{t("memory.last_confirmed", { date: confirmed })}</Text>
-        ) : null}
-        {fact.source_chat_title ? (
-          <Text style={s.meta}>
-            {t("memory.source_chat", { title: fact.source_chat_title })}
-          </Text>
-        ) : null}
-        {muted ? <Text style={s.meta}>{t("memory.muted")}</Text> : null}
-      </Pressable>
-      <View style={s.factActions}>
-        <IconButton
-          name={muted ? "eye-off-outline" : "eye-outline"}
-          size={18}
-          color={theme.textTertiary}
-          onPress={() => onMuteFact(fact)}
-          disabled={pending}
-          accessibilityLabel={muted ? t("memory.unmute") : t("memory.mute")}
-          style={s.factAction}
-        />
-        <IconButton
-          name="close-circle-outline"
-          size={18}
-          color={theme.danger}
-          onPress={() => onDeleteFact(fact)}
-          disabled={pending}
-          accessibilityLabel={t("memory.delete_fact_a11y")}
-          style={s.factAction}
-        />
-      </View>
+    <View
+      style={[
+        s.factRow,
+        first ? s.factRowFirst : null,
+        last ? s.factRowLast : null,
+        editing ? s.factRowEditing : null,
+      ]}
+    >
+      {editing ? (
+        <View style={s.inlineEditor}>
+          <TextInput
+            style={[s.inlineInput, draftTooLong ? s.inlineInputError : null]}
+            accessibilityLabel={t("memory.edit_title")}
+            value={draftText}
+            onChangeText={onChangeDraft}
+            multiline
+            editable={!saving}
+            autoFocus
+            textAlignVertical="top"
+          />
+          <View style={s.inlineFooter}>
+            <Text style={[s.counter, draftTooLong ? s.counterOver : null]}>
+              {t("memory.edit_count", {
+                count: Array.from(draftText).length,
+                max: MEMORY_TEXT_MAX_LENGTH,
+              })}
+            </Text>
+            <View style={s.factActions}>
+              <IconButton
+                name="close"
+                size={20}
+                color={theme.textSecondary}
+                onPress={onCancelEdit}
+                disabled={saving}
+                accessibilityLabel={t("common.cancel")}
+                style={s.inlineAction}
+              />
+              <IconButton
+                name="checkmark"
+                size={20}
+                color={theme.accent}
+                onPress={onSaveEdit}
+                disabled={saving || !draftText.trim() || draftTooLong}
+                accessibilityLabel={t("common.save")}
+                style={s.inlineAction}
+              />
+            </View>
+          </View>
+        </View>
+      ) : (
+        <>
+          <View style={s.factMain}>
+            <Text style={s.factText}>{fact.text}</Text>
+            {confirmed ? (
+              <Text style={s.meta}>{t("memory.last_confirmed", { date: confirmed })}</Text>
+            ) : null}
+            {fact.source_chat_title ? (
+              <Text style={s.meta}>
+                {t("memory.source_chat", { title: fact.source_chat_title })}
+              </Text>
+            ) : null}
+          </View>
+          <View style={s.factActions}>
+            <IconButton
+              name="pencil-outline"
+              size={18}
+              color={theme.textSecondary}
+              onPress={() => onEditFact(fact)}
+              disabled={pending}
+              accessibilityLabel={t("memory.edit_fact_a11y")}
+              style={s.factAction}
+            />
+            <IconButton
+              name="trash-outline"
+              size={18}
+              color={theme.danger}
+              onPress={() => onDeleteFact(fact)}
+              disabled={pending}
+              accessibilityLabel={t("memory.delete_fact_a11y")}
+              style={s.factAction}
+            />
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -172,7 +229,33 @@ function makeStyles(theme: Theme) {
       paddingBottom: Space.md,
       marginBottom: 20,
     },
+    factRowEditing: {
+      paddingVertical: Space.sm,
+    },
     factMain: { flex: 1 },
+    inlineEditor: { flex: 1 },
+    inlineInput: {
+      minHeight: 76,
+      maxHeight: 180,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      borderRadius: Radius.md,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.sm,
+      ...Type.body,
+      color: theme.text,
+      backgroundColor: theme.bg,
+    },
+    inlineInputError: { borderColor: theme.danger },
+    inlineFooter: {
+      minHeight: 36,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 2,
+    },
+    counter: { ...Type.meta, color: theme.textTertiary },
+    counterOver: { color: theme.danger },
     factActions: {
       flexDirection: "row",
       alignItems: "center",
@@ -180,9 +263,9 @@ function makeStyles(theme: Theme) {
     // 44×44 IconButton boxes; negative vertical margin keeps the row height
     // driven by the fact text, not the touch targets.
     factAction: { marginVertical: -12 },
+    inlineAction: { marginVertical: -6 },
     headerAction: { marginVertical: -12, marginRight: -12 },
     factText: { flex: 1, ...Type.body, color: theme.text },
-    mutedText: { color: theme.textSecondary },
     meta: { ...Type.meta, color: theme.textTertiary, marginTop: 4 },
   });
 }

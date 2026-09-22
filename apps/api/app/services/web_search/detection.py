@@ -10,6 +10,7 @@ from app.services import calendar as calendar_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
     is_lightweight_chat_turn,
+    is_personal_disclosure_turn,
     is_short_confirmation,
     prior_looks_like_offer,
 )
@@ -57,6 +58,8 @@ def web_search_skip(
     if not confirming and is_lightweight_chat_turn(cleaned, prior_assistant=prior_assistant):
         return True
     if is_vocab_quiz_answer(cleaned):
+        return True
+    if is_personal_disclosure_turn(cleaned):
         return True
     if time_context_service.is_local_now_question(cleaned):
         return True
