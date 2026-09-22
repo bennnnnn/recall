@@ -614,6 +614,12 @@ _WEAK_MATCH_REASON = re.compile(
     r"\b(strong|good|great|excellent)\s+(overall\s+)?(match|fit)\b",
     re.IGNORECASE,
 )
+_PROFILE_DEPENDENT_REASON = re.compile(
+    r"\bmatches your (?:selected )?.{0,80}(?:preference|experience level)\b|"
+    r"^Your .{0,120}(?:matches skills the job asks for|meets the job's .+ requirement)\.?$|"
+    r"^The disclosed pay meets your .+ minimum\.?$",
+    re.IGNORECASE,
+)
 
 
 def _profile_skills(profile: _ProfileSnapshot) -> list[str]:
@@ -667,6 +673,7 @@ def _strategic_match_assessment(
         else:
             gap = f"The job asks for {experience}; your résumé shows {user_years:g} years."
     elif experience:
+        experience_key = experience.casefold().replace("-", " ")
         level_terms = {
             "internship": "internship",
             "entry": "entry level",
@@ -677,7 +684,7 @@ def _strategic_match_assessment(
             (
                 level
                 for level, phrase in level_terms.items()
-                if level in profile.experience_levels and phrase in experience.casefold()
+                if level in profile.experience_levels and phrase in experience_key
             ),
             None,
         )
@@ -713,7 +720,20 @@ def _strategic_match_assessment(
 
 
 def _specific_model_reasons(reasons: list[str]) -> list[str]:
-    return [reason for reason in reasons if not _WEAK_MATCH_REASON.search(reason)]
+    return [
+        reason
+        for reason in reasons
+        if not _WEAK_MATCH_REASON.search(reason) and not _PROFILE_DEPENDENT_REASON.search(reason)
+    ]
+
+
+def _profile_independent_model_reasons(reasons: list[str]) -> list[str]:
+    """Keep stored evidence that cannot go stale when the user edits a profile."""
+    return [
+        reason
+        for reason in _specific_model_reasons(reasons)
+        if not re.search(r"\b(?:you|your)\b", reason, re.IGNORECASE)
+    ]
 
 
 def _profile_from_rows(

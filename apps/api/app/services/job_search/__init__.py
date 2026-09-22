@@ -310,7 +310,7 @@ def match_out(
         # module. Stored matches created before evidence-based comparisons shipped
         # are upgraded in the response without mutating the user's application data.
         from app.services.job_search.runner import (
-            _specific_model_reasons,
+            _profile_independent_model_reasons,
             _strategic_match_assessment,
         )
 
@@ -323,7 +323,7 @@ def match_out(
             salary=match.salary,
         )
         match_reasons = list(
-            dict.fromkeys([*strategic_reasons, *_specific_model_reasons(match_reasons)])
+            dict.fromkeys([*strategic_reasons, *_profile_independent_model_reasons(match_reasons)])
         )[:5]
         gap = strategic_gap or gap
     return JobMatchOut(

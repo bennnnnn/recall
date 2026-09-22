@@ -306,6 +306,48 @@ def test_match_out_upgrades_legacy_weak_reason_with_profile_evidence() -> None:
     assert output.gap is not None and "SQL" in output.gap
 
 
+def test_match_out_drops_stale_preference_reasons_after_profile_change() -> None:
+    match = SimpleNamespace(
+        id=uuid4(),
+        title="Backend Engineer",
+        company="Acme",
+        company_logo_url=None,
+        location="Portland, Oregon",
+        work_mode="remote",
+        salary=None,
+        experience="entry level",
+        match_score=86,
+        url="https://jobs.example.com/1",
+        source="jobs.example.com",
+        posted_at=None,
+        summary="Remote entry-level role.",
+        required_skills=[],
+        match_reasons=[
+            "The Portland, Oregon location matches your Portland, Oregon preference.",
+            ("The posting mentions Portland, aligning with your preferred work mode and location."),
+        ],
+        gap=None,
+        found_at=datetime.now(UTC),
+        status="saved",
+        notes=None,
+    )
+    current_profile = SimpleNamespace(
+        skills=[],
+        resume_profile=None,
+        experience_levels=["entry"],
+        work_modes=["remote"],
+        location="United States",
+        salary_min=None,
+    )
+
+    output = job_search_service.match_out(match, profile_snapshot=current_profile)
+
+    assert all("Portland, Oregon preference" not in reason for reason in output.match_reasons)
+    assert all("aligning with your" not in reason for reason in output.match_reasons)
+    assert any("work-mode preference" in reason for reason in output.match_reasons)
+    assert any("selected experience level" in reason for reason in output.match_reasons)
+
+
 # --- Cover letters ---------------------------------------------------------
 
 from app.models.schemas.job_search import CoverLetterOut
