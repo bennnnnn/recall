@@ -242,6 +242,68 @@ def test_dilution_can_find_final_concentration() -> None:
     assert result.formula == "M1V1 = M2V2"
 
 
+def test_dilution_normalizes_each_supplied_volume_unit() -> None:
+    intent = extract_chemistry_intent("Dilution using M1V1: M1=1, V1=500 mL, V2=2 L, find M2")
+    assert intent is not None
+    assert intent.params == {"m1": 1, "v1": 500, "v2": 2}
+    assert intent.units == {"v1": "mL", "v2": "L"}
+
+    result = solve_chemistry(intent)
+    assert result.given == ("M1 = 1 mol/L", "V1 = 500 mL", "V2 = 2 L")
+    assert result.substitution == ("M2 = (1)(0.5 L) / (2 L)",)
+    assert result.answer == "M2 = 0.25 mol/L"
+
+    implicit_unit = extract_chemistry_intent(
+        "Dilution using M1V1: M1=1, V1=500 mL, V2=2000, find M2"
+    )
+    assert implicit_unit is not None
+    assert implicit_unit.units == {"v1": "mL", "v2": "mL"}
+    assert solve_chemistry(implicit_unit).answer == "M2 = 0.25 mol/L"
+
+
+def test_explicit_zero_nernst_temperature_is_not_defaulted() -> None:
+    intent = extract_chemistry_intent("Use Nernst equation with E°=1.1 V, n=2, Q=10, T=0 K")
+    assert intent is not None
+    assert intent.params["temperature"] == 0
+    assert build_verified_chemistry(intent) is None
+
+
+@pytest.mark.parametrize(
+    ("question", "elapsed", "half_life", "unit", "answer"),
+    [
+        (
+            "A radioactive sample has initial mass=100 g, half-life=1 year, "
+            "after 2 years find remaining amount",
+            2,
+            1,
+            "years",
+            "N = 25 g",
+        ),
+        (
+            "A radioactive sample has initial mass=80 g, half-life=2 hours, "
+            "after 30 min find remaining amount",
+            30,
+            120,
+            "min",
+            "N = 67.2717 g",
+        ),
+    ],
+)
+def test_decay_normalizes_time_aliases_and_scales(
+    question: str,
+    elapsed: float,
+    half_life: float,
+    unit: str,
+    answer: str,
+) -> None:
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    assert intent.params["elapsed"] == elapsed
+    assert intent.params["half_life"] == half_life
+    assert intent.units["time"] == unit
+    assert solve_chemistry(intent).answer == answer
+
+
 def test_beer_lambert_can_find_concentration() -> None:
     result = solve_chemistry(
         ChemistryIntent(

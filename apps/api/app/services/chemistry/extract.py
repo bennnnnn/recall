@@ -14,11 +14,40 @@ from app.services.chemistry.equations import balance_equation
 from app.services.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 
 _N = r"-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?"
+_TIME_UNIT_PATTERN = r"(?:seconds?|minutes?|hours?|days?|years?|min|h|s)"
+_TIME_UNITS: dict[str, tuple[str, float]] = {
+    "s": ("s", 1),
+    "second": ("s", 1),
+    "seconds": ("s", 1),
+    "min": ("min", 60),
+    "minute": ("min", 60),
+    "minutes": ("min", 60),
+    "h": ("h", 3600),
+    "hour": ("h", 3600),
+    "hours": ("h", 3600),
+    "day": ("days", 86400),
+    "days": ("days", 86400),
+    "year": ("years", 31557600),
+    "years": ("years", 31557600),
+}
 
 
 def _search(pattern: str, text: str, flags: int = re.IGNORECASE) -> float | None:
     match = re.search(pattern, text, flags)
     return float(match.group(1)) if match else None
+
+
+def _labeled_volume(text: str, label: str) -> tuple[float, str | None] | None:
+    match = re.search(
+        rf"\b{label}\s*=\s*({_N})(?:\s*(mL|L)\b)?",
+        text,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return None
+    matched_unit = match.group(2)
+    unit = None if matched_unit is None else ("mL" if matched_unit.lower() == "ml" else "L")
+    return float(match.group(1)), unit
 
 
 def _amounts(text: str) -> dict[str, float]:
@@ -229,19 +258,24 @@ def _extract_acid_base(text: str) -> ChemistryIntent | None:
 
 def _extract_solutions(text: str) -> ChemistryIntent | None:
     if re.search(r"\b(?:dilut|M1V1)\w*", text, re.IGNORECASE):
-        values = {key: _search(rf"\b{key}\s*=\s*({_N})", text) for key in ("M1", "V1", "M2", "V2")}
-        if (
-            values["M1"] is not None
-            and values["V1"] is not None
-            and ((values["M2"] is None) != (values["V2"] is None))
-        ):
-            unit_match = re.search(r"\bV[12]\s*=\s*" + _N + r"\s*(mL|L)\b", text, re.IGNORECASE)
-            params = {key.lower(): value for key, value in values.items() if value is not None}
+        m1 = _search(rf"\bM1\s*=\s*({_N})", text)
+        m2 = _search(rf"\bM2\s*=\s*({_N})", text)
+        v1 = _labeled_volume(text, "V1")
+        v2 = _labeled_volume(text, "V2")
+        if m1 is not None and v1 is not None and ((m2 is None) != (v2 is None)):
+            v1_unit = v1[1] or (v2[1] if v2 is not None else None) or "L"
+            params = {"m1": m1, "v1": v1[0]}
+            units = {"v1": v1_unit}
+            if m2 is not None:
+                params["m2"] = m2
+            if v2 is not None:
+                params["v2"] = v2[0]
+                units["v2"] = v2[1] or v1_unit
             return ChemistryIntent(
                 kind="solutions",
                 chemistry_op="dilution",
                 params=params,
-                units={"v1": unit_match.group(1) if unit_match else "L"},
+                units=units,
             )
     if re.search(r"\bmolality\b", text, re.IGNORECASE):
         moles = _search(rf"({_N})\s*mol(?:e|es)?(?:\s+of\s+solute)?", text)
@@ -371,7 +405,9 @@ def _extract_electrochem(text: str) -> ChemistryIntent | None:
         standard = _search(rf"E(?:°|0)\s*=\s*({_N})\s*V", text)
         electrons = _search(rf"\bn\s*=\s*({_N})", text)
         quotient = _search(rf"\bQ\s*=\s*({_N})", text, flags=0)
-        temperature = _search(rf"\bT\s*=\s*({_N})\s*K", text, flags=0) or 298.15
+        temperature = _search(rf"\bT\s*=\s*({_N})\s*K", text, flags=0)
+        if temperature is None:
+            temperature = 298.15
         if standard is not None and electrons is not None and quotient is not None:
             return ChemistryIntent(
                 kind="electrochemistry",
@@ -422,29 +458,29 @@ def _extract_nuclear(text: str) -> ChemistryIntent | None:
         re.IGNORECASE,
     )
     elapsed_match = re.search(
-        rf"(?:elapsed(?: time)?|after|\bt\s*=)\s*({_N})\s*"
-        r"(s|seconds?|min|minutes?|h|hours?|days?|years?)",
+        rf"(?:elapsed(?: time)?|after|\bt\s*=)\s*({_N})\s*({_TIME_UNIT_PATTERN})\b",
         text,
         re.IGNORECASE,
     )
     half_match = re.search(
-        rf"half[- ]life\s*(?:=|of|is)?\s*({_N})\s*(s|seconds?|min|minutes?|h|hours?|days?|years?)",
+        rf"half[- ]life\s*(?:=|of|is)?\s*({_N})\s*({_TIME_UNIT_PATTERN})\b",
         text,
         re.IGNORECASE,
     )
     if not initial_match or not elapsed_match or not half_match:
         return None
-    if elapsed_match.group(2).lower() != half_match.group(2).lower():
-        return None
+    elapsed_unit, elapsed_scale = _TIME_UNITS[elapsed_match.group(2).lower()]
+    _half_unit, half_scale = _TIME_UNITS[half_match.group(2).lower()]
+    half_life = float(half_match.group(1)) * half_scale / elapsed_scale
     return ChemistryIntent(
         kind="nuclear",
         chemistry_op="radioactive_decay",
         params={
             "initial": float(initial_match.group(1)),
             "elapsed": float(elapsed_match.group(1)),
-            "half_life": float(half_match.group(1)),
+            "half_life": half_life,
         },
-        units={"initial": initial_match.group(2) or "", "time": elapsed_match.group(2)},
+        units={"initial": initial_match.group(2) or "", "time": elapsed_unit},
     )
 
 
