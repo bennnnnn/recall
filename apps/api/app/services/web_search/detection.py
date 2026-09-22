@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
@@ -41,6 +42,36 @@ from app.services.web_search.subject import (
 logger = logging.getLogger(__name__)
 
 
+# Questions about the user's own stored profile must be answered from memory,
+# not by searching the public web. Keep this deliberately narrower than every
+# first-person question: "find jobs for me" or "restaurants near me" may still
+# need live results, while these clauses ask Recall to repeat a personal fact.
+_PERSONAL_MEMORY_QUESTION = re.compile(
+    r"(?:"
+    r"\bwhere\s+(?:do|did)\s+i\s+(?:currently\s+)?work"
+    r"(?:\s+(?:currently|now|right\s+now))?\b"
+    r"|\bwho\s+do\s+i\s+(?:currently\s+)?work\s+for\b"
+    r"|\b(?:what|which)\s+company\s+(?:do\s+i\s+work\s+(?:for|at)"
+    r"|am\s+i\s+(?:currently\s+)?(?:working\s+(?:for|at)|employed\s+(?:by|at)))\b"
+    r"|\bwhere\s+am\s+i\s+(?:currently\s+)?employed\b"
+    r"|\bwhat(?:'s|\s+is|\s+was)\s+my\s+(?:current\s+)?"
+    r"(?:job|role|title|employer|company|occupation|profession)\b"
+    r"(?=\s*(?:[?.!,]|$|\band\b))"
+    r"|\b(?:what|which)\s+(?:company|job|role|employer)\s+(?:am|was)\s+i\s+"
+    r"(?:considering|targeting|pursuing|interested\s+in|moving\s+to|"
+    r"planning\s+to\s+join|trying\s+to\s+join|hoping\s+to\s+join)\b"
+    r"|\bwhat(?:'s|\s+is|\s+was)\s+my\s+"
+    r"(?:current\s+|future\s+|career\s+|long[- ]term\s+)?"
+    r"(?:goal|target|aspiration|plan)\b"
+    r"(?=\s*(?:[?.!,]|$|\band\b))"
+    r"|\b(?:do|can)\s+you\s+remember\s+(?:where|who|what)\s+i\b"
+    r"|\bwhat\s+(?:do|did)\s+you\s+(?:remember|know)\s+about\s+my\s+"
+    r"(?:job|work|career|role|employer|company|goals?|plans?)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
 def web_search_skip(
     text: str,
     *,
@@ -60,6 +91,8 @@ def web_search_skip(
     if is_vocab_quiz_answer(cleaned):
         return True
     if is_personal_disclosure_turn(cleaned):
+        return True
+    if _PERSONAL_MEMORY_QUESTION.search(cleaned):
         return True
     if time_context_service.is_local_now_question(cleaned):
         return True

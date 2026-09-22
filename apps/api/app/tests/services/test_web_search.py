@@ -39,6 +39,19 @@ from app.services.web_search import (
         ("help me write an email to my boss", False),
         ("remember that I like hiking", False),
         ("I work at Uber but I want to change to Google", False),
+        (
+            "Where do I work right now, and which company am I considering for the future?",
+            False,
+        ),
+        ("Who do I work for?", False),
+        ("What company do I work at?", False),
+        ("Where am I currently employed?", False),
+        ("What's my current employer?", False),
+        ("What is my job?", False),
+        ("Which company am I targeting?", False),
+        ("What is my career goal?", False),
+        ("Do you remember where I work?", False),
+        ("What do you know about my career?", False),
         ("Best restaurants near me", True),
         ("where should I eat tonight?", True),
         ("What am I trying to get done today?", False),
@@ -1008,6 +1021,23 @@ async def test_should_web_search_skips_classifier_for_plain_personal_disclosure(
         assert (
             await should_web_search(
                 "I work at Uber but I want to change to Google",
+                settings,
+            )
+            is False
+        )
+    classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_skips_classifier_for_personal_memory_question():
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    with patch(
+        "app.services.web_search.detection.classify_web_search",
+        AsyncMock(),
+    ) as classify:
+        assert (
+            await should_web_search(
+                "Where do I work right now, and which company am I considering for the future?",
                 settings,
             )
             is False

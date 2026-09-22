@@ -1,11 +1,11 @@
 """Broad regressions for durable memory capture and contextual continuity."""
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 
 import pytest
 
 from app.core.config import Settings
+from app.models.orm import Memory
 from app.services.chat.prompt_constants import writing_request_kind
 from app.services.memory import is_memory_candidate, select_memories_semantic
 from app.services.memory import llm as memory_llm
@@ -128,16 +128,17 @@ DURABLE_MEMORY_STATEMENTS = [
 ]
 
 
-def _memory(memory_type: str, text: str, embedding: str) -> SimpleNamespace:
-    return SimpleNamespace(
+def _memory(memory_type: str, text: str, embedding: str) -> Memory:
+    now = datetime.now(UTC)
+    return Memory(
         type=memory_type,
         text=text,
         confidence=1.0,
         status="active",
         sensitivity="normal",
         importance=0.9,
-        updated_at=datetime.now(UTC),
-        last_confirmed_at=None,
+        updated_at=now,
+        last_confirmed_at=now,
         embedding_json=embedding,
     )
 
@@ -208,6 +209,10 @@ async def test_extractor_prompt_preserves_current_employer_when_target_is_aspira
     )
 
     messages = captured["messages"]
-    system_prompt = messages[0]["content"]
+    assert isinstance(messages, list)
+    first_message = messages[0]
+    assert isinstance(first_message, dict)
+    system_prompt = first_message["content"]
+    assert isinstance(system_prompt, str)
     assert "keeps Uber as the current employer" in system_prompt
     assert "must not claim the user works at Google" in system_prompt
