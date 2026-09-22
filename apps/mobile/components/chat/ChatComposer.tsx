@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Animated, { type AnimatedStyle } from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
@@ -133,6 +134,7 @@ export const ChatComposer = memo(function ChatComposer({
 }: Props) {
   const { t } = useTranslation();
   const token = useAuthToken();
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const draft = useComposerDraftValueOptional();
@@ -143,6 +145,8 @@ export const ChatComposer = memo(function ChatComposer({
     (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
   const [scanHint, setScanHint] = useState(false);
   const [inputHeight, setInputHeight] = useState(COMPOSER_INPUT_MIN_HEIGHT);
+  const [inputAtLimit, setInputAtLimit] = useState(false);
+  const [composerExpanded, setComposerExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const math = useMathKeyboardInsert({
     input,
@@ -181,7 +185,11 @@ export const ChatComposer = memo(function ChatComposer({
     // iOS can retain the last multiline content size after a controlled
     // TextInput is cleared. Pin the empty draft back to the single-line
     // height so a sent long message cannot leave a tall blank composer.
-    if (!input) setInputHeight(COMPOSER_INPUT_MIN_HEIGHT);
+    if (!input) {
+      setInputHeight(COMPOSER_INPUT_MIN_HEIGHT);
+      setInputAtLimit(false);
+      setComposerExpanded(false);
+    }
   }, [input]);
 
   const onToggleMathBar = useCallback(() => {
@@ -213,14 +221,18 @@ export const ChatComposer = memo(function ChatComposer({
   });
 
   const blockStyle = docked ? s.composerDocked : s.composerBlock;
+  const expandedBlockStyle = composerExpanded
+    ? [s.composerBlockExpanded, { top: insets.top + Space.xs }]
+    : null;
   const containerStyle = animatedContainerStyle
-    ? [blockStyle, animatedContainerStyle]
-    : [blockStyle, { bottom, paddingBottom }];
+    ? [blockStyle, animatedContainerStyle, expandedBlockStyle]
+    : [blockStyle, { bottom, paddingBottom }, expandedBlockStyle];
+  const showExpandControl = inputAtLimit || composerExpanded;
 
   return (
-    <Animated.View style={containerStyle}>
-      <View style={s.composerAnchor}>
-        <View style={s.composer}>
+    <Animated.View style={containerStyle} testID="chat-composer">
+      <View style={[s.composerAnchor, composerExpanded && s.expandedFill]}>
+        <View style={[s.composer, composerExpanded && s.expandedFill]}>
           {scanHint && onOpenMathScanner ? (
             <View style={s.scanHint}>
               <Text style={s.scanHintText}>{t("chat.math_paste_scan_hint")}</Text>
@@ -239,7 +251,7 @@ export const ChatComposer = memo(function ChatComposer({
               </Pressable>
             </View>
           ) : null}
-          <View style={s.inputStack}>
+          <View style={[s.inputStack, composerExpanded && s.expandedFill]}>
             {showMathChip ? (
               <Pressable
                 onPress={onToggleMathBar}
@@ -251,8 +263,19 @@ export const ChatComposer = memo(function ChatComposer({
                 <Icon name="keypad-outline" size={18} color={theme.primary} />
               </Pressable>
             ) : null}
-          <View style={showLiveTalkSideChrome ? s.liveTalkRow : undefined}>
-          <View style={[s.inputWrap, showLiveTalkSideChrome ? s.inputWrapFlex : null]}>
+          <View
+            style={[
+              showLiveTalkSideChrome ? s.liveTalkRow : null,
+              composerExpanded && s.expandedFill,
+            ]}
+          >
+          <View
+            style={[
+              s.inputWrap,
+              showLiveTalkSideChrome ? s.inputWrapFlex : null,
+              composerExpanded && s.inputWrapExpanded,
+            ]}
+          >
             {pendingAttachment ? (
               <ComposerAttachmentPreview
                 attachment={pendingAttachment}
@@ -260,7 +283,28 @@ export const ChatComposer = memo(function ChatComposer({
                 onRemove={onRemoveAttachment}
               />
             ) : null}
-            <View style={s.inputRowMain}>
+            {showExpandControl ? (
+              <View style={s.expandControlRow}>
+                <Pressable
+                  style={s.expandControl}
+                  onPress={() => {
+                    setComposerExpanded((expanded) => !expanded);
+                    requestAnimationFrame(() => inputRef.current?.focus());
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(composerExpanded ? "rich.collapse" : "rich.expand")}
+                  accessibilityState={{ expanded: composerExpanded }}
+                  testID="composer-expand"
+                >
+                  <Icon
+                    name={composerExpanded ? "contract-outline" : "expand-outline"}
+                    size={IconSize.sm}
+                    color={theme.textSecondary}
+                  />
+                </Pressable>
+              </View>
+            ) : null}
+            <View style={[s.inputRowMain, composerExpanded && s.inputRowMainExpanded]}>
               <Pressable
                 style={[s.attachBtn, attachmentDisabled && s.controlDisabled]}
                 onPress={() => {
@@ -295,7 +339,7 @@ export const ChatComposer = memo(function ChatComposer({
                 />
               ) : (
                 <Pressable
-                  style={s.inputField}
+                  style={[s.inputField, composerExpanded && s.inputFieldExpanded]}
                   testID="chat-composer-field"
                   onPress={() => {
                     if (!math.mathBarOpen || showMathPreview) return;
@@ -325,7 +369,7 @@ export const ChatComposer = memo(function ChatComposer({
                     testID="chat-composer-input"
                     style={[
                       s.input,
-                      { height: inputHeight },
+                      composerExpanded ? s.inputExpanded : { height: inputHeight },
                       parkInput ? s.inputParked : null,
                     ]}
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
@@ -343,7 +387,10 @@ export const ChatComposer = memo(function ChatComposer({
                         COMPOSER_INPUT_MAX_HEIGHT,
                         Math.max(COMPOSER_INPUT_MIN_HEIGHT, measured),
                       );
-                      setInputHeight((current) => (current === next ? current : next));
+                      setInputAtLimit(measured >= COMPOSER_INPUT_MAX_HEIGHT);
+                      if (!composerExpanded) {
+                        setInputHeight((current) => (current === next ? current : next));
+                      }
                     }}
                     onSelectionChange={math.onSelectionChange}
                     selection={
@@ -509,6 +556,11 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: Space.sm,
       paddingTop: 2,
     },
+    composerBlockExpanded: {
+      zIndex: 200,
+      backgroundColor: theme.bg,
+    },
+    expandedFill: { flex: 1, minHeight: 0 },
     composerAnchor: { position: "relative", overflow: "visible" },
     composer: { paddingVertical: 6, overflow: "visible" },
     inputStack: { position: "relative", overflow: "visible" },
@@ -527,6 +579,7 @@ function makeStyles(theme: Theme) {
       borderColor: theme.composerBorder,
     },
     inputWrapFlex: { flex: 1, minWidth: 0 },
+    inputWrapExpanded: { flex: 1, minHeight: 0 },
     tokenHint: {
       marginTop: Space.xxs,
       marginLeft: 40,
@@ -540,7 +593,22 @@ function makeStyles(theme: Theme) {
       color: theme.textSecondary,
     },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: Space.xs },
+    inputRowMainExpanded: { flex: 1, minHeight: 0 },
     inputField: { flex: 1, justifyContent: "center", minHeight: 22, position: "relative" },
+    inputFieldExpanded: { justifyContent: "flex-start", minHeight: 0 },
+    expandControlRow: {
+      minHeight: Space.minTouch,
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      alignItems: "center",
+    },
+    expandControl: {
+      width: Space.minTouch,
+      height: Space.minTouch,
+      borderRadius: Space.minTouch / 2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     emptyCaret: {
       position: "absolute",
       left: 0,
@@ -585,6 +653,12 @@ function makeStyles(theme: Theme) {
       maxHeight: COMPOSER_INPUT_MAX_HEIGHT,
       paddingVertical: 0,
       minHeight: COMPOSER_INPUT_MIN_HEIGHT,
+    },
+    inputExpanded: {
+      height: undefined,
+      maxHeight: undefined,
+      minHeight: 0,
+      textAlignVertical: "top",
     },
     inputParked: {
       position: "absolute",

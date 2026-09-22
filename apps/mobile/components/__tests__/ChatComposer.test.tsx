@@ -224,6 +224,37 @@ describe("ChatComposer math keyboard", () => {
     });
   });
 
+  it("offers a full-height editor when the multiline input reaches its limit", async () => {
+    const { getByTestId, getByLabelText } = await render(
+      <ChatComposer
+        {...baseProps}
+        input={"A long draft\n".repeat(20)}
+      />,
+    );
+    const composerInput = getByTestId("chat-composer-input");
+
+    await fireEvent(composerInput, "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 190 } },
+    });
+
+    expect(composerInput).toHaveStyle({ height: 150 });
+    expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
+      expanded: false,
+    });
+
+    await fireEvent.press(getByLabelText("rich.expand"));
+
+    expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
+      expanded: true,
+    });
+    expect(getByTestId("chat-composer")).toHaveStyle({ top: 8 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({
+      flex: 1,
+      minHeight: 0,
+    });
+    expect(getByLabelText("rich.collapse")).toBeTruthy();
+  });
+
   it("uses Ionicon send and stop glyphs instead of text arrows", async () => {
     const { queryByText, getByLabelText, rerender } = await render(
       <ChatComposer {...baseProps} input="hi" />,

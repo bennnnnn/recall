@@ -34,7 +34,7 @@
   "chat.attach_failed": "Не удалось прикрепить",
   "chat.attach_file": "Файл",
   "chat.attach_photo": "Фото",
-  "chat.attach_solve_math_camera": "Сканировать задачу",
+  "chat.attach_solve_math_camera": "Сканировать",
   "chat.attached_file": "Прикреплённый файл",
   "chat.attachment_rejected": "Сообщение не отправлено. Восстановите черновик, чтобы снова прикрепить или заменить файл.",
   "chat.busy": "Ответ ещё генерируется — подождите или нажмите «Стоп» и попробуйте снова.",
