@@ -29,6 +29,7 @@ from app.services.job_search.runner import (
     _ranking_messages,
     _salary_ceiling,
     _search_queries,
+    _strategic_match_assessment,
     _title_and_company,
     _title_company_key,
     canonicalize_job_url,
@@ -139,6 +140,34 @@ def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
     assert scores[0] is not None and scores[1] is not None
     assert scores[0] >= scores[1]
     assert accepted[0].experience == "Entry level"
+    assert accepted[0].match_reasons
+    assert all(
+        "title and description" not in reason.casefold() for reason in accepted[0].match_reasons
+    )
+
+
+def test_strategic_match_assessment_compares_resume_with_job_requirements() -> None:
+    profile = _profile(
+        work_modes=["remote"],
+        resume_profile=ResumeProfile(
+            titles=["Backend Engineer"],
+            skills=["Python", "FastAPI"],
+            years_experience=4,
+        ),
+    )
+    reasons, gap = _strategic_match_assessment(
+        profile,
+        required_skills=["Python", "SQL"],
+        experience="3+ years",
+        work_mode="remote",
+        location="United States",
+        salary=None,
+    )
+
+    assert any("Python" in reason and "job asks for" in reason for reason in reasons)
+    assert any("4 years" in reason and "3+ years" in reason for reason in reasons)
+    assert any("remote" in reason for reason in reasons)
+    assert gap is not None and "SQL" in gap
 
 
 def test_posting_fact_fallbacks_extract_salary_and_experience() -> None:
@@ -499,6 +528,54 @@ def test_ranking_prompt_requires_exact_posting_title() -> None:
     assert "Copy title exactly" in system
     assert "never the job board" in system
     assert "required_skills" in system
+    assert "Every reason must compare" in system
+    assert "Never use a matching job title" in system
+
+
+async def test_rank_replaces_weak_reason_with_evidence_based_comparison(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = _candidate(
+        "Backend Engineer - Acme",
+        "Remote role requiring Python and SQL with 3+ years of experience.",
+    )
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[
+                _RankedJob(
+                    candidate_id=0,
+                    company="Acme",
+                    work_mode="remote",
+                    experience="3+ years",
+                    required_skills=["Python", "SQL"],
+                    match_reasons=[
+                        "The title and description align with your target role.",
+                    ],
+                )
+            ]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(
+            work_modes=["remote"],
+            resume_profile=ResumeProfile(
+                skills=["Python"],
+                years_experience=4,
+            ),
+        ),
+        [candidate],
+    )
+
+    assert len(accepted) == 1
+    assert any("Python" in reason for reason in accepted[0].match_reasons)
+    assert any("4 years" in reason for reason in accepted[0].match_reasons)
+    assert all(
+        "title and description" not in reason.casefold() for reason in accepted[0].match_reasons
+    )
+    assert accepted[0].gap is not None and "SQL" in accepted[0].gap
 
 
 def test_fallback_rejects_result_without_required_salary_evidence() -> None:

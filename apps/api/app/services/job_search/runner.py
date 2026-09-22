@@ -609,6 +609,113 @@ def _fallback_required_skills(
     return result
 
 
+_WEAK_MATCH_REASON = re.compile(
+    r"\b(title|job title|role|description)\b.{0,80}\b(aligns?|matches?|fits?)\b|"
+    r"\b(strong|good|great|excellent)\s+(overall\s+)?(match|fit)\b",
+    re.IGNORECASE,
+)
+
+
+def _profile_skills(profile: _ProfileSnapshot) -> list[str]:
+    skills = list(profile.skills)
+    if profile.resume_profile is not None:
+        skills.extend(profile.resume_profile.skills)
+    return list(dict.fromkeys(skill for skill in skills if skill.strip()))
+
+
+def _strategic_match_assessment(
+    profile: _ProfileSnapshot,
+    *,
+    required_skills: list[str],
+    experience: str | None,
+    work_mode: str | None,
+    location: str | None,
+    salary: str | None,
+) -> tuple[list[str], str | None]:
+    """Build evidence-based comparisons when provider prose is weak or absent."""
+    reasons: list[str] = []
+    gap: str | None = None
+
+    user_skills = _profile_skills(profile)
+    matched_skills: list[str] = []
+    unmatched_skills: list[str] = []
+    for requirement in required_skills:
+        requirement_key = _normalize_key_part(requirement).removesuffix(" skills")
+        matched = any(
+            requirement_key in _normalize_key_part(skill)
+            or _normalize_key_part(skill) in requirement_key
+            for skill in user_skills
+            if _normalize_key_part(skill)
+        )
+        (matched_skills if matched else unmatched_skills).append(requirement)
+    if matched_skills:
+        reasons.append(
+            f"Your {', '.join(matched_skills[:3])} experience matches skills the job asks for."
+        )
+
+    requested_years = None
+    if experience:
+        years_match = re.search(r"\d+(?:\.\d+)?", experience)
+        if years_match:
+            requested_years = float(years_match.group())
+    user_years = profile.resume_profile.years_experience if profile.resume_profile else None
+    if requested_years is not None and user_years is not None:
+        if user_years >= requested_years:
+            reasons.append(
+                f"Your {user_years:g} years of experience meets the job's {experience} requirement."
+            )
+        else:
+            gap = f"The job asks for {experience}; your résumé shows {user_years:g} years."
+    elif experience:
+        level_terms = {
+            "internship": "internship",
+            "entry": "entry level",
+            "mid": "experienced",
+            "senior": "senior",
+        }
+        matching_level = next(
+            (
+                level
+                for level, phrase in level_terms.items()
+                if level in profile.experience_levels and phrase in experience.casefold()
+            ),
+            None,
+        )
+        if matching_level:
+            reasons.append(
+                f"The job's {experience} requirement matches your selected experience level."
+            )
+
+    if work_mode and work_mode in profile.work_modes:
+        label = "on-site" if work_mode == "onsite" else work_mode
+        reasons.append(f"The job's {label} arrangement matches your work-mode preference.")
+
+    if location and profile.location:
+        job_location = _normalize_key_part(location)
+        preferred_location = _normalize_key_part(profile.location)
+        if preferred_location in job_location or job_location in preferred_location:
+            reasons.append(f"The {location} location matches your {profile.location} preference.")
+
+    salary_ceiling = _salary_ceiling(salary)
+    if (
+        profile.salary_min is not None
+        and salary_ceiling is not None
+        and salary_ceiling >= profile.salary_min
+    ):
+        reasons.append(f"The disclosed pay meets your ${profile.salary_min:,} minimum.")
+
+    if gap is None and unmatched_skills:
+        gap = (
+            "Your profile does not yet show "
+            f"{', '.join(unmatched_skills[:3])}, which the job asks for."
+        )
+    return reasons[:3], gap
+
+
+def _specific_model_reasons(reasons: list[str]) -> list[str]:
+    return [reason for reason in reasons if not _WEAK_MATCH_REASON.search(reason)]
+
+
 def _profile_from_rows(
     profile: JobSearchProfile,
     user: User,
@@ -914,7 +1021,12 @@ def _ranking_messages(
         "user_rejected block, "
         "those are titles and companies the user explicitly dismissed — never select "
         "them or close variants. Give 1-3 concise match reasons and one honest gap when "
-        "there is one. For every selected job also give: match_score — an integer 0-100 "
+        "there is one. Every reason must compare a fact from the user's profile or résumé "
+        "with a requirement or fact explicitly stated in the posting. Prioritize required "
+        "skill overlap, years or level of experience, credentials, work mode, location, "
+        "and disclosed pay. Never use a matching job title, matching description, or a "
+        "generic claim such as 'strong fit' as a reason. For every selected job also give: "
+        "match_score — an integer 0-100 "
         "rating how well this specific job fits this specific profile (90+ only for "
         "exceptional fits; never give every job the same score), and experience — the "
         "experience the posting asks for as a short phrase like '3+ years' or 'Senior "
@@ -998,11 +1110,16 @@ def _fallback_rank(
         title, company = _verified_fallback_identity(candidate)
         if company == "Unknown employer":
             continue
-        reasons = ["Title and description align with your target roles"]
-        snippet = candidate.snippet.casefold()
-        matched_skills = [skill for skill in profile.skills if skill.casefold() in snippet]
-        if matched_skills:
-            reasons.append(f"Mentions {', '.join(matched_skills[:3])}")
+        experience = _extract_experience(candidate)
+        required_skills = _fallback_required_skills(profile, candidate)
+        reasons, gap = _strategic_match_assessment(
+            profile,
+            required_skills=required_skills,
+            experience=experience,
+            work_mode=inferred_mode,
+            location=location,
+            salary=salary,
+        )
         accepted.append(
             _AcceptedJob(
                 candidate=candidate,
@@ -1012,15 +1129,15 @@ def _fallback_rank(
                 location=location,
                 work_mode=inferred_mode,
                 salary=salary,
-                experience=_extract_experience(candidate),
+                experience=experience,
                 # Rough keyword-fit stand-in for the LLM score: a bare title hit
                 # reads as an okay match, many skill hits as a strong one.
                 match_score=min(90, 55 + keyword_score * 4),
                 posted_at=None,
                 summary=candidate.snippet or None,
-                required_skills=_fallback_required_skills(profile, candidate),
+                required_skills=required_skills,
                 match_reasons=reasons,
-                gap=None,
+                gap=gap,
             )
         )
     return accepted
@@ -1118,6 +1235,17 @@ async def _rank_candidates(
             location=location,
         ):
             continue
+        strategic_reasons, strategic_gap = _strategic_match_assessment(
+            profile,
+            required_skills=required_skills,
+            experience=experience,
+            work_mode=work_mode,
+            location=location,
+            salary=salary,
+        )
+        match_reasons = list(
+            dict.fromkeys([*strategic_reasons, *_specific_model_reasons(item.match_reasons)])
+        )[:5]
         accepted.append(
             _AcceptedJob(
                 candidate=candidate,
@@ -1132,8 +1260,8 @@ async def _rank_candidates(
                 posted_at=item.posted_at,
                 summary=item.summary or candidate.snippet or None,
                 required_skills=required_skills,
-                match_reasons=item.match_reasons,
-                gap=item.gap,
+                match_reasons=match_reasons,
+                gap=strategic_gap or item.gap,
             )
         )
         if len(accepted) >= profile.result_count:

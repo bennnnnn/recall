@@ -298,7 +298,34 @@ def profile_out(profile: JobSearchProfile) -> JobSearchProfileOut:
     )
 
 
-def match_out(match: JobMatch) -> JobMatchOut:
+def match_out(
+    match: JobMatch,
+    *,
+    profile_snapshot: Any | None = None,
+) -> JobMatchOut:
+    match_reasons = list(match.match_reasons)
+    gap = match.gap
+    if profile_snapshot is not None:
+        # Import lazily because the search runner imports this package's notification
+        # module. Stored matches created before evidence-based comparisons shipped
+        # are upgraded in the response without mutating the user's application data.
+        from app.services.job_search.runner import (
+            _specific_model_reasons,
+            _strategic_match_assessment,
+        )
+
+        strategic_reasons, strategic_gap = _strategic_match_assessment(
+            profile_snapshot,
+            required_skills=list(match.required_skills),
+            experience=match.experience,
+            work_mode=match.work_mode,
+            location=match.location,
+            salary=match.salary,
+        )
+        match_reasons = list(
+            dict.fromkeys([*strategic_reasons, *_specific_model_reasons(match_reasons)])
+        )[:5]
+        gap = strategic_gap or gap
     return JobMatchOut(
         id=match.id,
         title=match.title,
@@ -314,8 +341,8 @@ def match_out(match: JobMatch) -> JobMatchOut:
         posted_at=match.posted_at,
         summary=match.summary,
         required_skills=list(match.required_skills),
-        match_reasons=list(match.match_reasons),
-        gap=match.gap,
+        match_reasons=match_reasons,
+        gap=gap,
         found_at=match.found_at,
         status=cast(JobMatchStatus, match.status),
         notes=match.notes,
@@ -345,9 +372,12 @@ async def get_dashboard(
             )
         ).all()
     )
+    from app.services.job_search.runner import _profile_from_rows
+
+    profile_snapshot = _profile_from_rows(profile, user)
     return JobSearchDashboardOut(
         profile=profile_out(profile),
-        matches=[match_out(match) for match in matches],
+        matches=[match_out(match, profile_snapshot=profile_snapshot) for match in matches],
     )
 
 

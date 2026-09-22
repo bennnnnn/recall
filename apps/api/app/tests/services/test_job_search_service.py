@@ -1,7 +1,10 @@
 """Resume profile extraction for My Job (save-time, best-effort)."""
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -182,9 +185,46 @@ async def test_extract_resume_profile_skips_empty_text() -> None:
         assert await job_search_service.extract_resume_profile(MagicMock(), "   ") is None
 
 
-# --- Cover letters ---------------------------------------------------------
+def test_match_out_upgrades_legacy_weak_reason_with_profile_evidence() -> None:
+    match = SimpleNamespace(
+        id=uuid4(),
+        title="Backend Engineer",
+        company="Acme",
+        company_logo_url=None,
+        location="United States",
+        work_mode="remote",
+        salary=None,
+        experience="3+ years",
+        match_score=86,
+        url="https://jobs.example.com/1",
+        source="jobs.example.com",
+        posted_at=None,
+        summary="Remote role requiring Python and SQL.",
+        required_skills=["Python", "SQL"],
+        match_reasons=["The title and description align with your target role."],
+        gap=None,
+        found_at=datetime.now(UTC),
+        status="new",
+        notes=None,
+    )
+    profile = SimpleNamespace(
+        skills=["Python"],
+        resume_profile=ResumeProfile(skills=["Python"], years_experience=4),
+        experience_levels=["mid"],
+        work_modes=["remote"],
+        location="United States",
+        salary_min=None,
+    )
 
-from uuid import uuid4
+    output = job_search_service.match_out(match, profile_snapshot=profile)
+
+    assert any("Python" in reason for reason in output.match_reasons)
+    assert any("4 years" in reason for reason in output.match_reasons)
+    assert all("title and description" not in reason.casefold() for reason in output.match_reasons)
+    assert output.gap is not None and "SQL" in output.gap
+
+
+# --- Cover letters ---------------------------------------------------------
 
 from app.models.schemas.job_search import CoverLetterOut
 

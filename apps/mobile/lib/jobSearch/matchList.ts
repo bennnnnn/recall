@@ -1,6 +1,7 @@
 import type { JobMatch } from "@/lib/api";
 
-export type JobMatchFilter = "all" | "new" | "saved" | "applied";
+export type JobMatchFilter =
+  "all" | "new" | "saved" | "applied" | "interviewing" | "offer" | "rejected";
 export type JobMatchSort = "best" | "newest";
 
 /** Dashboard list shaping: status filter, then best-fit or newest ordering. */
