@@ -91,6 +91,7 @@ it("shows each saved fact", async () => {
   expect(ui.getAllByLabelText("memory.edit_fact_a11y")).toHaveLength(1);
   expect(ui.queryByLabelText("memory.delete_fact_a11y")).toBeNull();
   expect(ui.queryByLabelText("memory.delete_section_a11y")).toBeNull();
+  expect(ui.queryByText("memory.last_confirmed")).toBeNull();
 });
 
 it("edits directly in the memory card without a modal or duplicate edit control", async () => {

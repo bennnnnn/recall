@@ -31,12 +31,6 @@ function memoryTypeLabel(type: string, t: (key: string) => string): string {
   return label === key ? type : label;
 }
 
-function confirmedLabel(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const day = iso.slice(0, 10);
-  return day || null;
-}
-
 /** Sticky section header. Memory deletion belongs in Settings, not this view. */
 export function MemorySectionHeader({ type }: { type: string }) {
   const theme = useTheme();
@@ -82,7 +76,6 @@ export function MemoryFactRow({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { t } = useTranslation();
 
-  const confirmed = confirmedLabel(fact.last_confirmed_at ?? fact.updated_at);
   return (
     <View
       style={[
@@ -137,9 +130,6 @@ export function MemoryFactRow({
         <>
           <View style={s.factMain}>
             <Text style={s.factText}>{fact.text}</Text>
-            {confirmed ? (
-              <Text style={s.meta}>{t("memory.last_confirmed", { date: confirmed })}</Text>
-            ) : null}
             {fact.source_chat_title ? (
               <Text style={s.meta}>
                 {t("memory.source_chat", { title: fact.source_chat_title })}

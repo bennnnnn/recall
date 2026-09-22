@@ -425,7 +425,6 @@
   "memory.empty_body": "Recall ile sohbet et; tercihlerini, öğrenme konularını ve hakkındaki bilgileri otomatik olarak öğrenir.",
   "memory.empty_title": "Henüz hatıra yok",
   "memory.heading": "Recall senin hakkında ne biliyor",
-  "memory.last_confirmed": "Last confirmed {{date}}",
   "memory.section": "{{type}} ({{count}})",
   "memory.section_hint": "Each row is one fact Recall can use in chat.",
   "memory.source_chat": "From {{title}}",

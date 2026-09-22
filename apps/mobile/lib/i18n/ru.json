@@ -425,7 +425,6 @@
   "memory.empty_body": "Общайтесь с Recall, и он автоматически запомнит ваши предпочтения, темы обучения и факты о вас.",
   "memory.empty_title": "Пока нет воспоминаний",
   "memory.heading": "Что Recall знает о вас",
-  "memory.last_confirmed": "Last confirmed {{date}}",
   "memory.section": "{{type}} ({{count}})",
   "memory.section_hint": "Each row is one fact Recall can use in chat.",
   "memory.source_chat": "From {{title}}",

@@ -425,7 +425,6 @@
   "memory.empty_body": "Discutez avec Recall et il apprendra automatiquement ce qui compte pour vous.",
   "memory.empty_title": "Aucun souvenir",
   "memory.heading": "Ce que Recall sait de vous",
-  "memory.last_confirmed": "Last confirmed {{date}}",
   "memory.section": "{{type}} ({{count}})",
   "memory.section_hint": "Each row is one fact Recall can use in chat.",
   "memory.source_chat": "From {{title}}",
