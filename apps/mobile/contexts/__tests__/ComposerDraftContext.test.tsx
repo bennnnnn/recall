@@ -5,6 +5,7 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import {
   ComposerDraftProvider,
   useComposerDraftApi,
+  useComposerDraftActivity,
   useComposerDraftValueOptional,
 } from "@/contexts/ComposerDraftContext";
 import { resetComposerDraftsForAccount } from "@/lib/chat/composerDraftReset";
@@ -22,6 +23,11 @@ function ApiProbe({ onRender }: { onRender: () => void }) {
       <Text>set</Text>
     </Pressable>
   );
+}
+
+function ActivityProbe() {
+  const active = useComposerDraftActivity();
+  return <Text testID="activity">{active ? "active" : "empty"}</Text>;
 }
 
 describe("ComposerDraftContext", () => {
@@ -44,6 +50,23 @@ describe("ComposerDraftContext", () => {
 
     expect(view.getByTestId("draft").props.children).toBe("hello");
     expect(onRender).toHaveBeenCalledTimes(afterMount);
+  });
+
+  it("exposes empty-to-typing activity for home content", async () => {
+    const view = await act(async () =>
+      render(
+        <ComposerDraftProvider>
+          <ActivityProbe />
+          <ApiProbe onRender={() => undefined} />
+        </ComposerDraftProvider>,
+      ),
+    );
+    expect(view.getByTestId("activity").props.children).toBe("empty");
+
+    await act(async () => {
+      fireEvent.press(view.getByTestId("set"));
+    });
+    expect(view.getByTestId("activity").props.children).toBe("active");
   });
 
   it("restores a saved draft when switching back to a thread", async () => {

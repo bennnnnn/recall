@@ -30,6 +30,7 @@ import {
 } from "@/lib/images/imageGenIntent";
 import { extractImageLookupQuery } from "@/lib/images/imageLookupIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
+import { retireHomeGuidance } from "@/lib/homeGuidancePrefs";
 import type { ClientGeo } from "@/lib/clientGeo";
 import {
   queryNeedsClientGeo,
@@ -135,6 +136,7 @@ export function useChatSend({
   setMessages,
   messages,
   selectedModel,
+  user,
   updateUser,
   t,
   onStreamBusy,
@@ -349,6 +351,7 @@ export function useChatSend({
         const imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
         if (imagePrompt) {
           if (imageGenerating) return;
+          if (user?.id) void retireHomeGuidance(user.id);
           sendInFlightRef.current = true;
           setSendPhase("preparing");
           const draftsPromise = flushEmailDrafts();
@@ -404,6 +407,8 @@ export function useChatSend({
       }
       const clientGeo = geoResult.clientGeo;
       setSendPhase(attached ? "uploading" : "preparing");
+
+      if (user?.id) void retireHomeGuidance(user.id);
 
       // Clear the composer immediately so the next draft can be typed.
       // Keep Send/Attach busy until the turn is accepted — an idle button
@@ -550,6 +555,7 @@ export function useChatSend({
       routeChatId,
       newMessageCountRef,
       selectedModel,
+      user,
       setMessages,
       prepareDraftChat,
       skipLoadForChatIdRef,

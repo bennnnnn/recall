@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
 import { useAuth } from "@/contexts/AuthContext";
+import { useComposerDraftActivity } from "@/contexts/ComposerDraftContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
 import type { HomeUrgentTodo } from "@/lib/api";
@@ -13,6 +14,7 @@ import { instantHomePlaceholder, welcomeStarterIcon, welcomeStarters } from "@/l
 import { filterHomeNudgeTodos } from "@/lib/todos/homeReminderNudges";
 import { firstOverdueHomeTodo, listHomeUrgentTodos } from "@/lib/todos/homeUrgentTodos";
 import { tap } from "@/lib/haptics";
+import { isHomeGuidanceRetired, retireHomeGuidance } from "@/lib/homeGuidancePrefs";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
@@ -89,6 +91,8 @@ export function HomeStarters({ onSelect }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { user } = useAuth();
+  const composerActive = useComposerDraftActivity();
+  const [guidanceRetired, setGuidanceRetired] = useState<boolean | null>(null);
   const { screen } = useHome();
   const {
     todos,
@@ -101,6 +105,23 @@ export function HomeStarters({ onSelect }: Props) {
   // Never block first paint on /home — local greeting, then hydrate the name.
   const display = screen ?? instantHomePlaceholder();
   const chips = welcomeStarters();
+
+  useEffect(() => {
+    let current = true;
+    if (!user?.id) {
+      setGuidanceRetired(false);
+      return () => {
+        current = false;
+      };
+    }
+    setGuidanceRetired(null);
+    void isHomeGuidanceRetired(user.id).then((retired) => {
+      if (current) setGuidanceRetired(retired);
+    });
+    return () => {
+      current = false;
+    };
+  }, [user?.id]);
 
   const overdueTodo = useMemo(() => {
     // Wait until todos + nudge-state are in sync. Silent refreshes used to paint
@@ -118,6 +139,9 @@ export function HomeStarters({ onSelect }: Props) {
     leadMinutes,
   ]);
 
+  // Once typing begins, leave the empty-chat canvas clear and focused.
+  if (composerActive) return null;
+
   return (
     <View style={s.wrap}>
       <Text style={s.greeting}>{display.greeting}</Text>
@@ -131,27 +155,31 @@ export function HomeStarters({ onSelect }: Props) {
         />
       ) : null}
 
-      <View style={s.startersBlock}>
-        <View style={s.chipRow}>
-          {chips.map((starter, index) => (
-            <Pressable
-              key={`${starter.kind}-${index}-${starter.text}`}
-              style={s.chip}
-              onPress={() => {
-                tap();
-                onSelect(starter.prompt, starter.chat_id);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={starter.text}
-            >
-              <Icon name={welcomeStarterIcon(index)} size={14} color={theme.primary} />
-              <Text style={s.chipText} numberOfLines={2}>
-                {starter.text}
-              </Text>
-            </Pressable>
-          ))}
+      {guidanceRetired === false ? (
+        <View style={s.startersBlock}>
+          <View style={s.chipRow}>
+            {chips.map((starter, index) => (
+              <Pressable
+                key={`${starter.kind}-${index}-${starter.text}`}
+                style={s.chip}
+                onPress={() => {
+                  setGuidanceRetired(true);
+                  if (user?.id) void retireHomeGuidance(user.id);
+                  tap();
+                  onSelect(starter.prompt, starter.chat_id);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={starter.text}
+              >
+                <Icon name={welcomeStarterIcon(index)} size={14} color={theme.primary} />
+                <Text style={s.chipText} numberOfLines={2}>
+                  {starter.text}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
-      </View>
+      ) : null}
     </View>
   );
 }
