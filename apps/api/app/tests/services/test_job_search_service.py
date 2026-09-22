@@ -3,12 +3,14 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
+from app.models.orm import JobMatch
 from app.models.schemas.job_search import (
     JobMatchStatusUpdate,
     JobSearchPreferencesPatch,
@@ -346,7 +348,7 @@ def test_match_out_upgrades_legacy_weak_reason_with_profile_evidence() -> None:
         salary_min=None,
     )
 
-    output = job_search_service.match_out(match, profile_snapshot=profile)
+    output = job_search_service.match_out(cast(JobMatch, match), profile_snapshot=profile)
 
     assert any("Python" in reason for reason in output.match_reasons)
     assert any("4 years" in reason for reason in output.match_reasons)
@@ -389,7 +391,7 @@ def test_match_out_drops_stale_preference_reasons_after_profile_change() -> None
         salary_min=None,
     )
 
-    output = job_search_service.match_out(match, profile_snapshot=current_profile)
+    output = job_search_service.match_out(cast(JobMatch, match), profile_snapshot=current_profile)
 
     assert all("Portland, Oregon preference" not in reason for reason in output.match_reasons)
     assert all("aligning with your" not in reason for reason in output.match_reasons)
