@@ -10,7 +10,7 @@ const mockFeedback = { error: jest.fn() };
 const mockRouter = { replace: jest.fn() };
 const mockT = (key: string) => key;
 const mockIconPresses = new Map<string, () => void>();
-const sample = { id: "m1", type: "profile", text: "First fact.", confidence: 0.9, created_at: "2026-01-01", updated_at: "2026-01-01" };
+const sample = { id: "m1", type: "profile", text: "First fact.", confidence: 0.9, created_at: "2026-01-01", updated_at: "2026-01-01", source_chat_title: "Original chat" };
 let mockMemories = [sample];
 let mockError = false;
 let mockPending = new Set<string>();
@@ -92,6 +92,7 @@ it("shows each saved fact", async () => {
   expect(ui.queryByLabelText("memory.delete_fact_a11y")).toBeNull();
   expect(ui.queryByLabelText("memory.delete_section_a11y")).toBeNull();
   expect(ui.queryByText("memory.last_confirmed")).toBeNull();
+  expect(ui.queryByText("memory.source_chat")).toBeNull();
 });
 
 it("edits directly in the memory card without a modal or duplicate edit control", async () => {

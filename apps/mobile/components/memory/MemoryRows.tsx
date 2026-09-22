@@ -130,11 +130,6 @@ export function MemoryFactRow({
         <>
           <View style={s.factMain}>
             <Text style={s.factText}>{fact.text}</Text>
-            {fact.source_chat_title ? (
-              <Text style={s.meta}>
-                {t("memory.source_chat", { title: fact.source_chat_title })}
-              </Text>
-            ) : null}
           </View>
           <View style={s.factActions}>
             <IconButton
@@ -227,6 +222,5 @@ function makeStyles(theme: Theme) {
     factAction: { marginVertical: -12 },
     inlineAction: { marginVertical: -6 },
     factText: { flex: 1, ...Type.body, color: theme.text },
-    meta: { ...Type.meta, color: theme.textTertiary, marginTop: 4 },
   });
 }

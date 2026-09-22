@@ -427,7 +427,6 @@
   "memory.heading": "Ce que Recall sait de vous",
   "memory.section": "{{type}} ({{count}})",
   "memory.section_hint": "Each row is one fact Recall can use in chat.",
-  "memory.source_chat": "From {{title}}",
   "memory.summarizing": "Résumé de votre mémoire…",
   "memory.title": "Mémoire",
   "memory.type.fact": "📌 Facts",
