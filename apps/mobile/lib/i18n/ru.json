@@ -418,13 +418,6 @@
     "mute_failed": "Couldn’t update that. Try again."
   },
   "memory.confidence": "{{percent}}% confident",
-  "memory.delete_confirm_body": "Recall will forget everything in this category until it learns again from your chats.",
-  "memory.delete_confirm_title": "Delete memory section?",
-  "memory.delete_fact_a11y": "Delete this memory",
-  "memory.delete_fact_body": "Remove this fact from what Recall remembers about you.",
-  "memory.delete_fact_title": "Delete this memory?",
-  "memory.delete_failed": "Could not delete memory. Try again.",
-  "memory.delete_section_a11y": "Удалить этот раздел памяти",
   "memory.edit_count": "{{count}} / {{max}}",
   "memory.edit_fact_a11y": "Edit this memory",
   "memory.edit_failed": "Не удалось сохранить память. Попробуйте снова.",

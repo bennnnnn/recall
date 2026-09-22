@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,7 +20,6 @@ import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { Memory } from "@/lib/api";
 import { getCachedMemories } from "@/lib/cache/memoryListCache";
 import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/lib/memoryFacts";
-import { notifyDestructive } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -47,8 +46,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     error,
     load,
     hasLoaded,
-    deleteSection,
-    deleteFact,
     updateMemoryText,
     pendingTypes,
   } = useMemoryActions(token);
@@ -108,7 +105,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     const out: MemoryRow[] = [];
     for (const section of sections) {
       const pending = pendingTypes.has(section.type);
-      out.push({ kind: "section", type: section.type, pending });
+      out.push({ kind: "section", type: section.type });
       section.facts.forEach((fact, index) =>
         out.push({
           kind: "fact",
@@ -136,58 +133,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       setDraftText(stripMemoryAsOf(fact.text));
     },
     [isCurrentView, pendingTypes],
-  );
-
-  const handleDeleteSection = useCallback(
-    (type: string) => {
-      if (!token || !isCurrentView()) return;
-      Alert.alert(
-        t("memory.delete_confirm_title"),
-        t("memory.delete_confirm_body"),
-        [
-          { text: t("common.cancel"), style: "cancel" },
-          {
-            text: t("common.delete"),
-            style: "destructive",
-            onPress: async () => {
-              if (!isCurrentView()) return;
-              const ok = await deleteSection(type);
-              if (isCurrentView()) {
-                if (ok) notifyDestructive();
-                else reportRecoverableError(feedback, t("memory.delete_failed"));
-              }
-            },
-          },
-        ],
-      );
-    },
-    [token, isCurrentView, t, deleteSection, feedback],
-  );
-
-  const handleDeleteFact = useCallback(
-    (fact: Memory) => {
-      if (!token || !isCurrentView()) return;
-      Alert.alert(
-        t("memory.delete_fact_title"),
-        t("memory.delete_fact_body"),
-        [
-          { text: t("common.cancel"), style: "cancel" },
-          {
-            text: t("common.delete"),
-            style: "destructive",
-            onPress: async () => {
-              if (!isCurrentView()) return;
-              const ok = await deleteFact(fact);
-              if (isCurrentView()) {
-                if (ok) notifyDestructive();
-                else reportRecoverableError(feedback, t("memory.delete_failed"));
-              }
-            },
-          },
-        ],
-      );
-    },
-    [token, isCurrentView, t, deleteFact, feedback],
   );
 
   const draftLength = useMemo(() => Array.from(stripMemoryAsOf(draftText)).length, [draftText]);
@@ -265,11 +210,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }
         renderItem={({ item }) =>
           item.kind === "section" ? (
-            <MemorySectionHeader
-              type={item.type}
-              pending={item.pending}
-              onDeleteSection={handleDeleteSection}
-            />
+            <MemorySectionHeader type={item.type} />
           ) : (
             <MemoryFactRow
               fact={item.fact}
@@ -284,7 +225,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
               onChangeDraft={setDraftText}
               onSaveEdit={() => void saveEdit()}
               onCancelEdit={closeEdit}
-              onDeleteFact={handleDeleteFact}
             />
           )
         }

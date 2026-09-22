@@ -11,7 +11,7 @@ import { useTheme, type Theme } from "@/lib/theme";
 
 /** Flattened row model for the Memory screen's sectioned FlashList. */
 export type MemoryRow =
-  | { kind: "section"; type: string; pending: boolean }
+  | { kind: "section"; type: string }
   | {
       kind: "fact";
       sectionType: string;
@@ -37,16 +37,8 @@ function confirmedLabel(iso: string | null | undefined): string | null {
   return day || null;
 }
 
-/** Sticky section header (type label + delete-section action). */
-export function MemorySectionHeader({
-  type,
-  pending,
-  onDeleteSection,
-}: {
-  type: string;
-  pending: boolean;
-  onDeleteSection: (type: string) => void;
-}) {
+/** Sticky section header. Memory deletion belongs in Settings, not this view. */
+export function MemorySectionHeader({ type }: { type: string }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { t } = useTranslation();
@@ -54,15 +46,6 @@ export function MemorySectionHeader({
   return (
     <View style={s.groupHeader}>
       <Text style={s.groupTitle}>{memoryTypeLabel(type, t)}</Text>
-      <IconButton
-        name="trash-outline"
-        size={16}
-        color={theme.danger}
-        onPress={() => onDeleteSection(type)}
-        disabled={pending}
-        accessibilityLabel={t("memory.delete_section_a11y")}
-        style={s.headerAction}
-      />
     </View>
   );
 }
@@ -81,7 +64,6 @@ export function MemoryFactRow({
   onChangeDraft,
   onSaveEdit,
   onCancelEdit,
-  onDeleteFact,
 }: {
   fact: Memory;
   pending: boolean;
@@ -95,7 +77,6 @@ export function MemoryFactRow({
   onChangeDraft: (text: string) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
-  onDeleteFact: (fact: Memory) => void;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -173,15 +154,6 @@ export function MemoryFactRow({
               onPress={() => onEditFact(fact)}
               disabled={pending}
               accessibilityLabel={t("memory.edit_fact_a11y")}
-              style={s.factAction}
-            />
-            <IconButton
-              name="trash-outline"
-              size={18}
-              color={theme.danger}
-              onPress={() => onDeleteFact(fact)}
-              disabled={pending}
-              accessibilityLabel={t("memory.delete_fact_a11y")}
               style={s.factAction}
             />
           </View>
@@ -264,7 +236,6 @@ function makeStyles(theme: Theme) {
     // driven by the fact text, not the touch targets.
     factAction: { marginVertical: -12 },
     inlineAction: { marginVertical: -6 },
-    headerAction: { marginVertical: -12, marginRight: -12 },
     factText: { flex: 1, ...Type.body, color: theme.text },
     meta: { ...Type.meta, color: theme.textTertiary, marginTop: 4 },
   });
