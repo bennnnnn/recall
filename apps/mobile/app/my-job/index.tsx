@@ -375,15 +375,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 active={tab === "saved"}
                 onPress={() => setTab("saved")}
               />
-              <TabButton
-                label={t("my_job.tab_all")}
-                count={counts.all}
-                active={tab === "all"}
-                onPress={() => setTab("all")}
-              />
-            </View>
-
-            {tab === "all" ? (
               <JobStageFilter
                 value={stageFilter}
                 counts={{
@@ -393,9 +384,11 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                   offer: counts.offer,
                   rejected: counts.rejected,
                 }}
+                active={tab === "all"}
+                onOpen={() => setTab("all")}
                 onChange={setStageFilter}
               />
-            ) : null}
+            </View>
 
             {error ? (
               <Pressable style={s.errorCard} onPress={() => void refresh()}>

@@ -22,6 +22,8 @@ export type JobStageFilterValue =
 type Props = {
   value: JobStageFilterValue;
   counts: Record<JobStageFilterValue, number>;
+  active: boolean;
+  onOpen: () => void;
   onChange: (value: JobStageFilterValue) => void;
 };
 
@@ -51,7 +53,13 @@ const OPTIONS: {
   },
 ];
 
-export function JobStageFilter({ value, counts, onChange }: Props) {
+export function JobStageFilter({
+  value,
+  counts,
+  active,
+  onOpen,
+  onChange,
+}: Props) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
@@ -83,6 +91,7 @@ export function JobStageFilter({ value, counts, onChange }: Props) {
       : Math.max(Space.md, anchor.y - menuHeight - Space.xs);
 
   const openMenu = () => {
+    onOpen();
     setOpen(true);
     selectRef.current?.measureInWindow?.((x, y, width, height) => {
       setAnchor({ x, y, width, height });
@@ -93,22 +102,31 @@ export function JobStageFilter({ value, counts, onChange }: Props) {
     <>
       <Pressable
         ref={selectRef}
-        style={({ pressed }) => [s.select, pressed && s.pressed]}
+        style={({ pressed }) => [
+          s.tab,
+          active && s.tabActive,
+          pressed && s.pressed,
+        ]}
         onPress={openMenu}
         accessibilityRole="button"
         accessibilityLabel={`${t("my_job.pipeline")}: ${selectedLabel}`}
-        accessibilityState={{ expanded: open }}
+        accessibilityState={{ expanded: open, selected: active }}
       >
-        <View style={s.selectCopy}>
-          <Text style={s.selectLabel}>{t("my_job.pipeline")}</Text>
-          <Text style={s.selectValue}>{selectedLabel}</Text>
-        </View>
-        {counts[value] > 0 ? (
-          <View style={s.countBadge}>
-            <Text style={s.countText}>{counts[value]}</Text>
+        <Text style={[s.tabText, active && s.tabTextActive]}>
+          {t("my_job.pipeline")}
+        </Text>
+        {counts.all > 0 ? (
+          <View style={[s.countBadge, active && s.countBadgeActive]}>
+            <Text style={[s.countText, active && s.countTextActive]}>
+              {counts.all}
+            </Text>
           </View>
         ) : null}
-        <Icon name="chevron-down" size={19} color={C.textSecondary} />
+        <Icon
+          name="chevron-down"
+          size={16}
+          color={active ? C.text : C.textSecondary}
+        />
       </Pressable>
 
       <Modal
@@ -172,28 +190,30 @@ export function JobStageFilter({ value, counts, onChange }: Props) {
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
-    select: {
-      minHeight: 58,
-      paddingHorizontal: Space.md,
-      borderRadius: Radius.xl,
-      backgroundColor: C.surface,
+    tab: {
+      flex: 1,
+      minHeight: 44,
+      borderRadius: Radius.full,
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
       gap: Space.sm,
     },
-    selectCopy: { flex: 1 },
-    selectLabel: { ...Type.overline, color: C.textTertiary },
-    selectValue: { ...Type.label, color: C.text, marginTop: 2 },
+    tabActive: { backgroundColor: C.bg },
+    tabText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    tabTextActive: { color: C.text },
     countBadge: {
       minWidth: 24,
       height: 24,
       paddingHorizontal: 7,
       borderRadius: 12,
-      backgroundColor: C.primaryLight,
+      backgroundColor: C.surfaceAlt,
       alignItems: "center",
       justifyContent: "center",
     },
-    countText: { ...Type.caption, color: C.primary, fontWeight: "700" },
+    countText: { ...Type.caption, color: C.textSecondary, fontWeight: "700" },
+    countBadgeActive: { backgroundColor: C.primaryLight },
+    countTextActive: { color: C.primary },
     overlay: { flex: 1 },
     menu: {
       position: "absolute",

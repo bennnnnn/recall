@@ -195,17 +195,16 @@ test("shows application pipeline lists and filters each stage", async () => {
   const screen = await render(<MyJobScreen />);
 
   expect(screen.getByText("Job new")).toBeTruthy();
-  expect(screen.queryByText("my_job.pipeline")).toBeNull();
-
-  await fireEvent.press(screen.getByText("my_job.tab_all"));
   expect(screen.getByText("my_job.pipeline")).toBeTruthy();
-  expect(screen.getByText("my_job.tab_all_stages")).toBeTruthy();
 
   await fireEvent.press(
     screen.getByRole("button", {
       name: "my_job.pipeline: my_job.tab_all_stages",
     }),
   );
+  expect(
+    screen.getByRole("radio", { name: "my_job.tab_all_stages" }),
+  ).toBeTruthy();
   await fireEvent.press(
     screen.getByRole("radio", { name: "my_job.tab_interviewing" }),
   );
