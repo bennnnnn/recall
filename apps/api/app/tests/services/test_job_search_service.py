@@ -89,6 +89,20 @@ def test_preference_patch_normalizes_common_tool_aliases() -> None:
     assert patch.location == "United States"
 
 
+def test_preference_patch_accepts_natural_experience_and_work_phrases() -> None:
+    patch = JobSearchPreferencesPatch.model_validate(
+        {
+            "location": "Seattle, Washington",
+            "work_mode": "Hybrid work",
+            "experience_level": "Experienced level",
+        }
+    )
+
+    assert patch.location == "Seattle, Washington"
+    assert patch.work_modes == ["hybrid"]
+    assert patch.experience_levels == ["mid"]
+
+
 def test_preference_patch_canonical_fields_win_over_tool_aliases() -> None:
     patch = JobSearchPreferencesPatch.model_validate(
         {
@@ -115,6 +129,74 @@ def test_job_tool_decodes_provider_stringified_preference_aliases() -> None:
     assert tool_input.preferences.target_roles == ["Software Engineer"]
     assert tool_input.preferences.experience_levels == ["entry"]
     assert tool_input.preferences.location == "United States"
+
+
+def test_job_tool_decodes_provider_compact_preference_string() -> None:
+    tool_input = JobSearchToolInput.model_validate(
+        {
+            "action": "update_profile",
+            "preferences": (
+                "location: Seattle, Washington; experience level: experienced; work_mode: hybrid"
+            ),
+        }
+    )
+
+    assert tool_input.preferences is not None
+    assert tool_input.preferences.location == "Seattle, Washington"
+    assert tool_input.preferences.experience_levels == ["mid"]
+    assert tool_input.preferences.work_modes == ["hybrid"]
+
+
+def test_job_tool_decodes_comma_delimited_provider_preference_string() -> None:
+    tool_input = JobSearchToolInput.model_validate(
+        {
+            "action": "update_profile",
+            "preferences": ("Location: Portland, Oregon, Experience: senior, Work mode: onsite"),
+        }
+    )
+
+    assert tool_input.preferences is not None
+    assert tool_input.preferences.location == "Portland, Oregon"
+    assert tool_input.preferences.experience_levels == ["senior"]
+    assert tool_input.preferences.work_modes == ["onsite"]
+
+
+def test_job_tool_decodes_equals_delimited_provider_preference_string() -> None:
+    tool_input = JobSearchToolInput.model_validate(
+        {
+            "action": "update_profile",
+            "preferences": ("location=Portland, Oregon; experience=senior; work_modes=onsite"),
+        }
+    )
+
+    assert tool_input.preferences is not None
+    assert tool_input.preferences.location == "Portland, Oregon"
+    assert tool_input.preferences.experience_levels == ["senior"]
+    assert tool_input.preferences.work_modes == ["onsite"]
+
+
+def test_preference_patch_accepts_provider_labels_with_spaces() -> None:
+    patch = JobSearchPreferencesPatch.model_validate(
+        {
+            "location": "Portland, Oregon",
+            "experience level": "Senior",
+            "work style": "On site",
+        }
+    )
+
+    assert patch.location == "Portland, Oregon"
+    assert patch.experience_levels == ["senior"]
+    assert patch.work_modes == ["onsite"]
+
+
+def test_job_tool_rejects_unknown_compact_preference_labels() -> None:
+    with pytest.raises(ValidationError):
+        JobSearchToolInput.model_validate(
+            {
+                "action": "update_profile",
+                "preferences": "location: Seattle; favorite color: blue",
+            }
+        )
 
 
 @pytest.mark.parametrize(

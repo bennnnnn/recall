@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Literal
 from uuid import UUID
 
@@ -45,7 +46,13 @@ class JobSearchToolInput(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def decode_stringified_preferences(cls, value: object) -> object:
-        """Normalize providers that JSON-encode the nested object twice."""
+        """Normalize providers that serialize the nested preference object.
+
+        Some function-calling providers emit a compact ``key: value`` string
+        even though the advertised schema requires an object. Keep the parser
+        deliberately bounded to known preference labels so malformed or
+        ambiguous updates still fail validation instead of being guessed.
+        """
         if not isinstance(value, dict):
             return value
         normalized = dict(value)
@@ -55,9 +62,66 @@ class JobSearchToolInput(BaseModel):
         try:
             decoded = json.loads(preferences)
         except (TypeError, ValueError):
-            return normalized
+            decoded = None
         if isinstance(decoded, dict):
             normalized["preferences"] = decoded
+            return normalized
+
+        label_aliases = {
+            "role": "target_roles",
+            "roles": "target_roles",
+            "target role": "target_roles",
+            "target roles": "target_roles",
+            "skill": "skills",
+            "skills": "skills",
+            "location": "location",
+            "locations": "location",
+            "work mode": "work_modes",
+            "work modes": "work_modes",
+            "work style": "work_modes",
+            "work type": "work_modes",
+            "experience": "experience_levels",
+            "experience level": "experience_levels",
+            "experience levels": "experience_levels",
+            "excluded company": "excluded_companies",
+            "excluded companies": "excluded_companies",
+            "frequency": "frequency",
+        }
+        parsed: dict[str, object] = {}
+        compact = preferences.strip().removeprefix("{").removesuffix("}")
+        labels_pattern = "|".join(re.escape(label) for label in label_aliases)
+        compact = re.sub(
+            rf",\s*(?=(?:{labels_pattern.replace(r'\ ', r'[ _]')})\s*:)",
+            ";",
+            compact,
+            flags=re.IGNORECASE,
+        )
+        segments = [segment.strip() for segment in compact.replace("\n", ";").split(";")]
+        for segment in segments:
+            if not segment:
+                continue
+            label, separator, raw_value = segment.partition(":")
+            if not separator:
+                label, separator, raw_value = segment.partition("=")
+            normalized_label = " ".join(label.strip().casefold().replace("_", " ").split())
+            canonical = label_aliases.get(normalized_label)
+            clean_value = raw_value.strip()
+            if not separator or canonical is None or not clean_value:
+                return normalized
+            if canonical in {
+                "target_roles",
+                "skills",
+                "work_modes",
+                "experience_levels",
+                "excluded_companies",
+            }:
+                parsed[canonical] = [
+                    item.strip() for item in clean_value.split(",") if item.strip()
+                ]
+            else:
+                parsed[canonical] = clean_value
+        if parsed:
+            normalized["preferences"] = parsed
         return normalized
 
 

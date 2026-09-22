@@ -155,6 +155,17 @@ class JobSearchPreferencesPatch(BaseModel):
             "excluded_company": "excluded_companies",
             "locations": "location",
         }
+        for raw_key in list(normalized):
+            normalized_key = "_".join(raw_key.strip().casefold().replace("-", " ").split())
+            canonical = {
+                "work_style": "work_modes",
+                "work_type": "work_modes",
+                "experience_level": "experience_levels",
+                "experience_levels": "experience_levels",
+                "excluded_companies": "excluded_companies",
+            }.get(normalized_key)
+            if canonical is not None and canonical not in normalized:
+                normalized[canonical] = normalized.pop(raw_key)
         for alias, canonical in aliases.items():
             alias_value = normalized.pop(alias, None)
             if canonical not in normalized and alias_value is not None:
@@ -172,7 +183,11 @@ class JobSearchPreferencesPatch(BaseModel):
         mode_aliases = {
             "on site": "onsite",
             "on-site": "onsite",
+            "onsite work": "onsite",
             "work from home": "remote",
+            "remote work": "remote",
+            "hybrid work": "hybrid",
+            "hybrid work mode": "hybrid",
         }
         if isinstance(normalized.get("work_modes"), list):
             normalized["work_modes"] = [
@@ -185,6 +200,12 @@ class JobSearchPreferencesPatch(BaseModel):
             "entry-level": "entry",
             "mid level": "mid",
             "mid-level": "mid",
+            "experienced": "mid",
+            "experienced level": "mid",
+            "intermediate": "mid",
+            "intermediate level": "mid",
+            "2-5 years": "mid",
+            "2\u20135 years": "mid",
             "senior level": "senior",
             "senior-level": "senior",
         }

@@ -275,6 +275,87 @@ def _requested_job_limit(text: str) -> int | None:
     return value if value is not None and 1 <= value <= 15 else None
 
 
+def _is_one_off_job_search(text: str) -> bool:
+    lower = text.casefold()
+    has_search = bool(re.search(r"\b(search|find|look\s+for|start\s+searching)\b", lower))
+    temporary = bool(
+        re.search(
+            r"\b(just this once|one[ -]?time|do not change|don't change|"
+            r"without changing|keep my saved)\b",
+            lower,
+        )
+    )
+    return has_search and temporary
+
+
+def _is_saved_job_update(text: str) -> bool:
+    lower = text.casefold()
+    if _is_one_off_job_search(text):
+        return False
+    has_mutation = bool(re.search(r"\b(restore|change|update|set|switch|edit|replace)\b", lower))
+    has_subject = "my job" in lower or "job search" in lower
+    has_preference = any(
+        cue in lower
+        for cue in (
+            "saved",
+            "preference",
+            "profile",
+            "location",
+            "experience",
+            "work mode",
+            "remote",
+            "hybrid",
+            "on-site",
+            "onsite",
+            "target role",
+            "skill",
+            "salary",
+            "frequency",
+        )
+    )
+    return has_mutation and has_subject and has_preference
+
+
+def _protect_one_off_job_search(
+    name: str,
+    raw_args: str,
+    user_text: str,
+) -> str:
+    """Prevent temporary searches from mutating the saved My Job profile."""
+    if name != "job_search" or not _is_one_off_job_search(user_text):
+        return raw_args
+    try:
+        args = json.loads(raw_args)
+    except (TypeError, ValueError):
+        return raw_args
+    if not isinstance(args, dict) or args.get("action") not in {"update_profile", "search_now"}:
+        return raw_args
+    args["action"] = "search_now"
+    requested_limit = _requested_job_limit(user_text)
+    if requested_limit is not None:
+        args["result_limit"] = requested_limit
+    return json.dumps(args)
+
+
+def _protect_saved_job_update(name: str, raw_args: str, user_text: str) -> str:
+    """Keep explicit saved-search edits from becoming temporary searches."""
+    if name != "job_search" or not _is_saved_job_update(user_text):
+        return raw_args
+    try:
+        args = json.loads(raw_args)
+    except (TypeError, ValueError):
+        return raw_args
+    if (
+        not isinstance(args, dict)
+        or args.get("action") != "search_now"
+        or args.get("preferences") is None
+    ):
+        return raw_args
+    args["action"] = "update_profile"
+    args.pop("result_limit", None)
+    return json.dumps(args)
+
+
 def _direct_job_tool_args(text: str) -> dict[str, Any] | None:
     """Return safe My Job actions that need no model interpretation.
 
@@ -284,6 +365,40 @@ def _direct_job_tool_args(text: str) -> dict[str, Any] | None:
     lower = text.casefold()
     if not lower.strip():
         return None
+    if _is_one_off_job_search(text):
+        # Let the structured selector extract temporary role/location filters;
+        # the invoke path below guarantees they cannot become a profile edit.
+        return None
+    match_id = re.search(
+        r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b",
+        lower,
+    )
+    match_status = next(
+        (
+            status
+            for status in (
+                "saved",
+                "applied",
+                "interviewing",
+                "offer",
+                "rejected",
+                "hidden",
+                "new",
+            )
+            if re.search(rf"\b{status}\b", lower)
+        ),
+        None,
+    )
+    if (
+        match_id is not None
+        and match_status is not None
+        and any(cue in lower for cue in ("mark", "move", "set", "change", "update"))
+    ):
+        return {
+            "action": "update_match",
+            "match_id": match_id.group(0),
+            "match_status": match_status,
+        }
     if "http://" in lower or "https://" in lower:
         if any(cue in lower for cue in ("check", "analyze", "analyse", "compare", "fit")):
             starts = [
@@ -299,6 +414,7 @@ def _direct_job_tool_args(text: str) -> dict[str, Any] | None:
         return {"action": "update_status", "search_status": "active"}
     mutation_cues = (
         "change",
+        "restore",
         "update",
         "set ",
         "switch",
@@ -756,6 +872,8 @@ async def _run_tool_rounds_bound(
             fn = call.get("function") or {}
             name = str(fn.get("name") or "")
             raw_args = fn.get("arguments") or "{}"
+            raw_args = _protect_one_off_job_search(name, raw_args, user_text)
+            raw_args = _protect_saved_job_update(name, raw_args, user_text)
             call_id = str(call.get("id") or name)
             if index >= max_calls:
                 working.append(

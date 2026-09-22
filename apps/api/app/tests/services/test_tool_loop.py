@@ -1,3 +1,4 @@
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -669,6 +670,69 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
 def test_tool_loop_completion_alias_uses_dedicated_tool_model():
     assert tool_loop._tool_loop_completion_alias("smart-chat") == "gemini-flash"
     assert tool_loop._tool_loop_completion_alias("free-chat") == "gemini-flash"
+
+
+def test_one_off_job_search_cannot_become_profile_update() -> None:
+    text = (
+        "Find 2 remote entry-level software engineer jobs in the United States "
+        "just this once. Do not change my saved My Job search."
+    )
+    raw = json.dumps(
+        {
+            "action": "update_profile",
+            "preferences": {
+                "work_modes": ["remote"],
+                "experience_levels": ["entry"],
+                "location": "United States",
+            },
+        }
+    )
+
+    assert tool_loop._direct_job_tool_args(text) is None
+    protected = json.loads(tool_loop._protect_one_off_job_search("job_search", raw, text))
+    assert protected == {
+        "action": "search_now",
+        "result_limit": 2,
+        "preferences": {
+            "work_modes": ["remote"],
+            "experience_levels": ["entry"],
+            "location": "United States",
+        },
+    }
+
+
+def test_match_stage_with_id_routes_without_model_selection() -> None:
+    match_id = "e408f0e5-2bed-404d-b58f-9aaf43fbbef9"
+    assert tool_loop._direct_job_tool_args(f"Mark My Job match {match_id} as saved.") == {
+        "action": "update_match",
+        "match_id": match_id,
+        "match_status": "saved",
+    }
+
+
+def test_saved_profile_restore_cannot_become_temporary_search() -> None:
+    text = "Restore my saved My Job search to United States, entry level, and remote work."
+    raw = json.dumps(
+        {
+            "action": "search_now",
+            "result_limit": 10,
+            "preferences": {
+                "location": "United States",
+                "experience_levels": ["entry"],
+                "work_modes": ["remote"],
+            },
+        }
+    )
+
+    protected = json.loads(tool_loop._protect_saved_job_update("job_search", raw, text))
+    assert protected == {
+        "action": "update_profile",
+        "preferences": {
+            "location": "United States",
+            "experience_levels": ["entry"],
+            "work_modes": ["remote"],
+        },
+    }
 
 
 @pytest.mark.asyncio
