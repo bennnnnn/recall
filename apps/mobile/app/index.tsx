@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   useWindowDimensions,
   View,
@@ -293,7 +293,6 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     onOfflineBlocked: notifyOfflineBlocked,
     isOffline,
-    resolveQuizProjectId,
     imageGenerating: imageGen.generating,
     onGenerateImage: (prompt, userMessage, reference, persistence) => {
       void imageGen.submitPrompt({

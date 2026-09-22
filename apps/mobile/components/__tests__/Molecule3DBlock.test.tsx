@@ -4,6 +4,8 @@
 import React from "react";
 import { render, waitFor } from "@testing-library/react-native";
 
+import { Molecule3DBlock } from "@/components/rich/Molecule3DBlock";
+
 let mockSkiaAvailable = true;
 
 type RenderNode = {
@@ -50,8 +52,6 @@ jest.mock("react-i18next", () => ({
 jest.mock("@/lib/skiaAvailability", () => ({
   isSkiaAvailable: () => mockSkiaAvailable,
 }));
-
-import { Molecule3DBlock } from "@/components/rich/Molecule3DBlock";
 
 const VALID_SDF = `Ethanol
      RDKit          3D

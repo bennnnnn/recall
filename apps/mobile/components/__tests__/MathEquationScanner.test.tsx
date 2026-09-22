@@ -18,8 +18,8 @@ const mockTakePictureAsync = jest.fn(async () => ({
 const mockPermission = { granted: true, canAskAgain: true };
 
 jest.mock("expo-camera", () => {
-  const ReactNative = require("react");
-  const { View } = require("react-native");
+  const ReactNative = jest.requireActual<typeof import("react")>("react");
+  const { View } = jest.requireActual<typeof import("react-native")>("react-native");
   const CameraView = ReactNative.forwardRef(
     (props: { onCameraReady?: () => void; style?: object }, ref: unknown) => {
       ReactNative.useImperativeHandle(ref, () => ({ takePictureAsync: mockTakePictureAsync }));

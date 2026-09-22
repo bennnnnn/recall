@@ -186,7 +186,6 @@ function navigateToTarget(
 /** Navigate when the user taps a push notification. */
 export async function handlePushNotificationResponse(
   router: AppRouter,
-  apiToken: string | null,
   data: PushData | undefined,
   currentPathname?: string | null,
 ): Promise<void> {

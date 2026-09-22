@@ -25,14 +25,6 @@ export type CollapsibleDraft = {
 
 export type SocialPlatform = "twitter" | "linkedin" | "facebook" | "instagram" | "generic";
 
-const CALLOUT_LANGS = new Set([
-  "tip",
-  "note",
-  "warning",
-  "info",
-  "important",
-  "callout",
-]);
 const SOCIAL_LANGS: Record<string, SocialPlatform> = {
   twitter: "twitter",
   tweet: "twitter",
@@ -49,7 +41,6 @@ const SOCIAL_LANGS: Record<string, SocialPlatform> = {
   social: "generic",
 };
 const MESSAGE_LANGS = new Set(["sms", "message", "reply"]);
-const QUOTE_LANGS = new Set(["quote", "blockquote"]);
 
 const EMAIL_TO_LABEL =
   /^(?:to|para|à|an|a|кому|kime|ለ|gara|收件人|致|宛先|받는 사람)\s*:\s*(.+)$/i;

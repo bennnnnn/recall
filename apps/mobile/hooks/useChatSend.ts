@@ -106,7 +106,6 @@ type Options = {
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
   isOffline: boolean;
-  resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
   onGenerateImage?: (
@@ -142,7 +141,6 @@ export function useChatSend({
   onStreamBusy,
   onOfflineBlocked,
   isOffline,
-  resolveQuizProjectId,
   onBeforeSend,
   onGenerateImage,
   imageGenerating = false,

@@ -21,7 +21,6 @@ export function PushNotificationBootstrap() {
   const router = useRouter();
   const pathname = usePathname();
   const auth = useAuthOptional();
-  const token = auth?.token ?? null;
   const authLoading = auth?.loading ?? true;
   const coldStartHandledRef = useRef(false);
   // Read the current route without re-attaching listeners on every nav.
@@ -45,7 +44,6 @@ export function PushNotificationBootstrap() {
       if (!active) return;
       void handlePushNotificationResponse(
         router as Parameters<typeof handlePushNotificationResponse>[0],
-        token,
         data as never,
         pathnameRef.current,
       ).catch(() => {
@@ -85,7 +83,7 @@ export function PushNotificationBootstrap() {
       responseSub.remove();
       receivedSub.remove();
     };
-  }, [router, token, authLoading]);
+  }, [router, authLoading]);
 
   return null;
 }

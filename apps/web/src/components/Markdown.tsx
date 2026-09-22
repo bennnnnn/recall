@@ -62,7 +62,7 @@ if (typeof window !== "undefined") {
   });
 }
 
-export function renderMarkdown(markdown: string): string {
+function renderMarkdown(markdown: string): string {
   const prepared = prepareAssistantMarkdown(markdown);
   const rawHtml = marked.parse(prepared, { async: false }) as string;
   return DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG) as unknown as string;

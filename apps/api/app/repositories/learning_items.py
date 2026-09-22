@@ -303,29 +303,20 @@ def _status_is(status_value: str) -> Any:
     return LearningItem.status == status_value
 
 
-async def count_stats_sql(
-    session: AsyncSession,
-    project_id: UUID,
-    user_id: UUID,
-    *,
-    timezone_name: str = "UTC",
-    now: datetime | None = None,
-) -> dict[str, Any]:
-    """Compute all project stats in one SQL query — no item loading, no truncation.
+def _stats_statement(*, timezone_name: str, now: datetime) -> Any:
+    """Build the shared learning-stat projection.
 
-    Replaces the load-all-then-count pattern that capped at 5k (detail) or 20k
-    (batched) and silently under-counted large decks. (LANG-FLOW-001/002)
+    The user-scoped and project-scoped entry points intentionally differ only
+    in their ownership filter. Keeping the projection here prevents the two
+    result contracts from drifting as new counters are added.
     """
-    if now is None:
-        now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)
     due_cutoff = now - timedelta(hours=24)
     start = start_of_today_utc(timezone_name)
-
     mastered_cond = _status_is("mastered")
     non_mastered_cond = ~mastered_cond
 
-    stmt = select(
+    return select(
         func.count().label("total"),
         func.count().filter(_status_is("new")).label("new_count"),
         func.count().filter(_status_is("learning")).label("learning_count"),
@@ -380,8 +371,10 @@ async def count_stats_sql(
         .label("pending_today"),
         func.max(LearningItem.mastered_at).filter(mastered_cond).label("last_mastery_at"),
         *activity_columns(start, mastered_cond),
-    ).where(LearningItem.user_id == user_id, LearningItem.project_id == project_id)
-    row = (await session.execute(stmt)).one()
+    )
+
+
+def _stats_values(row: Any) -> dict[str, Any]:
     return {
         "total": row.total or 0,
         "new_count": row.new_count or 0,
@@ -395,6 +388,29 @@ async def count_stats_sql(
         "last_mastery_at": row.last_mastery_at,
         **activity_values(row),
     }
+
+
+async def count_stats_sql(
+    session: AsyncSession,
+    project_id: UUID,
+    user_id: UUID,
+    *,
+    timezone_name: str = "UTC",
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Compute all project stats in one SQL query — no item loading, no truncation.
+
+    Replaces the load-all-then-count pattern that capped at 5k (detail) or 20k
+    (batched) and silently under-counted large decks. (LANG-FLOW-001/002)
+    """
+    if now is None:
+        now = datetime.now(UTC)
+    stmt = _stats_statement(timezone_name=timezone_name, now=now).where(
+        LearningItem.user_id == user_id,
+        LearningItem.project_id == project_id,
+    )
+    row = (await session.execute(stmt)).one()
+    return _stats_values(row)
 
 
 async def count_stats_by_learning_sql(
@@ -429,83 +445,11 @@ async def count_stats_sql_for_project(
     """Per-project stats without a user_id filter (projects are single-user)."""
     if now is None:
         now = datetime.now(UTC)
-    week_ago = now - timedelta(days=7)
-    due_cutoff = now - timedelta(hours=24)
-    start = start_of_today_utc(timezone_name)
-
-    mastered_cond = _status_is("mastered")
-    non_mastered_cond = ~mastered_cond
-
-    stmt = select(
-        func.count().label("total"),
-        func.count().filter(_status_is("new")).label("new_count"),
-        func.count().filter(_status_is("learning")).label("learning_count"),
-        func.count().filter(mastered_cond).label("mastered_count"),
-        func.count().filter(LearningItem.created_at >= week_ago).label("added_this_week"),
-        func.count()
-        .filter(
-            and_(
-                or_(_status_is("learning"), _status_is("mastered")),
-                or_(
-                    and_(
-                        LearningItem.due_at.is_(None),
-                        func.coalesce(LearningItem.last_reviewed_at, LearningItem.created_at)
-                        <= due_cutoff,
-                    ),
-                    and_(LearningItem.due_at.is_not(None), LearningItem.due_at <= now),
-                ),
-            )
-        )
-        .label("due_for_review"),
-        func.count()
-        .filter(
-            and_(
-                mastered_cond,
-                or_(
-                    and_(LearningItem.mastered_at.is_not(None), LearningItem.mastered_at >= start),
-                    and_(LearningItem.mastered_at.is_(None), LearningItem.created_at >= start),
-                ),
-            )
-        )
-        .label("mastered_today"),
-        func.count()
-        .filter(
-            and_(
-                non_mastered_cond,
-                LearningItem.last_incorrect_at.is_not(None),
-                LearningItem.last_incorrect_at >= start,
-            )
-        )
-        .label("missed_today"),
-        func.count()
-        .filter(
-            and_(
-                non_mastered_cond,
-                or_(
-                    LearningItem.last_incorrect_at.is_(None),
-                    LearningItem.last_incorrect_at < start,
-                ),
-                LearningItem.created_at >= start,
-            )
-        )
-        .label("pending_today"),
-        func.max(LearningItem.mastered_at).filter(mastered_cond).label("last_mastery_at"),
-        *activity_columns(start, mastered_cond),
-    ).where(LearningItem.project_id == project_id)
+    stmt = _stats_statement(timezone_name=timezone_name, now=now).where(
+        LearningItem.project_id == project_id
+    )
     row = (await session.execute(stmt)).one()
-    return {
-        "total": row.total or 0,
-        "new_count": row.new_count or 0,
-        "learning_count": row.learning_count or 0,
-        "mastered_count": row.mastered_count or 0,
-        "added_this_week": row.added_this_week or 0,
-        "due_for_review": row.due_for_review or 0,
-        "mastered_today": row.mastered_today or 0,
-        "missed_today": row.missed_today or 0,
-        "pending_today": row.pending_today or 0,
-        "last_mastery_at": row.last_mastery_at,
-        **activity_values(row),
-    }
+    return _stats_values(row)
 
 
 async def list_miss_events_for_items(

@@ -9,7 +9,7 @@
 const GIS_SRC = "https://accounts.google.com/gsi/client";
 let loadPromise: Promise<void> | null = null;
 
-export function loadGoogleGis(): Promise<void> {
+function loadGoogleGis(): Promise<void> {
   const existing = (window as unknown as { google?: unknown }).google;
   if (typeof window !== "undefined" && existing) {
     return Promise.resolve();
@@ -27,7 +27,7 @@ export function loadGoogleGis(): Promise<void> {
   return loadPromise;
 }
 
-export function googleClientId(): string {
+function googleClientId(): string {
   const id = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
   if (!id) {
     throw new Error(
