@@ -58,8 +58,8 @@ _COMM_PREF_CUES = (
     "direct",
     "english",
 )
-_IDENTITY_PROFILE_LIMIT = 3
-_IDENTITY_PREF_LIMIT = 2
+_IDENTITY_PROFILE_LIMIT = 4
+_IDENTITY_PREF_LIMIT = 4
 
 
 def fallback_score(memory: Any) -> float:

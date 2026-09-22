@@ -65,6 +65,7 @@ from app.services.chat.prompt_constants import (
     WRITING_LINE_HINT,
     is_bare_writing_line,
     is_brevity_request,
+    is_broad_self_question,
     is_callout_question,
     is_capabilities_question,
     is_chart_question,
@@ -106,13 +107,17 @@ from app.services.prompt_safety import (
 )
 
 _PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places")
-_ADVICE_MEMORY_MAX_CHARS = 1000
+_SLIM_MEMORY_MAX_CHARS = 1000
+_BROAD_SELF_HISTORY_QUERY = (
+    "Personal details the user stated about their background, work, employer, interests, "
+    "preferences, communication style, goals, and active projects"
+)
 
 
-def _cap_advice_memory_block(block: str) -> str:
-    if len(block) <= _ADVICE_MEMORY_MAX_CHARS:
+def _cap_slim_memory_block(block: str) -> str:
+    if len(block) <= _SLIM_MEMORY_MAX_CHARS:
         return block
-    cut = max(1, _ADVICE_MEMORY_MAX_CHARS - 1)
+    cut = max(1, _SLIM_MEMORY_MAX_CHARS - 1)
     return f"{block[:cut].rstrip()}…"
 
 
@@ -410,8 +415,11 @@ async def _load_context_blocks(
             return None
         from app.services.chat import history_rag as chat_history_rag_service
 
+        history_query = (
+            _BROAD_SELF_HISTORY_QUERY if is_broad_self_question(query_text) else query_text
+        )
         return await chat_history_rag_service.embed_query_for_prompt(
-            settings, user_id=user.id, query=query_text
+            settings, user_id=user.id, query=history_query
         )
 
     async def _fetch_recent() -> list[Any]:
@@ -443,10 +451,6 @@ async def _load_context_blocks(
             history_rag_query_vec=history_rag_query_vec,
         )
 
-    if chat is None:
-        async with SessionLocal() as s:
-            chat = await chats_repo.get_by_id(s, chat_id, user.id)
-
     # Each of these is an independent read with no dependency on the others'
     # output — give each its own short-lived session (a single AsyncSession
     # cannot safely run concurrent operations) and gather them, instead of
@@ -466,20 +470,28 @@ async def _load_context_blocks(
             )
 
     if slim_context and load_memory:
-        recent_all, memory_block = await asyncio.gather(_fetch_recent(), _memory_block())
+        recent_all, memory_block, history_rag_query_vec = await asyncio.gather(
+            _fetch_recent(),
+            _memory_block(),
+            _history_rag_embed(),
+        )
         if out is not None:
             out["recalled"] = 0
             out["memory_hints"] = []
         return _PromptContextBlocks(
-            memory_block=_cap_advice_memory_block(memory_block),
+            memory_block=_cap_slim_memory_block(memory_block),
             todos_section=None,
             gmail_todos_section=None,
             projects_block="",
             recent_all=recent_all,
             attachment_rag_block="",
             chat=chat,
-            history_rag_query_vec=None,
+            history_rag_query_vec=history_rag_query_vec,
         )
+
+    if chat is None:
+        async with SessionLocal() as s:
+            chat = await chats_repo.get_by_id(s, chat_id, user.id)
 
     async def _todos_section() -> tuple[str | None, str | None]:
         async with db_slots, SessionLocal() as s:
@@ -817,7 +829,9 @@ async def build_prompt_messages(
     connection across the concurrent gather.
     """
     recent_limit = settings.recent_message_window
-    # Opt-in rich context: casual chat skips memory embed / todos / projects.
+    # Rich context still controls integrations, but personal continuity is a
+    # baseline capability: every non-lightweight turn gets bounded memory and
+    # past-conversation retrieval. Exact greetings/acknowledgements stay fast.
     # ``lightweight`` is only the ultra-brief social reply style (hi/thanks).
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
     # If this chat has indexed attachment chunks, force rich context so a
@@ -832,12 +846,10 @@ async def build_prompt_messages(
                 rich_context = await chunks_repo.has_chunks_for_chat(s, user.id, chat_id)
         except Exception:
             logger.debug("has_chunks_for_chat probe failed for chat_id=%s", chat_id, exc_info=True)
-    load_memory = (
-        (rich_context or advice_memory) and not lightweight and not minimal_personal_context
-    )
+    load_memory = not lightweight
     slim_context = minimal_personal_context or lightweight or not rich_context
     history_rag = bool(
-        not slim_context and settings.chat_history_rag_enabled and query_text and query_text.strip()
+        not lightweight and settings.chat_history_rag_enabled and query_text and query_text.strip()
     )
     blocks = await _load_context_blocks(
         user,
@@ -979,6 +991,8 @@ async def build_prompt_messages(
     elif load_memory:
         if blocks.memory_block:
             system_parts.append(wrap_untrusted("memory", blocks.memory_block, first_party=True))
+        if chat_history_rag_block:
+            system_parts.append(chat_history_rag_block)
         if advice_memory and not (query_text and is_capabilities_question(query_text)):
             system_parts.append(ADVICE_PERSONALIZE_HINT)
 
