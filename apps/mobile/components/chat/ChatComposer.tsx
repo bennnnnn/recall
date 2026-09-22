@@ -219,6 +219,7 @@ export const ChatComposer = memo(function ChatComposer({
     voiceTranscribing,
     hasSendableContent,
   });
+  const singleLineComposer = !composerExpanded && (!input || inputHeight <= COMPOSER_INPUT_MIN_HEIGHT);
 
   const blockStyle = docked ? s.composerDocked : s.composerBlock;
   const expandedBlockStyle = composerExpanded
@@ -304,7 +305,14 @@ export const ChatComposer = memo(function ChatComposer({
                 </Pressable>
               </View>
             ) : null}
-            <View style={[s.inputRowMain, composerExpanded && s.inputRowMainExpanded]}>
+            <View
+              testID="composer-input-row"
+              style={[
+                s.inputRowMain,
+                singleLineComposer && s.inputRowMainSingleLine,
+                composerExpanded && s.inputRowMainExpanded,
+              ]}
+            >
               <Pressable
                 style={[s.attachBtn, attachmentDisabled && s.controlDisabled]}
                 onPress={() => {
@@ -380,14 +388,24 @@ export const ChatComposer = memo(function ChatComposer({
                     autoCorrect={false}
                     spellCheck={false}
                     autoCapitalize="none"
-                    onChangeText={math.onChangeText}
+                    onChangeText={(text) => {
+                      // A leading Return creates an invisible draft that hides
+                      // the placeholder and changes the composer height. Keep
+                      // whitespace-only drafts in the true empty state.
+                      math.onChangeText(text.trim() ? text : "");
+                    }}
                     onContentSizeChange={(event) => {
                       const measured = Math.ceil(event.nativeEvent.contentSize.height);
-                      const next = Math.min(
-                        COMPOSER_INPUT_MAX_HEIGHT,
-                        Math.max(COMPOSER_INPUT_MIN_HEIGHT, measured),
+                      const hasVisibleDraft = Boolean(input.trim());
+                      const next = hasVisibleDraft
+                        ? Math.min(
+                            COMPOSER_INPUT_MAX_HEIGHT,
+                            Math.max(COMPOSER_INPUT_MIN_HEIGHT, measured),
+                          )
+                        : COMPOSER_INPUT_MIN_HEIGHT;
+                      setInputAtLimit(
+                        hasVisibleDraft && measured >= COMPOSER_INPUT_MAX_HEIGHT,
                       );
-                      setInputAtLimit(measured >= COMPOSER_INPUT_MAX_HEIGHT);
                       if (!composerExpanded) {
                         setInputHeight((current) => (current === next ? current : next));
                       }
@@ -593,6 +611,7 @@ function makeStyles(theme: Theme) {
       color: theme.textSecondary,
     },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: Space.xs },
+    inputRowMainSingleLine: { alignItems: "center" },
     inputRowMainExpanded: { flex: 1, minHeight: 0 },
     inputField: { flex: 1, justifyContent: "center", minHeight: 22, position: "relative" },
     inputFieldExpanded: { justifyContent: "flex-start", minHeight: 0 },

@@ -224,6 +224,41 @@ describe("ChatComposer math keyboard", () => {
     });
   });
 
+  it("keeps an empty Return in the single-line placeholder state", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+
+    const { getByTestId } = await render(<Harness />);
+    const composerInput = getByTestId("chat-composer-input");
+
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+    expect(composerInput.props.placeholder).toBe("chat.placeholder");
+
+    await fireEvent.changeText(composerInput, "\n");
+    await fireEvent(composerInput, "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 50 } },
+    });
+
+    expect(getByTestId("chat-composer-input").props.value).toBe("");
+    expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 25 });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+  });
+
+  it("bottom-aligns controls only after visible multiline text is entered", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"First line\nSecond line"} />,
+    );
+
+    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 50 } },
+    });
+
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
   it("offers a full-height editor when the multiline input reaches its limit", async () => {
     const { getByTestId, getByLabelText } = await render(
       <ChatComposer
