@@ -1,8 +1,14 @@
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import {
+  Dimensions,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
 import { type IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
@@ -18,6 +24,8 @@ type Props = {
   counts: Record<JobStageFilterValue, number>;
   onChange: (value: JobStageFilterValue) => void;
 };
+
+type Anchor = { x: number; y: number; width: number; height: number };
 
 const OPTIONS: {
   value: JobStageFilterValue;
@@ -48,15 +56,45 @@ export function JobStageFilter({ value, counts, onChange }: Props) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<Anchor>({
+    x: Space.md,
+    y: 160,
+    width: Dimensions.get("window").width - Space.md * 2,
+    height: 58,
+  });
+  const selectRef = useRef<View>(null);
   const selected =
     OPTIONS.find((option) => option.value === value) ?? OPTIONS[0];
   const selectedLabel = t(selected.labelKey);
+  const window = Dimensions.get("window");
+  const menuHeight = OPTIONS.length * 52 + Space.sm * 2;
+  const menuWidth = Math.max(
+    220,
+    Math.min(anchor.width, window.width - Space.md * 2),
+  );
+  const menuLeft = Math.max(
+    Space.md,
+    Math.min(anchor.x, window.width - menuWidth - Space.md),
+  );
+  const belowTop = anchor.y + anchor.height + Space.xs;
+  const menuTop =
+    belowTop + menuHeight <= window.height - Space.md
+      ? belowTop
+      : Math.max(Space.md, anchor.y - menuHeight - Space.xs);
+
+  const openMenu = () => {
+    setOpen(true);
+    selectRef.current?.measureInWindow?.((x, y, width, height) => {
+      setAnchor({ x, y, width, height });
+    });
+  };
 
   return (
     <>
       <Pressable
+        ref={selectRef}
         style={({ pressed }) => [s.select, pressed && s.pressed]}
-        onPress={() => setOpen(true)}
+        onPress={openMenu}
         accessibilityRole="button"
         accessibilityLabel={`${t("my_job.pipeline")}: ${selectedLabel}`}
         accessibilityState={{ expanded: open }}
@@ -73,46 +111,61 @@ export function JobStageFilter({ value, counts, onChange }: Props) {
         <Icon name="chevron-down" size={19} color={C.textSecondary} />
       </Pressable>
 
-      <AppSheet
+      <Modal
         visible={open}
-        onClose={() => setOpen(false)}
-        floating
-        withHandle
-        contentContainerStyle={s.sheet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
       >
-        <Text style={s.sheetTitle}>{t("my_job.pipeline")}</Text>
-        {OPTIONS.map((option) => {
-          const active = option.value === value;
-          return (
-            <Pressable
-              key={option.value}
-              style={({ pressed }) => [s.option, pressed && s.optionPressed]}
-              onPress={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-              accessibilityRole="radio"
-              accessibilityLabel={t(option.labelKey)}
-              accessibilityState={{ selected: active }}
-            >
-              <Icon
-                name={option.icon}
-                size={20}
-                color={active ? C.primary : C.textSecondary}
-              />
-              <Text style={[s.optionLabel, active && s.optionLabelActive]}>
-                {t(option.labelKey)}
-              </Text>
-              {counts[option.value] > 0 ? (
-                <Text style={s.optionCount}>{counts[option.value]}</Text>
-              ) : null}
-              {active ? (
-                <Icon name="checkmark" size={20} color={C.primary} />
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </AppSheet>
+        <View style={s.overlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setOpen(false)}
+            accessibilityLabel={t("common.close")}
+            accessibilityRole="button"
+          />
+          <View
+            style={[s.menu, { top: menuTop, left: menuLeft, width: menuWidth }]}
+            accessibilityViewIsModal
+          >
+            {OPTIONS.map((option) => {
+              const active = option.value === value;
+              return (
+                <Pressable
+                  key={option.value}
+                  style={({ pressed }) => [
+                    s.option,
+                    active && s.optionActive,
+                    pressed && s.optionPressed,
+                  ]}
+                  onPress={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityLabel={t(option.labelKey)}
+                  accessibilityState={{ selected: active }}
+                >
+                  <Icon
+                    name={option.icon}
+                    size={20}
+                    color={active ? C.primary : C.textSecondary}
+                  />
+                  <Text style={[s.optionLabel, active && s.optionLabelActive]}>
+                    {t(option.labelKey)}
+                  </Text>
+                  {counts[option.value] > 0 ? (
+                    <Text style={s.optionCount}>{counts[option.value]}</Text>
+                  ) : null}
+                  {active ? (
+                    <Icon name="checkmark" size={20} color={C.primary} />
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -141,21 +194,29 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
     },
     countText: { ...Type.caption, color: C.primary, fontWeight: "700" },
-    sheet: { backgroundColor: C.inputBg, paddingHorizontal: Space.xs },
-    sheetTitle: {
-      ...Type.navTitle,
-      color: C.text,
-      textAlign: "center",
-      paddingVertical: Space.sm,
+    overlay: { flex: 1 },
+    menu: {
+      position: "absolute",
+      padding: Space.xs,
+      borderRadius: Radius.xl,
+      backgroundColor: C.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border,
+      shadowColor: "#000",
+      shadowOpacity: 0.16,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 10,
     },
     option: {
-      minHeight: 56,
+      minHeight: 52,
       paddingHorizontal: Space.md,
-      borderRadius: Radius.lg,
+      borderRadius: Radius.md,
       flexDirection: "row",
       alignItems: "center",
       gap: Space.sm,
     },
+    optionActive: { backgroundColor: C.primaryLight },
     optionPressed: { backgroundColor: C.surfaceAlt },
     optionLabel: { ...Type.body, color: C.text, flex: 1 },
     optionLabelActive: { color: C.primary, fontWeight: "700" },

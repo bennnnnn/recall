@@ -1,5 +1,4 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import type { ReactNode } from "react";
 
 import MyJobScreen from "@/app/my-job";
 import type { JobMatch, JobSearchDashboard, JobSearchProfile } from "@/lib/api";
@@ -49,15 +48,6 @@ jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
 }));
 jest.mock("@/components/Icon", () => ({ Icon: () => null }));
-jest.mock("@/components/AppSheet", () => ({
-  AppSheet: ({
-    visible,
-    children,
-  }: {
-    visible: boolean;
-    children: ReactNode;
-  }) => (visible ? <>{children}</> : null),
-}));
 jest.mock("@/components/jobSearch/JobMatchCard", () => {
   const { Text } = jest.requireActual("react-native");
   return {
