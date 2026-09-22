@@ -290,6 +290,12 @@ class JobSearchAdapter:
 
         redis = _job_redis.get()
         now = datetime.now(UTC)
+        if profile.status != "active":
+            note = (
+                "I did not start a new search because My Job is paused. "
+                "Resume My Job first, then ask me to search again."
+            )
+            return _direct_reply(f"{note}\n\n{raw_listing}")
         if not job_search_service.can_request_manual_run(user, profile):
             note = (
                 "I did not start a new search. On-demand searches need Recall Pro. "

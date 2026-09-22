@@ -234,6 +234,37 @@ async def test_adapter_search_now_free_user_does_not_run() -> None:
     assert "No matches yet" in result.content
 
 
+async def test_adapter_search_now_explains_paused_profile() -> None:
+    adapter = JobSearchAdapter()
+    user = MagicMock()
+    profile = _profile(status="paused")
+    run_search = AsyncMock()
+    with (
+        bind_job_search_context(user=user, redis=MagicMock()),
+        patch.object(
+            job_search_adapter,
+            "SessionLocal",
+            return_value=_SessionCM(_session_with_matches([])),
+        ),
+        patch.object(
+            job_search_adapter.job_search_service,
+            "get_profile_for_user",
+            new=AsyncMock(return_value=profile),
+        ),
+        patch.object(
+            job_search_adapter.job_search_runner,
+            "run_job_search",
+            new=run_search,
+        ),
+    ):
+        result = await adapter.invoke({"action": "search_now"})
+
+    run_search.assert_not_awaited()
+    assert "My Job is paused" in result.content
+    assert "Resume My Job" in result.content
+    assert "Recall Pro" not in result.content
+
+
 async def test_adapter_search_now_respects_cooldown() -> None:
     adapter = JobSearchAdapter()
     user = MagicMock()

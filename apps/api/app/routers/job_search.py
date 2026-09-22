@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,11 @@ from app.models.schemas.job_search import (
 from app.services import job_search as job_search_service
 
 router = APIRouter(prefix="/job-search", tags=["job-search"])
+_SEPARATE_BOOKMARKS_VERSION = "separate-v1"
+
+
+def _uses_separate_bookmarks(bookmark_model: str | None) -> bool:
+    return bookmark_model == _SEPARATE_BOOKMARKS_VERSION
 
 
 def _map_error(exc: job_search_service.JobSearchError) -> HTTPException:
@@ -33,8 +38,14 @@ async def get_job_search(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
+    bookmark_model: str | None = Header(default=None, alias="X-Recall-Job-Bookmarks"),
 ) -> JobSearchDashboardOut:
-    return await job_search_service.get_dashboard(session, user, settings)
+    return await job_search_service.get_dashboard(
+        session,
+        user,
+        settings,
+        separate_bookmarks=_uses_separate_bookmarks(bookmark_model),
+    )
 
 
 @router.put("", response_model=JobSearchDashboardOut)
@@ -43,9 +54,16 @@ async def upsert_job_search(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
+    bookmark_model: str | None = Header(default=None, alias="X-Recall-Job-Bookmarks"),
 ) -> JobSearchDashboardOut:
     try:
-        return await job_search_service.upsert_profile(session, user, settings, body)
+        return await job_search_service.upsert_profile(
+            session,
+            user,
+            settings,
+            body,
+            separate_bookmarks=_uses_separate_bookmarks(bookmark_model),
+        )
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc
 
@@ -64,6 +82,11 @@ async def run_job_search_now(
     profile = await job_search_service.get_profile_for_user(session, user.id)
     if profile is None:
         raise HTTPException(status_code=404, detail="Job search not found")
+    if profile.status != "active":
+        raise HTTPException(
+            status_code=409,
+            detail="Resume My Job before starting a search",
+        )
     if not job_search_service.can_request_manual_run(user, profile):
         raise HTTPException(status_code=403, detail="On-demand searches require Recall Pro")
     await enqueue(
@@ -81,6 +104,7 @@ async def update_job_search_status(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
+    bookmark_model: str | None = Header(default=None, alias="X-Recall-Job-Bookmarks"),
 ) -> JobSearchDashboardOut:
     try:
         return await job_search_service.set_search_status(
@@ -88,6 +112,7 @@ async def update_job_search_status(
             user,
             settings,
             body.status,
+            separate_bookmarks=_uses_separate_bookmarks(bookmark_model),
         )
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc
@@ -100,6 +125,7 @@ async def update_job_match_status(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
+    bookmark_model: str | None = Header(default=None, alias="X-Recall-Job-Bookmarks"),
 ) -> JobSearchDashboardOut:
     try:
         return await job_search_service.set_match_status(
@@ -110,6 +136,7 @@ async def update_job_match_status(
             body.status,
             body.notes,
             is_saved=body.is_saved,
+            separate_bookmarks=_uses_separate_bookmarks(bookmark_model),
         )
     except job_search_service.JobSearchError as exc:
         raise _map_error(exc) from exc

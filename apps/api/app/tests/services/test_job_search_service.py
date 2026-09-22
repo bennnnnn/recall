@@ -250,22 +250,29 @@ def test_job_tool_rejects_unknown_compact_preference_labels() -> None:
 
 
 @pytest.mark.parametrize(
-    ("last_run_at", "last_run_status", "is_pro", "expected"),
+    ("status", "last_run_at", "last_run_status", "is_pro", "expected"),
     [
-        (None, None, False, True),
-        (MagicMock(), "error", False, True),
-        (MagicMock(), "ok", True, True),
-        (MagicMock(), "ok", False, False),
+        ("active", None, None, False, True),
+        ("active", MagicMock(), "error", False, True),
+        ("active", MagicMock(), "ok", True, True),
+        ("active", MagicMock(), "ok", False, False),
+        ("paused", None, None, True, False),
+        ("paused", MagicMock(), "error", True, False),
     ],
 )
 def test_manual_run_policy(
+    status: str,
     last_run_at: object | None,
     last_run_status: str | None,
     is_pro: bool,
     expected: bool,
 ) -> None:
     user = MagicMock()
-    profile = MagicMock(last_run_at=last_run_at, last_run_status=last_run_status)
+    profile = MagicMock(
+        status=status,
+        last_run_at=last_run_at,
+        last_run_status=last_run_status,
+    )
     with patch.object(job_search_service.plan_service, "is_pro", return_value=is_pro):
         assert job_search_service.can_request_manual_run(user, profile) is expected
 
@@ -354,6 +361,62 @@ def test_match_out_upgrades_legacy_weak_reason_with_profile_evidence() -> None:
     assert any("4 years" in reason for reason in output.match_reasons)
     assert all("title and description" not in reason.casefold() for reason in output.match_reasons)
     assert output.gap is not None and "SQL" in output.gap
+
+
+def test_match_out_versions_legacy_bookmark_status() -> None:
+    match = SimpleNamespace(
+        id=uuid4(),
+        title="Backend Engineer",
+        company="Acme",
+        company_logo_url=None,
+        location=None,
+        work_mode=None,
+        salary=None,
+        experience=None,
+        match_score=80,
+        url="https://jobs.example.com/1",
+        source="jobs.example.com",
+        posted_at=None,
+        summary=None,
+        required_skills=[],
+        match_reasons=[],
+        gap=None,
+        found_at=datetime.now(UTC),
+        status="saved",
+        is_saved=True,
+        notes=None,
+    )
+
+    modern = job_search_service.match_out(cast(JobMatch, match))
+    legacy = job_search_service.match_out(
+        cast(JobMatch, match),
+        separate_bookmarks=False,
+    )
+
+    assert modern.status == "new"
+    assert modern.is_saved is True
+    assert legacy.status == "saved"
+    assert legacy.is_saved is True
+
+
+@pytest.mark.asyncio
+async def test_legacy_unsave_preserves_newer_application_stage() -> None:
+    match = MagicMock(status="interviewing", is_saved=True)
+    session = AsyncMock()
+    session.scalar.return_value = match
+
+    with patch.object(job_search_service, "get_dashboard", AsyncMock(return_value=MagicMock())):
+        await job_search_service.set_match_status(
+            session,
+            MagicMock(id=uuid4()),
+            MagicMock(),
+            uuid4(),
+            "new",
+            separate_bookmarks=False,
+        )
+
+    assert match.status == "interviewing"
+    assert match.is_saved is False
 
 
 def test_match_out_drops_stale_preference_reasons_after_profile_change() -> None:

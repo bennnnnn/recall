@@ -14,31 +14,18 @@ down_revision: Union[str, None] = "0094_job_match_scan_fields"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-_OLD_STATUSES = "('new', 'saved', 'applied', 'interviewing', 'offer', 'rejected', 'hidden')"
-_NEW_STATUSES = "('new', 'applied', 'interviewing', 'offer', 'rejected', 'hidden')"
-
 
 def upgrade() -> None:
     op.add_column(
         "job_matches",
         sa.Column("is_saved", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
-    op.execute("UPDATE job_matches SET is_saved = true, status = 'new' WHERE status = 'saved'")
-    op.drop_constraint("ck_job_matches_status", "job_matches", type_="check")
-    op.create_check_constraint(
-        "ck_job_matches_status",
-        "job_matches",
-        f"status IN {_NEW_STATUSES}",
-    )
+    # Keep the legacy status during the compatibility window. Existing mobile
+    # builds still derive their Saved tab entirely from status == "saved";
+    # modern clients opt into the independent is_saved representation.
+    op.execute("UPDATE job_matches SET is_saved = true WHERE status = 'saved'")
     op.alter_column("job_matches", "is_saved", server_default=None)
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_job_matches_status", "job_matches", type_="check")
-    op.create_check_constraint(
-        "ck_job_matches_status",
-        "job_matches",
-        f"status IN {_OLD_STATUSES}",
-    )
-    op.execute("UPDATE job_matches SET status = 'saved' WHERE is_saved = true AND status = 'new'")
     op.drop_column("job_matches", "is_saved")

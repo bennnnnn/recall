@@ -117,7 +117,7 @@ class JobMatch(Base):
             name="ck_job_matches_work_mode",
         ),
         CheckConstraint(
-            "status IN ('new', 'applied', 'interviewing', 'offer', 'rejected', 'hidden')",
+            "status IN ('new', 'saved', 'applied', 'interviewing', 'offer', 'rejected', 'hidden')",
             name="ck_job_matches_status",
         ),
     )

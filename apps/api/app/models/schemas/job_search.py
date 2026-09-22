@@ -10,16 +10,8 @@ JobSearchFrequency = Literal["daily", "weekdays", "weekly", "monthly"]
 JobSearchStatus = Literal["active", "paused"]
 JobSearchWorkMode = Literal["remote", "hybrid", "onsite"]
 JobSearchExperience = Literal["internship", "entry", "mid", "senior"]
-JobMatchStage = Literal[
-    "new",
-    "applied",
-    "interviewing",
-    "offer",
-    "rejected",
-    "hidden",
-]
-# ``saved`` remains an accepted command for backwards-compatible chat actions.
-# Stored/output status is always a JobMatchStage; bookmark state lives in is_saved.
+# ``saved`` remains accepted for old mobile clients and chat commands. Modern
+# clients opt into independent bookmark state and only receive pipeline stages.
 JobMatchStatus = Literal[
     "new",
     "saved",
@@ -344,7 +336,9 @@ class JobMatchOut(BaseModel):
     match_reasons: list[str] = Field(default_factory=list)
     gap: str | None = None
     found_at: datetime
-    status: JobMatchStage = "new"
+    # Legacy clients can receive ``saved`` during the compatibility window;
+    # modern clients opt into independent bookmark state and receive stages.
+    status: JobMatchStatus = "new"
     is_saved: bool = False
     notes: str | None = None
 

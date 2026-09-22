@@ -261,6 +261,36 @@ _NUMBER_WORDS = {
     "fifteen": 15,
 }
 
+_UNFILTERED_JOB_SEARCH_WORDS = {
+    "a",
+    "again",
+    "current",
+    "find",
+    "for",
+    "job",
+    "jobs",
+    "look",
+    "match",
+    "matches",
+    "me",
+    "more",
+    "my",
+    "new",
+    "now",
+    "opening",
+    "openings",
+    "please",
+    "profile",
+    "role",
+    "roles",
+    "saved",
+    "search",
+    "searching",
+    "start",
+    "the",
+    "using",
+}
+
 
 def _requested_job_limit(text: str) -> int | None:
     match = re.search(
@@ -273,6 +303,16 @@ def _requested_job_limit(text: str) -> int | None:
     raw = match.group(1)
     value = int(raw) if raw.isdigit() else _NUMBER_WORDS.get(raw)
     return value if value is not None and 1 <= value <= 15 else None
+
+
+def _is_unfiltered_job_search(text: str) -> bool:
+    """Only bypass the selector when the request adds no search filters."""
+    normalized = "".join(character if character.isalnum() else " " for character in text.casefold())
+    words = normalized.split()
+    return all(
+        word.isdigit() or word in _NUMBER_WORDS or word in _UNFILTERED_JOB_SEARCH_WORDS
+        for word in words
+    )
 
 
 def _is_one_off_job_search(text: str) -> bool:
@@ -491,6 +531,11 @@ def _direct_job_tool_args(text: str) -> dict[str, Any] | None:
     ):
         return {"action": "list"}
     if re.search(r"\b(search|find|look\s+for|start\s+searching)\b", lower):
+        if not _is_unfiltered_job_search(text):
+            # Role, location, level, work mode, and other filters belong to the
+            # structured selector. A direct search here would silently use the
+            # saved profile and ignore the user's requested filters.
+            return None
         search_args: dict[str, Any] = {"action": "search_now"}
         requested_limit = _requested_job_limit(text)
         if requested_limit is not None:

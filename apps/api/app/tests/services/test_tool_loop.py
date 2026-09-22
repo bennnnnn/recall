@@ -49,6 +49,22 @@ def test_direct_job_update_defers_complex_role_change_to_structured_selector() -
     )
 
 
+def test_filtered_job_search_defers_to_structured_selector() -> None:
+    assert (
+        tool_loop._direct_job_tool_args(
+            "Find senior product manager jobs in Seattle with hybrid work."
+        )
+        is None
+    )
+
+
+def test_unfiltered_job_search_keeps_fast_direct_route() -> None:
+    assert tool_loop._direct_job_tool_args("Please search for 2 more jobs now") == {
+        "action": "search_now",
+        "result_limit": 2,
+    }
+
+
 def _settings(**kwargs: object) -> Settings:
     s = Settings()
     for key, value in kwargs.items():
