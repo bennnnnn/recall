@@ -209,6 +209,7 @@ test("shows application pipeline lists and filters each stage", async () => {
     screen.getByRole("radio", { name: "my_job.tab_interviewing" }),
   );
   expect(screen.getByText("Job interview")).toBeTruthy();
+  expect(screen.getByText("my_job.tab_interviewing")).toBeTruthy();
   expect(screen.queryByText("Job new")).toBeNull();
 
   await fireEvent.press(
@@ -220,6 +221,7 @@ test("shows application pipeline lists and filters each stage", async () => {
     screen.getByRole("radio", { name: "my_job.tab_offers" }),
   );
   expect(screen.getByText("Job offer")).toBeTruthy();
+  expect(screen.getByText("my_job.tab_offers")).toBeTruthy();
 
   await fireEvent.press(
     screen.getByRole("button", {
@@ -230,6 +232,7 @@ test("shows application pipeline lists and filters each stage", async () => {
     screen.getByRole("radio", { name: "my_job.tab_rejected" }),
   );
   expect(screen.getByText("Job rejected")).toBeTruthy();
+  expect(screen.getByText("my_job.tab_rejected")).toBeTruthy();
 
   await fireEvent.press(
     screen.getByRole("button", {
@@ -240,6 +243,7 @@ test("shows application pipeline lists and filters each stage", async () => {
     screen.getByRole("radio", { name: "my_job.tab_applied" }),
   );
   expect(screen.getByText("Job applied")).toBeTruthy();
+  expect(screen.getByText("my_job.tab_applied")).toBeTruthy();
 });
 
 test("shows a retry action when the last search failed", async () => {

@@ -74,6 +74,8 @@ export function JobStageFilter({
   const selected =
     OPTIONS.find((option) => option.value === value) ?? OPTIONS[0];
   const selectedLabel = t(selected.labelKey);
+  const tabLabel = value === "all" ? t("my_job.pipeline") : selectedLabel;
+  const tabCount = counts[value];
   const window = Dimensions.get("window");
   const menuHeight = OPTIONS.length * 52 + Space.sm * 2;
   const menuWidth = Math.max(
@@ -112,13 +114,11 @@ export function JobStageFilter({
         accessibilityLabel={`${t("my_job.pipeline")}: ${selectedLabel}`}
         accessibilityState={{ expanded: open, selected: active }}
       >
-        <Text style={[s.tabText, active && s.tabTextActive]}>
-          {t("my_job.pipeline")}
-        </Text>
-        {counts.all > 0 ? (
+        <Text style={[s.tabText, active && s.tabTextActive]}>{tabLabel}</Text>
+        {tabCount > 0 ? (
           <View style={[s.countBadge, active && s.countBadgeActive]}>
             <Text style={[s.countText, active && s.countTextActive]}>
-              {counts.all}
+              {tabCount}
             </Text>
           </View>
         ) : null}
