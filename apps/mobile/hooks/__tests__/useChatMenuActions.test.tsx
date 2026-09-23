@@ -15,7 +15,7 @@ jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) =>
 jest.mock("@/lib/api", () => ({ api: { renameChat: jest.fn(), setPin: jest.fn(), setArchive: jest.fn(), deleteChat: jest.fn(), listAllMessages: jest.fn() } }));
 jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: () => undefined }));
-jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: () => false }));
 jest.mock("@/lib/share", () => ({ shareConversation: jest.fn() }));
 jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));

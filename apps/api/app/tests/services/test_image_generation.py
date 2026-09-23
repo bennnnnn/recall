@@ -169,7 +169,7 @@ async def test_generate_image_openrouter_b64_json_rejects_oversized_payload():
     """BUG FIX: every other attachment path enforces MAX_ATTACHMENT_SIZE.
     A provider response bigger than that cap must be rejected, not written
     straight through to storage."""
-    from app.services.attachments.content import MAX_ATTACHMENT_SIZE
+    from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
 
     settings = Settings(
         openrouter_api_key="test-key",
@@ -202,7 +202,7 @@ async def test_generate_image_openrouter_b64_json_rejects_oversized_payload():
 @pytest.mark.asyncio
 async def test_generate_image_openrouter_url_response_rejects_oversized_payload():
     """Same size cap applied to the URL-fetch branch."""
-    from app.services.attachments.content import MAX_ATTACHMENT_SIZE
+    from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
 
     settings = Settings(
         openrouter_api_key="test-key",

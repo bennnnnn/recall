@@ -56,7 +56,7 @@ jest.mock("@/components/chat/LiveTalkButton", () => {
   };
 });
 
-jest.mock("@/components/ComposerAttachmentPreview", () => ({
+jest.mock("@/features/attachments/components/ComposerAttachmentPreview", () => ({
   ComposerAttachmentPreview: () => null,
 }));
 

@@ -27,9 +27,9 @@ import type {
   ChatScreenSheetsProps,
 } from "@/components/chat/ChatScreenBody";
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
-import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
+import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
-import type { PendingAttachment } from "@/lib/attachments";
+import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
 import { openDrawer } from "@/lib/drawer";

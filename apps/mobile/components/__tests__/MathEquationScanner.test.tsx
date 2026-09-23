@@ -2,7 +2,7 @@ import React from "react";
 import { Dimensions, Image } from "react-native";
 import * as ImageManipulator from "expo-image-manipulator";
 
-import { pickImageDocument } from "@/lib/attachments";
+import { pickImageDocument } from "@/features/attachments/model/attachments";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/components/MathEquationScanner";
@@ -57,7 +57,7 @@ jest.mock("@/lib/lastPhotoThumbnail", () => ({
   useLastPhotoThumb: () => null,
 }));
 
-jest.mock("@/lib/attachments", () => ({
+jest.mock("@/features/attachments/model/attachments", () => ({
   pickImageDocument: jest.fn(async () => null),
   HeicUnsupportedError: class extends Error {},
   NativePickerBusyError: class extends Error {},

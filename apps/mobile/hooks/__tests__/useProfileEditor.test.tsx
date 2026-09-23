@@ -10,7 +10,7 @@ import {
   PhotoLibraryPermissionError,
   uploadChatAttachment,
   type PendingAttachment,
-} from "@/lib/attachments";
+} from "@/features/attachments/model/attachments";
 import { discardProfilePhoto, pickProfilePhoto } from "@/lib/profilePhoto";
 
 let mockSession = 1;
@@ -23,7 +23,7 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/lib/api", () => ({ api: { cancelAttachment: jest.fn() } }));
-jest.mock("@/lib/attachments", () => ({
+jest.mock("@/features/attachments/model/attachments", () => ({
   uploadChatAttachment: jest.fn(),
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},

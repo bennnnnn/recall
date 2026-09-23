@@ -579,7 +579,7 @@ async def _load_context_blocks(
         # HTTP/embed-bound — do not hold a DB pool slot.
         if not settings.attachment_rag_enabled or not query_text:
             return ""
-        from app.services.attachments import rag as attachment_rag_service
+        from app.modules.attachments import rag as attachment_rag_service
 
         return await attachment_rag_service.retrieve_for_prompt(
             settings,
@@ -887,7 +887,7 @@ async def build_prompt_messages(
     # Without this, a lightweight query after uploading a PDF skips RAG
     # entirely and the user gets no document context on follow-ups.
     if not rich_context and settings.attachment_rag_enabled and probe_attachment_rag:
-        from app.repositories import attachment_chunks as chunks_repo
+        from app.modules.attachments import chunks_repository as chunks_repo
 
         try:
             async with SessionLocal() as s:

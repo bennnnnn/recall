@@ -1403,11 +1403,11 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.repositories.attachment_chunks.has_chunks_for_chat",
+            "app.modules.attachments.chunks_repository.has_chunks_for_chat",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.attachments.rag.retrieve_for_prompt",
+            "app.modules.attachments.rag.retrieve_for_prompt",
             AsyncMock(return_value=rag_block),
         ) as rag_mock,
     ):
@@ -1466,11 +1466,11 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.repositories.attachment_chunks.has_chunks_for_chat",
+            "app.modules.attachments.chunks_repository.has_chunks_for_chat",
             has_chunks,
         ),
         patch(
-            "app.services.attachments.rag.retrieve_for_prompt",
+            "app.modules.attachments.rag.retrieve_for_prompt",
             AsyncMock(return_value="SHOULD NOT APPEAR"),
         ) as rag_mock,
     ):

@@ -1,6 +1,7 @@
 import { accountApi } from "@/lib/api/account";
 import { analyticsApi } from "@/lib/api/analytics";
-import { attachmentsApi } from "@/lib/api/attachments";
+import { pushApi } from "@/lib/api/push";
+import { attachmentsApi } from "@/features/attachments/api";
 import { chatsApi } from "@/lib/api/chats";
 import { discoverApi } from "@/lib/api/discover";
 import { imagesApi } from "@/lib/api/images";
@@ -14,10 +15,8 @@ import { todosApi } from "@/features/todos/api";
 export type * from "@/lib/api/types";
 export type { ProductEventName } from "@/lib/api/analytics";
 export type * from "@/features/job-search/api";
-export {
-  attachmentRecordExists,
-  type AttachmentListItem,
-} from "@/lib/api/attachments";
+export { attachmentRecordExists } from "@/features/attachments/api";
+export type { AttachmentListItem } from "@/features/attachments/types";
 export {
   loginWithApple,
   loginWithDev,
@@ -40,6 +39,7 @@ export const api = {
   ...todosApi,
   ...learningApi,
   ...integrationsApi,
+  ...pushApi,
   ...attachmentsApi,
   ...imagesApi,
   ...speechApi,

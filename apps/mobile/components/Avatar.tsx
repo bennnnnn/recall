@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import { getInitials } from "@/lib/profile";
-import { attachmentRequestHeaders, resolveAttachmentUri } from "@/lib/attachmentUri";
+import { attachmentRequestHeaders, resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { Theme, useTheme } from "@/lib/theme";
 
 /** Google profile picture when available, otherwise the user's initials. */

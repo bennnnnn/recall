@@ -6,7 +6,7 @@ import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 
-import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
+import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
@@ -46,7 +46,7 @@ import {
   pickFromPhotoLibrary,
   uploadChatAttachment,
   type PendingAttachment,
-} from "@/lib/attachments";
+} from "@/features/attachments/model/attachments";
 import {
   composerTextAfterSubjectScan,
   type ScannerSubject,
@@ -54,7 +54,7 @@ import {
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
-} from "@/lib/pendingComposerAttachment";
+} from "@/features/attachments/model/pendingComposerAttachment";
 
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;

@@ -176,15 +176,15 @@ async def test_delete_chat_keeps_library_attachments():
     with (
         patch.object(chats_service.chats_repo, "get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.services.attachments.lifecycle.detach_attachments_for_messages",
+            "app.modules.attachments.lifecycle.detach_attachments_for_messages",
             AsyncMock(return_value=["user/file"]),
         ) as detach_mock,
         patch(
-            "app.services.attachments.lifecycle.delete_storage_keys",
+            "app.modules.attachments.lifecycle.delete_storage_keys",
             AsyncMock(return_value=[]),
         ) as delete_keys,
         patch(
-            "app.services.attachments.lifecycle.enqueue_failed_storage_deletes",
+            "app.modules.attachments.lifecycle.enqueue_failed_storage_deletes",
             AsyncMock(),
         ) as enqueue,
     ):

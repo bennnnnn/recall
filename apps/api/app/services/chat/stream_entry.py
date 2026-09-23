@@ -9,7 +9,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ChatServiceError, QuotaExceededError
 from app.models.orm import Chat, User
-from app.services.attachments.content import (
+from app.modules.attachments.content import (
     image_attachment_ids_from_text,
     strip_attachment_from_content,
 )

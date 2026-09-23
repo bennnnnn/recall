@@ -20,6 +20,8 @@ from app.core.config import Settings
 from app.gateways import litellm_gateway, web_search_gateway
 from app.gateways.storage_gateway import get_storage_gateway
 from app.models.orm import User
+from app.modules.attachments import content as attachment_content_service
+from app.modules.attachments import repository as attachments_repo
 from app.modules.job_search.models import JobMatch, JobSearchProfile
 from app.modules.job_search.schemas import (
     CoverLetterOut,
@@ -35,9 +37,7 @@ from app.modules.job_search.schemas import (
     ResumeProfile,
 )
 from app.modules.todos.recurrence import snap_first_due
-from app.repositories import attachments as attachments_repo
 from app.services import plan as plan_service
-from app.services.attachments import content as attachment_content_service
 from app.services.prompt_safety import wrap_untrusted
 from app.services.time_context import normalize_due_at
 

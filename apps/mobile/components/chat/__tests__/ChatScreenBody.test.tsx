@@ -56,7 +56,7 @@ jest.mock("@/contexts/StreamingDraftContext", () => ({
 }));
 
 jest.mock("@/components/ActionBanner", () => ({ ActionBanner: () => null }));
-jest.mock("@/components/AttachmentSourceSheet", () => ({
+jest.mock("@/features/attachments/components/AttachmentSourceSheet", () => ({
   AttachmentSourceSheet: () => null,
 }));
 jest.mock("@/components/MathEquationScanner", () => ({

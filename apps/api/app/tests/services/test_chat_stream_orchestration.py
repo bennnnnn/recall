@@ -1900,13 +1900,13 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.attachments.lifecycle.detach_attachments_for_messages",
+                "app.modules.attachments.lifecycle.detach_attachments_for_messages",
                 AsyncMock(return_value=[]),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.attachments.lifecycle.delete_storage_keys",
+                "app.modules.attachments.lifecycle.delete_storage_keys",
                 AsyncMock(),
             )
         )
@@ -2021,13 +2021,13 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.attachments.lifecycle.detach_attachments_for_messages",
+                "app.modules.attachments.lifecycle.detach_attachments_for_messages",
                 AsyncMock(return_value=[]),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.attachments.lifecycle.delete_storage_keys",
+                "app.modules.attachments.lifecycle.delete_storage_keys",
                 AsyncMock(),
             )
         )
@@ -2149,13 +2149,13 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.attachments.lifecycle.detach_attachments_for_messages",
+                "app.modules.attachments.lifecycle.detach_attachments_for_messages",
                 AsyncMock(return_value=[]),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.attachments.lifecycle.delete_storage_keys",
+                "app.modules.attachments.lifecycle.delete_storage_keys",
                 AsyncMock(),
             )
         )

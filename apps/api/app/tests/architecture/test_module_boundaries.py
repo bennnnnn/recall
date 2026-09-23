@@ -192,6 +192,37 @@ LEGACY_INTEGRATIONS_IMPORTS = (
     "app.services.google_integrations",
     "app.services.mcp.calendar_adapter",
 )
+LEGACY_ATTACHMENTS_SHIMS = {
+    APP_ROOT / "background" / "attachment_indexing.py",
+    APP_ROOT / "background" / "attachment_orphan_reaper.py",
+    APP_ROOT / "models" / "schemas" / "attachments.py",
+    APP_ROOT / "repositories" / "attachment_chunks.py",
+    APP_ROOT / "repositories" / "attachments.py",
+    APP_ROOT / "routers" / "attachments.py",
+    *(
+        APP_ROOT / "services" / "attachments" / name
+        for name in (
+            "__init__.py",
+            "content.py",
+            "lifecycle.py",
+            "ocr.py",
+            "quota.py",
+            "rag.py",
+            "reuse.py",
+            "upload.py",
+            "workflow.py",
+        )
+    ),
+}
+LEGACY_ATTACHMENTS_IMPORTS = (
+    "app.background.attachment_indexing",
+    "app.background.attachment_orphan_reaper",
+    "app.models.schemas.attachments",
+    "app.repositories.attachment_chunks",
+    "app.repositories.attachments",
+    "app.routers.attachments",
+    "app.services.attachments",
+)
 
 
 def _imports(path: Path) -> list[str]:
@@ -319,6 +350,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
                 or path in LEGACY_LEARNING_SHIMS
                 or path in LEGACY_MEMORY_SHIMS
                 or path in LEGACY_INTEGRATIONS_SHIMS
+                or path in LEGACY_ATTACHMENTS_SHIMS
             ):
                 continue
             for imported in _imports(path):
@@ -606,6 +638,85 @@ def test_mobile_integrations_has_one_feature_home_and_thin_routes() -> None:
         MOBILE_ROOT / "components" / "CalendarProposalCard.tsx",
         MOBILE_ROOT / "components" / "rich" / "EmailCard.tsx",
         MOBILE_ROOT / "contexts" / "emailDraftPersist.tsx",
+    ):
+        assert not gone.exists(), gone
+
+    feature_import_violations = [
+        str(path.relative_to(MOBILE_ROOT))
+        for path in feature_root.rglob("*.ts*")
+        if "__tests__" not in path.parts and "@/app/" in path.read_text()
+    ]
+    assert not feature_import_violations
+
+
+def test_attachments_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "attachments"
+    expected = {
+        "api.py",
+        "chunks_repository.py",
+        "jobs.py",
+        "models.py",
+        "reaper.py",
+        "repository.py",
+        "schemas.py",
+    }
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (APP_ROOT / "tests" / "modules" / "attachments" / "test_api.py").is_file()
+
+    for shim in LEGACY_ATTACHMENTS_SHIMS:
+        tree = ast.parse(shim.read_text(), filename=str(shim))
+        owned_definitions = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
+        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
+
+    shim = APP_ROOT / "routers" / "attachments.py"
+    shim_tree = ast.parse(shim.read_text(), filename=str(shim))
+    assert any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "app.modules.attachments.api"
+        and any(alias.name == "router" for alias in node.names)
+        for node in shim_tree.body
+    ), "legacy attachments router must re-export router"
+
+
+def test_production_code_does_not_use_legacy_attachments_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_ATTACHMENTS_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported.startswith(LEGACY_ATTACHMENTS_IMPORTS):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
+
+
+def test_mobile_attachments_has_one_feature_home_and_thin_routes() -> None:
+    feature_root = MOBILE_ROOT / "features" / "attachments"
+    assert (feature_root / "api.ts").is_file()
+    assert (feature_root / "types.ts").is_file()
+    for folder in ("components", "hooks", "model", "screens"):
+        assert (feature_root / folder).is_dir()
+
+    route = MOBILE_ROOT / "app" / "gallery.tsx"
+    lines = [line for line in route.read_text().splitlines() if line.strip()]
+    assert len(lines) == 1
+    assert "features/attachments/screens/GalleryScreen" in lines[0]
+
+    for gone in (
+        MOBILE_ROOT / "lib" / "api" / "attachments.ts",
+        MOBILE_ROOT / "lib" / "attachments.ts",
+        MOBILE_ROOT / "lib" / "gallery.ts",
+        MOBILE_ROOT / "lib" / "galleryLayout.ts",
+        MOBILE_ROOT / "lib" / "cache" / "galleryListCache.ts",
+        MOBILE_ROOT / "hooks" / "useGalleryData.ts",
+        MOBILE_ROOT / "hooks" / "useGalleryLibrary.ts",
+        MOBILE_ROOT / "hooks" / "useAttachmentIndexed.ts",
+        MOBILE_ROOT / "components" / "GalleryThumbnail.tsx",
+        MOBILE_ROOT / "components" / "AttachmentSourceSheet.tsx",
+        MOBILE_ROOT / "components" / "gallery",
     ):
         assert not gone.exists(), gone
 

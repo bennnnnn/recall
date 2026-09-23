@@ -10,7 +10,7 @@ import {
   sentMessageShowsMathPreview,
   MathDraftPreview,
 } from "@/components/chat/MathDraftPreview";
-import { useAttachmentIndexed } from "@/hooks/useAttachmentIndexed";
+import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import { Message } from "@/lib/api";
 import {
   fileLabelFromContentType,

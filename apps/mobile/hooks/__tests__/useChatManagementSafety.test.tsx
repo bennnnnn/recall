@@ -20,7 +20,7 @@ jest.mock("@/lib/drawer", () => ({
   removeChatGlobal: jest.fn(), abandonActiveChatIfDeleted: jest.fn(),
 }));
 jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
-jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/lib/exportMessagePdf", () => ({ exportConversationAsPdf: jest.fn() }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: jest.fn() }));
 jest.mock("@/lib/share", () => ({ shareConversation: jest.fn() }));

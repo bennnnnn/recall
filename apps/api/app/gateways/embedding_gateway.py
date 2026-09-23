@@ -35,10 +35,9 @@ async def embed_text(settings: Settings, text: str) -> list[float] | None:
         # search_semantic require embedding IS NOT NULL). Zero-fill keeps the
         # signal in the first 8 dims; the rest are zero so cosine similarity is
         # driven by the meaningful dims only.
-        from app.repositories.attachment_chunks import EMBEDDING_DIM
-
+        # Keep in sync with attachment chunk vectors (pgvector 1536).
         seed = [0.1] * 8
-        return seed + [0.0] * (EMBEDDING_DIM - len(seed))
+        return seed + [0.0] * (1536 - len(seed))
 
     route = get_model("embedding-model")
     api_key = getattr(settings, route.api_key_field, "")

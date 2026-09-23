@@ -1081,7 +1081,7 @@ async def test_embed_text_mock_mode_pads_to_embedding_dim():
     search_semantic (which require embedding IS NOT NULL) never fire in
     dev/mock mode and the full RAG pipeline can't be exercised end-to-end."""
     from app.gateways import embedding_gateway
-    from app.repositories.attachment_chunks import EMBEDDING_DIM
+    from app.modules.attachments.chunks_repository import EMBEDDING_DIM
 
     settings = Settings(mock_llm_enabled=True)
     result = await embedding_gateway.embed_text(settings, "hello")

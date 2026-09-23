@@ -1,4 +1,4 @@
-import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
+import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
 import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
 
 let mockGeneration = 0;
@@ -8,11 +8,11 @@ jest.mock("@/lib/auth", () => ({
   SessionChangedError: class extends Error { constructor() { super("Session changed"); } },
 }));
 
-jest.mock("@/lib/downloadChatAttachment", () => ({
+jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
   ensureLocalAttachmentFile: jest.fn(),
 }));
 
-jest.mock("@/lib/attachmentUri", () => ({
+jest.mock("@/features/attachments/model/attachmentUri", () => ({
   resolveAttachmentUri: ({ attachmentId }: { attachmentId: string }) =>
     `http://api.test/attachments/${attachmentId}/file`,
 }));

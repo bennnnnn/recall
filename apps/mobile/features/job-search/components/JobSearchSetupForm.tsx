@@ -39,7 +39,7 @@ import {
   type JobSearchProfile,
   type JobSearchWorkMode,
 } from "@/lib/api";
-import { pickDocument, uploadChatAttachment } from "@/lib/attachments";
+import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
 import { useTheme } from "@/lib/theme";
 
 type Step = 0 | 1 | 2 | 3;

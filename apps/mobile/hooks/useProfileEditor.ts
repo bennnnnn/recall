@@ -10,7 +10,7 @@ import {
   PhotoLibraryPermissionError,
   uploadChatAttachment,
   type PendingAttachment,
-} from "@/lib/attachments";
+} from "@/features/attachments/model/attachments";
 import { getSessionGeneration } from "@/lib/auth";
 import { sanitizeDisplayName } from "@/lib/profile";
 import { discardProfilePhoto, pickProfilePhoto } from "@/lib/profilePhoto";

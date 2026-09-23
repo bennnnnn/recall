@@ -11,7 +11,7 @@ const mockUser = { plan: "pro", job: "Registered Nurse", location: "Berlin" };
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "token-a", user: mockUser }),
 }));
-jest.mock("@/lib/attachments", () => ({
+jest.mock("@/features/attachments/model/attachments", () => ({
   pickDocument: (...args: unknown[]) => mockPickDocument(...args),
   uploadChatAttachment: (...args: unknown[]) => mockUpload(...args),
 }));

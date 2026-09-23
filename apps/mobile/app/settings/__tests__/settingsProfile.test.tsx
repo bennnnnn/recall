@@ -77,7 +77,7 @@ jest.mock("@/lib/profilePhoto", () => ({
   pickProfilePhoto: (...args: unknown[]) => mockPickProfilePhoto(...args),
   discardProfilePhoto: jest.fn(),
 }));
-jest.mock("@/lib/attachments", () => ({
+jest.mock("@/features/attachments/model/attachments", () => ({
   uploadChatAttachment: (...args: unknown[]) => mockUploadPhoto(...args),
   PhotoLibraryPermissionError: class extends Error {},
   NativePickerBusyError: class extends Error {},

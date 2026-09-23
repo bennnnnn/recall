@@ -1,7 +1,6 @@
 """Shared API/worker process initialization and worker runtime wiring."""
 
 from app.background import (
-    attachment_orphan_reaper,
     billing_reconcile_scheduler,
     email_reminder_scheduler,
     push_scheduler,
@@ -15,6 +14,7 @@ from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.sentry import init_sentry
 from app.gateways.http_client import aclose_pooled_clients
+from app.modules.attachments import reaper as attachment_orphan_reaper
 from app.modules.integrations import scheduler as gmail_periodic_sync
 from app.modules.job_search import jobs as job_search_jobs
 from app.modules.job_search import scheduler as job_search_scheduler

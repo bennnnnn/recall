@@ -22,7 +22,7 @@ async def test_count_image_attachments_issues_a_single_batched_query():
     session = AsyncMock()
 
     with patch(
-        "app.repositories.attachments.get_by_ids",
+        "app.modules.attachments.repository.get_by_ids",
         AsyncMock(return_value=[image_row, pdf_row]),
     ) as get_by_ids_mock:
         count = await count_image_attachments(session, user_id, attachment_ids)
@@ -70,7 +70,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
         patch("app.services.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch(
-            "app.repositories.attachments.get_by_ids",
+            "app.modules.attachments.repository.get_by_ids",
             AsyncMock(return_value=[row]),
         ),
         patch(
@@ -78,11 +78,11 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
             return_value=gateway,
         ),
         patch(
-            "app.services.attachments.content.verify_uploaded_bytes",
+            "app.modules.attachments.content.verify_uploaded_bytes",
             AsyncMock(return_value=(None, "Uploaded bytes do not match the declared content type")),
         ),
         patch(
-            "app.services.attachments.content.purge_invalid_upload",
+            "app.modules.attachments.content.purge_invalid_upload",
             AsyncMock(),
         ),
         patch(
@@ -174,7 +174,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.repositories.attachments.get_by_ids",
+            "app.modules.attachments.repository.get_by_ids",
             AsyncMock(return_value=[row]),
         ),
         patch(
@@ -182,15 +182,15 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             return_value=gateway,
         ),
         patch(
-            "app.services.attachments.content.format_attachment_lines",
+            "app.modules.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[image attached]"], True)),
         ),
         patch(
-            "app.services.attachments.content.read_attachment_bytes",
+            "app.modules.attachments.content.read_attachment_bytes",
             AsyncMock(return_value=b"fake-bytes"),
         ),
         patch(
-            "app.services.attachments.content.inject_vision_content",
+            "app.modules.attachments.content.inject_vision_content",
             AsyncMock(),
         ),
         patch(
@@ -210,7 +210,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             AsyncMock(return_value=user_message),
         ) as create_mock,
         patch(
-            "app.repositories.attachments.link_to_message",
+            "app.modules.attachments.repository.link_to_message",
             AsyncMock(return_value=linked_count),
         ),
         patch(
@@ -314,7 +314,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.repositories.attachments.get_by_ids",
+            "app.modules.attachments.repository.get_by_ids",
             AsyncMock(return_value=[row]),
         ),
         patch(
@@ -322,15 +322,15 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             return_value=gateway,
         ),
         patch(
-            "app.services.attachments.content.format_attachment_lines",
+            "app.modules.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[image attached]"], True)),
         ),
         patch(
-            "app.services.attachments.content.read_attachment_bytes",
+            "app.modules.attachments.content.read_attachment_bytes",
             AsyncMock(return_value=b"fake-bytes"),
         ),
         patch(
-            "app.services.attachments.content.inject_vision_content",
+            "app.modules.attachments.content.inject_vision_content",
             AsyncMock(),
         ),
         patch(
@@ -350,7 +350,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             AsyncMock(return_value=user_message),
         ),
         patch(
-            "app.repositories.attachments.link_to_message",
+            "app.modules.attachments.repository.link_to_message",
             AsyncMock(return_value=1),
         ),
         patch(
@@ -448,21 +448,21 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
     format_mock = AsyncMock(return_value=(["[File: x]"], False))
     with (
         patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
+        patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[row])),
         patch(
             "app.gateways.storage_gateway.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachments.content.verify_uploaded_bytes",
+            "app.modules.attachments.content.verify_uploaded_bytes",
             AsyncMock(return_value=(payload, None)),
         ) as verify_mock,
         patch(
-            "app.services.attachments.content.format_attachment_lines",
+            "app.modules.attachments.content.format_attachment_lines",
             format_mock,
         ),
         patch(
-            "app.services.attachments.content.read_attachment_bytes",
+            "app.modules.attachments.content.read_attachment_bytes",
             AsyncMock(return_value=b"should-not-read"),
         ) as read_mock,
     ):
@@ -514,21 +514,21 @@ async def test_process_attachments_skips_verify_when_already_verified():
 
     with (
         patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
+        patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[row])),
         patch(
             "app.gateways.storage_gateway.get_storage_gateway",
             return_value=gateway,
         ),
         patch(
-            "app.services.attachments.content.verify_uploaded_bytes",
+            "app.modules.attachments.content.verify_uploaded_bytes",
             AsyncMock(return_value=(b"hello", None)),
         ) as verify_mock,
         patch(
-            "app.services.attachments.content.format_attachment_lines",
+            "app.modules.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[File: x]"], False)),
         ),
         patch(
-            "app.services.attachments.content.read_attachment_bytes",
+            "app.modules.attachments.content.read_attachment_bytes",
             AsyncMock(return_value=b"hello"),
         ),
     ):
@@ -581,10 +581,10 @@ async def test_process_attachments_image_only_does_not_flag_document():
 
     with (
         patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
+        patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[row])),
         patch("app.gateways.storage_gateway.get_storage_gateway", return_value=gateway),
         patch(
-            "app.services.attachments.content.format_attachment_lines",
+            "app.modules.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[Image: photo.png]"], True)),
         ),
     ):
@@ -637,10 +637,10 @@ async def test_process_attachments_document_flags_document():
 
     with (
         patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
+        patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[row])),
         patch("app.gateways.storage_gateway.get_storage_gateway", return_value=gateway),
         patch(
-            "app.services.attachments.content.format_attachment_lines",
+            "app.modules.attachments.content.format_attachment_lines",
             AsyncMock(return_value=(["[File: notes.txt]"], False)),
         ),
     ):
