@@ -429,13 +429,18 @@ async def _create_one(state: _ReminderFenceCreateState, draft: _ReminderFence) -
     await _load_existing(state)
     match = _existing_open_match(state, title, due_at)
     if match is not None:
-        updates: dict[str, object] = {}
         if due_at is not None and match.due_at is None:
-            updates["due_at"] = due_at
-        if draft.repeat is not None and match.recurrence_rule != draft.repeat:
-            updates["recurrence_rule"] = draft.repeat
-        if updates:
-            match = await todos_repo.update(state.session, match, **updates)
+            if draft.repeat is not None:
+                match = await todos_repo.update(
+                    state.session,
+                    match,
+                    due_at=due_at,
+                    recurrence_rule=draft.repeat,
+                )
+            else:
+                match = await todos_repo.update(state.session, match, due_at=due_at)
+        elif draft.repeat is not None and match.recurrence_rule != draft.repeat:
+            match = await todos_repo.update(state.session, match, recurrence_rule=draft.repeat)
         saved_due = match.due_at if match.due_at is not None else due_at
         return format_schedule_result(
             action="add",
