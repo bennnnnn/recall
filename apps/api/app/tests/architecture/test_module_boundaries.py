@@ -440,6 +440,15 @@ def test_memory_runtime_code_has_one_owner() -> None:
         ]
         assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
 
+    router_shim = APP_ROOT / "routers" / "memories.py"
+    router_tree = ast.parse(router_shim.read_text(), filename=str(router_shim))
+    assert any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "app.modules.memory.api"
+        and any(alias.name == "router" for alias in node.names)
+        for node in router_tree.body
+    ), "legacy memories router must re-export app.modules.memory.api.router"
+
 
 def test_production_code_does_not_use_legacy_memory_imports() -> None:
     violations: list[str] = []
