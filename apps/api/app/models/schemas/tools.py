@@ -9,7 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models.schemas.job_search import (
+from app.modules.job_search.schemas import (
     JobMatchStatus,
     JobSearchPreferencesPatch,
     JobSearchStatus,

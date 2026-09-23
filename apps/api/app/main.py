@@ -8,6 +8,7 @@ from app.core.config import cors_allow_origins, get_settings
 from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
+from app.modules.job_search import api as job_search
 from app.routers import (
     admin,
     analytics,
@@ -20,7 +21,6 @@ from app.routers import (
     home,
     images,
     integrations,
-    job_search,
     learning,
     legal,
     link_preview,

@@ -5,7 +5,7 @@ import { chatsApi } from "@/lib/api/chats";
 import { discoverApi } from "@/lib/api/discover";
 import { imagesApi } from "@/lib/api/images";
 import { integrationsApi } from "@/lib/api/integrations";
-import { jobSearchApi } from "@/lib/api/jobSearch";
+import { jobSearchApi } from "@/features/job-search/api";
 import { learningApi } from "@/lib/api/learning";
 import { memoriesApi } from "@/lib/api/memories";
 import { speechApi } from "@/lib/api/speech";
@@ -13,7 +13,7 @@ import { todosApi } from "@/lib/api/todos";
 
 export type * from "@/lib/api/types";
 export type { ProductEventName } from "@/lib/api/analytics";
-export type * from "@/lib/api/jobSearch";
+export type * from "@/features/job-search/api";
 export {
   attachmentRecordExists,
   type AttachmentListItem,

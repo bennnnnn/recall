@@ -6,10 +6,11 @@ alwaysApply: false
 
 # Recall Mobile (Expo)
 
-~50k TS/TSX excluding tests. Screens: chat, memory, todos, Learning (`projects/`), settings. History/search = drawer.
+~50k TS/TSX excluding tests. Migrated product code lives in `features/<feature>/`; Expo `app/`
+files are route adapters. History/search = drawer.
 
 - Functional components + hooks only
-- Network calls only through `lib/api.ts` (barrel over `lib/api/*.ts`) — never call LLM providers from mobile
+- Feature API slices use `lib/api/client.ts` and compose through `lib/api.ts`; never call LLM providers from mobile
 - Chat logic in `hooks/useChat*.ts`; fences in `lib/fenceRegistry.ts` + `components/rich/`
 - Use product model aliases, never provider names
 - Google Sign-In requires dev build; Expo Go uses dev auth placeholder

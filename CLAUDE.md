@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Math: [docs/math.md](./docs/math.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (S1-S4, S7-S10 shipped: `PhysicsIntent` split from `MathIntent`; S5-S6 open). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (S1-S4, S7-S10 shipped: `PhysicsIntent` split from `MathIntent`; S5-S6 open). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -43,7 +43,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry SVG, native Skia math graphs (SVG fallback), physics scenes and free-body diagrams (`simulation`), chemistry (SMILES). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
-**Owned tool loop, on by default:** `services/mcp/` adapters (`web_search`, `calendar`, `sympy`, `generate_image`, `search_image`) registered through `gateways/mcp/` plus `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. The legacy one-shot `mcp_tools_enabled` pre-stream round stays **off**. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
+**Owned tool loop, on by default:** module-owned adapters (currently My Job) and legacy `services/mcp/` adapters (`web_search`, `calendar`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. The legacy one-shot `mcp_tools_enabled` pre-stream round stays **off**. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 
 **Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. Attachment RAG, chat-history RAG, and live talk (Pro + daily cap) are shipped. `apps/web` is slice 1 only (login + chat SSE); remaining web surfaces are deferred.
 
@@ -54,8 +54,8 @@ Monorepo:
 ```
 recall/
   apps/
-    mobile/        # Expo React Native (~50k TS) — screens, hooks, rich render, lib/api
-    api/           # FastAPI (~44k py) — HTTP/WS + worker
+    mobile/        # Expo React Native — app/ routes + features/ product ownership
+    api/           # FastAPI — modules/ product ownership + shared infrastructure
     web/           # Vite slice 1: login + chat SSE (not react-native-web)
   docs/            # math.md, chemistry.md, PRODUCTION.md, QA_MATRIX.md, ROLLBACK.md
   CLAUDE.md
@@ -63,13 +63,17 @@ recall/
   SECURITY.md
 ```
 
-Backend layers (`apps/api/app/`) — keep layers thin and one-directional (`routers/` → `services/` → `gateways/` + `repositories/`):
+Backend ownership (`apps/api/app/`) is migrating feature by feature to a modular monolith. New
+modules keep product behavior together; legacy domains retain `routers/` → `services/` until
+their dedicated migration:
 
 ```
 app/
   main.py              # app factory, middleware, router registration
   worker_main.py       # Fly worker: jobs + schedulers (no public API)
   worker_health.py     # worker liveness probe
+  modules/             # migrated product domains; My Job is the pilot
+    job_search/        # API, service, models, schemas, jobs, scheduler, chat tool
   exceptions.py        # shared domain exceptions
   routers/             # HTTP + WebSocket ONLY (no business logic)
   services/            # business logic — one package per domain
@@ -116,6 +120,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Domain | API | Mobile |
 |--------|-----|--------|
 | Auth / account | `routers/auth.py`, `users.py`, `services/auth.py`, `profile.py`, `subscription.py` | `app/login.tsx`, `onboarding.tsx`, `lib/api/auth.ts`, `account.ts` |
+| My Job | `modules/job_search/` | `features/job-search/`; `app/my-job/` routes only |
 | Chat + stream | `routers/ws.py`, `chat_stream.py`, `chats.py`; `services/chat/` | `app/index.tsx`, `hooks/useChat*.ts`, `components/chat/` |
 | Memory | `routers/memories.py`, `services/memory/`, `background/memory_*.py` | `app/memory.tsx`, `hooks/useMemoryActions.ts` |
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `settings/models.tsx` |
@@ -140,9 +145,9 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**Routers registered in** `main.py`: health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, memories, models, todos, learning, search, suggestions, attachments, integrations, gmail_integrations, speech, speech_realtime, images, analytics, ws.
+**HTTP surfaces registered in** `main.py`: the module-owned My Job API plus the legacy health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, memories, models, todos, learning, search, suggestions, attachments, integrations, gmail_integrations, speech, speech_realtime, images, analytics, and ws routers.
 
-**Service packages:** every domain is a package under `services/` — `chat`, `math`, `physics`, `chemistry`, `attachments`, `images`, `email`, `memory`, `learning`, `todos`, `notifications`, `web_search`, `home`, `mcp`. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). **A second module sharing a domain prefix means the domain wants a package** — that is how math ended up as three siblings plus six loose files. New chat-loop code belongs in `services/chat/`; new IO in a gateway or repository, not a router.
+**Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
 
 ## Seams (plug in / plug out)
 
@@ -150,13 +155,13 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 
 | Concern | Seam | How to extend | How to remove |
 |---------|------|----------------|---------------|
-| HTTP/WS endpoint | `routers/` + `main.py` `include_router` | Thin router → service | Drop router registration + tests |
+| HTTP/WS endpoint | module `api.py` or legacy `routers/` + `main.py` | Thin API → module/service | Drop registration + tests |
 | External API | `gateways/` | One gateway module; mock in tests | Delete gateway; keep service behind a flag if needed |
-| MCP / model tools | `services/mcp/` adapters + `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter` | Unregister; `mcp_tool_loop_enabled` defaults **on** |
-| Background job | `background/handlers.py` + `core/jobs.py` `register` | Add handler in `handlers.py`; enqueue from `post_turn.py` or a scheduler — never on the stream path | Unregister + stop enqueue |
+| MCP / model tools | module `tool.py` or legacy `services/mcp/`; `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter` | Unregister; `mcp_tool_loop_enabled` defaults **on** |
+| Background job | module `jobs.py` or legacy `background/handlers.py`; `core/jobs.py` queue | Register handler; enqueue off the stream path | Unregister + stop enqueue |
 | Feature flag | `core/config.py` `*_enabled` | One Settings field; gate service entry | Default false; then delete path |
 | Model | `services/model_catalog.py` | Catalog entry + OpenRouter slug | Remove alias; don’t leave provider names in app code |
-| Mobile network | `lib/api/<domain>.ts` re-exported from `lib/api.ts` | Add file + barrel spread | Delete API slice; no raw `fetch` in screens |
+| Mobile network | feature `api.ts` or legacy `lib/api/<domain>.ts`, composed in `lib/api.ts` | Add typed API slice using the shared client | Delete API slice; no raw `fetch` in screens |
 | Rich fence | `lib/fenceRegistry.ts` (`FENCES`) | Add a `FenceSpec`; one block component; wire render | Delete the spec + component |
 | Chat UI behavior | `hooks/useChat*.ts` | Hook owns logic; screen stays thin | Don’t add a second composer intercept |
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |

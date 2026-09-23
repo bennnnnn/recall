@@ -33,6 +33,7 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp import registry as mcp_registry
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
+from app.modules.job_search.tool import JOB_DIRECT_REPLY_PREFIX, bind_job_search_context
 from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.services.math.reply_policy import MATH_REPLY_POLICY
@@ -41,7 +42,6 @@ from app.services.math.tools.extract import trig_domain_would_be_dropped
 from app.services.mcp.calendar_adapter import bind_calendar_context
 from app.services.mcp.image_gen_adapter import bind_image_gen_context
 from app.services.mcp.image_search_adapter import bind_image_search_context
-from app.services.mcp.job_search_adapter import JOB_DIRECT_REPLY_PREFIX, bind_job_search_context
 from app.services.mcp.web_search_adapter import bind_search_quota_context
 
 logger = logging.getLogger(__name__)
@@ -691,9 +691,9 @@ def turn_needs_tool_loop(
     if has_verified_math and not leftover_math_after_verified(text):
         return False
 
+    from app.modules.job_search.chat_intent import wants_job_search
     from app.services.images.gen_intent import extract_image_gen_prompt
     from app.services.images.lookup_intent import extract_image_lookup_query
-    from app.services.job_search.chat_intent import wants_job_search
     from app.services.math.tools import needs_symbolic_math
     from app.services.web_search.detection import needs_web_search
 
@@ -774,7 +774,7 @@ async def run_tool_rounds(
     # A classified My Job turn must never spill into calendar, reminders, web,
     # or another tool family. Restricting the selector is both more accurate
     # and prevents an unrelated side effect when the request is an edit.
-    from app.services.job_search.chat_intent import wants_job_search_turn
+    from app.modules.job_search.chat_intent import wants_job_search_turn
 
     if wants_job_search_turn(messages):
         tools = [tool for tool in tools if (tool.get("function") or {}).get("name") == "job_search"]
@@ -827,7 +827,7 @@ async def _run_tool_rounds_bound(
 ]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     user_text = _last_user_content(messages)
-    from app.services.job_search.chat_intent import wants_job_search_turn
+    from app.modules.job_search.chat_intent import wants_job_search_turn
 
     job_search_turn = wants_job_search_turn(messages)
     direct_job_args = _direct_job_tool_args(user_text) if job_search_turn else None
