@@ -14,10 +14,10 @@ from app.core import jobs
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Message, User
+from app.modules import todos as todos_service
+from app.modules.todos import repository as todos_repo
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
-from app.repositories import todos as todos_repo
-from app.services import todos as todos_service
 from app.services.chat.titles import needs_generated_title
 from app.services.prompt_safety import wrap_untrusted, wrap_user_preferences
 from app.services.speech import LIVE_TALK_ALIAS

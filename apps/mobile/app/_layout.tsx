@@ -16,7 +16,7 @@ import { HomeProvider } from "@/contexts/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
 import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
 import { ProjectsProvider } from "@/contexts/ProjectsContext";
-import { TodosProvider } from "@/contexts/TodosContext";
+import { TodosProvider } from "@/features/todos/context/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { StackBackButton } from "@/components/StackBackButton";

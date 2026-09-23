@@ -46,7 +46,7 @@ import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
 import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
-import { useTodosOptional } from "@/contexts/TodosContext";
+import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chat/composerLogic";
 import { invalidateLearningDetail } from "@/lib/projects/projectDetailCache";
 import { openLearningLesson } from "@/lib/projects/lessonLaunch";

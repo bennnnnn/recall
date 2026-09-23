@@ -324,7 +324,7 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
         patch("app.services.chat.prompt_builder.SessionLocal", _session_cm()),
         patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch("app.services.memory.get_memory_block", AsyncMock(return_value="")),
-        patch("app.services.todos.build_todos_system_section", AsyncMock(return_value=None)),
+        patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
         patch(
             "app.services.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),

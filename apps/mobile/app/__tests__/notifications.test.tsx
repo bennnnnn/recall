@@ -1,7 +1,7 @@
 import { Alert } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import NotificationsSettingsScreen from "@/app/settings/notifications";
-import { cancelAllTodoReminders, syncTodoReminders } from "@/lib/todos/todoReminders";
+import { cancelAllTodoReminders, syncTodoReminders } from "@/features/todos/model/todoReminders";
 import { ensureNotificationPermission, getNotificationPermissionGranted, registerRemotePushToken, unregisterRemotePushToken } from "@/lib/pushNotifications";
 
 let mockSession = 0;
@@ -23,7 +23,7 @@ let mockUser: {
   quiet_hours_end_minute?: number;
 } = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: false };
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token", user: mockUser, updateUser: mockUpdate }) }));
-jest.mock("@/contexts/TodosContext", () => ({ useTodos: () => ({ todos: [{ id: "stale-row" }] }) }));
+jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: [{ id: "stale-row" }] }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
@@ -40,12 +40,12 @@ jest.mock("@/components/settings/TimePickerSheet", () => ({
     return null;
   },
 }));
-jest.mock("@/lib/todos/reminderPrefs", () => ({
+jest.mock("@/features/todos/model/reminderPrefs", () => ({
   DEFAULT_REMINDER_LEAD_MINUTES: 10, REMINDER_LEAD_OPTIONS: [0, 10, 30],
   getReminderLeadMinutes: jest.fn(async () => 10), setReminderLeadMinutes: jest.fn(async () => undefined),
   syncReminderLeadFromServer: jest.fn(async () => 10),
 }));
-jest.mock("@/lib/todos/todoReminders", () => ({ cancelAllTodoReminders: jest.fn(), syncTodoReminders: jest.fn() }));
+jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn(), syncTodoReminders: jest.fn() }));
 jest.mock("@/lib/pushNotifications", () => ({
   ensureNotificationPermission: jest.fn(async () => true),
   getNotificationPermissionGranted: jest.fn(async () => true),

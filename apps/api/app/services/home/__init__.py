@@ -20,9 +20,9 @@ from app.models.schemas import (
     HomeStarter,
     HomeUrgentTodo,
 )
+from app.modules.todos import repository as todos_repo
 from app.repositories import chats as chats_repo
 from app.repositories import suggestions as suggestions_repo
-from app.repositories import todos as todos_repo
 from app.services import memory as memory_service
 from app.services import reminder_timing
 from app.services.home import learning_starters as learning_starters_mod

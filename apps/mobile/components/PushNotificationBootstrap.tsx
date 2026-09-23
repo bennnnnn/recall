@@ -10,11 +10,11 @@ import {
 } from "@/lib/pushNotifications";
 import {
   cancelTodoReminder,
-} from "@/lib/todos/todoReminders";
+} from "@/features/todos/model/todoReminders";
 import {
   isRemotePushTrigger,
   todoIdFromNotificationData,
-} from "@/lib/todos/todoReminderPush";
+} from "@/features/todos/model/todoReminderPush";
 
 /** Handles push notification taps and configures foreground display. */
 export function PushNotificationBootstrap() {

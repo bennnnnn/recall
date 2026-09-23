@@ -13,7 +13,7 @@ jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "America/Los
 jest.mock("@/lib/deviceLocation", () => ({ getDeviceLocationLabel: jest.fn() }));
 jest.mock("@/lib/gmailAutoSync", () => ({ attachGmailForegroundSync: jest.fn() }));
 jest.mock("@/lib/pushNotifications", () => ({ attachPushForegroundSync: jest.fn() }));
-jest.mock("@/lib/todos/reminderPrefs", () => ({ syncReminderLeadFromServer: jest.fn() }));
+jest.mock("@/features/todos/model/reminderPrefs", () => ({ syncReminderLeadFromServer: jest.fn() }));
 jest.mock("@/lib/purchases", () => ({
   configurePurchases: jest.fn(), isPurchasesConfigured: () => true,
   registerPlanChangeListener: jest.fn(),

@@ -334,7 +334,7 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
         patch("app.services.email.context.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.todos.extract.extract_todo_actions",
+            "app.modules.todos.extract.extract_todo_actions",
             AsyncMock(),
         ) as extract_mock,
         patch(

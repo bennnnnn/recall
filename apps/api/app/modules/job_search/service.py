@@ -34,12 +34,12 @@ from app.modules.job_search.schemas import (
     JobSearchWorkMode,
     ResumeProfile,
 )
+from app.modules.todos.recurrence import snap_first_due
 from app.repositories import attachments as attachments_repo
 from app.services import plan as plan_service
 from app.services.attachments import content as attachment_content_service
 from app.services.prompt_safety import wrap_untrusted
 from app.services.time_context import normalize_due_at
-from app.services.todos.recurrence import snap_first_due
 
 logger = logging.getLogger(__name__)
 

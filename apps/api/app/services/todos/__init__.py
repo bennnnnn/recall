@@ -1,53 +1,6 @@
-"""Schedule / reminder service — public re-export barrel.
+"""Compatibility alias for the To-do domain module."""
 
-Callers: ``from app.services import todos as todos_service``.
-Private helpers live in submodules; import those directly when needed.
-"""
+import sys
+from importlib import import_module
 
-from __future__ import annotations
-
-from app.services.todos.actions import (
-    MAX_TODO_ACTIONS_PER_TURN,
-    REMINDER_TOPIC,
-    apply_todo_actions,
-)
-from app.services.todos.classification import (
-    query_implies_todos,
-    transcript_implies_todo_sync,
-)
-from app.services.todos.prompt_context import (
-    TodosPromptSections,
-    build_todos_system_section,
-    format_todos_block,
-    format_todos_voice_block,
-    select_todos_for_prompt,
-    should_inject_todos_prompt,
-)
-from app.services.todos.prompt_hint import TODO_HINT
-from app.services.todos.reminder_fences import materialize_reminder_fences
-from app.services.todos.sync import (
-    TODO_SYNC_RECENT_MESSAGES,
-    build_todo_sync_transcript,
-    format_chat_transcript,
-    sync_todos_from_transcript,
-)
-
-__all__ = [
-    "MAX_TODO_ACTIONS_PER_TURN",
-    "REMINDER_TOPIC",
-    "TODO_HINT",
-    "TODO_SYNC_RECENT_MESSAGES",
-    "TodosPromptSections",
-    "apply_todo_actions",
-    "build_todo_sync_transcript",
-    "build_todos_system_section",
-    "format_chat_transcript",
-    "format_todos_block",
-    "format_todos_voice_block",
-    "materialize_reminder_fences",
-    "query_implies_todos",
-    "select_todos_for_prompt",
-    "should_inject_todos_prompt",
-    "sync_todos_from_transcript",
-    "transcript_implies_todo_sync",
-]
+sys.modules[__name__] = import_module("app.modules.todos")

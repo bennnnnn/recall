@@ -7,8 +7,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
   resetComposerDraftsForAccount();
   await Promise.allSettled([
     import("@/lib/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
-    import("@/lib/todos/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
-    import("@/lib/todos/reminderPrefs").then(({ clearReminderLeadPrefs }) => clearReminderLeadPrefs()),
+    import("@/features/todos/model/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
+    import("@/features/todos/model/reminderPrefs").then(({ clearReminderLeadPrefs }) => clearReminderLeadPrefs()),
     import("@/lib/chat/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
     import("@/lib/cache/memoryListCache").then(({ invalidateMemoriesCache }) => invalidateMemoriesCache()),
     import("@/lib/cache/galleryListCache").then(({ invalidateGalleryCache }) => invalidateGalleryCache()),
@@ -19,8 +19,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/lib/purchases").then(({ signOutRevenueCat }) => signOutRevenueCat()),
     signOutGoogle(),
     ...(userId ? [
-      import("@/lib/todos/reminderSeen").then(({ clearSeenReminderIds }) => clearSeenReminderIds(userId)),
-      import("@/lib/todos/homeReminderNudges").then(({ clearHomeNudgeState }) => clearHomeNudgeState(userId)),
+      import("@/features/todos/model/reminderSeen").then(({ clearSeenReminderIds }) => clearSeenReminderIds(userId)),
+      import("@/features/todos/model/homeReminderNudges").then(({ clearHomeNudgeState }) => clearHomeNudgeState(userId)),
     ] : []),
   ]);
 }

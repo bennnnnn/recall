@@ -32,8 +32,10 @@ from app.models.orm import (
     User,
     UserCalendarConnection,
 )
+from app.modules.todos import crud as todos_crud
+from app.modules.todos.recurrence import is_recurrence_rule, next_recurring_due
+from app.modules.todos.schedule_repository import TodoScheduleSnapshot, update_schedule_if_current
 from app.repositories import push_tokens as push_repo
-from app.repositories.todo_schedules import TodoScheduleSnapshot, update_schedule_if_current
 from app.services import calendar as calendar_service
 from app.services import calendar_nudges as calendar_nudge_service
 from app.services.learning import nudges as learning_nudges
@@ -46,8 +48,6 @@ from app.services.reminder_timing import (
     resolve_reminder_lead_minutes,
     should_notify_todo,
 )
-from app.services.todos import crud as todos_crud
-from app.services.todos.recurrence import is_recurrence_rule, next_recurring_due
 
 logger = logging.getLogger(__name__)
 

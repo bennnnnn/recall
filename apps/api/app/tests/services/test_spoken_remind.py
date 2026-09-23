@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
-from app.services.todos.reminder_fences import parse_spoken_remind
+from app.modules.todos.reminder_fences import parse_spoken_remind
 
 
 def test_parse_spoken_remind_today_and_tomorrow():

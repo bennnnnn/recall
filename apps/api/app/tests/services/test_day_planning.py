@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.todos.prompt_context import should_inject_todos_prompt
 from app.services.calendar import (
     CALENDAR_HINT,
     format_not_connected_calendar_block,
@@ -25,7 +26,6 @@ from app.services.email.context import (
     should_inject_gmail_block,
 )
 from app.services.home.time_starters import time_starters
-from app.services.todos.prompt_context import should_inject_todos_prompt
 
 # Every Home time-starter prompt plus the two welcome chips.
 # wants_gmail is False on reflection (inbox fetch skipped).

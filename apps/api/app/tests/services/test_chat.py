@@ -94,7 +94,7 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -139,7 +139,7 @@ async def test_build_prompt_includes_comparison_table_hint():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -187,7 +187,7 @@ async def test_build_prompt_includes_chart_vega_hint():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -236,7 +236,7 @@ async def test_build_prompt_includes_mermaid_layout_hint():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -537,7 +537,7 @@ async def test_build_prompt_injects_custom_instructions():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -584,7 +584,7 @@ async def test_build_prompt_strips_solver_fences_from_recent_assistant():
     with (
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch("app.services.memory.get_memory_block", AsyncMock(return_value="")),
-        patch("app.services.todos.build_todos_system_section", AsyncMock(return_value="")),
+        patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
         patch("app.services.learning.load_learning_classes_for_prompt", AsyncMock(return_value="")),
         patch("app.repositories.messages.list_recent", AsyncMock(return_value=recent)),
     ):
@@ -628,7 +628,7 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -670,7 +670,7 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -714,7 +714,7 @@ async def test_build_prompt_includes_memory_and_style():
             return_value="Known facts:\n- [preference] likes Python",
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -773,7 +773,7 @@ async def test_build_prompt_recalled_count_counts_section_headers():
             return_value=block,
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -816,7 +816,7 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
             return_value="",
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -857,7 +857,7 @@ async def test_build_prompt_includes_response_tone():
             return_value="",
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -900,7 +900,7 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
             return_value="",
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -1145,7 +1145,7 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
             AsyncMock(return_value="MEMORY SHOULD NOT LOAD"),
         ) as memory_mock,
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
         ) as todos_mock,
     ):
@@ -1207,7 +1207,7 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
         ) as todos_mock,
     ):
@@ -1260,7 +1260,7 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
             AsyncMock(return_value="Prefers vegetarian food. Peanut allergy."),
         ) as memory_mock,
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
         ) as todos_mock,
         patch(
@@ -1316,7 +1316,7 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
             AsyncMock(return_value="Building Recall. Learning FastAPI and async Python."),
         ) as memory_mock,
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
         ) as todos_mock,
         patch(
@@ -1395,7 +1395,7 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -1458,7 +1458,7 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -1522,7 +1522,7 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -1574,7 +1574,7 @@ async def test_build_prompt_day_planning_injects_daily_learning():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -1642,7 +1642,7 @@ async def test_build_prompt_learning_progress_injects_today_words():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -1915,7 +1915,7 @@ async def test_build_prompt_passes_client_timezone():
             return_value="",
         ),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             load_todos,
         ),
         patch(

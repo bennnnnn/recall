@@ -15,7 +15,7 @@ import { useChatBulkActions } from "@/hooks/useChatBulkActions";
 import { useChatMenuActions } from "@/hooks/useChatMenuActions";
 import { useDrawerChatList } from "@/hooks/useDrawerChatList";
 import { useDrawerChatSelection } from "@/hooks/useDrawerChatSelection";
-import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
+import { useReminderBadgeCount } from "@/features/todos/hooks/useReminderBadgeCount";
 import { useDrawerSearch } from "@/hooks/useDrawerSearch";
 import { Chat } from "@/lib/api";
 import {
@@ -224,7 +224,7 @@ export function ConversationList() {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  // Only the logo / search row is fixed; Learning/Schedule scroll with titles.
+  // Only the logo / search row is fixed; Learning/To-do scroll with titles.
   const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;

@@ -62,3 +62,33 @@ def thread_sympy_executor():
     set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     yield
     reset_sympy_executor()
+
+
+@pytest.fixture
+async def db_session():
+    """Real Postgres session isolated by an outer transaction and savepoints.
+
+    Product-module and repository tests share this fixture. A commit issued by
+    code under test only releases a savepoint; the outer rollback always
+    discards the test's data.
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.core.db import engine
+
+    # Connections are bound to the event loop that opened them. Forget any
+    # pooled connection left by a TestClient/anyio loop before and after use.
+    await engine.dispose(close=False)
+    async with engine.connect() as connection:
+        await connection.begin()
+        session = AsyncSession(
+            bind=connection,
+            join_transaction_mode="create_savepoint",
+            expire_on_commit=False,
+        )
+        try:
+            yield session
+        finally:
+            await session.close()
+            await connection.rollback()
+    await engine.dispose(close=False)

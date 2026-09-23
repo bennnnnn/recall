@@ -7,7 +7,7 @@ import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
 import { trackProductEvent } from "@/lib/productAnalytics";
 import { lessonMapPath } from "@/lib/projects/chapterAccess";
-import { localDateKey } from "@/lib/todos/reminderCalendar";
+import { localDateKey } from "@/features/todos/model/dateKey";
 
 type AppRouter = {
   push: (href: unknown) => void;

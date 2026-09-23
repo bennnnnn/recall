@@ -19,9 +19,9 @@ from app.gateways import google_gmail_gateway as gmail_gateway
 from app.gateways import litellm_gateway
 from app.gateways.google_gmail_gateway import GmailMessage
 from app.models.orm import User
+from app.modules.todos import repository as todos_repo
 from app.repositories import gmail_connections as gmail_repo
 from app.repositories import suggested_reminders as suggested_repo
-from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
 from app.services import day_planning as day_planning_service
 from app.services import home as home_service
