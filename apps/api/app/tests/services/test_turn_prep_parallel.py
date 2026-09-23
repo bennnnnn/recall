@@ -576,7 +576,7 @@ async def test_web_augment_loads_priors_without_preloading_calendar_write():
 @pytest.mark.asyncio
 async def test_calendar_write_check_overlaps_calendar_fetch():
     """Create-event write access must share the gather with the calendar API."""
-    from app.services.calendar import CALENDAR_WRITE_HINT
+    from app.modules.integrations.calendar import CALENDAR_WRITE_HINT
     from app.services.chat.turn_prep.integrations import fetch_integration_blocks
 
     user = _make_user()

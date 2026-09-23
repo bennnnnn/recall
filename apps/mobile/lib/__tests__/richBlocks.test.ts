@@ -6,7 +6,7 @@ import {
   parseSocialPlatform,
   parseSteps,
 } from "@/lib/richBlocks";
-import { fullEmailText } from "@/lib/emailCompose";
+import { fullEmailText } from "@/features/integrations/model/emailCompose";
 
 describe("detectJsonRichFenceKind", () => {
   it("BUG FIX regression: recognizes a mistagged ```json geometry fence", () => {

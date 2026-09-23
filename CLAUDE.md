@@ -137,7 +137,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Math (SymPy) | `services/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
 | Physics (20 verified kinds) | `services/physics/` (`extract.py` cues + extractors, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
 | Chemistry (typed solvers / RDKit / PubChem) | `models/schemas/chemistry/`, `services/chemistry/`, `gateways/pubchem_gateway.py` | `chemistryFence.ts`, smiles-drawer 2D + native-first Skia `molecule3d` (SVG fallback) |
-| Calendar / Gmail | `routers/integrations.py`, `gmail_integrations.py`, `services/calendar.py`, `services/email/` | `settings/integrations.tsx` |
+| Calendar / Gmail | `modules/integrations/` (HTTP `/integrations/google-calendar`, `/integrations/google-gmail`) | `features/integrations/`; `app/settings/integrations.tsx` route only |
 | Push / email out | `services/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `routers/webhooks.py`, `gateways/revenuecat_gateway.py` | RevenueCat |
 | Product analytics | `routers/analytics.py`, `services/product_analytics.py` | `lib/api/analytics.ts` (metadata-only events; never prompts) |
@@ -145,7 +145,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned My Job API plus the legacy health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, memories, models, todos, learning, search, suggestions, attachments, integrations, gmail_integrations, speech, speech_realtime, images, analytics, and ws routers.
+**HTTP surfaces registered in** `main.py`: the module-owned My Job, Learning, Memory, To-do, and Google Calendar/Gmail APIs plus the legacy health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, models, search, suggestions, attachments, speech, speech_realtime, images, analytics, and ws routers.
 
 **Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
 
@@ -193,7 +193,7 @@ Steps 6–8 are the only ones on the user's critical path. Everything in step 9 
 
 Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Learning (`projects/`), Settings (models, memory, preferences, integrations, learning, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
-- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,integrations,attachments,images,account,discover,connectivity,speech,analytics,types}.ts` plus feature slices (`features/learning/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/job-search/api.ts`)
+- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,attachments,images,account,discover,connectivity,speech,analytics,types}.ts` plus feature slices (`features/learning/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/job-search/api.ts`, `features/integrations/api.ts`)
 - Tokens: `expo-secure-store` only
 - Chat logic: `hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — screens stay thin
 - Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `projects/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.

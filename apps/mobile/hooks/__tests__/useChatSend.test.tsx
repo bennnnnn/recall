@@ -5,7 +5,7 @@ import { act, render } from "@testing-library/react-native";
 
 import { useChatSend } from "@/hooks/useChatSend";
 import { pickDocument, uploadChatAttachment } from "@/lib/attachments";
-import { registerEmailDraftFlusher } from "@/lib/emailDraftFlush";
+import { registerEmailDraftFlusher } from "@/features/integrations/model/emailDraftFlush";
 import { retireHomeGuidance } from "@/lib/homeGuidancePrefs";
 import {
   queryNeedsClientGeo,

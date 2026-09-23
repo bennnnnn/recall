@@ -155,6 +155,43 @@ LEGACY_MEMORY_IMPORTS = (
     "app.routers.memories",
     "app.services.memory",
 )
+LEGACY_INTEGRATIONS_SHIMS = {
+    APP_ROOT / "background" / "gmail_periodic_sync.py",
+    APP_ROOT / "background" / "gmail_sync.py",
+    APP_ROOT / "repositories" / "calendar_connections.py",
+    APP_ROOT / "repositories" / "gmail_connections.py",
+    APP_ROOT / "repositories" / "suggested_reminders.py",
+    APP_ROOT / "routers" / "gmail_integrations.py",
+    APP_ROOT / "routers" / "integrations.py",
+    APP_ROOT / "services" / "calendar.py",
+    APP_ROOT / "services" / "calendar_nudges.py",
+    APP_ROOT / "services" / "google_integrations.py",
+    APP_ROOT / "services" / "mcp" / "calendar_adapter.py",
+    *(
+        APP_ROOT / "services" / "email" / name
+        for name in (
+            "__init__.py",
+            "context.py",
+            "fence.py",
+            "sender_templates.py",
+            "triage.py",
+        )
+    ),
+}
+LEGACY_INTEGRATIONS_IMPORTS = (
+    "app.background.gmail_periodic_sync",
+    "app.background.gmail_sync",
+    "app.repositories.calendar_connections",
+    "app.repositories.gmail_connections",
+    "app.repositories.suggested_reminders",
+    "app.routers.gmail_integrations",
+    "app.routers.integrations",
+    "app.services.calendar",
+    "app.services.calendar_nudges",
+    "app.services.email",
+    "app.services.google_integrations",
+    "app.services.mcp.calendar_adapter",
+)
 
 
 def _imports(path: Path) -> list[str]:
@@ -281,6 +318,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
                 path in LEGACY_TODOS_SHIMS
                 or path in LEGACY_LEARNING_SHIMS
                 or path in LEGACY_MEMORY_SHIMS
+                or path in LEGACY_INTEGRATIONS_SHIMS
             ):
                 continue
             for imported in _imports(path):
@@ -483,6 +521,93 @@ def test_mobile_memory_has_one_feature_home_and_thin_routes() -> None:
     assert not (MOBILE_ROOT / "lib" / "api" / "memories.ts").exists()
     for name in ("useMemoryActions.ts", "useMemoryToggle.ts"):
         assert not (MOBILE_ROOT / "hooks" / name).exists()
+
+    feature_import_violations = [
+        str(path.relative_to(MOBILE_ROOT))
+        for path in feature_root.rglob("*.ts*")
+        if "__tests__" not in path.parts and "@/app/" in path.read_text()
+    ]
+    assert not feature_import_violations
+
+
+def test_integrations_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "integrations"
+    expected = {
+        "api.py",
+        "calendar_repository.py",
+        "gmail_api.py",
+        "gmail_repository.py",
+        "jobs.py",
+        "models.py",
+        "scheduler.py",
+        "schemas.py",
+        "suggestions_repository.py",
+        "tool.py",
+    }
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (APP_ROOT / "tests" / "modules" / "integrations" / "test_gmail.py").is_file()
+
+    for shim in LEGACY_INTEGRATIONS_SHIMS:
+        tree = ast.parse(shim.read_text(), filename=str(shim))
+        owned_definitions = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
+        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
+
+    for filename, module in (
+        ("integrations.py", "app.modules.integrations.api"),
+        ("gmail_integrations.py", "app.modules.integrations.gmail_api"),
+    ):
+        shim = APP_ROOT / "routers" / filename
+        shim_tree = ast.parse(shim.read_text(), filename=str(shim))
+        assert any(
+            isinstance(node, ast.ImportFrom)
+            and node.module == module
+            and any(alias.name == "router" for alias in node.names)
+            for node in shim_tree.body
+        ), f"legacy {filename} must re-export router"
+
+
+def test_production_code_does_not_use_legacy_integrations_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_INTEGRATIONS_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported.startswith(LEGACY_INTEGRATIONS_IMPORTS):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
+
+
+def test_mobile_integrations_has_one_feature_home_and_thin_routes() -> None:
+    feature_root = MOBILE_ROOT / "features" / "integrations"
+    assert (feature_root / "api.ts").is_file()
+    assert (feature_root / "types.ts").is_file()
+    for folder in ("components", "context", "hooks", "model", "screens"):
+        assert (feature_root / folder).is_dir()
+
+    route = MOBILE_ROOT / "app" / "settings" / "integrations.tsx"
+    lines = [line for line in route.read_text().splitlines() if line.strip()]
+    assert len(lines) == 1
+    assert "features/integrations/screens/IntegrationsScreen" in lines[0]
+
+    for gone in (
+        MOBILE_ROOT / "lib" / "api" / "integrations.ts",
+        MOBILE_ROOT / "lib" / "google-calendar.ts",
+        MOBILE_ROOT / "lib" / "google-gmail.ts",
+        MOBILE_ROOT / "lib" / "google-integration-auth.ts",
+        MOBILE_ROOT / "lib" / "calendarProposal.ts",
+        MOBILE_ROOT / "lib" / "gmailAutoSync.ts",
+        MOBILE_ROOT / "lib" / "cache" / "integrationStatusCache.ts",
+        MOBILE_ROOT / "hooks" / "useSettingsIntegrations.ts",
+        MOBILE_ROOT / "hooks" / "useCalendarProposal.ts",
+        MOBILE_ROOT / "components" / "CalendarProposalCard.tsx",
+        MOBILE_ROOT / "components" / "rich" / "EmailCard.tsx",
+        MOBILE_ROOT / "contexts" / "emailDraftPersist.tsx",
+    ):
+        assert not gone.exists(), gone
 
     feature_import_violations = [
         str(path.relative_to(MOBILE_ROOT))

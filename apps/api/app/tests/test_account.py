@@ -92,7 +92,7 @@ def test_delete_account_returns_204():
 
 
 def test_delete_account_continues_when_google_revoke_fails():
-    from app.services.google_integrations import GoogleConnectError
+    from app.modules.integrations.connect import GoogleConnectError
 
     user = _fake_user()
     app = _app_with_user(user)

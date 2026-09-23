@@ -8,6 +8,8 @@ from app.core.config import cors_allow_origins, get_settings
 from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
+from app.modules.integrations import api as integrations
+from app.modules.integrations import gmail_api as gmail_integrations
 from app.modules.job_search import api as job_search
 from app.modules.learning import api as learning
 from app.modules.memory import api as memories
@@ -19,11 +21,9 @@ from app.routers import (
     auth,
     chat_stream,
     chats,
-    gmail_integrations,
     health,
     home,
     images,
-    integrations,
     legal,
     link_preview,
     models,

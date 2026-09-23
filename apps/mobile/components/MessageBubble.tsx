@@ -3,7 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import { Icon } from "@/components/Icon";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { CalendarProposalCard } from "@/components/CalendarProposalCard";
+import { CalendarProposalCard } from "@/features/integrations/components/CalendarProposalCard";
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { UserMessageContent } from "@/components/UserMessageContent";
@@ -17,7 +17,7 @@ import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { LearningLaunchButton } from "@/features/learning/components/LearningLaunchButton";
-import { AssistantMessageScope } from "@/contexts/emailDraftPersist";
+import { AssistantMessageScope } from "@/features/integrations/context/emailDraftPersist";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";

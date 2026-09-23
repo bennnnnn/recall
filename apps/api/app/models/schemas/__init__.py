@@ -63,6 +63,15 @@ from app.models.schemas.home import (
     SuggestionOut,
 )
 from app.models.schemas.integrations import (
+    PushTokenIn,
+    SpeechLiveStatusOut,
+    SpeechTranscriptionIn,
+    SpeechTranscriptionOut,
+    SpeechTtsIn,
+    SpeechTtsOut,
+    WebSearchClassification,
+)
+from app.modules.integrations.schemas import (
     CalendarConflictOut,
     CalendarConflictsOut,
     CalendarEventProposalIn,
@@ -73,15 +82,8 @@ from app.models.schemas.integrations import (
     GoogleCalendarStatusOut,
     GoogleGmailConnectRequest,
     GoogleGmailStatusOut,
-    PushTokenIn,
-    SpeechLiveStatusOut,
-    SpeechTranscriptionIn,
-    SpeechTranscriptionOut,
-    SpeechTtsIn,
-    SpeechTtsOut,
     SuggestedReminderOut,
     SuggestedRemindersOut,
-    WebSearchClassification,
 )
 from app.modules.learning.schemas import (
     DailyHistoryStatus,

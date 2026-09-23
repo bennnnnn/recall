@@ -11,7 +11,7 @@ jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/api", () => ({ api: { updateMe: jest.fn(), syncSubscription: jest.fn() } }));
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => "America/Los_Angeles" }));
 jest.mock("@/lib/deviceLocation", () => ({ getDeviceLocationLabel: jest.fn() }));
-jest.mock("@/lib/gmailAutoSync", () => ({ attachGmailForegroundSync: jest.fn() }));
+jest.mock("@/features/integrations/model/gmailAutoSync", () => ({ attachGmailForegroundSync: jest.fn() }));
 jest.mock("@/lib/pushNotifications", () => ({ attachPushForegroundSync: jest.fn() }));
 jest.mock("@/features/todos/model/reminderPrefs", () => ({ syncReminderLeadFromServer: jest.fn() }));
 jest.mock("@/lib/purchases", () => ({

@@ -6,7 +6,10 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.services.calendar import is_calendar_create_request, should_inject_calendar_block
+from app.modules.integrations.calendar import (
+    is_calendar_create_request,
+    should_inject_calendar_block,
+)
 from app.services.math.tools import _build_verified_block, extract_math_intent
 from app.services.math.tools.direct import maybe_direct_math_reply
 from app.services.physics.direct import _FORMULA_LAW_NAMES, _RESULT_SYMBOLS

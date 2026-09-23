@@ -6,7 +6,7 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from app.core.config import Settings
-from app.services import calendar as calendar_service
+from app.modules.integrations import calendar as calendar_service
 from app.services.prompt_inject import inject_before_last_user
 
 logger = logging.getLogger(__name__)
