@@ -19,7 +19,7 @@ async def test_build_prompt_includes_web_search_hint():
 
     with (
         patch(
-            "app.services.memory.get_memory_block",
+            "app.modules.memory.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch("app.repositories.messages.list_recent", return_value=[]),

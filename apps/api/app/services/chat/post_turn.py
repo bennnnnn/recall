@@ -12,6 +12,7 @@ from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
 from app.modules import learning as learning_service
 from app.modules import todos as todos_service
+from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
@@ -22,10 +23,6 @@ from app.services.chat.finalize_registry import clear_pending_finalize
 from app.services.chat.turn_prep import RegenerateBackup, StreamContext
 from app.services.context_window import estimate_tokens
 from app.services.day_planning import is_day_planning_question
-from app.services.memory.text import (
-    is_explicit_memory_command,
-    memory_extract_user_text,
-)
 from app.services.quota import utc_today
 from app.services.text_normalize import cap_text_head_tail
 

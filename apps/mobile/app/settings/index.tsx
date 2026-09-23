@@ -14,7 +14,7 @@ import {
 } from "@/components/settings/SettingsOverview";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
-import { prefetchMemories } from "@/lib/cache/memoryListCache";
+import { prefetchMemories } from "@/features/memory/model/memoryListCache";
 import {
   connectedCountFromStatus,
   fetchIntegrationStatus,

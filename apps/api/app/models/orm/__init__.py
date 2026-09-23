@@ -12,7 +12,6 @@ from app.models.orm.integrations import (
     UserCalendarConnection,
     UserGmailConnection,
 )
-from app.models.orm.memory import Memory
 from app.models.orm.suggestions import Suggestion
 from app.models.orm.usage import ProductEvent, UsageDaily
 from app.models.orm.user import User
@@ -25,6 +24,7 @@ from app.modules.learning.models import (
     VocabDeck,
     VocabEntry,
 )
+from app.modules.memory.models import Memory
 from app.modules.todos.models import TodoItem
 
 __all__ = [

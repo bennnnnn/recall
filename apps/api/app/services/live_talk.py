@@ -195,7 +195,7 @@ async def _memory_block_best_effort(
     if not getattr(user, "memory_enabled", False):
         return ""
     try:
-        from app.services import memory as memory_service
+        from app.modules import memory as memory_service
 
         query_text = last_user_line(history)
         async with SessionLocal() as session:

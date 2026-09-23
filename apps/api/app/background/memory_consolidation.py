@@ -2,7 +2,7 @@
 
 import sys
 
-from app.services.memory import consolidation_workflow as _service
+from app.modules.memory import consolidation_workflow as _service
 
 consolidate_user_memory_sections = _service.consolidate_user_memory_sections
 

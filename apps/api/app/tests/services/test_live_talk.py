@@ -170,7 +170,7 @@ async def test_load_session_context_passes_last_user_line_as_query():
             AsyncMock(return_value=(history, False)),
         ),
         patch(
-            "app.services.memory.get_memory_block",
+            "app.modules.memory.get_memory_block",
             AsyncMock(return_value="likes spicy food"),
         ) as mem,
     ):
@@ -204,7 +204,7 @@ async def test_load_session_context_keeps_sensitive_memory_on_matching_ask():
             AsyncMock(return_value=(history, False)),
         ),
         patch(
-            "app.services.memory.get_memory_block",
+            "app.modules.memory.get_memory_block",
             AsyncMock(return_value="allergic to peanuts"),
         ) as mem,
     ):
@@ -229,7 +229,7 @@ async def test_load_session_context_without_chat_has_no_query():
     with (
         patch("app.services.live_talk.SessionLocal", return_value=session) as session_factory,
         patch(
-            "app.services.memory.get_memory_block",
+            "app.modules.memory.get_memory_block",
             AsyncMock(return_value="vegetarian"),
         ) as mem,
     ):
@@ -256,7 +256,7 @@ async def test_load_session_context_skips_memory_when_disabled():
 
     with (
         patch("app.services.live_talk.SessionLocal", return_value=session),
-        patch("app.services.memory.get_memory_block", AsyncMock()) as mem,
+        patch("app.modules.memory.get_memory_block", AsyncMock()) as mem,
     ):
         result = await load_live_talk_session_context(
             chat_id=None,
@@ -285,7 +285,7 @@ async def test_load_session_context_memory_failure_still_returns_history():
             AsyncMock(return_value=(history, False)),
         ),
         patch(
-            "app.services.memory.get_memory_block",
+            "app.modules.memory.get_memory_block",
             AsyncMock(side_effect=RuntimeError("redis down")),
         ),
     ):
@@ -309,7 +309,7 @@ async def test_load_session_context_missing_chat_is_none():
     with (
         patch("app.services.live_talk.SessionLocal", return_value=session) as session_factory,
         patch("app.services.live_talk.load_live_talk_history", AsyncMock(return_value=None)),
-        patch("app.services.memory.get_memory_block", AsyncMock()) as mem,
+        patch("app.modules.memory.get_memory_block", AsyncMock()) as mem,
     ):
         result = await load_live_talk_session_context(
             chat_id=uuid4(),

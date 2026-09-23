@@ -118,6 +118,43 @@ LEGACY_LEARNING_IMPORTS = (
     "app.services.home.learning_starters",
     "app.services.learning",
 )
+LEGACY_MEMORY_SHIMS = {
+    APP_ROOT / "models" / "memory_ops.py",
+    APP_ROOT / "models" / "orm" / "memory.py",
+    APP_ROOT / "models" / "schemas" / "memory.py",
+    APP_ROOT / "repositories" / "memories.py",
+    APP_ROOT / "repositories" / "memory_writes.py",
+    APP_ROOT / "routers" / "memories.py",
+    *(
+        APP_ROOT / "services" / "memory" / name
+        for name in (
+            "__init__.py",
+            "apply.py",
+            "cache.py",
+            "consolidation.py",
+            "consolidation_workflow.py",
+            "crud.py",
+            "enqueue_policy.py",
+            "extract_backlog.py",
+            "extraction_workflow.py",
+            "facts.py",
+            "llm.py",
+            "locks.py",
+            "retrieval.py",
+            "selection.py",
+            "text.py",
+        )
+    ),
+}
+LEGACY_MEMORY_IMPORTS = (
+    "app.models.memory_ops",
+    "app.models.orm.memory",
+    "app.models.schemas.memory",
+    "app.repositories.memories",
+    "app.repositories.memory_writes",
+    "app.routers.memories",
+    "app.services.memory",
+)
 
 
 def _imports(path: Path) -> list[str]:
@@ -240,7 +277,11 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
     violations: list[str] = []
     for layer in ("core", "gateways", "repositories"):
         for path in (APP_ROOT / layer).rglob("*.py"):
-            if path in LEGACY_TODOS_SHIMS or path in LEGACY_LEARNING_SHIMS:
+            if (
+                path in LEGACY_TODOS_SHIMS
+                or path in LEGACY_LEARNING_SHIMS
+                or path in LEGACY_MEMORY_SHIMS
+            ):
                 continue
             for imported in _imports(path):
                 if imported == "app.modules" or imported.startswith("app.modules."):
@@ -374,6 +415,73 @@ def test_mobile_learning_has_one_feature_home_and_thin_routes() -> None:
         "useLessonSession.ts",
         "useProjectActions.ts",
     ):
+        assert not (MOBILE_ROOT / "hooks" / name).exists()
+
+    feature_import_violations = [
+        str(path.relative_to(MOBILE_ROOT))
+        for path in feature_root.rglob("*.ts*")
+        if "__tests__" not in path.parts and "@/app/" in path.read_text()
+    ]
+    assert not feature_import_violations
+
+
+def test_memory_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "memory"
+    expected = {"api.py", "models.py", "ops.py", "repository.py", "schemas.py"}
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (APP_ROOT / "tests" / "modules" / "memory" / "test_api.py").is_file()
+
+    for shim in LEGACY_MEMORY_SHIMS:
+        tree = ast.parse(shim.read_text(), filename=str(shim))
+        owned_definitions = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
+        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
+
+    router_shim = APP_ROOT / "routers" / "memories.py"
+    router_tree = ast.parse(router_shim.read_text(), filename=str(router_shim))
+    assert any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "app.modules.memory.api"
+        and any(alias.name == "router" for alias in node.names)
+        for node in router_tree.body
+    ), "legacy memories router must re-export app.modules.memory.api.router"
+
+
+def test_production_code_does_not_use_legacy_memory_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_MEMORY_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported.startswith(LEGACY_MEMORY_IMPORTS):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
+
+
+def test_mobile_memory_has_one_feature_home_and_thin_routes() -> None:
+    feature_root = MOBILE_ROOT / "features" / "memory"
+    assert (feature_root / "api.ts").is_file()
+    assert (feature_root / "types.ts").is_file()
+    for folder in ("components", "hooks", "model", "screens"):
+        assert (feature_root / folder).is_dir()
+
+    route_targets = {
+        MOBILE_ROOT / "app" / "memory.tsx": "MemoryScreen",
+        MOBILE_ROOT / "app" / "settings" / "memory-settings.tsx": "MemorySettingsScreen",
+    }
+    for route, screen in route_targets.items():
+        lines = [line for line in route.read_text().splitlines() if line.strip()]
+        assert len(lines) == 1
+        assert f"features/memory/screens/{screen}" in lines[0]
+
+    assert not (MOBILE_ROOT / "components" / "memory").exists()
+    assert not (MOBILE_ROOT / "lib" / "memoryFacts.ts").exists()
+    assert not (MOBILE_ROOT / "lib" / "cache" / "memoryListCache.ts").exists()
+    assert not (MOBILE_ROOT / "lib" / "api" / "memories.ts").exists()
+    for name in ("useMemoryActions.ts", "useMemoryToggle.ts"):
         assert not (MOBILE_ROOT / "hooks" / name).exists()
 
     feature_import_violations = [

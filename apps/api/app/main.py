@@ -10,6 +10,7 @@ from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.modules.job_search import api as job_search
 from app.modules.learning import api as learning
+from app.modules.memory import api as memories
 from app.modules.todos import api as todos
 from app.routers import (
     admin,
@@ -25,7 +26,6 @@ from app.routers import (
     integrations,
     legal,
     link_preview,
-    memories,
     models,
     search,
     speech,

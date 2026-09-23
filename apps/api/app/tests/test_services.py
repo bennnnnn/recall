@@ -6,9 +6,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.memory import embedding_text_hash
+from app.modules.memory import llm as memory_llm
 from app.services.chat import titles as chat_titles
-from app.services.memory import embedding_text_hash
-from app.services.memory import llm as memory_llm
 
 
 class _FakeSessionCM:
@@ -30,13 +30,13 @@ def _memory_extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_Fak
 
 @pytest.fixture(autouse=True)
 def _memory_persistence_gate_enabled():
-    with patch("app.repositories.memories.lock_memory_enabled", AsyncMock(return_value=True)):
+    with patch("app.modules.memory.repository.lock_memory_enabled", AsyncMock(return_value=True)):
         yield
 
 
 @pytest.fixture
 def embedding_write():
-    with patch("app.repositories.memories.update_embedding_if_current", AsyncMock()) as write:
+    with patch("app.modules.memory.repository.update_embedding_if_current", AsyncMock()) as write:
         yield write
 
 
@@ -55,11 +55,11 @@ def _memory_write_lock_always_free():
         ),
         patch("app.background.memory_extraction.release_memory_write_lock", AsyncMock()),
         patch(
-            "app.services.memory.extract_backlog.messages_repo.list_user_contents_since",
+            "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.memory.extract_backlog.get_redis_client",
+            "app.modules.memory.extract_backlog.get_redis_client",
             MagicMock(return_value=AsyncMock(get=AsyncMock(return_value=None))),
         ),
     ):
@@ -67,7 +67,7 @@ def _memory_write_lock_always_free():
 
 
 # ── memory service ─────────────────────────────────────────────────────────────
-from app.services.memory import format_memory_block, select_memories_for_prompt
+from app.modules.memory import format_memory_block, select_memories_for_prompt
 
 
 def _mem(type_: str, text: str, confidence: float | None = 0.9):
@@ -106,7 +106,7 @@ def test_select_memories_priority_order():
 
 @pytest.mark.asyncio
 async def test_load_relevant_memories_disabled():
-    from app.services.memory import load_relevant_memories
+    from app.modules.memory import load_relevant_memories
 
     user = MagicMock(memory_enabled=False)
     result = await load_relevant_memories(AsyncMock(), user, Settings())
@@ -115,8 +115,8 @@ async def test_load_relevant_memories_disabled():
 
 @pytest.mark.asyncio
 async def test_delete_memory_delegates():
-    from app.repositories import memories as memories_repo
-    from app.services import memory as memory_service
+    from app.modules import memory as memory_service
+    from app.modules.memory import repository as memories_repo
 
     delete_by_id = AsyncMock(return_value=True)
     with (
@@ -213,7 +213,7 @@ async def test_revise_memory_sections_prompt_user_stated_only():
         return None
 
     with patch(
-        "app.services.memory.llm.litellm_gateway.complete_structured",
+        "app.modules.memory.llm.litellm_gateway.complete_structured",
         _capture,
     ):
         await memory_llm.revise_memory_sections(
@@ -474,7 +474,7 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
             "app.background.memory_extraction.memories_repo.apply_writes",
             AsyncMock(return_value=[memory_id]),
         ),
-        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
         patch("app.gateways.embedding_gateway.embed_text", embed_calls),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
@@ -540,7 +540,7 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
             "app.background.memory_extraction.memories_repo.apply_writes",
             AsyncMock(return_value=[memory_id]),
         ),
-        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
         patch("app.gateways.embedding_gateway.embed_text", embed_calls),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
@@ -608,7 +608,7 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
             "app.background.memory_extraction.memories_repo.apply_writes",
             AsyncMock(return_value=[memory_id]),
         ),
-        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
         patch("app.gateways.embedding_gateway.embed_text", embed_calls),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
