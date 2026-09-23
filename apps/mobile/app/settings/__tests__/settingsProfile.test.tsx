@@ -56,7 +56,7 @@ jest.mock("@/lib/pushNotifications", () => ({
 jest.mock("@/contexts/actionFeedbackCore", () => ({
   useActionFeedbackOptional: () => null,
 }));
-jest.mock("@/lib/cache/memoryListCache", () => ({
+jest.mock("@/features/memory/model/memoryListCache", () => ({
   prefetchMemories: jest.fn(),
 }));
 jest.mock("@/lib/cache/integrationStatusCache", () => ({

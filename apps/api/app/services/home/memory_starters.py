@@ -8,6 +8,7 @@ from uuid import UUID
 
 from app.models.orm import Memory, User
 from app.models.schemas import HomeProjectHighlight, HomeStarter, HomeUrgentTodo
+from app.modules.memory import is_sensitive_memory_text, strip_memory_as_of
 from app.services import time_context as time_context_service
 from app.services.chat.titles import BORING_CHAT_TITLES
 from app.services.home.util import (
@@ -20,7 +21,6 @@ from app.services.home.util import (
     short_phrase,
     texts_overlap,
 )
-from app.services.memory import is_sensitive_memory_text, strip_memory_as_of
 
 
 def memory_display_text(text: str) -> str:

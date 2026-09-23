@@ -14,7 +14,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import User
-from app.services import memory as memory_service
+from app.modules import memory as memory_service
 from app.services.chat.prompt_constants.routing import is_lightweight_chat_turn
 from app.services.mcp.web_search_adapter import WebSearchAdapter, bind_search_quota_context
 from app.services.prompt_safety import wrap_untrusted

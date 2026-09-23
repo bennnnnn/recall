@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat
 from app.modules import learning as learning_service
+from app.modules.memory import is_food_or_diet_query
 from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
 from app.services import day_planning as day_planning_service
@@ -21,7 +22,6 @@ from app.services.chat.prompt_constants import (
     needs_rich_context,
 )
 from app.services.email import context as email_service
-from app.services.memory.text import is_food_or_diet_query
 
 if TYPE_CHECKING:
     from app.services.chat.turn_prep.context import ClientGeoContext

@@ -34,7 +34,7 @@ async def test_stale_holder_cannot_release_new_owner(fake_redis):
 async def test_memory_write_lock_stale_release_is_noop(fake_redis):
     from uuid import uuid4
 
-    from app.services import memory as memory_service
+    from app.modules import memory as memory_service
 
     user_id = uuid4()
     with pytest.MonkeyPatch.context() as mp:

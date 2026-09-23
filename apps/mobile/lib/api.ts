@@ -7,7 +7,7 @@ import { imagesApi } from "@/lib/api/images";
 import { integrationsApi } from "@/lib/api/integrations";
 import { jobSearchApi } from "@/features/job-search/api";
 import { learningApi } from "@/features/learning/api";
-import { memoriesApi } from "@/lib/api/memories";
+import { memoriesApi } from "@/features/memory/api";
 import { speechApi } from "@/lib/api/speech";
 import { todosApi } from "@/features/todos/api";
 

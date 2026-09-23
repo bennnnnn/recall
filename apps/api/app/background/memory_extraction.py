@@ -2,7 +2,7 @@
 
 import sys
 
-from app.services.memory import extraction_workflow as _service
+from app.modules.memory import extraction_workflow as _service
 
 extract_and_store_memories = _service.extract_and_store_memories
 

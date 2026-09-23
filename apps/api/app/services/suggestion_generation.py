@@ -10,10 +10,10 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways import litellm_gateway
 from app.models.schemas import SuggestionGenerationResult, SuggestionItem
+from app.modules import memory as memory_service
 from app.repositories import chats as chats_repo
 from app.repositories import suggestions as suggestions_repo
 from app.repositories import users as users_repo
-from app.services import memory as memory_service
 
 logger = logging.getLogger(__name__)
 

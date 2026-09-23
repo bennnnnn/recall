@@ -59,7 +59,7 @@ def test_group_by_recency_naive_datetime():
 @pytest.mark.asyncio
 async def test_upsert_sections_single_query():
     """upsert_sections must issue exactly 1 execute() call regardless of item count."""
-    from app.repositories import memories as memories_repo
+    from app.modules.memory import repository as memories_repo
 
     session = AsyncMock()
     mock_result = MagicMock()
@@ -81,7 +81,7 @@ async def test_upsert_sections_single_query():
 
 @pytest.mark.asyncio
 async def test_upsert_sections_empty_is_noop():
-    from app.repositories import memories as memories_repo
+    from app.modules.memory import repository as memories_repo
 
     session = AsyncMock()
     await memories_repo.upsert_sections(session, user_id=uuid4(), items=[])

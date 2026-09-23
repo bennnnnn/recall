@@ -10,7 +10,7 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/todos/model/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
     import("@/features/todos/model/reminderPrefs").then(({ clearReminderLeadPrefs }) => clearReminderLeadPrefs()),
     import("@/lib/chat/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
-    import("@/lib/cache/memoryListCache").then(({ invalidateMemoriesCache }) => invalidateMemoriesCache()),
+    import("@/features/memory/model/memoryListCache").then(({ invalidateMemoriesCache }) => invalidateMemoriesCache()),
     import("@/lib/cache/galleryListCache").then(({ invalidateGalleryCache }) => invalidateGalleryCache()),
     import("@/lib/cache/integrationStatusCache").then(({ invalidateIntegrationStatusCache }) => invalidateIntegrationStatusCache()),
     import("@/lib/cache/suggestedRemindersCache").then(({ invalidateSuggestedRemindersCache }) => invalidateSuggestedRemindersCache()),
