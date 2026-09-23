@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
-import { ReminderDateTimePicker } from "@/components/todos/ReminderDateTimePicker";
+import { ReminderDateTimePicker } from "@/features/todos/components/ReminderDateTimePicker";
 import type { JobSearchFrequency } from "@/lib/api";
 
 import { FREQUENCY_VALUES, useSetupStyles } from "./setupShared";

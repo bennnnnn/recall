@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import TodoItem, User
-from app.repositories.todo_email import TodoEmailSnapshot, mark_email_sent_if_current
+from app.modules.todos.email_repository import TodoEmailSnapshot, mark_email_sent_if_current
 from app.services.learning import nudges as learning_nudges
 from app.services.notifications import transactional_email as tx_email
 from app.services.reminder_timing import (

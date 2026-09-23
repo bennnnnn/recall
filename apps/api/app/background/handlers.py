@@ -23,13 +23,13 @@ from app.background import (
     gmail_sync,
     learning_sync,
     message_indexing,
-    todo_sync,
     topic_generation,
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
+from app.modules.todos import jobs as todo_jobs
 from app.services import quota as quota_service
 from app.services import suggestion_generation
 from app.services.attachments import lifecycle as attachment_lifecycle
@@ -167,7 +167,7 @@ async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]
 async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
     if await _spend_capped(settings):
         return
-    await todo_sync.sync_todos_from_chat(
+    await todo_jobs.sync_todos_from_chat(
         settings,
         user_id=UUID(payload["user_id"]),
         chat_id=UUID(payload["chat_id"]),

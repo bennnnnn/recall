@@ -9,6 +9,7 @@ from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.modules.job_search import api as job_search
+from app.modules.todos import api as todos
 from app.routers import (
     admin,
     analytics,
@@ -30,7 +31,6 @@ from app.routers import (
     speech,
     speech_realtime,
     suggestions,
-    todos,
     users,
     webhooks,
     ws,

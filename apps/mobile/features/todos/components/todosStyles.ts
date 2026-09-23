@@ -1,0 +1,182 @@
+import { StyleSheet } from "react-native";
+
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import type { Theme } from "@/lib/theme";
+import { Type } from "@/lib/type";
+
+export function makeTodosStyles(C: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.bg,
+    },
+    dayHeading: {
+      ...Type.body,
+      fontWeight: "700",
+      color: C.text,
+      marginTop: Space.xxs,
+      marginBottom: Space.xs,
+    },
+    list: { flex: 1 },
+    listEmpty: { flexGrow: 1 },
+    // Keep the last row clear of the bottom-right add FAB (56px + offset).
+    listContent: { paddingTop: Space.xs, paddingBottom: 96 },
+    section: {
+      paddingTop: Space.xs,
+      paddingBottom: Space.xxs,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: Space.md,
+      paddingTop: Space.md,
+      paddingBottom: Space.xs,
+    },
+    sectionHeading: {
+      ...Type.caption,
+      fontWeight: "700",
+      color: C.textTertiary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
+    sectionCount: {
+      ...Type.caption,
+      color: C.textTertiary,
+      fontVariant: ["tabular-nums"],
+    },
+    sectionEmpty: {
+      ...Type.label,
+      fontWeight: "400",
+      color: C.textTertiary,
+      paddingHorizontal: Space.md,
+      paddingBottom: Space.sm,
+    },
+    todoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.sm,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.md,
+      marginHorizontal: Space.md,
+      marginBottom: Space.xs,
+      borderRadius: Radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: C.border,
+      backgroundColor: C.surface,
+    },
+    todoRowHighlighted: {
+      backgroundColor: C.primaryLight,
+    },
+    swipeContainer: {
+      overflow: "hidden",
+    },
+    swipeDeleteAction: {
+      width: 80,
+      backgroundColor: C.danger,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 2,
+    },
+    swipeDeleteText: {
+      ...Type.caption,
+      fontWeight: "600",
+      color: C.onPrimary,
+    },
+    checkbox: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+    todoMain: { flex: 1, gap: Space.xxs },
+    todoText: { ...Type.body, color: C.text },
+    dueLabel: { ...Type.caption, fontWeight: "600" },
+    dueOverdue: { color: C.danger },
+    dueToday: { color: C.primary },
+    dueSoon: { color: C.textSecondary },
+    overlapLabel: { ...Type.caption, color: C.danger },
+    overlapNote: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: Space.xxs,
+      marginTop: Space.sm,
+      padding: Space.sm,
+      borderRadius: Radius.sm,
+      backgroundColor: C.dangerLight,
+    },
+    overlapNoteText: { flex: 1, ...Type.caption, fontWeight: "400", color: C.danger },
+    pickerOverlapNote: { marginHorizontal: Space.md, marginBottom: Space.xs },
+    dueBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+    todoDone: {
+      color: C.textTertiary,
+      textDecorationLine: "line-through",
+    },
+    formLabel: { ...Type.label, color: C.textSecondary },
+    fieldGap: { marginTop: Space.md },
+    titleInput: {
+      ...Type.navTitle,
+      color: C.text,
+      backgroundColor: C.surface,
+      borderRadius: Radius.md,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    dateChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.xs,
+      backgroundColor: C.primaryLight,
+      borderRadius: Radius.sm,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.sm,
+      alignSelf: "flex-start",
+    },
+    dateChipText: { ...Type.secondary, fontWeight: "600", color: C.text },
+    dateRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.xs,
+    },
+    removeDateButton: {
+      minWidth: Space.minTouch,
+      minHeight: Space.minTouch,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    repeatField: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: Space.xs,
+      minHeight: Space.minTouch,
+      backgroundColor: C.surface,
+      borderRadius: Radius.md,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
+      borderWidth: 1,
+      borderColor: C.border,
+    },
+    repeatFieldOpen: {
+      borderBottomLeftRadius: 0,
+      borderBottomRightRadius: 0,
+    },
+    repeatFieldText: {
+      flex: 1,
+      ...Type.navTitle,
+      color: C.text,
+    },
+    sheet: {
+      backgroundColor: C.surface,
+      borderTopLeftRadius: Radius.sheet,
+      borderTopRightRadius: Radius.sheet,
+    },
+    sheetBody: { padding: Space.md, paddingBottom: Space.xl, gap: Space.xs },
+    pickerSheet: {
+      backgroundColor: C.bg,
+      borderTopLeftRadius: Radius.xl,
+      borderTopRightRadius: Radius.xl,
+    },
+  });
+}

@@ -7,7 +7,6 @@ import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
 import { trackProductEvent } from "@/lib/productAnalytics";
 import { lessonMapPath } from "@/lib/projects/chapterAccess";
-import { localDateKey } from "@/lib/todos/reminderCalendar";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -166,6 +165,8 @@ type PushData = {
   profile_id?: string;
   topic?: string;
   event_start?: string;
+  event_id?: string;
+  event_title?: string;
 };
 
 /** Push when the target is a different screen; replace when already on it so
@@ -198,13 +199,20 @@ export async function handlePushNotificationResponse(
   }
 
   if (data.type === "calendar_nudge") {
-    // Land on Schedule focused on the event's day, not a generic list.
-    const start = data.event_start ? new Date(data.event_start) : null;
-    const day = start && Number.isFinite(start.getTime()) ? localDateKey(start) : null;
-    navigateToTarget(router, current, {
-      pathname: "/todos",
-      params: day ? { date: day } : {},
-    });
+    // The To-do screen no longer owns a calendar wall. Carry the exact event
+    // context so the notification opens a focused card instead of a dead date.
+    if (data.event_title && data.event_start) {
+      navigateToTarget(router, current, {
+        pathname: "/todos",
+        params: {
+          eventTitle: data.event_title,
+          eventStart: data.event_start,
+          ...(data.event_id ? { eventId: data.event_id } : {}),
+        },
+      });
+    } else {
+      navigateToTarget(router, current, "/");
+    }
     return;
   }
 
@@ -227,7 +235,7 @@ export async function handlePushNotificationResponse(
     return;
   }
 
-  // Email suggestions are reminders — always Schedule, never Learning.
+  // To-do renders pending Gmail suggestions with Add and Dismiss actions.
   if (data.type === "email_suggestion") {
     navigateToTarget(router, current, "/todos");
     return;

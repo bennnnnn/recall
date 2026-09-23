@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.repositories.todo_email import TodoEmailSnapshot
+from app.modules.todos.email_repository import TodoEmailSnapshot
 from app.services.notifications import reminder_email as reminder_emails
 
 

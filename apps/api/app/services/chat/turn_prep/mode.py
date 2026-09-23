@@ -99,7 +99,7 @@ def _turn_needs_rich_context(
     day_reflection: bool,
 ) -> bool:
     """Opt-in personal/tool context — default casual chat stays slim."""
-    from app.services import todos as todos_service
+    from app.modules import todos as todos_service
 
     if needs_rich_context(
         content,

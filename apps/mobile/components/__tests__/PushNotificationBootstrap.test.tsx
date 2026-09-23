@@ -35,7 +35,7 @@ jest.mock("@/lib/pushNotifications", () => ({
   configurePushNotificationHandler: jest.fn(),
   handlePushNotificationResponse: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock("@/lib/todos/todoReminders", () => ({
+jest.mock("@/features/todos/model/todoReminders", () => ({
   cancelTodoReminder: jest.fn(async () => undefined),
 }));
 

@@ -2,7 +2,7 @@ import type { CalendarProposal } from "@/lib/calendarProposal";
 import { parseCalendarProposals, stripCalendarProposalFences } from "@/lib/calendarProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
-import { stripReminderFences } from "@/lib/todos/reminderFence";
+import { stripReminderFences } from "@/features/todos/model/reminderFence";
 import type { SearchSource } from "@/lib/api";
 import {
   hasVocabQuizFence,

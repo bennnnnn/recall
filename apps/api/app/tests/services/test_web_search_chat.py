@@ -24,7 +24,7 @@ async def test_build_prompt_includes_web_search_hint():
         ),
         patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
-            "app.services.todos.build_todos_system_section",
+            "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(

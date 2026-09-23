@@ -108,7 +108,7 @@ from app.models.schemas.memory import (
     MemorySectionUpdateResult,
     MemoryUpdate,
 )
-from app.models.schemas.schedule import (
+from app.modules.todos.schemas import (
     RecurrenceRule,
     TodoActionItem,
     TodoCreate,

@@ -15,7 +15,7 @@ jest.mock("@/contexts/ComposerDraftContext", () => ({
 jest.mock("@/contexts/HomeContext", () => ({
   useHome: () => ({ screen: { greeting: "Good morning" } }),
 }));
-jest.mock("@/contexts/TodosContext", () => ({
+jest.mock("@/features/todos/context/TodosContext", () => ({
   useTodos: () => ({
     todos: [],
     loading: false,
@@ -36,11 +36,11 @@ jest.mock("@/lib/homeWelcome", () => ({
   ],
 }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
-jest.mock("@/lib/todos/dueDate", () => ({ describeDueAt: () => null }));
-jest.mock("@/lib/todos/homeReminderNudges", () => ({
+jest.mock("@/features/todos/model/dueDate", () => ({ describeDueAt: () => null }));
+jest.mock("@/features/todos/model/homeReminderNudges", () => ({
   filterHomeNudgeTodos: (todos: unknown[]) => todos,
 }));
-jest.mock("@/lib/todos/homeUrgentTodos", () => ({
+jest.mock("@/features/todos/model/homeUrgentTodos", () => ({
   firstOverdueHomeTodo: () => undefined,
   listHomeUrgentTodos: () => [],
 }));
