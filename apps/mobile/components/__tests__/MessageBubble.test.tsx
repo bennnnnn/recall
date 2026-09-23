@@ -78,7 +78,7 @@ jest.mock("@/components/MarkdownErrorBoundary", () => ({
 jest.mock("@/components/RecallTypingIndicator", () => ({
   RecallTypingIndicator: () => null,
 }));
-jest.mock("@/components/LearningLaunchButton", () => ({
+jest.mock("@/features/learning/components/LearningLaunchButton", () => ({
   LearningLaunchButton: () => null,
 }));
 jest.mock("@/contexts/emailDraftPersist", () => ({

@@ -20,17 +20,17 @@ from app.models.schemas import (
     HomeStarter,
     HomeUrgentTodo,
 )
+from app.modules.learning import home_starters as learning_starters_mod
+from app.modules.learning.home_starters import (
+    load_learning_home_content as _load_learning_home_content_impl,
+)
 from app.modules.todos import repository as todos_repo
 from app.repositories import chats as chats_repo
 from app.repositories import suggestions as suggestions_repo
 from app.services import memory as memory_service
 from app.services import reminder_timing
-from app.services.home import learning_starters as learning_starters_mod
 from app.services.home.integration_starters import (
     integration_starters as _integration_starters_impl,
-)
-from app.services.home.learning_starters import (
-    load_learning_home_content as _load_learning_home_content_impl,
 )
 from app.services.home.memory_starters import (
     chat_starter,
@@ -55,13 +55,12 @@ from app.services.home.util import (
     texts_overlap,
 )
 
-# Re-exported for tests that patch home_service.learning_repo / learning_items_repo.
-learning_repo = learning_starters_mod.learning_repo
-learning_items_repo = learning_starters_mod.learning_items_repo
-
 logger = logging.getLogger(__name__)
 
 # Patchable names used by build_home_screen (and underscore aliases for tests).
+# Same module objects home_starters calls, so tests can patch them here.
+learning_repo = learning_starters_mod.learning_repo
+learning_items_repo = learning_starters_mod.learning_items_repo
 load_learning_home_content = _load_learning_home_content_impl
 integration_starters = _integration_starters_impl
 _resolve_home_tz = resolve_home_tz

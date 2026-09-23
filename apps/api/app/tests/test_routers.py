@@ -528,7 +528,7 @@ def test_create_chat_with_other_users_project_id_rejected():
     # project_id that doesn't belong to the user → learning_repo.get_by_id
     # returns None → router must 400 instead of linking to a foreign project.
     pid = uuid4()
-    with patch("app.services.chats.learning_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.services.chats.get_owned_project", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/chats",
@@ -560,7 +560,7 @@ def test_create_chat_with_owned_project_id_accepted():
     project.id = pid
     project.user_id = user.id
     with (
-        patch("app.services.chats.learning_repo.get_by_id", AsyncMock(return_value=project)),
+        patch("app.services.chats.get_owned_project", AsyncMock(return_value=project)),
         patch("app.services.chats.chats_repo.create", AsyncMock(return_value=chat)),
     ):
         client = TestClient(app)

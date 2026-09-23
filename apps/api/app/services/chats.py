@@ -14,8 +14,8 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
+from app.modules.learning.access import get_owned_project
 from app.repositories import chats as chats_repo
-from app.repositories import learning as learning_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
@@ -46,7 +46,7 @@ async def create_chat(
     quiz_mode: str | None,
 ) -> Chat:
     if project_id is not None:
-        project = await learning_repo.get_by_id(session, project_id, user.id)
+        project = await get_owned_project(session, project_id, user.id)
         if project is None:
             raise ChatsError("Learning not found", status_code=400)
     return await chats_repo.create(

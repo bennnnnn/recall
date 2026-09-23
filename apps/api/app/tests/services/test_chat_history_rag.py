@@ -326,7 +326,7 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
         patch("app.services.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch("app.services.chat.history_rag.chunks_repo.has_chunks_for_user", probe),

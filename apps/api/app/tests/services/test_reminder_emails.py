@@ -200,15 +200,15 @@ async def test_process_learning_nudge_emails_sends_when_due():
 
     with (
         patch(
-            "app.services.learning.nudges.user_local_hour",
+            "app.modules.learning.nudges.user_local_hour",
             return_value=10,
         ),
         patch(
-            "app.services.learning.nudges.learning_repo.list_for_users",
+            "app.modules.learning.nudges.learning_repo.list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.learning.stats.count_stats_by_learning",
+            "app.modules.learning.stats.count_stats_by_learning",
             AsyncMock(
                 return_value={
                     project.id: {

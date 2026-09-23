@@ -28,12 +28,12 @@ from app.models.orm import (
     TodoItem,
     User,
 )
+from app.modules.learning import export_repository as learning_export_repo
+from app.modules.learning import items_repository as learning_items_repo
+from app.modules.learning import repository as learning_repo
 from app.modules.todos import repository as todos_repo
 from app.repositories import attachments as attachments_repo
 from app.repositories import chats as chats_repo
-from app.repositories import learning as learning_repo
-from app.repositories import learning_export as learning_export_repo
-from app.repositories import learning_items as learning_items_repo
 from app.repositories import memories as memories_repo
 from app.repositories import messages as messages_repo
 from app.repositories import product_events as product_events_repo

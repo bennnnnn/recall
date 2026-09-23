@@ -404,7 +404,7 @@ async def test_process_learning_nudges_stays_silent_once_goal_met_even_with_revi
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.learning.stats.count_stats_by_learning",
+            "app.modules.learning.stats.count_stats_by_learning",
             AsyncMock(
                 return_value={
                     project.id: {
@@ -481,7 +481,7 @@ async def test_process_learning_nudges_batches_across_users():
             AsyncMock(return_value=projects),
         ) as list_projects_mock,
         patch(
-            "app.services.learning.stats.count_stats_by_learning",
+            "app.modules.learning.stats.count_stats_by_learning",
             AsyncMock(return_value=stats_by_project),
         ) as count_stats_mock,
         patch.object(
@@ -562,7 +562,7 @@ async def test_process_learning_nudges_isolates_one_user_failure():
             AsyncMock(return_value=projects),
         ),
         patch(
-            "app.services.learning.stats.count_stats_by_learning",
+            "app.modules.learning.stats.count_stats_by_learning",
             AsyncMock(return_value=stats_by_project),
         ),
         patch.object(
@@ -618,7 +618,7 @@ async def test_process_learning_nudges_idle_user_sends_nothing_and_releases_dedu
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.learning.stats.count_stats_by_learning",
+            "app.modules.learning.stats.count_stats_by_learning",
             AsyncMock(
                 return_value={
                     project.id: {
@@ -683,7 +683,7 @@ async def test_process_learning_nudges_skips_non_learning_projects():
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.learning.stats.count_stats_by_learning",
+            "app.modules.learning.stats.count_stats_by_learning",
             AsyncMock(return_value={}),
         ),
         patch.object(

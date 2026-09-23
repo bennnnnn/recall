@@ -98,7 +98,7 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -143,7 +143,7 @@ async def test_build_prompt_includes_comparison_table_hint():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -191,7 +191,7 @@ async def test_build_prompt_includes_chart_vega_hint():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -240,7 +240,7 @@ async def test_build_prompt_includes_mermaid_layout_hint():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -541,7 +541,7 @@ async def test_build_prompt_injects_custom_instructions():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -585,7 +585,7 @@ async def test_build_prompt_strips_solver_fences_from_recent_assistant():
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch("app.services.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
-        patch("app.services.learning.load_learning_classes_for_prompt", AsyncMock(return_value="")),
+        patch("app.modules.learning.load_learning_classes_for_prompt", AsyncMock(return_value="")),
         patch("app.repositories.messages.list_recent", AsyncMock(return_value=recent)),
     ):
         messages = await build_prompt_messages(
@@ -632,7 +632,7 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -674,7 +674,7 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -718,7 +718,7 @@ async def test_build_prompt_includes_memory_and_style():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -777,7 +777,7 @@ async def test_build_prompt_recalled_count_counts_section_headers():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -820,7 +820,7 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -861,7 +861,7 @@ async def test_build_prompt_includes_response_tone():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -904,7 +904,7 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -1264,7 +1264,7 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
             AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
         ) as todos_mock,
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value="PROJECTS SHOULD NOT LOAD"),
         ) as projects_mock,
     ):
@@ -1320,7 +1320,7 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
             AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
         ) as todos_mock,
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value="PROJECTS SHOULD NOT LOAD"),
         ) as projects_mock,
     ):
@@ -1399,7 +1399,7 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -1462,7 +1462,7 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -1526,7 +1526,7 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
     ):
@@ -1578,11 +1578,11 @@ async def test_build_prompt_day_planning_injects_daily_learning():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_daily_learning_summary_for_prompt",
+            "app.modules.learning.load_daily_learning_summary_for_prompt",
             AsyncMock(return_value=learning_block),
         ) as daily_mock,
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value="SHOULD NOT USE"),
         ),
         patch(
@@ -1646,11 +1646,11 @@ async def test_build_prompt_learning_progress_injects_today_words():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value="User learning topics:\n### English"),
         ),
         patch(
-            "app.services.learning.load_today_learning_words_for_prompt",
+            "app.modules.learning.load_today_learning_words_for_prompt",
             AsyncMock(return_value=today_block),
         ) as today_mock,
         patch(
@@ -1919,7 +1919,7 @@ async def test_build_prompt_passes_client_timezone():
             load_todos,
         ),
         patch(
-            "app.services.learning.load_learning_classes_for_prompt",
+            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -1953,7 +1953,7 @@ def test_is_vocab_quiz_answer():
 
 
 def test_strip_vocab_session_metadata():
-    from app.services.chat.learning_fences import strip_learning_chat_fences
+    from app.modules.learning.fences import strip_learning_chat_fences
 
     content = (
         "You've mastered all 5 words today.\n\n"
@@ -1967,7 +1967,7 @@ def test_strip_vocab_session_metadata():
 
 
 def test_strip_learning_chat_fences_drops_vocab_quiz():
-    from app.services.chat.learning_fences import strip_learning_chat_fences
+    from app.modules.learning.fences import strip_learning_chat_fences
 
     content = (
         "Let's check this word.\n\n"

@@ -11,7 +11,7 @@ from app.services import home as home_service
 
 @pytest.fixture(autouse=True)
 def _empty_practice_history():
-    with patch("app.repositories.learning_practice.list_events", AsyncMock(return_value=[])):
+    with patch("app.modules.learning.practice_repository.list_events", AsyncMock(return_value=[])):
         yield
 
 
@@ -133,7 +133,7 @@ def _home_patches(**overrides):
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.learning.stats.stats_from_items",
+            "app.modules.learning.stats.stats_from_items",
             MagicMock(return_value=stats_payload),
         ),
         patch.object(
@@ -507,7 +507,7 @@ async def test_build_home_batches_daily_learning_stats():
             AsyncMock(return_value=[]),
         ) as items_mock,
         patch(
-            "app.services.learning.stats.stats_from_items",
+            "app.modules.learning.stats.stats_from_items",
             MagicMock(
                 return_value={
                     "total": 3,

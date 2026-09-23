@@ -21,7 +21,6 @@ from uuid import UUID
 from app.background import (
     attachment_indexing,
     gmail_sync,
-    learning_sync,
     message_indexing,
     topic_generation,
 )
@@ -29,6 +28,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
+from app.modules.learning import jobs as learning_jobs
 from app.modules.todos import jobs as todo_jobs
 from app.services import quota as quota_service
 from app.services import suggestion_generation
@@ -178,7 +178,7 @@ async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
 async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
     if await _spend_capped(settings):
         return
-    await learning_sync.sync_learning_from_chat(
+    await learning_jobs.sync_learning_from_chat(
         settings,
         user_id=UUID(payload["user_id"]),
         chat_id=UUID(payload["chat_id"]),
@@ -188,7 +188,7 @@ async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
 
 async def _handle_language_path(settings: Settings, payload: dict[str, Any]) -> None:
     # Curated catalog reconciliation has no provider calls or AI spending.
-    from app.services.learning.path_seed import seed_language_path
+    from app.modules.learning.path_seed import seed_language_path
 
     await seed_language_path(
         settings,

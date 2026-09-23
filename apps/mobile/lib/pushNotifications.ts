@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
 import { trackProductEvent } from "@/lib/productAnalytics";
-import { lessonMapPath } from "@/lib/projects/chapterAccess";
+import { lessonMapPath } from "@/features/learning/model/chapterAccess";
 
 type AppRouter = {
   push: (href: unknown) => void;

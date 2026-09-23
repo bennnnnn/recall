@@ -7,10 +7,10 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat
+from app.modules import learning as learning_service
 from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
 from app.services import day_planning as day_planning_service
-from app.services import learning as learning_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
     is_broad_self_question,

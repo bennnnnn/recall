@@ -1,7 +1,7 @@
 import { attachmentRecordExists, attachmentsApi } from "@/lib/api/attachments";
 import { request } from "@/lib/api/client";
 import { removeCachedAttachmentFiles } from "@/lib/downloadChatAttachment";
-import { learningApi } from "@/lib/api/learning";
+import { learningApi } from "@/features/learning/api";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/downloadChatAttachment", () => ({

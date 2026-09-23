@@ -10,11 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import jobs
 from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
+from app.modules import learning as learning_service
 from app.modules import todos as todos_service
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
-from app.services import learning as learning_service
 from app.services import model_catalog
 from app.services import quota as quota_service
 from app.services.attachments import lifecycle as attachment_lifecycle

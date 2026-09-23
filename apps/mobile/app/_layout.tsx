@@ -15,7 +15,7 @@ import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { HomeProvider } from "@/contexts/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
 import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
-import { ProjectsProvider } from "@/contexts/ProjectsContext";
+import { ProjectsProvider } from "@/features/learning/context/ProjectsContext";
 import { TodosProvider } from "@/features/todos/context/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";

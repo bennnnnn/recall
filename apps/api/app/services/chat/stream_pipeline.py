@@ -319,7 +319,7 @@ async def enrich_final_content(
 
         assistant_text = strip_verified_math_markers(assistant_text)
 
-        from app.services.chat.learning_fences import strip_learning_chat_fences
+        from app.modules.learning import strip_learning_chat_fences
 
         assistant_text = strip_learning_chat_fences(assistant_text)
         if settings.chemistry_enabled and (
