@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
 import type { Learning } from "@/lib/api";
-import { findLanguageProject } from "@/lib/projects/languageProject";
+import { findLanguageProject } from "@/features/learning/model/languageProject";
 
 type Params = {
   projects: Learning[];

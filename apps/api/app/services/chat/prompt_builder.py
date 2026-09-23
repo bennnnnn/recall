@@ -13,11 +13,11 @@ from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.models.schemas.math import MathImageExtract
+from app.modules import learning as learning_service
 from app.modules import todos as todos_service
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import calendar as calendar_service
-from app.services import learning as learning_service
 from app.services import locale as locale_service
 from app.services import memory as memory_service
 from app.services import profile as profile_service

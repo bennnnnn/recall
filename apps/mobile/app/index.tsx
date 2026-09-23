@@ -22,7 +22,7 @@ import { DrawerShell } from "@/components/DrawerShell";
 import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/contexts/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProjects } from "@/contexts/ProjectsContext";
+import { useProjects } from "@/features/learning/context/ProjectsContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useHome } from "@/contexts/HomeContext";
 import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
@@ -48,8 +48,8 @@ import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } fr
 import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
 import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chat/composerLogic";
-import { invalidateLearningDetail } from "@/lib/projects/projectDetailCache";
-import { openLearningLesson } from "@/lib/projects/lessonLaunch";
+import { invalidateLearningDetail } from "@/features/learning/model/projectDetailCache";
+import { openLearningLesson } from "@/features/learning/model/lessonLaunch";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 

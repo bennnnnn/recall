@@ -83,7 +83,15 @@ from app.models.schemas.integrations import (
     SuggestedRemindersOut,
     WebSearchClassification,
 )
-from app.models.schemas.learning import (
+from app.models.schemas.memory import (
+    MemoryFactOp,
+    MemoryFactUpdateResult,
+    MemoryOut,
+    MemorySectionItem,
+    MemorySectionUpdateResult,
+    MemoryUpdate,
+)
+from app.modules.learning.schemas import (
     DailyHistoryStatus,
     LearningActionItem,
     LearningCreate,
@@ -99,14 +107,6 @@ from app.models.schemas.learning import (
     LearningUpdate,
     PathChapterProgress,
     VocabStatus,
-)
-from app.models.schemas.memory import (
-    MemoryFactOp,
-    MemoryFactUpdateResult,
-    MemoryOut,
-    MemorySectionItem,
-    MemorySectionUpdateResult,
-    MemoryUpdate,
 )
 from app.modules.todos.schemas import (
     RecurrenceRule,

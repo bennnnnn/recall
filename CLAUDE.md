@@ -126,7 +126,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `settings/models.tsx` |
 | Search | `routers/search.py`, `services/search.py` | drawer search (`useDrawerSearch`) |
 | Todos / reminders | `routers/todos.py`, `services/todos/` | `app/todos.tsx`, `components/todos/` |
-| Learning classes | `routers/learning.py` (HTTP `/projects`), `services/learning/`, `schemas/learning.py` | `app/projects/`, lesson play |
+| Learning classes | `modules/learning/` (HTTP `/projects`) | `features/learning/`; `app/projects/` routes only |
 | Home starters | `routers/home.py`, `services/home/` | home cards on chat empty / index |
 | Attachments + RAG | `routers/attachments.py`, `services/attachments/`, `background/attachment_*.py` | `lib/api/attachments.ts`, composer attach |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
@@ -193,7 +193,7 @@ Steps 6–8 are the only ones on the user's critical path. Everything in step 9 
 
 Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Learning (`projects/`), Settings (models, memory, preferences, integrations, learning, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
-- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,memories,todos,learning,integrations,attachments,images,account,discover,connectivity,speech,analytics,types}.ts`
+- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,memories,integrations,attachments,images,account,discover,connectivity,speech,analytics,types}.ts` plus feature slices (`features/learning/api.ts`, `features/todos/api.ts`, `features/job-search/api.ts`)
 - Tokens: `expo-secure-store` only
 - Chat logic: `hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — screens stay thin
 - Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `projects/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.

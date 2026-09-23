@@ -24,7 +24,6 @@ const LIB = `${__dirname}/..`;
 const PREFIX_ALIASES: Record<string, string[]> = {
   chemistry: ["molecule"],
   images: ["image"],
-  projects: ["exportProject", "language", "parseLearning", "parseVocab", "project"],
   speech: ["cloud", "lesson", "liveTalk", "pronunciation", "realtime", "tts", "voice"],
   todos: ["homeReminder", "homeUrgent", "reminder", "todo"],
 };

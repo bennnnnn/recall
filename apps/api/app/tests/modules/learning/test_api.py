@@ -1,0 +1,547 @@
+"""Learning router tests (HTTP `/projects`)."""
+
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.core.config import Settings
+from app.core.deps import get_settings_dep
+from app.main import create_app
+from app.models.orm import User
+
+
+@pytest.fixture(autouse=True)
+def _empty_practice_events():
+    with patch("app.modules.learning.practice_repository.list_events", AsyncMock(return_value=[])):
+        yield
+
+
+def _fake_user() -> User:
+    u = MagicMock(spec=User)
+    u.id = uuid4()
+    u.email = "test@recall.local"
+    u.timezone = "UTC"
+    return u
+
+
+def _app_with_user(user: User):
+    from app.core.deps import get_current_user
+
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings()
+    return app
+
+
+def _project(**kw):
+    p = MagicMock()
+    p.id = kw.get("id", uuid4())
+    p.user_id = kw.get("user_id", uuid4())
+    p.title = kw.get("title", "Spanish")
+    p.description = kw.get("description", "Daily vocab")
+    p.kind = kw.get("kind", "language")
+    p.target_language = kw.get("target_language", "en")
+    p.native_language = kw.get("native_language", "en")
+    p.level = kw.get("level", "level1")
+    p.daily_goal = kw.get("daily_goal", 10)
+    p.daily_goal_history = kw.get("daily_goal_history", None)
+    p.learning_path = kw.get("learning_path", None)
+    p.archived = False
+    p.created_at = datetime(2024, 1, 1, tzinfo=UTC)
+    p.updated_at = datetime(2024, 1, 1, tzinfo=UTC)
+    return p
+
+
+def _item(project_id, **kw):
+    item = MagicMock()
+    item.id = kw.get("id", uuid4())
+    item.project_id = project_id
+    item.list_title = kw.get("list_title", "General")
+    item.content = kw.get("content", "hola")
+    item.definition = kw.get("definition", "hello")
+    item.example_sentence = None
+    item.ipa = None
+    item.vocabulary_kind = "word"
+    item.verb_kind = None
+    item.noun_kind = None
+    item.due_at = None
+    item.last_completed_at = None
+    item.last_incorrect_at = None
+    item.part_of_speech = None
+    item.simple_gloss = None
+    item.note = None
+    item.status = kw.get("status", "new")
+    item.mastered = kw.get("mastered", False)
+    item.created_at = datetime(2024, 1, 1)
+    item.last_reviewed_at = None
+    item.mastered_at = None
+    item.review_count = 0
+    item.pronunciation_url = None
+    return item
+
+
+def test_list_projects():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project()
+
+    with (
+        patch(
+            "app.modules.learning.repository.list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch(
+            "app.modules.learning.stats.count_stats_by_learning",
+            AsyncMock(return_value={project.id: {"mastered_count": 3, "mastered_today": 1}}),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.get("/projects", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 200
+    assert r.json()[0]["title"] == "Spanish"
+    assert r.json()[0]["stats"]["mastered_count"] == 3
+
+
+def test_create_project_maps_vocabulary_to_language():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language")
+
+    with (
+        patch(
+            "app.modules.learning.repository.create",
+            AsyncMock(return_value=project),
+        ) as create_mock,
+        patch(
+            "app.modules.learning.repository.find_language_by_target",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.learning.crud.enqueue_language_path_job", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={"title": "French", "kind": "vocabulary"},
+        )
+
+    assert r.status_code == 201
+    assert create_mock.await_args.kwargs["kind"] == "language"
+
+
+def test_create_language_project_rejects_duplicate():
+    user = _fake_user()
+    app = _app_with_user(user)
+    existing = _project(kind="language", title="English · Beginner")
+
+    with (
+        patch(
+            "app.modules.learning.repository.find_language_by_target",
+            AsyncMock(return_value=existing),
+        ),
+        patch(
+            "app.modules.learning.repository.create",
+            AsyncMock(),
+        ) as create_mock,
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={"title": "English · Elementary", "kind": "language", "level": "level2"},
+        )
+
+    assert r.status_code == 409
+    create_mock.assert_not_awaited()
+
+
+def test_create_second_language_project_allowed():
+    user = _fake_user()
+    user.locale = "en"
+    app = _app_with_user(user)
+    project = _project(kind="language", title="Español · Beginner", target_language="es")
+
+    with (
+        patch(
+            "app.modules.learning.repository.create",
+            AsyncMock(return_value=project),
+        ) as create_mock,
+        patch(
+            "app.modules.learning.repository.find_language_by_target",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.learning.crud.enqueue_language_path_job", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={"title": "Español · Beginner", "kind": "language", "target_language": "es"},
+        )
+
+    assert r.status_code == 201
+    assert create_mock.await_args.kwargs["target_language"] == "es"
+
+
+def test_create_unknown_target_language_rejected():
+    user = _fake_user()
+    user.locale = "en"
+    app = _app_with_user(user)
+
+    with patch(
+        "app.modules.learning.repository.create",
+        AsyncMock(),
+    ) as create_mock:
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={"title": "Japanese", "kind": "language", "target_language": "ja"},
+        )
+
+    assert r.status_code == 400
+    assert r.json()["detail"] == "unsupported_target_language"
+    create_mock.assert_not_awaited()
+
+
+def test_create_unsupported_kind_rejected():
+    user = _fake_user()
+    app = _app_with_user(user)
+
+    client = TestClient(app)
+    r = client.post(
+        "/projects",
+        headers={"Authorization": "Bearer tok"},
+        json={
+            "title": "Python · Programming",
+            "kind": "programming",
+            "target_language": "python",
+        },
+    )
+
+    assert r.status_code == 422
+
+
+def test_patch_unsupported_kind_rejected():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language", title="Spanish")
+
+    with patch(
+        "app.modules.learning.api.learning_repo.get_by_id",
+        AsyncMock(return_value=project),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            f"/projects/{project.id}",
+            headers={"Authorization": "Bearer tok"},
+            json={"kind": "programming"},
+        )
+
+    assert r.status_code == 422
+
+
+def test_get_unsupported_legacy_project_not_found():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="programming", title="JS")
+    project_id = project.id
+
+    with patch(
+        "app.modules.learning.repository.get_by_id",
+        AsyncMock(return_value=project),
+    ):
+        client = TestClient(app)
+        r = client.get(f"/projects/{project_id}", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 404
+
+
+def test_get_project_not_found():
+    user = _fake_user()
+    app = _app_with_user(user)
+
+    with patch(
+        "app.modules.learning.repository.get_by_id",
+        AsyncMock(return_value=None),
+    ):
+        client = TestClient(app)
+        r = client.get(f"/projects/{uuid4()}", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 404
+
+
+def test_get_language_project_detail():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language")
+    project.daily_goal_history = [{"effective_from": "2024-01-01", "goal": 10}]
+    project_id = project.id
+    noun = _item(project_id)
+    noun.list_title = "General"
+    noun.content = "apple"
+    verb = _item(project_id)
+    verb.list_title = "General"
+    verb.content = "run"
+
+    with (
+        patch(
+            "app.modules.learning.repository.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.modules.learning.items_repository.list_for_user",
+            AsyncMock(return_value=[noun, verb]),
+        ),
+        patch(
+            "app.modules.learning.items_repository.list_miss_events_for_items",
+            AsyncMock(return_value={}),
+        ),
+        patch(
+            "app.modules.learning.stats.stats_from_items",
+            return_value={
+                "total": 2,
+                "mastered_count": 1,
+                "new_count": 1,
+                "learning_count": 0,
+                "added_this_week": 1,
+                "due_for_review": 1,
+                "mastered_today": 0,
+                "pending_today": 0,
+                "last_mastery_at": None,
+            },
+        ),
+    ):
+        client = TestClient(app)
+        r = client.get(f"/projects/{project_id}", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total_count"] == 2
+    assert body["lists"] == []
+    assert "daily_items_by_date" in body
+    assert "daily_missed_by_date" in body
+    assert len(body["daily_history"]) == 14
+
+
+def test_get_project_include_lists():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language")
+    project.daily_goal_history = [{"effective_from": "2024-01-01", "goal": 10}]
+    project_id = project.id
+    from app.content.vocab_catalog import path_decks_for_language
+    from app.modules.learning.catalog_items import word_values
+
+    deck = path_decks_for_language("en")[0]
+    noun = _item(project_id)
+    verb = _item(project_id)
+    for item, word in zip((noun, verb), deck.words[:2], strict=True):
+        for name, value in word_values(deck, word).items():
+            setattr(item, name, value)
+
+    with (
+        patch(
+            "app.modules.learning.repository.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.modules.learning.items_repository.list_for_user",
+            AsyncMock(return_value=[noun, verb]),
+        ),
+        patch(
+            "app.modules.learning.items_repository.list_miss_events_for_items",
+            AsyncMock(return_value={}),
+        ),
+        patch(
+            "app.modules.learning.stats.stats_from_items",
+            return_value={
+                "total": 2,
+                "mastered_count": 1,
+                "new_count": 1,
+                "learning_count": 0,
+                "added_this_week": 1,
+                "due_for_review": 1,
+                "mastered_today": 0,
+                "pending_today": 0,
+                "last_mastery_at": None,
+            },
+        ),
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/projects/{project_id}?include_lists=true",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["lists"]) >= 1
+    assert sum(len(g["items"]) for g in body["lists"]) == 2
+
+
+def test_list_daily_items():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language")
+    project_id = project.id
+    item = _item(project_id)
+
+    with (
+        patch(
+            "app.modules.learning.api.learning_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.modules.learning.api.learning_items_service.list_by_activity_date",
+            AsyncMock(return_value=[item]),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/projects/{project_id}/daily-items?activity_date=2026-07-01",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 200
+    assert r.json()[0]["content"] == "hola"
+
+
+def test_list_daily_items_missed_bucket():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language")
+    project_id = project.id
+    item = _item(project_id)
+    item.content = "missed-word"
+    item.mastered = False
+    item.status = "learning"
+
+    with (
+        patch(
+            "app.modules.learning.api.learning_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.modules.learning.api.learning_items_service.list_missed_by_activity_date",
+            AsyncMock(return_value=[item]),
+        ) as missed_mock,
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/projects/{project_id}/daily-items?activity_date=2026-07-01&bucket=missed",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 200
+    assert r.json()[0]["content"] == "missed-word"
+    missed_mock.assert_awaited_once()
+
+
+def test_update_project_daily_goal():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language")
+    project.daily_goal = 5
+    project.daily_goal_history = [{"effective_from": "2026-07-07", "goal": 5}]
+    project.created_at = datetime(2026, 7, 7, tzinfo=UTC)
+    project_id = project.id
+    updated = _project(kind="language")
+    updated.daily_goal = 15
+
+    with (
+        patch(
+            "app.modules.learning.crud.learning_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.modules.learning.crud.learning_repo.update",
+            AsyncMock(return_value=updated),
+        ) as update_mock,
+        patch("app.modules.learning.crud.home_service.invalidate_home_cache", AsyncMock()),
+        patch(
+            "app.modules.learning.crud.datetime",
+        ) as dt_mock,
+    ):
+        dt_mock.now.return_value = datetime(2026, 7, 8, 12, tzinfo=UTC)
+        client = TestClient(app)
+        r = client.patch(
+            f"/projects/{project_id}",
+            headers={"Authorization": "Bearer tok"},
+            json={"daily_goal": 15},
+        )
+
+    assert r.status_code == 200
+    assert update_mock.await_args.kwargs["daily_goal"] == 15
+    history = update_mock.await_args.kwargs["daily_goal_history"]
+    assert history[-1]["goal"] == 15
+    assert r.json()["daily_goal"] == 15
+
+
+def test_update_project_maps_vocabulary_kind():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project()
+    project_id = project.id
+    updated = _project(kind="language")
+
+    with (
+        patch(
+            "app.modules.learning.crud.learning_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.modules.learning.crud.learning_repo.update",
+            AsyncMock(return_value=updated),
+        ) as update_mock,
+        patch("app.modules.learning.crud.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            f"/projects/{project_id}",
+            headers={"Authorization": "Bearer tok"},
+            json={"kind": "vocabulary"},
+        )
+
+    assert r.status_code == 200
+    assert update_mock.await_args.kwargs["kind"] == "language"
+
+
+def test_delete_project_not_found():
+    user = _fake_user()
+    app = _app_with_user(user)
+
+    with patch(
+        "app.modules.learning.crud.learning_repo.get_by_id",
+        AsyncMock(return_value=None),
+    ):
+        client = TestClient(app)
+        r = client.delete(f"/projects/{uuid4()}", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 404
+
+
+def test_delete_project_success():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language")
+
+    with (
+        patch(
+            "app.modules.learning.crud.learning_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.modules.learning.crud.learning_repo.delete_by_id",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.modules.learning.crud.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.delete(f"/projects/{project.id}", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 204

@@ -36,8 +36,8 @@ def test_packaged_domains_expose_their_public_api() -> None:
     assert callable(
         importlib.import_module("app.services.notifications.push").collect_push_outbound
     )
-    assert callable(importlib.import_module("app.services.learning.spaced_repetition").apply_sm2)
-    assert callable(importlib.import_module("app.services.learning.daily").start_of_today_utc)
+    assert callable(importlib.import_module("app.modules.learning.spaced_repetition").apply_sm2)
+    assert callable(importlib.import_module("app.modules.learning.daily").start_of_today_utc)
 
 
 def test_chemistry_package_exposes_its_public_api() -> None:

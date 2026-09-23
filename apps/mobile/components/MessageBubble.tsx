@@ -16,7 +16,7 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
-import { LearningLaunchButton } from "@/components/LearningLaunchButton";
+import { LearningLaunchButton } from "@/features/learning/components/LearningLaunchButton";
 import { AssistantMessageScope } from "@/contexts/emailDraftPersist";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";

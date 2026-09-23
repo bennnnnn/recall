@@ -64,6 +64,60 @@ LEGACY_TODOS_IMPORTS = (
     "app.routers.todos",
     "app.services.todos",
 )
+LEGACY_LEARNING_SHIMS = {
+    APP_ROOT / "background" / "learning_sync.py",
+    APP_ROOT / "core" / "learning_policy.py",
+    APP_ROOT / "models" / "orm" / "learning.py",
+    APP_ROOT / "models" / "orm" / "learning_practice.py",
+    APP_ROOT / "models" / "schemas" / "learning.py",
+    APP_ROOT / "repositories" / "learning.py",
+    APP_ROOT / "repositories" / "learning_activity.py",
+    APP_ROOT / "repositories" / "learning_catalog.py",
+    APP_ROOT / "repositories" / "learning_export.py",
+    APP_ROOT / "repositories" / "learning_items.py",
+    APP_ROOT / "repositories" / "learning_practice.py",
+    APP_ROOT / "routers" / "learning.py",
+    APP_ROOT / "services" / "chat" / "learning_fences.py",
+    APP_ROOT / "services" / "home" / "learning_starters.py",
+    *(
+        APP_ROOT / "services" / "learning" / name
+        for name in (
+            "__init__.py",
+            "actions.py",
+            "catalog_items.py",
+            "catalog_sync.py",
+            "common.py",
+            "crud.py",
+            "daily.py",
+            "extract.py",
+            "insights.py",
+            "items.py",
+            "nudges.py",
+            "path.py",
+            "path_seed.py",
+            "practice.py",
+            "practice_context.py",
+            "practice_history.py",
+            "prompt_context.py",
+            "prompts.py",
+            "quiz_grading.py",
+            "spaced_repetition.py",
+            "stats.py",
+            "sync.py",
+        )
+    ),
+}
+LEGACY_LEARNING_IMPORTS = (
+    "app.background.learning_sync",
+    "app.core.learning_policy",
+    "app.models.orm.learning",
+    "app.models.schemas.learning",
+    "app.repositories.learning",
+    "app.routers.learning",
+    "app.services.chat.learning_fences",
+    "app.services.home.learning_starters",
+    "app.services.learning",
+)
 
 
 def _imports(path: Path) -> list[str]:
@@ -186,7 +240,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
     violations: list[str] = []
     for layer in ("core", "gateways", "repositories"):
         for path in (APP_ROOT / layer).rglob("*.py"):
-            if path in LEGACY_TODOS_SHIMS:
+            if path in LEGACY_TODOS_SHIMS or path in LEGACY_LEARNING_SHIMS:
                 continue
             for imported in _imports(path):
                 if imported == "app.modules" or imported.startswith("app.modules."):
@@ -245,6 +299,80 @@ def test_mobile_todos_has_one_feature_home_and_thin_route() -> None:
         "useTodosActions.ts",
         "useTodosDerivedState.ts",
         "useTodosList.ts",
+    ):
+        assert not (MOBILE_ROOT / "hooks" / name).exists()
+
+    feature_import_violations = [
+        str(path.relative_to(MOBILE_ROOT))
+        for path in feature_root.rglob("*.ts*")
+        if "__tests__" not in path.parts and "@/app/" in path.read_text()
+    ]
+    assert not feature_import_violations
+
+
+def test_learning_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "learning"
+    expected = {
+        "access.py",
+        "api.py",
+        "errors.py",
+        "jobs.py",
+        "models.py",
+        "policy.py",
+        "repository.py",
+        "schemas.py",
+    }
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (APP_ROOT / "tests" / "modules" / "learning" / "test_api.py").is_file()
+
+    for shim in LEGACY_LEARNING_SHIMS:
+        tree = ast.parse(shim.read_text(), filename=str(shim))
+        owned_definitions = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
+        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
+
+
+def test_production_code_does_not_use_legacy_learning_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_LEARNING_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported.startswith(LEGACY_LEARNING_IMPORTS):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
+
+
+def test_mobile_learning_has_one_feature_home_and_thin_routes() -> None:
+    feature_root = MOBILE_ROOT / "features" / "learning"
+    assert (feature_root / "api.ts").is_file()
+    assert (feature_root / "types.ts").is_file()
+    for folder in ("components", "context", "hooks", "model", "screens"):
+        assert (feature_root / folder).is_dir()
+
+    route_targets = {
+        MOBILE_ROOT / "app" / "projects" / "index.tsx": "LearningListScreen",
+        MOBILE_ROOT / "app" / "projects" / "create.tsx": "LearningCreateScreen",
+        MOBILE_ROOT / "app" / "projects" / "[id]" / "index.tsx": "LearningDetailRedirect",
+        MOBILE_ROOT / "app" / "projects" / "[id]" / "lesson" / "index.tsx": "LessonMapScreen",
+        MOBILE_ROOT / "app" / "projects" / "[id]" / "lesson" / "play.tsx": "LessonPlayScreen",
+    }
+    for route, screen in route_targets.items():
+        lines = [line for line in route.read_text().splitlines() if line.strip()]
+        assert len(lines) == 1
+        assert f"features/learning/screens/{screen}" in lines[0]
+
+    assert not (MOBILE_ROOT / "components" / "projects").exists()
+    assert not (MOBILE_ROOT / "contexts" / "ProjectsContext.tsx").exists()
+    assert not (MOBILE_ROOT / "lib" / "projects").exists()
+    assert not (MOBILE_ROOT / "lib" / "api" / "learning.ts").exists()
+    for name in (
+        "useLearningDetail.ts",
+        "useLessonSession.ts",
+        "useProjectActions.ts",
     ):
         assert not (MOBILE_ROOT / "hooks" / name).exists()
 

@@ -6,7 +6,7 @@ import { discoverApi } from "@/lib/api/discover";
 import { imagesApi } from "@/lib/api/images";
 import { integrationsApi } from "@/lib/api/integrations";
 import { jobSearchApi } from "@/features/job-search/api";
-import { learningApi } from "@/lib/api/learning";
+import { learningApi } from "@/features/learning/api";
 import { memoriesApi } from "@/lib/api/memories";
 import { speechApi } from "@/lib/api/speech";
 import { todosApi } from "@/features/todos/api";

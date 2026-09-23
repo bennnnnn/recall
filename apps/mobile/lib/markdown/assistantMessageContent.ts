@@ -12,14 +12,14 @@ import {
   stripVocabQuizPrologue,
   stripVocabSessionMetadata,
   type ParsedVocabQuiz,
-} from "@/lib/projects/parseVocabQuiz";
-import { hasVocabCardFence, stripVocabCardBlock } from "@/lib/projects/parseVocabCard";
+} from "@/features/learning/model/parseVocabQuiz";
+import { hasVocabCardFence, stripVocabCardBlock } from "@/features/learning/model/parseVocabCard";
 import {
   hasLearningLaunchFence,
   parseLearningLaunch,
   stripLearningLaunchBlock,
   type ParsedLearningLaunch,
-} from "@/lib/projects/parseLearningLaunch";
+} from "@/features/learning/model/parseLearningLaunch";
 
 import { isLocationQuestion } from "@/lib/localPlacesQuery";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
