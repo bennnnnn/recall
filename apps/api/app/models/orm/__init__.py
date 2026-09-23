@@ -12,7 +12,6 @@ from app.models.orm.integrations import (
     UserCalendarConnection,
     UserGmailConnection,
 )
-from app.models.orm.job_search import JobMatch, JobSearchProfile
 from app.models.orm.learning import Learning, LearningItem, QuizMissEvent, VocabDeck, VocabEntry
 from app.models.orm.learning_practice import LearningPracticeEvent
 from app.models.orm.memory import Memory
@@ -20,6 +19,7 @@ from app.models.orm.schedule import TodoItem
 from app.models.orm.suggestions import Suggestion
 from app.models.orm.usage import ProductEvent, UsageDaily
 from app.models.orm.user import User
+from app.modules.job_search.models import JobMatch, JobSearchProfile
 
 __all__ = [
     "Attachment",

@@ -78,7 +78,7 @@ async def run_tool_loop_path(
     has_instant = ctx.instant_reply is not None
     has_verified = ctx.verified_math is not None
     has_sources = bool(sources)
-    from app.services.job_search.chat_intent import wants_job_search_turn
+    from app.modules.job_search.chat_intent import wants_job_search_turn
 
     job_search_turn = wants_job_search_turn(ctx.prompt_messages)
     web_search_flag: bool | None = None

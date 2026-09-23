@@ -20,6 +20,7 @@ module.exports = {
       testMatch: [
         "**/lib/__tests__/**/*.test.ts",
         "**/lib/**/__tests__/**/*.test.ts",
+        "**/features/**/__tests__/**/*.test.ts",
       ],
       preset: "ts-jest",
       testEnvironment: "node",
