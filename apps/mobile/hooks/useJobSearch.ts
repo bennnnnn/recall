@@ -162,6 +162,29 @@ export function useJobSearch(isCurrent: () => boolean) {
     [token, user?.id, dashboard, isCurrent, feedback, t],
   );
 
+  const setMatchSaved = useCallback(
+    async (id: string, isSaved: boolean) => {
+      if (!token) return;
+      const previous = dashboard;
+      setDashboard((current) => ({
+        ...current,
+        matches: current.matches.map((match) =>
+          match.id === id ? { ...match, is_saved: isSaved } : match,
+        ),
+      }));
+      try {
+        const next = await api.setJobMatchSaved(token, id, isSaved);
+        if (user?.id) cacheJobMatches(user.id, next.matches);
+        if (isCurrent()) setDashboard(next);
+      } catch {
+        if (!isCurrent()) return;
+        setDashboard(previous);
+        reportRecoverableError(feedback, t("my_job.error_match"));
+      }
+    },
+    [token, user?.id, dashboard, isCurrent, feedback, t],
+  );
+
   const remove = useCallback(async (): Promise<boolean> => {
     if (!token || mutationBusyRef.current || !isCurrent()) return false;
     mutationBusyRef.current = true;
@@ -181,6 +204,35 @@ export function useJobSearch(isCurrent: () => boolean) {
     }
   }, [token, isCurrent, feedback, t]);
 
+  const runNow = useCallback(async (): Promise<boolean> => {
+    if (!token || mutationBusyRef.current || !isCurrent()) return false;
+    const previous = dashboardRef.current;
+    mutationBusyRef.current = true;
+    setBusy(true);
+    if (previous.profile) {
+      const optimistic = {
+        ...previous,
+        profile: { ...previous.profile, last_run_status: null },
+      };
+      dashboardRef.current = optimistic;
+      setDashboard(optimistic);
+    }
+    try {
+      await api.runJobSearch(token);
+      return true;
+    } catch {
+      if (isCurrent()) {
+        dashboardRef.current = previous;
+        setDashboard(previous);
+        reportRecoverableError(feedback, t("my_job.error_run"));
+      }
+      return false;
+    } finally {
+      mutationBusyRef.current = false;
+      if (isCurrent()) setBusy(false);
+    }
+  }, [token, isCurrent, feedback, t]);
+
   return {
     dashboard,
     loading,
@@ -190,6 +242,8 @@ export function useJobSearch(isCurrent: () => boolean) {
     save,
     setSearchStatus,
     setMatchStatus,
+    setMatchSaved,
+    runNow,
     remove,
   };
 }

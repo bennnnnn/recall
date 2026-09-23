@@ -15,6 +15,10 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { JobMatchCard } from "@/components/jobSearch/JobMatchCard";
 import { JobSearchActionsSheet } from "@/components/jobSearch/JobSearchActionsSheet";
+import {
+  JobStageFilter,
+  type JobStageFilterValue,
+} from "@/components/jobSearch/JobStageFilter";
 import { SearchProfileFields } from "@/components/jobSearch/SearchProfileFields";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
@@ -31,10 +35,12 @@ import { presentShareSheet } from "@/lib/share";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
-type Tab = "all" | "matches" | "saved" | "applied";
+type Tab = "matches" | "saved" | "all";
 
 function cadence(profile: JobSearchProfile, t: TFunction): string {
-  return t(`my_job.cadence_${profile.frequency}`, { count: profile.result_count });
+  return t(`my_job.cadence_${profile.frequency}`, {
+    count: profile.result_count,
+  });
 }
 
 function TabButton({
@@ -52,7 +58,11 @@ function TabButton({
   const s = useMemo(() => makeStyles(C), [C]);
   return (
     <Pressable
-      style={({ pressed }) => [s.tab, active && s.tabActive, pressed && s.pressed]}
+      style={({ pressed }) => [
+        s.tab,
+        active && s.tabActive,
+        pressed && s.pressed,
+      ]}
       onPress={() => {
         selection();
         onPress();
@@ -63,7 +73,9 @@ function TabButton({
       <Text style={[s.tabText, active && s.tabTextActive]}>{label}</Text>
       {count > 0 ? (
         <View style={[s.tabCount, active && s.tabCountActive]}>
-          <Text style={[s.tabCountText, active && s.tabCountTextActive]}>{count}</Text>
+          <Text style={[s.tabCountText, active && s.tabCountTextActive]}>
+            {count}
+          </Text>
         </View>
       ) : null}
     </Pressable>
@@ -88,6 +100,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     refresh,
     setSearchStatus,
     setMatchStatus,
+    setMatchSaved,
+    runNow,
     remove,
   } = useJobSearch(isCurrent);
   const router = useRouter();
@@ -96,6 +110,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     router.push("/my-job/setup");
   }, [router]);
   const [tab, setTab] = useState<Tab>("matches");
+  const [stageFilter, setStageFilter] = useState<JobStageFilterValue>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -109,15 +124,31 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const counts = useMemo(
     () => ({
       all: dashboard.matches.filter((item) => item.status !== "hidden").length,
-      matches: dashboard.matches.filter((item) => item.status === "new").length,
-      saved: dashboard.matches.filter((item) => item.status === "saved").length,
-      applied: dashboard.matches.filter((item) => item.status === "applied").length,
+      matches: dashboard.matches.filter(
+        (item) => item.status === "new" && !item.is_saved,
+      ).length,
+      saved: dashboard.matches.filter(
+        (item) => item.is_saved && item.status !== "hidden",
+      ).length,
+      applied: dashboard.matches.filter((item) => item.status === "applied")
+        .length,
+      interviewing: dashboard.matches.filter(
+        (item) => item.status === "interviewing",
+      ).length,
+      offer: dashboard.matches.filter((item) => item.status === "offer").length,
+      rejected: dashboard.matches.filter((item) => item.status === "rejected")
+        .length,
     }),
     [dashboard.matches],
   );
   const visibleMatches = useMemo(
-    () => filterAndSortMatches(dashboard.matches, tab === "matches" ? "new" : tab, "best"),
-    [dashboard.matches, tab],
+    () =>
+      filterAndSortMatches(
+        dashboard.matches,
+        tab === "matches" ? "new" : tab === "saved" ? "saved" : stageFilter,
+        "best",
+      ),
+    [dashboard.matches, stageFilter, tab],
   );
 
   const confirmDelete = () => {
@@ -148,7 +179,9 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     if (!profile) return;
     const message = [
       profile.target_roles.join(" · "),
-      [profile.location, profile.work_modes.join(" / ")].filter(Boolean).join(" · "),
+      [profile.location, profile.work_modes.join(" / ")]
+        .filter(Boolean)
+        .join(" · "),
       cadence(profile, t),
     ]
       .filter(Boolean)
@@ -192,14 +225,32 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
           <Text style={s.heroBody}>{t("my_job.hero_body")}</Text>
 
           <View style={s.benefits}>
-            {([
-              ["search-outline", t("my_job.benefit_fresh_title"), t("my_job.benefit_fresh_body")],
-              ["sparkles-outline", t("my_job.benefit_matched_title"), t("my_job.benefit_matched_body")],
-              ["notifications-outline", t("my_job.benefit_delivered_title"), t("my_job.benefit_delivered_body")],
-            ] as const).map(([icon, title, body]) => (
+            {(
+              [
+                [
+                  "search-outline",
+                  t("my_job.benefit_fresh_title"),
+                  t("my_job.benefit_fresh_body"),
+                ],
+                [
+                  "sparkles-outline",
+                  t("my_job.benefit_matched_title"),
+                  t("my_job.benefit_matched_body"),
+                ],
+                [
+                  "notifications-outline",
+                  t("my_job.benefit_delivered_title"),
+                  t("my_job.benefit_delivered_body"),
+                ],
+              ] as const
+            ).map(([icon, title, body]) => (
               <View key={title} style={s.benefitRow}>
                 <View style={s.benefitIcon}>
-                  <Icon name={icon as "search-outline"} size={21} color={C.primary} />
+                  <Icon
+                    name={icon as "search-outline"}
+                    size={21}
+                    color={C.primary}
+                  />
                 </View>
                 <View style={s.benefitCopy}>
                   <Text style={s.benefitTitle}>{title}</Text>
@@ -219,27 +270,54 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             <Icon name="arrow-forward" size={20} color={C.onPrimary} />
           </Pressable>
           <Text style={s.planNote}>
-            {user?.plan === "pro" ? t("my_job.plan_note_pro") : t("my_job.plan_note_free")}
+            {user?.plan === "pro"
+              ? t("my_job.plan_note_pro")
+              : t("my_job.plan_note_free")}
           </Text>
         </View>
       </View>
     );
   }
 
+  const effectiveFilter = tab === "all" ? stageFilter : tab;
   const emptyTitle =
-    tab === "saved"
+    effectiveFilter === "saved"
       ? t("my_job.empty_saved")
-      : tab === "applied"
+      : effectiveFilter === "applied"
         ? t("my_job.empty_applied")
-        : t("my_job.empty_matches");
+        : effectiveFilter === "interviewing"
+          ? t("my_job.empty_interviewing")
+          : effectiveFilter === "offer"
+            ? t("my_job.empty_offers")
+            : effectiveFilter === "rejected"
+              ? t("my_job.empty_rejected")
+              : t("my_job.empty_matches");
   const emptyBody =
-    tab === "saved"
+    effectiveFilter === "saved"
       ? t("my_job.empty_saved_body")
-      : tab === "applied"
+      : effectiveFilter === "applied"
         ? t("my_job.empty_applied_body")
-        : profile.last_run_at
-          ? t("my_job.empty_matches_body_ran")
-          : t("my_job.empty_matches_body_scheduled", { date: nextDeliveryDate(profile) });
+        : effectiveFilter === "interviewing" ||
+            effectiveFilter === "offer" ||
+            effectiveFilter === "rejected"
+          ? t("my_job.empty_stage_body")
+          : profile.last_run_at
+            ? t("my_job.empty_matches_body_ran")
+            : t("my_job.empty_matches_body_scheduled", {
+                date: nextDeliveryDate(profile),
+              });
+  const emptyIcon =
+    effectiveFilter === "saved"
+      ? "bookmark-outline"
+      : effectiveFilter === "applied"
+        ? "checkmark-circle-outline"
+        : effectiveFilter === "interviewing"
+          ? "people-outline"
+          : effectiveFilter === "offer"
+            ? "trophy-outline"
+            : effectiveFilter === "rejected"
+              ? "remove-circle-outline"
+              : "search-outline";
 
   return (
     <View style={s.root}>
@@ -265,7 +343,9 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               <View style={s.searchTopRow}>
                 <View style={s.searchCopy}>
                   <Text style={s.overline}>
-                    {profile.status === "paused" ? t("my_job.status_paused") : t("my_job.status_your_search")}
+                    {profile.status === "paused"
+                      ? t("my_job.status_paused")
+                      : t("my_job.status_your_search")}
                   </Text>
                   <Text style={s.searchTitle} numberOfLines={2}>
                     {profile.target_roles.join(" · ")}
@@ -288,10 +368,31 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             </View>
 
             <View style={s.tabs} accessibilityRole="tablist">
-              <TabButton label={t("my_job.tab_all")} count={counts.all} active={tab === "all"} onPress={() => setTab("all")} />
-              <TabButton label={t("my_job.tab_matches")} count={counts.matches} active={tab === "matches"} onPress={() => setTab("matches")} />
-              <TabButton label={t("my_job.tab_saved")} count={counts.saved} active={tab === "saved"} onPress={() => setTab("saved")} />
-              <TabButton label={t("my_job.tab_applied")} count={counts.applied} active={tab === "applied"} onPress={() => setTab("applied")} />
+              <TabButton
+                label={t("my_job.tab_matches")}
+                count={counts.matches}
+                active={tab === "matches"}
+                onPress={() => setTab("matches")}
+              />
+              <TabButton
+                label={t("my_job.tab_saved")}
+                count={counts.saved}
+                active={tab === "saved"}
+                onPress={() => setTab("saved")}
+              />
+              <JobStageFilter
+                value={stageFilter}
+                counts={{
+                  all: counts.all,
+                  applied: counts.applied,
+                  interviewing: counts.interviewing,
+                  offer: counts.offer,
+                  rejected: counts.rejected,
+                }}
+                active={tab === "all"}
+                onOpen={() => setTab("all")}
+                onChange={setStageFilter}
+              />
             </View>
 
             {error ? (
@@ -301,11 +402,33 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               </Pressable>
             ) : null}
 
+            {profile.last_run_status === "error" ? (
+              <View style={s.runErrorCard} accessibilityRole="alert">
+                <Icon name="alert-circle-outline" size={21} color={C.danger} />
+                <View style={s.runErrorCopy}>
+                  <Text style={s.runErrorTitle}>
+                    {t("my_job.run_failed_title")}
+                  </Text>
+                  <Text style={s.runErrorBody}>
+                    {t("my_job.run_failed_body")}
+                  </Text>
+                </View>
+                <Pressable
+                  style={({ pressed }) => [s.retryButton, pressed && s.pressed]}
+                  onPress={() => void runNow()}
+                  disabled={busy}
+                  accessibilityRole="button"
+                >
+                  <Text style={s.retryButtonText}>{t("common.retry")}</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             {visibleMatches.length === 0 ? (
               <StateView
                 variant="empty"
                 compact
-                icon={tab === "saved" ? "bookmark-outline" : tab === "applied" ? "checkmark-circle-outline" : "search-outline"}
+                icon={emptyIcon}
                 title={emptyTitle}
                 message={emptyBody}
               />
@@ -316,6 +439,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
           <JobMatchCard
             match={item}
             onStatus={(status) => void setMatchStatus(item.id, status)}
+            onSavedChange={(saved) => void setMatchSaved(item.id, saved)}
             onPress={() => router.push(`/my-job/match/${item.id}`)}
           />
         )}
@@ -361,8 +485,17 @@ function makeStyles(C: Theme) {
       maxWidth: 520,
       marginTop: Space.sm,
     },
-    benefits: { width: "100%", maxWidth: 560, gap: Space.md, marginTop: Space.xl },
-    benefitRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.sm },
+    benefits: {
+      width: "100%",
+      maxWidth: 560,
+      gap: Space.md,
+      marginTop: Space.xl,
+    },
+    benefitRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: Space.sm,
+    },
     benefitIcon: {
       width: 42,
       height: 42,
@@ -391,11 +524,25 @@ function makeStyles(C: Theme) {
     planNote: { ...Type.caption, color: C.textTertiary, marginTop: Space.sm },
     listContent: { padding: Space.md, paddingBottom: Space.xl },
     headerStack: { gap: Space.md, marginBottom: Space.md },
-    searchCard: { backgroundColor: C.surface, borderRadius: 26, padding: Space.lg, gap: Space.sm },
-    searchTopRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.sm },
+    searchCard: {
+      backgroundColor: C.surface,
+      borderRadius: 26,
+      padding: Space.lg,
+      gap: Space.sm,
+    },
+    searchTopRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: Space.sm,
+    },
     searchCopy: { flex: 1 },
     overline: { ...Type.overline, color: C.primary },
-    searchTitle: { ...Type.title, color: C.text, fontWeight: "700", marginTop: Space.xs },
+    searchTitle: {
+      ...Type.title,
+      color: C.text,
+      fontWeight: "700",
+      marginTop: Space.xs,
+    },
     iconButton: {
       width: Space.minTouch,
       height: Space.minTouch,
@@ -445,6 +592,27 @@ function makeStyles(C: Theme) {
       backgroundColor: C.dangerLight,
     },
     errorText: { ...Type.secondary, color: C.danger, flex: 1 },
+    runErrorCard: {
+      minHeight: 72,
+      padding: Space.md,
+      borderRadius: Radius.xl,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.sm,
+      backgroundColor: C.dangerLight,
+    },
+    runErrorCopy: { flex: 1, minWidth: 0 },
+    runErrorTitle: { ...Type.label, color: C.danger },
+    runErrorBody: { ...Type.compact, color: C.textSecondary, marginTop: 2 },
+    retryButton: {
+      minHeight: 40,
+      paddingHorizontal: Space.md,
+      borderRadius: Radius.full,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: C.surface,
+    },
+    retryButtonText: { ...Type.compact, color: C.danger, fontWeight: "700" },
     pressed: { opacity: 0.68 },
   });
 }

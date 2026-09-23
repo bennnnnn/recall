@@ -5,6 +5,7 @@ import { JobSearchSetupForm } from "@/components/jobSearch/JobSearchSetupForm";
 
 const mockPickDocument = jest.fn();
 const mockUpload = jest.fn();
+const mockRunJobSearch = jest.fn();
 const mockUser = { plan: "pro", job: "Registered Nurse", location: "Berlin" };
 
 jest.mock("@/contexts/AuthContext", () => ({
@@ -14,6 +15,11 @@ jest.mock("@/lib/attachments", () => ({
   pickDocument: (...args: unknown[]) => mockPickDocument(...args),
   uploadChatAttachment: (...args: unknown[]) => mockUpload(...args),
 }));
+jest.mock("@/lib/api", () => {
+  return {
+    api: { runJobSearch: (...args: unknown[]) => mockRunJobSearch(...args) },
+  };
+});
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -50,6 +56,7 @@ beforeEach(() => {
     fileName: "resume.pdf",
     kind: "file",
   });
+  mockRunJobSearch.mockResolvedValue({ queued: true });
 });
 
 afterEach(() => jest.restoreAllMocks());
@@ -128,4 +135,24 @@ test("moves through all setup steps and back without saving", async () => {
 
   expect(screen.getByText("my_job.step2_title")).toBeTruthy();
   expect(onSave).not.toHaveBeenCalled();
+});
+
+test("starts the first search after a successful initial setup", async () => {
+  const onClose = jest.fn();
+  const onSave = jest.fn(async () => true);
+  const screen = await render(
+    <JobSearchSetupForm
+      initial={null}
+      busy={false}
+      onClose={onClose}
+      onSave={onSave}
+    />,
+  );
+  await fireEvent.press(screen.getByText("common.next"));
+  await fireEvent.press(screen.getByText("common.next"));
+  await fireEvent.press(screen.getByText("common.next"));
+  await fireEvent.press(screen.getByText("my_job.start_search"));
+
+  await waitFor(() => expect(mockRunJobSearch).toHaveBeenCalledWith("token-a"));
+  expect(onClose).toHaveBeenCalledTimes(1);
 });

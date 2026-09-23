@@ -31,12 +31,13 @@ import {
   useSetupStyles,
 } from "@/components/jobSearch/setup/setupShared";
 import { useAuth } from "@/contexts/AuthContext";
-import type {
-  JobSearchExperience,
-  JobSearchFrequency,
-  JobSearchInput,
-  JobSearchProfile,
-  JobSearchWorkMode,
+import {
+  api,
+  type JobSearchExperience,
+  type JobSearchFrequency,
+  type JobSearchInput,
+  type JobSearchProfile,
+  type JobSearchWorkMode,
 } from "@/lib/api";
 import { pickDocument, uploadChatAttachment } from "@/lib/attachments";
 import { useTheme } from "@/lib/theme";
@@ -63,8 +64,9 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
   const [place, setPlace] = useState<PlaceValue>(EMPTY_PLACE);
   const [salary, setSalary] = useState("");
   const [workModes, setWorkModes] = useState<JobSearchWorkMode[]>(["remote"]);
-  const [level, setLevel] = useState<JobSearchExperience>("entry");
-  const [showExperience, setShowExperience] = useState(false);
+  const [levels, setLevels] = useState<JobSearchExperience[]>(["entry"]);
+  const [requiresSponsorship, setRequiresSponsorship] = useState<boolean | null>(null);
+  const [excludedCompanies, setExcludedCompanies] = useState("");
   const [count, setCount] = useState<ResultCount>(isPro ? 10 : 5);
   const [frequency, setFrequency] = useState<JobSearchFrequency>(
     isPro ? "weekdays" : "weekly",
@@ -90,8 +92,9 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
     setPlace(parsePlace(initial?.location ?? user?.location ?? user?.country ?? ""));
     setSalary(initial?.salary_min ? String(initial.salary_min) : "");
     setWorkModes(initial?.work_modes ?? ["remote"]);
-    setLevel(initial?.experience_levels?.[0] ?? "entry");
-    setShowExperience(false);
+    setLevels(initial?.experience_levels?.length ? initial.experience_levels : ["entry"]);
+    setRequiresSponsorship(initial?.requires_sponsorship ?? null);
+    setExcludedCompanies((initial?.excluded_companies ?? []).join(", "));
     setCount(isPro ? (initial?.result_count ?? 10) : 5);
     setFrequency(isPro ? (initial?.frequency ?? "weekdays") : "weekly");
     setShowCount(false);
@@ -153,19 +156,30 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
       skills,
       location: composePlace(place) || null,
       work_modes: workModes,
-      experience_levels: [level],
+      experience_levels: levels,
       salary_min: parsedSalary == null ? null : Math.round(parsedSalary),
-      requires_sponsorship: null,
-      // The setup form no longer edits exclusions — keep whatever the profile
-      // already has so an edit never silently wipes it.
-      excluded_companies: initial?.excluded_companies ?? [],
-      background: null,
+      requires_sponsorship: requiresSponsorship,
+      excluded_companies: excludedCompanies
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+      background: initial?.background ?? null,
       resume_attachment_id: resumeId,
       result_count: isPro ? count : 5,
       frequency: isPro ? frequency : "weekly",
       next_run_at: nextRunAt.toISOString(),
     });
-    if (ok) onClose();
+    if (ok) {
+      if (!initial && token) {
+        try {
+          await api.runJobSearch(token);
+        } catch {
+          // The saved schedule remains valid; the dashboard exposes a retry if
+          // the first on-demand enqueue cannot start.
+        }
+      }
+      onClose();
+    }
   };
 
   const onPickerChange = (event: DateTimePickerEvent, date?: Date) => {
@@ -205,6 +219,12 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
   const frequencyOptionLabel = (value: JobSearchFrequency) =>
     t(`my_job.freq_${value}`);
   const finalLabel = initial ? t("common.save") : t("my_job.start_search");
+  const reviewSummary = [
+    roles.join(" · "),
+    composePlace(place) || t("my_job.any_location"),
+    workModes.map((value) => t(`my_job.work_${value}`)).join(" · "),
+    levels.map((value) => experienceLabel(value)).join(" · "),
+  ].filter(Boolean);
 
   return (
     <View style={s.screen}>
@@ -224,6 +244,26 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
           {initial ? t("my_job.edit_title") : t("my_job.setup_title")}
         </Text>
         <View style={s.headerSide} />
+      </View>
+
+      <View
+        style={s.progressWrap}
+        accessibilityLabel={t("my_job.setup_progress", {
+          current: step + 1,
+          total: 4,
+        })}
+      >
+        <View style={s.progressRow}>
+          {([0, 1, 2, 3] as const).map((index) => (
+            <View
+              key={index}
+              style={[s.progressSegment, index <= step && s.progressSegmentActive]}
+            />
+          ))}
+        </View>
+        <Text style={s.progressText}>
+          {t("my_job.setup_progress", { current: step + 1, total: 4 })}
+        </Text>
       </View>
 
       <ScrollView
@@ -265,8 +305,10 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
             <ProfileStep
               resumeName={resumeName}
               uploadingResume={uploadingResume}
-              levelLabel={experienceLabel(level)}
+              levels={levels}
               salary={salary}
+              requiresSponsorship={requiresSponsorship}
+              excludedCompanies={excludedCompanies}
               salaryError={salaryError}
               busy={busy}
               onChooseResume={() => void chooseResume()}
@@ -274,11 +316,15 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
                 setResumeId(null);
                 setResumeName(null);
               }}
-              onOpenExperience={() => openSheet(setShowExperience)}
+              onExperiencePress={(level) =>
+                setLevels((current) => toggleSelection(level, current))
+              }
               onSalaryChange={(value) => {
                 setSalary(value);
                 if (salaryError) setSalaryError(false);
               }}
+              onSponsorshipChange={setRequiresSponsorship}
+              onExcludedCompaniesChange={setExcludedCompanies}
             />
           ) : null}
           {step === 3 ? (
@@ -288,6 +334,7 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
               timeLabel={formatRunDate(nextRunAt)}
               isPro={isPro}
               busy={busy}
+              summary={reviewSummary}
               onOpenCount={() => openSheet(setShowCount)}
               onOpenFrequency={() => openSheet(setShowFrequency)}
               onOpenDatePicker={() => openSheet(setShowPicker)}
@@ -320,21 +367,16 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
       <SetupPickers
         isPro={isPro}
         busy={busy}
-        showExperience={showExperience}
         showCount={showCount}
         showFrequency={showFrequency}
         showPicker={showPicker}
-        level={level}
         count={count}
         frequency={frequency}
         nextRunAt={nextRunAt}
-        experienceLabel={experienceLabel}
         frequencyLabel={frequencyOptionLabel}
-        onCloseExperience={() => setShowExperience(false)}
         onCloseCount={() => setShowCount(false)}
         onCloseFrequency={() => setShowFrequency(false)}
         onClosePicker={() => setShowPicker(false)}
-        onSelectExperience={setLevel}
         onSelectCount={setCount}
         onSelectFrequency={setFrequency}
         onPickerChange={onPickerChange}

@@ -28,6 +28,8 @@ export default function MyJobLayout() {
       <Stack.Screen name="index" options={{ title: t("my_job.title") }} />
       {/* The setup wizard renders its own step-aware header. */}
       <Stack.Screen name="setup" options={{ headerShown: false }} />
+      {/* Match detail renders its own company-aware header. */}
+      <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
     </Stack>
   );
 }

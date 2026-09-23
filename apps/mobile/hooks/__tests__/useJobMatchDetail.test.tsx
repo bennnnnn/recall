@@ -11,6 +11,7 @@ import {
 
 const mockGetJobSearch = jest.fn();
 const mockSetJobMatchStatus = jest.fn();
+const mockSetJobMatchSaved = jest.fn();
 const mockGenerateCoverLetter = jest.fn();
 const mockBack = jest.fn();
 let mockCurrent = true;
@@ -30,6 +31,7 @@ jest.mock("@/lib/api", () => ({
   api: {
     getJobSearch: (...args: unknown[]) => mockGetJobSearch(...args),
     setJobMatchStatus: (...args: unknown[]) => mockSetJobMatchStatus(...args),
+    setJobMatchSaved: (...args: unknown[]) => mockSetJobMatchSaved(...args),
     generateCoverLetter: (...args: unknown[]) => mockGenerateCoverLetter(...args),
   },
 }));
@@ -52,6 +54,7 @@ function match(overrides: Partial<JobMatch> = {}): JobMatch {
     gap: null,
     found_at: "2026-09-18T00:00:00Z",
     status: "new",
+    is_saved: false,
     notes: null,
     ...overrides,
   };
@@ -76,6 +79,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetJobSearch.mockReset();
   mockSetJobMatchStatus.mockReset();
+  mockSetJobMatchSaved.mockReset();
   mockGenerateCoverLetter.mockReset();
   mockCurrent = true;
   mockAccountId = "account-a";
@@ -149,9 +153,9 @@ test("rolls back optimistic status and notes when the write fails", async () => 
 
   let statusPromise!: Promise<boolean>;
   await act(() => {
-    statusPromise = result.current.updateStatus("saved");
+    statusPromise = result.current.updateStatus("applied");
   });
-  expect(result.current.match?.status).toBe("saved");
+  expect(result.current.match?.status).toBe("applied");
   await act(async () => {
     statusWrite.reject(new Error("write failed"));
     await statusPromise;
@@ -173,6 +177,23 @@ test("rolls back optimistic status and notes when the write fails", async () => 
   });
   await waitFor(() => expect(result.current.notesDraft).toBe("Old note"));
   expect(result.current.match?.notes).toBe("Old note");
+});
+
+test("bookmarks an applied match without changing its stage", async () => {
+  cacheJobMatches("account-a", [match({ status: "applied", is_saved: false })]);
+  mockSetJobMatchSaved.mockResolvedValue(
+    dashboard([match({ status: "applied", is_saved: true })]),
+  );
+  const { result } = await renderHook(() =>
+    useJobMatchDetail("m1", () => mockCurrent),
+  );
+
+  await act(async () => {
+    await result.current.updateSaved(true);
+  });
+
+  expect(mockSetJobMatchSaved).toHaveBeenCalledWith("token-a", "m1", true);
+  expect(result.current.match).toMatchObject({ status: "applied", is_saved: true });
 });
 
 test("owns cover-letter loading and result state", async () => {

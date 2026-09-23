@@ -11,6 +11,7 @@ function match(id: string, title = "Nurse"): JobMatch {
     id,
     title,
     company: "Acme",
+    company_logo_url: null,
     location: null,
     work_mode: null,
     salary: null,
@@ -18,11 +19,13 @@ function match(id: string, title = "Nurse"): JobMatch {
     match_score: null,
     posted_at: null,
     summary: null,
+    required_skills: [],
     match_reasons: [],
     gap: null,
     url: "https://jobs.example.com/1",
     source: "jobs.example.com",
     status: "new",
+    is_saved: false,
     notes: null,
     found_at: "2026-09-18T00:00:00Z",
   };
@@ -38,8 +41,8 @@ test("caches and returns matches by id", () => {
 
 test("single-match cache updates an existing entry", () => {
   cacheJobMatches("account-a", [match("a")]);
-  cacheJobMatch("account-a", { ...match("a"), status: "saved" });
-  expect(getCachedJobMatch("account-a", "a")?.status).toBe("saved");
+  cacheJobMatch("account-a", { ...match("a"), is_saved: true });
+  expect(getCachedJobMatch("account-a", "a")?.is_saved).toBe(true);
 });
 
 test("keeps cached matches isolated by account", () => {

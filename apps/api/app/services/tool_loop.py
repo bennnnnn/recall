@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -40,9 +41,8 @@ from app.services.math.tools.extract import trig_domain_would_be_dropped
 from app.services.mcp.calendar_adapter import bind_calendar_context
 from app.services.mcp.image_gen_adapter import bind_image_gen_context
 from app.services.mcp.image_search_adapter import bind_image_search_context
-from app.services.mcp.job_search_adapter import bind_job_search_context
+from app.services.mcp.job_search_adapter import JOB_DIRECT_REPLY_PREFIX, bind_job_search_context
 from app.services.mcp.web_search_adapter import bind_search_quota_context
-from app.services.model_catalog import auto_fast_alias, is_reasoning_alias
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class TerminalImageResult:
 
 
 def _status_for_tool(name: str) -> str | None:
-    if name == "web_search":
+    if name in ("web_search", "job_search"):
         return "searching"
     if name == "sympy":
         return "calculating"
@@ -238,14 +238,390 @@ def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
 
 
 def _tool_loop_completion_alias(model_alias: str) -> str:
-    """Tool selection is a non-streaming round with a hard timeout.
+    """Use one fast, function-capable selector independent of chat choice."""
+    del model_alias
+    return "gemini-flash"
 
-    smart/max aliases (R1, …) think silently and blow that budget, which
-    surfaces as ``ModelUnavailableError`` after ~30s on a simple equation.
+
+_NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+}
+
+_UNFILTERED_JOB_SEARCH_WORDS = {
+    "a",
+    "again",
+    "current",
+    "find",
+    "for",
+    "job",
+    "jobs",
+    "look",
+    "match",
+    "matches",
+    "me",
+    "more",
+    "my",
+    "new",
+    "now",
+    "opening",
+    "openings",
+    "please",
+    "profile",
+    "role",
+    "roles",
+    "saved",
+    "search",
+    "searching",
+    "start",
+    "the",
+    "using",
+}
+
+
+def _requested_job_limit(text: str) -> int | None:
+    match = re.search(
+        r"\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|"
+        r"eleven|twelve|thirteen|fourteen|fifteen)\b",
+        text.casefold(),
+    )
+    if match is None:
+        return None
+    raw = match.group(1)
+    value = int(raw) if raw.isdigit() else _NUMBER_WORDS.get(raw)
+    return value if value is not None and 1 <= value <= 15 else None
+
+
+def _is_unfiltered_job_search(text: str) -> bool:
+    """Only bypass the selector when the request adds no search filters."""
+    normalized = "".join(character if character.isalnum() else " " for character in text.casefold())
+    words = normalized.split()
+    return all(
+        word.isdigit() or word in _NUMBER_WORDS or word in _UNFILTERED_JOB_SEARCH_WORDS
+        for word in words
+    )
+
+
+def _is_one_off_job_search(text: str) -> bool:
+    lower = text.casefold()
+    has_search = bool(re.search(r"\b(search|find|look\s+for|start\s+searching)\b", lower))
+    temporary = bool(
+        re.search(
+            r"\b(just this once|one[ -]?time|do not change|don't change|"
+            r"without changing|keep my saved)\b",
+            lower,
+        )
+    )
+    return has_search and temporary
+
+
+def _is_saved_job_update(text: str) -> bool:
+    lower = text.casefold()
+    if _is_one_off_job_search(text):
+        return False
+    has_mutation = bool(re.search(r"\b(restore|change|update|set|switch|edit|replace)\b", lower))
+    has_subject = "my job" in lower or "job search" in lower
+    has_preference = any(
+        cue in lower
+        for cue in (
+            "saved",
+            "preference",
+            "profile",
+            "location",
+            "experience",
+            "work mode",
+            "remote",
+            "hybrid",
+            "on-site",
+            "onsite",
+            "target role",
+            "skill",
+            "salary",
+            "frequency",
+        )
+    )
+    return has_mutation and has_subject and has_preference
+
+
+def _protect_one_off_job_search(
+    name: str,
+    raw_args: str,
+    user_text: str,
+) -> str:
+    """Prevent temporary searches from mutating the saved My Job profile."""
+    if name != "job_search" or not _is_one_off_job_search(user_text):
+        return raw_args
+    try:
+        args = json.loads(raw_args)
+    except (TypeError, ValueError):
+        return raw_args
+    if not isinstance(args, dict) or args.get("action") not in {"update_profile", "search_now"}:
+        return raw_args
+    args["action"] = "search_now"
+    requested_limit = _requested_job_limit(user_text)
+    if requested_limit is not None:
+        args["result_limit"] = requested_limit
+    return json.dumps(args)
+
+
+def _protect_saved_job_update(name: str, raw_args: str, user_text: str) -> str:
+    """Keep explicit saved-search edits from becoming temporary searches."""
+    if name != "job_search" or not _is_saved_job_update(user_text):
+        return raw_args
+    try:
+        args = json.loads(raw_args)
+    except (TypeError, ValueError):
+        return raw_args
+    if (
+        not isinstance(args, dict)
+        or args.get("action") != "search_now"
+        or args.get("preferences") is None
+    ):
+        return raw_args
+    args["action"] = "update_profile"
+    args.pop("result_limit", None)
+    return json.dumps(args)
+
+
+def _direct_job_tool_args(text: str) -> dict[str, Any] | None:
+    """Return safe My Job actions that need no model interpretation.
+
+    This keeps common reads and unambiguous preference edits reliable during a
+    model-provider outage. More complex edits still use the structured selector.
     """
-    if is_reasoning_alias(model_alias):
-        return auto_fast_alias()
-    return model_alias
+    lower = text.casefold()
+    if not lower.strip():
+        return None
+    if _is_one_off_job_search(text):
+        # Let the structured selector extract temporary role/location filters;
+        # the invoke path below guarantees they cannot become a profile edit.
+        return None
+    match_id = re.search(
+        r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b",
+        lower,
+    )
+    match_status = next(
+        (
+            status
+            for status in (
+                "saved",
+                "applied",
+                "interviewing",
+                "offer",
+                "rejected",
+                "hidden",
+                "new",
+            )
+            if re.search(rf"\b{status}\b", lower)
+        ),
+        None,
+    )
+    if (
+        match_id is not None
+        and match_status is not None
+        and any(cue in lower for cue in ("mark", "move", "set", "change", "update"))
+    ):
+        return {
+            "action": "update_match",
+            "match_id": match_id.group(0),
+            "match_status": match_status,
+        }
+    if "http://" in lower or "https://" in lower:
+        if any(cue in lower for cue in ("check", "analyze", "analyse", "compare", "fit")):
+            starts = [
+                index for index in (lower.find("https://"), lower.find("http://")) if index >= 0
+            ]
+            if starts:
+                start = min(starts)
+                url = text[start:].split()[0].rstrip('.,;:!?)"]}')
+                return {"action": "analyze_job", "job_url": url}
+    if "pause" in lower and ("my job" in lower or "job search" in lower):
+        return {"action": "update_status", "search_status": "paused"}
+    if "resume" in lower and ("my job" in lower or "job search" in lower):
+        return {"action": "update_status", "search_status": "active"}
+    mutation_cues = (
+        "change",
+        "restore",
+        "update",
+        "set ",
+        "switch",
+        "make it",
+        "prefer",
+        "only want",
+    )
+    if any(cue in lower for cue in mutation_cues):
+        # Arbitrary role/location/skill/salary edits need the structured tool
+        # selector. Handling only the easy fragment (for example, experience)
+        # would silently ignore the requested role while claiming full success.
+        complex_change = any(
+            cue in lower
+            for cue in (
+                "target role",
+                "job type",
+                "skill",
+                "salary",
+                "location",
+                "sponsorship",
+                "excluded",
+                "company",
+            )
+        ) or bool(re.search(r"\b(?:my job|job search)\s+to\b", lower))
+        if complex_change:
+            return None
+        preferences: dict[str, Any] = {}
+        work_modes = [
+            mode
+            for mode, patterns in (
+                ("remote", ("remote",)),
+                ("hybrid", ("hybrid",)),
+                ("onsite", ("onsite", "on-site", "on site")),
+            )
+            if any(pattern in lower for pattern in patterns)
+        ]
+        if work_modes:
+            preferences["work_modes"] = work_modes
+        experience_levels = [
+            level
+            for level, patterns in (
+                ("internship", ("internship", "intern level")),
+                ("entry", ("entry level", "entry-level")),
+                ("mid", ("mid level", "mid-level")),
+                ("senior", ("senior",)),
+            )
+            if any(pattern in lower for pattern in patterns)
+        ]
+        if experience_levels:
+            preferences["experience_levels"] = experience_levels
+        frequency = next(
+            (
+                value
+                for value, patterns in (
+                    ("weekdays", ("weekdays", "every weekday")),
+                    ("daily", ("daily", "every day")),
+                    ("weekly", ("weekly", "every week")),
+                    ("monthly", ("monthly", "every month")),
+                )
+                if any(pattern in lower for pattern in patterns)
+            ),
+            None,
+        )
+        if frequency is not None:
+            preferences["frequency"] = frequency
+        if preferences:
+            return {"action": "update_profile", "preferences": preferences}
+    if any(cue in lower for cue in ("preference", "setting", "profile")) and (
+        "my job" in lower or "job search" in lower
+    ):
+        return {"action": "get_profile"}
+    if any(cue in lower for cue in ("match", "listing", "saved job", "applied job")) and (
+        "job" in lower or "role" in lower
+    ):
+        return {"action": "list"}
+    if re.search(r"\b(search|find|look\s+for|start\s+searching)\b", lower):
+        if not _is_unfiltered_job_search(text):
+            # Role, location, level, work mode, and other filters belong to the
+            # structured selector. A direct search here would silently use the
+            # saved profile and ignore the user's requested filters.
+            return None
+        search_args: dict[str, Any] = {"action": "search_now"}
+        requested_limit = _requested_job_limit(text)
+        if requested_limit is not None:
+            search_args["result_limit"] = requested_limit
+        return search_args
+    return None
+
+
+def _job_tool_unavailable_message() -> dict[str, Any]:
+    return {
+        "role": "system",
+        "content": (
+            "This request requires the My Job tool, but no verified My Job tool result "
+            "was produced. Never infer saved preferences, matches, schedules, or job-search "
+            "state from memories or past conversation. Briefly say My Job could not be "
+            "checked or changed right now and ask the user to retry."
+        ),
+    }
+
+
+def direct_tool_reply(messages: list[dict[str, Any]]) -> str | None:
+    """Extract an authoritative tool reply from a tool-role message only."""
+    for message in reversed(messages):
+        if message.get("role") != "tool":
+            continue
+        content = message.get("content")
+        if not isinstance(content, str) or not content.startswith(JOB_DIRECT_REPLY_PREFIX):
+            continue
+        reply = content.removeprefix(JOB_DIRECT_REPLY_PREFIX).strip()
+        return reply or None
+    return None
+
+
+def _tool_calls_from_text(
+    content: object,
+    tools: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Recover a provider-emitted ``!function_call`` as a validated tool call.
+
+    Some OpenAI-compatible providers occasionally serialize the function call
+    into assistant text even when ``tools`` were supplied. Only offered tool
+    names are accepted here; the normal registry validation still owns the
+    arguments before invocation.
+    """
+    if not isinstance(content, str):
+        return []
+    marker = "!function_call:"
+    start = content.find(marker)
+    if start < 0:
+        return []
+    raw = content[start + len(marker) :].lstrip()
+    try:
+        payload, _ = json.JSONDecoder().raw_decode(raw)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+    name = payload.get("call") or payload.get("name")
+    offered = {
+        str((tool.get("function") or {}).get("name") or "")
+        for tool in tools
+        if isinstance(tool, dict)
+    }
+    if not isinstance(name, str) or name not in offered:
+        return []
+    arguments = payload.get("arguments", {})
+    if isinstance(arguments, dict):
+        encoded_arguments = json.dumps(arguments)
+    elif isinstance(arguments, str):
+        try:
+            parsed_arguments = json.loads(arguments)
+        except (TypeError, ValueError):
+            return []
+        if not isinstance(parsed_arguments, dict):
+            return []
+        encoded_arguments = json.dumps(parsed_arguments)
+    else:
+        return []
+    call_id = payload.get("id")
+    return [
+        {
+            "id": call_id if isinstance(call_id, str) and call_id else f"text_{name}",
+            "type": "function",
+            "function": {"name": name, "arguments": encoded_arguments},
+        }
+    ]
 
 
 def _has_whole_word(lower: str, word: str) -> bool:
@@ -287,6 +663,7 @@ def turn_needs_tool_loop(
     has_verified_math: bool = False,
     has_search_sources: bool = False,
     web_search: bool | None = None,
+    job_search_turn: bool = False,
     settings: Settings | None = None,
     user: User | None = None,
 ) -> bool:
@@ -302,10 +679,14 @@ def turn_needs_tool_loop(
     """
     if settings is not None and not settings.mcp_tool_loop_enabled:
         return False
-    if has_instant_reply or lightweight:
+    if has_instant_reply:
         return False
     text = content.strip() if isinstance(content, str) else ""
     if not text:
+        return False
+    if job_search_turn:
+        return True
+    if lightweight:
         return False
     if has_verified_math and not leftover_math_after_verified(text):
         return False
@@ -390,12 +771,22 @@ async def run_tool_rounds(
     if not tools:
         return messages, None, None, []
 
+    # A classified My Job turn must never spill into calendar, reminders, web,
+    # or another tool family. Restricting the selector is both more accurate
+    # and prevents an unrelated side effect when the request is an edit.
+    from app.services.job_search.chat_intent import wants_job_search_turn
+
+    if wants_job_search_turn(messages):
+        tools = [tool for tool in tools if (tool.get("function") or {}).get("name") == "job_search"]
+        if not tools:
+            return [*messages, _job_tool_unavailable_message()], None, None, []
+
     with (
         bind_search_quota_context(user=user, redis=redis, settings=settings),
         bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
         bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
         bind_calendar_context(user=user, redis=redis, settings=settings),
-        bind_job_search_context(user=user, redis=redis),
+        bind_job_search_context(user=user, redis=redis, settings=settings),
     ):
         working, verified, terminal, hits = await _run_tool_rounds_bound(
             settings=settings,
@@ -436,6 +827,34 @@ async def _run_tool_rounds_bound(
 ]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     user_text = _last_user_content(messages)
+    from app.services.job_search.chat_intent import wants_job_search_turn
+
+    job_search_turn = wants_job_search_turn(messages)
+    direct_job_args = _direct_job_tool_args(user_text) if job_search_turn else None
+    if direct_job_args is not None:
+        call_id = "job_search_direct"
+        result = await mcp_registry.invoke_validated("job_search", direct_job_args)
+        content = result.content if result else "My Job is unavailable right now."
+        working.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": call_id,
+                            "type": "function",
+                            "function": {
+                                "name": "job_search",
+                                "arguments": json.dumps(direct_job_args),
+                            },
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": call_id, "content": content},
+            ]
+        )
+        return working, None, None, []
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
     # Collect canonical fences across rounds keyed by type so a geometry
     # fence from round 1 isn't lost when round 2 produces a graph fence.
@@ -461,10 +880,14 @@ async def _run_tool_rounds_bound(
         except ModelUnavailableError:
             logger.warning("Tool-loop completion failed; falling through to stream")
             working.append(_tool_selection_unavailable_message())
+            if job_search_turn:
+                working.append(_job_tool_unavailable_message())
             break
         except Exception:
             logger.exception("Tool-loop completion failed; falling through to stream")
             working.append(_tool_selection_unavailable_message())
+            if job_search_turn:
+                working.append(_job_tool_unavailable_message())
             break
 
         if should_cancel and should_cancel():
@@ -472,9 +895,11 @@ async def _run_tool_rounds_bound(
         if msg.get("finish_reason") in ("length", "content_filter", "error"):
             working.append(_tool_selection_unavailable_message())
             break
-        tool_calls = msg.get("tool_calls") or []
+        tool_calls = msg.get("tool_calls") or _tool_calls_from_text(msg.get("content"), tools)
         if not tool_calls:
             # Explicit no-tool decision; the caller streams the answer.
+            if job_search_turn:
+                working.append(_job_tool_unavailable_message())
             break
 
         assistant_msg: dict[str, Any] = {
@@ -492,6 +917,8 @@ async def _run_tool_rounds_bound(
             fn = call.get("function") or {}
             name = str(fn.get("name") or "")
             raw_args = fn.get("arguments") or "{}"
+            raw_args = _protect_one_off_job_search(name, raw_args, user_text)
+            raw_args = _protect_saved_job_update(name, raw_args, user_text)
             call_id = str(call.get("id") or name)
             if index >= max_calls:
                 working.append(
@@ -533,6 +960,15 @@ async def _run_tool_rounds_bound(
                 await on_status(phase, _status_detail_for_tool(name, raw_args))
             result = await mcp_registry.invoke_validated(name, raw_args)
             content = result.content if result else f"Unknown tool: {name}"
+            if (
+                job_search_turn
+                and name == "job_search"
+                and content.startswith(("Invalid arguments:", "Invalid JSON arguments."))
+            ):
+                content = (
+                    f"{JOB_DIRECT_REPLY_PREFIX}I could not apply that My Job change "
+                    "because part of the request was invalid. Nothing was changed."
+                )
             fence = _canonical_from_tool_result(result) if result else None
             if fence is not None:
                 # Merge by type so earlier rounds' fences survive later ones.

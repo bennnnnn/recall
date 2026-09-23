@@ -5,37 +5,25 @@ import { useTranslation } from "react-i18next";
 import { AppSheet } from "@/components/AppSheet";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { ReminderDateTimePicker } from "@/components/todos/ReminderDateTimePicker";
-import type {
-  JobSearchExperience,
-  JobSearchFrequency,
-} from "@/lib/api";
+import type { JobSearchFrequency } from "@/lib/api";
 
-import {
-  EXPERIENCE_VALUES,
-  FREQUENCY_VALUES,
-  useSetupStyles,
-} from "./setupShared";
+import { FREQUENCY_VALUES, useSetupStyles } from "./setupShared";
 
 type ResultCount = 5 | 10 | 15;
 
 type Props = {
   isPro: boolean;
   busy: boolean;
-  showExperience: boolean;
   showCount: boolean;
   showFrequency: boolean;
   showPicker: boolean;
-  level: JobSearchExperience;
   count: ResultCount;
   frequency: JobSearchFrequency;
   nextRunAt: Date;
-  experienceLabel: (value: JobSearchExperience) => string;
   frequencyLabel: (value: JobSearchFrequency) => string;
-  onCloseExperience: () => void;
   onCloseCount: () => void;
   onCloseFrequency: () => void;
   onClosePicker: () => void;
-  onSelectExperience: (value: JobSearchExperience) => void;
   onSelectCount: (value: ResultCount) => void;
   onSelectFrequency: (value: JobSearchFrequency) => void;
   onPickerChange: (event: DateTimePickerEvent, date?: Date) => void;
@@ -44,21 +32,16 @@ type Props = {
 export function SetupPickers({
   isPro,
   busy,
-  showExperience,
   showCount,
   showFrequency,
   showPicker,
-  level,
   count,
   frequency,
   nextRunAt,
-  experienceLabel,
   frequencyLabel,
-  onCloseExperience,
   onCloseCount,
   onCloseFrequency,
   onClosePicker,
-  onSelectExperience,
   onSelectCount,
   onSelectFrequency,
   onPickerChange,
@@ -68,16 +51,6 @@ export function SetupPickers({
 
   return (
     <>
-      <SettingsPickerSheet
-        visible={showExperience}
-        options={EXPERIENCE_VALUES.map((value) => ({
-          key: value,
-          label: experienceLabel(value),
-        }))}
-        selectedKey={level}
-        onClose={onCloseExperience}
-        onSelect={(key) => onSelectExperience(key as JobSearchExperience)}
-      />
       <SettingsPickerSheet
         visible={showCount}
         options={([5, 10, 15] as const).map((option) => ({

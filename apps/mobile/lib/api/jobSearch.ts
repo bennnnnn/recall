@@ -1,11 +1,12 @@
 import { request } from "@/lib/api/client";
 
+const BOOKMARK_MODEL_HEADERS = { "X-Recall-Job-Bookmarks": "separate-v1" } as const;
+
 export type JobSearchFrequency = "daily" | "weekdays" | "weekly" | "monthly";
 export type JobSearchWorkMode = "remote" | "hybrid" | "onsite";
 export type JobSearchExperience = "internship" | "entry" | "mid" | "senior";
 export type JobMatchStatus =
   | "new"
-  | "saved"
   | "applied"
   | "interviewing"
   | "offer"
@@ -39,6 +40,7 @@ export type JobMatch = {
   id: string;
   title: string;
   company: string;
+  company_logo_url: string | null;
   location: string | null;
   work_mode: JobSearchWorkMode | null;
   salary: string | null;
@@ -48,10 +50,12 @@ export type JobMatch = {
   source: string | null;
   posted_at: string | null;
   summary: string | null;
+  required_skills: string[];
   match_reasons: string[];
   gap: string | null;
   found_at: string;
   status: JobMatchStatus;
+  is_saved: boolean;
   notes: string | null;
 };
 
@@ -77,26 +81,45 @@ export type JobSearchInput = {
 };
 
 export const jobSearchApi = {
-  getJobSearch: (token: string) => request<JobSearchDashboard>("/job-search", token),
+  getJobSearch: (token: string) =>
+    request<JobSearchDashboard>("/job-search", token, { headers: BOOKMARK_MODEL_HEADERS }),
   saveJobSearch: (token: string, input: JobSearchInput) =>
     request<JobSearchDashboard>("/job-search", token, {
       method: "PUT",
+      headers: BOOKMARK_MODEL_HEADERS,
       body: JSON.stringify(input),
     }),
   setJobSearchStatus: (token: string, status: "active" | "paused") =>
     request<JobSearchDashboard>("/job-search/status", token, {
       method: "PATCH",
+      headers: BOOKMARK_MODEL_HEADERS,
       body: JSON.stringify({ status }),
     }),
   setJobMatchStatus: (token: string, id: string, status: JobMatchStatus, notes?: string | null) =>
     request<JobSearchDashboard>(`/job-search/matches/${id}`, token, {
       method: "PATCH",
+      headers: BOOKMARK_MODEL_HEADERS,
       body: JSON.stringify(notes === undefined ? { status } : { status, notes }),
+    }),
+  setJobMatchSaved: (token: string, id: string, isSaved: boolean) =>
+    request<JobSearchDashboard>(`/job-search/matches/${id}`, token, {
+      method: "PATCH",
+      headers: BOOKMARK_MODEL_HEADERS,
+      body: JSON.stringify({ is_saved: isSaved }),
     }),
   generateCoverLetter: (token: string, id: string) =>
     request<{ cover_letter: string }>(`/job-search/matches/${id}/cover-letter`, token, {
       method: "POST",
+      headers: BOOKMARK_MODEL_HEADERS,
+    }),
+  runJobSearch: (token: string) =>
+    request<{ queued: boolean }>("/job-search/run", token, {
+      method: "POST",
+      headers: BOOKMARK_MODEL_HEADERS,
     }),
   deleteJobSearch: (token: string) =>
-    request<void>("/job-search", token, { method: "DELETE" }),
+    request<void>("/job-search", token, {
+      method: "DELETE",
+      headers: BOOKMARK_MODEL_HEADERS,
+    }),
 };

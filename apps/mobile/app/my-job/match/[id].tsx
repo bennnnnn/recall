@@ -15,15 +15,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/Icon";
 import { CoverLetterSheet } from "@/components/jobSearch/CoverLetterSheet";
+import { CompanyLogo } from "@/components/jobSearch/CompanyLogo";
+import { JobFitBadge } from "@/components/jobSearch/JobFitBadge";
 import { JobMatchDetailSkeleton } from "@/components/jobSearch/JobMatchDetailSkeleton";
-import { JobMatchMetaChips, matchScoreColor } from "@/components/jobSearch/JobMatchMetaChips";
+import { JobMatchMetaChips } from "@/components/jobSearch/JobMatchMetaChips";
+import { JobMatchReasons } from "@/components/jobSearch/JobMatchReasons";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useJobMatchDetail } from "@/hooks/useJobMatchDetail";
 import { type JobMatchStatus } from "@/lib/api";
-import { notifyWarning, selection, tap } from "@/lib/haptics";
+import { selection, tap } from "@/lib/haptics";
+import { canToggleApplied, hasApplied } from "@/lib/jobSearch/stages";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -31,7 +35,6 @@ import { Type } from "@/lib/type";
 
 const STAGES: JobMatchStatus[] = [
   "new",
-  "saved",
   "applied",
   "interviewing",
   "offer",
@@ -70,6 +73,7 @@ function JobMatchDetailView({
     loadError,
     load,
     updateStatus,
+    updateSaved,
     notesDraft,
     setNotesDraft,
     saveNotes,
@@ -83,15 +87,12 @@ function JobMatchDetailView({
     generateLetter,
   } = useJobMatchDetail(id, isCurrent);
 
-  const score = match?.match_score ?? null;
-  const scoreColor = matchScoreColor(score, C);
-
   const stageLabel = (status: JobMatchStatus): string => {
-    if (status === "saved") return t("my_job.saved");
     if (status === "applied") return t("my_job.applied");
     if (status === "hidden") return t("my_job.not_interested");
     return t(`my_job.stage_${status}`);
   };
+  const applicationStarted = match ? hasApplied(match.status) : false;
 
   return (
     <View style={[s.screen, { paddingTop: insets.top }]}>
@@ -137,51 +138,17 @@ function JobMatchDetailView({
           testID="job-match-detail-scroll"
         >
           <View style={s.headingRow}>
-            <View
-              style={s.logo}
-              accessibilityLabel={
-                score != null ? t("my_job.match_fit", { score }) : match.company
-              }
-            >
-              {score != null ? (
-                <Text style={[s.logoText, { color: scoreColor }]}>{score}%</Text>
-              ) : (
-                <Text style={s.logoText}>
-                  {match.company.trim().charAt(0).toUpperCase() || "J"}
-                </Text>
-              )}
-            </View>
+            <CompanyLogo company={match.company} uri={match.company_logo_url} size={56} />
             <View style={s.headingCopy}>
               <Text style={s.title}>{match.title}</Text>
               <Text style={s.company}>{match.company}</Text>
             </View>
+            <JobFitBadge score={match.match_score} />
           </View>
 
-          <JobMatchMetaChips match={match} />
+          <JobMatchMetaChips match={match} maxSkills={8} />
 
-          {match.summary ? <Text style={s.summary}>{match.summary}</Text> : null}
-
-          {match.match_reasons.length > 0 ? (
-            <View style={s.reasonBlock}>
-              <Text style={s.sectionTitle}>{t("my_job.why_matches")}</Text>
-              {match.match_reasons.map((reason) => (
-                <View key={reason} style={s.reasonRow}>
-                  <View style={s.reasonDot} />
-                  <Text style={s.reasonText}>{reason}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          {match.gap ? (
-            <View style={s.gapBlock}>
-              <Text style={s.sectionTitle}>{t("my_job.gap_title")}</Text>
-              <View style={s.reasonRow}>
-                <Icon name="information-circle-outline" size={18} color={C.textTertiary} />
-                <Text style={s.gapText}>{match.gap}</Text>
-              </View>
-            </View>
-          ) : null}
+          <JobMatchReasons match={match} />
 
           <Text style={s.source}>
             {t("my_job.source_label")}: {match.source}
@@ -196,37 +163,37 @@ function JobMatchDetailView({
               }}
               accessibilityRole="button"
             >
-              <Icon name="open-outline" size={18} color={C.onPrimary} />
+              <Icon name="open-outline" size={18} color={C.primary} />
               <Text style={[s.actionText, s.actionTextPrimary]}>{t("my_job.view_job")}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
                 s.action,
-                match.status === "saved" && s.actionActive,
+                match.is_saved && s.actionActive,
                 pressed && s.pressed,
               ]}
               onPress={() => {
                 selection();
-                void updateStatus(match.status === "saved" ? "new" : "saved");
+                void updateSaved(!match.is_saved);
               }}
               accessibilityRole="button"
-              accessibilityState={{ selected: match.status === "saved" }}
+              accessibilityState={{ selected: match.is_saved }}
             >
               <Icon
-                name={match.status === "saved" ? "bookmark" : "bookmark-outline"}
+                name={match.is_saved ? "bookmark" : "bookmark-outline"}
                 size={18}
-                color={match.status === "saved" ? C.primary : C.textSecondary}
+                color={match.is_saved ? C.primary : C.textSecondary}
               />
               <Text
-                style={[s.actionText, match.status === "saved" && s.actionTextActive]}
+                style={[s.actionText, match.is_saved && s.actionTextActive]}
               >
-                {match.status === "saved" ? t("my_job.saved") : t("my_job.save")}
+                {match.is_saved ? t("my_job.saved") : t("my_job.save")}
               </Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [
                 s.action,
-                match.status === "applied" && s.actionActive,
+                applicationStarted && s.actionActive,
                 pressed && s.pressed,
               ]}
               onPress={() => {
@@ -234,30 +201,22 @@ function JobMatchDetailView({
                 void updateStatus(match.status === "applied" ? "new" : "applied");
               }}
               accessibilityRole="button"
-              accessibilityState={{ selected: match.status === "applied" }}
+              disabled={!canToggleApplied(match.status)}
+              accessibilityState={{
+                selected: applicationStarted,
+                disabled: !canToggleApplied(match.status),
+              }}
             >
               <Icon
                 name="checkmark-circle-outline"
                 size={18}
-                color={match.status === "applied" ? C.primary : C.textSecondary}
+                color={applicationStarted ? C.primary : C.textSecondary}
               />
               <Text
-                style={[s.actionText, match.status === "applied" && s.actionTextActive]}
+                style={[s.actionText, applicationStarted && s.actionTextActive]}
               >
-                {match.status === "applied" ? t("my_job.applied") : t("my_job.i_applied")}
+                {applicationStarted ? t("my_job.applied") : t("my_job.i_applied")}
               </Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [s.action, pressed && s.pressed]}
-              onPress={() => {
-                notifyWarning();
-                void updateStatus("hidden");
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={t("my_job.not_interested")}
-            >
-              <Icon name="close" size={18} color={C.textSecondary} />
-              <Text style={s.actionText}>{t("my_job.not_interested")}</Text>
             </Pressable>
           </View>
 
@@ -356,42 +315,10 @@ function makeStyles(C: Theme) {
     },
     content: { padding: Space.md, gap: Space.md },
     headingRow: { flexDirection: "row", alignItems: "center", gap: Space.sm },
-    logo: {
-      width: 56,
-      height: 56,
-      borderRadius: 17,
-      backgroundColor: C.primaryLight,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    logoText: { ...Type.navTitle, color: C.primary, fontWeight: "700" },
     headingCopy: { flex: 1, minWidth: 0 },
     title: { ...Type.navTitle, color: C.text, fontWeight: "700" },
     company: { ...Type.body, color: C.textSecondary, marginTop: 2 },
-    summary: { ...Type.body, color: C.textSecondary },
     sectionTitle: { ...Type.label, color: C.text },
-    reasonBlock: {
-      backgroundColor: C.contentSurface,
-      borderRadius: Radius.xl,
-      padding: Space.md,
-      gap: Space.xs,
-    },
-    reasonRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.xs },
-    reasonDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: C.primary,
-      marginTop: 7,
-    },
-    reasonText: { ...Type.secondary, color: C.textSecondary, flex: 1 },
-    gapBlock: {
-      backgroundColor: C.contentSurface,
-      borderRadius: Radius.xl,
-      padding: Space.md,
-      gap: Space.xs,
-    },
-    gapText: { ...Type.secondary, color: C.textTertiary, flex: 1 },
     source: { ...Type.caption, color: C.textTertiary },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
     action: {
@@ -404,10 +331,13 @@ function makeStyles(C: Theme) {
       borderRadius: Radius.full,
       backgroundColor: C.surfaceAlt,
     },
-    actionPrimary: { backgroundColor: C.primary, flexGrow: 1 },
+    actionPrimary: {
+      backgroundColor: C.primaryLight,
+      paddingHorizontal: Space.xs,
+    },
     actionActive: { backgroundColor: C.primaryLight },
     actionText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
-    actionTextPrimary: { color: C.onPrimary },
+    actionTextPrimary: { color: C.primary },
     actionTextActive: { color: C.primary },
     letterCta: {
       minHeight: 52,

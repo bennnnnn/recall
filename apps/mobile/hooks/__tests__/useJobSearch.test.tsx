@@ -30,6 +30,8 @@ jest.mock("@/lib/api", () => ({
     saveJobSearch: jest.fn(),
     setJobSearchStatus: jest.fn(),
     setJobMatchStatus: jest.fn(),
+    setJobMatchSaved: jest.fn(),
+    runJobSearch: jest.fn(),
     deleteJobSearch: jest.fn(),
   },
 }));
@@ -80,6 +82,7 @@ function match(overrides: Partial<JobMatch> = {}): JobMatch {
     gap: null,
     found_at: "2026-09-18T00:00:00.000Z",
     status: "new",
+    is_saved: false,
     notes: null,
     ...overrides,
   };
@@ -127,7 +130,7 @@ test("pauses immediately and reconciles the server dashboard", async () => {
   const initial = { profile: profile(), matches: [match()] };
   const saved = {
     profile: profile({ status: "paused", updated_at: "2026-09-19T00:00:00.000Z" }),
-    matches: [match({ status: "saved" })],
+    matches: [match({ is_saved: true })],
   };
   const request = deferred<JobSearchDashboard>();
   mockApi.setJobSearchStatus.mockReturnValue(request.promise);
@@ -267,7 +270,7 @@ test("blocks stale views and ignores responses after ownership changes", async (
   expect(blocked.result.current.dashboard.profile?.status).toBe("paused");
 });
 
-test("keeps match status optimistic with success reconciliation and rollback", async () => {
+test("keeps match stage optimistic with success reconciliation and rollback", async () => {
   const initial = { profile: profile(), matches: [match()] };
   const first = deferred<JobSearchDashboard>();
   mockApi.setJobMatchStatus.mockReturnValueOnce(first.promise);
@@ -275,9 +278,9 @@ test("keeps match status optimistic with success reconciliation and rollback", a
 
   let success!: Promise<void>;
   await act(() => {
-    success = result.current.setMatchStatus("match-a", "saved");
+    success = result.current.setMatchStatus("match-a", "applied");
   });
-  expect(result.current.dashboard.matches[0].status).toBe("saved");
+  expect(result.current.dashboard.matches[0].status).toBe("applied");
   const reconciled = {
     profile: profile(),
     matches: [match({ status: "applied", notes: "Server copy" })],
@@ -301,4 +304,59 @@ test("keeps match status optimistic with success reconciliation and rollback", a
   });
   expect(result.current.dashboard).toEqual(reconciled);
   expect(mockFeedbackError).toHaveBeenCalledWith("my_job.error_match");
+});
+
+test("bookmarks an applied match without changing its stage", async () => {
+  const initial = {
+    profile: profile(),
+    matches: [match({ status: "applied", is_saved: false })],
+  };
+  const request = deferred<JobSearchDashboard>();
+  mockApi.setJobMatchSaved.mockReturnValueOnce(request.promise);
+  const { result } = await renderSearch(initial);
+
+  let pending!: Promise<void>;
+  await act(() => {
+    pending = result.current.setMatchSaved("match-a", true);
+  });
+  expect(result.current.dashboard.matches[0]).toMatchObject({
+    status: "applied",
+    is_saved: true,
+  });
+
+  await act(async () => {
+    request.resolve({
+      profile: profile(),
+      matches: [match({ status: "applied", is_saved: true })],
+    });
+    await pending;
+  });
+  expect(result.current.dashboard.matches[0]).toMatchObject({
+    status: "applied",
+    is_saved: true,
+  });
+});
+
+test("retries a failed run optimistically and restores the error on failure", async () => {
+  const initial = {
+    profile: profile({ last_run_status: "error" }),
+    matches: [match()],
+  };
+  const request = deferred<{ queued: boolean }>();
+  mockApi.runJobSearch.mockReturnValue(request.promise);
+  const { result } = await renderSearch(initial);
+
+  let pending!: Promise<boolean>;
+  await act(() => {
+    pending = result.current.runNow();
+  });
+  expect(result.current.dashboard.profile?.last_run_status).toBeNull();
+  expect(result.current.busy).toBe(true);
+
+  await act(async () => {
+    request.reject(new Error("offline"));
+    await expect(pending).resolves.toBe(false);
+  });
+  expect(result.current.dashboard).toEqual(initial);
+  expect(mockFeedbackError).toHaveBeenCalledWith("my_job.error_run");
 });

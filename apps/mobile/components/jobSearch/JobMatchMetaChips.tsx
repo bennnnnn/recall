@@ -16,7 +16,11 @@ export function matchScoreColor(score: number | null, C: Theme): string {
   return C.textTertiary;
 }
 
-export type MetaChip = { icon: ComponentProps<typeof Icon>["name"]; label: string };
+export type MetaChip = {
+  icon: ComponentProps<typeof Icon>["name"];
+  label: string;
+  value: string;
+};
 
 /** Wrapping row of icon chips — shared by match cards and the search card. */
 export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
@@ -26,10 +30,15 @@ export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
   return (
     <View style={s.chips}>
       {chips.map((chip) => (
-        <View key={`${chip.icon}-${chip.label}`} style={s.chip}>
+        <View
+          key={`${chip.icon}-${chip.label}-${chip.value}`}
+          style={s.chip}
+          accessibilityLabel={`${chip.label}: ${chip.value}`}
+        >
           <Icon name={chip.icon} size={14} color={C.textTertiary} />
-          <Text style={s.chipText} numberOfLines={1}>
-            {chip.label}
+          <Text style={s.chipText} numberOfLines={2}>
+            <Text style={s.chipLabel}>{chip.label}: </Text>
+            {chip.value}
           </Text>
         </View>
       ))}
@@ -37,16 +46,53 @@ export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
   );
 }
 
-/** Icon chips for location / work mode / salary / experience / posted age. */
-export function JobMatchMetaChips({ match }: { match: JobMatch }) {
+/** Scan-first chips for every verified posting fact. */
+export function JobMatchMetaChips({
+  match,
+  maxSkills = 4,
+}: {
+  match: JobMatch;
+  maxSkills?: number;
+}) {
   const { t } = useTranslation();
   const chips: MetaChip[] = [];
-  if (match.location) chips.push({ icon: "location-outline", label: match.location });
   if (match.work_mode)
-    chips.push({ icon: "laptop-outline", label: t(`my_job.work_${match.work_mode}`) });
-  if (match.salary) chips.push({ icon: "cash-outline", label: match.salary });
-  if (match.experience) chips.push({ icon: "bar-chart-outline", label: match.experience });
-  if (match.posted_at) chips.push({ icon: "time-outline", label: match.posted_at });
+    chips.push({
+      icon: "laptop-outline",
+      label: t("my_job.meta_work_mode"),
+      value: t(`my_job.work_${match.work_mode}`),
+    });
+  if (match.location)
+    chips.push({
+      icon: "location-outline",
+      label: t("my_job.meta_location"),
+      value: match.location,
+    });
+  if (match.salary)
+    chips.push({
+      icon: "cash-outline",
+      label: t("my_job.meta_salary"),
+      value: match.salary,
+    });
+  if (match.experience)
+    chips.push({
+      icon: "bar-chart-outline",
+      label: t("my_job.meta_experience"),
+      value: match.experience,
+    });
+  const skills = match.required_skills.slice(0, maxSkills);
+  if (skills.length > 0)
+    chips.push({
+      icon: "construct-outline",
+      label: t("my_job.meta_skills"),
+      value: skills.join(", "),
+    });
+  if (match.posted_at)
+    chips.push({
+      icon: "time-outline",
+      label: t("my_job.meta_posted"),
+      value: match.posted_at,
+    });
   return <MetaChipsRow chips={chips} />;
 }
 
@@ -63,6 +109,7 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
       maxWidth: "100%",
     },
+    chipLabel: { color: C.textTertiary, fontWeight: "700" },
     chipText: { ...Type.compact, color: C.textSecondary, flexShrink: 1 },
   });
 }

@@ -1,9 +1,10 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import MyJobScreen from "@/app/my-job";
-import type { JobSearchDashboard, JobSearchProfile } from "@/lib/api";
+import type { JobMatch, JobSearchDashboard, JobSearchProfile } from "@/lib/api";
 
 const mockRefresh = jest.fn(async () => {});
+const mockRunNow = jest.fn(async () => true);
 let mockLoading = true;
 let mockError = false;
 let mockDashboard: JobSearchDashboard = { profile: null, matches: [] };
@@ -13,7 +14,8 @@ jest.mock("expo-router", () => {
   return {
     Redirect: () => null,
     useRouter: () => ({ push: jest.fn() }),
-    useFocusEffect: (callback: () => void) => React.useEffect(callback, [callback]),
+    useFocusEffect: (callback: () => void) =>
+      React.useEffect(callback, [callback]),
   };
 });
 jest.mock("@/contexts/AuthContext", () => ({
@@ -31,6 +33,8 @@ jest.mock("@/hooks/useJobSearch", () => ({
     refresh: mockRefresh,
     setSearchStatus: jest.fn(),
     setMatchStatus: jest.fn(),
+    setMatchSaved: jest.fn(),
+    runNow: mockRunNow,
     remove: jest.fn(),
   }),
 }));
@@ -45,7 +49,14 @@ jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
 }));
 jest.mock("@/components/Icon", () => ({ Icon: () => null }));
-jest.mock("@/components/jobSearch/JobMatchCard", () => ({ JobMatchCard: () => null }));
+jest.mock("@/components/jobSearch/JobMatchCard", () => {
+  const { Text } = jest.requireActual("react-native");
+  return {
+    JobMatchCard: ({ match }: { match: JobMatch }) => (
+      <Text>{match.title}</Text>
+    ),
+  };
+});
 jest.mock("@/components/jobSearch/SearchProfileFields", () => ({
   SearchProfileFields: () => null,
 }));
@@ -110,6 +121,31 @@ function profile(): JobSearchProfile {
   };
 }
 
+function match(id: string, status: JobMatch["status"], isSaved = false): JobMatch {
+  return {
+    id,
+    title: `Job ${id}`,
+    company: "Acme",
+    company_logo_url: null,
+    location: null,
+    work_mode: null,
+    salary: null,
+    experience: null,
+    match_score: 80,
+    url: `https://jobs.example.com/${id}`,
+    source: "jobs.example.com",
+    posted_at: null,
+    summary: null,
+    required_skills: [],
+    match_reasons: [],
+    gap: null,
+    found_at: "2026-09-18T00:00:00.000Z",
+    status,
+    is_saved: isSaved,
+    notes: null,
+  };
+}
+
 test("shows a skeleton while the first dashboard request is pending", async () => {
   const screen = await render(<MyJobScreen />);
   expect(screen.getByText("SkeletonList")).toBeTruthy();
@@ -144,4 +180,103 @@ test("uses a minimum 44 point menu target", async () => {
     width: 44,
     height: 44,
   });
+});
+
+test("shows application pipeline lists and filters each stage", async () => {
+  mockLoading = false;
+  mockDashboard = {
+    profile: profile(),
+    matches: [
+      match("new", "new"),
+      match("applied", "applied"),
+      match("interview", "interviewing"),
+      match("offer", "offer"),
+      match("rejected", "rejected"),
+    ],
+  };
+  const screen = await render(<MyJobScreen />);
+
+  expect(screen.getByText("Job new")).toBeTruthy();
+  expect(screen.getByText("my_job.pipeline")).toBeTruthy();
+
+  await fireEvent.press(
+    screen.getByRole("button", {
+      name: "my_job.pipeline: my_job.tab_all_stages",
+    }),
+  );
+  expect(
+    screen.getByRole("radio", { name: "my_job.tab_all_stages" }),
+  ).toBeTruthy();
+  await fireEvent.press(
+    screen.getByRole("radio", { name: "my_job.tab_interviewing" }),
+  );
+  expect(screen.getByText("Job interview")).toBeTruthy();
+  expect(screen.getByText("my_job.tab_interviewing")).toBeTruthy();
+  expect(screen.queryByText("Job new")).toBeNull();
+
+  await fireEvent.press(
+    screen.getByRole("button", {
+      name: "my_job.pipeline: my_job.tab_interviewing",
+    }),
+  );
+  await fireEvent.press(
+    screen.getByRole("radio", { name: "my_job.tab_offers" }),
+  );
+  expect(screen.getByText("Job offer")).toBeTruthy();
+  expect(screen.getByText("my_job.tab_offers")).toBeTruthy();
+
+  await fireEvent.press(
+    screen.getByRole("button", {
+      name: "my_job.pipeline: my_job.tab_offers",
+    }),
+  );
+  await fireEvent.press(
+    screen.getByRole("radio", { name: "my_job.tab_rejected" }),
+  );
+  expect(screen.getByText("Job rejected")).toBeTruthy();
+  expect(screen.getByText("my_job.tab_rejected")).toBeTruthy();
+
+  await fireEvent.press(
+    screen.getByRole("button", {
+      name: "my_job.pipeline: my_job.tab_rejected",
+    }),
+  );
+  await fireEvent.press(
+    screen.getByRole("radio", { name: "my_job.tab_applied" }),
+  );
+  expect(screen.getByText("Job applied")).toBeTruthy();
+  expect(screen.getByText("my_job.tab_applied")).toBeTruthy();
+});
+
+test("keeps a bookmarked applied job in Saved and Applied", async () => {
+  mockLoading = false;
+  mockDashboard = {
+    profile: profile(),
+    matches: [match("applied-saved", "applied", true)],
+  };
+  const screen = await render(<MyJobScreen />);
+
+  expect(screen.queryByText("Job applied-saved")).toBeNull();
+  await fireEvent.press(screen.getByRole("tab", { name: /my_job\.tab_saved/ }));
+  expect(screen.getByText("Job applied-saved")).toBeTruthy();
+
+  await fireEvent.press(
+    screen.getByRole("button", { name: "my_job.pipeline: my_job.tab_all_stages" }),
+  );
+  await fireEvent.press(screen.getByRole("radio", { name: "my_job.tab_applied" }));
+  expect(screen.getByText("Job applied-saved")).toBeTruthy();
+});
+
+test("shows a retry action when the last search failed", async () => {
+  mockLoading = false;
+  mockDashboard = {
+    profile: profile(),
+    matches: [],
+  };
+  mockDashboard.profile!.last_run_status = "error";
+  const screen = await render(<MyJobScreen />);
+
+  expect(screen.getByText("my_job.run_failed_title")).toBeTruthy();
+  await fireEvent.press(screen.getByText("common.retry"));
+  expect(mockRunNow).toHaveBeenCalledTimes(1);
 });

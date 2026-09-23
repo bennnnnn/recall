@@ -10,8 +10,13 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.schemas.job_search import ResumeProfile
 from app.services.job_search import runner
 from app.services.job_search.runner import (
+    PostingVerificationError,
     _Candidate,
     _dedupe_accepted,
+    _extract_company_logo_url,
+    _extract_experience,
+    _extract_salary,
+    _extract_work_mode,
     _fallback_rank,
     _fetch_posting_pages,
     _find_candidates,
@@ -22,7 +27,9 @@ from app.services.job_search.runner import (
     _RankedJob,
     _RankedPayload,
     _ranking_messages,
+    _salary_ceiling,
     _search_queries,
+    _strategic_match_assessment,
     _title_and_company,
     _title_company_key,
     canonicalize_job_url,
@@ -38,9 +45,9 @@ def _profile(**overrides: object) -> _ProfileSnapshot:
         "target_roles": ["Backend Engineer"],
         "skills": ["Python", "FastAPI"],
         "location": "United States",
-        "work_modes": ["remote"],
-        "experience_levels": ["entry"],
-        "salary_min": 100_000,
+        "work_modes": ["remote", "hybrid", "onsite"],
+        "experience_levels": ["entry", "mid", "senior"],
+        "salary_min": None,
         "requires_sponsorship": False,
         "excluded_companies": [],
         "background": None,
@@ -75,9 +82,15 @@ def test_canonicalize_job_url_removes_tracking_but_keeps_job_identifier() -> Non
 
 def test_entry_profile_rejects_obviously_senior_role() -> None:
     assert _obvious_mismatch(
-        _profile(),
+        _profile(experience_levels=["entry"]),
         _candidate("Principal Backend Engineer"),
     )
+
+
+def test_entry_profile_does_not_treat_requested_manager_title_as_seniority() -> None:
+    profile = _profile(target_roles=["Account Manager"], experience_levels=["entry"])
+    assert not _obvious_mismatch(profile, _candidate("Account Manager"))
+    assert _obvious_mismatch(profile, _candidate("Senior Account Manager"))
 
 
 def test_profile_rejects_excluded_company() -> None:
@@ -92,10 +105,16 @@ def test_ranked_job_rejects_out_of_range_match_score() -> None:
         _RankedJob(candidate_id=0, match_score=150)
 
 
-def test_ranked_job_accepts_score_and_experience() -> None:
-    job = _RankedJob(candidate_id=0, match_score=82, experience="  3+ years  ")
+def test_ranked_job_accepts_score_experience_and_unique_skills() -> None:
+    job = _RankedJob(
+        candidate_id=0,
+        match_score=82,
+        experience="  3+ years  ",
+        required_skills=[" Python ", "python", "FastAPI"],
+    )
     assert job.match_score == 82
     assert job.experience == "3+ years"
+    assert job.required_skills == ["Python", "FastAPI"]
 
 
 def test_search_queries_stay_sector_neutral_for_entry_level() -> None:
@@ -110,8 +129,8 @@ def test_search_queries_stay_sector_neutral_for_entry_level() -> None:
 def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
     profile = _profile()
     candidates = [
-        _candidate("Backend Engineer", "Python FastAPI remote"),
-        _candidate("Backend Engineer", "Python"),
+        _candidate("Entry-Level Backend Engineer", "Python FastAPI remote"),
+        _candidate("Junior Backend Engineer", "Python"),
     ]
     accepted = _fallback_rank(profile, candidates)
     assert len(accepted) == 2
@@ -120,7 +139,96 @@ def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
     # More keyword hits must not rank below fewer hits.
     assert scores[0] is not None and scores[1] is not None
     assert scores[0] >= scores[1]
-    assert accepted[0].experience is None
+    assert accepted[0].experience == "Entry level"
+    assert accepted[0].match_reasons
+    assert all(
+        "title and description" not in reason.casefold() for reason in accepted[0].match_reasons
+    )
+
+
+def test_strategic_match_assessment_compares_resume_with_job_requirements() -> None:
+    profile = _profile(
+        work_modes=["remote"],
+        resume_profile=ResumeProfile(
+            titles=["Backend Engineer"],
+            skills=["Python", "FastAPI"],
+            years_experience=4,
+        ),
+    )
+    reasons, gap = _strategic_match_assessment(
+        profile,
+        required_skills=["Python", "SQL"],
+        experience="3+ years",
+        work_mode="remote",
+        location="United States",
+        salary=None,
+    )
+
+    assert any("Python" in reason and "job asks for" in reason for reason in reasons)
+    assert any("4 years" in reason and "3+ years" in reason for reason in reasons)
+    assert any("remote" in reason for reason in reasons)
+    assert gap is not None and "SQL" in gap
+
+
+def test_posting_fact_fallbacks_extract_salary_and_experience() -> None:
+    candidate = _candidate(
+        "Backend Engineer",
+        "Remote role paying $100,000 - $125,000 per year. Requires 3+ years of experience.",
+    )
+    assert _extract_salary(candidate) == "$100,000 - $125,000 per year"
+    assert _extract_experience(candidate) == "3+ years of experience"
+
+
+def test_experience_fallback_does_not_treat_manager_title_as_senior() -> None:
+    assert _extract_experience(_candidate("Account Manager", "Client services role")) is None
+
+
+def test_work_mode_fallback_uses_earliest_explicit_posting_metadata() -> None:
+    candidate = replace(
+        _candidate("Remote Backend Engineer", "Work from anywhere"),
+        page_text="Remote Work Full time. Our company also supports hybrid teams.",
+    )
+    assert _extract_work_mode(candidate) == "remote"
+
+
+def test_company_logo_must_be_https_and_labelled_with_employer() -> None:
+    candidate = replace(
+        _candidate("Backend Engineer - Acme"),
+        page_text=(
+            "[![Image 1: Acme](https://ats-cdn.example.com/acme-logo.png)](company) "
+            "![LinkedIn](https://cdn.example.com/linkedin.png)"
+        ),
+    )
+    assert _extract_company_logo_url(candidate, "Acme") == (
+        "https://ats-cdn.example.com/acme-logo.png"
+    )
+    assert _extract_company_logo_url(candidate, "LinkedIn") is None
+
+
+def test_company_logo_rejects_relative_and_private_urls() -> None:
+    relative = replace(
+        _candidate("Backend Engineer - Acme"),
+        page_text="![Acme](logo.png)",
+    )
+    private = replace(
+        _candidate("Backend Engineer - Acme"),
+        page_text="![Acme](https://127.0.0.1/logo.png)",
+    )
+    assert _extract_company_logo_url(relative, "Acme") is None
+    assert _extract_company_logo_url(private, "Acme") is None
+
+
+@pytest.mark.parametrize(
+    ("salary", "expected"),
+    [
+        ("$100,000-$125,000 per year", 125_000),
+        ("€75.5k–€92k", 92_000),
+        ("£80k", 80_000),
+        ("$45 per hour", None),
+    ],
+)
+def test_salary_ceiling_parses_annual_ranges(salary: str, expected: int | None) -> None:
+    assert _salary_ceiling(salary) == expected
 
 
 def test_ranking_messages_prefer_page_text_over_snippet() -> None:
@@ -148,7 +256,7 @@ async def test_fetch_posting_pages_shortlists_and_attaches_text(
     assert result[0].page_text == "full page text"
 
 
-async def test_fetch_posting_pages_keeps_full_list_when_extract_fails(
+async def test_fetch_posting_pages_rejects_unverified_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     settings = MagicMock(job_search_page_fetch_enabled=True, job_search_page_fetch_max=1)
@@ -158,8 +266,8 @@ async def test_fetch_posting_pages_keeps_full_list_when_extract_fails(
         return {}
 
     monkeypatch.setattr(runner.web_search_gateway, "extract_pages", fake_extract)
-    result = await _fetch_posting_pages(settings, _profile(), candidates)
-    assert result == candidates
+    with pytest.raises(PostingVerificationError):
+        await _fetch_posting_pages(settings, _profile(), candidates)
 
 
 async def test_fetch_posting_pages_disabled_flag_is_passthrough() -> None:
@@ -239,6 +347,7 @@ def test_dedupe_accepted_drops_cross_source_repeats() -> None:
             ),
             title=title,
             company=company,
+            company_logo_url=None,
             location=None,
             work_mode=None,
             salary=None,
@@ -246,6 +355,7 @@ def test_dedupe_accepted_drops_cross_source_repeats() -> None:
             match_score=None,
             posted_at=None,
             summary=None,
+            required_skills=[],
             match_reasons=[],
             gap=None,
         )
@@ -269,8 +379,15 @@ def test_dedupe_accepted_drops_cross_source_repeats() -> None:
         ("https://www.glassdoor.com/Job/berlin-nurse-jobs-SRCH_IL.0,6_IC2622109.htm", "Nurse"),
         ("https://boards.example.com/careers", "Careers"),
         ("https://jobs.example.com/page", "Registered Nurse jobs in Berlin"),
+        ("https://workingnomads.com/remote", "Remote Entry Level Account Manager Jobs"),
+        ("https://builtin.com/jobs/remote", "Best Remote Account Manager Jobs 2026"),
         ("https://jobs.example.com/page", "1,200+ Pflege Jobs bei Kliniken"),
         ("https://jobs.example.com/page", "Alle Stellenangebote im Landkreis"),
+        (
+            "https://www.workingnomads.com/remote-entry-level-software-engineer-jobs",
+            "Remote Entry Level Software Engineer Jobs Explore",
+        ),
+        ("https://arc.dev/remote-jr-jobs", "Remote Junior Developer Jobs & Internships"),
     ],
 )
 def test_listing_pages_are_detected(url: str, title: str) -> None:
@@ -410,3 +527,196 @@ def test_ranking_prompt_requires_exact_posting_title() -> None:
     system = _ranking_messages(_profile(), [_candidate("Backend Engineer")])[0]["content"]
     assert "Copy title exactly" in system
     assert "never the job board" in system
+    assert "required_skills" in system
+    assert "Every reason must compare" in system
+    assert "Never use a matching job title" in system
+
+
+async def test_rank_replaces_weak_reason_with_evidence_based_comparison(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = _candidate(
+        "Backend Engineer - Acme",
+        "Remote role requiring Python and SQL with 3+ years of experience.",
+    )
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[
+                _RankedJob(
+                    candidate_id=0,
+                    company="Acme",
+                    work_mode="remote",
+                    experience="3+ years",
+                    required_skills=["Python", "SQL"],
+                    match_reasons=[
+                        "The title and description align with your target role.",
+                    ],
+                )
+            ]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(
+            work_modes=["remote"],
+            resume_profile=ResumeProfile(
+                skills=["Python"],
+                years_experience=4,
+            ),
+        ),
+        [candidate],
+    )
+
+    assert len(accepted) == 1
+    assert any("Python" in reason for reason in accepted[0].match_reasons)
+    assert any("4 years" in reason for reason in accepted[0].match_reasons)
+    assert all(
+        "title and description" not in reason.casefold() for reason in accepted[0].match_reasons
+    )
+    assert accepted[0].gap is not None and "SQL" in accepted[0].gap
+
+
+def test_fallback_rejects_result_without_required_salary_evidence() -> None:
+    accepted = _fallback_rank(
+        _profile(salary_min=100_000),
+        [_candidate("Backend Engineer", "Python remote role")],
+    )
+    assert accepted == []
+
+
+def test_entry_fallback_requires_entry_level_evidence() -> None:
+    assert (
+        _fallback_rank(
+            _profile(target_roles=["Account Manager"], experience_levels=["entry"]),
+            [_candidate("Technical Account Manager", "Remote customer success role")],
+        )
+        == []
+    )
+
+
+async def test_rank_falls_back_to_verified_page_when_structured_result_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request: dict[str, object] = {}
+    candidate = _Candidate(
+        candidate_id=0,
+        title="(Remote) - Entry-Level Account Manager (20 - 27 per hour)",
+        url="https://apply.workable.com/nogigiddy/j/123",
+        canonical_url="https://apply.workable.com/nogigiddy/j/123",
+        snippet="Remote entry-level account manager",
+        source="apply.workable.com",
+        page_text=(
+            "[![Image 1: NoGigiddy](https://cdn.example.com/nogigiddy-logo.png)](company) "
+            "# (Remote) - Entry-Level Account Manager (20 - 27 per hour) "
+            "**Remote** Remote Work Full time New York, New York, United States "
+            "[Overview](job) ## Description NoGigiddy is seeking an entry-level "
+            "account manager. **Skills and Qualifications:** "
+            "* Communication Skills: Strong written communication. "
+            "* Customer Service: Understand client needs. "
+            "* Remote Work: Enjoy flexibility. **Benefits:** * Health plan"
+        ),
+    )
+
+    async def empty_structured(**kwargs: object) -> _RankedPayload:
+        request.update(kwargs)
+        return _RankedPayload(jobs=[])
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", empty_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(
+            target_roles=["Account Manager"],
+            experience_levels=["entry"],
+            work_modes=["remote"],
+            result_count=2,
+        ),
+        [candidate],
+    )
+
+    assert len(accepted) == 1
+    assert accepted[0].title == "Entry-Level Account Manager (20 - 27 per hour)"
+    assert accepted[0].company == "NoGigiddy"
+    assert accepted[0].company_logo_url == "https://cdn.example.com/nogigiddy-logo.png"
+    assert accepted[0].salary == "20 - 27 per hour"
+    assert accepted[0].location == "New York, New York, United States"
+    assert accepted[0].experience == "Entry level"
+    assert accepted[0].required_skills == ["Communication Skills", "Customer Service"]
+    assert accepted[0].candidate.url == candidate.url
+    assert request["model_alias"] == "gemini-flash"
+    assert request["timeout_seconds"] == 20.0
+
+
+async def test_rank_rejects_salary_below_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = _candidate("Backend Engineer - Acme", "Python remote $80,000-$90,000")
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[
+                _RankedJob(
+                    candidate_id=0,
+                    work_mode="remote",
+                    salary="$80,000-$90,000",
+                )
+            ]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(salary_min=100_000, work_modes=["remote"]),
+        [candidate],
+    )
+    assert accepted == []
+
+
+async def test_rank_requires_positive_sponsorship_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = _candidate("Backend Engineer - Acme", "Python remote role")
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(jobs=[_RankedJob(candidate_id=0, work_mode="remote")])
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(requires_sponsorship=True, work_modes=["remote"]),
+        [candidate],
+    )
+    assert accepted == []
+
+
+async def test_rank_requires_entry_level_evidence_for_entry_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = _candidate(
+        "Technical Account Manager - Smile Digital Health",
+        "Remote customer success and technical enablement role",
+    )
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[
+                _RankedJob(
+                    candidate_id=0,
+                    company="Smile Digital Health",
+                    work_mode="remote",
+                )
+            ]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(
+        _rank_settings(),
+        _profile(
+            target_roles=["Account Manager"],
+            experience_levels=["entry"],
+            work_modes=["remote"],
+        ),
+        [candidate],
+    )
+    assert accepted == []

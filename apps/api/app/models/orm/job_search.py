@@ -132,6 +132,7 @@ class JobMatch(Base):
     url: Mapped[str] = mapped_column(String(2000), nullable=False)
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     company: Mapped[str] = mapped_column(String(180), nullable=False)
+    company_logo_url: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     location: Mapped[str | None] = mapped_column(String(180), nullable=True)
     work_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
     salary: Mapped[str | None] = mapped_column(String(160), nullable=True)
@@ -140,9 +141,12 @@ class JobMatch(Base):
     source: Mapped[str | None] = mapped_column(String(120), nullable=True)
     posted_at: Mapped[str | None] = mapped_column(String(120), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    required_skills: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     match_reasons: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     gap: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="new")
+    # Bookmarking is independent from the application pipeline stage.
+    is_saved: Mapped[bool] = mapped_column(nullable=False, default=False)
     # User's own application notes (contacts, follow-ups, interview prep).
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     found_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

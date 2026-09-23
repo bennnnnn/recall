@@ -27,6 +27,7 @@ from app.models.schemas.job_search import (
     JobSearchDashboardOut,
     JobSearchExperience,
     JobSearchFrequency,
+    JobSearchPreferencesPatch,
     JobSearchProfileOut,
     JobSearchUpsert,
     JobSearchWorkMode,
@@ -63,11 +64,108 @@ def _enforce_plan(user: User, body: JobSearchUpsert) -> None:
         )
 
 
+def _merge_text_list(
+    current: list[str],
+    incoming: list[str],
+    mode: Literal["replace", "add", "remove"],
+    *,
+    limit: int,
+) -> list[str]:
+    if mode == "replace":
+        return incoming[:limit]
+    incoming_keys = {item.casefold() for item in incoming}
+    if mode == "remove":
+        return [item for item in current if item.casefold() not in incoming_keys]
+    result = list(current)
+    known = {item.casefold() for item in result}
+    for item in incoming:
+        if item.casefold() not in known:
+            result.append(item)
+            known.add(item.casefold())
+        if len(result) >= limit:
+            break
+    return result
+
+
+def preference_values(
+    profile: JobSearchProfile,
+    patch: JobSearchPreferencesPatch,
+) -> dict[str, Any]:
+    """Return validated effective preference values without mutating ``profile``."""
+    values: dict[str, Any] = {}
+    fields = patch.model_fields_set
+    if "target_roles" in fields:
+        roles = _merge_text_list(
+            list(profile.target_roles),
+            patch.target_roles or [],
+            patch.target_roles_mode,
+            limit=6,
+        )
+        if not roles:
+            raise JobSearchError("At least one target role is required", status_code=422)
+        values["target_roles"] = roles
+    if "skills" in fields:
+        values["skills"] = _merge_text_list(
+            list(profile.skills),
+            patch.skills or [],
+            patch.skills_mode,
+            limit=30,
+        )
+    if "excluded_companies" in fields:
+        values["excluded_companies"] = _merge_text_list(
+            list(profile.excluded_companies),
+            patch.excluded_companies or [],
+            patch.excluded_companies_mode,
+            limit=20,
+        )
+    for field in (
+        "location",
+        "work_modes",
+        "experience_levels",
+        "salary_min",
+        "requires_sponsorship",
+        "background",
+        "result_count",
+        "frequency",
+    ):
+        if field in fields:
+            values[field] = getattr(patch, field)
+    return values
+
+
+def _enforce_patch_plan(
+    user: User,
+    profile: JobSearchProfile,
+    values: dict[str, Any],
+) -> None:
+    if plan_service.is_pro(user):
+        return
+    count = values.get("result_count", profile.result_count)
+    frequency = values.get("frequency", profile.frequency)
+    if count != 5 or frequency != "weekly":
+        raise JobSearchError(
+            "Free My Job searches deliver up to 5 matches weekly. "
+            "Upgrade for more jobs or faster delivery.",
+            status_code=403,
+        )
+
+
 async def get_profile_for_user(
     session: AsyncSession,
     user_id: UUID,
 ) -> JobSearchProfile | None:
     return await session.scalar(select(JobSearchProfile).where(JobSearchProfile.user_id == user_id))
+
+
+def can_request_manual_run(user: User, profile: JobSearchProfile) -> bool:
+    """Allow first delivery, Pro on-demand search, and failed-run retries."""
+    if profile.status != "active":
+        return False
+    return (
+        profile.last_run_at is None
+        or profile.last_run_status == "error"
+        or plan_service.is_pro(user)
+    )
 
 
 async def extract_resume_profile(
@@ -202,11 +300,46 @@ def profile_out(profile: JobSearchProfile) -> JobSearchProfileOut:
     )
 
 
-def match_out(match: JobMatch) -> JobMatchOut:
+def match_out(
+    match: JobMatch,
+    *,
+    profile_snapshot: Any | None = None,
+    separate_bookmarks: bool = True,
+) -> JobMatchOut:
+    match_reasons = list(match.match_reasons)
+    gap = match.gap
+    if profile_snapshot is not None:
+        # Import lazily because the search runner imports this package's notification
+        # module. Stored matches created before evidence-based comparisons shipped
+        # are upgraded in the response without mutating the user's application data.
+        from app.services.job_search.runner import (
+            _profile_independent_model_reasons,
+            _strategic_match_assessment,
+        )
+
+        strategic_reasons, strategic_gap = _strategic_match_assessment(
+            profile_snapshot,
+            required_skills=list(match.required_skills),
+            experience=match.experience,
+            work_mode=match.work_mode,
+            location=match.location,
+            salary=match.salary,
+        )
+        match_reasons = list(
+            dict.fromkeys([*strategic_reasons, *_profile_independent_model_reasons(match_reasons)])
+        )[:5]
+        gap = strategic_gap or gap
+    is_saved = bool(getattr(match, "is_saved", False))
+    raw_status = cast(JobMatchStatus, match.status)
+    if separate_bookmarks:
+        output_status: JobMatchStatus = "new" if raw_status == "saved" else raw_status
+    else:
+        output_status = "saved" if is_saved else raw_status
     return JobMatchOut(
         id=match.id,
         title=match.title,
         company=match.company,
+        company_logo_url=match.company_logo_url,
         location=match.location,
         work_mode=cast(JobSearchWorkMode | None, match.work_mode),
         salary=match.salary,
@@ -216,10 +349,12 @@ def match_out(match: JobMatch) -> JobMatchOut:
         source=match.source,
         posted_at=match.posted_at,
         summary=match.summary,
-        match_reasons=list(match.match_reasons),
-        gap=match.gap,
+        required_skills=list(match.required_skills),
+        match_reasons=match_reasons,
+        gap=gap,
         found_at=match.found_at,
-        status=cast(JobMatchStatus, match.status),
+        status=output_status,
+        is_saved=is_saved,
         notes=match.notes,
     )
 
@@ -228,6 +363,8 @@ async def get_dashboard(
     session: AsyncSession,
     user: User,
     settings: Settings,
+    *,
+    separate_bookmarks: bool = True,
 ) -> JobSearchDashboardOut:
     del settings
     profile = await get_profile_for_user(session, user.id)
@@ -247,9 +384,19 @@ async def get_dashboard(
             )
         ).all()
     )
+    from app.services.job_search.runner import _profile_from_rows
+
+    profile_snapshot = _profile_from_rows(profile, user)
     return JobSearchDashboardOut(
         profile=profile_out(profile),
-        matches=[match_out(match) for match in matches],
+        matches=[
+            match_out(
+                match,
+                profile_snapshot=profile_snapshot,
+                separate_bookmarks=separate_bookmarks,
+            )
+            for match in matches
+        ],
     )
 
 
@@ -258,6 +405,8 @@ async def upsert_profile(
     user: User,
     settings: Settings,
     body: JobSearchUpsert,
+    *,
+    separate_bookmarks: bool = True,
 ) -> JobSearchDashboardOut:
     _enforce_plan(user, body)
     next_run_at = normalize_due_at(body.next_run_at, user.timezone)
@@ -307,7 +456,45 @@ async def upsert_profile(
 
     await session.commit()
     await session.refresh(profile)
-    return await get_dashboard(session, user, settings)
+    return await get_dashboard(
+        session,
+        user,
+        settings,
+        separate_bookmarks=separate_bookmarks,
+    )
+
+
+async def patch_profile(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    patch: JobSearchPreferencesPatch,
+    *,
+    separate_bookmarks: bool = True,
+) -> JobSearchDashboardOut:
+    """Apply a bounded partial preference update, preserving résumé state."""
+    profile = await get_profile_for_user(session, user.id)
+    if profile is None:
+        raise JobSearchError("Job search not found", status_code=404)
+    values = preference_values(profile, patch)
+    if not values:
+        return await get_dashboard(
+            session,
+            user,
+            settings,
+            separate_bookmarks=separate_bookmarks,
+        )
+    _enforce_patch_plan(user, profile, values)
+    for field, value in values.items():
+        setattr(profile, field, value)
+    await session.commit()
+    await session.refresh(profile)
+    return await get_dashboard(
+        session,
+        user,
+        settings,
+        separate_bookmarks=separate_bookmarks,
+    )
 
 
 async def set_search_status(
@@ -315,6 +502,8 @@ async def set_search_status(
     user: User,
     settings: Settings,
     status: Literal["active", "paused"],
+    *,
+    separate_bookmarks: bool = True,
 ) -> JobSearchDashboardOut:
     profile = await get_profile_for_user(session, user.id)
     if profile is None:
@@ -322,7 +511,12 @@ async def set_search_status(
     profile.status = status
     await session.commit()
     await session.refresh(profile)
-    return await get_dashboard(session, user, settings)
+    return await get_dashboard(
+        session,
+        user,
+        settings,
+        separate_bookmarks=separate_bookmarks,
+    )
 
 
 async def set_match_status(
@@ -330,8 +524,11 @@ async def set_match_status(
     user: User,
     settings: Settings,
     match_id: UUID,
-    status: JobMatchStatus,
+    status: JobMatchStatus | None,
     notes: str | None = None,
+    *,
+    is_saved: bool | None = None,
+    separate_bookmarks: bool = True,
 ) -> JobSearchDashboardOut:
     match = await session.scalar(
         select(JobMatch)
@@ -343,11 +540,36 @@ async def set_match_status(
     )
     if match is None:
         raise JobSearchError("Job match not found", status_code=404)
-    match.status = status
+    if not separate_bookmarks:
+        # Old clients model bookmarking as a status. Present that view while
+        # preserving a newer application stage underneath whenever possible.
+        if status == "saved":
+            match.is_saved = True
+        elif status == "new" and match.is_saved:
+            match.is_saved = False
+            if match.status == "saved":
+                match.status = "new"
+        elif status is not None:
+            match.status = status
+            match.is_saved = False
+    elif status == "saved":
+        # Chat still accepts the legacy command as a bookmark action.
+        match.is_saved = True
+    elif status is not None:
+        match.status = status
+    if is_saved is not None:
+        match.is_saved = is_saved
+        if not is_saved and match.status == "saved":
+            match.status = "new"
     if notes is not None:
         match.notes = notes
     await session.commit()
-    return await get_dashboard(session, user, settings)
+    return await get_dashboard(
+        session,
+        user,
+        settings,
+        separate_bookmarks=separate_bookmarks,
+    )
 
 
 _COVER_LETTER_DAILY_CAP = 10
