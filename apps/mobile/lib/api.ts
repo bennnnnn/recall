@@ -4,7 +4,7 @@ import { attachmentsApi } from "@/lib/api/attachments";
 import { chatsApi } from "@/lib/api/chats";
 import { discoverApi } from "@/lib/api/discover";
 import { imagesApi } from "@/lib/api/images";
-import { integrationsApi } from "@/lib/api/integrations";
+import { integrationsApi } from "@/features/integrations/api";
 import { jobSearchApi } from "@/features/job-search/api";
 import { learningApi } from "@/features/learning/api";
 import { memoriesApi } from "@/features/memory/api";

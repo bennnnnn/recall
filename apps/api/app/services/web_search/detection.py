@@ -7,7 +7,7 @@ import re
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
-from app.services import calendar as calendar_service
+from app.modules.integrations import calendar as calendar_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
     is_lightweight_chat_turn,

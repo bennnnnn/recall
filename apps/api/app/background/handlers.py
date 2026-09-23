@@ -20,7 +20,6 @@ from uuid import UUID
 
 from app.background import (
     attachment_indexing,
-    gmail_sync,
     message_indexing,
     topic_generation,
 )
@@ -28,6 +27,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
+from app.modules.integrations import jobs as gmail_sync
 from app.modules.learning import jobs as learning_jobs
 from app.modules.memory import consolidation_workflow as memory_consolidation
 from app.modules.memory import extraction_workflow as memory_extraction

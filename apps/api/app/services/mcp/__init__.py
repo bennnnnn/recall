@@ -2,8 +2,8 @@
 
 from app.core.config import Settings
 from app.gateways.mcp.registry import register
+from app.modules.integrations.tool import CalendarAdapter
 from app.modules.job_search.tool import JobSearchAdapter
-from app.services.mcp.calendar_adapter import CalendarAdapter
 from app.services.mcp.image_gen_adapter import ImageGenAdapter
 from app.services.mcp.image_search_adapter import ImageSearchAdapter
 from app.services.mcp.sympy_adapter import SympyAdapter

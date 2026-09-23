@@ -32,13 +32,13 @@ from app.models.orm import (
     User,
     UserCalendarConnection,
 )
+from app.modules.integrations import calendar as calendar_service
+from app.modules.integrations import nudges as calendar_nudge_service
 from app.modules.learning import nudges as learning_nudges
 from app.modules.todos import crud as todos_crud
 from app.modules.todos.recurrence import is_recurrence_rule, next_recurring_due
 from app.modules.todos.schedule_repository import TodoScheduleSnapshot, update_schedule_if_current
 from app.repositories import push_tokens as push_repo
-from app.services import calendar as calendar_service
-from app.services import calendar_nudges as calendar_nudge_service
 from app.services.locale import normalize_locale_code
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,

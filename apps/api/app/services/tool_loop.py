@@ -33,13 +33,13 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp import registry as mcp_registry
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
+from app.modules.integrations.tool import bind_calendar_context
 from app.modules.job_search.tool import JOB_DIRECT_REPLY_PREFIX, bind_job_search_context
 from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.services.math.reply_policy import MATH_REPLY_POLICY
 from app.services.math.tools import VerifiedMathBlock
 from app.services.math.tools.extract import trig_domain_would_be_dropped
-from app.services.mcp.calendar_adapter import bind_calendar_context
 from app.services.mcp.image_gen_adapter import bind_image_gen_context
 from app.services.mcp.image_search_adapter import bind_image_search_context
 from app.services.mcp.web_search_adapter import bind_search_quota_context

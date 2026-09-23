@@ -19,7 +19,7 @@ import {
   connectedCountFromStatus,
   fetchIntegrationStatus,
   getCachedConnectedCount,
-} from "@/lib/cache/integrationStatusCache";
+} from "@/features/integrations/model/integrationStatusCache";
 import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";

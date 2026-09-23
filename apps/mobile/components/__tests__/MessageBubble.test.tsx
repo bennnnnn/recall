@@ -40,7 +40,7 @@ jest.mock("@/components/MarkdownContent", () => {
     ),
   };
 });
-jest.mock("@/components/CalendarProposalCard", () => ({
+jest.mock("@/features/integrations/components/CalendarProposalCard", () => ({
   CalendarProposalCard: () => null,
 }));
 jest.mock("@/components/SettingsProposalCard", () => ({
@@ -81,7 +81,7 @@ jest.mock("@/components/RecallTypingIndicator", () => ({
 jest.mock("@/features/learning/components/LearningLaunchButton", () => ({
   LearningLaunchButton: () => null,
 }));
-jest.mock("@/contexts/emailDraftPersist", () => ({
+jest.mock("@/features/integrations/context/emailDraftPersist", () => ({
   AssistantMessageScope: ({ children }: { children: React.ReactNode }) => children,
 }));
 jest.mock("@/contexts/AuthContext", () => ({

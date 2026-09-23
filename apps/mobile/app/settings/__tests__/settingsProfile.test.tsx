@@ -59,7 +59,7 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({
 jest.mock("@/features/memory/model/memoryListCache", () => ({
   prefetchMemories: jest.fn(),
 }));
-jest.mock("@/lib/cache/integrationStatusCache", () => ({
+jest.mock("@/features/integrations/model/integrationStatusCache", () => ({
   getCachedConnectedCount: () => 0,
   fetchIntegrationStatus: jest.fn(async () => null),
   connectedCountFromStatus: () => 0,

@@ -6,12 +6,17 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.todos.prompt_context import should_inject_todos_prompt
-from app.services.calendar import (
+from app.modules.integrations.calendar import (
     CALENDAR_HINT,
     format_not_connected_calendar_block,
     should_inject_calendar_block,
 )
+from app.modules.integrations.inbox import (
+    GMAIL_HINT,
+    format_not_connected_gmail_block,
+    should_inject_gmail_block,
+)
+from app.modules.todos.prompt_context import should_inject_todos_prompt
 from app.services.chat.prompt_builder import _integration_hints, _style_format_hints
 from app.services.chat.prompt_constants import DAY_LEARNING_SNAPSHOT_HINT, DAY_PLANNING_ANSWER_HINT
 from app.services.chat.turn_prep.integrations import _inject_integration_blocks
@@ -19,11 +24,6 @@ from app.services.day_planning import (
     is_day_planning_question,
     is_day_reflection_question,
     needs_gmail_for_day_planning,
-)
-from app.services.email.context import (
-    GMAIL_HINT,
-    format_not_connected_gmail_block,
-    should_inject_gmail_block,
 )
 from app.services.home.time_starters import time_starters
 

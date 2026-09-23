@@ -55,7 +55,7 @@ def stream_offline_io():
         )
         stack.enter_context(
             patch(
-                "app.services.calendar.has_write_access",
+                "app.modules.integrations.calendar.has_write_access",
                 AsyncMock(return_value=False),
             )
         )

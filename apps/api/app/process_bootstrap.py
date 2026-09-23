@@ -4,7 +4,6 @@ from app.background import (
     attachment_orphan_reaper,
     billing_reconcile_scheduler,
     email_reminder_scheduler,
-    gmail_periodic_sync,
     push_scheduler,
 )
 from app.background import handlers as job_handlers
@@ -16,6 +15,7 @@ from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.sentry import init_sentry
 from app.gateways.http_client import aclose_pooled_clients
+from app.modules.integrations import scheduler as gmail_periodic_sync
 from app.modules.job_search import jobs as job_search_jobs
 from app.modules.job_search import scheduler as job_search_scheduler
 from app.services.mcp import setup_mcp_adapters

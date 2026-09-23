@@ -63,7 +63,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     const generation = getSessionGeneration();
     let cancelled = false;
     let cleanup: (() => void) | undefined;
-    void import("@/lib/gmailAutoSync").then(({ attachGmailForegroundSync }) => {
+    void import("@/features/integrations/model/gmailAutoSync").then(({ attachGmailForegroundSync }) => {
       if (cancelled || generation !== getSessionGeneration()) return;
       cleanup = attachGmailForegroundSync(token);
     }).catch(() => {});

@@ -1,0 +1,805 @@
+"""Tests for Gmail gateway and email service."""
+
+import asyncio
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
+
+from app.core.config import Settings
+from app.gateways.google_gmail_gateway import GmailMessage
+from app.modules.integrations.inbox import _parse_from_ics
+from app.services.ics_parser import parse_ics_event
+
+
+def test_is_external_email_question():
+    from app.modules.integrations import inbox as email_service
+
+    assert email_service.is_external_email_question("check my email")
+    assert email_service.is_external_email_question("what's in my inbox")
+    assert email_service.is_external_email_question("revisa mi correo")
+    assert not email_service.is_external_email_question("write an email to my boss")
+
+
+def test_should_inject_gmail_block_for_inbox_and_day_planning():
+    from app.modules.integrations import inbox as email_service
+
+    assert email_service.should_inject_gmail_block("check my email")
+    assert email_service.should_inject_gmail_block(
+        "How's my day looking so far — anything you think I should prioritize?"
+    )
+    assert email_service.should_inject_gmail_block("What's still open for me to finish tonight?")
+    assert email_service.should_inject_gmail_block(
+        "Help me plan my day based on what you know about me."
+    )
+    assert email_service.should_inject_gmail_block("What's still open for me to finish today?")
+    assert not email_service.should_inject_gmail_block(
+        "How did my day go? Help me reflect and wrap up loose ends."
+    )
+    assert not email_service.should_inject_gmail_block(
+        "I'm still up — what should I tackle or wind down?"
+    )
+    assert not email_service.should_inject_gmail_block("solve x^2 = 4")
+    assert not email_service.should_inject_gmail_block("best restaurants near me")
+
+
+def test_parse_ics_event_extracts_title_and_time():
+    ics = """BEGIN:VCALENDAR
+BEGIN:VEVENT
+SUMMARY:Interview with Acme
+DTSTART:20260630T140000Z
+END:VEVENT
+END:VCALENDAR"""
+    title, due_at = parse_ics_event(ics)
+    assert title == "Interview with Acme"
+    assert due_at == datetime(2026, 6, 30, 14, 0, tzinfo=UTC)
+
+
+def test_parse_from_ics_message():
+    message = GmailMessage(
+        id="msg1",
+        subject="Invite",
+        snippet="snippet",
+        body_text="",
+        received_at=None,
+        ics_content="SUMMARY:Flight AA123\nDTSTART:20260701T080000Z",
+    )
+    item = _parse_from_ics(message)
+    assert item is not None
+    assert item.title == "Flight AA123"
+    assert item.confidence >= 0.9
+
+
+@pytest.mark.asyncio
+async def test_sync_gmail_skips_when_not_connected():
+    from app.modules.integrations import inbox as email_service
+
+    session = MagicMock()
+    settings = Settings()
+    with patch(
+        "app.modules.integrations.inbox.gmail_repo.get_for_user",
+        AsyncMock(return_value=None),
+    ):
+        count = await email_service.sync_gmail_for_user(session, settings, uuid4())
+    assert count == (0, 0)
+
+
+@pytest.mark.asyncio
+async def test_sync_gmail_disconnects_on_permanent_oauth_error():
+    from app.gateways.google_gmail_gateway import GoogleGmailError
+    from app.modules.integrations import inbox as email_service
+
+    session = MagicMock()
+    settings = Settings()
+    redis = AsyncMock()
+    user_id = uuid4()
+    conn = MagicMock()
+    conn.refresh_token = "refresh"
+    disconnect = AsyncMock()
+
+    with (
+        patch(
+            "app.modules.integrations.inbox.gmail_gateway.is_configured",
+            return_value=True,
+        ),
+        patch(
+            "app.modules.integrations.inbox.gmail_repo.get_for_user",
+            AsyncMock(return_value=conn),
+        ),
+        patch(
+            "app.modules.integrations.inbox.decrypt_refresh_token",
+            return_value="refresh",
+        ),
+        patch(
+            "app.modules.integrations.inbox.gmail_gateway.list_recent_messages",
+            AsyncMock(side_effect=GoogleGmailError("expired", permanent=True)),
+        ),
+        patch(
+            "app.modules.integrations.connect.disconnect_gmail",
+            disconnect,
+        ),
+    ):
+        count = await email_service.sync_gmail_for_user(session, settings, user_id, redis=redis)
+
+    assert count == (0, 0)
+    disconnect.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_dismiss_suggested_reminder():
+    from app.models.orm import SuggestedReminder
+    from app.modules.integrations import inbox as email_service
+
+    user_id = uuid4()
+    reminder_id = uuid4()
+    row = SuggestedReminder(
+        id=reminder_id,
+        user_id=user_id,
+        gmail_message_id="g1",
+        title="Test",
+        status="pending",
+    )
+    session = MagicMock()
+
+    with (
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.mark_dismissed",
+            AsyncMock(return_value=row),
+        ) as mark_mock,
+    ):
+        ok = await email_service.dismiss_suggested_reminder(session, user_id, reminder_id)
+    assert ok is True
+    mark_mock.assert_awaited_once()
+
+
+def test_suggested_reminder_due_at_keeps_explicit_time():
+    from app.modules.integrations import inbox as email_service
+
+    due = datetime(2026, 7, 1, 14, 0, tzinfo=UTC)
+    assert email_service.suggested_reminder_due_at(due, "UTC") == due
+
+
+def test_suggested_reminder_due_at_defaults_to_local_evening():
+    from app.modules.integrations import inbox as email_service
+
+    now = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)  # 08:00 America/New_York
+    result = email_service.suggested_reminder_due_at(None, "America/New_York", now=now)
+    assert result == datetime(2026, 7, 1, 22, 0, tzinfo=UTC)
+
+
+def test_suggested_reminder_due_at_after_evening_is_one_hour_ahead():
+    from app.modules.integrations import inbox as email_service
+
+    now = datetime(2026, 7, 1, 23, 0, tzinfo=UTC)  # 19:00 America/New_York
+    result = email_service.suggested_reminder_due_at(None, "America/New_York", now=now)
+    assert result == datetime(2026, 7, 2, 0, 0, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_add_suggested_reminder_defaults_due_when_missing():
+    from app.models.orm import SuggestedReminder
+    from app.modules.integrations import inbox as email_service
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    reminder_id = uuid4()
+    row = SuggestedReminder(
+        id=reminder_id,
+        user_id=user.id,
+        gmail_message_id="g1",
+        title="Amazon delivery",
+        status="pending",
+        due_at=None,
+    )
+    created = MagicMock()
+    created.id = uuid4()
+    session = MagicMock()
+    settings = Settings()
+    with (
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.modules.integrations.inbox.todos_repo.create",
+            AsyncMock(return_value=created),
+        ) as create_mock,
+        patch("app.modules.integrations.inbox.suggested_repo.mark_added", AsyncMock()),
+        patch("app.modules.integrations.inbox.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        todo, error = await email_service.add_suggested_reminder(
+            session, settings, user, reminder_id
+        )
+    assert error is None
+    assert todo is created
+    due_at = create_mock.await_args.kwargs["due_at"]
+    assert due_at is not None
+    assert due_at.tzinfo is not None
+    assert create_mock.await_args.kwargs["source"] == "gmail"
+
+
+@pytest.mark.asyncio
+async def test_add_suggested_reminder_keeps_extracted_due():
+    from app.models.orm import SuggestedReminder
+    from app.modules.integrations import inbox as email_service
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    reminder_id = uuid4()
+    extracted_due = datetime(2026, 8, 1, 15, 0, tzinfo=UTC)
+    row = SuggestedReminder(
+        id=reminder_id,
+        user_id=user.id,
+        gmail_message_id="g2",
+        title="Interview",
+        status="pending",
+        due_at=extracted_due,
+    )
+    created = MagicMock()
+    session = MagicMock()
+    with (
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.modules.integrations.inbox.todos_repo.create",
+            AsyncMock(return_value=created),
+        ) as create_mock,
+        patch("app.modules.integrations.inbox.suggested_repo.mark_added", AsyncMock()),
+        patch("app.modules.integrations.inbox.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        await email_service.add_suggested_reminder(session, Settings(), user, reminder_id)
+    assert create_mock.await_args.kwargs["due_at"] == extracted_due
+    assert create_mock.await_args.kwargs["source"] == "gmail"
+
+
+def test_format_not_connected_answer_mentions_settings():
+    from app.modules.integrations import inbox as email_service
+
+    answer = email_service.format_not_connected_answer()
+    assert "Settings" in answer
+    assert "Gmail" in answer
+
+
+def test_format_not_connected_gmail_block_tells_model_to_suggest_connect():
+    from app.modules.integrations import inbox as email_service
+
+    block = email_service.format_not_connected_gmail_block()
+    assert "Gmail: not connected" in block
+    assert "Settings → Gmail" in block
+    assert "do not skip inbox" in block.lower()
+    assert "ordinary markdown prose" in block
+    assert "Never a callout card" in block
+
+
+def test_format_pending_suggestions_nudge_includes_sender():
+    from app.modules.integrations import inbox as email_service
+
+    pending = MagicMock()
+    pending.title = "Amazon delivery — Your order has shipped"
+    pending.due_at = datetime(2026, 6, 30, tzinfo=UTC)
+    pending.source_sender = "Amazon"
+    block = email_service.format_pending_suggestions_nudge([pending])
+    assert block is not None
+    assert "Amazon delivery" in block
+    assert "from Amazon" in block
+    assert email_service.format_pending_suggestions_nudge([]) is None
+
+
+@pytest.mark.asyncio
+async def test_extract_reminder_item_uses_sender_template_before_llm():
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.modules.integrations import inbox as email_service
+
+    message = GmailMessage(
+        id="g1",
+        subject="Your order has shipped",
+        snippet="Package arriving tomorrow",
+        body_text="",
+        received_at=None,
+        from_address="Amazon <auto-confirm@amazon.com>",
+    )
+    with patch("app.modules.integrations.inbox._extract_with_llm", AsyncMock()) as llm:
+        item = await email_service._extract_reminder_item(Settings(), message, default_tz="UTC")
+    assert item is not None
+    assert item.title.startswith("Amazon delivery")
+    llm.assert_not_awaited()
+
+
+def test_format_gmail_block_includes_pending_and_messages():
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.modules.integrations import inbox as email_service
+
+    pending = MagicMock()
+    pending.title = "Pay rent"
+    pending.due_at = datetime(2026, 6, 30, tzinfo=UTC)
+    block = email_service.format_gmail_block(
+        google_email="me@example.com",
+        messages=[
+            GmailMessage(
+                id="1",
+                subject="Hello",
+                snippet="Hi",
+                body_text="",
+                received_at=None,
+                from_address="Friend <friend@example.com>",
+                label_ids=("INBOX", "UNREAD"),
+            )
+        ],
+        pending_suggestions=[pending],
+    )
+    assert "Pay rent" in block
+    assert "Hello" in block
+
+
+def test_gmail_sync_is_due():
+    from app.core.config import Settings
+    from app.modules.integrations import inbox as email_service
+
+    settings = Settings()
+    assert email_service.gmail_sync_is_due(None, settings) is True
+    assert email_service.gmail_sync_is_due(datetime.now(UTC), settings) is False
+    old = datetime.now(UTC) - timedelta(days=2)
+    assert email_service.gmail_sync_is_due(old, settings) is True
+
+
+def test_gmail_sync_force_respects_cooldown():
+    from app.core.config import Settings
+    from app.modules.integrations import inbox as email_service
+
+    settings = Settings(gmail_force_min_interval_seconds=60)
+    assert email_service.gmail_sync_is_due(None, settings, force=True) is True
+    assert email_service.gmail_sync_is_due(datetime.now(UTC), settings, force=True) is False
+    cooled = datetime.now(UTC) - timedelta(seconds=61)
+    assert email_service.gmail_sync_is_due(cooled, settings, force=True) is True
+    assert email_service.gmail_sync_is_due(cooled, settings, force=False) is False
+
+
+def test_messages_from_cache_roundtrip():
+    import json
+
+    from app.modules.integrations import inbox as email_service
+
+    raw = json.dumps([{"id": "1", "subject": "Hi", "snippet": "There"}])
+    messages = email_service._messages_from_cache(raw)
+    assert len(messages) == 1
+    assert messages[0].subject == "Hi"
+
+
+@pytest.mark.asyncio
+async def test_write_gmail_cache_sets_redis():
+    from app.core.config import Settings
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.modules.integrations import inbox as email_service
+
+    redis = AsyncMock()
+    settings = Settings()
+    await email_service.write_gmail_cache(
+        redis,
+        uuid4(),
+        [
+            GmailMessage(
+                id="1",
+                subject="A",
+                snippet="B",
+                body_text="",
+                received_at=None,
+            )
+        ],
+        settings,
+    )
+    redis.set.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_is_connected():
+    from app.modules.integrations import inbox as email_service
+
+    session = MagicMock()
+    with patch(
+        "app.modules.integrations.inbox.gmail_repo.get_for_user",
+        AsyncMock(return_value=MagicMock()),
+    ):
+        assert await email_service.is_connected(session, uuid4()) is True
+
+
+@pytest.mark.asyncio
+async def test_load_gmail_context_uses_cache():
+    from app.gateways import google_gmail_gateway
+    from app.modules.integrations import inbox as email_service
+
+    session = MagicMock()
+    redis = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings()
+    conn = MagicMock()
+    conn.google_email = "me@example.com"
+    conn.refresh_token = "refresh"
+
+    cached = '[{"id": "1", "subject": "Cached", "snippet": "Hi"}]'
+
+    with (
+        patch.object(google_gmail_gateway, "is_configured", return_value=True),
+        patch(
+            "app.modules.integrations.inbox.gmail_repo.get_for_user",
+            AsyncMock(return_value=conn),
+        ),
+        patch.object(redis, "get", AsyncMock(return_value=cached)),
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.list_pending_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        ctx = await email_service.load_gmail_context(session, redis, user, settings)
+
+    assert ctx is not None
+    email, messages, pending, fetch_error = ctx
+    assert email == "me@example.com"
+    assert messages[0].subject == "Cached"
+    assert pending == []
+    assert fetch_error is None
+
+
+@pytest.mark.asyncio
+async def test_load_gmail_context_uses_empty_cache_without_refetch():
+    from app.gateways import google_gmail_gateway
+    from app.modules.integrations import inbox as email_service
+
+    session = MagicMock()
+    redis = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings()
+    conn = MagicMock()
+    conn.google_email = "me@example.com"
+    conn.refresh_token = "refresh"
+
+    list_recent = AsyncMock()
+
+    with (
+        patch.object(google_gmail_gateway, "is_configured", return_value=True),
+        patch(
+            "app.modules.integrations.inbox.gmail_repo.get_for_user",
+            AsyncMock(return_value=conn),
+        ),
+        patch.object(redis, "get", AsyncMock(return_value="[]")),
+        patch.object(google_gmail_gateway, "list_recent_messages", list_recent),
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.list_pending_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        ctx = await email_service.load_gmail_context(session, redis, user, settings)
+
+    assert ctx is not None
+    _, messages, _, fetch_error = ctx
+    assert messages == []
+    assert fetch_error is None
+    list_recent.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_load_gmail_for_prompt_returns_block():
+    from app.modules.integrations import inbox as email_service
+
+    session = MagicMock()
+    redis = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings()
+
+    with patch(
+        "app.modules.integrations.inbox.load_gmail_context",
+        AsyncMock(
+            return_value=(
+                "me@example.com",
+                [],
+                [],
+                None,
+            )
+        ),
+    ):
+        block = await email_service.load_gmail_for_prompt(session, redis, user, settings)
+
+    assert block is not None
+    assert "me@example.com" in block
+
+
+@pytest.mark.asyncio
+async def test_load_gmail_for_prompt_not_connected_is_explicit():
+    from app.modules.integrations import inbox as email_service
+
+    session = MagicMock()
+    redis = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings(gmail_enabled=True, google_client_id="x", google_client_secret="y")
+
+    with patch(
+        "app.modules.integrations.inbox.load_gmail_context",
+        AsyncMock(return_value=None),
+    ):
+        block = await email_service.load_gmail_for_prompt(session, redis, user, settings)
+
+    assert block is not None
+    assert "not connected" in block.lower()
+    assert "Settings → Gmail" in block
+    assert "do not skip inbox" in block.lower()
+    assert "ordinary markdown prose" in block
+    assert "Never a callout card" in block
+
+
+@pytest.mark.asyncio
+async def test_load_gmail_for_prompt_not_configured_is_silent():
+    from app.modules.integrations import inbox as email_service
+
+    session = MagicMock()
+    redis = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings(gmail_enabled=False)
+
+    with patch(
+        "app.modules.integrations.inbox.load_gmail_context",
+        AsyncMock(return_value=None),
+    ):
+        block = await email_service.load_gmail_for_prompt(session, redis, user, settings)
+
+    assert block is None
+
+
+def test_format_gmail_block_fetch_error():
+    from app.modules.integrations import inbox as email_service
+
+    block = email_service.format_gmail_block(
+        google_email="me@example.com",
+        messages=[],
+        pending_suggestions=[],
+        fetch_error="token expired",
+    )
+    assert "token expired" in block
+
+
+@pytest.mark.asyncio
+async def test_sync_gmail_processes_messages():
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.modules.integrations import inbox as email_service
+
+    session = MagicMock()
+    settings = Settings()
+    user_id = uuid4()
+    conn = MagicMock()
+    conn.refresh_token = "refresh"
+    conn.google_email = "me@example.com"
+
+    message = GmailMessage(
+        id="g1",
+        subject="Flight",
+        snippet="Your flight",
+        body_text="",
+        received_at=None,
+        ics_content="SUMMARY:Flight AA123\nDTSTART:20260701T080000Z",
+    )
+    created_row = MagicMock()
+
+    user = MagicMock()
+    user.timezone = "America/Los_Angeles"
+
+    with (
+        patch(
+            "app.modules.integrations.inbox.gmail_gateway.is_configured",
+            return_value=True,
+        ),
+        patch(
+            "app.modules.integrations.inbox.gmail_repo.get_for_user",
+            AsyncMock(return_value=conn),
+        ),
+        patch(
+            "app.modules.integrations.inbox.gmail_gateway.list_recent_messages",
+            AsyncMock(return_value=[message]),
+        ),
+        patch(
+            "app.modules.integrations.inbox.users_repo.get_by_id",
+            AsyncMock(return_value=user),
+        ),
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.existing_message_ids",
+            AsyncMock(return_value=set()),
+        ),
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.create",
+            AsyncMock(return_value=created_row),
+        ) as create_mock,
+        patch(
+            "app.modules.integrations.inbox.gmail_repo.update_last_sync",
+            AsyncMock(),
+        ),
+    ):
+        message_count, reminders_created = await email_service.sync_gmail_for_user(
+            session, settings, user_id
+        )
+
+    assert message_count == 1
+    assert reminders_created == 1
+    create_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_sync_gmail_gathers_llm_extracts_before_writes():
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.modules.integrations import inbox as email_service
+
+    session = AsyncMock()
+    settings = Settings()
+    user_id = uuid4()
+    conn = MagicMock()
+    conn.refresh_token = "refresh"
+    conn.google_email = "me@example.com"
+    user = MagicMock()
+    user.timezone = "UTC"
+
+    messages = [
+        GmailMessage(
+            id=f"g{i}",
+            subject=f"Meet {i}",
+            snippet="please confirm",
+            body_text="interview tomorrow",
+            received_at=None,
+            ics_content=None,
+        )
+        for i in range(3)
+    ]
+    item = email_service.SuggestedReminderItem(title="Interview", confidence=0.9)
+    extract_calls: list[str] = []
+
+    async def fake_extract(settings, message):
+        extract_calls.append(message.id)
+        await asyncio.sleep(0)
+        return item
+
+    with (
+        patch("app.modules.integrations.inbox.gmail_gateway.is_configured", return_value=True),
+        patch(
+            "app.modules.integrations.inbox.gmail_repo.get_for_user", AsyncMock(return_value=conn)
+        ),
+        patch(
+            "app.modules.integrations.inbox.gmail_gateway.list_recent_messages",
+            AsyncMock(return_value=messages),
+        ),
+        patch("app.modules.integrations.inbox.users_repo.get_by_id", AsyncMock(return_value=user)),
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.existing_message_ids",
+            AsyncMock(return_value=set()),
+        ),
+        patch("app.modules.integrations.inbox._extract_with_llm", fake_extract),
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.create",
+            AsyncMock(),
+        ) as create_mock,
+        patch("app.modules.integrations.inbox.gmail_repo.update_last_sync", AsyncMock()),
+    ):
+        message_count, reminders_created = await email_service.sync_gmail_for_user(
+            session, settings, user_id
+        )
+
+    assert message_count == 3
+    assert reminders_created == 3
+    assert extract_calls == ["g0", "g1", "g2"]
+    assert create_mock.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_sync_gmail_records_ignored_scans_and_skips_known_ids():
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.modules.integrations import inbox as email_service
+
+    session = AsyncMock()
+    settings = Settings()
+    user_id = uuid4()
+    conn = MagicMock()
+    conn.refresh_token = "refresh"
+    message = GmailMessage(
+        id="g-empty",
+        subject="Hello",
+        snippet="just saying hi",
+        body_text="hey",
+        received_at=None,
+        ics_content=None,
+    )
+    user = MagicMock()
+    user.timezone = "UTC"
+
+    with (
+        patch("app.modules.integrations.inbox.gmail_gateway.is_configured", return_value=True),
+        patch(
+            "app.modules.integrations.inbox.gmail_repo.get_for_user", AsyncMock(return_value=conn)
+        ),
+        patch(
+            "app.modules.integrations.inbox.gmail_gateway.list_recent_messages",
+            AsyncMock(return_value=[message]),
+        ),
+        patch("app.modules.integrations.inbox.users_repo.get_by_id", AsyncMock(return_value=user)),
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.existing_message_ids",
+            AsyncMock(return_value=set()),
+        ),
+        patch(
+            "app.modules.integrations.inbox._extract_with_llm", AsyncMock(return_value=None)
+        ) as llm,
+        patch("app.modules.integrations.inbox.suggested_repo.create", AsyncMock()) as create_mock,
+        patch("app.modules.integrations.inbox.gmail_repo.update_last_sync", AsyncMock()),
+    ):
+        count, created = await email_service.sync_gmail_for_user(session, settings, user_id)
+
+    assert count == 1
+    assert created == 0
+    llm.assert_awaited_once()
+    assert create_mock.await_args.kwargs["status"] == "ignored"
+    assert create_mock.await_args.kwargs["gmail_message_id"] == "g-empty"
+
+    llm.reset_mock()
+    create_mock.reset_mock()
+    with (
+        patch("app.modules.integrations.inbox.gmail_gateway.is_configured", return_value=True),
+        patch(
+            "app.modules.integrations.inbox.gmail_repo.get_for_user", AsyncMock(return_value=conn)
+        ),
+        patch(
+            "app.modules.integrations.inbox.gmail_gateway.list_recent_messages",
+            AsyncMock(return_value=[message]),
+        ),
+        patch("app.modules.integrations.inbox.users_repo.get_by_id", AsyncMock(return_value=user)),
+        patch(
+            "app.modules.integrations.inbox.suggested_repo.existing_message_ids",
+            AsyncMock(return_value={"g-empty"}),
+        ),
+        patch("app.modules.integrations.inbox._extract_with_llm", llm),
+        patch("app.modules.integrations.inbox.suggested_repo.create", create_mock),
+        patch("app.modules.integrations.inbox.gmail_repo.update_last_sync", AsyncMock()),
+    ):
+        await email_service.sync_gmail_for_user(session, settings, user_id)
+
+    llm.assert_not_awaited()
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_disconnect_gmail_clears_redis_cache():
+    from app.modules.integrations import connect as google_integrations_service
+    from app.modules.integrations import inbox as email_service
+
+    user_id = uuid4()
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings()
+
+    with (
+        patch(
+            "app.modules.integrations.connect.revoke_on_disconnect",
+            AsyncMock(),
+        ),
+        patch(
+            "app.modules.integrations.connect.suggested_repo.delete_for_user",
+            AsyncMock(),
+        ),
+        patch(
+            "app.modules.integrations.connect.gmail_repo.delete_for_user",
+            AsyncMock(),
+        ),
+        patch(
+            "app.modules.integrations.connect.home_service.invalidate_home_cache",
+            AsyncMock(),
+        ),
+    ):
+        await google_integrations_service.disconnect_gmail(session, redis, settings, user_id)
+
+    redis.delete.assert_awaited_once_with(email_service._cache_key(user_id))

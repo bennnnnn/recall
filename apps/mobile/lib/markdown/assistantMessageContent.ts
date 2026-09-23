@@ -1,5 +1,5 @@
-import type { CalendarProposal } from "@/lib/calendarProposal";
-import { parseCalendarProposals, stripCalendarProposalFences } from "@/lib/calendarProposal";
+import type { CalendarProposal } from "@/features/integrations/model/calendarProposal";
+import { parseCalendarProposals, stripCalendarProposalFences } from "@/features/integrations/model/calendarProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
 import { stripReminderFences } from "@/features/todos/model/reminderFence";

@@ -16,9 +16,10 @@ from app.models.schemas.math import MathImageExtract
 from app.modules import learning as learning_service
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
+from app.modules.integrations import calendar as calendar_service
+from app.modules.integrations import inbox as email_service
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
-from app.services import calendar as calendar_service
 from app.services import locale as locale_service
 from app.services import profile as profile_service
 from app.services import response_tone as response_tone_service
@@ -92,7 +93,6 @@ from app.services.chat.prompt_constants.visuals import (
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
-from app.services.email import context as email_service
 from app.services.math import tools as math_tools_service
 from app.services.math.followup import (
     MATH_FOLLOWUP_HINT,

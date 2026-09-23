@@ -8,7 +8,7 @@ import { parsePlacesJson } from "@/lib/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
-import { EmailCard } from "@/components/rich/EmailCard";
+import { EmailCard } from "@/features/integrations/components/EmailCard";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import {
   LazyChartBlock,

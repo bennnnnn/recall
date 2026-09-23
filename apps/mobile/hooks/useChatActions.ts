@@ -10,7 +10,7 @@ import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
 import { useChatManagementActions } from "@/hooks/useChatManagementActions";
-import { fullEmailText } from "@/lib/emailCompose";
+import { fullEmailText } from "@/features/integrations/model/emailCompose";
 import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
 import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
