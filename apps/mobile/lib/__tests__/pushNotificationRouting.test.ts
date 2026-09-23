@@ -38,7 +38,7 @@ function fakeRouter() {
 describe("handlePushNotificationResponse: job_search_ready", () => {
   it("opens the dedicated My Job dashboard", async () => {
     const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", {
+    await handlePushNotificationResponse(router, {
       type: "job_search_ready",
       screen: "my-job",
       profile_id: "profile-1",
@@ -48,7 +48,7 @@ describe("handlePushNotificationResponse: job_search_ready", () => {
 
   it("also routes on the dedicated screen value", async () => {
     const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", { screen: "my-job" });
+    await handlePushNotificationResponse(router, { screen: "my-job" });
     expect(router.push).toHaveBeenCalledWith("/my-job");
   });
 });
@@ -56,7 +56,7 @@ describe("handlePushNotificationResponse: job_search_ready", () => {
 describe("handlePushNotificationResponse: learning + suggestions", () => {
   it("sends learning pushes straight to the lesson map", async () => {
     const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", {
+    await handlePushNotificationResponse(router, {
       type: "learning_review",
       project_id: "p1",
     });
@@ -65,7 +65,7 @@ describe("handlePushNotificationResponse: learning + suggestions", () => {
 
   it("routes email suggestions to Schedule even when a project id is present", async () => {
     const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", {
+    await handlePushNotificationResponse(router, {
       type: "email_suggestion",
       project_id: "p1",
     });
@@ -74,7 +74,7 @@ describe("handlePushNotificationResponse: learning + suggestions", () => {
 
   it("focuses Schedule on the event day for calendar nudges", async () => {
     const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", {
+    await handlePushNotificationResponse(router, {
       type: "calendar_nudge",
       event_start: "2026-09-18T17:30:00.000Z",
     });
@@ -89,7 +89,7 @@ describe("handlePushNotificationResponse: learning + suggestions", () => {
 
   it("falls back to plain Schedule when the nudge carries no start", async () => {
     const router = fakeRouter();
-    await handlePushNotificationResponse(router, "tok", { type: "calendar_nudge" });
+    await handlePushNotificationResponse(router, { type: "calendar_nudge" });
     expect(router.push).toHaveBeenCalledWith({ pathname: "/todos", params: {} });
   });
 });
@@ -99,7 +99,6 @@ describe("handlePushNotificationResponse: already on target", () => {
     const router = fakeRouter();
     await handlePushNotificationResponse(
       router,
-      "tok",
       { type: "todo_due", todo_id: "t1" },
       "/todos",
     );

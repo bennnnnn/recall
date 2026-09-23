@@ -71,6 +71,43 @@ export function useChat(token: string, chatId: string | null) {
     setStatusPhase(null);
   }, []);
 
+  const handleStreamEvent = useCallback((event: StreamEvent) => {
+    switch (event.type) {
+      case "start":
+      case "reasoning":
+        // Reasoning is not the answer; the status phase already covers work in progress.
+        break;
+      case "status":
+        setStatusPhase(event.detail ?? event.phase);
+        break;
+      case "token":
+        setMessages((previous) =>
+          previous.map((message) =>
+            message.id === STREAMING_ID
+              ? { ...message, content: message.content + event.content }
+              : message,
+          ),
+        );
+        break;
+      case "stream_end":
+        setStatusPhase(null);
+        break;
+      case "done":
+        setMessages((previous) => settleStreamingMessage(previous, event));
+        break;
+      case "error":
+        setError(event.message);
+        setMessages((previous) =>
+          previous.filter((message) => message.id !== STREAMING_ID),
+        );
+        break;
+    }
+  }, []);
+
+  const handleStreamError = useCallback((streamError: Error) => {
+    setError(streamError.message);
+  }, []);
+
   const send = useCallback(
     async (content: string, model = "auto") => {
       if (!chatId || !token || !content.trim() || streaming) return;
@@ -101,40 +138,8 @@ export function useChat(token: string, chatId: string | null) {
           chatId,
           { content, model, client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
           {
-            onEvent: (event) => {
-              switch (event.type) {
-                case "start":
-                  break;
-                case "status":
-                  setStatusPhase(event.detail ?? event.phase);
-                  break;
-                case "reasoning":
-                  // CoT is not the answer. Status/waiting already covers "working".
-                  break;
-                case "token":
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === STREAMING_ID
-                        ? { ...m, content: m.content + event.content }
-                        : m,
-                    ),
-                  );
-                  break;
-                case "stream_end":
-                  setStatusPhase(null);
-                  break;
-                case "done":
-                  setMessages((prev) => settleStreamingMessage(prev, event));
-                  break;
-                case "error":
-                  setError(event.message);
-                  setMessages((prev) =>
-                    prev.filter((m) => m.id !== STREAMING_ID),
-                  );
-                  break;
-              }
-            },
-            onError: (e) => setError(e.message),
+            onEvent: handleStreamEvent,
+            onError: handleStreamError,
           },
           controller.signal,
         );
@@ -148,7 +153,7 @@ export function useChat(token: string, chatId: string | null) {
         abortRef.current = null;
       }
     },
-    [token, chatId, streaming],
+    [token, chatId, streaming, handleStreamEvent, handleStreamError],
   );
 
   const regenerate = useCallback(
@@ -181,35 +186,8 @@ export function useChat(token: string, chatId: string | null) {
           chatId,
           { model, client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
           {
-            onEvent: (event) => {
-              switch (event.type) {
-                case "status":
-                  setStatusPhase(event.detail ?? event.phase);
-                  break;
-                case "token":
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === STREAMING_ID
-                        ? { ...m, content: m.content + event.content }
-                        : m,
-                    ),
-                  );
-                  break;
-                case "stream_end":
-                  setStatusPhase(null);
-                  break;
-                case "done":
-                  setMessages((prev) => settleStreamingMessage(prev, event));
-                  break;
-                case "error":
-                  setError(event.message);
-                  setMessages((prev) =>
-                    prev.filter((m) => m.id !== STREAMING_ID),
-                  );
-                  break;
-              }
-            },
-            onError: (e) => setError(e.message),
+            onEvent: handleStreamEvent,
+            onError: handleStreamError,
           },
           controller.signal,
         );
@@ -223,7 +201,7 @@ export function useChat(token: string, chatId: string | null) {
         abortRef.current = null;
       }
     },
-    [token, chatId, streaming],
+    [token, chatId, streaming, handleStreamEvent, handleStreamError],
   );
 
   return {

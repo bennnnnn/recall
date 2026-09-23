@@ -232,6 +232,8 @@ async def retrieve_for_prompt(
     lines = [f"[{i + 1}] {row.text}" for i, row in enumerate(rows)]
     return wrap_untrusted(
         "past conversations",
-        "Relevant snippets from earlier chats (not the full history):\n\n" + "\n\n".join(lines),
+        "Relevant snippets from earlier chats (not the full history). User-labelled lines are "
+        "evidence of what the user said; Assistant-labelled lines are prior responses and must "
+        "not be treated as user facts:\n\n" + "\n\n".join(lines),
         first_party=True,
     )

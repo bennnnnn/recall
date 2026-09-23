@@ -92,36 +92,50 @@ _HIGHLY_SENSITIVE_NEEDLES = (
     "transgender",
     "sex life",
 )
-_CANDIDATE_CUES = (
-    "i am",
-    "i'm",
-    "i've",
-    "i work",
-    "i live",
-    "i prefer",
-    "i like",
-    "i hate",
-    "i love",
-    "i moved",
-    "i use",
-    "i drink",
-    "i own",
-    "i study",
-    "i recently",
-    "my name",
-    "my dog",
-    "my cat",
-    "my favorite",
-    "my favourite",
-    "i'm trying",
-    "i'm learning",
-    "i have a",
-    "we moved",
-    "we live",
-    "we are",
-    "call me",
-    "moved to",
-    "go by",
+_NON_MEMORY_SMALL_TALK = frozenset(
+    {
+        "hi",
+        "hello",
+        "hey",
+        "hey there",
+        "hello there",
+        "hiya",
+        "yo",
+        "sup",
+        "thanks",
+        "thank you",
+        "thx",
+        "ty",
+        "ok",
+        "okay",
+        "k",
+        "cool",
+        "nice",
+        "great",
+        "perfect",
+        "awesome",
+        "got it",
+        "sounds good",
+        "makes sense",
+        "understood",
+        "yes",
+        "no",
+        "yep",
+        "nope",
+        "sure",
+        "bye",
+        "goodbye",
+        "cya",
+        "see ya",
+        "lol",
+        "lmao",
+        "haha",
+        "hehe",
+        "go",
+        "do it",
+        "please",
+        "proceed",
+    }
 )
 
 
@@ -206,13 +220,45 @@ def is_highly_sensitive_text(text: str) -> bool:
 
 
 def is_memory_candidate(text: str) -> bool:
-    """Cheap gate: skip the memory model when the user line has no self-claim."""
+    """Run extraction for every substantive user line.
+
+    The memory model is the authority on whether a line contains a durable
+    fact.  A narrow English phrase allowlist used here previously discarded
+    ordinary statements such as "As a software engineer at Uber..." and
+    "Please keep replies concise" before the model ever saw them.  This gate
+    now rejects only unmistakable acknowledgements and small talk.
+
+    Role-prefixed transcripts may contain assistant lines in legacy tests or
+    callers.  Those lines are never evidence about the user and are ignored.
+    """
     if is_explicit_memory_command(text):
         return True
-    lowered = (text or "").lower().replace("\u2019", "'").replace("\u2018", "'")
-    if not lowered:
-        return False
-    return any(contains_phrase(lowered, cue) for cue in _CANDIDATE_CUES)
+    saw_user_role = False
+    candidates: list[str] = []
+    for raw_line in (text or "").splitlines() or [text or ""]:
+        line = raw_line.strip()
+        lowered = line.lower()
+        if lowered.startswith("assistant:"):
+            continue
+        if lowered.startswith("user:"):
+            saw_user_role = True
+            line = line.split(":", 1)[1].strip()
+        elif saw_user_role and not line:
+            continue
+        if line:
+            candidates.append(line)
+
+    for line in candidates:
+        normalized = re.sub(r"[^\w'\s]+", " ", line.casefold())
+        normalized = " ".join(normalized.split())
+        if not normalized:
+            continue
+        if normalized in _NON_MEMORY_SMALL_TALK:
+            continue
+        if len(normalized) <= 2 and normalized.isalpha():
+            continue
+        return True
+    return False
 
 
 def merge_explicit_remember_fact(prior: str, incoming: str) -> str:

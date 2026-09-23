@@ -172,7 +172,6 @@ type PlaybackHandle = {
 
 const CLOUD_PLAYBACK_MAX_MS = 300_000;
 let cloudPlaybackFinish: (() => void) | null = null;
-let cloudPlayer: PlaybackHandle | null = null;
 
 function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MAX_MS): Promise<void> {
   return new Promise((resolve) => {
@@ -232,9 +231,7 @@ async function playCloudBase64(
     await writeAsStringAsync(path, audioBase64, { encoding: EncodingType.Base64 });
     if (!isCurrentSpeak(generation)) return { ok: true };
     const player = Audio.createAudioPlayer(path, { updateInterval: 50 }) as PlaybackHandle;
-    cloudPlayer = player;
     cloudPlayerCleanup = () => {
-      cloudPlayer = null;
       try {
         player.pause();
       } catch {

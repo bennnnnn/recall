@@ -4,6 +4,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit, mock_search_results, search_web
+from app.models.schemas import WebSearchClassification
 from app.services.web_search import (
     augment_prompt_messages,
     build_search_queries,
@@ -15,6 +16,7 @@ from app.services.web_search import (
     needs_web_search,
     resolve_search_subject,
     should_web_search,
+    web_search_skip,
 )
 
 
@@ -38,6 +40,20 @@ from app.services.web_search import (
         ("Where am iI", False),
         ("help me write an email to my boss", False),
         ("remember that I like hiking", False),
+        ("I work at Uber but I want to change to Google", False),
+        (
+            "Where do I work right now, and which company am I considering for the future?",
+            False,
+        ),
+        ("Who do I work for?", False),
+        ("What company do I work at?", False),
+        ("Where am I currently employed?", False),
+        ("What's my current employer?", False),
+        ("What is my job?", False),
+        ("Which company am I targeting?", False),
+        ("What is my career goal?", False),
+        ("Do you remember where I work?", False),
+        ("What do you know about my career?", False),
         ("Best restaurants near me", True),
         ("where should I eat tonight?", True),
         ("What am I trying to get done today?", False),
@@ -995,6 +1011,59 @@ async def test_should_web_search_classifier_no_for_stable_topic():
         web_search_classifier_enabled=True,
     )
     assert await should_web_search("Explain how recursion works in Python", settings) is False
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_skips_classifier_for_plain_personal_disclosure():
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    with patch(
+        "app.services.web_search.detection.classify_web_search",
+        AsyncMock(),
+    ) as classify:
+        assert (
+            await should_web_search(
+                "I work at Uber but I want to change to Google",
+                settings,
+            )
+            is False
+        )
+    classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "We need a hotel in Paris",
+        "Our team needs current API pricing",
+    ],
+)
+async def test_collective_implicit_request_reaches_web_search_classifier(query):
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    assert web_search_skip(query) is False
+    with patch(
+        "app.services.web_search.detection.classify_web_search",
+        AsyncMock(return_value=WebSearchClassification(needs_search=True, query=query)),
+    ) as classify:
+        assert await should_web_search(query, settings) is True
+    classify.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_skips_classifier_for_personal_memory_question():
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    with patch(
+        "app.services.web_search.detection.classify_web_search",
+        AsyncMock(),
+    ) as classify:
+        assert (
+            await should_web_search(
+                "Where do I work right now, and which company am I considering for the future?",
+                settings,
+            )
+            is False
+        )
+    classify.assert_not_awaited()
 
 
 @pytest.mark.asyncio

@@ -1,24 +1,19 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { Alert } from "react-native";
 import MemoryScreen from "@/app/memory";
 
 let mockSession = 1;
 let mockToken: string | null = "token-a";
 let mockFocused = true;
 const mockLoad = jest.fn(async () => {});
-const mockDeleteSection = jest.fn(async () => true);
-const mockDeleteFact = jest.fn(async () => true);
-const mockDestructive = jest.fn();
 const mockUpdate = jest.fn(async () => true);
 const mockFeedback = { error: jest.fn() };
 const mockRouter = { replace: jest.fn() };
-const mockMute = jest.fn(async () => true);
 const mockT = (key: string) => key;
-const sample = { id: "m1", type: "profile", text: "First fact.", confidence: 0.9, created_at: "2026-01-01", updated_at: "2026-01-01" };
+const mockIconPresses = new Map<string, () => void>();
+const sample = { id: "m1", type: "profile", text: "First fact.", confidence: 0.9, created_at: "2026-01-01", updated_at: "2026-01-01", source_chat_title: "Original chat" };
 let mockMemories = [sample];
 let mockError = false;
 let mockPending = new Set<string>();
-let mockSheet: { onSave: () => void; onCancel: () => void };
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => {
@@ -31,17 +26,32 @@ jest.mock("@/contexts/AuthContext", () => {
 });
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: (...args: unknown[]) => mockFeedback.error(...args) }));
-jest.mock("@/lib/haptics", () => ({
-  ...jest.requireActual("@/lib/haptics"),
-  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
-}));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/components/IconButton", () => ({
+  IconButton: ({
+    onPress,
+    accessibilityLabel,
+    disabled,
+  }: {
+    onPress: () => void;
+    accessibilityLabel: string;
+    disabled?: boolean;
+  }) => {
+    const { Pressable } = jest.requireActual("react-native");
+    mockIconPresses.set(accessibilityLabel, onPress);
+    return (
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityLabel={accessibilityLabel}
+      />
+    );
+  },
+}));
 jest.mock("@/components/SkeletonLoader", () => ({ SkeletonList: () => null }));
-jest.mock("@/components/AppSheet", () => ({ AppSheet: ({ visible, children }: { visible: boolean; children: React.ReactNode }) => visible ? children : null }));
-jest.mock("@/components/SheetFormHeader", () => ({ SheetFormHeader: (props: typeof mockSheet) => { mockSheet = props; return null; } }));
 jest.mock("@/components/StateView", () => ({ StateView: ({ onRetry }: { onRetry?: () => void }) => {
   const { Text } = jest.requireActual("react-native");
   return <Text onPress={onRetry}>Retry</Text>;
@@ -58,21 +68,18 @@ jest.mock("expo-router", () => ({
 jest.mock("@/lib/cache/memoryListCache", () => ({ getCachedMemories: () => mockMemories }));
 jest.mock("@/hooks/useMemoryActions", () => ({ useMemoryActions: () => ({
   memories: mockMemories, loading: false, error: mockError, load: mockLoad,
-  hasLoaded: mockHasLoaded, deleteSection: mockDeleteSection, deleteFact: mockDeleteFact,
-  muteMemory: mockMute, updateMemoryText: mockUpdate, pendingTypes: mockPending, isCurrentOwner: () => true,
+  hasLoaded: mockHasLoaded, updateMemoryText: mockUpdate, pendingTypes: mockPending,
+  isCurrentOwner: () => true,
 }) }));
 const mockHasLoaded = () => true;
 
 beforeEach(() => {
   jest.clearAllMocks(); mockSession = 1; mockToken = "token-a"; mockFocused = true;
+  mockIconPresses.clear();
   mockMemories = [sample]; mockError = false; mockPending = new Set();
-  mockUpdate.mockResolvedValue(true); mockDeleteSection.mockResolvedValue(true); mockDeleteFact.mockResolvedValue(true);
-  jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  mockUpdate.mockResolvedValue(true);
 });
 afterEach(() => jest.restoreAllMocks());
-function confirmDelete(): () => Promise<void> {
-  return (Alert.alert as jest.Mock).mock.calls.at(-1)[2][1].onPress;
-}
 async function beginEdit(ui: Awaited<ReturnType<typeof render>>) {
   await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
   await fireEvent.changeText(ui.getByDisplayValue(sample.text), "Updated fact");
@@ -81,37 +88,20 @@ async function beginEdit(ui: Awaited<ReturnType<typeof render>>) {
 it("shows each saved fact", async () => {
   const ui = await render(<MemoryScreen />);
   expect(ui.getByText("First fact.")).toBeTruthy();
+  expect(ui.getAllByLabelText("memory.edit_fact_a11y")).toHaveLength(1);
+  expect(ui.queryByLabelText("memory.delete_fact_a11y")).toBeNull();
+  expect(ui.queryByLabelText("memory.delete_section_a11y")).toBeNull();
+  expect(ui.queryByText("memory.last_confirmed")).toBeNull();
+  expect(ui.queryByText("memory.source_chat")).toBeNull();
 });
 
-it.each(["account", "blur", "blur-refocus", "unmount"])("ignores a retained delete confirmation after %s", async (change) => {
+it("edits directly in the memory card without a modal or duplicate edit control", async () => {
   const ui = await render(<MemoryScreen />);
-  await fireEvent.press(ui.getByLabelText("memory.delete_section_a11y"));
-  const confirm = confirmDelete();
-  if (change === "account") mockSession++;
-  if (change.startsWith("blur")) { mockFocused = false; await ui.rerender(<MemoryScreen />); }
-  if (change === "blur-refocus") { mockFocused = true; await ui.rerender(<MemoryScreen />); }
-  if (change === "unmount") await ui.unmount();
-  await act(async () => { await confirm(); });
-  expect(mockDeleteSection).not.toHaveBeenCalled();
-  expect(mockFeedback.error).not.toHaveBeenCalled();
-});
-
-it("haptics only after the confirmed memory deletion succeeds", async () => {
-  let resolve!: (ok: boolean) => void;
-  mockDeleteSection.mockReturnValueOnce(
-    new Promise<boolean>((done) => { resolve = done; }),
-  );
-  const ui = await render(<MemoryScreen />);
-
-  await fireEvent.press(ui.getByLabelText("memory.delete_section_a11y"));
-  expect(mockDestructive).not.toHaveBeenCalled();
-
-  let pending!: Promise<void>;
-  await act(async () => { pending = confirmDelete()(); });
-  expect(mockDestructive).not.toHaveBeenCalled();
-
-  await act(async () => { resolve(true); await pending; });
-  expect(mockDestructive).toHaveBeenCalledTimes(1);
+  await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
+  expect(ui.getByLabelText("memory.edit_title")).toBeTruthy();
+  expect(ui.queryByLabelText("memory.edit_fact_a11y")).toBeNull();
+  expect(ui.getByLabelText("common.save")).toBeTruthy();
+  expect(ui.getByLabelText("common.cancel")).toBeTruthy();
 });
 
 it("clears an account's editor before showing the next account", async () => {
@@ -136,7 +126,8 @@ it("deduplicates Save callbacks invoked before React rerenders", async () => {
   let resolve!: (ok: boolean) => void;
   mockUpdate.mockReturnValue(new Promise<boolean>((done) => { resolve = done; }));
   const ui = await render(<MemoryScreen />); await beginEdit(ui);
-  const save = mockSheet.onSave;
+  const save = mockIconPresses.get("common.save")!;
+  expect(save).toBeDefined();
   await act(() => { save(); save(); });
   expect(mockUpdate).toHaveBeenCalledTimes(1);
   await act(async () => { resolve(true); });
@@ -146,10 +137,11 @@ it("does not report a failed save in a different account", async () => {
   let resolve!: (ok: boolean) => void;
   mockUpdate.mockReturnValue(new Promise<boolean>((done) => { resolve = done; }));
   const ui = await render(<MemoryScreen />); await beginEdit(ui);
-  await act(() => { mockSheet.onSave(); });
+  const save = mockIconPresses.get("common.save")!;
+  await act(() => { save(); });
   mockSession++; mockToken = "token-b"; await ui.rerender(<MemoryScreen />);
   await act(async () => { resolve(false); });
-  expect(Alert.alert).not.toHaveBeenCalled();
+  expect(mockFeedback.error).not.toHaveBeenCalled();
 });
 
 it("preserves an edit through normal token refresh", async () => {
@@ -164,7 +156,8 @@ it("edits a maximum-length stamped section without sending the server stamp back
   const ui = await render(<MemoryScreen />);
   await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
   expect(ui.getByDisplayValue(body)).toBeTruthy();
-  await act(() => { mockSheet.onSave(); });
+  const save = mockIconPresses.get("common.save")!;
+  await act(async () => { save(); await Promise.resolve(); });
   expect(mockUpdate).toHaveBeenCalledWith(sample.id, body);
 });
 
@@ -180,7 +173,7 @@ it("disables mutations for a section with a pending write", async () => {
   mockPending.add("profile");
   const ui = await render(<MemoryScreen />);
   await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
-  await fireEvent.press(ui.getByLabelText("memory.delete_section_a11y"));
   expect(ui.queryByDisplayValue(sample.text)).toBeNull();
-  expect(Alert.alert).not.toHaveBeenCalled();
+  expect(ui.queryByLabelText("memory.delete_fact_a11y")).toBeNull();
+  expect(ui.queryByLabelText("memory.delete_section_a11y")).toBeNull();
 });

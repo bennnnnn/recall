@@ -224,6 +224,87 @@ describe("ChatComposer math keyboard", () => {
     });
   });
 
+  it("preserves a leading Return while keeping whitespace-only layout compact", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+
+    const { getByTestId } = await render(<Harness />);
+    const composerInput = getByTestId("chat-composer-input");
+
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+    expect(composerInput.props.placeholder).toBe("chat.placeholder");
+
+    await fireEvent.changeText(composerInput, "\n");
+    await fireEvent(composerInput, "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 50 } },
+    });
+
+    expect(getByTestId("chat-composer-input").props.value).toBe("\n");
+    expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 25 });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+  });
+
+  it("preserves leading indentation while typing a code block", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+
+    const { getByTestId } = await render(<Harness />);
+    const composerInput = getByTestId("chat-composer-input");
+
+    await fireEvent.changeText(composerInput, " ");
+    expect(getByTestId("chat-composer-input").props.value).toBe(" ");
+    await fireEvent.changeText(getByTestId("chat-composer-input"), "  const answer = 42;");
+    expect(getByTestId("chat-composer-input").props.value).toBe("  const answer = 42;");
+  });
+
+  it("bottom-aligns controls only after visible multiline text is entered", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"First line\nSecond line"} />,
+    );
+
+    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 50 } },
+    });
+
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("offers a full-height editor when the multiline input reaches its limit", async () => {
+    const { getByTestId, getByLabelText } = await render(
+      <ChatComposer
+        {...baseProps}
+        input={"A long draft\n".repeat(20)}
+      />,
+    );
+    const composerInput = getByTestId("chat-composer-input");
+
+    await fireEvent(composerInput, "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 190 } },
+    });
+
+    expect(composerInput).toHaveStyle({ height: 150 });
+    expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
+      expanded: false,
+    });
+
+    await fireEvent.press(getByLabelText("rich.expand"));
+
+    expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
+      expanded: true,
+    });
+    expect(getByTestId("chat-composer")).toHaveStyle({ top: 8 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({
+      flex: 1,
+      minHeight: 0,
+    });
+    expect(getByLabelText("rich.collapse")).toBeTruthy();
+  });
+
   it("uses Ionicon send and stop glyphs instead of text arrows", async () => {
     const { queryByText, getByLabelText, rerender } = await render(
       <ChatComposer {...baseProps} input="hi" />,
@@ -861,6 +942,7 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("live-talk-close")).toBeTruthy();
     expect(getByTestId("chat-composer-input")).toBeTruthy();
     expect(getByLabelText("chat.attach_a11y")).toBeTruthy();
+    expect(getByTestId("composer-attachment-add-icon").props.name).toBe("add");
   });
 
   it("hides mute and close while the user is typing in live talk", async () => {

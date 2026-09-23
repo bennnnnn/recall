@@ -36,8 +36,8 @@ def test_realtime_instructions_include_memory_block():
     prompt = _realtime_instructions(None, memory_block="Allergic to peanuts")
     assert "[BEGIN UNTRUSTED CONTENT — memory]" in prompt
     assert "Allergic to peanuts" in prompt
-    assert "user-saved notes" in prompt
-    assert "do not recite them back" in prompt
+    assert "first-party context" in prompt
+    assert "recite the context back" in prompt
 
 
 def test_realtime_instructions_include_schedule_block():

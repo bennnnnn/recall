@@ -80,10 +80,15 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 |---|------|-----|---------|-------|
 | 5.1 | Memory screen — view + delete | ☐ | ☐ | |
 | 5.2 | Memory toggle in Settings | ☐ | ☐ | |
-| 5.3 | Todos CRUD + reminders | ☐ | ☐ | |
-| 5.4 | Learning project — vocab quiz flow | ☐ | ☐ | |
-| 5.5 | Trivia project quiz | ☐ | ☐ | |
-| 5.6 | Home suggestions load | ☐ | ☐ | |
+| 5.3 | Natural profile fact carries into a new chat | ☐ | ☐ | Say “As a software engineer at Uber…” without “remember”; later advice should use it naturally |
+| 5.4 | Durable reply preference is learned and applied | ☐ | ☐ | “From now on, keep answers concise and scannable”; a later unrelated turn should follow it without announcing memory |
+| 5.5 | “What do you know about me?” gives a safe useful summary | ☐ | ☐ | Work, interests, preferences, goals, projects are allowed; never dump email, exact location, inbox, schedule, or sensitive facts |
+| 5.6 | Relevant detail from an older chat is recalled on an ordinary turn | ☐ | ☐ | User should not need to say “remember” or “last time” |
+| 5.7 | Correction and forget commands update recall | ☐ | ☐ | New employer supersedes old; explicit forget removes the fact from future prompts |
+| 5.8 | Todos CRUD + reminders | ☐ | ☐ | |
+| 5.9 | Learning project — vocab quiz flow | ☐ | ☐ | |
+| 5.10 | Trivia project quiz | ☐ | ☐ | |
+| 5.11 | Home suggestions load | ☐ | ☐ | |
 
 ---
 

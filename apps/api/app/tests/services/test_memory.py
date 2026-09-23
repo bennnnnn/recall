@@ -491,11 +491,17 @@ def test_format_memory_block_keeps_relevant_focus_over_unread_tail():
 
 def test_is_memory_candidate_skips_small_talk():
     assert is_memory_candidate("hey there") is False
+    assert is_memory_candidate("User: thanks") is False
+    assert is_memory_candidate("Assistant: The user's dog is Max.\nUser: thanks") is False
     assert is_memory_candidate("I like Python") is True
     assert is_memory_candidate("Remember that my dog is Max") is True
     assert is_memory_candidate("My favorite color is blue") is True
     assert is_memory_candidate("We moved to Boston") is True
     assert is_memory_candidate("Call me Sam") is True
+    assert is_memory_candidate("As a software engineer at Uber, I work on mobile apps") is True
+    assert is_memory_candidate("I want short, direct answers with examples") is True
+    assert is_memory_candidate("Long walls of text make it hard for me to scan") is True
+    assert is_memory_candidate("Please keep replies concise and show the steps") is True
 
 
 def test_facts_need_consolidation_detects_exact_and_near_duplicates():

@@ -347,6 +347,111 @@ LIGHTWEIGHT_REPLY_HINT = (
     "Do not dig into memory, lists, calendar, or projects unless the user asked."
 )
 
+PERSONAL_DISCLOSURE_HINT = (
+    "The user is sharing personal context or a goal, not asking for a task. Your entire reply "
+    "must be one or two natural sentences with no heading, list, steps, or action plan. "
+    "Acknowledge the update and connect relevant known context only when useful. Do not browse, "
+    "draft outreach, recommend next steps, or turn the statement into unsolicited advice. You "
+    "may ask one brief follow-up question only if it would genuinely help. When the update "
+    "contrasts a current situation with a future goal, explicitly preserve both in the "
+    "acknowledgement (currently at X; considering Y) instead of mentioning only the goal."
+)
+
+_PERSONAL_DISCLOSURE_PREFIXES = (
+    "i'm ",
+    "i\u2019m ",
+    "i am ",
+    "i work ",
+    "i currently ",
+    "i have ",
+    "i prefer ",
+    "i like ",
+    "i love ",
+    "i dislike ",
+    "i use ",
+    "i live ",
+    "i study ",
+    "i learn ",
+    "i got ",
+    "i started ",
+    "i moved ",
+    "i finished ",
+    "i decided ",
+    "my ",
+    "remember that ",
+    "remember this ",
+    "please remember ",
+    "don't forget ",
+    "do not forget ",
+)
+_PERSONAL_REQUEST_MARKERS = (
+    " can you ",
+    " could you ",
+    " would you ",
+    " will you ",
+    " should i ",
+    " help me ",
+    " tell me ",
+    " give me ",
+    " find ",
+    " search ",
+    " look up ",
+    " write ",
+    " draft ",
+    " compose ",
+    " email ",
+    " message ",
+    " text ",
+    " reply ",
+    " rewrite ",
+    " create ",
+    " make ",
+    " build ",
+    " show ",
+    " explain ",
+    " plan ",
+    " compare ",
+    " recommend ",
+    " advise ",
+    " advice ",
+    " what ",
+    " how ",
+    " why ",
+    " when ",
+    " where ",
+    " which ",
+    " who ",
+    " latest ",
+    " news ",
+    " need ",
+    " needs ",
+    " looking for ",
+)
+
+_COLLECTIVE_DISCLOSURE = re.compile(
+    r"^(?:"
+    r"we\s+(?:work|live|study|learn|prefer|like|love|dislike|use|moved|started|finished|decided)\b|"
+    r"we\s+are\s+(?:based|employed|living|working|studying|learning|moving)\b|"
+    r"we(?:'|\u2019)re\s+(?:based|employed|living|working|studying|learning|moving)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def is_personal_disclosure_turn(text: str) -> bool:
+    """True for a first-person fact/goal with no actual request attached."""
+    cleaned = collapse_ws(text).casefold()
+    if not cleaned or "?" in cleaned:
+        return False
+    if not cleaned.startswith(_PERSONAL_DISCLOSURE_PREFIXES) and not _COLLECTIVE_DISCLOSURE.match(
+        cleaned
+    ):
+        return False
+    request_text = re.sub(r"[^\w']+", " ", cleaned)
+    padded = f" {request_text} "
+    return not any(marker in padded for marker in _PERSONAL_REQUEST_MARKERS)
+
+
 CONFIRM_FOLLOW_THROUGH_HINT = (
     "The user accepted your last offer with a short yes/go/sure. "
     "Carry out that offer now. Do not treat this as a greeting or a one-word ack."

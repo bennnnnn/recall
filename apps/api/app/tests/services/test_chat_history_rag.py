@@ -271,7 +271,23 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
     assert blocks.history_rag_query_vec == [0.2]
 
 
+def test_slim_memory_cap_keeps_complete_fact_boundaries():
+    from app.services.chat.prompt_builder import _cap_slim_memory_block
+
+    first_fact = "x" * 600
+    second_fact = "y" * 600
+    block = f"Known facts about the user:\n\n## Preferences\n- {first_fact}\n- {second_fact}"
+
+    capped = _cap_slim_memory_block(block)
+
+    assert len(capped) <= 1000
+    assert f"- {first_fact}" in capped
+    assert "y" not in capped
+    assert not capped.endswith("…")
+
+
 @pytest.mark.asyncio
+@pytest.mark.parametrize("rich_context", [True, False], ids=["rich", "slim"])
 @pytest.mark.parametrize(
     "has_chunks,query_vec",
     [
@@ -280,8 +296,10 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
         pytest.param(True, [0.2] * 1536, id="embedded-history"),
     ],
 )
-async def test_build_prompt_uses_gathered_history_embedding_once(has_chunks, query_vec):
-    """Empty results stay empty; successful gathered vectors still retrieve context."""
+async def test_build_prompt_uses_gathered_history_embedding_once(
+    has_chunks, query_vec, rich_context
+):
+    """Rich and ordinary slim turns both retrieve relevant long-term context."""
     from app.services.chat.prompt_builder import build_prompt_messages
 
     query = "which couch did we pick last year?"
@@ -324,7 +342,7 @@ async def test_build_prompt_uses_gathered_history_embedding_once(has_chunks, que
             Settings(chat_history_rag_enabled=True, attachment_rag_enabled=False),
             query_text=query,
             chat=chat,
-            rich_context=True,
+            rich_context=rich_context,
             recent_messages=[],
         )
 

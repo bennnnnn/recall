@@ -27,7 +27,7 @@ export type Chat = {
   updated_at: string;
 };
 
-export type Feedback = "up" | "down" | null;
+type Feedback = "up" | "down" | null;
 
 export type SearchSource = {
   title: string;

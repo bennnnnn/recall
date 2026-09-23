@@ -732,7 +732,7 @@ async def test_build_prompt_includes_memory_and_style():
     assert "Biniyam Mecuriaw" in messages[0]["content"]
     # Account email is gated to email/tool intents — omitted on a plain "Hi".
     assert "bmecuriaw@gmail.com" not in messages[0]["content"]
-    assert "user-saved notes about themselves" in messages[0]["content"]
+    assert "first-party context" in messages[0]["content"]
     assert "short" in messages[0]["content"].lower()
     assert "1-3 sentences" in messages[0]["content"].lower()
     assert "**HTML UI**" not in messages[0]["content"]
@@ -874,7 +874,7 @@ async def test_build_prompt_includes_response_tone():
     assert "Tone: PROFESSIONAL" in messages[0]["content"]
     assert "Privacy:" in messages[0]["content"]
     assert "'Who am I?'" in messages[0]["content"]
-    assert "do NOT list email" in messages[0]["content"]
+    assert "Never include email" in messages[0]["content"]
 
 
 @pytest.mark.asyncio
@@ -1078,19 +1078,42 @@ async def test_build_prompt_minimal_for_who_am_i():
     user.locale = "en"
     user.timezone = "UTC"
 
-    with patch("app.repositories.messages.list_recent", return_value=[]):
+    chat = MagicMock(project_id=None)
+    with (
+        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(
+                return_value=(
+                    "Known facts about the user:\n\n"
+                    "## Profile\n- Works as a software engineer at Uber.\n\n"
+                    "## Preferences\n- Prefers concise, step-by-step explanations."
+                )
+            ),
+        ) as memory_mock,
+        patch(
+            "app.services.chat.history_rag.embed_query_for_prompt",
+            AsyncMock(return_value=None),
+        ) as history_embed,
+    ):
         messages = await build_prompt_messages(
             user,
             AsyncMock(),
             Settings(),
+            query_text="What do you know about me?",
             minimal_personal_context=True,
+            chat=chat,
         )
 
     system = messages[0]["content"]
+    memory_mock.assert_awaited_once()
+    assert history_embed.await_args.kwargs["query"].startswith("Personal details the user stated")
     assert "Binalfew" in system
+    assert "software engineer at Uber" in system
+    assert "concise, step-by-step" in system
     assert "secret@example.com" not in system
     assert "San Francisco" not in system
-    assert "general 'who am I' question" in system
+    assert "explicitly asked what you know" in system
     assert "Recall has two features" not in system
     assert "Recall has two todo features" not in system
 
@@ -1153,8 +1176,8 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
 
 
 @pytest.mark.asyncio
-async def test_build_prompt_casual_chitchat_skips_memory_without_phrase_list():
-    """Casual chat opts out of rich context systemically — not via greeting allowlist."""
+async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
+    """A substantive slim turn keeps personal continuity without loading integrations."""
     user = MagicMock()
     user.name = "Dev User"
     user.email = "dev@example.com"
@@ -1166,6 +1189,7 @@ async def test_build_prompt_casual_chitchat_skips_memory_without_phrase_list():
     user.locale = "en"
     user.timezone = "UTC"
     user.custom_instructions = "Always mention my cat Fluffy."
+    chat = MagicMock(project_id=None)
 
     statuses: list[str] = []
 
@@ -1176,8 +1200,12 @@ async def test_build_prompt_casual_chitchat_skips_memory_without_phrase_list():
         patch("app.repositories.messages.list_recent", return_value=[]) as recent_mock,
         patch(
             "app.services.memory.get_memory_block",
-            AsyncMock(return_value="MEMORY SHOULD NOT LOAD"),
+            AsyncMock(return_value="Prefers warm but concise replies."),
         ) as memory_mock,
+        patch(
+            "app.services.chat.history_rag.embed_query_for_prompt",
+            AsyncMock(return_value=None),
+        ),
         patch(
             "app.services.todos.build_todos_system_section",
             AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
@@ -1191,16 +1219,18 @@ async def test_build_prompt_casual_chitchat_skips_memory_without_phrase_list():
             lightweight=False,
             rich_context=False,
             on_status=capture_status,
+            chat=chat,
         )
 
     recent_mock.assert_awaited()
-    memory_mock.assert_not_awaited()
+    memory_mock.assert_awaited_once()
     todos_mock.assert_not_awaited()
     assert statuses == []
     system = messages[0]["content"]
     assert "Dev" in system
     assert "short social turn" not in system
-    assert "MEMORY SHOULD NOT LOAD" not in system
+    assert "Prefers warm but concise replies" in system
+    assert "[BEGIN UNTRUSTED CONTENT — memory]" in system
     assert "TODOS SHOULD NOT LOAD" not in system
     assert "Fluffy" in system
     assert "[BEGIN USER PREFERENCES]" in system

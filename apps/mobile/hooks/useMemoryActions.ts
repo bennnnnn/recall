@@ -142,20 +142,6 @@ export function useMemoryActions(token: string | null) {
     });
   }, [token, isCurrentOwner, mutate]);
 
-  const muteMemory = useCallback(async (memoryId: string, muted: boolean): Promise<boolean> => {
-    if (!token || !isCurrentOwner()) return false;
-    const snapshot = getCachedMemories()?.find((row) => row.id === memoryId);
-    if (!snapshot) return false;
-    const status = muted ? "muted" : "active";
-    return mutate(snapshot.type,
-      (rows) => restoreRows(rows, [{ ...snapshot, status }]),
-      (rows) => restoreRows(rows, [snapshot]),
-      async () => {
-        const updated = await api.updateMemory(token, memoryId, { status });
-        return (rows) => restoreRows(rows, [updated]);
-      });
-  }, [token, isCurrentOwner, mutate]);
-
   const updateMemoryText = useCallback(async (memoryId: string, nextText: string): Promise<boolean> => {
     if (!token || !isCurrentOwner()) return false;
     const snapshot = getCachedMemories()?.find((row) => row.id === memoryId);
@@ -171,5 +157,5 @@ export function useMemoryActions(token: string | null) {
 
   const hasLoaded = useCallback(() => isCurrentOwner() && loadingState.current.hasLoaded, [isCurrentOwner]);
   return { memories: view.memories, loading: view.loading, error: view.error,
-    pendingTypes: view.pendingTypes, load, hasLoaded, isCurrentOwner, deleteSection, deleteFact, muteMemory, updateMemoryText };
+    pendingTypes: view.pendingTypes, load, hasLoaded, isCurrentOwner, deleteSection, deleteFact, updateMemoryText };
 }

@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,8 +11,6 @@ import {
   memoryRowKey,
   type MemoryRow,
 } from "@/components/memory/MemoryRows";
-import { AppSheet } from "@/components/AppSheet";
-import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,7 +20,6 @@ import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { Memory } from "@/lib/api";
 import { getCachedMemories } from "@/lib/cache/memoryListCache";
 import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/lib/memoryFacts";
-import { notifyDestructive } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -56,9 +46,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     error,
     load,
     hasLoaded,
-    deleteSection,
-    deleteFact,
-    muteMemory,
     updateMemoryText,
     pendingTypes,
   } = useMemoryActions(token);
@@ -116,28 +103,23 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   const rows = useMemo<MemoryRow[]>(() => {
     const out: MemoryRow[] = [];
-    for (const section of sections) {
+    sections.forEach((section, sectionIndex) => {
       const pending = pendingTypes.has(section.type);
-      out.push({ kind: "section", type: section.type, pending });
+      out.push({ kind: "section", type: section.type, first: sectionIndex === 0 });
       section.facts.forEach((fact, index) =>
         out.push({
           kind: "fact",
-          sectionType: section.type,
           fact,
           pending,
           first: index === 0,
-          last: index === section.facts.length - 1,
+          last:
+            sectionIndex === sections.length - 1 &&
+            index === section.facts.length - 1,
         }),
       );
-    }
+    });
     return out;
   }, [sections, pendingTypes]);
-
-  const stickyHeaderIndices = useMemo(
-    () =>
-      rows.flatMap((row, index) => (row.kind === "section" ? [index] : [])),
-    [rows],
-  );
 
   const handleEditFact = useCallback(
     (fact: Memory) => {
@@ -146,71 +128,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       setDraftText(stripMemoryAsOf(fact.text));
     },
     [isCurrentView, pendingTypes],
-  );
-
-  const handleDeleteSection = useCallback(
-    (type: string) => {
-      if (!token || !isCurrentView()) return;
-      Alert.alert(
-        t("memory.delete_confirm_title"),
-        t("memory.delete_confirm_body"),
-        [
-          { text: t("common.cancel"), style: "cancel" },
-          {
-            text: t("common.delete"),
-            style: "destructive",
-            onPress: async () => {
-              if (!isCurrentView()) return;
-              const ok = await deleteSection(type);
-              if (isCurrentView()) {
-                if (ok) notifyDestructive();
-                else reportRecoverableError(feedback, t("memory.delete_failed"));
-              }
-            },
-          },
-        ],
-      );
-    },
-    [token, isCurrentView, t, deleteSection, feedback],
-  );
-
-  const handleDeleteFact = useCallback(
-    (fact: Memory) => {
-      if (!token || !isCurrentView()) return;
-      Alert.alert(
-        t("memory.delete_fact_title"),
-        t("memory.delete_fact_body"),
-        [
-          { text: t("common.cancel"), style: "cancel" },
-          {
-            text: t("common.delete"),
-            style: "destructive",
-            onPress: async () => {
-              if (!isCurrentView()) return;
-              const ok = await deleteFact(fact);
-              if (isCurrentView()) {
-                if (ok) notifyDestructive();
-                else reportRecoverableError(feedback, t("memory.delete_failed"));
-              }
-            },
-          },
-        ],
-      );
-    },
-    [token, isCurrentView, t, deleteFact, feedback],
-  );
-
-  const handleMuteFact = useCallback(
-    (fact: Memory) => {
-      if (!token || !isCurrentView() || pendingTypes.has(fact.type)) return;
-      void (async () => {
-        const ok = await muteMemory(fact.id, fact.status !== "muted");
-        if (isCurrentView() && !ok) {
-          reportRecoverableError(feedback, t("memory.mute_failed"));
-        }
-      })();
-    },
-    [token, isCurrentView, pendingTypes, muteMemory, feedback, t],
   );
 
   const draftLength = useMemo(() => Array.from(stripMemoryAsOf(draftText)).length, [draftText]);
@@ -251,12 +168,10 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   }
 
   return (
-    <>
       <FlashList
         data={rows}
         keyExtractor={memoryRowKey}
         getItemType={(row) => row.kind}
-        stickyHeaderIndices={stickyHeaderIndices}
         style={s.root}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
         refreshControl={
@@ -276,7 +191,6 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         ListHeaderComponent={
           <View>
             <Text style={s.heading}>{t("memory.heading")}</Text>
-            <Text style={s.subheading}>{t("memory.section_hint")}</Text>
             {error ? (
               <StateView
                 variant="error"
@@ -289,61 +203,25 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }
         renderItem={({ item }) =>
           item.kind === "section" ? (
-            <MemorySectionHeader
-              type={item.type}
-              pending={item.pending}
-              onDeleteSection={handleDeleteSection}
-            />
+            <MemorySectionHeader type={item.type} first={item.first} />
           ) : (
             <MemoryFactRow
               fact={item.fact}
               pending={item.pending}
               first={item.first}
               last={item.last}
+              editing={editing?.id === item.fact.id}
+              draftText={editing?.id === item.fact.id ? draftText : ""}
+              draftTooLong={editing?.id === item.fact.id && draftTooLong}
+              saving={editing?.id === item.fact.id && savingEdit}
               onEditFact={handleEditFact}
-              onDeleteFact={handleDeleteFact}
-              onMuteFact={handleMuteFact}
+              onChangeDraft={setDraftText}
+              onSaveEdit={() => void saveEdit()}
+              onCancelEdit={closeEdit}
             />
           )
         }
       />
-
-      <AppSheet
-        visible={editing != null}
-        onClose={closeEdit}
-        variant="bottom"
-        keyboardAvoiding
-        withHandle={false}
-        backdropDismiss={!savingEdit}
-        contentContainerStyle={s.editSheet}
-      >
-        <SheetFormHeader
-          title={t("memory.edit_title")}
-          onCancel={closeEdit}
-          onSave={() => void saveEdit()}
-          cancelLabel={t("common.cancel")}
-          saveLabel={t("common.save")}
-          saving={savingEdit}
-          saveDisabled={!stripMemoryAsOf(draftText) || Array.from(stripMemoryAsOf(draftText)).length > MEMORY_TEXT_MAX_LENGTH}
-        />
-        <View style={s.editBody}>
-          <Text style={s.editHint}>{t("memory.edit_hint")}</Text>
-          <TextInput
-            style={[s.editInput, draftTooLong && s.editInputError]}
-            accessibilityLabel={t("memory.edit_title")}
-            value={draftText}
-            onChangeText={setDraftText}
-            multiline
-            editable={!savingEdit}
-            autoFocus
-            textAlignVertical="top"
-          />
-          <Text style={[s.editCounter, draftTooLong && s.editCounterOver]}>
-            {t("memory.edit_count", { count: draftLength, max: MEMORY_TEXT_MAX_LENGTH })}
-          </Text>
-        </View>
-      </AppSheet>
-    </>
   );
 }
 
@@ -357,44 +235,6 @@ function makeStyles(theme: Theme) {
     },
     root: { flex: 1, backgroundColor: theme.bg },
     content: { padding: Space.md },
-    heading: { ...Type.title, color: theme.text, marginBottom: Space.xs },
-    subheading: {
-      ...Type.label,
-      fontWeight: "400",
-      color: theme.textSecondary,
-      marginBottom: 20,
-      // No fixed lineHeight: let it scale with Dynamic Type.
-    },
-    editSheet: {
-      paddingHorizontal: 0,
-      paddingTop: 0,
-    },
-    editBody: { padding: Space.md },
-    editHint: {
-      ...Type.label,
-      fontWeight: "400",
-      color: theme.textSecondary,
-      // No fixed lineHeight: let it scale with Dynamic Type.
-      marginBottom: Space.sm,
-    },
-    editInput: {
-      minHeight: 140,
-      maxHeight: 240,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: 12,
-      padding: Space.sm,
-      ...Type.secondary,
-      color: theme.text,
-      backgroundColor: theme.bg,
-    },
-    editInputError: { borderColor: theme.danger },
-    editCounter: {
-      ...Type.caption,
-      color: theme.textTertiary,
-      textAlign: "right",
-      marginTop: Space.xs,
-    },
-    editCounterOver: { color: theme.danger },
+    heading: { ...Type.title, color: theme.text, marginBottom: 20 },
   });
 }

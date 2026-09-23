@@ -193,11 +193,6 @@ export function ConversationList() {
     router.push("/gallery");
   }, [router, token]);
 
-  const openMemory = useCallback(() => {
-    closeDrawer();
-    router.push("/memory");
-  }, [router]);
-
   const onShowRowMenu = useCallback(
     (chat: Chat) => {
       tap();
@@ -255,7 +250,6 @@ export function ConversationList() {
           onProjects={openProjects}
           onReminders={openReminders}
           onGallery={openGallery}
-          onMemory={openMemory}
         />
         <DrawerListHeader
           loading={loading}
@@ -280,7 +274,6 @@ export function ConversationList() {
       openProjects,
       openReminders,
       openGallery,
-      openMemory,
       loading,
       error,
       allChats.length,

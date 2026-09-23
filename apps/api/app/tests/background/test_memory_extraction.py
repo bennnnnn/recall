@@ -225,6 +225,40 @@ async def test_extract_runs_on_favorite_color_self_fact():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "transcript",
+    [
+        "As a software engineer at Uber, I work on mobile apps.",
+        "I want short, direct answers with examples.",
+        "Please keep replies concise and show the steps.",
+    ],
+)
+async def test_extract_sends_natural_personal_statements_to_memory_model(transcript: str):
+    _, session_locals = _extraction_sessions()
+    revise = AsyncMock(return_value=None)
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=_user()),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            revise,
+        ),
+    ):
+        await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript=transcript
+        )
+
+    revise.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_extract_and_store_drops_section_with_empty_summary_after_normalize():
     settings = Settings(memory_min_confidence=0.4)
     extraction = _ops(

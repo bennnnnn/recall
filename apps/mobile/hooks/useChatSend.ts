@@ -30,6 +30,7 @@ import {
 } from "@/lib/images/imageGenIntent";
 import { extractImageLookupQuery } from "@/lib/images/imageLookupIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
+import { retireHomeGuidance } from "@/lib/homeGuidancePrefs";
 import type { ClientGeo } from "@/lib/clientGeo";
 import {
   queryNeedsClientGeo,
@@ -105,7 +106,6 @@ type Options = {
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
   isOffline: boolean;
-  resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
   onGenerateImage?: (
@@ -135,12 +135,12 @@ export function useChatSend({
   setMessages,
   messages,
   selectedModel,
+  user,
   updateUser,
   t,
   onStreamBusy,
   onOfflineBlocked,
   isOffline,
-  resolveQuizProjectId,
   onBeforeSend,
   onGenerateImage,
   imageGenerating = false,
@@ -349,6 +349,7 @@ export function useChatSend({
         const imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
         if (imagePrompt) {
           if (imageGenerating) return;
+          if (user?.id) void retireHomeGuidance(user.id);
           sendInFlightRef.current = true;
           setSendPhase("preparing");
           const draftsPromise = flushEmailDrafts();
@@ -404,6 +405,8 @@ export function useChatSend({
       }
       const clientGeo = geoResult.clientGeo;
       setSendPhase(attached ? "uploading" : "preparing");
+
+      if (user?.id) void retireHomeGuidance(user.id);
 
       // Clear the composer immediately so the next draft can be typed.
       // Keep Send/Attach busy until the turn is accepted — an idle button
@@ -550,6 +553,7 @@ export function useChatSend({
       routeChatId,
       newMessageCountRef,
       selectedModel,
+      user,
       setMessages,
       prepareDraftChat,
       skipLoadForChatIdRef,
@@ -632,10 +636,6 @@ export function useChatSend({
           setMathScannerOpen(true);
           return;
         }
-        if (source === "library") {
-          router.push({ pathname: "/gallery", params: { pick: "1", composerThread } });
-          return;
-        }
         const picked =
           source === "camera"
             ? await pickFromCamera()
@@ -667,7 +667,7 @@ export function useChatSend({
         setAttachPicking(false);
       }
     },
-    [attachBusy, composerThread, feedback, router, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
+    [attachBusy, feedback, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
   );
 
   const handleMathScanCaptured = useCallback((pending: PendingAttachment, subject: ScannerSubject) => {

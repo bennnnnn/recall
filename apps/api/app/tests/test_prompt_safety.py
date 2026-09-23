@@ -37,7 +37,7 @@ def test_wrap_untrusted_first_party_keeps_fence_rewrites_preamble():
     out = wrap_untrusted("memory", "## Profile\nLikes Python", first_party=True)
     assert out.startswith("[BEGIN UNTRUSTED CONTENT — memory]")
     assert out.endswith("[END UNTRUSTED CONTENT — memory]")
-    assert "user-saved notes about themselves" in out
+    assert "first-party context" in out
     assert "external sources" not in out
     assert "Likes Python" in out
 

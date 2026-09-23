@@ -25,7 +25,6 @@
     "expo-apple-authentication": "~57.0.1",
     "expo-asset": "~57.0.6",
     "expo-audio": "~57.0.4",
-    "expo-auth-session": "^57.0.7",
     "expo-camera": "~57.0.4",
     "expo-clipboard": "^57.0.1",
     "expo-constants": "~57.0.17",
@@ -51,7 +50,6 @@
     "expo-speech": "^57.0.2",
     "expo-splash-screen": "~57.0.7",
     "expo-status-bar": "~57.0.1",
-    "expo-symbols": "~57.0.1",
     "expo-web-browser": "~57.0.1",
     "i18next": "^26.3.2",
     "katex": "^0.18.4",
@@ -59,13 +57,10 @@
     "markdown-it-task-lists": "^2.1.1",
     "mathjax-full": "^3.2.2",
     "prismjs": "^1.30.0",
-    "punycode": "^2.3.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-i18next": "^17.0.12",
     "react-native": "0.86.0",
-    "react-native-draggable-flatlist": "^4.0.3",
-    "react-native-drawer-layout": "^4.2.8",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-markdown-display": "^7.0.2",
     "react-native-purchases": "^10.4.4",
@@ -81,6 +76,7 @@
   },
   "devDependencies": {
     "@babel/plugin-transform-dynamic-import": "^7.29.7",
+    "@jest/globals": "^30.5.0",
     "@react-native/jest-preset": "0.86.0",
     "@react-native/metro-config": "0.86.0",
     "@testing-library/react-native": "^14.0.1",
@@ -122,7 +118,6 @@
       "decode-uri-component": "0.5.0"
     },
     "patchedDependencies": {
-      "react-native-draggable-flatlist@4.0.3": "patches/react-native-draggable-flatlist@4.0.3.patch",
       "decode-uri-component@0.5.0": "patches/decode-uri-component@0.5.0.patch"
     }
   },

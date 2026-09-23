@@ -319,8 +319,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
-- ✅ **Automatic extraction** — every user turn by default (`memory_extract_every_n_turns=1`;
-  always on turn 1). Ops can raise N to skip intermediate LLM cost. Each pass includes
+- ✅ **Automatic extraction** — every substantive user turn by default
+  (`memory_extract_every_n_turns=1`; always on turn 1). Only unmistakable greetings and
+  acknowledgements skip the memory model; natural self-descriptions and durable reply-style
+  corrections are evaluated without requiring phrases such as “I am” or “remember.” Ops can
+  raise N to skip intermediate LLM cost. Each pass includes
   user messages not processed by the previous pass (per-chat extract cursor), so a fact
   on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”
   still extract when N>1. No remember/forget chip or confirmation sheet.
@@ -389,8 +392,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   RAG gather on separate short-lived sessions so the prompt path stays concurrent without
   sharing one `AsyncSession`.
 - ✅ **Slim casual turns** — coaching / chit-chat uses a compact format + math-safety hint (not
-  the full visualization/math-solver pack) and skips calendar/gmail-nudge and web/math/chem
-  prefetch unless the turn is rich or actually needs search, math, chemistry, or calendar/gmail.
+  the full visualization/math-solver pack), keeps bounded personal memory and semantic history
+  available for continuity, and skips calendar/gmail-nudge and web/math/chem prefetch unless the
+  turn is rich or actually needs search, math, chemistry, or calendar/gmail. Exact greetings and
+  acknowledgements stay on the zero-retrieval fast path.
 - ✅ **Prompt token budgeting UI** — Settings → Usage shows today's used / daily
   limit. The composer
   shows a local draft estimate when the text is large enough to matter.

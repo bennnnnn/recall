@@ -1,7 +1,5 @@
 import { Platform } from "react-native";
 
-import { isExpoGo } from "@/lib/expoRuntime";
-
 type AppleAuthModule = typeof import("expo-apple-authentication");
 
 let appleModule: AppleAuthModule | null | undefined;

@@ -153,9 +153,10 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   );
 
   // Deep links (e.g. calendar nudges) can land on a specific day.
+  const goToDay = calendar.goToDay;
   useEffect(() => {
-    if (date) calendar.goToDay(date);
-  }, [date, calendar.goToDay]);
+    if (date) goToDay(date);
+  }, [date, goToDay]);
 
   if (!token) return <Redirect href="/login" />;
 

@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
 import { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
