@@ -63,7 +63,7 @@ describe("handlePushNotificationResponse: learning + suggestions", () => {
     expect(router.push).toHaveBeenCalledWith("/projects/p1/lesson");
   });
 
-  it("routes email suggestions to Schedule even when a project id is present", async () => {
+  it("routes email suggestions to To-do even when a project id is present", async () => {
     const router = fakeRouter();
     await handlePushNotificationResponse(router, {
       type: "email_suggestion",
@@ -72,25 +72,30 @@ describe("handlePushNotificationResponse: learning + suggestions", () => {
     expect(router.push).toHaveBeenCalledWith("/todos");
   });
 
-  it("focuses Schedule on the event day for calendar nudges", async () => {
+  it("carries event context into To-do for calendar nudges", async () => {
     const router = fakeRouter();
     await handlePushNotificationResponse(router, {
       type: "calendar_nudge",
+      event_id: "event-1",
+      event_title: "Design review",
       event_start: "2026-09-18T17:30:00.000Z",
     });
     const href = router.push.mock.calls[0][0] as {
       pathname: string;
-      params: { date: string };
+      params: { eventId: string; eventTitle: string; eventStart: string };
     };
     expect(href.pathname).toBe("/todos");
-    // Local day key derived from the timestamp (device timezone).
-    expect(href.params.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(href.params).toEqual({
+      eventId: "event-1",
+      eventTitle: "Design review",
+      eventStart: "2026-09-18T17:30:00.000Z",
+    });
   });
 
-  it("falls back to plain Schedule when the nudge carries no start", async () => {
+  it("falls back to chat for a legacy nudge with no event context", async () => {
     const router = fakeRouter();
     await handlePushNotificationResponse(router, { type: "calendar_nudge" });
-    expect(router.push).toHaveBeenCalledWith({ pathname: "/todos", params: {} });
+    expect(router.push).toHaveBeenCalledWith("/");
   });
 });
 

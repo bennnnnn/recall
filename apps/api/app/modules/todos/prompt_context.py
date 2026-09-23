@@ -19,10 +19,38 @@ from app.services import time_context as time_context_service
 
 # Voice inject stays shorter than typed-chat prompt_limit (48).
 _VOICE_TODO_LIMIT = 12
+_QUERY_STOP_TERMS = {
+    "from",
+    "list",
+    "need",
+    "please",
+    "reminder",
+    "show",
+    "task",
+    "todo",
+    "what",
+    "when",
+    "with",
+}
 
 
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _search_terms(text: str) -> set[str]:
+    """Small lexical normalization for list queries (grocery/groceries, tasks/task)."""
+    terms: set[str] = set()
+    for token in re.findall(r"[a-z0-9]+", _normalize(text)):
+        if len(token) < 4:
+            continue
+        if token.endswith("ies") and len(token) > 4:
+            token = f"{token[:-3]}y"
+        elif token.endswith("s") and not token.endswith("ss") and len(token) > 4:
+            token = token[:-1]
+        if token not in _QUERY_STOP_TERMS:
+            terms.add(token)
+    return terms
 
 
 @dataclass(frozen=True)
@@ -75,7 +103,7 @@ def _todo_priority(
     query_text: str | None,
     user_timezone: str | None,
 ) -> tuple[int, int, datetime]:
-    """Lower tuple sorts first — urgent dated items beat undated items."""
+    """Lower tuple sorts first — query matches survive prompt trimming."""
     tz = time_context_service.resolve_timezone(user_timezone)
     now = datetime.now(tz)
     bucket = 50
@@ -100,9 +128,9 @@ def _todo_priority(
     match_rank = 0
     if q:
         hay = f"{_normalize(item.content)} {_topic_key(item.topic)}"
-        if q in hay or any(token in hay for token in q.split() if len(token) >= 4):
+        if q in hay or _search_terms(q).intersection(_search_terms(hay)):
             match_rank = -1
-    return (bucket, match_rank, sort_due)
+    return (match_rank, bucket, sort_due)
 
 
 def select_todos_for_prompt(

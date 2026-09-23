@@ -4,8 +4,9 @@ import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
 import { TodoRow } from "@/features/todos/components/TodoRow";
+import { SuggestedReminderRow } from "@/features/todos/components/SuggestedReminderRow";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
-import type { Todo } from "@/lib/api";
+import type { SuggestedReminder, Todo } from "@/lib/api";
 import { todoListRowKey, type TodoListRow } from "@/features/todos/model/todoListRows";
 import { useTheme } from "@/lib/theme";
 
@@ -19,9 +20,12 @@ type Props = {
   highlight?: string;
   overlapNotes: Map<string, string>;
   busyTodoIds: ReadonlySet<string>;
+  busySuggestionIds: ReadonlySet<string>;
   onToggle: (todo: Todo) => void;
   onDue: (todo: Todo) => void;
   onDeleteItem: (todo: Todo) => void;
+  onAddSuggestion: (reminder: SuggestedReminder) => void;
+  onDismissSuggestion: (reminder: SuggestedReminder) => void;
 };
 
 function futureDayLabel(dayKey: string, locale: string): string {
@@ -45,9 +49,12 @@ export function TodosScrollList({
   highlight,
   overlapNotes,
   busyTodoIds,
+  busySuggestionIds,
   onToggle,
   onDue,
   onDeleteItem,
+  onAddSuggestion,
+  onDismissSuggestion,
 }: Props) {
   const { t, i18n } = useTranslation();
   const C = useTheme();
@@ -74,12 +81,24 @@ export function TodosScrollList({
         if (item.kind === "heading") {
           const title = item.section === "date" && item.dayKey
             ? futureDayLabel(item.dayKey, i18n.language)
-            : t(`todos.group_${item.section}`);
+            : item.section === "suggested"
+              ? t("chat.suggestions")
+              : t(`todos.group_${item.section}`);
           return (
             <View style={s.sectionHeader}>
               <Text style={s.sectionHeading}>{title}</Text>
               <Text style={s.sectionCount}>{item.count}</Text>
             </View>
+          );
+        }
+        if (item.kind === "suggestion") {
+          return (
+            <SuggestedReminderRow
+              reminder={item.reminder}
+              busy={busySuggestionIds.has(item.reminder.id)}
+              onAdd={() => onAddSuggestion(item.reminder)}
+              onDismiss={() => onDismissSuggestion(item.reminder)}
+            />
           );
         }
         return (

@@ -1,11 +1,16 @@
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/components/StateView";
+import {
+  CalendarNudgeCard,
+  type CalendarNudge,
+} from "@/features/todos/components/CalendarNudgeCard";
 
 type Props = {
   error: boolean;
   onRetry: () => void;
   showEmpty: boolean;
+  calendarNudge?: CalendarNudge | null;
 };
 
 /** Compact list state; the To-do page intentionally has no calendar wall. */
@@ -13,26 +18,28 @@ export function TodosListHeader({
   error,
   onRetry,
   showEmpty,
+  calendarNudge,
 }: Props) {
   const { t } = useTranslation();
 
-  if (error) {
-    return (
-      <StateView
-        variant="error"
-        title={t("common.error")}
-        onRetry={onRetry}
-        retryLabel={t("common.retry")}
-      />
-    );
-  }
-  if (!showEmpty) return null;
   return (
-    <StateView
-      variant="empty"
-      icon="checkmark-circle-outline"
-      title={t("todos.empty_title")}
-      message={t("todos.empty_body")}
-    />
+    <>
+      {calendarNudge ? <CalendarNudgeCard event={calendarNudge} /> : null}
+      {error ? (
+        <StateView
+          variant="error"
+          title={t("common.error")}
+          onRetry={onRetry}
+          retryLabel={t("common.retry")}
+        />
+      ) : showEmpty ? (
+        <StateView
+          variant="empty"
+          icon="checkmark-circle-outline"
+          title={t("todos.empty_title")}
+          message={t("todos.empty_body")}
+        />
+      ) : null}
+    </>
   );
 }

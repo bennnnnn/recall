@@ -28,7 +28,12 @@ it("groups dated and plain to-dos into a single urgency-ordered list", () => {
     todo("done", null, true),
   ], now);
 
-  expect(rows.map((row) => row.kind === "heading" ? row.section : row.todo.id)).toEqual([
+  expect(rows.map((row) => row.kind === "heading"
+    ? row.section
+    : row.kind === "todo"
+      ? row.todo.id
+      : row.reminder.id,
+  )).toEqual([
     "overdue",
     "overdue",
     "today",
@@ -49,5 +54,29 @@ it("treats an invalid due date as an anytime to-do", () => {
   expect(rows).toMatchObject([
     { kind: "heading", section: "anytime", count: 1 },
     { kind: "todo", todo: { id: "invalid" } },
+  ]);
+});
+
+it("puts actionable email suggestions before the dated list", () => {
+  const rows = buildTodoListRows(
+    [todo("today", new Date(2026, 8, 22, 17).toISOString())],
+    new Date(2026, 8, 22, 12),
+    [{
+      id: "suggestion-1",
+      title: "Reply to recruiter",
+      due_at: null,
+      notes: null,
+      confidence: 0.9,
+      source_snippet: null,
+      source_sender: "recruiter@example.com",
+      status: "pending",
+      created_at: "2026-09-22T08:00:00.000Z",
+      gmail_message_id: "gmail-1",
+    }],
+  );
+
+  expect(rows.slice(0, 2)).toMatchObject([
+    { kind: "heading", section: "suggested", count: 1 },
+    { kind: "suggestion", reminder: { id: "suggestion-1" } },
   ]);
 });

@@ -11,6 +11,7 @@ import { TodosScrollList } from "@/features/todos/components/TodosScrollList";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
 import { useTodosDerivedState } from "@/features/todos/hooks/useTodosDerivedState";
+import { useSuggestedReminders } from "@/features/todos/hooks/useSuggestedReminders";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
@@ -29,9 +30,11 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const navigation = useNavigation();
-  const { focus, highlight } = useLocalSearchParams<{
+  const { focus, highlight, eventTitle, eventStart } = useLocalSearchParams<{
     focus?: string;
     highlight?: string;
+    eventTitle?: string;
+    eventStart?: string;
   }>();
   const {
     todos,
@@ -60,6 +63,19 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setTodos,
     refresh,
   });
+  const {
+    reminders: suggestedReminders,
+    busyIds: busySuggestionIds,
+    refresh: refreshSuggestions,
+    add: addSuggestion,
+    dismiss: dismissSuggestion,
+  } = useSuggestedReminders({
+    token,
+    isCurrentSession,
+    isCurrentView,
+    setTodos,
+    refreshTodos: refresh,
+  });
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -72,12 +88,17 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     if (!isCurrentView() || refreshingRef.current) return;
     refreshingRef.current = true;
     setPullRefreshing(true);
-    try { await refresh({ silent: true, force: true }); }
+    try {
+      await Promise.all([
+        refresh({ silent: true, force: true }),
+        refreshSuggestions(),
+      ]);
+    }
     finally {
       refreshingRef.current = false;
       if (isCurrentView()) setPullRefreshing(false);
     }
-  }, [refresh, isCurrentView]);
+  }, [refresh, refreshSuggestions, isCurrentView]);
 
   const retry = useCallback(() => {
     if (isCurrentView()) void refresh({ force: true });
@@ -88,13 +109,21 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       <TodosListHeader
         error={Boolean(error)}
         onRetry={retry}
-        showEmpty={showTodosEmptyHero}
+        showEmpty={showTodosEmptyHero && suggestedReminders.length === 0}
+        calendarNudge={
+          typeof eventTitle === "string" && typeof eventStart === "string"
+            ? { title: eventTitle, startAt: eventStart }
+            : null
+        }
       />
     ),
-    [error, retry, showTodosEmptyHero],
+    [error, retry, showTodosEmptyHero, suggestedReminders.length, eventTitle, eventStart],
   );
 
-  const rows = useMemo(() => buildTodoListRows(todos), [todos]);
+  const rows = useMemo(
+    () => buildTodoListRows(todos, new Date(), suggestedReminders),
+    [todos, suggestedReminders],
+  );
   const overlapNotes = useMemo(() => buildReminderOverlapNotes(todos), [todos]);
 
   if (!token) return <Redirect href="/login" />;
@@ -127,9 +156,12 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         highlight={highlight}
         overlapNotes={overlapNotes}
         busyTodoIds={actions.busyTodoIds}
+        busySuggestionIds={busySuggestionIds}
         onToggle={actions.handleToggle}
         onDue={actions.openTodoEditor}
         onDeleteItem={actions.handleDeleteItem}
+        onAddSuggestion={addSuggestion}
+        onDismissSuggestion={dismissSuggestion}
       />
 
       <AddFab

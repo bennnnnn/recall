@@ -628,6 +628,26 @@ def test_select_todos_for_prompt_prioritizes_overdue():
     assert selected.index(overdue) < selected.index(future)
 
 
+def test_select_todos_for_prompt_keeps_matching_undated_item():
+    """A relevant plain task must not be trimmed behind unrelated reminders."""
+    now = datetime.now(UTC)
+    grocery = _item("Buy groceries for dinner", "General")
+    unrelated = [_item(f"Unrelated reminder {i}", "General") for i in range(8)]
+    unrelated[0].content = "Show weekly report"
+    for offset, item in enumerate(unrelated):
+        item.due_at = now + timedelta(hours=offset + 1)
+
+    selected = todos_service.select_todos_for_prompt(
+        [*unrelated, grocery],
+        Settings(todo_prompt_limit=8),
+        query_text="show my grocery list",
+        user_timezone="UTC",
+    )
+
+    assert grocery in selected
+    assert selected[0] is grocery
+
+
 def test_query_implies_todos():
     assert todos_service.query_implies_todos("What's on my todo list?")
     assert todos_service.query_implies_todos("mis recordatorios")
@@ -877,6 +897,63 @@ async def test_materialize_reminder_fences_creates_todo():
     # 3pm ET → 19:00 UTC
     assert kwargs["due_at"].hour == due.hour
     invalidate_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fence_dates_matching_plain_todo():
+    """A dated add promotes the existing plain task instead of only claiming it did."""
+    session = AsyncMock()
+    existing = _item("Water plants")
+    existing.due_at = None
+    existing.recurrence_rule = None
+    text = '```reminder\n{"title":"Water plants","due_at":"2026-09-07T18:00:00Z"}\n```\n'
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+        )
+
+    assert created == 1
+    assert "Set: Water plants" in updated
+    update_mock.assert_awaited_once()
+    assert update_mock.await_args.kwargs["due_at"] == datetime(2026, 9, 7, 18, 0, tzinfo=UTC)
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fence_keeps_same_title_on_another_day():
+    """Same-title reminders at different instants are not false duplicates."""
+    session = AsyncMock()
+    existing = _item("Water plants")
+    existing.due_at = datetime(2026, 9, 6, 18, 0, tzinfo=UTC)
+    existing.recurrence_rule = None
+    text = '```reminder\n{"title":"Water plants","due_at":"2026-09-07T18:00:00Z"}\n```\n'
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "update", AsyncMock()) as update_mock,
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        _updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+        )
+
+    assert created == 1
+    update_mock.assert_not_awaited()
+    create_mock.assert_awaited_once()
+    assert create_mock.await_args.kwargs["due_at"] == datetime(2026, 9, 7, 18, 0, tzinfo=UTC)
 
 
 @pytest.mark.asyncio

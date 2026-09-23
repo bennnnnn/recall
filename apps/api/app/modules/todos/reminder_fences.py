@@ -385,15 +385,29 @@ async def _load_existing(state: _ReminderFenceCreateState) -> None:
         state.existing_loaded = True
 
 
-def _existing_open_match(state: _ReminderFenceCreateState, title: str) -> TodoItem | None:
+def _existing_open_match(
+    state: _ReminderFenceCreateState, title: str, due_at: datetime | None
+) -> TodoItem | None:
+    """Find a true duplicate, or an undated task that can be promoted.
+
+    A same-title reminder on another day is a separate reminder.  Treating it
+    as a duplicate both lost the requested date and produced a false success
+    confirmation.  Plain to-dos keep the historical title-only de-duplication.
+    """
     needle = title.lower()
+    matches: list[TodoItem] = []
     for item in state.existing:
         if (item.content or "").strip().lower() != needle:
             continue
         if item.checked:
             continue
-        return item
-    return None
+        matches.append(item)
+    if due_at is None:
+        return matches[0] if matches else None
+    exact = next((item for item in matches if item.due_at == due_at), None)
+    if exact is not None:
+        return exact
+    return next((item for item in matches if item.due_at is None), None)
 
 
 def _existing_mutation_match(
@@ -413,8 +427,15 @@ async def _create_one(state: _ReminderFenceCreateState, draft: _ReminderFence) -
         due_at = snap_first_due(due_at, draft.repeat, timezone=state.user_timezone)
     title = draft.title.strip()
     await _load_existing(state)
-    match = _existing_open_match(state, title)
+    match = _existing_open_match(state, title, due_at)
     if match is not None:
+        updates: dict[str, object] = {}
+        if due_at is not None and match.due_at is None:
+            updates["due_at"] = due_at
+        if draft.repeat is not None and match.recurrence_rule != draft.repeat:
+            updates["recurrence_rule"] = draft.repeat
+        if updates:
+            match = await todos_repo.update(state.session, match, **updates)
         saved_due = match.due_at if match.due_at is not None else due_at
         return format_schedule_result(
             action="add",
