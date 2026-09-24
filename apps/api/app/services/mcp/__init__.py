@@ -6,7 +6,7 @@ from app.modules.images.gen_tool import ImageGenAdapter
 from app.modules.images.search_tool import ImageSearchAdapter
 from app.modules.integrations.tool import CalendarAdapter
 from app.modules.job_search.tool import JobSearchAdapter
-from app.services.mcp.sympy_adapter import SympyAdapter
+from app.modules.math.tool import SympyAdapter
 from app.services.mcp.web_search_adapter import WebSearchAdapter
 
 

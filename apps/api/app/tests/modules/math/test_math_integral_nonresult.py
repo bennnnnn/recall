@@ -8,11 +8,11 @@ from app.core.config import Settings
 from app.models.schemas.math import MathExprResult
 from app.modules.math import solve as math_solve
 from app.modules.math.fence import validate_math_fences
+from app.modules.math.tool import SympyAdapter
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.calculus_outcome import undefined_integral_note
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
-from app.services.mcp.sympy_adapter import SympyAdapter
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
