@@ -25,6 +25,8 @@ _EXPORTS = {
     "query_implies_todos": ("classification", "query_implies_todos"),
     "select_todos_for_prompt": ("prompt_context", "select_todos_for_prompt"),
     "should_inject_todos_prompt": ("prompt_context", "should_inject_todos_prompt"),
+    "next_recurring_due": ("recurrence", "next_recurring_due"),
+    "snap_first_due": ("recurrence", "snap_first_due"),
     "sync_todos_from_transcript": ("sync", "sync_todos_from_transcript"),
     "transcript_implies_todo_sync": ("classification", "transcript_implies_todo_sync"),
 }

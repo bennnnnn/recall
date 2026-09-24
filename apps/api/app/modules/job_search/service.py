@@ -18,10 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, web_search_gateway
-from app.gateways.storage_gateway import get_storage_gateway
 from app.models.orm import User
-from app.modules.attachments import content as attachment_content_service
-from app.modules.attachments import repository as attachments_repo
+from app.modules.attachments.service import OwnedDocumentError, read_verified_document
 from app.modules.job_search.models import JobMatch, JobSearchProfile
 from app.modules.job_search.schemas import (
     CoverLetterOut,
@@ -36,7 +34,7 @@ from app.modules.job_search.schemas import (
     JobSearchWorkMode,
     ResumeProfile,
 )
-from app.modules.todos.recurrence import snap_first_due
+from app.modules.todos import snap_first_due
 from app.services import plan as plan_service
 from app.services.prompt_safety import wrap_untrusted
 from app.services.time_context import normalize_due_at
@@ -230,42 +228,28 @@ async def _resume_details(
             existing.resume_profile,
         )
 
-    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
-    if row is None or row.verified_at is None:
-        raise JobSearchError(
-            "Resume file was not found or is still uploading",
-            status_code=422,
+    try:
+        document = await read_verified_document(
+            session,
+            settings,
+            user_id=user.id,
+            attachment_id=attachment_id,
+            max_chars=_MAX_RESUME_CHARS,
+            ocr_max_pages=min(settings.attachment_ocr_index_max_pages, 20),
         )
-    if row.content_type not in attachment_content_service.EXTRACTABLE_CONTENT_TYPES:
-        raise JobSearchError(
-            "Upload a PDF, DOCX, or text resume",
-            status_code=422,
-        )
-
-    gateway = get_storage_gateway(settings)
-    data = await attachment_content_service.read_attachment_bytes(
-        gateway,
-        row.storage_key,
-    )
-    if not data:
-        raise JobSearchError("Could not read the resume file", status_code=422)
-    details = await attachment_content_service.extract_text_details_async(
-        row.content_type,
-        data,
-        settings,
-        max_chars=_MAX_RESUME_CHARS,
-        ocr_max_pages=min(settings.attachment_ocr_index_max_pages, 20),
-    )
-    if details is None or not details.text.strip():
-        raise JobSearchError(
-            "Could not extract readable text from the resume",
-            status_code=422,
-        )
-    text = details.text.strip()[:_MAX_RESUME_CHARS]
+    except OwnedDocumentError as exc:
+        messages = {
+            "missing": "Resume file was not found or is still uploading",
+            "unsupported": "Upload a PDF, DOCX, or text resume",
+            "unreadable": "Could not read the resume file",
+            "empty": "Could not extract readable text from the resume",
+        }
+        raise JobSearchError(messages[exc.reason], status_code=422) from exc
+    text = document.text
     resume_profile = await extract_resume_profile(settings, text)
     return (
         text,
-        row.original_filename,
+        document.filename,
         resume_profile.model_dump() if resume_profile is not None else None,
     )
 

@@ -920,3 +920,26 @@ def test_mobile_speech_has_one_feature_home() -> None:
         if "__tests__" not in path.parts and "@/app/" in path.read_text()
     ]
     assert not feature_import_violations
+
+
+_PUBLIC_MODULE_TAILS = frozenset({"api", "schemas", "service", "crud"})
+
+
+def test_modules_import_other_modules_only_through_public_files() -> None:
+    """Another product module may use a public file, not a repository or extractor."""
+    violations: list[str] = []
+    modules_root = APP_ROOT / "modules"
+    for path in modules_root.rglob("*.py"):
+        if "__pycache__" in path.parts:
+            continue
+        owner = path.relative_to(modules_root).parts[0]
+        for imported in _imports(path):
+            if not imported.startswith("app.modules."):
+                continue
+            parts = imported.removeprefix("app.modules.").split(".")
+            other = parts[0]
+            if other == owner or len(parts) == 1:
+                continue
+            if parts[1] not in _PUBLIC_MODULE_TAILS:
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
