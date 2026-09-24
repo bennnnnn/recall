@@ -116,26 +116,6 @@ async def create_todo(
     return item
 
 
-async def create_external_todo(
-    session: AsyncSession,
-    user: User,
-    *,
-    content: str,
-    topic: str,
-    due_at: datetime | None,
-    source: str,
-) -> TodoItem:
-    """Create a reminder owned by another product. The caller updates home cache."""
-    return await todos_repo.create(
-        session,
-        user_id=user.id,
-        content=content,
-        topic=topic,
-        due_at=due_at,
-        source=source,
-    )
-
-
 async def reorder_todos(
     session: AsyncSession,
     user: User,
