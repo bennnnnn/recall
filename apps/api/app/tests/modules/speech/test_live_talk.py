@@ -343,7 +343,7 @@ async def test_load_session_context_includes_schedule_snapshot():
     with (
         patch("app.services.live_talk.SessionLocal", return_value=session),
         patch(
-            "app.services.live_talk.todos_repo.list_for_user",
+            "app.services.live_talk.list_owned_todos",
             AsyncMock(return_value=[item]),
         ),
     ):

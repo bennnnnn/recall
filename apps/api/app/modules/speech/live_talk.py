@@ -16,7 +16,7 @@ from app.core.db import SessionLocal
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
 from app.modules.speech.service import LIVE_TALK_ALIAS
-from app.modules.todos import repository as todos_repo
+from app.modules.todos.service import list_owned_todos
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services.chat.titles import needs_generated_title
@@ -218,9 +218,7 @@ async def _schedule_block_best_effort(user: User, settings: Settings) -> str:
         if not isinstance(tz, str):
             tz = None
         async with SessionLocal() as session:
-            items = await todos_repo.list_for_user(
-                session, user.id, limit=settings.todo_inject_limit
-            )
+            items = await list_owned_todos(session, user.id, limit=settings.todo_inject_limit)
         selected = todos_service.select_todos_for_prompt(items, settings, user_timezone=tz)
         own_items = [item for item in selected if getattr(item, "source", "user") != "gmail"]
         gmail_items = [item for item in selected if getattr(item, "source", "user") == "gmail"]

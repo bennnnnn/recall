@@ -72,26 +72,29 @@ app/
   main.py              # app factory, middleware, router registration
   worker_main.py       # Fly worker: jobs + schedulers (no public API)
   worker_health.py     # worker liveness probe
-  modules/             # migrated product domains; My Job is the pilot
-    job_search/        # API, service, models, schemas, jobs, scheduler, chat tool
-  exceptions.py        # shared domain exceptions
-  routers/             # HTTP + WebSocket ONLY (no business logic)
-  services/            # business logic — one package per domain
-    chat/              # turn prep, stream, post_turn (~4.5k)
+  modules/             # product domains; one owner each
+  core/                # application infrastructure; must not import modules
+  gateways/            # external systems; must not import modules
+    mcp/               # adapter protocol + registry (not the adapters)
+  repositories/        # shared persistence still used while domains migrate
+  routers/             # legacy HTTP until that domain is a module
+  services/            # legacy product code until that domain is a module
+    chat/              # turn prep, stream, post_turn — migrate last
     math/              # match/ (scan) → tools/ (intent, block) → solve/ (SymPy)
     physics/           # peer subject: solver, extract, direct, block
-    chemistry/ attachments/ images/ email/
-    memory/ learning/ todos/ notifications/ web_search/ home/ mcp/  # MCP adapters
-  gateways/            # external IO (LiteLLM, Google, storage, speech, search, …)
-    mcp/               # adapter protocol + registry (not the adapters)
-  repositories/        # Neon access
+    chemistry/ notifications/ web_search/ home/ mcp/
+  exceptions.py        # shared domain exceptions
   models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools)
   background/          # job handlers + periodic schedulers
     handlers.py        # job-type → handler register (imported at startup)
-  core/                # config, db, redis, jobs stream (no domain imports)
   content/             # static legal copy
   tests/               # ~39k
 ```
+
+A module may import another module only through that module's public files
+(`api`, `schemas`, `service`, `crud`, or the package surface). Repositories
+and extractors stay inside the owning module. Do not rename `core/` or
+`gateways/` to `platform/`.
 
 ### Transaction ownership
 
@@ -125,7 +128,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Memory | `modules/memory/` (HTTP `/memories`) | `features/memory/`; `app/memory.tsx` route only |
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `settings/models.tsx` |
 | Search | `routers/search.py`, `services/search.py` | drawer search (`useDrawerSearch`) |
-| Todos / reminders | `routers/todos.py`, `services/todos/` | `app/todos.tsx`, `components/todos/` |
+| Todos / reminders | `modules/todos/` (HTTP `/todos`) | `features/todos/`; `app/todos.tsx` route only |
 | Learning classes | `modules/learning/` (HTTP `/projects`) | `features/learning/`; `app/projects/` routes only |
 | Home starters | `routers/home.py`, `services/home/` | home cards on chat empty / index |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |

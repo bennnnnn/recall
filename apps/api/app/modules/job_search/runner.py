@@ -27,7 +27,7 @@ from app.models.orm import User
 from app.modules.job_search import notifications as job_search_notifications
 from app.modules.job_search.models import JobMatch, JobSearchProfile
 from app.modules.job_search.schemas import JobSearchPreferencesPatch, ResumeProfile
-from app.modules.todos.recurrence import next_recurring_due
+from app.modules.todos import next_recurring_due
 from app.services import plan as plan_service
 from app.services.prompt_safety import wrap_untrusted
 

@@ -22,7 +22,7 @@ from app.models.orm import User
 from app.modules.integrations import gmail_repository as gmail_repo
 from app.modules.integrations import suggestions_repository as suggested_repo
 from app.modules.integrations import triage as email_triage_service
-from app.modules.todos import repository as todos_repo
+from app.modules.todos.service import create_external_todo
 from app.repositories import users as users_repo
 from app.services import day_planning as day_planning_service
 from app.services import home as home_service
@@ -593,9 +593,9 @@ async def add_suggested_reminder(
     if row.notes:
         content = f"{row.title} — {row.notes}"
 
-    todo = await todos_repo.create(
+    todo = await create_external_todo(
         session,
-        user_id=user.id,
+        user,
         content=content[:2000],
         topic=REMINDER_TOPIC,
         due_at=suggested_reminder_due_at(row.due_at, user.timezone),

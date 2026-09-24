@@ -207,7 +207,7 @@ async def test_add_suggested_reminder_defaults_due_when_missing():
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.modules.integrations.inbox.todos_repo.create",
+            "app.modules.integrations.inbox.create_external_todo",
             AsyncMock(return_value=created),
         ) as create_mock,
         patch("app.modules.integrations.inbox.suggested_repo.mark_added", AsyncMock()),
@@ -250,7 +250,7 @@ async def test_add_suggested_reminder_keeps_extracted_due():
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.modules.integrations.inbox.todos_repo.create",
+            "app.modules.integrations.inbox.create_external_todo",
             AsyncMock(return_value=created),
         ) as create_mock,
         patch("app.modules.integrations.inbox.suggested_repo.mark_added", AsyncMock()),

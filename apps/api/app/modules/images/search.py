@@ -24,8 +24,8 @@ from app.gateways.storage_gateway import (
     get_storage_gateway,
 )
 from app.models.orm import Message, User
-from app.modules.attachments import repository as attachments_repo
-from app.modules.attachments.content import (
+from app.modules.attachments import service as attachments_repo
+from app.modules.attachments.service import (
     MAX_ATTACHMENT_SIZE,
     bytes_match_claimed,
     is_image_content_type,
