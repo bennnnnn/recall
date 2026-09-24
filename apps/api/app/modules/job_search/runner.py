@@ -24,11 +24,11 @@ from app.core.db import SessionLocal
 from app.core.redis_lock import acquire_lock, release_lock
 from app.gateways import litellm_gateway, web_search_gateway
 from app.models.orm import User
+from app.modules.billing import is_pro
 from app.modules.job_search import notifications as job_search_notifications
 from app.modules.job_search.models import JobMatch, JobSearchProfile
 from app.modules.job_search.schemas import JobSearchPreferencesPatch, ResumeProfile
 from app.modules.todos import next_recurring_due
-from app.services import plan as plan_service
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
@@ -755,7 +755,7 @@ def _profile_from_rows(
         id=profile.id,
         user_id=profile.user_id,
         timezone=user.timezone,
-        is_pro=plan_service.is_pro(user),
+        is_pro=is_pro(user),
         target_roles=list(profile.target_roles),
         skills=list(profile.skills),
         location=profile.location,

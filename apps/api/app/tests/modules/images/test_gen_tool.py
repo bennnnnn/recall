@@ -31,7 +31,7 @@ async def test_invoke_rejects_non_pro():
     with (
         bind_image_gen_context(user=user, redis=MagicMock(), chat_id=uuid4()),
         patch(
-            "app.modules.images.gen_tool.plan_service.is_pro",
+            "app.modules.images.gen_tool.is_pro",
             return_value=False,
         ),
     ):
@@ -52,7 +52,7 @@ async def test_invoke_persists_and_returns_terminal_marker():
     with (
         bind_image_gen_context(user=user, redis=MagicMock(), chat_id=chat_id),
         patch(
-            "app.modules.images.gen_tool.plan_service.is_pro",
+            "app.modules.images.gen_tool.is_pro",
             return_value=True,
         ),
         patch(
@@ -80,7 +80,7 @@ async def test_invoke_surfaces_generation_error():
     with (
         bind_image_gen_context(user=user, redis=MagicMock(), chat_id=uuid4()),
         patch(
-            "app.modules.images.gen_tool.plan_service.is_pro",
+            "app.modules.images.gen_tool.is_pro",
             return_value=True,
         ),
         patch(

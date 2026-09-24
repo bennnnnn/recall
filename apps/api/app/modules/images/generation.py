@@ -24,9 +24,9 @@ from app.modules.attachments.service import (
     is_image_content_type,
     normalize_content_type,
 )
+from app.modules.billing import is_pro
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
-from app.services import plan as plan_service
 from app.services import quota as quota_service
 from app.services.model_catalog import get as get_model
 from app.services.model_catalog import openrouter_slug
@@ -131,7 +131,7 @@ async def generate_for_chat(
         raise ImageGenerationError("Not available", status_code=404)
     if not settings.attachments_enabled:
         raise ImageGenerationError("Attachments are disabled", status_code=503)
-    if not plan_service.is_pro(user):
+    if not is_pro(user):
         raise ImageGenerationError("Image generation requires Pro", status_code=403)
 
     async with SessionLocal() as session:

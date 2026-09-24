@@ -17,8 +17,8 @@ from app.core.redis import get_redis_client
 from app.gateways import openai_speech_gateway
 from app.models.orm import User
 from app.models.schemas import MessageOut
+from app.modules.billing import is_pro
 from app.modules.speech import live_talk as live_talk_service
-from app.services import plan as plan_service
 from app.services import quota as quota_service
 
 router = APIRouter(prefix="/speech", tags=["speech"])
@@ -102,7 +102,7 @@ async def _load_session_context_or_404(
 async def _reserve_realtime_or_raise(user: User, settings: Settings):
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
-    if not plan_service.is_pro(user):
+    if not is_pro(user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=quota_service.LIVE_TALK_REQUIRES_PRO_MESSAGE,
@@ -296,7 +296,7 @@ async def execute_realtime_tool(
 
     if not settings.speech_live_talk_enabled or not settings.speech_realtime_voice_enabled:
         raise HTTPException(status_code=404, detail="Not available")
-    if not plan_service.is_pro(user):
+    if not is_pro(user):
         raise HTTPException(status_code=403, detail="Live Talk requires Pro")
     redis = get_redis_client()
     bound_chat = await redis.get(live_talk_service._realtime_session_key(user.id, body.call_id))

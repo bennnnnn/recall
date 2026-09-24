@@ -11,10 +11,10 @@ from app.core.db import SessionLocal
 from app.core.ids import uuid7
 from app.exceptions import ChatBusyError, ChatNotFoundError
 from app.models.orm import Chat, User
+from app.modules.billing import plan as plan_service
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
-from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_prep.attachments import _process_attachments
 from app.services.chat.turn_prep.context import (

@@ -16,6 +16,7 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.models.schemas.math import MathImageExtract
 from app.modules import web_search as web_search_service
+from app.modules.billing import plan as plan_service
 from app.modules.chemistry import context as chemistry_context_service
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.integrations import calendar as calendar_service
@@ -27,7 +28,6 @@ from app.modules.web_search.subject import (
 from app.modules.web_search.subject import last_assistant_content
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
-from app.services import plan as plan_service
 from app.services import profile as profile_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
