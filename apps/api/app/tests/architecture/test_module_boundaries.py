@@ -956,6 +956,7 @@ def _package_public_names(module_name: str) -> frozenset[str]:
 def _foreign_module_import_violations(tree: ast.AST, *, owner: str, label: str) -> list[str]:
     violations: list[str] = []
     for node in ast.walk(tree):
+        bindings: list[tuple[str, str | None]]
         if isinstance(node, ast.Import):
             bindings = [(alias.name, None) for alias in node.names]
         elif isinstance(node, ast.ImportFrom) and node.module:
