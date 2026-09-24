@@ -925,21 +925,85 @@ def test_mobile_speech_has_one_feature_home() -> None:
 _PUBLIC_MODULE_TAILS = frozenset({"api", "schemas", "service", "crud"})
 
 
+def _package_public_names(module_name: str) -> frozenset[str]:
+    """Public tails plus names the package initializer actually exports."""
+    names = set(_PUBLIC_MODULE_TAILS)
+    init = APP_ROOT / "modules" / module_name / "__init__.py"
+    if not init.is_file():
+        return frozenset(names)
+    tree = ast.parse(init.read_text(), filename=str(init))
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if not isinstance(target, ast.Name):
+                continue
+            if target.id == "_EXPORTS" and isinstance(node.value, ast.Dict):
+                names.update(
+                    key.value
+                    for key in node.value.keys
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str)
+                )
+            elif target.id == "__all__" and isinstance(node.value, ast.List | ast.Tuple):
+                names.update(
+                    item.value
+                    for item in node.value.elts
+                    if isinstance(item, ast.Constant) and isinstance(item.value, str)
+                )
+    return frozenset(names)
+
+
+def _foreign_module_import_violations(tree: ast.AST, *, owner: str, label: str) -> list[str]:
+    violations: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            bindings = [(alias.name, None) for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            bindings = [(node.module, alias.name) for alias in node.names]
+        else:
+            continue
+        for module_name, symbol in bindings:
+            if not module_name.startswith("app.modules."):
+                continue
+            parts = module_name.removeprefix("app.modules.").split(".")
+            other = parts[0]
+            if other == owner:
+                continue
+            if len(parts) == 1:
+                if symbol is None:
+                    continue
+                if symbol == "*" or symbol not in _package_public_names(other):
+                    violations.append(f"{label} imports {symbol} from {module_name}")
+                continue
+            if parts[1] not in _PUBLIC_MODULE_TAILS:
+                violations.append(f"{label} imports {module_name}")
+    return violations
+
+
+def test_package_import_cannot_pull_a_private_name() -> None:
+    leaked = ast.parse("from app.modules.attachments import repository\n")
+    violations = _foreign_module_import_violations(leaked, owner="images", label="sample")
+    assert violations == ["sample imports repository from app.modules.attachments"]
+
+    public = ast.parse(
+        "from app.modules.attachments import service\n"
+        "from app.modules.todos import snap_first_due\n"
+    )
+    assert not _foreign_module_import_violations(public, owner="images", label="sample")
+
+
 def test_modules_import_other_modules_only_through_public_files() -> None:
-    """Another product module may use a public file, not a repository or extractor."""
+    """Another product module may use a public file or an exported package name."""
     violations: list[str] = []
     modules_root = APP_ROOT / "modules"
     for path in modules_root.rglob("*.py"):
         if "__pycache__" in path.parts:
             continue
         owner = path.relative_to(modules_root).parts[0]
-        for imported in _imports(path):
-            if not imported.startswith("app.modules."):
-                continue
-            parts = imported.removeprefix("app.modules.").split(".")
-            other = parts[0]
-            if other == owner or len(parts) == 1:
-                continue
-            if parts[1] not in _PUBLIC_MODULE_TAILS:
-                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+        tree = ast.parse(path.read_text(), filename=str(path))
+        violations.extend(
+            _foreign_module_import_violations(
+                tree, owner=owner, label=str(path.relative_to(APP_ROOT))
+            )
+        )
     assert not violations, "\n".join(violations)
