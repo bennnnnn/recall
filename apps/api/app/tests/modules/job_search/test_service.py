@@ -273,7 +273,7 @@ def test_manual_run_policy(
         last_run_at=last_run_at,
         last_run_status=last_run_status,
     )
-    with patch.object(job_search_service.plan_service, "is_pro", return_value=is_pro):
+    with patch.object(job_search_service, "is_pro", return_value=is_pro):
         assert job_search_service.can_request_manual_run(user, profile) is expected
 
 
@@ -520,7 +520,7 @@ def _cover_letter_setup(
 async def test_cover_letter_requires_pro() -> None:
     env = _cover_letter_setup()
     with (
-        patch.object(job_search_service.plan_service, "is_pro", return_value=False),
+        patch.object(job_search_service, "is_pro", return_value=False),
         patch.object(job_search_service.web_search_gateway, "extract_pages", new=env.extract),
         patch.object(job_search_service.litellm_gateway, "complete_structured", new=env.llm),
     ):
@@ -534,7 +534,7 @@ async def test_cover_letter_requires_pro() -> None:
 async def test_cover_letter_daily_cap() -> None:
     env = _cover_letter_setup(incr_total=11)
     with (
-        patch.object(job_search_service.plan_service, "is_pro", return_value=True),
+        patch.object(job_search_service, "is_pro", return_value=True),
         patch.object(job_search_service.web_search_gateway, "extract_pages", new=env.extract),
         patch.object(job_search_service.litellm_gateway, "complete_structured", new=env.llm),
     ):
@@ -551,7 +551,7 @@ async def test_cover_letter_happy_path_includes_posting_text() -> None:
         pages={"https://jobs.example.com/1": "We seek an ICU nurse with ACLS."},
     )
     with (
-        patch.object(job_search_service.plan_service, "is_pro", return_value=True),
+        patch.object(job_search_service, "is_pro", return_value=True),
         patch.object(job_search_service.web_search_gateway, "extract_pages", new=env.extract),
         patch.object(job_search_service.litellm_gateway, "complete_structured", new=env.llm),
     ):
@@ -569,7 +569,7 @@ async def test_cover_letter_happy_path_includes_posting_text() -> None:
 async def test_cover_letter_llm_failure_is_502() -> None:
     env = _cover_letter_setup(llm_result=None)
     with (
-        patch.object(job_search_service.plan_service, "is_pro", return_value=True),
+        patch.object(job_search_service, "is_pro", return_value=True),
         patch.object(job_search_service.web_search_gateway, "extract_pages", new=env.extract),
         patch.object(job_search_service.litellm_gateway, "complete_structured", new=env.llm),
     ):

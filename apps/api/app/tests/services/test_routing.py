@@ -5,8 +5,8 @@ import time
 import pytest
 
 from app.core.config import Settings
+from app.modules.billing import plan as plan_service
 from app.services import model_catalog, routing
-from app.services import plan as plan_service
 from app.services.routing import resolve_alias, resolve_alias_in_pool, route_chat_model
 
 
