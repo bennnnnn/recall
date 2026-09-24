@@ -11,7 +11,7 @@ import {
   priorUserTextFor,
   streamVisualActiveForRow,
 } from "@/lib/chat/messageLogic";
-import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/images/imageGenIntent";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
 import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 
 type Options = {

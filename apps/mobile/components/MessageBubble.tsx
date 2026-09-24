@@ -8,7 +8,7 @@ import { SettingsProposalCard } from "@/components/SettingsProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { UserMessageContent } from "@/components/UserMessageContent";
 import { ChatMessageImageStrip } from "@/components/ChatMessageImageStrip";
-import { ImageGenPlaceholder } from "@/components/ImageGenPlaceholder";
+import { ImageGenPlaceholder } from "@/features/images/components/ImageGenPlaceholder";
 import { ActionShimmer } from "@/components/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";

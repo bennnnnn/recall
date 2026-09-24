@@ -2,7 +2,7 @@ import type { Message } from "@/lib/api";
 import {
   IMAGE_GEN_FAILED_ASSISTANT_ID,
   IMAGE_GEN_PENDING_ASSISTANT_ID,
-} from "@/lib/images/imageGenIntent";
+} from "@/features/images/model/imageGenIntent";
 
 export type ImageGenFailure = "canceled" | "failed";
 

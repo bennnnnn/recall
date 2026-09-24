@@ -44,7 +44,7 @@ request client and are composed into the existing `lib/api.ts` public barrel.
 3. Learning — migrated
 4. Memory — migrated
 5. Google Calendar and Gmail — migrated
-6. Images, attachments, and voice — attachments migrated
+6. Images, attachments, and voice — attachments and images migrated
 7. Math, physics, and chemistry
 8. AI/model/tool infrastructure
 9. Chat last

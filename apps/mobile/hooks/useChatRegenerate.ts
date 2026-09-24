@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import type { ClientGeo } from "@/lib/clientGeo";
 import type { Message, User } from "@/lib/api";
-import { isImageOnlyAssistantContent } from "@/lib/images/imageGenIntent";
+import { isImageOnlyAssistantContent } from "@/features/images/model/imageGenIntent";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 
 type Params = {

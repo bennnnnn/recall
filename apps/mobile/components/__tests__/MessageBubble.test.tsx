@@ -52,7 +52,7 @@ jest.mock("@/components/PlacesListBlock", () => ({
 jest.mock("@/components/ChatMessageImageStrip", () => ({
   ChatMessageImageStrip: () => null,
 }));
-jest.mock("@/components/ImageGenPlaceholder", () => ({
+jest.mock("@/features/images/components/ImageGenPlaceholder", () => ({
   ImageGenPlaceholder: () => null,
 }));
 jest.mock("@/components/ActionShimmer", () => ({

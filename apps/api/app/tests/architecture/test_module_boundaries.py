@@ -223,6 +223,27 @@ LEGACY_ATTACHMENTS_IMPORTS = (
     "app.routers.attachments",
     "app.services.attachments",
 )
+LEGACY_IMAGES_SHIMS = {
+    APP_ROOT / "routers" / "images.py",
+    APP_ROOT / "services" / "mcp" / "image_gen_adapter.py",
+    APP_ROOT / "services" / "mcp" / "image_search_adapter.py",
+    *(
+        APP_ROOT / "services" / "images" / name
+        for name in (
+            "__init__.py",
+            "gen_intent.py",
+            "generation.py",
+            "lookup_intent.py",
+            "search.py",
+        )
+    ),
+}
+LEGACY_IMAGES_IMPORTS = (
+    "app.routers.images",
+    "app.services.images",
+    "app.services.mcp.image_gen_adapter",
+    "app.services.mcp.image_search_adapter",
+)
 
 
 def _imports(path: Path) -> list[str]:
@@ -351,6 +372,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
                 or path in LEGACY_MEMORY_SHIMS
                 or path in LEGACY_INTEGRATIONS_SHIMS
                 or path in LEGACY_ATTACHMENTS_SHIMS
+                or path in LEGACY_IMAGES_SHIMS
             ):
                 continue
             for imported in _imports(path):
@@ -719,6 +741,86 @@ def test_mobile_attachments_has_one_feature_home_and_thin_routes() -> None:
         MOBILE_ROOT / "components" / "gallery",
     ):
         assert not gone.exists(), gone
+
+    feature_import_violations = [
+        str(path.relative_to(MOBILE_ROOT))
+        for path in feature_root.rglob("*.ts*")
+        if "__tests__" not in path.parts and "@/app/" in path.read_text()
+    ]
+    assert not feature_import_violations
+
+
+def test_images_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "images"
+    expected = {
+        "api.py",
+        "gen_intent.py",
+        "gen_tool.py",
+        "generation.py",
+        "lookup_intent.py",
+        "schemas.py",
+        "search.py",
+        "search_tool.py",
+    }
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (APP_ROOT / "tests" / "modules" / "images" / "test_api.py").is_file()
+
+    for shim in LEGACY_IMAGES_SHIMS:
+        tree = ast.parse(shim.read_text(), filename=str(shim))
+        owned_definitions = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
+        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
+
+    shim = APP_ROOT / "routers" / "images.py"
+    shim_tree = ast.parse(shim.read_text(), filename=str(shim))
+    assert any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "app.modules.images.api"
+        and any(alias.name == "router" for alias in node.names)
+        for node in shim_tree.body
+    ), "legacy images router must re-export router"
+
+    # schemas.py imports MessageOut from chats, which loads this package first.
+    # Re-exporting the image models here imports the module while it is still initializing.
+    schema_barrel = APP_ROOT / "models" / "schemas" / "__init__.py"
+    assert not any(
+        imported == "app.modules.images" or imported.startswith("app.modules.images.")
+        for imported in _imports(schema_barrel)
+    )
+
+
+def test_production_code_does_not_use_legacy_images_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_IMAGES_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported.startswith(LEGACY_IMAGES_IMPORTS):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
+
+
+def test_mobile_images_has_one_feature_home() -> None:
+    feature_root = MOBILE_ROOT / "features" / "images"
+    assert (feature_root / "api.ts").is_file()
+    assert (feature_root / "types.ts").is_file()
+    for folder in ("components", "hooks", "model"):
+        assert (feature_root / folder).is_dir()
+
+    for gone in (
+        MOBILE_ROOT / "lib" / "api" / "images.ts",
+        MOBILE_ROOT / "lib" / "images" / "imageGenIntent.ts",
+        MOBILE_ROOT / "lib" / "images" / "imageLookupIntent.ts",
+        MOBILE_ROOT / "lib" / "images" / "imageGenTurn.ts",
+        MOBILE_ROOT / "hooks" / "useImageGeneration.ts",
+        MOBILE_ROOT / "components" / "ImageGenPlaceholder.tsx",
+        MOBILE_ROOT / "components" / "ImageGenPromptSheet.tsx",
+    ):
+        assert not gone.exists(), gone
+    assert (MOBILE_ROOT / "lib" / "images" / "imageUriPolicy.ts").is_file()
 
     feature_import_violations = [
         str(path.relative_to(MOBILE_ROOT))

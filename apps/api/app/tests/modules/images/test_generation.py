@@ -1,11 +1,11 @@
-"""Tests for app.services.images.generation."""
+"""Tests for app.modules.images.generation."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.core.config import Settings
-from app.services.images.generation import generate_image, normalize_aspect_ratio
+from app.modules.images.generation import generate_image, normalize_aspect_ratio
 
 
 def test_normalize_aspect_ratio():
@@ -18,7 +18,7 @@ def test_normalize_aspect_ratio():
 @pytest.mark.asyncio
 async def test_generate_image_returns_mock_png():
     settings = Settings(mock_llm_enabled=True, image_generation_enabled=True)
-    with patch("app.services.images.generation.mock_llm.should_mock_llm", return_value=True):
+    with patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=True):
         result = await generate_image(settings, prompt="a red cat")
     assert result is not None
     data, content_type = result
@@ -35,7 +35,7 @@ async def test_generate_image_disabled_returns_none():
 @pytest.mark.asyncio
 async def test_generate_image_rejects_empty_prompt():
     settings = Settings(mock_llm_enabled=True, image_generation_enabled=True)
-    with patch("app.services.images.generation.mock_llm.should_mock_llm", return_value=True):
+    with patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=True):
         assert await generate_image(settings, prompt="   ") is None
 
 
@@ -61,7 +61,7 @@ async def test_generate_image_openrouter_b64_json():
     mock_client.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("app.services.images.generation.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
         patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=mock_client),
     ):
         result = await generate_image(settings, prompt="sunset over mountains", aspect_ratio="16:9")
@@ -89,7 +89,7 @@ async def test_edit_sends_real_reference_bytes():
     response.json.return_value = {"data": [{"b64_json": base64.b64encode(png).decode()}]}
     client = _mock_http_client(post=AsyncMock(return_value=response))
     with (
-        patch("app.services.images.generation.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
         patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=client),
     ):
         result = await generate_image(
@@ -109,11 +109,11 @@ async def test_edit_sends_real_reference_bytes():
 async def test_reference_lookup_rejects_another_users_image_before_reading_storage():
     from uuid import uuid4
 
-    from app.services.images.generation import ImageGenerationError, load_reference_images
+    from app.modules.images.generation import ImageGenerationError, load_reference_images
 
     gateway = AsyncMock()
     with patch(
-        "app.services.images.generation.attachments_repo.get_by_ids", AsyncMock(return_value=[])
+        "app.modules.images.generation.attachments_repo.get_by_ids", AsyncMock(return_value=[])
     ):
         with pytest.raises(ImageGenerationError, match="Reference image not found"):
             await load_reference_images(gateway, user_id=uuid4(), attachment_ids=[uuid4()])
@@ -145,7 +145,7 @@ async def test_generate_image_openrouter_url_response_is_fetched_ssrf_safely():
     get_client = _mock_http_client(get=AsyncMock(return_value=get_response))
 
     with (
-        patch("app.services.images.generation.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
         patch(
             "app.gateways.image_gateway.httpx.AsyncClient",
             side_effect=[post_client, get_client],
@@ -191,7 +191,7 @@ async def test_generate_image_openrouter_b64_json_rejects_oversized_payload():
     mock_client.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("app.services.images.generation.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
         patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=mock_client),
     ):
         result = await generate_image(settings, prompt="sunset over mountains")
@@ -225,7 +225,7 @@ async def test_generate_image_openrouter_url_response_rejects_oversized_payload(
     get_client = _mock_http_client(get=AsyncMock(return_value=get_response))
 
     with (
-        patch("app.services.images.generation.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
         patch(
             "app.gateways.image_gateway.httpx.AsyncClient",
             side_effect=[post_client, get_client],
@@ -265,7 +265,7 @@ async def test_generate_image_openrouter_url_response_normalizes_content_type_ca
     get_client = _mock_http_client(get=AsyncMock(return_value=get_response))
 
     with (
-        patch("app.services.images.generation.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
         patch(
             "app.gateways.image_gateway.httpx.AsyncClient",
             side_effect=[post_client, get_client],
@@ -297,7 +297,7 @@ async def test_generate_image_openrouter_url_response_blocks_private_ip():
     post_client = _mock_http_client(post=AsyncMock(return_value=post_response))
 
     with (
-        patch("app.services.images.generation.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.images.generation.mock_llm.should_mock_llm", return_value=False),
         patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=post_client),
     ):
         result = await generate_image(settings, prompt="sunset over mountains")

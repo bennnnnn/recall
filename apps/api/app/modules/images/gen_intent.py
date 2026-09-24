@@ -1,0 +1,787 @@
+"""Detect composer image-generation intent (mirrors mobile imageGenIntent.ts).
+
+Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
+(CodeQL ``py/polynomial-redos``).
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+_USER_MESSAGE_PREFIX = "Generate image: "
+
+_VERBS_IMAGE = frozenset(
+    {"create", "generate", "make", "design", "render", "produce"},
+)
+_VERBS_DRAW = frozenset({"draw", "paint", "illustrate"})
+_IMAGE_NOUNS = frozenset(
+    {
+        "image",
+        "images",
+        "picture",
+        "pictures",
+        "pic",
+        "pics",
+        "photo",
+        "photos",
+        "illustration",
+        "illustrations",
+        "artwork",
+        "artworks",
+        "drawing",
+        "drawings",
+        "portrait",
+        "portraits",
+    },
+)
+_ARTICLES = frozenset({"a", "an"})
+_REVISION_PRONOUNS = frozenset({"it", "them", "this", "that"})
+
+_NON_IMAGE_WORDS = frozenset(
+    {
+        "todo",
+        "todos",
+        "task",
+        "tasks",
+        "list",
+        "lists",
+        "reminder",
+        "reminders",
+        "project",
+        "projects",
+        "account",
+        "accounts",
+        "script",
+        "scripts",
+        "code",
+        "function",
+        "functions",
+        "class",
+        "classes",
+        "file",
+        "files",
+        "folder",
+        "folders",
+        "chat",
+        "chats",
+        "note",
+        "notes",
+        "summary",
+        "summaries",
+        "plan",
+        "plans",
+        "schedule",
+        "schedules",
+        "event",
+        "events",
+        "meeting",
+        "meetings",
+        "quiz",
+        "quizzes",
+        "flashcard",
+        "flashcards",
+        "email",
+        "emails",
+        "message",
+        "messages",
+        "reply",
+        "replies",
+        "draft",
+        "drafts",
+        "report",
+        "reports",
+        "endpoint",
+        "endpoints",
+        "api",
+        "apis",
+        "database",
+        "databases",
+        "table",
+        "tables",
+        "component",
+        "components",
+        "hook",
+        "hooks",
+        "page",
+        "pages",
+        "screen",
+        "screens",
+        "modal",
+        "modals",
+        "button",
+        "buttons",
+        "form",
+        "forms",
+        "user",
+        "users",
+        "password",
+        "passwords",
+        "login",
+        "logins",
+        "pr",
+        "prs",
+        "commit",
+        "commits",
+        "branch",
+        "branches",
+        "issue",
+        "issues",
+        "bug",
+        "bugs",
+        "test",
+        "tests",
+        "array",
+        "arrays",
+        "object",
+        "objects",
+        "string",
+        "strings",
+        "comparison",
+        "comparisons",
+        # Learning / chat asks — "make your own example" is not a picture.
+        "example",
+        "examples",
+        "problem",
+        "problems",
+        "equation",
+        "equations",
+        "question",
+        "questions",
+        "exercise",
+        "exercises",
+        "homework",
+        "solution",
+        "solutions",
+        "proof",
+        "proofs",
+        "worksheet",
+        "worksheets",
+        "assignment",
+        "assignments",
+        # How-to / listicle heads — same as image_lookup_intent. Do not add
+        # "way" (milky way) or "guide" (tour-guide photos).
+        "stops",
+        "ways",
+        "tips",
+        "tip",
+        "secrets",
+        "habits",
+        "tricks",
+        "stages",
+        "phases",
+    },
+)
+
+_NON_IMAGE_DRAW_WORDS = frozenset(
+    {
+        "conclusion",
+        "inference",
+        "boundary",
+        "line",
+        "diagram",
+        "chart",
+        "graph",
+        "plot",
+        "flowchart",
+        "flowcharts",
+        # Verified ```geometry / ```smiles — not AI images.
+        "triangle",
+        "triangles",
+        "square",
+        "squares",
+        "circle",
+        "circles",
+        "rectangle",
+        "rectangles",
+        "trapezoid",
+        "trapezoids",
+        "trapezium",
+        "polygon",
+        "polygons",
+        "rhombus",
+        "parallelogram",
+        "geometry",
+        "geometric",
+        "hypotenuse",
+        "molecule",
+        "molecules",
+        "molecular",
+        "structure",
+        "structures",
+        "smiles",
+        "chemistry",
+        "chemical",
+    },
+)
+
+_CODEISH_WORDS = frozenset(
+    {"compression", "script", "code", "algorithm", "function", "api"},
+)
+
+
+def _tokens(text: str) -> list[str]:
+    """Whitespace-split only — linear in ``len(text)``."""
+    return text.split()
+
+
+def _strip_polite(tokens: list[str]) -> list[str]:
+    i = 0
+    n = len(tokens)
+    if i < n and tokens[i].lower() == "please":
+        i += 1
+    if i + 1 < n and tokens[i].lower() == "can" and tokens[i + 1].lower() == "you":
+        i += 2
+    return tokens[i:]
+
+
+def _join_subject(parts: list[str]) -> str:
+    return " ".join(parts).strip()
+
+
+def _clean_prompt(raw: str) -> str | None:
+    prompt = raw.strip().rstrip(".!?").strip()
+    if not prompt or len(prompt) < 2:
+        return None
+    words = prompt.lower().split()
+    if any(w in _CODEISH_WORDS for w in words):
+        return None
+    return prompt
+
+
+def _fold_token(word: str) -> str:
+    """Lowercase and strip edge punctuation so ``tips,`` matches ``tips``."""
+    return word.lower().strip(".,!?;:\"'()[]")
+
+
+def _has_non_image_subject(subject: str) -> bool:
+    words = subject.split()
+    for i, word in enumerate(words):
+        key = _fold_token(word)
+        if key in _NON_IMAGE_WORDS:
+            return True
+        nxt = _fold_token(words[i + 1]) if i + 1 < len(words) else ""
+        if key == "pull" and nxt in {"request", "requests"}:
+            return True
+    return False
+
+
+def _has_non_image_draw(subject: str) -> bool:
+    lower = subject.lower()
+    if "sketch of the idea" in lower:
+        return True
+    return any(word in _NON_IMAGE_DRAW_WORDS for word in lower.split())
+
+
+def _match_verb_then_image(tokens: list[str]) -> str | None:
+    """create/generate … image/pic … of? SUBJECT"""
+    if len(tokens) < 3:
+        return None
+    if tokens[0].lower() not in _VERBS_IMAGE:
+        return None
+    i = 1
+    if i < len(tokens) and tokens[i].lower() == "me":
+        i += 1
+    if i < len(tokens) and tokens[i].lower() in _ARTICLES:
+        i += 1
+    if i >= len(tokens) or tokens[i].lower() not in _IMAGE_NOUNS:
+        return None
+    i += 1
+    if i < len(tokens) and tokens[i].lower() == "of":
+        i += 1
+    if i >= len(tokens):
+        return None
+    subject = _join_subject(tokens[i:])
+    if _has_non_image_subject(subject) or _has_non_image_draw(subject):
+        return None
+    return _clean_prompt(subject)
+
+
+def _match_verb_subject_image(tokens: list[str]) -> str | None:
+    """create/generate … SUBJECT image/pic/photo"""
+    if len(tokens) < 3:
+        return None
+    if tokens[0].lower() not in _VERBS_IMAGE:
+        return None
+    if tokens[-1].lower() not in _IMAGE_NOUNS:
+        return None
+    i = 1
+    if i < len(tokens) - 1 and tokens[i].lower() == "me":
+        i += 1
+    if i < len(tokens) - 1 and tokens[i].lower() in _ARTICLES:
+        i += 1
+    subject_parts = tokens[i:-1]
+    if not subject_parts:
+        return None
+    subject = _join_subject(subject_parts)
+    if _has_non_image_subject(subject) or _has_non_image_draw(subject):
+        return None
+    return _clean_prompt(subject)
+
+
+def _match_draw_me(tokens: list[str]) -> str | None:
+    """draw/paint/illustrate me [a/an] SUBJECT"""
+    if len(tokens) < 3:
+        return None
+    if tokens[0].lower() not in _VERBS_DRAW:
+        return None
+    if tokens[1].lower() != "me":
+        return None
+    i = 2
+    if i < len(tokens) and tokens[i].lower() in _ARTICLES:
+        i += 1
+    if i >= len(tokens):
+        return None
+    subject = _join_subject(tokens[i:])
+    if _has_non_image_subject(subject) or _has_non_image_draw(subject):
+        return None
+    return _clean_prompt(subject)
+
+
+def _match_short_create(tokens: list[str]) -> str | None:
+    """draw/paint/illustrate [me] [a/an] SUBJECT — short subjects only.
+
+    ``make`` / ``create`` / ``generate`` (etc.) are *not* matched here — they
+    need an explicit image noun via the other matchers, so chat asks like
+    ``make your own example`` stay in the normal LLM turn.
+    """
+    if len(tokens) < 2:
+        return None
+    verb = tokens[0].lower()
+    # Ambiguous verbs need "… pic/image/photo" (see _match_verb_*).
+    if verb in _VERBS_IMAGE:
+        return None
+    if verb not in _VERBS_DRAW:
+        return None
+    i = 1
+    if i < len(tokens) and tokens[i].lower() == "me":
+        i += 1
+    if i < len(tokens) and tokens[i].lower() in _ARTICLES:
+        i += 1
+    subject_parts = tokens[i:]
+    if not subject_parts or len(subject_parts) > 8:
+        return None
+    if subject_parts[0].lower() in _REVISION_PRONOUNS:
+        return None
+    subject = _join_subject(subject_parts)
+    if _has_non_image_subject(subject) or _has_non_image_draw(subject):
+        return None
+    return _clean_prompt(subject)
+
+
+def _match_image_noun_message(tokens: list[str]) -> str | None:
+    """Short colloquial: 'cat pic' / 'sunset photo' as the full message."""
+    if not tokens or len(tokens) > 16:
+        return None
+    if not any(tok.lower() in _IMAGE_NOUNS for tok in tokens):
+        return None
+    kept = [tok for tok in tokens if tok.lower() not in _IMAGE_NOUNS]
+    i = 0
+    if i < len(kept) and kept[i].lower() in _ARTICLES:
+        i += 1
+    subject = _join_subject(kept[i:])
+    if len(subject) < 2:
+        return None
+    words = subject.lower().split()
+    if any(w in {"script", "code", "compression", "format", "file"} for w in words):
+        return None
+    if _has_non_image_subject(subject) or _has_non_image_draw(subject):
+        return None
+    return _clean_prompt(subject)
+
+
+def extract_image_gen_prompt(text: str) -> str | None:
+    """Return the image subject if ``text`` is a clear image-gen ask, else None."""
+    from app.services.subject_scan import is_scanner_camera_prompt
+
+    trimmed = text.strip()
+    if not trimmed or len(trimmed) > 500:
+        return None
+    # Scanner captions contain "image" and are often ≤80 chars, which the
+    # short image-noun heuristic would steal as a generate-image ask.
+    if is_scanner_camera_prompt(trimmed):
+        return None
+
+    if trimmed.lower().startswith(_USER_MESSAGE_PREFIX.lower()):
+        return _clean_prompt(trimmed[len(_USER_MESSAGE_PREFIX) :])
+
+    tokens = _strip_polite(_tokens(trimmed))
+    if not tokens:
+        return None
+
+    matched = _match_verb_then_image(tokens)
+    if matched:
+        return matched
+
+    matched = _match_verb_subject_image(tokens)
+    if matched:
+        return matched
+
+    matched = _match_draw_me(tokens)
+    if matched:
+        return matched
+
+    # Short create/draw only when the whole message is short (same as before).
+    if len(trimmed) <= 80:
+        matched = _match_short_create(tokens)
+        if matched:
+            return matched
+        matched = _match_image_noun_message(tokens)
+        if matched:
+            return matched
+
+    return None
+
+
+_NOUN_ONLY_FILLER = frozenset({"please", "a", "an", "the", "just"})
+_GENERATE_NOW_EXACT = frozenset(
+    {
+        "that works",
+        "that will work",
+        "that works for me",
+        "do it",
+        "do that",
+        "go ahead",
+        "go for it",
+        "generate it",
+        "generate that",
+        "generate the image",
+        "generate the picture",
+        "you do it",
+        "u do it",
+        "you pick",
+        "u pick",
+        "you choose",
+        "u choose",
+    }
+)
+
+
+def is_image_noun_only_message(text: str) -> bool:
+    """True for a bare image/pic/photo ask with no subject on this line."""
+    tokens = _strip_polite(_tokens(text.strip().rstrip(".!?")))
+    kept = [tok for tok in tokens if tok.lower() not in _NOUN_ONLY_FILLER]
+    if not kept:
+        return False
+    return all(tok.lower() in _IMAGE_NOUNS for tok in kept)
+
+
+def is_image_gen_generate_now(text: str) -> bool:
+    """True when this line is 'do it' / 'that works' / 'u pick' after a scene."""
+    collapsed = " ".join(text.strip().lower().split()).rstrip(".!?").strip()
+    if not collapsed or len(collapsed) > 40:
+        return False
+    if collapsed in _GENERATE_NOW_EXACT:
+        return True
+    padded = f" {collapsed} "
+    return " do it " in padded or " u do it " in padded or " you do it " in padded
+
+
+def could_be_image_thread_followup(text: str) -> bool:
+    """True if this line might complete a prior 'dog' + 'image' thread.
+
+    Used to skip the Neon recent-message lookup when the text cannot be a
+    follow-up even with prior subject context.
+    """
+    return is_image_noun_only_message(text) or is_image_gen_generate_now(text)
+
+
+def _thread_subject_from_user(text: str) -> str | None:
+    """Prior user line usable as a generate subject (short concrete noun)."""
+    trimmed = text.strip()
+    if not trimmed or len(trimmed) > 80 or "?" in trimmed:
+        return None
+    if is_image_noun_only_message(trimmed) or is_image_gen_generate_now(trimmed):
+        return None
+    existing = extract_image_gen_prompt(trimmed)
+    if existing:
+        return existing
+    words = trimmed.split()
+    if not words or len(words) > 6:
+        return None
+    first = words[0].lower().rstrip(".!,")
+    if first in _NOT_REVISION_STARTERS:
+        return None
+    if _has_non_image_subject(trimmed) or _has_non_image_draw(trimmed):
+        return None
+    cleaned = _clean_prompt(trimmed)
+    if not cleaned or cleaned.lower() in _NON_REVISION:
+        return None
+    return cleaned
+
+
+def prior_user_contents_for_image_gen(messages: list[Any], current: str) -> list[str]:
+    """Oldest-first user bodies, excluding the in-flight current line if present."""
+    current_stripped = current.strip()
+    out: list[str] = []
+    for row in messages:
+        role = getattr(row, "role", None)
+        content = getattr(row, "content", None)
+        if role is None and isinstance(row, dict):
+            role = row.get("role")
+            content = row.get("content")
+        if role != "user" or not isinstance(content, str):
+            continue
+        out.append(content)
+    if out and out[-1].strip() == current_stripped:
+        out.pop()
+    return out
+
+
+def extract_image_gen_prompt_from_thread(
+    text: str,
+    prior_user_contents: list[str],
+) -> str | None:
+    """Same as ``extract_image_gen_prompt``, plus 'Dog' then 'Image' follow-ups.
+
+    Mirrors mobile ``extractImageGenPromptFromThread``.
+    """
+    direct = extract_image_gen_prompt(text)
+    if direct:
+        return direct
+    if is_image_noun_only_message(text):
+        for prior in reversed(prior_user_contents):
+            subject = _thread_subject_from_user(prior)
+            if subject:
+                return subject
+        return None
+    if not is_image_gen_generate_now(text):
+        return None
+    return _subject_from_active_image_exchange(prior_user_contents)
+
+
+def _subject_from_active_image_exchange(prior_user_contents: list[str]) -> str | None:
+    """Confirm ("do it") only against the current image exchange, not any older ask."""
+    skipped_noun_only = False
+    for prior in reversed(prior_user_contents):
+        if is_image_gen_generate_now(prior):
+            continue
+        if is_image_noun_only_message(prior):
+            skipped_noun_only = True
+            continue
+        explicit = extract_image_gen_prompt(prior)
+        if explicit:
+            return explicit
+        if skipped_noun_only:
+            return _thread_subject_from_user(prior)
+        return None
+    return None
+
+
+_NON_REVISION = frozenset(
+    {
+        "ok",
+        "okay",
+        "k",
+        "thanks",
+        "thank you",
+        "thx",
+        "ty",
+        "yes",
+        "no",
+        "yep",
+        "nope",
+        "sure",
+        "cool",
+        "nice",
+        "lol",
+        "lmao",
+        "haha",
+        "hehe",
+        "great",
+        "got it",
+        "perfect",
+        "awesome",
+        "hi",
+        "hello",
+        "hey",
+        "hiya",
+        "yo",
+        "sup",
+        "bye",
+        "goodbye",
+        "cya",
+        "see ya",
+        "sounds good",
+        "makes sense",
+        "understood",
+    }
+)
+
+# First remaining token after revision lead-ins. Questions and chat openers
+# must not become "{subject}, what's 2+2" or pay Neon list_recent on a new chat.
+_NOT_REVISION_STARTERS = frozenset(
+    {
+        "what",
+        "what's",
+        "whats",
+        "why",
+        "how",
+        "how's",
+        "who",
+        "when",
+        "where",
+        "which",
+        "can",
+        "could",
+        "would",
+        "should",
+        "is",
+        "are",
+        "do",
+        "does",
+        "did",
+        "will",
+        "am",
+        "help",
+        "tell",
+        "explain",
+        "write",
+        "please",
+        "i",
+        "i'm",
+        "im",
+        "i've",
+        "ive",
+        "we",
+        "let's",
+        "lets",
+    }
+)
+
+
+def subject_from_image_gen_user_message(content: str) -> str | None:
+    """Subject from a prior image-gen user bubble (legacy prefix or natural wording)."""
+    trimmed = content.strip()
+    if trimmed.lower().startswith(_USER_MESSAGE_PREFIX.lower()):
+        return _clean_prompt(trimmed[len(_USER_MESSAGE_PREFIX) :])
+    return extract_image_gen_prompt(trimmed)
+
+
+def is_image_only_assistant_content(content: str) -> bool:
+    """True when the assistant bubble is only an ``[Image: …]`` marker."""
+    has_image = False
+    for line in content.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("[Image:") and s.endswith("]") and len(s) > len("[Image:]"):
+            has_image = True
+            continue
+        return False
+    return has_image
+
+
+def _strip_revision_lead_in(tokens: list[str]) -> list[str]:
+    """Drop ``make it`` / ``change them to`` / ``now`` style lead-ins (linear)."""
+    i = 0
+    n = len(tokens)
+    if i < n and tokens[i].lower() == "please":
+        i += 1
+    if (
+        i + 1 < n
+        and tokens[i].lower() == "make"
+        and tokens[i + 1].lower()
+        in {
+            "it",
+            "them",
+        }
+    ):
+        return tokens[i + 2 :]
+    if (
+        i + 1 < n
+        and tokens[i].lower() == "change"
+        and tokens[i + 1].lower()
+        in {
+            "it",
+            "them",
+        }
+    ):
+        j = i + 2
+        if j < n and tokens[j].lower() == "to":
+            j += 1
+        return tokens[j:]
+    if i < n and tokens[i].lower() in {"now", "again", "instead", "try"}:
+        return tokens[i + 1 :]
+    return tokens[i:]
+
+
+def extract_image_revision_prompt(
+    text: str,
+    *,
+    last_assistant_is_image_only: bool,
+    previous_subject: str | None,
+) -> str | None:
+    """Short follow-up after an image-only reply → new generate prompt."""
+    if not last_assistant_is_image_only or not previous_subject:
+        return None
+    trimmed = text.strip()
+    if not trimmed or len(trimmed) > 120:
+        return None
+
+    tokens = _strip_revision_lead_in(_tokens(trimmed))
+    if not tokens or len(tokens) > 8:
+        return None
+    if "?" in trimmed:
+        return None
+    first = tokens[0].lower().rstrip(".!,")
+    if first in _NOT_REVISION_STARTERS:
+        return None
+    revision = _join_subject(tokens)
+    if not revision:
+        return None
+    if _has_non_image_subject(revision):
+        return None
+    cleaned = _clean_prompt(revision)
+    if not cleaned:
+        return None
+    if cleaned.lower() in _NON_REVISION:
+        return None
+    return f"{previous_subject}, {cleaned}"
+
+
+def could_be_image_revision(text: str) -> bool:
+    """True if this text could revise a prior image-only reply.
+
+    Used to skip the Neon recent-message lookup when the text cannot be a
+    revision even if the last assistant was image-only (greetings, thanks).
+    """
+    return (
+        extract_image_revision_prompt(
+            text,
+            last_assistant_is_image_only=True,
+            previous_subject="x",
+        )
+        is not None
+    )
+
+
+def image_gen_revision_context(
+    messages: list[Any],
+) -> tuple[bool, str | None]:
+    """Walk newest→oldest for image-gen context used by revision intercept."""
+    last_assistant_is_image_only = False
+    previous_subject: str | None = None
+    for row in reversed(messages):
+        role = getattr(row, "role", None)
+        content = getattr(row, "content", None)
+        if role is None and isinstance(row, dict):
+            role = row.get("role")
+            content = row.get("content")
+        if not isinstance(content, str):
+            content = ""
+        if not last_assistant_is_image_only and role == "assistant":
+            model = getattr(row, "model", None)
+            if model is None and isinstance(row, dict):
+                model = row.get("model")
+            # Reference-photo lookup is image-only content but must not be
+            # treated as an AI-image revision target.
+            if model == "image-search-model":
+                break
+            last_assistant_is_image_only = is_image_only_assistant_content(content)
+            if not last_assistant_is_image_only:
+                break
+            continue
+        if last_assistant_is_image_only and role == "user":
+            previous_subject = subject_from_image_gen_user_message(content) or "the provided image"
+            break
+    return last_assistant_is_image_only, previous_subject

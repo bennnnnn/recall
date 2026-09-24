@@ -1,6 +1,6 @@
 import type React from "react";
 import { act, renderHook } from "@testing-library/react-native";
-import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
 import { api, type Message } from "@/lib/api";
 import { uploadChatAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 
