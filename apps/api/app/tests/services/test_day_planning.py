@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.home.time_starters import time_starters
 from app.modules.integrations.calendar import (
     CALENDAR_HINT,
     format_not_connected_calendar_block,
@@ -25,7 +26,6 @@ from app.services.day_planning import (
     is_day_reflection_question,
     needs_gmail_for_day_planning,
 )
-from app.services.home.time_starters import time_starters
 
 # Every Home time-starter prompt plus the two welcome chips.
 # wants_gmail is False on reflection (inbox fetch skipped).
@@ -93,7 +93,7 @@ def test_every_time_starter_prompt_is_classified():
     covered = {prompt for prompt, _, _ in _HOME_STARTERS}
     for hour in range(24):
         with patch(
-            "app.services.home.time_starters.local_hour_for_tz",
+            "app.modules.home.time_starters.local_hour_for_tz",
             return_value=hour,
         ):
             for starter in time_starters(user, MagicMock()):

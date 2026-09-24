@@ -30,7 +30,7 @@ import {
 } from "@/features/images/model/imageGenIntent";
 import { extractImageLookupQuery } from "@/features/images/model/imageLookupIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
-import { retireHomeGuidance } from "@/lib/homeGuidancePrefs";
+import { retireHomeGuidance } from "@/features/home/model/homeGuidancePrefs";
 import type { ClientGeo } from "@/lib/clientGeo";
 import {
   queryNeedsClientGeo,

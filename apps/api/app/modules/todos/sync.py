@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models.orm import Message
 from app.models.schemas import TodoExtractionResult
+from app.modules import home as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.actions import (
     _ACTION_RELOAD_LIMIT,
@@ -20,7 +21,6 @@ from app.modules.todos.actions import (
 )
 from app.modules.todos.classification import _transcript_implies_bulk_shift_to_tomorrow
 from app.repositories import users as users_repo
-from app.services import home as home_service
 from app.services.prompt_safety import strip_untrusted_blocks, text_before_attachment_markers
 
 logger = logging.getLogger(__name__)

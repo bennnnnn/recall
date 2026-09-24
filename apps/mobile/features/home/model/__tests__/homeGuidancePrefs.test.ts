@@ -13,8 +13,8 @@ function load(stored: { value: string | null }) {
   prefs.writePrefFile.mockImplementation(async (_path: string, value: string) => {
     stored.value = value;
   });
-  const guidance = jest.requireActual<typeof import("@/lib/homeGuidancePrefs")>(
-    "@/lib/homeGuidancePrefs",
+  const guidance = jest.requireActual<typeof import("@/features/home/model/homeGuidancePrefs")>(
+    "@/features/home/model/homeGuidancePrefs",
   );
   return { ...guidance, prefs };
 }

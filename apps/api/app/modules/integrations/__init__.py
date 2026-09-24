@@ -17,10 +17,15 @@ _EXPORTS = {
     "is_external_calendar_question": ("calendar", "is_external_calendar_question"),
     "nudge_ttl_seconds": ("nudges", "nudge_ttl_seconds"),
 }
-__all__ = list(_EXPORTS)
+_MODULE_EXPORTS = ("calendar", "inbox")
+__all__ = list(_EXPORTS) + list(_MODULE_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:
+    if name in _MODULE_EXPORTS:
+        value = import_module(f"app.modules.integrations.{name}")
+        globals()[name] = value
+        return value
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(name)

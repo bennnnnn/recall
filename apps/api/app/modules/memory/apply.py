@@ -150,8 +150,8 @@ async def apply_memory_section_rows(
 
 
 async def _invalidate_memory_caches(user_id: UUID) -> None:
+    from app.modules import home as home_service
     from app.modules import memory as memory_service
-    from app.services import home as home_service
 
     await memory_service.invalidate_memory_block(user_id)
     await home_service.invalidate_home_cache(user_id)

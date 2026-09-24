@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem, User
+from app.modules import home as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.recurrence import (
     RecurrenceRule,
@@ -18,7 +19,6 @@ from app.modules.todos.recurrence import (
 )
 from app.modules.todos.schedule_repository import TodoScheduleSnapshot, advance_schedules_if_current
 from app.repositories import chats as chats_repo
-from app.services import home as home_service
 from app.services.time_context import normalize_due_at
 
 

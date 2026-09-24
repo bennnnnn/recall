@@ -3,21 +3,32 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Learning, LearningPracticeEvent
-from app.models.schemas import HomeProjectHighlight, LearningStats
+from app.models.schemas import HomeProjectHighlight, HomeStarter, LearningStats
 from app.modules.learning import daily as daily_learning
 from app.modules.learning import insights as learning_insights
 from app.modules.learning import items_repository as learning_items_repo
 from app.modules.learning import repository as learning_repo
 from app.modules.learning import stats as learning_stats
 from app.modules.learning.common import normalize_target_language
-from app.services.home.util import CompletedDaily, LearningHomeContent
+
+CompletedDaily = tuple[str, Literal["language"]]
+
+
+class LearningHomeContent(NamedTuple):
+    starters: list[HomeStarter]
+    subtitle: str | None
+    highlight: HomeProjectHighlight | None
+    completed_daily: list[CompletedDaily]
+    # True when the user still has a language/vocabulary project — used to suppress
+    # stale "Practice English" chips after the class was deleted (memories linger).
+    has_language_project: bool
 
 
 def is_language_project(project: Learning) -> bool:

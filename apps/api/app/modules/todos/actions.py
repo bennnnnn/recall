@@ -12,10 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.models.schemas import TodoActionItem
+from app.modules import home as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.prompt_context import _normalize, _topic_key
 from app.modules.todos.recurrence import RecurrenceRule, is_recurrence_rule, snap_first_due
-from app.services import home as home_service
 from app.services import time_context as time_context_service
 from app.services.action_dispatch import ActionHandler, apply_action_batch
 

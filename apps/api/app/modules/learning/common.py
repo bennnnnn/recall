@@ -11,7 +11,7 @@ from app.models.schemas import LearningActionItem
 
 async def _invalidate_home_for_user(user_id: UUID) -> None:
     """Home cards depend on project stats — bust cache after learning mutations."""
-    from app.services import home as home_service
+    from app.modules import home as home_service
 
     await home_service.invalidate_home_cache(user_id)
 

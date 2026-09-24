@@ -1476,7 +1476,7 @@ async def test_delete_all_memories_releases_lock():
         patch("app.modules.memory.release_memory_write_lock", AsyncMock()) as release_lock,
         patch("app.modules.memory.repository.delete_all_for_user", AsyncMock(return_value=3)),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()) as invalidate,
-        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.home.invalidate_home_cache", AsyncMock()),
     ):
         removed = await delete_all_memories(session, user_id)
 

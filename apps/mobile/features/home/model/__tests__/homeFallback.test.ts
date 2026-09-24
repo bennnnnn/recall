@@ -4,7 +4,7 @@ import {
   localGreeting,
   welcomeStarterIcon,
   welcomeStarters,
-} from "@/lib/homeWelcome";
+} from "@/features/home/model/homeWelcome";
 
 const EN = {
   "chat.home.greeting_morning": "Good morning",

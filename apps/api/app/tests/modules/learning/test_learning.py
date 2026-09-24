@@ -243,7 +243,7 @@ async def test_create_learning_project_allows_second_language():
     with (
         patch.object(learning_repo, "find_language_by_target", AsyncMock(return_value=None)),
         patch.object(learning_repo, "create", AsyncMock(return_value=created)) as create_mock,
-        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.home.invalidate_home_cache", AsyncMock()),
         patch("app.modules.learning.crud.enqueue_language_path_job", AsyncMock()) as enqueue_path,
     ):
         result = await learning_service.create_learning_project(

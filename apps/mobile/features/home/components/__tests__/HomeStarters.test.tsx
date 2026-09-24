@@ -1,7 +1,7 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
-import { HomeStarters } from "@/components/HomeStarters";
-import { retireHomeGuidance } from "@/lib/homeGuidancePrefs";
+import { HomeStarters } from "@/features/home/components/HomeStarters";
+import { retireHomeGuidance } from "@/features/home/model/homeGuidancePrefs";
 
 let mockComposerActive = false;
 let mockRetired = false;
@@ -12,7 +12,7 @@ jest.mock("@/contexts/AuthContext", () => ({
 jest.mock("@/contexts/ComposerDraftContext", () => ({
   useComposerDraftActivity: () => mockComposerActive,
 }));
-jest.mock("@/contexts/HomeContext", () => ({
+jest.mock("@/features/home/context/HomeContext", () => ({
   useHome: () => ({ screen: { greeting: "Good morning" } }),
 }));
 jest.mock("@/features/todos/context/TodosContext", () => ({
@@ -24,11 +24,11 @@ jest.mock("@/features/todos/context/TodosContext", () => ({
     dismissReminderNudge: jest.fn(),
   }),
 }));
-jest.mock("@/lib/homeGuidancePrefs", () => ({
+jest.mock("@/features/home/model/homeGuidancePrefs", () => ({
   isHomeGuidanceRetired: jest.fn(async () => mockRetired),
   retireHomeGuidance: jest.fn(async () => undefined),
 }));
-jest.mock("@/lib/homeWelcome", () => ({
+jest.mock("@/features/home/model/homeWelcome", () => ({
   instantHomePlaceholder: () => ({ greeting: "Hello" }),
   welcomeStarterIcon: () => "sparkles-outline",
   welcomeStarters: () => [

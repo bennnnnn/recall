@@ -6,7 +6,7 @@ import { act, render } from "@testing-library/react-native";
 import { useChatSend } from "@/hooks/useChatSend";
 import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
 import { registerEmailDraftFlusher } from "@/features/integrations/model/emailDraftFlush";
-import { retireHomeGuidance } from "@/lib/homeGuidancePrefs";
+import { retireHomeGuidance } from "@/features/home/model/homeGuidancePrefs";
 import {
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
@@ -69,7 +69,7 @@ jest.mock("@/lib/resolveClientGeoForQuery", () => ({
 jest.mock("@/lib/scheduleIdle", () => ({
   scheduleIdlePromise: () => Promise.resolve(),
 }));
-jest.mock("@/lib/homeGuidancePrefs", () => ({
+jest.mock("@/features/home/model/homeGuidancePrefs", () => ({
   retireHomeGuidance: jest.fn(async () => undefined),
 }));
 jest.mock("@/features/attachments/model/pendingComposerAttachment", () => ({

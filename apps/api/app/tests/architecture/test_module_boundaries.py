@@ -275,6 +275,14 @@ LEGACY_WEB_SEARCH_SHIMS = {
 LEGACY_NOTIFICATION_SHIMS = {
     APP_ROOT / "services" / "notifications" / "__init__.py",
 }
+LEGACY_HOME_SHIMS = {
+    APP_ROOT / "routers" / "home.py",
+    APP_ROOT / "services" / "home" / "__init__.py",
+}
+LEGACY_HOME_IMPORTS = (
+    "app.routers.home",
+    "app.services.home",
+)
 LEGACY_BILLING_SHIMS = {
     APP_ROOT / "services" / "plan.py",
     APP_ROOT / "services" / "subscription.py",
@@ -416,6 +424,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
                 or path in LEGACY_MATH_SHIMS
                 or path in LEGACY_WEB_SEARCH_SHIMS
                 or path in LEGACY_NOTIFICATION_SHIMS
+                or path in LEGACY_HOME_SHIMS
                 or path in LEGACY_BILLING_SHIMS
             ):
                 continue
@@ -1068,6 +1077,61 @@ def test_production_code_does_not_use_legacy_notification_imports() -> None:
     assert not violations, "\n".join(violations)
 
 
+def test_home_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "home"
+    expected = {
+        "api.py",
+        "integration_starters.py",
+        "legacy_alias.py",
+        "memory_starters.py",
+        "time_starters.py",
+        "util.py",
+    }
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (APP_ROOT / "tests" / "modules" / "home" / "test_service.py").is_file()
+    for shim in LEGACY_HOME_SHIMS:
+        _shim_has_no_behavior(shim)
+    router_shim = APP_ROOT / "routers" / "home.py"
+    router_tree = ast.parse(router_shim.read_text(), filename=str(router_shim))
+    assert any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "app.modules.home.api"
+        and any(alias.name == "router" for alias in node.names)
+        for node in router_tree.body
+    ), "legacy home router must re-export app.modules.home.api.router"
+
+
+def test_production_code_does_not_use_legacy_home_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_HOME_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported.startswith(LEGACY_HOME_IMPORTS):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
+
+
+def test_mobile_home_has_one_feature_home() -> None:
+    feature_root = MOBILE_ROOT / "features" / "home"
+    assert (feature_root / "api.ts").is_file()
+    for folder in ("components", "context", "model"):
+        assert (feature_root / folder).is_dir()
+
+    assert not (MOBILE_ROOT / "components" / "HomeStarters.tsx").exists()
+    assert not (MOBILE_ROOT / "contexts" / "HomeContext.tsx").exists()
+    assert not (MOBILE_ROOT / "lib" / "homeWelcome.ts").exists()
+    assert not (MOBILE_ROOT / "lib" / "homeGuidancePrefs.ts").exists()
+    assert "getHomeScreen" not in (MOBILE_ROOT / "lib" / "api" / "discover.ts").read_text()
+
+    feature_import_violations = [
+        str(path.relative_to(MOBILE_ROOT))
+        for path in feature_root.rglob("*.ts*")
+        if "__tests__" not in path.parts and "@/app/" in path.read_text()
+    ]
+    assert not feature_import_violations
+
+
 def test_web_search_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "web_search"
     expected = {"augment.py", "detection.py", "formatting.py", "search_cache.py", "tool.py"}
@@ -1140,7 +1204,9 @@ def _package_public_names(module_name: str) -> frozenset[str]:
                     for key in node.value.keys
                     if isinstance(key, ast.Constant) and isinstance(key.value, str)
                 )
-            elif target.id == "__all__" and isinstance(node.value, ast.List | ast.Tuple):
+            elif target.id in {"__all__", "_MODULE_EXPORTS"} and isinstance(
+                node.value, ast.List | ast.Tuple
+            ):
                 names.update(
                     item.value
                     for item in node.value.elts
@@ -1185,6 +1251,9 @@ def test_package_import_cannot_pull_a_private_name() -> None:
     public = ast.parse(
         "from app.modules.attachments import service\n"
         "from app.modules.todos import snap_first_due\n"
+        "from app.modules.todos import repository\n"
+        "from app.modules.learning import items_repository\n"
+        "from app.modules.integrations import calendar\n"
     )
     assert not _foreign_module_import_violations(public, owner="images", label="sample")
 

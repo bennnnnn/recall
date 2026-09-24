@@ -36,10 +36,15 @@ _EXPORTS = {
     "transcript_implies_todo_sync": ("classification", "transcript_implies_todo_sync"),
 }
 
-__all__ = list(_EXPORTS)
+_MODULE_EXPORTS = ("repository",)
+__all__ = list(_EXPORTS) + list(_MODULE_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:
+    if name in _MODULE_EXPORTS:
+        value = import_module(f"app.modules.todos.{name}")
+        globals()[name] = value
+        return value
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(name)

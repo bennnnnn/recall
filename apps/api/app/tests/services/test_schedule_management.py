@@ -45,7 +45,7 @@ def schedule_sql():
         session.get.side_effect = lambda model, ident: (
             SimpleNamespace(timezone="UTC") if model is User else sync_session.get(model, ident)
         )
-        with patch("app.services.home.invalidate_home_cache", AsyncMock()) as invalidate:
+        with patch("app.modules.home.invalidate_home_cache", AsyncMock()) as invalidate:
             yield sync_session, session, invalidate
     engine.dispose()
     for column, original_type in zip(columns, original_types, strict=True):

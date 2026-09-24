@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.schemas import TodoActionItem
+from app.modules import home as home_service
 from app.modules import todos as todos_service
 from app.modules.todos import actions as todos_actions
 from app.modules.todos import classification as todos_classification
@@ -15,7 +16,6 @@ from app.modules.todos import crud as todos_crud
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.schemas import TodoCreate, TodoUpdate
 from app.repositories import users as users_repo
-from app.services import home as home_service
 from app.services.prompt_safety import wrap_untrusted
 
 

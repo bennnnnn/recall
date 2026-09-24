@@ -12,6 +12,7 @@ from app.core.jobs import enqueue
 from app.core.validation import normalize_avatar_url
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
+from app.modules import home as home_service
 from app.modules import memory as memory_service
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import repository as attachments_repo
@@ -19,7 +20,6 @@ from app.modules.attachments.content import MAX_ATTACHMENT_SIZE, is_image_conten
 from app.modules.billing import plan as plan_service
 from app.modules.integrations import connect as google_integrations_service
 from app.repositories import users as users_repo
-from app.services import home as home_service
 from app.services import tokens as tokens_service
 
 logger = logging.getLogger(__name__)

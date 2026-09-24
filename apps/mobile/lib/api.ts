@@ -1,9 +1,5 @@
-import { accountApi } from "@/lib/api/account";
-import { analyticsApi } from "@/lib/api/analytics";
-import { pushApi } from "@/lib/api/push";
 import { attachmentsApi } from "@/features/attachments/api";
-import { chatsApi } from "@/lib/api/chats";
-import { discoverApi } from "@/lib/api/discover";
+import { homeApi } from "@/features/home/api";
 import { imagesApi } from "@/features/images/api";
 import { integrationsApi } from "@/features/integrations/api";
 import { jobSearchApi } from "@/features/job-search/api";
@@ -11,6 +7,11 @@ import { learningApi } from "@/features/learning/api";
 import { memoriesApi } from "@/features/memory/api";
 import { speechApi } from "@/features/speech/api";
 import { todosApi } from "@/features/todos/api";
+import { accountApi } from "@/lib/api/account";
+import { analyticsApi } from "@/lib/api/analytics";
+import { chatsApi } from "@/lib/api/chats";
+import { discoverApi } from "@/lib/api/discover";
+import { pushApi } from "@/lib/api/push";
 
 export type * from "@/lib/api/types";
 export type { ProductEventName } from "@/lib/api/analytics";
@@ -35,6 +36,7 @@ export const api = {
   ...analyticsApi,
   ...chatsApi,
   ...memoriesApi,
+  ...homeApi,
   ...discoverApi,
   ...todosApi,
   ...learningApi,

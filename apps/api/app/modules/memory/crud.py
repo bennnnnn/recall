@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _invalidate_caches(seams: Any, user_id: UUID) -> None:
-    from app.services import home as home_service
+    from app.modules import home as home_service
 
     await seams.invalidate_memory_block(user_id)
     await home_service.invalidate_home_cache(user_id)

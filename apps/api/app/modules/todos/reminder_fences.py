@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.models.schemas import TodoActionItem
+from app.modules import home as home_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.actions import (
     _ACTION_RELOAD_LIMIT,
@@ -33,7 +34,6 @@ from app.modules.todos.actions import (
 )
 from app.modules.todos.recurrence import snap_first_due
 from app.modules.todos.schemas import RecurrenceRule
-from app.services import home as home_service
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
