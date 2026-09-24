@@ -76,8 +76,8 @@ def test_physics_modules_import_cold_in_isolation() -> None:
     import sys
 
     for module in (
-        "app.services.physics.block",
-        "app.services.physics.direct",
+        "app.modules.physics.block",
+        "app.modules.physics.direct",
         "app.services.math.tools.block",
         "app.services.math.tools",
     ):

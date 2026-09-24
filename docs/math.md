@@ -42,7 +42,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 | Layer | Path |
 |-------|------|
 | SymPy core | `apps/api/app/services/math/solve/` |
-| Physics (peer subject) | `apps/api/app/services/physics/` — `solver.py`, `extract.py`, `direct.py`, `block.py` |
+| Physics (peer subject) | `apps/api/app/modules/physics/` — `solver.py`, `extract.py`, `direct.py`, `block.py` |
 | Pre-stream inject | `apps/api/app/services/math/tools/` |
 | Post-stream fences | `apps/api/app/services/math/fence.py` |
 | Camera OCR | `apps/api/app/services/math/ocr.py`, `apps/api/app/services/math/image_extract.py` |

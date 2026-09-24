@@ -261,6 +261,9 @@ LEGACY_SPEECH_IMPORTS = (
 LEGACY_CHEMISTRY_SHIMS = {
     APP_ROOT / "services" / "chemistry" / "__init__.py",
 }
+LEGACY_PHYSICS_SHIMS = {
+    APP_ROOT / "services" / "physics" / "__init__.py",
+}
 
 
 def _imports(path: Path) -> list[str]:
@@ -392,6 +395,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
                 or path in LEGACY_IMAGES_SHIMS
                 or path in LEGACY_SPEECH_SHIMS
                 or path in LEGACY_CHEMISTRY_SHIMS
+                or path in LEGACY_PHYSICS_SHIMS
             ):
                 continue
             for imported in _imports(path):
@@ -926,6 +930,16 @@ def test_mobile_speech_has_one_feature_home() -> None:
     assert not feature_import_violations
 
 
+def _shim_has_no_behavior(shim: Path) -> None:
+    tree = ast.parse(shim.read_text(), filename=str(shim))
+    owned_definitions = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
+    assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
+
+
 def test_chemistry_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "chemistry"
     expected = {
@@ -943,16 +957,8 @@ def test_chemistry_runtime_code_has_one_owner() -> None:
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert (module_root / "solvers" / "solver.py").is_file()
     assert (APP_ROOT / "tests" / "modules" / "chemistry" / "test_chemistry_service.py").is_file()
-
     for shim in LEGACY_CHEMISTRY_SHIMS:
-        tree = ast.parse(shim.read_text(), filename=str(shim))
-        owned_definitions = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-        ]
-        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
-
+        _shim_has_no_behavior(shim)
     assert not (MOBILE_ROOT / "features" / "chemistry").exists()
     assert (MOBILE_ROOT / "lib" / "chemistry" / "fence.ts").is_file()
 
@@ -966,6 +972,28 @@ def test_production_code_does_not_use_legacy_chemistry_imports() -> None:
             if imported == "app.services.chemistry" or imported.startswith(
                 "app.services.chemistry."
             ):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
+
+
+def test_physics_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "physics"
+    expected = {"block.py", "direct.py", "extract.py", "request.py", "solver.py"}
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (module_root / "extractors").is_dir()
+    assert (module_root / "solvers").is_dir()
+    assert (APP_ROOT / "tests" / "modules" / "physics" / "test_physics_solver.py").is_file()
+    for shim in LEGACY_PHYSICS_SHIMS:
+        _shim_has_no_behavior(shim)
+
+
+def test_production_code_does_not_use_legacy_physics_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_PHYSICS_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported == "app.services.physics" or imported.startswith("app.services.physics."):
                 violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
     assert not violations, "\n".join(violations)
 

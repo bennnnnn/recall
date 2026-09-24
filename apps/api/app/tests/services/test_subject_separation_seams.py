@@ -94,7 +94,7 @@ def test_physics_intent_kind_count_matches_the_verified_registry() -> None:
     """Twenty kinds, per docs/PHYSICS_TICKETS_ROUND3.md — pinned so a kind added
     to one without the other (the enum or PHYSICS_BLOCK_BUILDERS) is caught here
     rather than by a silent dispatch miss in production."""
-    from app.services.physics.block import PHYSICS_BLOCK_BUILDERS
+    from app.modules.physics.block import PHYSICS_BLOCK_BUILDERS
 
     physics_kinds = set(typing.get_args(PhysicsIntent.model_fields["kind"].annotation))
     assert physics_kinds == set(PHYSICS_BLOCK_BUILDERS)
