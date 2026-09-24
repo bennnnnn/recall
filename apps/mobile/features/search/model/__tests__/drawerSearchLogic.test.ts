@@ -3,7 +3,7 @@ import {
   isAbortError,
   isValidDrawerSearchQuery,
   mergeDrawerSearchResults,
-} from "@/lib/drawerSearchLogic";
+} from "@/features/search/model/drawerSearchLogic";
 import type { SearchResult } from "@/lib/api";
 
 it("detects abort errors with or without a DOMException global", () => {

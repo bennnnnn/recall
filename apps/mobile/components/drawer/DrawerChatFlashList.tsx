@@ -12,7 +12,7 @@ import {
 import {
   DrawerSearchLoadMore,
   DrawerSearchResultRow,
-} from "@/components/drawer/DrawerSearchResults";
+} from "@/features/search/components/DrawerSearchResults";
 import { makeConversationListStyles } from "@/components/drawer/conversationListStyles";
 import {
   ARCHIVED_CHAT_SECTION,

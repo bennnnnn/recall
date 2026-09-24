@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
-import { DrawerSearchResultsChrome } from "@/components/drawer/DrawerSearchResults";
+import { DrawerSearchResultsChrome } from "@/features/search/components/DrawerSearchResults";
 
 type Props = {
   loading: boolean;

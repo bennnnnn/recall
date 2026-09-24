@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render } from "@testing-library/react-native";
-import { DrawerSearchLoadMore, DrawerSearchResultRow, DrawerSearchResultsChrome } from "@/components/drawer/DrawerSearchResults";
+import { DrawerSearchLoadMore, DrawerSearchResultRow, DrawerSearchResultsChrome } from "@/features/search/components/DrawerSearchResults";
 import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
 import type { SearchResult } from "@/lib/api";
 import { DrawerChatFlashList, type DrawerChatListItem } from "@/components/drawer/DrawerChatFlashList";

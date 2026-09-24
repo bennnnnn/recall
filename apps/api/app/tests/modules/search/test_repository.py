@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.repositories import search as search_repo
+from app.modules.search import repository as search_repo
 
 
 def _title_row(*, chat_id, title: str, created_at: datetime, total: int):

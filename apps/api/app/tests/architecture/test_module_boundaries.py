@@ -289,6 +289,16 @@ LEGACY_BILLING_SHIMS = {
     APP_ROOT / "services" / "revenuecat_webhook.py",
     APP_ROOT / "routers" / "webhooks.py",
 }
+LEGACY_SEARCH_SHIMS = {
+    APP_ROOT / "repositories" / "search.py",
+    APP_ROOT / "routers" / "search.py",
+    APP_ROOT / "services" / "search.py",
+}
+LEGACY_SEARCH_IMPORTS = (
+    "app.repositories.search",
+    "app.routers.search",
+    "app.services.search",
+)
 
 
 def _imports(path: Path) -> list[str]:
@@ -426,6 +436,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
                 or path in LEGACY_NOTIFICATION_SHIMS
                 or path in LEGACY_HOME_SHIMS
                 or path in LEGACY_BILLING_SHIMS
+                or path in LEGACY_SEARCH_SHIMS
             ):
                 continue
             for imported in _imports(path):
@@ -1112,6 +1123,39 @@ def test_production_code_does_not_use_legacy_home_imports() -> None:
     assert not violations, "\n".join(violations)
 
 
+def test_search_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "search"
+    expected = {"api.py", "repository.py", "service.py"}
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert {
+        "test_api.py",
+        "test_query.py",
+        "test_repository.py",
+        "test_repository_db.py",
+    } <= {path.name for path in (APP_ROOT / "tests" / "modules" / "search").glob("*.py")}
+    for shim in LEGACY_SEARCH_SHIMS:
+        _shim_has_no_behavior(shim)
+    router_shim = APP_ROOT / "routers" / "search.py"
+    router_tree = ast.parse(router_shim.read_text(), filename=str(router_shim))
+    assert any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "app.modules.search.api"
+        and any(alias.name == "router" for alias in node.names)
+        for node in router_tree.body
+    ), "legacy search router must re-export app.modules.search.api.router"
+
+
+def test_production_code_does_not_use_legacy_search_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_SEARCH_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported.startswith(LEGACY_SEARCH_IMPORTS):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
+
+
 def test_mobile_home_has_one_feature_home() -> None:
     feature_root = MOBILE_ROOT / "features" / "home"
     assert (feature_root / "api.ts").is_file()
@@ -1123,6 +1167,25 @@ def test_mobile_home_has_one_feature_home() -> None:
     assert not (MOBILE_ROOT / "lib" / "homeWelcome.ts").exists()
     assert not (MOBILE_ROOT / "lib" / "homeGuidancePrefs.ts").exists()
     assert "getHomeScreen" not in (MOBILE_ROOT / "lib" / "api" / "discover.ts").read_text()
+
+    feature_import_violations = [
+        str(path.relative_to(MOBILE_ROOT))
+        for path in feature_root.rglob("*.ts*")
+        if "__tests__" not in path.parts and "@/app/" in path.read_text()
+    ]
+    assert not feature_import_violations
+
+
+def test_mobile_search_has_one_feature_home() -> None:
+    feature_root = MOBILE_ROOT / "features" / "search"
+    assert (feature_root / "api.ts").is_file()
+    for folder in ("components", "hooks", "model"):
+        assert (feature_root / folder).is_dir()
+
+    assert not (MOBILE_ROOT / "hooks" / "useDrawerSearch.ts").exists()
+    assert not (MOBILE_ROOT / "lib" / "drawerSearchLogic.ts").exists()
+    assert not (MOBILE_ROOT / "components" / "drawer" / "DrawerSearchResults.tsx").exists()
+    assert "search:" not in (MOBILE_ROOT / "lib" / "api" / "discover.ts").read_text()
 
     feature_import_violations = [
         str(path.relative_to(MOBILE_ROOT))

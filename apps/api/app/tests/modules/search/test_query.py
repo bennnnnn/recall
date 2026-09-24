@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.models.orm import Chat, Message
-from app.repositories import search as search_repo
+from app.modules.search import repository as search_repo
 
 
 def _id(index: int) -> UUID:
