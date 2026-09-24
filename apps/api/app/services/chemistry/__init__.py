@@ -3,8 +3,7 @@
 New code belongs in :mod:`app.modules.chemistry`.
 """
 
-import sys
+from app.modules.chemistry import *  # noqa: F403
+from app.modules.chemistry.legacy_alias import install
 
-from app.modules import chemistry as _module
-
-sys.modules[__name__] = _module
+install(__name__)

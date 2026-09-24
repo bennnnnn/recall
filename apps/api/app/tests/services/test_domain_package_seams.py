@@ -50,6 +50,9 @@ def test_chemistry_package_exposes_its_public_api() -> None:
     assert callable(
         importlib.import_module("app.modules.chemistry.context").build_chemistry_context
     )
+    canonical_block = importlib.import_module("app.modules.chemistry.block")
+    legacy_block = importlib.import_module("app.services.chemistry.block")
+    assert legacy_block is canonical_block
     assert callable(importlib.import_module("app.modules.chemistry.fence").enrich_chemistry_fences)
 
 
