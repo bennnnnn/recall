@@ -12,7 +12,7 @@ import { type IoniconName } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/components/chat/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/components/chat/ChatScreenMenuSheets";
-import { LiveTalkOverlay } from "@/components/chat/LiveTalkOverlay";
+import { LiveTalkOverlay } from "@/features/speech/components/LiveTalkOverlay";
 import { makeChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import {
   COMPOSER_HEIGHT,
@@ -39,8 +39,8 @@ import { useChatRegenerate } from "@/hooks/useChatRegenerate";
 import { useChatRouteLoader } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
-import { useVoiceInput } from "@/hooks/useVoiceInput";
-import { useLiveTalk } from "@/hooks/useLiveTalk";
+import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
+import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";

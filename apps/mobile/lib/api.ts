@@ -9,7 +9,7 @@ import { integrationsApi } from "@/features/integrations/api";
 import { jobSearchApi } from "@/features/job-search/api";
 import { learningApi } from "@/features/learning/api";
 import { memoriesApi } from "@/features/memory/api";
-import { speechApi } from "@/lib/api/speech";
+import { speechApi } from "@/features/speech/api";
 import { todosApi } from "@/features/todos/api";
 
 export type * from "@/lib/api/types";

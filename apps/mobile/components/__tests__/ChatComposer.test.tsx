@@ -39,15 +39,15 @@ jest.mock("expo-haptics", () => ({
   NotificationFeedbackType: { Success: "success", Warning: "warning" },
 }));
 
-jest.mock("@/components/chat/VoiceComposerWaveform", () => ({
+jest.mock("@/features/speech/components/VoiceComposerWaveform", () => ({
   VoiceComposerWaveform: () => null,
 }));
 
-jest.mock("@/components/chat/VoiceMicButton", () => ({
+jest.mock("@/features/speech/components/VoiceMicButton", () => ({
   VoiceMicButton: () => null,
 }));
 
-jest.mock("@/components/chat/LiveTalkButton", () => {
+jest.mock("@/features/speech/components/LiveTalkButton", () => {
   const { Pressable } = jest.requireActual("react-native") as typeof import("react-native");
   return {
     LiveTalkButton: ({ onPress }: { onPress: () => void }) => (

@@ -244,6 +244,20 @@ LEGACY_IMAGES_IMPORTS = (
     "app.services.mcp.image_gen_adapter",
     "app.services.mcp.image_search_adapter",
 )
+LEGACY_SPEECH_SHIMS = {
+    APP_ROOT / "routers" / "speech.py",
+    APP_ROOT / "routers" / "speech_realtime.py",
+    APP_ROOT / "services" / "speech.py",
+    APP_ROOT / "services" / "live_talk.py",
+    APP_ROOT / "services" / "live_talk_tools.py",
+}
+LEGACY_SPEECH_IMPORTS = (
+    "app.routers.speech",
+    "app.routers.speech_realtime",
+    "app.services.speech",
+    "app.services.live_talk",
+    "app.services.live_talk_tools",
+)
 
 
 def _imports(path: Path) -> list[str]:
@@ -373,6 +387,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
                 or path in LEGACY_INTEGRATIONS_SHIMS
                 or path in LEGACY_ATTACHMENTS_SHIMS
                 or path in LEGACY_IMAGES_SHIMS
+                or path in LEGACY_SPEECH_SHIMS
             ):
                 continue
             for imported in _imports(path):
@@ -821,6 +836,83 @@ def test_mobile_images_has_one_feature_home() -> None:
     ):
         assert not gone.exists(), gone
     assert (MOBILE_ROOT / "lib" / "images" / "imageUriPolicy.ts").is_file()
+
+    feature_import_violations = [
+        str(path.relative_to(MOBILE_ROOT))
+        for path in feature_root.rglob("*.ts*")
+        if "__tests__" not in path.parts and "@/app/" in path.read_text()
+    ]
+    assert not feature_import_violations
+
+
+def test_speech_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "speech"
+    expected = {
+        "api.py",
+        "live_talk.py",
+        "live_talk_tools.py",
+        "realtime.py",
+        "schemas.py",
+        "service.py",
+    }
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (APP_ROOT / "tests" / "modules" / "speech" / "test_service.py").is_file()
+
+    for shim in LEGACY_SPEECH_SHIMS:
+        tree = ast.parse(shim.read_text(), filename=str(shim))
+        owned_definitions = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
+        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
+
+    for shim_name, module_name in (("speech.py", "api"), ("speech_realtime.py", "realtime")):
+        shim = APP_ROOT / "routers" / shim_name
+        shim_tree = ast.parse(shim.read_text(), filename=str(shim))
+        assert any(
+            isinstance(node, ast.ImportFrom)
+            and node.module == f"app.modules.speech.{module_name}"
+            and any(alias.name == "router" for alias in node.names)
+            for node in shim_tree.body
+        ), f"legacy {shim_name} must re-export router"
+
+    schema_barrel = APP_ROOT / "models" / "schemas" / "__init__.py"
+    assert not any(
+        imported == "app.modules.speech" or imported.startswith("app.modules.speech.")
+        for imported in _imports(schema_barrel)
+    )
+
+
+def test_production_code_does_not_use_legacy_speech_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_SPEECH_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported.startswith(LEGACY_SPEECH_IMPORTS):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
+
+
+def test_mobile_speech_has_one_feature_home() -> None:
+    feature_root = MOBILE_ROOT / "features" / "speech"
+    assert (feature_root / "api.ts").is_file()
+    assert (feature_root / "types.ts").is_file()
+    for folder in ("components", "hooks", "model"):
+        assert (feature_root / folder).is_dir()
+
+    for gone in (
+        MOBILE_ROOT / "lib" / "api" / "speech.ts",
+        MOBILE_ROOT / "hooks" / "useLiveTalk.ts",
+        MOBILE_ROOT / "hooks" / "useVoiceInput.ts",
+        MOBILE_ROOT / "lib" / "speech" / "pronunciation.ts",
+        MOBILE_ROOT / "lib" / "speech" / "realtimeVoice.ts",
+        MOBILE_ROOT / "components" / "chat" / "LiveTalkOverlay.tsx",
+        MOBILE_ROOT / "components" / "chat" / "VoiceMicButton.tsx",
+    ):
+        assert not gone.exists(), gone
+    assert (MOBILE_ROOT / "lib" / "speech" / "voiceAudio.ts").is_file()
 
     feature_import_violations = [
         str(path.relative_to(MOBILE_ROOT))

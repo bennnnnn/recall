@@ -15,6 +15,8 @@ from app.modules.integrations import gmail_api as gmail_integrations
 from app.modules.job_search import api as job_search
 from app.modules.learning import api as learning
 from app.modules.memory import api as memories
+from app.modules.speech import api as speech
+from app.modules.speech import realtime as speech_realtime
 from app.modules.todos import api as todos
 from app.routers import (
     admin,
@@ -28,8 +30,6 @@ from app.routers import (
     link_preview,
     models,
     search,
-    speech,
-    speech_realtime,
     suggestions,
     users,
     webhooks,
