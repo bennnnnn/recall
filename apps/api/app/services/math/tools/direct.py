@@ -656,7 +656,7 @@ def can_direct_verified_math_reply(
     if wants_math_explanation(user_text) and not lesson:
         return False
     if verified.physics_intent is not None:
-        from app.services.physics.direct import can_direct_physics
+        from app.modules.physics.direct import can_direct_physics
 
         return can_direct_physics(verified, user_text, _solver_fences(verified))
     if not verified.allow_direct:
@@ -774,7 +774,7 @@ def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -
     display_answer = (verified.display_answer or answer).strip()
     physics_working: str | None = None
     if verified.physics_intent is not None:
-        from app.services.physics.direct import format_direct_physics_working
+        from app.modules.physics.direct import format_direct_physics_working
 
         physics_working = format_direct_physics_working(verified)
     if scenes:

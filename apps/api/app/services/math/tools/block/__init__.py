@@ -112,7 +112,7 @@ def _build_verified_block(
     # Deferred: physics.block imports this package's shared block primitives, so
     # importing it at module level would close an import cycle whenever physics
     # is imported first. Same reason SCHOOL_BLOCK_BUILDERS is imported below.
-    from app.services.physics.block import PHYSICS_BLOCK_BUILDERS
+    from app.modules.physics.block import PHYSICS_BLOCK_BUILDERS
 
     try:
         # Explicit _BlockBuilder annotation on first assignment: SCHOOL_BLOCK_BUILDERS

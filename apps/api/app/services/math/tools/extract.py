@@ -7,6 +7,12 @@ from collections.abc import Callable, Sequence
 
 from app.models.schemas.math import MathIntent
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.extract import PHYSICS_EXTRACTORS
+from app.modules.physics.request import (
+    PhysicsRequest,
+    complete_physics_intent,
+    prepare_physics_request,
+)
 from app.services.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
@@ -28,12 +34,6 @@ from app.services.math.tools.extractors.geometry_graph import (
 )
 from app.services.math.tools.helpers import has_assignment_evaluation_request, math_expr_or_none
 from app.services.math.tools.school import SCHOOL_EXTRACTORS
-from app.services.physics.extract import PHYSICS_EXTRACTORS
-from app.services.physics.request import (
-    PhysicsRequest,
-    complete_physics_intent,
-    prepare_physics_request,
-)
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | PhysicsIntent | None]] = (
     SOLID_EXTRACTOR,

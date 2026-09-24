@@ -267,7 +267,7 @@ def supported_physics_cue(cleaned: str) -> bool:
         return True
     if not any(ch.isdigit() for ch in cleaned):
         return _DIGIT_FREE_PHYSICS_RE.search(cleaned) is not None
-    from app.services.physics.extract import has_supported_physics_cue
+    from app.modules.physics.extract import has_supported_physics_cue
 
     # Not lowercased: a few physics cues mean the SI symbols `V` and `A` and
     # are case-sensitive on purpose. Lowercasing here made them dead in the

@@ -81,7 +81,6 @@ app/
   services/            # legacy product code until that domain is a module
     chat/              # turn prep, stream, post_turn — migrate last
     math/              # match/ (scan) → tools/ (intent, block) → solve/ (SymPy)
-    physics/           # peer subject: solver, extract, direct, block
     notifications/ web_search/ home/ mcp/
   exceptions.py        # shared domain exceptions
   models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools)
@@ -138,7 +137,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `services/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
-| Physics (20 verified kinds) | `services/physics/` (`extract.py` cues + extractors, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
+| Physics (20 verified kinds) | `modules/physics/` (`extract.py`, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/`, `models/schemas/chemistry/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Calendar / Gmail | `modules/integrations/` (HTTP `/integrations/google-calendar`, `/integrations/google-gmail`) | `features/integrations/`; `app/settings/integrations.tsx` route only |
 | Push / email out | `services/notifications/`, `background/*scheduler*` | notification settings |

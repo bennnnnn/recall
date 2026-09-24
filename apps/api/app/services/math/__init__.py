@@ -12,7 +12,7 @@ Alongside them: ``fence`` (post-stream fence correction), ``school``,
 and ``sympy_executor`` (the sandboxed SymPy process pool).
 
 Physics is a peer subject, not a corner of this package — see
-``app.services.physics``.
+``app.modules.physics``.
 
 Imports nothing on purpose: ``tools.block`` and ``physics.block`` reference
 each other's primitives during initialization, so eager re-exports here would
