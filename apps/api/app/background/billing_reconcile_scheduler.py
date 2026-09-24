@@ -20,8 +20,8 @@ from app.background.periodic import (
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.modules.billing import subscription as subscription_service
 from app.repositories import users as users_repo
-from app.services import subscription as subscription_service
 
 logger = logging.getLogger(__name__)
 

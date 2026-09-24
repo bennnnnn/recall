@@ -275,6 +275,12 @@ LEGACY_WEB_SEARCH_SHIMS = {
 LEGACY_NOTIFICATION_SHIMS = {
     APP_ROOT / "services" / "notifications" / "__init__.py",
 }
+LEGACY_BILLING_SHIMS = {
+    APP_ROOT / "services" / "plan.py",
+    APP_ROOT / "services" / "subscription.py",
+    APP_ROOT / "services" / "revenuecat_webhook.py",
+    APP_ROOT / "routers" / "webhooks.py",
+}
 
 
 def _imports(path: Path) -> list[str]:
@@ -410,6 +416,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
                 or path in LEGACY_MATH_SHIMS
                 or path in LEGACY_WEB_SEARCH_SHIMS
                 or path in LEGACY_NOTIFICATION_SHIMS
+                or path in LEGACY_BILLING_SHIMS
             ):
                 continue
             for imported in _imports(path):
@@ -1011,6 +1018,32 @@ def test_math_runtime_code_has_one_owner() -> None:
     assert (APP_ROOT / "tests" / "modules" / "math" / "test_math_service.py").is_file()
     for shim in LEGACY_MATH_SHIMS:
         _shim_has_no_behavior(shim)
+
+
+def test_billing_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "billing"
+    expected = {"api.py", "plan.py", "revenuecat.py", "subscription.py"}
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (APP_ROOT / "tests" / "services" / "test_plan.py").is_file()
+    for shim in LEGACY_BILLING_SHIMS:
+        _shim_has_no_behavior(shim)
+
+
+def test_production_code_does_not_use_legacy_billing_imports() -> None:
+    banned = (
+        "app.services.plan",
+        "app.services.subscription",
+        "app.services.revenuecat_webhook",
+        "app.routers.webhooks",
+    )
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_BILLING_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported in banned or any(imported.startswith(f"{name}.") for name in banned):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
 
 
 def test_notifications_runtime_code_has_one_owner() -> None:

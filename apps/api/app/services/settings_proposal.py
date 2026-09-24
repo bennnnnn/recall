@@ -19,9 +19,9 @@ from app.core.validation import LOCALE_NAMES
 from app.exceptions import ChatServiceError
 from app.models.orm import User
 from app.modules import memory as memory_service
+from app.modules.billing import plan as plan_service
 from app.repositories import users as users_repo
 from app.services import home as home_service
-from app.services import plan as plan_service
 from app.services.response_tone import TONE_IDS
 from app.services.settings_intent import SettingsChange, SettingsField
 

@@ -29,10 +29,10 @@ from app.models.schemas import (
     UserOut,
     UserUpdate,
 )
+from app.modules.billing import subscription as subscription_service
 from app.services import account_lifecycle, export_service, web_session
 from app.services import auth as auth_service
 from app.services import settings_proposal as settings_proposal_service
-from app.services import subscription as subscription_service
 from app.services import tokens as tokens_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])

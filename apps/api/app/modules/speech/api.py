@@ -17,6 +17,7 @@ from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
+from app.modules.billing import is_pro
 from app.modules.speech import service as speech_service
 from app.modules.speech.schemas import (
     SPEECH_MAX_AUDIO_BYTES,
@@ -27,7 +28,6 @@ from app.modules.speech.schemas import (
     SpeechTtsIn,
     SpeechTtsOut,
 )
-from app.services import plan as plan_service
 from app.services import quota as quota_service
 
 router = APIRouter(prefix="/speech", tags=["speech"])
@@ -47,7 +47,7 @@ async def _live_talk_status(
     used = await quota_service.live_talk_used(redis, user.id)
     remaining = max(0, limit - used)
     enabled = settings.speech_live_talk_enabled
-    entitled = enabled and plan_service.is_pro(user)
+    entitled = enabled and is_pro(user)
     return SpeechLiveStatusOut(
         enabled=enabled,
         entitled=entitled,

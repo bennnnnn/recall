@@ -20,6 +20,7 @@ from app.core.config import Settings
 from app.gateways import litellm_gateway, web_search_gateway
 from app.models.orm import User
 from app.modules.attachments.service import OwnedDocumentError, read_verified_document
+from app.modules.billing import is_pro
 from app.modules.job_search.models import JobMatch, JobSearchProfile
 from app.modules.job_search.schemas import (
     CoverLetterOut,
@@ -35,7 +36,6 @@ from app.modules.job_search.schemas import (
     ResumeProfile,
 )
 from app.modules.todos import snap_first_due
-from app.services import plan as plan_service
 from app.services.prompt_safety import wrap_untrusted
 from app.services.time_context import normalize_due_at
 
@@ -53,7 +53,7 @@ class JobSearchError(Exception):
 
 
 def _enforce_plan(user: User, body: JobSearchUpsert) -> None:
-    if plan_service.is_pro(user):
+    if is_pro(user):
         return
     if body.result_count != 5 or body.frequency != "weekly":
         raise JobSearchError(
@@ -137,7 +137,7 @@ def _enforce_patch_plan(
     profile: JobSearchProfile,
     values: dict[str, Any],
 ) -> None:
-    if plan_service.is_pro(user):
+    if is_pro(user):
         return
     count = values.get("result_count", profile.result_count)
     frequency = values.get("frequency", profile.frequency)
@@ -160,11 +160,7 @@ def can_request_manual_run(user: User, profile: JobSearchProfile) -> bool:
     """Allow first delivery, Pro on-demand search, and failed-run retries."""
     if profile.status != "active":
         return False
-    return (
-        profile.last_run_at is None
-        or profile.last_run_status == "error"
-        or plan_service.is_pro(user)
-    )
+    return profile.last_run_at is None or profile.last_run_status == "error" or is_pro(user)
 
 
 async def extract_resume_profile(
@@ -580,7 +576,7 @@ async def generate_cover_letter(
     match_id: UUID,
 ) -> CoverLetterOut:
     """Pro-only cover letter grounded in the match + structured resume profile."""
-    if not plan_service.is_pro(user):
+    if not is_pro(user):
         raise JobSearchError("Cover letters require Recall Pro", status_code=403)
     if not await _cover_letter_allowed(redis, user.id):
         raise JobSearchError("Daily cover letter limit reached", status_code=429)
