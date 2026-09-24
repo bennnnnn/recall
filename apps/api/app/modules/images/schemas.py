@@ -1,10 +1,14 @@
 """Image generation request and response models."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.models.schemas.chats import MessageOut
+if TYPE_CHECKING:
+    from app.models.schemas.chats import MessageOut
 
 
 class ImageGenerateIn(BaseModel):

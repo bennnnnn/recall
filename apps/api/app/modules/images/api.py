@@ -7,6 +7,8 @@ from app.models.schemas.chats import MessageOut
 from app.modules.images import generation as image_generation_service
 from app.modules.images.schemas import ImageGenerateIn, ImageGenerateOut
 
+ImageGenerateOut.model_rebuild(_types_namespace={"MessageOut": MessageOut})
+
 router = APIRouter(prefix="/images", tags=["images"])
 
 
