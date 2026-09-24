@@ -783,6 +783,14 @@ def test_images_runtime_code_has_one_owner() -> None:
         for node in shim_tree.body
     ), "legacy images router must re-export router"
 
+    # schemas.py imports MessageOut from chats, which loads this package first.
+    # Re-exporting the image models here imports the module while it is still initializing.
+    schema_barrel = APP_ROOT / "models" / "schemas" / "__init__.py"
+    assert not any(
+        imported == "app.modules.images" or imported.startswith("app.modules.images.")
+        for imported in _imports(schema_barrel)
+    )
+
 
 def test_production_code_does_not_use_legacy_images_imports() -> None:
     violations: list[str] = []

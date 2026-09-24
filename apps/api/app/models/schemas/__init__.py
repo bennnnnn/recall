@@ -69,7 +69,6 @@ from app.modules.attachments.schemas import (
     AttachmentPresignIn,
     AttachmentPresignOut,
 )
-from app.modules.images.schemas import ImageGenerateIn, ImageGenerateOut
 from app.modules.integrations.schemas import (
     CalendarConflictOut,
     CalendarConflictsOut,
@@ -156,8 +155,6 @@ __all__ = [
     "HomeScreenOut",
     "HomeStarter",
     "HomeUrgentTodo",
-    "ImageGenerateIn",
-    "ImageGenerateOut",
     "LearningActionItem",
     "LearningCreate",
     "LearningDailyHistoryDay",

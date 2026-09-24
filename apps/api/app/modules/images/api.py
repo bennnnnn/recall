@@ -3,8 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.models.orm import User
-from app.models.schemas import ImageGenerateIn, ImageGenerateOut, MessageOut
+from app.models.schemas.chats import MessageOut
 from app.modules.images import generation as image_generation_service
+from app.modules.images.schemas import ImageGenerateIn, ImageGenerateOut
 
 router = APIRouter(prefix="/images", tags=["images"])
 
