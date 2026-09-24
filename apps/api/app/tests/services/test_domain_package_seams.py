@@ -33,9 +33,7 @@ def test_retired_flat_modules_are_gone(legacy_name: str) -> None:
 
 
 def test_packaged_domains_expose_their_public_api() -> None:
-    assert callable(
-        importlib.import_module("app.modules.notifications.push").collect_push_outbound
-    )
+    assert callable(importlib.import_module("app.modules.notifications.push").collect_push_outbound)
     assert callable(importlib.import_module("app.modules.learning.spaced_repetition").apply_sm2)
     assert callable(importlib.import_module("app.modules.learning.daily").start_of_today_utc)
 
