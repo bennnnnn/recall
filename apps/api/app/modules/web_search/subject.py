@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.web_search.patterns import (
+from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _LOOK_IT_UP,
     _NEWS,
@@ -70,6 +70,6 @@ def resolve_search_subject(
 
 
 def _topic_needs_search(text: str) -> bool:
-    from app.services.web_search.detection import needs_web_search
+    from app.modules.web_search.detection import needs_web_search
 
     return needs_web_search(text, prior_user_messages=None)

@@ -11,9 +11,9 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
+from app.modules.web_search.formatting import format_sources_fence
 from app.services import web_search as web_search_service
 from app.services.chat.stream_pipeline import enrich_final_content
-from app.services.web_search.formatting import format_sources_fence
 
 
 def _passthrough_math(content: str, verified: object = None) -> str:

@@ -7,16 +7,9 @@ import re
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
-from app.modules.integrations import calendar as calendar_service
-from app.services import time_context as time_context_service
-from app.services.chat.prompt_constants import (
-    is_lightweight_chat_turn,
-    is_personal_disclosure_turn,
-    is_short_confirmation,
-    prior_looks_like_offer,
-)
-from app.services.web_search.geo_intent import is_geo_query, is_vocab_quiz_answer
-from app.services.web_search.patterns import (
+from app.modules.integrations import is_external_calendar_question
+from app.modules.web_search.geo_intent import is_geo_query, is_vocab_quiz_answer
+from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _EXPLICIT_SEARCH,
     _LOOK_IT_UP,
@@ -34,9 +27,16 @@ from app.services.web_search.patterns import (
     collapse_ws,
     has_recency,
 )
-from app.services.web_search.subject import (
+from app.modules.web_search.subject import (
     _prior_searchable_topic,
     resolve_search_subject,
+)
+from app.services import time_context as time_context_service
+from app.services.chat.prompt_constants import (
+    is_lightweight_chat_turn,
+    is_personal_disclosure_turn,
+    is_short_confirmation,
+    prior_looks_like_offer,
 )
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ def web_search_skip(
         return True
     if _PERSONAL_PLANNING.search(cleaned):
         return True
-    if calendar_service.is_external_calendar_question(cleaned):
+    if is_external_calendar_question(cleaned):
         return True
     return False
 
@@ -184,7 +184,7 @@ async def classify_web_search(
     """LLM gate for ambiguous turns; None when classifier disabled or call fails."""
     if not settings.web_search_classifier_enabled:
         return None
-    from app.services.web_search.classify import classify_web_search_need
+    from app.modules.web_search.classify import classify_web_search_need
 
     try:
         return await classify_web_search_need(

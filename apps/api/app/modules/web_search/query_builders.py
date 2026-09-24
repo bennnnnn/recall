@@ -6,9 +6,8 @@ import re
 from datetime import datetime, timedelta
 
 from app.gateways.web_search_gateway import WebSearchHit
-from app.services import time_context as time_context_service
-from app.services.web_search.geo_intent import is_geo_query
-from app.services.web_search.patterns import (
+from app.modules.web_search.geo_intent import is_geo_query
+from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _GENERIC_NEWS_QUERY,
     _LOOK_IT_UP,
@@ -20,7 +19,8 @@ from app.services.web_search.patterns import (
     _WORLD_CUP,
     collapse_ws,
 )
-from app.services.web_search.subject import resolve_search_subject
+from app.modules.web_search.subject import resolve_search_subject
+from app.services import time_context as time_context_service
 
 
 def _yesterday_label(user_timezone: str | None) -> str:

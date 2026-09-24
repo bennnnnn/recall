@@ -40,9 +40,9 @@ from app.modules.job_search.tool import JOB_DIRECT_REPLY_PREFIX, bind_job_search
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.tools import VerifiedMathBlock
 from app.modules.math.tools.extract import trig_domain_would_be_dropped
+from app.modules.web_search import bind_search_quota_context
 from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
-from app.services.mcp.web_search_adapter import bind_search_quota_context
 
 logger = logging.getLogger(__name__)
 
@@ -172,11 +172,11 @@ async def _force_web_search_if_needed(
     user_text = _last_user_content(messages)
     if not user_text:
         return messages, search_hits
+    from app.modules.web_search.detection import needs_web_search
+    from app.modules.web_search.formatting import format_search_block, format_search_empty_block
+    from app.modules.web_search.search_cache import run_cached_search
     from app.services.prompt_inject import inject_before_last_user
     from app.services.prompt_safety import wrap_untrusted
-    from app.services.web_search.detection import needs_web_search
-    from app.services.web_search.formatting import format_search_block, format_search_empty_block
-    from app.services.web_search.search_cache import run_cached_search
 
     already_searched = _web_search_was_called(messages)
     if not search_required and not already_searched and not needs_web_search(user_text):
@@ -695,7 +695,7 @@ def turn_needs_tool_loop(
     from app.modules.images.lookup_intent import extract_image_lookup_query
     from app.modules.job_search.chat_intent import wants_job_search
     from app.modules.math.tools import needs_symbolic_math
-    from app.services.web_search.detection import needs_web_search
+    from app.modules.web_search.detection import needs_web_search
 
     if web_search is True:
         return True

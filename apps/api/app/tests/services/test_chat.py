@@ -1944,7 +1944,7 @@ async def test_build_prompt_passes_client_timezone():
 
 
 def test_is_vocab_quiz_answer():
-    from app.services.web_search import is_vocab_quiz_answer
+    from app.modules.web_search import is_vocab_quiz_answer
 
     assert is_vocab_quiz_answer("B") is True
     assert is_vocab_quiz_answer("c.") is True

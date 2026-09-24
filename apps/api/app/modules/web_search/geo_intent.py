@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.services.web_search.patterns import (
+from app.modules.web_search.patterns import (
     _AMBIGUOUS_NEARBY_SUBJECT,
     _DISTANCE_INTENT,
     _FROM_USER,

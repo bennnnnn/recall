@@ -113,8 +113,8 @@ async def run_tool_loop_path(
             if isinstance(ctx.web_search_classified, bool):
                 web_search_flag = ctx.web_search_classified
             else:
-                from app.services.web_search.detection import should_web_search
-                from app.services.web_search.subject import (
+                from app.modules.web_search.detection import should_web_search
+                from app.modules.web_search.subject import (
                     _prior_user_messages,
                     last_assistant_content,
                 )
