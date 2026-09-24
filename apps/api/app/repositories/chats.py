@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
@@ -8,6 +9,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.timezone import resolve_timezone
 from app.models.orm import Chat, Message
+
+# Same process just created this chat. The send that follows should not pay
+# another Neon round trip to prove the caller owns it.
+_CHAT_CACHE_TTL_SECONDS = 120.0
+_chat_cache: dict[UUID, tuple[float, Chat]] = {}
+
+
+def _remember_chat(chat: Chat) -> None:
+    _chat_cache[chat.id] = (time.monotonic(), chat)
+
+
+def _cached_chat(chat_id: UUID, user_id: UUID) -> Chat | None:
+    hit = _chat_cache.get(chat_id)
+    if hit is None:
+        return None
+    stored_at, chat = hit
+    if time.monotonic() - stored_at > _CHAT_CACHE_TTL_SECONDS or chat.user_id != user_id:
+        _chat_cache.pop(chat_id, None)
+        return None
+    return chat
 
 
 async def create(
@@ -22,7 +43,21 @@ async def create(
     session.add(chat)
     await session.commit()
     await session.refresh(chat)
+    _remember_chat(
+        Chat(
+            id=chat.id,
+            user_id=chat.user_id,
+            model=chat.model,
+            project_id=chat.project_id,
+            quiz_mode=chat.quiz_mode,
+        )
+    )
     return chat
+
+
+def peek_recent_chat(chat_id: UUID, user_id: UUID) -> Chat | None:
+    """Detached chat remembered at create time. Reads only."""
+    return _cached_chat(chat_id, user_id)
 
 
 async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat | None:

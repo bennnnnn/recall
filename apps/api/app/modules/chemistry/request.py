@@ -45,6 +45,25 @@ _COMPOUND_NAME_RE = re.compile(
     r"(?:\?|$|\.|,|\s+(?:and|or|with|in|at|for|to|is|are|the))",
     re.IGNORECASE,
 )
+_NAME_STOPWORDS = frozenset(
+    {
+        "the",
+        "of",
+        "a",
+        "an",
+        "and",
+        "for",
+        "to",
+        "in",
+        "on",
+        "at",
+        "with",
+        "from",
+        "about",
+        "this",
+        "that",
+    }
+)
 _FALSE_POSITIVES = frozenset(
     {
         "the",
@@ -87,7 +106,7 @@ def is_chemistry_question(content: str) -> bool:
         re.IGNORECASE,
     ):
         return True
-    return bool(_COMPOUND_NAME_RE.search(cleaned))
+    return extract_compound_name(cleaned) is not None
 
 
 def extract_compound_name(content: str) -> str | None:
@@ -99,5 +118,10 @@ def extract_compound_name(content: str) -> str | None:
     name = re.sub(r"\s+(?:the|a|an|of|for|with)$", "", name).strip()
     name = re.sub(r"^(?:the\s+)?(?:lewis\s+)?structure\s+of\s+", "", name).strip()
     if not name or name in _FALSE_POSITIVES or not 3 <= len(name) <= 40:
+        return None
+    words = name.split()
+    # "what is the capital of France" matches the same lead as "what is aspirin".
+    # A real compound name has no function words.
+    if len(words) > 3 or any(word in _NAME_STOPWORDS for word in words):
         return None
     return name

@@ -34,6 +34,7 @@ from app.modules.chemistry import context as chemistry_context
         ("Solve the chemistry problem in this image step by step.", True),
         ("how many days until the trip", False),
         ("what is 2 + 2?", False),
+        ("What is the capital of France?", False),
         ("", False),
     ],
 )

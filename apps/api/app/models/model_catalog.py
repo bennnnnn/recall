@@ -292,7 +292,9 @@ CATALOG: tuple[ChatModel, ...] = (
 
 _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}
 _DEFAULT = _BY_ID["free-chat"]
-_AUTO_FAST = "free-chat"
+# Gemini Flash answers a short turn in well under a second. DeepSeek Chat
+# (free-chat) stays selectable, but Auto's everyday lane uses the faster one.
+_AUTO_FAST = "gemini-flash"
 _AUTO_SMART = "smart-chat"
 
 

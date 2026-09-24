@@ -108,6 +108,15 @@ def web_search_skip(
     return False
 
 
+# Stable schoolbook questions ("what is the capital of France") must not pay
+# an LLM classifier before the reply. Live or open-ended lookups still do.
+_MAYBE_LIVE = re.compile(
+    r"\b(?:who\s+is|who\s+leads|current|latest|today|tonight|right\s+now|"
+    r"price|pricing|hotel|weather|score|news|ceo|near\s+me)\b",
+    re.IGNORECASE,
+)
+
+
 def web_search_fast_yes(
     text: str,
     *,
@@ -215,6 +224,8 @@ async def should_web_search(
         return False
     if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
         return True
+    if _MAYBE_LIVE.search(collapse_ws(text)) is None:
+        return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
     classification = await classify_web_search(
         text,
         settings,

@@ -67,7 +67,6 @@ async def test_get_current_user_maps_redis_outage_to_503():
         with pytest.raises(HTTPException) as exc:
             await deps.get_current_user(
                 credentials=credentials,
-                session=AsyncMock(),
                 settings=settings,
                 redis=AsyncMock(),
             )

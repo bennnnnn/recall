@@ -897,10 +897,8 @@ async def build_prompt_messages(
     connection across the concurrent gather.
     """
     recent_limit = settings.recent_message_window
-    # Rich context still controls integrations, but personal continuity is a
-    # baseline capability: every non-lightweight turn gets bounded memory and
-    # past-conversation retrieval. Exact greetings/acknowledgements stay fast.
-    # ``lightweight`` is only the ultra-brief social reply style (hi/thanks).
+    # Greetings stay on the short-reply style. Other turns load memory and
+    # past-chat retrieval only when the text is actually about the user.
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
     # If this chat has indexed attachment chunks, force rich context so a
     # casual follow-up ("what's on page 10?") still retrieves RAG chunks.
@@ -914,10 +912,18 @@ async def build_prompt_messages(
                 rich_context = await chunks_repo.has_chunks_for_chat(s, user.id, chat_id)
         except Exception:
             logger.debug("has_chunks_for_chat probe failed for chat_id=%s", chat_id, exc_info=True)
-    load_memory = not lightweight
+    # Personal continuity only when this turn is actually about the user.
+    # A normal question ("what is the capital of France") used to embed memory
+    # and chat history on every non-greeting, which sat on the first token
+    # for seconds before the model started.
+    personal_context = (rich_context or advice_memory) and not lightweight
+    load_memory = personal_context
     slim_context = minimal_personal_context or lightweight or not rich_context
     history_rag = bool(
-        not lightweight and settings.chat_history_rag_enabled and query_text and query_text.strip()
+        personal_context
+        and settings.chat_history_rag_enabled
+        and query_text
+        and query_text.strip()
     )
     blocks = await _load_context_blocks(
         user,
