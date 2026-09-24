@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+from app.modules.math.match import needs_symbolic
 from app.services.chat.prompt_builder import _style_format_hints
 from app.services.chat.prompt_constants.math import (
     MATH_FENCE_SAFETY_HINT,
     MATH_NOTATION_CLARIFICATION_HINT,
 )
-from app.modules.math.match import needs_symbolic
 
 
 @pytest.mark.parametrize("style", ["balanced", "short"])

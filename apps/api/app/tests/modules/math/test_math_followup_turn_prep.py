@@ -11,11 +11,11 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
+from app.modules.math.followup import MATH_FOLLOWUP_HINT
+from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.services.chat.prompt_builder import _PromptContextBlocks
 from app.services.chat.turn_prep.mode import _TurnMode
 from app.services.chat.turn_prep.prepare import prepare_chat_turn
-from app.modules.math.followup import MATH_FOLLOWUP_HINT
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
 
 _QUERY = "Sum 1/n^2 from n=1 to infinity"
 _RESULT = r"\frac{\pi^{2}}{6}"

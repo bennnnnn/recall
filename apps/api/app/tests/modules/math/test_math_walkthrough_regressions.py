@@ -3,8 +3,8 @@
 import pytest
 
 from app.core.config import Settings
-from app.modules.physics.extract import _extract_force_intent
 from app.modules.math import tools as math_tools
+from app.modules.physics.extract import _extract_force_intent
 
 
 @pytest.mark.parametrize(

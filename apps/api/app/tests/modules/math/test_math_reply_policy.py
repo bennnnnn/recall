@@ -7,11 +7,11 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
-from app.services.chat.prompt_builder import _style_format_hints
-from app.services.chat.prompt_constants import MATH_TUTORING_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import augment_prompt_messages, needs_symbolic_math
+from app.services.chat.prompt_builder import _style_format_hints
+from app.services.chat.prompt_constants import MATH_TUTORING_HINT
 from app.services.tool_loop import run_tool_rounds
 
 

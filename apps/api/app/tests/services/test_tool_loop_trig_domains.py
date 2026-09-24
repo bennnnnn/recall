@@ -7,8 +7,8 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
-from app.services import tool_loop
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.services import tool_loop
 
 
 def _call(call_id: str, name: str, args: dict) -> dict:

@@ -10,9 +10,9 @@ from app.modules.integrations.calendar import (
     is_calendar_create_request,
     should_inject_calendar_block,
 )
-from app.modules.physics.direct import _FORMULA_LAW_NAMES, _RESULT_SYMBOLS
 from app.modules.math.tools import _build_verified_block, extract_math_intent
 from app.modules.math.tools.direct import maybe_direct_math_reply
+from app.modules.physics.direct import _FORMULA_LAW_NAMES, _RESULT_SYMBOLS
 
 _SETTINGS = Settings(math_tools_enabled=True)
 _HEADINGS = ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**")

@@ -8,13 +8,13 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.services.chat.prompt_builder import _PromptContextBlocks, build_prompt_messages
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
     readable_standalone_answer,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.services.chat.prompt_builder import _PromptContextBlocks, build_prompt_messages
 
 _SPEED_ASK = "Find the average speed for 100 m in 20 s."
 _SPEED_RESULT = r"5.0\ \mathrm{m}/\mathrm{s}"

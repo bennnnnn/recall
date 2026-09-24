@@ -123,9 +123,7 @@ def test_region_fence_replaces_model_curve_without_resampling() -> None:
     verified = _build_verified_block(intent, Settings())
     assert verified is not None and verified.canonical_fence is not None
     wrong_curve = '```graph\n{"type":"function","expr":"2*x","points":[[0,0],[1,2]]}\n```'
-    with patch(
-        "app.modules.math.solve.sample_function", side_effect=AssertionError("No sampling")
-    ):
+    with patch("app.modules.math.solve.sample_function", side_effect=AssertionError("No sampling")):
         final = math_fence.validate_math_fences(wrong_curve, verified=verified)
     assert "Could not render" not in final
     assert final.count("```graph") == 1

@@ -18,6 +18,14 @@ from app.modules import memory as memory_service
 from app.modules import todos as todos_service
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
+from app.modules.math import tools as math_tools_service
+from app.modules.math.followup import (
+    MATH_FOLLOWUP_HINT,
+    is_math_followup,
+    readable_standalone_answer,
+)
+from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.tools import VerifiedMathBlock
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import locale as locale_service
@@ -93,14 +101,6 @@ from app.services.chat.prompt_constants.visuals import (
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
-from app.modules.math import tools as math_tools_service
-from app.modules.math.followup import (
-    MATH_FOLLOWUP_HINT,
-    is_math_followup,
-    readable_standalone_answer,
-)
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.modules.math.tools import VerifiedMathBlock
 from app.services.md_fence_scan import strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import (

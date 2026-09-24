@@ -29,9 +29,9 @@ from app.models.schemas.physics import (
     SimulationBody,
     SimulationVector,
 )
-from app.modules.physics.solver import solve_physics
 from app.modules.math.fence import _spec_fence_kind, validate_math_fences
 from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.physics.solver import solve_physics
 
 PROJECTILE_Q = "a ball is thrown at 20 m/s at 30 degrees, what is the range"
 CIRCULAR_Q = (

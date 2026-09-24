@@ -8,10 +8,10 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.services import tool_loop
 from app.modules.math.match.needs import needs_symbolic
 from app.modules.math.tools import _build_verified_block, extract_math_intent
 from app.modules.math.tools.direct import maybe_direct_math_reply
+from app.services import tool_loop
 
 _SETTINGS = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)
 

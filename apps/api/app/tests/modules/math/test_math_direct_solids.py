@@ -8,14 +8,14 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.chat.stream_pipeline import stream_and_finalize
-from app.services.chat.turn_prep.context import StreamContext
 from app.modules.math.fence import validate_math_fences
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.direct_solids import solid_direct_request
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import build_math_augmentation
+from app.services.chat.stream_pipeline import stream_and_finalize
+from app.services.chat.turn_prep.context import StreamContext
 from app.services.solving import VerifiedMathBlock
 
 _MATRIX = [

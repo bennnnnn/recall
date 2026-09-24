@@ -24,8 +24,8 @@ from __future__ import annotations
 import pytest
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.solver import _PARAM_SI_DIMENSIONS
 from app.modules.math.tools import extract_math_intent
+from app.modules.physics.solver import _PARAM_SI_DIMENSIONS
 
 # Genuinely dimensionless, or converted before `_to_si` ever sees them.
 # `angle`/`angle2` are turned from degrees into radians by `_params_in_si`.
