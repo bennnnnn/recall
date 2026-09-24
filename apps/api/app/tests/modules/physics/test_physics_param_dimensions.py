@@ -25,7 +25,7 @@ import pytest
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.solver import _PARAM_SI_DIMENSIONS
-from app.services.math.tools import extract_math_intent
+from app.modules.math.tools import extract_math_intent
 
 # Genuinely dimensionless, or converted before `_to_si` ever sees them.
 # `angle`/`angle2` are turned from degrees into radians by `_params_in_si`.
@@ -85,7 +85,7 @@ def test_every_emitted_param_declares_a_dimension(text: str) -> None:
 
 def test_every_declared_dimension_is_a_real_unit() -> None:
     """A typo in the table disables the check it exists to perform."""
-    from app.services.math.school import get_unit_registry
+    from app.modules.math.school import get_unit_registry
 
     ureg = get_unit_registry()
     broken = []

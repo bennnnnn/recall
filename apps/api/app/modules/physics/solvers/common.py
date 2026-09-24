@@ -322,7 +322,7 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     """
     if not unit:
         return value
-    from app.services.math.school import get_unit_registry
+    from app.modules.math import get_unit_registry
 
     ureg = get_unit_registry()
     alias = _UNIT_ALIASES.get(unit.lower(), unit)

@@ -321,7 +321,7 @@ async def test_sympy_adapter_broken_pool_degrades_like_timeout(
     async def boom(*_args: object, **_kwargs: object) -> None:
         raise BrokenProcessPool("killed by sibling timeout")
 
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", boom)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", boom)
     adapter = SympyAdapter(Settings(math_solve_timeout_seconds=5))
     result = await adapter.invoke({"action": "simplify", "expr": "x + x", "variable": "x"})
     assert "timed out" in result.content

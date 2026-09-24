@@ -16,7 +16,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.services.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {"kinematics", "projectile", "force", "energy", "momentum"}
 
@@ -182,7 +182,7 @@ def test_the_same_numbers_still_route_by_the_question_asked() -> None:
 
 
 def test_momentum_direct_reply_uses_the_solver_owned_answer() -> None:
-    from app.services.math.tools.direct import maybe_direct_math_reply
+    from app.modules.math.tools.direct import maybe_direct_math_reply
 
     text = "momentum of a 2 kg mass moving at 3 m/s"
     intent = extract_math_intent(text)

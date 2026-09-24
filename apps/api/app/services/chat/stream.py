@@ -115,7 +115,7 @@ from app.services.chat.turn_prep import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens as estimate_tokens
-from app.services.math import fence as math_fence
+from app.modules.math import fence as math_fence
 
 chats_repo = chats
 messages_repo = messages

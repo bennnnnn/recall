@@ -39,9 +39,9 @@ from app.modules.integrations.tool import bind_calendar_context
 from app.modules.job_search.tool import JOB_DIRECT_REPLY_PREFIX, bind_job_search_context
 from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
-from app.services.math.reply_policy import MATH_REPLY_POLICY
-from app.services.math.tools import VerifiedMathBlock
-from app.services.math.tools.extract import trig_domain_would_be_dropped
+from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.tools import VerifiedMathBlock
+from app.modules.math.tools.extract import trig_domain_would_be_dropped
 from app.services.mcp.web_search_adapter import bind_search_quota_context
 
 logger = logging.getLogger(__name__)
@@ -694,7 +694,7 @@ def turn_needs_tool_loop(
     from app.modules.images.gen_intent import extract_image_gen_prompt
     from app.modules.images.lookup_intent import extract_image_lookup_query
     from app.modules.job_search.chat_intent import wants_job_search
-    from app.services.math.tools import needs_symbolic_math
+    from app.modules.math.tools import needs_symbolic_math
     from app.services.web_search.detection import needs_web_search
 
     if web_search is True:
@@ -705,7 +705,7 @@ def turn_needs_tool_loop(
         return True
     math_on = settings is None or settings.math_tools_enabled
     if math_on and needs_symbolic_math(text):
-        from app.services.math.tools.extract import extract_math_intent
+        from app.modules.math.tools.extract import extract_math_intent
 
         # Detection without an extractor is the 7*8 trap: the sympy tool
         # calls the same extractor and burns the round timeout for nothing.

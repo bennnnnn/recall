@@ -19,7 +19,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.services.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -212,7 +212,7 @@ def test_a_season_does_not_engage_the_math_path() -> None:
     These cues feed the global pre-filter, so a bare mention would spend a tool
     round on a question nothing here can answer.
     """
-    from app.services.math.tools import needs_symbolic_math
+    from app.modules.math.tools import needs_symbolic_math
 
     assert not needs_symbolic_math("spring break starts in 3 weeks")
     assert needs_symbolic_math("force of a spring with k = 200 N/m stretched 0.1 m")

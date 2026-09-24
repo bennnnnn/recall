@@ -38,7 +38,7 @@ def _reset_sympy_executor():
     pool (forking after any monkeypatch is applied, so the worker inherits the
     patched module). Without this, a pool created by an earlier test would be
     reused and would NOT see patches applied in the current test."""
-    from app.services.math.sympy_executor import reset_sympy_executor
+    from app.modules.math.sympy_executor import reset_sympy_executor
 
     reset_sympy_executor()
     yield
@@ -53,7 +53,7 @@ def thread_sympy_executor():
     subprocess boundary) or that spy on in-process state (a subprocess can't
     write back to the test's memory). The production executor's hard-kill
     behavior is exercised in test_sympy_executor.py."""
-    from app.services.math.sympy_executor import (
+    from app.modules.math.sympy_executor import (
         ThreadSympyExecutor,
         reset_sympy_executor,
         set_sympy_executor,

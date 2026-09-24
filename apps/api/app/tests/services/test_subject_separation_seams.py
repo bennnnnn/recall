@@ -1,7 +1,7 @@
 """Guards for docs/SUBJECT_SEPARATION_TICKETS.md (S10).
 
 Physics and math share a dispatch layer by design (see
-``app.services.math.tools.extract`` / ``app.services.math.tools.block`` — both
+``app.modules.math.tools.extract`` / ``app.modules.math.tools.block`` — both
 route on ``MathIntent | PhysicsIntent`` by ``.kind``), but the two subjects'
 own kind spaces and internals must not silently re-merge. These tests are the
 regression net for that, the same role ``test_domain_package_seams.py`` plays
@@ -38,8 +38,8 @@ _ALLOWED_MATH_IMPORTS: frozenset[tuple[str, str]] = frozenset(
     {
         ("app.models.schemas.math", "MathIntent"),
         ("app.models.schemas.math", "GraphBlockSpec"),
-        ("app.services.math.tools.school", "extract_average_speed_intent"),
-        ("app.services.math.school", "get_unit_registry"),
+        ("app.modules.math", "extract_average_speed_intent"),
+        ("app.modules.math", "get_unit_registry"),
     }
 )
 
@@ -50,8 +50,8 @@ def _math_imports(tree: ast.Module) -> set[tuple[str, str]]:
         if not isinstance(node, ast.ImportFrom) or node.module is None:
             continue
         if not (
-            node.module == "app.services.math"
-            or node.module.startswith("app.services.math.")
+            node.module == "app.modules.math"
+            or node.module.startswith("app.modules.math.")
             or node.module == "app.models.schemas.math"
             or node.module.startswith("app.models.schemas.math.")
         ):

@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.services.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {"kinematics", "projectile", "force", "energy", "momentum", "friction"}
 
@@ -195,7 +195,7 @@ def test_friction_without_a_given_does_not_engage_the_math_path() -> None:
     nothing here can answer it — and firing the tool path to discover that
     costs a round for nothing.
     """
-    from app.services.math.tools import needs_symbolic_math
+    from app.modules.math.tools import needs_symbolic_math
 
     assert not needs_symbolic_math("find the friction on a 5 kg block")
     # With a coefficient it is solvable, so it should engage.

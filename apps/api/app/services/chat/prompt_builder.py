@@ -93,14 +93,14 @@ from app.services.chat.prompt_constants.visuals import (
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
-from app.services.math import tools as math_tools_service
-from app.services.math.followup import (
+from app.modules.math import tools as math_tools_service
+from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
     readable_standalone_answer,
 )
-from app.services.math.reply_policy import MATH_REPLY_POLICY
-from app.services.math.tools import VerifiedMathBlock
+from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.tools import VerifiedMathBlock
 from app.services.md_fence_scan import strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import (

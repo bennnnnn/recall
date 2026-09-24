@@ -3,7 +3,7 @@
 Everything else on the `force` kind is scalar, which is why "a 3 N force east
 and a 4 N force north" had no answer at all.
 
-The ticket asked which extractor should own this, since `services/math/` already
+The ticket asked which extractor should own this, since `modules/math/` already
 has a `vector` kind for magnitude/dot/cross. It cannot: that one matches literal
 angle-bracket operands ("magnitude of <3, 4>") through
 `is_closed_coordinate_vector_request`, and a force question names units and
@@ -20,7 +20,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.services.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {
     "kinematics",

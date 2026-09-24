@@ -4,7 +4,7 @@ Neither of these knows what a "kind" is or what a solver does — they answer
 "is this phrase glued inside a longer word" and "does this look like an
 equals-sign equation," nothing more. Math's extractor layer and physics's
 extractor layer both lean on them heavily, so they live here rather than in
-`app.services.math`, which used to make physics import through math just to
+`app.modules.math`, which used to make physics import through math just to
 reach a string scanner. See docs/SUBJECT_SEPARATION_TICKETS.md (S4).
 """
 

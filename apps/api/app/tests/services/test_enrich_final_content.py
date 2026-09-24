@@ -80,7 +80,7 @@ async def test_search_sources_final_content_matches_persisted_text(
 ) -> None:
     """Appending ```sources used to update persist only; done.final_content
     stayed stripped. Mobile then saw a different string live vs on reload."""
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
 
     hits = [
         WebSearchHit(
@@ -113,7 +113,7 @@ async def test_search_sources_final_content_matches_persisted_text(
 
 @pytest.mark.asyncio
 async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
 
     result: dict[str, Any] = {}
     persisted = await enrich_final_content(
@@ -137,7 +137,7 @@ async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatc
 async def test_cancelled_turn_closes_unclosed_fence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
 
     result: dict[str, Any] = {}
     open_fence = "```mermaid\ngraph TD\n  A-->B"
@@ -163,7 +163,7 @@ async def test_cancelled_turn_closes_unclosed_fence(
 async def test_truncated_turn_closes_unclosed_fence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
 
     result: dict[str, Any] = {}
     open_fence = "```python\nprint(1"
@@ -190,7 +190,7 @@ async def test_normal_completion_also_closes_provider_unclosed_fence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A provider can emit done normally while forgetting the final backticks."""
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
 
     result: dict[str, Any] = {}
     open_fence = "```message\nHappy birthday! Hope you have a wonderful day."
@@ -216,7 +216,7 @@ async def test_normal_completion_also_closes_provider_unclosed_fence(
 async def test_mermaid_parenthetical_labels_quoted_on_persist(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
 
     result: dict[str, Any] = {}
     raw = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
@@ -247,7 +247,7 @@ async def test_verified_math_markers_are_stripped_from_final_content(
     one asserts the post-stream path removes them from what is persisted and
     shown, since instruction alone never stopped a model echoing them.
     """
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
     persisted = await enrich_final_content(
         _seams(),
         MagicMock(),
@@ -273,9 +273,9 @@ async def test_verified_math_markers_are_stripped_from_final_content(
 async def test_unverified_math_note_appended_to_final_content(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services.math import fence as math_fence_mod
+    from app.modules.math import fence as math_fence_mod
 
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _run_sympy_inline)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
     seams = _seams()
     seams.math_fence_service.append_unverified_math_note = (
         math_fence_mod.append_unverified_math_note
@@ -306,7 +306,7 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
     async def _must_not_run(*_a: Any, **_k: Any) -> str:
         raise AssertionError("direct math must not queue fence rewrite on the pool")
 
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", _must_not_run)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _must_not_run)
     ctx = _ctx()
     ctx.instant_reply = "$x = 2$\n\n```answer\nx = 2\n```"
     ctx.verified_math = VerifiedMathBlock(

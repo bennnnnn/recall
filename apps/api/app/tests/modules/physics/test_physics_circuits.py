@@ -17,7 +17,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.services.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block, extract_math_intent
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -227,7 +227,7 @@ def test_circuits_missing_a_given_are_refused(text: str) -> None:
 
 
 def _reaches_the_tool_path(text: str) -> bool:
-    from app.services.math.match.needs import needs_symbolic
+    from app.modules.math.match.needs import needs_symbolic
 
     return needs_symbolic(text)
 

@@ -11,7 +11,7 @@ from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics import block as physics_block
 from app.modules.physics import solver as physics_solver
-from app.services.math.solve import MathServiceError
+from app.modules.math.solve import MathServiceError
 
 # ---------------------------------------------------------------------------
 # Kinematics
