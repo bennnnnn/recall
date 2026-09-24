@@ -32,12 +32,23 @@ from app.models.orm import (
     User,
     UserCalendarConnection,
 )
-from app.modules.integrations import calendar as calendar_service
-from app.modules.integrations import nudges as calendar_nudge_service
-from app.modules.learning import nudges as learning_nudges
-from app.modules.todos import crud as todos_crud
-from app.modules.todos.recurrence import is_recurrence_rule, next_recurring_due
-from app.modules.todos.schedule_repository import TodoScheduleSnapshot, update_schedule_if_current
+from app.modules.integrations import (
+    calendar_nudge_redis_key,
+    events_needing_nudge,
+    fetch_upcoming_events,
+    format_calendar_nudge,
+    nudge_ttl_seconds,
+)
+from app.modules.learning import collect_learning_nudge_picks
+from app.modules.todos import (
+    TodoScheduleSnapshot,
+    is_recurrence_rule,
+    next_recurring_due,
+    update_schedule_if_current,
+)
+from app.modules.todos import (
+    crud as todos_crud,
+)
 from app.repositories import push_tokens as push_repo
 from app.services.locale import normalize_locale_code
 from app.services.reminder_timing import (
@@ -450,7 +461,7 @@ async def process_learning_nudges(
     if not users:
         return []
 
-    picks = await learning_nudges.collect_learning_nudge_picks(
+    picks = await collect_learning_nudge_picks(
         session,
         redis,
         users,
@@ -527,8 +538,8 @@ async def process_calendar_nudges(
         try:
             if in_quiet_hours(user, now=now):
                 continue
-            events = await calendar_service.fetch_upcoming_events(session, redis, user, settings)
-            due = calendar_nudge_service.events_needing_nudge(events, now=now, lead_minutes=lead)
+            events = await fetch_upcoming_events(session, redis, user, settings)
+            due = events_needing_nudge(events, now=now, lead_minutes=lead)
             if not due:
                 continue
             user_tokens = tokens_by_user.get(user.id, [])
@@ -536,13 +547,13 @@ async def process_calendar_nudges(
                 continue
 
             for event in due:
-                dedupe_key = calendar_nudge_service.calendar_nudge_redis_key(user.id, event.id)
-                ttl = calendar_nudge_service.nudge_ttl_seconds(event, now=now)
+                dedupe_key = calendar_nudge_redis_key(user.id, event.id)
+                ttl = nudge_ttl_seconds(event, now=now)
                 inflight_ttl = max(60, min(ttl, PUSH_DEDUPE_INFLIGHT_TTL_SECONDS))
                 claimed = await redis.set(dedupe_key, "inflight", nx=True, ex=inflight_ttl)
                 if not claimed:
                     continue
-                title, body = calendar_nudge_service.format_calendar_nudge(
+                title, body = format_calendar_nudge(
                     event,
                     now=now,
                     locale=getattr(user, "locale", None),

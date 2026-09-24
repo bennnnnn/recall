@@ -139,7 +139,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Physics (20 verified kinds) | `modules/physics/` (`extract.py`, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/`, `models/schemas/chemistry/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Calendar / Gmail | `modules/integrations/` (HTTP `/integrations/google-calendar`, `/integrations/google-gmail`) | `features/integrations/`; `app/settings/integrations.tsx` route only |
-| Push / email out | `services/notifications/`, `background/*scheduler*` | notification settings |
+| Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `routers/webhooks.py`, `gateways/revenuecat_gateway.py` | RevenueCat |
 | Product analytics | `routers/analytics.py`, `services/product_analytics.py` | `lib/api/analytics.ts` (metadata-only events; never prompts) |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `settings/about.tsx`, data-controls |

@@ -15,7 +15,7 @@ from app.models.orm import TodoItem, User
 from app.models.schemas import TodoActionItem
 from app.modules.todos import actions, crud
 from app.modules.todos import repository as todos_repo
-from app.services.notifications import push
+from app.modules.notifications import push
 
 
 class _UTCDateTime(TypeDecorator):

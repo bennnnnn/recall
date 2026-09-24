@@ -6,7 +6,7 @@ import pytest
 
 from app.background import push_scheduler
 from app.core.config import Settings
-from app.services.notifications.push import OutboundPush
+from app.modules.notifications.push import OutboundPush
 
 
 def test_push_lock_ttl_exceeds_interval():

@@ -6,7 +6,8 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
-from app.services.notifications import push as push_service
+from app.modules.learning import nudges as learning_nudges
+from app.modules.notifications import push as push_service
 
 
 @pytest.fixture
@@ -123,7 +124,7 @@ async def test_process_todo_reminders_respects_user_lead():
 async def test_log_aged_unsent_reminders_warns_when_count_positive(caplog):
     session = AsyncMock()
     session.scalar = AsyncMock(return_value=4)
-    with caplog.at_level("WARNING", logger="app.services.notifications.push"):
+    with caplog.at_level("WARNING", logger="app.modules.notifications.push"):
         count = await push_service.log_aged_unsent_reminders(
             session, now=datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
         )
@@ -399,7 +400,7 @@ async def test_process_learning_nudges_stays_silent_once_goal_met_even_with_revi
 
     with (
         patch.object(
-            push_service.learning_nudges.learning_repo,
+            learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=[project]),
         ),
@@ -476,7 +477,7 @@ async def test_process_learning_nudges_batches_across_users():
 
     with (
         patch.object(
-            push_service.learning_nudges.learning_repo,
+            learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=projects),
         ) as list_projects_mock,
@@ -557,7 +558,7 @@ async def test_process_learning_nudges_isolates_one_user_failure():
 
     with (
         patch.object(
-            push_service.learning_nudges.learning_repo,
+            learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=projects),
         ),
@@ -571,7 +572,7 @@ async def test_process_learning_nudges_isolates_one_user_failure():
             AsyncMock(return_value=tokens),
         ),
         patch.object(
-            push_service.learning_nudges.learning_insights,
+            learning_nudges.learning_insights,
             "best_learning_nudge_for_user",
             side_effect=fake_best_pick,
         ),
@@ -613,7 +614,7 @@ async def test_process_learning_nudges_idle_user_sends_nothing_and_releases_dedu
 
     with (
         patch.object(
-            push_service.learning_nudges.learning_repo,
+            learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=[project]),
         ),
@@ -642,10 +643,10 @@ async def test_process_learning_nudges_idle_user_sends_nothing_and_releases_dedu
         messages = await push_service.process_learning_nudges(session, redis, settings)
 
     assert messages == []
-    expected_key = push_service.learning_nudges.learning_dedupe_key(
+    expected_key = learning_nudges.learning_dedupe_key(
         push_service.LEARNING_REDIS_PREFIX,
         user_id,
-        push_service.learning_nudges.user_day_key(user),
+        learning_nudges.user_day_key(user),
     )
     redis.delete.assert_awaited_once_with(expected_key)
 
@@ -678,7 +679,7 @@ async def test_process_learning_nudges_skips_non_learning_projects():
 
     with (
         patch.object(
-            push_service.learning_nudges.learning_repo,
+            learning_nudges.learning_repo,
             "list_for_users",
             AsyncMock(return_value=[project]),
         ),
@@ -972,7 +973,7 @@ async def test_enqueue_push_receipts_stores_ticket_and_token():
     pipe.execute = AsyncMock()
     redis.pipeline = MagicMock(return_value=pipe)
 
-    with patch("app.services.notifications.push.time.time", return_value=1000.0):
+    with patch("app.modules.notifications.push.time.time", return_value=1000.0):
         await push_service.enqueue_push_receipts(
             redis,
             [("ticket-1", "ExponentPushToken[abc]")],
@@ -997,7 +998,7 @@ async def test_poll_deferred_push_receipts_prunes_invalid_token():
 
     with (
         patch(
-            "app.services.notifications.push.expo_push_gateway.fetch_push_receipts",
+            "app.modules.notifications.push.expo_push_gateway.fetch_push_receipts",
             AsyncMock(
                 return_value={
                     "ticket-1": {
@@ -1012,7 +1013,7 @@ async def test_poll_deferred_push_receipts_prunes_invalid_token():
             "delete_by_token",
             AsyncMock(),
         ) as delete_mock,
-        patch("app.services.notifications.push.time.time", return_value=10_000.0),
+        patch("app.modules.notifications.push.time.time", return_value=10_000.0),
     ):
         await push_service.poll_deferred_push_receipts(session, redis)
 
@@ -1031,11 +1032,11 @@ async def test_poll_deferred_push_receipts_keeps_pending_receipts():
 
     with (
         patch(
-            "app.services.notifications.push.expo_push_gateway.fetch_push_receipts",
+            "app.modules.notifications.push.expo_push_gateway.fetch_push_receipts",
             AsyncMock(return_value={"ticket-1": {"status": "pending"}}),
         ),
         patch.object(push_service.push_repo, "delete_by_token", AsyncMock()) as delete_mock,
-        patch("app.services.notifications.push.time.time", return_value=10_000.0),
+        patch("app.modules.notifications.push.time.time", return_value=10_000.0),
     ):
         await push_service.poll_deferred_push_receipts(session, redis)
 
@@ -1299,7 +1300,7 @@ async def test_process_calendar_nudges_sends_once_per_event():
 
     with (
         patch.object(
-            push_service.calendar_service,
+            push_service,
             "fetch_upcoming_events",
             AsyncMock(return_value=[event]),
         ),

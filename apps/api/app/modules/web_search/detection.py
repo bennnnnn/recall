@@ -7,7 +7,6 @@ import re
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
-from app.modules.integrations import is_external_calendar_question
 from app.modules.web_search.geo_intent import is_geo_query, is_vocab_quiz_answer
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
@@ -102,6 +101,8 @@ def web_search_skip(
         return True
     if _PERSONAL_PLANNING.search(cleaned):
         return True
+    from app.modules.integrations import is_external_calendar_question
+
     if is_external_calendar_question(cleaned):
         return True
     return False
