@@ -30,6 +30,14 @@ if TYPE_CHECKING:
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
 VERIFIED_MATH_END = "[END VERIFIED MATH]"
+VERIFIED_PHYSICS_BEGIN = "[BEGIN VERIFIED PHYSICS]"
+VERIFIED_PHYSICS_END = "[END VERIFIED PHYSICS]"
+_VERIFIED_MARKERS = (
+    VERIFIED_MATH_BEGIN,
+    VERIFIED_MATH_END,
+    VERIFIED_PHYSICS_BEGIN,
+    VERIFIED_PHYSICS_END,
+)
 
 
 class MathServiceError(ValueError):
@@ -85,9 +93,16 @@ class VerifiedMathBlock:
 
 def wrap_verified_math(text: str) -> str:
     body = text.strip()
-    if VERIFIED_MATH_BEGIN in body:
+    if VERIFIED_MATH_BEGIN in body or VERIFIED_PHYSICS_BEGIN in body:
         return body
     return f"{VERIFIED_MATH_BEGIN}\n{body}\n{VERIFIED_MATH_END}"
+
+
+def wrap_verified_physics(text: str) -> str:
+    body = text.strip()
+    if VERIFIED_PHYSICS_BEGIN in body or VERIFIED_MATH_BEGIN in body:
+        return body
+    return f"{VERIFIED_PHYSICS_BEGIN}\n{body}\n{VERIFIED_PHYSICS_END}"
 
 
 def strip_verified_math_markers(text: str) -> str:
@@ -104,9 +119,11 @@ def strip_verified_math_markers(text: str) -> str:
     as prose. Blank runs left behind are collapsed so removing a marker that
     sat on its own line does not leave a gap.
     """
-    if VERIFIED_MATH_BEGIN not in text and VERIFIED_MATH_END not in text:
+    if not any(marker in text for marker in _VERIFIED_MARKERS):
         return text
-    stripped = text.replace(VERIFIED_MATH_BEGIN, "").replace(VERIFIED_MATH_END, "")
+    stripped = text
+    for marker in _VERIFIED_MARKERS:
+        stripped = stripped.replace(marker, "")
     return re.sub(r"\n{3,}", "\n\n", stripped).strip()
 
 

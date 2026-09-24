@@ -11,6 +11,7 @@ StreamStatusPhase = Literal[
     "checking_inbox",
     "searching",
     "calculating",
+    "physics",
     "thinking",
     "composing",
 ]
@@ -23,6 +24,7 @@ STREAM_STATUS_PHASES: tuple[StreamStatusPhase, ...] = (
     "checking_inbox",
     "searching",
     "calculating",
+    "physics",
     "thinking",
     "composing",
 )

@@ -132,7 +132,7 @@ def _build_verified_block(
         block = builder(intent, settings, lines)
         if block is None:
             return None
-        from app.services.solving import wrap_verified_math
+        from app.services.solving import wrap_verified_math, wrap_verified_physics
 
         physics_intent = None
         is_speed_formula = getattr(intent, "school_op", None) in {
@@ -143,7 +143,10 @@ def _build_verified_block(
         }
         if intent.kind in PHYSICS_BLOCK_BUILDERS or is_speed_formula:
             physics_intent = intent.model_copy(deep=True)
-        return replace(block, text=wrap_verified_math(block.text), physics_intent=physics_intent)
+        wrapper = (
+            wrap_verified_physics if intent.kind in PHYSICS_BLOCK_BUILDERS else wrap_verified_math
+        )
+        return replace(block, text=wrapper(block.text), physics_intent=physics_intent)
     except math_solve.MathServiceError as exc:
         logger.info("math_tools skipped: %s", exc)
         return None

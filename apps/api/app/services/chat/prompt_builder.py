@@ -61,6 +61,9 @@ from app.services.chat.prompt_constants import (
     MERMAID_FORMAT_HINT,
     NON_DRAFT_TURN_HINT,
     PERSONAL_DISCLOSURE_HINT,
+    PHYSICS_INTENT_HINT,
+    PHYSICS_REPLY_POLICY,
+    PHYSICS_SHORT_HINT,
     PRIVACY_HINT,
     PROSE_WRITING_HINT,
     QUOTE_FORMAT_HINT,
@@ -178,6 +181,15 @@ def _math_viz_intent(query_text: str | None) -> tuple[bool, bool]:
     return math_intent, viz_intent
 
 
+def _physics_turn(query_text: str | None) -> bool:
+    """A physics template, so the turn must not be labeled as math."""
+    if not query_text or not query_text.strip():
+        return False
+    from app.modules.physics import has_supported_physics_cue
+
+    return has_supported_physics_cue(query_text)
+
+
 def _custom_instructions_block(user: User) -> str | None:
     ci = getattr(user, "custom_instructions", None)
     custom = ci.strip() if isinstance(ci, str) and ci.strip() else ""
@@ -293,7 +305,8 @@ async def fetch_web_and_tools(
         user_content, has_image_attachment=has_image_attachment
     )
     if needs_math and on_status is not None:
-        await on_status("calculating")
+        phase = "physics" if _physics_turn(user_content) else "calculating"
+        await on_status(phase)
 
     (web_block, search_sources), (math_block, verified_math) = await asyncio.gather(
         web_search_service.build_search_augmentation(
@@ -775,7 +788,12 @@ def _style_format_hints(
         parts.append(
             IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT
         )
-    if math_intent:
+    if math_intent and _physics_turn(query_text):
+        if style == "short" or compact:
+            parts.append(PHYSICS_SHORT_HINT)
+        else:
+            parts.append(PHYSICS_INTENT_HINT)
+    elif math_intent:
         if style == "short" or compact:
             parts.append(SHORT_MATH_SAFETY_HINT)
             parts.append(MATH_SHORT_RESPONSE_HINT)
@@ -792,7 +810,9 @@ def _style_format_hints(
         parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
-    if math_intent:
+    if math_intent and _physics_turn(query_text):
+        parts.append(PHYSICS_REPLY_POLICY)
+    elif math_intent:
         # Keep requested detail last, after general layout and tutoring hints.
         parts.append(MATH_REPLY_POLICY)
     return parts
