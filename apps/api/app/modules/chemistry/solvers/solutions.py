@@ -6,7 +6,7 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.services.chemistry.solvers.types import ChemistryResult, format_number
+from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import MathServiceError
 
 GAS_R = 0.082057366080960  # L·atm·mol⁻¹·K⁻¹

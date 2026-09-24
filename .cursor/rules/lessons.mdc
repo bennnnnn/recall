@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Physics answers narrate “doing math”.** A physics question still trips `needs_symbolic_math`, so the status is “Working through the math…”, the prompt gets `MATH_INTENT_HINT` / `MATH_TUTORING_HINT`, and the numbers are wrapped `[BEGIN VERIFIED MATH]`. The model copies that voice. On the subject split, physics gets its own status, hint, and verified block. Do not leave physics inside the math hint or a `modules/stem/` package.
+
 - **Equation step math sat on the same line as “2. Simplify”.** CommonMark tight lists make `2. Label\n$3x=3$` one paragraph, so a short formula wraps beside the label. Emit `**1. Add 3 to both sides**` plus a blank line then `$formula$`; keep `— this cancels…` only for Detailed / explain. Divide steps wrap matching factors in `\cancel{…}` (native MathText slash). Answer chips use `theme.bg`, not gray `surfaceAlt`.
 
 - **`Show steps: 2x+3=11` never extracted.** `_extract_equation_intent` treats

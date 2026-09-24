@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.chemistry.block import VerifiedChemistry
+from app.modules.chemistry.block import VerifiedChemistry
 
 
 def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:

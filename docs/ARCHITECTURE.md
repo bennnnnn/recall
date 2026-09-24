@@ -45,7 +45,7 @@ request client and are composed into the existing `lib/api.ts` public barrel.
 4. Memory — migrated
 5. Google Calendar and Gmail — migrated
 6. Images, attachments, and voice — migrated
-7. Math, physics, and chemistry
+7. Math, physics, and chemistry — three sibling modules, not `modules/stem/`. Chemistry is migrated (`modules/chemistry/`). Physics and math are not. Each subject owns its own extract, solve, and reply path. Shared files are only the ones both sides use (graph fence, unit registry, verified-block primitives) and they live in a leaf neither subject owns. A physics turn must not use the math status, `MATH_INTENT_HINT` / `MATH_TUTORING_HINT`, or `[BEGIN VERIFIED MATH]`; those make the model narrate that it is doing math. Physics gets its own status, hint, and verified block. Molecule rendering stays in `lib/chemistry` because markdown already imports it.
 8. AI/model/tool infrastructure
 9. Chat last
 

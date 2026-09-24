@@ -75,14 +75,14 @@ theory, balancing nuclear equations, and biochemistry pathways.
 | Layer | Path |
 |---|---|
 | Intent schema | `apps/api/app/models/schemas/chemistry/intent.py` |
-| Gate / compound parsing | `apps/api/app/services/chemistry/request.py` |
-| Text extraction | `apps/api/app/services/chemistry/extract.py` |
-| Typed solver dispatcher | `apps/api/app/services/chemistry/solvers/solver.py` |
-| Grouped solvers | `apps/api/app/services/chemistry/solvers/amounts.py`, `solutions.py`, `physical.py` |
-| Verified block / direct reply | `apps/api/app/services/chemistry/block.py`, `direct.py` |
-| Turn integration | `apps/api/app/services/chemistry/context.py` |
-| Balance / formula primitives | `apps/api/app/services/chemistry/equations.py`, `stoichiometry.py` |
-| SMILES / 3D / post-stream | `apps/api/app/services/chemistry/smiles.py`, `fence.py` |
+| Gate / compound parsing | `apps/api/app/modules/chemistry/request.py` |
+| Text extraction | `apps/api/app/modules/chemistry/extract.py` |
+| Typed solver dispatcher | `apps/api/app/modules/chemistry/solvers/solver.py` |
+| Grouped solvers | `apps/api/app/modules/chemistry/solvers/amounts.py`, `solutions.py`, `physical.py` |
+| Verified block / direct reply | `apps/api/app/modules/chemistry/block.py`, `direct.py` |
+| Turn integration | `apps/api/app/modules/chemistry/context.py` |
+| Balance / formula primitives | `apps/api/app/modules/chemistry/equations.py`, `stoichiometry.py` |
+| SMILES / 3D / post-stream | `apps/api/app/modules/chemistry/smiles.py`, `fence.py` |
 | PubChem | `apps/api/app/gateways/pubchem_gateway.py` |
 | Mobile parse / render | `apps/mobile/lib/chemistry/`, `apps/mobile/components/rich/` |
 

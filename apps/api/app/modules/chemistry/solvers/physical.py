@@ -6,7 +6,7 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.services.chemistry.solvers.types import ChemistryResult, format_number
+from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import MathServiceError
 
 GAS_R_J = 8.31446261815324
@@ -79,7 +79,7 @@ def _equilibrium_expression(intent: ChemistryIntent) -> tuple[float, str, str]:
     equation = intent.equation
     if not equation or "->" not in equation.replace("→", "->"):
         raise MathServiceError("a simple reaction equation is required")
-    from app.services.chemistry.equations import balance_equation
+    from app.modules.chemistry.equations import balance_equation
 
     balanced = balance_equation(equation)
     if not balanced.balanced:

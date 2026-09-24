@@ -82,7 +82,7 @@ app/
     chat/              # turn prep, stream, post_turn — migrate last
     math/              # match/ (scan) → tools/ (intent, block) → solve/ (SymPy)
     physics/           # peer subject: solver, extract, direct, block
-    chemistry/ notifications/ web_search/ home/ mcp/
+    notifications/ web_search/ home/ mcp/
   exceptions.py        # shared domain exceptions
   models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools)
   background/          # job handlers + periodic schedulers
@@ -139,7 +139,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `services/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
 | Physics (20 verified kinds) | `services/physics/` (`extract.py` cues + extractors, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
-| Chemistry (typed solvers / RDKit / PubChem) | `models/schemas/chemistry/`, `services/chemistry/`, `gateways/pubchem_gateway.py` | `chemistryFence.ts`, smiles-drawer 2D + native-first Skia `molecule3d` (SVG fallback) |
+| Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/`, `models/schemas/chemistry/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Calendar / Gmail | `modules/integrations/` (HTTP `/integrations/google-calendar`, `/integrations/google-gmail`) | `features/integrations/`; `app/settings/integrations.tsx` route only |
 | Push / email out | `services/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `routers/webhooks.py`, `gateways/revenuecat_gateway.py` | RevenueCat |
@@ -182,7 +182,7 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, project/quiz context, SymPy pre-solve, chemistry context
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
-7. Post-stream math fence correction (`math/fence.py`) and chemistry fence enrich (`chemistry/fence.py`)
+7. Post-stream math fence correction (`math/fence.py`) and chemistry fence enrich (`modules/chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task
 9. `enqueue_post_turn_jobs` — topic, memory, todos, projects, compress, suggestions, attachment_index, message_index (best-effort; must not raise into the stream)
 

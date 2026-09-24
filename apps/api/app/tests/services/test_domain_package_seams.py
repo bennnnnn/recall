@@ -41,16 +41,16 @@ def test_packaged_domains_expose_their_public_api() -> None:
 
 
 def test_chemistry_package_exposes_its_public_api() -> None:
-    chemistry = importlib.import_module("app.services.chemistry")
+    chemistry = importlib.import_module("app.modules.chemistry")
 
     assert callable(chemistry.validate_smiles)
     assert callable(chemistry.balance_equation)
     assert callable(chemistry.stoichiometry)
     assert callable(chemistry.molarity)
     assert callable(
-        importlib.import_module("app.services.chemistry.context").build_chemistry_context
+        importlib.import_module("app.modules.chemistry.context").build_chemistry_context
     )
-    assert callable(importlib.import_module("app.services.chemistry.fence").enrich_chemistry_fences)
+    assert callable(importlib.import_module("app.modules.chemistry.fence").enrich_chemistry_fences)
 
 
 def test_math_extraction_public_seam_uses_focused_extractors() -> None:
