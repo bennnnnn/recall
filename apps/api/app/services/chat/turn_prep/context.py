@@ -15,18 +15,22 @@ from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.models.schemas.math import MathImageExtract
+from app.modules import web_search as web_search_service
 from app.modules.chemistry import context as chemistry_context_service
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.math.tools import VerifiedMathBlock, needs_symbolic_math
+from app.modules.web_search.subject import (
+    _prior_user_messages as _prompt_prior_user_messages,
+)
+from app.modules.web_search.subject import last_assistant_content
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services import plan as plan_service
 from app.services import profile as profile_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
-from app.services import web_search as web_search_service
 from app.services.chat.prompt_builder import (
     build_prompt_messages,
     fetch_web_and_tools,
@@ -51,10 +55,6 @@ from app.services.chat.turn_prep.mode import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.settings_intent import extract_settings_changes
-from app.services.web_search.subject import (
-    _prior_user_messages as _prompt_prior_user_messages,
-)
-from app.services.web_search.subject import last_assistant_content
 
 logger = logging.getLogger(__name__)
 
@@ -559,7 +559,7 @@ async def build_stream_prompt_context(
             user=user,
         )
     ):
-        from app.services.web_search.detection import should_web_search
+        from app.modules.web_search.detection import should_web_search
 
         # Only overlap existing Phase B work. Math may still produce a direct
         # reply, so defer its eligibility until the final gate sees that result.

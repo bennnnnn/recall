@@ -7,32 +7,32 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
-from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
-from app.services.prompt_inject import inject_before_last_user
-from app.services.prompt_safety import wrap_untrusted
-from app.services.web_search.detection import (
+from app.modules.web_search.detection import (
     classify_web_search,
     needs_web_search_heuristic,
     web_search_fast_yes,
     web_search_skip,
 )
-from app.services.web_search.formatting import (
+from app.modules.web_search.formatting import (
     GEO_DISTANCE_HINT,
     format_search_block,
     format_search_empty_block,
 )
-from app.services.web_search.geo_intent import _geo_is_active, _places_list_is_active
-from app.services.web_search.query_builders import (
+from app.modules.web_search.geo_intent import _geo_is_active, _places_list_is_active
+from app.modules.web_search.query_builders import (
     _extract_team_subject,
     _prioritize_team_hits,
     build_search_queries,
 )
-from app.services.web_search.search_cache import _run_search
-from app.services.web_search.subject import (
+from app.modules.web_search.search_cache import _run_search
+from app.modules.web_search.subject import (
     _prior_user_messages,
     last_assistant_content,
     resolve_search_subject,
 )
+from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
+from app.services.prompt_inject import inject_before_last_user
+from app.services.prompt_safety import wrap_untrusted
 
 
 async def build_search_augmentation(

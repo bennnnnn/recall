@@ -76,7 +76,7 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
             AsyncMock(return_value=after_mcp),
         ) as mcp_mock,
         patch(
-            "app.services.web_search.build_search_augmentation",
+            "app.modules.web_search.build_search_augmentation",
             AsyncMock(return_value=("web", [web_hit])),
         ) as web_mock,
         patch(
@@ -127,7 +127,7 @@ async def test_augment_web_and_tools_runs_web_and_math_concurrently():
         return "math-block", None
 
     with (
-        patch("app.services.web_search.build_search_augmentation", side_effect=slow_web),
+        patch("app.modules.web_search.build_search_augmentation", side_effect=slow_web),
         patch("app.modules.math.tools.build_math_augmentation", side_effect=slow_math),
     ):
         updated, _hits, _verified = await _augment_web_and_tools(messages, "q", settings)

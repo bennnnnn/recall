@@ -16,6 +16,7 @@ from app.models.schemas.math import MathImageExtract
 from app.modules import learning as learning_service
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
+from app.modules import web_search as web_search_service
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.math import tools as math_tools_service
@@ -32,7 +33,6 @@ from app.services import locale as locale_service
 from app.services import profile as profile_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
-from app.services import web_search as web_search_service
 from app.services.chat import tools as chat_tools_service
 from app.services.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,

@@ -268,6 +268,10 @@ LEGACY_MATH_SHIMS = {
     APP_ROOT / "services" / "math" / "__init__.py",
     APP_ROOT / "services" / "mcp" / "sympy_adapter.py",
 }
+LEGACY_WEB_SEARCH_SHIMS = {
+    APP_ROOT / "services" / "web_search" / "__init__.py",
+    APP_ROOT / "services" / "mcp" / "web_search_adapter.py",
+}
 
 
 def _imports(path: Path) -> list[str]:
@@ -401,6 +405,7 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
                 or path in LEGACY_CHEMISTRY_SHIMS
                 or path in LEGACY_PHYSICS_SHIMS
                 or path in LEGACY_MATH_SHIMS
+                or path in LEGACY_WEB_SEARCH_SHIMS
             ):
                 continue
             for imported in _imports(path):
@@ -1002,6 +1007,30 @@ def test_math_runtime_code_has_one_owner() -> None:
     assert (APP_ROOT / "tests" / "modules" / "math" / "test_math_service.py").is_file()
     for shim in LEGACY_MATH_SHIMS:
         _shim_has_no_behavior(shim)
+
+
+def test_web_search_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "web_search"
+    expected = {"augment.py", "detection.py", "formatting.py", "search_cache.py", "tool.py"}
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert (APP_ROOT / "tests" / "modules" / "web_search" / "test_web_search.py").is_file()
+    for shim in LEGACY_WEB_SEARCH_SHIMS:
+        _shim_has_no_behavior(shim)
+
+
+def test_production_code_does_not_use_legacy_web_search_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_WEB_SEARCH_SHIMS:
+            continue
+        for imported in _imports(path):
+            if (
+                imported == "app.services.web_search"
+                or imported.startswith("app.services.web_search.")
+                or imported == "app.services.mcp.web_search_adapter"
+            ):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
 
 
 def test_production_code_does_not_use_legacy_math_imports() -> None:

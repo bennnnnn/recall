@@ -6,15 +6,15 @@ import json
 import re
 
 from app.gateways.web_search_gateway import WebSearchHit
+from app.modules.web_search.patterns import (
+    _ADDRESS_RE,
+    _NUMBERED_VENUE_LINE,
+    _PRICE_RE,
+)
 from app.services.md_fence_scan import (
     is_fence_closer,
     next_fence_marker_line,
     strip_closed_fences,
-)
-from app.services.web_search.patterns import (
-    _ADDRESS_RE,
-    _NUMBERED_VENUE_LINE,
-    _PRICE_RE,
 )
 
 

@@ -8,8 +8,8 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp import registry as mcp_registry
 from app.gateways.mcp.base import ToolResult
 from app.gateways.web_search_gateway import WebSearchHit
+from app.modules.web_search import WebSearchAdapter
 from app.services import tool_loop
-from app.services.mcp.web_search_adapter import WebSearchAdapter
 
 
 def test_status_for_tool_omits_generic_thinking():
@@ -667,7 +667,7 @@ async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch(
-            "app.services.web_search.search_cache.run_cached_search",
+            "app.modules.web_search.search_cache.run_cached_search",
             AsyncMock(return_value=([], [])),
         ),
     ):
@@ -758,7 +758,7 @@ async def test_tool_loop_uses_dedicated_alias_for_smart_chat(web_search_register
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch(
-            "app.services.web_search.search_cache.run_cached_search",
+            "app.modules.web_search.search_cache.run_cached_search",
             AsyncMock(return_value=([], [])),
         ),
     ):
@@ -931,7 +931,7 @@ async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch(
-            "app.services.web_search.search_cache.run_cached_search",
+            "app.modules.web_search.search_cache.run_cached_search",
             AsyncMock(return_value=([], [])),
         ),
     ):
@@ -954,7 +954,7 @@ async def test_tool_loop_forces_search_when_model_skips_web_search(web_search_re
     forced = AsyncMock(return_value=([hit], ["What's the latest news on SpaceX?"]))
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.web_search.search_cache.run_cached_search", forced),
     ):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -978,7 +978,7 @@ async def test_tool_loop_forces_search_when_model_skips_web_search(web_search_re
 async def test_tool_loop_forces_search_when_classifier_required_and_heuristic_no(
     web_search_registered,
 ):
-    from app.services.web_search.detection import needs_web_search
+    from app.modules.web_search.detection import needs_web_search
 
     query = "Who is the CEO of Anthropic?"
     assert needs_web_search(query) is False
@@ -988,7 +988,7 @@ async def test_tool_loop_forces_search_when_classifier_required_and_heuristic_no
     forced = AsyncMock(return_value=([hit], [query]))
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.web_search.search_cache.run_cached_search", forced),
     ):
         out, verified, terminal, hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -1013,7 +1013,7 @@ async def test_tool_loop_forces_search_when_classifier_required_and_heuristic_no
 async def test_tool_loop_skips_force_search_when_not_required_and_heuristic_no(
     web_search_registered,
 ):
-    from app.services.web_search.detection import needs_web_search
+    from app.modules.web_search.detection import needs_web_search
 
     query = "Who is the CEO of Anthropic?"
     assert needs_web_search(query) is False
@@ -1022,7 +1022,7 @@ async def test_tool_loop_skips_force_search_when_not_required_and_heuristic_no(
     forced = AsyncMock(return_value=([], [query]))
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.web_search.search_cache.run_cached_search", forced),
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -1042,7 +1042,7 @@ async def test_tool_loop_injects_empty_search_when_force_finds_nothing(web_searc
     forced = AsyncMock(return_value=([], ["What's the latest news on SpaceX?"]))
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
-        patch("app.services.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.web_search.search_cache.run_cached_search", forced),
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -1080,7 +1080,7 @@ async def test_tool_loop_injects_empty_when_tool_returns_no_hits(web_search_regi
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
-        patch("app.services.web_search.search_cache.run_cached_search", forced),
+        patch("app.modules.web_search.search_cache.run_cached_search", forced),
     ):
         out, _verified, _terminal, hits = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
@@ -1156,7 +1156,7 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
             AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
         ) as run,
         patch(
-            "app.services.web_search.detection.should_web_search",
+            "app.modules.web_search.detection.should_web_search",
             AsyncMock(return_value=True),
         ) as classify,
     ):
@@ -1197,7 +1197,7 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
             AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
         ),
         patch(
-            "app.services.web_search.detection.should_web_search",
+            "app.modules.web_search.detection.should_web_search",
             AsyncMock(side_effect=AssertionError("heuristic already yes")),
         ) as classify,
     ):
@@ -1232,7 +1232,7 @@ async def test_tool_loop_path_skips_classifier_when_spend_capped():
     with (
         patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=True)),
         patch(
-            "app.services.web_search.detection.should_web_search",
+            "app.modules.web_search.detection.should_web_search",
             AsyncMock(side_effect=AssertionError("spend cap must skip classifier")),
         ) as classify,
         patch(

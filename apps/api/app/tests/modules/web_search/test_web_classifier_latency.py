@@ -9,6 +9,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
+from app.modules.web_search.detection import should_web_search
 from app.services.chat.stream_pipeline import run_tool_loop_path
 from app.services.chat.turn_prep.context import (
     StreamContext,
@@ -16,7 +17,6 @@ from app.services.chat.turn_prep.context import (
     stream_context_from_bundle,
 )
 from app.services.chat.turn_prep.mode import _TurnMode
-from app.services.web_search.detection import should_web_search
 
 QUESTION = "Who leads Acme Corporation?"
 
@@ -100,7 +100,7 @@ async def test_prefetch_overlaps_phase_b_and_preserves_negative_verdict(prompt_i
     with (
         patch("app.services.chat.turn_prep.context.fetch_integration_blocks", integration),
         patch(
-            "app.services.web_search.detection.should_web_search", AsyncMock(side_effect=classify)
+            "app.modules.web_search.detection.should_web_search", AsyncMock(side_effect=classify)
         ) as classify_mock,
     ):
         bundle = await asyncio.wait_for(build(), timeout=1)
@@ -141,7 +141,7 @@ async def test_prefetch_skips_turns_that_cannot_benefit(
     build, user, _chat = prompt_io
     user.plan = plan
     with (
-        patch("app.services.web_search.detection.should_web_search", AsyncMock()) as classify,
+        patch("app.modules.web_search.detection.should_web_search", AsyncMock()) as classify,
         patch("app.services.time_context.maybe_local_now_reply", return_value=instant),
     ):
         bundle = await build(content, settings=_settings(**overrides), lightweight=lightweight)
@@ -152,7 +152,7 @@ async def test_prefetch_skips_turns_that_cannot_benefit(
 @pytest.mark.asyncio
 async def test_slim_turn_without_phase_b_work_defers_classification(prompt_io):
     build, _user, _chat = prompt_io
-    with patch("app.services.web_search.detection.should_web_search", AsyncMock()) as classify:
+    with patch("app.modules.web_search.detection.should_web_search", AsyncMock()) as classify:
         bundle = await build(rich=False)
     assert bundle.web_search_classified is None
     classify.assert_not_awaited()
@@ -177,7 +177,7 @@ async def test_cancelling_prep_cancels_both_phase_b_fetches(prompt_io):
             lambda *_a, **_kw: pending("integration"),
         ),
         patch(
-            "app.services.web_search.detection.should_web_search",
+            "app.modules.web_search.detection.should_web_search",
             lambda *_a, **_kw: pending("classifier"),
         ),
     ):
@@ -210,7 +210,7 @@ async def test_failed_phase_b_fetch_cancels_classifier_before_returning(prompt_i
 
     with (
         patch("app.services.chat.turn_prep.context.fetch_integration_blocks", fail),
-        patch("app.services.web_search.detection.should_web_search", classify),
+        patch("app.modules.web_search.detection.should_web_search", classify),
     ):
         with pytest.raises(RuntimeError, match="integration unavailable"):
             await asyncio.wait_for(build(), timeout=1)
@@ -238,7 +238,7 @@ async def test_final_gate_reuses_both_prefetched_verdicts(verdict):
     seams = MagicMock()
     seams.quota_service.global_spend_exceeded = AsyncMock(return_value=False)
     with (
-        patch("app.services.web_search.detection.should_web_search", AsyncMock()) as classify,
+        patch("app.modules.web_search.detection.should_web_search", AsyncMock()) as classify,
         patch(
             "app.services.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(ctx.prompt_messages, None, None, [])),
@@ -267,7 +267,7 @@ async def test_final_gate_does_not_classify_ineligible_turns(overrides):
     ctx = _context(**overrides)
     seams = MagicMock()
     seams.quota_service.global_spend_exceeded = AsyncMock(return_value=False)
-    with patch("app.services.web_search.detection.should_web_search", AsyncMock()) as classify:
+    with patch("app.modules.web_search.detection.should_web_search", AsyncMock()) as classify:
         await run_tool_loop_path(
             seams, AsyncMock(), _settings(), ctx, usage={}, on_status=None, should_cancel=None
         )
@@ -292,18 +292,18 @@ async def test_classifier_budget_includes_spend_and_accounting(slow_stage):
     }
     stages[slow_stage] = AsyncMock(side_effect=slow)
     with (
-        patch("app.services.web_search.classify.mock_llm.should_mock_llm", return_value=False),
-        patch("app.services.web_search.classify.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.web_search.classify.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.web_search.classify.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.web_search.classify.quota_service.global_spend_exceeded",
+            "app.modules.web_search.classify.quota_service.global_spend_exceeded",
             stages["spend_check"],
         ),
         patch(
-            "app.services.web_search.classify.litellm_gateway.complete_structured",
+            "app.modules.web_search.classify.litellm_gateway.complete_structured",
             stages["completion"],
         ),
         patch(
-            "app.services.web_search.classify.quota_service.record_global_spend",
+            "app.modules.web_search.classify.quota_service.record_global_spend",
             stages["accounting"],
         ),
     ):
@@ -321,10 +321,10 @@ async def test_classifier_budget_includes_spend_and_accounting(slow_stage):
 async def test_classifier_failure_keeps_heuristic_fallback():
     with (
         patch(
-            "app.services.web_search.classify.classify_web_search_need",
+            "app.modules.web_search.classify.classify_web_search_need",
             AsyncMock(side_effect=RuntimeError("unavailable")),
         ),
-        patch("app.services.web_search.detection.needs_web_search_heuristic", return_value=True),
+        patch("app.modules.web_search.detection.needs_web_search_heuristic", return_value=True),
     ):
         assert await should_web_search(QUESTION, _settings()) is True
 
@@ -337,7 +337,7 @@ async def test_explicit_cancellation_propagates_instead_of_becoming_a_verdict():
         entered.set()
         await asyncio.Event().wait()
 
-    with patch("app.services.web_search.classify.classify_web_search_need", classify):
+    with patch("app.modules.web_search.classify.classify_web_search_need", classify):
         task = asyncio.create_task(should_web_search(QUESTION, _settings()))
         try:
             await asyncio.wait_for(entered.wait(), 1)
