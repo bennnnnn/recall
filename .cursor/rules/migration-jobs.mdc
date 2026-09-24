@@ -1,0 +1,32 @@
+---
+description: Remaining module-migration jobs — do not skip or reorder
+alwaysApply: true
+---
+
+# Migration job list
+
+Do these in order. One pull request each. Do not start the next row until the
+previous one is merged and its head branch is deleted. When a row lands, delete
+it from this file in that pull request.
+
+## Now
+
+1. Merge [Home](https://github.com/bennnnnn/recall/pull/1448). The legacy package
+   must re-export `build_home_screen` and `invalidate_home_cache`.
+2. Rebase [Search](https://github.com/bennnnnn/recall/pull/1449) onto `main`, then merge.
+3. Rebase [Suggestions](https://github.com/bennnnnn/recall/pull/1450) onto `main`, then merge.
+
+## After those three
+
+4. **Chat history only.** Move list, create, rename, archive, and delete
+   (`routers/chats.py`) into `modules/chat`. Leave streaming, turn prep, and
+   `useChat*` where they are.
+5. **Chat stream.** WebSocket, SSE, and `services/chat/stream.py`. Not turn prep.
+6. **Chat turn prep.** `services/chat/turn_prep/` and prompt assembly.
+7. **Mobile chat.** `hooks/useChat*` and `components/chat/` into `features/chat/`.
+   `app/index.tsx` stays a route.
+
+## Do not pick up instead
+
+- Deleting compatibility shims before that domain's callers use the module path.
+- Gray answer-chip draft (#1318), scanner CV, or subject-split leftovers.
