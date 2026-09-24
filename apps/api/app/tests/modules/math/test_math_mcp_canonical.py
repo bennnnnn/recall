@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.models.schemas.math import MathSeriesResult
 from app.modules.math import solve as math_solve
 from app.modules.math import tools as math_tools
-from app.services.mcp.sympy_adapter import SympyAdapter
+from app.modules.math.tool import SympyAdapter
 
 
 @pytest.mark.asyncio

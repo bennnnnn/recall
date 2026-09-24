@@ -266,6 +266,7 @@ LEGACY_PHYSICS_SHIMS = {
 }
 LEGACY_MATH_SHIMS = {
     APP_ROOT / "services" / "math" / "__init__.py",
+    APP_ROOT / "services" / "mcp" / "sympy_adapter.py",
 }
 
 
@@ -993,7 +994,7 @@ def test_physics_runtime_code_has_one_owner() -> None:
 
 def test_math_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "math"
-    expected = {"fence.py", "school.py", "sympy_executor.py"}
+    expected = {"fence.py", "school.py", "sympy_executor.py", "tool.py"}
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert (module_root / "match").is_dir()
     assert (module_root / "tools").is_dir()
@@ -1009,7 +1010,11 @@ def test_production_code_does_not_use_legacy_math_imports() -> None:
         if path in LEGACY_MATH_SHIMS:
             continue
         for imported in _imports(path):
-            if imported == "app.services.math" or imported.startswith("app.services.math."):
+            if (
+                imported == "app.services.math"
+                or imported.startswith("app.services.math.")
+                or imported == "app.services.mcp.sympy_adapter"
+            ):
                 violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
     assert not violations, "\n".join(violations)
 

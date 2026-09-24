@@ -8,9 +8,17 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp.registry import get
+from app.modules.math.tool import SympyAdapter
 from app.services.mcp import setup_mcp_adapters
-from app.services.mcp.sympy_adapter import SympyAdapter
 from app.services.mcp.web_search_adapter import WebSearchAdapter
+
+
+def test_sympy_adapter_shim_is_the_math_tool():
+    import app.modules.math.tool as math_tool
+    import app.services.mcp.sympy_adapter as legacy
+
+    assert legacy is math_tool
+    assert legacy.SympyAdapter is SympyAdapter
 
 
 @pytest.mark.asyncio
@@ -303,7 +311,7 @@ async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
         time.sleep(1)
         raise AssertionError("should have been cancelled by the timeout")
 
-    with patch("app.services.mcp.sympy_adapter.math_solve.simplify_expression", side_effect=_hang):
+    with patch("app.modules.math.tool.math_solve.simplify_expression", side_effect=_hang):
         result = await asyncio.wait_for(
             adapter.invoke({"action": "simplify", "expr": "x + x", "variable": "x"}),
             timeout=5,
@@ -347,7 +355,7 @@ async def test_sympy_adapter_solve_times_out_instead_of_blocking(
         time.sleep(1)
         raise AssertionError("should have been cancelled by the timeout")
 
-    with patch("app.services.mcp.sympy_adapter.math_solve.solve_equation", side_effect=_hang):
+    with patch("app.modules.math.tool.math_solve.solve_equation", side_effect=_hang):
         result = await asyncio.wait_for(
             adapter.invoke({"action": "solve", "lhs": "x", "rhs": "0", "variables": ["x"]}),
             timeout=5,
