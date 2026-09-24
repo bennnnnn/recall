@@ -45,6 +45,11 @@ from app.services.chat.prompt_constants.math import (
     MATH_TUTORING_HINT,
     SHORT_MATH_SAFETY_HINT,
 )
+from app.services.chat.prompt_constants.physics import (
+    PHYSICS_INTENT_HINT,
+    PHYSICS_REPLY_POLICY,
+    PHYSICS_SHORT_HINT,
+)
 from app.services.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
     BROAD_SELF_ANSWER_HINT,
@@ -122,6 +127,9 @@ __all__ = [
     "MERMAID_FORMAT_HINT",
     "NON_DRAFT_TURN_HINT",
     "PERSONAL_DISCLOSURE_HINT",
+    "PHYSICS_INTENT_HINT",
+    "PHYSICS_REPLY_POLICY",
+    "PHYSICS_SHORT_HINT",
     "PRIVACY_HINT",
     "PROSE_WRITING_HINT",
     "QUOTE_FORMAT_HINT",
