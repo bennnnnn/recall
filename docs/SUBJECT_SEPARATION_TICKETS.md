@@ -56,7 +56,7 @@ cross-cutting code. `math/tools/block/common.py` kept only what's actually math-
 for math's internal convenience — that's normal package API surface, not the split-brain alias
 pattern the domain-package move retired, since these packages still do real work and aren't
 pass-through shims to a deleted location. One real hazard found and fixed while doing this: a naive
-`from app.services.math.solve.key_steps import KeyStep` at the top of the new module would have
+`from app.modules.math.solve.key_steps import KeyStep` at the top of the new module would have
 forced `math/solve/__init__.py` to load before `solving.py` finished defining `MathServiceError`,
 which `parse.py` (loaded by that same `__init__.py`) now imports back — a genuine import cycle.
 Fixed by making it a `TYPE_CHECKING`-only import (every use was already an annotation). Verified:
@@ -76,7 +76,7 @@ just its visibility.
 ### S4 — Move physics off `math.match` for text-scanning utilities ✅ shipped
 
 Turned out to be two functions, not one: `word_index` (as scoped) plus `has_equation`, which
-`services/physics/extract.py` was also reaching for 24 times via `from app.services.math import
+`services/physics/extract.py` was also reaching for 24 times via `from app.modules.math import
 match as mtm` / `mtm.has_equation(...)`. Both are genuinely pure string scanning (no SymPy, no
 subject semantics — `has_equation` is six lines checking for a bare `=` with alphanumeric content
 on both sides) and moved to a new `app.services.text_match`, sibling to the existing
@@ -214,7 +214,7 @@ missed on the first pass and the full test suite caught. Mobile needed no change
   equal `PHYSICS_BLOCK_BUILDERS`'s keys, exactly twenty; a kind added to one without the other is
   a silent dispatch miss in production, caught here instead.
 - `test_physics_imports_from_math_are_allowlisted` — AST-walks every file in `services/physics/`
-  for `from app.services.math...` / `from app.models.schemas.math...` imports and asserts the set
+  for `from app.modules.math...` / `from app.models.schemas.math...` imports and asserts the set
   found is exactly the four named, reasoned entries in `_ALLOWED_MATH_IMPORTS` (verified by hand
   that the scanner actually finds them — an allowlist test that silently matches nothing is worse
   than no test). A new import here must be added to the allowlist with a reason, not slip in

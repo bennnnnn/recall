@@ -7,8 +7,8 @@ footprint on the old shared model was narrow — ``kind`` (twenty of its forty-n
 math's, not physics's, and stays there.
 
 ``PhysicsIntent`` flows through the same generic dispatch as ``MathIntent`` — the extractor
-registry (``services/math/tools/extract.py``) and the block-builder registry
-(``services/math/tools/block/__init__.py``) both accept ``MathIntent | PhysicsIntent`` and
+registry (``modules/math/tools/extract.py``) and the block-builder registry
+(``modules/math/tools/block/__init__.py``) both accept ``MathIntent | PhysicsIntent`` and
 route by ``.kind``, which exists on both. No conversion between the two types happens
 anywhere: a physics extractor constructs a ``PhysicsIntent`` once and it flows unchanged
 all the way to the physics solver.

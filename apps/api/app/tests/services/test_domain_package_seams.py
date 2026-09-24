@@ -57,7 +57,10 @@ def test_chemistry_package_exposes_its_public_api() -> None:
 
 
 def test_math_extraction_public_seam_uses_focused_extractors() -> None:
-    extract = importlib.import_module("app.services.math.tools.extract")
+    canonical = importlib.import_module("app.modules.math.tools.extract")
+    legacy = importlib.import_module("app.services.math.tools.extract")
+    assert legacy is canonical
+    extract = canonical
 
     assert extract.extract_math_intent("solve x + 2 = 5").kind == "equation"
     assert extract.extract_math_intent("draw a square with side 4").kind == "square"
@@ -78,8 +81,8 @@ def test_physics_modules_import_cold_in_isolation() -> None:
     for module in (
         "app.modules.physics.block",
         "app.modules.physics.direct",
-        "app.services.math.tools.block",
-        "app.services.math.tools",
+        "app.modules.math.tools.block",
+        "app.modules.math.tools",
     ):
         result = subprocess.run(  # noqa: S603 - fixed argv, module names are literals above
             [sys.executable, "-c", f"import {module}"], capture_output=True, text=True

@@ -58,6 +58,7 @@ from app.modules.images.lookup_intent import (
     extract_image_lookup_query as extract_image_lookup_query,
 )
 from app.modules.integrations import calendar
+from app.modules.math import fence as math_fence
 from app.repositories import chats, messages, users
 from app.services import model_catalog as model_catalog
 from app.services import (
@@ -115,7 +116,6 @@ from app.services.chat.turn_prep import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens as estimate_tokens
-from app.services.math import fence as math_fence
 
 chats_repo = chats
 messages_repo = messages

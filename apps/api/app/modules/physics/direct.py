@@ -249,13 +249,13 @@ def _expected_intent(text: str) -> MathIntent | PhysicsIntent | None:
         params, _units = _measures(match)
         if not 0 <= params["d"] <= 1e6 or not 0 < params["t"] <= 1e6:
             return None
-        from app.services.math.tools.school import extract_average_speed_intent
+        from app.modules.math import extract_average_speed_intent
 
         intent = extract_average_speed_intent(body)
         if intent is not None and intent.expr == f"{params['d']}/{params['t']}":
             return intent
     if not explicit_g:
-        from app.services.math.tools.school import extract_average_speed_intent
+        from app.modules.math import extract_average_speed_intent
 
         speed_intent = extract_average_speed_intent(body)
         if speed_intent is not None and speed_intent.school_op in {

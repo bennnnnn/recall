@@ -9,14 +9,14 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.math.fence import validate_math_fences
+from app.modules.math.tools import _build_verified_block, extract_math_intent, needs_symbolic_math
+from app.modules.math.tools.direct import maybe_direct_math_reply
+from app.modules.math.tools.prompt import build_math_augmentation
 from app.modules.physics.block import _format_visible_answer
 from app.modules.physics.direct import _expected_intent
 from app.services.chat.stream_pipeline import stream_and_finalize
 from app.services.chat.turn_prep.context import StreamContext
-from app.services.math.fence import validate_math_fences
-from app.services.math.tools import _build_verified_block, extract_math_intent, needs_symbolic_math
-from app.services.math.tools.direct import maybe_direct_math_reply
-from app.services.math.tools.prompt import build_math_augmentation
 from app.services.solving import VerifiedMathBlock
 from app.services.tool_loop import turn_needs_tool_loop
 

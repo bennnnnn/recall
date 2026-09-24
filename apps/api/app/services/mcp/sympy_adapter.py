@@ -22,9 +22,9 @@ from app.models.schemas.math import (
     SystemOfEquationsInput,
 )
 from app.models.schemas.tools import SympyToolInput
-from app.services.math import solve as math_solve
-from app.services.math import tools as math_tools
-from app.services.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
+from app.modules.math import solve as math_solve
+from app.modules.math import tools as math_tools
+from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ class SympyAdapter:
         The function and args must be picklable (top-level functions + plain
         data) so they can cross the subprocess boundary.
         """
-        from app.services.math.sympy_executor import run_sympy
+        from app.modules.math.sympy_executor import run_sympy
 
         try:
             return await run_sympy(fn, *args, timeout=self.settings.math_solve_timeout_seconds)
@@ -584,7 +584,7 @@ class SympyAdapter:
         )
 
     async def _action_dsolve(self, args: dict[str, Any]) -> ToolResult:
-        from app.services.math import school as math_school
+        from app.modules.math import school as math_school
 
         expr = str(args.get("expr") or args.get("text") or "")
         variable = str(args.get("variable") or "x")

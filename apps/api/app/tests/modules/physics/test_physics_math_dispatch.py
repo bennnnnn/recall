@@ -7,7 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
 from app.models.schemas.physics import PhysicsIntent
-from app.services.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block, extract_math_intent
 
 
 @pytest.mark.parametrize(

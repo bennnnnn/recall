@@ -19,6 +19,7 @@ from app.modules.chemistry import context as chemistry_context_service
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
+from app.modules.math.tools import VerifiedMathBlock, needs_symbolic_math
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services import plan as plan_service
@@ -49,7 +50,6 @@ from app.services.chat.turn_prep.mode import (
     _TurnMode,
 )
 from app.services.chat.turn_timing import TurnTimingTracker
-from app.services.math.tools import VerifiedMathBlock, needs_symbolic_math
 from app.services.settings_intent import extract_settings_changes
 from app.services.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
@@ -640,7 +640,7 @@ async def build_stream_prompt_context(
         math_block is not None and verified_math is None and math_block.startswith("Math note:")
     )
     if instant_reply is None and verified_math is not None:
-        from app.services.math.tools.direct import maybe_direct_math_reply
+        from app.modules.math.tools.direct import maybe_direct_math_reply
 
         instant_reply = maybe_direct_math_reply(
             verified_math,

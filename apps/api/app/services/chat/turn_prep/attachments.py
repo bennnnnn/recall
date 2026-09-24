@@ -233,8 +233,8 @@ async def _process_attachment_inputs(
             user_content = plain
 
     # Camera math solver: vision-extract equation so SymPy can verify.
-    from app.services.math import image_extract as math_image_extract_service
-    from app.services.math import match as math_match
+    from app.modules.math import image_extract as math_image_extract_service
+    from app.modules.math import match as math_match
     from app.services.subject_scan import scanner_camera_subject
 
     # BUG FIX: this used to require the sent text to be BYTE-FOR-BYTE
@@ -268,7 +268,7 @@ async def _process_attachment_inputs(
         if confirmed_reading:
             # The student already verified OCR in the scanner. Re-running
             # vision here can silently solve a different equation.
-            from app.services.math.ocr import extract_from_confirmed_reading
+            from app.modules.math.ocr import extract_from_confirmed_reading
 
             extracted = extract_from_confirmed_reading(confirmed_reading)
             if extracted is not None:

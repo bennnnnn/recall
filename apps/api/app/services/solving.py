@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from app.models.schemas.math import MathIntent, NewtonMethodInput, NewtonMethodResult
     from app.models.schemas.physics import PhysicsIntent
-    from app.services.math.solve.key_steps import KeyStep
+    from app.modules.math.solve.key_steps import KeyStep
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
 VERIFIED_MATH_END = "[END VERIFIED MATH]"

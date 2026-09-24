@@ -19,7 +19,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 4. **Topic generation, memory extraction, and other post-turn work are best-effort background jobs.** They must never raise into the chat request path or block streaming. Enqueue from `services/chat/post_turn.py` via `core/jobs.py`.
 5. **No arbitrary code execution — one sandboxed exception.** Code in messages is rendered/highlighted only, with a single exception: **HTML/CSS/JS may be previewed in a sandboxed WebView** (and charts/diagrams rendered from model output). Never execute Python, shell, or any other language, and never run code anywhere except inside the isolated preview WebView (no app token is ever exposed to it). The preview WebView requires a dev build — it does not work in Expo Go.
 6. **All LLM structured outputs are validated with Pydantic** before they touch the DB.
-7. **Symbolic math runs server-side only (SymPy).** Physics is a peer subject in `services/physics/`, not a corner of math. The mobile app renders verified results and structured `geometry` / `graph` / `simulation` fences — it never solves equations on-device, and a `simulation` scene is a *sampled path* it walks, never motion it re-derives. Pipeline map: [docs/math.md](./docs/math.md).
+7. **Symbolic math runs server-side only (SymPy).** Math lives in `modules/math/`. Physics is a peer subject in `modules/physics/`, not a corner of math. The mobile app renders verified results and structured `geometry` / `graph` / `simulation` fences — it never solves equations on-device, and a `simulation` scene is a *sampled path* it walks, never motion it re-derives. Pipeline map: [docs/math.md](./docs/math.md).
 
 ## Service Overview
 
@@ -80,7 +80,6 @@ app/
   routers/             # legacy HTTP until that domain is a module
   services/            # legacy product code until that domain is a module
     chat/              # turn prep, stream, post_turn — migrate last
-    math/              # match/ (scan) → tools/ (intent, block) → solve/ (SymPy)
     notifications/ web_search/ home/ mcp/
   exceptions.py        # shared domain exceptions
   models/              # orm/ (SQLAlchemy) + schemas/ (Pydantic: HTTP, math/, tools)
@@ -136,7 +135,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`) | `features/images/`; checked before image-gen intent in `useChatSend` |
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
-| Math (SymPy) | `services/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
+| Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
 | Physics (20 verified kinds) | `modules/physics/` (`extract.py`, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/`, `models/schemas/chemistry/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Calendar / Gmail | `modules/integrations/` (HTTP `/integrations/google-calendar`, `/integrations/google-gmail`) | `features/integrations/`; `app/settings/integrations.tsx` route only |

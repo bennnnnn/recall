@@ -320,7 +320,7 @@ def _route_current_line(content: str) -> str:
     # the verified answer and the prose disagreed. needs_symbolic is the same
     # gate the math pipeline uses, so routing and augmentation agree on what
     # "a math turn" is. Lazy import keeps routing import-time cheap.
-    from app.services.math.match import needs_symbolic
+    from app.modules.math.match import needs_symbolic
 
     if needs_symbolic(content) and not _verified_math_stays_fast(content):
         return smart
@@ -357,8 +357,8 @@ def _verified_math_stays_fast(content: str) -> bool:
     Keep equations / calculus / graphs on smart. Bare factorial ("4!") and
     "what is 1+1" style arithmetic stay on the fast model.
     """
-    from app.services.math.match.discrete import combinatorics_signal
-    from app.services.math.match.scan import bare_arithmetic_expr, prepare
+    from app.modules.math.match.discrete import combinatorics_signal
+    from app.modules.math.match.scan import bare_arithmetic_expr, prepare
 
     cleaned = prepare(content)
     if not cleaned:

@@ -194,7 +194,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             AsyncMock(),
         ),
         patch(
-            "app.services.math.image_extract.extract_equation_from_image",
+            "app.modules.math.image_extract.extract_equation_from_image",
             AsyncMock(return_value=extracted),
         ) as extract_mock,
         patch(
@@ -334,7 +334,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             AsyncMock(),
         ),
         patch(
-            "app.services.math.image_extract.extract_equation_from_image",
+            "app.modules.math.image_extract.extract_equation_from_image",
             AsyncMock(return_value=extracted),
         ) as extract_mock,
         patch(
