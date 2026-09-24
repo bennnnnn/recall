@@ -24,8 +24,6 @@ from app.models.schemas.chats import (
     ChatRename,
     EmailDraftUpdate,
     FeedbackUpdate,
-    ImageGenerateIn,
-    ImageGenerateOut,
     MessageOut,
     MessagePageOut,
     PinUpdate,
@@ -71,6 +69,7 @@ from app.modules.attachments.schemas import (
     AttachmentPresignIn,
     AttachmentPresignOut,
 )
+from app.modules.images.schemas import ImageGenerateIn, ImageGenerateOut
 from app.modules.integrations.schemas import (
     CalendarConflictOut,
     CalendarConflictsOut,

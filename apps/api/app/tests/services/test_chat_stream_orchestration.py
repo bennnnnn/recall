@@ -887,8 +887,8 @@ async def test_try_image_gen_dog_then_image_uses_prior_subject():
 @pytest.mark.parametrize("status_code", [403, 404])
 async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
     """403/404 must not delete the prior assistant (omit-until-success)."""
+    from app.modules.images.generation import ImageGenerationError
     from app.services.chat.stream import _try_image_gen_for_turn
-    from app.services.images.generation import ImageGenerationError
 
     user = MagicMock()
     user.id = uuid4()
@@ -1063,8 +1063,8 @@ async def test_try_image_lookup_succeeds_and_populates_result():
 @pytest.mark.asyncio
 async def test_try_image_lookup_quota_exceeded_raises():
     from app.exceptions import QuotaExceededError
+    from app.modules.images.search import ImageSearchError
     from app.services.chat.stream import _try_image_lookup_for_turn
-    from app.services.images.search import ImageSearchError
 
     user = MagicMock()
     user.id = uuid4()
@@ -1093,8 +1093,8 @@ async def test_try_image_lookup_quota_exceeded_raises():
 @pytest.mark.parametrize("status_code", [404, 502, 503])
 async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int):
     """No-results / provider-down lookups fall through to a normal LLM answer."""
+    from app.modules.images.search import ImageSearchError
     from app.services.chat.stream import _try_image_lookup_for_turn
-    from app.services.images.search import ImageSearchError
 
     user = MagicMock()
     user.id = uuid4()
@@ -1125,8 +1125,8 @@ async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int
 @pytest.mark.asyncio
 async def test_try_image_lookup_other_error_raises_chat_service_error():
     from app.exceptions import ChatServiceError
+    from app.modules.images.search import ImageSearchError
     from app.services.chat.stream import _try_image_lookup_for_turn
-    from app.services.images.search import ImageSearchError
 
     user = MagicMock()
     user.id = uuid4()

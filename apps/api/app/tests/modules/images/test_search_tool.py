@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.images.search import ImageSearchError
-from app.services.mcp.image_search_adapter import ImageSearchAdapter, bind_image_search_context
+from app.modules.images.search import ImageSearchError
+from app.modules.images.search_tool import ImageSearchAdapter, bind_image_search_context
 
 
 def _settings(**kwargs: object) -> Settings:
@@ -55,7 +55,7 @@ async def test_invoke_persists_and_returns_terminal_marker():
     with (
         bind_image_search_context(user=user, redis=MagicMock(), chat_id=chat_id),
         patch(
-            "app.services.mcp.image_search_adapter.image_search_service.search_and_attach_for_chat",
+            "app.modules.images.search_tool.image_search_service.search_and_attach_for_chat",
             search,
         ),
     ):
@@ -78,7 +78,7 @@ async def test_invoke_surfaces_search_error():
     with (
         bind_image_search_context(user=user, redis=MagicMock(), chat_id=uuid4()),
         patch(
-            "app.services.mcp.image_search_adapter.image_search_service.search_and_attach_for_chat",
+            "app.modules.images.search_tool.image_search_service.search_and_attach_for_chat",
             AsyncMock(side_effect=ImageSearchError("no photo found", status_code=502)),
         ),
     ):
@@ -94,7 +94,7 @@ async def test_invoke_rejects_marker_without_image_prefix():
     with (
         bind_image_search_context(user=user, redis=MagicMock(), chat_id=uuid4()),
         patch(
-            "app.services.mcp.image_search_adapter.image_search_service.search_and_attach_for_chat",
+            "app.modules.images.search_tool.image_search_service.search_and_attach_for_chat",
             AsyncMock(return_value=(MagicMock(), asst)),
         ),
     ):

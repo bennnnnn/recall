@@ -1,4 +1,4 @@
-import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/images/imageGenIntent";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
 import { Type } from "@/lib/type";
 
 export const CHAT_HEADER_BAR_HEIGHT = 52;

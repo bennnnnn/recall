@@ -130,8 +130,8 @@ What exists in code today. Product caveats: FEATURES.md.
 | Home starters | `routers/home.py`, `services/home/` | home cards on chat empty / index |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
-| Image gen (Pro) | `routers/images.py`, `services/images/generation.py`, `images/gen_intent.py` | composer send only (no prompt sheet) |
-| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `services/images/search.py`, `images/lookup_intent.py`, MCP `search_image` adapter | `lib/images/imageLookupIntent.ts` (checked before image-gen intent in `useChatSend`) |
+| Image gen (Pro) | `modules/images/` (HTTP `/images/generate`) | `features/images/`; composer send only |
+| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`) | `features/images/`; checked before image-gen intent in `useChatSend` |
 | Speech STT/TTS + live talk | `routers/speech.py`, `services/speech.py`, `quota.py` | `useVoiceInput`, `useLiveTalk`, message speaker |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `services/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
@@ -145,7 +145,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned My Job, Learning, Memory, To-do, Google Calendar/Gmail, and Attachments APIs plus the legacy health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, models, search, suggestions, speech, speech_realtime, images, analytics, and ws routers.
+**HTTP surfaces registered in** `main.py`: the module-owned My Job, Learning, Memory, To-do, Google Calendar/Gmail, Attachments, and Images APIs plus the legacy health, legal, auth, admin, webhooks, users, home, link_preview, chats, chat_stream, models, search, suggestions, speech, speech_realtime, analytics, and ws routers.
 
 **Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
 
@@ -193,7 +193,7 @@ Steps 6–8 are the only ones on the user's critical path. Everything in step 9 
 
 Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Learning (`projects/`), Settings (models, memory, preferences, integrations, learning, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
-- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,images,account,discover,connectivity,speech,analytics,push,types}.ts` plus feature slices (`features/learning/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/job-search/api.ts`, `features/integrations/api.ts`, `features/attachments/api.ts`)
+- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,account,discover,connectivity,speech,analytics,push,types}.ts` plus feature slices (`features/learning/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/job-search/api.ts`, `features/integrations/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`)
 - Tokens: `expo-secure-store` only
 - Chat logic: `hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — screens stay thin
 - Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `projects/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.

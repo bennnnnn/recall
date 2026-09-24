@@ -1,5 +1,5 @@
-import { extractImageGenPrompt } from "@/lib/images/imageGenIntent";
-import { extractImageLookupQuery } from "@/lib/images/imageLookupIntent";
+import { extractImageGenPrompt } from "@/features/images/model/imageGenIntent";
+import { extractImageLookupQuery } from "@/features/images/model/imageLookupIntent";
 
 describe("extractImageLookupQuery", () => {
   it.each([

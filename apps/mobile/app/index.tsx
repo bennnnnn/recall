@@ -50,7 +50,7 @@ import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chat/composerLogic";
 import { invalidateLearningDetail } from "@/features/learning/model/projectDetailCache";
 import { openLearningLesson } from "@/features/learning/model/lessonLaunch";
-import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {

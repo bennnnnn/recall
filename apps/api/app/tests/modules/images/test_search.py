@@ -1,4 +1,4 @@
-"""Tests for app.services.images.search."""
+"""Tests for app.modules.images.search."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -8,7 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways.image_search_gateway import ImageSearchHit
 from app.gateways.storage_gateway import PresignedUpload, UnconfiguredStorageGateway
-from app.services.images.search import ImageSearchError, search_and_attach_for_chat
+from app.modules.images.search import ImageSearchError, search_and_attach_for_chat
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"0" * 32
 _HIT = ImageSearchHit(
@@ -63,7 +63,7 @@ async def test_empty_query_raises_400():
 @pytest.mark.asyncio
 async def test_chat_not_found_raises_404():
     settings = Settings(image_search_enabled=True)
-    with patch("app.services.images.search.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=None)):
         with pytest.raises(ImageSearchError) as exc:
             await search_and_attach_for_chat(
                 settings, user=MagicMock(id=uuid4()), chat_id=uuid4(), query="an ear"
@@ -76,10 +76,10 @@ async def test_unconfigured_storage_raises_503():
     settings = Settings(image_search_enabled=True)
     with (
         patch(
-            "app.services.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
+            "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
         patch(
-            "app.services.images.search.get_storage_gateway",
+            "app.modules.images.search.get_storage_gateway",
             return_value=UnconfiguredStorageGateway(),
         ),
     ):
@@ -98,10 +98,10 @@ async def test_quota_exceeded_raises_429_without_calling_provider():
     search_mock = AsyncMock()
     with (
         patch(
-            "app.services.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
+            "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
-        patch("app.services.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.services.images.search.image_search_gateway.search_images", search_mock),
+        patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
+        patch("app.modules.images.search.image_search_gateway.search_images", search_mock),
     ):
         with pytest.raises(ImageSearchError) as exc:
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
@@ -116,21 +116,19 @@ async def test_no_hits_refunds_quota_and_raises_502():
     gateway = _fake_gateway()
     with (
         patch(
-            "app.services.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
+            "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
-        patch("app.services.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.services.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
+        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.quota_service.reserve_image_search",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.images.search.image_search_gateway.search_images",
+            "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[]),
         ),
-        patch(
-            "app.services.images.search.quota_service.refund_image_search", AsyncMock()
-        ) as refund,
+        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
     ):
         with pytest.raises(ImageSearchError) as exc:
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
@@ -150,26 +148,24 @@ async def test_all_candidates_fail_fetch_refunds_and_raises_502():
 
     with (
         patch(
-            "app.services.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
+            "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
-        patch("app.services.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.services.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
+        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.quota_service.reserve_image_search",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.images.search.image_search_gateway.search_images",
+            "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[_HIT]),
         ),
-        patch("app.services.images.search.httpx.AsyncClient", return_value=fetch_client),
+        patch("app.modules.images.search.httpx.AsyncClient", return_value=fetch_client),
         patch(
-            "app.services.images.search.safe_fetch.fetch_safely",
+            "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=bad_response),
         ),
-        patch(
-            "app.services.images.search.quota_service.refund_image_search", AsyncMock()
-        ) as refund,
+        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
     ):
         with pytest.raises(ImageSearchError) as exc:
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
@@ -203,35 +199,33 @@ async def test_successful_lookup_persists_attachment_and_message():
     create_pending = AsyncMock()
     with (
         patch(
-            "app.services.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
+            "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
-        patch("app.services.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.services.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
+        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.quota_service.reserve_image_search",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.images.search.image_search_gateway.search_images",
+            "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[_HIT]),
         ),
-        patch("app.services.images.search.httpx.AsyncClient", return_value=fetch_client),
+        patch("app.modules.images.search.httpx.AsyncClient", return_value=fetch_client),
         patch(
-            "app.services.images.search.safe_fetch.fetch_safely",
+            "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),
         ),
-        patch("app.services.images.search.attachments_repo.create_pending", create_pending),
-        patch("app.services.images.search.attachments_repo.mark_verified", AsyncMock()),
+        patch("app.modules.images.search.attachments_repo.create_pending", create_pending),
+        patch("app.modules.images.search.attachments_repo.mark_verified", AsyncMock()),
         patch(
-            "app.services.images.search.attachments_repo.link_to_message",
+            "app.modules.images.search.attachments_repo.link_to_message",
             AsyncMock(return_value=1),
         ),
         patch(
-            "app.services.images.search.messages_repo.create", AsyncMock(side_effect=_fake_create)
+            "app.modules.images.search.messages_repo.create", AsyncMock(side_effect=_fake_create)
         ),
-        patch(
-            "app.services.images.search.quota_service.refund_image_search", AsyncMock()
-        ) as refund,
+        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
     ):
         user_msg, asst_msg = await search_and_attach_for_chat(
             settings, user=user, chat_id=uuid4(), query="an ear"
@@ -259,35 +253,33 @@ async def test_link_failure_rolls_back_bytes_and_refunds():
 
     with (
         patch(
-            "app.services.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
+            "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
-        patch("app.services.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.services.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
+        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.quota_service.reserve_image_search",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.images.search.image_search_gateway.search_images",
+            "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[_HIT]),
         ),
-        patch("app.services.images.search.httpx.AsyncClient", return_value=fetch_client),
+        patch("app.modules.images.search.httpx.AsyncClient", return_value=fetch_client),
         patch(
-            "app.services.images.search.safe_fetch.fetch_safely",
+            "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),
         ),
-        patch("app.services.images.search.attachments_repo.create_pending", AsyncMock()),
+        patch("app.modules.images.search.attachments_repo.create_pending", AsyncMock()),
         patch(
-            "app.services.images.search.messages_repo.create",
+            "app.modules.images.search.messages_repo.create",
             AsyncMock(return_value=MagicMock(id=uuid4())),
         ),
         patch(
-            "app.services.images.search.attachments_repo.link_to_message",
+            "app.modules.images.search.attachments_repo.link_to_message",
             AsyncMock(return_value=0),
         ),
-        patch(
-            "app.services.images.search.quota_service.refund_image_search", AsyncMock()
-        ) as refund,
+        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()) as refund,
     ):
         with pytest.raises(ImageSearchError) as exc:
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
@@ -304,16 +296,16 @@ async def test_spend_cap_skips_reserve_and_provider():
     search_mock = AsyncMock()
     with (
         patch(
-            "app.services.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
+            "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
-        patch("app.services.images.search.get_storage_gateway", return_value=_fake_gateway()),
-        patch("app.services.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_storage_gateway", return_value=_fake_gateway()),
+        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.images.search.quota_service.global_spend_exceeded",
+            "app.modules.images.search.quota_service.global_spend_exceeded",
             AsyncMock(return_value=True),
         ),
-        patch("app.services.images.search.quota_service.reserve_image_search", reserve),
-        patch("app.services.images.search.image_search_gateway.search_images", search_mock),
+        patch("app.modules.images.search.quota_service.reserve_image_search", reserve),
+        patch("app.modules.images.search.image_search_gateway.search_images", search_mock),
     ):
         with pytest.raises(ImageSearchError) as exc:
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
@@ -348,34 +340,34 @@ async def test_lookup_reply_is_image_markers_only():
 
     with (
         patch(
-            "app.services.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
+            "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
         ),
-        patch("app.services.images.search.get_storage_gateway", return_value=gateway),
-        patch("app.services.images.search.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.images.search.get_storage_gateway", return_value=gateway),
+        patch("app.modules.images.search.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.services.images.search.quota_service.reserve_image_search",
+            "app.modules.images.search.quota_service.reserve_image_search",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.services.images.search.image_search_gateway.search_images",
+            "app.modules.images.search.image_search_gateway.search_images",
             AsyncMock(return_value=[evil_hit]),
         ),
-        patch("app.services.images.search.httpx.AsyncClient", return_value=fetch_client),
+        patch("app.modules.images.search.httpx.AsyncClient", return_value=fetch_client),
         patch(
-            "app.services.images.search.safe_fetch.fetch_safely",
+            "app.modules.images.search.safe_fetch.fetch_safely",
             AsyncMock(return_value=good_response),
         ),
-        patch("app.services.images.search.attachments_repo.create_pending", AsyncMock()),
-        patch("app.services.images.search.attachments_repo.mark_verified", AsyncMock()),
+        patch("app.modules.images.search.attachments_repo.create_pending", AsyncMock()),
+        patch("app.modules.images.search.attachments_repo.mark_verified", AsyncMock()),
         patch(
-            "app.services.images.search.attachments_repo.link_to_message",
+            "app.modules.images.search.attachments_repo.link_to_message",
             AsyncMock(return_value=1),
         ),
         patch(
-            "app.services.images.search.messages_repo.create", AsyncMock(side_effect=_fake_create)
+            "app.modules.images.search.messages_repo.create", AsyncMock(side_effect=_fake_create)
         ),
-        patch("app.services.images.search.quota_service.refund_image_search", AsyncMock()),
-        patch("app.services.images.search.quota_service.record_global_spend", AsyncMock()),
+        patch("app.modules.images.search.quota_service.refund_image_search", AsyncMock()),
+        patch("app.modules.images.search.quota_service.record_global_spend", AsyncMock()),
     ):
         _user_msg, asst_msg = await search_and_attach_for_chat(
             settings, user=user, chat_id=uuid4(), query="an ear"

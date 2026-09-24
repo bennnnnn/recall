@@ -49,9 +49,9 @@ def test_generate_image_quota_exhausted():
     fake_redis.expire = AsyncMock()
 
     with (
-        patch("app.services.images.generation.get_redis_client", return_value=fake_redis),
+        patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chats_repo.get_by_id",
             AsyncMock(return_value=MagicMock()),
         ),
     ):
@@ -83,13 +83,13 @@ def test_generate_image_rejects_oversized_result():
     oversized = b"\x89PNG\r\n\x1a\n" + b"0" * MAX_ATTACHMENT_SIZE
 
     with (
-        patch("app.services.images.generation.get_redis_client", return_value=fake_redis),
+        patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chats_repo.get_by_id",
             AsyncMock(return_value=chat),
         ),
         patch(
-            "app.services.images.generation.generate_image",
+            "app.modules.images.generation.generate_image",
             AsyncMock(return_value=(oversized, "image/png")),
         ),
     ):
@@ -159,30 +159,30 @@ def test_generate_image_success():
     app.dependency_overrides[get_db] = _get_db
 
     with (
-        patch("app.services.images.generation.get_redis_client", return_value=fake_redis),
+        patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chats_repo.get_by_id",
             AsyncMock(return_value=chat),
         ),
         patch(
-            "app.services.images.generation.generate_image",
+            "app.modules.images.generation.generate_image",
             AsyncMock(return_value=(b"\x89PNG\r\n", "image/png")),
         ),
-        patch("app.services.images.generation.get_storage_gateway", return_value=gateway),
-        patch("app.services.images.generation.attachments_repo.create_pending", create_pending),
+        patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
+        patch("app.modules.images.generation.attachments_repo.create_pending", create_pending),
         patch(
-            "app.services.images.generation.messages_repo.create",
+            "app.modules.images.generation.messages_repo.create",
             AsyncMock(side_effect=[user_msg, assistant_msg]),
         ),
         patch(
-            "app.services.images.generation.attachments_repo.link_to_message",
+            "app.modules.images.generation.attachments_repo.link_to_message",
             AsyncMock(return_value=1),
         ),
         patch(
-            "app.services.images.generation.attachments_repo.mark_verified",
+            "app.modules.images.generation.attachments_repo.mark_verified",
             AsyncMock(),
         ) as mark_verified,
-        patch("app.services.images.generation.bytes_match_claimed", return_value=True),
+        patch("app.modules.images.generation.bytes_match_claimed", return_value=True),
     ):
         client = TestClient(app)
         r = client.post(
@@ -225,7 +225,7 @@ def test_generate_image_passes_original_user_message():
 
     generate = AsyncMock(return_value=(user_msg, assistant_msg))
     with patch(
-        "app.routers.images.image_generation_service.generate_for_chat",
+        "app.modules.images.api.image_generation_service.generate_for_chat",
         generate,
     ):
         client = TestClient(app)
@@ -274,21 +274,21 @@ def test_generate_image_deletes_storage_when_persist_fails():
     fake_redis.expire = AsyncMock()
 
     with (
-        patch("app.services.images.generation.get_redis_client", return_value=fake_redis),
+        patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.images.generation.chats_repo.get_by_id",
+            "app.modules.images.generation.chats_repo.get_by_id",
             AsyncMock(return_value=chat),
         ),
         patch(
-            "app.services.images.generation.generate_image",
+            "app.modules.images.generation.generate_image",
             AsyncMock(return_value=(b"\x89PNG\r\n", "image/png")),
         ),
-        patch("app.services.images.generation.get_storage_gateway", return_value=gateway),
+        patch("app.modules.images.generation.get_storage_gateway", return_value=gateway),
         patch(
-            "app.services.images.generation.attachments_repo.create_pending",
+            "app.modules.images.generation.attachments_repo.create_pending",
             AsyncMock(side_effect=RuntimeError("db down")),
         ),
-        patch("app.services.images.generation.bytes_match_claimed", return_value=True),
+        patch("app.modules.images.generation.bytes_match_claimed", return_value=True),
     ):
         client = TestClient(app, raise_server_exceptions=False)
         r = client.post(

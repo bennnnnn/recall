@@ -128,19 +128,6 @@ class TitleGenerationResult(BaseModel):
     title: str = Field(min_length=3, max_length=80)
 
 
-class ImageGenerateIn(BaseModel):
-    chat_id: UUID
-    prompt: str = Field(min_length=1, max_length=2000)
-    user_message: str | None = Field(default=None, max_length=2000)
-    aspect_ratio: str | None = Field(default=None, max_length=16)
-    reference_attachment_ids: list[UUID] = Field(default_factory=list, max_length=2)
-
-
-class ImageGenerateOut(BaseModel):
-    user_message: MessageOut
-    assistant_message: MessageOut
-
-
 class SearchResultItem(BaseModel):
     match_type: Literal["message", "title"] = "message"
     message_id: UUID | None = None

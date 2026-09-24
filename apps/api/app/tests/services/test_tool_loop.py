@@ -396,7 +396,7 @@ async def test_invoke_validated_rejects_empty_query(web_search_registered):
 async def test_tool_loop_generate_image_is_terminal():
     """Successful generate_image stops further completion rounds."""
     from app.gateways.mcp.base import ToolResult
-    from app.services.mcp.image_gen_adapter import ImageGenAdapter
+    from app.modules.images.gen_tool import ImageGenAdapter
 
     mcp_registry.clear()
     mcp_registry.register(ImageGenAdapter(_settings(image_generation_enabled=True)))
@@ -470,7 +470,7 @@ async def test_tool_loop_generate_image_is_terminal():
 async def test_tool_loop_search_image_is_terminal():
     """Successful search_image (reference-photo lookup) stops further rounds."""
     from app.gateways.mcp.base import ToolResult
-    from app.services.mcp.image_search_adapter import ImageSearchAdapter
+    from app.modules.images.search_tool import ImageSearchAdapter
 
     mcp_registry.clear()
     mcp_registry.register(ImageSearchAdapter(_settings(image_search_enabled=True)))
@@ -542,7 +542,7 @@ async def test_tool_loop_search_image_is_terminal():
 
 @pytest.mark.asyncio
 async def test_tools_for_user_omits_image_gen_for_free():
-    from app.services.mcp.image_gen_adapter import ImageGenAdapter
+    from app.modules.images.gen_tool import ImageGenAdapter
 
     mcp_registry.clear()
     mcp_registry.register(ImageGenAdapter(_settings(image_generation_enabled=True)))
@@ -558,7 +558,7 @@ async def test_tools_for_user_omits_image_gen_for_free():
 @pytest.mark.asyncio
 async def test_tools_for_user_keeps_search_image_for_free():
     """Unlike generate_image, search_image is not Pro-gated."""
-    from app.services.mcp.image_search_adapter import ImageSearchAdapter
+    from app.modules.images.search_tool import ImageSearchAdapter
 
     mcp_registry.clear()
     mcp_registry.register(ImageSearchAdapter(_settings(image_search_enabled=True)))
@@ -573,7 +573,7 @@ async def test_tools_for_user_keeps_search_image_for_free():
 
 @pytest.mark.asyncio
 async def test_tools_for_user_omits_search_image_when_disabled():
-    from app.services.mcp.image_search_adapter import ImageSearchAdapter
+    from app.modules.images.search_tool import ImageSearchAdapter
 
     mcp_registry.clear()
     mcp_registry.register(ImageSearchAdapter(_settings(image_search_enabled=True)))
