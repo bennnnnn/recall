@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
-import { CODE_FONT } from "@/lib/fonts";
+import { MATH_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import {
   parseSimpleLatex,
@@ -357,6 +357,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
   const layoutScale = scale * fontScale;
   return StyleSheet.create({
     base: {
+      fontFamily: MATH_FONT,
       fontSize,
       // Match body rhythm. 28 made nested `$m$` / `$y=mx+b$` Text
       // wrap onto its own line inside list items ("Slope (" / "m" / "): 3").
@@ -383,11 +384,13 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       overflow: "visible",
     },
     sup: {
+      fontFamily: MATH_FONT,
       fontSize: 11,
       lineHeight: 14,
       color,
     },
     sub: {
+      fontFamily: MATH_FONT,
       fontSize: 11,
       lineHeight: 14,
       color,
@@ -396,6 +399,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       paddingBottom: 12 * layoutScale,
     },
     scriptText: {
+      fontFamily: MATH_FONT,
       fontSize: 14 * scale,
       lineHeight: FRAC_LINE_HEIGHT * scale,
       color,
@@ -413,7 +417,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       alignItems: "center",
     },
     fracPart: {
-      fontFamily: CODE_FONT,
+      fontFamily: MATH_FONT,
       fontSize: 14 * scale,
       lineHeight: FRAC_LINE_HEIGHT * scale,
       color,
@@ -431,7 +435,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       marginLeft: 6 * layoutScale,
     },
     sqrtIndex: {
-      fontFamily: CODE_FONT,
+      fontFamily: MATH_FONT,
       fontSize: 12 * scale,
       lineHeight: 14 * scale,
       color,
@@ -439,13 +443,13 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       marginTop: -4 * layoutScale,
     },
     sqrtSign: {
-      fontFamily: CODE_FONT,
+      fontFamily: MATH_FONT,
       fontSize,
       lineHeight: SQRT_LINE_HEIGHT * scale,
       color,
     },
     sqrtBody: {
-      fontFamily: CODE_FONT,
+      fontFamily: MATH_FONT,
       fontSize,
       lineHeight: SQRT_LINE_HEIGHT * scale,
       color,
