@@ -36,12 +36,30 @@ from app.modules.integrations.schemas import (
 from app.modules.integrations.schemas import (
     SuggestedRemindersOut as SuggestedRemindersOut,
 )
-
-# Decoded audio cap. Router and transcribe_audio must use this same value
-# so a 6MB clip is 413, not a service None → 502 after quota reserve.
-SPEECH_MAX_AUDIO_BYTES = 5_000_000
-SPEECH_MAX_B64_CHARS = 4 * ((SPEECH_MAX_AUDIO_BYTES + 2) // 3)
-SPEECH_MAX_REQUEST_BYTES = SPEECH_MAX_B64_CHARS + 4096
+from app.modules.speech.schemas import (
+    SPEECH_MAX_AUDIO_BYTES as SPEECH_MAX_AUDIO_BYTES,
+)
+from app.modules.speech.schemas import (
+    SPEECH_MAX_B64_CHARS as SPEECH_MAX_B64_CHARS,
+)
+from app.modules.speech.schemas import (
+    SPEECH_MAX_REQUEST_BYTES as SPEECH_MAX_REQUEST_BYTES,
+)
+from app.modules.speech.schemas import (
+    SpeechLiveStatusOut as SpeechLiveStatusOut,
+)
+from app.modules.speech.schemas import (
+    SpeechTranscriptionIn as SpeechTranscriptionIn,
+)
+from app.modules.speech.schemas import (
+    SpeechTranscriptionOut as SpeechTranscriptionOut,
+)
+from app.modules.speech.schemas import (
+    SpeechTtsIn as SpeechTtsIn,
+)
+from app.modules.speech.schemas import (
+    SpeechTtsOut as SpeechTtsOut,
+)
 
 
 class WebSearchClassification(BaseModel):
@@ -50,41 +68,6 @@ class WebSearchClassification(BaseModel):
         default=None,
         description="Concise web search query when needs_search is true",
     )
-
-
-class SpeechTranscriptionOut(BaseModel):
-    text: str
-
-
-class SpeechTranscriptionIn(BaseModel):
-    audio_base64: str = Field(max_length=SPEECH_MAX_B64_CHARS)
-    filename: str = "speech.m4a"
-    language: str | None = Field(default=None, max_length=16)
-
-
-class SpeechTtsIn(BaseModel):
-    text: str = Field(min_length=1, max_length=4000)
-    language: str | None = Field(default=None, max_length=16)
-    model: str | None = Field(default=None, max_length=64)
-    # "lead" + one or more "rest" clips are one user tap: reserve quota on lead only.
-    part: str | None = Field(default="full", max_length=8)
-    # SHA-256 prefix of the lead clip text. Required for unbilled ``rest``.
-    lead_hash: str | None = Field(default=None, max_length=64)
-
-
-class SpeechTtsOut(BaseModel):
-    audio_base64: str
-    content_type: str = "audio/mpeg"
-    model: str = "speech-tts-model"
-    lead_hash: str | None = None
-
-
-class SpeechLiveStatusOut(BaseModel):
-    enabled: bool
-    entitled: bool
-    remaining: int
-    limit: int
-    refunded: bool = False
 
 
 class PushTokenIn(BaseModel):

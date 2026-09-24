@@ -89,7 +89,7 @@ jest.mock("@/features/learning/hooks/useLessonPrefs", () => ({
     textScale: 1,
   }),
 }));
-jest.mock("@/lib/speech/pronunciation", () => ({ speakWord: jest.fn() }));
+jest.mock("@/features/speech/model/pronunciation", () => ({ speakWord: jest.fn() }));
 jest.mock("@/components/Icon", () => ({ Icon: () => null }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),

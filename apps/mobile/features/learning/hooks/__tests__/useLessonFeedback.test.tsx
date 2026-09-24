@@ -7,7 +7,7 @@ import type { LessonAnswer } from "@/features/learning/hooks/useLessonSession";
 
 const mockCurrent = () => true;
 const mockAudio = { start: jest.fn(), stop: jest.fn() };
-jest.mock("@/lib/speech/lessonAudio", () => ({ createLessonAudio: () => mockAudio }));
+jest.mock("@/features/speech/model/lessonAudio", () => ({ createLessonAudio: () => mockAudio }));
 jest.mock("@/lib/haptics", () => ({ notifySuccess: jest.fn(), notifyWarning: jest.fn() }));
 
 let current: ReturnType<typeof useLessonFeedback>;

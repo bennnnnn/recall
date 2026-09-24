@@ -14,10 +14,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/components/Icon";
 import { useTranslation } from "react-i18next";
 
-import { LiveTalkButton } from "@/components/chat/LiveTalkButton";
-import { LiveTalkComposerControls } from "@/components/chat/LiveTalkComposerControls";
-import { VoiceComposerWaveform } from "@/components/chat/VoiceComposerWaveform";
-import { VoiceMicButton } from "@/components/chat/VoiceMicButton";
+import { LiveTalkButton } from "@/features/speech/components/LiveTalkButton";
+import { LiveTalkComposerControls } from "@/features/speech/components/LiveTalkComposerControls";
+import { VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
+import { VoiceMicButton } from "@/features/speech/components/VoiceMicButton";
 import {
   MathDraftPreview,
   MATH_DRAFT_PREVIEW_HEIGHT,
@@ -33,7 +33,7 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chat/composerLogic";
-import { liveTalkShowsSideChrome } from "@/lib/speech/liveTalkLogic";
+import { liveTalkShowsSideChrome } from "@/features/speech/model/liveTalkLogic";
 import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
