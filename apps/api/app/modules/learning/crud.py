@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Learning, LearningItem, User
 from app.models.schemas import LearningItemOut, LearningListGroup, LearningStats
+from app.modules import home as home_service
 from app.modules.learning import items_repository as learning_items_repo
 from app.modules.learning import repository as learning_repo
 from app.modules.learning import stats as learning_stats
@@ -33,7 +34,6 @@ from app.modules.learning.path import (
     with_learning_path,
 )
 from app.modules.learning.prompt_context import _stats_for_items
-from app.services import home as home_service
 
 
 def group_items(

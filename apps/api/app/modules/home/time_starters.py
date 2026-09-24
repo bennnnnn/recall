@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from app.models.orm import User
 from app.models.schemas import HomeStarter
-from app.services.home.util import (
+from app.modules.home.util import (
     CALENDAR_TODAY_END_HOUR,
     MORNING_START_HOUR,
     REFLECT_START_HOUR,

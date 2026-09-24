@@ -24,7 +24,7 @@ import { EmailDraftPersistProvider } from "@/features/integrations/context/email
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/features/learning/context/ProjectsContext";
 import { useDrawer } from "@/contexts/DrawerContext";
-import { useHome } from "@/contexts/HomeContext";
+import { useHome } from "@/features/home/context/HomeContext";
 import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
 import { composerThreadKey } from "@/lib/chat/composerThreadDraft";
 import { useChat } from "@/hooks/useChat";

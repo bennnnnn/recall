@@ -8,23 +8,23 @@ from uuid import UUID
 
 from app.models.orm import Memory, User
 from app.models.schemas import HomeProjectHighlight, HomeStarter, HomeUrgentTodo
-from app.modules.memory import is_sensitive_memory_text, strip_memory_as_of
-from app.services import time_context as time_context_service
-from app.services.chat.titles import BORING_CHAT_TITLES
-from app.services.home.util import (
+from app.modules import memory as memory_service
+from app.modules.home.util import (
     _HOME_MEMORY_TYPES,
     _USER_PREFIX,
-    CompletedDaily,
     looks_internal,
     looks_like_language_learning,
     overlaps_any,
     short_phrase,
     texts_overlap,
 )
+from app.modules.learning import CompletedDaily
+from app.services import time_context as time_context_service
+from app.services.chat.titles import BORING_CHAT_TITLES
 
 
 def memory_display_text(text: str) -> str:
-    clean = strip_memory_as_of(text).rstrip(".")
+    clean = memory_service.strip_memory_as_of(text).rstrip(".")
     cleaned = _USER_PREFIX.sub("", clean).strip()
     return cleaned or clean
 
@@ -37,7 +37,7 @@ def pick_home_memory(
     for memory in memories:
         if looks_internal(memory.text):
             continue
-        if is_sensitive_memory_text(memory.text):
+        if memory_service.is_sensitive_memory_text(memory.text):
             continue
         # Stale English memories must not surface after the vocab class is deleted.
         if looks_like_language_learning(memory.text) and not has_language_project:
@@ -65,7 +65,7 @@ def memory_chip_label(memory: Memory, display: str) -> str:
 
 def memory_starter(memory: Memory) -> HomeStarter | None:
     text = memory.text.strip()
-    if not text or looks_internal(text) or is_sensitive_memory_text(text):
+    if not text or looks_internal(text) or memory_service.is_sensitive_memory_text(text):
         return None
     display = memory_display_text(text)
     label = memory_chip_label(memory, display)

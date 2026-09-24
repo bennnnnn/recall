@@ -7,8 +7,8 @@ from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models.orm import User
 from app.models.schemas import SuggestionOut
+from app.modules import home as home_service
 from app.repositories import suggestions as suggestions_repo
-from app.services import home as home_service
 
 router = APIRouter(prefix="/suggestions", tags=["suggestions"])
 

@@ -5,11 +5,10 @@ from __future__ import annotations
 import hashlib
 import re
 from datetime import datetime
-from typing import Literal, NamedTuple, TypeVar
+from typing import TypeVar
 from zoneinfo import ZoneInfo
 
 from app.models.orm import User
-from app.models.schemas import HomeProjectHighlight, HomeStarter
 from app.services import time_context as time_context_service
 
 MAX_STARTERS = 5
@@ -40,17 +39,6 @@ _LANGUAGE_LEARNING = re.compile(
 )
 
 T = TypeVar("T")
-CompletedDaily = tuple[str, Literal["language"]]
-
-
-class LearningHomeContent(NamedTuple):
-    starters: list[HomeStarter]
-    subtitle: str | None
-    highlight: HomeProjectHighlight | None
-    completed_daily: list[CompletedDaily]
-    # True when the user still has a language/vocabulary project — used to suppress
-    # stale "Practice English" chips after the class was deleted (memories linger).
-    has_language_project: bool
 
 
 def resolve_home_tz(user: User, client_timezone: str | None = None) -> ZoneInfo:

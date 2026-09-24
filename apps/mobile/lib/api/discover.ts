@@ -1,11 +1,5 @@
 import { request } from "@/lib/api/client";
-import type {
-  HomeScreen,
-  ModelInfo,
-  SearchResult,
-  Suggestion,
-  Usage,
-} from "@/lib/api/types";
+import type { ModelInfo, SearchResult, Suggestion, Usage } from "@/lib/api/types";
 
 export const discoverApi = {
   todayUsage: (token: string) => request<Usage>("/chats/usage/today", token),
@@ -23,10 +17,4 @@ export const discoverApi = {
   listSuggestions: (token: string) => request<Suggestion[]>("/suggestions", token),
   dismissSuggestion: (token: string, id: string) =>
     request<void>(`/suggestions/${id}/dismiss`, token, { method: "POST" }),
-  getHomeScreen: (token: string, clientTimezone?: string) => {
-    const params = clientTimezone
-      ? `?client_timezone=${encodeURIComponent(clientTimezone)}`
-      : "";
-    return request<HomeScreen>(`/home${params}`, token);
-  },
 };

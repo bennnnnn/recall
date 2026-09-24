@@ -302,7 +302,7 @@ async def test_consolidate_stores_embedding_when_vector_present(embedding_write)
             AsyncMock(return_value=[keep.id]),
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
-        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.home.invalidate_home_cache", AsyncMock()),
         patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=vector)),
         patch(
             "app.gateways.embedding_gateway.serialize_embedding",

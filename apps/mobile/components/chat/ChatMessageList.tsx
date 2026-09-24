@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeS
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
-import { HomeStarters } from "@/components/HomeStarters";
+import { HomeStarters } from "@/features/home/components/HomeStarters";
 import { SkeletonChatBubbles } from "@/components/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {

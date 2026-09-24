@@ -15,7 +15,7 @@ import { api, type HomeScreen } from "@/lib/api";
 import { StaleResourceCache } from "@/lib/cache/staleResource";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
-import { instantHomePlaceholder } from "@/lib/homeWelcome";
+import { instantHomePlaceholder } from "@/features/home/model/homeWelcome";
 
 type HomeContextValue = {
   screen: HomeScreen | null;

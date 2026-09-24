@@ -44,7 +44,7 @@ def page_sql():
             session.commit.side_effect = sync_session.commit
             session.rollback.side_effect = sync_session.rollback
             user = SimpleNamespace(id=uuid4(), timezone="UTC", push_notifications_enabled=True)
-            with patch("app.services.home.invalidate_home_cache", AsyncMock()) as invalidate:
+            with patch("app.modules.home.invalidate_home_cache", AsyncMock()) as invalidate:
                 yield sync_session, session, user, invalidate
     finally:
         engine.dispose()

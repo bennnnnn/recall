@@ -47,6 +47,8 @@ _EXPORTS = {
     "load_learning_classes_for_prompt": ("prompt_context", "load_learning_classes_for_prompt"),
     "load_learning_for_prompt": ("prompt_context", "load_learning_for_prompt"),
     "load_learning_home_content": ("home_starters", "load_learning_home_content"),
+    "CompletedDaily": ("home_starters", "CompletedDaily"),
+    "LearningHomeContent": ("home_starters", "LearningHomeContent"),
     "load_today_learning_words_for_prompt": (
         "prompt_context",
         "load_today_learning_words_for_prompt",
@@ -60,10 +62,15 @@ _EXPORTS = {
     "transcript_implies_learning_sync": ("sync", "transcript_implies_learning_sync"),
 }
 
-__all__ = list(_EXPORTS)
+_MODULE_EXPORTS = ("items_repository", "repository")
+__all__ = list(_EXPORTS) + list(_MODULE_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:
+    if name in _MODULE_EXPORTS:
+        value = import_module(f"app.modules.learning.{name}")
+        globals()[name] = value
+        return value
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(name)

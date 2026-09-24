@@ -26,12 +26,12 @@ from app.gateways import (
 from app.gateways.google_calendar_gateway import GoogleCalendarError, exchange_server_auth_code
 from app.gateways.google_gmail_gateway import GoogleGmailError, exchange_gmail_auth_code
 from app.models.orm import User
+from app.modules import home as home_service
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import calendar_repository as calendar_repo
 from app.modules.integrations import gmail_repository as gmail_repo
 from app.modules.integrations import inbox as email_service
 from app.modules.integrations import suggestions_repository as suggested_repo
-from app.services import home as home_service
 
 logger = logging.getLogger(__name__)
 

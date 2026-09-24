@@ -19,13 +19,13 @@ from app.gateways import google_gmail_gateway as gmail_gateway
 from app.gateways import litellm_gateway
 from app.gateways.google_gmail_gateway import GmailMessage
 from app.models.orm import User
+from app.modules import home as home_service
 from app.modules.integrations import gmail_repository as gmail_repo
 from app.modules.integrations import suggestions_repository as suggested_repo
 from app.modules.integrations import triage as email_triage_service
 from app.modules.todos.service import create_external_todo
 from app.repositories import users as users_repo
 from app.services import day_planning as day_planning_service
-from app.services import home as home_service
 from app.services.chat.prompt_constants.locale_cues import has_locale_cue
 from app.services.ics_parser import parse_ics_invite
 from app.services.time_context import normalize_due_at

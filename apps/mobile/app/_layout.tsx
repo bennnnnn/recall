@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
-import { HomeProvider } from "@/contexts/HomeContext";
+import { HomeProvider } from "@/features/home/context/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
 import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
 import { ProjectsProvider } from "@/features/learning/context/ProjectsContext";
