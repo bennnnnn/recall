@@ -1,5 +1,5 @@
 ---
-description: Remaining module-migration jobs — do not skip or reorder
+description: Remaining jobs — module migrations in order, plus the math font
 alwaysApply: true
 ---
 
@@ -25,6 +25,16 @@ it from this file in that pull request.
 6. **Chat turn prep.** `services/chat/turn_prep/` and prompt assembly.
 7. **Mobile chat.** `hooks/useChat*` and `components/chat/` into `features/chat/`.
    `app/index.tsx` stays a route.
+
+## Also queued
+
+This is not part of the migration order. Do not drop it, and do not fold it
+into a Chat pull request.
+
+8. **Math formula font.** Formulas and calculation steps currently use the
+   same face as body text, so a worked solution is hard to scan. Give inline
+   math, display math, and step calculations their own font. Leave prose on
+   the body font.
 
 ## Do not pick up instead
 
