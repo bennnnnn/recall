@@ -475,9 +475,7 @@ def test_scalar_requires_its_one_canonical_answer() -> None:
 def test_direct_guard_does_not_solve_again() -> None:
     query = _CASES[0][0]
     verified = _verified(query)
-    with patch(
-        "app.modules.physics.solver.solve_physics", side_effect=AssertionError("re-solved")
-    ):
+    with patch("app.modules.physics.solver.solve_physics", side_effect=AssertionError("re-solved")):
         assert maybe_direct_math_reply(verified, query) is not None
 
 
