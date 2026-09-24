@@ -53,8 +53,8 @@ class PhysicsIntent(BaseModel):
     # or care which of the two types it was handed.
     operation: Literal["solve"] = "solve"
     # The model sets up the equation with known values; SymPy solves symbolically; the SVG
-    # engine renders the trajectory. See services/physics/extract.py extractors and
-    # services/physics/solver.py solvers.
+    # engine renders the trajectory. See modules/physics/extract.py extractors and
+    # modules/physics/solver.py solvers.
     physics_op: (
         Literal[
             "position",

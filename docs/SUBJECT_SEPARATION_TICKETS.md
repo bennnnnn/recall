@@ -1,9 +1,9 @@
 # Recall — Subject Separation Tickets: math / physics / chemistry (Phases 1, 3, 4 shipped)
 
 Math, physics, and chemistry are meant to be three peer subjects (Golden Rule 7: "Physics is
-a peer subject in `services/physics/`, not a corner of math"). Chemistry mostly lives up to
-that. Physics does not yet, and the gap isn't cosmetic — it's the literal type system. Physics's
-own module docstring (`services/physics/__init__.py`) says it plainly:
+a peer subject in `modules/physics/`, not a corner of math"). Chemistry mostly lives up to
+that. Physics does not yet, and the gap isn't cosmetic — it's the reply path. Physics's
+own module docstring (`modules/physics/__init__.py`) says it plainly:
 
 > "Physics — a subject domain in its own right, not a corner of math... Physics reuses math's
 > shared primitives (`MathIntent`, `VerifiedMathBlock`, `MathServiceError`) and plugs into
@@ -27,11 +27,11 @@ correctness and was verified against the full suite.
 
 | | Math | Physics | Chemistry |
 |---|---|---|---|
-| Own top-level `services/` package | yes | yes | yes |
+| Package | `modules/math/` | `modules/physics/` | `modules/chemistry/` |
 | Own intent/schema type | `MathIntent` (`models/schemas/math/intent.py`, 32 kinds) | **fixed (S1)** — `PhysicsIntent` (`models/schemas/physics/intent.py`, 20 kinds); disjoint from `MathIntent.kind`, guarded by a test | `ChemistryIntent` (`models/schemas/chemistry/intent.py`; grouped operation registry) |
 | Own schema package for domain-specific fence types | `models/schemas/math/` (geometry, graph, algebra, discrete) | **fixed (S7)** — `models/schemas/physics/simulation.py` (`SimulationBlockSpec` and friends), moved out of `models/schemas/math/` | n/a |
 | Own turn_prep gate + context local | `needs_math` / `math_block` (`turn_prep/context.py`) | **none** — rides inside `needs_math` / `math_block`; unblocked by S1 but not yet done (Phase 2) | `needs_chem` / `chem_block` — already separate |
-| Own detection gate | `needs_symbolic_math` | shares `needs_symbolic_math`; contributes cues via `has_supported_physics_cue` | `is_chemistry_question` (`services/chemistry/request.py`) — separate |
+| Own detection gate | `needs_symbolic_math` | shares `needs_symbolic_math`; contributes cues via `has_supported_physics_cue` | `is_chemistry_question` (`modules/chemistry/request.py`) — separate |
 | Prompt hint, conditionally injected only when relevant | n/a (always injected on math turns) | **rejected for the module move** — S6 left the physics paragraph inside `MATH_SOLVER_HINT`, and that plus `[BEGIN VERIFIED MATH]` makes the model narrate “doing math” on a physics turn. Physics gets its own hint, status, and verified block | `CHEMISTRY_FENCE_HINT` (`prompt_constants/visuals.py`), injected only when turn_prep actually found chemistry context |
 | Imports another subject's private (`_`-prefixed) internals | — | **fixed (S3)** — both helpers are now public (`extract_average_speed_intent`, `get_unit_registry`); physics calls them as intentional cross-subject API, not private reach-ins | no (checked; clean) |
 | Duplicate cue list maintained outside its own package | — | kept as-is (S8) — see note below; not the bug it first looked like | no |
@@ -76,7 +76,7 @@ just its visibility.
 ### S4 — Move physics off `math.match` for text-scanning utilities ✅ shipped
 
 Turned out to be two functions, not one: `word_index` (as scoped) plus `has_equation`, which
-`services/physics/extract.py` was also reaching for 24 times via `from app.modules.math import
+`modules/physics/extract.py` was also reaching for 24 times via `from app.modules.math import
 match as mtm` / `mtm.has_equation(...)`. Both are genuinely pure string scanning (no SymPy, no
 subject semantics — `has_equation` is six lines checking for a bare `=` with alphanumeric content
 on both sides) and moved to a new `app.services.text_match`, sibling to the existing
@@ -153,7 +153,7 @@ rather than gating the existing boundary-caution paragraph, which should stay un
 ### S1 — Split `MathIntent` into subject-specific intent types ✅ shipped
 
 Audited physics's actual field usage before scoping the split (every `MathIntent(...)` /
-`.model_validate(...)` construction site in `services/physics/*.py`, plus every non-`physics_*`
+`.model_validate(...)` construction site in `modules/physics/*.py`, plus every non-`physics_*`
 attribute access): of `MathIntent`'s fields, physics touched exactly `kind` (20 of its 52 values),
 `operation` (always `"solve"`), `physics_op`, `physics_params`, `physics_units` — a clean, narrow
 footprint, not the sprawling shared-schema problem it could have been. Shipped `PhysicsIntent`
@@ -213,7 +213,7 @@ missed on the first pass and the full test suite caught. Mobile needed no change
 - `test_physics_intent_kind_count_matches_the_verified_registry` — `PhysicsIntent.kind`'s values
   equal `PHYSICS_BLOCK_BUILDERS`'s keys, exactly twenty; a kind added to one without the other is
   a silent dispatch miss in production, caught here instead.
-- `test_physics_imports_from_math_are_allowlisted` — AST-walks every file in `services/physics/`
+- `test_physics_imports_from_math_are_allowlisted` — AST-walks every file in `modules/physics/`
   for `from app.modules.math...` / `from app.models.schemas.math...` imports and asserts the set
   found is exactly the four named, reasoned entries in `_ALLOWED_MATH_IMPORTS` (verified by hand
   that the scanner actually finds them — an allowlist test that silently matches nothing is worse
