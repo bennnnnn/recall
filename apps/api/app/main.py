@@ -20,6 +20,7 @@ from app.modules.memory import api as memories
 from app.modules.search import api as search
 from app.modules.speech import api as speech
 from app.modules.speech import realtime as speech_realtime
+from app.modules.suggestions import api as suggestions
 from app.modules.todos import api as todos
 from app.routers import (
     admin,
@@ -31,7 +32,6 @@ from app.routers import (
     legal,
     link_preview,
     models,
-    suggestions,
     users,
     ws,
 )

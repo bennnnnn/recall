@@ -33,7 +33,7 @@ import { useChatComposerState } from "@/hooks/useChatComposerState";
 import { useChatDraftWarmup } from "@/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/hooks/useChatMessageList";
-import { useChatSuggestions } from "@/hooks/useChatSuggestions";
+import { useChatSuggestions } from "@/features/suggestions/hooks/useChatSuggestions";
 import { useChatQuizContext } from "@/hooks/useChatQuizContext";
 import { useChatRegenerate } from "@/hooks/useChatRegenerate";
 import { useChatRouteLoader } from "@/hooks/useChatRouteLoader";

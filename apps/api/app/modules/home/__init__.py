@@ -51,7 +51,7 @@ from app.modules.learning import load_learning_home_content as _load_learning_ho
 from app.modules.learning import repository as learning_repo
 from app.modules.todos import repository as todos_repo
 from app.repositories import chats as chats_repo
-from app.repositories import suggestions as suggestions_repo
+from app.modules.suggestions import repository as suggestions_repo
 from app.services import reminder_timing
 
 logger = logging.getLogger(__name__)
