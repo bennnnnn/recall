@@ -17,9 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import TodoItem, User
-from app.modules.learning import nudges as learning_nudges
-from app.modules.todos.email_repository import TodoEmailSnapshot, mark_email_sent_if_current
-from app.services.notifications import transactional_email as tx_email
+from app.modules.learning import collect_learning_nudge_picks
+from app.modules.notifications import transactional_email as tx_email
+from app.modules.todos import TodoEmailSnapshot, mark_email_sent_if_current
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
@@ -131,7 +131,7 @@ async def process_learning_nudge_emails(
     if not users:
         return 0
 
-    picks = await learning_nudges.collect_learning_nudge_picks(
+    picks = await collect_learning_nudge_picks(
         session,
         redis,
         users,

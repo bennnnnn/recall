@@ -13,7 +13,7 @@ from sqlalchemy.types import TypeDecorator
 
 from app.core.config import Settings
 from app.models.orm import TodoItem, User
-from app.services.notifications import reminder_email
+from app.modules.notifications import reminder_email
 
 NOW = datetime(2026, 9, 5, 12, tzinfo=UTC)
 

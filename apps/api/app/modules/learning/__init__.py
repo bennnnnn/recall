@@ -25,6 +25,7 @@ _EXPORTS = {
     "apply_learning_actions": ("actions", "apply_learning_actions"),
     "apply_quiz_result": ("quiz_grading", "apply_quiz_result"),
     "build_stats": ("crud", "build_stats"),
+    "collect_learning_nudge_picks": ("nudges", "collect_learning_nudge_picks"),
     "completed_today": ("home_starters", "completed_today"),
     "count_stats": ("stats", "count_stats"),
     "count_stats_by_learning": ("stats", "count_stats_by_learning"),

@@ -10,7 +10,12 @@ from importlib import import_module
 from typing import Any
 
 _EXPORTS = {
+    "calendar_nudge_redis_key": ("nudges", "calendar_nudge_redis_key"),
+    "events_needing_nudge": ("nudges", "events_needing_nudge"),
+    "fetch_upcoming_events": ("calendar", "fetch_upcoming_events"),
+    "format_calendar_nudge": ("nudges", "format_calendar_nudge"),
     "is_external_calendar_question": ("calendar", "is_external_calendar_question"),
+    "nudge_ttl_seconds": ("nudges", "nudge_ttl_seconds"),
 }
 __all__ = list(_EXPORTS)
 
