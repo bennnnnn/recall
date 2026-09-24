@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.services.chemistry.solvers import ChemistryResult, solve_chemistry
+from app.modules.chemistry.solvers import ChemistryResult, solve_chemistry
 from app.services.solving import MathServiceError
 
 logger = logging.getLogger(__name__)

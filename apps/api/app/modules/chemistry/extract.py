@@ -10,8 +10,8 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
-from app.services.chemistry.equations import balance_equation
-from app.services.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.equations import balance_equation
+from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 
 _N = r"-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?"
 _TIME_UNIT_PATTERN = r"(?:seconds?|minutes?|hours?|days?|years?|min|h|s)"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.chemistry import fence as chemistry_fence
+from app.modules.chemistry import fence as chemistry_fence
 
 
 def test_enrich_valid_smiles_canonicalizes() -> None:

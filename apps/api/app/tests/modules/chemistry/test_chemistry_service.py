@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services import chemistry as chemistry_service
+from app.modules import chemistry as chemistry_service
 
 # ---------------------------------------------------------------------------
 # validate_smiles
@@ -296,7 +296,7 @@ def test_molar_mass_hydrate() -> None:
 
 
 def test_parse_formula_hydrate_atoms() -> None:
-    from app.services.chemistry.equations import _parse_formula_atoms
+    from app.modules.chemistry.equations import _parse_formula_atoms
 
     assert _parse_formula_atoms("CuSO4.5H2O") == {"Cu": 1, "S": 1, "O": 9, "H": 10}
     assert _parse_formula_atoms("KAl(SO4)2.12H2O") == {

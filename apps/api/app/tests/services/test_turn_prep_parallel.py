@@ -790,8 +790,8 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
 @pytest.mark.asyncio
 async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> None:
     """Unit-bearing chemistry must not receive a second algebra answer fence."""
-    from app.services.chemistry.block import build_verified_chemistry
-    from app.services.chemistry.extract import extract_chemistry_intent
+    from app.modules.chemistry.block import build_verified_chemistry
+    from app.modules.chemistry.extract import extract_chemistry_intent
     from app.services.solving import VerifiedMathBlock
 
     user = _make_user()

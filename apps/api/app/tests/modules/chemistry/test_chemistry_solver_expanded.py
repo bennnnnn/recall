@@ -9,15 +9,15 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
-from app.services.chemistry.block import build_verified_chemistry
-from app.services.chemistry.direct import (
+from app.modules.chemistry.block import build_verified_chemistry
+from app.modules.chemistry.direct import (
     format_direct_chemistry_reply,
     maybe_direct_chemistry_reply,
 )
-from app.services.chemistry.extract import extract_chemistry_intent
-from app.services.chemistry.request import is_chemistry_question
-from app.services.chemistry.solvers import solve_chemistry
-from app.services.chemistry.solvers.types import format_number
+from app.modules.chemistry.extract import extract_chemistry_intent
+from app.modules.chemistry.request import is_chemistry_question
+from app.modules.chemistry.solvers import solve_chemistry
+from app.modules.chemistry.solvers.types import format_number
 from app.services.solving import MathServiceError
 
 PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [

@@ -15,6 +15,8 @@ from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.models.schemas.math import MathImageExtract
+from app.modules.chemistry import context as chemistry_context_service
+from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.repositories import chats as chats_repo
@@ -47,8 +49,6 @@ from app.services.chat.turn_prep.mode import (
     _TurnMode,
 )
 from app.services.chat.turn_timing import TurnTimingTracker
-from app.services.chemistry import context as chemistry_context_service
-from app.services.chemistry.block import VerifiedChemistry
 from app.services.math.tools import VerifiedMathBlock, needs_symbolic_math
 from app.services.settings_intent import extract_settings_changes
 from app.services.web_search.subject import (
@@ -649,7 +649,7 @@ async def build_stream_prompt_context(
             response_style=getattr(user, "response_style", None) or "balanced",
         )
     if instant_reply is None and verified_chemistry is not None:
-        from app.services.chemistry.direct import maybe_direct_chemistry_reply
+        from app.modules.chemistry.direct import maybe_direct_chemistry_reply
 
         instant_reply = maybe_direct_chemistry_reply(
             verified_chemistry,

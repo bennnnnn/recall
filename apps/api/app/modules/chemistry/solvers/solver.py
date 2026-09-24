@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.services.chemistry.solvers.amounts import (
+from app.modules.chemistry.solvers.amounts import (
     solve_amount,
     solve_equation,
     solve_molar_mass,
@@ -11,20 +11,20 @@ from app.services.chemistry.solvers.amounts import (
     solve_percent_yield,
     solve_stoichiometry,
 )
-from app.services.chemistry.solvers.physical import (
+from app.modules.chemistry.solvers.physical import (
     solve_electrochemistry,
     solve_equilibrium,
     solve_kinetics,
     solve_nuclear,
     solve_thermochemistry,
 )
-from app.services.chemistry.solvers.solutions import (
+from app.modules.chemistry.solvers.solutions import (
     solve_acid_base,
     solve_beer_lambert,
     solve_gas,
     solve_solution,
 )
-from app.services.chemistry.solvers.types import ChemistryResult
+from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import MathServiceError
 
 

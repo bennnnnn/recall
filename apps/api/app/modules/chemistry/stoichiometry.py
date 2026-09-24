@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.services.chemistry.equations import _parse_formula_atoms, balance_equation
-from app.services.chemistry.smiles import validate_smiles
+from app.modules.chemistry.equations import _parse_formula_atoms, balance_equation
+from app.modules.chemistry.smiles import validate_smiles
 
 
 @dataclass(frozen=True)

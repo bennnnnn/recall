@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.services.chemistry.equations import _parse_formula_atoms, balance_equation
-from app.services.chemistry.solvers.types import ChemistryResult, format_number
-from app.services.chemistry.stoichiometry import (
+from app.modules.chemistry.equations import _parse_formula_atoms, balance_equation
+from app.modules.chemistry.solvers.types import ChemistryResult, format_number
+from app.modules.chemistry.stoichiometry import (
     PERIODIC_TABLE,
     limiting_reagent,
     molar_mass,

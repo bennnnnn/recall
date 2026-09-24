@@ -9,15 +9,15 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.gateways import pubchem_gateway
-from app.services import chemistry as chemistry_service
-from app.services.chemistry.block import VerifiedChemistry, build_verified_chemistry
-from app.services.chemistry.extract import extract_chemistry_intent
-from app.services.chemistry.request import (
+from app.modules import chemistry as chemistry_service
+from app.modules.chemistry.block import VerifiedChemistry, build_verified_chemistry
+from app.modules.chemistry.extract import extract_chemistry_intent
+from app.modules.chemistry.request import (
     EQUATION_RE,
     extract_compound_name,
     is_chemistry_question,
 )
-from app.services.chemistry.stoichiometry import PERIODIC_TABLE
+from app.modules.chemistry.stoichiometry import PERIODIC_TABLE
 
 logger = logging.getLogger(__name__)
 

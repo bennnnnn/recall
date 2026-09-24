@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 
-from app.services import chemistry as chemistry_service
+from app.modules import chemistry as chemistry_service
 from app.services.md_fence_scan import map_closed_fences
 
 logger = logging.getLogger(__name__)
