@@ -6,7 +6,7 @@ import { api, type Chat } from "@/lib/api";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { getCachedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
+import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
 
 let mockSession = 0;
 const mockError = jest.fn();
@@ -19,7 +19,7 @@ jest.mock("@/lib/api", () => ({ api: { setArchive: jest.fn(), deleteChat: jest.f
 jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
 jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: jest.fn() }));
-jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({
   ...jest.requireActual("@/lib/haptics"),
   notifyDestructive: (...args: unknown[]) => mockDestructive(...args),

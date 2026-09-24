@@ -22,7 +22,7 @@ jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ bg: "#ffffff" }), withAlpha: (color: string) => color }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/lib/api", () => ({ api: { search: jest.fn() } }));
-jest.mock("@/lib/cache/galleryListCache", () => ({ prefetchGallery: jest.fn() }));
+jest.mock("@/features/attachments/model/galleryListCache", () => ({ prefetchGallery: jest.fn() }));
 jest.mock("@/lib/drawer", () => ({ clearChatHighlightGlobal: () => mockClearHighlight(), closeDrawer: () => mockCloseDrawer(), getActiveChatIdGlobal: () => null, startNewChatGlobal: jest.fn() }));
 jest.mock("@/hooks/useDrawerChatList", () => ({ useDrawerChatList: () => ({
   groups: { pinned: [], today: [], yesterday: [], last_7_days: [], this_month: [], older: [], archived: [] },

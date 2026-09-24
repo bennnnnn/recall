@@ -10,11 +10,11 @@ import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { Icon } from "@/components/Icon";
-import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
+import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
-import { resolveAttachmentUri, attachmentRequestHeaders } from "@/lib/attachmentUri";
-import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
-import { fitAttachmentImage, type ImageSize } from "@/lib/attachmentImageSize";
+import { resolveAttachmentUri, attachmentRequestHeaders } from "@/features/attachments/model/attachmentUri";
+import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
+import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 

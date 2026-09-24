@@ -17,17 +17,17 @@ from app.gateways.storage_gateway import (
     get_storage_gateway,
 )
 from app.models.orm import Attachment, Message, User
-from app.repositories import attachments as attachments_repo
-from app.repositories import chats as chats_repo
-from app.repositories import messages as messages_repo
-from app.services import plan as plan_service
-from app.services import quota as quota_service
-from app.services.attachments.content import (
+from app.modules.attachments import repository as attachments_repo
+from app.modules.attachments.content import (
     MAX_ATTACHMENT_SIZE,
     bytes_match_claimed,
     is_image_content_type,
     normalize_content_type,
 )
+from app.repositories import chats as chats_repo
+from app.repositories import messages as messages_repo
+from app.services import plan as plan_service
+from app.services import quota as quota_service
 from app.services.model_catalog import get as get_model
 from app.services.model_catalog import openrouter_slug
 

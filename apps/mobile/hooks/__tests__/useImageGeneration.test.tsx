@@ -2,14 +2,14 @@ import type React from "react";
 import { act, renderHook } from "@testing-library/react-native";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
 import { api, type Message } from "@/lib/api";
-import { uploadChatAttachment, type PendingAttachment } from "@/lib/attachments";
+import { uploadChatAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 
 jest.mock("@/lib/api", () => ({ api: { generateImage: jest.fn() } }));
 jest.mock("@/lib/api/client", () => ({ ApiRequestError: class extends Error {} }));
-jest.mock("@/lib/attachments", () => ({ uploadChatAttachment: jest.fn() }));
+jest.mock("@/features/attachments/model/attachments", () => ({ uploadChatAttachment: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({ notifyWarning: jest.fn() }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
-jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 
 describe("image generation queued state and cancellation", () => {
   beforeEach(() => jest.clearAllMocks());

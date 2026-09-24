@@ -22,13 +22,13 @@ import { MathScannerChrome } from "@/components/mathScanner/MathScannerChrome";
 import { MathScannerCropOverlay } from "@/components/mathScanner/MathScannerCropOverlay";
 import { ScannerSubjectGuide } from "@/components/mathScanner/ScannerSubjectGuide";
 import { useMathScannerCrop } from "@/hooks/useMathScannerCrop";
-import type { PendingAttachment } from "@/lib/attachments";
+import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   HeicUnsupportedError,
   NativePickerBusyError,
   NativePickerTimeoutError,
   pickImageDocument,
-} from "@/lib/attachments";
+} from "@/features/attachments/model/attachments";
 import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
 import { impactMedium, selection } from "@/lib/haptics";
 import { useReduceMotion } from "@/lib/motion";

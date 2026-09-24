@@ -28,6 +28,9 @@ from app.core.redis_lock import (
 )
 from app.gateways import litellm_gateway as litellm_gateway
 from app.models.orm import User
+from app.modules.attachments import (  # noqa: F401 - stream_entry reaches this through the stream module
+    lifecycle as attachment_lifecycle,
+)
 from app.modules.integrations import calendar
 from app.repositories import chats, messages, users
 from app.services import model_catalog as model_catalog
@@ -36,9 +39,6 @@ from app.services import (
     quota,
     todos,
     web_search,
-)
-from app.services.attachments import (  # noqa: F401 - stream_entry reaches this through the stream module
-    lifecycle as attachment_lifecycle,
 )
 from app.services.chat import stream_entry as _entry
 from app.services.chat import stream_pipeline as _pipeline

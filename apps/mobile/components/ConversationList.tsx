@@ -26,7 +26,7 @@ import {
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
 import { chatsFromSelection } from "@/lib/drawerChatSelection";
-import { prefetchGallery } from "@/lib/cache/galleryListCache";
+import { prefetchGallery } from "@/features/attachments/model/galleryListCache";
 import { DrawerChatFlashList } from "@/components/drawer/DrawerChatFlashList";
 import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
 import { DrawerFooter } from "@/components/drawer/DrawerFooter";

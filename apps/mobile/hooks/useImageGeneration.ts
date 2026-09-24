@@ -18,8 +18,8 @@ import {
   restoreImageGenPending,
 } from "@/lib/images/imageGenTurn";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
-import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
-import { uploadChatAttachment, type PendingAttachment } from "@/lib/attachments";
+import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
+import { uploadChatAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
 
 type DraftChat = {
   prepareDraftChat: (

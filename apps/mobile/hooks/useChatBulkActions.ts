@@ -8,7 +8,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { beginChatMutation } from "@/lib/chat/mutationLock";
 import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { getCachedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
+import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { archiveBulkTargets } from "@/lib/drawerChatSelection";
 import { notifyDestructive } from "@/lib/haptics";

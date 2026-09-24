@@ -7,7 +7,7 @@ import { api, Chat } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { getCachedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
+import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { type IoniconName } from "@/lib/icons";
 import { beginChatMutation } from "@/lib/chat/mutationLock";

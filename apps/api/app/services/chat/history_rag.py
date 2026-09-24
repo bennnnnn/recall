@@ -10,9 +10,9 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways import embedding_gateway
 from app.models.orm import Message, MessageChunk
+from app.modules.attachments.rag import chunk_text
 from app.repositories import message_chunks as chunks_repo
 from app.repositories import messages as messages_repo
-from app.services.attachments.rag import chunk_text
 from app.services.prompt_safety import text_before_attachment_markers, wrap_untrusted
 
 logger = logging.getLogger(__name__)

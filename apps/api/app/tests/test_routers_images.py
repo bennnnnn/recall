@@ -67,7 +67,7 @@ def test_generate_image_quota_exhausted():
 def test_generate_image_rejects_oversized_result():
     """BUG FIX: last-line-of-defense size check, matching the
     presign + actual-bytes double-check every normal attachment upload gets."""
-    from app.services.attachments.content import MAX_ATTACHMENT_SIZE
+    from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
 
     user = _fake_user(plan="pro")
     chat_id = uuid4()

@@ -4,7 +4,7 @@ import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
 import { useChatSend } from "@/hooks/useChatSend";
-import { pickDocument, uploadChatAttachment } from "@/lib/attachments";
+import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
 import { registerEmailDraftFlusher } from "@/features/integrations/model/emailDraftFlush";
 import { retireHomeGuidance } from "@/lib/homeGuidancePrefs";
 import {
@@ -45,7 +45,7 @@ jest.mock("@/contexts/ActionFeedbackContext", () => ({
 jest.mock("expo-router", () => ({
   useRouter: () => ({ setParams: jest.fn() }),
 }));
-jest.mock("@/lib/attachments", () => ({
+jest.mock("@/features/attachments/model/attachments", () => ({
   pickDocument: jest.fn(),
   pickFromCamera: jest.fn(),
   pickFromPhotoLibrary: jest.fn(),
@@ -72,7 +72,7 @@ jest.mock("@/lib/scheduleIdle", () => ({
 jest.mock("@/lib/homeGuidancePrefs", () => ({
   retireHomeGuidance: jest.fn(async () => undefined),
 }));
-jest.mock("@/lib/pendingComposerAttachment", () => ({
+jest.mock("@/features/attachments/model/pendingComposerAttachment", () => ({
   subscribeComposerAttachmentQueue: () => () => undefined,
   takeQueuedComposerAttachment: () => null,
 }));

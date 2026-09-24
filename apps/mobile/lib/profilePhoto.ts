@@ -1,7 +1,7 @@
 import { File } from "expo-file-system";
 import { ImageManipulator, type ImageRef, SaveFormat } from "expo-image-manipulator";
 
-import { pickFromPhotoLibrary, type PendingAttachment } from "@/lib/attachments";
+import { pickFromPhotoLibrary, type PendingAttachment } from "@/features/attachments/model/attachments";
 
 const MAX_SOURCE_BYTES = 30 * 1024 * 1024;
 const MAX_SOURCE_PIXELS = 40_000_000;

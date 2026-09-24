@@ -6,12 +6,12 @@ import { signOutGoogle } from "@/lib/google-auth";
 export async function clearSignedOutAccount(userId: string | undefined): Promise<void> {
   resetComposerDraftsForAccount();
   await Promise.allSettled([
-    import("@/lib/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
+    import("@/features/attachments/model/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
     import("@/features/todos/model/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
     import("@/features/todos/model/reminderPrefs").then(({ clearReminderLeadPrefs }) => clearReminderLeadPrefs()),
     import("@/lib/chat/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
     import("@/features/memory/model/memoryListCache").then(({ invalidateMemoriesCache }) => invalidateMemoriesCache()),
-    import("@/lib/cache/galleryListCache").then(({ invalidateGalleryCache }) => invalidateGalleryCache()),
+    import("@/features/attachments/model/galleryListCache").then(({ invalidateGalleryCache }) => invalidateGalleryCache()),
     import("@/features/integrations/model/integrationStatusCache").then(({ invalidateIntegrationStatusCache }) => invalidateIntegrationStatusCache()),
     import("@/lib/cache/suggestedRemindersCache").then(({ invalidateSuggestedRemindersCache }) => invalidateSuggestedRemindersCache()),
     import("@/lib/cache/chatListCache").then(({ invalidateChatListCache }) => invalidateChatListCache()),

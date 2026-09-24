@@ -1,13 +1,6 @@
 """Pydantic API schemas. Prefer `from app.models.schemas import X`."""
 
 from app.models.schemas.analytics import ProductEventBatchIn, ProductEventIn, ProductEventName
-from app.models.schemas.attachments import (
-    AttachmentListItemOut,
-    AttachmentListOut,
-    AttachmentOut,
-    AttachmentPresignIn,
-    AttachmentPresignOut,
-)
 from app.models.schemas.auth import (
     AppleAuthRequest,
     AuthResponse,
@@ -70,6 +63,13 @@ from app.models.schemas.integrations import (
     SpeechTtsIn,
     SpeechTtsOut,
     WebSearchClassification,
+)
+from app.modules.attachments.schemas import (
+    AttachmentListItemOut,
+    AttachmentListOut,
+    AttachmentOut,
+    AttachmentPresignIn,
+    AttachmentPresignOut,
 )
 from app.modules.integrations.schemas import (
     CalendarConflictOut,

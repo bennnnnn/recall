@@ -24,14 +24,14 @@ import {
 } from "@/components/chat/MathDraftPreview";
 import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathKeyboardBar } from "@/components/chat/MathKeyboardBar";
-import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
+import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import {
   useComposerDraftApiOptional,
   useComposerDraftValueOptional,
 } from "@/contexts/ComposerDraftContext";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
-import type { PendingAttachment } from "@/lib/attachments";
+import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { composerShowsMic, composerShowsSend } from "@/lib/chat/composerLogic";
 import { liveTalkShowsSideChrome } from "@/lib/speech/liveTalkLogic";
 import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";

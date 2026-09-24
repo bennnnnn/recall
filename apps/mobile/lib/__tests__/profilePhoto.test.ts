@@ -1,7 +1,7 @@
 import { File } from "expo-file-system";
 import { ImageManipulator } from "expo-image-manipulator";
 
-import { pickFromPhotoLibrary, type PendingAttachment } from "@/lib/attachments";
+import { pickFromPhotoLibrary, type PendingAttachment } from "@/features/attachments/model/attachments";
 import { discardProfilePhoto, pickProfilePhoto } from "@/lib/profilePhoto";
 
 const mockDelete = jest.fn();
@@ -18,7 +18,7 @@ jest.mock("expo-image-manipulator", () => ({
   ImageManipulator: { manipulate: jest.fn(() => mockContext) },
   SaveFormat: { JPEG: "jpeg" },
 }));
-jest.mock("@/lib/attachments", () => ({ pickFromPhotoLibrary: jest.fn() }));
+jest.mock("@/features/attachments/model/attachments", () => ({ pickFromPhotoLibrary: jest.fn() }));
 
 const selected: PendingAttachment = {
   localUri: "file:///library/original.png",

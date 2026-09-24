@@ -1,0 +1,45 @@
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+
+class AttachmentPresignIn(BaseModel):
+    content_type: str = Field(min_length=3, max_length=128)
+    size_bytes: int = Field(gt=0, le=10_485_760)
+    filename: str | None = Field(default=None, max_length=255)
+
+
+class AttachmentPresignOut(BaseModel):
+    attachment_id: UUID
+    upload_url: str
+    storage_key: str
+    headers: dict[str, str] = Field(default_factory=dict)
+    api_upload: bool = False
+
+
+class AttachmentOut(BaseModel):
+    id: UUID
+    content_type: str
+    size_bytes: int
+    download_url: str
+    created_at: datetime
+    indexed: bool = True
+
+
+class AttachmentListItemOut(BaseModel):
+    id: UUID
+    content_type: str
+    size_bytes: int
+    download_url: str
+    source: str
+    created_at: datetime
+    chat_id: UUID | None = None
+    message_id: UUID | None = None
+    original_filename: str | None = None
+    chat_title: str | None = None
+
+
+class AttachmentListOut(BaseModel):
+    items: list[AttachmentListItemOut]
+    has_more: bool = False

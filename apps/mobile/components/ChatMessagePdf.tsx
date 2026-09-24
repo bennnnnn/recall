@@ -9,15 +9,15 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AttachmentPdfViewer } from "@/components/AttachmentPdfViewer";
+import { AttachmentPdfViewer } from "@/features/attachments/components/AttachmentPdfViewer";
 import { Icon } from "@/components/Icon";
 
 import { useAuthToken } from "@/contexts/AuthContext";
-import { useAttachmentIndexed } from "@/hooks/useAttachmentIndexed";
+import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { resolveAttachmentUri } from "@/lib/attachmentUri";
-import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
-import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
+import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
+import { downloadChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
+import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
 import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";

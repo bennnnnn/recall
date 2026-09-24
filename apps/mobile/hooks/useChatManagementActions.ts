@@ -5,7 +5,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
+import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
 import { beginChatMutation } from "@/lib/chat/mutationLock";
 import { sanitizeManualChatTitle } from "@/lib/chat/title";
 import { clearCachedChatMessages } from "@/lib/chat/messageCache";
