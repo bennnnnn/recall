@@ -22,7 +22,7 @@ import pytest
 from app.models.schemas.math import MathIntent
 from app.models.schemas.physics import PhysicsIntent
 
-_PHYSICS_DIR = Path(__file__).resolve().parents[2] / "services" / "physics"
+_PHYSICS_DIR = Path(__file__).resolve().parents[2] / "modules" / "physics"
 
 # Every remaining import of physics FROM math, named explicitly. A new entry
 # here is a review question — is this a genuinely shared primitive
@@ -61,16 +61,25 @@ def _math_imports(tree: ast.Module) -> set[tuple[str, str]]:
     return found
 
 
+def test_legacy_physics_submodule_is_the_canonical_module() -> None:
+    import app.modules.physics.numbers as canonical
+    import app.services.physics.numbers as legacy
+
+    assert legacy is canonical
+
+
 def test_physics_imports_from_math_are_allowlisted() -> None:
     """A new import here must be named in `_ALLOWED_MATH_IMPORTS`, not silent."""
     offenders: dict[str, set[tuple[str, str]]] = {}
-    for path in sorted(_PHYSICS_DIR.glob("*.py")):
+    for path in sorted(_PHYSICS_DIR.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
         tree = ast.parse(path.read_text(), filename=str(path))
         unexpected = _math_imports(tree) - _ALLOWED_MATH_IMPORTS
         if unexpected:
             offenders[path.name] = unexpected
     assert not offenders, (
-        f"services/physics/ imports from math outside the allowlist: {offenders}. "
+        f"modules/physics/ imports from math outside the allowlist: {offenders}. "
         "If this is intentional, add it to _ALLOWED_MATH_IMPORTS with a reason; "
         "if it is a private (`_`-prefixed) name, expose a public one instead "
         "(see docs/SUBJECT_SEPARATION_TICKETS.md, S3)."
