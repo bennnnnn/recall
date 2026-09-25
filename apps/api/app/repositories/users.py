@@ -95,7 +95,12 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
     """
     bound = user
     # object_session returns the sync Session, not the AsyncSession wrapper.
-    if object_session(user) is not session.sync_session:
+    # Spec mocks in unit tests have no sync_session; mutate those users as-is.
+    try:
+        sync = session.sync_session
+    except AttributeError:
+        sync = None
+    if sync is not None and object_session(user) is not sync:
         bound = await session.merge(user, load=False)
     for key, value in fields.items():
         if hasattr(bound, key):

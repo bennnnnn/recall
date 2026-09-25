@@ -39,7 +39,10 @@ def _cached_user(user_id: UUID) -> User | None:
 
 def snapshot_user(user: User) -> User:
     """Detached copy safe to merge into a later request session."""
-    values = {attr.key: getattr(user, attr.key) for attr in sa_inspect(User).column_attrs}
+    state = sa_inspect(user)
+    # In-memory dict only. getattr on an expired column lazy-loads and raises
+    # MissingGreenlet from an async session.
+    values = {key: state.dict[key] for key in state.mapper.columns.keys() if key in state.dict}
     snap = User(**values)
     make_transient_to_detached(snap)
     return snap
