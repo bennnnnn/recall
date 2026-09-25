@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.gateways import expo_push_gateway
 from app.models.orm import PushToken, User
+from app.modules.notifications import channel_id_for_token
 
 
 async def notify_job_matches_ready(
@@ -35,20 +37,24 @@ async def notify_job_matches_ready(
 
     noun = "job match" if new_match_count == 1 else "job matches"
     body = f"{new_match_count} new {noun} are ready to review."
-    messages = [
-        {
+    data = {
+        "type": "job_search_ready",
+        "screen": "my-job",
+        "profile_id": str(profile_id),
+    }
+    messages = []
+    for row in rows:
+        message: dict[str, Any] = {
             "to": row.expo_push_token,
             "sound": "default",
             "title": "New job matches",
             "body": body,
-            "data": {
-                "type": "job_search_ready",
-                "screen": "my-job",
-                "profile_id": str(profile_id),
-            },
+            "data": data,
         }
-        for row in rows
-    ]
+        channel_id = channel_id_for_token(row, data)
+        if channel_id is not None:
+            message["channelId"] = channel_id
+        messages.append(message)
     result = await expo_push_gateway.send_push_messages(messages)
     if result.invalid_tokens:
         await session.execute(

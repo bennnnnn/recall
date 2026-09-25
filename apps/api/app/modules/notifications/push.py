@@ -218,6 +218,29 @@ async def poll_deferred_push_receipts(session: AsyncSession, redis: Redis) -> No
         await session.commit()
 
 
+# Sent by installs that have created recall-reminders, recall-learning, and
+# recall-inbox. Older builds only have recall-notifications; Expo drops a
+# message whose channelId was never created on the device.
+SPLIT_ANDROID_CHANNELS = "split"
+
+
+def android_channel_id(data: dict[str, Any]) -> str:
+    """Match the Android channels created in the mobile app."""
+    kind = data.get("type")
+    if kind in {"learning_review", "learning_continue", "learning_daily_goal"}:
+        return "recall-learning"
+    if kind in {"email_suggestion", "job_search_ready"}:
+        return "recall-inbox"
+    return "recall-reminders"
+
+
+def channel_id_for_token(token: PushToken, data: dict[str, Any]) -> str | None:
+    """Channel for this device, or None so Expo keeps the default channel."""
+    if token.platform != "android" or token.android_channels != SPLIT_ANDROID_CHANNELS:
+        return None
+    return android_channel_id(data)
+
+
 def _append_outbound(
     out: list[OutboundPush],
     tokens: list[PushToken],
@@ -236,15 +259,19 @@ def _append_outbound(
         if token.expo_push_token in seen_tokens:
             continue
         seen_tokens.add(token.expo_push_token)
+        message: dict[str, Any] = {
+            "to": token.expo_push_token,
+            "title": title,
+            "body": body[:240],
+            "data": data,
+            "sound": "default",
+        }
+        channel_id = channel_id_for_token(token, data)
+        if channel_id is not None:
+            message["channelId"] = channel_id
         out.append(
             OutboundPush(
-                message={
-                    "to": token.expo_push_token,
-                    "title": title,
-                    "body": body[:240],
-                    "data": data,
-                    "sound": "default",
-                },
+                message=message,
                 todos=list(todos or []),
                 suggestions=list(suggestions or []),
                 learning_redis_key=learning_redis_key,

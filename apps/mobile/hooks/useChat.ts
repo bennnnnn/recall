@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { chatWebSocketUrl, Message } from "@/lib/api";
 import { streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, shouldAbortPriorSse, type ChatSsePayload } from "@/lib/chat/sse";
 import { clearPendingChatTtft, markChatFirstToken } from "@/lib/chat/latency";
+import { createStreamCueGate } from "@/lib/chat/streamFeedback";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { getSessionGeneration } from "@/lib/auth";
@@ -120,6 +121,7 @@ export function useChat(
    * appending a duplicate. Cleared on done/error/chat-switch.
    */
   const stoppedStreamedIdRef = useRef<string | null>(null);
+  const streamCueRef = useRef(createStreamCueGate());
   /** Optimistic user-message id for the in-flight send's TTFT sample (WS). */
   const ttftTurnIdRef = useRef<string | null>(null);
 
@@ -296,6 +298,9 @@ export function useChat(
       if (shouldIgnoreStoppedStreamEvent(payload.type, streamingRef.current)) {
         return;
       }
+      if (payload.type === "start" || payload.type === "status" || payload.type === "token") {
+        streamCueRef.current.activity();
+      }
       if (payload.type === "start") {
         wsAuthFallbackRef.current = null;
         setSendingMessageId(null);
@@ -357,6 +362,7 @@ export function useChat(
         setSendingMessageId(null);
         const stoppedId = stoppedStreamedIdRef.current;
         stoppedStreamedIdRef.current = null;
+        if (!stoppedId) streamCueRef.current.complete();
         setStreaming(false);
         setFinalizing(false);
         streamingRef.current = false;
@@ -386,6 +392,7 @@ export function useChat(
       }
 
       if (payload.type === "error") {
+        streamCueRef.current.error();
         // These codes explicitly guarantee this user turn was never saved.
         // A start/status event alone is not acceptance; answer events are.
         const pending = pendingSendRef.current;
@@ -506,6 +513,7 @@ export function useChat(
       assistantBuffer.current = "";
       restoreRegenerateBackup();
       reportError(t("chat.error_unreachable"));
+      streamCueRef.current.error();
       return;
     }
 
@@ -550,6 +558,7 @@ export function useChat(
             : m,
         );
       });
+      streamCueRef.current.error();
       if (hadContent) {
         reportError(t("chat.error_connection_lost"));
       } else if (!failedRegenerateBackup) {
@@ -741,6 +750,7 @@ export function useChat(
       rejectedRetry?: RejectedSend,
     ) => {
       if (!token || !chatId || !isCurrentView() || streamingRef.current || finalizingRef.current) return;
+      streamCueRef.current.reset();
       const attempt = ++sendAttemptRef.current;
       // Stop may still have a final frame in flight. A fresh connection keeps
       // that old frame from finalizing the next turn's placeholder.
@@ -904,6 +914,7 @@ export function useChat(
   const regenerateResponse = useCallback(
     async (model?: string | null, clientGeo?: ClientGeo | null) => {
       if (!token || !chatId || !isCurrentView()) return;
+      streamCueRef.current.reset();
       if (stoppedStreamedIdRef.current) {
         const transport = wsTransportRef.current;
         wsTransportRef.current = null;
@@ -938,6 +949,7 @@ export function useChat(
 
   const stopGeneration = useCallback(() => {
     if (!isCurrentView()) return;
+    streamCueRef.current.stopped();
     sendAttemptRef.current += 1;
     const pendingRetry = pendingSendRef.current;
     if (pendingRetry?.retryingRejected && !pendingRetry.dispatched) {

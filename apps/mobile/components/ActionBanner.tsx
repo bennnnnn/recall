@@ -10,6 +10,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/Icon";
+import { ACTION_BANNER_MS } from "@/lib/feedbackTiming";
 import { type IoniconName } from "@/lib/icons";
 import { Layer } from "@/lib/layer";
 import { Motion, useReduceMotion } from "@/lib/motion";
@@ -27,8 +28,6 @@ type Props = {
 };
 
 export type ActionFeedbackTone = "success" | "info" | "warning" | "error";
-
-const SHOW_MS = 2600;
 
 export function ActionBanner({
   message,
@@ -65,12 +64,12 @@ export function ActionBanner({
         if (finished) runOnJS(onDismiss)();
       });
       translateY.value = withTiming(16, { duration: Motion.duration.snappy });
-    }, SHOW_MS);
+    }, ACTION_BANNER_MS[tone]);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [message, onDismiss, opacity, reduceMotion, translateY]);
+  }, [message, onDismiss, opacity, reduceMotion, tone, translateY]);
 
   const bannerStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

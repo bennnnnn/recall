@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.modules.integrations.schemas import (
@@ -74,3 +76,5 @@ class PushTokenIn(BaseModel):
     expo_push_token: str = Field(min_length=8, max_length=512)
     platform: str = Field(min_length=2, max_length=20)
     device_id: str | None = Field(default=None, max_length=128)
+    # "split" means this Android install created recall-reminders/learning/inbox.
+    android_channels: Literal["split"] | None = None

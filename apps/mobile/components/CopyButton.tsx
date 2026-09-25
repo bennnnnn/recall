@@ -4,7 +4,7 @@ import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 
 import { IconButton } from "@/components/IconButton";
-import { notifySuccess, tap } from "@/lib/haptics";
+import { notifySuccess } from "@/lib/haptics";
 import { inkIconColor } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
 
@@ -41,10 +41,9 @@ export function CopyButton({
 
   const onCopy = async () => {
     if (!text.trim()) return;
-    if (haptic) tap();
     await Clipboard.setStringAsync(text);
     setCopied(true);
-    notifySuccess();
+    if (haptic) notifySuccess();
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setCopied(false), COPIED_RESET_MS);
   };

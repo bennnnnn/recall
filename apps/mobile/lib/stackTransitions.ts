@@ -25,7 +25,7 @@ export function stackPushTransition(reduceMotion = false): StackTransitionPreset
     animation: Platform.OS === "ios" ? "default" : "slide_from_right",
     gestureEnabled: true,
     fullScreenGestureEnabled: Platform.OS === "ios",
-    animationDuration: 280,
+    ...(Platform.OS === "ios" ? {} : { animationDuration: 210 }),
   };
   return reduceMotion ? withoutMotion(preset) : preset;
 }
@@ -36,7 +36,7 @@ export function stackUtilityTransition(reduceMotion = false): StackTransitionPre
     animation: "fade_from_bottom",
     gestureEnabled: true,
     fullScreenGestureEnabled: Platform.OS === "ios",
-    animationDuration: 320,
+    animationDuration: 230,
   };
   return reduceMotion ? withoutMotion(preset) : preset;
 }
@@ -46,7 +46,7 @@ export function stackAuthTransition(reduceMotion = false): StackTransitionPreset
   const preset: StackTransitionPreset = {
     animation: "fade",
     gestureEnabled: false,
-    animationDuration: 240,
+    animationDuration: 210,
   };
   return reduceMotion ? withoutMotion(preset) : preset;
 }
