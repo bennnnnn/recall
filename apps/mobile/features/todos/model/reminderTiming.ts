@@ -21,6 +21,11 @@ export function normalizeReminderLeadMinutes(raw: unknown): ReminderLeadMinutes 
   return DEFAULT_REMINDER_LEAD_MINUTES;
 }
 
+/** Clock time the alert is aimed at: due time minus the Settings lead. */
+export function remindAtDate(dueAt: Date, leadMinutes: number): Date {
+  return new Date(dueAt.getTime() - leadMsFromMinutes(normalizeReminderLeadMinutes(leadMinutes)));
+}
+
 /**
  * When to fire a local notification (null if due is past or invalid).
  * If the lead window already started, schedules ~2s from `now`.

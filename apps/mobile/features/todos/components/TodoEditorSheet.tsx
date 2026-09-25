@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { SheetFormHeader } from "@/components/SheetFormHeader";
+import { TodoCategoryField } from "@/features/todos/components/TodoCategoryField";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { TodoDateFields } from "@/features/todos/components/TodoDateFields";
+import { TodoPickers, type TodoPicker } from "@/features/todos/components/TodoPickers";
+import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
 import type { RecurrenceRule, Todo } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 
@@ -15,50 +18,213 @@ function dueFromTodo(todo: Todo): Date | null {
   return Number.isFinite(due.getTime()) ? due : null;
 }
 
-export function TodoEditorSheet({
+export type TodoEditorHandle = { leave: () => void };
+
+export const TodoEditorSheet = forwardRef<
+  TodoEditorHandle,
+  {
+    visible: boolean;
+    saving: boolean;
+    todos: Todo[];
+    /** Full page under the navigation header, instead of a bottom sheet. */
+    page?: boolean;
+    /** Account to-do alert from Settings, shown as Remind at on the detail page. */
+    leadMinutes?: number;
+    onChangeLead?: (minutes: number) => Promise<void>;
+    /** When set, the form edits that to-do, including its optional date. */
+    editTodo?: Todo | null;
+    /** Completed to-dos can be viewed, unmarked, or deleted. Fields stay fixed. */
+    readOnly?: boolean;
+    onClose: () => void;
+    onSave: (
+      content: string,
+      dueDate: Date | null,
+      recurrence: RecurrenceRule | null,
+      topic: string,
+    ) => void;
+  }
+>(function TodoEditorSheet({
   visible,
   saving,
   todos,
+  page = false,
+  leadMinutes,
+  onChangeLead,
   editTodo,
+  readOnly = false,
   onClose,
   onSave,
-}: {
-  visible: boolean;
-  saving: boolean;
-  todos: Todo[];
-  /** When set, the sheet edits that to-do, including its optional date. */
-  editTodo?: Todo | null;
-  onClose: () => void;
-  onSave: (content: string, dueDate: Date | null, recurrence: RecurrenceRule | null) => void;
-}) {
+}, ref) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [repeat, setRepeat] = useState<RecurrenceRule | null>(null);
+  const [topic, setTopic] = useState(DEFAULT_TOPIC);
+  const [picker, setPicker] = useState<TodoPicker | null>(null);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      setPicker(null);
+      return;
+    }
     setText(editTodo?.content ?? "");
     setDueDate(editTodo ? dueFromTodo(editTodo) : null);
     setRepeat(editTodo?.recurrence_rule ?? null);
+    setTopic(editTodo?.topic?.trim() || DEFAULT_TOPIC);
+    setPicker(null);
   }, [visible, editTodo]);
 
   const canSave = text.trim().length > 0 && !saving;
 
+  const closePicker = () => setPicker(null);
+
   const handleClose = () => {
     if (saving) return;
+    if (picker) {
+      closePicker();
+      return;
+    }
     onClose();
   };
 
   const handleSave = () => {
     if (!canSave) return;
-    onSave(text, dueDate, repeat);
+    onSave(text, dueDate, repeat, topic);
   };
 
+  const initialDue = editTodo ? dueFromTodo(editTodo) : null;
+  const dirty =
+    text !== (editTodo?.content ?? "") ||
+    (dueDate?.getTime() ?? null) !== (initialDue?.getTime() ?? null) ||
+    repeat !== (editTodo?.recurrence_rule ?? null) ||
+    topic !== (editTodo?.topic?.trim() || DEFAULT_TOPIC);
+
+  const leave = useCallback(() => {
+    if (saving) return;
+    if (picker) {
+      setPicker(null);
+      return;
+    }
+    if (readOnly || !dirty || text.trim().length === 0) {
+      onClose();
+      return;
+    }
+    onSave(text, dueDate, repeat, topic);
+  }, [saving, picker, readOnly, dirty, text, dueDate, repeat, topic, onClose, onSave]);
+
+  useImperativeHandle(ref, () => ({ leave }), [leave]);
+
+  const fields = page ? (
+    <>
+      <TodoCategoryField
+        review
+        topic={topic}
+        disabled={saving || readOnly}
+        onOpen={() => setPicker("category")}
+      />
+      {readOnly ? (
+        <Text style={s.reviewTitle}>{text}</Text>
+      ) : (
+        <TextInput
+          style={s.reviewTitle}
+          placeholder={t("todos.todo_placeholder")}
+          placeholderTextColor={C.textTertiary}
+          value={text}
+          onChangeText={setText}
+          autoFocus={!editTodo}
+          returnKeyType="done"
+          multiline
+          scrollEnabled={false}
+          maxLength={500}
+          editable={!saving}
+          underlineColorAndroid="transparent"
+        />
+      )}
+      <TodoDateFields
+        key={editTodo?.id ?? "new"}
+        review
+        dueDate={dueDate}
+        onDueDateChange={setDueDate}
+        repeat={repeat}
+        onRepeatChange={setRepeat}
+        todos={todos}
+        excludeId={editTodo?.id}
+        disabled={saving || readOnly}
+        leadMinutes={leadMinutes}
+        onChangeLead={readOnly ? undefined : onChangeLead}
+        onOpen={setPicker}
+      />
+    </>
+  ) : (
+    <>
+      <Text style={s.formLabel}>{t("todos.todo_label")}</Text>
+      <TextInput
+        style={s.titleInput}
+        placeholder={t("todos.todo_placeholder")}
+        placeholderTextColor={C.textDisabled}
+        value={text}
+        onChangeText={setText}
+        autoFocus={!editTodo}
+        returnKeyType="done"
+        maxLength={500}
+        editable={!saving}
+      />
+
+      <TodoCategoryField
+        topic={topic}
+        disabled={saving}
+        onOpen={() => setPicker("category")}
+      />
+
+      <TodoDateFields
+        key={editTodo?.id ?? "new"}
+        dueDate={dueDate}
+        onDueDateChange={setDueDate}
+        repeat={repeat}
+        onRepeatChange={setRepeat}
+        todos={todos}
+        excludeId={editTodo?.id}
+        disabled={saving}
+        onOpen={setPicker}
+      />
+    </>
+  );
+
+  if (page) {
+    if (!visible) return null;
+    return (
+      <View style={s.detailPage}>
+        <ScrollView
+          style={s.detailPage}
+          contentContainerStyle={s.sheetBody}
+          keyboardShouldPersistTaps="handled"
+        >
+          {fields}
+        </ScrollView>
+        {picker && !readOnly ? (
+          <TodoPickers
+            picker={picker}
+            topic={topic}
+            todos={todos}
+            dueDate={dueDate}
+            repeat={repeat}
+            disabled={saving}
+            onTopic={setTopic}
+            onDueDate={setDueDate}
+            onRepeat={setRepeat}
+            onClose={closePicker}
+          />
+        ) : null}
+      </View>
+    );
+  }
+
   return (
+    <>
     <AppSheet
+      embedded
       visible={visible}
       onClose={handleClose}
       variant="bottom"
@@ -76,31 +242,22 @@ export function TodoEditorSheet({
         saveDisabled={text.trim().length === 0}
       />
 
-      <View style={s.sheetBody}>
-        <Text style={s.formLabel}>{t("todos.todo_label")}</Text>
-        <TextInput
-          style={s.titleInput}
-          placeholder={t("todos.todo_placeholder")}
-          placeholderTextColor={C.textDisabled}
-          value={text}
-          onChangeText={setText}
-          autoFocus={!editTodo}
-          returnKeyType="done"
-          maxLength={500}
-          editable={!saving}
-        />
-
-        <TodoDateFields
-          key={editTodo?.id ?? "new"}
-          dueDate={dueDate}
-          onDueDateChange={setDueDate}
-          repeat={repeat}
-          onRepeatChange={setRepeat}
-          todos={todos}
-          excludeId={editTodo?.id}
-          disabled={saving}
-        />
-      </View>
+      <View style={s.sheetBody}>{fields}</View>
     </AppSheet>
+    {visible && picker ? (
+      <TodoPickers
+        picker={picker}
+        topic={topic}
+        todos={todos}
+        dueDate={dueDate}
+        repeat={repeat}
+        disabled={saving}
+        onTopic={setTopic}
+        onDueDate={setDueDate}
+        onRepeat={setRepeat}
+        onClose={closePicker}
+      />
+    ) : null}
+    </>
   );
-}
+});

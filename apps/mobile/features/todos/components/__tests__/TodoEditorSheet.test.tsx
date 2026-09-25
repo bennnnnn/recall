@@ -43,15 +43,17 @@ jest.mock("@react-native-community/datetimepicker", () => {
 });
 
 jest.mock("@/components/AppSheet", () => {
-  const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
+  const { View } = jest.requireActual("react-native") as typeof import("react-native");
   return {
     AppSheet: ({
       children,
+      overlay,
       visible,
     }: {
       children: ReactNode;
+      overlay?: ReactNode;
       visible: boolean;
-    }) => (visible ? <RNView>{children}</RNView> : null),
+    }) => (visible ? <View>{children}{overlay}</View> : null),
   };
 });
 
@@ -77,5 +79,22 @@ describe("TodoEditorSheet", () => {
     await fireEvent.press(getByLabelText("todos.repeat_weekly"));
     expect(getByLabelText("todos.repeat_label, todos.repeat_weekly")).toBeTruthy();
     expect(queryByLabelText("todos.repeat_monthly")).toBeNull();
+  });
+
+  it("saves a built-in category and a newly named one", async () => {
+    const onSave = jest.fn();
+    const ui = await render(
+      <TodoEditorSheet visible saving={false} todos={[]} onClose={jest.fn()} onSave={onSave} />,
+    );
+    await fireEvent.changeText(ui.getByPlaceholderText("todos.todo_placeholder"), "Call Mom");
+    await fireEvent.press(ui.getByLabelText("todos.category_label, todos.category_none"));
+    await fireEvent.press(ui.getByLabelText("todos.category_work"));
+    await fireEvent.press(ui.getByLabelText("todos.category_label, todos.category_work"));
+    await fireEvent.press(ui.getByLabelText("todos.category_new"));
+    await fireEvent.changeText(ui.getByLabelText("todos.category_placeholder"), "School");
+    await fireEvent(ui.getByLabelText("todos.category_placeholder"), "submitEditing");
+    expect(ui.getByLabelText("todos.category_label, School")).toBeTruthy();
+    await fireEvent.press(ui.getByLabelText("todos.save"));
+    expect(onSave).toHaveBeenCalledWith("Call Mom", null, null, "School");
   });
 });

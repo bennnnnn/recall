@@ -37,7 +37,6 @@ export function TodosListHeader({
           variant="empty"
           icon="checkmark-circle-outline"
           title={t("todos.empty_title")}
-          message={t("todos.empty_body")}
         />
       ) : null}
     </>

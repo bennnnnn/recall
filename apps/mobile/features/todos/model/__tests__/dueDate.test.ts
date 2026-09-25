@@ -1,4 +1,5 @@
-import { describeDueAt, toDueAtIso } from "@/features/todos/model/dueDate";
+import { formatClockTime, formatMonthDayYear } from "@/lib/datetime/format";
+import { describeCompletedAt, describeDueAt, toDueAtIso } from "@/features/todos/model/dueDate";
 
 describe("describeDueAt", () => {
   afterEach(() => {
@@ -50,5 +51,19 @@ describe("describeDueAt", () => {
       label: "Tomorrow",
       tone: "soon",
     });
+  });
+});
+
+describe("describeCompletedAt", () => {
+  it("returns null for missing or invalid values", () => {
+    expect(describeCompletedAt(null)).toBeNull();
+    expect(describeCompletedAt("not-a-date")).toBeNull();
+  });
+
+  it("includes the month, day, year, and time", () => {
+    const done = new Date(2026, 8, 25, 11, 39, 0);
+    expect(describeCompletedAt(toDueAtIso(done))).toBe(
+      `Completed ${formatMonthDayYear(done)}, ${formatClockTime(done)}`,
+    );
   });
 });

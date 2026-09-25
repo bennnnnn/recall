@@ -13,6 +13,7 @@ let mockAdd: { onPress: () => void };
 let mockSheet: { visible: boolean; onClose: () => void };
 let mockList: { onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[] };
 let mockHeader: { onRetry: () => void; calendarNudge?: { title: string; startAt: string } };
+const mockOpenTodo = jest.fn();
 const mockGetTodos = () => [];
 const mockCurrentSession = () => true;
 const mockMarkSeenIds = jest.fn(async () => {});
@@ -64,7 +65,7 @@ jest.mock("@/features/todos/hooks/useTodosActions", () => ({ useTodosActions: (p
     editingTodo: null,
     savingTodo: false,
     handleToggle: jest.fn(),
-    openTodoEditor: jest.fn(),
+    openTodoEditor: mockOpenTodo,
     handleDeleteItem: jest.fn(),
     closeTodoEditor: jest.fn(),
     handleCreateTodo: jest.fn(),
@@ -146,6 +147,13 @@ it("deduplicates pull refresh before React rerenders", async () => {
   expect(mockRefresh).toHaveBeenCalledTimes(1);
   await act(async () => { resolve(); await pending; });
   expect(mockList.refreshing).toBe(false);
+});
+
+it("opens a to-do when its row is tapped", async () => {
+  await render(<TodosScreen />);
+  const todo = { id: "todo-1", content: "Walk" };
+  await act(() => { (mockList as { onOpen: (row: typeof todo) => void }).onOpen(todo); });
+  expect(mockOpenTodo).toHaveBeenCalledWith(todo);
 });
 
 it("opens a plain to-do draft without any scheduling step", async () => {
