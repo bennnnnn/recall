@@ -63,6 +63,15 @@ describe("MathText", () => {
     expect(getByText("1")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
   });
 
+  it("gives a wide serif numerator a longer bar than the same run of digits", async () => {
+    const wide = await render(<MathText latex={String.raw`\frac{mmmmmmmmmmmm}{1}`} />);
+    const narrow = await render(<MathText latex={String.raw`\frac{111111111111}{1}`} />);
+    const wideWidth = StyleSheet.flatten(wide.getByTestId("math-frac").props.style).width as number;
+    const narrowWidth = StyleSheet.flatten(narrow.getByTestId("math-frac").props.style).width as number;
+    expect(narrowWidth).toBe(12 * 9 + 14);
+    expect(wideWidth).toBeGreaterThan(narrowWidth + 40);
+  });
+
   it("renders letter fractions stacked the same way (m over m)", async () => {
     const { getByTestId, getAllByText } = await render(
       <MathText latex={"\\frac{m}{m}"} />,

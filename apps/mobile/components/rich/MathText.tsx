@@ -27,6 +27,10 @@ type Props = {
 type Styles = ReturnType<typeof makeStyles>;
 
 const FRAC_CHAR_PX = 9;
+/** Fraction text is 14px when the math size is 16. Widths below are in that
+ * unscaled space and get multiplied by layoutScale. */
+const FRAC_EM = 14;
+const BASE_EM = 16;
 const FRAC_PAD_PX = 14;
 const FRAC_STACK_HEIGHT = 44;
 const FRAC_LINE_HEIGHT = 18;
@@ -76,12 +80,32 @@ function renderMathRun(
 function visualLength(s: string): number {
   let n = 0;
   for (const ch of s) {
-    const c = ch.charCodeAt(0);
-    // Combining marks (√ overlines, accents) must not inflate the frac box.
-    if (c >= 0x0300 && c <= 0x036f) continue;
-    n += 1;
+    if (!isCombiningMark(ch)) n += 1;
   }
   return n;
+}
+
+function isCombiningMark(ch: string): boolean {
+  const c = ch.charCodeAt(0);
+  return c >= 0x0300 && c <= 0x036f;
+}
+
+/** Georgia and Android serif are proportional. m/w are about one em, so the
+ * old one-width estimate (SpaceMono) clips a long numerator and its scroll. */
+function isWideFormulaGlyph(ch: string): boolean {
+  return ch === "m" || ch === "w" || ch === "M" || ch === "W" || ch === "%" || ch === "@";
+}
+
+function advancePx(text: string, em: number): number {
+  let width = 0;
+  let counted = false;
+  for (const ch of text) {
+    if (isCombiningMark(ch)) continue;
+    counted = true;
+    // Narrow glyphs keep the old monospace advance so digit fractions stay put.
+    width += isWideFormulaGlyph(ch) ? em : FRAC_CHAR_PX;
+  }
+  return counted ? width : FRAC_CHAR_PX;
 }
 
 function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width: number; height: number } {
@@ -101,7 +125,7 @@ function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width:
       width += inner.width;
       height = Math.max(height, inner.height);
     } else {
-      width += Math.max(visualLength(seg.value), 1) * FRAC_CHAR_PX;
+      width += advancePx(seg.value, inFrac ? FRAC_EM : BASE_EM);
       if (isFractionalScript(seg)) height = Math.max(height, FRACTIONAL_SCRIPT_HEIGHT);
     }
   }
