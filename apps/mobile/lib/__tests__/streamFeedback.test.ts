@@ -1,10 +1,9 @@
 import { createStreamCueGate, playStreamCue } from "@/lib/chat/streamFeedback";
-import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
+import { notifyWarning, selection, tap } from "@/lib/haptics";
 
 jest.mock("@/lib/haptics", () => ({
   selection: jest.fn(),
   tap: jest.fn(),
-  notifySuccess: jest.fn(),
   notifyWarning: jest.fn(),
 }));
 
@@ -19,8 +18,7 @@ describe("stream feedback", () => {
     playStreamCue("stopped");
     playStreamCue("error");
     expect(selection).toHaveBeenCalledTimes(1);
-    expect(notifySuccess).toHaveBeenCalledTimes(1);
-    expect(tap).toHaveBeenCalledTimes(1);
+    expect(tap).toHaveBeenCalledTimes(2);
     expect(notifyWarning).toHaveBeenCalledTimes(1);
   });
 
@@ -32,6 +30,5 @@ describe("stream feedback", () => {
     gate.complete();
     expect(selection).toHaveBeenCalledTimes(1);
     expect(tap).toHaveBeenCalledTimes(1);
-    expect(notifySuccess).not.toHaveBeenCalled();
   });
 });

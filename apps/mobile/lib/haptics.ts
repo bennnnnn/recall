@@ -56,7 +56,7 @@ export function impactMedium(): void {
   play(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 18);
 }
 
-/** One confirmation. Copy, a finished answer, a completed task. */
+/** One confirmation. Copy, a saved change, or a completed task. */
 export function notifySuccess(): void {
   play(
     () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
