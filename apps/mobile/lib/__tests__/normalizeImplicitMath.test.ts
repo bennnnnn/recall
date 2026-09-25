@@ -90,6 +90,11 @@ describe("normalizeImplicitMath", () => {
     expect(out).not.toMatch(/^- /);
   });
 
+  it("keeps non-minus bullet markers outside a wrapped equation", () => {
+    expect(normalizeImplicitMathInProse("$* x = 2$")).toBe("* $x = 2$");
+    expect(normalizeImplicitMathInProse("$• x = 2$")).toBe("• $x = 2$");
+  });
+
   it("BUG FIX regression: wraps a bare list-item equation that contains \\cdot / \\frac", () => {
     const input = String.raw`- 1\cdot x = 2 - 3^{\frac{2}{3}}`;
     const out = normalizeImplicitMathInProse(input);

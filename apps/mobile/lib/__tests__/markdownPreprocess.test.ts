@@ -41,6 +41,14 @@ describe("preprocessMarkdown", () => {
     expect(tokens.some((token) => token.type === "inline" && token.content === "$- x = -2$")).toBe(true);
   });
 
+  it("keeps an asterisk bullet outside its equation math span", () => {
+    const prepared = preprocessMarkdown("$* x = 2$");
+    const tokens = markdownItInstance.parse(prepared, {});
+
+    expect(prepared).toBe("* $x = 2$");
+    expect(tokens.some((token) => token.type === "bullet_list_open")).toBe(true);
+  });
+
   it("preserves a chart fence after a math caption and leaves following prose outside it", () => {
     const source = [
       String.raw`Here’s the graph of \( y = x^{3} \):`,

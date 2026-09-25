@@ -377,9 +377,12 @@ function normalizeMathLine(line: string, format?: (expr: string) => string, whol
     /^(\s*)\$([-*•])\s*(.+?)\s*\$$/,
     (_full, indent: string, mark: string, inner: string) => {
       const body = String(inner).trim();
-      if (/\\[a-zA-Z]+/.test(body) || /[\^_]/.test(body) || looksLikeBareEquation(body)) {
+      const mathLike =
+        /\\[a-zA-Z]+/.test(body) || /[\^_]/.test(body) || looksLikeBareEquation(body);
+      if (mark === "-" && mathLike) {
         return `${indent}$${mark} ${body}$`;
       }
+      if (mathLike) return `${indent}${mark} $${body}$`;
       return `${indent}${mark} ${body}`;
     },
   );
