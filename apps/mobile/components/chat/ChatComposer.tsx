@@ -36,6 +36,7 @@ import {
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
   composerInputFrameHeight,
+  retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
@@ -157,8 +158,7 @@ export const ChatComposer = memo(function ChatComposer({
   const [inputAtLimit, setInputAtLimit] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
-  const measuredFor = useRef("");
-  const measuredHeight = useRef(0);
+  const measuredContent = useRef<{ revision: number; height: number } | null>(null);
   const math = useMathKeyboardInsert({
     input,
     draftRevision: draft?.revision,
@@ -196,21 +196,26 @@ export const ChatComposer = memo(function ChatComposer({
     // iOS can retain the last multiline content size after a controlled
     // TextInput is cleared. Pin the empty draft back to the single-line
     // height so a sent long message cannot leave a tall blank composer.
-    // A content size from the previous draft is ignored until the field
-    // reports one for this string, so Enter still grows from the line count.
+    // Within one draft, keep the last wrap height: a keystroke changes the
+    // string without a new content-size event. A thread switch (revision)
+    // drops that sample so the next draft does not inherit it.
+    const revision = draft?.revision ?? 0;
     if (!input) {
-      measuredFor.current = "";
-      measuredHeight.current = 0;
+      measuredContent.current = null;
       setInputHeight(COMPOSER_INPUT_MIN_HEIGHT);
       setInputAtLimit(false);
       setComposerExpanded(false);
       return;
     }
-    const measured = measuredFor.current === input ? measuredHeight.current : 0;
+    const measured = retainedComposerContentHeight(
+      measuredContent.current,
+      revision,
+      input,
+    );
     const frame = composerInputFrameHeight(input, measured);
     setInputHeight(frame.height);
     setInputAtLimit(frame.overflows);
-  }, [input]);
+  }, [draft?.revision, input]);
 
   const inputFrameExtra = composerExpanded
     ? 0
@@ -421,8 +426,10 @@ export const ChatComposer = memo(function ChatComposer({
                     onChangeText={math.onChangeText}
                     onContentSizeChange={(event) => {
                       const measured = Math.ceil(event.nativeEvent.contentSize.height);
-                      measuredFor.current = input;
-                      measuredHeight.current = measured;
+                      measuredContent.current = {
+                        revision: draft?.revision ?? 0,
+                        height: measured,
+                      };
                       const frame = composerInputFrameHeight(input, measured);
                       setInputAtLimit(frame.overflows);
                       if (!composerExpanded) {

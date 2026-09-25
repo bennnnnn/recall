@@ -17,6 +17,21 @@ export const COMPOSER_INPUT_MAX_HEIGHT =
   COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT * 5;
 
 /**
+ * Last native content height stays valid while the same draft is edited.
+ * Soft wraps do not add a newline, and iOS often skips `onContentSizeChange`
+ * when the box does not grow, so an exact-string match would snap the field
+ * back to one line. A cleared draft or a thread switch drops the sample.
+ */
+export function retainedComposerContentHeight(
+  stored: { revision: number; height: number } | null,
+  revision: number,
+  text: string,
+): number {
+  if (!text || !stored || stored.revision !== revision) return 0;
+  return stored.height;
+}
+
+/**
  * Frame height for the composer field. Returns count as lines even when iOS
  * reports a stale content size, so a new line grows the field instead of
  * painting under the pill. Wrapped lines still use the measured size.

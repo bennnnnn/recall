@@ -4,6 +4,7 @@ import {
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
   composerInputFrameHeight,
+  retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
@@ -32,6 +33,15 @@ describe("composerInputFrameHeight", () => {
       height: COMPOSER_INPUT_MAX_HEIGHT,
       overflows: true,
     });
+  });
+
+  it("keeps a wrap height while the same draft changes and drops it on reset", () => {
+    const stored = { revision: 2, height: 88 };
+    expect(retainedComposerContentHeight(stored, 2, "hello world")).toBe(88);
+    expect(retainedComposerContentHeight(stored, 2, "hello worlds")).toBe(88);
+    expect(retainedComposerContentHeight(stored, 2, "")).toBe(0);
+    expect(retainedComposerContentHeight(stored, 3, "hello world")).toBe(0);
+    expect(retainedComposerContentHeight(null, 2, "hello world")).toBe(0);
   });
 });
 
