@@ -113,7 +113,15 @@ function lessonStepParts(node: AstNode): { n: string; label: string } | null {
     .map((kid) => astText(kid))
     .join("")
     .trim();
-  return { n: match[1], label: tail ? `${match[2]} ${tail}` : match[2] };
+  const label = (tail ? `${match[2]} ${tail}` : match[2]).replace(/\$[^$]+\$/g, "").trim();
+  return { n: match[1], label };
+}
+
+function lessonFormula(node: AstNode): string | null {
+  const raw = astTextWithBreaks(unwrapSingle(node));
+  const match = /\$([^$]+)\$/.exec(raw);
+  const formula = match?.[1]?.trim();
+  return formula ? formula : null;
 }
 
 /**
@@ -513,46 +521,49 @@ function makeSharedRules(
       }
       const step = lessonStepParts(node);
       if (step) {
+        const formula = lessonFormula(node);
         return (
-          <View
-            key={node.key}
-            testID="lesson-step"
-            style={[
-              styles.paragraphRun,
-              {
+          <View key={node.key} testID="lesson-step" style={styles.paragraphRun}>
+            <View
+              style={{
                 flexDirection: "row",
                 alignItems: "center",
                 gap: Space.xs,
-              },
-            ]}
-          >
-            <View
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: Radius.full,
-                backgroundColor: t.surfaceAlt,
-                alignItems: "center",
-                justifyContent: "center",
               }}
             >
-              <Text
+              <View
                 style={{
-                  fontFamily: uiFontFamily("700"),
-                  fontWeight: "700",
-                  fontSize: Type.caption.fontSize,
-                  color: t.text,
+                  width: 22,
+                  height: 22,
+                  borderRadius: Radius.full,
+                  backgroundColor: t.surfaceAlt,
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                {step.n}
+                <Text
+                  style={{
+                    fontFamily: uiFontFamily("700"),
+                    fontWeight: "700",
+                    fontSize: Type.caption.fontSize,
+                    color: t.text,
+                  }}
+                >
+                  {step.n}
+                </Text>
+              </View>
+              <Text
+                style={[styles.body, styles.text, { flexShrink: 1, color: t.assistantText }]}
+                selectable
+              >
+                {step.label}
               </Text>
             </View>
-            <Text
-              style={[styles.body, styles.text, { flexShrink: 1, color: t.assistantText }]}
-              selectable
-            >
-              {step.label}
-            </Text>
+            {formula ? (
+              <View testID="lesson-step-formula" style={{ paddingLeft: Space.xl }}>
+                <MathText latex={formula} />
+              </View>
+            ) : null}
           </View>
         );
       }

@@ -120,6 +120,7 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     given_line = next(line for line in reply.splitlines() if "Given" in line)
     assert "$" in given_line
     assert "Square root" in reply
+    assert r"\sqrt{4}" in reply
     assert r"\sqrt{x" not in reply
     assert "lvert" not in reply
     assert "```answer" in reply

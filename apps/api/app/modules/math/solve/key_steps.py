@@ -15,7 +15,6 @@ from sympy import (
     latex,
     simplify,
     solve,
-    sqrt,
 )
 
 
@@ -317,13 +316,12 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
         return steps
     if radicand < 0:
         return steps
-    root = simplify(sqrt(radicand))
-    # x = ±√n. Do not show √(x²) and then |x| — that detour is the same fact
-    # twice, and the answer chip already carries the ±.
+    # Show the root itself (x = ±√4), not the simplified ±2. The chip
+    # simplifies. Do not wrap x² in a radical and then rewrite it as |x|.
     if radicand == 0:
-        formula = f"{latex(var)} = 0"
+        formula = rf"{latex(var)} = \sqrt{{0}}"
     else:
-        formula = rf"{latex(var)} = \pm {latex(root)}"
+        formula = rf"{latex(var)} = \pm \sqrt{{{latex(radicand)}}}"
     steps.append(KeyStep(label="Square root", formula=formula))
     return steps
 

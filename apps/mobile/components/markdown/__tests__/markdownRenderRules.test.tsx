@@ -325,4 +325,11 @@ describe("markdown render rules", () => {
     expect(getByText("1")).toBeOnTheScreen();
     expect(getByText("Divide both sides by 3")).toBeOnTheScreen();
   });
+
+  it("indents a lesson formula under the step label", async () => {
+    const { getByTestId } = await render(
+      <MarkdownContent content={"**2. Simplify**\n$x^2 = 1$"} />,
+    );
+    expect(getByTestId("lesson-step-formula")).toBeOnTheScreen();
+  });
 });
