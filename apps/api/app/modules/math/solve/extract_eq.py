@@ -165,6 +165,11 @@ def _strip_leading_verb(text: str) -> str:
     return _strip_leading_prefixes(text, strip_bare_x=False)
 
 
+def rejected_equality_chain(text: str) -> bool:
+    """True when the text is one ``a=b=c`` chain the solver must not collapse."""
+    return _is_equal_chain(_equation_pairs(text))
+
+
 def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
     """Best-effort extraction of every `lhs=rhs` clause in the text.
 
@@ -174,7 +179,16 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
     "verified, do NOT recompute" confidence as a fully correct response.
     Walking every ``=`` here returns every clause; callers decide whether 1
     match means a single equation or 2+ means a system.
+    A chained equality returns no pairs; ``rejected_equality_chain`` tells
+    that refusal apart from text that simply has no equation.
     """
+    pairs = _equation_pairs(text)
+    if _is_equal_chain(pairs):
+        return []
+    return pairs
+
+
+def _equation_pairs(text: str) -> list[tuple[str, str]]:
     # Expand LaTeX first so ``\frac{1}{2}x = 3`` survives the ASCII-only
     # side walker (which rejects ``\`` / ``{}``).
     cleaned = _normalize_latex_to_sympy(_strip_leading_filler(text))
@@ -213,21 +227,17 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
         if _is_equation_side(lhs) and _is_equation_side(rhs):
             pairs.append((lhs, rhs))
         start = right if right > eq + 1 else eq + 1
-    return _collapse_equal_chain(pairs)
+    return pairs
 
 
-def _collapse_equal_chain(pairs: list[tuple[str, str]]) -> list[tuple[str, str]]:
-    """``2x+3=3=7`` is one equation (first lhs, last rhs), not ``2x+3=3``.
+def _is_equal_chain(pairs: list[tuple[str, str]]) -> bool:
+    """Adjacent pairs form a chain when the previous RHS is the next LHS.
 
-    Adjacent pairs form a chain when the previous RHS is the next LHS.
-    Independent clauses (``x+y=5, x-y=1``) stay separate.
+    ``2x+3=3=7`` is one chain. Independent clauses (``x+y=5, x-y=1``) are not.
     """
     if len(pairs) < 2:
-        return pairs
-    for i in range(len(pairs) - 1):
-        if pairs[i][1].strip() != pairs[i + 1][0].strip():
-            return pairs
-    return [(pairs[0][0], pairs[-1][1])]
+        return False
+    return all(pairs[i][1].strip() == pairs[i + 1][0].strip() for i in range(len(pairs) - 1))
 
 
 def try_extract_equation_from_text(text: str) -> EquationInput | None:

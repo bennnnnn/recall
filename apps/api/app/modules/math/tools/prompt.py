@@ -213,6 +213,20 @@ async def build_math_augmentation(
         ]
         return "\n".join(lines), None
 
+    if intent is None and image_math_extract is None:
+        from app.modules.math.solve.extract_eq import rejected_equality_chain
+
+        if rejected_equality_chain(user_content):
+            # An empty extract is also what a regex miss looks like. A chain
+            # must not fall through to the LLM extractor, which can rewrite
+            # ``a=b=c`` into one solvable equation.
+            return (
+                "The message chains equalities (a=b=c). Ask which single "
+                "equation to solve. Do not collapse the chain or claim a "
+                "verified answer.\n\n"
+                f"{MATH_REPLY_POLICY}",
+                None,
+            )
     if intent is None:
         # The gate fired but no regex extractor matched (the "Couldn't verify
         # under a correct ∫ x²" class). One bounded structured-extraction call
