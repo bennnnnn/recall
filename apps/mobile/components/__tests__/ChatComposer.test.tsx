@@ -226,11 +226,11 @@ describe("ChatComposer math keyboard", () => {
 
     await waitFor(() => {
       expect(getByTestId("chat-composer-input").props.value).toBe("");
-      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 25 });
+      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 44 });
     });
   });
 
-  it("preserves a leading Return while keeping whitespace-only layout compact", async () => {
+  it("grows the field when a leading Return adds a line", async () => {
     function Harness() {
       const [input, setInput] = useState("");
       return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
@@ -249,8 +249,8 @@ describe("ChatComposer math keyboard", () => {
 
     expect(getByTestId("chat-composer-input").props.value).toBe("\n");
     expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 25 });
-    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 68 });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
   });
 
   it("preserves leading indentation while typing a code block", async () => {
@@ -293,7 +293,7 @@ describe("ChatComposer math keyboard", () => {
       nativeEvent: { contentSize: { width: 240, height: 190 } },
     });
 
-    expect(composerInput).toHaveStyle({ height: 150 });
+    expect(composerInput).toHaveStyle({ height: 164 });
     expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
       expanded: false,
     });

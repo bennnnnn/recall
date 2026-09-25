@@ -86,26 +86,28 @@ export const ChatHeader = memo(function ChatHeader({
         testID="chat-header"
         pointerEvents="box-none"
       >
-        <IconButton
-          style={s.headerBtn}
-          pressedStyle={menuOverlayOpen ? undefined : s.headerBtnPressed}
-          onPress={() => {
-            if (fromLibrary) {
-              if (router.canGoBack()) router.back();
-              else router.replace("/");
-              return;
+        <View style={s.headerBtnPlate}>
+          <IconButton
+            style={s.headerBtn}
+            pressedStyle={menuOverlayOpen ? undefined : s.headerBtnPressed}
+            onPress={() => {
+              if (fromLibrary) {
+                if (router.canGoBack()) router.back();
+                else router.replace("/");
+                return;
+              }
+              onOpenDrawer();
+            }}
+            accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
+            icon={
+              fromLibrary ? (
+                <Icon name="chevron-back" size={IconSize.md} color={theme.text} />
+              ) : (
+                <HamburgerIcon size={IconSize.md} color={theme.text} />
+              )
             }
-            onOpenDrawer();
-          }}
-          accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
-          icon={
-            fromLibrary ? (
-              <Icon name="chevron-back" size={IconSize.md} color={theme.text} />
-            ) : (
-              <HamburgerIcon size={IconSize.md} color={theme.text} />
-            )
-          }
-        />
+          />
+        </View>
         {headerTitleLabel ? (
           <View style={s.headerCenter} pointerEvents="none">
             <Text
@@ -174,6 +176,10 @@ function makeStyles(theme: Theme) {
       backgroundColor: "transparent",
     },
     headerMuted: { opacity: 0.55 },
+    headerBtnPlate: {
+      backgroundColor: theme.inputBg,
+      borderRadius: Radius.sm,
+    },
     headerBtn: {
       width: 44,
       height: 44,
@@ -188,6 +194,8 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       height: 44,
       overflow: "hidden",
+      backgroundColor: theme.inputBg,
+      borderRadius: Radius.sm,
     },
     actionGroupBtn: {
       width: 44,
