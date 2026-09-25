@@ -10,6 +10,7 @@ import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { tap } from "@/lib/haptics";
+import { Graphic } from "@/lib/graphic";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -117,7 +118,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       marginBottom: Space.md,
     },
-    badgeStar: { ...Type.display, color: theme.onPrimary },
+    badgeStar: { ...Graphic.badgeMark, color: theme.onPrimary },
     title: {
       ...Type.display,
       color: theme.text,
