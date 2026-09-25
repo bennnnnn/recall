@@ -1004,6 +1004,17 @@ async def test_should_web_search_classifier_yes_for_factual_lookup():
 
 
 @pytest.mark.asyncio
+async def test_should_web_search_classifies_a_release_question():
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    with patch(
+        "app.modules.web_search.detection.classify_web_search",
+        AsyncMock(return_value=WebSearchClassification(needs_search=True, query="next iPhone")),
+    ) as classify:
+        assert await should_web_search("When is the next iPhone coming out?", settings) is True
+    classify.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_should_web_search_classifier_no_for_stable_topic():
     settings = Settings(
         mock_llm_enabled=True,

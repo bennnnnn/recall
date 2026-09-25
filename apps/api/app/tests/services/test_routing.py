@@ -13,13 +13,13 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
 @pytest.mark.parametrize(
     "content,expected",
     [
-        # Simple messages → free-chat
-        ("hi", "free-chat"),
-        ("hello world", "free-chat"),
-        ("what's for lunch", "free-chat"),
-        ("explain quantum computing", "free-chat"),
-        ("why is the sky blue", "free-chat"),
-        ("compare two options", "free-chat"),
+        # Simple messages → the fast auto alias (Gemini Flash).
+        ("hi", "gemini-flash"),
+        ("hello world", "gemini-flash"),
+        ("what's for lunch", "gemini-flash"),
+        ("explain quantum computing", "gemini-flash"),
+        ("why is the sky blue", "gemini-flash"),
+        ("compare two options", "gemini-flash"),
         # Smart triggers → smart-chat
         ("prove p = np", "smart-chat"),
         ("debug the memory leak", "smart-chat"),
@@ -44,7 +44,7 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("solve this leetcode problem", "smart-chat"),
         # Long message (>=800 chars → smart-chat)
         ("a" * 801, "smart-chat"),
-        ("a" * 799, "free-chat"),
+        ("a" * 799, "gemini-flash"),
         # Any code fence → smart-chat, regardless of language tag (or lack of
         # one). BUG FIX: this used to only match a fixed language allowlist,
         # so a bare fence or an unlisted language (bash, shell, C, HTML, ...)
@@ -63,12 +63,12 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("standard deviation of 1, 2, 3, 4, 5", "smart-chat"),
         # Verified closed-form arithmetic stays free-chat — R1 used to dump a
         # live Reasoning essay ("the user just wrote 4!") on these.
-        ("4!", "free-chat"),
-        ("what is 1+1", "free-chat"),
-        ("3+0", "free-chat"),
-        ("3 + 0", "free-chat"),
-        ("7*8", "free-chat"),
-        ("8-8*2", "free-chat"),
+        ("4!", "gemini-flash"),
+        ("what is 1+1", "gemini-flash"),
+        ("3+0", "gemini-flash"),
+        ("3 + 0", "gemini-flash"),
+        ("7*8", "gemini-flash"),
+        ("8-8*2", "gemini-flash"),
         # Arithmetic next to a hard question is not a fast-path whole message.
         ("what is 1+1 and also graph y = x^2", "smart-chat"),
         # Homework physics the solver templates don't cover → smart-chat.
@@ -81,10 +81,10 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("calculate the momentum of a 5kg object moving at 12 m/s", "smart-chat"),
         ("what is the escape velocity of earth", "smart-chat"),
         ("equations of motion for a pendulum", "smart-chat"),
-        ("physics", "free-chat"),
-        ("the project has momentum now", "free-chat"),
-        # Plain prose with no math cue stays free-chat.
-        ("what's for dinner tonight", "free-chat"),
+        ("physics", "gemini-flash"),
+        ("the project has momentum now", "gemini-flash"),
+        # Plain prose with no math cue stays on the fast alias.
+        ("what's for dinner tonight", "gemini-flash"),
     ],
 )
 def test_route_chat_model(content: str, expected: str) -> None:
@@ -94,20 +94,20 @@ def test_route_chat_model(content: str, expected: str) -> None:
 @pytest.mark.parametrize(
     "content,prior_user,expected",
     [
-        ("Now fix it", None, "free-chat"),
+        ("Now fix it", None, "gemini-flash"),
         ("Now fix it", "debug this algorithm", "smart-chat"),
         ("add tests", "debug this algorithm", "smart-chat"),
         ("check if it is fixed", "debug this algorithm", "smart-chat"),
         ("Handle the edge cases", "debug this algorithm", "smart-chat"),
         ("Can you verify the patch?", "debug this algorithm", "smart-chat"),
         ("please review this", "debug this algorithm", "smart-chat"),
-        ("check the weather", "debug this algorithm", "free-chat"),
-        ("handle dinner tonight", "debug this algorithm", "free-chat"),
-        ("thanks", "debug this algorithm", "free-chat"),
-        ("what's for dinner tonight", "debug this algorithm", "free-chat"),
-        ("explain photosynthesis", "debug this algorithm", "free-chat"),
-        ("fix dinner", "debug this algorithm", "free-chat"),
-        ("add milk to my grocery list", "debug this algorithm", "free-chat"),
+        ("check the weather", "debug this algorithm", "gemini-flash"),
+        ("handle dinner tonight", "debug this algorithm", "gemini-flash"),
+        ("thanks", "debug this algorithm", "gemini-flash"),
+        ("what's for dinner tonight", "debug this algorithm", "gemini-flash"),
+        ("explain photosynthesis", "debug this algorithm", "gemini-flash"),
+        ("fix dinner", "debug this algorithm", "gemini-flash"),
+        ("add milk to my grocery list", "debug this algorithm", "gemini-flash"),
     ],
 )
 def test_route_chat_model_inherits_smart_on_short_followup(
@@ -125,7 +125,7 @@ def test_route_chat_model_inherits_smart_from_prior_turn_model() -> None:
     assert (
         route_chat_model("fix it", prior_user="add tests", prior_model="smart-chat") == "smart-chat"
     )
-    assert route_chat_model("fix it", prior_user="add tests") == "free-chat"
+    assert route_chat_model("fix it", prior_user="add tests") == "gemini-flash"
 
 
 def test_last_user_content_returns_newest_user_line() -> None:
@@ -235,8 +235,8 @@ def test_prompt_weighted_reserve_tokens_uses_full_prompt() -> None:
     "alias,content,expected",
     [
         # auto resolves via route_chat_model
-        ("auto", "hello", "free-chat"),
-        ("auto", "explain gravity", "free-chat"),
+        ("auto", "hello", "gemini-flash"),
+        ("auto", "explain gravity", "gemini-flash"),
         ("auto", "debug this crash", "smart-chat"),
         # explicit aliases pass through
         ("free-chat", "explain gravity", "free-chat"),

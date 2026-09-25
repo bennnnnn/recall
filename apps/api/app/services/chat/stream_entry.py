@@ -14,6 +14,7 @@ from app.modules.attachments.content import (
     strip_attachment_from_content,
 )
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
+from app.services.chat.prompt_constants import is_lightweight_chat_turn, is_short_confirmation
 from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
 from app.services.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
@@ -226,6 +227,11 @@ async def stream_chat_response(
             if chat is not None:
                 timing.mark_phase("chat_ready")
                 return chat
+            peek = getattr(seams.chats_repo, "peek_recent_chat", None)
+            remembered = peek(chat_id, user_id) if callable(peek) else None
+            if remembered is not None:
+                timing.mark_phase("chat_ready")
+                return remembered
             async with seams.SessionLocal() as session:
                 loaded = await seams.chats_repo.get_by_id(session, chat_id, user_id)
             if loaded is None:
@@ -284,13 +290,20 @@ async def stream_chat_response(
             return recent, prior_count
 
         # Account/quota and history are independent once the previous turn is
-        # committed. The old path waited for account/chat first, then paid a
-        # second remote DB session for history; live timing showed that serial
-        # shape dominating TTFT on a two-character greeting.
-        (user, daily_limit, chat), (recent, prior_count) = await asyncio.gather(
-            _load_user_and_quota(),
-            _load_history_after_finalize(),
-        )
+        # committed. A greeting does not need the recent window before the
+        # model starts — that extra Neon read was on the first-token path.
+        obvious_greeting = is_lightweight_chat_turn(content) and not is_short_confirmation(content)
+        if obvious_greeting:
+            await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
+            timing.mark_phase("previous_finalize_ready")
+            user, daily_limit, chat = await _load_user_and_quota()
+            recent, prior_count = [], 0
+            timing.mark_phase("history_ready")
+        else:
+            (user, daily_limit, chat), (recent, prior_count) = await asyncio.gather(
+                _load_user_and_quota(),
+                _load_history_after_finalize(),
+            )
         # Only short confirmation turns touch the DB here; ordinary lightweight
         # greetings classify synchronously, so opening a fresh AsyncSession has
         # no checkout/network cost on the common path.

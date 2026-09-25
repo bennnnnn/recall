@@ -132,6 +132,11 @@ async def delete_account(
 
     await attachment_lifecycle.purge_attachments_for_user(session, settings, user.id)
     user_id = user.id
+    from app.core.deps import forget_user
+    from app.repositories.chats import forget_user_chats
+
+    forget_user(user_id)
+    forget_user_chats(user_id)
     await users_repo.delete_user(session, user.id)
     await enqueue(
         redis,

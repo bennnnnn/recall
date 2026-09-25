@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import object_session
 
 from app.models.orm import (
     Attachment,
@@ -92,15 +93,27 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
     (so nullable columns like ``custom_instructions`` / ``location`` can be
     cleared). Omit a key to leave that column unchanged.
     """
+    bound = user
+    # object_session returns the sync Session, not the AsyncSession wrapper.
+    # Spec mocks in unit tests have no sync_session; mutate those users as-is.
+    try:
+        sync = session.sync_session
+    except AttributeError:
+        sync = None
+    if sync is not None and object_session(user) is not sync:
+        bound = await session.merge(user, load=False)
     for key, value in fields.items():
-        if hasattr(user, key):
-            setattr(user, key, value)
+        if hasattr(bound, key):
+            setattr(bound, key, value)
     if commit:
         await session.commit()
-        await session.refresh(user)
+        await session.refresh(bound)
     else:
         await session.flush()
-    return user
+    from app.core.deps import remember_user
+
+    remember_user(bound)
+    return bound
 
 
 async def delete_user(session: AsyncSession, user_id: UUID) -> None:
@@ -134,3 +147,6 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> None:
     if user is not None:
         await session.delete(user)
     await session.commit()
+    from app.core.deps import forget_user
+
+    forget_user(user_id)

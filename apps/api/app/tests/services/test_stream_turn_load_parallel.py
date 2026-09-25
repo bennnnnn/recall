@@ -90,7 +90,7 @@ async def test_history_load_overlaps_account_and_chat_load() -> None:
             Settings(),
             user_id=uuid4(),
             chat_id=chat.id,
-            content="hi",
+            content="What is the capital of France?",
         )
     ]
 

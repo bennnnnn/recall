@@ -1177,7 +1177,7 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
 
 @pytest.mark.asyncio
 async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
-    """A substantive slim turn keeps personal continuity without loading integrations."""
+    """A social slim turn keeps custom instructions and skips memory search."""
     user = MagicMock()
     user.name = "Dev User"
     user.email = "dev@example.com"
@@ -1223,14 +1223,13 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
         )
 
     recent_mock.assert_awaited()
-    memory_mock.assert_awaited_once()
+    memory_mock.assert_not_awaited()
     todos_mock.assert_not_awaited()
     assert statuses == []
     system = messages[0]["content"]
     assert "Dev" in system
     assert "short social turn" not in system
-    assert "Prefers warm but concise replies" in system
-    assert "[BEGIN UNTRUSTED CONTENT — memory]" in system
+    assert "Prefers warm but concise replies" not in system
     assert "TODOS SHOULD NOT LOAD" not in system
     assert "Fluffy" in system
     assert "[BEGIN USER PREFERENCES]" in system
