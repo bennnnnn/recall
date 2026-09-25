@@ -66,7 +66,6 @@ export function EmailCard({ draft }: Props) {
 
   const onGmail = async () => {
     if (gmailOpening) return;
-    tap();
     setGmailOpening(true);
     try {
       const result = await openGmailCompose(currentDraft);

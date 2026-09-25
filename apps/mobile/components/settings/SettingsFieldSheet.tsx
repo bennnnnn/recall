@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { SheetFormHeader } from "@/components/SheetFormHeader";
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -119,18 +120,17 @@ function makeStyles(C: Theme) {
       paddingHorizontal: 0,
       paddingTop: 0,
       backgroundColor: C.bg,
-      borderTopLeftRadius: 28,
-      borderTopRightRadius: 28,
+      borderTopLeftRadius: Radius.sheet,
+      borderTopRightRadius: Radius.sheet,
     },
-    body: { padding: Space.gutter, gap: Space.sm },
-    hint: { ...Type.callout, fontWeight: "400", color: C.textSecondary },
+    body: { padding: Space.md, gap: Space.sm },
+    hint: { ...Type.secondary, color: C.textSecondary },
     input: {
       backgroundColor: C.settingsSurface,
-      borderRadius: 28,
-      minHeight: 68,
-      padding: Space.gutter,
+      borderRadius: Radius.xl,
+      minHeight: 56,
+      padding: Space.md,
       ...Type.body,
-      fontSize: 18,
       color: C.text,
     },
     inputMultiline: {

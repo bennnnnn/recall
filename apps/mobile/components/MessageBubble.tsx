@@ -100,7 +100,6 @@ function UserActions({
 
   const handleCopy = async () => {
     if (!content.trim()) return;
-    tap();
     await copyText(content);
     showCopied();
     notifySuccess();
@@ -159,7 +158,6 @@ function AssistantActions({
 
   const handleCopy = async () => {
     if (!copyPayload.trim()) return;
-    tap();
     await copyText(copyPayload);
     showCopied();
     notifySuccess();

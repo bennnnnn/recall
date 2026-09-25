@@ -39,6 +39,7 @@ async def notify_job_matches_ready(
         {
             "to": row.expo_push_token,
             "sound": "default",
+            "channelId": "recall-inbox",
             "title": "New job matches",
             "body": body,
             "data": {

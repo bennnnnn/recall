@@ -7,10 +7,14 @@ import i18n from "@/lib/i18n";
 import { getReminderLeadMs } from "@/features/todos/model/reminderPrefs";
 import { leadMsFromMinutes, reminderNotifyDate } from "@/features/todos/model/reminderTiming";
 import { shouldSyncLocalTodoReminders } from "@/features/todos/model/todoReminderPush";
+import {
+  AndroidNotificationChannel,
+  ensureAndroidNotificationChannels,
+} from "@/lib/notificationChannels";
 
 export { ensureNotificationPermission } from "@/lib/pushNotifications";
 const TODO_PREFIX = "todo-due-";
-const ANDROID_CHANNEL = "todo-reminders";
+const ANDROID_CHANNEL = AndroidNotificationChannel.reminders;
 type ReminderOptions = { pushEnabled?: boolean | null; session?: number; leadMinutes?: number };
 type IsCurrent = () => boolean;
 let androidChannelReady = false;
@@ -34,10 +38,10 @@ function formatDueTime(due: Date): string {
 }
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
-  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL, {
-    name: i18n.t("notifications.todo_channel"),
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
+  await ensureAndroidNotificationChannels({
+    reminders: i18n.t("notifications.reminders_channel"),
+    learning: i18n.t("notifications.learning_channel"),
+    inbox: i18n.t("notifications.inbox_channel"),
   });
   androidChannelReady = true;
 }

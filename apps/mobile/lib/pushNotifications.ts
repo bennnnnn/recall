@@ -7,6 +7,7 @@ import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
 import { trackProductEvent } from "@/lib/productAnalytics";
 import { lessonMapPath } from "@/features/learning/model/chapterAccess";
+import { ensureAndroidNotificationChannels } from "@/lib/notificationChannels";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -14,7 +15,6 @@ type AppRouter = {
 };
 
 let androidChannelReady = false;
-const ANDROID_CHANNEL = "recall-notifications";
 
 export async function getNotificationPermissionGranted(): Promise<boolean> {
   if (Platform.OS === "web") return false;
@@ -36,10 +36,10 @@ export async function ensureNotificationPermission(analyticsToken?: string): Pro
 
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
-  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL, {
-    name: i18n.t("notifications.app_channel"),
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
+  await ensureAndroidNotificationChannels({
+    reminders: i18n.t("notifications.reminders_channel"),
+    learning: i18n.t("notifications.learning_channel"),
+    inbox: i18n.t("notifications.inbox_channel"),
   });
   androidChannelReady = true;
 }
@@ -247,6 +247,7 @@ export async function handlePushNotificationResponse(
 }
 
 export function configurePushNotificationHandler(): void {
+  void ensureAndroidChannel();
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,

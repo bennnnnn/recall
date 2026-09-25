@@ -10,6 +10,12 @@ from app.modules.learning import nudges as learning_nudges
 from app.modules.notifications import push as push_service
 
 
+def test_android_channel_follows_push_type():
+    assert push_service.android_channel_id({"type": "todo_reminder"}) == "recall-reminders"
+    assert push_service.android_channel_id({"type": "learning_review"}) == "recall-learning"
+    assert push_service.android_channel_id({"type": "email_suggestion"}) == "recall-inbox"
+
+
 @pytest.fixture
 def schedule_write():
     with patch.object(
@@ -52,6 +58,7 @@ async def test_process_todo_reminders_due_soon():
     assert messages[0].message["title"] == "Reminder"
     assert messages[0].message["body"] == "Call dentist"
     assert messages[0].message["data"]["todo_id"] == str(todo.id)
+    assert messages[0].message["channelId"] == "recall-reminders"
     session.commit.assert_not_awaited()
     assert todo.notification_sent_at is None
 
@@ -267,6 +274,7 @@ async def test_process_email_suggestions_batches_per_user():
     assert len(messages) == 1
     assert "2 reminders" in messages[0].message["body"]
     assert messages[0].message["data"]["type"] == "email_suggestion"
+    assert messages[0].message["channelId"] == "recall-inbox"
     session.commit.assert_not_awaited()
     assert push_service.EMAIL_SUGGESTION_PUSH_LIMIT == 200
     # Cap is applied on the select (token-less users excluded via EXISTS).

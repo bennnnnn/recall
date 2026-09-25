@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react-native";
+import { act, render } from "@testing-library/react-native";
 
 import { ActionBanner } from "@/components/ActionBanner";
 import { Layer } from "@/lib/layer";
@@ -43,6 +43,34 @@ describe("ActionBanner", () => {
       zIndex: Layer.toast,
     });
     expect(getByLabelText("Saved")).toBeOnTheScreen();
+  });
+
+  it("dismisses a success after two seconds", async () => {
+    const onDismiss = jest.fn();
+    await render(<ActionBanner message="Saved" tone="success" onDismiss={onDismiss} />);
+    await act(async () => {
+      jest.advanceTimersByTime(1999);
+    });
+    expect(onDismiss).not.toHaveBeenCalled();
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps an error up for five seconds", async () => {
+    const onDismiss = jest.fn();
+    await render(
+      <ActionBanner message="Could not save" tone="error" onDismiss={onDismiss} />,
+    );
+    await act(async () => {
+      jest.advanceTimersByTime(4999);
+    });
+    expect(onDismiss).not.toHaveBeenCalled();
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
   it("uses an assertive live region for errors", async () => {

@@ -10,6 +10,7 @@ export const IconSize = {
   sm: 20,
   md: 22,
   lg: 24,
+  hero: 28,
 } as const;
 
 

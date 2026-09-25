@@ -218,6 +218,16 @@ async def poll_deferred_push_receipts(session: AsyncSession, redis: Redis) -> No
         await session.commit()
 
 
+def android_channel_id(data: dict[str, Any]) -> str:
+    """Match the Android channels created in the mobile app."""
+    kind = data.get("type")
+    if kind in {"learning_review", "learning_continue", "learning_daily_goal"}:
+        return "recall-learning"
+    if kind == "email_suggestion":
+        return "recall-inbox"
+    return "recall-reminders"
+
+
 def _append_outbound(
     out: list[OutboundPush],
     tokens: list[PushToken],
@@ -244,6 +254,7 @@ def _append_outbound(
                     "body": body[:240],
                     "data": data,
                     "sound": "default",
+                    "channelId": android_channel_id(data),
                 },
                 todos=list(todos or []),
                 suggestions=list(suggestions or []),

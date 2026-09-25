@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
 import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -93,7 +94,7 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     sheet: {
       backgroundColor: t.bg,
-      borderRadius: 28,
+      borderRadius: Radius.sheet,
       width: "86%",
       maxWidth: 340,
       padding: 0,
@@ -108,9 +109,9 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      gap: Space.gutter,
-      minHeight: 68,
-      padding: Space.gutter,
+      gap: Space.md,
+      minHeight: 56,
+      padding: Space.md,
       borderRadius: 4,
       backgroundColor: t.settingsSurface,
     },
@@ -120,7 +121,6 @@ function makeStyles(t: Theme) {
     optionText: {
       flex: 1,
       ...Type.body,
-      fontSize: 18,
       color: t.text,
     },
     optionTextDisabled: {
