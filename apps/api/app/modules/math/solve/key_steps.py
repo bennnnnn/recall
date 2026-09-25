@@ -12,6 +12,7 @@ from sympy import (
     Symbol,
     expand,
     factor,
+    im,
     latex,
     simplify,
     solve,
@@ -70,10 +71,19 @@ def _absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | N
     if not solutions:
         return []
     inside = lhs.args[0]
+    # |u|=c splits into u=±c only when u is real. |x+I|=5 is a modulus, not that split.
+    try:
+        if simplify(im(inside)) != 0:
+            return []
+    except Exception:
+        return []
     split = _eq_tex(inside, rhs)
     if rhs != 0:
         split += rf" \quad\text{{or}}\quad {_eq_tex(inside, -rhs)}"
-    final = r" \text{ or } ".join(f"{latex(var)} = {latex(solution)}" for solution in solutions)
+    from app.modules.math.solve.algebra import compact_root_answer_lines
+
+    lines = compact_root_answer_lines(str(var), solutions)
+    final = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
     return [
         KeyStep(label="Split the absolute-value equation", formula=split),
         KeyStep(label="Solve both linear equations", formula=final),

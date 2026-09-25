@@ -135,6 +135,21 @@ def test_absolute_value_equation_gets_a_complete_lesson() -> None:
     assert block.key_steps[-1].formula == block.canonical_answer == r"x = -3 \text{ or } x = 7"
 
 
+def test_absolute_value_of_x_uses_the_plus_minus_chip() -> None:
+    block = _block("|x|=5")
+    assert block is not None
+    assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm 5"
+
+
+def test_complex_modulus_does_not_split_like_a_real_absolute_value() -> None:
+    from sympy import I, Symbol
+
+    from app.modules.math.solve.key_steps import equation_key_steps
+
+    steps = equation_key_steps(abs(Symbol("x") + I), 5, "x")
+    assert steps == []
+
+
 def test_just_the_answer_keeps_the_chip_on_detailed() -> None:
     text = "Just the answer: x^2 + 2 = 6"
     reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
