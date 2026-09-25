@@ -322,12 +322,15 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
                 formula=rf"{latex(var)} = \pm \sqrt{{{latex(radicand)}}}",
             )
         )
-        steps.append(
-            KeyStep(
-                label="Simplify",
-                formula=rf"{latex(var)} = \pm {latex(simplify(sqrt(radicand)))}",
-            )
-        )
+        # Raw sqrt() puts i in the numerator. The chip uses the canonical
+        # conjugate form, so the last step has to come from that formatter.
+        solutions = solve(Eq(var**2, radicand), var)
+        from app.modules.math.solve.algebra import compact_root_answer_lines
+
+        lines = compact_root_answer_lines(str(var), solutions)
+        if lines:
+            formula = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
+            steps.append(KeyStep(label="Simplify", formula=formula))
         return steps
     root = simplify(sqrt(radicand))
     steps.append(

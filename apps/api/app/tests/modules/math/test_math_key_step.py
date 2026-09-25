@@ -135,6 +135,15 @@ def test_complex_pure_power_shows_the_root_before_simplifying() -> None:
     assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm i"
 
 
+def test_negative_rational_root_matches_the_chip() -> None:
+    text = "2x^2 + 1 = 0"
+    block = _block(text)
+    assert block is not None
+    assert block.key_steps[-1].formula == block.canonical_answer
+    assert r"\frac{\sqrt{2}}{2} i" in block.canonical_answer
+    assert r"i}{2}" not in block.key_steps[-1].formula
+
+
 def test_just_the_answer_keeps_the_chip_on_detailed() -> None:
     text = "Just the answer: x^2 + 2 = 6"
     reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
