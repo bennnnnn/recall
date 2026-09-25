@@ -882,7 +882,9 @@ def _persisted_messages(window: list[Any], current_user_message_id: UUID | None)
     """Drop the synthetic current turn. It is not a stored row yet."""
     if current_user_message_id is None:
         return window
-    return [message for message in window if getattr(message, "id", None) != current_user_message_id]
+    return [
+        message for message in window if getattr(message, "id", None) != current_user_message_id
+    ]
 
 
 async def _load_unsummarized_gap(

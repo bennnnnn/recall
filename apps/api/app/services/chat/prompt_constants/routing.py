@@ -238,7 +238,9 @@ def recalls_earlier_conversation(text: str) -> bool:
     cleaned = collapse_ws(text).lower()
     if not cleaned:
         return False
-    return any(_phrase_at_word_boundary(cleaned, phrase) for phrase in _EARLIER_CONVERSATION_PHRASES)
+    return any(
+        _phrase_at_word_boundary(cleaned, phrase) for phrase in _EARLIER_CONVERSATION_PHRASES
+    )
 
 
 def is_learning_progress_question(text: str) -> bool:
