@@ -9,6 +9,7 @@ import { attachmentRecordExists } from "@/lib/api";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   /** Attachment id — used to build the authenticated /file URL. */
@@ -146,7 +147,7 @@ export const GalleryThumbnail = memo(GalleryThumbnailBase);
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     wrap: {
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       overflow: "hidden",
       backgroundColor: C.surface,
     },

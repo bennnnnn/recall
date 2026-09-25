@@ -6,6 +6,8 @@ import { AppSheet } from "@/components/AppSheet";
 import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   visible: boolean;
@@ -63,11 +65,11 @@ function makeStyles(C: Theme) {
       paddingHorizontal: 0,
       paddingTop: 0,
     },
-    body: { padding: 16 },
+    body: { padding: Space.md },
     input: {
       backgroundColor: C.surface,
-      borderRadius: 12,
-      padding: 12,
+      borderRadius: Radius.md,
+      padding: Space.sm,
       ...Type.body,
       color: C.text,
       borderWidth: 1.5,

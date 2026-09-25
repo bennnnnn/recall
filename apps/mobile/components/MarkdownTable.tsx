@@ -17,6 +17,7 @@ import {
 } from "react-native";
 
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 type CellProps = { isLast?: boolean };
 
@@ -344,7 +345,7 @@ function makeStyles(theme: Theme) {
       borderRightColor: theme.border,
     },
     cellInner: {
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
       minWidth: 0,
       flexShrink: 1,

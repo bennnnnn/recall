@@ -16,6 +16,8 @@ import { IconSize, inkIconColor } from "@/lib/icons";
 import { EmailDraft } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { draft: EmailDraft };
 
@@ -224,11 +226,11 @@ function makeStyles(t: Theme) {
       height: 32,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: 8,
+      borderRadius: Radius.xs,
     },
     iconBtnActive: { backgroundColor: t.primaryLight },
     gmailBtnBusy: { opacity: 0.6 },
-    body: { gap: 8 },
+    body: { gap: Space.xs },
     fieldLabel: {
       ...Type.caption,
       fontWeight: "700",
@@ -238,10 +240,10 @@ function makeStyles(t: Theme) {
     },
     input: {
       backgroundColor: t.bg,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       borderWidth: 1,
       borderColor: t.border,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
       ...Type.body,
       color: t.text,

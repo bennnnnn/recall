@@ -21,6 +21,7 @@ import {
 import { subscribeClockTick } from "@/lib/clockTick";
 import { useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 type Props = { content: string };
 
@@ -194,8 +195,8 @@ function makeStyles(theme: Theme) {
     wrap: {
       alignSelf: "stretch",
       alignItems: "center",
-      paddingVertical: 20,
-      paddingHorizontal: 16,
+      paddingVertical: Space.gutter,
+      paddingHorizontal: Space.md,
       marginVertical: 6,
     },
     clockStage: {
@@ -228,7 +229,7 @@ function makeStyles(theme: Theme) {
       fontVariant: ["tabular-nums"],
     },
     tz: {
-      marginTop: 4,
+      marginTop: Space.xxs,
       fontSize: 12,
       color: theme.textSecondary,
       textAlign: "center",

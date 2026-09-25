@@ -18,6 +18,7 @@ import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 type Props = {
   message: string | null;
@@ -143,7 +144,7 @@ function makeStyles(theme: Theme) {
       gap: 10,
       backgroundColor: toastBg,
       borderRadius: Radius.full,
-      paddingHorizontal: 20,
+      paddingHorizontal: Space.gutter,
       paddingVertical: 14,
       maxWidth: 340,
       borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,

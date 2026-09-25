@@ -4,6 +4,7 @@ import { Icon } from "@/components/Icon";
 import { type IoniconName } from "@/lib/icons";
 import { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 /** Shared icon size for attach + chat/drawer action sheets. */
 export const ACTION_SHEET_ICON_SIZE = 20;
@@ -55,7 +56,7 @@ function makeStyles(C: Theme) {
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: 18,
-      paddingVertical: 16,
+      paddingVertical: Space.md,
       gap: 14,
     },
     itemPressed: {

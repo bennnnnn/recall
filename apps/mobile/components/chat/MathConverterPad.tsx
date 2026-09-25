@@ -7,6 +7,7 @@ import { MathConverterUnitSheet } from "@/components/chat/MathConverterUnitSheet
 import { selection as hapticSelection } from "@/lib/haptics";
 import { converterResultSpec, type MathKeyboardSymbol } from "@/lib/math/keyboardSymbols";
 import { Space } from "@/lib/space";
+import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
 import {
   CONVERTER_DEFAULT_DIGITS,
@@ -252,14 +253,14 @@ function Key({
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
-    wrap: { flex: 1, gap: 8 },
+    wrap: { flex: 1, gap: Space.xs },
     io: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 2 },
     col: { flex: 1, gap: 6, minWidth: 0 },
     value: {
       fontSize: 22,
       fontWeight: "700",
       color: theme.text,
-      paddingHorizontal: 4,
+      paddingHorizontal: Space.xxs,
       minHeight: 30,
     },
     valueOut: { color: theme.textSecondary, fontWeight: "600" },
@@ -267,10 +268,10 @@ const makeStyles = (theme: Theme) =>
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 4,
+      gap: Space.xxs,
       minHeight: Space.minTouch,
       paddingHorizontal: 10,
-      borderRadius: 8,
+      borderRadius: Radius.xs,
       backgroundColor: theme.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
@@ -287,7 +288,7 @@ const makeStyles = (theme: Theme) =>
     key: {
       flex: 1,
       minHeight: Space.minTouch,
-      borderRadius: 8,
+      borderRadius: Radius.xs,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: theme.surface,
@@ -296,7 +297,7 @@ const makeStyles = (theme: Theme) =>
     },
     keyAccent: { backgroundColor: theme.primaryLight },
     keyDisabled: { opacity: 0.4 },
-    keyInner: { flexDirection: "row", alignItems: "center", gap: 4 },
+    keyInner: { flexDirection: "row", alignItems: "center", gap: Space.xxs },
     keyLabel: { fontSize: 17, fontWeight: "600", color: theme.text },
     pressed: { opacity: 0.55, transform: [{ scale: 0.97 }] },
   });

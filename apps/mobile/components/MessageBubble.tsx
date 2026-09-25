@@ -36,6 +36,8 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useTranslation } from "react-i18next";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   message: Message;
@@ -529,7 +531,7 @@ const a = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
-    marginTop: 4,
+    marginTop: Space.xxs,
     marginLeft: 2,
   },
   userRow: {
@@ -537,7 +539,7 @@ const a = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 2,
-    marginTop: 4,
+    marginTop: Space.xxs,
     marginRight: 2,
   },
   rowHidden: {
@@ -553,18 +555,18 @@ const a = StyleSheet.create({
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    row: { marginVertical: 6, paddingHorizontal: 16 },
+    row: { marginVertical: 6, paddingHorizontal: Space.md },
     rowHighlighted: {
       backgroundColor: t.primaryLight,
-      borderRadius: 12,
-      marginHorizontal: 8,
-      paddingHorizontal: 8,
+      borderRadius: Radius.md,
+      marginHorizontal: Space.xs,
+      paddingHorizontal: Space.xs,
     },
     userRow: { alignItems: "flex-end" },
     userColumn: { alignItems: "flex-end", maxWidth: "88%" },
     sendingStatus: {
-      marginTop: 4,
-      marginRight: 4,
+      marginTop: Space.xxs,
+      marginRight: Space.xxs,
     },
     sendingLabel: {
       ...Type.compact,
@@ -579,20 +581,20 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      paddingVertical: 4,
+      paddingVertical: Space.xxs,
     },
     imageGenWaitingWrap: {
       flexDirection: "column",
       alignItems: "flex-start",
-      gap: 8,
-      paddingVertical: 4,
+      gap: Space.xs,
+      paddingVertical: Space.xxs,
     },
     statusLabel: {
       ...Type.secondary,
       color: t.textTertiary,
     },
     stoppedFooter: {
-      marginTop: 8,
+      marginTop: Space.xs,
       ...Type.compact,
       color: t.textTertiary,
     },

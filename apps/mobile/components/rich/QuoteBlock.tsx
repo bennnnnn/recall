@@ -5,6 +5,8 @@ import { Icon } from "@/components/Icon";
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { quote?: string; author?: string; children?: ReactNode };
 
@@ -39,16 +41,16 @@ function makeStyles(t: Theme) {
       backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      borderRadius: 20,
+      borderRadius: Radius.sheet,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: Space.sm,
       marginTop: 0,
       marginBottom: 10,
     },
     icon: { marginBottom: 6 },
     quote: { ...Type.body, lineHeight: 24, color: t.text, fontStyle: "italic" },
     author: {
-      marginTop: 8,
+      marginTop: Space.xs,
       ...Type.label,
       color: t.textSecondary,
     },

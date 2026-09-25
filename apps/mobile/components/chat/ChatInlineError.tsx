@@ -8,6 +8,7 @@ import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 type Props = {
   error: ResolvedChatError | null;
@@ -137,24 +138,24 @@ function makeStyles(theme: Theme) {
       right: 12,
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
       backgroundColor: theme.surface,
       borderRadius: Radius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.warning,
-      paddingLeft: 12,
-      paddingRight: 8,
+      paddingLeft: Space.sm,
+      paddingRight: Space.xs,
       paddingVertical: 10,
       ...shadowElevated(theme, "banner"),
       zIndex: 20,
     },
-    body: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 8 },
+    body: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: Space.xs },
     icon: { marginTop: 1, flexShrink: 0 },
     text: { flex: 1, ...Type.compact, color: theme.text },
     cta: {
       backgroundColor: theme.primary,
       borderRadius: Radius.full,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 6,
       minHeight: 44,
       justifyContent: "center",

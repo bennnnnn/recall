@@ -35,6 +35,8 @@ import { HtmlPreviewFilesProvider } from "@/lib/htmlPreviewFiles";
 import { draftFenceProseText } from "@/lib/copyBlock";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { content: string; streaming?: boolean; mathFormat?: (expr: string) => string };
 
@@ -81,13 +83,13 @@ const StreamingPlaceholder = React.memo(function StreamingPlaceholder({
   }, [opacity, reduceMotion]);
   const pulseStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
-    <View style={{ marginVertical: 8 }}>
+    <View style={{ marginVertical: Space.xs }}>
       <Animated.View
         style={[
           {
             width: "100%",
             height,
-            borderRadius: 10,
+            borderRadius: Radius.sm,
             backgroundColor: theme.border,
           },
           pulseStyle,
@@ -117,7 +119,7 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
     return <StreamingPlaceholder height={48} />;
   }
   return (
-    <View style={{ marginVertical: 4 }}>
+    <View style={{ marginVertical: Space.xxs }}>
       <MathText latex={trimmed} textColor={theme.text} />
     </View>
   );

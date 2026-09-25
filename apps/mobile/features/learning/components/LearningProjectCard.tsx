@@ -10,6 +10,8 @@ import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { learningProjectTitle } from "@/features/learning/model/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   project: Learning;
@@ -128,27 +130,27 @@ function makeStyles(theme: Theme) {
       marginBottom: 0,
     },
     card: {
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       backgroundColor: theme.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
       overflow: "hidden",
     },
     mainTap: {
-      gap: 12,
+      gap: Space.sm,
       paddingBottom: 14,
     },
     header: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
+      gap: Space.sm,
       paddingTop: 14,
-      paddingHorizontal: 16,
+      paddingHorizontal: Space.md,
     },
     iconWrap: {
       width: 44,
       height: 44,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       backgroundColor: theme.primaryLight,
       alignItems: "center",
       justifyContent: "center",
@@ -170,14 +172,14 @@ function makeStyles(theme: Theme) {
       lineHeight: 18,
     },
     progressBlock: {
-      paddingHorizontal: 16,
-      gap: 8,
+      paddingHorizontal: Space.md,
+      gap: Space.xs,
     },
     progressMeta: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      gap: 8,
+      gap: Space.xs,
     },
     progressLabel: {
       ...Type.compact,
@@ -209,14 +211,14 @@ function makeStyles(theme: Theme) {
     chipRow: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: 8,
-      paddingHorizontal: 16,
+      gap: Space.xs,
+      paddingHorizontal: Space.md,
     },
     chip: {
       backgroundColor: theme.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
-      borderRadius: 999,
+      borderRadius: Radius.full,
       paddingHorizontal: 10,
       paddingVertical: 5,
       maxWidth: "100%",

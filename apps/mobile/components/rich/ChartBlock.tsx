@@ -25,6 +25,7 @@ import {
 import { CODE_FONT } from "@/lib/fonts";
 import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 import {
   getPreviewWebView,
@@ -230,7 +231,7 @@ function makeStyles(t: Theme) {
     previewPlaceholder: {
       alignItems: "center",
       justifyContent: "center",
-      paddingHorizontal: 16,
+      paddingHorizontal: Space.md,
     },
     previewPlaceholderText: {
       fontSize: 13,

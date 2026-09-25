@@ -15,6 +15,7 @@ import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 import { SMILES_DRAWER_MIN_JS } from "@/lib/vendor/smilesDrawerMinJs";
 import {
   getPreviewWebView,
@@ -219,7 +220,7 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     captionBox: {
       paddingHorizontal: 14,
-      paddingTop: 8,
+      paddingTop: Space.xs,
       paddingBottom: 0,
       backgroundColor: t.bg,
     },
@@ -240,6 +241,6 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
     },
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
-    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
+    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: Space.xs },
   });
 }

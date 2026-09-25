@@ -27,6 +27,7 @@ import { shadowGlow } from "@/lib/shadow";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
 
 /** Frosted-glass tint over the hero gradient — deliberately theme-invariant
  * white, unlike the primary-tinted border below (which DOES follow theme). */
@@ -263,13 +264,13 @@ function makeStyles(theme: Theme) {
     },
     logoGlow: {
       borderRadius: 28,
-      marginBottom: 20,
+      marginBottom: Space.gutter,
       ...shadowGlow(theme, theme.primary),
     },
     logo: {
       width: 88,
       height: 88,
-      borderRadius: 24,
+      borderRadius: Radius.composer,
     },
     title: {
       ...Type.display,
@@ -297,7 +298,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: 6,
       backgroundColor: theme.isDark ? theme.surface : withAlpha(GLASS_WHITE, 0.72),
-      borderRadius: 999,
+      borderRadius: Radius.full,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
       borderWidth: StyleSheet.hairlineWidth,
@@ -306,7 +307,7 @@ function makeStyles(theme: Theme) {
     highlightIcon: {
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       backgroundColor: theme.primaryLight,
       alignItems: "center",
       justifyContent: "center",
@@ -324,7 +325,7 @@ function makeStyles(theme: Theme) {
       alignItems: "flex-start",
       gap: 10,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.08 : 0.5),
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       paddingHorizontal: 14,
       paddingVertical: Space.sm,
       borderWidth: StyleSheet.hairlineWidth,
@@ -349,7 +350,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       gap: 10,
       width: "100%",
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       paddingVertical: Space.md,
       backgroundColor: theme.brand.apple,
     },
@@ -360,7 +361,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       gap: 10,
       width: "100%",
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       borderWidth: 1.5,
       borderColor: theme.isDark
         ? withAlpha(GLASS_WHITE, 0.12)
@@ -378,7 +379,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "center",
       width: "100%",
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       borderWidth: 1.5,
       borderColor: theme.isDark
         ? withAlpha(GLASS_WHITE, 0.12)

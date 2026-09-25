@@ -10,6 +10,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   filter: GalleryFilter;
@@ -117,7 +118,7 @@ function makeStyles(C: Theme) {
       gap: 6,
       minHeight: 44,
       paddingHorizontal: 14,
-      borderRadius: 20,
+      borderRadius: Radius.sheet,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
       backgroundColor: C.surfaceAlt,
@@ -140,8 +141,8 @@ function makeStyles(C: Theme) {
       minHeight: 44,
       justifyContent: "center",
       paddingVertical: Space.xs,
-      paddingHorizontal: 12,
-      borderRadius: 20,
+      paddingHorizontal: Space.sm,
+      borderRadius: Radius.sheet,
       flexGrow: 0,
       flexShrink: 0,
     },

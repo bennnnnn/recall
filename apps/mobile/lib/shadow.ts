@@ -10,10 +10,13 @@ import type { ViewStyle } from "react-native";
 
 import type { Theme } from "@/lib/theme";
 
+/** Neutral shadow ink. Callers outside this file use the helpers or this constant. */
+export const SHADOW_COLOR = "#000";
+
 /** Soft raised surface — quota nudge, light cards. */
 export function shadowRaised(theme: Theme): ViewStyle {
   return {
-    shadowColor: "#000",
+    shadowColor: SHADOW_COLOR,
     shadowOpacity: theme.isDark ? 0.4 : 0.08,
     shadowRadius: theme.isDark ? 8 : 6,
     shadowOffset: { width: 0, height: 2 },
@@ -24,7 +27,7 @@ export function shadowRaised(theme: Theme): ViewStyle {
 /** Floating menu / popover panel. */
 export function shadowOverlay(theme: Theme): ViewStyle {
   return {
-    shadowColor: "#000",
+    shadowColor: SHADOW_COLOR,
     shadowOpacity: theme.isDark ? 0.55 : 0.28,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 },
@@ -38,7 +41,7 @@ type ElevatedLevel = "fab" | "toast" | "banner";
 export function shadowElevated(theme: Theme, level: ElevatedLevel): ViewStyle {
   if (level === "fab") {
     return {
-      shadowColor: "#000",
+      shadowColor: SHADOW_COLOR,
       shadowOpacity: theme.isDark ? 0.35 : 0.18,
       shadowRadius: 10,
       shadowOffset: { width: 0, height: 2 },
@@ -47,7 +50,7 @@ export function shadowElevated(theme: Theme, level: ElevatedLevel): ViewStyle {
   }
   if (level === "banner") {
     return {
-      shadowColor: "#000",
+      shadowColor: SHADOW_COLOR,
       shadowOpacity: theme.isDark ? 0.28 : 0.12,
       shadowRadius: 16,
       shadowOffset: { width: 0, height: 4 },
@@ -55,7 +58,7 @@ export function shadowElevated(theme: Theme, level: ElevatedLevel): ViewStyle {
     };
   }
   return {
-    shadowColor: "#000",
+    shadowColor: SHADOW_COLOR,
     shadowOpacity: theme.isDark ? 0.55 : 0.45,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },

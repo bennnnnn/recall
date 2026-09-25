@@ -15,6 +15,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
 
 const FEATURES = [
   {
@@ -112,7 +113,7 @@ function makeStyles(theme: Theme) {
     badge: {
       width: 72,
       height: 72,
-      borderRadius: 24,
+      borderRadius: Radius.composer,
       backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",
@@ -130,12 +131,12 @@ function makeStyles(theme: Theme) {
       marginTop: Space.xs,
       textAlign: "center",
     },
-    features: { gap: 20, marginBottom: Space.xl + Space.xs },
+    features: { gap: Space.gutter, marginBottom: Space.xl + Space.xs },
     feature: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
     featureIcon: {
       width: 40,
       height: 40,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       backgroundColor: theme.primaryLight,
       alignItems: "center",
       justifyContent: "center",

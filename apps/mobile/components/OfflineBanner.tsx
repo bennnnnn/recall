@@ -7,6 +7,7 @@ import { Layer } from "@/lib/layer";
 import type { ConnectivityStatus } from "@/lib/networkProbe";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 type Props = {
   status: ConnectivityStatus;
@@ -42,9 +43,9 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
-      paddingBottom: 8,
-      paddingHorizontal: 16,
+      gap: Space.xs,
+      paddingBottom: Space.xs,
+      paddingHorizontal: Space.md,
       backgroundColor: theme.warning,
     },
     text: {

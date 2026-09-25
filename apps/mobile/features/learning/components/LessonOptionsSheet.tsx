@@ -8,6 +8,7 @@ import type { LessonFontSize, LessonPrefs } from "@/features/learning/model/less
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   visible: boolean;
@@ -102,7 +103,7 @@ function makeStyles(theme: Theme) {
     fontChip: {
       flex: 1,
       minHeight: Space.minTouch,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: theme.surfaceAlt,

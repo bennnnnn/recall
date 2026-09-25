@@ -10,6 +10,7 @@ import {
 } from "@/lib/math/text";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 type Props = {
   latex: string;
@@ -420,7 +421,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       color,
     },
     fractionalSup: {
-      paddingBottom: 12 * layoutScale,
+      paddingBottom: Space.sm * layoutScale,
     },
     scriptText: {
       fontFamily: MATH_FONT,

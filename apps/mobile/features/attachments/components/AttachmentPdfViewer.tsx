@@ -16,6 +16,7 @@ import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachm
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
 import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 import {
   getPreviewWebView,
@@ -132,15 +133,15 @@ function makeViewerStyles(t: Theme) {
     toolbar: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      gap: Space.sm,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
     title: { flex: 1, ...Type.body, fontWeight: "600", color: t.text },
     body: { flex: 1, alignItems: "center", justifyContent: "center" },
     webview: { flex: 1, width: "100%", backgroundColor: t.bg },
-    error: { ...Type.callout, fontWeight: "400", color: t.textSecondary, paddingHorizontal: 24, textAlign: "center" },
+    error: { ...Type.callout, fontWeight: "400", color: t.textSecondary, paddingHorizontal: Space.lg, textAlign: "center" },
   });
 }

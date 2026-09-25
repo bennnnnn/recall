@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 const BAR_COUNT = 36;
 const MIN_H = 3;
@@ -136,7 +137,7 @@ function makeStyles(t: Theme) {
       minHeight: 28,
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
       paddingVertical: 2,
     },
     status: {

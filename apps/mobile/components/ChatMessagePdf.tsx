@@ -21,6 +21,8 @@ import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachm
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
 import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 import {
   getPreviewWebView,
@@ -173,9 +175,9 @@ function makeStyles(t: Theme, compact: boolean) {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: compact ? 8 : 10,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
@@ -184,7 +186,7 @@ function makeStyles(t: Theme, compact: boolean) {
     iconWrap: {
       width: 36,
       height: 36,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: t.primaryLight,
@@ -193,9 +195,9 @@ function makeStyles(t: Theme, compact: boolean) {
     name: { ...Type.label, color: t.text },
     kind: { ...Type.meta, color: t.textTertiary, marginTop: 2 },
     previewWrap: {
-      marginTop: 8,
+      marginTop: Space.xs,
       height: 180,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       overflow: "hidden",
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,

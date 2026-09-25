@@ -16,6 +16,8 @@ import {
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   paddingTop: number;
@@ -167,8 +169,8 @@ function makeStyles(theme: Theme) {
     header: {
       flexDirection: "row",
       alignItems: "flex-end",
-      paddingHorizontal: 4,
-      paddingBottom: 4,
+      paddingHorizontal: Space.xxs,
+      paddingBottom: Space.xxs,
       backgroundColor: "transparent",
     },
     headerMuted: { opacity: 0.55 },
@@ -177,7 +179,7 @@ function makeStyles(theme: Theme) {
       height: 44,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: 10,
+      borderRadius: Radius.sm,
     },
     headerBtnPressed: { backgroundColor: theme.surfaceAlt },
     headerRight: { flexDirection: "row", alignItems: "center", gap: 2 },
@@ -198,7 +200,7 @@ function makeStyles(theme: Theme) {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      paddingHorizontal: 8,
+      paddingHorizontal: Space.xs,
       minWidth: 0,
     },
     headerTitleText: {

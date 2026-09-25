@@ -6,6 +6,7 @@ import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import {
   UNIT_CATEGORIES,
@@ -113,9 +114,9 @@ const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     sheet: {
       backgroundColor: theme.surface,
-      paddingHorizontal: 16,
-      paddingTop: 8,
-      paddingBottom: 8,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.xs,
+      paddingBottom: Space.xs,
       height: UNIT_PICKER_SHEET_HEIGHT,
     },
     header: {
@@ -131,12 +132,12 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    cats: { gap: 8, paddingBottom: 12 },
+    cats: { gap: Space.xs, paddingBottom: Space.sm },
     cat: {
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       minHeight: Space.minTouch,
       justifyContent: "center",
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       backgroundColor: theme.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,

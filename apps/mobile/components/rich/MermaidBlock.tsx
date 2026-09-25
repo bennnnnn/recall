@@ -29,6 +29,8 @@ import {
 } from "@/lib/webView";
 import { MERMAID_MIN_JS } from "@/lib/vendor/mermaidMinJs";
 import { IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { content: string };
 
@@ -273,7 +275,7 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
     },
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
-    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
+    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: Space.xs },
     iconBtn: {
       width: 32,
       height: 32,
@@ -285,8 +287,8 @@ function makeStyles(t: Theme) {
       alignItems: "center",
       gap: 6,
       paddingVertical: 10,
-      paddingHorizontal: 16,
-      borderRadius: 10,
+      paddingHorizontal: Space.md,
+      borderRadius: Radius.sm,
       backgroundColor: t.primary,
     },
     openLabel: { fontSize: 14, fontWeight: "700", color: t.onPrimary },
