@@ -121,6 +121,9 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     assert "$" in given_line
     assert "Square root" in reply
     assert r"\sqrt{4}" in reply
+    assert "Simplify" in reply
+    before, _, _ = reply.partition("```answer")
+    assert before.index(r"x = \pm \sqrt{4}") < before.index(r"x = \pm 2")
     assert r"\sqrt{x" not in reply
     assert "lvert" not in reply
     assert "```answer" in reply
@@ -138,6 +141,17 @@ def test_square_root_of_a_fraction_simplifies_before_the_chip() -> None:
     assert r"\frac{\sqrt{6}}{3}" in before
     assert before.index(r"\sqrt{\frac{2}{3}}") < before.index(r"\frac{\sqrt{6}}{3}")
     assert r"\frac{\sqrt{6}}{3}" in reply
+
+
+def test_perfect_square_finishes_with_the_same_value_as_the_chip() -> None:
+    text = "3x^2 = 3"
+    block = _block(text)
+    reply = maybe_direct_math_reply(block, text, response_style="balanced")
+
+    assert reply is not None
+    assert block.key_steps[-2].formula == r"x = \pm \sqrt{1}"
+    assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm 1"
+    assert reply.index(r"x = \pm \sqrt{1}") < reply.index(r"x = \pm 1")
 
 
 def test_just_the_answer_keeps_the_chip_on_detailed() -> None:

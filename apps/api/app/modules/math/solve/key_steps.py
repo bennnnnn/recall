@@ -317,16 +317,17 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
         return steps
     if radicand < 0:
         return steps
-    # Show ±√(the value just reached). SymPy's answer chip rationalizes
-    # √(2/3) into √6/3, so write that as its own Simplify step when the
-    # two forms differ. A perfect square (√4 → 2) stays on the chip.
+    # Show the root operation, then make any reduction its own final step.
+    # That keeps the last displayed equation identical to the answer chip
+    # without hiding the root that produced it.
     if radicand == 0:
         steps.append(KeyStep(label="Square root", formula=rf"{latex(var)} = \sqrt{{0}}"))
+        steps.append(KeyStep(label="Simplify", formula=rf"{latex(var)} = 0"))
         return steps
     written = rf"\sqrt{{{latex(radicand)}}}"
     steps.append(KeyStep(label="Square root", formula=rf"{latex(var)} = \pm {written}"))
     reduced = latex(simplify(sqrt(radicand)))
-    if reduced != written and r"\sqrt" in reduced:
+    if reduced != written:
         steps.append(KeyStep(label="Simplify", formula=rf"{latex(var)} = \pm {reduced}"))
     return steps
 
