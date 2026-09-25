@@ -101,27 +101,28 @@ function unwrapSingle(node: AstNode): AstNode {
   return current;
 }
 
-/** `**1. Simplify**` is the whole paragraph. The number gets its own badge. */
-function lessonStepParts(node: AstNode): { n: string; label: string } | null {
+/** A generated lesson heading, optionally followed by its formula on a new line. */
+function lessonStepParts(
+  node: AstNode,
+): { n: string; label: string; formula: string | null } | null {
   const kids = unwrapSingle(node).children ?? [];
   const first = kids[0];
   if (!first || first.type !== "strong") return null;
   const match = LESSON_STEP_RE.exec(astText(first).trim());
   if (!match) return null;
+
   const tail = kids
     .slice(1)
-    .map((kid) => astText(kid))
-    .join("")
-    .trim();
-  const label = (tail ? `${match[2]} ${tail}` : match[2]).replace(/\$[^$]+\$/g, "").trim();
-  return { n: match[1], label };
-}
+    .map((kid) => astTextWithBreaks(kid))
+    .join("");
+  if (!tail.trim()) return { n: match[1], label: match[2], formula: null };
 
-function lessonFormula(node: AstNode): string | null {
-  const raw = astTextWithBreaks(unwrapSingle(node));
-  const match = /\$([^$]+)\$/.exec(raw);
-  const formula = match?.[1]?.trim();
-  return formula ? formula : null;
+  // The API emits exactly a soft break followed by one formula. Anything
+  // inline after the bold heading (links, code, prose, or inline math) is
+  // ordinary Markdown and must keep its original rendered children.
+  const formulaMatch = /^\s*\n+\s*\$([^$\n]+)\$\s*$/.exec(tail);
+  const formula = formulaMatch?.[1]?.trim();
+  return formula ? { n: match[1], label: match[2], formula } : null;
 }
 
 /**
@@ -521,7 +522,6 @@ function makeSharedRules(
       }
       const step = lessonStepParts(node);
       if (step) {
-        const formula = lessonFormula(node);
         return (
           <View key={node.key} testID="lesson-step" style={styles.paragraphRun}>
             <View
@@ -559,9 +559,9 @@ function makeSharedRules(
                 {step.label}
               </Text>
             </View>
-            {formula ? (
+            {step.formula ? (
               <View testID="lesson-step-formula" style={{ paddingLeft: Space.xl }}>
-                <MathText latex={formula} />
+                <MathText latex={step.formula} />
               </View>
             ) : null}
           </View>

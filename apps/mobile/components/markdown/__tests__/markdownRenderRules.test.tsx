@@ -332,4 +332,22 @@ describe("markdown render rules", () => {
     );
     expect(getByTestId("lesson-step-formula")).toBeOnTheScreen();
   });
+
+  it("preserves a link after a numbered bold paragraph", async () => {
+    const { getByRole, queryByTestId } = await render(
+      <MarkdownContent
+        content={"**1. Resource** [docs](https://example.com/docs)"}
+      />,
+    );
+    expect(queryByTestId("lesson-step")).toBeNull();
+    expect(getByRole("link", { name: "docs" })).toBeOnTheScreen();
+  });
+
+  it.each([
+    "**1. Result** $x^2$",
+    "**1. Command** `pnpm test`",
+  ])("leaves non-lesson inline content in the markdown renderer: %s", async (content) => {
+    const { queryByTestId } = await render(<MarkdownContent content={content} />);
+    expect(queryByTestId("lesson-step")).toBeNull();
+  });
 });
