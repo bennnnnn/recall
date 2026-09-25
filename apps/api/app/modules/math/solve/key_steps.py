@@ -36,6 +36,11 @@ def stringify_key_steps(steps: list[KeyStep]) -> list[str]:
 
 def equation_key_steps(lhs: Any, rhs: Any, variable: str) -> list[KeyStep]:
     """Structured working from the original sides. Empty when the shape is unsupported."""
+    symbols = getattr(lhs, "free_symbols", set()) | getattr(rhs, "free_symbols", set())
+    parsed_var = next((symbol for symbol in symbols if str(symbol) == variable), Symbol(variable))
+    absolute_steps = _absolute_value_key_steps(lhs, rhs, parsed_var)
+    if absolute_steps is not None:
+        return absolute_steps
     try:
         var = Symbol(variable)
         poly = Poly(simplify(lhs - rhs), var)
@@ -47,6 +52,32 @@ def equation_key_steps(lhs: Any, rhs: Any, variable: str) -> list[KeyStep]:
     if degree == 2:
         return _quadratic_key_steps(lhs, rhs, var, poly)
     return []
+
+
+def _absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+    if getattr(rhs, "func", None) is Abs and getattr(lhs, "func", None) is not Abs:
+        lhs, rhs = rhs, lhs
+    if getattr(lhs, "func", None) is not Abs:
+        return None
+    if var in getattr(rhs, "free_symbols", set()) or not getattr(rhs, "is_number", False):
+        return []
+    try:
+        if rhs < 0 or Poly(lhs.args[0], var).degree() != 1:
+            return []
+        solutions = solve(Eq(lhs, rhs), var)
+    except Exception:
+        return []
+    if not solutions:
+        return []
+    inside = lhs.args[0]
+    split = _eq_tex(inside, rhs)
+    if rhs != 0:
+        split += rf" \quad\text{{or}}\quad {_eq_tex(inside, -rhs)}"
+    final = r" \text{ or } ".join(f"{latex(var)} = {latex(solution)}" for solution in solutions)
+    return [
+        KeyStep(label="Split the absolute-value equation", formula=split),
+        KeyStep(label="Solve both linear equations", formula=final),
+    ]
 
 
 def equation_check_latex(lhs: Any, rhs: Any, variable: str) -> str | None:
