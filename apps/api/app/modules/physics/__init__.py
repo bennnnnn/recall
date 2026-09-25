@@ -37,6 +37,7 @@ _EXPORTS = {
     "format_direct_physics_working": ("direct", "format_direct_physics_working"),
     "has_supported_physics_cue": ("extract", "has_supported_physics_cue"),
     "prepare_physics_request": ("request", "prepare_physics_request"),
+    "solve_physics": ("solver", "solve_physics"),
 }
 
 __all__ = list(_EXPORTS)

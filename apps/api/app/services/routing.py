@@ -301,7 +301,7 @@ def _should_inherit_smart(
     return _looks_like_smart_continuation(content)
 
 
-def _route_current_line(content: str) -> str:
+def _route_current_line(content: str, settings: Settings | None = None) -> str:
     """Score this message alone — no prior-turn inherit."""
     text = content.lower()
     smart = model_catalog.auto_smart_alias()
@@ -312,8 +312,9 @@ def _route_current_line(content: str) -> str:
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
-    if _looks_like_physics_homework(content):
-        return smart
+    physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
+    if physics_alias is not None:
+        return physics_alias
     # Math / structured turns (equations, graphs, geometry, calculus, stats,
     # …) route to the smart model up front. A weak model on a math ask used to
     # produce wrong worked steps even with SymPy-verified fences injected, so
@@ -332,6 +333,7 @@ def route_chat_model(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    settings: Settings | None = None,
 ) -> str:
     """Return a preferred chat alias for an auto-routed message (before pool filter).
 
@@ -339,7 +341,7 @@ def route_chat_model(
     turn inherits Pro; a new topic does not pin the rest of the chat.
     """
     smart = model_catalog.auto_smart_alias()
-    preferred = _route_current_line(content)
+    preferred = _route_current_line(content, settings)
     if preferred == smart:
         return smart
     if (
@@ -349,6 +351,48 @@ def route_chat_model(
     ):
         return smart
     return preferred
+
+
+def _physics_intent_solves(intent: Any) -> bool:
+    from app.modules.physics import solve_physics
+    from app.services.solving import MathServiceError
+
+    try:
+        solve_physics(intent)
+    except MathServiceError:
+        return False
+    return True
+
+
+def _physics_route(
+    content: str,
+    *,
+    fast: str,
+    smart: str,
+    settings: Settings | None = None,
+) -> str | None:
+    """Verified physics stays on the fast model. Uncovered homework goes smart.
+
+    The fast tier is only for a template the solver actually finishes, and
+    only while math tools are on. Otherwise the strong model answers it.
+    """
+    homework = _looks_like_physics_homework(content)
+    from app.modules.math.match import needs_symbolic
+
+    if not homework and not needs_symbolic(content):
+        return None
+    from app.models.schemas.physics.intent import PhysicsIntent
+    from app.modules.math.tools.extract import extract_math_intent
+
+    intent = extract_math_intent(content)
+    if isinstance(intent, PhysicsIntent):
+        tools_on = settings is None or settings.math_tools_enabled
+        if tools_on and _physics_intent_solves(intent):
+            return fast
+        return smart
+    if homework:
+        return smart
+    return None
 
 
 def _verified_math_stays_fast(content: str) -> bool:
@@ -399,7 +443,12 @@ def resolve_alias_in_pool(
         return model_catalog.auto_fast_alias()
 
     if alias == "auto":
-        preferred = route_chat_model(content, prior_user=prior_user, prior_model=prior_model)
+        preferred = route_chat_model(
+            content,
+            prior_user=prior_user,
+            prior_model=prior_model,
+            settings=settings,
+        )
         return _pick_preferred_tier(preferred, pool)
 
     if alias == "fast":
