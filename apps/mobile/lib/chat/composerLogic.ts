@@ -111,6 +111,24 @@ export function isComposerMenuOverlayOpen(attachSheetOpen: boolean): boolean {
   return attachSheetOpen;
 }
 
+export type ComposerNativeInputTraits = {
+  autoCorrect: boolean;
+  spellCheck: boolean;
+  autoCapitalize: "none" | "sentences";
+};
+
+/**
+ * Ordinary chat is a messaging field. The math pad is a controlled editor, so
+ * it turns correction off only while that editor owns the input — not for the
+ * whole session, and not because the draft happens to contain an equation.
+ */
+export function composerNativeInputTraits(mathEditorOpen: boolean): ComposerNativeInputTraits {
+  if (mathEditorOpen) {
+    return { autoCorrect: false, spellCheck: false, autoCapitalize: "none" };
+  }
+  return { autoCorrect: true, spellCheck: true, autoCapitalize: "sentences" };
+}
+
 /** Mic when empty; send when there is text/attachment. Never both (except stop while streaming). */
 export function composerShowsMic(options: {
   voiceAvailable: boolean;

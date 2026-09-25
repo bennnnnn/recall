@@ -1,6 +1,7 @@
 import {
   buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
+  composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
   computeChatLayoutMetrics,
@@ -124,6 +125,19 @@ describe("chatComposerLogic", () => {
   it("isComposerMenuOverlayOpen reflects attach sheet", () => {
     expect(isComposerMenuOverlayOpen(false)).toBe(false);
     expect(isComposerMenuOverlayOpen(true)).toBe(true);
+  });
+
+  it("composer input is a messaging field until the math editor owns it", () => {
+    expect(composerNativeInputTraits(false)).toEqual({
+      autoCorrect: true,
+      spellCheck: true,
+      autoCapitalize: "sentences",
+    });
+    expect(composerNativeInputTraits(true)).toEqual({
+      autoCorrect: false,
+      spellCheck: false,
+      autoCapitalize: "none",
+    });
   });
 
   it("composerShowsMic and composerShowsSend are mutually exclusive for typed text", () => {
