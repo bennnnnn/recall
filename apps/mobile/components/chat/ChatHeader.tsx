@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef, type RefObject } from "react";
 import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -30,6 +30,8 @@ type Props = {
   onOpenDrawer: () => void;
   onNewChat: () => void;
   onOpenMenu: () => void;
+  /** Attached to ⋮ so the chat menu opens from it. */
+  menuAnchorRef?: RefObject<View | null>;
 };
 
 export const ChatHeader = memo(function ChatHeader({
@@ -44,6 +46,7 @@ export const ChatHeader = memo(function ChatHeader({
   onOpenDrawer,
   onNewChat,
   onOpenMenu,
+  menuAnchorRef,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -133,6 +136,7 @@ export const ChatHeader = memo(function ChatHeader({
                 icon={<Icon name="edit" size={IconSize.md} color={theme.text} />}
               />
               <IconButton
+                ref={menuAnchorRef}
                 style={s.actionGroupBtn}
                 pressedStyle={s.actionGroupBtnPressed}
                 onPress={onOpenMenu}

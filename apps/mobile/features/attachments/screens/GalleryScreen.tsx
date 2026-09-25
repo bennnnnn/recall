@@ -80,8 +80,8 @@ export default function GalleryScreen() {
             item={item}
             fileName={fileName}
             onPress={onPress}
-            onLongPress={() => {
-              if (!pickMode) library.openActions(item);
+            onLongPress={(point) => {
+              if (!pickMode) library.openActions(item, point);
             }}
             onMissing={removeItem}
           />
@@ -91,8 +91,10 @@ export default function GalleryScreen() {
         return (
           <Pressable
             onPress={onPress}
-            onLongPress={() => {
-              if (!pickMode) library.openActions(item);
+            onLongPress={(event) => {
+              if (!pickMode) {
+                library.openActions(item, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+              }
             }}
             accessibilityRole="button"
             accessibilityLabel={
@@ -111,8 +113,10 @@ export default function GalleryScreen() {
       return (
         <Pressable
           onPress={onPress}
-          onLongPress={() => {
-            if (!pickMode) library.openActions(item);
+          onLongPress={(event) => {
+            if (!pickMode) {
+              library.openActions(item, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+            }
           }}
           accessibilityRole="button"
           accessibilityLabel={

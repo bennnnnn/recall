@@ -1,7 +1,6 @@
 import { StyleSheet } from "react-native";
 
 import { Radius } from "@/lib/radius";
-import { shadowOverlay } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
@@ -233,45 +232,6 @@ export function makeTodosStyles(C: Theme) {
       borderTopColor: C.border,
     },
     todoRowSelected: { backgroundColor: C.primaryLight },
-    menuLayer: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      zIndex: 50,
-      elevation: 50,
-    },
-    menuScrim: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-    },
-    menuCard: {
-      position: "absolute",
-      top: Space.xs,
-      right: Space.sm,
-      minWidth: 220,
-      borderRadius: Radius.lg,
-      backgroundColor: C.bg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-      paddingVertical: Space.xs,
-      zIndex: 1,
-      elevation: 12,
-      ...shadowOverlay(C),
-    },
-    menuItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: Space.minTouch,
-      paddingHorizontal: Space.md,
-    },
-    menuItemPressed: { backgroundColor: C.surfaceAlt },
-    menuLabel: { flex: 1, ...Type.body, color: C.text },
     filterEmpty: {
       ...Type.body,
       color: C.textSecondary,

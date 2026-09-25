@@ -59,6 +59,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailMenu, setDetailMenu] = useState(false);
   const editRef = useRef<TodoEditorHandle>(null);
+  /** Header ⋮ — both the list menu and the detail menu drop from it. */
+  const menuAnchorRef = useRef<View>(null);
   const [view, setView] = useState<TodoView>("all");
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -171,6 +173,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }
         return (
           <IconButton
+            ref={menuAnchorRef}
             name="more-horizontal"
             size={IconSize.md}
             color={C.text}
@@ -299,20 +302,20 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       />
       )}
 
-      {menuOpen && !selecting && !detailOpen ? (
-        <TodosViewMenu
-          view={view}
-          onView={(next) => {
-            setView(next);
-            leaveSelection();
-          }}
-          onSelect={() => {
-            setSelectedIds([]);
-            setSelecting(true);
-          }}
-          onClose={() => setMenuOpen(false)}
-        />
-      ) : null}
+      <TodosViewMenu
+        visible={menuOpen && !selecting && !detailOpen}
+        anchorRef={menuAnchorRef}
+        view={view}
+        onView={(next) => {
+          setView(next);
+          leaveSelection();
+        }}
+        onSelect={() => {
+          setSelectedIds([]);
+          setSelecting(true);
+        }}
+        onClose={() => setMenuOpen(false)}
+      />
 
       {selecting ? (
         <TodoSelectionBar
@@ -368,37 +371,37 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }}
       />
 
-      {detailMenu && actions.editingTodo ? (
-        <TodoDetailMenu
-          checked={todos.find((todo) => todo.id === actions.editingTodo?.id)?.checked ?? actions.editingTodo.checked}
-          onMarkDone={() => {
-            const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;
-            setDetailMenu(false);
-            if (!current) return;
-            const draft = editRef.current?.pending() ?? null;
-            void (async () => {
-              if (draft) {
-                const saved = await actions.handleUpdateTodo(
-                  current,
-                  draft.content,
-                  draft.dueDate,
-                  draft.recurrence,
-                  draft.topic,
-                  false,
-                );
-                if (!saved) return;
-              }
-              await actions.handleToggle(current);
-            })();
-          }}
-          onDelete={() => {
-            const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;
-            setDetailMenu(false);
-            if (current) actions.handleDeleteItem(current);
-          }}
-          onClose={() => setDetailMenu(false)}
-        />
-      ) : null}
+      <TodoDetailMenu
+        visible={detailMenu && actions.editingTodo != null}
+        anchorRef={menuAnchorRef}
+        checked={todos.find((todo) => todo.id === actions.editingTodo?.id)?.checked ?? actions.editingTodo?.checked ?? false}
+        onMarkDone={() => {
+          const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;
+          setDetailMenu(false);
+          if (!current) return;
+          const draft = editRef.current?.pending() ?? null;
+          void (async () => {
+            if (draft) {
+              const saved = await actions.handleUpdateTodo(
+                current,
+                draft.content,
+                draft.dueDate,
+                draft.recurrence,
+                draft.topic,
+                false,
+              );
+              if (!saved) return;
+            }
+            await actions.handleToggle(current);
+          })();
+        }}
+        onDelete={() => {
+          const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;
+          setDetailMenu(false);
+          if (current) actions.handleDeleteItem(current);
+        }}
+        onClose={() => setDetailMenu(false)}
+      />
     </View>
   );
 }

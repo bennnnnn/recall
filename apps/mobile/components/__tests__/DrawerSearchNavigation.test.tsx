@@ -33,7 +33,7 @@ jest.mock("@/hooks/useChatMenuActions", () => ({ useChatMenuActions: () => ({}) 
 jest.mock("@/hooks/useDrawerChatSelection", () => ({ useDrawerChatSelection: () => ({ selectedIds: new Set(), selectedCount: 0 }) }));
 jest.mock("@/features/todos/hooks/useReminderBadgeCount", () => ({ useReminderBadgeCount: () => ({}) }));
 jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));
-jest.mock("@/components/ChatActionsSheet", () => ({ ChatActionsSheet: () => null }));
+jest.mock("@/components/ChatActionsMenu", () => ({ ChatActionsMenu: () => null }));
 jest.mock("@/components/ChatRenameSheet", () => ({ ChatRenameSheet: () => null }));
 jest.mock("@/components/drawer/DrawerListHeader", () => ({ DrawerListHeader: () => null }));
 jest.mock("@/components/drawer/DrawerFooter", () => ({ DrawerFooter: (props: typeof mockFooter) => { mockFooter = props; return null; } }));

@@ -101,6 +101,12 @@ jestGlobals.mock("react-native-gesture-handler", () => {
 
 // expo-constants pulls expo-modules-core's native EventEmitter in this env.
 // Standalone (not Expo Go) so native-module gates probe their module mock.
+// Screens render without a SafeAreaProvider in tests. The library's own mock
+// reports zero insets there; files that mock the module themselves still win.
+jestGlobals.mock("react-native-safe-area-context", () =>
+  require("react-native-safe-area-context/jest/mock").default,
+);
+
 jestGlobals.mock("expo-constants", () => ({
   __esModule: true,
   default: { executionEnvironment: "standalone", appOwnership: null },

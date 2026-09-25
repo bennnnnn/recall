@@ -1,8 +1,13 @@
-import { ChatActionsSheet } from "@/components/ChatActionsSheet";
+import type { RefObject } from "react";
+import type { View } from "react-native";
+
+import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 
 type Props = {
   menuVisible: boolean;
+  /** The header ⋮ button the menu drops from. */
+  menuAnchorRef: RefObject<View | null>;
   chatTitle: string | null;
   pinned: boolean;
   archived: boolean;
@@ -22,6 +27,7 @@ type Props = {
 
 export function ChatScreenMenuSheets({
   menuVisible,
+  menuAnchorRef,
   chatTitle,
   pinned,
   archived,
@@ -40,8 +46,9 @@ export function ChatScreenMenuSheets({
 }: Props) {
   return (
     <>
-      <ChatActionsSheet
+      <ChatActionsMenu
         visible={menuVisible}
+        anchorRef={menuAnchorRef}
         title={chatTitle}
         pinned={pinned}
         archived={archived}

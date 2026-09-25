@@ -85,8 +85,8 @@ jest.mock("@/ui/feedback/StateView", () => {
     ),
   };
 });
-jest.mock("@/features/job-search/components/JobSearchActionsSheet", () => ({
-  JobSearchActionsSheet: () => null,
+jest.mock("@/features/job-search/components/JobSearchActionsMenu", () => ({
+  JobSearchActionsMenu: () => null,
 }));
 
 beforeEach(() => {

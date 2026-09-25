@@ -1,22 +1,15 @@
 import { useMemo, useRef, useState } from "react";
-import {
-  Dimensions,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import type { IconName } from "@/ui/icons/names";
 import { Radius } from "@/lib/radius";
-import { SHADOW_COLOR } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { Menu } from "@/ui/overlay/Menu";
 
 export type JobStageFilterValue =
   "all" | "applied" | "interviewing" | "offer" | "rejected";
@@ -28,8 +21,6 @@ type Props = {
   onOpen: () => void;
   onChange: (value: JobStageFilterValue) => void;
 };
-
-type Anchor = { x: number; y: number; width: number; height: number };
 
 const OPTIONS: {
   value: JobStageFilterValue;
@@ -66,40 +57,16 @@ export function JobStageFilter({
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const [open, setOpen] = useState(false);
-  const [anchor, setAnchor] = useState<Anchor>({
-    x: Space.md,
-    y: 160,
-    width: Dimensions.get("window").width - Space.md * 2,
-    height: 58,
-  });
   const selectRef = useRef<View>(null);
   const selected =
     OPTIONS.find((option) => option.value === value) ?? OPTIONS[0];
   const selectedLabel = t(selected.labelKey);
   const tabLabel = value === "all" ? t("my_job.pipeline") : selectedLabel;
   const tabCount = counts[value];
-  const window = Dimensions.get("window");
-  const menuHeight = OPTIONS.length * 52 + Space.sm * 2;
-  const menuWidth = Math.max(
-    220,
-    Math.min(anchor.width, window.width - Space.md * 2),
-  );
-  const menuLeft = Math.max(
-    Space.md,
-    Math.min(anchor.x, window.width - menuWidth - Space.md),
-  );
-  const belowTop = anchor.y + anchor.height + Space.xs;
-  const menuTop =
-    belowTop + menuHeight <= window.height - Space.md
-      ? belowTop
-      : Math.max(Space.md, anchor.y - menuHeight - Space.xs);
 
   const openMenu = () => {
     onOpen();
     setOpen(true);
-    selectRef.current?.measureInWindow?.((x, y, width, height) => {
-      setAnchor({ x, y, width, height });
-    });
   };
 
   return (
@@ -131,61 +98,21 @@ export function JobStageFilter({
         />
       </Pressable>
 
-      <Modal
+      <Menu
         visible={open}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setOpen(false)}
-      >
-        <View style={s.overlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setOpen(false)}
-            accessibilityLabel={t("common.close")}
-            accessibilityRole="button"
-          />
-          <View
-            style={[s.menu, { top: menuTop, left: menuLeft, width: menuWidth }]}
-            accessibilityViewIsModal
-          >
-            {OPTIONS.map((option) => {
-              const active = option.value === value;
-              return (
-                <Pressable
-                  key={option.value}
-                  style={({ pressed }) => [
-                    s.option,
-                    active && s.optionActive,
-                    pressed && s.optionPressed,
-                  ]}
-                  onPress={() => {
-                    onChange(option.value);
-                    setOpen(false);
-                  }}
-                  accessibilityRole="radio"
-                  accessibilityLabel={t(option.labelKey)}
-                  accessibilityState={{ selected: active }}
-                >
-                  <Icon
-                    name={option.icon}
-                    size={IconSize.sm}
-                    color={active ? C.primary : C.textSecondary}
-                  />
-                  <Text style={[s.optionLabel, active && s.optionLabelActive]}>
-                    {t(option.labelKey)}
-                  </Text>
-                  {counts[option.value] > 0 ? (
-                    <Text style={s.optionCount}>{counts[option.value]}</Text>
-                  ) : null}
-                  {active ? (
-                    <Icon name="check" size={IconSize.sm} color={C.primary} />
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setOpen(false)}
+        anchorRef={selectRef}
+        selectable
+        testID="job-stage-menu"
+        items={OPTIONS.map((option) => ({
+          key: option.value,
+          icon: option.icon,
+          label: t(option.labelKey),
+          selected: option.value === value,
+          trailing: counts[option.value] > 0 ? String(counts[option.value]) : undefined,
+          onPress: () => onChange(option.value),
+        }))}
+      />
     </>
   );
 }
@@ -216,33 +143,6 @@ function makeStyles(C: Theme) {
     countText: { ...Type.caption, color: C.textSecondary, ...Weight.bold },
     countBadgeActive: { backgroundColor: C.primaryLight },
     countTextActive: { color: C.primary },
-    overlay: { flex: 1 },
-    menu: {
-      position: "absolute",
-      padding: Space.xs,
-      borderRadius: Radius.xl,
-      backgroundColor: C.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-      shadowColor: SHADOW_COLOR,
-      shadowOpacity: 0.16,
-      shadowRadius: 18,
-      shadowOffset: { width: 0, height: 8 },
-      elevation: 10,
-    },
-    option: {
-      minHeight: 52,
-      paddingHorizontal: Space.md,
-      borderRadius: Radius.md,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-    },
-    optionActive: { backgroundColor: C.primaryLight },
-    optionPressed: { backgroundColor: C.surfaceAlt },
-    optionLabel: { ...Type.body, color: C.text, flex: 1 },
-    optionLabelActive: { color: C.primary, ...Weight.bold },
-    optionCount: { ...Type.compact, color: C.textTertiary },
     pressed: { opacity: 0.68 },
   });
 }

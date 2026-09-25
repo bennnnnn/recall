@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
 import {
   Alert,
@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { JobMatchCard } from "@/features/job-search/components/JobMatchCard";
-import { JobSearchActionsSheet } from "@/features/job-search/components/JobSearchActionsSheet";
+import { JobSearchActionsMenu } from "@/features/job-search/components/JobSearchActionsMenu";
 import {
   JobStageFilter,
   type JobStageFilterValue,
@@ -114,6 +114,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const [stageFilter, setStageFilter] = useState<JobStageFilterValue>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuAnchorRef = useRef<View>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -353,6 +354,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                   </Text>
                 </View>
                 <Pressable
+                  ref={menuAnchorRef}
                   style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
                   onPress={() => {
                     tap();
@@ -445,8 +447,9 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
           />
         )}
       />
-      <JobSearchActionsSheet
+      <JobSearchActionsMenu
         visible={menuOpen}
+        anchorRef={menuAnchorRef}
         paused={profile.status === "paused"}
         busy={busy}
         onClose={() => setMenuOpen(false)}

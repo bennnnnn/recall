@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { clearChatHighlightGlobal, closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/lib/theme";
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
-import { ChatActionsSheet } from "@/components/ChatActionsSheet";
+import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -193,9 +193,11 @@ export function ConversationList() {
     router.push("/gallery");
   }, [router, token]);
 
+  const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | null>(null);
   const onShowRowMenu = useCallback(
-    (chat: Chat) => {
+    (chat: Chat, point: { x: number; y: number }) => {
       tap();
+      setMenuPoint(point);
       showRowMenu(chat);
     },
     [showRowMenu],
@@ -292,8 +294,9 @@ export function ConversationList() {
 
   return (
     <View style={s.root}>
-      <ChatActionsSheet
+      <ChatActionsMenu
         visible={menuChat != null}
+        anchorPoint={menuPoint}
         title={menuChat?.title ?? null}
         pinned={menuChat?.pinned ?? false}
         archived={menuChat?.archived ?? false}

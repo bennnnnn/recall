@@ -9,7 +9,7 @@ import {
   type RefObject,
 } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
-import { type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
+import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type ViewStyle } from "react-native";
 import { type AnimatedStyle } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
@@ -70,6 +70,8 @@ export type UseChatScreenBodyPropsParams = {
     startNewChat: (opts?: { force?: boolean }) => void;
     setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
     menuOverlayOpen: boolean;
+    /** The header ⋮ button; the chat menu drops from it. */
+    menuAnchorRef: RefObject<View | null>;
   };
   /** Message list data + scroll/pagination handlers for ChatMessageList. */
   list: {
@@ -151,6 +153,7 @@ export function useChatScreenBodyProps({
     startNewChat,
     setMenuVisible,
     menuOverlayOpen,
+    menuAnchorRef,
   },
   list: {
     listRef,
@@ -311,6 +314,7 @@ export function useChatScreenBodyProps({
           onOpenDrawer={openDrawer}
           onNewChat={startNewChat}
           onOpenMenu={() => setMenuVisible((v) => !v)}
+          menuAnchorRef={menuAnchorRef}
         />
       ) : null,
     [
@@ -326,6 +330,7 @@ export function useChatScreenBodyProps({
       routeChatId,
       startNewChat,
       setMenuVisible,
+      menuAnchorRef,
     ],
   );
 

@@ -40,7 +40,7 @@ describe("DialogHost", () => {
       answer = confirm({ title: "Sign out?", confirmLabel: "Sign out", cancelLabel: "Cancel" });
     });
     expect(view.getByText("Sign out?")).toBeTruthy();
-    fireEvent.press(view.getByRole("button", { name: "Sign out" }));
+    await fireEvent.press(view.getByRole("button", { name: "Sign out" }));
     await expect(answer).resolves.toBe(true);
   });
 
@@ -50,7 +50,7 @@ describe("DialogHost", () => {
     await act(async () => {
       first = confirm({ title: "Archive all?", confirmLabel: "Archive", cancelLabel: "Cancel" });
     });
-    fireEvent.press(view.getByRole("button", { name: "Cancel" }));
+    await fireEvent.press(view.getByRole("button", { name: "Cancel" }));
     await expect(first).resolves.toBe(false);
 
     await waitFor(() => expect(view.queryByText("Archive all?")).toBeNull());
@@ -59,7 +59,7 @@ describe("DialogHost", () => {
       second = confirm({ title: "Revoke?", confirmLabel: "Revoke", cancelLabel: "Cancel" });
     });
     await waitFor(() => expect(view.getByText("Revoke?")).toBeTruthy());
-    fireEvent.press(view.getByTestId("overlay-scrim", { includeHiddenElements: true }));
+    await fireEvent.press(view.getByTestId("overlay-scrim", { includeHiddenElements: true }));
     await expect(second).resolves.toBe(false);
   });
 
@@ -73,10 +73,10 @@ describe("DialogHost", () => {
     });
     expect(view.getByText("First")).toBeTruthy();
     expect(view.queryByText("Second")).toBeNull();
-    fireEvent.press(view.getByRole("button", { name: "common.ok" }));
+    await fireEvent.press(view.getByRole("button", { name: "common.ok" }));
     await first;
     await waitFor(() => expect(view.getByText("Second")).toBeTruthy());
-    fireEvent.press(view.getByRole("button", { name: "common.ok" }));
+    await fireEvent.press(view.getByRole("button", { name: "common.ok" }));
     await second;
   });
 });

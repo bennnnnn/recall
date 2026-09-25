@@ -51,7 +51,7 @@ type Props = {
   activeChatId?: string | null;
   onOpenChat: (id: string, messageId?: string | null) => void;
   onOpenSearchResult: (id: string, messageId?: string | null) => void;
-  onShowRowMenu: (chat: Chat) => void;
+  onShowRowMenu: (chat: Chat, point: { x: number; y: number }) => void;
   selectionMode?: boolean;
   selectedIds?: ReadonlySet<string>;
   onToggleSelect?: (chatId: string) => void;

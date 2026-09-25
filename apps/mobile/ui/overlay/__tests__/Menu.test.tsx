@@ -36,7 +36,7 @@ describe("Menu", () => {
     const onClose = jest.fn(() => order.push("close"));
     const onShare = jest.fn(() => order.push("share"));
     const view = await render(<Menu visible onClose={onClose} items={items(onShare)} />);
-    fireEvent.press(view.getByRole("menuitem", { name: "Share" }));
+    await fireEvent.press(view.getByRole("menuitem", { name: "Share" }));
     expect(order).toEqual(["close", "share"]);
   });
 
@@ -73,7 +73,7 @@ describe("Menu", () => {
         items={[{ key: "x", label: "Pro only", onPress, disabled: true }]}
       />,
     );
-    fireEvent.press(view.getByRole("menuitem", { name: "Pro only" }));
+    await fireEvent.press(view.getByRole("menuitem", { name: "Pro only" }));
     expect(onPress).not.toHaveBeenCalled();
   });
 
@@ -89,7 +89,7 @@ describe("Menu", () => {
     );
     // The card is the accessibility modal, so its sibling scrim is hidden
     // from screen readers (they close with the escape gesture instead).
-    fireEvent.press(view.getByTestId("menu-scrim", { includeHiddenElements: true }));
+    await fireEvent.press(view.getByTestId("menu-scrim", { includeHiddenElements: true }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

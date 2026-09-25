@@ -507,6 +507,7 @@ function ChatScreen() {
   });
 
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
+  const menuAnchorRef = useRef<View>(null);
 
   const chatScreenBody = useChatScreenBodyProps({
     styles: s,
@@ -526,6 +527,7 @@ function ChatScreen() {
       startNewChat,
       setMenuVisible,
       menuOverlayOpen,
+      menuAnchorRef,
     },
     list: {
       listRef,
@@ -607,6 +609,7 @@ function ChatScreen() {
 
         <ChatScreenMenuSheets
           menuVisible={menuVisible}
+          menuAnchorRef={menuAnchorRef}
           chatTitle={chatTitle}
           pinned={pinned}
           archived={archived}

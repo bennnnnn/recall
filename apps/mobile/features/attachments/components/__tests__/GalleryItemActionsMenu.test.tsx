@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { GalleryItemActionsSheet } from "@/features/attachments/components/GalleryItemActionsSheet";
+import { GalleryItemActionsMenu } from "@/features/attachments/components/GalleryItemActionsMenu";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -16,16 +16,17 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-describe("GalleryItemActionsSheet", () => {
+describe("GalleryItemActionsMenu", () => {
   it("offers open chat, share, and delete when the item is linked", async () => {
     const onUseInChat = jest.fn();
     const onOpenChat = jest.fn();
     const onShare = jest.fn();
     const onDelete = jest.fn();
     const { getByText } = await render(
-      <GalleryItemActionsSheet
+      <GalleryItemActionsMenu
         visible
         canOpenChat
+        anchorPoint={{ x: 120, y: 300 }}
         onClose={jest.fn()}
         onUseInChat={onUseInChat}
         onOpenChat={onOpenChat}
@@ -47,9 +48,10 @@ describe("GalleryItemActionsSheet", () => {
 
   it("hides open chat when the item has no chat", async () => {
     const { queryByText } = await render(
-      <GalleryItemActionsSheet
+      <GalleryItemActionsMenu
         visible
         canOpenChat={false}
+        anchorPoint={null}
         onClose={jest.fn()}
         onUseInChat={jest.fn()}
         onOpenChat={jest.fn()}

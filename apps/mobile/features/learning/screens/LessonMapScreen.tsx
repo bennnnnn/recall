@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -34,6 +34,7 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
   const router = useRouter();
   const navigation = useNavigation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuAnchorRef = useRef<View>(null);
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = typeof id === "string" ? id : undefined;
   const { project, loading, loadError, load, isCurrentOwner } = useLearningDetail(projectId);
@@ -42,6 +43,7 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
     navigation.setOptions({
       headerRight: () => (
         <Pressable
+          ref={menuAnchorRef}
           onPress={() => setMenuOpen((open) => !open)}
           accessibilityRole="button"
           accessibilityLabel={t("lesson.menu")}
@@ -110,12 +112,6 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
           onRetry={() => void load({ force: true })}
         />
       ) : null}
-      {menuOpen ? (
-        <LessonMapOverflowMenu
-          project={project}
-          isCurrent={() => isCurrent() && isCurrentOwner()}
-        />
-      ) : null}
       {stats && dailyGoal > 0 ? (
         <View style={s.todayCard}>
           <Text style={[s.todayLabel, completedToday >= dailyGoal && s.todayLabelComplete]}>
@@ -147,6 +143,13 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
 
   return (
     <View style={s.root}>
+      <LessonMapOverflowMenu
+        project={project}
+        isCurrent={() => isCurrent() && isCurrentOwner()}
+        visible={menuOpen}
+        anchorRef={menuAnchorRef}
+        onClose={() => setMenuOpen(false)}
+      />
       <LearningPathList
         domains={domains}
         projectId={project.id}

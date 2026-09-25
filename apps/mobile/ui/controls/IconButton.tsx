@@ -1,5 +1,5 @@
-import { useMemo, type ReactNode } from "react";
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import { useMemo, type ReactNode, type Ref } from "react";
+import { Pressable, StyleSheet, type StyleProp, type View, type ViewStyle } from "react-native";
 
 import { Icon } from "../icons/Icon";
 import type { IconName } from "../icons/names";
@@ -20,6 +20,8 @@ type Props = {
   pressedStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** Lets a Menu drop from this button (`anchorRef`). */
+  ref?: Ref<View>;
 };
 
 /** 44×44 hit target around a smaller outline icon. Prefer this over a
@@ -35,12 +37,14 @@ export function IconButton({
   pressedStyle,
   style,
   testID,
+  ref,
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"

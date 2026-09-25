@@ -39,6 +39,7 @@ export function useGalleryLibrary(
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [fileItem, setFileItem] = useState<AttachmentListItem | null>(null);
   const [actionItem, setActionItem] = useState<AttachmentListItem | null>(null);
+  const [actionPoint, setActionPoint] = useState<{ x: number; y: number } | null>(null);
   const sharingRef = useRef(false);
   const attachingRef = useRef(false);
   const deletingRef = useRef(new Set<string>());
@@ -185,10 +186,14 @@ export function useGalleryLibrary(
     [t, deleteItem],
   );
 
-  const openActions = useCallback((item: AttachmentListItem) => {
-    selection();
-    setActionItem(item);
-  }, []);
+  const openActions = useCallback(
+    (item: AttachmentListItem, point?: { x: number; y: number }) => {
+      selection();
+      setActionPoint(point ?? null);
+      setActionItem(item);
+    },
+    [],
+  );
 
   const openImage = useCallback((item: AttachmentListItem) => {
     tap();
@@ -217,6 +222,7 @@ export function useGalleryLibrary(
     fileItem,
     setFileItem,
     actionItem,
+    actionPoint,
     setActionItem,
     shareFile,
     openChat,

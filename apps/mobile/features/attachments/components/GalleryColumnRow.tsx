@@ -16,7 +16,8 @@ type Props = {
   item: AttachmentListItem;
   fileName: string;
   onPress: () => void;
-  onLongPress: () => void;
+  /** `point` is where the finger was, so the item menu opens there. */
+  onLongPress: (point: { x: number; y: number }) => void;
   onMissing: (attachmentId: string) => void;
 };
 
@@ -36,7 +37,9 @@ export function GalleryColumnRow({
   return (
     <Pressable
       onPress={onPress}
-      onLongPress={onLongPress}
+      onLongPress={(event) =>
+        onLongPress({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })
+      }
       accessibilityRole="button"
       accessibilityLabel={
         isImage ? t("chat.image_view_a11y") : t("gallery.open_file_a11y")

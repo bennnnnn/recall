@@ -32,7 +32,8 @@ type Props = {
    * defeat that by changing the onOpen prop's identity every render.
    */
   onOpen: (chatId: string) => void;
-  onLongPress: (chat: Chat) => void;
+  /** `point` is where the finger was, so the row menu opens there. */
+  onLongPress: (chat: Chat, point: { x: number; y: number }) => void;
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (chatId: string) => void;
@@ -72,9 +73,9 @@ export const ConversationRow = memo(function ConversationRow({
         if (selectionMode) onToggleSelect?.(chat.id);
         else onOpen(chat.id);
       }}
-      onLongPress={() => {
+      onLongPress={(event) => {
         if (selectionMode) onToggleSelect?.(chat.id);
-        else onLongPress(chat);
+        else onLongPress(chat, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
       }}
       accessibilityRole={selectionMode ? "checkbox" : "button"}
       accessibilityLabel={label}

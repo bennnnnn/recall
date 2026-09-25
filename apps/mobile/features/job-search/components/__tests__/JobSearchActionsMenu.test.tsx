@@ -1,6 +1,9 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { JobSearchActionsSheet } from "@/features/job-search/components/JobSearchActionsSheet";
+import { createRef } from "react";
+import type { View } from "react-native";
+
+import { JobSearchActionsMenu } from "@/features/job-search/components/JobSearchActionsMenu";
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
@@ -18,6 +21,7 @@ jest.mock("@/lib/reduceMotion", () => ({
 
 const baseProps = {
   visible: true,
+  anchorRef: createRef<View>(),
   paused: false,
   busy: false,
   onClose: jest.fn(),
@@ -27,13 +31,13 @@ const baseProps = {
   onDelete: jest.fn(),
 };
 
-describe("JobSearchActionsSheet", () => {
+describe("JobSearchActionsMenu", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it("renders edit, pause, share, and a danger delete row", async () => {
-    const { getByText } = await render(<JobSearchActionsSheet {...baseProps} />);
+    const { getByText } = await render(<JobSearchActionsMenu {...baseProps} />);
 
     expect(getByText("my_job.edit")).toBeTruthy();
     expect(getByText("my_job.pause")).toBeTruthy();
@@ -43,7 +47,7 @@ describe("JobSearchActionsSheet", () => {
 
   it("shows Resume instead of Pause when the search is paused", async () => {
     const { getByText, queryByText } = await render(
-      <JobSearchActionsSheet {...baseProps} paused />,
+      <JobSearchActionsMenu {...baseProps} paused />,
     );
 
     expect(getByText("my_job.resume")).toBeTruthy();
@@ -51,7 +55,7 @@ describe("JobSearchActionsSheet", () => {
   });
 
   it("routes each row to its handler", async () => {
-    const { getByText } = await render(<JobSearchActionsSheet {...baseProps} />);
+    const { getByText } = await render(<JobSearchActionsMenu {...baseProps} />);
 
     await fireEvent.press(getByText("my_job.edit"));
     await fireEvent.press(getByText("my_job.pause"));
@@ -65,7 +69,7 @@ describe("JobSearchActionsSheet", () => {
   });
 
   it("ignores pause and delete while busy", async () => {
-    const { getByText } = await render(<JobSearchActionsSheet {...baseProps} busy />);
+    const { getByText } = await render(<JobSearchActionsMenu {...baseProps} busy />);
 
     await fireEvent.press(getByText("my_job.pause"));
     await fireEvent.press(getByText("common.delete"));
