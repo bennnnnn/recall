@@ -8,7 +8,6 @@ import {
 } from "react";
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -40,6 +39,7 @@ import { CODE_FONT } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
 import { getPreviewWebView, HTML_RUN_ORIGIN_WHITELIST } from "@/lib/webView";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
 const EMPTY_CHECK_SCRIPT =
   "<script>(function(){function chk(){var b=document.body;if(!b)return;var txt=(b.innerText||'').trim();var imgs=b.querySelectorAll('img,svg,canvas,video,iframe').length;var els=b.querySelectorAll('div,section,main,article,p,span,ul,ol,table,pre,code,h1,h2,h3,h4,h5,h6').length;if(!txt&&!imgs&&els<=1){try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({kind:'preview-empty'}));}catch(e){}}}if(document.readyState==='complete'){chk();}else{window.addEventListener('load',function(){setTimeout(chk,300);});}})();</script>";
@@ -306,7 +306,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
   }, [visible]);
 
   return (
-    <Modal
+    <FullScreenModal
       visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
@@ -382,7 +382,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
           />
         </View>
       </View>
-    </Modal>
+    </FullScreenModal>
   );
 }
 

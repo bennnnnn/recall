@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
 const MAX_PREVIEW_CHARS = 200_000;
 
@@ -79,7 +79,7 @@ export function AttachmentTextViewer({
   }, [visible, remoteUri, token]);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <FullScreenModal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
           <IconButton
@@ -117,7 +117,7 @@ export function AttachmentTextViewer({
           )}
         </View>
       </View>
-    </Modal>
+    </FullScreenModal>
   );
 }
 

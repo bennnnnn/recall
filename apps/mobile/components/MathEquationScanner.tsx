@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Image,
   Linking,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -50,6 +49,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
 type Props = {
   visible: boolean;
@@ -280,7 +280,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   if (!hosted && !visible) return null;
 
   return (
-    <Modal
+    <FullScreenModal
       visible={visible}
       animationType="fade"
       presentationStyle="fullScreen"
@@ -412,7 +412,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           onSolve={() => void confirmPreview()}
         />
       </GestureHandlerRootView>
-    </Modal>
+    </FullScreenModal>
   );
 }
 

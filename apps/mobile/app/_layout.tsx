@@ -21,6 +21,7 @@ import { TodosProvider } from "@/features/todos/context/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { StackBackButton } from "@/ui/controls/StackBackButton";
+import { DialogHost } from "@/ui/overlay/DialogHost";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import {
@@ -144,6 +145,7 @@ export default function RootLayout() {
                     <NetworkProvider>
                       <PushNotificationBootstrap />
                       <RootNavigator />
+                      <DialogHost />
                     </NetworkProvider>
                   </HomeProvider>
                 </ProjectsProvider>

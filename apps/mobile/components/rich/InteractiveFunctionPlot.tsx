@@ -12,7 +12,6 @@ import {
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -47,6 +46,7 @@ import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
 const CHART_HEIGHT = 220;
 const MODAL_LIST_MAX = 220;
@@ -322,7 +322,7 @@ function ExplorerModal({
   });
 
   return (
-    <Modal
+    <FullScreenModal
       visible={open}
       transparent
       animationType="slide"
@@ -417,7 +417,7 @@ function ExplorerModal({
           </KeyboardAvoidingView>
         </GestureHandlerRootView>
       ) : null}
-    </Modal>
+    </FullScreenModal>
   );
 }
 

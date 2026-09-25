@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   StyleSheet,
   Text,
   View,
@@ -23,6 +22,7 @@ import {
   STATIC_HTML_ORIGIN_WHITELIST,
   useStaticOnlyNavigation,
 } from "@/lib/webView";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
 type Props = {
   visible: boolean;
@@ -86,7 +86,7 @@ export function AttachmentPdfViewer({
   }, [visible, remoteUri, token, theme]);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <FullScreenModal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
           <IconButton
@@ -123,7 +123,7 @@ export function AttachmentPdfViewer({
           )}
         </View>
       </View>
-    </Modal>
+    </FullScreenModal>
   );
 }
 

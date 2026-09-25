@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
-  Modal,
   StyleSheet,
   View,
   useWindowDimensions,
@@ -26,6 +25,7 @@ import { useSheetPanDismiss } from "@/ui/overlay/useSheetPanDismiss";
 import { saveChatAttachmentToLibrary, shareChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { useReduceMotion } from "@/lib/reduceMotion";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
 const LIGHTBOX_BG = "#000000";
 
@@ -196,7 +196,7 @@ export function AttachmentImageViewer({
   );
 
   return (
-    <Modal
+    <FullScreenModal
       visible={visible}
       transparent
       animationType="fade"
@@ -279,7 +279,7 @@ export function AttachmentImageViewer({
           </Animated.View>
         </GestureDetector>
       </GestureHandlerRootView>
-    </Modal>
+    </FullScreenModal>
   );
 }
 
