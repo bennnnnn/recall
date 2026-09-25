@@ -9,6 +9,31 @@ from app.core.config import Settings
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("role", "expected_warmups"),
+    [("all", 1), ("api", 1), ("worker", 0)],
+)
+async def test_initialize_process_warms_sympy_only_for_api_roles(
+    role: str,
+    expected_warmups: int,
+) -> None:
+    warm_sympy = AsyncMock()
+    with (
+        patch("app.process_bootstrap.setup_logging"),
+        patch("app.process_bootstrap.init_sentry"),
+        patch("app.process_bootstrap.validate_production_settings"),
+        patch("app.process_bootstrap.setup_mcp_adapters"),
+        patch("app.process_bootstrap.warmup_db_pool", AsyncMock()),
+        patch("app.modules.math.sympy_executor.warm_sympy_pool", warm_sympy),
+    ):
+        await process_bootstrap.initialize_process(
+            Settings(mock_llm_enabled=True, process_role=role)
+        )
+
+    assert warm_sympy.await_count == expected_warmups
+
+
+@pytest.mark.asyncio
 async def test_start_worker_runtime_registers_before_consumer_and_schedulers():
     order: list[str] = []
 

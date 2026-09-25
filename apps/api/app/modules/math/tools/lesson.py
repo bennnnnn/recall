@@ -169,14 +169,14 @@ def format_equation_lesson_reply(
 ) -> str:
     """GOLD layout: Given, one transformation per step, chip last.
 
-    Labels are bold ``**1. …**`` (not ``1.`` lists). CommonMark tight lists
-    glue ``2. Simplify\\n$3x=3$`` into one paragraph, so the formula sits on
-    the label line. A blank line then ``$formula$`` keeps each equation on
-    its own line.
+    Labels are bold ``**1. …**`` (not ``1.`` lists). The formula is the next
+    line of that same paragraph so the app can indent it under the label.
     """
     chunks: list[str] = []
     if verified.given_latex:
-        chunks.append(_labelled_formula("**Given:**", verified.given_latex))
+        # Same line as the label. A blank line made Given its own paragraph,
+        # so the equation sat a full gap below the word.
+        chunks.append(f"**Given:** ${verified.given_latex}$")
     for index, step in enumerate(verified.key_steps, start=1):
         heading = f"**{index}. {step.label}**"
         if include_reasons and step.reason:
@@ -193,4 +193,7 @@ def format_equation_lesson_reply(
 
 
 def _labelled_formula(label: str, formula: str) -> str:
-    return f"{label}\n\n${formula}$"
+    # One newline keeps the formula in the step paragraph so the app can
+    # indent it under the label. A blank line was a second paragraph that
+    # lined the equation up with the step number.
+    return f"{label}\n${formula}$"

@@ -73,11 +73,12 @@ describe("math render corpus (preprocess → typeset, never raw \\cmd)", () => {
     expect(spans).toContain("x^2 + 1");
   });
 
-  it("BUG FIX regression: dollar-wrapped bullet equation is math, not raw \\cdot/\\frac", () => {
+  it("BUG FIX regression: dollar-wrapped negative equation keeps its sign and renders as math", () => {
     const input = String.raw`1. Isolate x
 $- 1\cdot x = 2 - 3^{\frac{2}{3}}$`;
     const prepared = preprocessMarkdown(input);
-    expect(prepared).toContain(String.raw`$1\cdot x = 2 - 3^{\frac{2}{3}}$`);
+    expect(prepared).toContain(String.raw`$- 1\cdot x = 2 - 3^{\frac{2}{3}}$`);
+    expect(markdownItInstance.parse(prepared, {}).some((token) => token.type === "bullet_list_open")).toBe(false);
     const spans = mathSpansAfterPreprocess(input);
     expect(spans.some((s) => s.includes("\\cdot") && s.includes("\\frac{2}{3}"))).toBe(true);
     const prose = (() => {
