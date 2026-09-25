@@ -15,6 +15,9 @@ describe("type and space tokens", () => {
     expect(Type.navTitle.fontSize).toBe(17);
     expect(Type.title.fontSize).toBe(20);
     expect(Type.display.fontSize).toBe(28);
+    expect(Type.body.fontFamily).toBe("SourceSans3");
+    expect(Type.label.fontFamily).toBe("SourceSans3-Semibold");
+    expect(Type.display.fontFamily).toBe("SourceSans3-Bold");
   });
 
   it("lets multiline roles use scaled platform line boxes", () => {
