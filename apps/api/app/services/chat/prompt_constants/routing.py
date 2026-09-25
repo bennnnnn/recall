@@ -38,7 +38,7 @@ _LIGHTWEIGHT_TURN = re.compile(
     r"|thanks|thank you|thx|ty"
     r"|ok|okay|k|cool|nice|great|perfect|awesome"
     r"|got it|sounds good|makes sense|understood"
-    r"|yes|no|yep|nope|sure|bye|goodbye|cya|see ya"
+    r"|yes|no|go|yep|nope|sure|bye|goodbye|cya|see ya"
     r"|lol|lmao|haha|hehe"
     r")(?:[!?.…, ]+(?:thanks|thank you|thx))?[!?.… ]*$",
     re.IGNORECASE,
@@ -118,10 +118,9 @@ def is_lightweight_chat_turn(
     cleaned = collapse_ws(text)
     if not cleaned:
         return True
-    # One letter is a variable ("x"), not "hi". Two letters still cover go/ok.
-    looks_light = (len(cleaned) == 2 and cleaned.isalpha()) or (
-        len(cleaned) <= 24 and bool(_LIGHTWEIGHT_TURN.match(cleaned))
-    )
+    # Only real greetings (hi, ok, go). A short fragment stays with the
+    # thread so the solver can keep the open problem.
+    looks_light = len(cleaned) <= 24 and bool(_LIGHTWEIGHT_TURN.match(cleaned))
     if not looks_light:
         return False
     if is_short_confirmation(cleaned) and prior_looks_like_offer(prior_assistant):

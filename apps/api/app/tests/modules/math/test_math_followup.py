@@ -11,6 +11,7 @@ from app.models.orm import User
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
+    open_math_problem,
     readable_standalone_answer,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
@@ -24,6 +25,14 @@ _TAYLOR_RESULT = r"\frac{e \left(x - 1\right)^{2}}{2} + e \left(x - 1\right) + e
 
 def _message(role: str, content: str) -> SimpleNamespace:
     return SimpleNamespace(id=uuid4(), role=role, content=content)
+
+
+def test_short_fragment_reopens_the_equation_in_progress() -> None:
+    prior = ["3x^2 + 3 = 5"]
+    assert open_math_problem("x", prior) == prior[0]
+    assert open_math_problem("5", prior) == prior[0]
+    assert open_math_problem("hi", prior) is None
+    assert open_math_problem("2x + 1 = 7", prior) is None
 
 
 def _exchange(question: str = _SPEED_ASK, result: str = _SPEED_RESULT) -> list[SimpleNamespace]:
