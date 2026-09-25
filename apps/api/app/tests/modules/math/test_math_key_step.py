@@ -86,6 +86,27 @@ def test_show_steps_linear_lesson_overrides_short() -> None:
     assert reply.strip().endswith("```") or "```answer" in reply.split("Check:")[0]
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Show steps: 2x + 3 = 11",
+        "Just the answer: x^2 + 2 = 6",
+    ],
+)
+async def test_lesson_prefix_reaches_verified_math_routing(text: str) -> None:
+    """Response metadata must not hide an otherwise closed equation from the gate."""
+    from app.modules.math.tools import build_math_augmentation
+
+    _note, verified = await build_math_augmentation(
+        text,
+        Settings(math_tools_enabled=True),
+    )
+
+    assert verified is not None
+    assert verified.canonical_answer
+
+
 def test_one_op_linear_stays_a_chip_on_balanced() -> None:
     text = "x+7=12"
     reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")

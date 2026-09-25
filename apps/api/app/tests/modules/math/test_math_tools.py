@@ -23,6 +23,8 @@ def test_math_intent_has_no_dead_expression_kind() -> None:
     "text, expected",
     [
         ("Solve x^2 + 2 = 6", True),
+        ("Show steps: 2x+3=11", True),
+        ("Just the answer: x^2+2=6", True),
         ("What's the weather?", False),
         ("A rectangle is 8×5 cm. Find the diagonal angle.", True),
         ("Graph y = x^2", True),
@@ -31,6 +33,18 @@ def test_math_intent_has_no_dead_expression_kind() -> None:
 )
 def test_needs_symbolic_math(text: str, expected: bool) -> None:
     assert math_tools.needs_symbolic_math(text) is expected
+
+
+def test_needs_symbolic_math_rejects_oversize_before_prefix_stripping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.math.tools import lesson
+
+    def fail_if_called(_text: str) -> str:
+        raise AssertionError("oversize input reached lesson-prefix stripping")
+
+    monkeypatch.setattr(lesson, "strip_lesson_prefixes", fail_if_called)
+    assert math_tools.needs_symbolic_math("show work " * 3201) is False
 
 
 def test_extract_equation_intent() -> None:
