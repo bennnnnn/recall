@@ -74,12 +74,12 @@ describe("push gating on user.push_notifications_enabled", () => {
     expect(updateMeMock).not.toHaveBeenCalled();
   });
 
-  it("registerRemotePushToken tells the API this Android install created the split channels", async () => {
+  it("registerRemotePushToken tells the API this Android install created the tone channels", async () => {
     Platform.OS = "android";
     await expect(registerRemotePushToken("tok", true)).resolves.toBe("registered");
     expect(registerMock).toHaveBeenCalledWith(
       "tok",
-      expect.objectContaining({ android_channels: "split", platform: "android" }),
+      expect.objectContaining({ android_channels: "tone", platform: "android" }),
     );
   });
 

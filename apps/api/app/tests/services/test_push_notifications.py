@@ -24,6 +24,10 @@ def test_channel_id_stays_off_until_the_install_opts_in():
     assert (
         push_service.channel_id_for_token(opted_in, {"type": "todo_reminder"}) == "recall-reminders"
     )
+    tone = MagicMock(platform="android", android_channels="tone")
+    assert (
+        push_service.channel_id_for_token(tone, {"type": "todo_reminder"}) == "recall-reminders-v2"
+    )
     ios = MagicMock(platform="ios", android_channels="split")
     assert push_service.channel_id_for_token(ios, {"type": "todo_reminder"}) is None
 
@@ -73,6 +77,7 @@ async def test_process_todo_reminders_due_soon():
     assert messages[0].message["body"] == "Call dentist"
     assert messages[0].message["data"]["todo_id"] == str(todo.id)
     assert messages[0].message["channelId"] == "recall-reminders"
+    assert messages[0].message["sound"] == "recall_notify.wav"
     session.commit.assert_not_awaited()
     assert todo.notification_sent_at is None
 
