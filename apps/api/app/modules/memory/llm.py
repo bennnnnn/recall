@@ -36,7 +36,10 @@ async def revise_memory_facts(
                 'identity|highly_sensitive", '
                 '"importance": 0.0-1.0, "match_text": "existing fact text if updating"}]} . '
                 "Type meanings:\n"
-                "- profile: name, identity, job, employer, location\n"
+                "- profile: the user's own identity, job, employer, or location. "
+                "A name is theirs only when they claim it ('my name is', 'I'm', "
+                "'call me', 'I go by'). The only name sentence is "
+                "'User's name is John' or 'User's name is John; also goes by X.'\n"
                 "- preference: how they like to learn, communicate, or use the app\n"
                 "- project: what the user is working on or building, including one they name\n"
                 "- fact: stable misc facts\n"
@@ -65,6 +68,9 @@ async def revise_memory_facts(
                 "- Skip small talk. Return empty ops only when the user stated nothing "
                 "durable about themselves.\n"
                 "- Do not invent facts.\n"
+                "- Never store a name from a word problem, story, example, or "
+                "anyone other than the user. 'Bebe has 2 pens and gives them to "
+                "Cal' is not the user's name.\n"
                 "- Mark health/finance/legal/relationship/identity/highly_sensitive "
                 "when the fact is about those topics. Race, religion, politics, "
                 "sexual orientation, and sex-life are highly_sensitive."

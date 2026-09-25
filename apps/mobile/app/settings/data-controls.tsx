@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { Redirect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,22 +10,19 @@ import {
   makeSettingsStyles,
   SettingsGroup,
   SettingsLinkRow,
-  SettingsSwitchRow,
 } from "@/components/settings/settingsUi";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDataControls } from "@/hooks/useDataControls";
 import { api } from "@/lib/api";
 import { invalidateChatListCache } from "@/lib/cache/chatListCache";
-import { canUseDeviceLocation } from "@/lib/expoRuntime";
-import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { notifyDestructive } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 export default function DataControlsScreen() {
-  const { token, user, updateUser } = useAuth();
+  const { token } = useAuth();
   const { progress, exportData, deleteAccount } = useDataControls();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -35,7 +32,6 @@ export default function DataControlsScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const busy = progress !== "idle";
-  const [locationBusy, setLocationBusy] = useState(false);
   const [bulkBusy, setBulkBusy] = useState<"archive" | "delete" | null>(null);
 
   useEffect(() => {
@@ -82,31 +78,6 @@ export default function DataControlsScreen() {
       reportRecoverableError(feedback, t("settings.delete_failed"));
     }
   };
-
-  const toggleLocation = useCallback(async (enabled: boolean) => {
-    if (!token || locationBusy) return;
-    setLocationBusy(true);
-    try {
-      if (!enabled) {
-        await updateUser({ location_enabled: false, location: null });
-        return;
-      }
-      if (!canUseDeviceLocation()) {
-        Alert.alert(t("common.error"), t("settings.location_expo_go"));
-        return;
-      }
-      const label = await getDeviceLocationLabel();
-      if (!label) {
-        Alert.alert(t("settings.location_denied"), t("settings.use_current_location_desc"));
-        return;
-      }
-      await updateUser({ location_enabled: true, location: label });
-    } catch {
-      reportRecoverableError(feedback, t("common.error"));
-    } finally {
-      setLocationBusy(false);
-    }
-  }, [token, locationBusy, updateUser, t, feedback]);
 
   const confirmArchiveAll = () => {
     if (!token || bulkBusy) return;
@@ -208,23 +179,10 @@ export default function DataControlsScreen() {
           theme={theme}
         />
       </SettingsGroup>
-      <SettingsGroup label={t("settings.your_data")} styles={s}>
+      <SettingsGroup styles={s}>
         <SettingsLinkRow
           title={t("settings.export")}
-          subtitle={t("settings.export_desc")}
           onPress={() => void doExport()}
-          styles={s}
-          theme={theme}
-        />
-      </SettingsGroup>
-      <SettingsGroup label={t("settings.location")} styles={s}>
-        <SettingsSwitchRow
-          title={t("settings.use_current_location")}
-          subtitle={t("settings.use_current_location_desc")}
-          value={user?.location_enabled === true}
-          disabled={locationBusy}
-          busy={locationBusy}
-          onValueChange={(v) => void toggleLocation(v)}
           styles={s}
           theme={theme}
         />
@@ -232,7 +190,6 @@ export default function DataControlsScreen() {
       <SettingsGroup styles={s}>
         <SettingsLinkRow
           title={t("settings.delete")}
-          subtitle={t("settings.delete_desc")}
           danger
           onPress={confirmDeleteAccount}
           styles={s}

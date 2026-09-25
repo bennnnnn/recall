@@ -1,6 +1,7 @@
 """Extract and persist atomic memory facts from a chat transcript."""
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -23,6 +24,7 @@ from app.modules.memory.extract_backlog import (
     stamp_extract_cursor,
 )
 from app.modules.memory.facts import should_skip_sensitive_persist
+from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.self_facts import stated_fact_writes
 from app.modules.memory.text import classify_memory_sensitivity, normalize_memory_text
 from app.modules.memory.writes_repository import MemoryFactWrite
@@ -71,6 +73,8 @@ def _writes_from_ops(
     explicit_remember: bool,
     include_sensitive: bool,
     min_confidence: float,
+    transcript: str,
+    existing_texts: Iterable[str] = (),
 ) -> tuple[list[MemoryFactWrite], int]:
     writes: list[MemoryFactWrite] = []
     skipped = 0
@@ -95,6 +99,12 @@ def _writes_from_ops(
             skipped += 1
             continue
         if op.op != "delete" and not text:
+            skipped += 1
+            continue
+        if op.op != "delete" and is_unclaimed_user_name(
+            text, transcript, existing_texts=existing_texts
+        ):
+            logger.info("Skipping memory name the user did not claim")
             skipped += 1
             continue
         writes.append(
@@ -162,6 +172,8 @@ async def extract_and_store_memories(
                 explicit_remember=explicit_remember,
                 include_sensitive=snapshot.include_sensitive,
                 min_confidence=settings.memory_min_confidence,
+                transcript=expanded,
+                existing_texts=snapshot.existing_facts.values(),
             )
             if not forget:
                 writes.extend(

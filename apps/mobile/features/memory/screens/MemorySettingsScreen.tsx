@@ -143,7 +143,6 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
         <SettingsLinkRow
           icon="book-outline"
           title={t("settings.memory_view")}
-          subtitle={t("settings.memory_empty")}
           value={
             memCount > 0
               ? t("settings.memory_count", { count: memCount })

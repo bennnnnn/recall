@@ -6,15 +6,13 @@ import { Icon } from "@/components/Icon";
 import { IconButton } from "@/components/IconButton";
 import { useTranslation } from "react-i18next";
 
-import { HamburgerIcon } from "@/components/HamburgerIcon";
-import { NewChatIcon } from "@/components/NewChatIcon";
 import {
   CHROME_FADE_EXTRA,
   TOP_CHROME_FADE_LOCATIONS,
   topChromeFadeColors,
 } from "@/lib/chromeFade";
 import { Theme, useTheme } from "@/lib/theme";
-import { IconSize } from "@/lib/icons";
+import { EditIcon, IconSize, MenuIcon } from "@/lib/icons";
 import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -103,7 +101,7 @@ export const ChatHeader = memo(function ChatHeader({
               fromLibrary ? (
                 <Icon name="chevron-back" size={IconSize.md} color={theme.text} />
               ) : (
-                <HamburgerIcon size={IconSize.md} color={theme.text} />
+                <MenuIcon size={IconSize.md} color={theme.text} />
               )
             }
           />
@@ -132,7 +130,7 @@ export const ChatHeader = memo(function ChatHeader({
                 pressedStyle={s.actionGroupBtnPressed}
                 onPress={onNewChat}
                 accessibilityLabel={t("chat.new_chat")}
-                icon={<NewChatIcon size={IconSize.md} color={theme.text} />}
+                icon={<EditIcon size={IconSize.md} color={theme.text} />}
               />
               <IconButton
                 style={s.actionGroupBtn}

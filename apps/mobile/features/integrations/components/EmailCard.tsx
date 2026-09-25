@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import { CopyButton } from "@/components/CopyButton";
 import { Icon } from "@/components/Icon";
-import { NewChatIcon } from "@/components/NewChatIcon";
 import { CardShell } from "@/components/rich/CardShell";
 import { GmailMark } from "@/components/rich/chatgptDraftIcons";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -12,7 +11,7 @@ import { useEmailCardPersist } from "@/features/integrations/hooks/useEmailCardP
 import { fullEmailText } from "@/features/integrations/model/emailCompose";
 import { openGmailCompose } from "@/features/integrations/model/openGmailCompose";
 import { notifySuccess, tap } from "@/lib/haptics";
-import { IconSize, inkIconColor } from "@/lib/icons";
+import { EditIcon, IconSize, inkIconColor } from "@/lib/icons";
 import { EmailDraft } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -126,7 +125,7 @@ export function EmailCard({ draft }: Props) {
             {editing ? (
               <Icon name="checkmark-outline" size={IconSize.sm} />
             ) : (
-              <NewChatIcon size={IconSize.sm} color={inkIconColor(theme)} />
+              <EditIcon size={IconSize.sm} color={inkIconColor(theme)} />
             )}
           </Pressable>
           <CopyButton
