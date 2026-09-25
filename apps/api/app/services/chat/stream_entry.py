@@ -227,7 +227,8 @@ async def stream_chat_response(
             if chat is not None:
                 timing.mark_phase("chat_ready")
                 return chat
-            remembered = seams.chats_repo.peek_recent_chat(chat_id, user_id)
+            peek = getattr(seams.chats_repo, "peek_recent_chat", None)
+            remembered = peek(chat_id, user_id) if callable(peek) else None
             if remembered is not None:
                 timing.mark_phase("chat_ready")
                 return remembered
@@ -293,6 +294,8 @@ async def stream_chat_response(
         # model starts — that extra Neon read was on the first-token path.
         obvious_greeting = is_lightweight_chat_turn(content) and not is_short_confirmation(content)
         if obvious_greeting:
+            await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
+            timing.mark_phase("previous_finalize_ready")
             user, daily_limit, chat = await _load_user_and_quota()
             recent, prior_count = [], 0
             timing.mark_phase("history_ready")

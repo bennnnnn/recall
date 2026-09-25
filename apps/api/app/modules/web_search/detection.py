@@ -109,12 +109,28 @@ def web_search_skip(
 
 
 # Stable schoolbook questions ("what is the capital of France") must not pay
-# an LLM classifier before the reply. Live or open-ended lookups still do.
+# an LLM classifier before the reply. A time-sensitive question still does,
+# even when it lacks one of the live-word tokens below.
 _MAYBE_LIVE = re.compile(
     r"\b(?:who\s+is|who\s+leads|current|latest|today|tonight|right\s+now|"
     r"price|pricing|hotel|weather|score|news|ceo|near\s+me)\b",
     re.IGNORECASE,
 )
+_STABLE_FACT = re.compile(
+    r"\b(?:what(?:'s| is| are)|how (?:do|does|can|to)|why (?:is|does|do)|"
+    r"explain|define|capital of|solve|calculate|simplify|translate)\b",
+    re.IGNORECASE,
+)
+_TIME_SENSITIVE = re.compile(
+    r"\b(?:when|next|upcoming|release|coming out|launch)\b",
+    re.IGNORECASE,
+)
+
+
+def _stable_without_live_lookup(text: str) -> bool:
+    if _MAYBE_LIVE.search(text) or _TIME_SENSITIVE.search(text):
+        return False
+    return _STABLE_FACT.search(text) is not None
 
 
 def web_search_fast_yes(
@@ -224,7 +240,7 @@ async def should_web_search(
         return False
     if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
         return True
-    if _MAYBE_LIVE.search(collapse_ws(text)) is None:
+    if _stable_without_live_lookup(collapse_ws(text)):
         return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
     classification = await classify_web_search(
         text,

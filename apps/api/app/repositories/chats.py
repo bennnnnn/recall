@@ -60,6 +60,18 @@ def peek_recent_chat(chat_id: UUID, user_id: UUID) -> Chat | None:
     return _cached_chat(chat_id, user_id)
 
 
+def forget_chat(chat_id: UUID) -> None:
+    _chat_cache.pop(chat_id, None)
+
+
+def forget_user_chats(user_id: UUID) -> None:
+    stale = [
+        chat_id for chat_id, (_stored_at, chat) in _chat_cache.items() if chat.user_id == user_id
+    ]
+    for chat_id in stale:
+        _chat_cache.pop(chat_id, None)
+
+
 async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat | None:
     result = await session.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
     return result.scalar_one_or_none()
@@ -112,6 +124,7 @@ async def delete_empty_for_user(session: AsyncSession, user_id: UUID) -> int:
         await session.execute(delete(Chat).where(Chat.id.in_(empty_ids))),
     )
     await session.commit()
+    forget_user_chats(user_id)
     return result.rowcount
 
 
@@ -188,6 +201,7 @@ async def delete_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> b
 
     await session.delete(chat)
     await session.commit()
+    forget_chat(chat_id)
     return True
 
 
@@ -290,4 +304,5 @@ async def delete_all_for_user(
         await session.commit()
     else:
         await session.flush()
+    forget_user_chats(user_id)
     return int(result.rowcount or 0)

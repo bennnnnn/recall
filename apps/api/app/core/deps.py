@@ -4,9 +4,12 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.asyncio import Redis
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import make_transient_to_detached
 
 from app.core.config import Settings, get_settings
-from app.core.db import SessionLocal
+from app.core.db import get_db
 from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
@@ -34,8 +37,17 @@ def _cached_user(user_id: UUID) -> User | None:
     return user
 
 
+def snapshot_user(user: User) -> User:
+    """Detached copy safe to merge into a later request session."""
+    values = {attr.key: getattr(user, attr.key) for attr in sa_inspect(User).column_attrs}
+    snap = User(**values)
+    make_transient_to_detached(snap)
+    return snap
+
+
 def remember_user(user: User) -> None:
-    _user_cache[user.id] = (time.monotonic(), user)
+    cached = snapshot_user(user) if isinstance(user, User) else user
+    _user_cache[user.id] = (time.monotonic(), cached)
 
 
 def forget_user(user_id: UUID) -> None:
@@ -66,6 +78,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis_dep),
+    session: AsyncSession = Depends(get_db),
 ) -> User:
     try:
         user_id = await tokens_service.verify_access_token(redis, credentials.credentials, settings)
@@ -75,16 +88,15 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
     cached = _cached_user(user_id)
+    if isinstance(cached, User):
+        # Attach the cached row to this request so updates commit.
+        return await session.merge(cached, load=False)
     if cached is not None:
         return cached
 
-    async with SessionLocal() as session:
-        user = await auth_service.get_current_user(session, user_id)
-        if user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        # Load columns before the session closes so later requests can reuse
-        # this instance without a lazy load.
-        session.expunge(user)
+    user = await auth_service.get_current_user(session, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     remember_user(user)
     return user
 

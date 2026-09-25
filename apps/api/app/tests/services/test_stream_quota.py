@@ -329,7 +329,7 @@ async def test_stream_counts_when_recent_window_is_full():
             Settings(recent_message_window=2),
             user_id=user.id,
             chat_id=uuid4(),
-            content="hi",
+            content="What is the capital of France?",
             user=user,
             skip_usage_seed=True,
         ):

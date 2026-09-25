@@ -200,6 +200,12 @@ def _custom_instructions_block(user: User) -> str | None:
 
 logger = logging.getLogger(__name__)
 
+# Past-chat questions stay on history retrieval even when the turn is slim.
+_SHARED_PAST = re.compile(
+    r"\b(?:did we|we (?:pick|chose|picked|decided|said)|last (?:year|month|week|time))\b",
+    re.IGNORECASE,
+)
+
 StreamReasoningFn = Callable[[str], Awaitable[None]]
 
 # Account email is PII — only inject when the turn clearly needs it.
@@ -919,8 +925,12 @@ async def build_prompt_messages(
     personal_context = (rich_context or advice_memory) and not lightweight
     load_memory = personal_context
     slim_context = minimal_personal_context or lightweight or not rich_context
+    recalls_shared_past = bool(query_text and _SHARED_PAST.search(query_text))
     history_rag = bool(
-        personal_context and settings.chat_history_rag_enabled and query_text and query_text.strip()
+        (personal_context or recalls_shared_past)
+        and settings.chat_history_rag_enabled
+        and query_text
+        and query_text.strip()
     )
     blocks = await _load_context_blocks(
         user,
@@ -1059,7 +1069,7 @@ async def build_prompt_messages(
                 chat_history_rag_block=chat_history_rag_block,
             )
         )
-    elif load_memory:
+    elif load_memory or recalls_shared_past:
         if blocks.memory_block:
             system_parts.append(wrap_untrusted("memory", blocks.memory_block, first_party=True))
         if chat_history_rag_block:

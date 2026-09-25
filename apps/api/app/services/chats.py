@@ -163,6 +163,7 @@ async def delete_chat(
     _ = settings
     await session.delete(chat)
     await session.commit()
+    chats_repo.forget_chat(chat_id)
 
 
 async def today_usage(
