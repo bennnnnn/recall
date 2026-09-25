@@ -113,7 +113,7 @@ export default function ModelsSettingsScreen() {
           />
         </SettingsGroup>
 
-        <SettingsGroup label={t("settings.model")} styles={s}>
+        <SettingsGroup styles={s}>
           {models.map((option, index) => {
             const proLocked = !isPro && option.plan_access === "pro";
             const enabled = effectiveModels.has(option.id) && !proLocked;

@@ -211,7 +211,6 @@ export default function PreferencesSettingsScreen() {
         <SettingsGroup label={t("settings.chat")} styles={s}>
           <SettingsInlinePicker
             title={t("settings.style")}
-            subtitle={t("settings.style_summary")}
             value={t(`settings.style_${selectedStyle}`)}
             options={STYLES.map((st) => ({
               key: st,
@@ -231,7 +230,6 @@ export default function PreferencesSettingsScreen() {
           <View style={s.menuSeparator} />
           <SettingsInlinePicker
             title={t("settings.tone")}
-            subtitle={t("settings.tone_hint")}
             value={t(`settings.tone_${selectedTone}`)}
             options={RESPONSE_TONE_ORDER.map((tone) => ({
               key: tone,
@@ -254,7 +252,6 @@ export default function PreferencesSettingsScreen() {
           <View style={s.menuSeparator} />
           <SettingsLinkRow
             title={t("settings.language")}
-            subtitle={t("settings.language_summary")}
             value={selectedLanguage.label}
             onPress={() => setLanguageOpen(true)}
             styles={s}
@@ -263,7 +260,6 @@ export default function PreferencesSettingsScreen() {
           <View style={s.menuSeparator} />
           <SettingsLinkRow
             title={t("settings.custom_instructions")}
-            subtitle={t("settings.custom_instructions_summary")}
             value={
               user?.custom_instructions?.trim()
                 ? t("settings.on")
