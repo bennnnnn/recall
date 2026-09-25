@@ -208,7 +208,7 @@ export default function DataControlsScreen() {
           theme={theme}
         />
       </SettingsGroup>
-      <SettingsGroup label={t("settings.your_data")} styles={s}>
+      <SettingsGroup styles={s}>
         <SettingsLinkRow
           title={t("settings.export")}
           subtitle={t("settings.export_desc")}

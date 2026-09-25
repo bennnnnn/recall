@@ -30,7 +30,6 @@ export default function AboutScreen() {
       <SettingsGroup styles={s}>
         <SettingsLinkRow
           title={t("privacy.title")}
-          subtitle={t("settings.privacy_summary")}
           onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
           styles={s}
           theme={theme}
@@ -38,7 +37,6 @@ export default function AboutScreen() {
         <View style={s.menuSeparator} />
         <SettingsLinkRow
           title={t("terms.title")}
-          subtitle={t("settings.terms_summary")}
           onPress={() => void openAllowedUrl(getLegalTermsUrl())}
           styles={s}
           theme={theme}

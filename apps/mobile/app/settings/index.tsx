@@ -120,7 +120,7 @@ export default function SettingsScreen() {
 
         <AccountSettingsSection isPro={isPro} />
 
-        <SettingsOverviewGroup label={t("settings.connections")}>
+        <SettingsOverviewGroup>
           <SettingsOverviewRow
             icon="notifications-outline"
             title={t("settings.notifications")}
@@ -128,6 +128,9 @@ export default function SettingsScreen() {
             value={notificationsValue}
             onPress={() => router.push("/settings/notifications")}
           />
+        </SettingsOverviewGroup>
+
+        <SettingsOverviewGroup>
           <SettingsOverviewRow
             icon="link-outline"
             title={t("settings.connected_apps")}
