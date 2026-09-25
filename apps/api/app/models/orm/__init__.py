@@ -7,7 +7,6 @@ exports `TodoItem`. Database table and column names are unchanged.
 from app.models.orm.attachments import MessageChunk
 from app.models.orm.chat import Chat, Message
 from app.models.orm.integrations import PushToken
-from app.models.orm.suggestions import Suggestion
 from app.models.orm.usage import ProductEvent, UsageDaily
 from app.models.orm.user import User
 from app.modules.attachments.models import Attachment, AttachmentChunk
@@ -26,6 +25,7 @@ from app.modules.learning.models import (
     VocabEntry,
 )
 from app.modules.memory.models import Memory
+from app.modules.suggestions.models import Suggestion
 from app.modules.todos.models import TodoItem
 
 __all__ = [

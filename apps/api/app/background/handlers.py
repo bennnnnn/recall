@@ -33,9 +33,9 @@ from app.modules.learning import jobs as learning_jobs
 from app.modules.memory import consolidation_workflow as memory_consolidation
 from app.modules.memory import extraction_workflow as memory_extraction
 from app.modules.notifications import transactional_email as transactional_email_service
+from app.modules.suggestions import service as suggestion_generation
 from app.modules.todos import jobs as todo_jobs
 from app.services import quota as quota_service
-from app.services import suggestion_generation
 from app.services.chat import compaction
 
 logger = logging.getLogger(__name__)

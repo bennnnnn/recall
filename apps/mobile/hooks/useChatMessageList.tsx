@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
 import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageRow";
-import { SuggestionChips } from "@/components/SuggestionChips";
+import { SuggestionChips } from "@/features/suggestions/components/SuggestionChips";
 import type { Message, Suggestion } from "@/lib/api";
 import {
   findLastAssistantId,

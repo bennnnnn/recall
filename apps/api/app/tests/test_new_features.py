@@ -710,7 +710,7 @@ def test_list_suggestions_empty():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.suggestions.suggestions_repo.list_active",
+        "app.modules.suggestions.api.suggestions_repo.list_active",
         AsyncMock(return_value=[]),
     ):
         client = TestClient(app)
@@ -734,7 +734,7 @@ def test_list_suggestions_returns_active():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.suggestions.suggestions_repo.list_active",
+        "app.modules.suggestions.api.suggestions_repo.list_active",
         AsyncMock(return_value=[sug_mock]),
     ):
         client = TestClient(app)
@@ -752,11 +752,11 @@ def test_dismiss_suggestion():
     app = _app_with_user(user)
     with (
         patch(
-            "app.routers.suggestions.suggestions_repo.dismiss",
+            "app.modules.suggestions.api.suggestions_repo.dismiss",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.routers.suggestions.home_service.invalidate_home_cache",
+            "app.modules.suggestions.api.home_service.invalidate_home_cache",
             AsyncMock(),
         ) as invalidate_mock,
     ):
@@ -775,7 +775,7 @@ def test_dismiss_suggestion_not_found():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.suggestions.suggestions_repo.dismiss",
+        "app.modules.suggestions.api.suggestions_repo.dismiss",
         AsyncMock(return_value=False),
     ):
         client = TestClient(app)
@@ -1100,7 +1100,7 @@ async def test_generate_suggestions_releases_db_before_llm():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_count_active():
-    from app.repositories.suggestions import count_active
+    from app.modules.suggestions.repository import count_active
 
     session = AsyncMock()
     mock_result = MagicMock()
@@ -1113,7 +1113,7 @@ async def test_suggestions_repo_count_active():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_list_active():
-    from app.repositories.suggestions import list_active
+    from app.modules.suggestions.repository import list_active
 
     s = MagicMock()
     session = AsyncMock()
@@ -1130,7 +1130,7 @@ async def test_suggestions_repo_list_active_cap_matches_generator():
     """list_active must surface up to MAX_ACTIVE_SUGGESTIONS (the generator's
     cap), not a smaller hard-coded limit — otherwise home/API under-shows."""
     from app.background.suggestion_generation import MAX_ACTIVE_SUGGESTIONS as gen_cap
-    from app.repositories.suggestions import MAX_ACTIVE_SUGGESTIONS, list_active
+    from app.modules.suggestions.repository import MAX_ACTIVE_SUGGESTIONS, list_active
 
     assert MAX_ACTIVE_SUGGESTIONS == gen_cap == 10
     session = AsyncMock()
@@ -1148,7 +1148,7 @@ async def test_suggestions_repo_list_active_cap_matches_generator():
 @pytest.mark.asyncio
 async def test_suggestions_repo_dismiss_found():
     from app.models.orm import Suggestion
-    from app.repositories.suggestions import dismiss
+    from app.modules.suggestions.repository import dismiss
 
     sid = uuid4()
     uid = uuid4()
@@ -1167,7 +1167,7 @@ async def test_suggestions_repo_dismiss_found():
 @pytest.mark.asyncio
 async def test_suggestions_repo_dismiss_wrong_user():
     from app.models.orm import Suggestion
-    from app.repositories.suggestions import dismiss
+    from app.modules.suggestions.repository import dismiss
 
     sid = uuid4()
     item = MagicMock(spec=Suggestion)
@@ -1182,7 +1182,7 @@ async def test_suggestions_repo_dismiss_wrong_user():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_dismiss_not_found():
-    from app.repositories.suggestions import dismiss
+    from app.modules.suggestions.repository import dismiss
 
     session = AsyncMock()
     session.get = AsyncMock(return_value=None)
@@ -1193,7 +1193,7 @@ async def test_suggestions_repo_dismiss_not_found():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_create_many():
-    from app.repositories.suggestions import create_many
+    from app.modules.suggestions.repository import create_many
 
     session = AsyncMock()
     session.add = MagicMock()
@@ -1213,7 +1213,7 @@ async def test_suggestions_repo_create_many():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_delete_expired():
-    from app.repositories.suggestions import delete_expired
+    from app.modules.suggestions.repository import delete_expired
 
     session = AsyncMock()
     mock_result = MagicMock()
