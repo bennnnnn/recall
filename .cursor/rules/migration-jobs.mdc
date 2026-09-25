@@ -11,20 +11,18 @@ it from this file in that pull request.
 
 ## Now
 
-1. Merge [Home](https://github.com/bennnnnn/recall/pull/1448). The legacy package
-   must re-export `build_home_screen` and `invalidate_home_cache`.
-2. Rebase [Search](https://github.com/bennnnnn/recall/pull/1449) onto `main`, then merge.
-3. Rebase [Suggestions](https://github.com/bennnnnn/recall/pull/1450) onto `main`, then merge.
+Home and Search are on main. Rebase
+[Suggestions](https://github.com/bennnnnn/recall/pull/1450) onto `main`, then merge.
 
-## After those three
+## After Suggestions
 
-4. **Chat history only.** Move the whole history surface in `routers/chats.py`
+1. **Chat history only.** Move the whole history surface in `routers/chats.py`
    and `services/chats.py` into `modules/chat`: list, get, create, rename, pin,
    archive, archive-all, delete, delete-all, message list, feedback, email
    draft, and usage. Leave streaming, turn prep, and `useChat*` where they are.
-5. **Chat stream.** WebSocket, SSE, and `services/chat/stream.py`. Not turn prep.
-6. **Chat turn prep.** `services/chat/turn_prep/` and prompt assembly.
-7. **Mobile chat.** Move `hooks/useChat*`, `components/chat/`, `lib/chat/`
+2. **Chat stream.** WebSocket, SSE, and `services/chat/stream.py`. Not turn prep.
+3. **Chat turn prep.** `services/chat/turn_prep/` and prompt assembly.
+4. **Mobile chat.** Move `hooks/useChat*`, `components/chat/`, `lib/chat/`
    (stream, socket, reducer, cache, mutation helpers, and their tests), and
    the chat API slice `lib/api/chats.ts` into `features/chat/`. Compose that
    slice through `lib/api.ts`. `app/index.tsx` stays a route.
@@ -34,7 +32,7 @@ it from this file in that pull request.
 This is not part of the migration order. Do not drop it, and do not fold it
 into a Chat pull request.
 
-8. **Math formula font.** Formulas and calculation steps currently use the
+5. **Math formula font.** Formulas and calculation steps currently use the
    same face as body text, so a worked solution is hard to scan. Give inline
    math, display math, and step calculations their own font. Leave prose on
    the body font.
