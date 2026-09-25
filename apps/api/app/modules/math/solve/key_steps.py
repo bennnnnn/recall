@@ -323,6 +323,21 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
     if not getattr(radicand, "is_number", False) or not radicand.is_number:
         return steps
     if radicand < 0:
+        steps.append(
+            KeyStep(
+                label="Take square roots of both sides",
+                formula=rf"{latex(var)} = \pm \sqrt{{{latex(radicand)}}}",
+            )
+        )
+        # Raw sqrt() puts i in the numerator. The chip uses the canonical
+        # conjugate form, so the last step has to come from that formatter.
+        solutions = solve(Eq(var**2, radicand), var)
+        from app.modules.math.solve.algebra import compact_root_answer_lines
+
+        lines = compact_root_answer_lines(str(var), solutions)
+        if lines:
+            formula = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
+            steps.append(KeyStep(label="Simplify", formula=formula))
         return steps
     # Show the root operation, then make any reduction its own final step.
     # That keeps the last displayed equation identical to the answer chip
