@@ -420,8 +420,6 @@
     "mute_failed": "Couldn’t update that. Try again."
   },
   "memory.confidence": "{{percent}}% confident",
-  "memory.edit_count": "{{count}} / {{max}}",
-  "memory.edit_fact_a11y": "Edit this memory",
   "memory.edit_failed": "ማህደረ ትውስታ ማስቀመጥ አልተቻለም። እንደገና ይሞክሩ።",
   "memory.edit_title": "ማህደረ ትውስታ አርትዕ",
   "memory.empty_body": "ከሪኮል ጋር ይወያዩ እና ለእርስዎ መሻሻል፣ የመማር ርዕሶች እና እውነታዎችን በራሱ ይማራል።",

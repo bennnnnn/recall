@@ -1,4 +1,4 @@
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/lib/icons/sizes";
 import { Layer } from "@/lib/layer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

@@ -51,6 +51,7 @@ jest.mock("@/components/IconButton", () => ({
     );
   },
 }));
+jest.mock("expo-linear-gradient", () => ({ LinearGradient: () => null }));
 jest.mock("@/components/SkeletonLoader", () => ({ SkeletonList: () => null }));
 jest.mock("@/components/StateView", () => ({ StateView: ({ onRetry }: { onRetry?: () => void }) => {
   const { Text } = jest.requireActual("react-native");
@@ -68,7 +69,8 @@ jest.mock("expo-router", () => ({
 jest.mock("@/features/memory/model/memoryListCache", () => ({ getCachedMemories: () => mockMemories }));
 jest.mock("@/features/memory/hooks/useMemoryActions", () => ({ useMemoryActions: () => ({
   memories: mockMemories, loading: false, error: mockError, load: mockLoad,
-  hasLoaded: mockHasLoaded, updateMemoryText: mockUpdate, pendingTypes: mockPending,
+  hasLoaded: mockHasLoaded, updateMemoryText: mockUpdate, deleteFact: jest.fn(async () => true),
+  pendingTypes: mockPending,
   isCurrentOwner: () => true,
 }) }));
 const mockHasLoaded = () => true;
@@ -80,28 +82,32 @@ beforeEach(() => {
   mockUpdate.mockResolvedValue(true);
 });
 afterEach(() => jest.restoreAllMocks());
+const samplePage = "profile\nFirst fact.";
+
 async function beginEdit(ui: Awaited<ReturnType<typeof render>>) {
-  await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
-  await fireEvent.changeText(ui.getByDisplayValue(sample.text), "Updated fact");
+  await fireEvent.press(ui.getByLabelText("memory.edit_title"));
+  await fireEvent.changeText(ui.getByDisplayValue(samplePage), "Updated fact");
 }
 
 it("shows each saved fact", async () => {
   const ui = await render(<MemoryScreen />);
   expect(ui.getByText("First fact.")).toBeTruthy();
-  expect(ui.getAllByLabelText("memory.edit_fact_a11y")).toHaveLength(1);
+  expect(ui.getAllByLabelText("memory.edit_title")).toHaveLength(1);
+  expect(ui.queryByLabelText("memory.edit_fact_a11y")).toBeNull();
+  expect(ui.queryByLabelText("common.show_more")).toBeNull();
   expect(ui.queryByLabelText("memory.delete_fact_a11y")).toBeNull();
   expect(ui.queryByLabelText("memory.delete_section_a11y")).toBeNull();
   expect(ui.queryByText("memory.last_confirmed")).toBeNull();
   expect(ui.queryByText("memory.source_chat")).toBeNull();
 });
 
-it("edits directly in the memory card without a modal or duplicate edit control", async () => {
+it("edits the whole page in one field", async () => {
+  mockMemories = [sample, { ...sample, id: "m2", type: "fact", text: "Second fact." }];
   const ui = await render(<MemoryScreen />);
-  await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
-  expect(ui.getByLabelText("memory.edit_title")).toBeTruthy();
-  expect(ui.queryByLabelText("memory.edit_fact_a11y")).toBeNull();
-  expect(ui.getByLabelText("common.save")).toBeTruthy();
-  expect(ui.getByLabelText("common.cancel")).toBeTruthy();
+  await fireEvent.press(ui.getByLabelText("memory.edit_title"));
+  expect(ui.getByDisplayValue("profile\nFirst fact.\n\nfact\nSecond fact.")).toBeTruthy();
+  expect(ui.queryByText("memory.edit_count")).toBeNull();
+  expect(ui.getAllByLabelText("common.save")).toHaveLength(1);
 });
 
 it("clears an account's editor before showing the next account", async () => {
@@ -154,8 +160,8 @@ it("edits a maximum-length stamped section without sending the server stamp back
   const body = "x".repeat(4000);
   mockMemories = [{ ...sample, text: `As of 2026-09-04: ${body}` }];
   const ui = await render(<MemoryScreen />);
-  await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
-  expect(ui.getByDisplayValue(body)).toBeTruthy();
+  await fireEvent.press(ui.getByLabelText("memory.edit_title"));
+  expect(ui.getByDisplayValue(`profile\n${body}`)).toBeTruthy();
   const save = mockIconPresses.get("common.save")!;
   await act(async () => { save(); await Promise.resolve(); });
   expect(mockUpdate).toHaveBeenCalledWith(sample.id, body);
@@ -169,10 +175,39 @@ it("shows Retry alongside cached memories when refresh fails", async () => {
   expect(mockLoad).toHaveBeenLastCalledWith({ force: true });
 });
 
+it("leaves later facts unmounted until Show more", async () => {
+  mockMemories = Array.from({ length: 20 }, (_, index) => ({
+    ...sample,
+    id: `m${index}`,
+    text: `Fact ${index + 1}`,
+  }));
+  const ui = await render(<MemoryScreen />);
+  expect(ui.getByText("Fact 1")).toBeTruthy();
+  expect(ui.queryByText("Fact 20")).toBeNull();
+  await fireEvent.press(ui.getByLabelText("common.show_more"));
+  expect(ui.getByText("Fact 20")).toBeTruthy();
+  expect(ui.getByLabelText("common.show_less")).toBeTruthy();
+});
+
+it("expands the whole folded list from one Show more control", async () => {
+  mockMemories = [
+    sample,
+    { ...sample, id: "m2", text: "Second fact." },
+  ];
+  const ui = await render(<MemoryScreen />);
+  await fireEvent(ui.getByTestId("memory-fold-body"), "layout", {
+    nativeEvent: { layout: { x: 0, y: 0, width: 100, height: 400 } },
+  });
+  expect(ui.getByText("Second fact.")).toBeTruthy();
+  await fireEvent.press(ui.getByLabelText("common.show_more"));
+  expect(ui.getByLabelText("common.show_less")).toBeTruthy();
+  expect(ui.queryAllByLabelText("memory.edit_title")).toHaveLength(1);
+});
+
 it("disables mutations for a section with a pending write", async () => {
   mockPending.add("profile");
   const ui = await render(<MemoryScreen />);
-  await fireEvent.press(ui.getByLabelText("memory.edit_fact_a11y"));
+  await fireEvent.press(ui.getByLabelText("memory.edit_title"));
   expect(ui.queryByDisplayValue(sample.text)).toBeNull();
   expect(ui.queryByLabelText("memory.delete_fact_a11y")).toBeNull();
   expect(ui.queryByLabelText("memory.delete_section_a11y")).toBeNull();
