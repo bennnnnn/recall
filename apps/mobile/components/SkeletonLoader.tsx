@@ -11,6 +11,7 @@ import Animated, {
 
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 type SkeletonBlockProps = {
   width?: number | `${number}%`;
@@ -129,26 +130,26 @@ export function SkeletonChatBubbles() {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     list: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      gap: 4,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.xs,
+      gap: Space.xxs,
     },
     row: {
       flexDirection: "row",
       alignItems: "center",
       paddingVertical: 10,
-      gap: 12,
+      gap: Space.sm,
     },
     lines: {
       flex: 1,
-      gap: 8,
+      gap: Space.xs,
     },
     secondLine: {
       backgroundColor: theme.border,
     },
     bubbles: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
       gap: 14,
     },
     bubbleRow: {

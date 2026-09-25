@@ -12,6 +12,8 @@ import { TriangleSidesDiagram } from "@/components/rich/geometry/TriangleSidesDi
 import i18n from "@/lib/i18n";
 import { parseGeometrySpec } from "@/lib/math/geometryBlock";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { content: string };
 
@@ -55,13 +57,13 @@ export function GeometryBlock({ content }: Props) {
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     wrap: {
-      marginVertical: 8,
+      marginVertical: Space.xs,
       alignItems: "center",
     },
     fallback: {
-      marginVertical: 8,
-      padding: 12,
-      borderRadius: 10,
+      marginVertical: Space.xs,
+      padding: Space.sm,
+      borderRadius: Radius.sm,
       backgroundColor: theme.contentSurface,
     },
     fallbackText: {

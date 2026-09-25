@@ -5,6 +5,8 @@ import { Icon } from "@/components/Icon";
 import type { Suggestion } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   suggestions: Suggestion[];
@@ -51,10 +53,10 @@ export function SuggestionChips({ suggestions, onSelect, onDismiss }: Props) {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     wrap: {
-      paddingHorizontal: 16,
-      paddingTop: 4,
-      paddingBottom: 8,
-      gap: 8,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.xxs,
+      paddingBottom: Space.xs,
+      gap: Space.xs,
     },
     label: {
       ...Type.caption,
@@ -63,7 +65,7 @@ function makeStyles(theme: Theme) {
       textTransform: "uppercase",
       letterSpacing: 0.6,
     },
-    row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    row: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
     chip: {
       flexDirection: "row",
       alignItems: "center",
@@ -71,9 +73,9 @@ function makeStyles(theme: Theme) {
       maxWidth: "100%",
       minHeight: 44,
       backgroundColor: theme.surface,
-      borderRadius: 999,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      borderRadius: Radius.full,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },

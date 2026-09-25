@@ -14,6 +14,8 @@ import { useThumbnailSize } from "@/components/ChatMessageImage";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   /** Rotating status line (e.g. "Creating image"). */
@@ -123,9 +125,9 @@ function makeStyles(C: Theme, width: number, height: number) {
     retry: {
       alignSelf: "flex-start",
       marginTop: 10,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 6,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       backgroundColor: C.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,

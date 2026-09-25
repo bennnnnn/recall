@@ -40,6 +40,8 @@ import {
 } from "@/lib/math/trajectory";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 /** Changing either breaks TrajectoryGraphTicks.test.tsx, which pins tick geometry. */
 export const TRAJECTORY_PAD = 40;
@@ -372,12 +374,12 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
 
 const localStyles = StyleSheet.create({
   control: {
-    marginTop: 8,
+    marginTop: Space.xs,
     width: 36,
     height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 18,
+    borderRadius: Radius.bubble,
     borderWidth: StyleSheet.hairlineWidth,
   },
   marker: {

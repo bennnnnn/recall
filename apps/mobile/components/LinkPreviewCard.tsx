@@ -7,6 +7,8 @@ import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { url: string };
 
@@ -83,14 +85,14 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     wrap: {
       alignSelf: "stretch",
-      borderRadius: 12,
+      borderRadius: Radius.md,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
-      marginVertical: 8,
-      gap: 4,
+      marginVertical: Space.xs,
+      gap: Space.xxs,
     },
     loading: { opacity: 0.7 },
     loadingText: { ...Type.secondary, color: theme.textSecondary },

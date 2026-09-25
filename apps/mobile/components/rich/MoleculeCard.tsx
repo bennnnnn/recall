@@ -13,6 +13,8 @@ import { Molecule3DView } from "@/components/rich/Molecule3DBlock";
 import { parseMoleculeFence } from "@/lib/chemistry/moleculePair";
 import { parseMolGeometry, parseMolecule3DFence } from "@/lib/chemistry/molecule3dFence";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Mode = "2d" | "3d";
 
@@ -94,11 +96,11 @@ export function MoleculeCard({ content }: { content: string }) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    toggle: { flexDirection: "row", gap: 4 },
+    toggle: { flexDirection: "row", gap: Space.xxs },
     toggleBtn: {
       paddingHorizontal: 10,
       paddingVertical: 5,
-      borderRadius: 8,
+      borderRadius: Radius.xs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       backgroundColor: t.bg,
@@ -111,14 +113,14 @@ function makeStyles(t: Theme) {
     toggleTextActive: { color: t.onPrimary },
     captionBox: {
       paddingHorizontal: 14,
-      paddingTop: 8,
+      paddingTop: Space.xs,
       paddingBottom: 0,
       backgroundColor: t.bg,
     },
     captionText: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
     previewBox: {
       paddingHorizontal: 14,
-      paddingVertical: 24,
+      paddingVertical: Space.lg,
       backgroundColor: t.contentSurface,
       alignItems: "center",
     },

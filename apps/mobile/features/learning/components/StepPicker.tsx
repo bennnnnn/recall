@@ -5,6 +5,8 @@ import { Icon } from "@/components/Icon";
 import { Button } from "@/components/Button";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 export type StepPickerOption<T> = {
   key: string;
@@ -95,15 +97,15 @@ export function StepPicker<T>({
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     label: { ...Type.title, fontWeight: "700", color: theme.text },
-    hint: { ...Type.secondary, color: theme.textSecondary, marginBottom: 4 },
-    list: { gap: 8 },
+    hint: { ...Type.secondary, color: theme.textSecondary, marginBottom: Space.xxs },
+    list: { gap: Space.xs },
     row: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 12,
+      gap: Space.sm,
       paddingVertical: 14,
-      paddingHorizontal: 12,
-      borderRadius: 14,
+      paddingHorizontal: Space.sm,
+      borderRadius: Radius.lg,
       backgroundColor: theme.surface,
       borderWidth: 1,
       borderColor: theme.border,
@@ -111,7 +113,7 @@ function makeStyles(theme: Theme) {
     rowActive: { borderColor: theme.primary, backgroundColor: theme.primaryLight },
     rowText: { ...Type.body, fontWeight: "600", color: theme.text },
     rowTextActive: { color: theme.primaryDark },
-    actions: { flexDirection: "row", gap: 10, marginTop: 8 },
+    actions: { flexDirection: "row", gap: 10, marginTop: Space.xs },
     actionBtn: { flex: 1 },
   });
 }

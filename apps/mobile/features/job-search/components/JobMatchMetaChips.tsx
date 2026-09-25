@@ -102,7 +102,7 @@ function makeStyles(C: Theme) {
     chip: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
+      gap: Space.xxs,
       minHeight: 28,
       paddingHorizontal: Space.xs,
       borderRadius: Radius.full,

@@ -16,6 +16,8 @@ import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { content: string };
 
@@ -203,7 +205,7 @@ const makeStyles = (t: Theme) =>
       paddingVertical: 10,
       paddingHorizontal: 18,
       backgroundColor: t.bg,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -228,7 +230,7 @@ const makeStyles = (t: Theme) =>
     },
     answerLines: {
       alignSelf: "stretch",
-      gap: 8,
+      gap: Space.xs,
     },
     lineViewport: {
       alignSelf: "stretch",
@@ -238,7 +240,7 @@ const makeStyles = (t: Theme) =>
       flexGrow: 1,
       alignItems: "center",
       justifyContent: "center",
-      paddingHorizontal: 4,
+      paddingHorizontal: Space.xxs,
     },
     answer: {
       fontSize: ANSWER_FONT_SIZE,

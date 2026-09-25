@@ -7,6 +7,7 @@ import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSh
 import { AppSheet } from "@/components/AppSheet";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 type IconName = ComponentProps<typeof ActionSheetRow>["icon"];
 
@@ -148,9 +149,9 @@ function makeStyles(C: Theme) {
       fontWeight: "600",
       color: C.textSecondary,
       textAlign: "center",
-      paddingHorizontal: 16,
-      paddingTop: 4,
-      paddingBottom: 4,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.xxs,
+      paddingBottom: Space.xxs,
     },
   });
 }

@@ -4,6 +4,8 @@ import { StyleSheet, Text, View } from "react-native";
 import { CopyButton } from "@/components/CopyButton";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   text: string;
@@ -34,17 +36,17 @@ function makeStyles(t: Theme) {
       width: "100%",
       maxWidth: "100%",
       backgroundColor: t.contentSurface,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      marginVertical: 8,
+      marginVertical: Space.xs,
       overflow: "hidden",
     },
     header: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      gap: 8,
+      gap: Space.xs,
       paddingHorizontal: 14,
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
@@ -53,7 +55,7 @@ function makeStyles(t: Theme) {
     },
     headerCompact: {
       justifyContent: "flex-end",
-      paddingVertical: 8,
+      paddingVertical: Space.xs,
     },
     label: {
       flex: 1,
@@ -68,7 +70,7 @@ function makeStyles(t: Theme) {
       lineHeight: 24,
       color: t.text,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: Space.sm,
       backgroundColor: t.contentSurface,
     },
   });

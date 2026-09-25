@@ -46,6 +46,7 @@ import { IconSize } from "@/lib/icons";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
 
 const CHART_HEIGHT = 220;
 const MODAL_LIST_MAX = 220;
@@ -571,7 +572,7 @@ const makeExplorerStyles = (theme: Theme) =>
       right: 8,
       width: 32,
       height: 32,
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
       backgroundColor: theme.bg,
@@ -619,12 +620,12 @@ const makeExplorerStyles = (theme: Theme) =>
       paddingHorizontal: Space.md,
       paddingTop: Space.xs,
       paddingBottom: Space.sm,
-      gap: 8,
+      gap: Space.xs,
     },
     list: {
       alignSelf: "stretch",
-      marginTop: 8,
-      gap: 8,
+      marginTop: Space.xs,
+      gap: Space.xs,
     },
     row: {
       flexDirection: "row",
@@ -652,14 +653,14 @@ const makeExplorerStyles = (theme: Theme) =>
       opacity: 0.4,
     },
     iconBtn: {
-      padding: 4,
+      padding: Space.xxs,
     },
     addBtn: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
+      gap: Space.xxs,
       alignSelf: "flex-start",
-      paddingVertical: 4,
+      paddingVertical: Space.xxs,
     },
     addText: {
       fontSize: 14,

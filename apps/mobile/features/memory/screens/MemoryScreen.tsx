@@ -235,6 +235,6 @@ function makeStyles(theme: Theme) {
     },
     root: { flex: 1, backgroundColor: theme.bg },
     content: { padding: Space.md },
-    heading: { ...Type.title, color: theme.text, marginBottom: 20 },
+    heading: { ...Type.title, color: theme.text, marginBottom: Space.gutter },
   });
 }

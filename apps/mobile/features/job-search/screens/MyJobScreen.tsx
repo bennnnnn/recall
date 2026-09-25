@@ -471,7 +471,7 @@ function makeStyles(C: Theme) {
     heroIcon: {
       width: 72,
       height: 72,
-      borderRadius: 24,
+      borderRadius: Radius.composer,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: C.primaryLight,
@@ -499,7 +499,7 @@ function makeStyles(C: Theme) {
     benefitIcon: {
       width: 42,
       height: 42,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: C.surface,
@@ -553,7 +553,7 @@ function makeStyles(C: Theme) {
     },
     tabs: {
       flexDirection: "row",
-      padding: 4,
+      padding: Space.xxs,
       borderRadius: Radius.full,
       backgroundColor: C.surface,
     },

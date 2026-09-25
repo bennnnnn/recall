@@ -26,6 +26,8 @@ import {
 } from "@/lib/chemistry/molecule3dFence";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { content: string };
 
@@ -264,7 +266,7 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     captionBox: {
       paddingHorizontal: 14,
-      paddingTop: 8,
+      paddingTop: Space.xs,
       paddingBottom: 0,
       backgroundColor: t.bg,
     },
@@ -275,7 +277,7 @@ function makeStyles(t: Theme) {
     },
     previewBox: {
       paddingHorizontal: 14,
-      paddingVertical: 24,
+      paddingVertical: Space.lg,
       backgroundColor: t.contentSurface,
       alignItems: "center",
     },
@@ -289,7 +291,7 @@ function makeStyles(t: Theme) {
     styleBtn: {
       paddingHorizontal: 10,
       paddingVertical: 5,
-      borderRadius: 8,
+      borderRadius: Radius.xs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       backgroundColor: t.surface,

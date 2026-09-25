@@ -15,6 +15,8 @@ import {
 } from "@/lib/messageListLayout";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   listRef: RefObject<FlashListRef<Message> | null>;
@@ -180,13 +182,13 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     messagesArea: { flex: 1 },
     list: { flex: 1 },
-    listContent: { paddingVertical: 8 },
+    listContent: { paddingVertical: Space.xs },
     loadEarlier: {
       alignSelf: "center",
       marginVertical: 10,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 999,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.xs,
+      borderRadius: Radius.full,
       backgroundColor: theme.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
@@ -196,11 +198,11 @@ function makeStyles(theme: Theme) {
       flexGrow: 1,
       alignItems: "stretch",
       justifyContent: "flex-start",
-      paddingTop: 4,
+      paddingTop: Space.xxs,
     },
     emptyWithFooter: {
       justifyContent: "flex-end",
-      paddingBottom: 8,
+      paddingBottom: Space.xs,
     },
   });
 }

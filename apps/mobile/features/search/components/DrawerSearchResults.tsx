@@ -8,6 +8,7 @@ import { displayChatTitle } from "@/lib/chat/title";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import type { SearchResult } from "@/lib/api";
+import { Space } from "@/lib/space";
 
 type ChromeProps = {
   hasSearchQuery: boolean;
@@ -121,23 +122,23 @@ export function DrawerSearchLoadMore({ loadingMore, loadingMoreError, onLoadMore
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    section: { marginBottom: 8 },
+    section: { marginBottom: Space.xs },
     sectionTitle: {
       ...Type.overline,
       color: theme.textTertiary,
       paddingHorizontal: 14,
-      paddingTop: 12,
+      paddingTop: Space.sm,
       paddingBottom: 6,
     },
     searchHint: {
       ...Type.secondary,
       color: theme.textSecondary,
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: Space.sm,
     },
     searchResult: {
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: Space.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
     },

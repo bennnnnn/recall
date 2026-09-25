@@ -47,6 +47,8 @@ import { Icon } from "@/components/Icon";
 import { trajectoryPointAt } from "@/lib/math/trajectory";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 export const SIMULATION_PAD = 24;
 export const SIMULATION_HEIGHT = 240;
@@ -564,7 +566,7 @@ const markerStyle = {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     wrap: {
-      marginVertical: 8,
+      marginVertical: Space.xs,
       alignItems: "center",
     },
     title: {
@@ -580,9 +582,9 @@ function makeStyles(theme: Theme) {
       zIndex: 1,
     },
     fallback: {
-      marginVertical: 8,
-      padding: 12,
-      borderRadius: 12,
+      marginVertical: Space.xs,
+      padding: Space.sm,
+      borderRadius: Radius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
@@ -591,12 +593,12 @@ function makeStyles(theme: Theme) {
       color: theme.textSecondary,
     },
     control: {
-      marginTop: 8,
+      marginTop: Space.xs,
       width: 36,
       height: 36,
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: 18,
+      borderRadius: Radius.bubble,
       borderWidth: StyleSheet.hairlineWidth,
     },
   });

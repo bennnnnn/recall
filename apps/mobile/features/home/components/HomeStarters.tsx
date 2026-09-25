@@ -202,12 +202,12 @@ function makeStyles(t: Theme) {
     sectionLabel: {
       ...Type.overline,
       color: t.textTertiary,
-      marginBottom: 8,
+      marginBottom: Space.xs,
     },
     sectionLabelUrgent: {
       color: t.warning,
     },
-    urgentBlock: { width: "100%", gap: 8, marginTop: 4 },
+    urgentBlock: { width: "100%", gap: Space.xs, marginTop: Space.xxs },
     urgentCardWrap: {
       position: "relative",
     },
@@ -250,7 +250,7 @@ function makeStyles(t: Theme) {
     urgentMain: { flex: 1, gap: 2 },
     urgentTitle: { ...Type.navTitle, color: t.text },
     urgentDue: { ...Type.caption, fontWeight: "600", color: t.warning },
-    startersBlock: { width: "100%", marginTop: 4 },
+    startersBlock: { width: "100%", marginTop: Space.xxs },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, justifyContent: "center" },
     chip: {
       flexDirection: "row",

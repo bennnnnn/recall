@@ -4,6 +4,7 @@ import type { StyleProp, ViewStyle } from "react-native";
 
 import { IconButton } from "@/components/IconButton";
 import { IconSize } from "@/lib/icons";
+import { Space } from "@/lib/space";
 
 type Props = {
   /** Where to go when there is no back stack (e.g. opened via deep link). */
@@ -25,7 +26,7 @@ export function StackBackButton({ fallback = "/", icon = "chevron-back", style }
         if (router.canGoBack()) router.back();
         else router.replace(fallback);
       }}
-      style={[{ marginLeft: 4 }, style]}
+      style={[{ marginLeft: Space.xxs }, style]}
     />
   );
 }

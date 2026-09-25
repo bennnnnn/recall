@@ -8,6 +8,8 @@ import { Type } from "@/lib/type";
 import type { Chat } from "@/lib/api";
 import { displayChatTitle } from "@/lib/chat/title";
 import { IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 export type ConversationRowStyles = {
   row: ViewStyle;
@@ -113,8 +115,8 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
       flexDirection: "row",
       alignItems: "center",
       minHeight: 44,
-      paddingVertical: 12,
-      paddingHorizontal: 16,
+      paddingVertical: Space.sm,
+      paddingHorizontal: Space.md,
       gap: 10,
     },
     rowIcon: { flexShrink: 0 },
@@ -124,15 +126,15 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
     titleActive: { fontWeight: "700" },
     rowHighlighted: {
       backgroundColor: theme.primaryLight,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       marginHorizontal: 6,
-      paddingHorizontal: 8,
+      paddingHorizontal: Space.xs,
     },
     rowActive: {
       backgroundColor: theme.surfaceAlt,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       marginHorizontal: 6,
-      paddingHorizontal: 8,
+      paddingHorizontal: Space.xs,
     },
     rowSelected: {
       backgroundColor: theme.primaryLight,

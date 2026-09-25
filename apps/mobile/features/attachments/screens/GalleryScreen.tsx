@@ -33,6 +33,7 @@ import {
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
 
 export default function GalleryScreen() {
   const { t } = useTranslation();
@@ -216,7 +217,7 @@ function makeStyles(C: Theme) {
       alignItems: "center",
     },
     fileTile: {
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       backgroundColor: C.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,

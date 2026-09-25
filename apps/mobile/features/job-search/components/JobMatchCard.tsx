@@ -145,7 +145,7 @@ function makeStyles(C: Theme) {
   return StyleSheet.create({
     card: {
       backgroundColor: C.surface,
-      borderRadius: 24,
+      borderRadius: Radius.composer,
       padding: Space.md,
       gap: Space.sm,
     },

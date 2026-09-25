@@ -136,7 +136,7 @@ function makeStyles(theme: Theme, scale: number) {
     },
     nextBtn: {
       minHeight: 52,
-      borderRadius: 18,
+      borderRadius: Radius.bubble,
     },
   });
 }
