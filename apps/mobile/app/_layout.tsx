@@ -31,6 +31,7 @@ import {
 } from "@/lib/stackTransitions";
 import { initMobileSentry } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
+import { UI_FONT } from "@/lib/uiFont";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -114,6 +115,10 @@ export default function RootLayout() {
   useFonts({
     SpaceMono: SpaceMono_400Regular,
     SourceSerif4: require("@expo-google-fonts/source-serif-4/400Regular/SourceSerif4_400Regular.ttf"),
+    [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
+    [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
+    [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),
+    [UI_FONT.bold]: require("@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf"),
   });
 
   useEffect(() => {

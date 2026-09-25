@@ -32,6 +32,9 @@ importers:
       '@config-plugins/react-native-webrtc':
         specifier: ^15.0.2
         version: 15.0.2(expo@57.0.7)
+      '@expo-google-fonts/source-sans-3':
+        specifier: 0.4.1
+        version: 0.4.1
       '@expo-google-fonts/source-serif-4':
         specifier: 0.4.1
         version: 0.4.1
@@ -791,6 +794,9 @@ packages:
 
   '@expo-google-fonts/material-symbols@0.4.38':
     resolution: {integrity: sha512-IJkBtN1o8u9BW5fvSii1MyHPQ7Q0HxbWcVBvOrOzgMLpVtZw7R2w94wBTVR7kZwv3w1JNTESMmLA5Sqn1+Z36A==}
+
+  '@expo-google-fonts/source-sans-3@0.4.1':
+    resolution: {integrity: sha512-sxsO4kfxQnVMT6ri/yWiBefkgem6suvc7KWJ4m/kWGTGqxkGouxG7MQsZ8XR6wqasxYZxdWK1gtusMBLSZDiiA==}
 
   '@expo-google-fonts/source-serif-4@0.4.1':
     resolution: {integrity: sha512-Ej4UXDjW1kwYPHG8YLq6fK1bqnJGb3K35J3S5atSL0ScKFAFLKvndxoTWeCls7mybtlS9x99hzwDeXCBkiI3rA==}
@@ -6260,6 +6266,8 @@ snapshots:
       levn: 0.4.1
 
   '@expo-google-fonts/material-symbols@0.4.38': {}
+
+  '@expo-google-fonts/source-sans-3@0.4.1': {}
 
   '@expo-google-fonts/source-serif-4@0.4.1': {}
 
