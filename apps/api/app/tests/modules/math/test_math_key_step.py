@@ -177,6 +177,32 @@ def test_high_degree_denominator_is_not_enumerated() -> None:
     assert joined.count(r"\ne") == 1
 
 
+def test_absolute_value_equation_gets_a_complete_lesson() -> None:
+    text = "|x-2|=5"
+    block = _block(text)
+    reply = maybe_direct_math_reply(block, text, response_style="balanced")
+
+    assert reply is not None
+    assert "Split the absolute-value equation" in reply
+    assert r"x - 2 = 5 \quad\text{or}\quad x - 2 = -5" in reply
+    assert block.key_steps[-1].formula == block.canonical_answer == r"x = -3 \text{ or } x = 7"
+
+
+def test_absolute_value_of_x_uses_the_plus_minus_chip() -> None:
+    block = _block("|x|=5")
+    assert block is not None
+    assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm 5"
+
+
+def test_complex_modulus_does_not_split_like_a_real_absolute_value() -> None:
+    from sympy import I, Symbol
+
+    from app.modules.math.solve.key_steps import equation_key_steps
+
+    steps = equation_key_steps(abs(Symbol("x") + I), 5, "x")
+    assert steps == []
+
+
 def test_complex_pure_power_shows_the_root_before_simplifying() -> None:
     text = "x^2 + 1 = 0"
     block = _block(text)

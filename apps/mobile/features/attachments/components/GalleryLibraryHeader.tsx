@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { SearchField } from "@/components/SearchField";
 import { tap } from "@/lib/haptics";
 import { type GalleryFilter } from "@/features/attachments/model/gallery";
 import { type GalleryLayout } from "@/features/attachments/model/galleryLayout";
@@ -41,29 +42,15 @@ export function GalleryLibraryHeader({
 
   return (
     <View style={s.header}>
-      <View style={s.searchBar}>
-        <Icon name="search-outline" size={16} color={C.textTertiary} />
-        <TextInput
-          style={s.searchInput}
-          placeholder={t("gallery.search_placeholder")}
-          placeholderTextColor={C.textDisabled}
-          value={searchQuery}
-          onChangeText={onSearchChange}
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 ? (
-          <Pressable
-            onPress={() => onSearchChange("")}
-            accessibilityRole="button"
-            accessibilityLabel={t("gallery.search_clear_a11y")}
-            testID="gallery-search-clear"
-            hitSlop={8}
-          >
-            <Icon name="close-circle-outline" size={18} color={C.textTertiary} />
-          </Pressable>
-        ) : null}
-      </View>
+      <SearchField
+        style={s.searchField}
+        value={searchQuery}
+        onChangeText={onSearchChange}
+        placeholder={t("gallery.search_placeholder")}
+        onClear={() => onSearchChange("")}
+        clearAccessibilityLabel={t("gallery.search_clear_a11y")}
+        clearTestID="gallery-search-clear"
+      />
       <View style={s.tabs}>
         {filters.map((tab) => {
           const active = tab.key === filter;
@@ -112,25 +99,7 @@ function makeStyles(C: Theme) {
       paddingTop: Space.sm,
       paddingBottom: Space.sm,
     },
-    searchBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      minHeight: 44,
-      paddingHorizontal: 14,
-      borderRadius: Radius.sheet,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-      backgroundColor: C.surfaceAlt,
-      marginBottom: Space.sm,
-    },
-    searchInput: {
-      flex: 1,
-      ...Type.callout,
-      fontWeight: "400",
-      padding: 0,
-      color: C.text,
-    },
+    searchField: { marginBottom: Space.sm },
     tabs: {
       flexDirection: "row",
       flexWrap: "wrap",

@@ -327,6 +327,7 @@ function ChatScreen() {
   } = send;
 
   const [mathChromeExtra, setMathChromeExtra] = useState(0);
+  const [composerInputExtra, setComposerInputExtra] = useState(0);
 
   const composerThread = composerThreadKey(
     typeof routeChatId === "string" ? routeChatId : undefined,
@@ -497,7 +498,7 @@ function ChatScreen() {
     windowHeight,
     fontScale,
     keyboardHeight,
-    composerHeight: COMPOSER_HEIGHT,
+    composerHeight: COMPOSER_HEIGHT + composerInputExtra,
     attachmentExtra: composerAttachmentExtra(pendingAttachment),
     mathBarExtra: mathChromeExtra,
     messagesLength: displayMessages.length,
@@ -555,6 +556,7 @@ function ChatScreen() {
       handleMathScanCaptured,
       onOpenMathScanner: openMathScanner,
       onMathChromeHeightChange: setMathChromeExtra,
+      onInputFrameExtraChange: setComposerInputExtra,
     },
     quotaNudge,
     chatError,

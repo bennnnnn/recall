@@ -1,4 +1,5 @@
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
+import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
 export const CHAT_HEADER_BAR_HEIGHT = 52;
@@ -8,6 +9,48 @@ const CHAT_HEADER_TITLE_VERTICAL_AIR = 8;
 export const CHAT_ACTION_ROW_HEIGHT = 44;
 export const CHAT_KEYBOARD_LIFT_EXTRA = 0;
 export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
+/** Matches the + / send controls so the placeholder shares their midline. */
+export const COMPOSER_INPUT_MIN_HEIGHT = Space.minTouch;
+/** Extra Returns grow by one text line, not another full control. */
+export const COMPOSER_INPUT_LINE_HEIGHT = Space.lg;
+export const COMPOSER_INPUT_MAX_HEIGHT =
+  COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT * 5;
+
+/**
+ * Last native content height stays valid while the same draft is edited.
+ * Soft wraps do not add a newline, and iOS often skips `onContentSizeChange`
+ * when the box does not grow, so an exact-string match would snap the field
+ * back to one line. A cleared draft or a thread switch drops the sample.
+ */
+export function retainedComposerContentHeight(
+  stored: { revision: number; height: number } | null,
+  revision: number,
+  text: string,
+): number {
+  if (!text || !stored || stored.revision !== revision) return 0;
+  return stored.height;
+}
+
+/**
+ * Frame height for the composer field. Returns count as lines even when iOS
+ * reports a stale content size, so a new line grows the field instead of
+ * painting under the pill. Wrapped lines still use the measured size.
+ */
+export function composerInputFrameHeight(
+  text: string,
+  measuredContentHeight: number,
+): { height: number; overflows: boolean } {
+  if (!text) return { height: COMPOSER_INPUT_MIN_HEIGHT, overflows: false };
+  const lineCount = text.split("\n").length;
+  const fromLines =
+    COMPOSER_INPUT_MIN_HEIGHT + (lineCount - 1) * COMPOSER_INPUT_LINE_HEIGHT;
+  const measured = measuredContentHeight > 0 ? measuredContentHeight : 0;
+  const desired = Math.max(COMPOSER_INPUT_MIN_HEIGHT, fromLines, measured);
+  return {
+    height: Math.min(COMPOSER_INPUT_MAX_HEIGHT, desired),
+    overflows: desired > COMPOSER_INPUT_MAX_HEIGHT,
+  };
+}
 export const CHAT_EMPTY_MIN_HEIGHT = 160;
 
 export type ModelOption = { id: string; label: string; hint?: string };

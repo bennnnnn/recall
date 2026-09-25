@@ -1,8 +1,9 @@
 import { StyleSheet } from "react-native";
 
 import { Radius } from "@/lib/radius";
+import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
-import { type Theme, withAlpha } from "@/lib/theme";
+import type { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 export const TOP_CHROME = 58;
@@ -10,15 +11,6 @@ export const FOOTER_CHROME = 54;
 export const FADE_EXTRA = 40;
 
 export function makeConversationListStyles(theme: Theme) {
-  const searchChrome = {
-    backgroundColor: withAlpha(theme.onMedia, theme.isDark ? 0.08 : 0.6),
-    borderColor: withAlpha(theme.onMedia, theme.isDark ? 0.24 : 0.85),
-    borderWidth: 1,
-    shadowColor: theme.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: theme.isDark ? 0 : 0.06,
-    shadowRadius: Space.xs,
-  };
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg, overflow: "visible" },
     center: {
@@ -64,12 +56,13 @@ export function makeConversationListStyles(theme: Theme) {
       gap: Space.xxs,
     },
     searchBtn: {
-      ...searchChrome,
       width: Space.minTouch,
       height: Space.minTouch,
       alignItems: "center",
       justifyContent: "center",
       borderRadius: Radius.full,
+      backgroundColor: theme.bg,
+      ...shadowRaised(theme),
     },
     selectionHeader: {
       flexDirection: "row",
@@ -91,23 +84,6 @@ export function makeConversationListStyles(theme: Theme) {
       ...Type.secondary,
       fontWeight: "600",
       color: theme.primary,
-    },
-    searchBar: {
-      ...searchChrome,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-      minHeight: Space.minTouch,
-      borderRadius: Radius.full,
-      paddingHorizontal: Space.sm,
-      paddingVertical: Space.xs,
-    },
-    searchInput: {
-      flex: 1,
-      ...Type.body,
-      color: theme.text,
-      paddingVertical: 0,
-      minHeight: 22,
     },
     searchCancel: { paddingLeft: Space.xxs },
     searchCancelText: {
@@ -184,12 +160,13 @@ export function makeConversationListStyles(theme: Theme) {
     footerNewChatText: { ...Type.label, color: theme.onPrimary },
     profileBtn: {
       marginLeft: "auto",
-      minWidth: 44,
-      minHeight: 44,
+      width: Space.minTouch,
+      height: Space.minTouch,
       alignItems: "center",
       justifyContent: "center",
-      padding: Space.xxs,
       borderRadius: Radius.full,
+      backgroundColor: theme.bg,
+      ...shadowRaised(theme),
     },
     selectionBar: {
       position: "absolute",

@@ -50,7 +50,7 @@ export function DrawerFooter({
         accessibilityRole="button"
         accessibilityLabel={t("settings.title")}
       >
-        <Avatar name={user?.name ?? null} uri={user?.avatar_url} token={token} size={36} />
+        <Avatar name={user?.name ?? null} uri={user?.avatar_url} token={token} size={32} />
       </Pressable>
     </View>
   );

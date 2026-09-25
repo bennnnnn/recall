@@ -1,6 +1,8 @@
 import type { ComponentProps } from "react";
+import { Image, type ImageStyle, type StyleProp } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { boldIcons, type BoldIconName } from "@/assets/bold-icons";
 import { IconSize, inkIconColor, type IoniconName } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
 
@@ -18,32 +20,28 @@ type Props = {
   /** Use the danger ink color (red) instead of the default ink. */
   danger?: boolean;
   style?: ComponentProps<typeof Ionicons>["style"];
-  allowFontScaling?: boolean;
   testID?: string;
 };
 
 /**
- * One Ionicons wrapper for the app. Centralizes:
- *  - the **outline** standard — call sites pass `-outline` names and `Icon`
- *   renders them as-is, so the whole app reads as unfilled by default (a
- *   filled glyph is used only where it encodes an active state);
- *  - the ink color default (`inkIconColor`: theme text; red for danger)
- *    instead of a one-off hex.
- *
- * `size` stays a number (not a forced enum): the app uses ~15 distinct icon
- * sizes (9–36) and a 3–4 step ladder would silently change most of them.
- * New code should prefer `Icon`; existing call sites migrate incrementally.
+ * One icon treatment for the app: a single solid glyph at the same weight as
+ * the menu artwork. The stroke is thickened once (not stacked copies).
  */
-export function Icon({ name, size = IconSize.sm, color, danger, style, allowFontScaling, testID }: Props) {
+export function Icon({ name, size = IconSize.sm, color, danger, style, testID }: Props) {
   const theme = useTheme();
+  const ink = color ?? inkIconColor(theme, danger);
+  const source = boldIcons[name as BoldIconName];
+  if (!source) {
+    return <Ionicons name={name} size={size} color={ink} style={style} testID={testID} />;
+  }
   return (
-    <Ionicons
-      name={name}
-      size={size}
-      color={color ?? inkIconColor(theme, danger)}
-      style={style}
-      allowFontScaling={allowFontScaling}
+    <Image
+      source={source}
+      resizeMode="contain"
+      accessible={false}
       testID={testID}
+      style={[{ width: size, height: size, tintColor: ink }, style as StyleProp<ImageStyle>]}
+      {...({ name, size, color: ink } as Record<string, unknown>)}
     />
   );
 }

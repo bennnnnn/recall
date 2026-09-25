@@ -33,6 +33,10 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
+  COMPOSER_INPUT_MAX_HEIGHT,
+  COMPOSER_INPUT_MIN_HEIGHT,
+  composerInputFrameHeight,
+  retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
@@ -42,6 +46,7 @@ import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
 import { Radius } from "@/lib/radius";
+import { shadowElevated } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -53,8 +58,6 @@ export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 44;
 const MATH_KEYBOARD_CHIP_HEIGHT = 44;
-const COMPOSER_INPUT_MIN_HEIGHT = 25;
-const COMPOSER_INPUT_MAX_HEIGHT = COMPOSER_INPUT_MIN_HEIGHT * 6;
 /** Space above the floating keypad so message action icons are not flush with it. */
 const MATH_KEYBOARD_CHIP_GAP = Space.sm;
 export const COMPOSER_TOKEN_HINT_HEIGHT = 18;
@@ -101,6 +104,8 @@ type Props = {
   docked?: boolean;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
+  /** Extra field height past one line, so the thread moves up with the pill. */
+  onInputFrameExtraChange?: (extra: number) => void;
   /** Recent chat already has math — offer the math keyboard even with an empty composer. */
   mathContext?: boolean;
 };
@@ -134,6 +139,7 @@ export const ChatComposer = memo(function ChatComposer({
   docked = false,
   onOpenMathScanner,
   onMathChromeHeightChange,
+  onInputFrameExtraChange,
   mathContext = false,
 }: Props) {
   const { t } = useTranslation();
@@ -148,10 +154,11 @@ export const ChatComposer = memo(function ChatComposer({
     onChangeInputProp ??
     (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
   const [scanHint, setScanHint] = useState(false);
-  const [inputHeight, setInputHeight] = useState(COMPOSER_INPUT_MIN_HEIGHT);
+  const [inputHeight, setInputHeight] = useState<number>(COMPOSER_INPUT_MIN_HEIGHT);
   const [inputAtLimit, setInputAtLimit] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const measuredContent = useRef<{ revision: number; height: number } | null>(null);
   const math = useMathKeyboardInsert({
     input,
     draftRevision: draft?.revision,
@@ -189,12 +196,33 @@ export const ChatComposer = memo(function ChatComposer({
     // iOS can retain the last multiline content size after a controlled
     // TextInput is cleared. Pin the empty draft back to the single-line
     // height so a sent long message cannot leave a tall blank composer.
+    // Within one draft, keep the last wrap height: a keystroke changes the
+    // string without a new content-size event. A thread switch (revision)
+    // drops that sample so the next draft does not inherit it.
+    const revision = draft?.revision ?? 0;
     if (!input) {
+      measuredContent.current = null;
       setInputHeight(COMPOSER_INPUT_MIN_HEIGHT);
       setInputAtLimit(false);
       setComposerExpanded(false);
+      return;
     }
-  }, [input]);
+    const measured = retainedComposerContentHeight(
+      measuredContent.current,
+      revision,
+      input,
+    );
+    const frame = composerInputFrameHeight(input, measured);
+    setInputHeight(frame.height);
+    setInputAtLimit(frame.overflows);
+  }, [draft?.revision, input]);
+
+  const inputFrameExtra = composerExpanded
+    ? 0
+    : Math.max(0, inputHeight - COMPOSER_INPUT_MIN_HEIGHT);
+  useEffect(() => {
+    onInputFrameExtraChange?.(visible ? inputFrameExtra : 0);
+  }, [inputFrameExtra, onInputFrameExtraChange, visible]);
 
   const onToggleMathBar = useCallback(() => {
     const wasOpen = mathBarOpen;
@@ -381,7 +409,11 @@ export const ChatComposer = memo(function ChatComposer({
                     testID="chat-composer-input"
                     style={[
                       s.input,
-                      composerExpanded ? s.inputExpanded : { height: inputHeight },
+                      composerExpanded
+                        ? s.inputExpanded
+                        : inputHeight <= COMPOSER_INPUT_MIN_HEIGHT
+                          ? s.inputSingleLine
+                          : { height: inputHeight, textAlignVertical: "top" },
                       parkInput ? s.inputParked : null,
                     ]}
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
@@ -394,20 +426,19 @@ export const ChatComposer = memo(function ChatComposer({
                     onChangeText={math.onChangeText}
                     onContentSizeChange={(event) => {
                       const measured = Math.ceil(event.nativeEvent.contentSize.height);
-                      const hasVisibleDraft = Boolean(input.trim());
-                      const next = hasVisibleDraft
-                        ? Math.min(
-                            COMPOSER_INPUT_MAX_HEIGHT,
-                            Math.max(COMPOSER_INPUT_MIN_HEIGHT, measured),
-                          )
-                        : COMPOSER_INPUT_MIN_HEIGHT;
-                      setInputAtLimit(
-                        hasVisibleDraft && measured >= COMPOSER_INPUT_MAX_HEIGHT,
-                      );
+                      measuredContent.current = {
+                        revision: draft?.revision ?? 0,
+                        height: measured,
+                      };
+                      const frame = composerInputFrameHeight(input, measured);
+                      setInputAtLimit(frame.overflows);
                       if (!composerExpanded) {
-                        setInputHeight((current) => (current === next ? current : next));
+                        setInputHeight((current) =>
+                          current === frame.height ? current : frame.height,
+                        );
                       }
                     }}
+                    scrollEnabled={inputAtLimit && !composerExpanded}
                     onSelectionChange={math.onSelectionChange}
                     selection={
                       showMathPreview
@@ -562,13 +593,13 @@ function makeStyles(theme: Theme) {
       right: 0,
       zIndex: 110,
       overflow: "visible",
-      backgroundColor: theme.composerBg,
+      backgroundColor: "transparent",
       paddingHorizontal: Space.sm,
       paddingTop: 2,
     },
     composerDocked: {
       overflow: "visible",
-      backgroundColor: theme.composerBg,
+      backgroundColor: "transparent",
       paddingHorizontal: Space.sm,
       paddingTop: 2,
     },
@@ -593,6 +624,7 @@ function makeStyles(theme: Theme) {
       paddingBottom: Space.xs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.composerBorder,
+      ...shadowElevated(theme, "fab"),
     },
     inputWrapFlex: { flex: 1, minWidth: 0 },
     inputWrapExpanded: { flex: 1, minHeight: 0 },
@@ -670,6 +702,14 @@ function makeStyles(theme: Theme) {
       maxHeight: COMPOSER_INPUT_MAX_HEIGHT,
       paddingVertical: 0,
       minHeight: COMPOSER_INPUT_MIN_HEIGHT,
+    },
+    inputSingleLine: {
+      height: COMPOSER_INPUT_MIN_HEIGHT,
+      // iOS pins multiline text to the top. This padding drops the first
+      // line onto the same midline as the 44pt + button.
+      paddingTop: Space.sm,
+      paddingBottom: 0,
+      textAlignVertical: "center",
     },
     inputExpanded: {
       height: undefined,

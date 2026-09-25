@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
+import { SearchField } from "@/components/SearchField";
 import { requestDevicePlace } from "@/lib/deviceLocation";
 import {
   COUNTRIES,
@@ -256,18 +257,12 @@ export function LocationFields({ value, onChange, disabled }: Props) {
             ? t("my_job.location_region_label")
             : t("my_job.location_country_label")}
         </Text>
-        <View style={s.sheetSearchRow}>
-          <Icon name="search" size={18} color={C.textTertiary} />
-          <TextInput
-            style={s.sheetSearch}
-            value={pickerQuery}
-            onChangeText={setPickerQuery}
-            placeholder={t("my_job.location_search_placeholder")}
-            placeholderTextColor={C.textDisabled}
-            autoCapitalize="words"
-            autoCorrect={false}
-          />
-        </View>
+        <SearchField
+          value={pickerQuery}
+          onChangeText={setPickerQuery}
+          placeholder={t("my_job.location_search_placeholder")}
+          autoCapitalize="words"
+        />
         <View style={s.sheetList}>
           <FlashList
             data={pickerItems}
@@ -356,21 +351,6 @@ function makeStyles(C: Theme) {
       color: C.text,
       textAlign: "center",
       paddingBottom: Space.xxs,
-    },
-    sheetSearchRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: 46,
-      borderRadius: Radius.lg,
-      backgroundColor: C.surfaceAlt,
-      paddingHorizontal: Space.md,
-    },
-    sheetSearch: {
-      ...Type.body,
-      flex: 1,
-      color: C.text,
-      paddingVertical: Space.xs,
     },
     sheetList: { height: 340 },
     sheetRow: {

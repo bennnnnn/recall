@@ -2,6 +2,7 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/components/Icon";
+import { SearchField } from "@/components/SearchField";
 import { tap } from "@/lib/haptics";
 import { IconSize } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";
@@ -45,32 +46,27 @@ export function DrawerHeader({
     <View style={[s.topOverlay, { paddingTop }]} pointerEvents="box-none">
       <View style={s.header}>
         {searchOpen ? (
-          <View style={s.searchBar}>
-            <Icon name="search-outline" size={18} color={theme.text} />
-            <TextInput
-              ref={searchInputRef}
-              style={s.searchInput}
-              placeholder={t("search.placeholder")}
-              placeholderTextColor={theme.textDisabled}
-              value={searchQuery}
-              onChangeText={onSearchChange}
-              returnKeyType="search"
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
-            <Pressable
-              hitSlop={8}
-              onPress={() => {
-                tap();
-                onCloseSearch();
-              }}
-              style={s.searchCancel}
-              accessibilityRole="button"
-              accessibilityLabel={t("common.cancel")}
-            >
-              <Text style={s.searchCancelText}>{t("common.cancel")}</Text>
-            </Pressable>
-          </View>
+          <SearchField
+            inputRef={searchInputRef}
+            value={searchQuery}
+            onChangeText={onSearchChange}
+            placeholder={t("search.placeholder")}
+            clearButtonMode="while-editing"
+            trailing={
+              <Pressable
+                hitSlop={8}
+                onPress={() => {
+                  tap();
+                  onCloseSearch();
+                }}
+                style={s.searchCancel}
+                accessibilityRole="button"
+                accessibilityLabel={t("common.cancel")}
+              >
+                <Text style={s.searchCancelText}>{t("common.cancel")}</Text>
+              </Pressable>
+            }
+          />
         ) : selectionMode ? (
           <View style={s.selectionHeader}>
             <Pressable
