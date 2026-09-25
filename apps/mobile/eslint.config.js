@@ -66,6 +66,57 @@ module.exports = defineConfig([
       "**/__tests__/**",
       "**/*.test.ts",
       "**/*.test.tsx",
+      "lib/type.ts",
+      "lib/graphic.ts",
+      "lib/vendor/**",
+      "lib/math/**",
+      "lib/shadow.ts",
+      "lib/theme.ts",
+      "components/CodeBlock.tsx",
+      "components/rich/MathText.tsx",
+      "components/rich/AnswerBlock.tsx",
+      "components/rich/CircularClockBlock.tsx",
+      "components/rich/InteractiveFunctionPlot.tsx",
+      "components/rich/InequalityGraphChart.tsx",
+      "components/rich/FunctionGraphBlock.tsx",
+      "components/rich/GeometryBlock.tsx",
+      "components/rich/geometry/**",
+      "components/rich/NumberLineChart.tsx",
+      "components/rich/CartesianAxes.tsx",
+      "components/rich/SimulationBlock.tsx",
+      "components/rich/Molecule3DBlock.tsx",
+      "components/rich/MoleculeCard.tsx",
+      "components/rich/ChemistryBlock.tsx",
+      "components/rich/ChartBlock.tsx",
+      "components/rich/MermaidBlock.tsx",
+      "components/chat/MathKeyboardBar.tsx",
+      "components/chat/MathConverterUnitSheet.tsx",
+      "components/chat/MathConverterPad.tsx",
+      "components/chat/MathDraftPreview.tsx",
+      "features/learning/screens/LessonPlayScreen.tsx",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Property[key.name='fontSize'][value.raw=/^\\d/]",
+          message:
+            "Use a Type role from lib/type.ts. Raw font sizes belong in that file, or in domain graphics.",
+        },
+        {
+          selector:
+            "Property[key.name=/^(color|backgroundColor|borderColor|shadowColor|tintColor)$/][value.raw=/^['\"]#/]",
+          message: "Use a theme color. Neutral shadow ink is SHADOW_COLOR in lib/shadow.ts.",
+        },
+      ],
+    },
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
+    ignores: [
+      "**/__tests__/**",
+      "**/*.test.ts",
+      "**/*.test.tsx",
       "lib/graphic.ts",
       "lib/math/**",
       "lib/type.ts",
@@ -80,8 +131,8 @@ module.exports = defineConfig([
       "lib/space.ts",
       "lib/theme.ts",
       "lib/vendor/**",
-      // Still use a spacing or radius number that is not on the scale.
-      // New files are checked. These stay listed until they move onto Space / Radius.
+      // Spacing and radius only. Color stays enforced on these files.
+      // They still use a number that is not on the scale.
       "app/login.tsx",
       "app/onboarding.tsx",
       "app/settings/index.tsx",
@@ -182,12 +233,12 @@ module.exports = defineConfig([
         },
         {
           selector:
-            "Property[key.name=/^(padding|margin|gap|paddingHorizontal|paddingVertical|marginHorizontal|marginVertical|paddingTop|paddingBottom|paddingLeft|paddingRight|marginTop|marginBottom|marginLeft|marginRight|rowGap|columnGap)$/][value.raw=/^([3-9]|[1-9]\\d+)$/]",
+            "Property[key.name=/^(padding|margin|gap|paddingHorizontal|paddingVertical|marginHorizontal|marginVertical|paddingTop|paddingBottom|paddingLeft|paddingRight|marginTop|marginBottom|marginLeft|marginRight|rowGap|columnGap)$/][value.raw=/^(?!0$|1$|2$)\\d*\\.?\\d+$/]",
           message: "Use a Space token from lib/space.ts. 0, 1, and 2 may stay raw.",
         },
         {
           selector:
-            "Property[key.name=/^(borderRadius|borderTopLeftRadius|borderTopRightRadius|borderBottomLeftRadius|borderBottomRightRadius|borderTopStartRadius|borderTopEndRadius|borderBottomStartRadius|borderBottomEndRadius)$/][value.raw=/^([3-9]|[1-9]\\d+)$/]",
+            "Property[key.name=/^(borderRadius|borderTopLeftRadius|borderTopRightRadius|borderBottomLeftRadius|borderBottomRightRadius|borderTopStartRadius|borderTopEndRadius|borderBottomStartRadius|borderBottomEndRadius)$/][value.raw=/^(?!0$|1$|2$)\\d*\\.?\\d+$/]",
           message: "Use a Radius token from lib/radius.ts. 0, 1, and 2 may stay raw.",
         },
         {
