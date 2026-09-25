@@ -69,6 +69,29 @@ _REFERENTIAL_REQUESTS = frozenset(
 )
 
 
+def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str | None:
+    """The equation still in progress when this message is only a fragment.
+
+    ``5`` or ``x`` after ``3x^2 + 3 = 5`` is the same problem, not a new chat.
+    A greeting or a new equation does not reopen it.
+    """
+    if not prior_user_messages:
+        return None
+    cleaned = " ".join(text.split())
+    if not cleaned or len(cleaned) > 24:
+        return None
+    from app.services.chat.prompt_constants.routing import is_lightweight_chat_turn
+
+    if is_lightweight_chat_turn(cleaned):
+        return None
+    if needs_symbolic_math(text):
+        return None
+    for prior in reversed(prior_user_messages):
+        if prior and prior.strip() and needs_symbolic_math(prior):
+            return prior
+    return None
+
+
 def is_math_followup(query: str | None, recent: Sequence[Any]) -> bool:
     """Require one complete adjacent user/assistant math exchange; never scan older topics."""
     if not query or len(query) > 120 or len(recent) < 2:

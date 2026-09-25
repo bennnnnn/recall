@@ -167,11 +167,12 @@ def test_solve_quadratic_includes_worked_isolation_steps() -> None:
     instead of inventing wrong steps like 'x^2 = 6 - 2x^2'."""
     result = math_solve.solve_equation(EquationInput(lhs="x**2 + 2", rhs="6", variables=["x"]))
     steps_text = "\n".join(result.steps)
-    # Isolation step: x^2 = 4
+    # Isolation step: x^2 = 4, then x = ±√4. Not √(x²) followed by |x|.
     assert "x^{2} = 4" in steps_text
-    # Even-root real solutions: |x| = 2, not a claimed real square root of a negative.
-    assert "lvert" in steps_text or r"\left|" in steps_text
-    assert "2" in steps_text
+    assert r"\sqrt{4}" in steps_text
+    assert r"\pm" in steps_text
+    assert "lvert" not in steps_text
+    assert r"\sqrt{x" not in steps_text
     # No stray wrong terms the model was emitting.
     assert "2x" not in steps_text
     assert "\\sqrt{4x}" not in steps_text
