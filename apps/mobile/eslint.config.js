@@ -23,6 +23,7 @@ module.exports = defineConfig([
       "**/*.test.ts",
       "**/*.test.tsx",
       "lib/type.ts",
+      "lib/graphic.ts",
       "lib/vendor/**",
       "lib/math/**",
       "components/CodeBlock.tsx",
