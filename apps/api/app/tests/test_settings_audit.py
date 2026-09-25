@@ -62,7 +62,7 @@ def test_archive_all_chats():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.chats.chats_service.archive_all_chats",
+        "app.modules.chat.api.chats_service.archive_all_chats",
         AsyncMock(return_value=3),
     ) as archive:
         client = TestClient(app)
@@ -75,7 +75,7 @@ def test_delete_all_chats():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.chats.chats_service.delete_all_chats",
+        "app.modules.chat.api.chats_service.delete_all_chats",
         AsyncMock(return_value=2),
     ) as delete:
         client = TestClient(app)

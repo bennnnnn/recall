@@ -10,6 +10,7 @@ from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.modules.attachments import api as attachments
 from app.modules.billing import api as webhooks
+from app.modules.chat import api as chats
 from app.modules.home import api as home
 from app.modules.images import api as images
 from app.modules.integrations import api as integrations
@@ -27,7 +28,6 @@ from app.routers import (
     analytics,
     auth,
     chat_stream,
-    chats,
     health,
     legal,
     link_preview,

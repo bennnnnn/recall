@@ -14,6 +14,7 @@ _EXPORTS = {
     "events_needing_nudge": ("nudges", "events_needing_nudge"),
     "fetch_upcoming_events": ("calendar", "fetch_upcoming_events"),
     "format_calendar_nudge": ("nudges", "format_calendar_nudge"),
+    "rewrite_first_email_fence": ("fence", "rewrite_first_email_fence"),
     "is_external_calendar_question": ("calendar", "is_external_calendar_question"),
     "nudge_ttl_seconds": ("nudges", "nudge_ttl_seconds"),
 }
