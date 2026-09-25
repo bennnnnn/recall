@@ -37,11 +37,13 @@ async def initialize_process(settings: Settings) -> None:
     setup_logging(json_output=settings.environment == "production")
     init_sentry(settings)
     validate_production_settings(settings)
+    role = validate_process_role(settings)
     setup_mcp_adapters(settings)
     await warmup_db_pool()
-    from app.modules.math.sympy_executor import warm_sympy_pool
+    if role in ("all", "api"):
+        from app.modules.math.sympy_executor import warm_sympy_pool
 
-    await warm_sympy_pool()
+        await warm_sympy_pool()
 
 
 async def start_worker_runtime(settings: Settings) -> None:
