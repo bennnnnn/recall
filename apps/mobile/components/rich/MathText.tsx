@@ -90,7 +90,7 @@ function isCombiningMark(ch: string): boolean {
   return c >= 0x0300 && c <= 0x036f;
 }
 
-/** Georgia and Android serif are proportional. m/w are about one em, so the
+/** Source Serif 4 is proportional. m/w are about one em, so the
  * old one-width estimate (SpaceMono) clips a long numerator and its scroll. */
 function isWideFormulaGlyph(ch: string): boolean {
   return ch === "m" || ch === "w" || ch === "M" || ch === "W" || ch === "%" || ch === "@";
