@@ -4,7 +4,7 @@ import DateTimePicker, { type DateTimePickerEvent } from "@react-native-communit
 
 type Props = {
   value: Date;
-  mode: "date" | "time";
+  mode: "date" | "time" | "datetime";
   disabled?: boolean;
   onChange: (event: DateTimePickerEvent, date?: Date) => void;
 };

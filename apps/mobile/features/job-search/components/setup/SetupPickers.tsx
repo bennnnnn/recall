@@ -81,6 +81,7 @@ export function SetupPickers({
           iOS gets the spinner inside a floating sheet with a Done button. */}
       {Platform.OS === "android" && showPicker ? (
         <ReminderDateTimePicker
+          mode="datetime"
           value={nextRunAt}
           onChange={onPickerChange}
           disabled={busy}
@@ -93,6 +94,7 @@ export function SetupPickers({
       >
         <Text style={s.pickerTitle}>{t("my_job.first_delivery_label")}</Text>
         <ReminderDateTimePicker
+          mode="datetime"
           value={nextRunAt}
           onChange={onPickerChange}
           disabled={busy}
