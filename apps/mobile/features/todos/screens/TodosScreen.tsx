@@ -116,6 +116,15 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const headerRightAction = useRef<() => void>(() => {});
   const headerBackAction = useRef<() => void>(() => {});
   headerBackAction.current = leaveDetail;
+  useEffect(() => {
+    if (!detailOpen) return;
+    return navigation.addListener("beforeRemove", (event) => {
+      const type = event.data.action.type;
+      if (type !== "GO_BACK" && type !== "POP") return;
+      event.preventDefault();
+      leaveDetail();
+    });
+  }, [navigation, detailOpen, leaveDetail]);
   headerRightAction.current = () => {
     Keyboard.dismiss();
     if (detailOpen && editingId) {
@@ -271,7 +280,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       {detailOpen ? null : (
       <TodosScrollList
         rows={rows}
-        showEmpty={showTodosEmptyHero}
+        showEmpty={showTodosEmptyHero && suggestedReminders.length === 0}
         error={Boolean(error)}
         listHeader={listHeader}
         refreshing={pullRefreshing}
@@ -365,7 +374,22 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           onMarkDone={() => {
             const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;
             setDetailMenu(false);
-            if (current) void actions.handleToggle(current);
+            if (!current) return;
+            const draft = editRef.current?.pending() ?? null;
+            void (async () => {
+              if (draft) {
+                const saved = await actions.handleUpdateTodo(
+                  current,
+                  draft.content,
+                  draft.dueDate,
+                  draft.recurrence,
+                  draft.topic,
+                  false,
+                );
+                if (!saved) return;
+              }
+              await actions.handleToggle(current);
+            })();
           }}
           onDelete={() => {
             const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;

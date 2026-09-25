@@ -4,6 +4,7 @@ import {
   Dimensions,
   findNodeHandle,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -107,9 +108,12 @@ export function AppSheet({
     : (animation ?? (variant === "center" ? "fade" : "slide"));
   const showHandle = withHandle ?? variant === "bottom";
   const keyboardOpen = keyboardAvoiding && keyboardHeight > 0;
+  // Android already shrinks an in-screen sheet when the keyboard opens.
+  // A second inset on that path lifts the form twice. Modals and iOS still need it.
+  const manualKeyboardInset = keyboardAvoiding && (Platform.OS === "ios" || !embedded);
   const windowHeight = Dimensions.get("window").height;
   const panelMaxHeight =
-    keyboardAvoiding && variant === "bottom"
+    manualKeyboardInset && variant === "bottom"
       ? Math.max(200, windowHeight - keyboardHeight - Math.max(insets.top, 12))
       : undefined;
 
@@ -201,7 +205,7 @@ export function AppSheet({
       style={[
         s.overlay,
         variant === "center" && s.overlayCenter,
-        keyboardAvoiding && variant === "bottom" && { paddingBottom: keyboardHeight },
+        manualKeyboardInset && variant === "bottom" && { paddingBottom: keyboardHeight },
       ]}
       testID={keyboardAvoiding ? "app-sheet-keyboard-host" : undefined}
     >

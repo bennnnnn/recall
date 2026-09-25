@@ -194,6 +194,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     date: Date | null,
     recurrence: RecurrenceRule | null,
     topic: string = todo.topic,
+    closeOnSave = true,
   ): Promise<boolean> => {
     if (!token || !canAct()) return false;
     if (editorRef.current.owner !== owner || editorRef.current.value?.id !== todo.id) return false;
@@ -219,7 +220,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
         due_at: dueIso,
         recurrence_rule: recurrenceRule,
       }), "todos.error_due");
-    if (saved && editorRef.current.value?.id === todo.id) setEditingTodo(null);
+    if (saved && closeOnSave && editorRef.current.value?.id === todo.id) setEditingTodo(null);
     return saved;
   }, [token, canAct, owner, reportError, mutateRow, setEditingTodo]);
 

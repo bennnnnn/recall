@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
-import { ScrollView, Text, TextInput, View } from "react-native";
+import { BackHandler, ScrollView, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
@@ -18,7 +18,18 @@ function dueFromTodo(todo: Todo): Date | null {
   return Number.isFinite(due.getTime()) ? due : null;
 }
 
-export type TodoEditorHandle = { leave: () => void };
+export type TodoEditorDraft = {
+  content: string;
+  dueDate: Date | null;
+  recurrence: RecurrenceRule | null;
+  topic: string;
+};
+
+export type TodoEditorHandle = {
+  leave: () => void;
+  /** Unsaved detail edits. Null when the form matches the saved to-do. */
+  pending: () => TodoEditorDraft | null;
+};
 
 export const TodoEditorSheet = forwardRef<
   TodoEditorHandle,
@@ -114,7 +125,29 @@ export const TodoEditorSheet = forwardRef<
     onSave(text, dueDate, repeat, topic);
   }, [saving, picker, readOnly, dirty, text, dueDate, repeat, topic, onClose, onSave]);
 
-  useImperativeHandle(ref, () => ({ leave }), [leave]);
+  const pending = useCallback((): TodoEditorDraft | null => {
+    if (readOnly || !dirty || text.trim().length === 0) return null;
+    return { content: text, dueDate, recurrence: repeat, topic };
+  }, [readOnly, dirty, text, dueDate, repeat, topic]);
+
+  useImperativeHandle(ref, () => ({ leave, pending }), [leave, pending]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (page) {
+        leave();
+        return true;
+      }
+      if (picker) {
+        setPicker(null);
+        return true;
+      }
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, page, picker, leave, onClose]);
 
   const fields = page ? (
     <>
