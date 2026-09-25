@@ -18,7 +18,7 @@ import Animated, {
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { ScannerSubjectSwitcher } from "@/components/mathScanner/ScannerSubjectSwitcher";
 import { IconSize } from "@/lib/icons";
 import {

@@ -10,7 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { notifySuccess } from "@/lib/haptics";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Space } from "@/lib/space";

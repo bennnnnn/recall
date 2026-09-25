@@ -2,8 +2,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useSt
 import { BackHandler, ScrollView, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { SheetFormHeader } from "@/components/SheetFormHeader";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { SheetFormHeader } from "@/ui/overlay/SheetFormHeader";
 import { TodoCategoryField } from "@/features/todos/components/TodoCategoryField";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { TodoDateFields } from "@/features/todos/components/TodoDateFields";
@@ -256,7 +256,7 @@ export const TodoEditorSheet = forwardRef<
 
   return (
     <>
-    <AppSheet
+    <Sheet
       embedded
       visible={visible}
       onClose={handleClose}
@@ -276,7 +276,7 @@ export const TodoEditorSheet = forwardRef<
       />
 
       <View style={s.sheetBody}>{fields}</View>
-    </AppSheet>
+    </Sheet>
     {visible && picker ? (
       <TodoPickers
         picker={picker}

@@ -90,7 +90,7 @@ jest.mock("@/features/learning/hooks/useLessonPrefs", () => ({
   }),
 }));
 jest.mock("@/features/speech/model/pronunciation", () => ({ speakWord: jest.fn() }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   notifySuccess: jest.fn(),
@@ -98,8 +98,8 @@ jest.mock("@/lib/haptics", () => ({
 }));
 jest.mock("@/lib/motion", () => ({ useReduceMotion: () => true }));
 jest.mock("@/hooks/useResolvedColorScheme", () => ({ useResolvedColorScheme: () => "light" }));
-jest.mock("@/components/AppSheet", () => ({
-  AppSheet: ({
+jest.mock("@/ui/overlay/Sheet", () => ({
+  Sheet: ({
     visible,
     children,
   }: {
@@ -107,7 +107,7 @@ jest.mock("@/components/AppSheet", () => ({
     children: React.ReactNode;
   }) => (visible ? children : null),
 }));
-jest.mock("@/components/ActionShimmer", () => ({
+jest.mock("@/ui/feedback/ActionShimmer", () => ({
   ActionShimmer: ({ label }: { label: string }) =>
     jest.requireActual("react").createElement(jest.requireActual("react-native").Text, null, label),
 }));

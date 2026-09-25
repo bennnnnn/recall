@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";

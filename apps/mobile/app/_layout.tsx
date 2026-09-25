@@ -20,7 +20,7 @@ import { ProjectsProvider } from "@/features/learning/context/ProjectsContext";
 import { TodosProvider } from "@/features/todos/context/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { StackBackButton } from "@/components/StackBackButton";
+import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import {

@@ -3,8 +3,8 @@ import { Image } from "expo-image";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import {
   SearchSource,
@@ -81,7 +81,7 @@ function SearchSourcesSheet({
   const listMaxHeight = Math.round(Dimensions.get("window").height * 0.55);
 
   return (
-    <AppSheet visible={visible} onClose={onClose} minBottomPadding={16} contentContainerStyle={s.sheet}>
+    <Sheet visible={visible} onClose={onClose} minBottomPadding={16} contentContainerStyle={s.sheet}>
       <Text style={s.title}>{t("chat.sources_title")}</Text>
       <ScrollView
         style={[s.list, { maxHeight: listMaxHeight }]}
@@ -97,7 +97,7 @@ function SearchSourcesSheet({
           />
         ))}
       </ScrollView>
-    </AppSheet>
+    </Sheet>
   );
 }
 

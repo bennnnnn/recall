@@ -29,8 +29,8 @@ jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: (...a
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
-jest.mock("@/components/IconButton", () => ({
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/controls/IconButton", () => ({
   IconButton: ({
     onPress,
     accessibilityLabel,
@@ -52,8 +52,8 @@ jest.mock("@/components/IconButton", () => ({
   },
 }));
 jest.mock("expo-linear-gradient", () => ({ LinearGradient: () => null }));
-jest.mock("@/components/SkeletonLoader", () => ({ SkeletonList: () => null }));
-jest.mock("@/components/StateView", () => ({ StateView: ({ onRetry }: { onRetry?: () => void }) => {
+jest.mock("@/ui/feedback/SkeletonLoader", () => ({ SkeletonList: () => null }));
+jest.mock("@/ui/feedback/StateView", () => ({ StateView: ({ onRetry }: { onRetry?: () => void }) => {
   const { Text } = jest.requireActual("react-native");
   return <Text onPress={onRetry}>Retry</Text>;
 } }));

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CalendarProposalCard } from "@/features/integrations/components/CalendarProposalCard";
@@ -9,7 +9,7 @@ import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { UserMessageContent } from "@/components/UserMessageContent";
 import { ChatMessageImageStrip } from "@/components/ChatMessageImageStrip";
 import { ImageGenPlaceholder } from "@/features/images/components/ImageGenPlaceholder";
-import { ActionShimmer } from "@/components/ActionShimmer";
+import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";
 import { MarkdownContent } from "@/components/MarkdownContent";

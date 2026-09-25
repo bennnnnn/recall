@@ -2,7 +2,7 @@ import React, { Suspense, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";

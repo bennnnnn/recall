@@ -13,7 +13,7 @@ jest.mock("expo-clipboard", () => ({
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock("@/components/Icon", () => {
+jest.mock("@/ui/icons/Icon", () => {
   const { Text: MockText } =
     jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -55,7 +55,7 @@ jest.mock("@/components/ChatMessageImageStrip", () => ({
 jest.mock("@/features/images/components/ImageGenPlaceholder", () => ({
   ImageGenPlaceholder: () => null,
 }));
-jest.mock("@/components/ActionShimmer", () => ({
+jest.mock("@/ui/feedback/ActionShimmer", () => ({
   ActionShimmer: () => null,
 }));
 jest.mock("@/components/SearchSourcesStack", () => ({

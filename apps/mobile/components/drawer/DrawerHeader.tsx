@@ -1,8 +1,8 @@
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { SearchField } from "@/components/SearchField";
+import { Icon } from "@/ui/icons/Icon";
+import { SearchField } from "@/ui/controls/SearchField";
 import { tap } from "@/lib/haptics";
 import { IconSize } from "@/lib/icons";
 import type { Theme } from "@/lib/theme";

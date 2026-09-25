@@ -16,9 +16,9 @@ import { GalleryColumnRow } from "@/features/attachments/components/GalleryColum
 import { GalleryLibraryHeader } from "@/features/attachments/components/GalleryLibraryHeader";
 import { GalleryMediaModals } from "@/features/attachments/components/GalleryMediaModals";
 import { GalleryThumbnail } from "@/features/attachments/components/GalleryThumbnail";
-import { Icon } from "@/components/Icon";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { Icon } from "@/ui/icons/Icon";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { useGalleryData } from "@/features/attachments/hooks/useGalleryData";
 import { useGalleryLibrary } from "@/features/attachments/hooks/useGalleryLibrary";
 import { type AttachmentListItem } from "@/lib/api";

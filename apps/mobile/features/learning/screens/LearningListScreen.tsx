@@ -4,10 +4,10 @@ import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { AddFab } from "@/components/AddFab";
+import { AddFab } from "@/ui/controls/AddFab";
 import { LearningProjectCard } from "@/features/learning/components/LearningProjectCard";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/features/learning/context/ProjectsContext";

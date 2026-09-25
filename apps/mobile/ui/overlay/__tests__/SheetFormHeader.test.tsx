@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react-native";
 
-import { SheetFormHeader } from "@/components/SheetFormHeader";
+import { SheetFormHeader } from "../SheetFormHeader";
 
 jest.mock("@/hooks/useResolvedColorScheme", () => ({
   useResolvedColorScheme: () => "light",

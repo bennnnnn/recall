@@ -5,8 +5,8 @@
 import { useMemo, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -98,7 +98,7 @@ export function SettingsPickerSheet({
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       onDismiss={onDismiss}
@@ -108,7 +108,7 @@ export function SettingsPickerSheet({
       contentContainerStyle={s.sheet}
     >
       <PickerBody {...rest} onClose={onClose} />
-    </AppSheet>
+    </Sheet>
   );
 }
 

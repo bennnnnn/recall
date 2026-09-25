@@ -1,7 +1,7 @@
 import { ReactNode, useMemo } from "react";
 import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { type IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

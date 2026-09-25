@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { GalleryThumbnail } from "@/features/attachments/components/GalleryThumbnail";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { type AttachmentListItem } from "@/lib/api";
 import { COLUMN_THUMB_SIZE, isGalleryImage } from "@/features/attachments/model/gallery";
 import { Space } from "@/lib/space";

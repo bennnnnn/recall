@@ -3,9 +3,9 @@ import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
-import { SearchField } from "@/components/SearchField";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
+import { SearchField } from "@/ui/controls/SearchField";
 import { isValidCustomOption, matchOption, rankedOptions } from "@/features/job-search/model/optionSearch";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -123,7 +123,7 @@ export function SearchableMultiSelect({
         <Text style={s.maxHint}>{t("my_job.picker_max_reached", { max: maxSelections })}</Text>
       ) : null}
 
-      <AppSheet
+      <Sheet
         visible={open}
         onClose={() => setOpen(false)}
         variant="bottom"
@@ -191,7 +191,7 @@ export function SearchableMultiSelect({
         >
           <Text style={s.doneText}>{t("my_job.picker_done")}</Text>
         </Pressable>
-      </AppSheet>
+      </Sheet>
     </View>
   );
 }

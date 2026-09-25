@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { DrawerSearchResultsChrome } from "@/features/search/components/DrawerSearchResults";
 
 type Props = {

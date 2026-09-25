@@ -2,7 +2,7 @@ import { Platform, Pressable, Text } from "react-native";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
+import { Sheet } from "@/ui/overlay/Sheet";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { ReminderDateTimePicker } from "@/features/todos/components/ReminderDateTimePicker";
 import type { JobSearchFrequency } from "@/lib/api";
@@ -87,7 +87,7 @@ export function SetupPickers({
           disabled={busy}
         />
       ) : null}
-      <AppSheet
+      <Sheet
         visible={Platform.OS === "ios" && showPicker}
         onClose={onClosePicker}
         withHandle
@@ -106,7 +106,7 @@ export function SetupPickers({
         >
           <Text style={s.pickerDoneText}>{t("common.done")}</Text>
         </Pressable>
-      </AppSheet>
+      </Sheet>
     </>
   );
 }

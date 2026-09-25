@@ -7,7 +7,7 @@ import {
 } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { ActionBanner } from "@/components/ActionBanner";
+import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import {
   ActionFeedbackContext,
   type ActionFeedbackApi,

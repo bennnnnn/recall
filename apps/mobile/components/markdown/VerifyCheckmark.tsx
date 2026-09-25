@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
 import { makeVerifyCheckStyles } from "@/components/markdown/markdownContentStyles";
 import { useTheme } from "@/lib/theme";

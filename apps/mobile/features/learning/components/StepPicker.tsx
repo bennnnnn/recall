@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/ui/controls/Button";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";

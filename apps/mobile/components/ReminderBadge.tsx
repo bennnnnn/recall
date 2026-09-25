@@ -1,6 +1,6 @@
 import { type StyleProp, type ViewStyle } from "react-native";
 
-import { CountBadge } from "@/components/CountBadge";
+import { CountBadge } from "@/ui/feedback/CountBadge";
 
 type Props = {
   count: number;

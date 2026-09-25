@@ -31,7 +31,7 @@ import {
   playbackStart,
   remainingPlaybackDuration,
 } from "@/lib/animationPlayback";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import {
   trajectoryAxisLayout,
   trajectoryAxisCaptionPosition,

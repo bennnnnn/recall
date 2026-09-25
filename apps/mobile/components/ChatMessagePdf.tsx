@@ -10,7 +10,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { AttachmentPdfViewer } from "@/features/attachments/components/AttachmentPdfViewer";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";

@@ -23,7 +23,7 @@ jest.mock("@/lib/api", () => {
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/features/job-search/components/LocationFields", () => ({
   EMPTY_PLACE: { city: "", region: "", country: "" },
   composePlace: () => "Berlin",
@@ -39,8 +39,8 @@ jest.mock("@/components/settings/SettingsPickerSheet", () => ({
 jest.mock("@/features/todos/components/ReminderDateTimePicker", () => ({
   ReminderDateTimePicker: () => null,
 }));
-jest.mock("@/components/AppSheet", () => ({
-  AppSheet: ({ children }: { children: React.ReactNode }) => {
+jest.mock("@/ui/overlay/Sheet", () => ({
+  Sheet: ({ children }: { children: React.ReactNode }) => {
     const React = jest.requireActual<typeof import("react")>("react");
     const { View } = jest.requireActual("react-native");
     return React.createElement(View, null, children);

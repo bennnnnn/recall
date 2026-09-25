@@ -4,7 +4,7 @@ import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { StackBackButton } from "@/components/StackBackButton";
+import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { AccountSettingsSection } from "@/components/settings/AccountSettingsSection";
 import { AppearanceSettingsRow } from "@/components/settings/AppearanceSettingsRow";
 import { SettingsProfile } from "@/components/settings/SettingsProfile";

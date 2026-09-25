@@ -1,7 +1,7 @@
 import type { ReactNode, Ref } from "react";
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps, type StyleProp, type ViewStyle } from "react-native";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "../icons/Icon";
 import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";

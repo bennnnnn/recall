@@ -48,7 +48,7 @@ jest.mock("@/lib/haptics", () => ({
   selection: jest.fn(),
   tap: jest.fn(),
 }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/features/job-search/components/JobMatchCard", () => {
   const { Text } = jest.requireActual("react-native");
   return {
@@ -60,11 +60,11 @@ jest.mock("@/features/job-search/components/JobMatchCard", () => {
 jest.mock("@/features/job-search/components/SearchProfileFields", () => ({
   SearchProfileFields: () => null,
 }));
-jest.mock("@/components/SkeletonLoader", () => {
+jest.mock("@/ui/feedback/SkeletonLoader", () => {
   const { Text } = jest.requireActual("react-native");
   return { SkeletonList: () => <Text>SkeletonList</Text> };
 });
-jest.mock("@/components/StateView", () => {
+jest.mock("@/ui/feedback/StateView", () => {
   const { Pressable, Text } = jest.requireActual("react-native");
   return {
     StateView: ({

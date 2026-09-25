@@ -21,7 +21,7 @@ function nodesIn(value: unknown): RenderNode[] {
   return [node, ...(node.children ?? []).flatMap(nodesIn)];
 }
 
-jest.mock("@/components/Icon", () => ({
+jest.mock("@/ui/icons/Icon", () => ({
   Icon: () => null,
 }));
 

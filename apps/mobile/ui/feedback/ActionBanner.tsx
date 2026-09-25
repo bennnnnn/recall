@@ -9,7 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "../icons/Icon";
 import { ACTION_BANNER_MS } from "@/lib/feedbackTiming";
 import { type IoniconName } from "@/lib/icons";
 import { Layer } from "@/lib/layer";

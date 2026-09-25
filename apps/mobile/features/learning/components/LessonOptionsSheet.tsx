@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
+import { Sheet } from "@/ui/overlay/Sheet";
 import { makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
-import { SwitchRow } from "@/components/SwitchRow";
+import { SwitchRow } from "@/ui/controls/SwitchRow";
 import type { LessonFontSize, LessonPrefs } from "@/features/learning/model/lessonPrefs";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -26,7 +26,7 @@ export function LessonOptionsSheet({ visible, prefs, onClose, onChange }: Props)
   const panelStyle = makeActionSheetPanelStyle(theme);
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       variant="bottom"
@@ -68,7 +68,7 @@ export function LessonOptionsSheet({ visible, prefs, onClose, onChange }: Props)
           );
         })}
       </View>
-    </AppSheet>
+    </Sheet>
   );
 }
 

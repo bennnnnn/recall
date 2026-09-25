@@ -8,6 +8,24 @@ module.exports = defineConfig([
     ignores: ["dist/*", "vendor/**", ".expo/**"],
   },
   {
+    // The UI kit is a dependency leaf: tokens and helpers from lib/ only.
+    files: ["ui/**/*.{ts,tsx}"],
+    ignores: ["**/__tests__/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/*", "@/components/*", "@/contexts/*", "@/hooks/*", "@/app/*"],
+              message: "ui/ never imports product code. Pass data and callbacks in as props.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     rules: {
       // Expo SDK 56 enables React Compiler hook rules that flag common RN patterns.
       "react-hooks/refs": "off",
@@ -136,14 +154,14 @@ module.exports = defineConfig([
       "app/login.tsx",
       "app/onboarding.tsx",
       "app/settings/index.tsx",
-      "components/ActionBanner.tsx",
+      "ui/feedback/ActionBanner.tsx",
       "components/ActionSheetRow.tsx",
-      "components/AddFab.tsx",
+      "ui/controls/AddFab.tsx",
       "components/ChatMessageImage.tsx",
       "components/ChatMessagePdf.tsx",
       "components/CodeBlock.tsx",
       "components/CopyBlock.tsx",
-      "components/CountBadge.tsx",
+      "ui/feedback/CountBadge.tsx",
       "components/FallbackMarkdown.tsx",
       "components/HtmlPreviewModal.tsx",
       "components/LinkPreviewCard.tsx",
@@ -152,7 +170,7 @@ module.exports = defineConfig([
       "components/PlacesListBlock.tsx",
       "components/SearchSourcesStack.tsx",
       "components/SettingsProposalCard.tsx",
-      "components/SkeletonLoader.tsx",
+      "ui/feedback/SkeletonLoader.tsx",
       "components/UpgradeSheet.tsx",
       "components/UserMessageContent.tsx",
       "components/chat/ChatComposer.tsx",

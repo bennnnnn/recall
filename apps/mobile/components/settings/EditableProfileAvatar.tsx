@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import { Avatar } from "@/components/Avatar";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 

@@ -3,7 +3,7 @@ import { StyleSheet, ViewStyle } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "@/ui/controls/IconButton";
 import { notifySuccess } from "@/lib/haptics";
 import { inkIconColor } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";

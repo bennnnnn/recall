@@ -62,7 +62,7 @@ jest.mock("@/features/learning/hooks/useLearningDetail", () => ({
 jest.mock("@/features/learning/model/lessonLaunch", () => ({
   openLearningLesson: (...args: unknown[]) => mockOpen(...args),
 }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   notifySuccess: jest.fn(),

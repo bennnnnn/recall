@@ -145,7 +145,7 @@ export function useChatActions({
   }, [token, chatId, messages]);
 
   const handleShare = useCallback(async () => {
-    // Keep the ⋮ AppSheet up until Share.share returns. Closing the Modal
+    // Keep the ⋮ Sheet up until Share.share returns. Closing the Modal
     // first tears down the presenter and iOS dismisses the activity sheet
     // with it — tap looks like a no-op.
     try {

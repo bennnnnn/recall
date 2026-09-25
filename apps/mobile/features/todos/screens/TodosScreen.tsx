@@ -3,10 +3,10 @@ import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { Alert, Keyboard, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AddFab } from "@/components/AddFab";
-import { IconButton } from "@/components/IconButton";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StackBackButton } from "@/components/StackBackButton";
+import { AddFab } from "@/ui/controls/AddFab";
+import { IconButton } from "@/ui/controls/IconButton";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { TodosListHeader } from "@/features/todos/components/TodosListHeader";
 import { TodoDetailMenu } from "@/features/todos/components/TodoDetailMenu";
 import { TodoEditorSheet, type TodoEditorHandle } from "@/features/todos/components/TodoEditorSheet";

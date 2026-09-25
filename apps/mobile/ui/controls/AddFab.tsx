@@ -10,8 +10,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
-import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
+import { Icon } from "../icons/Icon";
+import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { tap } from "@/lib/haptics";
 import { useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";

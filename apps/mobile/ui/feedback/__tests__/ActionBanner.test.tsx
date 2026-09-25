@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react-native";
 
-import { ActionBanner } from "@/components/ActionBanner";
+import { ActionBanner } from "../ActionBanner";
 import { Layer } from "@/lib/layer";
 
 jest.mock("@expo/vector-icons", () => ({

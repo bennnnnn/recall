@@ -17,7 +17,7 @@ jest.mock("@/hooks/useResolvedColorScheme", () => ({
   useResolvedColorScheme: () => "light",
 }));
 
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 
 const choices: QuizChoice[] = [
   { letter: "A", text: "serendipity" },

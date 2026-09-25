@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/ui/controls/Button";
 import { useCalendarProposal } from "@/features/integrations/hooks/useCalendarProposal";
 import {
   type CalendarProposal,

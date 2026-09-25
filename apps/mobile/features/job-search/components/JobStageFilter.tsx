@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { type IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { SHADOW_COLOR } from "@/lib/shadow";

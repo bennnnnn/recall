@@ -14,14 +14,14 @@ jest.mock("@shopify/flash-list", () => ({ FlashList: ({ data, renderItem }: {
   return React.createElement(React.Fragment, null, ...data.map((item) =>
     React.createElement(React.Fragment, { key: item.key }, renderItem({ item }))));
 } }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/lib/theme", () => {
   const actual = jest.requireActual<typeof import("@/lib/theme")>("@/lib/theme");
   return { ...actual, useTheme: () => actual.lightTheme };
 });
-jest.mock("@/components/SkeletonLoader", () => ({ SkeletonList: () => null }));
+jest.mock("@/ui/feedback/SkeletonLoader", () => ({ SkeletonList: () => null }));
 
 it("offers first-page search retry without editing the query", async () => {
   const retry = jest.fn();

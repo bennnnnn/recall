@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { describeDueAt } from "@/features/todos/model/dueDate";
 import type { SuggestedReminder } from "@/lib/api";
 import { selection, tap } from "@/lib/haptics";

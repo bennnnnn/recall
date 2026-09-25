@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { Suggestion } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";

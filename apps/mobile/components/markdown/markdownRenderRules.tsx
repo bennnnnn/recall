@@ -1,6 +1,6 @@
 import { Children, Fragment, ReactNode } from "react";
 import { Image } from "expo-image";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";

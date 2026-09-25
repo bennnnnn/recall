@@ -13,7 +13,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { CoverLetterSheet } from "@/features/job-search/components/CoverLetterSheet";
 import { CompanyLogo } from "@/features/job-search/components/CompanyLogo";
 import { JobFitBadge } from "@/features/job-search/components/JobFitBadge";
@@ -21,7 +21,7 @@ import { JobMatchDetailSkeleton } from "@/features/job-search/components/JobMatc
 import { JobMatchMetaChips } from "@/features/job-search/components/JobMatchMetaChips";
 import { JobMatchReasons } from "@/features/job-search/components/JobMatchReasons";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
-import { StateView } from "@/components/StateView";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useJobMatchDetail } from "@/features/job-search/hooks/useJobMatchDetail";

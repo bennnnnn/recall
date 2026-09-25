@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { VisualCard } from "@/components/rich/VisualCard";

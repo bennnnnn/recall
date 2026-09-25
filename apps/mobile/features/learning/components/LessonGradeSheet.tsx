@@ -10,8 +10,8 @@ import Animated, {
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "@/components/Button";
-import { Icon } from "@/components/Icon";
+import { Button } from "@/ui/controls/Button";
+import { Icon } from "@/ui/icons/Icon";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

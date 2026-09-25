@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { JobMatch } from "@/lib/api";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

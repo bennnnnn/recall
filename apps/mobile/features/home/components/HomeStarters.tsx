@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useComposerDraftActivity } from "@/contexts/ComposerDraftContext";
 import { useHome } from "@/features/home/context/HomeContext";

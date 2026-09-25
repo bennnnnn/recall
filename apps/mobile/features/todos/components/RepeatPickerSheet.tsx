@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { RECURRENCE_RULES, type RecurrenceRule } from "@/lib/api/types";
 import { selection } from "@/lib/haptics";
 import { Space } from "@/lib/space";

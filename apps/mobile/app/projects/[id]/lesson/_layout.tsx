@@ -2,7 +2,7 @@ import { Stack } from "expo-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
-import { StackBackButton } from "@/components/StackBackButton";
+import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackPushTransition } from "@/lib/stackTransitions";

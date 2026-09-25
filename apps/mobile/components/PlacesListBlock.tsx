@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { PlaceItem, resolvePlaceLinkUrl } from "@/lib/placesList";
 import { Theme, useTheme } from "@/lib/theme";
@@ -85,7 +85,7 @@ function PlaceDetailsSheet({
   };
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       minBottomPadding={16}
@@ -115,7 +115,7 @@ function PlaceDetailsSheet({
           </Pressable>
         </>
       ) : null}
-    </AppSheet>
+    </Sheet>
   );
 }
 

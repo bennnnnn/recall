@@ -16,15 +16,15 @@ jest.mock("@/lib/i18n", () => ({
   ensureLocale: jest.fn(),
 }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/lib/haptics", () => ({ selection: jest.fn() }));
 jest.mock("@/features/todos/model/todoReminders", () => ({
   ensureNotificationPermission: jest.fn(async () => true),
 }));
-jest.mock("@/components/AppSheet", () => {
+jest.mock("@/ui/overlay/Sheet", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
   return {
-    AppSheet: ({
+    Sheet: ({
       visible,
       children,
       overlay,
@@ -35,7 +35,7 @@ jest.mock("@/components/AppSheet", () => {
     }) => (visible ? <View>{children}{overlay}</View> : null),
   };
 });
-jest.mock("@/components/SheetFormHeader", () => ({ SheetFormHeader: (props: typeof mockForm) => { mockForm = props; return null; } }));
+jest.mock("@/ui/overlay/SheetFormHeader", () => ({ SheetFormHeader: (props: typeof mockForm) => { mockForm = props; return null; } }));
 const original = new Date(2026, 8, 4, 9, 30);
 const todo = { id: "todo-a", content: "Call Mom", due_at: original.toISOString(), checked: false } as Todo;
 function event(type: "set" | "dismissed", date = original): DateTimePickerEvent {

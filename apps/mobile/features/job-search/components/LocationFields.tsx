@@ -11,9 +11,9 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
-import { SearchField } from "@/components/SearchField";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
+import { SearchField } from "@/ui/controls/SearchField";
 import { requestDevicePlace } from "@/lib/deviceLocation";
 import {
   COUNTRIES,
@@ -242,7 +242,7 @@ export function LocationFields({ value, onChange, disabled }: Props) {
         />
       </View>
 
-      <AppSheet
+      <Sheet
         visible={picker !== null}
         onClose={() => setPicker(null)}
         variant="bottom"
@@ -292,7 +292,7 @@ export function LocationFields({ value, onChange, disabled }: Props) {
             }}
           />
         </View>
-      </AppSheet>
+      </Sheet>
     </View>
   );
 }

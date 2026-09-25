@@ -1,6 +1,6 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import { MathConverterPad } from "@/components/chat/MathConverterPad";

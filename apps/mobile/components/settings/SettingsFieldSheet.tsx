@@ -1,6 +1,6 @@
 /**
  * Bottom-sheet text editor for settings (profile fields, custom instructions).
- * Matches ChatRenameSheet AppSheet pattern.
+ * Matches ChatRenameSheet Sheet pattern.
  */
 import { useMemo } from "react";
 import {
@@ -14,8 +14,8 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { SheetFormHeader } from "@/components/SheetFormHeader";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { SheetFormHeader } from "@/ui/overlay/SheetFormHeader";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -68,7 +68,7 @@ export function SettingsFieldSheet({
           <View />
         </InputAccessoryView>
       ) : null}
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={() => {
         if (!saving) onClose();
@@ -109,7 +109,7 @@ export function SettingsFieldSheet({
           editable={!saving}
         />
       </View>
-    </AppSheet>
+    </Sheet>
     </>
   );
 }

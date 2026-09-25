@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { makeSettingsStyles } from "@/components/settings/settingsStyles";
 import { type IoniconName } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";

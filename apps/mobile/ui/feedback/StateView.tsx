@@ -1,8 +1,8 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { Button } from "@/components/Button";
+import { Icon } from "../icons/Icon";
+import { Button } from "../controls/Button";
 import { type IoniconName } from "@/lib/icons";
 import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";

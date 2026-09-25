@@ -83,10 +83,10 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},
 }));
-jest.mock("@/components/AppSheet", () => {
+jest.mock("@/ui/overlay/Sheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
-    AppSheet: ({ children, visible }: { children: ReactNode; visible: boolean }) =>
+    Sheet: ({ children, visible }: { children: ReactNode; visible: boolean }) =>
       visible ? <RNView>{children}</RNView> : null,
   };
 });

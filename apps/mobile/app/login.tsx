@@ -13,8 +13,8 @@ import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AuthScrollLayout } from "@/components/AuthScrollLayout";
-import { Button } from "@/components/Button";
-import { Icon } from "@/components/Icon";
+import { Button } from "@/ui/controls/Button";
+import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoginActions } from "@/hooks/useLoginActions";
 import { shouldShowAppleSignInButton } from "@/lib/apple-auth";

@@ -1,7 +1,7 @@
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { JobSearchExperience } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 

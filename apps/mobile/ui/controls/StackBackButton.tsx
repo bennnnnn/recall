@@ -2,7 +2,7 @@ import { Href, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { StyleProp, ViewStyle } from "react-native";
 
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "./IconButton";
 import { IconSize } from "@/lib/icons";
 import { Space } from "@/lib/space";
 

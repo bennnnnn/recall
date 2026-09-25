@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
-import { AppSheet } from "@/components/AppSheet";
+import { Sheet } from "@/ui/overlay/Sheet";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
@@ -29,7 +29,7 @@ export function GalleryItemActionsSheet({
   const panelStyle = useMemo(() => makeActionSheetPanelStyle(theme), [theme]);
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       variant="bottom"
@@ -66,6 +66,6 @@ export function GalleryItemActionsSheet({
         theme={theme}
         danger
       />
-    </AppSheet>
+    </Sheet>
   );
 }

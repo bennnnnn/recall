@@ -12,10 +12,10 @@ jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock("@/components/AppSheet", () => {
+jest.mock("@/ui/overlay/Sheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
-    AppSheet: ({
+    Sheet: ({
       children,
       visible,
     }: {

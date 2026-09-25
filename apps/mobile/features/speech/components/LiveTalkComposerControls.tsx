@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "@/ui/controls/IconButton";
 import { liveTalkMuteA11yKey } from "@/features/speech/model/liveTalkLogic";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";

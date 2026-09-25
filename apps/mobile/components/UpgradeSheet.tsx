@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { AppSheet } from "@/components/AppSheet";
-import { Button } from "@/components/Button";
+import { Icon } from "@/ui/icons/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Button } from "@/ui/controls/Button";
 import { useSubscriptionActions } from "@/hooks/useSubscriptionActions";
 import { type IoniconName } from "@/lib/icons";
 import {
@@ -137,7 +137,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const priceLabel = pkg?.priceString ?? t("upgrade.price_fallback");
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       minBottomPadding={36}
@@ -196,7 +196,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           <Text style={s.devBtnText}>{t("upgrade.dev_enable")}</Text>
         </Pressable>
       ) : null}
-    </AppSheet>
+    </Sheet>
   );
 }
 

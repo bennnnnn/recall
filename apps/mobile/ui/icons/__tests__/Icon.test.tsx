@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react-native";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "../Icon";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 // String mock is the proven pattern in this suite (CopyButton, MathView, …).

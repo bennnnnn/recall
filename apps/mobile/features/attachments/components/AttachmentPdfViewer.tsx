@@ -9,7 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "@/ui/controls/IconButton";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";

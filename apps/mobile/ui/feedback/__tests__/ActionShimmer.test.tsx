@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react-native";
 
-import ActionShimmerMotion from "@/components/ActionShimmerMotion";
+import ActionShimmerMotion from "../ActionShimmerMotion";
 
 const mockUseReduceMotion = jest.fn(() => false);
 

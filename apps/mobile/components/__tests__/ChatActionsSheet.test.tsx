@@ -38,7 +38,7 @@ describe("ChatActionsSheet", () => {
     jest.clearAllMocks();
   });
 
-  it("renders the floating AppSheet with a handle", async () => {
+  it("renders the floating Sheet with a handle", async () => {
     const { getByTestId, getByText } = await render(<ChatActionsSheet {...baseProps} />);
 
     expect(getByTestId("app-sheet-handle")).toBeTruthy();

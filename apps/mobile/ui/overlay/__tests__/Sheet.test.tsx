@@ -7,7 +7,7 @@ import {
   type KeyboardEvent,
 } from "react-native";
 
-import { AppSheet } from "@/components/AppSheet";
+import { Sheet } from "../Sheet";
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
@@ -23,16 +23,16 @@ jest.mock("@/lib/reduceMotion", () => ({
   useReduceMotion: () => false,
 }));
 
-describe("AppSheet", () => {
+describe("Sheet", () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
   it("renders its children when visible", async () => {
     const { getByText } = await render(
-      <AppSheet visible onClose={jest.fn()}>
+      <Sheet visible onClose={jest.fn()}>
         <Text>sheet body</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     expect(getByText("sheet body")).toBeOnTheScreen();
@@ -41,9 +41,9 @@ describe("AppSheet", () => {
   it("calls onClose when the scrim is pressed (backdropDismiss default true)", async () => {
     const onClose = jest.fn();
     const { getByTestId } = await render(
-      <AppSheet visible onClose={onClose}>
+      <Sheet visible onClose={onClose}>
         <Text>body</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     await fireEvent.press(getByTestId("app-sheet-backdrop"));
@@ -54,9 +54,9 @@ describe("AppSheet", () => {
   it("does not dismiss on scrim press when backdropDismiss is false", async () => {
     const onClose = jest.fn();
     const { getByTestId } = await render(
-      <AppSheet visible onClose={onClose} backdropDismiss={false}>
+      <Sheet visible onClose={onClose} backdropDismiss={false}>
         <Text>body</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     await fireEvent.press(
@@ -68,9 +68,9 @@ describe("AppSheet", () => {
 
   it("renders the grabber handle for the bottom variant by default", async () => {
     const { queryByTestId } = await render(
-      <AppSheet visible onClose={jest.fn()}>
+      <Sheet visible onClose={jest.fn()}>
         <Text>body</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     expect(queryByTestId("app-sheet-handle")).not.toBeNull();
@@ -78,9 +78,9 @@ describe("AppSheet", () => {
 
   it("omits the handle for the center variant", async () => {
     const { queryByTestId } = await render(
-      <AppSheet visible onClose={jest.fn()} variant="center">
+      <Sheet visible onClose={jest.fn()} variant="center">
         <Text>body</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     expect(queryByTestId("app-sheet-handle")).toBeNull();
@@ -88,9 +88,9 @@ describe("AppSheet", () => {
 
   it("omits the handle when withHandle is false", async () => {
     const { queryByTestId } = await render(
-      <AppSheet visible onClose={jest.fn()} withHandle={false}>
+      <Sheet visible onClose={jest.fn()} withHandle={false}>
         <Text>body</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     expect(queryByTestId("app-sheet-handle")).toBeNull();
@@ -98,9 +98,9 @@ describe("AppSheet", () => {
 
   it("renders floating sheets with a handle still visible", async () => {
     const { getByText, queryByTestId } = await render(
-      <AppSheet visible onClose={jest.fn()} floating>
+      <Sheet visible onClose={jest.fn()} floating>
         <Text>floating body</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     expect(getByText("floating body")).toBeOnTheScreen();
@@ -118,9 +118,9 @@ describe("AppSheet", () => {
     });
 
     const { getByTestId } = await render(
-      <AppSheet visible onClose={jest.fn()} keyboardAvoiding>
+      <Sheet visible onClose={jest.fn()} keyboardAvoiding>
         <Text>new list</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 0 });
@@ -145,9 +145,9 @@ describe("AppSheet", () => {
     });
 
     const { getByText, getByTestId } = await render(
-      <AppSheet visible onClose={jest.fn()} keyboardAvoiding>
+      <Sheet visible onClose={jest.fn()} keyboardAvoiding>
         <Text>reminder body</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     await act(async () => {
@@ -163,9 +163,9 @@ describe("AppSheet", () => {
 
   it("exposes dialog semantics and a localized scrim label", async () => {
     const { getByTestId, getByLabelText } = await render(
-      <AppSheet visible onClose={jest.fn()}>
+      <Sheet visible onClose={jest.fn()}>
         <Text>body</Text>
-      </AppSheet>,
+      </Sheet>,
     );
 
     expect(getByTestId("app-sheet-dialog").props.accessibilityRole).toBe("dialog");
@@ -177,18 +177,18 @@ describe("AppSheet", () => {
     const dismissed = jest.fn();
     const blocked = jest.fn();
     const open = await render(
-      <AppSheet visible onClose={dismissed}>
+      <Sheet visible onClose={dismissed}>
         <Text>open</Text>
-      </AppSheet>,
+      </Sheet>,
     );
     await fireEvent(open.getByTestId("app-sheet-modal"), "requestClose");
     expect(dismissed).toHaveBeenCalledTimes(1);
     await open.unmount();
 
     const locked = await render(
-      <AppSheet visible onClose={blocked} backdropDismiss={false}>
+      <Sheet visible onClose={blocked} backdropDismiss={false}>
         <Text>locked</Text>
-      </AppSheet>,
+      </Sheet>,
     );
     await fireEvent(locked.getByTestId("app-sheet-modal"), "requestClose");
     expect(blocked).not.toHaveBeenCalled();

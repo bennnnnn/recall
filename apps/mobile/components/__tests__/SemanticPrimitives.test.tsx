@@ -1,8 +1,8 @@
 import { StyleSheet } from "react-native";
 import { render } from "@testing-library/react-native";
 
-import { CountBadge } from "@/components/CountBadge";
-import { StatusPill } from "@/components/StatusPill";
+import { CountBadge } from "@/ui/feedback/CountBadge";
+import { StatusPill } from "@/ui/feedback/StatusPill";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 jest.mock("@/lib/theme", () => ({

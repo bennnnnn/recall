@@ -3,8 +3,8 @@ import { Pressable, RefreshControl, Text } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { StateView } from "@/components/StateView";
+import { Icon } from "@/ui/icons/Icon";
+import { StateView } from "@/ui/feedback/StateView";
 import {
   ConversationRow,
   makeConversationRowStyles,

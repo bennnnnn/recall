@@ -42,10 +42,10 @@ jest.mock("@react-native-community/datetimepicker", () => {
   };
 });
 
-jest.mock("@/components/AppSheet", () => {
+jest.mock("@/ui/overlay/Sheet", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
   return {
-    AppSheet: ({
+    Sheet: ({
       children,
       overlay,
       visible,

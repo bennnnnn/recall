@@ -4,7 +4,7 @@ import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { StateView } from "@/components/StateView";
+import { StateView } from "@/ui/feedback/StateView";
 import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton";
 import { makeSettingsStyles, SettingsGroup } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";

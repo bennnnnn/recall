@@ -43,7 +43,7 @@ import {
   playbackStart,
   remainingPlaybackDuration,
 } from "@/lib/animationPlayback";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { trajectoryPointAt } from "@/lib/math/trajectory";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";

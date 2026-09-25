@@ -3,7 +3,7 @@ import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type AnimatedStyle } from "react-native-reanimated";
 
-import { ActionBanner } from "@/components/ActionBanner";
+import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
 import { MathEquationScanner } from "@/components/MathEquationScanner";
 import { ChatComposer } from "@/components/chat/ChatComposer";

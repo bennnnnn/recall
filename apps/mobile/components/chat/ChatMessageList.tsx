@@ -4,7 +4,7 @@ import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list
 import { useTranslation } from "react-i18next";
 
 import { HomeStarters } from "@/features/home/components/HomeStarters";
-import { SkeletonChatBubbles } from "@/components/SkeletonLoader";
+import { SkeletonChatBubbles } from "@/ui/feedback/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
   beginStreamLayoutHold,

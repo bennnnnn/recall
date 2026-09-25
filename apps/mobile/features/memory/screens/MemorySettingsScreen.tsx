@@ -12,7 +12,7 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import { StateView } from "@/components/StateView";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useMemoryToggle } from "@/features/memory/hooks/useMemoryToggle";
 import { api } from "@/lib/api";

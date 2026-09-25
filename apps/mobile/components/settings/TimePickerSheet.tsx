@@ -4,8 +4,8 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 
-import { AppSheet } from "@/components/AppSheet";
-import { SheetFormHeader } from "@/components/SheetFormHeader";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { SheetFormHeader } from "@/ui/overlay/SheetFormHeader";
 import { Space } from "@/lib/space";
 
 type Props = {
@@ -69,7 +69,7 @@ export function TimePickerSheet({
   }
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible && Platform.OS === "ios"}
       onClose={onClose}
       variant="bottom"
@@ -94,7 +94,7 @@ export function TimePickerSheet({
           display="spinner"
         />
       </View>
-    </AppSheet>
+    </Sheet>
   );
 }
 

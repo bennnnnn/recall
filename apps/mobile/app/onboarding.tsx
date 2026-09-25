@@ -5,8 +5,8 @@ import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AuthScrollLayout } from "@/components/AuthScrollLayout";
-import { Icon } from "@/components/Icon";
-import { Button } from "@/components/Button";
+import { Icon } from "@/ui/icons/Icon";
+import { Button } from "@/ui/controls/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { tap } from "@/lib/haptics";

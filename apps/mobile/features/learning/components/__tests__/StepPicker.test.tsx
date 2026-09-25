@@ -6,7 +6,7 @@ jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
 
-jest.mock("@/components/ActionShimmer", () => {
+jest.mock("@/ui/feedback/ActionShimmer", () => {
   const { Text, View } = jest.requireActual("react-native");
   return {
     ActionShimmer: ({ label }: { label: string }) => (

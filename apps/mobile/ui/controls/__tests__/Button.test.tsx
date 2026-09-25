@@ -1,8 +1,8 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { Button } from "@/components/Button";
+import { Button } from "../Button";
 
-jest.mock("@/components/ActionShimmer", () => {
+jest.mock("@/ui/feedback/ActionShimmer", () => {
   const { Text: RNText } = jest.requireActual("react-native") as typeof import("react-native");
   return {
     ActionShimmer: ({ label }: { label: string }) => <RNText>{label}</RNText>,

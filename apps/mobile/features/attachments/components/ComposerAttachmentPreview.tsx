@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { Image, type ImageLoadEventData } from "expo-image";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
 import { Radius } from "@/lib/radius";

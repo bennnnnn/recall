@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
+import { Sheet } from "@/ui/overlay/Sheet";
 import { EditableProfileAvatar } from "@/components/settings/EditableProfileAvatar";
 import { type useProfileEditor } from "@/hooks/useProfileEditor";
 import { Space } from "@/lib/space";
@@ -22,7 +22,7 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
   const busy = editor.saving || editor.picking;
 
   return (
-    <AppSheet
+    <Sheet
       visible={editor.visible}
       onClose={editor.close}
       variant="bottom"
@@ -83,7 +83,7 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
           <Text style={s.cancelText}>{t("settings.cancel")}</Text>
         </Pressable>
       </View>
-    </AppSheet>
+    </Sheet>
   );
 }
 

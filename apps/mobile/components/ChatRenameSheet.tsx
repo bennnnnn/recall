@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { SheetFormHeader } from "@/components/SheetFormHeader";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { SheetFormHeader } from "@/ui/overlay/SheetFormHeader";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
@@ -29,7 +29,7 @@ export function ChatRenameSheet({
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       variant="bottom"
@@ -55,7 +55,7 @@ export function ChatRenameSheet({
           maxLength={80}
         />
       </View>
-    </AppSheet>
+    </Sheet>
   );
 }
 

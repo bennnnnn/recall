@@ -7,7 +7,7 @@ import { fitAttachmentImage } from "@/features/attachments/model/attachmentImage
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 
-jest.mock("@/components/Icon", () => ({ Icon: "Icon" }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: "Icon" }));
 jest.mock("@/features/attachments/components/AttachmentImageViewer", () => {
   const { View: MockView } = jest.requireActual("react-native");
   return { AttachmentImageViewer: ({ visible }: { visible: boolean }) => visible ? <MockView testID="image-viewer" /> : null };

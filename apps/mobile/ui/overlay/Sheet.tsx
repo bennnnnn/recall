@@ -18,8 +18,8 @@ import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
-import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
+import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
+import { useSheetPanDismiss } from "./useSheetPanDismiss";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -70,7 +70,7 @@ type Props = {
   children: ReactNode;
 };
 
-export function AppSheet({
+export function Sheet({
   visible,
   onClose,
   variant = "bottom",

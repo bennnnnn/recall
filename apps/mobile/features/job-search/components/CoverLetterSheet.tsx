@@ -11,8 +11,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { setStringAsync } from "expo-clipboard";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { tap } from "@/lib/haptics";
 import { presentShareSheet } from "@/lib/share";
 import { Radius } from "@/lib/radius";
@@ -51,7 +51,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
   };
 
   return (
-    <AppSheet visible={visible} onClose={onClose} withHandle>
+    <Sheet visible={visible} onClose={onClose} withHandle>
       <View style={s.header}>
         <Text style={s.headerTitle}>{t("my_job.cover_letter_title")}</Text>
         <Pressable
@@ -97,7 +97,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
           </View>
         </View>
       ) : null}
-    </AppSheet>
+    </Sheet>
   );
 }
 

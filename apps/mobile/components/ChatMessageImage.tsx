@@ -9,7 +9,7 @@ import { Image, type ImageLoadEventData, type ImageSource } from "expo-image";
 import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri, attachmentRequestHeaders } from "@/features/attachments/model/attachmentUri";

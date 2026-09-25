@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import type { TFunction } from "i18next";
 
-import type { Icon } from "@/components/Icon";
+import type { Icon } from "@/ui/icons/Icon";
 import type { JobSearchProfile } from "@/lib/api";
 
 export type SearchField = {

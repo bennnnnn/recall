@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react-native";
 
-import { StateView } from "@/components/StateView";
+import { StateView } from "../StateView";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 jest.mock("@expo/vector-icons", () => ({
@@ -20,7 +20,7 @@ jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
 }));
 
-jest.mock("@/components/Icon", () => {
+jest.mock("@/ui/icons/Icon", () => {
   const { Text } = jest.requireActual("react-native") as typeof import("react-native");
   return {
     Icon: ({ name }: { name: string }) => <Text>{name}</Text>,

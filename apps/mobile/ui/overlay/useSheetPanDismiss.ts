@@ -12,7 +12,7 @@ const DISMISS_DY = 96;
 const DISMISS_VY = 900;
 const PAN_SPRING = { damping: 28, stiffness: 280, overshootClamping: true } as const;
 
-/** Handle-only pan-down dismiss for bottom AppSheets (Reanimated shared values). */
+/** Handle-only pan-down dismiss for bottom Sheets (Reanimated shared values). */
 export function useSheetPanDismiss(
   enabled: boolean,
   reduceMotion: boolean,

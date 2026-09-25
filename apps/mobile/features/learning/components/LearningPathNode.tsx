@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { ChapterAccess } from "@/features/learning/model/chapterAccess";
 import { domainIcon } from "@/features/learning/model/domainIcons";
 import { Motion, useReduceMotion } from "@/lib/motion";

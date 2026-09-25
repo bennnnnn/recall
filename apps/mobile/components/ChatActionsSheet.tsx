@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
-import { AppSheet } from "@/components/AppSheet";
+import { Sheet } from "@/ui/overlay/Sheet";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Space } from "@/lib/space";
@@ -146,7 +146,7 @@ export function ChatActionsSheet({
   ]);
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       variant="bottom"
@@ -173,7 +173,7 @@ export function ChatActionsSheet({
           danger={action.danger}
         />
       ))}
-    </AppSheet>
+    </Sheet>
   );
 }
 

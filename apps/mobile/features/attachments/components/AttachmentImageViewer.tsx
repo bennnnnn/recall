@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 import { AttachmentImageStage, type AttachmentViewerImage } from "@/features/attachments/components/AttachmentImageStage";
 import { AttachmentLightboxChrome } from "@/features/attachments/components/AttachmentLightboxChrome";
 import { useAuthToken } from "@/contexts/AuthContext";
-import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
+import { useSheetPanDismiss } from "@/ui/overlay/useSheetPanDismiss";
 import { saveChatAttachmentToLibrary, shareChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { useReduceMotion } from "@/lib/reduceMotion";

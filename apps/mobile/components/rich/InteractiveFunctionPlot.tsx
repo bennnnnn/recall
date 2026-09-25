@@ -28,7 +28,7 @@ import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
 import {
   type DrawnSeries,
@@ -36,7 +36,7 @@ import {
   useGraphSeries,
   useGraphViewport,
 } from "@/hooks/useInteractiveGraph";
-import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
+import { useSheetPanDismiss } from "@/ui/overlay/useSheetPanDismiss";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { CODE_FONT } from "@/lib/fonts";
 import { formatGraphExpr, type GraphSpec } from "@/lib/math/graphBlock";

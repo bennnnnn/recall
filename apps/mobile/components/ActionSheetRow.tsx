@@ -1,6 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, type ImageSourcePropType } from "react-native";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { type IoniconName } from "@/lib/icons";
 import { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";

@@ -24,7 +24,7 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: (
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
-jest.mock("@/components/StateView", () => ({ StateView: ({ onRetry }: { onRetry: () => void }) => { mockRetry = onRetry; return null; } }));
+jest.mock("@/ui/feedback/StateView", () => ({ StateView: ({ onRetry }: { onRetry: () => void }) => { mockRetry = onRetry; return null; } }));
 jest.mock("@/components/settings/settingsUi", () => ({
   makeSettingsStyles: () => ({}), SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
   SettingsSwitchRow: (props: typeof mockSwitch & { title: string }) => {

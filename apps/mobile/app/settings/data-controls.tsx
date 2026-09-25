@@ -4,8 +4,8 @@ import { Redirect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { StackBackButton } from "@/components/StackBackButton";
-import { StateView } from "@/components/StateView";
+import { StackBackButton } from "@/ui/controls/StackBackButton";
+import { StateView } from "@/ui/feedback/StateView";
 import {
   makeSettingsStyles,
   SettingsGroup,

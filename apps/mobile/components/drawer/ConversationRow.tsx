@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Pressable, StyleSheet, Text, View, ViewStyle, TextStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import type { Chat } from "@/lib/api";

@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { SearchField } from "@/components/SearchField";
+import { Icon } from "@/ui/icons/Icon";
+import { SearchField } from "@/ui/controls/SearchField";
 import { tap } from "@/lib/haptics";
 import { type GalleryFilter } from "@/features/attachments/model/gallery";
 import { type GalleryLayout } from "@/features/attachments/model/galleryLayout";

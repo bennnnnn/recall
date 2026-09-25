@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { ReminderBadge } from "@/components/ReminderBadge";
 import { tap } from "@/lib/haptics";
 import type { Theme } from "@/lib/theme";

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Alert, Keyboard, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { repeatMessageKey } from "@/features/todos/components/RepeatPickerSheet";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";

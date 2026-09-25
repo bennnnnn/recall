@@ -28,8 +28,8 @@ jest.mock("@react-native-community/datetimepicker", () => ({
     return null;
   },
 }));
-jest.mock("@/components/AppSheet", () => ({
-  AppSheet: ({
+jest.mock("@/ui/overlay/Sheet", () => ({
+  Sheet: ({
     visible,
     children,
   }: {
@@ -37,7 +37,7 @@ jest.mock("@/components/AppSheet", () => ({
     children: React.ReactNode;
   }) => (visible ? children : null),
 }));
-jest.mock("@/components/SheetFormHeader", () => ({
+jest.mock("@/ui/overlay/SheetFormHeader", () => ({
   SheetFormHeader: (props: typeof header) => {
     header = props;
     return null;

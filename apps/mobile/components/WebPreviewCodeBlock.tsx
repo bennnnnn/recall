@@ -2,7 +2,7 @@ import React, { Suspense, useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
 import { bundleHtmlPreview, previewHasSiblingAssets } from "@/lib/htmlPreviewBundle";
 import { useHtmlPreviewFiles } from "@/lib/htmlPreviewFiles";

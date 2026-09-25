@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { Layer } from "@/lib/layer";
 import type { ConnectivityStatus } from "@/lib/networkProbe";
 import { Theme, useTheme } from "@/lib/theme";

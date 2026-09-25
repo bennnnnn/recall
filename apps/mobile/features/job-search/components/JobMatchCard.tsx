@@ -2,12 +2,12 @@ import { useMemo } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { CompanyLogo } from "@/features/job-search/components/CompanyLogo";
 import { JobFitBadge } from "@/features/job-search/components/JobFitBadge";
 import { JobMatchMetaChips } from "@/features/job-search/components/JobMatchMetaChips";
 import { JobMatchReasons } from "@/features/job-search/components/JobMatchReasons";
-import { StatusPill } from "@/components/StatusPill";
+import { StatusPill } from "@/ui/feedback/StatusPill";
 import type { JobMatch, JobMatchStatus } from "@/lib/api";
 import { canToggleApplied, hasApplied } from "@/features/job-search/model/stages";
 import { Radius } from "@/lib/radius";

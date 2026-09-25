@@ -55,7 +55,7 @@ jest.mock("@/contexts/StreamingDraftContext", () => ({
   StreamingDraftProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-jest.mock("@/components/ActionBanner", () => ({ ActionBanner: () => null }));
+jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));
 jest.mock("@/features/attachments/components/AttachmentSourceSheet", () => ({
   AttachmentSourceSheet: () => null,
 }));

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { StateView } from "@/components/StateView";
+import { StateView } from "@/ui/feedback/StateView";
 import {
   CalendarNudgeCard,
   type CalendarNudge,

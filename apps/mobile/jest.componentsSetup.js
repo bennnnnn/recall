@@ -1,7 +1,7 @@
 const { jest: jestGlobals } = require("@jest/globals");
 
 /**
- * AppSheet (and other chrome) import RNGH + Reanimated. The RN jest env has
+ * Sheet (and other chrome) import RNGH + Reanimated. The RN jest env has
  * neither native module, so mock them before any component test file loads.
  */
 jestGlobals.mock("react-native-reanimated", () => {

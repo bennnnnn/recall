@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "../IconButton";
 import { Space } from "@/lib/space";
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));

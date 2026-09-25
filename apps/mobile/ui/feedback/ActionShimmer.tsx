@@ -5,9 +5,9 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
-import type { ActionShimmerProps } from "@/components/ActionShimmerMotion";
+import type { ActionShimmerProps } from "./ActionShimmerMotion";
 
-const LazyActionShimmerMotion = lazy(() => import("@/components/ActionShimmerMotion"));
+const LazyActionShimmerMotion = lazy(() => import("./ActionShimmerMotion"));
 
 /**
  * Indeterminate action progress. The label remains readable immediately; the

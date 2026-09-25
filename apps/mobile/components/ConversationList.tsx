@@ -6,7 +6,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/lib/theme";
-import { ActionBanner } from "@/components/ActionBanner";
+import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { ChatActionsSheet } from "@/components/ChatActionsSheet";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { useAuthToken } from "@/contexts/AuthContext";

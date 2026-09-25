@@ -6,7 +6,7 @@ import { render } from "@testing-library/react-native";
 
 import { MoleculeCard } from "@/components/rich/MoleculeCard";
 
-jest.mock("@/components/Icon", () => ({
+jest.mock("@/ui/icons/Icon", () => ({
   Icon: () => null,
 }));
 

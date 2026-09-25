@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { type SettingsStyles } from "@/components/settings/settingsStyles";
 import { selection } from "@/lib/haptics";

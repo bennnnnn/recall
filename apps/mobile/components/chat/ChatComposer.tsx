@@ -11,7 +11,7 @@ import {
 import Animated, { type AnimatedStyle } from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import { LiveTalkButton } from "@/features/speech/components/LiveTalkButton";

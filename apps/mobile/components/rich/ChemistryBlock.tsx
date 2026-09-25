@@ -5,7 +5,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { VisualCard } from "@/components/rich/VisualCard";

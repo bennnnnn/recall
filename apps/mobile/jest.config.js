@@ -58,7 +58,7 @@ module.exports = {
           "@react-native/jest-preset/jest/assetFileTransformer.js",
         ),
       },
-      // AppSheet pan-to-dismiss imports RNGH + Reanimated (no native modules
+      // Sheet pan-to-dismiss imports RNGH + Reanimated (no native modules
       // in this env). Keep the RN preset setup and add those mocks.
       setupFiles: [
         ...require("@react-native/jest-preset").setupFiles,

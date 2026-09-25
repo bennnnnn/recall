@@ -1,9 +1,9 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { Icon } from "@/ui/icons/Icon";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { displayChatTitle } from "@/lib/chat/title";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";

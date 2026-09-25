@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
-import { AppSheet } from "@/components/AppSheet";
+import { Sheet } from "@/ui/overlay/Sheet";
 import { selection } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
@@ -18,7 +18,7 @@ type Props = {
   onSelect: (source: AttachmentSource) => void;
 };
 
-/** Attach / math-scan source picker — same floating AppSheet chrome as chat actions. */
+/** Attach / math-scan source picker — same floating Sheet chrome as chat actions. */
 export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -30,7 +30,7 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   };
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       variant="bottom"
@@ -64,6 +64,6 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
         onPress={() => pick("file")}
         theme={theme}
       />
-    </AppSheet>
+    </Sheet>
   );
 }

@@ -12,7 +12,7 @@ import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { JobMatchCard } from "@/features/job-search/components/JobMatchCard";
 import { JobSearchActionsSheet } from "@/features/job-search/components/JobSearchActionsSheet";
 import {
@@ -20,8 +20,8 @@ import {
   type JobStageFilterValue,
 } from "@/features/job-search/components/JobStageFilter";
 import { SearchProfileFields } from "@/features/job-search/components/SearchProfileFields";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useJobSearch } from "@/features/job-search/hooks/useJobSearch";
@@ -186,7 +186,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     ]
       .filter(Boolean)
       .join("\n");
-    // Keep the AppSheet up until the share sheet returns — closing the Modal
+    // Keep the Sheet up until the share sheet returns — closing the Modal
     // first tears down the presenter and iOS dismisses the activity sheet.
     try {
       await presentShareSheet({ message, title: t("my_job.title") });

@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";

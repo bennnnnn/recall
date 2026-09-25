@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,

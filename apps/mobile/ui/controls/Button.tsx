@@ -8,7 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { ActionShimmer } from "@/components/ActionShimmer";
+import { ActionShimmer } from "../feedback/ActionShimmer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";

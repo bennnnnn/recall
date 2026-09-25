@@ -3,11 +3,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { LearningPathList } from "@/features/learning/components/LearningPathList";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLearningDetail } from "@/features/learning/hooks/useLearningDetail";
 import { LessonMapOverflowMenu } from "@/features/learning/components/LessonMapOverflowMenu";

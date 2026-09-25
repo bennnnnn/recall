@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 

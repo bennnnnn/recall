@@ -2,7 +2,7 @@ import { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { Learning } from "@/lib/api";
 import { resolveDailyGoal } from "@/features/learning/model/dailyGoals";
 import { IconSize, type IoniconName } from "@/lib/icons";

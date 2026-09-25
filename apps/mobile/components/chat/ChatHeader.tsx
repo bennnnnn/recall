@@ -2,8 +2,8 @@ import { memo, useCallback, useMemo, useRef } from "react";
 import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Icon } from "@/components/Icon";
-import { IconButton } from "@/components/IconButton";
+import { Icon } from "@/ui/icons/Icon";
+import { IconButton } from "@/ui/controls/IconButton";
 import { useTranslation } from "react-i18next";
 
 import {

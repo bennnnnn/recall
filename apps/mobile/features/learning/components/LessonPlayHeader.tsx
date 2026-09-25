@@ -8,7 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

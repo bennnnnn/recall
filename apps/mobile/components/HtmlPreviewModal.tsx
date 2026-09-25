@@ -20,7 +20,7 @@ import RenderHtml from "react-native-render-html";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
 import { IconSize, type IoniconName } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";

@@ -10,9 +10,9 @@ import {
   MemorySectionHeader,
   memorySectionLabel,
 } from "@/features/memory/components/MemoryRows";
-import { IconButton } from "@/components/IconButton";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { IconButton } from "@/ui/controls/IconButton";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useMemoryActions } from "@/features/memory/hooks/useMemoryActions";

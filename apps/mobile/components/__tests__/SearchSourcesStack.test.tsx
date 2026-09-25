@@ -46,7 +46,7 @@ describe("SearchSourcesStack", () => {
     expect(getByText("E")).toBeTruthy();
   });
 
-  it("opens sources in AppSheet with a scrollable list", async () => {
+  it("opens sources in Sheet with a scrollable list", async () => {
     const { getByText, getByTestId } = await render(
       <SearchSourcesStack
         sources={[
