@@ -171,6 +171,13 @@ def test_detailed_irreducible_quadratic_uses_the_formula() -> None:
     assert block.key_steps[-1].formula == block.canonical_answer
 
 
+def test_complex_quadratic_final_step_uses_the_canonical_conjugate_pair() -> None:
+    block = _block("x^2 + x + 1 = 0")
+
+    assert block.key_steps[-1].formula == block.canonical_answer
+    assert r"\pm" in block.key_steps[-1].formula
+
+
 def test_joke_request_still_keeps_the_model() -> None:
     text = "solve 2x + 3 = 11 and tell me a joke"
     assert maybe_direct_math_reply(_block(text), text, response_style="balanced") is None
