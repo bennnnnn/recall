@@ -210,6 +210,26 @@ async def test_extract_skips_non_candidate_small_talk():
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_extract_saves_working_on_project_when_model_returns_nothing():
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    with _extract_patches(session_locals=session_locals, extraction=None, apply=apply):
+        await extract_and_store_memories(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: I am working on a chemistry solver",
+        )
+    apply.assert_awaited_once()
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert len(writes) == 1
+    assert writes[0].type == "project"
+    assert writes[0].op == "add"
+    assert "chemistry solver" in writes[0].text.lower()
+
+
+@pytest.mark.asyncio
 async def test_extract_runs_on_favorite_color_self_fact():
     extraction = _ops(_add("fact", "Favorite color is blue."))
     apply = AsyncMock()
