@@ -8,6 +8,7 @@ import type { SuggestedReminder } from "@/lib/api";
 import { selection, tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   reminder: SuggestedReminder;
@@ -88,9 +89,9 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
     },
     body: { flex: 1 },
-    title: { fontSize: 16, fontWeight: "600", color: C.text },
-    meta: { fontSize: 13, color: C.textSecondary, marginTop: 2 },
-    snippet: { fontSize: 13, color: C.textSecondary, marginTop: 4 },
+    title: { ...Type.body, fontWeight: "600", color: C.text },
+    meta: { ...Type.compact, color: C.textSecondary, marginTop: 2 },
+    snippet: { ...Type.compact, color: C.textSecondary, marginTop: 4 },
     actions: { flexDirection: "row", gap: Space.sm, marginTop: Space.sm },
     addButton: {
       minHeight: 40,
@@ -99,7 +100,7 @@ function makeStyles(C: Theme) {
       borderRadius: 10,
       backgroundColor: C.primary,
     },
-    addText: { color: C.onPrimary, fontWeight: "600", fontSize: 14 },
+    addText: { ...Type.label, color: C.onPrimary },
     dismissButton: {
       minHeight: 40,
       minWidth: 44,
@@ -107,6 +108,6 @@ function makeStyles(C: Theme) {
       alignItems: "center",
       paddingHorizontal: Space.xs,
     },
-    dismissText: { color: C.textSecondary, fontSize: 14 },
+    dismissText: { ...Type.secondary, color: C.textSecondary },
   });
 }

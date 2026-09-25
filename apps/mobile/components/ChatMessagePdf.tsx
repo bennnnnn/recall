@@ -190,7 +190,7 @@ function makeStyles(t: Theme, compact: boolean) {
       backgroundColor: t.primaryLight,
     },
     meta: { flex: 1, minWidth: 0 },
-    name: { fontSize: 14, fontWeight: "600", color: t.text },
+    name: { ...Type.label, color: t.text },
     kind: { ...Type.meta, color: t.textTertiary, marginTop: 2 },
     previewWrap: {
       marginTop: 8,
@@ -204,6 +204,6 @@ function makeStyles(t: Theme, compact: boolean) {
       justifyContent: "center",
     },
     previewWeb: { flex: 1, width: "100%", backgroundColor: "transparent" },
-    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 6 },
+    fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: 6 },
   });
 }

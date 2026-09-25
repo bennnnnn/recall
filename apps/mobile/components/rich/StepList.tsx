@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = { steps: string[] };
 
@@ -44,7 +45,7 @@ function makeStyles(t: Theme) {
       flexShrink: 0,
       marginTop: 2,
     },
-    badgeText: { fontSize: 13, fontWeight: "700", color: t.primary },
-    text: { flex: 1, fontSize: 16, lineHeight: 24, color: t.text },
+    badgeText: { ...Type.compact, fontWeight: "700", color: t.primary },
+    text: { flex: 1, ...Type.body, lineHeight: 24, color: t.text },
   });
 }

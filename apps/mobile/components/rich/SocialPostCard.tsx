@@ -6,6 +6,7 @@ import { CardShell } from "@/components/rich/CardShell";
 import { type IoniconName } from "@/lib/icons";
 import { SocialPlatform } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = { text: string; platform: SocialPlatform };
 
@@ -39,6 +40,6 @@ export function SocialPostCard({ text, platform }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    body: { color: t.text, fontSize: 16, lineHeight: 24 },
+    body: { ...Type.body, color: t.text, lineHeight: 24 },
   });
 }

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { AppSheet } from "@/components/AppSheet";
 import { SheetFormHeader } from "@/components/SheetFormHeader";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -67,7 +68,7 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surface,
       borderRadius: 12,
       padding: 12,
-      fontSize: 16,
+      ...Type.body,
       color: C.text,
       borderWidth: 1.5,
       borderColor: C.primary,

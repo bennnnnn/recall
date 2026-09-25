@@ -133,7 +133,7 @@ function makeStyles(t: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    title: { flex: 1, fontSize: 16, fontWeight: "600", color: t.text },
+    title: { flex: 1, ...Type.body, fontWeight: "600", color: t.text },
     body: { flex: 1 },
     scroll: { padding: Space.md },
     fileText: { ...Type.body, color: t.text },

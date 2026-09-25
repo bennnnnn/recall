@@ -130,7 +130,7 @@ function makeStyles(theme: Theme) {
       paddingBottom: 6,
     },
     searchHint: {
-      fontSize: 14,
+      ...Type.secondary,
       color: theme.textSecondary,
       paddingHorizontal: 14,
       paddingVertical: 12,
@@ -146,14 +146,15 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: 6,
     },
-    searchResultTitle: { flex: 1, fontSize: 13, color: theme.textSecondary },
+    searchResultTitle: { flex: 1, ...Type.compact, color: theme.textSecondary },
     searchResultBadge: {
-      fontSize: 10,
-      fontWeight: "700",
+      ...Type.overline,
+      textTransform: "none",
+      letterSpacing: 0,
       color: theme.primary,
     },
-    searchResultSnippet: { fontSize: 15, lineHeight: 21, color: theme.text },
+    searchResultSnippet: { ...Type.callout, fontWeight: "400", lineHeight: 21, color: theme.text },
     loadMore: { paddingVertical: 14, alignItems: "center" },
-    loadMoreText: { fontSize: 14, fontWeight: "600", color: theme.primary },
+    loadMoreText: { ...Type.label, color: theme.primary },
   });
 }

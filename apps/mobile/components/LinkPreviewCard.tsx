@@ -93,10 +93,10 @@ function makeStyles(theme: Theme) {
       gap: 4,
     },
     loading: { opacity: 0.7 },
-    loadingText: { fontSize: 14, color: theme.textSecondary },
-    title: { fontSize: 15, fontWeight: "700", color: theme.text },
-    desc: { fontSize: 14, lineHeight: 20, color: theme.textSecondary },
+    loadingText: { ...Type.secondary, color: theme.textSecondary },
+    title: { ...Type.callout, fontWeight: "700", color: theme.text },
+    desc: { ...Type.secondary, lineHeight: 20, color: theme.textSecondary },
     domain: { ...Type.meta, color: theme.primary, marginTop: 2 },
-    url: { flex: 1, fontSize: 14, color: theme.primary },
+    url: { flex: 1, ...Type.secondary, color: theme.primary },
   });
 }

@@ -206,7 +206,7 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.surface,
     },
     chipLabel: {
-      fontSize: 14,
+      ...Type.secondary,
       fontWeight: "500",
       color: theme.textSecondary,
     },
@@ -253,18 +253,17 @@ function makeSheetStyles(theme: Theme) {
       gap: 2,
     },
     domain: {
-      fontSize: 12,
+      ...Type.caption,
       fontWeight: "600",
       color: theme.textSecondary,
     },
     rowTitle: {
-      fontSize: 15,
-      fontWeight: "600",
+      ...Type.callout,
       color: theme.text,
       lineHeight: 20,
     },
     snippet: {
-      fontSize: 13,
+      ...Type.compact,
       color: theme.textSecondary,
       lineHeight: 18,
       marginTop: 2,

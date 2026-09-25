@@ -15,6 +15,7 @@ import { notifySuccess, tap } from "@/lib/haptics";
 import { IconSize, inkIconColor } from "@/lib/icons";
 import { EmailDraft } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = { draft: EmailDraft };
 
@@ -229,7 +230,7 @@ function makeStyles(t: Theme) {
     gmailBtnBusy: { opacity: 0.6 },
     body: { gap: 8 },
     fieldLabel: {
-      fontSize: 12,
+      ...Type.caption,
       fontWeight: "700",
       color: t.textTertiary,
       textTransform: "uppercase",
@@ -242,20 +243,20 @@ function makeStyles(t: Theme) {
       borderColor: t.border,
       paddingHorizontal: 12,
       paddingVertical: 10,
-      fontSize: 16,
+      ...Type.body,
       color: t.text,
     },
     bodyInput: { minHeight: 140, lineHeight: 24 },
-    meta: { fontSize: 14, lineHeight: 20, color: t.textSecondary },
+    meta: { ...Type.secondary, lineHeight: 20, color: t.textSecondary },
     metaKey: { fontWeight: "600", color: t.textTertiary },
     subject: {
-      fontSize: 16,
+      ...Type.body,
       fontWeight: "700",
       lineHeight: 22,
       color: t.text,
     },
     bodyText: {
-      fontSize: 16,
+      ...Type.body,
       lineHeight: 24,
       color: t.text,
     },

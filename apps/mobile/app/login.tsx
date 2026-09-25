@@ -272,8 +272,7 @@ function makeStyles(theme: Theme) {
       borderRadius: 24,
     },
     title: {
-      fontSize: 36,
-      fontWeight: "700",
+      ...Type.display,
       color: theme.text,
       letterSpacing: -1,
     },

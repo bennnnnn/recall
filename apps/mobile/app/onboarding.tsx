@@ -117,7 +117,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       marginBottom: Space.md,
     },
-    badgeStar: { fontSize: 30, color: theme.onPrimary },
+    badgeStar: { ...Type.display, color: theme.onPrimary },
     title: {
       ...Type.display,
       color: theme.text,

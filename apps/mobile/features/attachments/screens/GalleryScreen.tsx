@@ -225,10 +225,9 @@ function makeStyles(C: Theme) {
       gap: 6,
     },
     fileLabel: {
-      ...Type.label,
-      fontSize: 11,
+      ...Type.overline,
+      fontWeight: "600",
       color: C.textTertiary,
-      textTransform: "uppercase",
     },
   });
 }

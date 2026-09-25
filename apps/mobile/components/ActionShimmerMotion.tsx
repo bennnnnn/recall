@@ -20,6 +20,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 const SHIMMER_BAND_WIDTH = 64;
 const DEFAULT_DELAY_MS = 220;
@@ -134,9 +135,9 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 0,
     },
     label: {
-      color: theme.primary,
-      fontSize: 14,
+      ...Type.label,
       fontWeight: "700",
+      color: theme.primary,
     },
     band: {
       position: "absolute",

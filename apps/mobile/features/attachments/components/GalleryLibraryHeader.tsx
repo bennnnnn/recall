@@ -125,8 +125,8 @@ function makeStyles(C: Theme) {
     },
     searchInput: {
       flex: 1,
-      ...Type.body,
-      fontSize: 15,
+      ...Type.callout,
+      fontWeight: "400",
       padding: 0,
       color: C.text,
     },

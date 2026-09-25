@@ -249,7 +249,7 @@ function makeStyles(t: Theme) {
     },
     urgentMain: { flex: 1, gap: 2 },
     urgentTitle: { ...Type.navTitle, color: t.text },
-    urgentDue: { fontSize: 12, fontWeight: "600", color: t.warning },
+    urgentDue: { ...Type.caption, fontWeight: "600", color: t.warning },
     startersBlock: { width: "100%", marginTop: 4 },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, justifyContent: "center" },
     chip: {

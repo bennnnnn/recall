@@ -12,6 +12,7 @@ import { ActionShimmer } from "@/components/ActionShimmer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
 
@@ -135,7 +136,7 @@ function makeStyles(theme: Theme) {
       opacity: 0.88,
     },
     label: {
-      fontSize: 16,
+      ...Type.body,
       fontWeight: "600",
     },
     labelPrimary: {
@@ -146,12 +147,11 @@ function makeStyles(theme: Theme) {
       fontWeight: "600",
     },
     labelGhost: {
+      ...Type.callout,
       color: theme.primary,
-      fontWeight: "600",
-      fontSize: 15,
     },
     loadingLabel: {
-      fontSize: 15,
+      ...Type.callout,
       fontWeight: "700",
     },
   });

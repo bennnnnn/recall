@@ -9,6 +9,7 @@ import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   attachment: PendingAttachment;
@@ -164,7 +165,7 @@ function makeStyles(C: Theme) {
     },
     fileName: {
       flex: 1,
-      fontSize: 13,
+      ...Type.compact,
       color: C.textSecondary,
     },
   });

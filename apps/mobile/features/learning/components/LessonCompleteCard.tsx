@@ -231,8 +231,7 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.successLight,
     },
     title: {
-      ...Type.body,
-      fontSize: 20,
+      ...Type.title,
       fontWeight: "700",
       color: theme.text,
       textAlign: "center",

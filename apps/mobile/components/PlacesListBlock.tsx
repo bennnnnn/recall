@@ -7,6 +7,7 @@ import { Icon } from "@/components/Icon";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { PlaceItem, resolvePlaceLinkUrl } from "@/lib/placesList";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 
 type Props = {
@@ -130,7 +131,7 @@ function makeStyles(t: Theme) {
     index: {
       width: 22,
       paddingTop: 1,
-      fontSize: 16,
+      ...Type.body,
       lineHeight: 22,
       fontWeight: "600",
       color: t.text,
@@ -141,7 +142,7 @@ function makeStyles(t: Theme) {
       gap: 4,
     },
     name: {
-      fontSize: 16,
+      ...Type.body,
       lineHeight: 22,
       fontWeight: "600",
       color: t.text,
@@ -150,7 +151,7 @@ function makeStyles(t: Theme) {
       textDecorationColor: t.textSecondary,
     },
     note: {
-      fontSize: 14,
+      ...Type.secondary,
       lineHeight: 20,
       color: t.textSecondary,
     },
@@ -161,13 +162,13 @@ function makeStyles(t: Theme) {
       gap: 8,
     },
     price: {
-      fontSize: 13,
+      ...Type.compact,
       fontWeight: "600",
       color: t.textSecondary,
     },
     address: {
       flexShrink: 1,
-      fontSize: 13,
+      ...Type.compact,
       lineHeight: 18,
       color: t.textTertiary,
     },
@@ -181,13 +182,13 @@ function makeSheetStyles(t: Theme) {
       gap: 10,
     },
     title: {
-      fontSize: 18,
-      fontWeight: "700",
+      ...Type.h2,
       color: t.text,
       lineHeight: 23,
     },
     note: {
-      fontSize: 15,
+      ...Type.callout,
+      fontWeight: "400",
       lineHeight: 21,
       color: t.textSecondary,
     },
@@ -198,13 +199,12 @@ function makeSheetStyles(t: Theme) {
       gap: 8,
     },
     price: {
-      fontSize: 14,
-      fontWeight: "600",
+      ...Type.label,
       color: t.textSecondary,
     },
     address: {
       flexShrink: 1,
-      fontSize: 14,
+      ...Type.secondary,
       lineHeight: 19,
       color: t.textTertiary,
     },
@@ -219,7 +219,7 @@ function makeSheetStyles(t: Theme) {
       marginTop: 6,
     },
     openBtnText: {
-      fontSize: 16,
+      ...Type.body,
       fontWeight: "700",
       color: t.onPrimary,
     },

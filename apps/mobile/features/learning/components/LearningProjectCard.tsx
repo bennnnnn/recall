@@ -9,6 +9,7 @@ import { IconSize, type IoniconName } from "@/lib/icons";
 import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { learningProjectTitle } from "@/features/learning/model/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   project: Learning;
@@ -117,7 +118,7 @@ export const LearningProjectCard = memo(function LearningProjectCard({
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     continueText: {
-      fontSize: 13,
+      ...Type.compact,
       fontWeight: "700",
       color: theme.primary,
       paddingVertical: 5,
@@ -157,12 +158,12 @@ function makeStyles(theme: Theme) {
       gap: 2,
     },
     headerTitle: {
-      fontSize: 16,
+      ...Type.body,
       fontWeight: "700",
       color: theme.text,
     },
     headerSubtitle: {
-      fontSize: 13,
+      ...Type.compact,
       fontWeight: "500",
       // Same primary ink as Lists / Reminders body text — not muted gray.
       color: theme.text,
@@ -179,7 +180,7 @@ function makeStyles(theme: Theme) {
       gap: 8,
     },
     progressLabel: {
-      fontSize: 13,
+      ...Type.compact,
       fontWeight: "600",
       color: theme.text,
     },
@@ -187,7 +188,7 @@ function makeStyles(theme: Theme) {
       color: theme.success,
     },
     streakText: {
-      fontSize: 12,
+      ...Type.caption,
       fontWeight: "600",
       color: theme.textSecondary,
     },
@@ -221,7 +222,7 @@ function makeStyles(theme: Theme) {
       maxWidth: "100%",
     },
     chipText: {
-      fontSize: 12,
+      ...Type.caption,
       fontWeight: "600",
       color: theme.text,
     },

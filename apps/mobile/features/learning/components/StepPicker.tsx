@@ -4,6 +4,7 @@ import { Icon } from "@/components/Icon";
 
 import { Button } from "@/components/Button";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 export type StepPickerOption<T> = {
   key: string;
@@ -93,8 +94,8 @@ export function StepPicker<T>({
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    label: { fontSize: 20, fontWeight: "700", color: theme.text },
-    hint: { fontSize: 14, color: theme.textSecondary, marginBottom: 4 },
+    label: { ...Type.title, fontWeight: "700", color: theme.text },
+    hint: { ...Type.secondary, color: theme.textSecondary, marginBottom: 4 },
     list: { gap: 8 },
     row: {
       flexDirection: "row",
@@ -108,7 +109,7 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
     },
     rowActive: { borderColor: theme.primary, backgroundColor: theme.primaryLight },
-    rowText: { fontSize: 16, fontWeight: "600", color: theme.text },
+    rowText: { ...Type.body, fontWeight: "600", color: theme.text },
     rowTextActive: { color: theme.primaryDark },
     actions: { flexDirection: "row", gap: 10, marginTop: 8 },
     actionBtn: { flex: 1 },

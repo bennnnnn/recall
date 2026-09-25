@@ -155,7 +155,6 @@ function makeStyles(C: Theme) {
     progressText: { ...Type.caption, color: C.textTertiary, textAlign: "right" },
     title: {
       ...Type.display,
-      fontSize: 26,
       lineHeight: 32,
       color: C.text,
     },

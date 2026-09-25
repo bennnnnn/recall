@@ -663,7 +663,7 @@ function makeStyles(theme: Theme) {
     chipPressed: { opacity: 0.55 },
     input: {
       flex: 1,
-      fontSize: Type.body.fontSize,
+      ...Type.body,
       color: theme.text,
       // Let the native line box scale with Dynamic Type. The bounds only
       // control when the multiline input starts scrolling.
@@ -711,7 +711,7 @@ function makeStyles(theme: Theme) {
       borderRadius: Radius.sm,
       backgroundColor: theme.primaryLight,
     },
-    scanHintText: { flex: 1, fontSize: 13, color: theme.text },
-    scanHintCta: { fontSize: 13, fontWeight: "700", color: theme.primary },
+    scanHintText: { flex: 1, ...Type.compact, color: theme.text },
+    scanHintCta: { ...Type.compact, fontWeight: "700", color: theme.primary },
   });
 }
