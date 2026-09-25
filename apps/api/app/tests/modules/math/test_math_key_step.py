@@ -136,6 +136,19 @@ def test_rational_equation_clears_the_denominator_and_finishes_at_the_chip() -> 
     assert block.key_steps[-1].formula == block.canonical_answer == "x = 2"
 
 
+def test_high_degree_denominator_is_not_enumerated() -> None:
+    from sympy import Symbol
+
+    from app.modules.math.solve.key_steps import equation_key_steps
+
+    x = Symbol("x")
+    steps = equation_key_steps(x / (x**20 + 1), 0, "x")
+    assert steps
+    joined = " ".join(step.formula for step in steps)
+    assert r"\text{denominator} \ne 0" in joined
+    assert joined.count(r"\ne") == 1
+
+
 def test_just_the_answer_keeps_the_chip_on_detailed() -> None:
     text = "Just the answer: x^2 + 2 = 6"
     reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")

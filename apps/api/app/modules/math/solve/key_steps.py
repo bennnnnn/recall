@@ -73,18 +73,36 @@ def _rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] 
         poly = Poly(simplify(cleared_lhs - cleared_rhs), var)
         if poly.degree() != 1:
             return []
-        excluded = solve(Eq(denominator, 0), var)
-        solutions = [
-            solution
-            for solution in solve(Eq(lhs, rhs), var)
-            if all(not _expr_equal(solution, value) for value in excluded)
-        ]
+        den_poly = denominator.as_poly(var) if hasattr(denominator, "as_poly") else None
+        den_degree = den_poly.degree() if den_poly is not None else None
+        from app.core.config import get_settings
+
+        degree_cap = get_settings().math_max_poly_degree
+        high_denominator = den_degree is None or int(den_degree) > degree_cap
+        candidates = solve(Eq(lhs, rhs), var)
+        if high_denominator:
+            # Do not ask SymPy for every root of a huge denominator.
+            excluded = []
+            solutions = [
+                solution
+                for solution in candidates
+                if simplify(denominator.subs(var, solution)) != 0
+            ]
+        else:
+            excluded = solve(Eq(denominator, 0), var)
+            solutions = [
+                solution
+                for solution in candidates
+                if all(not _expr_equal(solution, value) for value in excluded)
+            ]
     except Exception:
         return []
     if not solutions:
         return []
     condition = ""
-    if excluded:
+    if high_denominator:
+        condition = r", \quad \text{denominator} \ne 0"
+    elif excluded:
         exclusions = r",\; ".join(rf"{latex(var)} \ne {latex(value)}" for value in excluded)
         condition = rf", \quad {exclusions}"
     steps = [
