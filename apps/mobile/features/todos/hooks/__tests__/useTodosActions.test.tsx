@@ -188,6 +188,7 @@ describe("useTodosActions reminders", () => {
 
     expect(api.updateTodo).toHaveBeenCalledWith("tok", "r1", {
       content: "Package",
+      topic: "General",
       due_at: "2026-08-25T18:00:00.000Z",
       recurrence_rule: "weekly",
     });
@@ -221,6 +222,7 @@ describe("useTodosActions reminders", () => {
     });
     expect(api.updateTodo).toHaveBeenCalledWith("tok", "r2", {
       content: "Package",
+      topic: "General",
       due_at: null,
       recurrence_rule: null,
     });

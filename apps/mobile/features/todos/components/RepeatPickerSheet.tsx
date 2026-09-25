@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { RECURRENCE_RULES, type RecurrenceRule } from "@/lib/api/types";
 import { selection } from "@/lib/haptics";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -21,7 +20,7 @@ export function repeatMessageKey(
   return rule == null ? "todos.repeat_none" : `todos.repeat_${rule}`;
 }
 
-/** Pick-one list for reminder repeat. Must live in the parent sheet — a nested AppSheet never presents on iOS. */
+/** Pick-one list for reminder repeat. Rendered inside the editor's choice popup, not a second modal. */
 export function RepeatPickerSheet({
   selected,
   onSelect,
@@ -68,13 +67,8 @@ export function RepeatPickerSheet({
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     menu: {
-      borderWidth: 1,
-      borderColor: C.border,
-      borderTopWidth: 0,
-      borderBottomLeftRadius: Radius.md,
-      borderBottomRightRadius: Radius.md,
       overflow: "hidden",
-      backgroundColor: C.surface,
+      backgroundColor: C.bg,
     },
     item: {
       flexDirection: "row",

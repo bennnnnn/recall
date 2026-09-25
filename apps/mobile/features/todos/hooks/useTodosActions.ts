@@ -106,6 +106,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     dueDate: Date | null,
     onCreated: () => void,
     recurrence: RecurrenceRule | null = null,
+    topic: string = DEFAULT_TOPIC,
   ) => {
     if (!token || !canAct()) return;
     const trimmed = content.trim();
@@ -116,9 +117,10 @@ export function useTodosActions({ token, userId, todos, getTodos,
     }
     const dueIso = dueDate ? toDueAtIso(dueDate) : null;
     const recurrenceRule = dueIso ? recurrence : null;
+    const nextTopic = topic.trim() || DEFAULT_TOPIC;
     const optimistic = buildOptimisticTodo({
       content: trimmed,
-      topic: DEFAULT_TOPIC,
+      topic: nextTopic,
       dueAt: dueIso,
       recurrenceRule,
     });
@@ -126,7 +128,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     if (!release) return;
     applyTodos((rows) => [optimistic, ...rows]);
     try {
-      const created = await api.createTodo(token, trimmed, DEFAULT_TOPIC, {
+      const created = await api.createTodo(token, trimmed, nextTopic, {
         dueAt: dueIso,
         recurrenceRule,
       });
@@ -149,7 +151,11 @@ export function useTodosActions({ token, userId, todos, getTodos,
 
   const handleToggle = useCallback(async (todo: Todo) => {
     if (!token) return;
-    await mutateRow(todo.id, (snapshot) => ({ ...snapshot, checked: !snapshot.checked }),
+    await mutateRow(todo.id, (snapshot) => ({
+      ...snapshot,
+      checked: !snapshot.checked,
+      updated_at: snapshot.checked ? snapshot.updated_at : new Date().toISOString(),
+    }),
       (snapshot) => api.updateTodo(token, todo.id, { checked: !snapshot.checked }), "todos.error_toggle", "toggle");
   }, [token, mutateRow]);
 
@@ -183,7 +189,11 @@ export function useTodosActions({ token, userId, todos, getTodos,
   // still be the open target — a retained callback from a replaced target
   // must not save (see useTodosActionsSafety tests).
   const handleUpdateTodo = useCallback(async (
-    todo: Todo, content: string, date: Date | null, recurrence: RecurrenceRule | null,
+    todo: Todo,
+    content: string,
+    date: Date | null,
+    recurrence: RecurrenceRule | null,
+    topic: string = todo.topic,
   ): Promise<boolean> => {
     if (!token || !canAct()) return false;
     if (editorRef.current.owner !== owner || editorRef.current.value?.id !== todo.id) return false;
@@ -195,15 +205,46 @@ export function useTodosActions({ token, userId, todos, getTodos,
     }
     const dueIso = date ? toDueAtIso(date) : null;
     const recurrenceRule = dueIso ? recurrence : null;
+    const nextTopic = topic.trim() || DEFAULT_TOPIC;
     const saved = await mutateRow(todo.id, (snapshot) => ({
-      ...snapshot, content: trimmed, due_at: dueIso, recurrence_rule: recurrenceRule,
+      ...snapshot,
+      content: trimmed,
+      topic: nextTopic,
+      due_at: dueIso,
+      recurrence_rule: recurrenceRule,
     }),
       () => api.updateTodo(token, todo.id, {
-        content: trimmed, due_at: dueIso, recurrence_rule: recurrenceRule,
+        content: trimmed,
+        topic: nextTopic,
+        due_at: dueIso,
+        recurrence_rule: recurrenceRule,
       }), "todos.error_due");
     if (saved && editorRef.current.value?.id === todo.id) setEditingTodo(null);
     return saved;
   }, [token, canAct, owner, reportError, mutateRow, setEditingTodo]);
+
+  const handleMarkDone = useCallback(async (ids: string[]) => {
+    if (!token) return;
+    for (const id of ids) {
+      const current = latestTodo(id);
+      if (!current || current.checked) continue;
+      await mutateRow(id, (snapshot) => ({
+        ...snapshot,
+        checked: true,
+        updated_at: new Date().toISOString(),
+      }), () => api.updateTodo(token, id, { checked: true }), "todos.error_toggle", "toggle");
+    }
+  }, [token, latestTodo, mutateRow]);
+
+  const handleDeleteMany = useCallback(async (ids: string[]) => {
+    if (!token) return;
+    for (const id of ids) {
+      await mutateRow(id, () => null, async () => {
+        await api.deleteTodo(token, id);
+        return null;
+      }, "todos.error_delete");
+    }
+  }, [token, mutateRow]);
 
   return {
     togglingId: owner.mutations.togglingIds.values().next().value ?? null,
@@ -216,5 +257,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     openTodoEditor,
     closeTodoEditor,
     handleUpdateTodo,
+    handleMarkDone,
+    handleDeleteMany,
   };
 }

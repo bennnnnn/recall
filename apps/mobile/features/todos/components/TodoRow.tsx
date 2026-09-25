@@ -6,53 +6,85 @@ import { useTranslation } from "react-i18next";
 
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import type { Todo } from "@/lib/api";
-import { describeDueAt } from "@/features/todos/model/dueDate";
+import { formatClockTime, formatMonthDayYear, formatShortWeekdayDate } from "@/lib/datetime/format";
+import { categoryText } from "@/features/todos/model/todoCategories";
+import type { TodoSection } from "@/features/todos/model/todoListRows";
 import { notifyWarning, selection } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
 
 type Props = {
   todo: Todo;
+  section: TodoSection;
   busy?: boolean;
   highlighted?: boolean;
   /** Stable parent callbacks (take the todo) — avoid per-row closures that defeat memo. */
   onToggle: (todo: Todo) => void;
-  onDue?: (todo: Todo) => void;
+  onOpen?: (todo: Todo) => void;
   onDelete: (todo: Todo) => void;
-  overlapWith?: string;
+  selecting?: boolean;
+  selected?: boolean;
+  onSelect?: (todo: Todo) => void;
 };
+
+function completedMeta(iso: string | null | undefined, locale: string): string | null {
+  if (!iso) return null;
+  const done = new Date(iso);
+  if (Number.isNaN(done.getTime())) return null;
+  return `${formatMonthDayYear(done, locale)} · ${formatClockTime(done, locale)}`;
+}
 
 export const TodoRow = memo(function TodoRow({
   todo,
+  section,
   busy,
   highlighted,
   onToggle,
-  onDue,
+  onOpen,
   onDelete,
-  overlapWith,
+  selecting = false,
+  selected = false,
+  onSelect,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
-  const due = describeDueAt(todo.due_at);
-  const dueToneStyle =
-    due?.tone === "overdue"
-      ? s.dueOverdue
-      : due?.tone === "today"
-        ? s.dueToday
-        : s.dueSoon;
+  const locale = i18n.language;
+  const due = todo.due_at ? new Date(todo.due_at) : null;
+  const dueOk = due != null && Number.isFinite(due.getTime());
+  const choose = () => {
+    selection();
+    if (selecting) onSelect?.(todo);
+    else onToggle(todo);
+  };
   const handleDelete = () => {
     notifyWarning();
     onDelete(todo);
   };
+  const marked = selecting ? selected : todo.checked;
+
+  const meta = (() => {
+    if (todo.checked) return completedMeta(todo.updated_at, locale);
+    const parts: string[] = [];
+    const category = categoryText(todo.topic, t);
+    if (category) parts.push(category);
+    if (section === "overdue" && dueOk && due) parts.push(formatShortWeekdayDate(due, locale));
+    if (todo.recurrence_rule) parts.push(t(`todos.repeat_${todo.recurrence_rule}`));
+    return parts.length ? parts.join(" · ") : null;
+  })();
+
+  const timeLabel = !todo.checked && dueOk && due ? formatClockTime(due, locale) : null;
+  const timeTone =
+    dueOk && due && (section === "overdue" || due.getTime() < Date.now())
+      ? s.todoTimeOverdue
+      : section === "today"
+        ? s.todoTimeToday
+        : s.todoTimeLater;
 
   const row = (
-    <View style={[s.todoRow, highlighted && s.todoRowHighlighted]}>
+    <View style={[s.todoRow, highlighted && s.todoRowHighlighted, selected && s.todoRowSelected]}>
       <Pressable
-        onPress={() => {
-          selection();
-          onToggle(todo);
-        }}
+        onPress={choose}
         hitSlop={10}
         style={s.checkbox}
         disabled={busy}
@@ -64,49 +96,36 @@ export const TodoRow = memo(function TodoRow({
           <ActivityIndicator size="small" color={C.primary} />
         ) : (
           <Icon
-            name={todo.checked ? "checkbox" : "square-outline"}
+            name={marked ? "checkmark-circle" : "ellipse-outline"}
             size={IconSize.md}
-            color={todo.checked ? C.primary : C.textTertiary}
+            color={marked ? C.primary : C.textTertiary}
           />
         )}
       </Pressable>
-      <View style={s.todoMain}>
-        <Text
-          style={[s.todoText, todo.checked && s.todoDone]}
-          selectable
-          numberOfLines={4}
-        >
+      <Pressable
+        style={s.todoMain}
+        onPress={() => {
+          selection();
+          if (selecting) onSelect?.(todo);
+          else onOpen?.(todo);
+        }}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel={timeLabel ? `${todo.content}, ${timeLabel}` : todo.content}
+      >
+        <Text style={[s.todoText, todo.checked && s.todoDone]} numberOfLines={3}>
           {todo.content}
         </Text>
-        {due && !todo.checked ? (
-          <Text style={[s.dueLabel, dueToneStyle]}>
-            {todo.recurrence_rule
-              ? `${due.label} · ${t(`todos.repeat_${todo.recurrence_rule}`)}`
-              : due.label}
+        {meta ? (
+          <Text style={s.todoMeta} numberOfLines={1}>
+            {meta}
           </Text>
         ) : null}
-        {overlapWith && !todo.checked ? (
-          <Text style={s.overlapLabel}>
-            {t("todos.overlap_inline", { title: overlapWith })}
-          </Text>
-        ) : null}
-      </View>
-      {!todo.checked && onDue ? (
-        <Pressable
-          onPress={() => onDue(todo)}
-          hitSlop={8}
-          style={s.dueBtn}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel={t("todos.due_date_a11y")}
-          accessibilityState={{ disabled: busy, busy }}
-        >
-          <Icon
-            name={todo.due_at ? "calendar" : "calendar-outline"}
-            size={18}
-            color={todo.due_at ? C.primary : C.textTertiary}
-          />
-        </Pressable>
+      </Pressable>
+      {timeLabel ? (
+        <Text style={[s.todoTime, timeTone]} numberOfLines={1}>
+          {timeLabel}
+        </Text>
       ) : null}
     </View>
   );
@@ -116,7 +135,7 @@ export const TodoRow = memo(function TodoRow({
       friction={2}
       rightThreshold={40}
       overshootRight={false}
-      enabled={!busy}
+      enabled={!busy && !selecting}
       containerStyle={s.swipeContainer}
       renderRightActions={() => (
         <Pressable

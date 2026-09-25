@@ -1,19 +1,35 @@
-import { Platform, Pressable, StyleSheet } from "react-native";
+import { useEffect } from "react";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/components/Icon";
 import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 import { tap } from "@/lib/haptics";
+import { useReduceMotion } from "@/lib/motion";
+import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
+
+const FAB_SIZE = 56;
+const WAVE_MS = 1800;
 
 type Props = {
   onPress: () => void;
   accessibilityLabel: string;
+  /** Soft expanding rings, used on the To-do add button. */
+  wave?: boolean;
 };
 
 /** Bottom-right + FAB for Add learning / New list / Add reminder. */
-export function AddFab({ onPress, accessibilityLabel }: Props) {
+export function AddFab({ onPress, accessibilityLabel, wave = false }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight(true);
@@ -23,28 +39,87 @@ export function AddFab({ onPress, accessibilityLabel }: Props) {
   const bottom = Math.max(insets.bottom, 12) + 8 + keyboardLift;
 
   return (
-    <Pressable
-      onPress={() => {
-        tap();
-        onPress();
-      }}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      style={[s.btn, { bottom, right: 16 + insets.right }]}
+    <View
+      pointerEvents="box-none"
+      style={[s.slot, { bottom, right: 16 + insets.right }]}
     >
-      <Icon name="add" size={28} color={theme.onPrimary} />
-    </Pressable>
+      {wave ? <FabWave color={theme.primary} /> : null}
+      <Pressable
+        onPress={() => {
+          tap();
+          onPress();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        style={s.btn}
+      >
+        <Icon name="add" size={28} color={theme.onPrimary} />
+      </Pressable>
+    </View>
   );
+}
+
+function FabWave({ color }: { color: string }) {
+  const reduceMotion = useReduceMotion();
+  const first = useSharedValue(0);
+  const second = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const pulse = () =>
+      withRepeat(
+        withTiming(1, { duration: WAVE_MS, easing: Easing.out(Easing.ease) }),
+        -1,
+        false,
+      );
+    first.value = pulse();
+    second.value = withDelay(WAVE_MS / 2, pulse());
+  }, [first, reduceMotion, second]);
+
+  const lead = useAnimatedStyle(() => ({
+    opacity: reduceMotion ? 0 : 0.35 * (1 - first.value),
+    transform: [{ scale: 1 + first.value * 0.85 }],
+  }));
+  const trail = useAnimatedStyle(() => ({
+    opacity: reduceMotion ? 0 : 0.35 * (1 - second.value),
+    transform: [{ scale: 1 + second.value * 0.85 }],
+  }));
+
+  if (reduceMotion) return null;
+
+  return (
+    <>
+      <Animated.View pointerEvents="none" style={[waveRing(color), lead]} />
+      <Animated.View pointerEvents="none" style={[waveRing(color), trail]} />
+    </>
+  );
+}
+
+function waveRing(color: string) {
+  return {
+    position: "absolute" as const,
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    borderColor: color,
+  };
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    btn: {
+    slot: {
       position: "absolute",
       zIndex: 20,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
+      width: FAB_SIZE,
+      height: FAB_SIZE,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    btn: {
+      width: FAB_SIZE,
+      height: FAB_SIZE,
+      borderRadius: Radius.full,
       backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",

@@ -48,6 +48,31 @@ export function describeDueAt(iso: string | null | undefined): {
   };
 }
 
+/** When a checked to-do was marked done, including the calendar date and time. */
+export function describeCompletedAt(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const done = new Date(iso);
+  if (Number.isNaN(done.getTime())) return null;
+  return i18n.t("todos.completed_on", {
+    date: formatMonthDayYear(done),
+    time: formatClockTime(done),
+  });
+}
+
 export function toDueAtIso(date: Date): string {
   return date.toISOString();
+}
+
+/** Keep the clock time and take the calendar day, including the year. */
+export function withCalendarDate(current: Date, picked: Date): Date {
+  const next = new Date(current);
+  next.setFullYear(picked.getFullYear(), picked.getMonth(), picked.getDate());
+  return next;
+}
+
+/** Keep the calendar day and take the clock time. */
+export function withClockTime(current: Date, picked: Date): Date {
+  const next = new Date(current);
+  next.setHours(picked.getHours(), picked.getMinutes(), 0, 0);
+  return next;
 }

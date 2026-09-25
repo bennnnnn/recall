@@ -59,6 +59,13 @@ type Props = {
   floating?: boolean;
   /** Style override for the panel (background, radius, padding). */
   contentContainerStyle?: StyleProp<ViewStyle>;
+  /** iOS only. Fires after the modal has finished leaving, so another sheet can present. */
+  onDismiss?: () => void;
+  /**
+   * Draw the sheet in the current screen instead of a Modal, so a real choice
+   * Modal can open over it without moving this sheet.
+   */
+  embedded?: boolean;
   children: ReactNode;
 };
 
@@ -76,6 +83,8 @@ export function AppSheet({
   minBottomPadding = 0,
   floating = false,
   contentContainerStyle,
+  onDismiss,
+  embedded = false,
   children,
 }: Props) {
   const { t } = useTranslation();
@@ -187,38 +196,46 @@ export function AppSheet({
     </View>
   );
 
+  const frame = (
+    <View
+      style={[
+        s.overlay,
+        variant === "center" && s.overlayCenter,
+        keyboardAvoiding && variant === "bottom" && { paddingBottom: keyboardHeight },
+      ]}
+      testID={keyboardAvoiding ? "app-sheet-keyboard-host" : undefined}
+    >
+      <Pressable
+        style={[s.backdrop, backdropColor ? { backgroundColor: backdropColor } : undefined]}
+        onPress={dismissible ? requestClose : undefined}
+        accessibilityLabel={dismissible ? t("common.close") : undefined}
+        accessibilityRole={dismissible ? "button" : undefined}
+        accessible={dismissible}
+        testID="app-sheet-backdrop"
+      />
+      {dismissible && variant === "bottom" ? (
+        <Animated.View style={panStyle}>{panel}</Animated.View>
+      ) : (
+        panel
+      )}
+    </View>
+  );
+
+  if (embedded) {
+    if (!visible) return null;
+    return <View style={s.embedded}>{frame}</View>;
+  }
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType={resolvedAnimation}
       onRequestClose={requestClose}
+      onDismiss={onDismiss}
       testID="app-sheet-modal"
     >
-      <GestureHandlerRootView style={s.flex}>
-        <View
-          style={[
-            s.overlay,
-            variant === "center" && s.overlayCenter,
-            keyboardAvoiding && variant === "bottom" && { paddingBottom: keyboardHeight },
-          ]}
-          testID={keyboardAvoiding ? "app-sheet-keyboard-host" : undefined}
-        >
-          <Pressable
-            style={[s.backdrop, backdropColor ? { backgroundColor: backdropColor } : undefined]}
-            onPress={dismissible ? requestClose : undefined}
-            accessibilityLabel={dismissible ? t("common.close") : undefined}
-            accessibilityRole={dismissible ? "button" : undefined}
-            accessible={dismissible}
-            testID="app-sheet-backdrop"
-          />
-          {dismissible && variant === "bottom" ? (
-            <Animated.View style={panStyle}>{panel}</Animated.View>
-          ) : (
-            panel
-          )}
-        </View>
-      </GestureHandlerRootView>
+      <GestureHandlerRootView style={s.flex}>{frame}</GestureHandlerRootView>
     </Modal>
   );
 }
@@ -272,6 +289,14 @@ function makeStyles(t: Theme) {
     },
     scrollContent: {
       flexGrow: 0,
+    },
+    embedded: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 40,
     },
   });
 }
