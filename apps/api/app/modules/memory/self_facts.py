@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from uuid import UUID
 
+from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.ops import normalize_memory_text
 from app.modules.memory.text import classify_memory_sensitivity
 from app.modules.memory.writes_repository import MemoryFactWrite
@@ -69,6 +70,26 @@ _REQUEST_MARKERS = (
     " help me ",
     " how do i ",
     " how can i ",
+)
+# Words before the prefix that make it a condition or someone else's report.
+_NON_ASSERTION_WORDS = frozenset(
+    {
+        "if",
+        "whether",
+        "asked",
+        "ask",
+        "asks",
+        "told",
+        "tell",
+        "said",
+        "says",
+        "suppose",
+        "supposing",
+        "unless",
+        "wonder",
+        "wondering",
+        "wondered",
+    }
 )
 
 
@@ -145,6 +166,8 @@ def _match_prefix(line: str) -> tuple[str, str, str] | None:
                 continue
             if index > 0 and folded[index - 1] not in ".!? ":
                 continue
+            if not _is_direct_assertion(folded, index):
+                continue
         if best is None or index < best[0] or (index == best[0] and len(prefix) > len(best[1])):
             best = (index, prefix, kind, template)
     if best is None:
@@ -181,24 +204,33 @@ def stated_fact_writes(
     transcript: str,
     *,
     chat_id: UUID,
-    existing_texts: Iterable[str],
+    existing_facts: Iterable[tuple[str, str]],
     already: Iterable[MemoryFactWrite],
     include_sensitive: bool,
+    explicit_remember: bool = False,
+    model_ops: Iterable[object] = (),
 ) -> list[MemoryFactWrite]:
-    known = [normalize_memory_text(text).casefold() for text in existing_texts if text]
+    known = [
+        (kind, normalize_memory_text(text).casefold()) for kind, text in existing_facts if text
+    ]
     known.extend(
-        normalize_memory_text(write.text).casefold()
+        (write.type, normalize_memory_text(write.text).casefold())
         for write in already
         if write.op != "delete" and write.text
     )
+    ops = list(model_ops)
     writes: list[MemoryFactWrite] = []
     for kind, text, obj in stated_self_facts(transcript):
-        sensitivity = classify_memory_sensitivity(text)
-        if sensitivity != "normal" and not include_sensitive:
+        sensitivity = _model_sensitivity(obj, ops) or classify_memory_sensitivity(text)
+        if should_skip_sensitive_persist(
+            sensitivity=sensitivity,
+            text=text,
+            explicit_remember=explicit_remember,
+            include_sensitive=include_sensitive,
+        ):
             continue
         sentence = normalize_memory_text(text).casefold()
-        folded_obj = obj.casefold()
-        if _already_stored(sentence, folded_obj, known):
+        if _already_stored(kind, sentence, obj.casefold(), known):
             continue
         writes.append(
             MemoryFactWrite(
@@ -211,14 +243,43 @@ def stated_fact_writes(
                 source_chat_id=chat_id,
             )
         )
-        known.append(sentence)
+        known.append((kind, sentence))
     return writes
 
 
-def _already_stored(sentence: str, obj: str, known: list[str]) -> bool:
-    for item in known:
+def _is_direct_assertion(folded: str, index: int) -> bool:
+    start = index
+    while start > 0 and folded[start - 1] not in ".!?":
+        start -= 1
+    words = {word.strip("\"'(),") for word in folded[start:index].split()}
+    return words.isdisjoint(_NON_ASSERTION_WORDS)
+
+
+def _model_sensitivity(obj: str, model_ops: Iterable[object]) -> str | None:
+    """Use the model's sensitivity when it already judged this same work."""
+    folded_obj = obj.casefold()
+    words = [word for word in folded_obj.split() if len(word) >= 5]
+    for op in model_ops:
+        label = str(getattr(op, "sensitivity", None) or "normal")
+        if label == "normal":
+            continue
+        op_text = str(getattr(op, "text", "") or "").casefold()
+        if not op_text:
+            continue
+        if folded_obj in op_text or any(word in op_text for word in words):
+            return label
+    return None
+
+
+def _already_stored(
+    kind: str,
+    sentence: str,
+    obj: str,
+    known: list[tuple[str, str]],
+) -> bool:
+    for item_type, item in known:
         if item == sentence:
             return True
-        if len(obj) >= 4 and obj in item:
+        if item_type == kind and kind in {"project", "focus"} and len(obj) >= 4 and obj in item:
             return True
     return False

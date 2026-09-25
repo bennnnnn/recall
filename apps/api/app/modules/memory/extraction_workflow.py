@@ -163,15 +163,20 @@ async def extract_and_store_memories(
                 include_sensitive=snapshot.include_sensitive,
                 min_confidence=settings.memory_min_confidence,
             )
-            writes.extend(
-                stated_fact_writes(
-                    expanded,
-                    chat_id=chat_id,
-                    existing_texts=snapshot.existing_facts.values(),
-                    already=writes,
-                    include_sensitive=snapshot.include_sensitive,
+            if not forget:
+                writes.extend(
+                    stated_fact_writes(
+                        expanded,
+                        chat_id=chat_id,
+                        existing_facts=(
+                            (str(fact["type"]), str(fact["text"])) for fact in snapshot.prompt_facts
+                        ),
+                        already=writes,
+                        include_sensitive=snapshot.include_sensitive,
+                        explicit_remember=explicit_remember,
+                        model_ops=result.ops if result else (),
+                    )
                 )
-            )
             if not writes:
                 if newest_cursor:
                     await stamp_extract_cursor(user_id, chat_id, newest_cursor)
