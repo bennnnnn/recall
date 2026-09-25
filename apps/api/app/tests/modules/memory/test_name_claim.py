@@ -23,6 +23,31 @@ def test_possessive_is_not_a_name_claim():
     assert is_unclaimed_user_name("The user's name is Bebe", speech)
 
 
+def test_stored_name_supports_a_later_nickname():
+    fact = "User's name is Bini; also goes by Ben."
+    speech = "User: I also go by Ben."
+    assert is_unclaimed_user_name(fact, speech)
+    assert is_unclaimed_user_name(fact, speech, existing_texts=["User's name is Bini"]) is False
+
+
+def test_pet_nickname_is_not_the_users_name():
+    fact = "The user has a dog named Max who also goes by Maxi"
+    speech = "User: My dog Max also goes by Maxi."
+    assert is_unclaimed_user_name(fact, speech) is False
+
+
+def test_other_name_sentences_still_need_a_claim():
+    assert is_unclaimed_user_name("The user is Bebe", _PROBLEM)
+    assert is_unclaimed_user_name("Bebe is the user's name", _PROBLEM)
+    assert (
+        is_unclaimed_user_name(
+            "The user is a software engineer",
+            "User: I am a software engineer",
+        )
+        is False
+    )
+
+
 def test_job_fact_is_not_a_name_check():
     assert (
         is_unclaimed_user_name(
