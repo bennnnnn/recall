@@ -81,6 +81,10 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("what is the escape velocity of earth", "gemini-flash"),
         ("a ball is dropped from 20 m, how long to hit the ground", "gemini-flash"),
         ("equations of motion for a pendulum", "smart-chat"),
+        (
+            "a block slides down a 90° frictionless incline, find its acceleration",
+            "smart-chat",
+        ),
         ("physics", "gemini-flash"),
         ("the project has momentum now", "gemini-flash"),
         # Plain prose with no math cue stays on the fast alias.
@@ -89,6 +93,20 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
 )
 def test_route_chat_model(content: str, expected: str) -> None:
     assert route_chat_model(content) == expected
+
+
+def test_verified_physics_stays_smart_when_math_tools_are_off() -> None:
+    content = "calculate the momentum of a 5kg object moving at 12 m/s"
+    pool = [model.id for model in model_catalog.selectable_models()]
+    assert (
+        resolve_alias_in_pool(
+            "auto",
+            content,
+            pool,
+            Settings(math_tools_enabled=False),
+        )
+        == "smart-chat"
+    )
 
 
 @pytest.mark.parametrize(
