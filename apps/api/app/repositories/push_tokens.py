@@ -49,6 +49,7 @@ async def upsert(
     expo_push_token: str,
     platform: str,
     device_id: str | None = None,
+    android_channels: str | None = None,
 ) -> PushToken:
     incoming_device = _normalize_device_id(device_id)
     result = await session.execute(
@@ -61,6 +62,7 @@ async def upsert(
             expo_push_token=expo_push_token,
             platform=platform,
             device_id=incoming_device,
+            android_channels=android_channels,
         )
         session.add(row)
     elif row.user_id == user_id:
@@ -68,6 +70,8 @@ async def upsert(
         row.platform = platform
         if incoming_device is not None:
             row.device_id = incoming_device
+        if android_channels is not None:
+            row.android_channels = android_channels
     else:
         # Device account switch: only allow when the caller proves possession of
         # the same install (device_id). A stolen Expo token string alone must
@@ -87,6 +91,7 @@ async def upsert(
             expo_push_token=expo_push_token,
             platform=platform,
             device_id=incoming_device,
+            android_channels=android_channels,
         )
         session.add(row)
         _report_rebind(prior_user_id=prior_user_id, new_user_id=user_id)

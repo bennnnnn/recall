@@ -7,7 +7,10 @@ import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
 import { trackProductEvent } from "@/lib/productAnalytics";
 import { lessonMapPath } from "@/features/learning/model/chapterAccess";
-import { ensureAndroidNotificationChannels } from "@/lib/notificationChannels";
+import {
+  ensureAndroidNotificationChannels,
+  SPLIT_ANDROID_CHANNELS,
+} from "@/lib/notificationChannels";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -103,6 +106,7 @@ export async function registerRemotePushToken(
     expo_push_token: expoPushToken,
     platform: Platform.OS,
     device_id: deviceId ?? undefined,
+    ...(Platform.OS === "android" ? { android_channels: SPLIT_ANDROID_CHANNELS } : {}),
   });
   return "registered";
 }

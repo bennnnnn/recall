@@ -14,6 +14,18 @@ def test_android_channel_follows_push_type():
     assert push_service.android_channel_id({"type": "todo_reminder"}) == "recall-reminders"
     assert push_service.android_channel_id({"type": "learning_review"}) == "recall-learning"
     assert push_service.android_channel_id({"type": "email_suggestion"}) == "recall-inbox"
+    assert push_service.android_channel_id({"type": "job_search_ready"}) == "recall-inbox"
+
+
+def test_channel_id_stays_off_until_the_install_opts_in():
+    legacy = MagicMock(platform="android", android_channels=None)
+    assert push_service.channel_id_for_token(legacy, {"type": "todo_reminder"}) is None
+    opted_in = MagicMock(platform="android", android_channels="split")
+    assert (
+        push_service.channel_id_for_token(opted_in, {"type": "todo_reminder"}) == "recall-reminders"
+    )
+    ios = MagicMock(platform="ios", android_channels="split")
+    assert push_service.channel_id_for_token(ios, {"type": "todo_reminder"}) is None
 
 
 @pytest.fixture
@@ -44,6 +56,8 @@ async def test_process_todo_reminders_due_soon():
     token = MagicMock()
     token.user_id = user_id
     token.expo_push_token = "ExponentPushToken[abc]"
+    token.platform = "android"
+    token.android_channels = "split"
 
     session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(todo, user)])))
 
@@ -259,6 +273,8 @@ async def test_process_email_suggestions_batches_per_user():
     token = MagicMock()
     token.user_id = user_id
     token.expo_push_token = "ExponentPushToken[abc]"
+    token.platform = "android"
+    token.android_channels = "split"
 
     session.execute = AsyncMock(
         return_value=MagicMock(all=MagicMock(return_value=[(reminder_a, user), (reminder_b, user)]))

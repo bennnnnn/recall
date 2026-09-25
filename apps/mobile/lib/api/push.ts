@@ -3,7 +3,12 @@ import { request } from "@/lib/api/client";
 export const pushApi = {
   registerPushToken: (
     token: string,
-    body: { expo_push_token: string; platform: string; device_id?: string },
+    body: {
+      expo_push_token: string;
+      platform: string;
+      device_id?: string;
+      android_channels?: "split";
+    },
   ) =>
     request<void>("/users/push-token", token, {
       method: "POST",

@@ -24,6 +24,7 @@ async def register_push_token(
             expo_push_token=body.expo_push_token,
             platform=body.platform,
             device_id=body.device_id,
+            android_channels=body.android_channels,
         )
     except PushTokenBindError as exc:
         raise HTTPException(
