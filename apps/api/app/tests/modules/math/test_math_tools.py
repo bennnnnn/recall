@@ -35,6 +35,18 @@ def test_needs_symbolic_math(text: str, expected: bool) -> None:
     assert math_tools.needs_symbolic_math(text) is expected
 
 
+def test_needs_symbolic_math_rejects_oversize_before_prefix_stripping(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.math.tools import lesson
+
+    def fail_if_called(_text: str) -> str:
+        raise AssertionError("oversize input reached lesson-prefix stripping")
+
+    monkeypatch.setattr(lesson, "strip_lesson_prefixes", fail_if_called)
+    assert math_tools.needs_symbolic_math("show work " * 3201) is False
+
+
 def test_extract_equation_intent() -> None:
     intent = math_tools.extract_math_intent("Solve x^2 + 2 = 6")
     assert intent is not None
