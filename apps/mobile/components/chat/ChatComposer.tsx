@@ -32,7 +32,11 @@ import {
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import { composerShowsMic, composerShowsSend } from "@/lib/chat/composerLogic";
+import {
+  composerNativeInputTraits,
+  composerShowsMic,
+  composerShowsSend,
+} from "@/lib/chat/composerLogic";
 import { liveTalkShowsSideChrome } from "@/features/speech/model/liveTalkLogic";
 import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
@@ -383,11 +387,10 @@ export const ChatComposer = memo(function ChatComposer({
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
                     placeholderTextColor={theme.textDisabled}
                     value={input}
-                    // Keep native input traits stable for the whole session:
-                    // toggling correction midword races controlled math edits.
-                    autoCorrect={false}
-                    spellCheck={false}
-                    autoCapitalize="none"
+                    // Messaging traits while the system keyboard is up. The math
+                    // pad dismisses that keyboard before it takes the field, so
+                    // correction does not flip mid-word inside one native session.
+                    {...composerNativeInputTraits(math.mathBarOpen || showMathPreview)}
                     onChangeText={math.onChangeText}
                     onContentSizeChange={(event) => {
                       const measured = Math.ceil(event.nativeEvent.contentSize.height);

@@ -85,7 +85,7 @@ describe("ChatComposer math keyboard", () => {
     "What is sqrt{81}?",
     "Let x=-5. Evaluate x^2",
     "Use $x^2$ with a $5 example",
-  ])("keeps ordinary typing literal and the native caret active: %s", async (text) => {
+  ])("keeps ordinary typing on the messaging keyboard with the native caret: %s", async (text) => {
     function Harness() {
       const [input, setInput] = useState("");
       return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
@@ -96,9 +96,9 @@ describe("ChatComposer math keyboard", () => {
       await fireEvent.changeText(getByTestId("chat-composer-input"), next);
       const native = getByTestId("chat-composer-input");
       expect(native.props.value).toBe(next);
-      expect(native.props.autoCorrect).toBe(false);
-      expect(native.props.spellCheck).toBe(false);
-      expect(native.props.autoCapitalize).toBe("none");
+      expect(native.props.autoCorrect).toBe(true);
+      expect(native.props.spellCheck).toBe(true);
+      expect(native.props.autoCapitalize).toBe("sentences");
       expect(native.props.selection).toBeUndefined();
       expect(native.props.caretHidden).toBe(false);
       expect(native.props.pointerEvents).toBe("auto");
@@ -106,19 +106,25 @@ describe("ChatComposer math keyboard", () => {
     }
   });
 
-  it("keeps native keyboard traits stable when opening and leaving the math pad", async () => {
+  it("uses messaging input until the math pad is open", async () => {
     const { getByTestId } = await render(<ChatComposer {...baseProps} />);
-    const expectStableTraits = () => {
+    const expectMessaging = () => {
+      const native = getByTestId("chat-composer-input");
+      expect(native.props.autoCorrect).toBe(true);
+      expect(native.props.spellCheck).toBe(true);
+      expect(native.props.autoCapitalize).toBe("sentences");
+    };
+    const expectMathEditor = () => {
       const native = getByTestId("chat-composer-input");
       expect(native.props.autoCorrect).toBe(false);
       expect(native.props.spellCheck).toBe(false);
       expect(native.props.autoCapitalize).toBe("none");
     };
-    expectStableTraits();
+    expectMessaging();
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
-    expectStableTraits();
+    expectMathEditor();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
-    expectStableTraits();
+    expectMessaging();
   });
 
   it("does not enable preview just by opening and closing an empty math pad", async () => {
