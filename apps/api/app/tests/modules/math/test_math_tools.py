@@ -42,6 +42,10 @@ def test_extract_equation_intent() -> None:
     assert intent.variable == "x"
 
 
+def test_chained_equality_is_not_claimed_by_the_equation_solver() -> None:
+    assert math_tools.extract_math_intent("2x+3=3=7") is None
+
+
 def test_glued_graph_command_is_vertical_line_not_multiplied_letters() -> None:
     """``X=6graph`` is ``graph x=6`` (vertical line), not 6·g·r·a·p·h."""
     intent = math_tools.extract_math_intent("X=6graph")

@@ -217,17 +217,19 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
 
 
 def _collapse_equal_chain(pairs: list[tuple[str, str]]) -> list[tuple[str, str]]:
-    """``2x+3=3=7`` is one equation (first lhs, last rhs), not ``2x+3=3``.
+    """Do not turn ``2x+3=3=7`` into a different, solvable equation.
 
     Adjacent pairs form a chain when the previous RHS is the next LHS.
-    Independent clauses (``x+y=5, x-y=1``) stay separate.
+    The single-equation solver does not own chained equality syntax; dropping
+    the middle term would create a confidently wrong verified answer.
+    Independent clauses (``x+y=5, x-y=1``) remain separate.
     """
     if len(pairs) < 2:
         return pairs
     for i in range(len(pairs) - 1):
         if pairs[i][1].strip() != pairs[i + 1][0].strip():
             return pairs
-    return [(pairs[0][0], pairs[-1][1])]
+    return []
 
 
 def try_extract_equation_from_text(text: str) -> EquationInput | None:
