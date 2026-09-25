@@ -218,12 +218,27 @@ _EARLIER_CONVERSATION_PHRASES = (
 )
 
 
+def _phrase_at_word_boundary(text: str, phrase: str) -> bool:
+    """True when ``phrase`` occurs with a non-letter on each side."""
+    start = 0
+    while True:
+        found = text.find(phrase, start)
+        if found < 0:
+            return False
+        before = found == 0 or not text[found - 1].isalnum()
+        end = found + len(phrase)
+        after = end == len(text) or not text[end].isalnum()
+        if before and after:
+            return True
+        start = found + 1
+
+
 def recalls_earlier_conversation(text: str) -> bool:
     """True when the user is asking about something said in an earlier chat."""
     cleaned = collapse_ws(text).lower()
     if not cleaned:
         return False
-    return any(phrase in cleaned for phrase in _EARLIER_CONVERSATION_PHRASES)
+    return any(_phrase_at_word_boundary(cleaned, phrase) for phrase in _EARLIER_CONVERSATION_PHRASES)
 
 
 def is_learning_progress_question(text: str) -> bool:

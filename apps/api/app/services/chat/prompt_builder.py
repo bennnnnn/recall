@@ -104,6 +104,9 @@ from app.services.chat.prompt_constants.visuals import (
 )
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import (
+    UNSUMMARIZED_GAP_MAX_MESSAGES,
+    estimate_tokens,
+    messages_within_token_budget,
     select_recent_window,
     trim_message_for_summary,
     unsummarized_gap_bounds,
@@ -875,43 +878,64 @@ def _integration_hints(
     return parts
 
 
+def _persisted_messages(window: list[Any], current_user_message_id: UUID | None) -> list[Any]:
+    """Drop the synthetic current turn. It is not a stored row yet."""
+    if current_user_message_id is None:
+        return window
+    return [message for message in window if getattr(message, "id", None) != current_user_message_id]
+
+
 async def _load_unsummarized_gap(
     chat_id: UUID,
     chat: Chat | None,
     window: list[Any],
+    tail: list[Any],
     *,
     recent_limit: int,
+    token_budget: int,
+    current_user_message_id: UUID | None,
 ) -> list[Any]:
-    """Messages after the stored summary and before the loaded recent window.
+    """Messages after the summary and before the messages the prompt kept.
 
-    A full window is the only case with older rows. Shorter chats already
-    hold every message in ``window``.
+    ``tail`` is that kept list. A synthetic current user row can push one
+    stored message out of a full window; that row is included here, then the
+    whole gap is cut to the tokens the recent window did not already use.
     """
-    if chat is None or len(window) < recent_limit or not window:
-        return []
-    oldest = window[0]
-    created_at = getattr(oldest, "created_at", None)
-    oldest_id = getattr(oldest, "id", None)
-    if created_at is None or oldest_id is None:
-        return []
-    summarized = int(getattr(chat, "summary_message_count", 0) or 0)
-    async with SessionLocal() as session:
-        total = await messages_repo.count_for_chat(session, chat_id)
-        bounds = unsummarized_gap_bounds(
-            total=total,
-            summarized=summarized,
-            loaded=len(window),
-        )
-        if bounds is None:
-            return []
-        _offset, count = bounds
-        return await messages_repo.list_before(
-            session,
-            chat_id,
-            before_created_at=created_at,
-            before_id=oldest_id,
-            limit=count,
-        )
+    tail_ids = {message.id for message in tail}
+    dropped = [
+        message
+        for message in _persisted_messages(window, current_user_message_id)
+        if message.id not in tail_ids
+    ]
+    older: list[Any] = []
+    persisted = _persisted_messages(window, current_user_message_id)
+    if chat is not None and len(persisted) >= recent_limit and persisted:
+        oldest = persisted[0]
+        created_at = getattr(oldest, "created_at", None)
+        oldest_id = getattr(oldest, "id", None)
+        if created_at is not None and oldest_id is not None:
+            summarized = int(getattr(chat, "summary_message_count", 0) or 0)
+            async with SessionLocal() as session:
+                total = await messages_repo.count_for_chat(session, chat_id)
+                bounds = unsummarized_gap_bounds(
+                    total=total,
+                    summarized=summarized,
+                    loaded=len(persisted),
+                )
+                if bounds is not None:
+                    _offset, count = bounds
+                    older = await messages_repo.list_before(
+                        session,
+                        chat_id,
+                        before_created_at=created_at,
+                        before_id=oldest_id,
+                        limit=count,
+                    )
+    return messages_within_token_budget(
+        [*older, *dropped],
+        token_budget,
+        max_messages=UNSUMMARIZED_GAP_MAX_MESSAGES,
+    )
 
 
 async def build_prompt_messages(
@@ -991,11 +1015,19 @@ async def build_prompt_messages(
         recent_source = [m for m in recent_source if m.id not in omit_message_ids]
     keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
     recent = recent_source[-keep:] if keep else []
+    tail_tokens = sum(
+        estimate_tokens(message.content)
+        for message in recent
+        if isinstance(getattr(message, "content", None), str)
+    )
     gap = await _load_unsummarized_gap(
         chat_id,
         chat,
         blocks.recent_all,
+        recent,
         recent_limit=recent_limit,
+        token_budget=max(0, settings.context_token_budget - tail_tokens),
+        current_user_message_id=current_user_message_id,
     )
     if omit_message_ids:
         gap = [m for m in gap if m.id not in omit_message_ids]

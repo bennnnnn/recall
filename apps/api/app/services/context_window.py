@@ -190,6 +190,35 @@ def unsummarized_gap_bounds(
     return gap_start, gap_end - gap_start
 
 
+def messages_within_token_budget(
+    messages: list[Any],
+    budget: int,
+    *,
+    max_messages: int,
+) -> list[Any]:
+    """Newest messages that still fit ``budget``, oldest first.
+
+    Each body is measured after the summary trim, matching what the prompt
+    will send. A full recent window leaves no room, so the gap stays empty.
+    """
+    if budget <= 0 or max_messages <= 0:
+        return []
+    chosen: list[Any] = []
+    used = 0
+    for message in reversed(messages):
+        if len(chosen) >= max_messages:
+            break
+        content = getattr(message, "content", "")
+        text = content if isinstance(content, str) else ""
+        cost = estimate_tokens(trim_message_for_summary(text))
+        if used + cost > budget:
+            break
+        used += cost
+        chosen.append(message)
+    chosen.reverse()
+    return chosen
+
+
 def trim_message_for_summary(content: str, max_chars: int = _SUMMARY_MESSAGE_MAX_CHARS) -> str:
     text = content.strip()
     if len(text) <= max_chars:

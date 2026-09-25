@@ -4,6 +4,7 @@ from app.services.context_window import (
     cap_summary,
     compute_history_split,
     estimate_tokens,
+    messages_within_token_budget,
     select_recent_window,
     should_run_compression,
     trim_message_for_summary,
@@ -118,6 +119,14 @@ def test_unsummarized_gap_bounds_takes_the_hole_before_the_window():
 
 def test_unsummarized_gap_bounds_caps_a_long_hole_at_the_newest_messages():
     assert unsummarized_gap_bounds(total=100, summarized=0, loaded=20, max_messages=10) == (70, 10)
+
+
+def test_gap_messages_stop_when_the_token_budget_is_spent():
+    short = _M("hi")
+    long = _M("a" * 400)
+    fitted = messages_within_token_budget([long, short], budget=20, max_messages=10)
+    assert fitted == [short]
+    assert messages_within_token_budget([long], budget=0, max_messages=10) == []
 
 
 def test_unsummarized_gap_bounds_empty_when_summary_reaches_the_window():
