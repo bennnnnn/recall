@@ -188,10 +188,9 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
-        <SettingsGroup label={t("settings.notifications")} styles={s}>
+        <SettingsGroup styles={s}>
           <SettingsSwitchRow
             title={t("settings.push_notifications")}
-            subtitle={t("settings.push_notifications_desc")}
             value={pushToggle.value}
             disabled={busyAction !== null}
             onValueChange={pushToggle.toggle}
@@ -201,7 +200,6 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           <View style={s.menuSeparator} />
           <SettingsSwitchRow
             title={t("settings.email_reminders")}
-            subtitle={t("settings.email_reminders_summary")}
             value={user?.email_reminders_enabled ?? false}
             disabled={busyAction !== null}
             busy={busyAction === "email"}
@@ -211,10 +209,9 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           />
         </SettingsGroup>
 
-        <SettingsGroup label={t("settings.quiet_hours")} styles={s}>
+        <SettingsGroup styles={s}>
           <SettingsSwitchRow
             title={t("settings.quiet_hours")}
-            subtitle={t("settings.quiet_hours_desc")}
             value={quietEnabled}
             disabled={busyAction !== null}
             busy={busyAction === "quiet"}
@@ -244,10 +241,9 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           ) : null}
         </SettingsGroup>
 
-        <SettingsGroup label={t("settings.reminders")} styles={s}>
+        <SettingsGroup styles={s}>
           <SettingsInlinePicker
             title={t("settings.reminder_lead")}
-            subtitle={t("settings.reminder_lead_desc")}
             value={t("settings.reminder_lead_value", { count: reminderLeadMinutes })}
             options={REMINDER_LEAD_OPTIONS.map((minutes) => ({
               key: String(minutes),
