@@ -313,6 +313,14 @@ LEGACY_SUGGESTIONS_IMPORTS = (
     "app.routers.suggestions",
     "app.services.suggestion_generation",
 )
+LEGACY_CHAT_SHIMS = {
+    APP_ROOT / "routers" / "chats.py",
+    APP_ROOT / "services" / "chats.py",
+}
+LEGACY_CHAT_IMPORTS = (
+    "app.routers.chats",
+    "app.services.chats",
+)
 
 
 def _imports(path: Path) -> list[str]:
@@ -1185,6 +1193,37 @@ def test_search_runtime_code_has_one_owner() -> None:
         and any(alias.name == "router" for alias in node.names)
         for node in router_tree.body
     ), "legacy search router must re-export app.modules.search.api.router"
+
+
+def test_chat_history_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "chat"
+    expected = {"api.py", "service.py"}
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert {
+        "test_chat_management.py",
+        "test_chat_history_recovery.py",
+    } <= {path.name for path in (APP_ROOT / "tests" / "modules" / "chat").glob("*.py")}
+    for shim in LEGACY_CHAT_SHIMS:
+        _shim_has_no_behavior(shim)
+    router_shim = APP_ROOT / "routers" / "chats.py"
+    router_tree = ast.parse(router_shim.read_text(), filename=str(router_shim))
+    assert any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "app.modules.chat.api"
+        and any(alias.name == "router" for alias in node.names)
+        for node in router_tree.body
+    ), "legacy chats router must re-export app.modules.chat.api.router"
+
+
+def test_production_code_does_not_use_legacy_chat_history_imports() -> None:
+    violations: list[str] = []
+    for path in _production_python():
+        if path in LEGACY_CHAT_SHIMS:
+            continue
+        for imported in _imports(path):
+            if imported.startswith(LEGACY_CHAT_IMPORTS):
+                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
+    assert not violations, "\n".join(violations)
 
 
 def test_production_code_does_not_use_legacy_search_imports() -> None:

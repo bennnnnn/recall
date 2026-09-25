@@ -122,7 +122,8 @@ What exists in code today. Product caveats: FEATURES.md.
 |--------|-----|--------|
 | Auth / account | `routers/auth.py`, `users.py`, `services/auth.py`, `profile.py`, `subscription.py` | `app/login.tsx`, `onboarding.tsx`, `lib/api/auth.ts`, `account.ts` |
 | My Job | `modules/job_search/` | `features/job-search/`; `app/my-job/` routes only |
-| Chat + stream | `routers/ws.py`, `chat_stream.py`, `chats.py`; `services/chat/` | `app/index.tsx`, `hooks/useChat*.ts`, `components/chat/` |
+| Chat history | `modules/chat/` (HTTP `/chats`) | drawer history; `lib/api/chats.ts` until the mobile chat move |
+| Chat stream | `routers/ws.py`, `chat_stream.py`; `services/chat/` | `app/index.tsx`, `hooks/useChat*.ts`, `components/chat/` |
 | Memory | `modules/memory/` (HTTP `/memories`) | `features/memory/`; `app/memory.tsx` route only |
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `settings/models.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
@@ -147,7 +148,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned My Job, Learning, Memory, To-do, Home, Search, Suggestions, Google Calendar/Gmail, Attachments, Images, and Speech APIs plus the legacy health, legal, auth, admin, webhooks, users, link_preview, chats, chat_stream, models, analytics, and ws routers.
+**HTTP surfaces registered in** `main.py`: the module-owned My Job, Learning, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, and Speech APIs plus the legacy health, legal, auth, admin, webhooks, users, link_preview, chat_stream, models, analytics, and ws routers.
 
 **Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
 
