@@ -152,6 +152,31 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     assert "Check:" in reply
 
 
+def test_rational_equation_clears_the_denominator_and_finishes_at_the_chip() -> None:
+    text = "(x+1)/(x-1)=3"
+    block = _block(text)
+    reply = maybe_direct_math_reply(block, text, response_style="balanced")
+
+    assert reply is not None
+    assert "Multiply both sides by x - 1" in reply
+    assert r"3 \left(x - 1\right)" in reply
+    assert r"x \ne 1" in reply
+    assert block.key_steps[-1].formula == block.canonical_answer == "x = 2"
+
+
+def test_high_degree_denominator_is_not_enumerated() -> None:
+    from sympy import Symbol
+
+    from app.modules.math.solve.key_steps import equation_key_steps
+
+    x = Symbol("x")
+    steps = equation_key_steps(x / (x**20 + 1), 0, "x")
+    assert steps
+    joined = " ".join(step.formula for step in steps)
+    assert r"\text{denominator} \ne 0" in joined
+    assert joined.count(r"\ne") == 1
+
+
 def test_absolute_value_equation_gets_a_complete_lesson() -> None:
     text = "|x-2|=5"
     block = _block(text)

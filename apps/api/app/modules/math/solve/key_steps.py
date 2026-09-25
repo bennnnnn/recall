@@ -38,12 +38,14 @@ def stringify_key_steps(steps: list[KeyStep]) -> list[str]:
 def equation_key_steps(lhs: Any, rhs: Any, variable: str) -> list[KeyStep]:
     """Structured working from the original sides. Empty when the shape is unsupported."""
     symbols = getattr(lhs, "free_symbols", set()) | getattr(rhs, "free_symbols", set())
-    parsed_var = next((symbol for symbol in symbols if str(symbol) == variable), Symbol(variable))
-    absolute_steps = _absolute_value_key_steps(lhs, rhs, parsed_var)
+    var = next((symbol for symbol in symbols if str(symbol) == variable), Symbol(variable))
+    absolute_steps = _absolute_value_key_steps(lhs, rhs, var)
     if absolute_steps is not None:
         return absolute_steps
+    rational_steps = _rational_equation_key_steps(lhs, rhs, var)
+    if rational_steps is not None:
+        return rational_steps
     try:
-        var = Symbol(variable)
         poly = Poly(simplify(lhs - rhs), var)
         degree = poly.degree()
     except Exception:
@@ -53,6 +55,92 @@ def equation_key_steps(lhs: Any, rhs: Any, variable: str) -> list[KeyStep]:
     if degree == 2:
         return _quadratic_key_steps(lhs, rhs, var, poly)
     return []
+
+
+def _rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+    left_num, left_den = getattr(lhs, "as_numer_denom", lambda: (lhs, 1))()
+    right_num, right_den = getattr(rhs, "as_numer_denom", lambda: (rhs, 1))()
+    left_has_variable_denominator = var in getattr(left_den, "free_symbols", set())
+    right_has_variable_denominator = var in getattr(right_den, "free_symbols", set())
+    if left_has_variable_denominator == right_has_variable_denominator:
+        return None
+    try:
+        if left_has_variable_denominator:
+            cleared_lhs = left_num
+            cleared_rhs = simplify(rhs * left_den)
+            denominator = left_den
+            multiplied = f"{latex(left_num)} = {latex(rhs)} \\left({latex(left_den)}\\right)"
+        else:
+            cleared_lhs = simplify(lhs * right_den)
+            cleared_rhs = right_num
+            denominator = right_den
+            multiplied = f"{latex(lhs)} \\left({latex(right_den)}\\right) = {latex(right_num)}"
+        poly = Poly(simplify(cleared_lhs - cleared_rhs), var)
+        if poly.degree() != 1:
+            return []
+        den_poly = denominator.as_poly(var) if hasattr(denominator, "as_poly") else None
+        den_degree = den_poly.degree() if den_poly is not None else None
+        from app.core.config import get_settings
+
+        degree_cap = get_settings().math_max_poly_degree
+        high_denominator = den_degree is None or int(den_degree) > degree_cap
+        candidates = solve(Eq(lhs, rhs), var)
+        if high_denominator:
+            # Do not ask SymPy for every root of a huge denominator.
+            # A plain int has no .subs; the variable-denominator path is an expression.
+            if isinstance(denominator, int):
+                return []
+            excluded = []
+            solutions = [
+                solution
+                for solution in candidates
+                if simplify(denominator.subs(var, solution)) != 0
+            ]
+        else:
+            excluded = solve(Eq(denominator, 0), var)
+            solutions = [
+                solution
+                for solution in candidates
+                if all(not _expr_equal(solution, value) for value in excluded)
+            ]
+    except Exception:
+        return []
+    if not solutions:
+        return []
+    condition = ""
+    if high_denominator:
+        condition = r", \quad \text{denominator} \ne 0"
+    elif excluded:
+        exclusions = r",\; ".join(rf"{latex(var)} \ne {latex(value)}" for value in excluded)
+        condition = rf", \quad {exclusions}"
+    steps = [
+        KeyStep(
+            label=f"Multiply both sides by {latex(denominator)}",
+            formula=f"{multiplied}{condition}",
+        )
+    ]
+    steps.append(KeyStep(label="Expand", formula=_eq_tex(cleared_lhs, cleared_rhs)))
+    linear_steps = _linear_key_steps(cleared_lhs, cleared_rhs, var, poly)
+    index = 0
+    while index < len(linear_steps):
+        step = linear_steps[index]
+        if index + 1 < len(linear_steps) and linear_steps[index + 1].label == "Simplify":
+            step = KeyStep(
+                label=step.label,
+                formula=linear_steps[index + 1].formula,
+                reason=step.reason,
+                conditions=step.conditions,
+                branch=step.branch,
+            )
+            index += 1
+        steps.append(step)
+        index += 1
+    final = r" \text{ or } ".join(f"{latex(var)} = {latex(solution)}" for solution in solutions)
+    if steps[-1].label.startswith(("Divide both sides", "Multiply both sides")):
+        steps[-1] = KeyStep(label=steps[-1].label, formula=final, reason=steps[-1].reason)
+    else:
+        steps.append(KeyStep(label="Simplify", formula=final))
+    return steps
 
 
 def _absolute_value_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
