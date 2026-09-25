@@ -318,31 +318,13 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
     if radicand < 0:
         return steps
     root = simplify(sqrt(radicand))
-    steps.append(
-        KeyStep(
-            label="Take square roots of both sides",
-            formula=rf"\sqrt{{{latex(var)}^{{2}}}} = \sqrt{{{latex(radicand)}}}",
-        )
-    )
+    # x = ±√n. Do not show √(x²) and then |x| — that detour is the same fact
+    # twice, and the answer chip already carries the ±.
     if radicand == 0:
-        steps.append(
-            KeyStep(
-                label="Use absolute value",
-                formula=rf"\lvert {latex(var)} \rvert = 0",
-                reason="the square root of a square is the distance from zero",
-            )
-        )
-        return steps
-    steps.append(
-        KeyStep(
-            label="Use absolute value",
-            formula=rf"\lvert {latex(var)} \rvert = {latex(root)}",
-            reason=(
-                "for real numbers, the square root of a square gives "
-                "the number's distance from zero"
-            ),
-        )
-    )
+        formula = f"{latex(var)} = 0"
+    else:
+        formula = rf"{latex(var)} = \pm {latex(root)}"
+    steps.append(KeyStep(label="Square root", formula=formula))
     return steps
 
 

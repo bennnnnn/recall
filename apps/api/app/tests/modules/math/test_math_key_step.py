@@ -111,14 +111,17 @@ def test_balanced_two_op_linear_is_a_lesson() -> None:
     assert before_chip.count("x = 6") == 0
 
 
-def test_detailed_pure_power_uses_absolute_value() -> None:
+def test_detailed_pure_power_takes_the_square_root() -> None:
     text = "x^2 + 2 = 6"
     reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
 
     assert reply is not None
     assert "**Given:**" in reply
-    assert "Take square roots of both sides" in reply
-    assert r"\lvert" in reply or r"\left|" in reply
+    given_line = next(line for line in reply.splitlines() if "Given" in line)
+    assert "$" in given_line
+    assert "Square root" in reply
+    assert r"\sqrt{x" not in reply
+    assert "lvert" not in reply
     assert "```answer" in reply
     assert r"\pm 2" in reply
     assert "Check:" in reply
@@ -193,7 +196,7 @@ def test_linear_lesson_is_short_and_cancels_on_divide() -> None:
     assert "undoes" not in before_chip
     assert r"\cancel{3}" in before_chip
     given_line = next(line for line in reply.splitlines() if "Given" in line)
-    assert "$" not in given_line
+    assert "$" in given_line
     simplify_line = next(line for line in reply.splitlines() if "Simplify" in line)
     assert "$" not in simplify_line
     assert "x = 1" in reply

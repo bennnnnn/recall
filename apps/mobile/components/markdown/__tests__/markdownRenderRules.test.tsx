@@ -316,4 +316,13 @@ describe("markdown render rules", () => {
     );
     expect(getByTestId("link-preview-card")).toBeOnTheScreen();
   });
+
+  it("puts a lesson step number in a badge apart from the label", async () => {
+    const { getByTestId, getByText } = await render(
+      <MarkdownContent content={"**1. Divide both sides by 3**"} />,
+    );
+    expect(getByTestId("lesson-step")).toBeOnTheScreen();
+    expect(getByText("1")).toBeOnTheScreen();
+    expect(getByText("Divide both sides by 3")).toBeOnTheScreen();
+  });
 });

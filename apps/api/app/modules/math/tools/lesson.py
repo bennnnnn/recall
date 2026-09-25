@@ -176,7 +176,9 @@ def format_equation_lesson_reply(
     """
     chunks: list[str] = []
     if verified.given_latex:
-        chunks.append(_labelled_formula("**Given:**", verified.given_latex))
+        # Same line as the label. A blank line made Given its own paragraph,
+        # so the equation sat a full gap below the word.
+        chunks.append(f"**Given:** ${verified.given_latex}$")
     for index, step in enumerate(verified.key_steps, start=1):
         heading = f"**{index}. {step.label}**"
         if include_reasons and step.reason:

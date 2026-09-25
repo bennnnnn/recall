@@ -46,6 +46,10 @@ import { isGenericSearchUrl } from "@/lib/placesList";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { isAllowedImageUri } from "@/lib/images/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import { Type } from "@/lib/type";
+import { uiFontFamily } from "@/lib/uiFont";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { parseQuoteAttribution } from "@/lib/richBlocks";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
@@ -83,6 +87,33 @@ function withGreenTicks(
 
 function replaceHtmlBreaks(text: string): string {
   return text.replace(/<br\s*\/?>/gi, "\n");
+}
+
+const LESSON_STEP_RE = /^(\d+)\.\s+(\S[\s\S]*)$/;
+
+function unwrapSingle(node: AstNode): AstNode {
+  let current = node;
+  while ((current.children?.length ?? 0) === 1) {
+    const only = current.children?.[0];
+    if (!only || only.type === "text" || only.type === "strong") break;
+    current = only;
+  }
+  return current;
+}
+
+/** `**1. Simplify**` is the whole paragraph. The number gets its own badge. */
+function lessonStepParts(node: AstNode): { n: string; label: string } | null {
+  const kids = unwrapSingle(node).children ?? [];
+  const first = kids[0];
+  if (!first || first.type !== "strong") return null;
+  const match = LESSON_STEP_RE.exec(astText(first).trim());
+  if (!match) return null;
+  const tail = kids
+    .slice(1)
+    .map((kid) => astText(kid))
+    .join("")
+    .trim();
+  return { n: match[1], label: tail ? `${match[2]} ${tail}` : match[2] };
 }
 
 /**
@@ -478,6 +509,51 @@ function makeSharedRules(
             cellRunHeight != null && { lineHeight: cellRunHeight },
           ],
           mdMath.inlineWrap,
+        );
+      }
+      const step = lessonStepParts(node);
+      if (step) {
+        return (
+          <View
+            key={node.key}
+            testID="lesson-step"
+            style={[
+              styles.paragraphRun,
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                gap: Space.xs,
+              },
+            ]}
+          >
+            <View
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: Radius.full,
+                backgroundColor: t.surfaceAlt,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: uiFontFamily("700"),
+                  fontWeight: "700",
+                  fontSize: Type.caption.fontSize,
+                  color: t.text,
+                }}
+              >
+                {step.n}
+              </Text>
+            </View>
+            <Text
+              style={[styles.body, styles.text, { flexShrink: 1, color: t.assistantText }]}
+              selectable
+            >
+              {step.label}
+            </Text>
+          </View>
         );
       }
       // Prose-only paragraphs stay a single Text so "An **open circle**"
