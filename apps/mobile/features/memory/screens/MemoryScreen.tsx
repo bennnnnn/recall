@@ -23,8 +23,10 @@ import {
   formatMemoryPage,
   parseMemoryPage,
   stripMemoryAsOf,
+  visibleMemorySections,
   type MemoryPageLabel,
 } from "@/features/memory/model/memoryFacts";
+import { MESSAGE_FOLD_MAX_HEIGHT } from "@/lib/markdown/messageFold";
 import { EditIcon, IconSize } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -59,6 +61,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   } = useMemoryActions(token);
   const [refreshing, setRefreshing] = useState(false);
   const [editingPage, setEditingPage] = useState(false);
+  const [listExpanded, setListExpanded] = useState(false);
   const [draft, setDraft] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const savingRef = useRef(false);
@@ -85,6 +88,11 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   }, [memories]);
 
   const editBlocked = memories.some((fact) => pendingTypes.has(fact.type));
+  const foldedList = useMemo(
+    () => visibleMemorySections(sections, MESSAGE_FOLD_MAX_HEIGHT),
+    [sections],
+  );
+  const shownSections = listExpanded ? sections : foldedList.sections;
   const pageLabels = useMemo<MemoryPageLabel[]>(
     () => sections.map((section) => ({ type: section.type, label: memorySectionLabel(section.type, t) })),
     [sections, t],
@@ -266,9 +274,14 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           accessibilityLabel={t("memory.heading")}
         />
       ) : (
-        <MemoryFold fadeColor={theme.surfaceAlt}>
-          {sections.map((section, sectionIndex) => {
-            const lastSection = sectionIndex === sections.length - 1;
+        <MemoryFold
+          fadeColor={theme.surfaceAlt}
+          overflows={foldedList.overflows}
+          expanded={listExpanded}
+          onToggle={() => setListExpanded((value) => !value)}
+        >
+          {shownSections.map((section, sectionIndex) => {
+            const lastSection = sectionIndex === shownSections.length - 1;
             return (
               <View key={section.type}>
                 <MemorySectionHeader type={section.type} first={sectionIndex === 0} />

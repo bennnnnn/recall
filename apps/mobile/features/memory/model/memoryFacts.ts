@@ -1,4 +1,53 @@
+import { MESSAGE_FOLD_MAX_HEIGHT } from "@/lib/markdown/messageFold";
+
 export const MEMORY_TEXT_MAX_LENGTH = 4000;
+
+/** Rough card chrome so a long list can fold without mounting every row. */
+const SECTION_HEADER_HEIGHT = 40;
+const FACT_LINE_HEIGHT = 24;
+const FACT_ROW_CHROME = 16;
+const FACT_CHARS_PER_LINE = 40;
+
+function factRowHeight(text: string): number {
+  const lines = Math.max(1, Math.ceil(Math.max(text.length, 1) / FACT_CHARS_PER_LINE));
+  return FACT_ROW_CHROME + lines * FACT_LINE_HEIGHT;
+}
+
+export function memoryBlockHeight(sections: { facts: { text: string }[] }[]): number {
+  let height = 0;
+  for (const section of sections) {
+    height += SECTION_HEADER_HEIGHT;
+    for (const fact of section.facts) height += factRowHeight(fact.text);
+  }
+  return height;
+}
+
+/** Rows that fit in the fold. The rest stay unmounted until Show more. */
+export function visibleMemorySections<T extends { facts: { text: string }[] }>(
+  sections: T[],
+  maxHeight = MESSAGE_FOLD_MAX_HEIGHT,
+): { sections: T[]; overflows: boolean } {
+  if (memoryBlockHeight(sections) <= maxHeight) return { sections, overflows: false };
+  let used = 0;
+  const visible: T[] = [];
+  for (const section of sections) {
+    const kept: T["facts"] = [];
+    let sectionHeight = SECTION_HEADER_HEIGHT;
+    for (const fact of section.facts) {
+      const row = factRowHeight(fact.text);
+      const alreadyShowing = kept.length > 0 || visible.length > 0;
+      if (used + sectionHeight + row > maxHeight && alreadyShowing) {
+        if (kept.length > 0) visible.push({ ...section, facts: kept });
+        return { sections: visible, overflows: true };
+      }
+      kept.push(fact);
+      sectionHeight += row;
+    }
+    visible.push(section);
+    used += sectionHeight;
+  }
+  return { sections: visible, overflows: true };
+}
 
 export type MemoryPageLabel = { type: string; label: string };
 

@@ -3,6 +3,7 @@ import {
   joinMemoryFacts,
   parseMemoryPage,
   splitMemoryFacts,
+  visibleMemorySections,
 } from "@/features/memory/model/memoryFacts";
 
 describe("memoryFacts", () => {
@@ -37,5 +38,17 @@ describe("memoryFacts", () => {
       "The user's name is Cal",
     ]);
     expect(parseMemoryPage(page, labels).get("fact")).toEqual(["The user has COVID-19"]);
+  });
+
+  it("keeps a short list mounted and hides the tail of a long one", () => {
+    const short = [{ type: "fact", facts: [{ text: "One." }, { text: "Two." }] }];
+    expect(visibleMemorySections(short).overflows).toBe(false);
+    expect(visibleMemorySections(short).sections).toEqual(short);
+
+    const facts = Array.from({ length: 20 }, (_, index) => ({ text: `Fact ${index + 1}` }));
+    const folded = visibleMemorySections([{ type: "fact", facts }]);
+    expect(folded.overflows).toBe(true);
+    expect(folded.sections[0]?.facts.length).toBeLessThan(facts.length);
+    expect(folded.sections[0]?.facts.some((fact) => fact.text === "Fact 20")).toBe(false);
   });
 });

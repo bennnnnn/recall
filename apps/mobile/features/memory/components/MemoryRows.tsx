@@ -52,16 +52,22 @@ export function MemoryFactRow({
 export function MemoryFold({
   children,
   fadeColor,
+  overflows,
+  expanded,
+  onToggle,
 }: {
   children: ReactNode;
   fadeColor: string;
+  /** True when the screen left later facts unmounted. */
+  overflows: boolean;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { t } = useTranslation();
   const [height, setHeight] = useState(0);
-  const [expanded, setExpanded] = useState(false);
-  const needsFold = height > MESSAGE_FOLD_MAX_HEIGHT;
+  const needsFold = overflows || height > MESSAGE_FOLD_MAX_HEIGHT;
   const folded = needsFold && !expanded;
 
   return (
@@ -87,7 +93,7 @@ export function MemoryFold({
       {needsFold ? (
         <Pressable
           style={s.toggle}
-          onPress={() => setExpanded((value) => !value)}
+          onPress={onToggle}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityState={{ expanded }}

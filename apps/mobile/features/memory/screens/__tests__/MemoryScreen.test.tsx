@@ -175,6 +175,20 @@ it("shows Retry alongside cached memories when refresh fails", async () => {
   expect(mockLoad).toHaveBeenLastCalledWith({ force: true });
 });
 
+it("leaves later facts unmounted until Show more", async () => {
+  mockMemories = Array.from({ length: 20 }, (_, index) => ({
+    ...sample,
+    id: `m${index}`,
+    text: `Fact ${index + 1}`,
+  }));
+  const ui = await render(<MemoryScreen />);
+  expect(ui.getByText("Fact 1")).toBeTruthy();
+  expect(ui.queryByText("Fact 20")).toBeNull();
+  await fireEvent.press(ui.getByLabelText("common.show_more"));
+  expect(ui.getByText("Fact 20")).toBeTruthy();
+  expect(ui.getByLabelText("common.show_less")).toBeTruthy();
+});
+
 it("expands the whole folded list from one Show more control", async () => {
   mockMemories = [
     sample,

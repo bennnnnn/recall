@@ -12,15 +12,7 @@ export type IoniconName = keyof typeof Ionicons.glyphMap;
  * Drawings the set does not include are exported below: `EditIcon`, `MenuIcon`.
  */
 export { EditIcon, MenuIcon } from "./glyphs";
-
-/** Repeated chrome icon sizes. Prefer these over raw 20/22/24 on `Icon`.
- *  Domain graphics may keep other pixel sizes. */
-export const IconSize = {
-  sm: 20,
-  md: 22,
-  lg: 24,
-  hero: 28,
-} as const;
+export { IconSize } from "./sizes";
 
 /** Theme text ink. Danger stays red. */
 export function inkIconColor(theme: Theme, danger?: boolean): string {
