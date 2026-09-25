@@ -421,7 +421,6 @@
   },
   "memory.confidence": "{{percent}}% confident",
   "memory.edit_count": "{{count}} / {{max}}",
-  "memory.edit_fact_a11y": "Edit this memory",
   "memory.edit_failed": "Erinnerung konnte nicht gespeichert werden. Bitte erneut versuchen.",
   "memory.edit_title": "Erinnerung bearbeiten",
   "memory.empty_body": "Chatte mit Recall und es lernt automatisch deine Vorlieben, Lernthemen und Fakten über dich.",

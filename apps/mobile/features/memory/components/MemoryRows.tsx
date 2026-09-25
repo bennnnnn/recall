@@ -1,28 +1,14 @@
-import { useMemo } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { useMemo, useState, type ReactNode } from "react";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
-import { IconButton } from "@/components/IconButton";
 import type { Memory } from "@/lib/api";
 import { MEMORY_TEXT_MAX_LENGTH } from "@/features/memory/model/memoryFacts";
+import { MESSAGE_FOLD_MAX_HEIGHT } from "@/lib/markdown/messageFold";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
-import { useTheme, type Theme } from "@/lib/theme";
-
-/** Flattened row model for the Memory screen's sectioned FlashList. */
-export type MemoryRow =
-  | { kind: "section"; type: string; first: boolean }
-  | {
-      kind: "fact";
-      fact: Memory;
-      pending: boolean;
-      first: boolean;
-      last: boolean;
-    };
-
-export function memoryRowKey(row: MemoryRow): string {
-  return row.kind === "section" ? `section-${row.type}` : row.fact.id;
-}
+import { useTheme, withAlpha, type Theme } from "@/lib/theme";
 
 function memoryTypeLabel(type: string, t: (key: string) => string): string {
   const key = `memory.type.${type}`;
@@ -43,7 +29,7 @@ export function MemorySectionHeader({ type, first }: { type: string; first: bool
   );
 }
 
-/** One editable fact inside the unified memory card. */
+/** One fact. The page owns the single edit control; this row only shows the text or the field. */
 export function MemoryFactRow({
   fact,
   pending,
@@ -52,11 +38,7 @@ export function MemoryFactRow({
   editing,
   draftText,
   draftTooLong,
-  saving,
-  onEditFact,
   onChangeDraft,
-  onSaveEdit,
-  onCancelEdit,
 }: {
   fact: Memory;
   pending: boolean;
@@ -65,11 +47,7 @@ export function MemoryFactRow({
   editing: boolean;
   draftText: string;
   draftTooLong: boolean;
-  saving: boolean;
-  onEditFact: (fact: Memory) => void;
   onChangeDraft: (text: string) => void;
-  onSaveEdit: () => void;
-  onCancelEdit: () => void;
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -88,61 +66,79 @@ export function MemoryFactRow({
         <View style={s.inlineEditor}>
           <TextInput
             style={[s.inlineInput, draftTooLong ? s.inlineInputError : null]}
-            accessibilityLabel={t("memory.edit_title")}
+            accessibilityLabel={fact.text}
             value={draftText}
             onChangeText={onChangeDraft}
             multiline
-            editable={!saving}
-            autoFocus
+            editable={!pending}
             textAlignVertical="top"
           />
-          <View style={s.inlineFooter}>
-            <Text style={[s.counter, draftTooLong ? s.counterOver : null]}>
-              {t("memory.edit_count", {
-                count: Array.from(draftText).length,
-                max: MEMORY_TEXT_MAX_LENGTH,
-              })}
-            </Text>
-            <View style={s.factActions}>
-              <IconButton
-                name="close"
-                size={20}
-                color={theme.textSecondary}
-                onPress={onCancelEdit}
-                disabled={saving}
-                accessibilityLabel={t("common.cancel")}
-                style={s.inlineAction}
-              />
-              <IconButton
-                name="checkmark"
-                size={20}
-                color={theme.accent}
-                onPress={onSaveEdit}
-                disabled={saving || !draftText.trim() || draftTooLong}
-                accessibilityLabel={t("common.save")}
-                style={s.inlineAction}
-              />
-            </View>
-          </View>
+          <Text style={[s.counter, draftTooLong ? s.counterOver : null]}>
+            {t("memory.edit_count", {
+              count: Array.from(draftText).length,
+              max: MEMORY_TEXT_MAX_LENGTH,
+            })}
+          </Text>
         </View>
       ) : (
-        <>
-          <View style={s.factMain}>
-            <Text style={s.factText}>{fact.text}</Text>
-          </View>
-          <View style={s.factActions}>
-            <IconButton
-              name="pencil-outline"
-              size={18}
-              color={theme.textSecondary}
-              onPress={() => onEditFact(fact)}
-              disabled={pending}
-              accessibilityLabel={t("memory.edit_fact_a11y")}
-              style={s.factAction}
-            />
-          </View>
-        </>
+        <Text style={s.factText}>{fact.text}</Text>
       )}
+    </View>
+  );
+}
+
+/** Fold the whole memory card the way a long message folds, then expand all of it. */
+export function MemoryFold({
+  children,
+  editing,
+  fadeColor,
+}: {
+  children: ReactNode;
+  editing: boolean;
+  fadeColor: string;
+}) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const { t } = useTranslation();
+  const [height, setHeight] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const needsFold = height > MESSAGE_FOLD_MAX_HEIGHT;
+  const folded = needsFold && !expanded && !editing;
+
+  return (
+    <View style={s.fold}>
+      <View style={folded ? s.clipped : undefined}>
+        <View
+          testID="memory-fold-body"
+          onLayout={(event) => {
+            const next = event.nativeEvent.layout.height;
+            setHeight((prev) => (prev === next ? prev : next));
+          }}
+        >
+          {children}
+        </View>
+      </View>
+      {folded && fadeColor ? (
+        <LinearGradient
+          colors={[withAlpha(fadeColor, 0), withAlpha(fadeColor, 0.9), fadeColor]}
+          style={s.fade}
+          pointerEvents="none"
+        />
+      ) : null}
+      {needsFold && !editing ? (
+        <Pressable
+          style={s.toggle}
+          onPress={() => setExpanded((value) => !value)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          accessibilityLabel={expanded ? t("common.show_less") : t("common.show_more")}
+        >
+          <Text style={s.toggleText}>
+            {expanded ? t("common.show_less") : t("common.show_more")}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -173,12 +169,9 @@ function makeStyles(theme: Theme) {
       letterSpacing: 0.5,
     },
     factRow: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 10,
       backgroundColor: theme.surfaceAlt,
       paddingHorizontal: Space.md,
-      paddingVertical: 5,
+      paddingVertical: Space.xs,
     },
     factRowDivider: {
       borderTopWidth: StyleSheet.hairlineWidth,
@@ -193,7 +186,6 @@ function makeStyles(theme: Theme) {
     factRowEditing: {
       paddingVertical: Space.sm,
     },
-    factMain: { flex: 1 },
     inlineEditor: { flex: 1 },
     inlineInput: {
       minHeight: 76,
@@ -208,23 +200,22 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.bg,
     },
     inlineInputError: { borderColor: theme.danger },
-    inlineFooter: {
-      minHeight: 36,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
+    counter: { ...Type.meta, color: theme.textTertiary, marginTop: 2 },
+    factText: { ...Type.body, color: theme.text },
+    fold: { position: "relative", alignSelf: "stretch" },
+    clipped: { maxHeight: MESSAGE_FOLD_MAX_HEIGHT, overflow: "hidden" },
+    fade: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 28,
+      height: 48,
+    },
+    toggle: {
+      alignSelf: "flex-start",
+      paddingVertical: Space.xxs,
       marginTop: 2,
     },
-    counter: { ...Type.meta, color: theme.textTertiary },
-    counterOver: { color: theme.danger },
-    factActions: {
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    // 44×44 IconButton boxes; negative vertical margin keeps the row height
-    // driven by the fact text, not the touch targets.
-    factAction: { marginVertical: -12 },
-    inlineAction: { marginVertical: -6 },
-    factText: { flex: 1, ...Type.body, color: theme.text },
+    toggleText: { ...Type.label, color: theme.primary },
   });
 }

@@ -421,7 +421,6 @@
   },
   "memory.confidence": "{{percent}}% confident",
   "memory.edit_count": "{{count}} / {{max}}",
-  "memory.edit_fact_a11y": "Edit this memory",
   "memory.edit_failed": "Не удалось сохранить память. Попробуйте снова.",
   "memory.edit_title": "Редактировать память",
   "memory.empty_body": "Общайтесь с Recall, и он автоматически запомнит ваши предпочтения, темы обучения и факты о вас.",

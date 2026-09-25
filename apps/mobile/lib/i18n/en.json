@@ -421,7 +421,6 @@
   },
   "memory.confidence": "{{percent}}% confident",
   "memory.edit_count": "{{count}} / {{max}}",
-  "memory.edit_fact_a11y": "Edit this memory",
   "memory.edit_failed": "Could not save memory. Try again.",
   "memory.edit_title": "Edit memory",
   "memory.empty_body": "Chat with Recall and it will automatically learn your preferences, study topics, and facts about you.",

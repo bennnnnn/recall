@@ -421,7 +421,6 @@
   },
   "memory.confidence": "{{percent}}% confident",
   "memory.edit_count": "{{count}} / {{max}}",
-  "memory.edit_fact_a11y": "Edit this memory",
   "memory.edit_failed": "Bellek kaydedilemedi. Tekrar deneyin.",
   "memory.edit_title": "Belleği düzenle",
   "memory.empty_body": "Recall ile sohbet et; tercihlerini, öğrenme konularını ve hakkındaki bilgileri otomatik olarak öğrenir.",
