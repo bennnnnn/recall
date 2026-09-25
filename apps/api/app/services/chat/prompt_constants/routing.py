@@ -47,7 +47,7 @@ _LIGHTWEIGHT_TURN = re.compile(
 # Accepting an offer — not a greeting. "no" / "thanks" / "hi" stay off this list.
 _SHORT_CONFIRMATION = re.compile(
     r"^(?:"
-    r"yes|yep|yeah|yup|yea|y|"
+    r"yes|yep|yeah|yup|yea|"
     r"sure(?: thing)?|"
     r"ok(?:ay)?|k|"
     r"go(?: ahead)?|"

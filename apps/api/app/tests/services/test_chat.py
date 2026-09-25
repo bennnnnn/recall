@@ -950,6 +950,7 @@ def test_is_broad_self_question(text, expected):
         ("sure", True),
         ("x", False),
         ("X", False),
+        ("y", False),
     ],
 )
 def test_is_lightweight_chat_turn(text, expected):
@@ -969,6 +970,7 @@ def test_short_confirmation_after_offer_is_not_lightweight():
     assert not is_short_confirmation("hi")
     assert not is_short_confirmation("thanks")
     assert not is_short_confirmation("no")
+    assert not is_short_confirmation("y")
     assert prior_looks_like_offer(offer)
     assert not prior_looks_like_offer("The capital of France is Paris.")
     assert is_lightweight_chat_turn("yes", prior_assistant=offer) is False
