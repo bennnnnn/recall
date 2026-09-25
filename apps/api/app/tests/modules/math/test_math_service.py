@@ -720,6 +720,9 @@ def test_try_extract_equations_from_text_single_equation_unaffected() -> None:
 def test_try_extract_equations_rejects_chained_equals() -> None:
     """A chained equality must not silently drop its middle expression."""
     assert math_solve.try_extract_equations_from_text("Solve 2x + 3 = 3 = 7") == []
+    assert math_solve.rejected_equality_chain("Solve 2x + 3 = 3 = 7") is True
+    assert math_solve.rejected_equality_chain("solve x+y=5, x-y=1") is False
+    assert math_solve.rejected_equality_chain("x + 4 = 10") is False
 
 
 def test_try_extract_equations_strips_glued_english() -> None:

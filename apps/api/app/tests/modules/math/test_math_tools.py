@@ -490,6 +490,25 @@ async def test_build_math_augmentation_verifies_kinematics_trajectory() -> None:
 
 
 @pytest.mark.asyncio
+async def test_chained_equality_skips_llm_extract(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.modules.math.tools import prompt as math_prompt
+
+    async def _boom(_text: str, _settings: Settings) -> None:
+        raise AssertionError("LLM extract must not rewrite a chained equality")
+
+    monkeypatch.setattr(math_prompt, "llm_extract_math_intent", _boom)
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve 2x + 3 = 3 = 7",
+        Settings(math_tools_enabled=True, math_llm_extract_enabled=True),
+        needs_math=True,
+    )
+    assert verified is None
+    assert note is not None
+    assert "chains equalities" in note
+    assert not note.startswith("Math note:")
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_no_intent_forbids_invented_geometry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

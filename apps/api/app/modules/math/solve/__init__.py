@@ -28,6 +28,7 @@ from app.modules.math.solve.discrete import (
     guess_variables,
 )
 from app.modules.math.solve.extract_eq import (
+    rejected_equality_chain,
     try_extract_compound_inequality_from_text,
     try_extract_equation_from_text,
     try_extract_equations_from_text,
@@ -111,6 +112,7 @@ __all__ = [
     "parse_ellipse_relation",
     "parse_equation",
     "rectangle_geometry",
+    "rejected_equality_chain",
     "right_triangle_geometry",
     "sample_ellipse",
     "sample_function",
