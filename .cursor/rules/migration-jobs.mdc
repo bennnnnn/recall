@@ -1,0 +1,43 @@
+---
+description: Remaining jobs — module migrations in order, plus the math font
+alwaysApply: true
+---
+
+# Migration job list
+
+Do these in order. One pull request each. Do not start the next row until the
+previous one is merged and its head branch is deleted. When a row lands, delete
+it from this file in that pull request.
+
+## Now
+
+Home and Search are on main. Rebase
+[Suggestions](https://github.com/bennnnnn/recall/pull/1450) onto `main`, then merge.
+
+## After Suggestions
+
+1. **Chat history only.** Move the whole history surface in `routers/chats.py`
+   and `services/chats.py` into `modules/chat`: list, get, create, rename, pin,
+   archive, archive-all, delete, delete-all, message list, feedback, email
+   draft, and usage. Leave streaming, turn prep, and `useChat*` where they are.
+2. **Chat stream.** WebSocket, SSE, and `services/chat/stream.py`. Not turn prep.
+3. **Chat turn prep.** `services/chat/turn_prep/` and prompt assembly.
+4. **Mobile chat.** Move `hooks/useChat*`, `components/chat/`, `lib/chat/`
+   (stream, socket, reducer, cache, mutation helpers, and their tests), and
+   the chat API slice `lib/api/chats.ts` into `features/chat/`. Compose that
+   slice through `lib/api.ts`. `app/index.tsx` stays a route.
+
+## Also queued
+
+This is not part of the migration order. Do not drop it, and do not fold it
+into a Chat pull request.
+
+5. **Math formula font.** Formulas and calculation steps currently use the
+   same face as body text, so a worked solution is hard to scan. Give inline
+   math, display math, and step calculations their own font. Leave prose on
+   the body font.
+
+## Do not pick up instead
+
+- Deleting compatibility shims before that domain's callers use the module path.
+- Gray answer-chip draft (#1318), scanner CV, or subject-split leftovers.
