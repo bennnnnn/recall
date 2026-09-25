@@ -9,6 +9,7 @@ import { COLUMN_THUMB_SIZE, isGalleryImage } from "@/features/attachments/model/
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   item: AttachmentListItem;
@@ -82,7 +83,7 @@ function makeStyles(C: Theme) {
     fileThumb: {
       width: COLUMN_THUMB_SIZE,
       height: COLUMN_THUMB_SIZE,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       backgroundColor: C.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,

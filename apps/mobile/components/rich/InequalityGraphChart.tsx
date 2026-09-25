@@ -8,6 +8,7 @@ import { formatGraphExpr, formatInequalityExpr, graphPolylinePoints, mapGraphPoi
 import { clipInequalityRegion } from "@/lib/math/inequalityGraph";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 const CHART_HEIGHT = 220;
 const PAD = 28;
@@ -113,10 +114,10 @@ export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpe
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginVertical: 8, alignItems: "center", maxWidth: "100%" },
+  wrap: { marginVertical: Space.xs, alignItems: "center", maxWidth: "100%" },
   title: { fontSize: 15, fontWeight: "600", marginBottom: 6, textAlign: "center" },
   legend: { gap: 6, alignSelf: "stretch", paddingHorizontal: PAD },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 8 },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: Space.xs },
   legendText: { fontSize: 12, lineHeight: 17, flexShrink: 1 },
   swatch: { width: 24, height: 12, borderRadius: 2 },
   boundarySwatch: { width: 24, height: 1, borderTopWidth: 2.5 },

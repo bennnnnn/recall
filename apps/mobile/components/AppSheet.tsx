@@ -233,7 +233,7 @@ function makeStyles(t: Theme) {
     overlayCenter: {
       justifyContent: "center",
       alignItems: "center",
-      padding: 24,
+      padding: Space.lg,
     },
     backdrop: {
       ...StyleSheet.absoluteFill,

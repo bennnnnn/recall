@@ -13,6 +13,8 @@ import { useTranslation } from "react-i18next";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 import { PULSE_PROFILES, typingPulseKindForPhase } from "@/lib/typingPulse";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   /** Live `streamStatus` phase from the chat socket (preparing, searching, …). */
@@ -82,12 +84,12 @@ function makeStyles(t: Theme) {
       height: 36,
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: 4,
+      paddingVertical: Space.xxs,
     },
     disc: {
       width: 28,
       height: 28,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       backgroundColor: t.accent,
     },
   });

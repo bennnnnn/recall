@@ -13,6 +13,8 @@ import {
 } from "@/lib/math/graphBlock";
 import { CODE_FONT } from "@/lib/fonts";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { content: string };
 
@@ -84,7 +86,7 @@ export function FunctionGraphBlock({ content }: Props) {
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     wrap: {
-      marginVertical: 8,
+      marginVertical: Space.xs,
       alignItems: "center",
     },
     title: {
@@ -96,8 +98,8 @@ const makeStyles = (theme: Theme) =>
     },
     legendRow: {
       flexDirection: "row",
-      gap: 16,
-      marginBottom: 8,
+      gap: Space.md,
+      marginBottom: Space.xs,
     },
     legendItem: {
       flexDirection: "row",
@@ -115,9 +117,9 @@ const makeStyles = (theme: Theme) =>
       color: theme.textSecondary,
     },
     fallback: {
-      marginVertical: 8,
-      padding: 12,
-      borderRadius: 10,
+      marginVertical: Space.xs,
+      padding: Space.sm,
+      borderRadius: Radius.sm,
       backgroundColor: theme.contentSurface,
     },
     fallbackText: {

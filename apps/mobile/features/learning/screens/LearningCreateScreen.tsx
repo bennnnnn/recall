@@ -31,6 +31,7 @@ import {
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
 
 export default function CreateLearningScreen() {
   const owner = useAccountViewOwner();
@@ -221,7 +222,7 @@ function makeStyles(C: Theme) {
       gap: Space.sm,
       paddingVertical: 14,
       paddingHorizontal: Space.sm,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       backgroundColor: C.surfaceAlt,
       borderWidth: 1,
       borderColor: C.border,

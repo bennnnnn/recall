@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { rows: { key: string; value: string }[] };
 
@@ -28,17 +30,17 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
       alignSelf: "stretch",
-      borderRadius: 12,
+      borderRadius: Radius.md,
       borderWidth: 1,
       borderColor: t.border,
       backgroundColor: t.bg,
-      marginVertical: 8,
+      marginVertical: Space.xs,
       overflow: "hidden",
     },
     row: {
       flexDirection: "row",
-      gap: 12,
-      paddingHorizontal: 12,
+      gap: Space.sm,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
       alignItems: "flex-start",
     },

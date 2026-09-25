@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
 import { type Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   name: string | null;
@@ -53,7 +54,7 @@ function makeStyles(theme: Theme) {
       bottom: 0,
       width: 40,
       height: 40,
-      borderRadius: 20,
+      borderRadius: Radius.sheet,
       borderWidth: 3,
       borderColor: theme.bg,
       backgroundColor: theme.settingsSurface,

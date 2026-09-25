@@ -35,6 +35,9 @@ importers:
       '@expo-google-fonts/source-sans-3':
         specifier: 0.4.1
         version: 0.4.1
+      '@expo-google-fonts/source-serif-4':
+        specifier: 0.4.1
+        version: 0.4.1
       '@expo-google-fonts/space-mono':
         specifier: ^0.4.2
         version: 0.4.2
@@ -794,6 +797,9 @@ packages:
 
   '@expo-google-fonts/source-sans-3@0.4.1':
     resolution: {integrity: sha512-sxsO4kfxQnVMT6ri/yWiBefkgem6suvc7KWJ4m/kWGTGqxkGouxG7MQsZ8XR6wqasxYZxdWK1gtusMBLSZDiiA==}
+
+  '@expo-google-fonts/source-serif-4@0.4.1':
+    resolution: {integrity: sha512-Ej4UXDjW1kwYPHG8YLq6fK1bqnJGb3K35J3S5atSL0ScKFAFLKvndxoTWeCls7mybtlS9x99hzwDeXCBkiI3rA==}
 
   '@expo-google-fonts/space-mono@0.4.2':
     resolution: {integrity: sha512-soYY/qcKcnY7xjIhuMAVzJYxSdJ3Z8TjrtFHOB5SK7/4MEMGpoaw+CAVyvXnA3fsO7J7waIW+/5Z0Y0i/CfSeg==}
@@ -6262,6 +6268,8 @@ snapshots:
   '@expo-google-fonts/material-symbols@0.4.38': {}
 
   '@expo-google-fonts/source-sans-3@0.4.1': {}
+
+  '@expo-google-fonts/source-serif-4@0.4.1': {}
 
   '@expo-google-fonts/space-mono@0.4.2': {}
 

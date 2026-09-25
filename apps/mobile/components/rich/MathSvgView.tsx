@@ -5,6 +5,7 @@ import { SvgXml } from "react-native-svg";
 import { MathText } from "@/components/rich/MathText";
 import { latexToSvgMath, peekSvgMath, type SvgMathResult } from "@/lib/math/svgMath";
 import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
+import { Space } from "@/lib/space";
 
 /**
  * MathJax metrics: the SVG viewBox runs 1000 units per em and 1ex ≈ 0.442em
@@ -107,13 +108,13 @@ const styles = StyleSheet.create({
   },
   fallbackBox: {
     paddingVertical: 10,
-    paddingHorizontal: 4,
+    paddingHorizontal: Space.xxs,
   },
   lineScroll: {
     flexGrow: 1,
     justifyContent: "center",
     minWidth: "100%",
-    paddingHorizontal: 8,
+    paddingHorizontal: Space.xs,
   },
   line: {
     textAlign: "center",

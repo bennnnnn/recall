@@ -4,6 +4,8 @@ import { StyleSheet, Text, View } from "react-native";
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { steps: string[] };
 
@@ -29,7 +31,7 @@ export function StepList({ steps }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: { marginVertical: 8, gap: 10 },
+    wrap: { marginVertical: Space.xs, gap: 10 },
     row: {
       flexDirection: "row",
       gap: 10,
@@ -38,7 +40,7 @@ function makeStyles(t: Theme) {
     badge: {
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       backgroundColor: t.primaryLight,
       alignItems: "center",
       justifyContent: "center",

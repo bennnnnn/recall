@@ -23,6 +23,7 @@ import { lessonMapPath } from "@/features/learning/model/chapterAccess";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
 
 export default function LearningLessonPlayScreen() {
   const owner = useAccountViewOwner();
@@ -248,7 +249,7 @@ function makeStyles(theme: Theme) {
     },
     nextBtn: {
       minHeight: 52,
-      borderRadius: 18,
+      borderRadius: Radius.bubble,
     },
     error: {
       ...Type.secondary,

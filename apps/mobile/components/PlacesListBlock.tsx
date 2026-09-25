@@ -9,6 +9,8 @@ import { PlaceItem, resolvePlaceLinkUrl } from "@/lib/placesList";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   places: PlaceItem[];
@@ -120,13 +122,13 @@ function PlaceDetailsSheet({
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     list: {
-      marginVertical: 8,
+      marginVertical: Space.xs,
       gap: 10,
     },
     row: {
       flexDirection: "row",
       alignItems: "flex-start",
-      gap: 8,
+      gap: Space.xs,
     },
     index: {
       width: 22,
@@ -139,7 +141,7 @@ function makeStyles(t: Theme) {
     body: {
       flex: 1,
       minWidth: 0,
-      gap: 4,
+      gap: Space.xxs,
     },
     name: {
       ...Type.body,
@@ -159,7 +161,7 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       flexWrap: "wrap",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
     },
     price: {
       ...Type.compact,
@@ -178,7 +180,7 @@ function makeStyles(t: Theme) {
 function makeSheetStyles(t: Theme) {
   return StyleSheet.create({
     sheet: {
-      paddingHorizontal: 20,
+      paddingHorizontal: Space.gutter,
       gap: 10,
     },
     title: {
@@ -196,7 +198,7 @@ function makeSheetStyles(t: Theme) {
       flexDirection: "row",
       flexWrap: "wrap",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
     },
     price: {
       ...Type.label,
@@ -212,9 +214,9 @@ function makeSheetStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
+      gap: Space.xs,
       backgroundColor: t.primary,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       paddingVertical: 14,
       marginTop: 6,
     },

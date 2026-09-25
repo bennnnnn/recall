@@ -9,6 +9,7 @@ import { selection, tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   reminder: SuggestedReminder;
@@ -75,7 +76,7 @@ function makeStyles(C: Theme) {
       padding: Space.md,
       marginHorizontal: Space.md,
       marginBottom: Space.xs,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
       backgroundColor: C.surface,
@@ -83,7 +84,7 @@ function makeStyles(C: Theme) {
     iconWrap: {
       width: 32,
       height: 32,
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       backgroundColor: C.primaryLight,
       alignItems: "center",
       justifyContent: "center",
@@ -91,13 +92,13 @@ function makeStyles(C: Theme) {
     body: { flex: 1 },
     title: { ...Type.body, fontWeight: "600", color: C.text },
     meta: { ...Type.compact, color: C.textSecondary, marginTop: 2 },
-    snippet: { ...Type.compact, color: C.textSecondary, marginTop: 4 },
+    snippet: { ...Type.compact, color: C.textSecondary, marginTop: Space.xxs },
     actions: { flexDirection: "row", gap: Space.sm, marginTop: Space.sm },
     addButton: {
       minHeight: 40,
       justifyContent: "center",
       paddingHorizontal: Space.md,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       backgroundColor: C.primary,
     },
     addText: { ...Type.label, color: C.onPrimary },

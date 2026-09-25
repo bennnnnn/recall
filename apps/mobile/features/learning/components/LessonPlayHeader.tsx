@@ -169,7 +169,7 @@ function makeStyles(theme: Theme) {
       position: "absolute",
       width: 3,
       height: 3,
-      borderRadius: 1.5,
+      borderRadius: Radius.full,
       backgroundColor: theme.bg,
     },
     dotA: { top: 0, left: 3 },

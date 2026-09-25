@@ -12,6 +12,8 @@ import {
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   proposal: CalendarProposal;
@@ -71,11 +73,11 @@ const makeStyles = (theme: Theme) =>
     card: {
       marginTop: 10,
       padding: 14,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
       backgroundColor: theme.surface,
-      gap: 8,
+      gap: Space.xs,
     },
     header: { flexDirection: "row", alignItems: "center", gap: 10 },
     title: { flex: 1, ...Type.body, fontWeight: "700", color: theme.text },
@@ -83,8 +85,8 @@ const makeStyles = (theme: Theme) =>
     meta: { ...Type.compact, color: theme.textTertiary },
     error: { ...Type.compact, color: theme.danger },
     btn: {
-      marginTop: 4,
+      marginTop: Space.xxs,
     },
-    doneRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+    doneRow: { flexDirection: "row", alignItems: "center", gap: Space.xs, marginTop: Space.xxs },
     doneText: { ...Type.label, color: theme.primary },
   });

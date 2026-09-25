@@ -8,6 +8,8 @@ import { bundleHtmlPreview, previewHasSiblingAssets } from "@/lib/htmlPreviewBun
 import { useHtmlPreviewFiles } from "@/lib/htmlPreviewFiles";
 import { openHtmlInBrowser } from "@/lib/openHtmlPreview";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 const HtmlPreviewModalLazy = React.lazy(() =>
   import("@/components/HtmlPreviewModal").then((m) => ({
@@ -96,12 +98,12 @@ function makeStyles(t: Theme) {
     footerActions: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
+      gap: Space.xxs,
     },
     iconBtn: {
       width: 44,
       height: 44,
-      borderRadius: 8,
+      borderRadius: Radius.xs,
       alignItems: "center",
       justifyContent: "center",
     },

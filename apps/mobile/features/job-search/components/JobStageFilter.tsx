@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import { type IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
+import { SHADOW_COLOR } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -206,7 +207,7 @@ function makeStyles(C: Theme) {
       minWidth: 24,
       height: 24,
       paddingHorizontal: 7,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       backgroundColor: C.surfaceAlt,
       alignItems: "center",
       justifyContent: "center",
@@ -222,7 +223,7 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
-      shadowColor: "#000",
+      shadowColor: SHADOW_COLOR,
       shadowOpacity: 0.16,
       shadowRadius: 18,
       shadowOffset: { width: 0, height: 8 },

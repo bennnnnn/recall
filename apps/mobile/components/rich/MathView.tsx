@@ -7,6 +7,7 @@ import { restoreMathEscapes, splitMathLines } from "@/lib/math/text";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
 import { useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 export function MathInline({ latex }: { latex: string }) {
   const theme = useTheme();
@@ -49,7 +50,7 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
 
 const styles = StyleSheet.create({
   wrap: {
-    marginVertical: 8,
+    marginVertical: Space.xs,
     alignSelf: "stretch",
     width: "100%",
   },

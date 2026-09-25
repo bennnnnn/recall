@@ -15,6 +15,8 @@ import {
 } from "@/lib/searchSources";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 const MAX_CHIP_ICONS = 3;
 
@@ -198,11 +200,11 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      marginTop: 12,
+      marginTop: Space.sm,
       paddingLeft: 14,
-      paddingRight: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
+      paddingRight: Space.sm,
+      paddingVertical: Space.xs,
+      borderRadius: Radius.full,
       backgroundColor: theme.surface,
     },
     chipLabel: {
@@ -226,23 +228,23 @@ function makeStyles(theme: Theme) {
 function makeSheetStyles(theme: Theme) {
   return StyleSheet.create({
     sheet: {
-      paddingTop: 4,
+      paddingTop: Space.xxs,
     },
     list: {
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
     },
     title: {
       ...Type.navTitle,
       color: theme.text,
-      paddingHorizontal: 20,
-      marginBottom: 8,
+      paddingHorizontal: Space.gutter,
+      marginBottom: Space.xs,
     },
     row: {
       flexDirection: "row",
       alignItems: "flex-start",
-      gap: 12,
-      paddingHorizontal: 8,
-      paddingVertical: 12,
+      gap: Space.sm,
+      paddingHorizontal: Space.xs,
+      paddingVertical: Space.sm,
     },
     rowBorder: {
       borderBottomWidth: StyleSheet.hairlineWidth,

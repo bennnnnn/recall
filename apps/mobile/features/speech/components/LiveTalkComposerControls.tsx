@@ -5,6 +5,7 @@ import { IconButton } from "@/components/IconButton";
 import { liveTalkMuteA11yKey } from "@/features/speech/model/liveTalkLogic";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
+import { Space } from "@/lib/space";
 
 type Props = {
   muted: boolean;
@@ -50,7 +51,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: Space.xs,
     paddingBottom: 2,
   },
   round: {

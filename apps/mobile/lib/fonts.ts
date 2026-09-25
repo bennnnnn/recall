@@ -1,16 +1,10 @@
-import { Platform } from "react-native";
-
 /** SpaceMono from @expo-google-fonts/space-mono. Registered in _layout without blocking first paint. */
 export const CODE_FONT = "SpaceMono";
 
 export { UI_FONT, uiFontFamily } from "@/lib/uiFont";
 
 /**
- * Serif face for formulas and calculation steps so they scan apart from
- * body prose. System faces only — no extra font download on the chat path.
+ * One serif for math and physics formulas on every platform.
+ * Source Serif 4 regular, loaded in the root layout. Interface text uses Source Sans 3.
  */
-export const MATH_FONT = Platform.select({
-  ios: "Georgia",
-  android: "serif",
-  default: "Georgia",
-});
+export const MATH_FONT = "SourceSerif4";

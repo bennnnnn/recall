@@ -15,6 +15,7 @@ import {
 import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
 import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 export const MATH_DRAFT_PREVIEW_HEIGHT = 48;
 
@@ -346,7 +347,7 @@ const makeStyles = (theme: Theme) =>
       flexDirection: "row",
       flexWrap: "wrap",
       alignItems: "center",
-      gap: 4,
+      gap: Space.xxs,
     },
     inline: {
       flexDirection: "row",
@@ -395,7 +396,7 @@ const makeStyles = (theme: Theme) =>
       minHeight: 18,
       alignItems: "center",
       justifyContent: "center",
-      paddingHorizontal: 4,
+      paddingHorizontal: Space.xxs,
     },
     slotActive: {
       backgroundColor: theme.primaryLight,

@@ -15,6 +15,7 @@ import { domainIcon } from "@/features/learning/model/domainIcons";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { shadowGlow } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
 
 const NODE = 52;
 const PULSE_SCALE = 1.08;
@@ -118,7 +119,7 @@ function makeStyles(theme: Theme) {
       right: -3,
       width: 20,
       height: 20,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: theme.surface,

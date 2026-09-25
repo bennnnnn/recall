@@ -10,6 +10,7 @@ import {
 import { Radius } from "@/lib/radius";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 type CountBadgeTone = "primary" | "danger";
 
@@ -55,7 +56,7 @@ function makeStyles(theme: Theme) {
       minWidth: 18,
       minHeight: 18,
       borderRadius: Radius.full,
-      paddingHorizontal: 4,
+      paddingHorizontal: Space.xxs,
       backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",

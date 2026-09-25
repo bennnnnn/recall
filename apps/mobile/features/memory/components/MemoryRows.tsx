@@ -188,7 +188,7 @@ function makeStyles(theme: Theme) {
       borderBottomLeftRadius: Radius.lg,
       borderBottomRightRadius: Radius.lg,
       paddingBottom: Space.md,
-      marginBottom: 20,
+      marginBottom: Space.gutter,
     },
     factRowEditing: {
       paddingVertical: Space.sm,

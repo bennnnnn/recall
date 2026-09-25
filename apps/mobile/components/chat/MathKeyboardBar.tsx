@@ -20,6 +20,7 @@ import {
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/lib/icons";
 import { Space } from "@/lib/space";
+import { Radius } from "@/lib/radius";
 
 const PAD_PADDING_V = 20;
 const PAD_GAP = 6;
@@ -400,11 +401,11 @@ function KeyBtn({
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     pad: {
-      marginTop: 8,
+      marginTop: Space.xs,
       marginHorizontal: -12,
-      paddingHorizontal: 8,
-      paddingTop: 8,
-      paddingBottom: 12,
+      paddingHorizontal: Space.xs,
+      paddingTop: Space.xs,
+      paddingBottom: Space.sm,
       backgroundColor: theme.surfaceAlt,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.border,
@@ -414,14 +415,14 @@ const makeStyles = (theme: Theme) =>
     tabs: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
+      gap: Space.xxs,
     },
-    tabRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingRight: 4 },
+    tabRow: { flexDirection: "row", alignItems: "center", gap: Space.xxs, paddingRight: Space.xxs },
     tab: {
       paddingHorizontal: 6,
       minHeight: Space.minTouch,
       justifyContent: "center",
-      borderRadius: 8,
+      borderRadius: Radius.xs,
     },
     tabSelected: { backgroundColor: theme.primaryLight },
     tabLabel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
@@ -449,7 +450,7 @@ const makeStyles = (theme: Theme) =>
     key: {
       flex: 1,
       minHeight: Space.minTouch,
-      borderRadius: 8,
+      borderRadius: Radius.xs,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: theme.surface,

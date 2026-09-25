@@ -2,7 +2,8 @@ import "@/lib/i18n";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useFonts, SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
+import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
+import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo } from "react";
 import { InteractionManager, StyleSheet } from "react-native";
@@ -113,6 +114,7 @@ function RootNavigator() {
 export default function RootLayout() {
   useFonts({
     SpaceMono: SpaceMono_400Regular,
+    SourceSerif4: require("@expo-google-fonts/source-serif-4/400Regular/SourceSerif4_400Regular.ttf"),
     [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
     [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
     [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),

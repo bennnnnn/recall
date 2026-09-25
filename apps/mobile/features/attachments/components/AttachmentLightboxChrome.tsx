@@ -233,7 +233,7 @@ function makeStyles(theme: Theme) {
       right: Space.md,
       bottom: 0,
       zIndex: 4,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       backgroundColor: withAlpha(theme.mediaScrim, 0.94),
       overflow: "hidden",
     },
@@ -242,7 +242,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: 14,
       paddingHorizontal: 18,
-      paddingVertical: 16,
+      paddingVertical: Space.md,
     },
     menuRowPressed: {
       backgroundColor: withAlpha(theme.onMedia, 0.08),

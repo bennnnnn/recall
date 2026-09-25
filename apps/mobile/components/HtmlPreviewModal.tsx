@@ -71,7 +71,7 @@ class PreviewRenderBoundary extends Component<
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <View style={{ padding: 16 }}>
+        <View style={{ padding: Space.md }}>
           <Text
             style={{
               ...Type.secondary,
@@ -100,33 +100,33 @@ function makeTagStyles(theme: Theme) {
   return {
     body: { color: theme.text },
     p: { marginTop: 0, marginBottom: 10, lineHeight: 22 },
-    h1: { ...Type.display, marginBottom: 12, color: theme.text },
+    h1: { ...Type.display, marginBottom: Space.sm, color: theme.text },
     h2: { ...Type.h1, marginBottom: 10, color: theme.text },
-    h3: { ...Type.h2, marginBottom: 8, color: theme.text },
+    h3: { ...Type.h2, marginBottom: Space.xs, color: theme.text },
     a: { color: theme.primary },
     div: { color: theme.text },
     span: { color: theme.text },
     table: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
-      marginVertical: 8,
+      marginVertical: Space.xs,
     },
     th: {
       backgroundColor: theme.surface,
-      padding: 8,
+      padding: Space.xs,
       fontWeight: "700" as const,
     },
-    td: { padding: 8 },
+    td: { padding: Space.xs },
     pre: {
       backgroundColor: theme.codeBg,
-      padding: 12,
-      borderRadius: 8,
+      padding: Space.sm,
+      borderRadius: Radius.xs,
       ...Type.meta,
       fontFamily: CODE_FONT,
       lineHeight: 18,
     },
     code: { ...Type.secondary, fontFamily: CODE_FONT },
-    img: { marginVertical: 8 },
+    img: { marginVertical: Space.xs },
   };
 }
 
@@ -187,7 +187,7 @@ function LiveWebPreview({
       ) : loading ? (
         <View style={s.emptyOverlay} pointerEvents="none">
           <ActivityIndicator color={theme.primary} />
-          <Text style={[s.emptyOverlayText, { marginTop: 8 }]}>
+          <Text style={[s.emptyOverlayText, { marginTop: Space.xs }]}>
             {t("preview.loading")}
           </Text>
         </View>
