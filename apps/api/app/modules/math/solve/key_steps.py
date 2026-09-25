@@ -317,32 +317,18 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
         return steps
     if radicand < 0:
         return steps
-    root = simplify(sqrt(radicand))
-    steps.append(
-        KeyStep(
-            label="Take square roots of both sides",
-            formula=rf"\sqrt{{{latex(var)}^{{2}}}} = \sqrt{{{latex(radicand)}}}",
-        )
-    )
+    # Show the root operation, then make any reduction its own final step.
+    # That keeps the last displayed equation identical to the answer chip
+    # without hiding the root that produced it.
     if radicand == 0:
-        steps.append(
-            KeyStep(
-                label="Use absolute value",
-                formula=rf"\lvert {latex(var)} \rvert = 0",
-                reason="the square root of a square is the distance from zero",
-            )
-        )
+        steps.append(KeyStep(label="Square root", formula=rf"{latex(var)} = \sqrt{{0}}"))
+        steps.append(KeyStep(label="Simplify", formula=rf"{latex(var)} = 0"))
         return steps
-    steps.append(
-        KeyStep(
-            label="Use absolute value",
-            formula=rf"\lvert {latex(var)} \rvert = {latex(root)}",
-            reason=(
-                "for real numbers, the square root of a square gives "
-                "the number's distance from zero"
-            ),
-        )
-    )
+    written = rf"\sqrt{{{latex(radicand)}}}"
+    steps.append(KeyStep(label="Square root", formula=rf"{latex(var)} = \pm {written}"))
+    reduced = latex(simplify(sqrt(radicand)))
+    if reduced != written:
+        steps.append(KeyStep(label="Simplify", formula=rf"{latex(var)} = \pm {reduced}"))
     return steps
 
 
@@ -417,6 +403,14 @@ def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> lis
                     branch=branch,
                 )
             )
+    solutions = solve(Eq(expr, 0), var)
+    if len(solutions) == 2 and _expr_equal(solutions[0] + solutions[1], 0):
+        positive = simplify(Abs(solutions[0]))
+        final = rf"{latex(var)} = \pm {latex(positive)}"
+    else:
+        final = r" \text{ or } ".join(f"{latex(var)} = {latex(solution)}" for solution in solutions)
+    if final:
+        steps.append(KeyStep(label="Simplify", formula=final))
     return steps
 
 

@@ -78,16 +78,21 @@ describe("normalizeImplicitMath", () => {
     expect(out).toBe("- Base = 8 cm\n- Height = 5 cm");
   });
 
-  it("BUG FIX regression: keeps math on a $-wrapped bullet instead of dumping raw LaTeX", () => {
-    // Reported live: Isolate-x step showed `1\cdot x = 2 - 3^{\frac{2}{3}}`
-    // as source. The model wrapped the bullet as `$- 1\cdot x = …$`; the
-    // prose-bullet unwrap stripped the dollars after wrapInlineLatexCommands
-    // had already skipped the interior `$…$`, so `\cdot` / `\frac` never
-    // reached MathText.
+  it("BUG FIX regression: keeps leading-negative math inside its delimiters", () => {
+    // Reported live: the verified step `$- x = -2$` rendered as a blue list
+    // bullet followed by the false equation `x = -2`. Explicit math syntax is
+    // authoritative; a leading minus inside it is a unary sign, not Markdown.
+    expect(normalizeImplicitMathInProse("$- x = -2$")).toBe("$- x = -2$");
+
     const input = String.raw`$- 1\cdot x = 2 - 3^{\frac{2}{3}}$`;
     const out = normalizeImplicitMathInProse(input);
-    expect(out).toBe(String.raw`- $1\cdot x = 2 - 3^{\frac{2}{3}}$`);
-    expect(out).not.toMatch(/^- 1\\cdot/);
+    expect(out).toBe(input);
+    expect(out).not.toMatch(/^- /);
+  });
+
+  it("keeps non-minus bullet markers outside a wrapped equation", () => {
+    expect(normalizeImplicitMathInProse("$* x = 2$")).toBe("* $x = 2$");
+    expect(normalizeImplicitMathInProse("$• x = 2$")).toBe("• $x = 2$");
   });
 
   it("BUG FIX regression: wraps a bare list-item equation that contains \\cdot / \\frac", () => {

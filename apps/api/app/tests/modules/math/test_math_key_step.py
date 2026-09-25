@@ -132,17 +132,47 @@ def test_balanced_two_op_linear_is_a_lesson() -> None:
     assert before_chip.count("x = 6") == 0
 
 
-def test_detailed_pure_power_uses_absolute_value() -> None:
+def test_detailed_pure_power_takes_the_square_root() -> None:
     text = "x^2 + 2 = 6"
     reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
 
     assert reply is not None
     assert "**Given:**" in reply
-    assert "Take square roots of both sides" in reply
-    assert r"\lvert" in reply or r"\left|" in reply
+    given_line = next(line for line in reply.splitlines() if "Given" in line)
+    assert "$" in given_line
+    assert "Square root" in reply
+    assert r"\sqrt{4}" in reply
+    assert "Simplify" in reply
+    before, _, _ = reply.partition("```answer")
+    assert before.index(r"x = \pm \sqrt{4}") < before.index(r"x = \pm 2")
+    assert r"\sqrt{x" not in reply
+    assert "lvert" not in reply
     assert "```answer" in reply
     assert r"\pm 2" in reply
     assert "Check:" in reply
+
+
+def test_square_root_of_a_fraction_simplifies_before_the_chip() -> None:
+    text = "3x^2 + 3 = 5"
+    reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
+
+    assert reply is not None
+    before, _, _ = reply.partition("```answer")
+    assert r"\sqrt{\frac{2}{3}}" in before
+    assert r"\frac{\sqrt{6}}{3}" in before
+    assert before.index(r"\sqrt{\frac{2}{3}}") < before.index(r"\frac{\sqrt{6}}{3}")
+    assert r"\frac{\sqrt{6}}{3}" in reply
+
+
+def test_perfect_square_finishes_with_the_same_value_as_the_chip() -> None:
+    text = "3x^2 = 3"
+    block = _block(text)
+    reply = maybe_direct_math_reply(block, text, response_style="balanced")
+
+    assert reply is not None
+    assert block.key_steps[-2].formula == r"x = \pm \sqrt{1}"
+    assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm 1"
+    assert reply.index(r"x = \pm \sqrt{1}") < reply.index(r"x = \pm 1")
 
 
 def test_just_the_answer_keeps_the_chip_on_detailed() -> None:
@@ -165,6 +195,13 @@ def test_balanced_factorable_quadratic_is_a_factor_trace() -> None:
     assert "x - 2" in reply and "x - 3" in reply
     assert "```answer" in reply
     assert "quadratic formula" in reply.lower()
+    block = _block(text)
+    assert block.key_steps[-1].formula == block.canonical_answer
+
+
+def test_symmetric_factor_trace_finishes_with_compact_chip_value() -> None:
+    block = _block("x^2 - 1 = 0")
+    assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm 1"
 
 
 def test_short_keeps_the_bare_answer() -> None:
@@ -214,7 +251,7 @@ def test_linear_lesson_is_short_and_cancels_on_divide() -> None:
     assert "undoes" not in before_chip
     assert r"\cancel{3}" in before_chip
     given_line = next(line for line in reply.splitlines() if "Given" in line)
-    assert "$" not in given_line
+    assert "$" in given_line
     simplify_line = next(line for line in reply.splitlines() if "Simplify" in line)
     assert "$" not in simplify_line
     assert "x = 1" in reply

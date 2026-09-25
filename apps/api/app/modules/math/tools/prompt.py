@@ -179,6 +179,13 @@ async def build_math_augmentation(
             return None, None
     if needs_math is None:
         needs_math = needs_symbolic_math(user_content, has_image_attachment=has_image_attachment)
+    if not needs_math and image_math_extract is None:
+        from app.modules.math.followup import open_math_problem
+
+        opened = open_math_problem(user_content, prior_user_messages)
+        if opened:
+            user_content = opened
+            needs_math = True
     if not needs_math:
         return None, None
 

@@ -200,6 +200,19 @@ def test_yes_follow_through_hint_is_not_a_greeting():
     assert "Carry out that offer" in CONFIRM_FOLLOW_THROUGH_HINT
 
 
+def test_bare_y_does_not_invent_an_offer_to_follow_through_on():
+    from app.services.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
+
+    parts = _style_format_hints(
+        query_text="y",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert CONFIRM_FOLLOW_THROUGH_HINT not in parts
+
+
 def test_clarification_hint_asks_once_when_purpose_or_data_missing():
     from app.services.chat.prompt_constants import (
         CLARIFICATION_HINT,

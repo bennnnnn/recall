@@ -293,7 +293,8 @@ describe("MarkdownContent math rendering", () => {
         content={"**2. Simplify**\n\n$3 x = 3$"}
       />,
     );
-    expect(getByText("2. Simplify")).toBeOnTheScreen();
+    expect(getByText("2")).toBeOnTheScreen();
+    expect(getByText("Simplify")).toBeOnTheScreen();
     expect(getByText("3 x = 3")).toBeOnTheScreen();
     expect(queryByText(/Simplify 3/)).toBeNull();
   });
