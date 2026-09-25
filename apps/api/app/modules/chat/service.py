@@ -14,8 +14,8 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
-from app.modules.integrations.fence import rewrite_first_email_fence
-from app.modules.learning.access import get_owned_project
+from app.modules.integrations import rewrite_first_email_fence
+from app.modules.learning import get_owned_project
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
