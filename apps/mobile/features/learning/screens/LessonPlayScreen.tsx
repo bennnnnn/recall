@@ -22,7 +22,7 @@ import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { lessonMapPath } from "@/features/learning/model/chapterAccess";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 
 export default function LearningLessonPlayScreen() {
@@ -237,7 +237,7 @@ function makeStyles(theme: Theme) {
     contextSentence: { ...Type.body, color: theme.textSecondary },
     question: {
       fontSize: 24,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
       lineHeight: 32,
     },

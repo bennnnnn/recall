@@ -54,7 +54,7 @@ function makeStyles(theme: Theme) {
       bottom: 0,
       width: 40,
       height: 40,
-      borderRadius: Radius.sheet,
+      borderRadius: Radius.full,
       borderWidth: 3,
       borderColor: theme.bg,
       backgroundColor: theme.settingsSurface,

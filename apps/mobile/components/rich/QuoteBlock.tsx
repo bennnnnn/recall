@@ -41,7 +41,7 @@ function makeStyles(t: Theme) {
       backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      borderRadius: Radius.sheet,
+      borderRadius: Radius.card,
       paddingHorizontal: 14,
       paddingVertical: Space.sm,
       marginTop: 0,

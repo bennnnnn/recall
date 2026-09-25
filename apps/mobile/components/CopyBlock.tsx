@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { CopyButton } from "@/components/CopyButton";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -61,7 +61,7 @@ function makeStyles(t: Theme) {
       flex: 1,
       flexShrink: 1,
       ...Type.compact,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: t.textSecondary,
     },
     body: {

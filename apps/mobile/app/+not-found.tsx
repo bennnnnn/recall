@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export default function NotFoundScreen() {
   const { t } = useTranslation();
@@ -47,7 +47,7 @@ function makeStyles(theme: Theme) {
     },
     linkText: {
       ...Type.secondary,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.primary,
     },
   });

@@ -12,7 +12,7 @@ import { ActionShimmer } from "../feedback/ActionShimmer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
 
@@ -137,14 +137,14 @@ function makeStyles(theme: Theme) {
     },
     label: {
       ...Type.body,
-      fontWeight: "600",
+      ...Weight.semibold,
     },
     labelPrimary: {
       color: theme.onPrimary,
     },
     labelOutline: {
       color: theme.textSecondary,
-      fontWeight: "600",
+      ...Weight.semibold,
     },
     labelGhost: {
       ...Type.callout,
@@ -152,7 +152,7 @@ function makeStyles(theme: Theme) {
     },
     loadingLabel: {
       ...Type.callout,
-      fontWeight: "700",
+      ...Weight.bold,
     },
   });
 }

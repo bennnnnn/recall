@@ -17,7 +17,7 @@ import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
 import { IconSize } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import {
   getPreviewWebView,
   STATIC_HTML_ORIGIN_WHITELIST,
@@ -139,9 +139,9 @@ function makeViewerStyles(t: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    title: { flex: 1, ...Type.body, fontWeight: "600", color: t.text },
+    title: { flex: 1, ...Type.body, ...Weight.semibold, color: t.text },
     body: { flex: 1, alignItems: "center", justifyContent: "center" },
     webview: { flex: 1, width: "100%", backgroundColor: t.bg },
-    error: { ...Type.callout, fontWeight: "400", color: t.textSecondary, paddingHorizontal: Space.lg, textAlign: "center" },
+    error: { ...Type.callout, ...Weight.regular, color: t.textSecondary, paddingHorizontal: Space.lg, textAlign: "center" },
   });
 }

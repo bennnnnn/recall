@@ -7,7 +7,7 @@ import type { JobMatch } from "@/lib/api";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export function matchScoreColor(score: number | null, C: Theme): string {
   if (score == null) return C.primary;
@@ -109,7 +109,7 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
       maxWidth: "100%",
     },
-    chipLabel: { color: C.textTertiary, fontWeight: "700" },
+    chipLabel: { color: C.textTertiary, ...Weight.bold },
     chipText: { ...Type.compact, color: C.textSecondary, flexShrink: 1 },
   });
 }

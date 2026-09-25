@@ -31,7 +31,7 @@ import { Radius } from "@/lib/radius";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   insets: EdgeInsets;
@@ -353,7 +353,7 @@ function makeStyles(theme: Theme) {
     previewSecondaryText: {
       ...Type.label,
       color: theme.onMedia,
-      fontWeight: "700",
+      ...Weight.bold,
     },
     previewPrimary: {
       flex: 1,
@@ -367,7 +367,7 @@ function makeStyles(theme: Theme) {
     previewPrimaryText: {
       ...Type.label,
       color: theme.onPrimary,
-      fontWeight: "700",
+      ...Weight.bold,
     },
   });
 }

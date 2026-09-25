@@ -13,7 +13,7 @@ import { canToggleApplied, hasApplied } from "@/features/job-search/model/stages
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 function Action({
   icon,
@@ -152,7 +152,7 @@ function makeStyles(C: Theme) {
     cardLink: { gap: Space.sm },
     headingRow: { flexDirection: "row", alignItems: "flex-start", gap: Space.sm },
     headingCopy: { flex: 1, minWidth: 0 },
-    title: { ...Type.navTitle, color: C.text, fontWeight: "700" },
+    title: { ...Type.navTitle, color: C.text, ...Weight.bold },
     companyRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -181,7 +181,7 @@ function makeStyles(C: Theme) {
       paddingHorizontal: Space.xs,
     },
     actionActive: { backgroundColor: C.primaryLight },
-    actionText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    actionText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold },
     actionTextPrimary: { color: C.primary },
     actionTextActive: { color: C.primary },
     pressed: { opacity: 0.68 },

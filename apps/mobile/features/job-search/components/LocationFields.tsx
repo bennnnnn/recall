@@ -25,7 +25,7 @@ import {
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export type PlaceValue = {
   country: string;
@@ -317,7 +317,7 @@ function makeStyles(C: Theme) {
       alignItems: "center",
       justifyContent: "center",
     },
-    geoText: { ...Type.secondary, fontWeight: "600", color: C.primary },
+    geoText: { ...Type.secondary, ...Weight.semibold, color: C.primary },
     hint: { ...Type.caption, color: C.textTertiary },
     fieldGroup: { gap: Space.xs },
     label: { ...Type.label, color: C.text },
@@ -363,7 +363,7 @@ function makeStyles(C: Theme) {
     },
     suggestionPressed: { backgroundColor: C.surfaceAlt },
     sheetRowText: { ...Type.body, color: C.text, flex: 1 },
-    sheetRowTextSelected: { color: C.primary, fontWeight: "600" },
+    sheetRowTextSelected: { color: C.primary, ...Weight.semibold },
     pressed: { opacity: 0.72 },
     disabled: { opacity: 0.45 },
   });

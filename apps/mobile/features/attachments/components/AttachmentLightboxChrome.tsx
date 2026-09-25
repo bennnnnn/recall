@@ -8,7 +8,7 @@ import { IconSize } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -250,7 +250,7 @@ function makeStyles(theme: Theme) {
     menuLabel: {
       flex: 1,
       ...Type.navTitle,
-      fontWeight: "400",
+      ...Weight.regular,
       color: theme.onMedia,
     },
   });

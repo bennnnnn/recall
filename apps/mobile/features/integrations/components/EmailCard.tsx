@@ -14,7 +14,7 @@ import { notifySuccess, tap } from "@/lib/haptics";
 import { EditIcon, IconSize, inkIconColor } from "@/lib/icons";
 import { EmailDraft } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -232,7 +232,7 @@ function makeStyles(t: Theme) {
     body: { gap: Space.xs },
     fieldLabel: {
       ...Type.caption,
-      fontWeight: "700",
+      ...Weight.bold,
       color: t.textTertiary,
       textTransform: "uppercase",
       letterSpacing: 0.4,
@@ -249,10 +249,10 @@ function makeStyles(t: Theme) {
     },
     bodyInput: { minHeight: 140, lineHeight: 24 },
     meta: { ...Type.secondary, lineHeight: 20, color: t.textSecondary },
-    metaKey: { fontWeight: "600", color: t.textTertiary },
+    metaKey: { ...Weight.semibold, color: t.textTertiary },
     subject: {
       ...Type.body,
-      fontWeight: "700",
+      ...Weight.bold,
       lineHeight: 22,
       color: t.text,
     },

@@ -7,7 +7,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { PlaceItem, resolvePlaceLinkUrl } from "@/lib/placesList";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -135,7 +135,7 @@ function makeStyles(t: Theme) {
       paddingTop: 1,
       ...Type.body,
       lineHeight: 22,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: t.text,
     },
     body: {
@@ -146,7 +146,7 @@ function makeStyles(t: Theme) {
     name: {
       ...Type.body,
       lineHeight: 22,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: t.text,
       textDecorationLine: "underline",
       textDecorationStyle: "dotted",
@@ -165,7 +165,7 @@ function makeStyles(t: Theme) {
     },
     price: {
       ...Type.compact,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: t.textSecondary,
     },
     address: {
@@ -190,7 +190,7 @@ function makeSheetStyles(t: Theme) {
     },
     note: {
       ...Type.callout,
-      fontWeight: "400",
+      ...Weight.regular,
       lineHeight: 21,
       color: t.textSecondary,
     },
@@ -222,7 +222,7 @@ function makeSheetStyles(t: Theme) {
     },
     openBtnText: {
       ...Type.body,
-      fontWeight: "700",
+      ...Weight.bold,
       color: t.onPrimary,
     },
   });

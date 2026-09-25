@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, Text, type ImageSourcePropType } from "re
 import { Icon } from "@/ui/icons/Icon";
 import { type IoniconName } from "@/lib/icons";
 import { Theme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
 
 /** Shared icon size for attach + chat/drawer action sheets. */
@@ -82,7 +82,7 @@ function makeStyles(C: Theme) {
     },
     label: {
       ...Type.navTitle,
-      fontWeight: "400",
+      ...Weight.regular,
       color: C.text,
       flex: 1,
     },

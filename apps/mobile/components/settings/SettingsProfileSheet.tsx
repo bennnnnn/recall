@@ -7,7 +7,7 @@ import { EditableProfileAvatar } from "@/components/settings/EditableProfileAvat
 import { type useProfileEditor } from "@/hooks/useProfileEditor";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   editor: ReturnType<typeof useProfileEditor>;
@@ -114,7 +114,7 @@ function makeStyles(theme: Theme) {
     },
     nameInput: {
       ...Type.h1,
-      fontWeight: "400",
+      ...Weight.regular,
       color: theme.text,
       paddingHorizontal: Space.lg,
       paddingVertical: Space.md,
@@ -134,7 +134,7 @@ function makeStyles(theme: Theme) {
     },
     saveText: { ...Type.h1, color: theme.bg },
     cancel: { alignSelf: "center", marginTop: Space.sm, minHeight: 48, justifyContent: "center", paddingHorizontal: Space.lg },
-    cancelText: { ...Type.body, fontWeight: "600", color: theme.text },
+    cancelText: { ...Type.body, ...Weight.semibold, color: theme.text },
     pressed: { opacity: 0.65 },
     disabled: { opacity: 0.55 },
   });

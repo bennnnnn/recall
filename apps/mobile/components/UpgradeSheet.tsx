@@ -20,7 +20,7 @@ import { trackProductEvent } from "@/lib/productAnalytics";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -268,7 +268,7 @@ const makeStyles = (theme: Theme) =>
     legalLink: {
       ...Type.caption,
       color: theme.primary,
-      fontWeight: "600",
+      ...Weight.semibold,
     },
     legalSeparator: {
       ...Type.caption,

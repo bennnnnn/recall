@@ -6,7 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { Layer } from "@/lib/layer";
 import type { ConnectivityStatus } from "@/lib/networkProbe";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
 
 type Props = {
@@ -50,7 +50,7 @@ function makeStyles(theme: Theme) {
     },
     text: {
       ...Type.compact,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.onWarning,
     },
   });

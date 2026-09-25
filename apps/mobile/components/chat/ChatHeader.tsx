@@ -13,7 +13,7 @@ import {
 } from "@/lib/chromeFade";
 import { Theme, useTheme } from "@/lib/theme";
 import { EditIcon, IconSize, MenuIcon } from "@/lib/icons";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -211,14 +211,14 @@ function makeStyles(theme: Theme) {
     },
     headerTitleText: {
       ...Type.navTitle,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
       textAlign: "center",
     },
     headerTitlePending: {
       color: theme.textTertiary,
       fontStyle: "italic",
-      fontWeight: "600",
+      ...Weight.semibold,
     },
     headerSpacer: { flex: 1, pointerEvents: "none" as const },
   });

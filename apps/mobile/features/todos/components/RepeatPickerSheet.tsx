@@ -7,7 +7,7 @@ import { RECURRENCE_RULES, type RecurrenceRule } from "@/lib/api/types";
 import { selection } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export const REPEAT_PICKER_VALUES: readonly (RecurrenceRule | null)[] = [
   null,
@@ -86,12 +86,12 @@ function makeStyles(C: Theme) {
     },
     label: {
       ...Type.navTitle,
-      fontWeight: "400",
+      ...Weight.regular,
       color: C.text,
       flex: 1,
     },
     labelActive: {
-      fontWeight: "600",
+      ...Weight.semibold,
       color: C.primary,
     },
   });

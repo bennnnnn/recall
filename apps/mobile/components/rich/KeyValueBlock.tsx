@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -54,6 +54,6 @@ function makeStyles(t: Theme) {
       color: t.textSecondary,
       lineHeight: 20,
     },
-    value: { flex: 1, ...Type.callout, fontWeight: "400", lineHeight: 21, color: t.text },
+    value: { flex: 1, ...Type.callout, ...Weight.regular, lineHeight: 21, color: t.text },
   });
 }

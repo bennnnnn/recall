@@ -8,7 +8,7 @@ import { searchProfileFields } from "@/features/job-search/model/searchFields";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 /**
  * Search-card body: one row per profile field — icon + caption label on the
@@ -63,6 +63,6 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
       maxWidth: "100%",
     },
-    chipText: { ...Type.compact, color: C.text, fontWeight: "600" },
+    chipText: { ...Type.compact, color: C.text, ...Weight.semibold },
   });
 }

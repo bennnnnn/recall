@@ -16,7 +16,7 @@ import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri
 import { fetchAttachmentBytes } from "@/features/attachments/model/fetchAttachmentBytes";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 
 const MAX_PREVIEW_CHARS = 200_000;
@@ -133,7 +133,7 @@ function makeStyles(t: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    title: { flex: 1, ...Type.body, fontWeight: "600", color: t.text },
+    title: { flex: 1, ...Type.body, ...Weight.semibold, color: t.text },
     body: { flex: 1 },
     scroll: { padding: Space.md },
     fileText: { ...Type.body, color: t.text },

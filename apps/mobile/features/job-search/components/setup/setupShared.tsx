@@ -9,7 +9,7 @@ import type {
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export const WORK_MODE_VALUES: JobSearchWorkMode[] = ["remote", "hybrid", "onsite"];
 export const EXPERIENCE_VALUES: JobSearchExperience[] = [
@@ -206,7 +206,7 @@ function makeStyles(C: Theme) {
       backgroundColor: C.primaryLight,
       borderColor: C.primary,
     },
-    chipText: { ...Type.secondary, fontWeight: "600", color: C.textSecondary },
+    chipText: { ...Type.secondary, ...Weight.semibold, color: C.textSecondary },
     chipTextSelected: { color: C.primary },
     resumeCard: {
       minHeight: 72,
@@ -232,7 +232,7 @@ function makeStyles(C: Theme) {
     resumeTitle: { ...Type.label, color: C.text },
     resumeMeta: { ...Type.caption, color: C.textTertiary },
     removeResume: { alignSelf: "flex-start", paddingVertical: Space.xxs },
-    removeResumeText: { ...Type.secondary, fontWeight: "600", color: C.danger },
+    removeResumeText: { ...Type.secondary, ...Weight.semibold, color: C.danger },
     twoColumnRow: { flexDirection: "row", gap: Space.sm },
     flexField: { flex: 1, gap: Space.xs },
     dateCard: {
@@ -270,7 +270,7 @@ function makeStyles(C: Theme) {
     pickerTitle: {
       ...Type.navTitle,
       color: C.text,
-      fontWeight: "700",
+      ...Weight.bold,
       textAlign: "center",
       marginBottom: Space.xs,
     },
@@ -282,7 +282,7 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
       marginTop: Space.sm,
     },
-    pickerDoneText: { ...Type.secondary, fontWeight: "700", color: C.onPrimary },
+    pickerDoneText: { ...Type.secondary, ...Weight.bold, color: C.onPrimary },
     primaryButton: {
       minHeight: 56,
       borderRadius: Radius.full,
@@ -291,7 +291,7 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
       marginTop: Space.xs,
     },
-    primaryButtonText: { ...Type.body, fontWeight: "700", color: C.onPrimary },
+    primaryButtonText: { ...Type.body, ...Weight.bold, color: C.onPrimary },
     pressed: { opacity: 0.72 },
     disabled: { opacity: 0.45 },
   });

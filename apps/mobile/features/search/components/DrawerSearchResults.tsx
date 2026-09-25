@@ -6,7 +6,7 @@ import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
 import { displayChatTitle } from "@/lib/chat/title";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import type { SearchResult } from "@/lib/api";
 import { Space } from "@/lib/space";
 
@@ -154,7 +154,7 @@ function makeStyles(theme: Theme) {
       letterSpacing: 0,
       color: theme.primary,
     },
-    searchResultSnippet: { ...Type.callout, fontWeight: "400", lineHeight: 21, color: theme.text },
+    searchResultSnippet: { ...Type.callout, ...Weight.regular, lineHeight: 21, color: theme.text },
     loadMore: { paddingVertical: 14, alignItems: "center" },
     loadMoreText: { ...Type.label, color: theme.primary },
   });

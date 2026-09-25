@@ -30,7 +30,7 @@ import {
 } from "@/features/learning/model/projectCreateFlow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 
 export default function CreateLearningScreen() {
@@ -211,7 +211,7 @@ function makeStyles(C: Theme) {
     createLabel: { ...Type.title, color: C.text },
     stepHint: {
       ...Type.label,
-      fontWeight: "400",
+      ...Weight.regular,
       color: C.textSecondary,
       marginBottom: Space.xxs,
     },
@@ -228,7 +228,7 @@ function makeStyles(C: Theme) {
       borderColor: C.border,
     },
     subjectMain: { flex: 1, gap: 2 },
-    subjectText: { ...Type.body, fontWeight: "600", color: C.text },
-    subjectHint: { ...Type.caption, fontWeight: "400", color: C.textSecondary },
+    subjectText: { ...Type.body, ...Weight.semibold, color: C.text },
+    subjectHint: { ...Type.caption, ...Weight.regular, color: C.textSecondary },
   });
 }

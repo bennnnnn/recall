@@ -137,7 +137,7 @@ function makeStyles(theme: Theme) {
     row: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 10,
+      paddingVertical: Space.sm,
       gap: Space.sm,
     },
     lines: {
@@ -150,7 +150,7 @@ function makeStyles(theme: Theme) {
     bubbles: {
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
-      gap: 14,
+      gap: Space.sm,
     },
     bubbleRow: {
       flexDirection: "row",

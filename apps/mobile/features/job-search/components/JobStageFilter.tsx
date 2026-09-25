@@ -15,7 +15,7 @@ import { Radius } from "@/lib/radius";
 import { SHADOW_COLOR } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export type JobStageFilterValue =
   "all" | "applied" | "interviewing" | "offer" | "rejected";
@@ -201,7 +201,7 @@ function makeStyles(C: Theme) {
       gap: Space.sm,
     },
     tabActive: { backgroundColor: C.bg },
-    tabText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    tabText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold },
     tabTextActive: { color: C.text },
     countBadge: {
       minWidth: 24,
@@ -212,7 +212,7 @@ function makeStyles(C: Theme) {
       alignItems: "center",
       justifyContent: "center",
     },
-    countText: { ...Type.caption, color: C.textSecondary, fontWeight: "700" },
+    countText: { ...Type.caption, color: C.textSecondary, ...Weight.bold },
     countBadgeActive: { backgroundColor: C.primaryLight },
     countTextActive: { color: C.primary },
     overlay: { flex: 1 },
@@ -240,7 +240,7 @@ function makeStyles(C: Theme) {
     optionActive: { backgroundColor: C.primaryLight },
     optionPressed: { backgroundColor: C.surfaceAlt },
     optionLabel: { ...Type.body, color: C.text, flex: 1 },
-    optionLabelActive: { color: C.primary, fontWeight: "700" },
+    optionLabelActive: { color: C.primary, ...Weight.bold },
     optionCount: { ...Type.compact, color: C.textTertiary },
     pressed: { opacity: 0.68 },
   });

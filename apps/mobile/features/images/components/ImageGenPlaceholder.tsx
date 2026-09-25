@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useThumbnailSize } from "@/components/ChatMessageImage";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -119,7 +119,7 @@ function makeStyles(C: Theme, width: number, height: number) {
     },
     label: {
       ...Type.callout,
-      fontWeight: "500",
+      ...Weight.medium,
       color: C.textSecondary,
     },
     retry: {

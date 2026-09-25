@@ -24,13 +24,24 @@ export type Theme = {
   accentLight: string;
   accentDark: string;
 
-  // Surfaces — `bg` is the page; `surface` / `inputBg` are raised planes
+  // Surfaces — `bg` is the page; `surface` / `inputBg` are raised planes.
+  // Ladder: bg → surface (cards, fields) → surfaceAlt (pressed / selected
+  // wells) → elevated (anything floating: menus, dialogs, sheets).
+  // `inputBg`, `contentSurface` and `codeBg` are role names for `surface`.
   bg: string;
   surface: string;
   /** Segmented cards on the Settings overview. */
   settingsSurface: string;
   surfaceAlt: string;
+  /** Floating panels — menus, dialogs, sheets, pickers. Lifts off `bg` in dark mode. */
+  elevated: string;
+  /** Round chrome plates — header buttons, icon wells, picker dial face. */
+  control: string;
   border: string;
+  /** Hairlines between rows inside one card or menu. */
+  separator: string;
+  /** Press feedback wash laid over any surface. */
+  pressed: string;
 
   // Text
   text: string;
@@ -76,7 +87,10 @@ export type Theme = {
   codeLang: string;
 
   // Overlays
+  /** Dims the page under dialogs and sheets. */
   scrim: string;
+  /** Softens the page under popover menus (washes out rather than darkens). */
+  wash: string;
 
   // Media surfaces (camera scanner, attachment viewer) — scheme-invariant.
   // Camera chrome must not invert: white ink reads on a live camera feed in
@@ -113,7 +127,11 @@ export const lightTheme: Theme = {
   surface: "#F7F7F8",
   settingsSurface: "#F3F3F3",
   surfaceAlt: "#EBEBED",
+  elevated: "#FFFFFF",
+  control: "#F1F1F3",
   border: "#D9D9DE",
+  separator: "#EBEBED",
+  pressed: "rgba(17,17,19,0.06)",
 
   text: "#111113",
   textSecondary: "#5C5C64",
@@ -146,6 +164,7 @@ export const lightTheme: Theme = {
   codeLang: "#5C5C64",
 
   scrim: "rgba(0,0,0,0.40)",
+  wash: "rgba(255,255,255,0.72)",
 
   onMedia: "#FFFFFF",
   mediaScrim: "#000000",
@@ -169,7 +188,11 @@ export const darkTheme: Theme = {
   surface: "#202023",
   settingsSurface: "#202023",
   surfaceAlt: "#171719",
+  elevated: "#242428",
+  control: "#26262A",
   border: "#3A3A42",
+  separator: "#2E2E34",
+  pressed: "rgba(255,255,255,0.08)",
 
   text: "#F5F5F6",
   textSecondary: "#A5A5AC",
@@ -202,6 +225,7 @@ export const darkTheme: Theme = {
   codeLang: "#7B7B83",
 
   scrim: "rgba(0,0,0,0.60)",
+  wash: "rgba(0,0,0,0.45)",
 
   onMedia: "#FFFFFF",
   mediaScrim: "#000000",

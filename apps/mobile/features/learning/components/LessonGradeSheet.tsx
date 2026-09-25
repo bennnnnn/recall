@@ -16,7 +16,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 
 const SLIDE = 64;
@@ -127,7 +127,7 @@ function makeStyles(theme: Theme, scale: number) {
       gap: Space.sm,
     },
     copy: { flex: 1, gap: Space.xxs },
-    heading: { ...Type.body, fontWeight: "700", fontSize: n(16) },
+    heading: { ...Type.body, ...Weight.bold, fontSize: n(16) },
     body: { ...Type.body, color: theme.text, fontSize: n(16), lineHeight: n(26) },
     error: {
       ...Type.secondary,

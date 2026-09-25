@@ -33,7 +33,7 @@ import { Space } from "@/lib/space";
 import { notifyWarning, selection, tap } from "@/lib/haptics";
 import { presentShareSheet } from "@/lib/share";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Tab = "matches" | "saved" | "all";
 
@@ -520,7 +520,7 @@ function makeStyles(C: Theme) {
       gap: Space.xs,
       marginTop: Space.xl,
     },
-    primaryButtonText: { ...Type.body, color: C.onPrimary, fontWeight: "700" },
+    primaryButtonText: { ...Type.body, color: C.onPrimary, ...Weight.bold },
     planNote: { ...Type.caption, color: C.textTertiary, marginTop: Space.sm },
     listContent: { padding: Space.md, paddingBottom: Space.xl },
     headerStack: { gap: Space.md, marginBottom: Space.md },
@@ -540,7 +540,7 @@ function makeStyles(C: Theme) {
     searchTitle: {
       ...Type.title,
       color: C.text,
-      fontWeight: "700",
+      ...Weight.bold,
       marginTop: Space.xs,
     },
     iconButton: {
@@ -567,7 +567,7 @@ function makeStyles(C: Theme) {
       gap: Space.xxs,
     },
     tabActive: { backgroundColor: C.bg },
-    tabText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    tabText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold },
     tabTextActive: { color: C.text },
     tabCount: {
       minWidth: 22,
@@ -612,7 +612,7 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
       backgroundColor: C.surface,
     },
-    retryButtonText: { ...Type.compact, color: C.danger, fontWeight: "700" },
+    retryButtonText: { ...Type.compact, color: C.danger, ...Weight.bold },
     pressed: { opacity: 0.68 },
   });
 }

@@ -15,7 +15,7 @@ import { Radius } from "@/lib/radius";
 import { SCANNER_SUBJECTS, type ScannerSubject } from "@/lib/scanner/subjects";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   value: ScannerSubject;
@@ -158,7 +158,7 @@ function makeStyles(theme: Theme) {
     label: {
       ...Type.compact,
       color: withAlpha(theme.onMedia, 0.78),
-      fontWeight: "700",
+      ...Weight.bold,
     },
     labelSelected: {
       color: theme.mediaScrim,

@@ -18,7 +18,7 @@ import { presentShareSheet } from "@/lib/share";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -109,7 +109,7 @@ function makeStyles(C: Theme) {
       justifyContent: "space-between",
       marginBottom: Space.sm,
     },
-    headerTitle: { ...Type.navTitle, color: C.text, fontWeight: "700" },
+    headerTitle: { ...Type.navTitle, color: C.text, ...Weight.bold },
     closeButton: {
       width: Space.minTouch,
       height: Space.minTouch,
@@ -140,7 +140,7 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
     },
     actionPrimary: { backgroundColor: C.primary, flexGrow: 1 },
-    actionText: { ...Type.secondary, color: C.textSecondary, fontWeight: "600" },
+    actionText: { ...Type.secondary, color: C.textSecondary, ...Weight.semibold },
     actionTextPrimary: { color: C.onPrimary },
     pressed: { opacity: 0.68 },
   });

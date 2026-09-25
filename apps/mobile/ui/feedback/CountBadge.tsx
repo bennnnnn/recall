@@ -62,7 +62,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
     },
     danger: {
-      paddingHorizontal: 5,
+      paddingHorizontal: Space.xxs,
       backgroundColor: theme.danger,
     },
     bordered: {

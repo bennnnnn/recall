@@ -13,7 +13,7 @@ import { tap } from "@/lib/haptics";
 import { Graphic } from "@/lib/graphic";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 
@@ -143,11 +143,11 @@ function makeStyles(theme: Theme) {
     },
     featureTitle: {
       ...Type.body,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
       marginBottom: 2,
     },
-    featureBody: { ...Type.label, fontWeight: "400", color: theme.textSecondary },
+    featureBody: { ...Type.label, ...Weight.regular, color: theme.textSecondary },
     cta: {
       alignSelf: "stretch",
     },

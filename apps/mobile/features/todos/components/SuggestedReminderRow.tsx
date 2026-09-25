@@ -8,7 +8,7 @@ import type { SuggestedReminder } from "@/lib/api";
 import { selection, tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 
 type Props = {
@@ -90,7 +90,7 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
     },
     body: { flex: 1 },
-    title: { ...Type.body, fontWeight: "600", color: C.text },
+    title: { ...Type.body, ...Weight.semibold, color: C.text },
     meta: { ...Type.compact, color: C.textSecondary, marginTop: 2 },
     snippet: { ...Type.compact, color: C.textSecondary, marginTop: Space.xxs },
     actions: { flexDirection: "row", gap: Space.sm, marginTop: Space.sm },

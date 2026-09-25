@@ -18,7 +18,7 @@ import { isHomeGuidanceRetired, retireHomeGuidance } from "@/features/home/model
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   onSelect: (prompt: string, chatId?: string) => void;
@@ -249,7 +249,7 @@ function makeStyles(t: Theme) {
     },
     urgentMain: { flex: 1, gap: 2 },
     urgentTitle: { ...Type.navTitle, color: t.text },
-    urgentDue: { ...Type.caption, fontWeight: "600", color: t.warning },
+    urgentDue: { ...Type.caption, ...Weight.semibold, color: t.warning },
     startersBlock: { width: "100%", marginTop: Space.xxs },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, justifyContent: "center" },
     chip: {
@@ -265,6 +265,6 @@ function makeStyles(t: Theme) {
       minHeight: Space.minTouch,
       maxWidth: "100%",
     },
-    chipText: { ...Type.secondary, fontWeight: "500", color: t.text },
+    chipText: { ...Type.secondary, ...Weight.medium, color: t.text },
   });
 }

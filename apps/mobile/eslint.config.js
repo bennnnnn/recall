@@ -75,6 +75,11 @@ module.exports = defineConfig([
           message:
             "Use a Type role from lib/type.ts. Raw font sizes belong in that file, or in domain graphics.",
         },
+        {
+          selector: "Property[key.name='fontWeight']",
+          message:
+            "Use Weight from lib/type.ts (`...Weight.bold`). It switches to the matching Source Sans file; a bare fontWeight draws fake bold on Android.",
+        },
       ],
     },
   },
@@ -122,6 +127,11 @@ module.exports = defineConfig([
             "Use a Type role from lib/type.ts. Raw font sizes belong in that file, or in domain graphics.",
         },
         {
+          selector: "Property[key.name='fontWeight']",
+          message:
+            "Use Weight from lib/type.ts (`...Weight.bold`). It switches to the matching Source Sans file; a bare fontWeight draws fake bold on Android.",
+        },
+        {
           selector:
             "Property[key.name=/^(color|backgroundColor|borderColor|shadowColor|tintColor)$/][value.raw=/^['\"]#/]",
           message: "Use a theme color. Neutral shadow ink is SHADOW_COLOR in lib/shadow.ts.",
@@ -154,14 +164,11 @@ module.exports = defineConfig([
       "app/login.tsx",
       "app/onboarding.tsx",
       "app/settings/index.tsx",
-      "ui/feedback/ActionBanner.tsx",
       "components/ActionSheetRow.tsx",
-      "ui/controls/AddFab.tsx",
       "components/ChatMessageImage.tsx",
       "components/ChatMessagePdf.tsx",
       "components/CodeBlock.tsx",
       "components/CopyBlock.tsx",
-      "ui/feedback/CountBadge.tsx",
       "components/FallbackMarkdown.tsx",
       "components/HtmlPreviewModal.tsx",
       "components/LinkPreviewCard.tsx",
@@ -170,7 +177,6 @@ module.exports = defineConfig([
       "components/PlacesListBlock.tsx",
       "components/SearchSourcesStack.tsx",
       "components/SettingsProposalCard.tsx",
-      "ui/feedback/SkeletonLoader.tsx",
       "components/UpgradeSheet.tsx",
       "components/UserMessageContent.tsx",
       "components/chat/ChatComposer.tsx",
@@ -248,6 +254,11 @@ module.exports = defineConfig([
           selector: "Property[key.name='fontSize'][value.raw=/^\\d/]",
           message:
             "Use a Type role from lib/type.ts. Raw font sizes belong in that file, or in domain graphics.",
+        },
+        {
+          selector: "Property[key.name='fontWeight']",
+          message:
+            "Use Weight from lib/type.ts (`...Weight.bold`). It switches to the matching Source Sans file; a bare fontWeight draws fake bold on Android.",
         },
         {
           selector:

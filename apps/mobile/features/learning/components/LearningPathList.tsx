@@ -16,7 +16,7 @@ import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type ChapterRow = {
   kind: "chapter";
@@ -228,8 +228,8 @@ function makeStyles(theme: Theme) {
       ...Type.h3,
       color: theme.text,
     },
-    titleLocked: { color: theme.textTertiary, fontWeight: "600" },
-    meta: { ...Type.caption, color: theme.textTertiary, fontWeight: "500" },
+    titleLocked: { color: theme.textTertiary, ...Weight.semibold },
+    meta: { ...Type.caption, color: theme.textTertiary, ...Weight.medium },
     metaActive: { color: theme.textSecondary },
     progressTrack: {
       height: 4,

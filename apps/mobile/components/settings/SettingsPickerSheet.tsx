@@ -10,7 +10,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Option = { key: string; label: string; disabled?: boolean; note?: string };
 
@@ -116,7 +116,7 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     sheet: {
       backgroundColor: t.bg,
-      borderRadius: Radius.sheet,
+      borderRadius: Radius.dialog,
       width: "86%",
       maxWidth: 340,
       padding: 0,
@@ -147,7 +147,7 @@ function makeStyles(t: Theme) {
     optionNote: {
       ...Type.caption,
       color: t.primary,
-      fontWeight: "600",
+      ...Weight.semibold,
     },
   });
 }

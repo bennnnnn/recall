@@ -9,7 +9,7 @@ import { IconSize, type IoniconName } from "@/lib/icons";
 import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { learningProjectTitle } from "@/features/learning/model/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -121,7 +121,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     continueText: {
       ...Type.compact,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.primary,
       paddingVertical: 5,
       marginLeft: "auto",
@@ -161,12 +161,12 @@ function makeStyles(theme: Theme) {
     },
     headerTitle: {
       ...Type.body,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
     },
     headerSubtitle: {
       ...Type.compact,
-      fontWeight: "500",
+      ...Weight.medium,
       // Same primary ink as Lists / Reminders body text — not muted gray.
       color: theme.text,
       lineHeight: 18,
@@ -183,7 +183,7 @@ function makeStyles(theme: Theme) {
     },
     progressLabel: {
       ...Type.compact,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.text,
     },
     progressLabelComplete: {
@@ -191,7 +191,7 @@ function makeStyles(theme: Theme) {
     },
     streakText: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
     },
     track: {
@@ -225,7 +225,7 @@ function makeStyles(theme: Theme) {
     },
     chipText: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.text,
     },
   });

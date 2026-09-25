@@ -6,7 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export type CalendarNudge = { title: string; startAt: string };
 
@@ -60,8 +60,8 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surface,
     },
     body: { flex: 1, gap: 2 },
-    eyebrow: { ...Type.caption, fontWeight: "700", color: C.primary },
-    title: { ...Type.body, fontWeight: "700", color: C.text },
+    eyebrow: { ...Type.caption, ...Weight.bold, color: C.primary },
+    title: { ...Type.body, ...Weight.bold, color: C.text },
     time: { ...Type.secondary, color: C.textSecondary },
   });
 }

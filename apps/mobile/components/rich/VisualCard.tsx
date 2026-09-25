@@ -6,7 +6,7 @@ import { type IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   label: string;
@@ -65,7 +65,7 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: Space.xs },
-    headerLabel: { ...Type.label, fontWeight: "700", color: t.text },
+    headerLabel: { ...Type.label, ...Weight.bold, color: t.text },
     actions: {
       flexDirection: "row",
       alignItems: "center",

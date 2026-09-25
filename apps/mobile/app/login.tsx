@@ -25,7 +25,7 @@ import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Space } from "@/lib/space";
 import { shadowGlow } from "@/lib/shadow";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 
@@ -336,7 +336,7 @@ function makeStyles(theme: Theme) {
     devBannerText: {
       flex: 1,
       ...Type.caption,
-      fontWeight: "400",
+      ...Weight.regular,
       lineHeight: 19,
       color: theme.textSecondary,
     },
@@ -354,7 +354,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: Space.md,
       backgroundColor: theme.brand.apple,
     },
-    appleText: { ...Type.body, fontWeight: "600", color: theme.brand.appleInk },
+    appleText: { ...Type.body, ...Weight.semibold, color: theme.brand.appleInk },
     googleBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -369,7 +369,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: Space.md,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.08 : 0.55),
     },
-    googleText: { ...Type.body, fontWeight: "600", color: theme.text },
+    googleText: { ...Type.body, ...Weight.semibold, color: theme.text },
     orText: {
       ...Type.caption,
       color: theme.textTertiary,
@@ -387,7 +387,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: 14,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.06 : 0.45),
     },
-    devSecondaryText: { ...Type.secondary, fontWeight: "600", color: theme.primary },
+    devSecondaryText: { ...Type.secondary, ...Weight.semibold, color: theme.primary },
     dim: { opacity: 0.55 },
     pressed: { opacity: 0.85 },
     links: {
@@ -397,8 +397,8 @@ function makeStyles(theme: Theme) {
       gap: Space.xs,
       marginTop: 2,
     },
-    link: { ...Type.caption, fontWeight: "400", color: theme.primary },
+    link: { ...Type.caption, ...Weight.regular, color: theme.primary },
     linkPressable: { textDecorationLine: "underline" },
-    dot: { ...Type.caption, fontWeight: "400", color: theme.textTertiary },
+    dot: { ...Type.caption, ...Weight.regular, color: theme.textTertiary },
   });
 }

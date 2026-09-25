@@ -7,7 +7,7 @@ import { Button } from "@/ui/controls/Button";
 import { useSettingsProposal } from "@/hooks/useSettingsProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -74,7 +74,7 @@ const makeStyles = (theme: Theme) =>
       gap: Space.xs,
     },
     header: { flexDirection: "row", alignItems: "center", gap: 10 },
-    title: { flex: 1, ...Type.body, fontWeight: "700", color: theme.text },
+    title: { flex: 1, ...Type.body, ...Weight.bold, color: theme.text },
     change: { ...Type.label, color: theme.textSecondary },
     error: { ...Type.compact, color: theme.danger },
     btn: { marginTop: Space.xxs },

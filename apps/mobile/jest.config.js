@@ -21,6 +21,7 @@ module.exports = {
         "**/lib/__tests__/**/*.test.ts",
         "**/lib/**/__tests__/**/*.test.ts",
         "**/features/**/__tests__/**/*.test.ts",
+        "**/ui/**/__tests__/**/*.test.ts",
       ],
       preset: "ts-jest",
       testEnvironment: "node",

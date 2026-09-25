@@ -4,7 +4,7 @@ import { Icon } from "@/ui/icons/Icon";
 
 import { Button } from "@/ui/controls/Button";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -96,7 +96,7 @@ export function StepPicker<T>({
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    label: { ...Type.title, fontWeight: "700", color: theme.text },
+    label: { ...Type.title, ...Weight.bold, color: theme.text },
     hint: { ...Type.secondary, color: theme.textSecondary, marginBottom: Space.xxs },
     list: { gap: Space.xs },
     row: {
@@ -111,7 +111,7 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
     },
     rowActive: { borderColor: theme.primary, backgroundColor: theme.primaryLight },
-    rowText: { ...Type.body, fontWeight: "600", color: theme.text },
+    rowText: { ...Type.body, ...Weight.semibold, color: theme.text },
     rowTextActive: { color: theme.primaryDark },
     actions: { flexDirection: "row", gap: 10, marginTop: Space.xs },
     actionBtn: { flex: 1 },

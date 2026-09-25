@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import type { ActionShimmerProps } from "./ActionShimmerMotion";
 
 const LazyActionShimmerMotion = lazy(() => import("./ActionShimmerMotion"));
@@ -62,7 +62,7 @@ function makeStyles(theme: Theme) {
     },
     label: {
       ...Type.label,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.primary,
     },
     dot: {

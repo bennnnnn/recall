@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
 import { Sheet } from "@/ui/overlay/Sheet";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
 
 type IconName = ComponentProps<typeof ActionSheetRow>["icon"];
@@ -181,7 +181,7 @@ function makeStyles(C: Theme) {
   return StyleSheet.create({
     title: {
       ...Type.compact,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: C.textSecondary,
       textAlign: "center",
       paddingHorizontal: Space.md,

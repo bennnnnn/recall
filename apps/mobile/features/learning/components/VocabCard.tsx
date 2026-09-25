@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { tap } from "@/lib/haptics";
 import { cleanQuizWord } from "@/features/learning/model/parseVocabQuiz";
 import { speakWord } from "@/features/speech/model/pronunciation";
@@ -112,7 +112,7 @@ function makeStyles(t: Theme, scale: number) {
     entry: {
       gap: Space.md,
       padding: Space.lg,
-      borderRadius: Radius.sheet,
+      borderRadius: Radius.card,
       backgroundColor: t.surface,
     },
     hero: {
@@ -128,7 +128,7 @@ function makeStyles(t: Theme, scale: number) {
       ...Type.display,
       fontSize: n(30),
       lineHeight: n(36),
-      fontWeight: "800",
+      ...Weight.bold,
       color: t.text,
     },
     wordCompact: {
@@ -170,7 +170,7 @@ function makeStyles(t: Theme, scale: number) {
       color: t.textSecondary,
     },
     lemma: {
-      fontWeight: "700",
+      ...Weight.bold,
       color: t.text,
     },
   });

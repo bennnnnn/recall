@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export type StatusPillTone = "accent" | "success" | "neutral";
 
@@ -56,7 +56,7 @@ function makeStyles(theme: Theme) {
     label: {
       ...Type.compact,
       color: theme.primaryDark,
-      fontWeight: "700",
+      ...Weight.bold,
     },
     successLabel: {
       color: theme.text,

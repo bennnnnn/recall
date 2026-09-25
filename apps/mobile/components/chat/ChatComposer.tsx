@@ -49,7 +49,7 @@ import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 
 function noopComposerInput(_text: string) {}
@@ -752,6 +752,6 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.primaryLight,
     },
     scanHintText: { flex: 1, ...Type.compact, color: theme.text },
-    scanHintCta: { ...Type.compact, fontWeight: "700", color: theme.primary },
+    scanHintCta: { ...Type.compact, ...Weight.bold, color: theme.primary },
   });
 }

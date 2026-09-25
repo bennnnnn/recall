@@ -6,7 +6,7 @@ import type { Memory } from "@/lib/api";
 import { MESSAGE_FOLD_MAX_HEIGHT } from "@/lib/markdown/messageFold";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { useTheme, withAlpha, type Theme } from "@/lib/theme";
 
 export function memorySectionLabel(type: string, t: (key: string) => string): string {
@@ -128,7 +128,7 @@ function makeStyles(theme: Theme) {
     },
     groupTitle: {
       ...Type.caption,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
       textTransform: "uppercase",
       letterSpacing: 0.5,

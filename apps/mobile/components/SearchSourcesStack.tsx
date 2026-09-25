@@ -14,7 +14,7 @@ import {
   preferDistinctHostSources,
 } from "@/lib/searchSources";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -172,7 +172,7 @@ function FaviconCircle({
   if (failed || !uri) {
     return (
       <View style={frame}>
-        <Text style={{ fontSize: size * 0.42, fontWeight: "800", color: theme.primary }}>
+        <Text style={{ fontSize: size * 0.42, ...Weight.bold, color: theme.primary }}>
           {host.slice(0, 1).toUpperCase()}
         </Text>
       </View>
@@ -209,7 +209,7 @@ function makeStyles(theme: Theme) {
     },
     chipLabel: {
       ...Type.secondary,
-      fontWeight: "500",
+      ...Weight.medium,
       color: theme.textSecondary,
     },
     iconCluster: {
@@ -256,7 +256,7 @@ function makeSheetStyles(theme: Theme) {
     },
     domain: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
     },
     rowTitle: {

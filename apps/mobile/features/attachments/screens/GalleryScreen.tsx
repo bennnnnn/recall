@@ -32,7 +32,7 @@ import {
 } from "@/features/attachments/model/gallery";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 
 export default function GalleryScreen() {
@@ -227,7 +227,7 @@ function makeStyles(C: Theme) {
     },
     fileLabel: {
       ...Type.overline,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: C.textTertiary,
     },
   });

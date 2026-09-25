@@ -7,7 +7,7 @@ import { type IoniconName } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   label: string;
@@ -65,7 +65,7 @@ function makeStyles(t: Theme) {
     wrap: {
       alignSelf: "stretch",
       backgroundColor: t.surface,
-      borderRadius: Radius.sheet,
+      borderRadius: Radius.card,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       borderLeftWidth: 3,
@@ -86,7 +86,7 @@ function makeStyles(t: Theme) {
       paddingBottom: Space.xxs,
     },
     labelRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
-    label: { ...Type.compact, fontWeight: "600", color: t.textSecondary },
+    label: { ...Type.compact, ...Weight.semibold, color: t.textSecondary },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
     body: { paddingHorizontal: Space.sm, paddingVertical: 10 },
   });

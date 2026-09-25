@@ -15,7 +15,7 @@ import { notifySuccess } from "@/lib/haptics";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 const BURST = 280;
 const ICON = 96;
@@ -232,7 +232,7 @@ function makeStyles(theme: Theme) {
     },
     title: {
       ...Type.title,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
       textAlign: "center",
     },

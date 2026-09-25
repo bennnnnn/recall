@@ -24,7 +24,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
 import { IconSize, type IoniconName } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
 import {
   looksLikeInteractiveHtml,
@@ -114,7 +114,7 @@ function makeTagStyles(theme: Theme) {
     th: {
       backgroundColor: theme.surface,
       padding: Space.xs,
-      fontWeight: "700" as const,
+      ...Weight.bold,
     },
     td: { padding: Space.xs },
     pre: {

@@ -31,7 +31,7 @@ import { canToggleApplied, hasApplied } from "@/features/job-search/model/stages
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 const STAGES: JobMatchStatus[] = [
   "new",
@@ -316,7 +316,7 @@ function makeStyles(C: Theme) {
     content: { padding: Space.md, gap: Space.md },
     headingRow: { flexDirection: "row", alignItems: "center", gap: Space.sm },
     headingCopy: { flex: 1, minWidth: 0 },
-    title: { ...Type.navTitle, color: C.text, fontWeight: "700" },
+    title: { ...Type.navTitle, color: C.text, ...Weight.bold },
     company: { ...Type.body, color: C.textSecondary, marginTop: 2 },
     sectionTitle: { ...Type.label, color: C.text },
     source: { ...Type.caption, color: C.textTertiary },
@@ -336,7 +336,7 @@ function makeStyles(C: Theme) {
       paddingHorizontal: Space.xs,
     },
     actionActive: { backgroundColor: C.primaryLight },
-    actionText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    actionText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold },
     actionTextPrimary: { color: C.primary },
     actionTextActive: { color: C.primary },
     letterCta: {
@@ -351,7 +351,7 @@ function makeStyles(C: Theme) {
     letterCtaText: {
       ...Type.secondary,
       color: C.primary,
-      fontWeight: "700",
+      ...Weight.bold,
       flex: 1,
     },
     stageRow: {
@@ -364,7 +364,7 @@ function makeStyles(C: Theme) {
       paddingHorizontal: Space.md,
     },
     stageValue: { flexDirection: "row", alignItems: "center", gap: Space.xxs },
-    stageValueText: { ...Type.secondary, color: C.primary, fontWeight: "600" },
+    stageValueText: { ...Type.secondary, color: C.primary, ...Weight.semibold },
     notesBlock: {
       backgroundColor: C.surface,
       borderRadius: Radius.xl,

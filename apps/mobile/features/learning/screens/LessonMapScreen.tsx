@@ -19,7 +19,7 @@ import { resolveDailyGoal } from "@/features/learning/model/dailyGoals";
 import { IconSize } from "@/lib/icons";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export default function LearningLessonMapScreen() {
   const owner = useAccountViewOwner();
@@ -174,7 +174,7 @@ function makeStyles(theme: Theme) {
     },
     todayLabel: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
     },
     todayLabelComplete: {

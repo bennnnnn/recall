@@ -7,7 +7,7 @@ import { SwitchRow } from "@/ui/controls/SwitchRow";
 import type { LessonFontSize, LessonPrefs } from "@/features/learning/model/lessonPrefs";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 
 type Props = {
@@ -76,7 +76,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     title: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
       textAlign: "center",
       paddingTop: Space.xs,
@@ -88,7 +88,7 @@ function makeStyles(theme: Theme) {
     },
     fontLabel: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
       paddingHorizontal: 18,
       paddingTop: Space.sm,
@@ -117,7 +117,7 @@ function makeStyles(theme: Theme) {
     },
     fontChipTextOn: {
       color: theme.primary,
-      fontWeight: "700",
+      ...Weight.bold,
     },
   });
 }

@@ -10,7 +10,7 @@ import { isValidCustomOption, matchOption, rankedOptions } from "@/features/job-
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   values: string[];
@@ -231,7 +231,7 @@ function makeStyles(C: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.primary,
     },
-    chipText: { ...Type.secondary, fontWeight: "600", color: C.primary },
+    chipText: { ...Type.secondary, ...Weight.semibold, color: C.primary },
     chipRemove: {
       width: 24,
       height: 24,

@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -96,7 +96,7 @@ function makeStyles(theme: Theme) {
     },
     loading: { opacity: 0.7 },
     loadingText: { ...Type.secondary, color: theme.textSecondary },
-    title: { ...Type.callout, fontWeight: "700", color: theme.text },
+    title: { ...Type.callout, ...Weight.bold, color: theme.text },
     desc: { ...Type.secondary, lineHeight: 20, color: theme.textSecondary },
     domain: { ...Type.meta, color: theme.primary, marginTop: 2 },
     url: { flex: 1, ...Type.secondary, color: theme.primary },

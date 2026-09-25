@@ -9,7 +9,7 @@ import { type GalleryFilter } from "@/features/attachments/model/gallery";
 import { type GalleryLayout } from "@/features/attachments/model/galleryLayout";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 import { Radius } from "@/lib/radius";
 
@@ -111,7 +111,7 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
       paddingVertical: Space.xs,
       paddingHorizontal: Space.sm,
-      borderRadius: Radius.sheet,
+      borderRadius: Radius.card,
       flexGrow: 0,
       flexShrink: 0,
     },
@@ -121,11 +121,11 @@ function makeStyles(C: Theme) {
     tabText: {
       ...Type.label,
       color: C.textSecondary,
-      fontWeight: "500",
+      ...Weight.medium,
     },
     tabTextActive: {
       color: C.text,
-      fontWeight: "600",
+      ...Weight.semibold,
     },
     layoutToggle: {
       minHeight: 44,

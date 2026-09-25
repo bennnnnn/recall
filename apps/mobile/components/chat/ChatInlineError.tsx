@@ -7,7 +7,7 @@ import type { ResolvedChatError } from "@/lib/chat/errorMessage";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
 
 type Props = {
@@ -161,7 +161,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       flexShrink: 0,
     },
-    ctaText: { ...Type.caption, fontWeight: "700", color: theme.onPrimary },
+    ctaText: { ...Type.caption, ...Weight.bold, color: theme.onPrimary },
     close: {
       width: 44,
       height: 44,

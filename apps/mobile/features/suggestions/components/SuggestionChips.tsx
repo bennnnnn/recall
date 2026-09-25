@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/ui/icons/Icon";
 import type { Suggestion } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -60,7 +60,7 @@ function makeStyles(theme: Theme) {
     },
     label: {
       ...Type.caption,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.textTertiary,
       textTransform: "uppercase",
       letterSpacing: 0.6,
@@ -79,6 +79,6 @@ function makeStyles(theme: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
-    chipText: { flexShrink: 1, ...Type.compact, color: theme.text, fontWeight: "500" },
+    chipText: { flexShrink: 1, ...Type.compact, color: theme.text, ...Weight.medium },
   });
 }

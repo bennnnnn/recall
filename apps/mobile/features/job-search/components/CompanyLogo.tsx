@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import { type Theme, useTheme } from "@/lib/theme";
+import { Weight } from "@/lib/type";
 
 export function CompanyLogo({
   company,
@@ -54,6 +55,6 @@ function makeStyles(C: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
     },
-    initial: { color: C.primary, fontWeight: "800" },
+    initial: { color: C.primary, ...Weight.bold },
   });
 }

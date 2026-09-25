@@ -15,10 +15,16 @@ export const Radius = {
   xl: 16,
   /** 18 — user message bubbles */
   bubble: 18,
-  /** 20 — sheet top corners */
-  sheet: 20,
+  /** 20 — large content cards (rich blocks, vocab card) */
+  card: 20,
+  /** 24 — popover menus */
+  menu: 24,
   /** 24 — composer input well */
   composer: 24,
+  /** 28 — sheet top corners */
+  sheet: 28,
+  /** 28 — centered dialogs and pickers */
+  dialog: 28,
   /** Pill / fully rounded */
   full: 999,
 } as const;

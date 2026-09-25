@@ -48,8 +48,7 @@ import { isAllowedImageUri } from "@/lib/images/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Type } from "@/lib/type";
-import { uiFontFamily } from "@/lib/uiFont";
+import { Type, Weight } from "@/lib/type";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { parseQuoteAttribution } from "@/lib/richBlocks";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
@@ -75,7 +74,7 @@ function withGreenTicks(
     bit === "✓" || bit === "✔" || bit === "✅" ? (
       <Text
         key={`${keyPrefix}-tick-${i}`}
-        style={{ color: tickColor, fontWeight: "700" }}
+        style={{ color: tickColor, ...Weight.bold }}
       >
         {bit}
       </Text>
@@ -543,8 +542,7 @@ function makeSharedRules(
               >
                 <Text
                   style={{
-                    fontFamily: uiFontFamily("700"),
-                    fontWeight: "700",
+                    ...Weight.bold,
                     fontSize: Type.caption.fontSize,
                     color: t.text,
                   }}

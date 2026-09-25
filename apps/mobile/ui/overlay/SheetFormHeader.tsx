@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   title: string;
@@ -109,7 +109,7 @@ function makeStyles(C: Theme) {
       textAlign: "center",
     },
     cancelText: { ...Type.body, color: C.textSecondary },
-    saveText: { ...Type.body, fontWeight: "700", color: C.primary, textAlign: "right" },
+    saveText: { ...Type.body, ...Weight.bold, color: C.primary, textAlign: "right" },
     saveDisabled: { opacity: 0.4 },
   });
 }

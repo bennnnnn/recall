@@ -49,7 +49,7 @@ import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -443,7 +443,7 @@ function makeStyles(theme: Theme) {
     permissionBtnText: {
       ...Type.label,
       color: theme.onPrimary,
-      fontWeight: "700",
+      ...Weight.bold,
     },
     permissionSecondary: {
       paddingHorizontal: Space.md,
@@ -452,7 +452,7 @@ function makeStyles(theme: Theme) {
     permissionSecondaryText: {
       ...Type.label,
       color: theme.onMedia,
-      fontWeight: "700",
+      ...Weight.bold,
     },
   });
 }

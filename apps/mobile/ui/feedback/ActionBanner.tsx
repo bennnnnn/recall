@@ -141,11 +141,11 @@ function makeStyles(theme: Theme) {
     toast: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
+      gap: Space.xs,
       backgroundColor: toastBg,
       borderRadius: Radius.full,
       paddingHorizontal: Space.gutter,
-      paddingVertical: 14,
+      paddingVertical: Space.sm,
       maxWidth: 340,
       borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
       borderColor: theme.border,
