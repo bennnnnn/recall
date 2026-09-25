@@ -124,6 +124,17 @@ def test_detailed_pure_power_uses_absolute_value() -> None:
     assert "Check:" in reply
 
 
+def test_complex_pure_power_shows_the_root_before_simplifying() -> None:
+    text = "x^2 + 1 = 0"
+    block = _block(text)
+    reply = maybe_direct_math_reply(block, text, response_style="detailed")
+
+    assert reply is not None
+    assert r"x = \pm \sqrt{-1}" in reply
+    assert block.key_steps[-1].label == "Simplify"
+    assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm i"
+
+
 def test_just_the_answer_keeps_the_chip_on_detailed() -> None:
     text = "Just the answer: x^2 + 2 = 6"
     reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")

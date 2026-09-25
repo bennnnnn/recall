@@ -316,6 +316,18 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
     if not getattr(radicand, "is_number", False) or not radicand.is_number:
         return steps
     if radicand < 0:
+        steps.append(
+            KeyStep(
+                label="Take square roots of both sides",
+                formula=rf"{latex(var)} = \pm \sqrt{{{latex(radicand)}}}",
+            )
+        )
+        steps.append(
+            KeyStep(
+                label="Simplify",
+                formula=rf"{latex(var)} = \pm {latex(simplify(sqrt(radicand)))}",
+            )
+        )
         return steps
     root = simplify(sqrt(radicand))
     steps.append(
