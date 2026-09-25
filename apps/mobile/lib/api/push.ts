@@ -7,7 +7,7 @@ export const pushApi = {
       expo_push_token: string;
       platform: string;
       device_id?: string;
-      android_channels?: "split";
+      android_channels?: "split" | "tone";
     },
   ) =>
     request<void>("/users/push-token", token, {

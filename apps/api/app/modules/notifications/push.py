@@ -218,27 +218,33 @@ async def poll_deferred_push_receipts(session: AsyncSession, redis: Redis) -> No
         await session.commit()
 
 
-# Sent by installs that have created recall-reminders, recall-learning, and
-# recall-inbox. Older builds only have recall-notifications; Expo drops a
-# message whose channelId was never created on the device.
+# "split" installs created recall-reminders / learning / inbox. "tone" installs
+# created the v2 channels that play the bundled cue. Older builds only have
+# recall-notifications; Expo drops a channelId the device never created.
 SPLIT_ANDROID_CHANNELS = "split"
+TONE_ANDROID_CHANNELS = "tone"
+PUSH_SOUND = "recall_notify.wav"
 
 
-def android_channel_id(data: dict[str, Any]) -> str:
+def android_channel_id(data: dict[str, Any], channels: str = SPLIT_ANDROID_CHANNELS) -> str:
     """Match the Android channels created in the mobile app."""
+    suffix = "-v2" if channels == TONE_ANDROID_CHANNELS else ""
     kind = data.get("type")
     if kind in {"learning_review", "learning_continue", "learning_daily_goal"}:
-        return "recall-learning"
+        return f"recall-learning{suffix}"
     if kind in {"email_suggestion", "job_search_ready"}:
-        return "recall-inbox"
-    return "recall-reminders"
+        return f"recall-inbox{suffix}"
+    return f"recall-reminders{suffix}"
 
 
 def channel_id_for_token(token: PushToken, data: dict[str, Any]) -> str | None:
     """Channel for this device, or None so Expo keeps the default channel."""
-    if token.platform != "android" or token.android_channels != SPLIT_ANDROID_CHANNELS:
+    if token.platform != "android" or token.android_channels not in {
+        SPLIT_ANDROID_CHANNELS,
+        TONE_ANDROID_CHANNELS,
+    }:
         return None
-    return android_channel_id(data)
+    return android_channel_id(data, token.android_channels)
 
 
 def _append_outbound(
@@ -264,7 +270,7 @@ def _append_outbound(
             "title": title,
             "body": body[:240],
             "data": data,
-            "sound": "default",
+            "sound": PUSH_SOUND,
         }
         channel_id = channel_id_for_token(token, data)
         if channel_id is not None:

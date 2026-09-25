@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.gateways import expo_push_gateway
 from app.models.orm import PushToken, User
-from app.modules.notifications import channel_id_for_token
+from app.modules.notifications import PUSH_SOUND, channel_id_for_token
 
 
 async def notify_job_matches_ready(
@@ -46,7 +46,7 @@ async def notify_job_matches_ready(
     for row in rows:
         message: dict[str, Any] = {
             "to": row.expo_push_token,
-            "sound": "default",
+            "sound": PUSH_SOUND,
             "title": "New job matches",
             "body": body,
             "data": data,

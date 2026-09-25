@@ -9,7 +9,7 @@ import { trackProductEvent } from "@/lib/productAnalytics";
 import { lessonMapPath } from "@/features/learning/model/chapterAccess";
 import {
   ensureAndroidNotificationChannels,
-  SPLIT_ANDROID_CHANNELS,
+  TONE_ANDROID_CHANNELS,
 } from "@/lib/notificationChannels";
 
 type AppRouter = {
@@ -106,7 +106,7 @@ export async function registerRemotePushToken(
     expo_push_token: expoPushToken,
     platform: Platform.OS,
     device_id: deviceId ?? undefined,
-    ...(Platform.OS === "android" ? { android_channels: SPLIT_ANDROID_CHANNELS } : {}),
+    ...(Platform.OS === "android" ? { android_channels: TONE_ANDROID_CHANNELS } : {}),
   });
   return "registered";
 }

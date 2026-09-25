@@ -10,6 +10,7 @@ from typing import Any
 
 _EXPORTS = {
     "channel_id_for_token": ("push", "channel_id_for_token"),
+    "PUSH_SOUND": ("push", "PUSH_SOUND"),
 }
 __all__ = list(_EXPORTS)
 
