@@ -14,10 +14,12 @@ import time
 import pytest
 
 from app.modules.math.sympy_executor import (
+    BoundedSympyExecutor,
     ProcessPoolSympyExecutor,
     ThreadSympyExecutor,
     run_sympy,
     set_sympy_executor,
+    warm_sympy_pool,
 )
 
 
@@ -38,6 +40,27 @@ def _echo_pid() -> int:
     import os
 
     return os.getpid()
+
+
+class _WarmupProbeExecutor(BoundedSympyExecutor):
+    def __init__(self, max_workers: int) -> None:
+        self._max_workers = max_workers
+        self.calls = 0
+        self.active = 0
+        self.peak_active = 0
+
+    @property
+    def max_workers(self) -> int:
+        return self._max_workers
+
+    async def run(self, fn, *args, timeout: float):  # noqa: ASYNC109 - protocol implementation
+        self.calls += 1
+        self.active += 1
+        self.peak_active = max(self.peak_active, self.active)
+        await asyncio.sleep(0.01)
+        result = fn(*args)
+        self.active -= 1
+        return result
 
 
 @pytest.mark.asyncio
@@ -68,6 +91,17 @@ async def test_default_uses_isolated_one_worker_slots():
     pool = executor._ensure_slot(0)
     assert pool._max_workers == 1
     executor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_warmup_starts_every_worker_slot_concurrently():
+    executor = _WarmupProbeExecutor(max_workers=3)
+    set_sympy_executor(executor)
+
+    await warm_sympy_pool()
+
+    assert executor.calls == 3
+    assert executor.peak_active == 3
 
 
 @pytest.mark.asyncio
