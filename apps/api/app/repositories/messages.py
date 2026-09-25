@@ -191,6 +191,37 @@ async def list_range(
     return list(result.scalars().all())
 
 
+async def list_before(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    before_created_at: datetime,
+    before_id: UUID,
+    limit: int,
+) -> list[Message]:
+    """Up to ``limit`` messages strictly before a cursor, oldest first."""
+    if limit <= 0:
+        return []
+    result = await session.execute(
+        select(Message)
+        .where(
+            Message.chat_id == chat_id,
+            or_(
+                Message.created_at < before_created_at,
+                and_(
+                    Message.created_at == before_created_at,
+                    Message.id < before_id,
+                ),
+            ),
+        )
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(limit)
+    )
+    rows = list(result.scalars().all())
+    rows.reverse()
+    return rows
+
+
 async def get_last(session: AsyncSession, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message)
