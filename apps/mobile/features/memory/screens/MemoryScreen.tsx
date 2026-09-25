@@ -10,6 +10,7 @@ import {
   MemorySectionHeader,
 } from "@/features/memory/components/MemoryRows";
 import { IconButton } from "@/components/IconButton";
+import { NewChatIcon } from "@/components/NewChatIcon";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -181,9 +182,14 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       <View style={s.headingRow}>
         <Text style={s.heading}>{t("memory.heading")}</Text>
         <IconButton
-          name={editingPage ? "checkmark" : "pencil-outline"}
+          name={editingPage ? "checkmark" : undefined}
+          icon={
+            editingPage ? undefined : (
+              <NewChatIcon size={IconSize.md} color={theme.text} />
+            )
+          }
           size={IconSize.sm}
-          color={editingPage ? theme.accent : theme.textSecondary}
+          color={theme.accent}
           onPress={() => { if (editingPage) void saveEdit(); else beginEdit(); }}
           disabled={savingEdit || editBlocked || (editingPage && draftsInvalid)}
           accessibilityLabel={editingPage ? t("common.save") : t("memory.edit_title")}
