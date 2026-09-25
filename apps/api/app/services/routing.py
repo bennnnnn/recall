@@ -312,8 +312,9 @@ def _route_current_line(content: str) -> str:
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
-    if _looks_like_physics_homework(content):
-        return smart
+    physics_alias = _physics_route(content, fast=fast, smart=smart)
+    if physics_alias is not None:
+        return physics_alias
     # Math / structured turns (equations, graphs, geometry, calculus, stats,
     # …) route to the smart model up front. A weak model on a math ask used to
     # produce wrong worked steps even with SymPy-verified fences injected, so
@@ -349,6 +350,29 @@ def route_chat_model(
     ):
         return smart
     return preferred
+
+
+def _physics_route(content: str, *, fast: str, smart: str) -> str | None:
+    """Verified physics stays on the fast model. Uncovered homework goes smart.
+
+    The solver already returns the number for a recognized template, so a
+    reasoning model only adds wait. A homework cue with no template still
+    needs the strong model, and it should not sit in the solver first.
+    """
+    homework = _looks_like_physics_homework(content)
+    from app.modules.math.match import needs_symbolic
+
+    if not homework and not needs_symbolic(content):
+        return None
+    from app.models.schemas.physics.intent import PhysicsIntent
+    from app.modules.math.tools.extract import extract_math_intent
+
+    intent = extract_math_intent(content)
+    if isinstance(intent, PhysicsIntent):
+        return fast
+    if homework:
+        return smart
+    return None
 
 
 def _verified_math_stays_fast(content: str) -> bool:

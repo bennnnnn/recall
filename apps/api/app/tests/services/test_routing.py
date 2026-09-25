@@ -71,15 +71,15 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("8-8*2", "gemini-flash"),
         # Arithmetic next to a hard question is not a fast-path whole message.
         ("what is 1+1 and also graph y = x^2", "smart-chat"),
-        # Homework physics the solver templates don't cover → smart-chat.
-        # needs_symbolic stays false on these (no verified fence); Auto still
-        # escalates. Bare "physics" and digit-free "momentum" stay free-chat.
+        # A recognized physics template stays on the fast model; the verifier
+        # owns the number. Homework the templates miss still goes to smart-chat.
         (
             "a 2kg block slides down a 30° frictionless incline, find its acceleration",
-            "smart-chat",
+            "gemini-flash",
         ),
-        ("calculate the momentum of a 5kg object moving at 12 m/s", "smart-chat"),
-        ("what is the escape velocity of earth", "smart-chat"),
+        ("calculate the momentum of a 5kg object moving at 12 m/s", "gemini-flash"),
+        ("what is the escape velocity of earth", "gemini-flash"),
+        ("a ball is dropped from 20 m, how long to hit the ground", "gemini-flash"),
         ("equations of motion for a pendulum", "smart-chat"),
         ("physics", "gemini-flash"),
         ("the project has momentum now", "gemini-flash"),
