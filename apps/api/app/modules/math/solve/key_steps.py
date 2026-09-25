@@ -15,6 +15,7 @@ from sympy import (
     latex,
     simplify,
     solve,
+    sqrt,
 )
 
 
@@ -316,13 +317,17 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
         return steps
     if radicand < 0:
         return steps
-    # Show the root itself (x = ±√4), not the simplified ±2. The chip
-    # simplifies. Do not wrap x² in a radical and then rewrite it as |x|.
+    # Show ±√(the value just reached). SymPy's answer chip rationalizes
+    # √(2/3) into √6/3, so write that as its own Simplify step when the
+    # two forms differ. A perfect square (√4 → 2) stays on the chip.
     if radicand == 0:
-        formula = rf"{latex(var)} = \sqrt{{0}}"
-    else:
-        formula = rf"{latex(var)} = \pm \sqrt{{{latex(radicand)}}}"
-    steps.append(KeyStep(label="Square root", formula=formula))
+        steps.append(KeyStep(label="Square root", formula=rf"{latex(var)} = \sqrt{{0}}"))
+        return steps
+    written = rf"\sqrt{{{latex(radicand)}}}"
+    steps.append(KeyStep(label="Square root", formula=rf"{latex(var)} = \pm {written}"))
+    reduced = latex(simplify(sqrt(radicand)))
+    if reduced != written and r"\sqrt" in reduced:
+        steps.append(KeyStep(label="Simplify", formula=rf"{latex(var)} = \pm {reduced}"))
     return steps
 
 

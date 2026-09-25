@@ -128,6 +128,18 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     assert "Check:" in reply
 
 
+def test_square_root_of_a_fraction_simplifies_before_the_chip() -> None:
+    text = "3x^2 + 3 = 5"
+    reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
+
+    assert reply is not None
+    before, _, _ = reply.partition("```answer")
+    assert r"\sqrt{\frac{2}{3}}" in before
+    assert r"\frac{\sqrt{6}}{3}" in before
+    assert before.index(r"\sqrt{\frac{2}{3}}") < before.index(r"\frac{\sqrt{6}}{3}")
+    assert r"\frac{\sqrt{6}}{3}" in reply
+
+
 def test_just_the_answer_keeps_the_chip_on_detailed() -> None:
     text = "Just the answer: x^2 + 2 = 6"
     reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
