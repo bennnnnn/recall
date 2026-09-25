@@ -72,6 +72,7 @@ from app.services.chat.prompt_constants.routing import (
     is_writing_deliverable_request,
     needs_rich_context,
     prior_looks_like_offer,
+    recalls_earlier_conversation,
     writing_request_kind,
 )
 from app.services.chat.prompt_constants.visuals import (
@@ -169,5 +170,6 @@ __all__ = [
     "is_writing_deliverable_request",
     "needs_rich_context",
     "prior_looks_like_offer",
+    "recalls_earlier_conversation",
     "writing_request_kind",
 ]

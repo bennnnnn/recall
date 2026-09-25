@@ -93,6 +93,7 @@ from app.services.chat.prompt_constants import (
     is_short_confirmation,
     is_structured_comparison_question,
     is_underspecified_writing_request,
+    recalls_earlier_conversation,
     writing_request_kind,
 )
 from app.services.chat.prompt_constants.visuals import (
@@ -102,7 +103,14 @@ from app.services.chat.prompt_constants.visuals import (
     is_image_generation_mention,
 )
 from app.services.chat.stream_status import StreamStatusFn
-from app.services.context_window import select_recent_window
+from app.services.context_window import (
+    UNSUMMARIZED_GAP_MAX_MESSAGES,
+    estimate_tokens,
+    messages_within_token_budget,
+    select_recent_window,
+    trim_message_for_summary,
+    unsummarized_gap_bounds,
+)
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.md_fence_scan import strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
@@ -199,12 +207,6 @@ def _custom_instructions_block(user: User) -> str | None:
 
 
 logger = logging.getLogger(__name__)
-
-# Past-chat questions stay on history retrieval even when the turn is slim.
-_SHARED_PAST = re.compile(
-    r"\b(?:did we|we (?:pick|chose|picked|decided|said)|last (?:year|month|week|time))\b",
-    re.IGNORECASE,
-)
 
 StreamReasoningFn = Callable[[str], Awaitable[None]]
 
@@ -876,6 +878,68 @@ def _integration_hints(
     return parts
 
 
+def _persisted_messages(window: list[Any], current_user_message_id: UUID | None) -> list[Any]:
+    """Drop the synthetic current turn. It is not a stored row yet."""
+    if current_user_message_id is None:
+        return window
+    return [
+        message for message in window if getattr(message, "id", None) != current_user_message_id
+    ]
+
+
+async def _load_unsummarized_gap(
+    chat_id: UUID,
+    chat: Chat | None,
+    window: list[Any],
+    tail: list[Any],
+    *,
+    recent_limit: int,
+    token_budget: int,
+    current_user_message_id: UUID | None,
+) -> list[Any]:
+    """Messages after the summary and before the messages the prompt kept.
+
+    ``tail`` is that kept list. A synthetic current user row can push one
+    stored message out of a full window; that row is included here, then the
+    whole gap is cut to the tokens the recent window did not already use.
+    """
+    tail_ids = {message.id for message in tail}
+    dropped = [
+        message
+        for message in _persisted_messages(window, current_user_message_id)
+        if message.id not in tail_ids
+    ]
+    older: list[Any] = []
+    persisted = _persisted_messages(window, current_user_message_id)
+    if chat is not None and len(persisted) >= recent_limit and persisted:
+        oldest = persisted[0]
+        created_at = getattr(oldest, "created_at", None)
+        oldest_id = getattr(oldest, "id", None)
+        if created_at is not None and oldest_id is not None:
+            summarized = int(getattr(chat, "summary_message_count", 0) or 0)
+            async with SessionLocal() as session:
+                total = await messages_repo.count_for_chat(session, chat_id)
+                bounds = unsummarized_gap_bounds(
+                    total=total,
+                    summarized=summarized,
+                    loaded=len(persisted),
+                )
+                if bounds is not None:
+                    _offset, count = bounds
+                    older = await messages_repo.list_before(
+                        session,
+                        chat_id,
+                        before_created_at=created_at,
+                        before_id=oldest_id,
+                        limit=count,
+                    )
+    return messages_within_token_budget(
+        [*older, *dropped],
+        token_budget,
+        max_messages=UNSUMMARIZED_GAP_MAX_MESSAGES,
+    )
+
+
 async def build_prompt_messages(
     user: User,
     chat_id: UUID,
@@ -925,7 +989,7 @@ async def build_prompt_messages(
     personal_context = (rich_context or advice_memory) and not lightweight
     load_memory = personal_context
     slim_context = minimal_personal_context or lightweight or not rich_context
-    recalls_shared_past = bool(query_text and _SHARED_PAST.search(query_text))
+    recalls_shared_past = bool(query_text and recalls_earlier_conversation(query_text))
     history_rag = bool(
         (personal_context or recalls_shared_past)
         and settings.chat_history_rag_enabled
@@ -953,6 +1017,24 @@ async def build_prompt_messages(
         recent_source = [m for m in recent_source if m.id not in omit_message_ids]
     keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
     recent = recent_source[-keep:] if keep else []
+    tail_tokens = sum(
+        estimate_tokens(message.content)
+        for message in recent
+        if isinstance(getattr(message, "content", None), str)
+    )
+    gap = await _load_unsummarized_gap(
+        chat_id,
+        chat,
+        blocks.recent_all,
+        recent,
+        recent_limit=recent_limit,
+        token_budget=max(0, settings.context_token_budget - tail_tokens),
+        current_user_message_id=current_user_message_id,
+    )
+    if omit_message_ids:
+        gap = [m for m in gap if m.id not in omit_message_ids]
+    recent_ids = {m.id for m in recent}
+    gap = [m for m in gap if m.id not in recent_ids]
     followup_exchange = recent
     # New-turn preparation includes its current user in history, sometimes
     # before persistence completes. Only the caller's explicit ID proves that
@@ -985,7 +1067,7 @@ async def build_prompt_messages(
     if history_rag and blocks.history_rag_query_vec is not None:
         from app.services.chat import history_rag as chat_history_rag_service
 
-        exclude = {m.id for m in recent}
+        exclude = {m.id for m in recent} | {m.id for m in gap}
         if omit_message_ids:
             exclude |= omit_message_ids
         chat_history_rag_block = await chat_history_rag_service.retrieve_for_prompt(
@@ -1087,8 +1169,11 @@ async def build_prompt_messages(
         system_parts.append(PERSONAL_DISCLOSURE_HINT)
 
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
-    for msg in recent:
+    gap_ids = {m.id for m in gap}
+    for msg in (*gap, *recent):
         content = msg.content
+        if msg.id in gap_ids:
+            content = trim_message_for_summary(content)
         if msg.role == "user":
             content = wrap_persisted_attachment_excerpts(content)
         elif msg.role == "assistant":

@@ -171,6 +171,78 @@ _LEARNING_PROGRESS_CUE = re.compile(
 )
 
 
+# Continuity asks that should still search earlier chats on a slim turn.
+# Phrase scan (not a regex) so a longer question cannot blow up matching.
+_EARLIER_CONVERSATION_PHRASES = (
+    "did we",
+    "didn't we",
+    "didnt we",
+    "we pick",
+    "we chose",
+    "we picked",
+    "we decided",
+    "we said",
+    "we talked",
+    "we were talking",
+    "last year",
+    "last month",
+    "last week",
+    "last time",
+    "what did i say",
+    "what did i tell",
+    "what did i choose",
+    "what did we talk",
+    "what did we decide",
+    "didn't i mention",
+    "didnt i mention",
+    "didn't i tell",
+    "didnt i tell",
+    "didn't i say",
+    "didnt i say",
+    "did i mention",
+    "what were we talking",
+    "what were we discussing",
+    "which one did i",
+    "which one did we",
+    "where we left off",
+    "pick up from where",
+    "continue where we",
+    "you know the thing",
+    "the thing i told you",
+    "what was my idea",
+    "what was that idea",
+    "i told you about",
+    "as i said",
+    "like i said",
+    "talking about yesterday",
+)
+
+
+def _phrase_at_word_boundary(text: str, phrase: str) -> bool:
+    """True when ``phrase`` occurs with a non-letter on each side."""
+    start = 0
+    while True:
+        found = text.find(phrase, start)
+        if found < 0:
+            return False
+        before = found == 0 or not text[found - 1].isalnum()
+        end = found + len(phrase)
+        after = end == len(text) or not text[end].isalnum()
+        if before and after:
+            return True
+        start = found + 1
+
+
+def recalls_earlier_conversation(text: str) -> bool:
+    """True when the user is asking about something said in an earlier chat."""
+    cleaned = collapse_ws(text).lower()
+    if not cleaned:
+        return False
+    return any(
+        _phrase_at_word_boundary(cleaned, phrase) for phrase in _EARLIER_CONVERSATION_PHRASES
+    )
+
+
 def is_learning_progress_question(text: str) -> bool:
     """True when the user is asking about their Recall Learning words/progress."""
     cleaned = collapse_ws(text)

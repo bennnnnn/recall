@@ -159,6 +159,66 @@ def should_run_compression(
     return False
 
 
+# How many messages between the stored summary and the loaded recent window
+# the prompt may include verbatim. Compression folds the rest later.
+UNSUMMARIZED_GAP_MAX_MESSAGES = 10
+
+
+def unsummarized_gap_bounds(
+    *,
+    total: int,
+    summarized: int,
+    loaded: int,
+    max_messages: int = UNSUMMARIZED_GAP_MAX_MESSAGES,
+) -> tuple[int, int] | None:
+    """Oldest-first offset and count of messages in neither the summary nor the window.
+
+    ``loaded`` is the trailing window already fetched for the prompt. The
+    newest ``max_messages`` of that hole are the ones worth showing; older
+    ones wait for the summary job.
+    """
+    if total <= 0 or loaded < 0 or summarized < 0 or max_messages <= 0:
+        return None
+    window_start = max(0, total - loaded)
+    gap_end = window_start
+    gap_start = min(max(0, summarized), gap_end)
+    pending = gap_end - gap_start
+    if pending <= 0:
+        return None
+    if pending > max_messages:
+        gap_start = gap_end - max_messages
+    return gap_start, gap_end - gap_start
+
+
+def messages_within_token_budget(
+    messages: list[Any],
+    budget: int,
+    *,
+    max_messages: int,
+) -> list[Any]:
+    """Newest messages that still fit ``budget``, oldest first.
+
+    Each body is measured after the summary trim, matching what the prompt
+    will send. A full recent window leaves no room, so the gap stays empty.
+    """
+    if budget <= 0 or max_messages <= 0:
+        return []
+    chosen: list[Any] = []
+    used = 0
+    for message in reversed(messages):
+        if len(chosen) >= max_messages:
+            break
+        content = getattr(message, "content", "")
+        text = content if isinstance(content, str) else ""
+        cost = estimate_tokens(trim_message_for_summary(text))
+        if used + cost > budget:
+            break
+        used += cost
+        chosen.append(message)
+    chosen.reverse()
+    return chosen
+
+
 def trim_message_for_summary(content: str, max_chars: int = _SUMMARY_MESSAGE_MAX_CHARS) -> str:
     text = content.strip()
     if len(text) <= max_chars:
