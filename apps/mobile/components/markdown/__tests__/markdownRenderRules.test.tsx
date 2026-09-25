@@ -316,4 +316,38 @@ describe("markdown render rules", () => {
     );
     expect(getByTestId("link-preview-card")).toBeOnTheScreen();
   });
+
+  it("puts a lesson step number in a badge apart from the label", async () => {
+    const { getByTestId, getByText } = await render(
+      <MarkdownContent content={"**1. Divide both sides by 3**"} />,
+    );
+    expect(getByTestId("lesson-step")).toBeOnTheScreen();
+    expect(getByText("1")).toBeOnTheScreen();
+    expect(getByText("Divide both sides by 3")).toBeOnTheScreen();
+  });
+
+  it("indents a lesson formula under the step label", async () => {
+    const { getByTestId } = await render(
+      <MarkdownContent content={"**2. Simplify**\n$x^2 = 1$"} />,
+    );
+    expect(getByTestId("lesson-step-formula")).toBeOnTheScreen();
+  });
+
+  it("preserves a link after a numbered bold paragraph", async () => {
+    const { getByRole, queryByTestId } = await render(
+      <MarkdownContent
+        content={"**1. Resource** [docs](https://example.com/docs)"}
+      />,
+    );
+    expect(queryByTestId("lesson-step")).toBeNull();
+    expect(getByRole("link", { name: "docs" })).toBeOnTheScreen();
+  });
+
+  it.each([
+    "**1. Result** $x^2$",
+    "**1. Command** `pnpm test`",
+  ])("leaves non-lesson inline content in the markdown renderer: %s", async (content) => {
+    const { queryByTestId } = await render(<MarkdownContent content={content} />);
+    expect(queryByTestId("lesson-step")).toBeNull();
+  });
 });
