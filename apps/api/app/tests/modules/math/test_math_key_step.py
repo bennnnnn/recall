@@ -158,7 +158,8 @@ def test_short_keeps_the_bare_answer() -> None:
 
 def test_detailed_irreducible_quadratic_uses_the_formula() -> None:
     text = "solve x^2 - 2x - 1 = 0"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
+    block = _block(text)
+    reply = maybe_direct_math_reply(block, text, response_style="detailed")
 
     assert reply is not None
     assert "Quadratic formula" in reply
@@ -166,6 +167,8 @@ def test_detailed_irreducible_quadratic_uses_the_formula() -> None:
     assert r"\sqrt{2}" in reply or r"\sqrt{2}" in reply.replace(" ", "")
     assert "1" in reply
     assert "```answer" in reply
+    assert block.key_steps[-1].label == "Simplify"
+    assert block.key_steps[-1].formula == block.canonical_answer
 
 
 def test_joke_request_still_keeps_the_model() -> None:

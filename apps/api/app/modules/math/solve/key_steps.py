@@ -428,7 +428,7 @@ def _quadratic_formula_steps(var: Any, c2: Any, c1: Any, c0: Any) -> list[KeySte
         denom = "-2"
     else:
         denom = f"2({latex(c2)})"
-    return [
+    steps = [
         KeyStep(
             label="Discriminant",
             formula=(
@@ -444,6 +444,11 @@ def _quadratic_formula_steps(var: Any, c2: Any, c1: Any, c0: Any) -> list[KeySte
             ),
         ),
     ]
+    solutions = solve(Eq(c2 * var**2 + c1 * var + c0, 0), var)
+    final = r" \text{ or } ".join(f"{latex(var)} = {latex(solution)}" for solution in solutions)
+    if final:
+        steps.append(KeyStep(label="Simplify", formula=final))
+    return steps
 
 
 def _substituted_eq(lhs: Any, rhs: Any, var: Any, val: Any) -> str:
