@@ -291,9 +291,7 @@ async def stream_chat_response(
         # Account/quota and history are independent once the previous turn is
         # committed. A greeting does not need the recent window before the
         # model starts — that extra Neon read was on the first-token path.
-        obvious_greeting = is_lightweight_chat_turn(content) and not is_short_confirmation(
-            content
-        )
+        obvious_greeting = is_lightweight_chat_turn(content) and not is_short_confirmation(content)
         if obvious_greeting:
             user, daily_limit, chat = await _load_user_and_quota()
             recent, prior_count = [], 0

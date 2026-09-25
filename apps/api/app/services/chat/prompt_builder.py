@@ -920,10 +920,7 @@ async def build_prompt_messages(
     load_memory = personal_context
     slim_context = minimal_personal_context or lightweight or not rich_context
     history_rag = bool(
-        personal_context
-        and settings.chat_history_rag_enabled
-        and query_text
-        and query_text.strip()
+        personal_context and settings.chat_history_rag_enabled and query_text and query_text.strip()
     )
     blocks = await _load_context_blocks(
         user,

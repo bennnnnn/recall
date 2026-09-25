@@ -41,6 +41,7 @@ def remember_user(user: User) -> None:
 def forget_user(user_id: UUID) -> None:
     _user_cache.pop(user_id, None)
 
+
 _REDIS_RETRY_AFTER = "5"
 
 
