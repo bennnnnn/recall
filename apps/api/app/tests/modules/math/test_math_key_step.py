@@ -124,6 +124,18 @@ def test_detailed_pure_power_uses_absolute_value() -> None:
     assert "Check:" in reply
 
 
+def test_rational_equation_clears_the_denominator_and_finishes_at_the_chip() -> None:
+    text = "(x+1)/(x-1)=3"
+    block = _block(text)
+    reply = maybe_direct_math_reply(block, text, response_style="balanced")
+
+    assert reply is not None
+    assert "Multiply both sides by x - 1" in reply
+    assert r"3 \left(x - 1\right)" in reply
+    assert r"x \ne 1" in reply
+    assert block.key_steps[-1].formula == block.canonical_answer == "x = 2"
+
+
 def test_just_the_answer_keeps_the_chip_on_detailed() -> None:
     text = "Just the answer: x^2 + 2 = 6"
     reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
