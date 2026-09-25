@@ -18,13 +18,16 @@ it from this file in that pull request.
 
 ## After those three
 
-4. **Chat history only.** Move list, create, rename, archive, and delete
-   (`routers/chats.py`) into `modules/chat`. Leave streaming, turn prep, and
-   `useChat*` where they are.
+4. **Chat history only.** Move the whole history surface in `routers/chats.py`
+   and `services/chats.py` into `modules/chat`: list, get, create, rename, pin,
+   archive, archive-all, delete, delete-all, message list, feedback, email
+   draft, and usage. Leave streaming, turn prep, and `useChat*` where they are.
 5. **Chat stream.** WebSocket, SSE, and `services/chat/stream.py`. Not turn prep.
 6. **Chat turn prep.** `services/chat/turn_prep/` and prompt assembly.
-7. **Mobile chat.** `hooks/useChat*` and `components/chat/` into `features/chat/`.
-   `app/index.tsx` stays a route.
+7. **Mobile chat.** Move `hooks/useChat*`, `components/chat/`, `lib/chat/`
+   (stream, socket, reducer, cache, mutation helpers, and their tests), and
+   the chat API slice `lib/api/chats.ts` into `features/chat/`. Compose that
+   slice through `lib/api.ts`. `app/index.tsx` stays a route.
 
 ## Also queued
 
