@@ -118,7 +118,8 @@ def is_lightweight_chat_turn(
     cleaned = collapse_ws(text)
     if not cleaned:
         return True
-    looks_light = (len(cleaned) <= 2 and cleaned.isalpha()) or (
+    # One letter is a variable ("x"), not "hi". Two letters still cover go/ok.
+    looks_light = (len(cleaned) == 2 and cleaned.isalpha()) or (
         len(cleaned) <= 24 and bool(_LIGHTWEIGHT_TURN.match(cleaned))
     )
     if not looks_light:

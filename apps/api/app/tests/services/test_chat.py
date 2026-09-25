@@ -948,6 +948,8 @@ def test_is_broad_self_question(text, expected):
         ("yes", True),
         ("go", True),
         ("sure", True),
+        ("x", False),
+        ("X", False),
     ],
 )
 def test_is_lightweight_chat_turn(text, expected):
