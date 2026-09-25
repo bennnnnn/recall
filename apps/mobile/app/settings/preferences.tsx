@@ -11,6 +11,7 @@ import {
   SettingsGroup,
   SettingsInlinePicker,
   SettingsLinkRow,
+  SettingsSwitchRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -22,6 +23,8 @@ import {
   RESPONSE_TONES,
 } from "@/lib/responseTone";
 import { type User } from "@/lib/api";
+import { getDeviceLocationLabel } from "@/lib/deviceLocation";
+import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
@@ -42,6 +45,7 @@ export default function PreferencesSettingsScreen() {
   const [languageOpen, setLanguageOpen] = useState(false);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
+  const [locationBusy, setLocationBusy] = useState(false);
   const [editField, setEditField] = useState<AboutField | null>(null);
   const [fieldText, setFieldText] = useState("");
   const [fieldSaving, setFieldSaving] = useState(false);
@@ -73,6 +77,32 @@ export default function PreferencesSettingsScreen() {
     },
     [feedback, t, updateUser],
   );
+
+  const toggleLocation = useCallback(async (enabled: boolean) => {
+    if (!token || locationBusy) return;
+    setLocationBusy(true);
+    try {
+      if (!enabled) {
+        await updateUser({ location_enabled: false, location: null });
+        return;
+      }
+      if (!canUseDeviceLocation()) {
+        Alert.alert(t("common.error"), t("settings.location_expo_go"));
+        return;
+      }
+      const label = await getDeviceLocationLabel();
+      if (!label) {
+        Alert.alert(t("settings.location_denied"));
+        return;
+      }
+      await updateUser({ location_enabled: true, location: label });
+    } catch {
+      if (feedback) feedback.error(t("common.error"));
+      else Alert.alert(t("common.error"), t("common.error"));
+    } finally {
+      setLocationBusy(false);
+    }
+  }, [token, locationBusy, updateUser, t, feedback]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -266,6 +296,18 @@ export default function PreferencesSettingsScreen() {
             title={t("settings.job_label")}
             value={user?.job?.trim() || t("settings.not_set")}
             onPress={() => openAbout("job")}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
+
+        <SettingsGroup styles={s}>
+          <SettingsSwitchRow
+            title={t("settings.use_current_location")}
+            value={user?.location_enabled === true}
+            disabled={locationBusy}
+            busy={locationBusy}
+            onValueChange={(enabled) => void toggleLocation(enabled)}
             styles={s}
             theme={theme}
           />
