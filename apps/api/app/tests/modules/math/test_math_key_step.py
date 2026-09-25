@@ -174,6 +174,13 @@ def test_balanced_factorable_quadratic_is_a_factor_trace() -> None:
     assert "x - 2" in reply and "x - 3" in reply
     assert "```answer" in reply
     assert "quadratic formula" in reply.lower()
+    block = _block(text)
+    assert block.key_steps[-1].formula == block.canonical_answer
+
+
+def test_symmetric_factor_trace_finishes_with_compact_chip_value() -> None:
+    block = _block("x^2 - 1 = 0")
+    assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm 1"
 
 
 def test_short_keeps_the_bare_answer() -> None:

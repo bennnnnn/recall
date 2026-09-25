@@ -403,6 +403,14 @@ def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> lis
                     branch=branch,
                 )
             )
+    solutions = solve(Eq(expr, 0), var)
+    if len(solutions) == 2 and _expr_equal(solutions[0] + solutions[1], 0):
+        positive = simplify(Abs(solutions[0]))
+        final = rf"{latex(var)} = \pm {latex(positive)}"
+    else:
+        final = r" \text{ or } ".join(f"{latex(var)} = {latex(solution)}" for solution in solutions)
+    if final:
+        steps.append(KeyStep(label="Simplify", formula=final))
     return steps
 
 
