@@ -99,7 +99,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint app components ui",
+    "lint": "expo lint app components ui features hooks lib contexts",
     "test": "jest"
   },
   "pnpm": {

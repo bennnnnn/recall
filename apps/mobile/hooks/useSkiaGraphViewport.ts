@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/immutability -- Reanimated shared values mutate `.value` in gestures. */
 import { useEffect } from "react";
 import { Gesture } from "react-native-gesture-handler";
 import { runOnJS, useSharedValue } from "react-native-reanimated";
