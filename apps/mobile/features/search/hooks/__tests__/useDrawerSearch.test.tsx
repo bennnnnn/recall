@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, type TextInput } from "react-native";
 import { act, render } from "@testing-library/react-native";
-import { useDrawerSearch } from "@/hooks/useDrawerSearch";
+import { useDrawerSearch } from "@/features/search/hooks/useDrawerSearch";
 import { api, type SearchResult } from "@/lib/api";
 
 let mockSession = 0;

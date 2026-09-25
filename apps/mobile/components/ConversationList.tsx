@@ -16,7 +16,7 @@ import { useChatMenuActions } from "@/hooks/useChatMenuActions";
 import { useDrawerChatList } from "@/hooks/useDrawerChatList";
 import { useDrawerChatSelection } from "@/hooks/useDrawerChatSelection";
 import { useReminderBadgeCount } from "@/features/todos/hooks/useReminderBadgeCount";
-import { useDrawerSearch } from "@/hooks/useDrawerSearch";
+import { useDrawerSearch } from "@/features/search/hooks/useDrawerSearch";
 import { Chat } from "@/lib/api";
 import {
   bottomChromeFadeColors,

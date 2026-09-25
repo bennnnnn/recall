@@ -10,7 +10,7 @@ import {
   isAbortError,
   isValidDrawerSearchQuery,
   mergeDrawerSearchResults,
-} from "@/lib/drawerSearchLogic";
+} from "@/features/search/model/drawerSearchLogic";
 
 type Options = { token: string | null; isDrawerOpen: boolean };
 type View = { session: number; signedIn: boolean; isDrawerOpen: boolean };

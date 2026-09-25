@@ -17,7 +17,7 @@ def test_search_rejects_invalid_normalized_query(query):
     app.dependency_overrides[get_current_user] = lambda: MagicMock(id=uuid4())
     app.dependency_overrides[get_db] = lambda: AsyncMock()
     with patch(
-        "app.services.search.search_conversations", AsyncMock(return_value=([], 0))
+        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], 0))
     ) as search:
         response = TestClient(app).get("/search", params={"q": query})
 
@@ -32,7 +32,7 @@ def test_search_passes_normalized_query(query):
     app.dependency_overrides[get_current_user] = lambda: MagicMock(id=user_id)
     app.dependency_overrides[get_db] = lambda: AsyncMock()
     with patch(
-        "app.services.search.search_conversations", AsyncMock(return_value=([], 0))
+        "app.modules.search.service.search_conversations", AsyncMock(return_value=([], 0))
     ) as search:
         response = TestClient(app).get("/search", params={"q": query})
 

@@ -613,7 +613,7 @@ def test_search_returns_results():
         }
     ]
     with patch(
-        "app.routers.search.search_service.search_conversations",
+        "app.modules.search.api.search_service.search_conversations",
         AsyncMock(return_value=(fake_results, 1)),
     ):
         client = TestClient(app)
@@ -634,7 +634,7 @@ def test_search_returns_empty():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.search.search_service.search_conversations",
+        "app.modules.search.api.search_service.search_conversations",
         AsyncMock(return_value=([], 0)),
     ):
         client = TestClient(app)
@@ -687,7 +687,7 @@ def test_search_respects_limit():
         for _ in range(5)
     ]
     with patch(
-        "app.routers.search.search_service.search_conversations",
+        "app.modules.search.api.search_service.search_conversations",
         AsyncMock(return_value=(fake_results, 42)),  # total=42, but only 5 returned
     ):
         client = TestClient(app)
@@ -1230,7 +1230,7 @@ async def test_suggestions_repo_delete_expired():
 
 
 def test_search_snippet_exact_match():
-    from app.repositories.search import _snippet
+    from app.modules.search.repository import _snippet
 
     content = "The quick brown fox jumps over the lazy dog"
     result = _snippet(content, "fox", 120)
@@ -1238,7 +1238,7 @@ def test_search_snippet_exact_match():
 
 
 def test_search_snippet_no_match():
-    from app.repositories.search import _snippet
+    from app.modules.search.repository import _snippet
 
     content = "Hello world"
     result = _snippet(content, "zzz", 120)
@@ -1246,7 +1246,7 @@ def test_search_snippet_no_match():
 
 
 def test_search_snippet_truncation():
-    from app.repositories.search import _snippet
+    from app.modules.search.repository import _snippet
 
     content = "a" * 300 + "needle" + "b" * 300
     result = _snippet(content, "needle", 120)

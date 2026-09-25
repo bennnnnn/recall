@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.models.orm import Chat, Message
-from app.repositories import search as search_repo
+from app.modules.search import repository as search_repo
 from app.repositories import users as users_repo
 
 

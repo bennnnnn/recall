@@ -5,6 +5,7 @@ import { integrationsApi } from "@/features/integrations/api";
 import { jobSearchApi } from "@/features/job-search/api";
 import { learningApi } from "@/features/learning/api";
 import { memoriesApi } from "@/features/memory/api";
+import { searchApi } from "@/features/search/api";
 import { speechApi } from "@/features/speech/api";
 import { todosApi } from "@/features/todos/api";
 import { accountApi } from "@/lib/api/account";
@@ -37,6 +38,7 @@ export const api = {
   ...chatsApi,
   ...memoriesApi,
   ...homeApi,
+  ...searchApi,
   ...discoverApi,
   ...todosApi,
   ...learningApi,
