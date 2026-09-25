@@ -285,21 +285,9 @@ def test_let_x_then_evaluate_is_not_solve_x_equals_five() -> None:
     assert bare.kind == "equation"
 
 
-def test_chained_equals_solves_the_intended_linear() -> None:
-    settings = Settings(math_tools_enabled=True)
-    intent = math_tools.extract_math_intent("Solve 2x + 3 = 3 = 7")
-    assert intent is not None
-    assert intent.kind == "equation"
-    lhs = intent.lhs
-    rhs = intent.rhs
-    assert lhs is not None and rhs is not None
-    assert lhs.replace(" ", "") == "2x+3"
-    assert rhs.replace(" ", "") == "7"
-    block = math_tools._build_verified_block(intent, settings)
-    assert block is not None
-    assert block.canonical_answer is not None
-    assert "0" not in block.canonical_answer.split("=")[-1]
-    assert "2" in block.canonical_answer
+def test_chained_equals_is_not_collapsed_into_one_equation() -> None:
+    """``2x + 3 = 3 = 7`` must not be rewritten as ``2x + 3 = 7``."""
+    assert math_tools.extract_math_intent("Solve 2x + 3 = 3 = 7") is None
 
 
 def test_extract_bare_equation_intent() -> None:
