@@ -15,18 +15,18 @@ import {
   type ActionFeedbackTone,
 } from "@/contexts/actionFeedbackCore";
 import { notifySuccess, notifyWarning } from "@/lib/haptics";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 
 type FeedbackItem = {
   id: number;
   message: string;
   tone: ActionFeedbackTone;
-  icon: IoniconName;
+  icon: IconName;
 };
 
-const DEFAULT_ICONS: Record<ActionFeedbackTone, IoniconName> = {
-  success: "checkmark-circle",
-  info: "information-circle",
+const DEFAULT_ICONS: Record<ActionFeedbackTone, IconName> = {
+  success: "check-circle-filled",
+  info: "info",
   warning: "warning",
   error: "alert-circle",
 };

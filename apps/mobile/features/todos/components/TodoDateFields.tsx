@@ -17,7 +17,7 @@ import {
   remindAtDate,
 } from "@/features/todos/model/reminderTiming";
 import { ensureNotificationPermission } from "@/features/todos/model/todoReminders";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { useTheme } from "@/lib/theme";
 
 export type SchedulePanel = "date" | "time" | "repeat";
@@ -92,7 +92,7 @@ export function TodoDateFields({
       <>
       <View style={s.reviewList}>
         <ReviewRow
-          icon="calendar-outline"
+          icon="calendar"
           label={t("todos.date_label")}
           value={dateLabel}
           disabled={disabled}
@@ -100,7 +100,7 @@ export function TodoDateFields({
           accessibilityLabel={dueDate ? t("todos.change_due") : t("todos.add_date")}
         />
         <ReviewRow
-          icon="time-outline"
+          icon="clock"
           label={t("todos.time_label")}
           value={timeLabel}
           disabled={disabled}
@@ -109,7 +109,7 @@ export function TodoDateFields({
         />
         {remindAt ? (
           <ReviewRow
-            icon="notifications-outline"
+            icon="bell"
             label={t("todos.remind_at")}
             value={formatClockTime(remindAt)}
             disabled={disabled || savingLead}
@@ -121,7 +121,7 @@ export function TodoDateFields({
           />
         ) : null}
         <ReviewRow
-          icon="repeat-outline"
+          icon="repeat"
           label={t("todos.repeat_label")}
           value={repeatLabel}
           disabled={disabled}
@@ -130,7 +130,7 @@ export function TodoDateFields({
         />
         {overlap ? (
           <View style={s.overlapNote}>
-            <Icon name="information-circle-outline" size={16} color={C.danger} />
+            <Icon name="info" size={IconSize.xs} color={C.danger} />
             <Text style={s.overlapNoteText}>
               {t("todos.overlap_inline", { title: overlap.content })}
             </Text>
@@ -171,7 +171,7 @@ export function TodoDateFields({
           accessibilityRole="button"
           accessibilityLabel={dueDate ? t("todos.change_due") : t("todos.add_date")}
         >
-          <Icon name={dueDate ? "calendar" : "calendar-outline"} size={18} color={C.primary} />
+          <Icon name="calendar" size={IconSize.sm} color={C.primary} />
           <Text style={s.repeatFieldText}>{dateLabel}</Text>
         </Pressable>
         {dueDate ? (
@@ -182,7 +182,7 @@ export function TodoDateFields({
             accessibilityRole="button"
             accessibilityLabel={t("todos.remove_date")}
           >
-            <Icon name="close-circle" size={22} color={C.textTertiary} />
+            <Icon name="close-circle" size={IconSize.md} color={C.textTertiary} />
           </Pressable>
         ) : null}
       </View>
@@ -195,7 +195,7 @@ export function TodoDateFields({
         accessibilityRole="button"
         accessibilityLabel={t("todos.time_label")}
       >
-        <Icon name="time-outline" size={18} color={C.primary} />
+        <Icon name="clock" size={IconSize.sm} color={C.primary} />
         <Text style={s.repeatFieldText}>{timeLabel}</Text>
       </Pressable>
 
@@ -208,12 +208,12 @@ export function TodoDateFields({
         accessibilityLabel={`${t("todos.repeat_label")}, ${repeatLabel}`}
       >
         <Text style={s.repeatFieldText}>{repeatLabel}</Text>
-        <Icon name="chevron-forward" size={18} color={C.textTertiary} />
+        <Icon name="chevron-right" size={IconSize.sm} color={C.textTertiary} />
       </Pressable>
 
       {overlap ? (
         <View style={s.overlapNote}>
-          <Icon name="information-circle-outline" size={16} color={C.danger} />
+          <Icon name="info" size={IconSize.xs} color={C.danger} />
           <Text style={s.overlapNoteText}>
             {t("todos.overlap_inline", { title: overlap.content })}
           </Text>
@@ -232,7 +232,7 @@ function ReviewRow({
   onPress,
   accessibilityLabel,
 }: {
-  icon?: "calendar-outline" | "time-outline" | "notifications-outline" | "repeat-outline";
+  icon?: "calendar" | "clock" | "bell" | "repeat";
   label: string;
   value: string;
   disabled?: boolean;

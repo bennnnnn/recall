@@ -4,9 +4,6 @@ import { AttachmentTextViewer } from "@/features/attachments/components/Attachme
 import { fetchAttachmentBytes } from "@/features/attachments/model/fetchAttachmentBytes";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));

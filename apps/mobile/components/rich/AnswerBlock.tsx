@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -18,6 +17,8 @@ import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { Icon } from "@/ui/icons/Icon";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { content: string };
 
@@ -170,12 +171,11 @@ export function AnswerBlock({ content }: Props) {
             </Text>
           )}
         </View>
-        <Ionicons
+        <Icon
           testID="answer-success-check"
-          name="checkmark-circle"
-          size={22}
+          name="check-circle-filled"
+          size={IconSize.md}
           color={theme.success}
-          accessible={false}
           style={s.successCheck}
         />
       </View>

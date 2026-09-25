@@ -18,7 +18,7 @@ import {
   type PadCell,
 } from "@/lib/math/keyboardSymbols";
 import { Theme, useTheme } from "@/lib/theme";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
 
@@ -153,7 +153,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           accessibilityLabel={t("chat.math_keyboard_caret_left")}
           testID="math-key-caret-left"
         >
-          <Icon name="chevron-back" size={18} color={theme.primary} />
+          <Icon name="chevron-left" size={IconSize.sm} color={theme.primary} />
         </Pressable>
         <Pressable
           onPress={() => {
@@ -165,7 +165,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           accessibilityLabel={t("chat.math_keyboard_caret_right")}
           testID="math-key-caret-right"
         >
-          <Icon name="chevron-forward" size={18} color={theme.primary} />
+          <Icon name="chevron-right" size={IconSize.sm} color={theme.primary} />
         </Pressable>
         <Pressable
           onPress={() => {
@@ -177,7 +177,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           accessibilityLabel={t("chat.math_keyboard_paste")}
           testID="math-keyboard-paste"
         >
-          <Icon name="clipboard-outline" size={18} color={theme.primary} />
+          <Icon name="clipboard" size={IconSize.sm} color={theme.primary} />
         </Pressable>
         <Pressable
           onPress={onToggle}
@@ -310,7 +310,7 @@ function PadKey({
         keyHeight={keyHeight}
         accent
       >
-        <Icon name="backspace-outline" size={IconSize.sm} color={theme.text} />
+        <Icon name="backspace" size={IconSize.sm} color={theme.text} />
       </KeyBtn>
     );
   }

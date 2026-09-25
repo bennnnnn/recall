@@ -10,6 +10,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   item: AttachmentListItem;
@@ -51,7 +52,7 @@ export function GalleryColumnRow({
         />
       ) : (
         <View style={s.fileThumb}>
-          <Icon name="document-outline" size={28} color={C.textTertiary} />
+          <Icon name="file" size={IconSize.lg} color={C.textTertiary} />
         </View>
       )}
       <View style={s.meta}>

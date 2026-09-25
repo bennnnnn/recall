@@ -10,12 +10,13 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { Radius } from "@/lib/radius";
 import { SHADOW_COLOR } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 export type JobStageFilterValue =
   "all" | "applied" | "interviewing" | "offer" | "rejected";
@@ -33,24 +34,24 @@ type Anchor = { x: number; y: number; width: number; height: number };
 const OPTIONS: {
   value: JobStageFilterValue;
   labelKey: string;
-  icon: IoniconName;
+  icon: IconName;
 }[] = [
-  { value: "all", labelKey: "my_job.tab_all_stages", icon: "layers-outline" },
+  { value: "all", labelKey: "my_job.tab_all_stages", icon: "layers" },
   {
     value: "applied",
     labelKey: "my_job.tab_applied",
-    icon: "checkmark-circle-outline",
+    icon: "check-circle",
   },
   {
     value: "interviewing",
     labelKey: "my_job.tab_interviewing",
-    icon: "people-outline",
+    icon: "users",
   },
-  { value: "offer", labelKey: "my_job.tab_offers", icon: "trophy-outline" },
+  { value: "offer", labelKey: "my_job.tab_offers", icon: "trophy" },
   {
     value: "rejected",
     labelKey: "my_job.tab_rejected",
-    icon: "remove-circle-outline",
+    icon: "minus-circle",
   },
 ];
 
@@ -125,7 +126,7 @@ export function JobStageFilter({
         ) : null}
         <Icon
           name="chevron-down"
-          size={16}
+          size={IconSize.xs}
           color={active ? C.text : C.textSecondary}
         />
       </Pressable>
@@ -167,7 +168,7 @@ export function JobStageFilter({
                 >
                   <Icon
                     name={option.icon}
-                    size={20}
+                    size={IconSize.sm}
                     color={active ? C.primary : C.textSecondary}
                   />
                   <Text style={[s.optionLabel, active && s.optionLabelActive]}>
@@ -177,7 +178,7 @@ export function JobStageFilter({
                     <Text style={s.optionCount}>{counts[option.value]}</Text>
                   ) : null}
                   {active ? (
-                    <Icon name="checkmark" size={20} color={C.primary} />
+                    <Icon name="check" size={IconSize.sm} color={C.primary} />
                   ) : null}
                 </Pressable>
               );

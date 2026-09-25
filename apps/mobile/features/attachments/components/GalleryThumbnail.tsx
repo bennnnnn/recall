@@ -8,7 +8,7 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { attachmentRecordExists } from "@/lib/api";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { Theme, useTheme } from "@/lib/theme";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 
 type Props = {
@@ -105,7 +105,7 @@ function GalleryThumbnailBase({
       {failed ? (
         <View style={[s.fallback, dimension]}>
           {compact ? null : (
-            <Icon name="image-outline" size={IconSize.lg} color={C.textTertiary} />
+            <Icon name="image" size={IconSize.md} color={C.textTertiary} />
           )}
           <MediaLoadRetry
             compact={compact}

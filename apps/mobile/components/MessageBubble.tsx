@@ -35,7 +35,7 @@ import { useAuth, useAuthToken } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useTranslation } from "react-i18next";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -119,7 +119,7 @@ function UserActions({
         accessibilityLabel={t("common.copy")}
       >
         <Icon
-          name={copied ? "checkmark-outline" : "copy-outline"}
+          name={copied ? "check" : "copy"}
           size={IconSize.sm}
           color={copied ? theme.primary : theme.textSecondary}
         />
@@ -218,7 +218,7 @@ function AssistantActions({
             accessibilityLabel={t("common.copy")}
           >
             <Icon
-              name={copied ? "checkmark-outline" : "copy-outline"}
+              name={copied ? "check" : "copy"}
               size={IconSize.sm}
               color={copied ? theme.primary : theme.textSecondary}
             />
@@ -232,7 +232,8 @@ function AssistantActions({
             accessibilityLabel={t("chat.read_aloud_a11y")}
           >
             <Icon
-              name={speaking ? "volume-high" : "volume-high-outline"}
+              name="volume"
+              filled={speaking}
               size={IconSize.sm}
               color={speaking ? theme.primary : theme.textSecondary}
             />
@@ -247,7 +248,8 @@ function AssistantActions({
         accessibilityLabel={t("chat.thumbs_up_a11y")}
       >
         <Icon
-          name={feedback === "up" ? "thumbs-up" : "thumbs-up-outline"}
+          name="thumbs-up"
+          filled={feedback === "up"}
           size={IconSize.sm}
           color={feedback === "up" ? theme.primary : theme.textSecondary}
         />
@@ -260,7 +262,8 @@ function AssistantActions({
         accessibilityLabel={t("chat.thumbs_down_a11y")}
       >
         <Icon
-          name={feedback === "down" ? "thumbs-down" : "thumbs-down-outline"}
+          name="thumbs-down"
+          filled={feedback === "down"}
           size={IconSize.sm}
           color={feedback === "down" ? theme.danger : theme.textSecondary}
         />
@@ -281,7 +284,7 @@ function AssistantActions({
           {regenerating ? (
             <ActivityIndicator size="small" color={theme.primary} />
           ) : (
-            <Icon name="refresh-outline" size={IconSize.sm} color={theme.textSecondary} />
+            <Icon name="refresh" size={IconSize.sm} color={theme.textSecondary} />
           )}
         </Pressable>
       ) : null}

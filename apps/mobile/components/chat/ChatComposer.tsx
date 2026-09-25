@@ -50,7 +50,7 @@ import { shadowElevated } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 
 function noopComposerInput(_text: string) {}
 
@@ -280,7 +280,7 @@ export const ChatComposer = memo(function ChatComposer({
                 <Text style={s.scanHintCta}>{t("chat.math_paste_scan_cta")}</Text>
               </Pressable>
               <Pressable onPress={() => setScanHint(false)} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
-                <Icon name="close" size={16} color={theme.textSecondary} />
+                <Icon name="close" size={IconSize.xs} color={theme.textSecondary} />
               </Pressable>
             </View>
           ) : null}
@@ -293,7 +293,7 @@ export const ChatComposer = memo(function ChatComposer({
                 accessibilityLabel={t("chat.math_keyboard_show")}
                 testID="math-keyboard-toggle"
               >
-                <Icon name="keypad-outline" size={18} color={theme.primary} />
+                <Icon name="calculator" size={IconSize.sm} color={theme.primary} />
               </Pressable>
             ) : null}
           <View
@@ -330,7 +330,7 @@ export const ChatComposer = memo(function ChatComposer({
                   testID="composer-expand"
                 >
                   <Icon
-                    name={composerExpanded ? "contract-outline" : "expand-outline"}
+                    name={composerExpanded ? "collapse" : "expand"}
                     size={IconSize.sm}
                     color={theme.textSecondary}
                   />
@@ -364,8 +364,8 @@ export const ChatComposer = memo(function ChatComposer({
                   <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
                   <Icon
-                    name="add"
-                    size={IconSize.lg}
+                    name="plus"
+                    size={IconSize.md}
                     color={theme.primary}
                     testID="composer-attachment-add-icon"
                   />
@@ -471,7 +471,7 @@ export const ChatComposer = memo(function ChatComposer({
                     accessibilityRole="button"
                     accessibilityLabel={t("chat.stop_a11y")}
                   >
-                    <Icon name="stop" size={14} color={theme.onPrimary} />
+                    <Icon name="stop" size={IconSize.xxs} color={theme.onPrimary} />
                   </Pressable>
                 ) : (
                   <>
@@ -518,7 +518,7 @@ export const ChatComposer = memo(function ChatComposer({
                         ) : (
                           <Icon
                             name="arrow-up"
-                            size={18}
+                            size={IconSize.sm}
                             color={isOffline ? theme.textTertiary : theme.onPrimary}
                           />
                         )}

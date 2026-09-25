@@ -2,13 +2,14 @@ import { useMemo, type ReactNode } from "react";
 import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 
 import { Icon } from "../icons/Icon";
-import { IconSize, type IoniconName } from "@/lib/icons";
+import type { IconName } from "../icons/names";
+import { IconSize } from "../icons/sizes";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
-  name?: IoniconName;
-  /** Custom glyph from `@/lib/icons` (e.g. MenuIcon) — overrides `name` when set. */
+  name?: IconName;
+  /** Custom drawing (e.g. a BrandMark) — overrides `name` when set. */
   icon?: ReactNode;
   onPress: () => void;
   accessibilityLabel: string;

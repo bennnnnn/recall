@@ -34,6 +34,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
+import { IconSize } from "@/ui/icons/sizes";
 
 export default function GalleryScreen() {
   const { t } = useTranslation();
@@ -119,7 +120,7 @@ export default function GalleryScreen() {
           }
         >
           <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
-            <Icon name="document-outline" size={32} color={C.textTertiary} />
+            <Icon name="file" size={IconSize.xl} color={C.textTertiary} />
             <Text style={s.fileLabel} numberOfLines={1}>
               {fileName}
             </Text>
@@ -186,7 +187,7 @@ export default function GalleryScreen() {
           ListEmptyComponent={
             <StateView
               variant="empty"
-              icon="library-outline"
+              icon="images"
               title={t(galleryEmptyKey(filter, searchQuery))}
               message={
                 searchQuery.trim()

@@ -10,6 +10,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   attachment: PendingAttachment;
@@ -33,7 +34,7 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
       accessibilityState={{ busy: Boolean(uploading) }}
     >
       <View style={s.fileIcon}>
-        <Icon name="document-outline" size={18} color={C.primary} />
+        <Icon name="file" size={IconSize.sm} color={C.primary} />
       </View>
       <Text style={s.fileName} numberOfLines={1}>
         {attachment.fileName}
@@ -47,7 +48,7 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
           accessibilityRole="button"
           accessibilityLabel={t("chat.remove_attachment_a11y")}
         >
-          <Icon name="close-circle" size={18} color={C.textTertiary} />
+          <Icon name="close-circle" size={IconSize.sm} color={C.textTertiary} />
         </Pressable>
       )}
     </View>
@@ -97,7 +98,7 @@ function ComposerImagePreview({ attachment, uploading, onRemove }: Props) {
         disabled={uploading}
       >
         <View style={s.removeBtnCircle}>
-          <Icon name="close" size={14} color={C.text} />
+          <Icon name="close" size={IconSize.xxs} color={C.text} />
         </View>
       </Pressable>
     </View>

@@ -3,13 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "../icons/Icon";
 import { Button } from "../controls/Button";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "../icons/names";
+import { IconSize } from "../icons/sizes";
 import { tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
-
-type IconName = IoniconName;
 
 type Props = {
   variant: "loading" | "error" | "empty";
@@ -46,13 +45,13 @@ export function StateView({
   }
 
   const defaultIcon: IconName =
-    variant === "error" ? "alert-circle-outline" : "folder-open-outline";
+    variant === "error" ? "alert-circle" : "folder-open";
 
   return (
     <View style={s.wrap}>
       <Icon
         name={icon ?? defaultIcon}
-        size={compact ? 32 : 48}
+        size={compact ? IconSize.xl : IconSize.hero}
         color={theme.textTertiary}
         style={s.icon}
       />

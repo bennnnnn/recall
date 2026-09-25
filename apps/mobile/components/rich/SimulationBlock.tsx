@@ -49,6 +49,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 export const SIMULATION_PAD = 24;
 export const SIMULATION_HEIGHT = 240;
@@ -332,7 +333,7 @@ export function SimulationBlock({ content }: Props) {
           <Icon
             testID={isPlaying ? "simulation-stop-symbol" : "simulation-play-symbol"}
             name={isPlaying ? "pause" : "play"}
-            size={20}
+            size={IconSize.sm}
             color={theme.primary}
           />
         </Pressable>

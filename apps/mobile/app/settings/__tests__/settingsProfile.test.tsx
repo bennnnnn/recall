@@ -9,7 +9,6 @@ const mockUpdateUser = jest.fn();
 const mockPickProfilePhoto = jest.fn();
 const mockUploadPhoto = jest.fn();
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));

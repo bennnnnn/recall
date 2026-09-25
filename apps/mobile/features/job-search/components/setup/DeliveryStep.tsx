@@ -5,6 +5,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { useTheme } from "@/lib/theme";
 
 import { FieldLabel, useSetupStyles } from "./setupShared";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   count: 5 | 10 | 15;
@@ -39,7 +40,7 @@ export function DeliveryStep({
         <Text style={s.reviewTitle}>{t("my_job.review_title")}</Text>
         {summary.map((line) => (
           <View key={line} style={s.reviewRow}>
-            <Icon name="checkmark-circle" size={17} color={C.primary} />
+            <Icon name="check-circle-filled" size={IconSize.xs} color={C.primary} />
             <Text style={s.reviewText}>{line}</Text>
           </View>
         ))}
@@ -60,7 +61,7 @@ export function DeliveryStep({
           <Text style={s.selectValue} numberOfLines={1}>
             {count} {t("my_job.count_jobs")}
           </Text>
-          <Icon name="chevron-down" size={18} color={C.textTertiary} />
+          <Icon name="chevron-down" size={IconSize.sm} color={C.textTertiary} />
         </Pressable>
       </View>
 
@@ -79,7 +80,7 @@ export function DeliveryStep({
           <Text style={s.selectValue} numberOfLines={1}>
             {frequencyLabel}
           </Text>
-          <Icon name="chevron-down" size={18} color={C.textTertiary} />
+          <Icon name="chevron-down" size={IconSize.sm} color={C.textTertiary} />
         </Pressable>
         {!isPro ? (
           <Text style={s.helper}>{t("my_job.frequency_free_note")}</Text>
@@ -95,13 +96,13 @@ export function DeliveryStep({
           accessibilityRole="button"
         >
           <View style={s.dateIcon}>
-            <Icon name="calendar-outline" size={22} color={C.primary} />
+            <Icon name="calendar" size={IconSize.md} color={C.primary} />
           </View>
           <View style={s.dateCopy}>
             <Text style={s.dateTitle}>{timeLabel}</Text>
             <Text style={s.dateMeta}>{t("my_job.first_delivery_meta")}</Text>
           </View>
-          <Icon name="chevron-down" size={19} color={C.textTertiary} />
+          <Icon name="chevron-down" size={IconSize.sm} color={C.textTertiary} />
         </Pressable>
       </View>
     </>

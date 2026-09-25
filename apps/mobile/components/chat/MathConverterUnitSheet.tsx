@@ -13,6 +13,7 @@ import {
   UNITS_BY_CATEGORY,
   type UnitCategory,
 } from "@/lib/unitConverter";
+import { IconSize } from "@/ui/icons/sizes";
 
 /** Fixed so Length / Temp / Volume don't bounce the sheet when the list length changes. */
 const UNIT_PICKER_SHEET_HEIGHT = 520;
@@ -58,7 +59,7 @@ export function MathConverterUnitSheet({
           accessibilityRole="button"
           accessibilityLabel={t("common.close")}
         >
-          <Icon name="close" size={20} color={theme.textSecondary} />
+          <Icon name="close" size={IconSize.sm} color={theme.textSecondary} />
         </Pressable>
       </View>
       <ScrollView

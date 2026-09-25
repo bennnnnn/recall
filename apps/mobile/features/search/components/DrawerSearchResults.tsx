@@ -9,6 +9,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import type { SearchResult } from "@/lib/api";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type ChromeProps = {
   hasSearchQuery: boolean;
@@ -66,12 +67,12 @@ export function DrawerSearchResultRow({ result, onOpenChat }: RowProps) {
         <Icon
           name={
             result.match_type === "title"
-              ? "chatbubble-outline"
+              ? "message"
               : result.role === "user"
-                ? "person-outline"
-                : "sparkles-outline"
+                ? "user"
+                : "sparkles"
           }
-          size={14}
+          size={IconSize.xxs}
           color={result.match_type === "title" ? theme.primary : theme.textSecondary}
         />
         <Text style={s.searchResultTitle} numberOfLines={1}>

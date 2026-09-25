@@ -11,6 +11,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   values: string[];
@@ -89,14 +90,14 @@ export function SearchableMultiSelect({
         disabled={disabled}
         accessibilityRole="button"
       >
-        <Icon name="search" size={18} color={C.textTertiary} />
+        <Icon name="search" size={IconSize.sm} color={C.textTertiary} />
         <Text
           style={values.length > 0 ? s.fieldValue : s.fieldPlaceholder}
           numberOfLines={2}
         >
           {values.length > 0 ? values.join(", ") : placeholder}
         </Text>
-        <Icon name="chevron-down" size={18} color={C.textTertiary} />
+        <Icon name="chevron-down" size={IconSize.sm} color={C.textTertiary} />
       </Pressable>
 
       {values.length > 0 ? (
@@ -112,7 +113,7 @@ export function SearchableMultiSelect({
                 accessibilityLabel={t("my_job.role_remove_a11y", { role: value })}
                 style={({ pressed }) => [s.chipRemove, pressed && s.pressed]}
               >
-                <Icon name="close" size={14} color={C.primary} />
+                <Icon name="close" size={IconSize.xxs} color={C.primary} />
               </Pressable>
             </View>
           ))}
@@ -158,7 +159,7 @@ export function SearchableMultiSelect({
                   onPress={() => addValue(trimmed)}
                   accessibilityRole="button"
                 >
-                  <Icon name="pencil-outline" size={18} color={C.textSecondary} />
+                  <Icon name="pencil" size={IconSize.sm} color={C.textSecondary} />
                   <Text style={s.customText} numberOfLines={1}>
                     {t("my_job.role_add_custom", { text: trimmed })}
                   </Text>
@@ -176,7 +177,7 @@ export function SearchableMultiSelect({
                 disabled={atMax}
                 accessibilityRole="button"
               >
-                <Icon name="add-circle-outline" size={20} color={C.primary} />
+                <Icon name="plus-circle" size={IconSize.sm} color={C.primary} />
                 <Text style={s.sheetRowText} numberOfLines={1}>
                   {item}
                 </Text>

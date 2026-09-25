@@ -40,27 +40,27 @@ export function GalleryItemActionsSheet({
       contentContainerStyle={panelStyle}
     >
       <ActionSheetRow
-        icon="attach-outline"
+        icon="attach"
         label={t("gallery.use_in_chat")}
         onPress={onUseInChat}
         theme={theme}
       />
       {canOpenChat ? (
         <ActionSheetRow
-          icon="chatbubble-outline"
+          icon="message"
           label={t("gallery.open_chat")}
           onPress={onOpenChat}
           theme={theme}
         />
       ) : null}
       <ActionSheetRow
-        icon="share-outline"
+        icon="share"
         label={t("gallery.share")}
         onPress={onShare}
         theme={theme}
       />
       <ActionSheetRow
-        icon="trash-outline"
+        icon="trash"
         label={t("common.delete")}
         onPress={onDelete}
         theme={theme}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Keyboard, StyleSheet, Text, type ImageSourcePropType } from "react-native";
+import { Keyboard, StyleSheet, Text } from "react-native";
 import type { ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -11,14 +11,6 @@ import { Space } from "@/lib/space";
 
 type IconName = ComponentProps<typeof ActionSheetRow>["icon"];
 
-const menuIcons = {
-  share: require("@/assets/menu-icons/share.png") as ImageSourcePropType,
-  rename: require("@/assets/menu-icons/rename.png") as ImageSourcePropType,
-  pin: require("@/assets/menu-icons/pin.png") as ImageSourcePropType,
-  archive: require("@/assets/menu-icons/archive.png") as ImageSourcePropType,
-  pdf: require("@/assets/menu-icons/pdf.png") as ImageSourcePropType,
-  pdfDark: require("@/assets/menu-icons/pdf-dark.png") as ImageSourcePropType,
-};
 
 type Props = {
   visible: boolean;
@@ -40,8 +32,6 @@ type Props = {
 type Action = {
   key: string;
   icon: IconName;
-  image?: ImageSourcePropType;
-  preserveImageColor?: boolean;
   label: string;
   onPress: () => void;
   danger?: boolean;
@@ -74,8 +64,7 @@ export function ChatActionsSheet({
     const rows: Action[] = [
       {
         key: "share",
-        icon: "share-outline",
-        image: menuIcons.share,
+        icon: "share",
         label: t("chat.share"),
         onPress: onShare,
       },
@@ -83,25 +72,21 @@ export function ChatActionsSheet({
     if (onExportPdf) {
       rows.push({
         key: "export-pdf",
-        icon: "document-text-outline",
-        image: theme.isDark ? menuIcons.pdfDark : menuIcons.pdf,
-        preserveImageColor: true,
+        icon: "file-text",
         label: t("chat.export_pdf"),
         onPress: onExportPdf,
       });
     }
     rows.push({
       key: "rename",
-      icon: "create-outline",
-      image: menuIcons.rename,
+      icon: "pencil",
       label: t("chat.rename"),
       onPress: onRename,
     });
     if (!archived) {
       rows.push({
         key: "pin",
-        icon: "pin-outline",
-        image: menuIcons.pin,
+        icon: pinned ? "pin-off" : "pin",
         label: pinned ? t("chat.unpin") : t("chat.pin"),
         onPress: onTogglePin,
       });
@@ -109,8 +94,7 @@ export function ChatActionsSheet({
     if (onToggleArchive) {
       rows.push({
         key: "archive",
-        icon: archived ? "arrow-undo-outline" : "archive-outline",
-        image: archived ? undefined : menuIcons.archive,
+        icon: archived ? "unarchive" : "archive",
         label: archived ? t("chat.unarchive") : t("chat.archive"),
         onPress: onToggleArchive,
       });
@@ -118,14 +102,14 @@ export function ChatActionsSheet({
     if (onSelectChats) {
       rows.push({
         key: "select",
-        icon: "checkbox-outline",
+        icon: "select",
         label: t("drawer.select"),
         onPress: onSelectChats,
       });
     }
     rows.push({
       key: "delete",
-      icon: "trash-outline",
+      icon: "trash",
       label: t("common.delete"),
       onPress: onDelete,
       danger: true,
@@ -142,7 +126,6 @@ export function ChatActionsSheet({
     onTogglePin,
     pinned,
     t,
-    theme.isDark,
   ]);
 
   return (
@@ -165,8 +148,6 @@ export function ChatActionsSheet({
         <ActionSheetRow
           key={action.key}
           icon={action.icon}
-          image={action.image}
-          preserveImageColor={action.preserveImageColor}
           label={action.label}
           onPress={action.onPress}
           theme={theme}

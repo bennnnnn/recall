@@ -31,7 +31,6 @@ jest.mock("expo-file-system/legacy", () => ({
   writeAsStringAsync: jest.fn(),
   EncodingType: { UTF8: "utf8" },
 }));
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("@/components/WebPreviewCodeBlock", () => ({
   WebPreviewCodeBlock: "WebPreviewCodeBlock",
 }));

@@ -11,7 +11,7 @@ import {
 } from "@/features/integrations/model/calendarProposal";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -38,7 +38,7 @@ export function CalendarProposalCard({ proposal, disabled }: Props) {
   return (
     <View style={s.card}>
       <View style={s.header}>
-        <Icon name="calendar-outline" size={IconSize.sm} color={theme.primary} />
+        <Icon name="calendar" size={IconSize.sm} color={theme.primary} />
         <Text style={s.title} numberOfLines={2}>
           {proposal.title}
         </Text>
@@ -52,7 +52,7 @@ export function CalendarProposalCard({ proposal, disabled }: Props) {
       {error ? <Text style={s.error}>{error}</Text> : null}
       {done ? (
         <View style={s.doneRow}>
-          <Icon name="checkmark-circle" size={18} color={theme.primary} />
+          <Icon name="check-circle-filled" size={IconSize.sm} color={theme.primary} />
           <Text style={s.doneText}>{t("calendar.proposal_added")}</Text>
         </View>
       ) : (

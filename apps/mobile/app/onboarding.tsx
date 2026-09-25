@@ -14,7 +14,7 @@ import { Graphic } from "@/lib/graphic";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 
 const FEATURES = [

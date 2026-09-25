@@ -8,10 +8,6 @@ import {
 } from "@/features/job-search/components/LocationFields";
 import { requestDevicePlace } from "@/lib/deviceLocation";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
 }));

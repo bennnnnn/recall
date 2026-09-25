@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { CountBadge } from "@/ui/feedback/CountBadge";
 import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/lib/chat/scrollLogic";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   visible: boolean;

@@ -7,7 +7,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import type { Chat } from "@/lib/api";
 import { displayChatTitle } from "@/lib/chat/title";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -85,14 +85,14 @@ export const ConversationRow = memo(function ConversationRow({
       {selectionMode ? (
         <View style={r.rowIcon}>
           <Icon
-            name={selected ? "checkbox" : "square-outline"}
+            name={selected ? "checkbox-checked" : "square"}
             size={IconSize.sm}
             color={selected ? theme.primary : theme.textTertiary}
           />
         </View>
       ) : chat.pinned ? (
         <View style={r.rowIcon}>
-          <Icon name="bookmark" size={16} color={theme.primary} />
+          <Icon name="bookmark" size={IconSize.xs} color={theme.primary} />
         </View>
       ) : null}
       <Text

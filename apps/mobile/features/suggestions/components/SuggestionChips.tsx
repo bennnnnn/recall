@@ -7,6 +7,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   suggestions: Suggestion[];
@@ -38,7 +39,7 @@ export function SuggestionChips({ suggestions, onSelect, onDismiss }: Props) {
               accessibilityLabel={label}
               accessibilityHint={t("chat.home.dismiss_suggestion")}
             >
-              <Icon name="bulb-outline" size={14} color={theme.primary} />
+              <Icon name="lightbulb" size={IconSize.xxs} color={theme.primary} />
               <Text style={s.chipText} numberOfLines={2}>
                 {label}
               </Text>

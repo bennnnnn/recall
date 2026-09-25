@@ -2,10 +2,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { LiveTalkComposerControls } from "@/features/speech/components/LiveTalkComposerControls";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,

@@ -8,6 +8,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 export function JobMatchReasons({
   match,
@@ -39,7 +40,7 @@ export function JobMatchReasons({
         <Text style={s.title}>{t("my_job.why_matches")}</Text>
         <Icon
           name={expanded ? "chevron-up" : "chevron-down"}
-          size={18}
+          size={IconSize.sm}
           color={C.textTertiary}
         />
       </Pressable>
@@ -54,7 +55,7 @@ export function JobMatchReasons({
           ))}
           {match.gap ? (
             <View style={[s.reasonRow, reasons.length > 0 && s.gapRow]}>
-              <Icon name="information-circle-outline" size={18} color={C.textTertiary} />
+              <Icon name="info" size={IconSize.sm} color={C.textTertiary} />
               <Text style={s.gapText}>{match.gap}</Text>
             </View>
           ) : null}

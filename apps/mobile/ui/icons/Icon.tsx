@@ -1,47 +1,101 @@
-import type { ComponentProps } from "react";
-import { Image, type ImageStyle, type StyleProp } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { memo, useId } from "react";
+import { View, type StyleProp, type ViewStyle } from "react-native";
+import Svg, { Circle, Ellipse, Line, Path, Polygon, Polyline, Rect } from "react-native-svg";
 
-import { boldIcons, type BoldIconName } from "@/assets/bold-icons";
-import { IconSize, inkIconColor, type IoniconName } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
 
+import { CUSTOM_GLYPHS, type CustomGlyph } from "./custom";
+import { GLYPHS, type GlyphNode, type LucideIconName } from "./glyphs.generated";
+import type { IconName } from "./names";
+import { IconSize, iconStroke } from "./sizes";
+
+const ELEMENTS = {
+  path: Path,
+  circle: Circle,
+  line: Line,
+  rect: Rect,
+  polyline: Polyline,
+  polygon: Polygon,
+  ellipse: Ellipse,
+} as const;
+
 type Props = {
-  /** Ionicons name, rendered as-is. The app standard is **outline** (unfilled):
-   *  pass the `-outline` variant (e.g. `"trash-outline"`). Use a filled glyph
-   *  only where a filled-vs-outline pair encodes active state (e.g. a pressed
-   *  toggle) — not as the default. */
-  name: IoniconName;
-  /** Pixel size. Defaults to `IconSize.sm` (settings-row / proposed ladder). */
+  name: IconName;
+  /** Pixel size. Defaults to `IconSize.sm` (20). */
   size?: number;
-  /** Explicit color. Omit to use the ink default (theme text)
-   *  — or set `danger` for the red ink. */
+  /** Explicit ink. Omit for the theme text color. */
   color?: string;
-  /** Use the danger ink color (red) instead of the default ink. */
+  /** Use the danger ink (red) instead of the default. */
   danger?: boolean;
-  style?: ComponentProps<typeof Ionicons>["style"];
+  /**
+   * Fill the closed shapes (active state: a pressed thumbs-up, a saved
+   * bookmark, a playing speaker). Open strokes stay lines.
+   */
+  filled?: boolean;
+  /** Line weight in on-screen points. Defaults to the shared weight for this size. */
+  strokeWidth?: number;
+  style?: StyleProp<ViewStyle>;
   testID?: string;
 };
 
-/**
- * One icon treatment for the app: a single solid glyph at the same weight as
- * the menu artwork. The stroke is thickened once (not stacked copies).
- */
-export function Icon({ name, size = IconSize.sm, color, danger, style, testID }: Props) {
-  const theme = useTheme();
-  const ink = color ?? inkIconColor(theme, danger);
-  const source = boldIcons[name as BoldIconName];
-  if (!source) {
-    return <Ionicons name={name} size={size} color={ink} style={style} testID={testID} />;
-  }
-  return (
-    <Image
-      source={source}
-      resizeMode="contain"
-      accessible={false}
-      testID={testID}
-      style={[{ width: size, height: size, tintColor: ink }, style as StyleProp<ImageStyle>]}
-      {...({ name, size, color: ink } as Record<string, unknown>)}
-    />
-  );
+function isClosed(tag: GlyphNode[0], attrs: Readonly<Record<string, string>>): boolean {
+  if (tag === "path") return /z\s*$/i.test(attrs.d ?? "");
+  return tag === "rect" || tag === "circle" || tag === "ellipse" || tag === "polygon";
 }
+
+/**
+ * The app's one icon: rounded line drawings at a single stroke weight, in
+ * the style of the ChatGPT menus. Decorative — the pressable around it owns
+ * the accessibility label (an SVG view is never focusable on its own).
+ */
+export const Icon = memo(function Icon({
+  name,
+  size = IconSize.sm,
+  color,
+  danger = false,
+  filled = false,
+  strokeWidth,
+  style,
+  testID,
+}: Props) {
+  const theme = useTheme();
+  const ink = color ?? (danger ? theme.danger : theme.text);
+  const unitStroke = ((strokeWidth ?? iconStroke(size)) * 24) / size;
+  const maskId = `icon-mask-${useId().replace(/[^A-Za-z0-9]/g, "")}`;
+  const custom: CustomGlyph | undefined = (CUSTOM_GLYPHS as Partial<Record<string, CustomGlyph>>)[name];
+  const nodes = custom ? null : (GLYPHS[name as LucideIconName] as readonly GlyphNode[]);
+
+  return (
+    <View
+      style={[{ width: size, height: size }, style]}
+      testID={testID}
+      pointerEvents="none"
+      // Exposed for tests: which glyph, at what size, in what ink.
+      {...({ name, size, color: ink } as object)}
+    >
+      <Svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={ink}
+        strokeWidth={unitStroke}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {custom
+          ? custom({ color: ink, strokeWidth: unitStroke, maskId })
+          : nodes?.map(([tag, attrs], index) => {
+              const Element = ELEMENTS[tag];
+              return (
+                <Element
+                  key={index}
+                  {...attrs}
+                  fill={filled && isClosed(tag, attrs) ? ink : "none"}
+                />
+              );
+            })}
+      </Svg>
+    </View>
+  );
+});

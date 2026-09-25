@@ -9,6 +9,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 /**
  * Search-card body: one row per profile field — icon + caption label on the
@@ -23,7 +24,7 @@ export function SearchProfileFields({ profile }: { profile: JobSearchProfile }) 
       {searchProfileFields(profile, t).map((field) => (
         <View key={field.key} style={s.row}>
           <View style={s.label}>
-            <Icon name={field.icon} size={14} color={C.textTertiary} />
+            <Icon name={field.icon} size={IconSize.xxs} color={C.textTertiary} />
             <Text style={s.labelText}>{field.label}</Text>
           </View>
           <View style={s.values}>

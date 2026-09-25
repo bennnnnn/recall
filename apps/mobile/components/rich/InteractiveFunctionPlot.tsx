@@ -42,7 +42,7 @@ import { CODE_FONT } from "@/lib/fonts";
 import { formatGraphExpr, type GraphSpec } from "@/lib/math/graphBlock";
 import { defaultInteractiveBounds, expandGraphView } from "@/lib/math/graphViewport";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
@@ -242,7 +242,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
           />
         )}
         <View style={explorerStyles.expandBadge} pointerEvents="none">
-          <Icon name="expand-outline" size={16} color={theme.textSecondary} />
+          <Icon name="expand" size={IconSize.xs} color={theme.textSecondary} />
         </View>
       </Pressable>
       {open ? null : seriesEditor(cardDrawn, "card")}
@@ -356,7 +356,7 @@ function ExplorerModal({
                     hitSlop={8}
                     style={styles.closeBtn}
                   >
-                    <Icon name="close-outline" size={IconSize.lg} color={theme.text} />
+                    <Icon name="close" size={IconSize.md} color={theme.text} />
                   </Pressable>
                 </View>
               </GestureDetector>
@@ -464,7 +464,7 @@ function SeriesList({
           accessibilityLabel={t("rich.graph_add_function")}
           style={styles.addBtn}
         >
-          <Icon name="add-outline" size={16} color={theme.primary} />
+          <Icon name="plus" size={IconSize.xs} color={theme.primary} />
           <Text style={styles.addText}>{t("rich.graph_add_function")}</Text>
         </Pressable>
       ) : null}
@@ -534,8 +534,8 @@ function SeriesRow({
             style={styles.iconBtn}
           >
             <Icon
-              name={row.visible ? "eye-outline" : "eye-off-outline"}
-              size={18}
+              name={row.visible ? "eye" : "eye-off"}
+              size={IconSize.sm}
               color={theme.textSecondary}
             />
           </Pressable>
@@ -547,7 +547,7 @@ function SeriesRow({
             hitSlop={8}
             style={styles.iconBtn}
           >
-            <Icon name="trash-outline" size={18} color={theme.textSecondary} />
+            <Icon name="trash" size={IconSize.sm} color={theme.textSecondary} />
           </Pressable>
         </>
       )}

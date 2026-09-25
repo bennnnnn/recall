@@ -12,7 +12,7 @@ import { invalidateGalleryCache } from "@/features/attachments/model/galleryList
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { archiveBulkTargets } from "@/lib/drawerChatSelection";
 import { notifyDestructive } from "@/lib/haptics";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type Params = {
@@ -23,7 +23,7 @@ type Params = {
   moveChatArchiveState: (chatId: string, archived: boolean) => void;
   removeChatFromGroupsById: (chatId: string) => void;
   reloadChats: () => void;
-  showActionBanner: (message: string, icon?: IoniconName) => void;
+  showActionBanner: (message: string, icon?: IconName) => void;
 };
 
 /** Multi-select bulk archive/delete for the drawer's selection mode. */
@@ -86,7 +86,7 @@ export function useChatBulkActions({
                   if (currentView()) reportRecoverableError(feedback, t("chat.archive_failed"));
                 } else if (currentView()) {
                   if (archivedCount > 0) {
-                    showActionBanner(t("drawer.bulk_archived_toast", { count: archivedCount }), "archive-outline");
+                    showActionBanner(t("drawer.bulk_archived_toast", { count: archivedCount }), "archive");
                   }
                   onSuccess?.();
                 }
@@ -141,7 +141,7 @@ export function useChatBulkActions({
                   if (currentView()) reportRecoverableError(feedback, t("chat.delete_failed"));
                 } else if (currentView()) {
                   notifyDestructive();
-                  showActionBanner(t("drawer.bulk_deleted_toast", { count: deletedIds.length }), "trash-outline");
+                  showActionBanner(t("drawer.bulk_deleted_toast", { count: deletedIds.length }), "trash");
                   onSuccess?.();
                 }
               } finally { release(); }

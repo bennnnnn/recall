@@ -118,7 +118,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
     >
       <SettingsGroup styles={s}>
         <SettingsSwitchRow
-          icon="cube-outline"
+          icon="box"
           title={t("settings.memory")}
           subtitle={t("settings.memory_desc")}
           value={user?.memory_enabled ?? true}
@@ -130,7 +130,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
         />
         <View style={s.menuSeparator} />
         <SettingsSwitchRow
-          icon="shield-outline"
+          icon="shield"
           title={t("settings.memory_include_sensitive")}
           subtitle={t("settings.memory_include_sensitive_desc")}
           value={user?.memory_include_sensitive ?? false}
@@ -141,7 +141,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
         />
         <View style={s.menuSeparator} />
         <SettingsLinkRow
-          icon="book-outline"
+          icon="book"
           title={t("settings.memory_view")}
           value={
             memCount > 0
@@ -159,7 +159,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
       </SettingsGroup>
       <SettingsGroup styles={s}>
         <SettingsLinkRow
-          icon="trash-outline"
+          icon="trash"
           title={t("settings.memory_clear_all")}
           danger
           onPress={confirmClearAll}

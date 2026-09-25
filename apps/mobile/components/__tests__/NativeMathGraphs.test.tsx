@@ -2,7 +2,6 @@ import { render } from "@testing-library/react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));

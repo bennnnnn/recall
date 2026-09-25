@@ -3,7 +3,8 @@ import { StyleSheet, Text } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { CardShell } from "@/components/rich/CardShell";
-import { type IoniconName } from "@/lib/icons";
+import { BrandMark, type BrandName } from "@/ui/icons/brand";
+import { IconSize } from "@/ui/icons/sizes";
 import { SocialPlatform } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -12,13 +13,13 @@ type Props = { text: string; platform: SocialPlatform };
 
 function platformMeta(
   t: (key: string) => string,
-): Record<SocialPlatform, { label: string; icon: IoniconName }> {
+): Record<SocialPlatform, { label: string; brand?: BrandName }> {
   return {
-    twitter: { label: t("rich.post_draft_x"), icon: "logo-twitter" },
-    linkedin: { label: t("rich.post_draft_linkedin"), icon: "logo-linkedin" },
-    facebook: { label: t("rich.post_draft_facebook"), icon: "logo-facebook" },
-    instagram: { label: t("rich.post_draft_instagram"), icon: "logo-instagram" },
-    generic: { label: t("rich.social_post_draft"), icon: "megaphone-outline" },
+    twitter: { label: t("rich.post_draft_x"), brand: "x" },
+    linkedin: { label: t("rich.post_draft_linkedin"), brand: "linkedin" },
+    facebook: { label: t("rich.post_draft_facebook"), brand: "facebook" },
+    instagram: { label: t("rich.post_draft_instagram"), brand: "instagram" },
+    generic: { label: t("rich.social_post_draft") },
   };
 }
 
@@ -30,7 +31,15 @@ export function SocialPostCard({ text, platform }: Props) {
   const sanitized = useMemo(() => text.trim(), [text]);
 
   return (
-    <CardShell label={meta.label} copyText={sanitized} icon={meta.icon} accent={false}>
+    <CardShell
+      label={meta.label}
+      copyText={sanitized}
+      icon={meta.brand ? undefined : "megaphone"}
+      leading={
+        meta.brand ? <BrandMark name={meta.brand} size={IconSize.sm} color={theme.text} /> : undefined
+      }
+      accent={false}
+    >
       <Text style={s.body} selectable>
         {sanitized}
       </Text>

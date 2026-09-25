@@ -17,6 +17,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 const MAX_CHIP_ICONS = 3;
 
@@ -137,7 +138,7 @@ function SourceRow({
           </Text>
         ) : null}
       </View>
-      <Icon name="open-outline" size={16} color={theme.textSecondary} />
+      <Icon name="external-link" size={IconSize.xs} color={theme.textSecondary} />
     </Pressable>
   );
 }

@@ -4,10 +4,6 @@ import { GalleryColumnRow } from "@/features/attachments/components/GalleryColum
 import type { AttachmentListItem } from "@/lib/api";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,

@@ -8,7 +8,7 @@ import { useSettingsProposal } from "@/hooks/useSettingsProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -35,7 +35,7 @@ export function SettingsProposalCard({ proposal, disabled }: Props) {
   return (
     <View style={s.card}>
       <View style={s.header}>
-        <Icon name="options-outline" size={IconSize.sm} color={theme.primary} />
+        <Icon name="sliders" size={IconSize.sm} color={theme.primary} />
         <Text style={s.title}>{t("settings.proposal_title")}</Text>
       </View>
       {proposal.changes.map((change) => (
@@ -46,7 +46,7 @@ export function SettingsProposalCard({ proposal, disabled }: Props) {
       {error ? <Text style={s.error}>{error}</Text> : null}
       {done ? (
         <View style={s.doneRow}>
-          <Icon name="checkmark-circle" size={18} color={theme.primary} />
+          <Icon name="check-circle-filled" size={IconSize.sm} color={theme.primary} />
           <Text style={s.doneText}>{t("settings.proposal_applied")}</Text>
         </View>
       ) : (

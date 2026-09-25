@@ -8,7 +8,7 @@ import { openPlaceLink } from "@/lib/openPlaceLink";
 import { PlaceItem, resolvePlaceLinkUrl } from "@/lib/placesList";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -110,7 +110,7 @@ function PlaceDetailsSheet({
             ) : null}
           </View>
           <Pressable style={s.openBtn} onPress={openInMaps}>
-            <Icon name="map-outline" size={IconSize.sm} color={theme.onPrimary} />
+            <Icon name="map" size={IconSize.sm} color={theme.onPrimary} />
             <Text style={s.openBtnText}>{t("places.open_in_maps")}</Text>
           </Pressable>
         </>

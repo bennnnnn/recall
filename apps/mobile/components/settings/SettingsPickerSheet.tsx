@@ -11,6 +11,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Option = { key: string; label: string; disabled?: boolean; note?: string };
 
@@ -74,7 +75,7 @@ function PickerBody({
           >
             <Text style={[s.optionText, optionDisabled && s.optionTextDisabled]}>{option.label}</Text>
             {active ? (
-              <Icon name="checkmark" size={22} color={theme.primary} />
+              <Icon name="check" size={IconSize.md} color={theme.primary} />
             ) : option.note ? (
               <Text style={s.optionNote}>{option.note}</Text>
             ) : null}

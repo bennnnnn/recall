@@ -5,8 +5,8 @@ import { useTranslation } from "react-i18next";
 
 import { IconButton } from "@/ui/controls/IconButton";
 import { notifySuccess } from "@/lib/haptics";
-import { inkIconColor } from "@/lib/icons";
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   text: string;
@@ -18,7 +18,7 @@ type Props = {
 };
 
 const COPIED_RESET_MS = 1500;
-const ICON_SIZE = 20;
+const ICON_SIZE = IconSize.sm;
 
 export function CopyButton({
   text,
@@ -49,11 +49,11 @@ export function CopyButton({
   };
 
   const label = copied ? t("common.copied") : t("common.copy");
-  const ink = copied ? theme.primary : inkIconColor(theme);
+  const ink = copied ? theme.primary : theme.text;
 
   return (
     <IconButton
-      name={copied ? "checkmark-outline" : "copy-outline"}
+      name={copied ? "check" : "copy"}
       size={ICON_SIZE}
       color={ink}
       onPress={() => void onCopy()}

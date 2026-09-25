@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "../icons/Icon";
 import { ACTION_BANNER_MS } from "@/lib/feedbackTiming";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "../icons/names";
 import { Layer } from "@/lib/layer";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
@@ -19,10 +19,11 @@ import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Space } from "@/lib/space";
+import { IconSize } from "../icons/sizes";
 
 type Props = {
   message: string | null;
-  icon?: IoniconName;
+  icon?: IconName;
   tone?: ActionFeedbackTone;
   onDismiss: () => void;
   bottomOffset?: number;
@@ -32,7 +33,7 @@ export type ActionFeedbackTone = "success" | "info" | "warning" | "error";
 
 export function ActionBanner({
   message,
-  icon = "checkmark-circle",
+  icon = "check-circle-filled",
   tone = "success",
   onDismiss,
   bottomOffset = 24,
@@ -108,7 +109,7 @@ export function ActionBanner({
           accessibilityLiveRegion={liveRegion}
           accessibilityLabel={message}
         >
-          <Icon name={icon} size={18} color={iconColor} />
+          <Icon name={icon} size={IconSize.sm} color={iconColor} />
           <Text style={s.text} numberOfLines={2}>
             {message}
           </Text>

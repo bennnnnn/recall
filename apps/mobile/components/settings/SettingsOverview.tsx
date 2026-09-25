@@ -3,8 +3,9 @@ import { Pressable, Text, View } from "react-native";
 
 import { Icon } from "@/ui/icons/Icon";
 import { makeSettingsStyles } from "@/components/settings/settingsStyles";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 type SettingsOverviewGroupProps = {
   label?: string;
@@ -12,7 +13,7 @@ type SettingsOverviewGroupProps = {
 };
 
 type SettingsOverviewRowProps = {
-  icon: IoniconName;
+  icon: IconName;
   title: string;
   value?: string;
   onPress?: () => void;
@@ -51,7 +52,7 @@ export function SettingsOverviewRow({
   const content = (
     <>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Icon name={icon} size={26} color={color} />
+        <Icon name={icon} size={IconSize.md} color={color} />
       </View>
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, { color }]}>{title}</Text>

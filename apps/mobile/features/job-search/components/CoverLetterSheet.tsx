@@ -19,6 +19,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   visible: boolean;
@@ -60,7 +61,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
           accessibilityRole="button"
           accessibilityLabel={t("common.close")}
         >
-          <Icon name="close" size={18} color={C.textSecondary} />
+          <Icon name="close" size={IconSize.sm} color={C.textSecondary} />
         </Pressable>
       </View>
       {loading ? (
@@ -81,7 +82,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
               onPress={() => void copy()}
               accessibilityRole="button"
             >
-              <Icon name="copy-outline" size={18} color={C.textSecondary} />
+              <Icon name="copy" size={IconSize.sm} color={C.textSecondary} />
               <Text style={s.actionText}>{t("common.copy")}</Text>
             </Pressable>
             <Pressable
@@ -89,7 +90,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
               onPress={() => void share()}
               accessibilityRole="button"
             >
-              <Icon name="share-outline" size={18} color={C.onPrimary} />
+              <Icon name="share" size={IconSize.sm} color={C.onPrimary} />
               <Text style={[s.actionText, s.actionTextPrimary]}>
                 {t("my_job.cover_letter_share")}
               </Text>

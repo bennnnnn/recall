@@ -1,20 +1,17 @@
-import { Image, Pressable, StyleSheet, Text, type ImageSourcePropType } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 
 import { Icon } from "@/ui/icons/Icon";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { Theme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 /** Shared icon size for attach + chat/drawer action sheets. */
-export const ACTION_SHEET_ICON_SIZE = 20;
+export const ACTION_SHEET_ICON_SIZE = IconSize.sm;
 
 type Props = {
-  icon: IoniconName;
-  /** Artwork from the product icons, tinted to the row color. */
-  image?: ImageSourcePropType;
-  /** Keep the artwork's own colors. The PDF mark has white letters. */
-  preserveImageColor?: boolean;
+  icon: IconName;
   label: string;
   onPress: () => void;
   theme: Theme;
@@ -27,8 +24,6 @@ type Props = {
  */
 export function ActionSheetRow({
   icon,
-  image,
-  preserveImageColor = false,
   label,
   onPress,
   theme,
@@ -44,15 +39,7 @@ export function ActionSheetRow({
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      {image ? (
-        <Image
-          source={image}
-          style={[s.glyph, preserveImageColor ? null : { tintColor: color }]}
-          resizeMode="contain"
-        />
-      ) : (
-        <Icon name={icon} size={ACTION_SHEET_ICON_SIZE} color={color} />
-      )}
+      <Icon name={icon} size={ACTION_SHEET_ICON_SIZE} color={color} />
       <Text style={[s.label, danger && s.labelDanger]}>{label}</Text>
     </Pressable>
   );
@@ -75,10 +62,6 @@ function makeStyles(C: Theme) {
     },
     itemPressed: {
       backgroundColor: C.surfaceAlt,
-    },
-    glyph: {
-      width: ACTION_SHEET_ICON_SIZE,
-      height: ACTION_SHEET_ICON_SIZE,
     },
     label: {
       ...Type.navTitle,

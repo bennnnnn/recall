@@ -42,6 +42,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 /** Changing either breaks TrajectoryGraphTicks.test.tsx, which pins tick geometry. */
 export const TRAJECTORY_PAD = 40;
@@ -363,7 +364,7 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
           <Icon
             testID={isPlaying ? "trajectory-stop-symbol" : "trajectory-play-symbol"}
             name={isPlaying ? "pause" : "play"}
-            size={20}
+            size={IconSize.sm}
             color={theme.primary}
           />
         </Pressable>

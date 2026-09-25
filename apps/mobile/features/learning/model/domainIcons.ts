@@ -1,4 +1,4 @@
-import type { IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 
 /**
  * One icon per lesson-map theme. Shared between `LearningPathList` (the
@@ -10,35 +10,35 @@ import type { IoniconName } from "@/lib/icons";
  * `Immediate family`, `Extended family`, …) and they all share one icon.
  * Falls back to a generic book for any future domain not yet listed here.
  */
-const DOMAIN_ICONS: Record<string, IoniconName> = {
-  Greetings: "hand-left-outline",
-  "Numbers and time": "time-outline",
-  Family: "people-outline",
-  Food: "nutrition-outline",
-  Home: "home-outline",
-  Hotel: "bed-outline",
-  Travel: "airplane-outline",
-  "Daily life": "sunny-outline",
-  Feelings: "happy-outline",
-  "Everyday actions": "flash-outline",
-  Communication: "chatbubbles-outline",
-  Thinking: "bulb-outline",
-  Describing: "color-palette-outline",
-  "Conversation words": "chatbox-ellipses-outline",
-  "Face and eyes": "eye-outline",
-  "Body movement": "walk-outline",
-  Hands: "hand-right-outline",
-  "Body reactions": "pulse-outline",
-  "Eating and drinking": "restaurant-outline",
-  "Household actions": "water-outline",
-  "Mouth and body sounds": "megaphone-outline",
-  "Casual expressions": "sparkles-outline",
-  SAT: "school-outline",
+const DOMAIN_ICONS: Record<string, IconName> = {
+  Greetings: "hand",
+  "Numbers and time": "clock",
+  Family: "users",
+  Food: "apple",
+  Home: "house",
+  Hotel: "bed",
+  Travel: "plane",
+  "Daily life": "sun",
+  Feelings: "smile",
+  "Everyday actions": "zap",
+  Communication: "messages",
+  Thinking: "lightbulb",
+  Describing: "palette",
+  "Conversation words": "message-quote",
+  "Face and eyes": "eye",
+  "Body movement": "footprints",
+  Hands: "hand",
+  "Body reactions": "activity",
+  "Eating and drinking": "utensils",
+  "Household actions": "droplet",
+  "Mouth and body sounds": "megaphone",
+  "Casual expressions": "sparkles",
+  SAT: "graduation-cap",
 };
 
-const DEFAULT_DOMAIN_ICON: IoniconName = "book-outline";
+const DEFAULT_DOMAIN_ICON: IconName = "book";
 
-export function domainIcon(domain: string | null | undefined): IoniconName {
+export function domainIcon(domain: string | null | undefined): IconName {
   if (!domain) return DEFAULT_DOMAIN_ICON;
   return DOMAIN_ICONS[domain.trim()] ?? DEFAULT_DOMAIN_ICON;
 }

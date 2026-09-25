@@ -2,10 +2,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { GalleryItemActionsSheet } from "@/features/attachments/components/GalleryItemActionsSheet";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,

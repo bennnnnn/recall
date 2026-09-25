@@ -1,4 +1,4 @@
-import { IconSize } from "@/lib/icons/sizes";
+import { IconSize } from "@/ui/icons/sizes";
 import { Layer } from "@/lib/layer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -65,9 +65,13 @@ describe("type and space tokens", () => {
     expect(Radius.sheet).toBe(28);
     expect(Radius.dialog).toBe(28);
     expect(Radius.composer).toBe(24);
+    expect(IconSize.xxs).toBe(14);
+    expect(IconSize.xs).toBe(16);
     expect(IconSize.sm).toBe(20);
-    expect(IconSize.md).toBe(22);
-    expect(IconSize.lg).toBe(24);
+    expect(IconSize.md).toBe(24);
+    expect(IconSize.lg).toBe(28);
+    expect(IconSize.xl).toBe(40);
+    expect(IconSize.hero).toBe(56);
     expect(Layer.toast).toBe(9999);
     expect(Layer.drawer).toBeGreaterThan(Layer.composer);
     expect(Layer.composer).toBeGreaterThan(Layer.header);

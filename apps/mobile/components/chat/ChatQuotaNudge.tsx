@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import type { Theme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   styles: ChatScreenStyles;
@@ -28,8 +29,8 @@ export function ChatQuotaNudge({
     <View style={[s.quotaNudge, { bottom: bottomOffset }]}>
       <Pressable style={s.quotaNudgeBody} onPress={onUpgrade}>
         <Icon
-          name="flash-outline"
-          size={16}
+          name="zap"
+          size={IconSize.xs}
           color={theme.primary}
           style={s.quotaNudgeIcon}
         />
@@ -41,7 +42,7 @@ export function ChatQuotaNudge({
         <Text style={s.quotaNudgeCtaText}>{t("chat.quota_nudge_cta")}</Text>
       </Pressable>
       <Pressable onPress={onDismiss} hitSlop={8} style={s.quotaNudgeClose} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
-        <Icon name="close" size={16} color={theme.textTertiary} />
+        <Icon name="close" size={IconSize.xs} color={theme.textTertiary} />
       </Pressable>
     </View>
   );

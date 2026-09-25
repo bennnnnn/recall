@@ -10,7 +10,7 @@ import { tap } from "@/lib/haptics";
 import { cleanQuizWord } from "@/features/learning/model/parseVocabQuiz";
 import { speakWord } from "@/features/speech/model/pronunciation";
 import { useAuthToken } from "@/contexts/AuthContext";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import {
   cardMeaning,
   exampleSentences,
@@ -68,7 +68,7 @@ export function VocabCard({ card, language = "en", textScale = 1, onSpeak }: Pro
             accessibilityRole="button"
             accessibilityLabel={t("lesson.speak")}
           >
-            <Icon name="volume-medium-outline" size={IconSize.md} color={theme.onPrimary} />
+            <Icon name="volume" size={IconSize.md} color={theme.onPrimary} />
           </Pressable>
         </View>
         <Text style={s.meaning}>{meaning}</Text>

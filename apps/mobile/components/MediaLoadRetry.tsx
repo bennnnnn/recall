@@ -6,6 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   onRetry: () => void;
@@ -27,8 +28,8 @@ export function MediaLoadRetry({ onRetry, compact = false }: Props) {
       style={s.btn}
     >
       <Icon
-        name="refresh-outline"
-        size={compact ? 20 : 28}
+        name="refresh"
+        size={compact ? IconSize.sm : IconSize.lg}
         color={C.textSecondary}
       />
       {compact ? null : <Text style={s.label}>{t("common.retry")}</Text>}

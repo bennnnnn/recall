@@ -5,7 +5,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/ui/icons/Icon";
 import type { Learning } from "@/lib/api";
 import { resolveDailyGoal } from "@/features/learning/model/dailyGoals";
-import { IconSize, type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
+import { IconSize } from "@/ui/icons/sizes";
 import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { learningProjectTitle } from "@/features/learning/model/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
@@ -15,7 +16,7 @@ import { Space } from "@/lib/space";
 
 type Props = {
   project: Learning;
-  icon: IoniconName;
+  icon: IconName;
   onOpen: (projectId: string) => void;
   dailyLabel: string;
 };
@@ -68,7 +69,7 @@ export const LearningProjectCard = memo(function LearningProjectCard({
                 </Text>
               ) : null}
             </View>
-            <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
+            <Icon name="chevron-right" size={IconSize.sm} color={theme.textTertiary} />
           </View>
 
           {showLearningUi && stats ? (

@@ -19,7 +19,7 @@ import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri
 import { downloadChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
 import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -123,7 +123,7 @@ export function ChatMessagePdf({
         accessibilityRole="button"
       >
         <View style={s.iconWrap}>
-          <Icon name="document-text-outline" size={IconSize.md} color={theme.primary} />
+          <Icon name="file-text" size={IconSize.md} color={theme.primary} />
         </View>
         <View style={s.meta}>
           <Text style={s.name} numberOfLines={2}>
@@ -133,7 +133,7 @@ export function ChatMessagePdf({
             {indexFailed ? t("chat.file_index_failed") : indexed ? "PDF" : t("chat.file_indexing")}
           </Text>
         </View>
-        <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
+        <Icon name="chevron-right" size={IconSize.sm} color={theme.textTertiary} />
       </Pressable>
 
       {!compact && canRenderInline && WebView && canMount && previewHtml ? (

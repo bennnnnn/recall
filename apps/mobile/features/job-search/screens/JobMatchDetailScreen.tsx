@@ -32,6 +32,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 const STAGES: JobMatchStatus[] = [
   "new",
@@ -103,7 +104,7 @@ function JobMatchDetailView({
           accessibilityRole="button"
           accessibilityLabel={t("common.back")}
         >
-          <Icon name="chevron-back" size={22} color={C.text} />
+          <Icon name="chevron-left" size={IconSize.md} color={C.text} />
         </Pressable>
         <Text style={s.headerTitle} numberOfLines={1}>
           {match?.company ?? t("my_job.title")}
@@ -127,7 +128,7 @@ function JobMatchDetailView({
       ) : match == null ? (
         <StateView
           variant="empty"
-          icon="briefcase-outline"
+          icon="briefcase"
           title={t("my_job.detail_not_found")}
         />
       ) : (
@@ -163,7 +164,7 @@ function JobMatchDetailView({
               }}
               accessibilityRole="button"
             >
-              <Icon name="open-outline" size={18} color={C.primary} />
+              <Icon name="external-link" size={IconSize.sm} color={C.primary} />
               <Text style={[s.actionText, s.actionTextPrimary]}>{t("my_job.view_job")}</Text>
             </Pressable>
             <Pressable
@@ -180,8 +181,9 @@ function JobMatchDetailView({
               accessibilityState={{ selected: match.is_saved }}
             >
               <Icon
-                name={match.is_saved ? "bookmark" : "bookmark-outline"}
-                size={18}
+                name="bookmark"
+                filled={match.is_saved}
+                size={IconSize.sm}
                 color={match.is_saved ? C.primary : C.textSecondary}
               />
               <Text
@@ -208,8 +210,8 @@ function JobMatchDetailView({
               }}
             >
               <Icon
-                name="checkmark-circle-outline"
-                size={18}
+                name="check-circle"
+                size={IconSize.sm}
                 color={applicationStarted ? C.primary : C.textSecondary}
               />
               <Text
@@ -226,9 +228,9 @@ function JobMatchDetailView({
               onPress={() => void generateLetter()}
               accessibilityRole="button"
             >
-              <Icon name="sparkles-outline" size={18} color={C.primary} />
+              <Icon name="sparkles" size={IconSize.sm} color={C.primary} />
               <Text style={s.letterCtaText}>{t("my_job.cover_letter_cta")}</Text>
-              <Icon name="chevron-forward" size={16} color={C.textTertiary} />
+              <Icon name="chevron-right" size={IconSize.xs} color={C.textTertiary} />
             </Pressable>
           ) : null}
 
@@ -244,7 +246,7 @@ function JobMatchDetailView({
             <Text style={s.sectionTitle}>{t("my_job.stage_label")}</Text>
             <View style={s.stageValue}>
               <Text style={s.stageValueText}>{stageLabel(match.status)}</Text>
-              <Icon name="chevron-down" size={16} color={C.textTertiary} />
+              <Icon name="chevron-down" size={IconSize.xs} color={C.textTertiary} />
             </View>
           </Pressable>
 

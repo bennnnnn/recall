@@ -4,7 +4,6 @@ import { render } from "@testing-library/react-native";
 import { AttachmentLightboxChrome } from "@/features/attachments/components/AttachmentLightboxChrome";
 import { lightTheme as mockLightTheme, withAlpha } from "@/lib/theme";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));

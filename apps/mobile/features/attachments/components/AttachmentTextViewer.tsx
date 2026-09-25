@@ -17,7 +17,7 @@ import { fetchAttachmentBytes } from "@/features/attachments/model/fetchAttachme
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 
 const MAX_PREVIEW_CHARS = 200_000;
 
@@ -86,7 +86,7 @@ export function AttachmentTextViewer({
             onPress={onClose}
             accessibilityLabel={t("preview.close")}
             name="close"
-            size={IconSize.lg}
+            size={IconSize.md}
             color={theme.text}
           />
           <Text style={s.title} numberOfLines={1}>
@@ -95,7 +95,7 @@ export function AttachmentTextViewer({
           <IconButton
             onPress={onShare}
             accessibilityLabel={t("preview.share")}
-            name="share-outline"
+            name="share"
             size={IconSize.md}
             color={theme.primary}
           />

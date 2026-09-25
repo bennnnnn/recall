@@ -7,6 +7,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 export type CalendarNudge = { title: string; startAt: string };
 
@@ -29,7 +30,7 @@ export function CalendarNudgeCard({ event }: { event: CalendarNudge }) {
   return (
     <View style={s.card} accessibilityRole="summary">
       <View style={s.iconWrap}>
-        <Icon name="calendar-outline" size={20} color={C.primary} />
+        <Icon name="calendar" size={IconSize.sm} color={C.primary} />
       </View>
       <View style={s.body}>
         <Text style={s.eyebrow}>{t("calendar.google_meeting")}</Text>

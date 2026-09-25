@@ -92,7 +92,7 @@ export default function SettingsScreen() {
       >
         <View style={s.profileHeader}>
           <StackBackButton
-            icon="arrow-back"
+            icon="arrow-left"
             style={s.backButton}
           />
           <SettingsProfile />
@@ -101,13 +101,13 @@ export default function SettingsScreen() {
         <SettingsOverviewGroup label={t("settings.experience")}>
           <AppearanceSettingsRow />
           <SettingsOverviewRow
-            icon="person-circle-outline"
+            icon="user-circle"
             title={t("settings.personalization")}
             accessibilityHint={t("settings.personalization_summary")}
             onPress={() => router.push("/settings/preferences")}
           />
           <SettingsOverviewRow
-            icon="cube-outline"
+            icon="box"
             title={t("settings.memory")}
             accessibilityHint={t("settings.memory_desc")}
             value={memoryValue}
@@ -122,7 +122,7 @@ export default function SettingsScreen() {
 
         <SettingsOverviewGroup>
           <SettingsOverviewRow
-            icon="notifications-outline"
+            icon="bell"
             title={t("settings.notifications")}
             accessibilityHint={t("settings.notifications_summary")}
             value={notificationsValue}
@@ -132,7 +132,7 @@ export default function SettingsScreen() {
 
         <SettingsOverviewGroup>
           <SettingsOverviewRow
-            icon="link-outline"
+            icon="link"
             title={t("settings.connected_apps")}
             accessibilityHint={t("settings.connected_apps_summary")}
             value={integrationsValue}
@@ -142,14 +142,14 @@ export default function SettingsScreen() {
 
         <SettingsOverviewGroup label={t("settings.models_and_usage")}>
           <SettingsOverviewRow
-            icon="sparkles-outline"
+            icon="sparkles"
             title={t("settings.model")}
             accessibilityHint={t("settings.model_summary")}
             value={modelsValue}
             onPress={() => router.push("/settings/models")}
           />
           <SettingsOverviewRow
-            icon="bar-chart-outline"
+            icon="bar-chart"
             title={t("settings.usage_group")}
             onPress={() => router.push("/settings/usage")}
           />
@@ -157,13 +157,13 @@ export default function SettingsScreen() {
 
         <SettingsOverviewGroup label={t("settings.data_and_privacy")}>
           <SettingsOverviewRow
-            icon="shield-outline"
+            icon="shield"
             title={t("settings.data_controls")}
             accessibilityHint={t("settings.data_controls_summary")}
             onPress={() => router.push("/settings/data-controls")}
           />
           <SettingsOverviewRow
-            icon="lock-closed-outline"
+            icon="lock"
             title={t("settings.security")}
             accessibilityHint={t("settings.security_summary")}
             onPress={() => router.push("/settings/security")}
@@ -172,13 +172,13 @@ export default function SettingsScreen() {
 
         <SettingsOverviewGroup label={t("settings.support")}>
           <SettingsOverviewRow
-            icon="help-circle-outline"
+            icon="help"
             title={t("settings.help")}
             accessibilityHint={t("settings.help_summary")}
             onPress={() => router.push("/settings/help")}
           />
           <SettingsOverviewRow
-            icon="information-circle-outline"
+            icon="info"
             title={t("settings.about")}
             accessibilityHint={t("settings.about_summary")}
             onPress={() => router.push("/settings/about")}
@@ -187,7 +187,7 @@ export default function SettingsScreen() {
 
         <SettingsOverviewGroup>
           <SettingsOverviewRow
-            icon="log-out-outline"
+            icon="log-out"
             title={t("settings.sign_out")}
             danger
             onPress={async () => {

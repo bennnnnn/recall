@@ -26,6 +26,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 export type PlaceValue = {
   country: string;
@@ -173,7 +174,7 @@ export function LocationFields({ value, onChange, disabled }: Props) {
           {locating ? (
             <ActivityIndicator size="small" color={C.primary} />
           ) : (
-            <Icon name="locate-outline" size={20} color={C.primary} />
+            <Icon name="locate" size={IconSize.sm} color={C.primary} />
           )}
         </View>
         <Text style={s.geoText}>
@@ -196,7 +197,7 @@ export function LocationFields({ value, onChange, disabled }: Props) {
           >
             {value.country || t("my_job.location_country_placeholder")}
           </Text>
-          <Icon name="chevron-down" size={18} color={C.textTertiary} />
+          <Icon name="chevron-down" size={IconSize.sm} color={C.textTertiary} />
         </Pressable>
       </View>
 
@@ -215,7 +216,7 @@ export function LocationFields({ value, onChange, disabled }: Props) {
             >
               {value.region || t("my_job.location_region_placeholder")}
             </Text>
-            <Icon name="chevron-down" size={18} color={C.textTertiary} />
+            <Icon name="chevron-down" size={IconSize.sm} color={C.textTertiary} />
           </Pressable>
         ) : (
           <TextInput
@@ -285,7 +286,7 @@ export function LocationFields({ value, onChange, disabled }: Props) {
                     {item}
                   </Text>
                   {selected ? (
-                    <Icon name="checkmark" size={18} color={C.primary} />
+                    <Icon name="check" size={IconSize.sm} color={C.primary} />
                   ) : null}
                 </Pressable>
               );

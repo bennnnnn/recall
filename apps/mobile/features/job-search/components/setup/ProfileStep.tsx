@@ -11,6 +11,7 @@ import {
   SelectChip,
   useSetupStyles,
 } from "./setupShared";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   resumeName: string | null;
@@ -65,7 +66,7 @@ export function ProfileStep({
           }
         >
           <View style={s.resumeIcon}>
-            <Icon name="document-text-outline" size={23} color={C.primary} />
+            <Icon name="file-text" size={IconSize.md} color={C.primary} />
           </View>
           <View style={s.resumeCopy}>
             <Text style={s.resumeTitle} numberOfLines={1}>
@@ -81,7 +82,7 @@ export function ProfileStep({
                 : t("my_job.resume_meta")}
             </Text>
           </View>
-          <Icon name="chevron-forward" size={19} color={C.textTertiary} />
+          <Icon name="chevron-right" size={IconSize.sm} color={C.textTertiary} />
         </Pressable>
         {resumeName ? (
           <Pressable

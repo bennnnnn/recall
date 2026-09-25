@@ -17,6 +17,7 @@ import { useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
+import { IconSize } from "../icons/sizes";
 
 const FAB_SIZE = 56;
 const WAVE_MS = 1800;
@@ -53,7 +54,7 @@ export function AddFab({ onPress, accessibilityLabel, wave = false }: Props) {
         accessibilityLabel={accessibilityLabel}
         style={s.btn}
       >
-        <Icon name="add" size={28} color={theme.onPrimary} />
+        <Icon name="plus" size={IconSize.lg} color={theme.onPrimary} />
       </Pressable>
     </View>
   );

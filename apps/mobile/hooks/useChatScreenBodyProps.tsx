@@ -13,7 +13,7 @@ import { type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } fro
 import { type AnimatedStyle } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 
 type Router = ReturnType<typeof useRouter>;
 
@@ -57,7 +57,7 @@ export type UseChatScreenBodyPropsParams = {
   listBottomPadRef: MutableRefObject<number>;
   actionBanner: {
     message: string;
-    icon?: IoniconName;
+    icon?: IconName;
   } | null;
   dismissActionBanner: () => void;
   /** Everything needed to render the collapsible ChatHeader (title, nav, menu). */

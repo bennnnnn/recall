@@ -6,7 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { Sheet } from "@/ui/overlay/Sheet";
 import { Button } from "@/ui/controls/Button";
 import { useSubscriptionActions } from "@/hooks/useSubscriptionActions";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import {
   getMonthlyProPackage,
   isPurchaseCancelled,
@@ -21,6 +21,7 @@ import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   visible: boolean;
@@ -144,14 +145,14 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       contentContainerStyle={s.sheet}
     >
       <View style={s.iconWrap}>
-        <Icon name="sparkles" size={28} color={theme.primary} />
+        <Icon name="sparkles" size={IconSize.lg} color={theme.primary} />
       </View>
       <Text style={s.title}>{t("upgrade.title")}</Text>
       <Text style={s.body}>{t("upgrade.body")}</Text>
       <View style={s.featureList}>
-        <FeatureRow icon="flash-outline" text={t("upgrade.feature_models")} theme={theme} />
-        <FeatureRow icon="infinite-outline" text={t("upgrade.feature_limits")} theme={theme} />
-        <FeatureRow icon="options-outline" text={t("upgrade.feature_pick")} theme={theme} />
+        <FeatureRow icon="zap" text={t("upgrade.feature_models")} theme={theme} />
+        <FeatureRow icon="infinity" text={t("upgrade.feature_limits")} theme={theme} />
+        <FeatureRow icon="sliders" text={t("upgrade.feature_pick")} theme={theme} />
       </View>
       {error ? <Text style={s.error}>{error}</Text> : null}
       {purchasesReady ? (
@@ -205,13 +206,13 @@ function FeatureRow({
   text,
   theme,
 }: {
-  icon: IoniconName;
+  icon: IconName;
   text: string;
   theme: Theme;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: Space.xs }}>
-      <Icon name={icon} size={18} color={theme.primary} />
+      <Icon name={icon} size={IconSize.sm} color={theme.primary} />
       <Text style={{ flex: 1, ...Type.secondary, color: theme.textSecondary }}>{text}</Text>
     </View>
   );

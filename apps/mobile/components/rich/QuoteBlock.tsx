@@ -7,6 +7,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { quote?: string; author?: string; children?: ReactNode };
 
@@ -17,8 +18,8 @@ export function QuoteBlock({ quote, author, children }: Props) {
   return (
     <View style={s.wrap}>
       <Icon
-        name="chatbox-ellipses-outline"
-        size={18}
+        name="message-quote"
+        size={IconSize.sm}
         color={theme.textTertiary}
         style={s.icon}
       />

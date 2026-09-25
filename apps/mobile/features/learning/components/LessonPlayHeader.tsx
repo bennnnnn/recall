@@ -14,7 +14,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   current: number;
@@ -82,7 +82,7 @@ export function LessonPlayHeader({
           hitSlop={8}
           style={s.iconBtn}
         >
-          <Icon name="close" size={26} color={theme.text} />
+          <Icon name="close" size={IconSize.md} color={theme.text} />
         </Pressable>
         <Pressable
           onPress={onOpenMenu}
@@ -91,7 +91,7 @@ export function LessonPlayHeader({
           hitSlop={8}
           style={s.iconBtn}
         >
-          <Icon name="ellipsis-vertical" size={IconSize.md} color={theme.text} />
+          <Icon name="more-vertical" size={IconSize.md} color={theme.text} />
         </Pressable>
       </View>
       <View style={s.barRow}>

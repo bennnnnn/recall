@@ -27,12 +27,13 @@ import {
   type MemoryPageLabel,
 } from "@/features/memory/model/memoryFacts";
 import { MESSAGE_FOLD_MAX_HEIGHT } from "@/lib/markdown/messageFold";
-import { EditIcon, IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { Icon } from "@/ui/icons/Icon";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
 
@@ -209,7 +210,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       <View style={s.center}>
         <StateView
           variant="empty"
-          icon="sparkles-outline"
+          icon="sparkles"
           title={t("memory.empty_title")}
           message={t("memory.empty_body")}
           onRetry={() => { if (isCurrentView()) router.replace("/"); }}
@@ -242,10 +243,10 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       <View style={s.headingRow}>
         <Text style={s.heading}>{t("memory.heading")}</Text>
         <IconButton
-          name={editingPage ? "checkmark" : undefined}
+          name={editingPage ? "check" : undefined}
           icon={
             editingPage ? undefined : (
-              <EditIcon size={IconSize.md} color={theme.text} />
+              <Icon name="edit" size={IconSize.md} color={theme.text} />
             )
           }
           size={IconSize.sm}

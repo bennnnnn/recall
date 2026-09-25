@@ -21,7 +21,7 @@ export function MessagePreview({ text, label }: Props) {
   return (
     <CardShell
       label={resolvedLabel}
-      icon="chatbubble-outline"
+      icon="message"
       accent={false}
       headerActions={<CopyButton text={sanitized} />}
     >

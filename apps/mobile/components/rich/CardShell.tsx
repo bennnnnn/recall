@@ -3,17 +3,20 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "@/ui/icons/Icon";
 import { CopyButton } from "@/components/CopyButton";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   label: string;
   labelContent?: ReactNode;
   copyText?: string;
-  icon?: IoniconName;
+  icon?: IconName;
+  /** A logo or other drawing shown instead of `icon`. */
+  leading?: ReactNode;
   iconColor?: string;
   accentColor?: string;
   /** When false, the left edge is a normal hairline — no colored stripe. */
@@ -28,6 +31,7 @@ export function CardShell({
   labelContent,
   copyText,
   icon,
+  leading,
   iconColor,
   accentColor,
   accent = true,
@@ -47,7 +51,7 @@ export function CardShell({
     >
       <View style={s.header}>
         <View style={s.labelRow}>
-          {icon ? <Icon name={icon} size={18} color={iconColor} /> : null}
+          {leading ?? (icon ? <Icon name={icon} size={IconSize.sm} color={iconColor} /> : null)}
           {labelContent ?? <Text style={s.label}>{label}</Text>}
         </View>
         <View style={s.headerActions}>

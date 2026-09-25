@@ -5,10 +5,6 @@ import { ReminderBadge } from "@/components/ReminderBadge";
 import { ChatScrollFab } from "@/components/chat/ChatScrollFab";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));

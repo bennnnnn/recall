@@ -10,8 +10,9 @@ import { Icon } from "@/ui/icons/Icon";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { type SettingsStyles } from "@/components/settings/settingsStyles";
 import { selection } from "@/lib/haptics";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { Theme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 export { makeSettingsStyles, type SettingsStyles } from "@/components/settings/settingsStyles";
 
@@ -43,7 +44,7 @@ function SettingsRowChrome({
   styles,
   theme,
 }: {
-  icon?: IoniconName;
+  icon?: IconName;
   leading?: ReactNode;
   title: string;
   subtitle?: string;
@@ -57,7 +58,7 @@ function SettingsRowChrome({
     <>
       {leading || icon ? (
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          {leading ?? (icon ? <Icon name={icon} size={26} danger={danger} /> : null)}
+          {leading ?? (icon ? <Icon name={icon} size={IconSize.md} danger={danger} /> : null)}
         </View>
       ) : null}
       <View style={styles.rowBody}>
@@ -96,7 +97,7 @@ export function SettingsLinkRow({
   title: string;
   subtitle?: string;
   value?: string;
-  icon?: IoniconName;
+  icon?: IconName;
   leading?: ReactNode;
   danger?: boolean;
   busy?: boolean;
@@ -140,7 +141,7 @@ export function SettingsValueRow({
   title: string;
   subtitle?: string;
   value?: string;
-  icon?: IoniconName;
+  icon?: IconName;
   leading?: ReactNode;
   styles: SettingsStyles;
   theme: Theme;
@@ -175,7 +176,7 @@ export function SettingsInlinePicker({
   styles,
   theme,
 }: {
-  icon?: IoniconName;
+  icon?: IconName;
   title: string;
   subtitle?: string;
   value: string;
@@ -234,7 +235,7 @@ export function SettingsSwitchRow({
 }: {
   title: string;
   subtitle?: string;
-  icon?: IoniconName;
+  icon?: IconName;
   value: boolean;
   disabled?: boolean;
   busy?: boolean;
@@ -246,7 +247,7 @@ export function SettingsSwitchRow({
     <>
       {icon ? (
         <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Icon name={icon} size={26} />
+          <Icon name={icon} size={IconSize.md} />
         </View>
       ) : null}
       <View style={styles.rowBody}>
@@ -298,12 +299,3 @@ export function SettingsSwitchRow({
   );
 }
 
-export function ConnectedAppMark({
-  name,
-  color,
-}: {
-  name: IoniconName;
-  color: string;
-}) {
-  return <Icon name={name} size={26} color={color} />;
-}

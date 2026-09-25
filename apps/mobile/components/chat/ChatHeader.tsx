@@ -12,7 +12,7 @@ import {
   topChromeFadeColors,
 } from "@/lib/chromeFade";
 import { Theme, useTheme } from "@/lib/theme";
-import { EditIcon, IconSize, MenuIcon } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -99,9 +99,9 @@ export const ChatHeader = memo(function ChatHeader({
             accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
             icon={
               fromLibrary ? (
-                <Icon name="chevron-back" size={IconSize.md} color={theme.text} />
+                <Icon name="chevron-left" size={IconSize.md} color={theme.text} />
               ) : (
-                <MenuIcon size={IconSize.md} color={theme.text} />
+                <Icon name="menu" size={IconSize.md} color={theme.text} />
               )
             }
           />
@@ -130,14 +130,14 @@ export const ChatHeader = memo(function ChatHeader({
                 pressedStyle={s.actionGroupBtnPressed}
                 onPress={onNewChat}
                 accessibilityLabel={t("chat.new_chat")}
-                icon={<EditIcon size={IconSize.md} color={theme.text} />}
+                icon={<Icon name="edit" size={IconSize.md} color={theme.text} />}
               />
               <IconButton
                 style={s.actionGroupBtn}
                 pressedStyle={s.actionGroupBtnPressed}
                 onPress={onOpenMenu}
                 accessibilityLabel={t("chat.menu")}
-                name="ellipsis-vertical"
+                name="more-vertical"
                 size={IconSize.md}
                 color={theme.text}
               />

@@ -10,7 +10,7 @@ import { type GalleryLayout } from "@/features/attachments/model/galleryLayout";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 
 type Props = {
@@ -82,7 +82,7 @@ export function GalleryLibraryHeader({
           testID="gallery-layout-toggle"
         >
           <Icon
-            name={layout === "grid" ? "list-outline" : "grid-outline"}
+            name={layout === "grid" ? "list" : "grid"}
             size={IconSize.md}
             color={C.textSecondary}
           />

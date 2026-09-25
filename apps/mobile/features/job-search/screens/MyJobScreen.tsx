@@ -34,6 +34,7 @@ import { notifyWarning, selection, tap } from "@/lib/haptics";
 import { presentShareSheet } from "@/lib/share";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Tab = "matches" | "saved" | "all";
 
@@ -219,7 +220,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
       <View style={s.root}>
         <View style={s.onboarding}>
           <View style={s.heroIcon}>
-            <Icon name="briefcase-outline" size={34} color={C.primary} />
+            <Icon name="briefcase" size={IconSize.xl} color={C.primary} />
           </View>
           <Text style={s.heroTitle}>{t("my_job.hero_title")}</Text>
           <Text style={s.heroBody}>{t("my_job.hero_body")}</Text>
@@ -228,7 +229,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             {(
               [
                 [
-                  "search-outline",
+                  "search",
                   t("my_job.benefit_fresh_title"),
                   t("my_job.benefit_fresh_body"),
                 ],
@@ -247,8 +248,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               <View key={title} style={s.benefitRow}>
                 <View style={s.benefitIcon}>
                   <Icon
-                    name={icon as "search-outline"}
-                    size={21}
+                    name={icon as "search"}
+                    size={IconSize.sm}
                     color={C.primary}
                   />
                 </View>
@@ -267,7 +268,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             accessibilityLabel={t("my_job.setup_cta")}
           >
             <Text style={s.primaryButtonText}>{t("my_job.setup_cta")}</Text>
-            <Icon name="arrow-forward" size={20} color={C.onPrimary} />
+            <Icon name="arrow-right" size={IconSize.sm} color={C.onPrimary} />
           </Pressable>
           <Text style={s.planNote}>
             {user?.plan === "pro"
@@ -308,16 +309,16 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               });
   const emptyIcon =
     effectiveFilter === "saved"
-      ? "bookmark-outline"
+      ? "bookmark"
       : effectiveFilter === "applied"
-        ? "checkmark-circle-outline"
+        ? "check-circle"
         : effectiveFilter === "interviewing"
-          ? "people-outline"
+          ? "users"
           : effectiveFilter === "offer"
-            ? "trophy-outline"
+            ? "trophy"
             : effectiveFilter === "rejected"
-              ? "remove-circle-outline"
-              : "search-outline";
+              ? "minus-circle"
+              : "search";
 
   return (
     <View style={s.root}>
@@ -360,7 +361,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                   accessibilityRole="button"
                   accessibilityLabel={t("my_job.menu_a11y")}
                 >
-                  <Icon name="ellipsis-horizontal" size={21} color={C.text} />
+                  <Icon name="more-horizontal" size={IconSize.sm} color={C.text} />
                 </Pressable>
               </View>
 
@@ -397,14 +398,14 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
 
             {error ? (
               <Pressable style={s.errorCard} onPress={() => void refresh()}>
-                <Icon name="alert-circle-outline" size={20} color={C.danger} />
+                <Icon name="alert-circle" size={IconSize.sm} color={C.danger} />
                 <Text style={s.errorText}>{t("my_job.refresh_error")}</Text>
               </Pressable>
             ) : null}
 
             {profile.last_run_status === "error" ? (
               <View style={s.runErrorCard} accessibilityRole="alert">
-                <Icon name="alert-circle-outline" size={21} color={C.danger} />
+                <Icon name="alert-circle" size={IconSize.sm} color={C.danger} />
                 <View style={s.runErrorCopy}>
                   <Text style={s.runErrorTitle}>
                     {t("my_job.run_failed_title")}

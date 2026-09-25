@@ -3,8 +3,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { IconButton } from "../IconButton";
 import { Space } from "@/lib/space";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
-
 describe("IconButton", () => {
   it("uses a button role and a 44-point hit target", async () => {
     const onPress = jest.fn();

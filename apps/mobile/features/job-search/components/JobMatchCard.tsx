@@ -14,6 +14,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 function Action({
   icon,
@@ -23,7 +24,7 @@ function Action({
   disabled,
   onPress,
 }: {
-  icon: "bookmark-outline" | "bookmark" | "checkmark-circle-outline" | "open-outline";
+  icon: "bookmark" | "check-circle" | "external-link";
   label: string;
   active?: boolean;
   primary?: boolean;
@@ -46,7 +47,7 @@ function Action({
       accessibilityRole="button"
       accessibilityState={{ selected: !!active, disabled: !!disabled }}
     >
-      <Icon name={icon} size={18} color={iconColor} />
+      <Icon name={icon} size={IconSize.sm} color={iconColor} filled={active && icon === "bookmark"} />
       <Text
         style={[
           s.actionText,
@@ -122,15 +123,15 @@ export function JobMatchCard({
 
       <View style={s.divider} />
       <View style={s.actions}>
-        <Action icon="open-outline" label={t("my_job.view_job")} primary onPress={() => void openJob()} />
+        <Action icon="external-link" label={t("my_job.view_job")} primary onPress={() => void openJob()} />
         <Action
-          icon={match.is_saved ? "bookmark" : "bookmark-outline"}
+          icon="bookmark"
           label={match.is_saved ? t("my_job.saved") : t("my_job.save")}
           active={match.is_saved}
           onPress={() => onSavedChange(!match.is_saved)}
         />
         <Action
-          icon="checkmark-circle-outline"
+          icon="check-circle"
           label={applicationStarted ? t("my_job.applied") : t("my_job.i_applied")}
           active={applicationStarted}
           disabled={!canToggleApplied(match.status)}

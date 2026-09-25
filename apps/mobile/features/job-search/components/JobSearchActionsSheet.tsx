@@ -52,13 +52,13 @@ export function JobSearchActionsSheet({
     >
       <Text style={s.title}>{t("my_job.title")}</Text>
       <ActionSheetRow
-        icon="create-outline"
+        icon="pencil"
         label={t("my_job.edit")}
         onPress={onEdit}
         theme={theme}
       />
       <ActionSheetRow
-        icon={paused ? "play-outline" : "pause-outline"}
+        icon={paused ? "play" : "pause"}
         label={paused ? t("my_job.resume") : t("my_job.pause")}
         onPress={() => {
           if (busy) return;
@@ -67,13 +67,13 @@ export function JobSearchActionsSheet({
         theme={theme}
       />
       <ActionSheetRow
-        icon="share-outline"
+        icon="share"
         label={t("my_job.share")}
         onPress={onShare}
         theme={theme}
       />
       <ActionSheetRow
-        icon="trash-outline"
+        icon="trash"
         label={t("common.delete")}
         onPress={() => {
           if (busy) return;

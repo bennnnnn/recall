@@ -16,6 +16,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { shadowGlow } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
+import { IconSize } from "@/ui/icons/sizes";
 
 const NODE = 52;
 const PULSE_SCALE = 1.08;
@@ -84,13 +85,13 @@ export function LearningPathNode({ access, domainTitle, justCompleted }: Props) 
       ]}
     >
       <Icon
-        name={done ? "checkmark" : domainIcon(domainTitle)}
-        size={done ? 22 : 24}
+        name={done ? "check" : domainIcon(domainTitle)}
+        size={IconSize.md}
         color={locked ? theme.textTertiary : theme.onPrimary}
       />
       {locked ? (
         <View style={s.lockBadge}>
-          <Icon name="lock-closed-outline" size={11} color={theme.textTertiary} />
+          <Icon name="lock" size={IconSize.xxs} color={theme.textTertiary} />
         </View>
       ) : null}
     </Animated.View>

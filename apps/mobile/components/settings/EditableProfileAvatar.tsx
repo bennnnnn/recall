@@ -5,13 +5,14 @@ import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/ui/icons/Icon";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   name: string | null;
   uri?: string | null;
   token: string | null;
   size: number;
-  icon: "pencil-outline" | "camera-outline";
+  icon: "pencil" | "camera";
   label: string;
   onPress: () => void;
   disabled?: boolean;
@@ -36,7 +37,7 @@ export function EditableProfileAvatar({
         <Avatar name={name} uri={uri} token={token} size={size} />
         <View style={s.badge}>
           {busy ? <ActivityIndicator size="small" color={theme.text} /> : (
-            <Icon name={icon} size={24} color={theme.text} />
+            <Icon name={icon} size={IconSize.md} color={theme.text} />
           )}
         </View>
       </View>

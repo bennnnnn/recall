@@ -9,6 +9,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { url: string };
 
@@ -45,7 +46,7 @@ export function LinkPreviewCard({ url }: Props) {
         accessibilityRole="link"
         accessibilityLabel={url}
       >
-        <Icon name="link-outline" size={16} color={theme.primary} />
+        <Icon name="link" size={IconSize.xs} color={theme.primary} />
         <Text style={s.url} numberOfLines={2}>
           {url}
         </Text>

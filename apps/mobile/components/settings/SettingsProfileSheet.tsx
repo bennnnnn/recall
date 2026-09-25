@@ -38,7 +38,7 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
           uri={editor.photo?.localUri ?? avatarUri}
           token={token}
           size={144}
-          icon="camera-outline"
+          icon="camera"
           label={t("settings.change_photo")}
           onPress={() => void editor.choosePhoto()}
           disabled={busy}

@@ -5,9 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/ui/feedback/StateView";
+import { BrandMark } from "@/ui/icons/brand";
+import { IconSize } from "@/ui/icons/sizes";
 import { ConnectedAppCard } from "@/components/settings/ConnectedAppCard";
 import {
-  ConnectedAppMark,
   makeSettingsStyles,
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
@@ -55,7 +56,7 @@ export default function ConnectedAppsScreen() {
         />
       ) : null}
       <ConnectedAppCard
-        leading={<ConnectedAppMark name="logo-google" color={theme.brand.google} />}
+        leading={<BrandMark name="google" size={IconSize.md} />}
         title={t("settings.calendar_title")}
         description={!calendarStatus?.connected ? t("settings.calendar_desc") : undefined}
         value={statusLabel(calendarStatus)}
@@ -80,7 +81,7 @@ export default function ConnectedAppsScreen() {
         ) : null}
       </ConnectedAppCard>
       <ConnectedAppCard
-        leading={<ConnectedAppMark name="mail" color={theme.brand.gmail} />}
+        leading={<BrandMark name="gmail" size={IconSize.md} />}
         title={t("settings.gmail_title")}
         description={!gmailStatus?.connected ? t("settings.gmail_desc") : undefined}
         value={statusLabel(gmailStatus)}

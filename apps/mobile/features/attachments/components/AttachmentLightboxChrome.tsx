@@ -4,7 +4,7 @@ import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme, withAlpha } from "@/lib/theme";
@@ -86,7 +86,7 @@ export function AttachmentLightboxChrome({
             {busy === "share" ? (
               <ActivityIndicator color={theme.onMedia} size="small" />
             ) : (
-              <Icon name="share-outline" size={IconSize.md} color={theme.onMedia} />
+              <Icon name="share" size={IconSize.md} color={theme.onMedia} />
             )}
           </Pressable>
           <Pressable
@@ -99,7 +99,7 @@ export function AttachmentLightboxChrome({
             {busy === "download" ? (
               <ActivityIndicator color={theme.onMedia} size="small" />
             ) : (
-              <Icon name="download-outline" size={IconSize.md} color={theme.onMedia} />
+              <Icon name="download" size={IconSize.md} color={theme.onMedia} />
             )}
           </Pressable>
           {showOverflow ? (
@@ -109,7 +109,7 @@ export function AttachmentLightboxChrome({
               hitSlop={8}
               accessibilityLabel={t("preview.more_a11y")}
             >
-              <Icon name="ellipsis-horizontal-outline" size={IconSize.md} color={theme.onMedia} />
+              <Icon name="more-horizontal" size={IconSize.md} color={theme.onMedia} />
             </Pressable>
           ) : null}
         </View>
@@ -141,7 +141,7 @@ export function AttachmentLightboxChrome({
                 onPress={onUseInChat}
                 accessibilityLabel={t("gallery.use_in_chat")}
               >
-                <Icon name="attach-outline" size={IconSize.sm} color={theme.onMedia} />
+                <Icon name="attach" size={IconSize.sm} color={theme.onMedia} />
                 <Text style={s.menuLabel}>{t("gallery.use_in_chat")}</Text>
               </Pressable>
             ) : null}
@@ -151,7 +151,7 @@ export function AttachmentLightboxChrome({
                 onPress={onOpenChat}
                 accessibilityLabel={t("gallery.open_chat_a11y")}
               >
-                <Icon name="chatbubble-outline" size={IconSize.sm} color={theme.onMedia} />
+                <Icon name="message" size={IconSize.sm} color={theme.onMedia} />
                 <Text style={s.menuLabel}>{t("gallery.open_chat")}</Text>
               </Pressable>
             ) : null}
@@ -161,7 +161,7 @@ export function AttachmentLightboxChrome({
                 onPress={onDelete}
                 accessibilityLabel={t("common.delete")}
               >
-                <Icon name="trash-outline" size={IconSize.sm} danger />
+                <Icon name="trash" size={IconSize.sm} danger />
                 <Text style={[s.menuLabel, { color: theme.danger }]}>{t("common.delete")}</Text>
               </Pressable>
             ) : null}

@@ -119,7 +119,7 @@ export default function ArchivedChatsScreen() {
     return (
       <StateView
         variant="empty"
-        icon="archive-outline"
+        icon="archive"
         title={t("settings.archived_chats_empty")}
       />
     );

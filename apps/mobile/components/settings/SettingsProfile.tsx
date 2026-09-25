@@ -25,7 +25,7 @@ export function SettingsProfile() {
         uri={user?.avatar_url}
         token={token}
         size={88}
-        icon="pencil-outline"
+        icon="pencil"
         label={t("settings.edit_profile")}
         onPress={editor.open}
       />

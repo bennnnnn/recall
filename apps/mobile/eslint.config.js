@@ -2,10 +2,27 @@
 const { defineConfig } = require('eslint/config');
 const expoConfig = require("eslint-config-expo/flat");
 
+/**
+ * Imports the UI kit replaces. Screens use the kit's component instead, so a
+ * feature cannot quietly bring back its own version.
+ */
+const REPLACED_BY_UI_KIT = [
+  {
+    name: "@expo/vector-icons",
+    message: "Use Icon from @/ui/icons/Icon (Lucide line icons), or BrandMark for logos.",
+  },
+];
+
 module.exports = defineConfig([
   expoConfig,
   {
     ignores: ["dist/*", "vendor/**", ".expo/**"],
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", { paths: REPLACED_BY_UI_KIT }],
+    },
   },
   {
     // The UI kit is a dependency leaf: tokens and helpers from lib/ only.
@@ -15,6 +32,7 @@ module.exports = defineConfig([
       "no-restricted-imports": [
         "error",
         {
+          paths: REPLACED_BY_UI_KIT,
           patterns: [
             {
               group: ["@/features/*", "@/components/*", "@/contexts/*", "@/hooks/*", "@/app/*"],

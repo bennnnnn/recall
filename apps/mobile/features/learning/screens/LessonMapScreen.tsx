@@ -16,7 +16,7 @@ import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { chapterKey } from "@/features/learning/model/chapterAccess";
 import { branchAccess, domainAccess, groupPathByDomain } from "@/features/learning/model/domainPath";
 import { resolveDailyGoal } from "@/features/learning/model/dailyGoals";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
@@ -47,7 +47,7 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
           accessibilityLabel={t("lesson.menu")}
           hitSlop={12}
         >
-          <Icon name="ellipsis-horizontal" size={IconSize.md} color={theme.text} />
+          <Icon name="more-horizontal" size={IconSize.md} color={theme.text} />
         </Pressable>
       ),
     });
@@ -156,7 +156,7 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
         empty={
           <StateView
             variant="empty"
-            icon="book-outline"
+            icon="book"
             title={t("lesson.chapter_empty")}
           />
         }

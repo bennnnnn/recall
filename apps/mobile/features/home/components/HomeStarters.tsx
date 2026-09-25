@@ -19,6 +19,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   onSelect: (prompt: string, chatId?: string) => void;
@@ -56,7 +57,7 @@ function OverdueReminderRow({
           accessibilityRole="button"
           accessibilityLabel={todo.content}
         >
-              <Icon name="alert-circle-outline" size={18} color={theme.warning} />
+              <Icon name="alert-circle" size={IconSize.sm} color={theme.warning} />
           <View style={s.urgentMain}>
             <Text style={s.urgentTitle} numberOfLines={2}>
               {todo.content}
@@ -67,7 +68,7 @@ function OverdueReminderRow({
               </Text>
             ) : null}
           </View>
-          <Icon name="chevron-forward" size={16} color={theme.warning} />
+          <Icon name="chevron-right" size={IconSize.xs} color={theme.warning} />
         </Pressable>
         <Pressable
           style={s.urgentDismiss}
@@ -79,7 +80,7 @@ function OverdueReminderRow({
           accessibilityLabel={t("chat.home.dismiss_reminder")}
         >
           <View style={s.urgentDismissCircle}>
-            <Icon name="close" size={14} color={theme.textSecondary} />
+            <Icon name="close" size={IconSize.xxs} color={theme.textSecondary} />
           </View>
         </Pressable>
       </View>
@@ -177,7 +178,7 @@ export function HomeStarters({ onSelect }: Props) {
                 accessibilityRole="button"
                 accessibilityLabel={starter.text}
               >
-                <Icon name={welcomeStarterIcon(index)} size={14} color={theme.primary} />
+                <Icon name={welcomeStarterIcon(index)} size={IconSize.xxs} color={theme.primary} />
                 <Text style={s.chipText} numberOfLines={2}>
                   {starter.text}
                 </Text>

@@ -8,7 +8,7 @@ import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/components/chat/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/components/chat/ChatScreenMenuSheets";
@@ -96,7 +96,7 @@ function ChatScreen() {
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
   const closeAttachSheetRef = useRef<() => void>(() => {});
   const showActionBannerRef = useRef<
-    (message: string, icon?: IoniconName) => void
+    (message: string, icon?: IconName) => void
   >(() => {});
 
   const todosCtx = useTodosOptional();
@@ -232,7 +232,7 @@ function ChatScreen() {
   const openUpgradeRef = useRef<(() => void) | null>(null);
 
   const notifyOfflineBlocked = useCallback(() => {
-    showActionBannerRef.current(t("chat.offline_body"), "cloud-offline-outline");
+    showActionBannerRef.current(t("chat.offline_body"), "cloud-off");
   }, [t]);
 
   const imageGen = useImageGeneration({

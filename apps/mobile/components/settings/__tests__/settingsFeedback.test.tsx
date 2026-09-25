@@ -8,7 +8,6 @@ import {
 } from "@/components/settings/settingsUi";
 import { lightTheme } from "@/lib/theme";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));

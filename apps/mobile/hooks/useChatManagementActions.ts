@@ -11,7 +11,7 @@ import { sanitizeManualChatTitle } from "@/lib/chat/title";
 import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
 import { notifyDestructive, tap } from "@/lib/haptics";
-import type { IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type Options = {
@@ -25,7 +25,7 @@ type Options = {
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   closeMenu: () => void;
   dismissActionBanner: () => void;
-  showActionBanner: (message: string, icon?: IoniconName) => void;
+  showActionBanner: (message: string, icon?: IconName) => void;
   t: (key: string, options?: Record<string, unknown>) => string;
 };
 
@@ -82,7 +82,7 @@ export function useChatManagementActions({
       patchChatGlobal(chatId, { title: updated.title });
       if (currentView()) {
         setChatTitle(updated.title);
-        showActionBanner(t("chat.renamed_toast"), "pencil-outline");
+        showActionBanner(t("chat.renamed_toast"), "pencil");
       }
     } catch {
       if (!currentSession()) return;
@@ -109,7 +109,7 @@ export function useChatManagementActions({
       if (currentView()) {
         setPinned(saved.pinned);
         setArchived(Boolean(saved.archived));
-        showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-outline");
+        showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-off");
       }
     } catch {
       if (!currentSession()) return;
@@ -137,7 +137,7 @@ export function useChatManagementActions({
       if (currentView()) {
         setArchived(Boolean(saved.archived));
         setPinned(saved.pinned);
-        showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive-outline" : "arrow-undo-outline");
+        showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive" : "unarchive");
       }
     } catch {
       if (!currentSession()) return;
@@ -170,7 +170,7 @@ export function useChatManagementActions({
             removeChatGlobal(chatId);
             void clearCachedChatMessages(chatId);
             invalidateGalleryCache();
-            if (currentView()) showActionBanner(t("chat.deleted_toast"), "trash-outline");
+            if (currentView()) showActionBanner(t("chat.deleted_toast"), "trash");
             abandonActiveChatIfDeleted([chatId]);
           } catch {
             if (!currentSession()) return;

@@ -17,6 +17,7 @@ import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type ChapterRow = {
   kind: "chapter";
@@ -106,7 +107,7 @@ const ChapterCard = memo(function ChapterCard({
         ) : null}
       </View>
 
-      {locked ? null : <Icon name="chevron-forward" size={18} color={theme.textTertiary} />}
+      {locked ? null : <Icon name="chevron-right" size={IconSize.sm} color={theme.textTertiary} />}
     </Pressable>
   );
 });

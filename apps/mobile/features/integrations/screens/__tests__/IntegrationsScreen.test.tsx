@@ -5,7 +5,6 @@ import type { useSettingsIntegrations } from "@/features/integrations/hooks/useS
 
 let mockIntegrations: ReturnType<typeof useSettingsIntegrations>;
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("expo-router", () => ({ Redirect: () => null }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({

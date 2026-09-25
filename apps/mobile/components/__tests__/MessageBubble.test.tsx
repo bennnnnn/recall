@@ -178,7 +178,7 @@ describe("MessageBubble copy feedback timers", () => {
       await Promise.resolve();
     });
     expect(Clipboard.setStringAsync).toHaveBeenCalledWith("User message");
-    expect(view.getByTestId("icon-checkmark-outline")).toBeTruthy();
+    expect(view.getByTestId("icon-check")).toBeTruthy();
 
     await act(async () => {
       view.unmount();
@@ -202,7 +202,7 @@ describe("MessageBubble copy feedback timers", () => {
       await Promise.resolve();
     });
     expect(Clipboard.setStringAsync).toHaveBeenCalledWith("Assistant reply");
-    expect(view.getByTestId("icon-checkmark-outline")).toBeTruthy();
+    expect(view.getByTestId("icon-check")).toBeTruthy();
 
     await act(async () => {
       view.unmount();

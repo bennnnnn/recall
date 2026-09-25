@@ -57,6 +57,7 @@ import {
   mathRunLineHeight,
 } from "@/lib/math/text";
 import type { Theme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 type StyleMap = Record<string, object>;
 
@@ -433,8 +434,8 @@ function makeSharedRules(
         return (
           <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
             <Icon
-              name="square-outline"
-              size={18}
+              name="square"
+              size={IconSize.sm}
               color={t.textTertiary}
               style={{ marginTop: 2 }}
             />

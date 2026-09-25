@@ -7,7 +7,7 @@ import { renderFence, type FenceNode } from "../markdownFenceRender";
 import { renderRichFenceById } from "@/components/rich/RichFence";
 
 // markdownFenceRender.tsx statically imports CodeBlock/CopyBlock (both pull
-// in expo-clipboard + @expo/vector-icons) regardless of which fence branch
+// in expo-clipboard) regardless of which fence branch
 // actually runs — this plain @react-native/jest-preset environment (no
 // jest-expo) doesn't stub expo-modules-core, so these need simple no-op
 // fakes to keep import-time safe. Same pattern as MermaidBlock.test.tsx.
@@ -26,9 +26,6 @@ jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   writeAsStringAsync: jest.fn(),
   EncodingType: { UTF8: "utf8" },
-}));
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
 }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),

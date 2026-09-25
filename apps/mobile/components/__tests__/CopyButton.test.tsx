@@ -13,9 +13,6 @@ jest.mock("expo-haptics", () => ({
   ImpactFeedbackStyle: { Light: "Light" },
   NotificationFeedbackType: { Success: "Success", Warning: "Warning" },
 }));
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
 // i18next isn't initialized in the component jest preset; return the key so the
 // a11y label is deterministic and decoupled from the English copy.
 jest.mock("react-i18next", () => ({

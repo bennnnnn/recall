@@ -9,7 +9,7 @@ import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { getCachedChat } from "@/lib/cache/chatListCache";
 import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { beginChatMutation } from "@/lib/chat/mutationLock";
 import { sanitizeManualChatTitle } from "@/lib/chat/title";
 import { isShareCancelled } from "@/lib/exportPdf";
@@ -47,7 +47,7 @@ export function useChatMenuActions({
   const [renameText, setRenameText] = useState("");
   const [renameTarget, setRenameTarget] = useState<Chat | null>(null);
   const sharing = useRef(false);
-  const [actionBanner, setActionBanner] = useState<{ message: string; icon?: IoniconName } | null>(null);
+  const [actionBanner, setActionBanner] = useState<{ message: string; icon?: IconName } | null>(null);
   const current = useCallback(() => mounted.current && session === getSessionGeneration(), [session]);
   const viewVersion = view.current.version;
   const currentView = useCallback(() => current() && view.current.isDrawerOpen && view.current.version === viewVersion, [current, viewVersion]);
@@ -62,7 +62,7 @@ export function useChatMenuActions({
     setActionBanner(null);
   }, [session, isDrawerOpen]);
 
-  const showActionBanner = useCallback((message: string, icon?: IoniconName) => {
+  const showActionBanner = useCallback((message: string, icon?: IconName) => {
     if (current()) setActionBanner({ message, icon });
   }, [current]);
   const dismissActionBanner = useCallback(() => setActionBanner(null), []);
@@ -113,7 +113,7 @@ export function useChatMenuActions({
       const saved = await api.renameChat(token, chat.id, title);
       if (!current()) return;
       patchChatInGroups(chat.id, { title: saved.title });
-      showActionBanner(t("chat.renamed_toast"), "pencil-outline");
+      showActionBanner(t("chat.renamed_toast"), "pencil");
     } catch {
       if (!current()) return;
       patchChatInGroups(chat.id, { title: chat.title });
@@ -134,7 +134,7 @@ export function useChatMenuActions({
       const saved = await api.setPin(token, chat.id, next);
       if (!current()) return;
       patchChatInGroups(chat.id, { pinned: saved.pinned, archived: saved.archived });
-      showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-outline");
+      showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-off");
     } catch {
       if (!current()) return;
       moveChatPinState(chat.id, chat.pinned);
@@ -154,7 +154,7 @@ export function useChatMenuActions({
       const saved = await api.setArchive(token, chat.id, next);
       if (!current()) return;
       patchChatInGroups(chat.id, { archived: saved.archived, pinned: saved.pinned });
-      showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive-outline" : "arrow-undo-outline");
+      showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive" : "unarchive");
     } catch {
       if (!current()) return;
       patchChatInGroups(chat.id, { archived: chat.archived ?? false, pinned: chat.pinned });
@@ -179,7 +179,7 @@ export function useChatMenuActions({
           void clearCachedChatMessages(chat.id);
           invalidateGalleryCache();
           abandonActiveChatIfDeleted([chat.id]);
-          showActionBanner(t("chat.deleted_toast"), "trash-outline");
+          showActionBanner(t("chat.deleted_toast"), "trash");
         } catch {
           if (!current()) return;
           insertChatInGroups(snapshot);

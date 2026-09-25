@@ -10,6 +10,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   reminder: SuggestedReminder;
@@ -28,7 +29,7 @@ export function SuggestedReminderRow({ reminder, busy, onAdd, onDismiss }: Props
   return (
     <View style={s.row}>
       <View style={s.iconWrap}>
-        <Icon name="mail-outline" size={18} color={C.primary} />
+        <Icon name="mail" size={IconSize.sm} color={C.primary} />
       </View>
       <View style={s.body}>
         <Text style={s.title} numberOfLines={2}>{reminder.title}</Text>

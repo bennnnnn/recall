@@ -232,7 +232,7 @@ export function Molecule3DBlock({ content }: Props) {
 
   if (!parsed || !geom) {
     return (
-      <VisualCard label={t("rich.chemistry_structure")} icon="flask-outline">
+      <VisualCard label={t("rich.chemistry_structure")} icon="flask">
         <View style={s.previewBox}>
           <Text style={s.fallbackHint}>{t("rich.chemistry_invalid")}</Text>
         </View>
@@ -243,7 +243,7 @@ export function Molecule3DBlock({ content }: Props) {
   return (
     <VisualCard
       label={t("rich.chemistry_structure")}
-      icon="flask-outline"
+      icon="flask"
       actions={
         <>
           <View style={s.spacer} />

@@ -3,10 +3,6 @@ import { render } from "@testing-library/react-native";
 import { StateView } from "../StateView";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -33,15 +29,15 @@ describe("StateView", () => {
       <StateView variant="error" title="common.error" />,
     );
 
-    expect(getByText("alert-circle-outline")).toBeTruthy();
-    expect(queryByText("cloud-offline-outline")).toBeNull();
+    expect(getByText("alert-circle")).toBeTruthy();
+    expect(queryByText("cloud-off")).toBeNull();
   });
 
   it("keeps an explicit connectivity icon when the caller passes one", async () => {
     const { getByText } = await render(
-      <StateView variant="error" icon="cloud-offline-outline" message="drawer.cant_reach" />,
+      <StateView variant="error" icon="cloud-off" message="drawer.cant_reach" />,
     );
 
-    expect(getByText("cloud-offline-outline")).toBeTruthy();
+    expect(getByText("cloud-off")).toBeTruthy();
   });
 });

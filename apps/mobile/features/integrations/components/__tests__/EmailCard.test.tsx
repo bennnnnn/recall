@@ -13,10 +13,22 @@ jest.mock("expo-haptics", () => ({
   notificationAsync: jest.fn(),
   selectionAsync: jest.fn(),
 }));
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-native-svg", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
-  return { __esModule: true, default: View, Svg: View, Path: View };
+  return {
+    __esModule: true,
+    default: View,
+    Svg: View,
+    Path: View,
+    Circle: View,
+    Rect: View,
+    Line: View,
+    Polyline: View,
+    Polygon: View,
+    Ellipse: View,
+    Defs: View,
+    Mask: View,
+  };
 });
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),

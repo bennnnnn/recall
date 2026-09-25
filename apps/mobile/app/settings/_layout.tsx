@@ -15,7 +15,7 @@ function subScreen(
   return {
     ...header,
     title,
-    headerLeft: () => <StackBackButton icon="arrow-back" fallback="/settings" />,
+    headerLeft: () => <StackBackButton icon="arrow-left" fallback="/settings" />,
   };
 }
 
@@ -33,7 +33,7 @@ export default function SettingsLayout() {
         headerShown: true,
         contentStyle: { backgroundColor: theme.bg },
         headerBackVisible: false,
-        headerLeft: () => <StackBackButton icon="arrow-back" fallback="/" />,
+        headerLeft: () => <StackBackButton icon="arrow-left" fallback="/" />,
       }}
     >
       <Stack.Screen name="index" options={{ title: t("settings.title"), headerShown: false }} />

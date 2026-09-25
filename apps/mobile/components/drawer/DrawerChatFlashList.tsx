@@ -25,6 +25,7 @@ import {
 import { isChatTitleGenerating } from "@/lib/drawer";
 import { Chat, ChatList, type SearchResult } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 export type DrawerChatListItem =
   | {
@@ -182,7 +183,7 @@ export function DrawerChatFlashList({
             <Text style={s.sectionCount}>{item.count}</Text>
             <Icon
               name={collapsed ? "chevron-down" : "chevron-up"}
-              size={16}
+              size={IconSize.xs}
               color={theme.textTertiary}
             />
           </Pressable>

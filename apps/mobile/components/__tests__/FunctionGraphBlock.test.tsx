@@ -3,11 +3,12 @@ import { StyleSheet } from "react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock("@/lib/skiaAvailability", () => ({ isSkiaAvailable: () => false }));
+// Chrome icons are SVG too; keep the path counts about the plotted curves.
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 
 describe("FunctionGraphBlock", () => {
   it("renders the expression as the chart title", async () => {

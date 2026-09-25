@@ -3,7 +3,7 @@ import { AppState, type AppStateStatus } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
 import { useFocusEffect, useRouter } from "expo-router";
 
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 
 import { api, type Chat, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
@@ -54,7 +54,7 @@ type Options = {
   imageGeneratingRef?: React.MutableRefObject<boolean>;
   stopGeneration: () => void;
   listRef: React.RefObject<FlashListRef<Message> | null>;
-  showActionBanner: (message: string, icon?: IoniconName) => void;
+  showActionBanner: (message: string, icon?: IconName) => void;
   t: (key: string) => string;
 };
 
@@ -430,7 +430,7 @@ export function useChatRouteLoader({
             void clearCachedChatMessages(openChatId);
             startNewChat({ force: true });
           }
-          showActionBanner(t("common.error"), "alert-circle-outline");
+          showActionBanner(t("common.error"), "alert-circle");
         }
       } finally {
         if (isCurrent()) setChatLoading(false);
@@ -491,7 +491,7 @@ export function useChatRouteLoader({
       });
       setHasMoreOlder(page.has_more);
     } catch {
-      if (isCurrent()) showActionBanner(t("common.error"), "alert-circle-outline");
+      if (isCurrent()) showActionBanner(t("common.error"), "alert-circle");
     } finally {
       if (isCurrent()) {
         olderRequestRef.current = null;

@@ -120,7 +120,7 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
         {empty ? (
           <StateView
             variant="empty"
-            icon="book-outline"
+            icon="book"
             title={t("lesson.chapter_empty")}
           />
         ) : null}

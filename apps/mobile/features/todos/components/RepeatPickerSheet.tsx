@@ -8,6 +8,7 @@ import { selection } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 export const REPEAT_PICKER_VALUES: readonly (RecurrenceRule | null)[] = [
   null,
@@ -56,7 +57,7 @@ export function RepeatPickerSheet({
             accessibilityLabel={label}
           >
             <Text style={[s.label, active && s.labelActive]}>{label}</Text>
-            {active ? <Icon name="checkmark" size={18} color={theme.primary} /> : null}
+            {active ? <Icon name="check" size={IconSize.sm} color={theme.primary} /> : null}
           </Pressable>
         );
       })}

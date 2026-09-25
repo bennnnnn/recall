@@ -8,6 +8,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 export function matchScoreColor(score: number | null, C: Theme): string {
   if (score == null) return C.primary;
@@ -35,7 +36,7 @@ export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
           style={s.chip}
           accessibilityLabel={`${chip.label}: ${chip.value}`}
         >
-          <Icon name={chip.icon} size={14} color={C.textTertiary} />
+          <Icon name={chip.icon} size={IconSize.xxs} color={C.textTertiary} />
           <Text style={s.chipText} numberOfLines={2}>
             <Text style={s.chipLabel}>{chip.label}: </Text>
             {chip.value}
@@ -58,38 +59,38 @@ export function JobMatchMetaChips({
   const chips: MetaChip[] = [];
   if (match.work_mode)
     chips.push({
-      icon: "laptop-outline",
+      icon: "laptop",
       label: t("my_job.meta_work_mode"),
       value: t(`my_job.work_${match.work_mode}`),
     });
   if (match.location)
     chips.push({
-      icon: "location-outline",
+      icon: "map-pin",
       label: t("my_job.meta_location"),
       value: match.location,
     });
   if (match.salary)
     chips.push({
-      icon: "cash-outline",
+      icon: "banknote",
       label: t("my_job.meta_salary"),
       value: match.salary,
     });
   if (match.experience)
     chips.push({
-      icon: "bar-chart-outline",
+      icon: "bar-chart",
       label: t("my_job.meta_experience"),
       value: match.experience,
     });
   const skills = match.required_skills.slice(0, maxSkills);
   if (skills.length > 0)
     chips.push({
-      icon: "construct-outline",
+      icon: "wrench",
       label: t("my_job.meta_skills"),
       value: skills.join(", "),
     });
   if (match.posted_at)
     chips.push({
-      icon: "time-outline",
+      icon: "clock",
       label: t("my_job.meta_posted"),
       value: match.posted_at,
     });

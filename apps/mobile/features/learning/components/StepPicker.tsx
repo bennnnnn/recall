@@ -7,6 +7,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 export type StepPickerOption<T> = {
   key: string;
@@ -68,7 +69,7 @@ export function StepPicker<T>({
               onPress={() => onSelect(option.value)}
             >
               <Text style={[s.rowText, selected && s.rowTextActive]}>{option.label}</Text>
-              {selected ? <Icon name="checkmark" size={18} color={theme.primary} /> : null}
+              {selected ? <Icon name="check" size={IconSize.sm} color={theme.primary} /> : null}
             </Pressable>
           );
         })}

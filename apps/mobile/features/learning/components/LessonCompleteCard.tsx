@@ -16,6 +16,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 const BURST = 280;
 const ICON = 96;
@@ -91,7 +92,7 @@ export function LessonCompleteCard({
           </>
         ) : null}
         <Animated.View style={[s.iconWrap, iconAnim]}>
-          <Icon name="checkmark-circle" size={56} color={theme.success} />
+          <Icon name="check-circle-filled" size={IconSize.hero} color={theme.success} />
         </Animated.View>
       </View>
       <Animated.View style={iconAnim}>

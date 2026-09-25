@@ -22,7 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
 import { todosForView, type TodoView } from "@/features/todos/model/todoListFilter";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -146,8 +146,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       headerLeft: () =>
         detailOpen ? (
           <IconButton
-            name="chevron-back"
-            size={IconSize.lg}
+            name="chevron-left"
+            size={IconSize.md}
             accessibilityLabel={t("common.back")}
             onPress={() => headerBackAction.current()}
             style={{ marginLeft: Space.xxs }}
@@ -171,7 +171,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }
         return (
           <IconButton
-            name="ellipsis-horizontal"
+            name="more-horizontal"
             size={IconSize.md}
             color={C.text}
             accessibilityLabel={detailOpen ? t("todos.detail_menu") : t("todos.menu")}

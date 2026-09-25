@@ -1,12 +1,12 @@
 import { createContext, useContext } from "react";
 
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 
 export type ActionFeedbackTone = "success" | "info" | "warning" | "error";
 
 export type ActionFeedbackOptions = {
   tone?: ActionFeedbackTone;
-  icon?: IoniconName;
+  icon?: IconName;
   haptic?: boolean;
 };
 

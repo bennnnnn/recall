@@ -135,5 +135,5 @@ it.each(["pin", "archive"])("uses the returned state for the drawer %s confirmat
   });
   expect(current.actionBanner).toEqual(kind === "pin"
     ? { message: "chat.pinned_toast", icon: "pin" }
-    : { message: "chat.unarchived_toast", icon: "arrow-undo-outline" });
+    : { message: "chat.unarchived_toast", icon: "unarchive" });
 });

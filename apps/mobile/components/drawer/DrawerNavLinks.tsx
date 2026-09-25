@@ -7,6 +7,7 @@ import { tap } from "@/lib/haptics";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   styles: ConversationListStyles;
@@ -42,9 +43,9 @@ export function DrawerNavLinks({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.my_job")}
       >
-        <Icon name="briefcase-outline" size={18} />
+        <Icon name="briefcase" size={IconSize.sm} />
         <Text style={s.todosLinkText}>{t("drawer.my_job")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
+        <Icon name="chevron-right" size={IconSize.xs} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
 
       <Pressable
@@ -56,9 +57,9 @@ export function DrawerNavLinks({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.projects")}
       >
-        <Icon name="school-outline" size={18} />
+        <Icon name="graduation-cap" size={IconSize.sm} />
         <Text style={s.todosLinkText}>{t("drawer.projects")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
+        <Icon name="chevron-right" size={IconSize.xs} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
 
       <Pressable
@@ -75,13 +76,13 @@ export function DrawerNavLinks({
         }
       >
         <View style={s.navIconWrap}>
-          <Icon name="calendar-outline" size={18} />
+          <Icon name="calendar" size={IconSize.sm} />
           {showIndicator ? (
             <ReminderBadge count={unseenCount} style={s.navBadge} />
           ) : null}
         </View>
         <Text style={s.todosLinkText}>{t("drawer.reminders")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
+        <Icon name="chevron-right" size={IconSize.xs} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
 
       <Pressable
@@ -93,9 +94,9 @@ export function DrawerNavLinks({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.gallery")}
       >
-        <Icon name="library-outline" size={18} />
+        <Icon name="images" size={IconSize.sm} />
         <Text style={s.todosLinkText}>{t("drawer.gallery")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
+        <Icon name="chevron-right" size={IconSize.xs} color={theme.textTertiary} style={s.todosChevron} />
       </Pressable>
     </View>
   );

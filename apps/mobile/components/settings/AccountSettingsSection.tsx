@@ -58,36 +58,36 @@ export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
     <>
       <SettingsOverviewGroup label={t("settings.account")}>
         <SettingsOverviewRow
-          icon="mail-outline"
+          icon="mail"
           title={t("settings.email")}
           value={user?.email ?? ""}
         />
         <SettingsOverviewRow
-          icon="key-outline"
+          icon="key"
           title={t("settings.sign_in_method")}
           value={signInLabel(user?.sign_in_provider, t)}
         />
         {isPro ? (
           <>
             <SettingsOverviewRow
-              icon="card-outline"
+              icon="credit-card"
               title={t("settings.plan_label")}
               value={planLabel}
             />
             <SettingsOverviewRow
-              icon="wallet-outline"
+              icon="wallet"
               title={t("settings.manage_subscription")}
               onPress={() => void Linking.openURL(manageSubscriptionUrl())}
             />
             <SettingsOverviewRow
-              icon="refresh-outline"
+              icon="refresh"
               title={t("settings.restore_purchases")}
               onPress={() => void restore()}
             />
           </>
         ) : (
           <SettingsOverviewRow
-            icon="sparkles-outline"
+            icon="sparkles"
             title={t("settings.plan_label")}
             value={planLabel}
             onPress={() => setUpgradeVisible(true)}

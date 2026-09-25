@@ -7,6 +7,7 @@ import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { IconSize } from "../icons/sizes";
 
 type Props = {
   value: string;
@@ -48,7 +49,7 @@ export function SearchField({
 
   return (
     <View style={[s.bar, style]}>
-      <Icon name="search-outline" size={18} color={theme.text} />
+      <Icon name="search" size={IconSize.sm} color={theme.text} />
       <TextInput
         ref={inputRef}
         style={s.input}
@@ -70,7 +71,7 @@ export function SearchField({
           testID={clearTestID}
           hitSlop={8}
         >
-          <Icon name="close-circle-outline" size={18} color={theme.textTertiary} />
+          <Icon name="close-circle" size={IconSize.sm} color={theme.textTertiary} />
         </Pressable>
       ) : null}
       {trailing}

@@ -3,10 +3,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { RepeatPickerSheet } from "@/features/todos/components/RepeatPickerSheet";
 import { selection } from "@/lib/haptics";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,

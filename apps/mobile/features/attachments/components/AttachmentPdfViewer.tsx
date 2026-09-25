@@ -14,7 +14,7 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
@@ -93,7 +93,7 @@ export function AttachmentPdfViewer({
             onPress={onClose}
             accessibilityLabel={t("chat.pdf_close_a11y")}
             name="close"
-            size={IconSize.lg}
+            size={IconSize.md}
             color={theme.text}
           />
           <Text style={s.title} numberOfLines={1}>
@@ -102,7 +102,7 @@ export function AttachmentPdfViewer({
           <IconButton
             onPress={onShare}
             accessibilityLabel={t("chat.pdf_share_a11y")}
-            name="share-outline"
+            name="share"
             size={IconSize.md}
             color={theme.primary}
           />

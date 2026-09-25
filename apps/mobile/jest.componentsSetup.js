@@ -99,10 +99,6 @@ jestGlobals.mock("react-native-gesture-handler", () => {
   };
 });
 
-jestGlobals.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 // expo-constants pulls expo-modules-core's native EventEmitter in this env.
 // Standalone (not Expo Go) so native-module gates probe their module mock.
 jestGlobals.mock("expo-constants", () => ({

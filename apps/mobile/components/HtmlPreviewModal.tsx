@@ -22,7 +22,8 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
-import { IconSize, type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
+import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
@@ -263,7 +264,7 @@ function ToolbarItem({
   theme,
   styles: s,
 }: {
-  icon: IoniconName;
+  icon: IconName;
   label: string;
   onPress: () => void;
   active?: boolean;
@@ -280,7 +281,7 @@ function ToolbarItem({
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
     >
-      <Icon name={icon} size={IconSize.lg} color={color} />
+      <Icon name={icon} size={IconSize.md} color={color} />
     </Pressable>
   );
 }
@@ -316,7 +317,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
       >
         {tab === "run" && interactive && !canUseNativeWebView ? (
           <View style={s.interactiveBanner}>
-            <Icon name="flash-outline" size={16} color={theme.primary} />
+            <Icon name="zap" size={IconSize.xs} color={theme.primary} />
             <Text style={s.interactiveBannerText}>{t("preview.expo_go_banner")}</Text>
           </View>
         ) : null}
@@ -357,7 +358,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             styles={s}
           />
           <ToolbarItem
-            icon="code-slash"
+            icon="code"
             label={t("preview.code_tab")}
             onPress={() => setTab("code")}
             active={tab === "code"}
@@ -373,7 +374,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             styles={s}
           />
           <ToolbarItem
-            icon="share-outline"
+            icon="share"
             label={t("preview.share")}
             onPress={() => void shareHtmlPreview(html)}
             theme={theme}

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 
 import { api, type Message } from "@/lib/api";
 import { patchCachedChatMessage } from "@/lib/chat/messageCache";
@@ -55,11 +55,11 @@ export function useChatActions({
   const [menuVisible, setMenuVisible] = useState(false);
   const [actionBanner, setActionBanner] = useState<{
     message: string;
-    icon?: IoniconName;
+    icon?: IconName;
   } | null>(null);
 
   const showActionBanner = useCallback(
-    (message: string, icon?: IoniconName) => {
+    (message: string, icon?: IconName) => {
       setActionBanner({ message, icon });
     },
     [],
@@ -160,7 +160,7 @@ export function useChatActions({
   }, [chatTitle, closeMenu, feedback, loadTranscriptMessages, t]);
 
   const handleExportPdf = useCallback(async () => {
-    showActionBanner(t("chat.status.preparing"), "document-text-outline");
+    showActionBanner(t("chat.status.preparing"), "file-text");
     try {
       const transcript = await loadTranscriptMessages();
       dismissActionBanner();

@@ -14,7 +14,7 @@ export function AppearanceSettingsRow() {
   return (
     <>
       <SettingsOverviewRow
-        icon="contrast-outline"
+        icon="contrast"
         title={t("settings.appearance")}
         accessibilityHint={t("settings.appearance_summary")}
         value={t(`settings.appearance_${preference}`)}

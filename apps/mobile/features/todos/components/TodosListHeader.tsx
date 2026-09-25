@@ -35,7 +35,7 @@ export function TodosListHeader({
       ) : showEmpty ? (
         <StateView
           variant="empty"
-          icon="checkmark-circle-outline"
+          icon="check-circle"
           title={t("todos.empty_title")}
         />
       ) : null}

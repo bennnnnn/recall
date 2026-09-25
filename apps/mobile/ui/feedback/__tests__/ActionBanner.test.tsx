@@ -3,10 +3,6 @@ import { act, render } from "@testing-library/react-native";
 import { ActionBanner } from "../ActionBanner";
 import { Layer } from "@/lib/layer";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
 }));

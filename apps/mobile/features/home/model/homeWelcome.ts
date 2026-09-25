@@ -3,7 +3,7 @@
 
 import i18n from "@/lib/i18n";
 import type { HomeScreen, HomeStarter } from "@/lib/api/types";
-import type { IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 
 export function localGreeting(now: Date = new Date()): string {
   const hour = now.getHours();
@@ -30,8 +30,8 @@ export function welcomeStarters(): HomeStarter[] {
 }
 
 /** Distinct chip icons so the two local starters scan as different actions. */
-export function welcomeStarterIcon(index: number): IoniconName {
-  return index === 0 ? "sparkles-outline" : "help-circle-outline";
+export function welcomeStarterIcon(index: number): IconName {
+  return index === 0 ? "sparkles" : "help";
 }
 
 /** Sync placeholder so post-login home never paints a bare spinner. */

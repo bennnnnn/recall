@@ -23,7 +23,7 @@ import {
   nextChartPreviewHeight,
 } from "@/lib/chartPreviewHeight";
 import { CODE_FONT } from "@/lib/fonts";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
@@ -118,7 +118,7 @@ export function ChartBlock({ content }: Props) {
   return (
     <VisualCard
       label={t("rich.chart")}
-      icon="bar-chart-outline"
+      icon="bar-chart"
       headerRight={
         <Text style={s.lineCount}>
           {t("rich.lines_count", { count: content.trim().split("\n").length })}
@@ -139,7 +139,7 @@ export function ChartBlock({ content }: Props) {
             accessibilityLabel={t("rich.source")}
           >
             <Icon
-              name={showSource ? "eye-off-outline" : "code-slash-outline"}
+              name={showSource ? "eye-off" : "code"}
               size={IconSize.sm}
               color={showSource ? theme.primary : theme.textSecondary}
             />
@@ -153,7 +153,7 @@ export function ChartBlock({ content }: Props) {
               accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
             >
               <Icon
-                name={expanded ? "contract-outline" : "expand-outline"}
+                name={expanded ? "collapse" : "expand"}
                 size={IconSize.sm}
                 color={theme.textSecondary}
               />
@@ -166,7 +166,7 @@ export function ChartBlock({ content }: Props) {
             accessibilityRole="button"
             accessibilityLabel={t("rich.vega_editor")}
           >
-            <Icon name="open-outline" size={IconSize.sm} color={theme.textSecondary} />
+            <Icon name="external-link" size={IconSize.sm} color={theme.textSecondary} />
           </Pressable>
         </>
       }
@@ -174,7 +174,7 @@ export function ChartBlock({ content }: Props) {
       <View style={[s.previewBox, { height }]}>
         {renderError ? (
           <View style={[s.previewPlaceholder, { height }]}>
-            <Icon name="alert-circle-outline" size={IconSize.sm} color={theme.danger} />
+            <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
             <Text style={[s.previewPlaceholderText, { color: theme.danger }]}>
               {renderError}
             </Text>
