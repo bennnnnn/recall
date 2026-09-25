@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Keyboard, StyleSheet, Text } from "react-native";
+import { Keyboard, StyleSheet, Text, type ImageSourcePropType } from "react-native";
 import type { ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -10,6 +10,15 @@ import { Type } from "@/lib/type";
 import { Space } from "@/lib/space";
 
 type IconName = ComponentProps<typeof ActionSheetRow>["icon"];
+
+const menuIcons = {
+  share: require("@/assets/menu-icons/share.png") as ImageSourcePropType,
+  rename: require("@/assets/menu-icons/rename.png") as ImageSourcePropType,
+  pin: require("@/assets/menu-icons/pin.png") as ImageSourcePropType,
+  archive: require("@/assets/menu-icons/archive.png") as ImageSourcePropType,
+  pdf: require("@/assets/menu-icons/pdf.png") as ImageSourcePropType,
+  pdfDark: require("@/assets/menu-icons/pdf-dark.png") as ImageSourcePropType,
+};
 
 type Props = {
   visible: boolean;
@@ -31,6 +40,8 @@ type Props = {
 type Action = {
   key: string;
   icon: IconName;
+  image?: ImageSourcePropType;
+  preserveImageColor?: boolean;
   label: string;
   onPress: () => void;
   danger?: boolean;
@@ -61,24 +72,45 @@ export function ChatActionsSheet({
 
   const actions = useMemo(() => {
     const rows: Action[] = [
-      { key: "share", icon: "share-outline", label: t("chat.share"), onPress: onShare },
+      {
+        key: "share",
+        icon: "share-outline",
+        image: menuIcons.share,
+        label: t("chat.share"),
+        onPress: onShare,
+      },
     ];
     if (onExportPdf) {
       rows.push({
         key: "export-pdf",
         icon: "document-text-outline",
+        image: theme.isDark ? menuIcons.pdfDark : menuIcons.pdf,
+        preserveImageColor: true,
         label: t("chat.export_pdf"),
         onPress: onExportPdf,
       });
     }
-    rows.push({ key: "rename", icon: "create-outline", label: t("chat.rename"), onPress: onRename });
+    rows.push({
+      key: "rename",
+      icon: "create-outline",
+      image: menuIcons.rename,
+      label: t("chat.rename"),
+      onPress: onRename,
+    });
     if (!archived) {
-      rows.push({ key: "pin", icon: "pin-outline", label: pinned ? t("chat.unpin") : t("chat.pin"), onPress: onTogglePin });
+      rows.push({
+        key: "pin",
+        icon: "pin-outline",
+        image: menuIcons.pin,
+        label: pinned ? t("chat.unpin") : t("chat.pin"),
+        onPress: onTogglePin,
+      });
     }
     if (onToggleArchive) {
       rows.push({
         key: "archive",
         icon: archived ? "arrow-undo-outline" : "archive-outline",
+        image: archived ? undefined : menuIcons.archive,
         label: archived ? t("chat.unarchive") : t("chat.archive"),
         onPress: onToggleArchive,
       });
@@ -110,6 +142,7 @@ export function ChatActionsSheet({
     onTogglePin,
     pinned,
     t,
+    theme.isDark,
   ]);
 
   return (
@@ -132,6 +165,8 @@ export function ChatActionsSheet({
         <ActionSheetRow
           key={action.key}
           icon={action.icon}
+          image={action.image}
+          preserveImageColor={action.preserveImageColor}
           label={action.label}
           onPress={action.onPress}
           theme={theme}

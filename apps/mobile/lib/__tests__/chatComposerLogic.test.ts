@@ -1,6 +1,9 @@
 import {
   buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
+  COMPOSER_INPUT_MAX_HEIGHT,
+  COMPOSER_INPUT_MIN_HEIGHT,
+  composerInputFrameHeight,
   composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
@@ -12,6 +15,25 @@ import {
   shouldReserveComposerActionGap,
 } from "@/lib/chat/composerLogic";
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
+
+describe("composerInputFrameHeight", () => {
+  it("grows one line per Return and caps at the field max", () => {
+    expect(composerInputFrameHeight("", 80)).toEqual({
+      height: COMPOSER_INPUT_MIN_HEIGHT,
+      overflows: false,
+    });
+    expect(composerInputFrameHeight("\n\n", 0).height).toBeGreaterThan(
+      COMPOSER_INPUT_MIN_HEIGHT,
+    );
+    expect(composerInputFrameHeight("K\nk", 20).height).toBeGreaterThan(
+      COMPOSER_INPUT_MIN_HEIGHT,
+    );
+    expect(composerInputFrameHeight("line\n".repeat(12), 400)).toEqual({
+      height: COMPOSER_INPUT_MAX_HEIGHT,
+      overflows: true,
+    });
+  });
+});
 
 describe("chatComposerLogic", () => {
   const catalog = [

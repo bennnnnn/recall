@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
 import { Icon } from "@/components/Icon";
+import { SearchField } from "@/components/SearchField";
 import { isValidCustomOption, matchOption, rankedOptions } from "@/features/job-search/model/optionSearch";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -138,19 +139,13 @@ export function SearchableMultiSelect({
             {t("my_job.picker_max_reached", { max: maxSelections })}
           </Text>
         ) : null}
-        <View style={s.sheetSearchRow}>
-          <Icon name="search" size={18} color={C.textTertiary} />
-          <TextInput
-            style={s.sheetSearch}
-            value={query}
-            onChangeText={setQuery}
-            placeholder={searchPlaceholder}
-            placeholderTextColor={C.textDisabled}
-            autoCapitalize="words"
-            autoCorrect={false}
-            autoFocus
-          />
-        </View>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder={searchPlaceholder}
+          autoCapitalize="words"
+          autoFocus
+        />
         <View style={s.sheetList}>
           <FlashList
             data={filtered}
@@ -253,21 +248,6 @@ function makeStyles(C: Theme) {
       paddingBottom: Space.xxs,
     },
     sheetMaxHint: { ...Type.caption, color: C.warning, textAlign: "center" },
-    sheetSearchRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: 46,
-      borderRadius: Radius.lg,
-      backgroundColor: C.surfaceAlt,
-      paddingHorizontal: Space.md,
-    },
-    sheetSearch: {
-      ...Type.body,
-      flex: 1,
-      color: C.text,
-      paddingVertical: Space.xs,
-    },
     sheetList: { height: 380 },
     sheetRow: {
       flexDirection: "row",

@@ -63,6 +63,7 @@ export interface ChatScreenComposerProps {
   onPickAttachment: () => void;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
+  onInputFrameExtraChange?: (extra: number) => void;
   onSend: (text?: string) => void;
   onStop: () => void;
   isOffline: boolean;
@@ -214,6 +215,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
         liveTalkChrome={composer.liveTalkSession}
         onOpenMathScanner={composer.onOpenMathScanner}
         onMathChromeHeightChange={composer.onMathChromeHeightChange}
+        onInputFrameExtraChange={composer.onInputFrameExtraChange}
         mathContext={mathContext}
       />
 
