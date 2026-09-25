@@ -8,7 +8,7 @@ import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   name?: IoniconName;
-  /** Custom glyph (e.g. HamburgerIcon) — overrides `name` when set. */
+  /** Custom glyph from `@/lib/icons` (e.g. MenuIcon) — overrides `name` when set. */
   icon?: ReactNode;
   onPress: () => void;
   accessibilityLabel: string;

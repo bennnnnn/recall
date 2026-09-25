@@ -41,11 +41,6 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: View };
 });
 
-jest.mock("@/components/NewChatIcon", () => {
-  const { View } = jest.requireActual("react-native") as typeof import("react-native");
-  return { NewChatIcon: () => <View testID="new-chat-icon" /> };
-});
-
 const props = {
   paddingTop: 47,
   minimumHeight: 96,

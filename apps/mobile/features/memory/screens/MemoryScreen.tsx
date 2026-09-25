@@ -10,7 +10,6 @@ import {
   MemorySectionHeader,
 } from "@/features/memory/components/MemoryRows";
 import { IconButton } from "@/components/IconButton";
-import { NewChatIcon } from "@/components/NewChatIcon";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,7 +18,7 @@ import { useMemoryActions } from "@/features/memory/hooks/useMemoryActions";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { getCachedMemories } from "@/features/memory/model/memoryListCache";
 import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/features/memory/model/memoryFacts";
-import { IconSize } from "@/lib/icons";
+import { EditIcon, IconSize } from "@/lib/icons";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -185,7 +184,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           name={editingPage ? "checkmark" : undefined}
           icon={
             editingPage ? undefined : (
-              <NewChatIcon size={IconSize.md} color={theme.text} />
+              <EditIcon size={IconSize.md} color={theme.text} />
             )
           }
           size={IconSize.sm}
