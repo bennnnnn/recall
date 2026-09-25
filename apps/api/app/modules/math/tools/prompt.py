@@ -33,8 +33,14 @@ VERIFIED_MATH_REPLY_HINT = (
 
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
     from app.modules.math import match as math_match
+    from app.modules.math.tools.lesson import strip_lesson_prefixes
 
-    return math_match.needs_symbolic(text, has_image_attachment=has_image_attachment)
+    # Teaching / answer-style wrappers are response metadata, not part of the
+    # expression. The extractor already removes them, so the cheaper routing
+    # gate must inspect the same underlying math or it will skip SymPy before
+    # extraction ever runs (for example, ``Show steps: 2x+3=11``).
+    math_text = strip_lesson_prefixes(text)
+    return math_match.needs_symbolic(math_text, has_image_attachment=has_image_attachment)
 
 
 def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
