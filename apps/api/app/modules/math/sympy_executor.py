@@ -70,6 +70,11 @@ def _sympy_worker(fn: Callable[..., _T], *args: Any) -> _T:
 class BoundedSympyExecutor:
     """Abstract: run a picklable callable with a hard timeout."""
 
+    @property
+    def max_workers(self) -> int:
+        """Number of isolated jobs this executor can run concurrently."""
+        raise NotImplementedError
+
     async def run(
         self,
         fn: Callable[..., _T],
@@ -100,6 +105,10 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         self._queue_wait_seconds = queue_wait_seconds
         self._slots: list[ProcessPoolExecutor | None] = [None] * self._max_workers
         self._free: asyncio.Queue[int] | None = None
+
+    @property
+    def max_workers(self) -> int:
+        return self._max_workers
 
     def _free_queue(self) -> asyncio.Queue[int]:
         q = self._free
@@ -233,6 +242,10 @@ class ThreadSympyExecutor(BoundedSympyExecutor):
         self._queue_wait_seconds = queue_wait_seconds
         self._pool = ThreadPoolExecutor(max_workers=self._max_workers)
 
+    @property
+    def max_workers(self) -> int:
+        return self._max_workers
+
     async def run(
         self,
         fn: Callable[..., _T],
@@ -289,15 +302,31 @@ def reset_sympy_executor() -> None:
     set_sympy_executor(None)
 
 
-def _warmup_import_sympy() -> None:
-    """Picklable no-op that pays the spawn worker's SymPy import."""
-    import sympy  # noqa: F401
+def _warmup_math_worker() -> None:
+    """Picklable warmup that loads the real verified-math call path."""
+    from app.core.config import Settings
+    from app.models.schemas.math import MathIntent
+    from app.modules.math.tools.block import _build_verified_block
+
+    _build_verified_block(
+        MathIntent(kind="arithmetic", school_op="eval", expr="1+1", operation="solve"),
+        Settings.model_validate({}),
+    )
 
 
 async def warm_sympy_pool() -> None:
-    """Create the spawn worker and import SymPy so the first chat is not cold."""
+    """Create every worker and import SymPy so early chats are not cold.
+
+    Warming one slot rotates it to the back of the free-slot queue, which made
+    the first real solve select an untouched slot and pay the full spawn/import
+    cost. Submit one warmup per slot concurrently so each process is ready
+    before the API reports startup complete.
+    """
+    executor = get_sympy_executor()
     try:
-        await run_sympy(_warmup_import_sympy, timeout=20.0)
+        await asyncio.gather(
+            *(executor.run(_warmup_math_worker, timeout=20.0) for _ in range(executor.max_workers))
+        )
     except Exception:
         logger.warning("sympy pool warmup failed", exc_info=True)
 
