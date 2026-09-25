@@ -86,6 +86,27 @@ def test_show_steps_linear_lesson_overrides_short() -> None:
     assert reply.strip().endswith("```") or "```answer" in reply.split("Check:")[0]
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Show steps: 2x + 3 = 11",
+        "Just the answer: x^2 + 2 = 6",
+    ],
+)
+async def test_lesson_prefix_reaches_verified_math_routing(text: str) -> None:
+    """Response metadata must not hide an otherwise closed equation from the gate."""
+    from app.modules.math.tools import build_math_augmentation
+
+    _note, verified = await build_math_augmentation(
+        text,
+        Settings(math_tools_enabled=True),
+    )
+
+    assert verified is not None
+    assert verified.canonical_answer
+
+
 def test_one_op_linear_stays_a_chip_on_balanced() -> None:
     text = "x+7=12"
     reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
@@ -157,6 +178,26 @@ def test_complex_modulus_does_not_split_like_a_real_absolute_value() -> None:
     assert steps == []
 
 
+def test_complex_pure_power_shows_the_root_before_simplifying() -> None:
+    text = "x^2 + 1 = 0"
+    block = _block(text)
+    reply = maybe_direct_math_reply(block, text, response_style="detailed")
+
+    assert reply is not None
+    assert r"x = \pm \sqrt{-1}" in reply
+    assert block.key_steps[-1].label == "Simplify"
+    assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm i"
+
+
+def test_negative_rational_root_matches_the_chip() -> None:
+    text = "2x^2 + 1 = 0"
+    block = _block(text)
+    assert block is not None
+    assert block.key_steps[-1].formula == block.canonical_answer
+    assert r"\frac{\sqrt{2}}{2} i" in block.canonical_answer
+    assert r"i}{2}" not in block.key_steps[-1].formula
+
+
 def test_square_root_of_a_fraction_simplifies_before_the_chip() -> None:
     text = "3x^2 + 3 = 5"
     reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
@@ -221,7 +262,8 @@ def test_short_keeps_the_bare_answer() -> None:
 
 def test_detailed_irreducible_quadratic_uses_the_formula() -> None:
     text = "solve x^2 - 2x - 1 = 0"
-    reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
+    block = _block(text)
+    reply = maybe_direct_math_reply(block, text, response_style="detailed")
 
     assert reply is not None
     assert "Quadratic formula" in reply
@@ -229,6 +271,15 @@ def test_detailed_irreducible_quadratic_uses_the_formula() -> None:
     assert r"\sqrt{2}" in reply or r"\sqrt{2}" in reply.replace(" ", "")
     assert "1" in reply
     assert "```answer" in reply
+    assert block.key_steps[-1].label == "Simplify"
+    assert block.key_steps[-1].formula == block.canonical_answer
+
+
+def test_complex_quadratic_final_step_uses_the_canonical_conjugate_pair() -> None:
+    block = _block("x^2 + x + 1 = 0")
+
+    assert block.key_steps[-1].formula == block.canonical_answer
+    assert r"\pm" in block.key_steps[-1].formula
 
 
 def test_joke_request_still_keeps_the_model() -> None:

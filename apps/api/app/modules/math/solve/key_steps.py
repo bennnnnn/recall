@@ -122,6 +122,13 @@ def _expr_equal(left: Any, right: Any) -> bool:
         return False
 
 
+def _canonical_root_formula(var: Any, solutions: list[Any]) -> str:
+    from app.modules.math.solve.algebra import compact_root_answer_lines
+
+    lines = compact_root_answer_lines(str(var), solutions)
+    return lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
+
+
 def _eq_tex(left: Any, right: Any) -> str:
     return f"{latex(left)} = {latex(right)}"
 
@@ -357,6 +364,21 @@ def _pure_power_key_steps(lhs: Any, rhs: Any, var: Any, c2: Any, c0: Any) -> lis
     if not getattr(radicand, "is_number", False) or not radicand.is_number:
         return steps
     if radicand < 0:
+        steps.append(
+            KeyStep(
+                label="Take square roots of both sides",
+                formula=rf"{latex(var)} = \pm \sqrt{{{latex(radicand)}}}",
+            )
+        )
+        # Raw sqrt() puts i in the numerator. The chip uses the canonical
+        # conjugate form, so the last step has to come from that formatter.
+        solutions = solve(Eq(var**2, radicand), var)
+        from app.modules.math.solve.algebra import compact_root_answer_lines
+
+        lines = compact_root_answer_lines(str(var), solutions)
+        if lines:
+            formula = lines[0] if len(lines) == 1 else r" \text{ or } ".join(lines)
+            steps.append(KeyStep(label="Simplify", formula=formula))
         return steps
     # Show the root operation, then make any reduction its own final step.
     # That keeps the last displayed equation identical to the answer chip
@@ -463,7 +485,7 @@ def _quadratic_formula_steps(var: Any, c2: Any, c1: Any, c0: Any) -> list[KeySte
         denom = "-2"
     else:
         denom = f"2({latex(c2)})"
-    return [
+    steps = [
         KeyStep(
             label="Discriminant",
             formula=(
@@ -479,6 +501,11 @@ def _quadratic_formula_steps(var: Any, c2: Any, c1: Any, c0: Any) -> list[KeySte
             ),
         ),
     ]
+    solutions = solve(Eq(c2 * var**2 + c1 * var + c0, 0), var)
+    final = _canonical_root_formula(var, solutions)
+    if final:
+        steps.append(KeyStep(label="Simplify", formula=final))
+    return steps
 
 
 def _substituted_eq(lhs: Any, rhs: Any, var: Any, val: Any) -> str:

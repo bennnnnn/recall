@@ -644,6 +644,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   treated every `$- ...$` line as a Markdown list item, so `$- x = -2$` visibly became the
   false equation `x = -2`. Only unwrap dollar-wrapped prose bullets; keep math-like bodies
   intact so their unary sign stays inside the math span.
+- **"Show steps" bypassed the verified lesson.** The equation extractor stripped lesson
+  metadata, but the earlier symbolic-math gate inspected the unstripped sentence and returned
+  false, sending a closed equation to the model. Strip the same lesson prefixes before gating;
+  cover the full augmentation path, not only direct-formatter unit tests.
 - **Mobile deps won't install in this env.** npm points at an auth-gated internal registry, so
   `tsc`/Expo can't run here — verify mobile changes with `pnpm typecheck`/`pnpm lint` locally.
 - **expo-av / voice crash (`ExponentAV` not found).** `expo-av` is incompatible with SDK 56 — use
