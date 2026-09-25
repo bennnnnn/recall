@@ -420,7 +420,6 @@
     "mute_failed": "Couldn’t update that. Try again."
   },
   "memory.confidence": "{{percent}}% confident",
-  "memory.edit_count": "{{count}} / {{max}}",
   "memory.edit_failed": "Erinnerung konnte nicht gespeichert werden. Bitte erneut versuchen.",
   "memory.edit_title": "Erinnerung bearbeiten",
   "memory.empty_body": "Chatte mit Recall und es lernt automatisch deine Vorlieben, Lernthemen und Fakten über dich.",

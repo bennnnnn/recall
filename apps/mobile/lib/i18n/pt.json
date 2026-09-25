@@ -420,7 +420,6 @@
     "mute_failed": "Couldn’t update that. Try again."
   },
   "memory.confidence": "{{percent}}% confident",
-  "memory.edit_count": "{{count}} / {{max}}",
   "memory.edit_failed": "Não foi possível salvar a memória. Tente de novo.",
   "memory.edit_title": "Editar memória",
   "memory.empty_body": "Converse com o Recall e ele aprenderá automaticamente suas preferências, tópicos de estudo e fatos sobre você.",

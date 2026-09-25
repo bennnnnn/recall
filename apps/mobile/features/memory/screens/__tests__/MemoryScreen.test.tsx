@@ -69,7 +69,8 @@ jest.mock("expo-router", () => ({
 jest.mock("@/features/memory/model/memoryListCache", () => ({ getCachedMemories: () => mockMemories }));
 jest.mock("@/features/memory/hooks/useMemoryActions", () => ({ useMemoryActions: () => ({
   memories: mockMemories, loading: false, error: mockError, load: mockLoad,
-  hasLoaded: mockHasLoaded, updateMemoryText: mockUpdate, pendingTypes: mockPending,
+  hasLoaded: mockHasLoaded, updateMemoryText: mockUpdate, deleteFact: jest.fn(async () => true),
+  pendingTypes: mockPending,
   isCurrentOwner: () => true,
 }) }));
 const mockHasLoaded = () => true;
@@ -81,9 +82,11 @@ beforeEach(() => {
   mockUpdate.mockResolvedValue(true);
 });
 afterEach(() => jest.restoreAllMocks());
+const samplePage = "profile\nFirst fact.";
+
 async function beginEdit(ui: Awaited<ReturnType<typeof render>>) {
   await fireEvent.press(ui.getByLabelText("memory.edit_title"));
-  await fireEvent.changeText(ui.getByDisplayValue(sample.text), "Updated fact");
+  await fireEvent.changeText(ui.getByDisplayValue(samplePage), "Updated fact");
 }
 
 it("shows each saved fact", async () => {
@@ -98,14 +101,13 @@ it("shows each saved fact", async () => {
   expect(ui.queryByText("memory.source_chat")).toBeNull();
 });
 
-it("edits every fact inline from one control", async () => {
+it("edits the whole page in one field", async () => {
+  mockMemories = [sample, { ...sample, id: "m2", type: "fact", text: "Second fact." }];
   const ui = await render(<MemoryScreen />);
   await fireEvent.press(ui.getByLabelText("memory.edit_title"));
-  expect(ui.getByDisplayValue(sample.text)).toBeTruthy();
-  expect(ui.queryAllByLabelText("memory.edit_title")).toHaveLength(0);
+  expect(ui.getByDisplayValue("profile\nFirst fact.\n\nfact\nSecond fact.")).toBeTruthy();
+  expect(ui.queryByText("memory.edit_count")).toBeNull();
   expect(ui.getAllByLabelText("common.save")).toHaveLength(1);
-  expect(ui.queryByLabelText("common.cancel")).toBeNull();
-  expect(ui.queryByLabelText("memory.edit_fact_a11y")).toBeNull();
 });
 
 it("clears an account's editor before showing the next account", async () => {
@@ -159,7 +161,7 @@ it("edits a maximum-length stamped section without sending the server stamp back
   mockMemories = [{ ...sample, text: `As of 2026-09-04: ${body}` }];
   const ui = await render(<MemoryScreen />);
   await fireEvent.press(ui.getByLabelText("memory.edit_title"));
-  expect(ui.getByDisplayValue(body)).toBeTruthy();
+  expect(ui.getByDisplayValue(`profile\n${body}`)).toBeTruthy();
   const save = mockIconPresses.get("common.save")!;
   await act(async () => { save(); await Promise.resolve(); });
   expect(mockUpdate).toHaveBeenCalledWith(sample.id, body);

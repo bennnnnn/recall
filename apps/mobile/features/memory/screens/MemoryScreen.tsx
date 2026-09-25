@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,7 @@ import {
   MemoryFactRow,
   MemoryFold,
   MemorySectionHeader,
+  memorySectionLabel,
 } from "@/features/memory/components/MemoryRows";
 import { IconButton } from "@/components/IconButton";
 import { SkeletonList } from "@/components/SkeletonLoader";
@@ -17,8 +18,15 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useMemoryActions } from "@/features/memory/hooks/useMemoryActions";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { getCachedMemories } from "@/features/memory/model/memoryListCache";
-import { MEMORY_TEXT_MAX_LENGTH, stripMemoryAsOf } from "@/features/memory/model/memoryFacts";
+import {
+  MEMORY_TEXT_MAX_LENGTH,
+  formatMemoryPage,
+  parseMemoryPage,
+  stripMemoryAsOf,
+  type MemoryPageLabel,
+} from "@/features/memory/model/memoryFacts";
 import { EditIcon, IconSize } from "@/lib/icons";
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -46,11 +54,12 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     load,
     hasLoaded,
     updateMemoryText,
+    deleteFact,
     pendingTypes,
   } = useMemoryActions(token);
   const [refreshing, setRefreshing] = useState(false);
   const [editingPage, setEditingPage] = useState(false);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [draft, setDraft] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
   const savingRef = useRef(false);
   const refreshingRef = useRef(false);
@@ -76,33 +85,57 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   }, [memories]);
 
   const editBlocked = memories.some((fact) => pendingTypes.has(fact.type));
-
-  const draftsInvalid = useMemo(() => {
-    if (!editingPage) return false;
-    return memories.some((fact) => {
-      const next = stripMemoryAsOf(drafts[fact.id] ?? fact.text);
-      return !next || Array.from(next).length > MEMORY_TEXT_MAX_LENGTH;
-    });
-  }, [editingPage, memories, drafts]);
+  const pageLabels = useMemo<MemoryPageLabel[]>(
+    () => sections.map((section) => ({ type: section.type, label: memorySectionLabel(section.type, t) })),
+    [sections, t],
+  );
+  const parsedDraft = useMemo(
+    () => (editingPage ? parseMemoryPage(draft, pageLabels) : null),
+    [editingPage, draft, pageLabels],
+  );
+  const draftTooLong = useMemo(() => {
+    if (!parsedDraft) return false;
+    for (const lines of parsedDraft.values()) {
+      if (lines.some((line) => Array.from(line).length > MEMORY_TEXT_MAX_LENGTH)) return true;
+    }
+    return false;
+  }, [parsedDraft]);
+  const draftEmpty = useMemo(() => {
+    if (!parsedDraft) return false;
+    for (const lines of parsedDraft.values()) {
+      if (lines.length > 0) return false;
+    }
+    return true;
+  }, [parsedDraft]);
 
   const beginEdit = useCallback(() => {
     if (!isCurrentView() || editBlocked || savingRef.current) return;
-    const next: Record<string, string> = {};
-    for (const fact of memories) next[fact.id] = stripMemoryAsOf(fact.text);
-    setDrafts(next);
+    setDraft(formatMemoryPage(sections.map((section) => ({
+      label: memorySectionLabel(section.type, t),
+      facts: section.facts.map((fact) => stripMemoryAsOf(fact.text)),
+    }))));
     setEditingPage(true);
-  }, [isCurrentView, editBlocked, memories]);
+  }, [isCurrentView, editBlocked, sections, t]);
 
   const saveEdit = useCallback(async () => {
-    if (!isCurrentView() || savingRef.current || draftsInvalid) return;
+    if (!isCurrentView() || savingRef.current || draftTooLong || draftEmpty || !parsedDraft) return;
     const changes: { id: string; text: string }[] = [];
-    for (const fact of memories) {
-      const next = stripMemoryAsOf(drafts[fact.id] ?? fact.text);
-      if (next !== fact.text) changes.push({ id: fact.id, text: next });
+    const removed: typeof memories = [];
+    for (const section of sections) {
+      const lines = parsedDraft.get(section.type) ?? [];
+      if (lines.length > section.facts.length) {
+        reportRecoverableError(feedback, t("memory.edit_failed"));
+        return;
+      }
+      lines.forEach((line, index) => {
+        const fact = section.facts[index];
+        if (fact && line !== fact.text) changes.push({ id: fact.id, text: line });
+      });
+      removed.push(...section.facts.slice(lines.length));
     }
-    if (changes.length === 0) {
+    if (changes.length === 0 && removed.length === 0) {
       setEditingPage(false);
-      setDrafts({});
+      setDraft("");
       return;
     }
     savingRef.current = true;
@@ -117,12 +150,32 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         return;
       }
     }
+    for (const fact of removed) {
+      const ok = await deleteFact(fact);
+      if (!isCurrentView()) return;
+      if (!ok) {
+        savingRef.current = false;
+        setSavingEdit(false);
+        reportRecoverableError(feedback, t("memory.edit_failed"));
+        return;
+      }
+    }
     if (!isCurrentView()) return;
     savingRef.current = false;
     setSavingEdit(false);
     setEditingPage(false);
-    setDrafts({});
-  }, [isCurrentView, draftsInvalid, memories, drafts, updateMemoryText, feedback, t]);
+    setDraft("");
+  }, [
+    isCurrentView,
+    draftTooLong,
+    draftEmpty,
+    parsedDraft,
+    sections,
+    updateMemoryText,
+    deleteFact,
+    feedback,
+    t,
+  ]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -190,7 +243,7 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           size={IconSize.sm}
           color={theme.accent}
           onPress={() => { if (editingPage) void saveEdit(); else beginEdit(); }}
-          disabled={savingEdit || editBlocked || (editingPage && draftsInvalid)}
+          disabled={savingEdit || editBlocked || (editingPage && (draftTooLong || draftEmpty))}
           accessibilityLabel={editingPage ? t("common.save") : t("memory.edit_title")}
         />
       </View>
@@ -202,36 +255,36 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           retryLabel={t("common.retry")}
         />
       ) : null}
-      <MemoryFold editing={editingPage} fadeColor={theme.surfaceAlt}>
-        {sections.map((section, sectionIndex) => {
-          const pending = pendingTypes.has(section.type);
-          const lastSection = sectionIndex === sections.length - 1;
-          return (
-            <View key={section.type}>
-              <MemorySectionHeader type={section.type} first={sectionIndex === 0} />
-              {section.facts.map((fact, index) => {
-                const draft = drafts[fact.id] ?? stripMemoryAsOf(fact.text);
-                const draftLength = Array.from(stripMemoryAsOf(draft)).length;
-                return (
+      {editingPage ? (
+        <TextInput
+          style={[s.pageEditor, draftTooLong ? s.pageEditorError : null]}
+          value={draft}
+          onChangeText={setDraft}
+          multiline
+          editable={!savingEdit}
+          textAlignVertical="top"
+          accessibilityLabel={t("memory.heading")}
+        />
+      ) : (
+        <MemoryFold fadeColor={theme.surfaceAlt}>
+          {sections.map((section, sectionIndex) => {
+            const lastSection = sectionIndex === sections.length - 1;
+            return (
+              <View key={section.type}>
+                <MemorySectionHeader type={section.type} first={sectionIndex === 0} />
+                {section.facts.map((fact, index) => (
                   <MemoryFactRow
                     key={fact.id}
                     fact={fact}
-                    pending={pending}
                     first={index === 0}
                     last={lastSection && index === section.facts.length - 1}
-                    editing={editingPage}
-                    draftText={draft}
-                    draftTooLong={editingPage && draftLength > MEMORY_TEXT_MAX_LENGTH}
-                    onChangeDraft={(text) => {
-                      setDrafts((prev) => ({ ...prev, [fact.id]: text }));
-                    }}
                   />
-                );
-              })}
-            </View>
-          );
-        })}
-      </MemoryFold>
+                ))}
+              </View>
+            );
+          })}
+        </MemoryFold>
+      )}
     </ScrollView>
   );
 }
@@ -253,5 +306,17 @@ function makeStyles(theme: Theme) {
       marginBottom: Space.gutter,
     },
     heading: { ...Type.title, color: theme.text, flex: 1 },
+    pageEditor: {
+      minHeight: 220,
+      borderRadius: Radius.lg,
+      backgroundColor: theme.surfaceAlt,
+      padding: Space.md,
+      ...Type.body,
+      color: theme.text,
+    },
+    pageEditorError: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.danger,
+    },
   });
 }
