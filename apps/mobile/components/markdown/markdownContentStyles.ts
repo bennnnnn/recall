@@ -11,9 +11,8 @@ import { Type } from "@/lib/type";
  */
 export function inlineCodeTextStyle(t: Theme): TextStyle {
   return {
+    ...Type.secondary,
     fontFamily: CODE_FONT,
-    fontSize: 14,
-    fontWeight: Type.body.fontWeight,
     color: t.text,
     backgroundColor: t.surfaceAlt,
     borderWidth: 0,
@@ -88,11 +87,11 @@ export function makeMdMath(t: Theme) {
 
 export function makeMdTable(t: Theme) {
   return StyleSheet.create({
-    cellText: { fontSize: 15, color: t.text, flexShrink: 1 },
+    cellText: { ...Type.callout, fontWeight: "400", color: t.text, flexShrink: 1 },
     headerText: { fontWeight: "600", color: t.text },
     cellCode: {
       ...inlineCodeTextStyle(t),
-      fontSize: 13,
+      ...Type.compact,
     },
   });
 }

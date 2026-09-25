@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/components/Icon";
 import type { Suggestion } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   suggestions: Suggestion[];
@@ -56,7 +57,7 @@ function makeStyles(theme: Theme) {
       gap: 8,
     },
     label: {
-      fontSize: 12,
+      ...Type.caption,
       fontWeight: "700",
       color: theme.textTertiary,
       textTransform: "uppercase",
@@ -76,6 +77,6 @@ function makeStyles(theme: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
-    chipText: { flexShrink: 1, fontSize: 13, color: theme.text, fontWeight: "500" },
+    chipText: { flexShrink: 1, ...Type.compact, color: theme.text, fontWeight: "500" },
   });
 }

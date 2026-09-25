@@ -10,6 +10,7 @@ import {
   formatProposalWhen,
 } from "@/features/integrations/model/calendarProposal";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 
 type Props = {
@@ -77,13 +78,13 @@ const makeStyles = (theme: Theme) =>
       gap: 8,
     },
     header: { flexDirection: "row", alignItems: "center", gap: 10 },
-    title: { flex: 1, fontSize: 16, fontWeight: "700", color: theme.text },
-    when: { fontSize: 14, fontWeight: "600", color: theme.textSecondary },
-    meta: { fontSize: 13, color: theme.textTertiary },
-    error: { fontSize: 13, color: theme.danger },
+    title: { flex: 1, ...Type.body, fontWeight: "700", color: theme.text },
+    when: { ...Type.label, color: theme.textSecondary },
+    meta: { ...Type.compact, color: theme.textTertiary },
+    error: { ...Type.compact, color: theme.danger },
     btn: {
       marginTop: 4,
     },
     doneRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
-    doneText: { fontSize: 14, fontWeight: "600", color: theme.primary },
+    doneText: { ...Type.label, color: theme.primary },
   });

@@ -24,6 +24,7 @@ import { Icon } from "@/components/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
 import { IconSize, type IoniconName } from "@/lib/icons";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
 import {
   looksLikeInteractiveHtml,
@@ -73,8 +74,8 @@ class PreviewRenderBoundary extends Component<
         <View style={{ padding: 16 }}>
           <Text
             style={{
+              ...Type.secondary,
               color: this.props.errorColor,
-              fontSize: 14,
               lineHeight: 20,
             }}
           >
@@ -99,9 +100,9 @@ function makeTagStyles(theme: Theme) {
   return {
     body: { color: theme.text },
     p: { marginTop: 0, marginBottom: 10, lineHeight: 22 },
-    h1: { fontSize: 28, fontWeight: "700" as const, marginBottom: 12, color: theme.text },
-    h2: { fontSize: 22, fontWeight: "700" as const, marginBottom: 10, color: theme.text },
-    h3: { fontSize: 18, fontWeight: "700" as const, marginBottom: 8, color: theme.text },
+    h1: { ...Type.display, marginBottom: 12, color: theme.text },
+    h2: { ...Type.h1, marginBottom: 10, color: theme.text },
+    h3: { ...Type.h2, marginBottom: 8, color: theme.text },
     a: { color: theme.primary },
     div: { color: theme.text },
     span: { color: theme.text },
@@ -120,11 +121,11 @@ function makeTagStyles(theme: Theme) {
       backgroundColor: theme.codeBg,
       padding: 12,
       borderRadius: 8,
+      ...Type.meta,
       fontFamily: CODE_FONT,
-      fontSize: 12,
       lineHeight: 18,
     },
-    code: { fontFamily: CODE_FONT, fontSize: 14 },
+    code: { ...Type.secondary, fontFamily: CODE_FONT },
     img: { marginVertical: 8 },
   };
 }
@@ -400,7 +401,7 @@ const makeStyles = (theme: Theme) =>
     },
     interactiveBannerText: {
       flex: 1,
-      fontSize: 13,
+      ...Type.compact,
       lineHeight: 18,
       color: theme.text,
     },
@@ -434,13 +435,13 @@ const makeStyles = (theme: Theme) =>
       backgroundColor: theme.surfaceAlt,
     },
     emptyOverlayText: {
-      fontSize: 14,
+      ...Type.secondary,
       lineHeight: 20,
       color: theme.text,
     },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: Space.md, paddingVertical: Space.md, paddingBottom: Space.md },
-    base: { color: theme.text, fontSize: 16, lineHeight: 22 },
+    base: { ...Type.body, color: theme.text, lineHeight: 22 },
     toolbar: {
       flexDirection: "row",
       alignItems: "stretch",

@@ -4,6 +4,7 @@ import { Icon } from "@/components/Icon";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = { quote?: string; author?: string; children?: ReactNode };
 
@@ -45,11 +46,10 @@ function makeStyles(t: Theme) {
       marginBottom: 10,
     },
     icon: { marginBottom: 6 },
-    quote: { fontSize: 16, lineHeight: 24, color: t.text, fontStyle: "italic" },
+    quote: { ...Type.body, lineHeight: 24, color: t.text, fontStyle: "italic" },
     author: {
       marginTop: 8,
-      fontSize: 14,
-      fontWeight: "600",
+      ...Type.label,
       color: t.textSecondary,
     },
   });

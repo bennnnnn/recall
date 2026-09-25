@@ -235,8 +235,7 @@ const makeStyles = (theme: Theme) =>
       alignSelf: "center",
     },
     title: {
-      fontSize: 22,
-      fontWeight: "700",
+      ...Type.h1,
       color: theme.text,
       textAlign: "center",
     },
@@ -247,8 +246,8 @@ const makeStyles = (theme: Theme) =>
     },
     featureList: { gap: Space.xs, marginVertical: Space.xs },
     error: {
+      ...Type.secondary,
       color: theme.danger,
-      fontSize: 14,
       textAlign: "center",
     },
     primaryBtn: {
@@ -279,5 +278,5 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       paddingVertical: Space.xs,
     },
-    devBtnText: { color: theme.textTertiary, fontSize: 13 },
+    devBtnText: { ...Type.compact, color: theme.textTertiary },
   });

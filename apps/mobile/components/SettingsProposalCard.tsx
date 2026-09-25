@@ -7,6 +7,7 @@ import { Button } from "@/components/Button";
 import { useSettingsProposal } from "@/hooks/useSettingsProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import { IconSize } from "@/lib/icons";
 
 type Props = {
@@ -71,10 +72,10 @@ const makeStyles = (theme: Theme) =>
       gap: 8,
     },
     header: { flexDirection: "row", alignItems: "center", gap: 10 },
-    title: { flex: 1, fontSize: 16, fontWeight: "700", color: theme.text },
-    change: { fontSize: 14, fontWeight: "600", color: theme.textSecondary },
-    error: { fontSize: 13, color: theme.danger },
+    title: { flex: 1, ...Type.body, fontWeight: "700", color: theme.text },
+    change: { ...Type.label, color: theme.textSecondary },
+    error: { ...Type.compact, color: theme.danger },
     btn: { marginTop: 4 },
     doneRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
-    doneText: { fontSize: 14, fontWeight: "600", color: theme.primary },
+    doneText: { ...Type.label, color: theme.primary },
   });

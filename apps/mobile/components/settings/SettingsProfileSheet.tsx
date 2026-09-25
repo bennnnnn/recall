@@ -134,7 +134,7 @@ function makeStyles(theme: Theme) {
     },
     saveText: { ...Type.h1, color: theme.bg },
     cancel: { alignSelf: "center", marginTop: Space.sm, minHeight: 48, justifyContent: "center", paddingHorizontal: Space.lg },
-    cancelText: { ...Type.body, fontSize: 18, fontWeight: "600", color: theme.text },
+    cancelText: { ...Type.body, fontWeight: "600", color: theme.text },
     pressed: { opacity: 0.65 },
     disabled: { opacity: 0.55 },
   });

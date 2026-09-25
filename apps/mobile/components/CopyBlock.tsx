@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { CopyButton } from "@/components/CopyButton";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   text: string;
@@ -57,13 +58,13 @@ function makeStyles(t: Theme) {
     label: {
       flex: 1,
       flexShrink: 1,
-      fontSize: 13,
+      ...Type.compact,
       fontWeight: "600",
       color: t.textSecondary,
     },
     body: {
       flexShrink: 1,
-      fontSize: 16,
+      ...Type.body,
       lineHeight: 24,
       color: t.text,
       paddingHorizontal: 14,

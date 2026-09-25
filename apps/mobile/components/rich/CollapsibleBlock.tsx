@@ -4,6 +4,7 @@ import { Icon } from "@/components/Icon";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = { title: string; body: string };
 
@@ -58,13 +59,13 @@ function makeStyles(t: Theme) {
       paddingVertical: 12,
       backgroundColor: t.surface,
     },
-    title: { flex: 1, fontSize: 15, fontWeight: "600", color: t.text },
+    title: { flex: 1, ...Type.callout, color: t.text },
     bodyWrap: {
       paddingHorizontal: 12,
       paddingVertical: 10,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: t.border,
     },
-    body: { fontSize: 16, lineHeight: 24, color: t.text },
+    body: { ...Type.body, lineHeight: 24, color: t.text },
   });
 }

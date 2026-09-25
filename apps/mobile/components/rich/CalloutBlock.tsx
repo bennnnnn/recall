@@ -6,6 +6,7 @@ import { CardShell } from "@/components/rich/CardShell";
 import { RichMathBody } from "@/components/rich/RichMathBody";
 import { CalloutKind } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 function calloutMeta(
   theme: Theme,
@@ -63,7 +64,7 @@ export function CalloutBlock({ kind, content }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    body: { fontSize: 16, lineHeight: 24, color: t.text },
-    title: { fontSize: 13, fontWeight: "600", color: t.textSecondary, flexShrink: 1 },
+    body: { ...Type.body, lineHeight: 24, color: t.text },
+    title: { ...Type.compact, fontWeight: "600", color: t.textSecondary, flexShrink: 1 },
   });
 }

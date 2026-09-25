@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useThumbnailSize } from "@/components/ChatMessageImage";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   /** Rotating status line (e.g. "Creating image"). */
@@ -115,7 +116,7 @@ function makeStyles(C: Theme, width: number, height: number) {
       right: 16,
     },
     label: {
-      fontSize: 15,
+      ...Type.callout,
       fontWeight: "500",
       color: C.textSecondary,
     },
@@ -130,8 +131,7 @@ function makeStyles(C: Theme, width: number, height: number) {
       borderColor: C.border,
     },
     retryLabel: {
-      fontSize: 14,
-      fontWeight: "600",
+      ...Type.label,
       color: C.text,
     },
   });

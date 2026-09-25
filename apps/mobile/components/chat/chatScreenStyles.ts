@@ -14,7 +14,7 @@ export function makeChatScreenStyles(C: Theme) {
       justifyContent: "center",
       backgroundColor: C.bg,
     },
-    loadingDot: { fontSize: 48, color: C.primary, opacity: 0.4 },
+    loadingDot: { ...Type.display, color: C.primary, opacity: 0.4 },
     container: { flex: 1, backgroundColor: C.bg },
     quotaNudge: {
       position: "absolute",

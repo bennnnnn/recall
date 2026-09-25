@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = { rows: { key: string; value: string }[] };
 
@@ -47,11 +48,10 @@ function makeStyles(t: Theme) {
     },
     key: {
       width: "38%",
-      fontSize: 14,
-      fontWeight: "600",
+      ...Type.label,
       color: t.textSecondary,
       lineHeight: 20,
     },
-    value: { flex: 1, fontSize: 15, lineHeight: 21, color: t.text },
+    value: { flex: 1, ...Type.callout, fontWeight: "400", lineHeight: 21, color: t.text },
   });
 }

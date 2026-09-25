@@ -19,6 +19,7 @@ import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
 import { fenceIdForLang } from "@/lib/fenceRegistry";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 // react-native-markdown-display's AST exposes the fence's language tag as
 // `sourceInfo`, not `info` — see markdownFenceRender.tsx's FenceNode.
@@ -146,14 +147,14 @@ function renderFallbackFence(
 
 function makeMdStyles(t: Theme) {
   return StyleSheet.create({
-    body: { color: t.assistantText, fontSize: 16, lineHeight: 24 },
+    body: { ...Type.body, color: t.assistantText, lineHeight: 24 },
     code_inline: inlineCodeTextStyle(t),
-    heading1: { fontSize: 20, fontWeight: "700", marginVertical: 8 },
-    heading2: { fontSize: 18, fontWeight: "700", marginVertical: 6 },
-    heading3: { fontSize: 16, fontWeight: "600", marginVertical: 4 },
-    heading4: { fontSize: 15, fontWeight: "600", marginVertical: 4, color: t.text },
-    heading5: { fontSize: 14, fontWeight: "600", marginVertical: 2, color: t.text },
-    heading6: { fontSize: 13, fontWeight: "600", marginVertical: 2, color: t.text },
+    heading1: { ...Type.title, fontWeight: "700", marginVertical: 8 },
+    heading2: { ...Type.h2, marginVertical: 6 },
+    heading3: { ...Type.h4, fontWeight: "600", marginVertical: 4 },
+    heading4: { ...Type.callout, marginVertical: 4, color: t.text },
+    heading5: { ...Type.label, marginVertical: 2, color: t.text },
+    heading6: { ...Type.compact, fontWeight: "600", marginVertical: 2, color: t.text },
     strong: { fontWeight: "700" },
     blockquote: {
       borderLeftWidth: 3,
@@ -177,16 +178,17 @@ function makeFenceStyles(t: Theme) {
       overflow: "hidden",
     },
     lang: {
-      fontSize: 11,
+      ...Type.overline,
       fontWeight: "600",
+      letterSpacing: 0,
       color: t.codeLang,
       textTransform: "lowercase",
       paddingHorizontal: 12,
       paddingTop: 8,
     },
     code: {
+      ...Type.compact,
       fontFamily: CODE_FONT,
-      fontSize: 13,
       lineHeight: 20,
       color: t.text,
       padding: 12,
@@ -206,13 +208,13 @@ function makeCalloutStyles(t: Theme) {
       marginVertical: 8,
     },
     label: {
-      fontSize: 12,
+      ...Type.caption,
       fontWeight: "700",
       color: t.primary,
       textTransform: "uppercase",
       letterSpacing: 0.5,
       marginBottom: 4,
     },
-    body: { fontSize: 15, lineHeight: 21, color: t.text },
+    body: { ...Type.callout, fontWeight: "400", lineHeight: 21, color: t.text },
   });
 }

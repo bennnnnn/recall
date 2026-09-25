@@ -9,6 +9,7 @@ import {
 
 import { Radius } from "@/lib/radius";
 import { type Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type CountBadgeTone = "primary" | "danger";
 
@@ -68,8 +69,9 @@ function makeStyles(theme: Theme) {
       borderColor: theme.surface,
     },
     text: {
-      fontSize: 11,
-      fontWeight: "700",
+      ...Type.overline,
+      textTransform: "none",
+      letterSpacing: 0,
       color: theme.onPrimary,
     },
     dangerText: {

@@ -52,7 +52,7 @@ export function makeConversationListStyles(theme: Theme) {
     },
     logo: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     logoText: {
-      fontSize: 20,
+      ...Type.title,
       fontWeight: "700",
       color: theme.text,
       letterSpacing: -0.5,
@@ -156,7 +156,7 @@ export function makeConversationListStyles(theme: Theme) {
       paddingVertical: Space.xxs,
     },
     sectionCount: {
-      fontSize: 12,
+      ...Type.meta,
       color: theme.textTertiary,
       marginLeft: "auto",
     },

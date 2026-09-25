@@ -14,6 +14,7 @@ import {
   STREAM_AUTOSCROLL_RESUME_MS,
 } from "@/lib/messageListLayout";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   listRef: RefObject<FlashListRef<Message> | null>;
@@ -190,7 +191,7 @@ function makeStyles(theme: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
-    loadEarlierText: { fontSize: 14, fontWeight: "600", color: theme.primary },
+    loadEarlierText: { ...Type.label, color: theme.primary },
     empty: {
       flexGrow: 1,
       alignItems: "stretch",

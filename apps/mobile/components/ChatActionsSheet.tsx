@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
 import { AppSheet } from "@/components/AppSheet";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type IconName = ComponentProps<typeof ActionSheetRow>["icon"];
 
@@ -143,7 +144,7 @@ export function ChatActionsSheet({
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     title: {
-      fontSize: 13,
+      ...Type.compact,
       fontWeight: "600",
       color: C.textSecondary,
       textAlign: "center",

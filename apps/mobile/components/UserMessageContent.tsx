@@ -23,6 +23,7 @@ import { displayMathToInline } from "@/lib/math/solutionBars";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 // Async-split pdf.js (~1.4MB) off the chat cold path — same pattern as
 // LazyHeavyRich / HtmlPreviewModal. Only a PDF attachment evaluates the vendor.
@@ -154,9 +155,9 @@ function makeStyles(C: Theme) {
       paddingVertical: 2,
     },
     fileChipText: {
-      color: C.textSecondary,
-      fontSize: 14,
+      ...Type.secondary,
       fontWeight: "500",
+      color: C.textSecondary,
     },
   });
 }

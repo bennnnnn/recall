@@ -28,6 +28,7 @@ import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
 import { speechLocale } from "@/lib/i18n/languages";
 import { useAuth, useAuthToken } from "@/contexts/AuthContext";
@@ -566,7 +567,7 @@ function makeStyles(t: Theme) {
       marginRight: 4,
     },
     sendingLabel: {
-      fontSize: 13,
+      ...Type.compact,
     },
     assistantRow: { alignItems: "stretch" },
     assistantBubble: {
@@ -587,12 +588,12 @@ function makeStyles(t: Theme) {
       paddingVertical: 4,
     },
     statusLabel: {
-      fontSize: 14,
+      ...Type.secondary,
       color: t.textTertiary,
     },
     stoppedFooter: {
       marginTop: 8,
-      fontSize: 13,
+      ...Type.compact,
       color: t.textTertiary,
     },
     actionRowSlot: {
