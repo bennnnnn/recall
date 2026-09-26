@@ -216,3 +216,37 @@ async def test_extractor_prompt_preserves_current_employer_when_target_is_aspira
     assert isinstance(system_prompt, str)
     assert "keeps Uber as the current employer" in system_prompt
     assert "must not claim the user works at Google" in system_prompt
+
+
+@pytest.mark.asyncio
+async def test_extractor_prompt_keeps_everyday_profile_facts_normal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_complete_structured(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(
+        memory_llm.litellm_gateway,
+        "complete_structured",
+        fake_complete_structured,
+    )
+
+    await memory_llm.revise_memory_facts(
+        Settings(),
+        "User: I'm an engineer at Uber in Oakland, originally from Ethiopia",
+    )
+
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    system_prompt = messages[0]["content"]
+    assert isinstance(system_prompt, str)
+    # Profile is not described as "identity", so job and place facts are not
+    # labelled with the sensitive identity category and dropped.
+    assert "own identity" not in system_prompt
+    assert "normal: name, job, employer, school, city, home country, languages" in system_prompt
+    assert "identity: gender identity, immigration status, or disability" in system_prompt
+    assert "building a dating app or a health tracker is a normal project fact" in system_prompt

@@ -36,7 +36,8 @@ async def revise_memory_facts(
                 'identity|highly_sensitive", '
                 '"importance": 0.0-1.0, "match_text": "existing fact text if updating"}]} . '
                 "Type meanings:\n"
-                "- profile: the user's own identity, job, employer, or location. "
+                "- profile: who the user is: their name, job, employer, school, where they "
+                "live or come from, and the languages they speak. "
                 "A name is theirs only when they claim it ('my name is', 'I'm', "
                 "'call me', 'I go by'). The only name sentence is "
                 "'User's name is John' or 'User's name is John; also goes by X.'\n"
@@ -71,9 +72,16 @@ async def revise_memory_facts(
                 "- Never store a name from a word problem, story, example, or "
                 "anyone other than the user. 'Bebe has 2 pens and gives them to "
                 "Cal' is not the user's name.\n"
-                "- Mark health/finance/legal/relationship/identity/highly_sensitive "
-                "when the fact is about those topics. Race, religion, politics, "
-                "sexual orientation, and sex-life are highly_sensitive."
+                "- sensitivity says what the fact reveals about the user's private life. "
+                "normal: name, job, employer, school, city, home country, languages, "
+                "projects, tools, interests, schedule, and reply preferences. "
+                "health: their physical or mental health. finance: their income, debts, "
+                "or accounts. legal: their own legal matters. relationship: their romantic "
+                "life or partner. identity: gender identity, immigration status, or "
+                "disability. highly_sensitive: race or ethnicity, religion, politics, "
+                "sexual orientation, and sex life.\n"
+                "- Label the user's life, not the subject of their work: building a dating "
+                "app or a health tracker is a normal project fact."
             ),
         },
         {
