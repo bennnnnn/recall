@@ -312,6 +312,18 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
+    # Teaching quality is a product feature, not casual chit-chat. Full learning
+    # roadmaps and interactive tutor sessions need the stronger reasoning tier
+    # even when the user's first message is short ("Teach me dictionaries",
+    # "70 days mastering Python..."). Keep this classifier shared with the
+    # prompt layer so model choice and response behavior cannot drift apart.
+    from app.services.chat.prompt_constants.teaching import (
+        is_learning_plan_request,
+        is_teaching_request,
+    )
+
+    if is_learning_plan_request(content) or is_teaching_request(content):
+        return smart
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
     if physics_alias is not None:
         return physics_alias
