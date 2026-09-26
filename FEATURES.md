@@ -107,14 +107,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Opening another thread restores that draft and clears attachment and in-progress
   dictation so they cannot send into the wrong conversation.
 - ✅ **Teach-me lessons** — “teach me X”, “help me learn X”, “I want to learn X” (and
-  the teach verbs in the other app languages) run as a lesson, not a how-to list: a
-  short outline, then one step at a time (`### Step 1/6 — …`, a plain explanation,
-  one small example), each ending on one check question (predict the output, fill
-  in a blank, or A–D written as plain text). The next turn grades the answer and
-  explains why, re-explains another way on a wrong answer or “no”, then teaches
-  the next step; the last step ends with a short recap. “Everything at once” / a
-  cheat sheet still gets the full reference, and procedures (“teach me how to
-  install Docker”) keep the how-to steps. No tappable quiz chips in chat.
+  the teach verbs in the other app languages) run as an adaptive lesson, not a how-to
+  list or pass/fail quiz: a short outline, then one step at a time (`### Step 1/6 — …`,
+  a plain explanation, one small example) with a light diagnostic check at the end.
+  Right / “got it” advances. A wrong answer gets a brief targeted correction and then
+  advances unless the learner explicitly says they are confused; confusion gets a
+  different explanation and fresh example. Gibberish/accidental input is not graded and
+  never replays the previous step. “Everything at once” / a cheat sheet still gets the
+  full reference, and procedures (“teach me how to install Docker”) keep the how-to
+  steps. No tappable quiz chips in chat.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
   not a greeting. A short answer (“no”, “got it”) to a question or lesson step
   loads the recent messages and continues the thread. “One sentence” / briefly beats chart, compare, and how-to
