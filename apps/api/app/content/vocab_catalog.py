@@ -1,4 +1,3 @@
-# ruff: noqa: E501, RUF001
 """Current expression groups — source of truth for language lessons.
 
 The model teaches from these lists only. It does not invent words.

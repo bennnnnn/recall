@@ -598,7 +598,7 @@ def _spend_key(day: date | None = None) -> str:
 
 
 def _usd_to_millicents(usd: float) -> int:
-    return max(0, int(round(usd * 1000)))
+    return max(0, round(usd * 1000))
 
 
 async def record_global_spend(redis: Redis, usd: float) -> int:

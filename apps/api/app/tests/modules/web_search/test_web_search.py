@@ -573,7 +573,7 @@ async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
         ),
         patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
     ):
-        merged, tried = await _run_search(
+        merged, _tried = await _run_search(
             settings,
             ["q1", "q2", "q3", "q4"],
             user=user,

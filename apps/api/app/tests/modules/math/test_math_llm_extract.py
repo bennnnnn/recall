@@ -132,7 +132,7 @@ async def test_fallback_only_runs_when_gate_fired_and_regex_missed(
         return None
 
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
-    note, verified = await math_prompt.build_math_augmentation("2x+3=7", _settings())
+    _note, verified = await math_prompt.build_math_augmentation("2x+3=7", _settings())
     assert calls == 0
     assert verified is not None  # regex path verified it without the LLM
 
@@ -239,7 +239,7 @@ async def test_fallback_not_used_for_image_extracts(monkeypatch: pytest.MonkeyPa
         raise AssertionError("text fallback must not run for image extracts")
 
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
-    note, verified = await math_prompt.build_math_augmentation(
+    _note, verified = await math_prompt.build_math_augmentation(
         "solve",
         _settings(),
         has_image_attachment=True,
