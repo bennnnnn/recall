@@ -41,7 +41,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 2.5 | New chat created on first message | ☐ | ☐ | No empty chat rows |
 | 2.6 | Offline banner when API unreachable | ☐ | ☐ | |
 | 2.7 | Quota exceeded shows plan-aware alert | ☐ | ☐ | Free vs Pro copy |
-| 2.8 | Teach-me lesson, one step at a time | ☐ | ☐ | “Teach me python dictionary step by step”: one line on how it will go, a short outline, then only `Step 1/N` with an explanation, one small example and a check question at the end (A–D as plain text, no chips). Answer wrong → why, a new explanation, a new question. “No” → re-explained, not a greeting. “ok” / right answer → `Step 2/N`. Last step → short recap. “Just give me everything” → full reference. “How to install python step by step” stays a numbered how-to. |
+| 2.8 | Teach-me lesson, one step at a time | ☐ | ☐ | “Teach me python dictionary step by step”: one line on how it will go, a short outline, then only `Step 1/N` with an explanation, one small example and a light check question (plain text, no chips). Right / “ok” → `Step 2/N`. Wrong but not confused → brief targeted correction + `Step 2/N` (no retry gate, no Step 1 replay). “I’m confused” / “why?” → a genuinely different explanation + fresh example, staying on the idea. Gibberish/accidental input → acknowledge briefly, do not grade, give the check answer if useful, then continue. Last step → short recap. “Just give me everything” → full reference. “How to install python step by step” stays a numbered how-to. |
 
 ---
 
