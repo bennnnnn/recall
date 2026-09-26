@@ -116,6 +116,10 @@ def test_learning_plan_request_detected(text):
         "What is a dictionary?",
         "How to install Docker",
         "Explain recursion",
+        "Give me a 30-day workout plan",
+        "Create a 12-week business plan",
+        "Make a 30-day launch plan for my app",
+        "Plan my day",
     ],
 )
 def test_learning_plan_request_declines_non_plans(text):
