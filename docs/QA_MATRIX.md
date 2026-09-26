@@ -261,6 +261,8 @@ Use a real model (not `MOCK_LLM_ENABLED`). Memory must be on in Settings.
 | 18.6 | Say "I have a peanut allergy", then "I'm building a dating app" | ☐ | ☐ | The allergy is not saved unless you said "remember" or turned on sensitive topics; the dating app is saved as a project. |
 | 18.7 | Composer with the keyboard open | ☐ | ☐ | The box sits above the keyboard (iOS) and the list still scrolls; Android resizes. |
 | 18.8 | Switch accounts with Memory open | ☐ | ☐ | The next account never shows the previous account's pages. |
+| 18.9 | While "Reading your recent chats…" shows, delete a fact you said in an older chat | ☐ | ☐ | The fact stays deleted after the banner goes away. |
+| 18.10 | Turn on airplane mode, delete two facts, then turn it off | ☐ | ☐ | Both deletes fail and both facts come back; nothing else on the page changes. |
 
 ---
 

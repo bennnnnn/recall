@@ -346,7 +346,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Reads your recent chats once** — the first time the Memory screen opens, a
   `memory_history_scan` job reads the user lines of the 20 most recent non-quiz chats and
   records `users.memory_history_scanned_at`; the screen shows "Reading your recent chats…"
-  until it finishes.
+  until it finishes. Chats are read newest first and a pass only adds facts memory is
+  missing, so an old line never overrules a newer fact. Lines written before the user's last
+  hand edit (`users.memory_edited_at`: a delete, edit, mute, clear, or a "forget …" or
+  plain-words edit that changed saved facts) are skipped, so a deleted fact cannot come back.
+  A chat the model or database could not read is retried on a later pass (30 minutes apart,
+  3 passes at most); the chats already read are skipped.
 - ✅ **Plain-words edits** — a box under the pages ("You can disagree with me more", "Keep
   lists under five things") calls `POST /memories/instruct`; the model turns it into fact
   edits (saved like "remember this") and replies in a sentence. 30 edits per hour per user.
