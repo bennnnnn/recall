@@ -318,8 +318,10 @@ def is_callout_question(text: str) -> bool:
 _HOWTO_TURN = re.compile(
     r"(?:"
     r"\b\d+[\s-]?(?:day|days|week|weeks|month|months)\s+(?:learning\s+|study\s+|mastery\s+)?plan\b|"
-    r"\b\d+[\s-]?(?:day|days|week|weeks|month|months)\b[^.?!]{0,80}"
-    r"\b(?:learn|learning|master|mastering|study|studying)\b|"
+    r"\b\d+[\s-]?(?:day|days|week|weeks|month|months)\b[^.?!]{0,100}"
+    r"\b(?:plan|roadmap)\b|"
+    r"\b\d+[\s-]?(?:day|days|week|weeks|month|months)\s+to\s+"
+    r"(?:learn|master|study)\b|"
     r"\bweek[\s-]?by[\s-]?week\b|"
     r"\broadmap(?:\s+to\s+learn)?\b|"
     r"\b(?:learning|study)\s+plan\b|"
