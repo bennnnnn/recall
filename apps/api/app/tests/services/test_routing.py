@@ -31,6 +31,15 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("optimize this query", "smart-chat"),
         ("trade-off between latency and throughput", "smart-chat"),
         ("what is the complexity of this", "smart-chat"),
+        # Teaching / learning plans are core quality turns. They should not
+        # silently fall onto the fast tier just because the opening ask is short.
+        ("Teach me python dictionaries", "smart-chat"),
+        ("Help me learn SQL joins", "smart-chat"),
+        ("Give me a 70-day Python mastery plan", "smart-chat"),
+        ("70 days mastering python from beginner to senior level plan", "smart-chat"),
+        # Ordinary non-learning plans stay fast.
+        ("Give me a 30-day workout plan", "gemini-flash"),
+        ("Create a 12-week business plan", "gemini-flash"),
         # Comparison cues → smart-chat (previously classifier-only web search
         # with no model upgrade; a weak model answered "X vs Y" questions).
         ("kenya vs ethiopia", "smart-chat"),
