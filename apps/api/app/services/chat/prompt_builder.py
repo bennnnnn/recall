@@ -776,7 +776,11 @@ def _style_format_hints(
         and is_teaching_request(query_text)
     )
     # A new "teach me" starts its own lesson; otherwise the last step goes on.
-    lesson_hint = lesson_continue_hint(*lesson) if lesson and not teaching and not writing else None
+    lesson_hint = (
+        lesson_continue_hint(*lesson)
+        if lesson and not teaching and not learning_plan and not writing
+        else None
+    )
     if query_text and writing is None:
         parts.append(NON_DRAFT_TURN_HINT)
     math_intent, viz_intent = _math_viz_intent(query_text)
