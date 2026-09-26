@@ -52,6 +52,7 @@ from app.services.chat.prompt_constants import (
     EMAIL_DRAFT_HINT,
     FORMAT_CONTRACT,
     HOWTO_FORMAT_HINT,
+    LEARNING_PLAN_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
     MATH_INTENT_HINT,
@@ -87,6 +88,7 @@ from app.services.chat.prompt_constants import (
     is_chart_question,
     is_email_or_message_request,
     is_howto_question,
+    is_learning_plan_request,
     is_learning_progress_question,
     is_mermaid_question,
     is_personal_disclosure_turn,
@@ -683,8 +685,10 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return QUOTE_FORMAT_HINT
     if is_callout_question(query_text):
         return CALLOUT_FORMAT_HINT
-    # "Teach me X step by step" is a lesson, not a how-to ("step by step" alone
-    # used to pick the how-to shape and compress the lesson into a reference list).
+    # Full roadmaps and interactive tutoring are different products: a learning
+    # plan should arrive complete, while "teach me X" should run one concept at a time.
+    if is_learning_plan_request(query_text):
+        return LEARNING_PLAN_HINT
     if is_teaching_request(query_text):
         return TEACHING_HINT
     if is_howto_question(query_text):
@@ -759,6 +763,12 @@ def _style_format_hints(
         ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     writing = _writing_format_hint(query_text)
+    learning_plan = bool(
+        query_text
+        and writing is None
+        and not is_brevity_request(query_text)
+        and is_learning_plan_request(query_text)
+    )
     teaching = bool(
         query_text
         and writing is None
@@ -788,6 +798,10 @@ def _style_format_hints(
         # keeps its step headings, only smaller.
         if writing:
             parts.append(writing)
+        elif learning_plan:
+            # An explicit multi-day roadmap needs enough room to be actionable;
+            # account-level short style must not collapse it into a vague paragraph.
+            parts.append(LEARNING_PLAN_HINT)
         elif teaching:
             parts.extend([TEACHING_HINT, TEACHING_SHORT_NOTE])
         elif lesson_hint:
