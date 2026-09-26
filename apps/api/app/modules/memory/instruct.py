@@ -78,6 +78,7 @@ async def apply_memory_instruction(
                 session_factory=SessionLocal,
                 memories=memories_repo,
                 expected_facts=snapshot.existing_facts,
+                manual_edit=True,
             )
         logger.info("memory_instruction user_id=%s applied=%s", user_id, len(writes))
         return MemoryInstructionOutcome(applied=len(writes), reply=result.reply.strip())

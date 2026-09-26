@@ -71,11 +71,19 @@ async def revise_memory_facts(
     *,
     existing_facts: list[dict[str, Any]] | None = None,
     existing_areas: list[dict[str, Any]] | None = None,
+    from_history: bool = False,
 ) -> MemoryFactUpdateResult | None:
     if mock_llm.should_mock_llm(settings):
         return await mock_llm.mock_memory_facts(transcript, existing_facts or [])
 
     existing = existing_facts or []
+    history_rule = (
+        "- These User lines come from an earlier chat, so the existing facts may be "
+        "newer. Only add facts that are missing; never update, supersede, or delete an "
+        "existing fact because of these lines.\n"
+        if from_history
+        else ""
+    )
     existing_block = json.dumps(existing, ensure_ascii=False, default=str) if existing else "[]"
     areas_block = json.dumps(existing_areas or [], ensure_ascii=False, default=str)
 
@@ -130,6 +138,7 @@ async def revise_memory_facts(
                 "- Never store a name from a word problem, story, example, or "
                 "anyone other than the user. 'Bebe has 2 pens and gives them to "
                 "Cal' is not the user's name.\n"
+                f"{history_rule}"
                 f"{_SENSITIVITY_RULES}"
             ),
         },
@@ -138,7 +147,7 @@ async def revise_memory_facts(
             "content": (
                 f"Existing facts JSON:\n{existing_block}\n\n"
                 f"Existing areas JSON:\n{areas_block}\n\n"
-                "New conversation:\n"
+                f"{'Earlier conversation' if from_history else 'New conversation'}:\n"
                 f"{wrap_untrusted('conversation transcript', transcript)}"
             ),
         },

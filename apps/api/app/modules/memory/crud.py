@@ -45,6 +45,8 @@ async def delete_memory_fact(
                     return False
             deleted = await memories_repo.delete_by_id(session, user_id, memory_id, commit=False)
             try:
+                if deleted:
+                    await memories_repo.note_manual_edit(session, user_id)
                 await session.commit()
             except Exception:
                 await session.rollback()
@@ -75,6 +77,8 @@ async def delete_memory_fact(
                     memory_id,
                     commit=False,
                 )
+                if deleted:
+                    await memories_repo.note_manual_edit(session, user_id)
                 await session.commit()
             except Exception:
                 await session.rollback()
@@ -111,6 +115,7 @@ async def delete_memory_fact(
                     commit=False,
                 )
             if updated is not None:
+                await memories_repo.note_manual_edit(session, user_id)
                 await session.commit()
         except Exception:
             await session.rollback()
@@ -182,6 +187,7 @@ async def update_memory(
                         commit=False,
                     )
             if updated is not None:
+                await memories_repo.note_manual_edit(session, user_id)
                 await session.commit()
                 await session.refresh(updated)
         except Exception:
@@ -211,6 +217,8 @@ async def delete_memory(
                 memory_id,
                 commit=False,
             )
+            if deleted:
+                await memories_repo.note_manual_edit(session, user_id)
             await session.commit()
         except Exception:
             await session.rollback()
@@ -239,6 +247,8 @@ async def delete_memory_section(
                 memory_type,
                 commit=False,
             )
+            if removed:
+                await memories_repo.note_manual_edit(session, user_id)
             await session.commit()
         except Exception:
             await session.rollback()
@@ -263,6 +273,8 @@ async def delete_memory_document(
     try:
         try:
             removed = await memories_repo.delete_topic(session, user_id, topic, commit=False)
+            if removed:
+                await memories_repo.note_manual_edit(session, user_id)
             await session.commit()
         except Exception:
             await session.rollback()
@@ -281,6 +293,8 @@ async def delete_all_memories(seams: Any, session: AsyncSession, user_id: UUID) 
     try:
         try:
             removed = await memories_repo.delete_all_for_user(session, user_id, commit=False)
+            if removed:
+                await memories_repo.note_manual_edit(session, user_id)
             await session.commit()
         except Exception:
             await session.rollback()

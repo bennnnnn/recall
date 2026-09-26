@@ -97,6 +97,8 @@ async def test_an_instruction_is_saved_like_remember_this():
         ("preferences", "preference"),
         ("notes", "fact"),
     ]
+    # A hand edit: if it changes saved facts, the history scan skips older lines.
+    assert apply.await_args.kwargs["manual_edit"] is True
     assert instruct.await_args.kwargs["focus_topic"] == "preferences"
     assert instruct.await_args.kwargs["existing_areas"][0]["topic"] == "area:recall"
     release.assert_awaited_once()

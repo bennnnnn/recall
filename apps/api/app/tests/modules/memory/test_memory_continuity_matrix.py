@@ -253,6 +253,34 @@ async def test_extractor_prompt_keeps_everyday_profile_facts_normal(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("from_history", [False, True])
+async def test_extractor_prompt_lets_old_chats_only_fill_gaps(
+    monkeypatch: pytest.MonkeyPatch, from_history: bool
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_complete_structured(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+
+    await memory_llm.revise_memory_facts(
+        Settings(), "User: I live in Paris", from_history=from_history
+    )
+
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    system_prompt = messages[0]["content"]
+    user_prompt = messages[1]["content"]
+    rule = "never update, supersede, or delete an existing fact because of these lines"
+    assert (rule in system_prompt) is from_history
+    assert ("Earlier conversation:" in user_prompt) is from_history
+    assert ("New conversation:" in user_prompt) is not from_history
+
+
+@pytest.mark.asyncio
 async def test_instruct_prompt_names_the_open_document_and_asks_for_a_reply(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

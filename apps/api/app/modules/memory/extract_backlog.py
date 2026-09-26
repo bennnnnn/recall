@@ -63,10 +63,23 @@ def format_user_memory_transcript(user_texts: list[str]) -> str:
     return "\n".join(lines)
 
 
-def history_transcript(user_texts: list[str]) -> str:
-    """User lines from an old chat, capped like a live pass."""
+async def history_chat_transcript(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    newer_than: datetime | None,
+) -> str:
+    """A past chat's most recent user lines, capped like a live pass.
+
+    Lines written at or before ``newer_than`` (the user's last hand edit to
+    memory) are left out, so reading them cannot undo that edit.
+    """
+    rows = await messages_repo.list_user_contents_since(
+        session, chat_id, newer_than=newer_than, limit=_MEMORY_EXTRACT_BACKLOG
+    )
     return cap_text_head_tail(
-        format_user_memory_transcript(user_texts), _MEMORY_TRANSCRIPT_MAX_CHARS
+        format_user_memory_transcript([row.content for row in rows]),
+        _MEMORY_TRANSCRIPT_MAX_CHARS,
     )
 
 

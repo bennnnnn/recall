@@ -3,6 +3,8 @@
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +24,7 @@ from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.extract_backlog import (
     clear_failed_extract_passes,
     expand_memory_extract_transcript,
+    history_chat_transcript,
     note_failed_extract_pass,
     stamp_extract_cursor,
 )
@@ -40,6 +43,10 @@ from app.repositories import users as users_repo
 
 logger = logging.getLogger(__name__)
 
+# ``skipped_lock``: memory was busy, retry after a backoff. ``model_failed``: the
+# model gave no usable answer, so these lines were not read.
+ExtractOutcome = Literal["skipped_lock", "model_failed"] | None
+
 
 @dataclass(frozen=True)
 class MemorySnapshot:
@@ -48,6 +55,8 @@ class MemorySnapshot:
     existing_facts: dict[UUID, str]
     prompt_facts: list[dict[str, str]]
     prompt_areas: list[dict[str, str]]
+    # When the user last removed or changed memory by hand.
+    edited_at: datetime | None = None
 
 
 async def load_memory_snapshot(
@@ -83,6 +92,7 @@ async def load_memory_snapshot(
         prompt_areas=[
             {"topic": area.key, "title": area.title, "summary": area.summary} for area in areas
         ],
+        edited_at=getattr(user, "memory_edited_at", None),
     )
 
 
@@ -155,13 +165,36 @@ async def extract_and_store_memories(
     user_id: UUID,
     chat_id: UUID,
     transcript: str,
-    from_history: bool = False,
-) -> str | None:
-    """Return ``skipped_lock`` when a caller should retry after backoff.
+) -> ExtractOutcome:
+    """Learn from a chat's unread user lines (``transcript`` is the fallback)."""
+    return await _extract_pass(
+        settings, user_id=user_id, chat_id=chat_id, transcript=transcript, from_history=False
+    )
 
-    ``from_history`` reads ``transcript`` as given (the one pass over a user's
-    recent chats) and leaves the chat's live cursor and retry count alone.
+
+async def extract_history_chat(
+    settings: Settings, *, user_id: UUID, chat_id: UUID
+) -> ExtractOutcome:
+    """Learn from one past chat's recent user lines, for the history scan.
+
+    Old lines only fill gaps: saved facts may be newer, so none is changed or
+    removed. Lines from before the user's last hand edit are not read, so the
+    pass cannot bring back what they removed. The chat's live cursor and retry
+    count are left alone.
     """
+    return await _extract_pass(
+        settings, user_id=user_id, chat_id=chat_id, transcript="", from_history=True
+    )
+
+
+async def _extract_pass(
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    transcript: str,
+    from_history: bool,
+) -> ExtractOutcome:
     try:
         lock_token = await acquire_memory_write_lock(user_id)
         if not lock_token:
@@ -176,7 +209,12 @@ async def extract_and_store_memories(
                 if not snapshot.memory_enabled:
                     return None
                 if from_history:
-                    expanded, newest_cursor = transcript, None
+                    # Read under the write lock, so a hand edit cannot land
+                    # between this cut-off and the writes below.
+                    expanded = await history_chat_transcript(
+                        session, chat_id, newer_than=snapshot.edited_at
+                    )
+                    newest_cursor = None
                 else:
                     expanded, newest_cursor = await expand_memory_extract_transcript(
                         session,
@@ -205,10 +243,13 @@ async def extract_and_store_memories(
                 expanded,
                 existing_facts=snapshot.prompt_facts,
                 existing_areas=snapshot.prompt_areas,
+                from_history=from_history,
             )
+            outcome: ExtractOutcome = None
             if result is None:
                 # Provider error, timeout or unreadable JSON. Keep the cursor so the
                 # next turn retries these lines, up to FAILED_PASS_LIMIT times.
+                outcome = "model_failed"
                 advance_cursor = (
                     False if from_history else await note_failed_extract_pass(user_id, chat_id)
                 )
@@ -245,20 +286,23 @@ async def extract_and_store_memories(
                         model_ops=result.ops if result else (),
                     )
                 )
+            if from_history:
+                writes = [write for write in writes if write.op == "add"]
             if not writes:
                 if newest_cursor and advance_cursor:
                     await stamp_extract_cursor(user_id, chat_id, newest_cursor)
                 logger.info("memory_extract_yield user_id=%s applied=0 skipped=empty", user_id)
-                return None
-            if writes:
-                await apply_memory_facts(
-                    settings,
-                    user_id=user_id,
-                    writes=writes,
-                    session_factory=SessionLocal,
-                    memories=memories_repo,
-                    expected_facts=snapshot.existing_facts,
-                )
+                return outcome
+            await apply_memory_facts(
+                settings,
+                user_id=user_id,
+                writes=writes,
+                session_factory=SessionLocal,
+                memories=memories_repo,
+                # A history add that matches a saved fact leaves it as it is.
+                expected_facts={} if from_history else snapshot.existing_facts,
+                manual_edit=forget and not from_history,
+            )
             logger.info(
                 "memory_extract_yield user_id=%s applied=%s skipped=%s",
                 user_id,
@@ -269,7 +313,7 @@ async def extract_and_store_memories(
                 await stamp_extract_cursor(user_id, chat_id, newest_cursor)
         finally:
             await release_memory_write_lock(user_id, lock_token)
-        return None
+        return outcome
     except Exception:
         logger.exception("Memory extraction failed for user_id=%s", user_id)
         raise

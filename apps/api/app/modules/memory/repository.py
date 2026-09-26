@@ -2,11 +2,11 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Memory, MemoryArea
+from app.models.orm import Memory, MemoryArea, User
 from app.modules.memory.ops import ACTIVE_STATUS, MUTED_STATUS, normalize_memory_text
 from app.modules.memory.writes_repository import MemoryFactWrite as MemoryFactWrite
 from app.modules.memory.writes_repository import apply_fact_ops as apply_fact_ops
@@ -64,6 +64,17 @@ async def delete_topic(
     else:
         await session.flush()
     return int(result.rowcount or 0)
+
+
+async def note_manual_edit(session: AsyncSession, user_id: UUID) -> None:
+    """Stamp a hand edit to memory; the caller commits.
+
+    The history scan reads only lines written after this stamp, so it cannot
+    bring back what the user removed or changed.
+    """
+    await session.execute(
+        update(User).where(User.id == user_id).values(memory_edited_at=datetime.now(UTC))
+    )
 
 
 async def has_any_embedding(session: AsyncSession, user_id: UUID) -> bool:

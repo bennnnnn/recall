@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import ExitStack, contextmanager
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -12,6 +13,7 @@ from app.models.orm import Memory
 from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.models.schemas.common import MemoryType
 from app.modules.memory import embedding_text_hash
+from app.modules.memory.extraction_workflow import extract_history_chat
 from app.modules.memory.writes_repository import MemoryFactWrite
 
 _CANDIDATE = "I like using Vim every day at work."
@@ -836,38 +838,138 @@ async def test_extract_shows_the_model_existing_topics_and_areas():
     ]
 
 
+def _history_patches(stack: ExitStack, *, lines: list[str], revise: AsyncMock, apply: AsyncMock):
+    """Drive a history pass: the chat's lines come from the messages table."""
+    edited_at = datetime(2026, 9, 20, tzinfo=UTC)
+    user = MagicMock(
+        memory_enabled=True, memory_include_sensitive=False, memory_edited_at=edited_at
+    )
+    read_lines = AsyncMock(return_value=[SimpleNamespace(content=line) for line in lines])
+    _, session_locals = _extraction_sessions()
+    stack.enter_context(
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals)
+    )
+    stack.enter_context(
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=user),
+        )
+    )
+    stack.enter_context(
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        )
+    )
+    stack.enter_context(
+        patch(
+            "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
+            read_lines,
+        )
+    )
+    stack.enter_context(
+        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise)
+    )
+    stack.enter_context(patch("app.background.memory_extraction.apply_memory_facts", apply))
+    return read_lines, edited_at
+
+
 @pytest.mark.asyncio
-async def test_extract_from_history_reads_the_given_lines_and_leaves_cursors_alone():
+async def test_history_pass_reads_lines_after_the_last_hand_edit_and_leaves_cursors_alone():
     expand = AsyncMock()
     stamp = AsyncMock()
     note_failed = AsyncMock()
     revise = AsyncMock(return_value=None)
-    _, session_locals = _extraction_sessions()
-    with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
-        patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
-            AsyncMock(return_value=_user()),
-        ),
-        patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch("app.background.memory_extraction.expand_memory_extract_transcript", expand),
-        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
-        patch("app.background.memory_extraction.apply_memory_facts", AsyncMock()),
-        patch("app.background.memory_extraction.stamp_extract_cursor", stamp),
-        patch("app.background.memory_extraction.note_failed_extract_pass", note_failed),
-    ):
-        await extract_and_store_memories(
-            Settings(),
-            user_id=uuid4(),
-            chat_id=uuid4(),
-            transcript="User: I run every morning before work",
-            from_history=True,
+    chat_id = uuid4()
+    with ExitStack() as stack:
+        read_lines, edited_at = _history_patches(
+            stack, lines=["I run every morning before work"], revise=revise, apply=AsyncMock()
         )
+        stack.enter_context(
+            patch("app.background.memory_extraction.expand_memory_extract_transcript", expand)
+        )
+        stack.enter_context(patch("app.background.memory_extraction.stamp_extract_cursor", stamp))
+        stack.enter_context(
+            patch("app.background.memory_extraction.note_failed_extract_pass", note_failed)
+        )
+        outcome = await extract_history_chat(Settings(), user_id=uuid4(), chat_id=chat_id)
 
+    # The model gave nothing usable, so the scan must try this chat again.
+    assert outcome == "model_failed"
+    assert read_lines.await_args.args[1] == chat_id
+    assert read_lines.await_args.kwargs["newer_than"] == edited_at
     expand.assert_not_awaited()
     assert revise.await_args.args[1] == "User: I run every morning before work"
+    assert revise.await_args.kwargs["from_history"] is True
     note_failed.assert_not_awaited()
     stamp.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_history_pass_only_adds_what_memory_is_missing():
+    revise = AsyncMock(
+        return_value=_ops(
+            _add("fact", "User is learning Rust on weekends."),
+            MemoryFactOp(
+                op="update",
+                type="fact",
+                text="User runs daily.",
+                match_text="User runs weekly.",
+                confidence=0.9,
+            ),
+            MemoryFactOp(
+                op="delete", type="fact", text="", match_text="User likes chess.", confidence=0.9
+            ),
+        )
+    )
+    apply = AsyncMock()
+    with ExitStack() as stack:
+        _history_patches(
+            stack, lines=["I have been learning Rust on weekends"], revise=revise, apply=apply
+        )
+        outcome = await extract_history_chat(Settings(), user_id=uuid4(), chat_id=uuid4())
+
+    assert outcome is None
+    kwargs = apply.await_args.kwargs
+    writes: list[MemoryFactWrite] = kwargs["writes"]
+    assert [(write.op, write.text) for write in writes] == [
+        ("add", "User is learning Rust on weekends")
+    ]
+    # No saved fact to compare against, so an add that matches one leaves it alone.
+    assert kwargs["expected_facts"] == {}
+    assert kwargs["manual_edit"] is False
+
+
+@pytest.mark.asyncio
+async def test_history_pass_with_no_lines_after_the_last_edit_skips_the_model():
+    revise = AsyncMock()
+    with ExitStack() as stack:
+        _history_patches(stack, lines=[], revise=revise, apply=AsyncMock())
+        outcome = await extract_history_chat(Settings(), user_id=uuid4(), chat_id=uuid4())
+
+    assert outcome is None
+    revise.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("transcript", "manual"),
+    [("User: forget that I like chess", True), ("User: I stopped playing chess", False)],
+)
+async def test_a_forget_request_counts_as_a_hand_edit(transcript, manual):
+    apply = AsyncMock()
+    extraction = _ops(
+        MemoryFactOp(
+            op="delete", type="fact", text="", match_text="User likes chess.", confidence=0.9
+        )
+    )
+    _, session_locals = _extraction_sessions()
+    with _extract_patches(session_locals=session_locals, extraction=extraction, apply=apply):
+        outcome = await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript=transcript
+        )
+
+    assert outcome is None
+    kwargs = apply.await_args.kwargs
+    assert [write.op for write in kwargs["writes"]] == ["delete"]
+    assert kwargs["manual_edit"] is manual
