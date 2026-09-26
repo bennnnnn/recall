@@ -62,6 +62,8 @@ type Props = {
   contentContainerStyle?: StyleProp<ViewStyle>;
   /** iOS only. Fires after the modal has finished leaving, so another sheet can present. */
   onDismiss?: () => void;
+  /** Fires once the sheet is up, so something can present on top of it (the OS share menu). */
+  onShow?: () => void;
   /**
    * Draw the sheet in the current screen instead of a Modal, so a real choice
    * Modal can open over it without moving this sheet.
@@ -85,6 +87,7 @@ export function Sheet({
   floating = false,
   contentContainerStyle,
   onDismiss,
+  onShow,
   embedded = false,
   children,
 }: Props) {
@@ -129,6 +132,13 @@ export function Sheet({
     });
     return () => cancelAnimationFrame(frame);
   }, [visible]);
+
+  // An embedded sheet has no Modal to report when it is up.
+  const onShowRef = useRef(onShow);
+  onShowRef.current = onShow;
+  useEffect(() => {
+    if (visible && embedded) onShowRef.current?.();
+  }, [visible, embedded]);
 
   useEffect(() => {
     if (!visible || !keyboardAvoiding) return;
@@ -237,6 +247,7 @@ export function Sheet({
       animationType={resolvedAnimation}
       onRequestClose={requestClose}
       onDismiss={onDismiss}
+      onShow={onShow}
       testID="app-sheet-modal"
     >
       <GestureHandlerRootView style={s.flex}>{frame}</GestureHandlerRootView>

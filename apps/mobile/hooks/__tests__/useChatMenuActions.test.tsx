@@ -3,7 +3,6 @@ import { Alert, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useChatMenuActions } from "@/hooks/useChatMenuActions";
 import { api, type Chat } from "@/lib/api";
-import { shareConversation } from "@/lib/share";
 import { beginChatMutation } from "@/lib/chat/mutationLock";
 
 let mockSession = 0;
@@ -17,7 +16,6 @@ jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn()
 jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: () => undefined }));
 jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: () => false }));
-jest.mock("@/lib/share", () => ({ shareConversation: jest.fn() }));
 jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({
   ...jest.requireActual("@/lib/haptics"),
@@ -65,16 +63,42 @@ it("ignores failed rename completion after account switch", async () => {
   expect(current.renameVisible).toBe(false);
 });
 
-it("does not share fetched private history after drawer dismissal", async () => {
+it("opens the share sheet for the long-pressed chat and loads its messages", async () => {
+  const messages = [{ content: "hello" }];
+  (api.listAllMessages as jest.Mock).mockResolvedValueOnce(messages);
+  await render(<Probe />);
+  await act(async () => { current.showRowMenu(chat); });
+  await act(async () => { current.openShareChat(); });
+  expect(current.menuChat).toBeNull();
+  expect(current.shareChat).toEqual(chat);
+  await expect(current.loadShareMessages()).resolves.toBe(messages);
+  expect(api.listAllMessages).toHaveBeenCalledWith("token", "one");
+  await act(async () => { current.closeShare(); });
+  expect(current.shareChat).toBeNull();
+});
+
+it("does not hand fetched private history to the share sheet after drawer dismissal", async () => {
   let finish!: (messages: unknown[]) => void;
   (api.listAllMessages as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
   const view = await render(<Probe />);
   await act(async () => { current.showRowMenu(chat); });
-  let request!: Promise<void>;
-  await act(async () => { request = current.handleShareChat(); });
+  await act(async () => { current.openShareChat(); });
+  const refused = expect(current.loadShareMessages()).rejects.toThrow("share_closed");
   await view.rerender(<Probe open={false} />);
-  await act(async () => { finish([{ content: "private" }]); await request; });
-  expect(shareConversation).not.toHaveBeenCalled();
+  await act(async () => { finish([{ content: "private" }]); });
+  await refused;
+  expect(current.shareChat).toBeNull();
+});
+
+it("does not load history for the share sheet after an account switch", async () => {
+  const view = await render(<Probe />);
+  await act(async () => { current.showRowMenu(chat); });
+  await act(async () => { current.openShareChat(); });
+  const load = current.loadShareMessages;
+  mockSession++;
+  await view.rerender(<Probe token="b" />);
+  await expect(load()).rejects.toThrow("share_closed");
+  expect(api.listAllMessages).not.toHaveBeenCalled();
 });
 
 it("rejects a delete confirmation retained after account switch", async () => {

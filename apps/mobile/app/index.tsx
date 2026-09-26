@@ -212,6 +212,9 @@ function ChatScreen() {
     handleFeedback,
     handleSaveEmailDraft,
     confirmRename,
+    shareVisible,
+    closeShare,
+    loadTranscriptMessages,
     onShareFromMenu,
     onExportPdfFromMenu,
     onRenameFromMenu,
@@ -625,6 +628,9 @@ function ChatScreen() {
           onRenameTextChange={setRenameText}
           onCloseRename={() => setRenameVisible(false)}
           onConfirmRename={() => void confirmRename()}
+          shareVisible={shareVisible}
+          onCloseShare={closeShare}
+          loadShareMessages={loadTranscriptMessages}
         />
       </View>
     </EmailDraftPersistProvider>

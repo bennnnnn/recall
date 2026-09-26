@@ -124,6 +124,17 @@ jestGlobals.mock("expo-haptics", () => ({
   NotificationFeedbackType: { Success: "success", Warning: "warning", Error: "error" },
 }));
 
+// expo-clipboard is a native module (expo-modules-core EventEmitter) that
+// cannot load here; the share sheet renders in the chat screen and drawer.
+// Tests that check copying mock it themselves.
+jestGlobals.mock("expo-clipboard", () => ({
+  setStringAsync: jestGlobals.fn(async () => true),
+  getStringAsync: jestGlobals.fn(async () => ""),
+  hasStringAsync: jestGlobals.fn(async () => false),
+  getImageAsync: jestGlobals.fn(async () => null),
+  hasImageAsync: jestGlobals.fn(async () => false),
+}));
+
 // expo-image's Image is a native view (requireNativeViewManager) that cannot
 // load here. Wrap RN's Image and translate the load event into expo-image's
 // shape ({ source } instead of { nativeEvent: { source } }) so components

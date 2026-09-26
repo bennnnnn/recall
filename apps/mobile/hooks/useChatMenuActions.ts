@@ -11,9 +11,7 @@ import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import type { IconName } from "@/ui/icons/names";
 import { beginChatMutation } from "@/lib/chat/mutationLock";
 import { sanitizeManualChatTitle } from "@/lib/chat/title";
-import { isShareCancelled } from "@/lib/exportPdf";
 import { notifyDestructive } from "@/lib/haptics";
-import { shareConversation } from "@/lib/share";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
@@ -46,7 +44,9 @@ export function useChatMenuActions({
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameText, setRenameText] = useState("");
   const [renameTarget, setRenameTarget] = useState<Chat | null>(null);
-  const sharing = useRef(false);
+  const [shareChat, setShareChat] = useState<Chat | null>(null);
+  const shareRef = useRef(shareChat);
+  shareRef.current = shareChat;
   const [actionBanner, setActionBanner] = useState<{ message: string; icon?: IconName } | null>(null);
   const current = useCallback(() => mounted.current && session === getSessionGeneration(), [session]);
   const viewVersion = view.current.version;
@@ -60,6 +60,7 @@ export function useChatMenuActions({
     setRenameVisible(false);
     setRenameTarget(null);
     setActionBanner(null);
+    setShareChat(null);
   }, [session, isDrawerOpen]);
 
   const showActionBanner = useCallback((message: string, icon?: IconName) => {
@@ -72,24 +73,21 @@ export function useChatMenuActions({
   }, [currentView]);
   const closeRename = useCallback(() => { setRenameVisible(false); setRenameTarget(null); }, []);
 
-  const handleShareChat = useCallback(async () => {
-    if (!token || !menuChat || !currentView() || sharing.current) return;
+  const openShareChat = useCallback(() => {
+    if (!menuChat || !currentView()) return;
     const chat = getCachedChat(menuChat.id) ?? menuChat;
-    const selectedMenu = menuRef.current;
-    const shareCurrent = () => currentView() && menuRef.current === selectedMenu;
-    sharing.current = true;
-    try {
-      const msgs = await api.listAllMessages(token, chat.id);
-      if (!shareCurrent()) return;
-      // Keep the menu mounted while presenting the iOS activity controller.
-      await shareConversation(chat.title, msgs);
-    } catch (error) {
-      if (shareCurrent() && !isShareCancelled(error)) reportRecoverableError(feedback, t("chat.share_failed"));
-    } finally {
-      sharing.current = false;
-      if (shareCurrent()) closeMenu();
-    }
-  }, [token, menuChat, currentView, closeMenu, feedback, t]);
+    closeMenu();
+    setShareChat(chat);
+  }, [menuChat, currentView, closeMenu]);
+  const closeShare = useCallback(() => setShareChat(null), []);
+  /** Private history reaches the share sheet only while the drawer and account are unchanged. */
+  const loadShareMessages = useCallback(async () => {
+    const chat = shareRef.current;
+    if (!token || !chat || !currentView()) throw new Error("share_closed");
+    const msgs = await api.listAllMessages(token, chat.id);
+    if (!currentView() || shareRef.current !== chat) throw new Error("share_closed");
+    return msgs;
+  }, [token, currentView]);
 
   const openRenameFromMenu = useCallback(() => {
     if (!menuChat || !currentView()) return;
@@ -203,7 +201,8 @@ export function useChatMenuActions({
     menuChat: currentView() ? menuChat : null,
     renameVisible: currentView() && renameVisible,
     renameText, setRenameText, actionBanner, dismissActionBanner, showActionBanner,
-    closeMenu, showRowMenu, handleShareChat, openRenameFromMenu, confirmRename,
+    closeMenu, showRowMenu, openRenameFromMenu, confirmRename,
+    shareChat: currentView() ? shareChat : null, openShareChat, closeShare, loadShareMessages,
     togglePinChat, toggleArchiveChat, confirmDeleteChat, closeRename,
   };
 }

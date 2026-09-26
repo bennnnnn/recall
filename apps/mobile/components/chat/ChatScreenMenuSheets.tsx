@@ -3,6 +3,8 @@ import type { View } from "react-native";
 
 import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
+import { ChatShareSheet } from "@/components/chat/ChatShareSheet";
+import type { Message } from "@/lib/api";
 
 type Props = {
   menuVisible: boolean;
@@ -23,6 +25,9 @@ type Props = {
   onRenameTextChange: (text: string) => void;
   onCloseRename: () => void;
   onConfirmRename: () => void;
+  shareVisible: boolean;
+  onCloseShare: () => void;
+  loadShareMessages: () => Promise<Message[]>;
 };
 
 export function ChatScreenMenuSheets({
@@ -43,6 +48,9 @@ export function ChatScreenMenuSheets({
   onRenameTextChange,
   onCloseRename,
   onConfirmRename,
+  shareVisible,
+  onCloseShare,
+  loadShareMessages,
 }: Props) {
   return (
     <>
@@ -66,6 +74,12 @@ export function ChatScreenMenuSheets({
         onChangeText={onRenameTextChange}
         onClose={onCloseRename}
         onSave={onConfirmRename}
+      />
+      <ChatShareSheet
+        visible={shareVisible}
+        onClose={onCloseShare}
+        title={chatTitle}
+        loadMessages={loadShareMessages}
       />
     </>
   );

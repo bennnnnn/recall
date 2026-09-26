@@ -30,11 +30,11 @@ import { nextDeliveryDate } from "@/features/job-search/model/searchFields";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { notifyWarning, selection, tap } from "@/lib/haptics";
-import { presentShareSheet } from "@/lib/share";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
-import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
+import { confirmDialog } from "@/ui/overlay/dialogs";
+import { ShareSheet } from "@/ui/share/ShareSheet";
 
 type Tab = "matches" | "saved" | "all";
 
@@ -114,6 +114,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const [stageFilter, setStageFilter] = useState<JobStageFilterValue>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const menuAnchorRef = useRef<View>(null);
 
   useFocusEffect(
@@ -177,27 +178,18 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     setMenuOpen(false);
     void setSearchStatus(profile.status === "paused" ? "active" : "paused");
   };
-  const handleShare = async () => {
-    if (!profile) return;
-    const message = [
-      profile.target_roles.join(" · "),
-      [profile.location, profile.work_modes.join(" / ")]
-        .filter(Boolean)
-        .join(" · "),
-      cadence(profile, t),
+  const handleShare = () => {
+    setMenuOpen(false);
+    setShareOpen(true);
+  };
+  const shareText = (search: JobSearchProfile) =>
+    [
+      search.target_roles.join(" · "),
+      [search.location, search.work_modes.join(" / ")].filter(Boolean).join(" · "),
+      cadence(search, t),
     ]
       .filter(Boolean)
       .join("\n");
-    // Keep the Sheet up until the share sheet returns — closing the Modal
-    // first tears down the presenter and iOS dismisses the activity sheet.
-    try {
-      await presentShareSheet({ message, title: t("my_job.title") });
-    } catch {
-      void alertDialog({ title: t("my_job.share_failed") });
-    } finally {
-      setMenuOpen(false);
-    }
-  };
   const handleDelete = () => {
     setMenuOpen(false);
     confirmDelete();
@@ -455,8 +447,33 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
         onClose={() => setMenuOpen(false)}
         onEdit={handleEdit}
         onTogglePause={handleTogglePause}
-        onShare={() => void handleShare()}
+        onShare={handleShare}
         onDelete={handleDelete}
+      />
+      <ShareSheet
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        heading={t("share.search_heading")}
+        note={t("share.search_note")}
+        preview={{
+          title: profile.target_roles.join(" · ") || t("my_job.title"),
+          meta: cadence(profile, t),
+          icon: "briefcase",
+        }}
+        load={async () => shareText(profile)}
+        shareTitle={t("my_job.title")}
+        labels={{
+          share: t("share.action_share"),
+          copy: t("share.action_copy"),
+          copied: t("share.copied"),
+          copyText: t("share.copy_text"),
+          failed: {
+            share: t("my_job.share_failed"),
+            copy: t("share.copy_failed"),
+            pdf: t("share.pdf_failed"),
+          },
+        }}
+        testID="job-search-share-sheet"
       />
     </View>
   );

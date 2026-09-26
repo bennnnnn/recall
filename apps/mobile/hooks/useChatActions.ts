@@ -8,7 +8,6 @@ import { patchCachedChatMessage } from "@/lib/chat/messageCache";
 import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";
-import { shareConversation } from "@/lib/share";
 import { useChatManagementActions } from "@/hooks/useChatManagementActions";
 import { fullEmailText } from "@/features/integrations/model/emailCompose";
 import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
@@ -53,6 +52,7 @@ export function useChatActions({
   messagesRef.current = messages;
   const emailSavesRef = useRef(new Map<string, Promise<boolean>>());
   const [menuVisible, setMenuVisible] = useState(false);
+  const [shareVisible, setShareVisible] = useState(false);
   const [actionBanner, setActionBanner] = useState<{
     message: string;
     icon?: IconName;
@@ -144,21 +144,6 @@ export function useChatActions({
     }
   }, [token, chatId, messages]);
 
-  const handleShare = useCallback(async () => {
-    // Keep the ⋮ Sheet up until Share.share returns. Closing the Modal
-    // first tears down the presenter and iOS dismisses the activity sheet
-    // with it — tap looks like a no-op.
-    try {
-      const transcript = await loadTranscriptMessages();
-      await shareConversation(chatTitle, transcript);
-    } catch (error) {
-      if (isShareCancelled(error)) return;
-      reportRecoverableError(feedback, t("chat.share_failed"));
-    } finally {
-      closeMenu();
-    }
-  }, [chatTitle, closeMenu, feedback, loadTranscriptMessages, t]);
-
   const handleExportPdf = useCallback(async () => {
     showActionBanner(t("chat.status.preparing"), "file-text");
     try {
@@ -180,10 +165,13 @@ export function useChatActions({
     setChatTitle, closeMenu, dismissActionBanner, showActionBanner, t,
   });
 
+  /** ⋮ Share opens the share sheet, which loads the transcript itself. */
   const onShareFromMenu = useCallback(() => {
     tap();
-    void handleShare();
-  }, [handleShare]);
+    closeMenu();
+    setShareVisible(true);
+  }, [closeMenu]);
+  const closeShare = useCallback(() => setShareVisible(false), []);
 
   const onExportPdfFromMenu = useCallback(() => {
     tap();
@@ -228,7 +216,9 @@ export function useChatActions({
     closeMenu,
     handleFeedback,
     handleSaveEmailDraft,
-    handleShare,
+    shareVisible,
+    closeShare,
+    loadTranscriptMessages,
     handleExportPdf,
     openRename,
     confirmRename,
