@@ -77,11 +77,16 @@ from app.services.chat.prompt_constants.routing import (
     writing_request_kind,
 )
 from app.services.chat.prompt_constants.teaching import (
+    LEARNING_PLAN_HINT,
     TEACHING_HINT,
     TEACHING_SHORT_NOTE,
+    active_lesson_step,
+    is_learning_plan_request,
     is_teaching_request,
+    learning_plan_daily_contract,
     lesson_continue_hint,
     lesson_step,
+    programming_lesson_contract,
 )
 from app.services.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
@@ -127,6 +132,7 @@ __all__ = [
     "IMAGE_GEN_HONESTY_HINT",
     "IMAGE_GEN_UNAVAILABLE_HINT",
     "INTENT_FORMAT_HINT",
+    "LEARNING_PLAN_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
     "MATH_FENCE_SAFETY_HINT",
     "MATH_INTENT_HINT",
@@ -155,6 +161,7 @@ __all__ = [
     "UNIVERSAL_FORMAT_BASELINE",
     "VISUALIZATION_HINTS",
     "WRITING_LINE_HINT",
+    "active_lesson_step",
     "attach_chemistry_fence_hint",
     "is_bare_writing_line",
     "is_brevity_request",
@@ -167,6 +174,7 @@ __all__ = [
     "is_howto_question",
     "is_html_ui_question",
     "is_image_generation_mention",
+    "is_learning_plan_request",
     "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_mermaid_question",
@@ -180,10 +188,12 @@ __all__ = [
     "is_teaching_request",
     "is_underspecified_writing_request",
     "is_writing_deliverable_request",
+    "learning_plan_daily_contract",
     "lesson_continue_hint",
     "lesson_step",
     "needs_rich_context",
     "prior_looks_like_offer",
+    "programming_lesson_contract",
     "recalls_earlier_conversation",
     "writing_request_kind",
 ]

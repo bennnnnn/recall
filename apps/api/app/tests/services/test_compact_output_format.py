@@ -118,8 +118,8 @@ def test_compact_tips_turn_uses_callout_blockquotes_not_plain_prose():
     assert "No ## headings" not in joined
 
 
-def test_compact_week_plan_uses_howto_lists_not_plain_prose():
-    from app.services.chat.prompt_constants import HOWTO_FORMAT_HINT
+def test_compact_week_plan_uses_detailed_learning_plan_not_plain_prose():
+    from app.services.chat.prompt_constants import LEARNING_PLAN_HINT
 
     parts = _style_format_hints(
         query_text="Give me a 4-week plan to learn Spanish for travel.",
@@ -128,19 +128,25 @@ def test_compact_week_plan_uses_howto_lists_not_plain_prose():
         minimal_personal_context=False,
         compact=True,
     )
-    assert HOWTO_FORMAT_HINT in parts
+    assert LEARNING_PLAN_HINT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
     joined = "\n".join(parts)
-    assert "Prefer lists over a pipe table" in joined
-    assert "explicitly asks for a compact table" in joined
+    assert "complete learning roadmap" in joined
+    assert "what to learn" in joined
+    assert "practice/build" in joined
     assert "No ## headings" not in joined
 
 
-def test_compact_spanish_week_plan_uses_howto_lists():
-    from app.services.chat.prompt_constants import HOWTO_FORMAT_HINT, is_howto_question
+def test_compact_spanish_week_plan_uses_detailed_learning_plan():
+    from app.services.chat.prompt_constants import (
+        LEARNING_PLAN_HINT,
+        is_howto_question,
+        is_learning_plan_request,
+    )
 
     query = "Dame un plan de 4 semanas para aprender español"
     assert is_howto_question(query)
+    assert is_learning_plan_request(query)
     parts = _style_format_hints(
         query_text=query,
         style="balanced",
@@ -148,7 +154,7 @@ def test_compact_spanish_week_plan_uses_howto_lists():
         minimal_personal_context=False,
         compact=True,
     )
-    assert HOWTO_FORMAT_HINT in parts
+    assert LEARNING_PLAN_HINT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
 
 

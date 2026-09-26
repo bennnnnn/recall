@@ -51,6 +51,21 @@ def test_pro_user_auto_can_pick_smart():
     assert resolved == "smart-chat"
 
 
+def test_pro_user_auto_keeps_an_active_lesson_on_enabled_fast_lane():
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_user_model(
+        user,
+        "Bad bdbd head hdjjd jdjdd",
+        settings,
+        lesson_active=True,
+    )
+    # This fixture intentionally enables only free-chat + smart-chat. The
+    # preferred Gemini teaching alias is absent, so honor Settings and choose
+    # the remaining fast-tier model rather than silently re-enabling Gemini.
+    assert resolved == "free-chat"
+
+
 def test_manual_mode_uses_fixed_model():
     user = ManualUser()
     user.plan = "pro"

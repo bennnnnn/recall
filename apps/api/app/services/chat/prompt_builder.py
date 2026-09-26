@@ -52,6 +52,7 @@ from app.services.chat.prompt_constants import (
     EMAIL_DRAFT_HINT,
     FORMAT_CONTRACT,
     HOWTO_FORMAT_HINT,
+    LEARNING_PLAN_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
     MATH_INTENT_HINT,
@@ -79,6 +80,7 @@ from app.services.chat.prompt_constants import (
     UNIVERSAL_FORMAT_BASELINE,
     VISUALIZATION_HINTS,
     WRITING_LINE_HINT,
+    active_lesson_step,
     is_bare_writing_line,
     is_brevity_request,
     is_broad_self_question,
@@ -87,6 +89,7 @@ from app.services.chat.prompt_constants import (
     is_chart_question,
     is_email_or_message_request,
     is_howto_question,
+    is_learning_plan_request,
     is_learning_progress_question,
     is_mermaid_question,
     is_personal_disclosure_turn,
@@ -96,8 +99,9 @@ from app.services.chat.prompt_constants import (
     is_structured_comparison_question,
     is_teaching_request,
     is_underspecified_writing_request,
+    learning_plan_daily_contract,
     lesson_continue_hint,
-    lesson_step,
+    programming_lesson_contract,
     recalls_earlier_conversation,
     writing_request_kind,
 )
@@ -677,16 +681,19 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return SEQUENCE_FORMAT_HINT
     if is_mermaid_question(query_text):
         return MERMAID_FORMAT_HINT
+    # Explicit "teach me" intent owns the interaction shape. A topic may also
+    # contain "vs" / "difference between", but the user asked for a lesson, not
+    # a one-shot comparison table. Explicit visual requests above still win.
+    if is_learning_plan_request(query_text):
+        return LEARNING_PLAN_HINT
+    if is_teaching_request(query_text):
+        return TEACHING_HINT
     if is_structured_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
     if is_quote_question(query_text):
         return QUOTE_FORMAT_HINT
     if is_callout_question(query_text):
         return CALLOUT_FORMAT_HINT
-    # "Teach me X step by step" is a lesson, not a how-to ("step by step" alone
-    # used to pick the how-to shape and compress the lesson into a reference list).
-    if is_teaching_request(query_text):
-        return TEACHING_HINT
     if is_howto_question(query_text):
         return HOWTO_FORMAT_HINT
     return None
@@ -759,6 +766,12 @@ def _style_format_hints(
         ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     writing = _writing_format_hint(query_text)
+    learning_plan = bool(
+        query_text
+        and writing is None
+        and not is_brevity_request(query_text)
+        and is_learning_plan_request(query_text)
+    )
     teaching = bool(
         query_text
         and writing is None
@@ -766,7 +779,11 @@ def _style_format_hints(
         and is_teaching_request(query_text)
     )
     # A new "teach me" starts its own lesson; otherwise the last step goes on.
-    lesson_hint = lesson_continue_hint(*lesson) if lesson and not teaching and not writing else None
+    lesson_hint = (
+        lesson_continue_hint(*lesson)
+        if lesson and not teaching and not learning_plan and not writing
+        else None
+    )
     if query_text and writing is None:
         parts.append(NON_DRAFT_TURN_HINT)
     math_intent, viz_intent = _math_viz_intent(query_text)
@@ -788,6 +805,10 @@ def _style_format_hints(
         # keeps its step headings, only smaller.
         if writing:
             parts.append(writing)
+        elif learning_plan:
+            # An explicit multi-day roadmap needs enough room to be actionable;
+            # account-level short style must not collapse it into a vague paragraph.
+            parts.append(LEARNING_PLAN_HINT)
         elif teaching:
             parts.extend([TEACHING_HINT, TEACHING_SHORT_NOTE])
         elif lesson_hint:
@@ -855,6 +876,17 @@ def _style_format_hints(
     elif math_intent:
         # Keep requested detail last, after general layout and tutoring hints.
         parts.append(MATH_REPLY_POLICY)
+    # Turn-derived hard contracts come after generic format/math/copy guidance
+    # so smaller models cannot treat exact day coverage or a tagged example as
+    # an optional style preference.
+    if learning_plan and query_text:
+        daily_contract = learning_plan_daily_contract(query_text)
+        if daily_contract:
+            parts.append(daily_contract)
+    if teaching and query_text:
+        code_contract = programming_lesson_contract(query_text)
+        if code_contract:
+            parts.append(code_contract)
     return parts
 
 
@@ -1093,15 +1125,7 @@ async def build_prompt_messages(
     ):
         followup_exchange = recent[:-1]
     math_followup = is_math_followup(query_text, followup_exchange)
-    prior_reply = next(
-        (
-            m.content
-            for m in reversed(followup_exchange)
-            if m.role == "assistant" and isinstance(m.content, str)
-        ),
-        None,
-    )
-    lesson = lesson_step(prior_reply)
+    lesson = active_lesson_step(followup_exchange)
     chat_history_rag_block = ""
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
@@ -1229,4 +1253,18 @@ async def build_prompt_messages(
             )
             content = prior_result or _strip_prompt_owned_fences(content)
         messages.append({"role": msg.role, "content": content})
+    # Repeat only the machine-checkable turn contract immediately before the
+    # current user message. Smaller low-latency models follow nearby system
+    # constraints more reliably than a clause inside the large base prompt.
+    nearby_contracts: list[str] = []
+    if query_text and is_learning_plan_request(query_text):
+        daily_contract = learning_plan_daily_contract(query_text)
+        if daily_contract:
+            nearby_contracts.append(daily_contract)
+    if query_text and is_teaching_request(query_text):
+        code_contract = programming_lesson_contract(query_text)
+        if code_contract:
+            nearby_contracts.append(code_contract)
+    if nearby_contracts:
+        messages = inject_before_last_user(messages, "\n\n".join(nearby_contracts))
     return messages

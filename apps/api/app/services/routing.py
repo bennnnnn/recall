@@ -310,6 +310,19 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
         return smart
     if _CODE_FENCE.search(content):
         return smart
+    # Tutoring is structured by a strict prompt contract and is latency-sensitive:
+    # a learner should not wait on a silent reasoning model before every small
+    # step. Gemini Flash followed the lesson state/output contract in live QA at
+    # a fraction of the TTFT, so keep this classifier shared with the prompt
+    # layer and deliberately use the fast lane. Hard coding/math still reaches
+    # the smart checks below when it is not an explicit tutor/roadmap request.
+    from app.services.chat.prompt_constants.teaching import (
+        is_learning_plan_request,
+        is_teaching_request,
+    )
+
+    if is_learning_plan_request(content) or is_teaching_request(content):
+        return fast
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
@@ -333,14 +346,18 @@ def route_chat_model(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
     settings: Settings | None = None,
 ) -> str:
     """Return a preferred chat alias for an auto-routed message (before pool filter).
 
-    Scores the current line first. A short continuation of a prior smart user
-    turn inherits Pro; a new topic does not pin the rest of the chat.
+    Active lessons stay on the low-latency teaching tier. Otherwise, score the
+    current line first: a short continuation of a prior smart turn inherits Pro,
+    while a new topic does not pin the rest of the chat.
     """
     smart = model_catalog.auto_smart_alias()
+    if lesson_active:
+        return model_catalog.auto_fast_alias()
     preferred = _route_current_line(content, settings)
     if preferred == smart:
         return smart
@@ -421,11 +438,17 @@ def resolve_alias(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
 ) -> str:
     """Resolve ``auto`` / ``fast`` / ``smart`` without a pool (legacy/tests)."""
     all_ids = [m.id for m in model_catalog.selectable_models()]
     return resolve_alias_in_pool(
-        alias, content, all_ids, prior_user=prior_user, prior_model=prior_model
+        alias,
+        content,
+        all_ids,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
     )
 
 
@@ -437,6 +460,7 @@ def resolve_alias_in_pool(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
 ) -> str:
     """Resolve a model mode or alias within an allowed pool."""
     if not pool:
@@ -447,6 +471,7 @@ def resolve_alias_in_pool(
             content,
             prior_user=prior_user,
             prior_model=prior_model,
+            lesson_active=lesson_active,
             settings=settings,
         )
         return _pick_preferred_tier(preferred, pool)
