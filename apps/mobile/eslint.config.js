@@ -31,6 +31,15 @@ const POPUPS_OWNED_BY_UI_KIT = [
   },
 ];
 
+/** Controls the kit draws itself. ui/ may use them to build its rows. */
+const CONTROLS_OWNED_BY_UI_KIT = [
+  {
+    name: "react-native",
+    importNames: ["Switch"],
+    message: "Use ListRow with switchValue from @/ui/list/ListRow; the whole row toggles.",
+  },
+];
+
 const TEST_FILES = ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"];
 
 const UI_LEAF = {
@@ -49,7 +58,7 @@ module.exports = defineConfig([
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT] },
+        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT] },
       ],
     },
   },
