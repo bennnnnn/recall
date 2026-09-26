@@ -77,8 +77,10 @@ from app.services.chat.prompt_constants.routing import (
     writing_request_kind,
 )
 from app.services.chat.prompt_constants.teaching import (
+    LEARNING_PLAN_HINT,
     TEACHING_HINT,
     TEACHING_SHORT_NOTE,
+    is_learning_plan_request,
     is_teaching_request,
     lesson_continue_hint,
     lesson_step,
@@ -127,6 +129,7 @@ __all__ = [
     "IMAGE_GEN_HONESTY_HINT",
     "IMAGE_GEN_UNAVAILABLE_HINT",
     "INTENT_FORMAT_HINT",
+    "LEARNING_PLAN_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
     "MATH_FENCE_SAFETY_HINT",
     "MATH_INTENT_HINT",
@@ -167,6 +170,7 @@ __all__ = [
     "is_howto_question",
     "is_html_ui_question",
     "is_image_generation_mention",
+    "is_learning_plan_request",
     "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_mermaid_question",
