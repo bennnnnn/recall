@@ -362,7 +362,7 @@ async def test_turn_verifies_and_replies_directly(
     monkeypatch: pytest.MonkeyPatch, thread_sympy_executor: None
 ) -> None:
     monkeypatch.setattr(litellm_gateway, "complete_structured", _gateway(TICKETS_SETUP))
-    note, verified = await math_prompt.build_math_augmentation(TICKETS, _settings())
+    _note, verified = await math_prompt.build_math_augmentation(TICKETS, _settings())
     assert verified is not None and verified.canonical_answer == "8"
     reply = maybe_direct_math_reply(verified, TICKETS)
     assert reply is not None and "**Answer:** adults who went: $8$" in reply
