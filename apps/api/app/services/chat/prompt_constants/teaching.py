@@ -114,12 +114,11 @@ _MAX_LESSON_STEPS = 20
 _QUESTION_MARKS = ("?", "？", "፧")
 
 TEACHING_HINT = (
-    "The user wants to be taught this topic. Run it as a lesson, not a how-to, "
-    "roadmap, or reference sheet; this layout replaces the answer-first default for "
-    "this turn.\n"
-    "- First reply: one short sentence on how the lesson will go (one idea at a "
-    "time, a quick check after each), a numbered outline of 4-8 step titles, then "
-    "teach Step 1 only.\n"
+    "The user wants to be taught this topic. Run it as an adaptive conversational lesson, "
+    "not a how-to, roadmap, reference sheet, or exam; this layout replaces the answer-first "
+    "default for this turn.\n"
+    "- First reply: one short sentence on how the lesson will go, a numbered outline of 4-8 "
+    "step titles, then teach Step 1 only.\n"
     "- Each step starts with a heading like `### Step 1/6 — What a dictionary is` "
     "(write the word Step in the reply language; keep the 1/6 numbers). Then a "
     "plain-language explanation in 2-4 short paragraphs, one small example (a "
@@ -127,9 +126,12 @@ TEACHING_HINT = (
     "or analogy when it helps.\n"
     "- One new idea per step. Keep examples tiny and concrete, and define any "
     "term the user may not know in one line.\n"
-    "- End every step with exactly one check question: predict the output, fill "
+    "- End each step with one light understanding check: predict the output, fill "
     "in a blank, or choose from options written as plain lines `A.` to `D.`. "
-    "Stop there: do not answer it and do not start the next step.\n"
+    "The check is diagnostic, not a pass/fail gate: the learner never has to earn "
+    "permission to continue. Stop after the check and wait for their reaction.\n"
+    "- Never replay an already-delivered step verbatim on a later turn. If the learner "
+    "needs it again, explain it a different way with a fresh example.\n"
     "- If the user asks for everything at once, a summary, or a cheat sheet, give "
     "the full reference instead."
 )
@@ -178,29 +180,46 @@ def lesson_step(text: str | None) -> tuple[int, int] | None:
 
 
 def lesson_continue_hint(step: int, total: int) -> str:
-    """The next turn of a lesson whose last reply taught ``step`` of ``total``."""
+    """Guide the next conversational turn after a delivered lesson step."""
     lead = (
-        f"A lesson is in progress: your last reply taught Step {step}/{total} and "
-        "ended with a check question. Treat this message as the student's answer "
-        "or reaction to it.\n"
-        "- If they answered, say whether it is right and why in one or two sentences.\n"
-        "- If it is wrong, or they say no or that they don't understand, explain the "
-        "same idea another way with a new small example and ask a new check "
-        "question on it. Do not move on yet.\n"
+        f"A conversational lesson is in progress: your last reply already taught "
+        f"Step {step}/{total} and ended with a quick understanding check. Treat the "
+        "student's new message as a natural reaction, not as an exam submission.\n"
+        f"- Step {step}/{total} has already been delivered. NEVER reproduce that step's "
+        "full explanation, wording, or example again unless the student explicitly asks "
+        "to see the exact previous text.\n"
+        "- If the answer is correct, or they say 'got it', 'ok', 'next', or similar: "
+        "acknowledge briefly and continue.\n"
+        "- If the answer is clearly wrong but they are not expressing confusion: correct "
+        "the specific misunderstanding in 1-3 sentences, use a fresh tiny example if it "
+        "helps, then continue. Do NOT make them retry the same checkpoint and do not "
+        "restart the step.\n"
+        "- If they explicitly say they are confused, ask why, say they do not understand, "
+        "or request another explanation: stay on the current idea, explain it differently "
+        "with a NEW analogy/example/representation, then ask one simple check if useful. "
+        "Never repeat the old paragraphs or old example.\n"
+        "- If the message is gibberish, accidental, or too unclear to count as an answer: "
+        "do not grade it. Briefly acknowledge that it may not have been an answer, give "
+        "the check answer if needed, and keep the lesson moving.\n"
+        "- If they ask a direct question about the current idea, answer it directly, then "
+        "resume from where the lesson paused. Never restart from Step 1.\n"
     )
     if step >= total:
         nxt = (
-            f"- Step {total}/{total} was the last step. When they have it, give a "
-            "short recap of the whole lesson in 3-5 bullets and offer one bigger "
-            "practice exercise or a next topic.\n"
+            f"- Step {total}/{total} was the last step. After a correct answer, brief "
+            "correction, or unclear input that does not signal confusion, give a short "
+            "recap of the whole lesson in 3-5 bullets and offer one bigger practice "
+            "exercise or a next topic.\n"
         )
     else:
         nxt = (
-            f"- When they have it (right answer, 'got it', 'next'), teach Step "
-            f"{step + 1}/{total} in the same format and end with one check question.\n"
+            f"- Whenever the action above says to continue, teach Step {step + 1}/{total} "
+            "in the same format and end with one light understanding check. Do not repeat "
+            f"Step {step}/{total} before it.\n"
         )
     tail = (
-        "- If they ask to skip, stop, or get everything at once, do that. If the "
-        "message is unrelated to the lesson, answer it normally."
+        "- If they ask to skip, stop, go back, or get everything at once, follow that "
+        "request. If the message is unrelated to the lesson, answer it normally without "
+        "replaying the lesson in the same turn."
     )
     return lead + nxt + tail
