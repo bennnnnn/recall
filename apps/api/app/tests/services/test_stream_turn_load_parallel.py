@@ -187,3 +187,96 @@ async def test_user_and_chat_ownership_loads_overlap() -> None:
     assert user_started.is_set()
     assert chat_started.is_set()
     resources.refund.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content", "loads_history"),
+    [
+        ("hi", False),
+        ("thanks", False),
+        # A short reply answers the last turn: "no" to "Understood?" must see it.
+        ("No", True),
+        ("got it", True),
+        ("yes", True),
+    ],
+)
+async def test_short_reply_loads_the_recent_window(
+    monkeypatch: pytest.MonkeyPatch, content: str, loads_history: bool
+) -> None:
+    user = MagicMock()
+    user.id = uuid4()
+    user.plan = "pro"
+    user.timezone = "UTC"
+    user.default_model = "free-chat"
+    user.response_style = "balanced"
+    user.memory_enabled = True
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+
+    prior = MagicMock()
+    prior.content = "It's good to act even after a delay. Understood?"
+    monkeypatch.setattr(
+        "app.services.chat.turn_prep.mode.messages_repo.get_last_assistant",
+        AsyncMock(return_value=prior),
+    )
+    list_recent = AsyncMock(return_value=[])
+
+    class SessionCM:
+        async def __aenter__(self):
+            return AsyncMock()
+
+        async def __aexit__(self, *_args):
+            return False
+
+    resources = SimpleNamespace(
+        reserved_tokens=0,
+        refund=AsyncMock(),
+        lock_key="lock",
+        lock_token="token",
+    )
+
+    @asynccontextmanager
+    async def turn_resources(*_args, **_kwargs):
+        yield resources
+
+    seams = SimpleNamespace(
+        wrap_stream_status=lambda _timing, status: status,
+        turn_resources=turn_resources,
+        quota_service=SimpleNamespace(
+            has_daily_usage_key=AsyncMock(return_value=True),
+            daily_limit_for_user=lambda _user, _settings: 100_000,
+        ),
+        SessionLocal=SessionCM,
+        users_repo=SimpleNamespace(get_by_id=AsyncMock(return_value=user)),
+        chats_repo=SimpleNamespace(get_by_id=AsyncMock(return_value=chat)),
+        messages_repo=SimpleNamespace(
+            list_recent=list_recent,
+            count_for_chat=AsyncMock(return_value=0),
+        ),
+        seed_usage_from_db=AsyncMock(),
+        wait_for_pending_finalize=AsyncMock(),
+        plan_service=SimpleNamespace(
+            resolve_user_model_override=lambda *_args, **_kwargs: "free-chat"
+        ),
+        _try_image_lookup_for_turn=AsyncMock(return_value=True),
+        _try_image_gen_for_turn=AsyncMock(return_value=False),
+    )
+
+    tokens = [
+        token
+        async for token in stream_chat_response(
+            seams,
+            AsyncMock(),
+            Settings(),
+            user_id=user.id,
+            chat_id=chat.id,
+            content=content,
+        )
+    ]
+
+    assert tokens == []
+    assert list_recent.await_count == (1 if loads_history else 0)

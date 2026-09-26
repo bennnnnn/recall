@@ -977,10 +977,28 @@ def test_short_confirmation_after_offer_is_not_lightweight():
     assert is_lightweight_chat_turn("go", prior_assistant=offer) is False
     assert is_lightweight_chat_turn("sure", prior_assistant=offer) is False
     assert is_lightweight_chat_turn("thanks", prior_assistant=offer) is True
-    assert is_lightweight_chat_turn("no", prior_assistant=offer) is True
+    assert is_lightweight_chat_turn("no", prior_assistant=offer) is False
     assert is_lightweight_chat_turn("hi", prior_assistant=offer) is True
     assert is_lightweight_chat_turn("yes") is True
     assert is_lightweight_chat_turn("yes", prior_assistant="The score is 2-1.") is True
+
+
+@pytest.mark.parametrize("reply", ["No", "nope", "got it", "Understood.", "makes sense", "ok"])
+def test_short_answer_to_a_tutor_question_is_not_a_greeting(reply):
+    from app.services.chat.prompt_constants import is_short_reply
+
+    question = "This proverb means it's good to do something, even if there's a delay. Understood?"
+    assert is_short_reply(reply)
+    assert is_lightweight_chat_turn(reply, prior_assistant=question) is False
+    # Without a pending question it is still a short ack.
+    assert is_lightweight_chat_turn(reply, prior_assistant="Here is the fourth proverb.") is True
+
+
+@pytest.mark.parametrize("text", ["hi", "Thanks!", "bye", "lol", "What is a proverb?", ""])
+def test_social_turns_are_not_short_replies(text):
+    from app.services.chat.prompt_constants import is_short_reply
+
+    assert not is_short_reply(text)
 
 
 @pytest.mark.parametrize(
@@ -1706,6 +1724,25 @@ async def test_classify_turn_mode_yes_after_offer_is_not_lightweight():
 
     with patch("app.services.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
         mode = await _classify_turn_mode(AsyncMock(), chat, "yes")
+
+    get_last.assert_awaited_once()
+    assert mode.lightweight is False
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_no_after_a_question_is_not_lightweight():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = None
+    chat.quiz_mode = None
+    prior = MagicMock()
+    prior.content = "Better late than never: it's good to act even after a delay. Understood?"
+    get_last = AsyncMock(return_value=prior)
+
+    with patch("app.services.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "No")
 
     get_last.assert_awaited_once()
     assert mode.lightweight is False
