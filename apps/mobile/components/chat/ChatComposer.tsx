@@ -526,13 +526,6 @@ export const ChatComposer = memo(function ChatComposer({
                           current === frame.height ? current : frame.height,
                         );
                       }
-                      // A taller frame makes UITextView scroll the caret to the
-                      // top. Pin the text until the field is actually scrolling.
-                      if (!frame.overflows) {
-                        inputRef.current?.setNativeProps({
-                          contentOffset: { x: 0, y: 0 },
-                        });
-                      }
                     }}
                     scrollEnabled={fieldOverflows && !composerExpanded}
                     onSelectionChange={math.onSelectionChange}
