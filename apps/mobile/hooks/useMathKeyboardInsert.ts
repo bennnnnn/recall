@@ -11,6 +11,8 @@ import {
   caretForInsert,
   MATH_KEYBOARD_SYMBOLS,
   type MathKeyboardGroup,
+  nextEditSlotCaret,
+  prevEditSlotCaret,
   spliceMathInsert,
   tapAdvancesToNextSlot,
   type MathKeyboardSymbol,
@@ -23,7 +25,7 @@ import {
   shouldProbeClipboardForImagePaste,
   normalizePastedMath,
 } from "@/lib/math/pasteNormalize";
-import { spliceMathBackspace } from "@/lib/math/draftSlots";
+import { spliceMathBackspace, stepMathCaret } from "@/lib/math/draftSlots";
 
 export const MATH_PAD_FALLBACK_HEIGHT = 320;
 
@@ -48,9 +50,6 @@ export function useMathKeyboardInsert(options: {
   const draftRevisionRef = useRef(draftRevision);
   const pinRef = useRef<TextSelection | null>(null);
   const mathBarOpenRef = useRef(false);
-  /** Outside tap hides the pad, but the next composer focus brings it back. ABC clears this. */
-  const resumeMathRef = useRef(false);
-  const [resumeMathOnFocus, setResumeMathOnFocus] = useState(false);
   const textRef = useRef(input);
   textRef.current = input;
 
@@ -72,8 +71,6 @@ export function useMathKeyboardInsert(options: {
     setPreviewEnabled(false);
     mathBarOpenRef.current = false;
     setMathBarOpen(false);
-    resumeMathRef.current = false;
-    setResumeMathOnFocus(false);
     pinRef.current = null;
     setSelection({ start: input.length, end: input.length });
     setForcedSelection(undefined);
@@ -140,28 +137,10 @@ export function useMathKeyboardInsert(options: {
     [onImageOnlyPaste, pinSelection, selection, setInput],
   );
 
-  const openMathBar = useCallback(() => {
-    if (mathBarOpenRef.current) return;
-    const measured = Keyboard.metrics()?.height ?? 0;
-    if (hasEditableMath(textRef.current)) enablePreview();
-    if (measured >= 200) setPadHeight(measured);
-    Keyboard.dismiss();
-    resumeMathRef.current = true;
-    setResumeMathOnFocus(true);
-    mathBarOpenRef.current = true;
-    setMathBarOpen(true);
-  }, [enablePreview]);
-
-  const dismissMathBar = useCallback(() => {
-    if (!mathBarOpenRef.current) return;
+  const closeMathBar = useCallback(() => {
     mathBarOpenRef.current = false;
     setMathBarOpen(false);
   }, []);
-
-  const onComposerFocus = useCallback(() => {
-    if (!resumeMathRef.current || mathBarOpenRef.current) return;
-    openMathBar();
-  }, [openMathBar]);
 
   const insertSymbol = useCallback(
     (spec: MathKeyboardSymbol) => {
@@ -186,6 +165,29 @@ export function useMathKeyboardInsert(options: {
       pinSelection({ start: caret, end: caret });
     },
     [enablePreview, pinSelection, selection, setInput],
+  );
+
+  const nextSlot = useCallback(() => {
+    const sel = pinRef.current ?? selection;
+    const jump = nextEditSlotCaret(textRef.current, sel.start);
+    if (jump == null) return;
+    pinSelection({ start: jump, end: jump });
+  }, [pinSelection, selection]);
+
+  const prevSlot = useCallback(() => {
+    const sel = pinRef.current ?? selection;
+    const jump = prevEditSlotCaret(textRef.current, sel.start);
+    if (jump == null) return;
+    pinSelection({ start: jump, end: jump });
+  }, [pinSelection, selection]);
+
+  const stepCaret = useCallback(
+    (dir: -1 | 1) => {
+      const sel = pinRef.current ?? selection;
+      const next = stepMathCaret(textRef.current, sel.start, dir);
+      pinSelection({ start: next, end: next });
+    },
+    [pinSelection, selection],
   );
 
   const backspace = useCallback(() => {
@@ -222,9 +224,7 @@ export function useMathKeyboardInsert(options: {
   );
 
   const toggleMathBar = useCallback(() => {
-    if (mathBarOpenRef.current) {
-      resumeMathRef.current = false;
-      setResumeMathOnFocus(false);
+    if (mathBarOpen) {
       mathBarOpenRef.current = false;
       const text = textRef.current;
       const caret = caretAfterMathBarClose(text);
@@ -232,18 +232,20 @@ export function useMathKeyboardInsert(options: {
       setMathBarOpen(false);
       return;
     }
-    openMathBar();
-  }, [openMathBar, pinSelection]);
+    const measured = Keyboard.metrics()?.height ?? 0;
+    if (hasEditableMath(textRef.current)) enablePreview();
+    if (measured >= 200) setPadHeight(measured);
+    Keyboard.dismiss();
+    mathBarOpenRef.current = true;
+    setMathBarOpen(true);
+  }, [enablePreview, mathBarOpen, pinSelection]);
 
   return {
     mathBarOpen,
     showMathPreview: draftRevisionRef.current === draftRevision && previewEnabled && hasEditableMath(input),
     padHeight,
-    resumeMathOnFocus,
     toggleMathBar,
-    openMathBar,
-    dismissMathBar,
-    onComposerFocus,
+    closeMathBar,
     mathGroup,
     setMathGroup,
     selection,
@@ -253,6 +255,9 @@ export function useMathKeyboardInsert(options: {
     insertSymbol,
     backspace,
     pasteText,
+    nextSlot,
+    prevSlot,
+    stepCaret,
     moveCaret,
     symbols: MATH_KEYBOARD_SYMBOLS,
   };

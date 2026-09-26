@@ -21,22 +21,7 @@ import {
 } from "@/lib/unitConverter";
 import { IconSize } from "@/ui/icons/sizes";
 
-/** Number above a full-width unit menu. Keys shrink so both rows stay in the pad. */
-const CONVERTER_VALUE_HEIGHT = 28;
-const CONVERTER_UNIT_HEIGHT = 44;
-export const CONVERTER_HEADER_HEIGHT = CONVERTER_VALUE_HEIGHT + 6 + CONVERTER_UNIT_HEIGHT;
-export const CONVERTER_ROWS = 4;
-const CONVERTER_GAP = 6;
-
-export function converterKeyHeight(keysHeight: number): number {
-  const chrome = CONVERTER_HEADER_HEIGHT + CONVERTER_ROWS * CONVERTER_GAP;
-  const room = keysHeight - chrome;
-  if (room <= 0) return 0;
-  return Math.floor(room / CONVERTER_ROWS);
-}
-
 type Props = {
-  keyHeight: number;
   onAsk: (text: string) => void;
   onStop: () => void;
   streaming: boolean;
@@ -48,7 +33,6 @@ function buzz() {
 }
 
 export const MathConverterPad = memo(function MathConverterPad({
-  keyHeight,
   onAsk,
   onStop,
   streaming,
@@ -153,7 +137,7 @@ export const MathConverterPad = memo(function MathConverterPad({
       </View>
       <View style={s.pad} testID="math-converter-numpad">
         {CONVERTER_PAD.map((row, r) => (
-          <View key={r} style={[s.row, { height: keyHeight }]}>
+          <View key={r} style={s.row}>
             {row.map((cell) =>
               cell === "ask" ? (
                 <Key
@@ -162,7 +146,7 @@ export const MathConverterPad = memo(function MathConverterPad({
                   testID="math-converter-ask"
                   onPress={ask}
                   theme={theme}
-                  height={keyHeight}
+                  accent
                 />
               ) : cell === "insert" ? (
                 <Key
@@ -171,8 +155,8 @@ export const MathConverterPad = memo(function MathConverterPad({
                   testID="math-converter-insert"
                   onPress={insert}
                   theme={theme}
+                  accent
                   disabled={raw == null}
-                  height={keyHeight}
                 />
               ) : (
                 <Key
@@ -181,8 +165,7 @@ export const MathConverterPad = memo(function MathConverterPad({
                   testID={`math-converter-${cell === "back" ? "back" : cell === "." ? "dot" : cell}`}
                   onPress={() => typeKey(cell)}
                   theme={theme}
-                  danger={cell === "AC" || cell === "back"}
-                  height={keyHeight}
+                  accent={cell === "AC" || cell === "back" || cell === "±"}
                 />
               ),
             )}
@@ -241,36 +224,29 @@ function Key({
   testID,
   onPress,
   theme,
-  danger,
+  accent,
   disabled,
-  height,
 }: {
   label: string;
   testID: string;
   onPress: () => void;
   theme: Theme;
-  danger?: boolean;
+  accent?: boolean;
   disabled?: boolean;
-  height: number;
 }) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [
-        s.key,
-        { height },
-        pressed && s.pressed,
-        disabled && s.keyDisabled,
-      ]}
+      style={({ pressed }) => [s.key, accent && s.keyAccent, pressed && s.pressed, disabled && s.keyDisabled]}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
       testID={testID}
     >
       <View style={s.keyInner}>
-        <Text style={[s.keyLabel, danger && s.keyLabelDanger]}>{label}</Text>
+        <Text style={s.keyLabel}>{label}</Text>
       </View>
     </Pressable>
   );
@@ -278,22 +254,15 @@ function Key({
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
-    wrap: { gap: CONVERTER_GAP },
-    io: {
-      height: CONVERTER_HEADER_HEIGHT,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      paddingHorizontal: 2,
-    },
+    wrap: { flex: 1, gap: Space.xs },
+    io: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 2 },
     col: { flex: 1, gap: 6, minWidth: 0 },
     value: {
-      height: CONVERTER_VALUE_HEIGHT,
       fontSize: 22,
-      lineHeight: CONVERTER_VALUE_HEIGHT,
       fontWeight: "700",
       color: theme.text,
       paddingHorizontal: Space.xxs,
+      minHeight: 30,
     },
     valueOut: { color: theme.textSecondary, fontWeight: "600" },
     unitBtn: {
@@ -301,12 +270,10 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       justifyContent: "center",
       gap: Space.xxs,
-      alignSelf: "stretch",
-      height: CONVERTER_UNIT_HEIGHT,
       minHeight: Space.minTouch,
       paddingHorizontal: 10,
       borderRadius: Radius.xs,
-      backgroundColor: theme.bg,
+      backgroundColor: theme.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
@@ -317,20 +284,21 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    pad: { gap: CONVERTER_GAP },
-    row: { flexDirection: "row", alignItems: "stretch", gap: CONVERTER_GAP },
+    pad: { gap: 6, marginTop: 2 },
+    row: { flexDirection: "row", alignItems: "stretch", gap: 6 },
     key: {
       flex: 1,
+      minHeight: Space.minTouch,
       borderRadius: Radius.xs,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: theme.bg,
+      backgroundColor: theme.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
+    keyAccent: { backgroundColor: theme.primaryLight },
     keyDisabled: { opacity: 0.4 },
     keyInner: { flexDirection: "row", alignItems: "center", gap: Space.xxs },
     keyLabel: { fontSize: 17, fontWeight: "600", color: theme.text },
-    keyLabelDanger: { color: theme.danger },
     pressed: { opacity: 0.55, transform: [{ scale: 0.97 }] },
   });

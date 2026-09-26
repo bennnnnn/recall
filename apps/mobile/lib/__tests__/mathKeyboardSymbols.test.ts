@@ -13,6 +13,7 @@ import {
   MATH_NUMPAD_ROWS,
   MATH_SYMBOL_ROW_SIZE,
   mathGroupCanToggleDigits,
+  mathGroupShowsNumpad,
   nextEditSlotCaret,
   prevEditSlotCaret,
   spliceBackspace,
@@ -72,13 +73,6 @@ describe("spliceMathInsert", () => {
     const nroot = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "nroot")!;
     expect(nroot.insert).toBe("\\sqrt[]{}");
     expect(spliceMathInsert("", { start: 0, end: 0 }, nroot).text).toBe("$\\sqrt[]{}$");
-  });
-
-  it("f′ attaches to a base, or leaves the caret in front of the prime", () => {
-    const prime = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "prime")!;
-    expect(spliceMathInsert("$x$", { start: 2, end: 2 }, prime).text).toBe("$x'$");
-    expect(spliceMathInsert("", { start: 0, end: 0 }, prime).text).toBe("$^{\\prime}$");
-    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "partial-x")?.group).toBe("pad");
   });
 
   it("n! attaches to a number, or inserts an empty slot on an empty draft", () => {
@@ -382,36 +376,47 @@ describe("spliceBackspace", () => {
   });
 });
 
+describe("mathGroupShowsNumpad", () => {
+  it("keeps digits on Basics only", () => {
+    expect(mathGroupShowsNumpad("basics")).toBe(true);
+    expect(mathGroupShowsNumpad("trig")).toBe(false);
+    expect(mathGroupShowsNumpad("calc")).toBe(false);
+    expect(mathGroupShowsNumpad("greek")).toBe(false);
+  });
+});
+
 describe("mathGroupCanToggleDigits", () => {
-  it("offers 123 on every symbol tab, including Basics", () => {
-    expect(mathGroupCanToggleDigits("basics")).toBe(true);
+  it("offers 123 on symbol tabs that hide the number pad", () => {
     expect(mathGroupCanToggleDigits("trig")).toBe(true);
     expect(mathGroupCanToggleDigits("calc")).toBe(true);
     expect(mathGroupCanToggleDigits("greek")).toBe(true);
+    expect(mathGroupCanToggleDigits("basics")).toBe(false);
     expect(mathGroupCanToggleDigits("converter")).toBe(false);
   });
 });
 
 describe("MATH_NUMPAD_ROWS", () => {
-  it("is a 6-column digit grid without the Basics algebra keys", () => {
-    expect(MATH_NUMPAD_ROWS).toHaveLength(2);
+  it("is a 6-column calculator grid with comma, y, backspace", () => {
+    expect(MATH_NUMPAD_ROWS).toHaveLength(4);
     expect(MATH_NUMPAD_ROWS.every((row) => row.length === MATH_SYMBOL_ROW_SIZE)).toBe(true);
     const ids = MATH_NUMPAD_ROWS.flat().flatMap((c) =>
       c.kind === "insert" ? [c.spec.id] : [],
     );
     expect(ids).toContain("comma");
-    expect(ids).toContain("digit-dot");
-    expect(ids).not.toContain("var-y");
-    expect(ids).not.toContain("eq");
-    expect(ids).not.toContain("parens");
-    expect(ids).not.toContain("times");
-    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "backspace")).toBe(false);
+    expect(ids).toContain("var-y");
+    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "backspace")).toBe(true);
+    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "prev")).toBe(true);
+    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "next")).toBe(true);
   });
 
-  it("BUG FIX regression: includes < and >", () => {
+  it("BUG FIX regression: includes <, >, and variable z", () => {
     const allSymbols = MATH_KEYBOARD_SYMBOLS.map((s) => s.id);
     expect(allSymbols).toContain("lt");
     expect(allSymbols).toContain("gt");
+    const padIds = MATH_NUMPAD_ROWS.flat().flatMap((c) =>
+      c.kind === "insert" ? [c.spec.id] : [],
+    );
+    expect(padIds).toContain("var-z");
   });
 });
 
@@ -436,35 +441,24 @@ describe("symbol homes (no duplicate glyphs)", () => {
     expect(symbolsInGroup("greek").length % MATH_SYMBOL_ROW_SIZE).toBe(0);
   });
 
-  it("keeps Basics 6 by 4, with x y z = () . above a bottom row that starts with 123", () => {
-    const rows = symbolRowsForGroup("basics");
-    expect(rows).toHaveLength(4);
-    expect(rows.every((row) => row.length === MATH_SYMBOL_ROW_SIZE)).toBe(true);
-    const algebra = rows[2]!.flatMap((cell) => (cell.kind === "insert" ? [cell.spec.id] : []));
-    expect(algebra).toEqual(["var-x", "var-y", "var-z", "eq", "parens", "digit-dot"]);
-    expect(rows[3]![0]).toEqual({ kind: "digits" });
-    const bottom = rows[3]!.flatMap((cell) => (cell.kind === "insert" ? [cell.spec.id] : []));
-    expect(bottom).toEqual(["times", "div", "minus", "plus"]);
-    expect(rows[3]![5]).toEqual({ kind: "backspace" });
-  });
-
-  it("fills the short Trig row with theta and the missing hyperbolics", () => {
+  it("keeps Trig keys 6-wide by putting 1–0 in leftover cells", () => {
     const rows = symbolRowsForGroup("trig");
     expect(symbolsInGroup("trig")).toHaveLength(20);
-    expect(rows).toHaveLength(4);
     expect(rows.every((row) => row.length === MATH_SYMBOL_ROW_SIZE)).toBe(true);
     const lastFn = rows[3]!;
-    expect(lastFn.map((cell) => (cell.kind === "insert" ? cell.spec.id : cell.kind))).toEqual([
-      "arccosh",
-      "arctanh",
-      "trig-theta",
-      "sech",
-      "csch",
-      "coth",
+    expect(lastFn[0]).toMatchObject({ kind: "insert", spec: { id: "arccosh" } });
+    expect(lastFn[1]).toMatchObject({ kind: "insert", spec: { id: "arctanh" } });
+    expect(lastFn[2]).toMatchObject({ kind: "insert", spec: { id: "digit-1" } });
+    expect(lastFn[5]).toMatchObject({ kind: "insert", spec: { id: "digit-4" } });
+    const digits = rows[4]!;
+    expect(digits.map((c) => (c.kind === "insert" ? c.spec.id : c.kind))).toEqual([
+      "digit-5",
+      "digit-6",
+      "digit-7",
+      "digit-8",
+      "digit-9",
+      "digit-0",
     ]);
-    expect(rows.flat().some((cell) => cell.kind === "insert" && cell.spec.id.startsWith("digit-"))).toBe(
-      false,
-    );
   });
 
   it("inserts a converter result as math with a unit", () => {

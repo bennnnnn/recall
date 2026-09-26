@@ -264,18 +264,6 @@ export const ChatComposer = memo(function ChatComposer({
 
   return (
     <Animated.View style={containerStyle} testID="chat-composer">
-      {math.mathBarOpen ? (
-        <Pressable
-          style={s.outsideDismiss}
-          onPress={() => {
-            math.dismissMathBar();
-            inputRef.current?.blur();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={t("common.close")}
-          testID="math-keyboard-dismiss"
-        />
-      ) : null}
       <View style={[s.composerAnchor, composerExpanded && s.expandedFill]}>
         <View style={[s.composer, composerExpanded && s.expandedFill]}>
           {scanHint && onOpenMathScanner ? (
@@ -394,8 +382,9 @@ export const ChatComposer = memo(function ChatComposer({
                   style={[s.inputField, composerExpanded && s.inputFieldExpanded]}
                   testID="chat-composer-field"
                   onPress={() => {
-                    if (math.mathBarOpen || showMathPreview) return;
-                    if (math.resumeMathOnFocus) math.openMathBar();
+                    if (!math.mathBarOpen || showMathPreview) return;
+                    math.closeMathBar();
+                    requestAnimationFrame(() => inputRef.current?.focus());
                   }}
                 >
                   {showMathPreview ? (
@@ -458,11 +447,10 @@ export const ChatComposer = memo(function ChatComposer({
                     }
                     caretHidden={showMathPreview || math.mathBarOpen}
                     pointerEvents={parkInput || math.mathBarOpen ? "none" : "auto"}
-                    showSoftInputOnFocus={!math.resumeMathOnFocus}
+                    showSoftInputOnFocus={!math.mathBarOpen}
                     onFocus={() => {
                       onCloseAttachSheet();
                       liveTalkChrome?.onYield();
-                      math.onComposerFocus();
                     }}
                     multiline
                     returnKeyType="default"
@@ -585,6 +573,9 @@ export const ChatComposer = memo(function ChatComposer({
               }}
               group={math.mathGroup}
               onGroupChange={math.setMathGroup}
+              onNextSlot={math.nextSlot}
+              onPrevSlot={math.prevSlot}
+              onStepCaret={math.stepCaret}
             />
           ) : null}
         </View>
@@ -605,13 +596,6 @@ function makeStyles(theme: Theme) {
       backgroundColor: "transparent",
       paddingHorizontal: Space.sm,
       paddingTop: 2,
-    },
-    outsideDismiss: {
-      position: "absolute",
-      left: -Space.sm,
-      right: -Space.sm,
-      bottom: "100%",
-      height: 4000,
     },
     composerDocked: {
       overflow: "visible",
