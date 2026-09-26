@@ -203,6 +203,14 @@ def test_teach_request_gets_a_lesson_not_a_howto():
     assert HOWTO_FORMAT_HINT not in hints
 
 
+def test_explicit_teach_request_beats_comparison_layout():
+    from app.services.chat.prompt_constants import COMPARISON_FORMAT_HINT
+
+    hints = _hints("Teach me the difference between Python vs Java")
+    assert TEACHING_HINT in hints
+    assert COMPARISON_FORMAT_HINT not in hints
+
+
 def test_70_day_learning_plan_gets_complete_roadmap_policy():
     hints = _hints("70 days mastering python from beginner to senior level plan")
     assert LEARNING_PLAN_HINT in hints
