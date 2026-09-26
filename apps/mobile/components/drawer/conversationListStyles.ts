@@ -33,7 +33,9 @@ export function makeConversationListStyles(theme: Theme) {
       left: 0,
       right: 0,
       zIndex: 100,
-      backgroundColor: theme.bg,
+      // Transparent so the header fade can blur titles sliding under Recall
+      // and search. The title and search button paint above that veil.
+      backgroundColor: "transparent",
     },
     header: { paddingHorizontal: Space.md, paddingBottom: Space.sm },
     drawerNav: {

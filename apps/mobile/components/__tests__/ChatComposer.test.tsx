@@ -16,6 +16,11 @@ import {
 import { darkTheme, lightTheme } from "@/lib/theme";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 
+jest.mock("expo-linear-gradient", () => {
+  const { View } = jest.requireActual("react-native") as typeof import("react-native");
+  return { LinearGradient: View };
+});
+
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "t",
 }));
@@ -226,13 +231,13 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent(composerInput, "contentSizeChange", {
       nativeEvent: { contentSize: { width: 240, height: 112 } },
     });
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112, paddingTop: 0 });
 
     await fireEvent.press(getByLabelText("chat.send_a11y"));
 
     await waitFor(() => {
       expect(getByTestId("chat-composer-input").props.value).toBe("");
-      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 44 });
+      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
     });
   });
 
@@ -255,8 +260,24 @@ describe("ChatComposer math keyboard", () => {
 
     expect(getByTestId("chat-composer-input").props.value).toBe("\n");
     expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 68 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 48, paddingTop: 0 });
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("grows to the next line when text reaches the end of the field", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"a".repeat(40)} />,
+    );
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
+
+    await fireEvent(getByTestId("chat-composer-input"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 44 } },
+    });
+
+    expect(getByTestId("chat-composer-input")).toHaveStyle({
+      height: 48,
+      paddingTop: 0,
+    });
   });
 
   it("preserves leading indentation while typing a code block", async () => {
@@ -299,7 +320,7 @@ describe("ChatComposer math keyboard", () => {
       nativeEvent: { contentSize: { width: 240, height: 190 } },
     });
 
-    expect(composerInput).toHaveStyle({ height: 164 });
+    expect(composerInput).toHaveStyle({ height: 144, paddingTop: 0 });
     expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
       expanded: false,
     });

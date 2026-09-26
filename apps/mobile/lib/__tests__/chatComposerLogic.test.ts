@@ -1,9 +1,13 @@
 import {
   buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
+  COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
+  composerGapFadeHeight,
   composerInputFrameHeight,
+  composerInputTextBoxHeight,
+  composerSoftWrapLineCount,
   retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
@@ -33,6 +37,40 @@ describe("composerInputFrameHeight", () => {
       height: COMPOSER_INPUT_MAX_HEIGHT,
       overflows: true,
     });
+  });
+
+  it("grows when a line is wider than the field, without a Return", () => {
+    expect(composerSoftWrapLineCount("hello", 200)).toBe(1);
+    expect(composerSoftWrapLineCount("a".repeat(40), 200)).toBe(2);
+    expect(composerSoftWrapLineCount("ab\ncd", 200)).toBe(2);
+    expect(composerSoftWrapLineCount("hello", 0)).toBe(1);
+    const wrapped = composerInputFrameHeight("a".repeat(40), 0, 200);
+    expect(wrapped.height).toBe(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT);
+    expect(wrapped.overflows).toBe(false);
+    expect(composerInputFrameHeight("a".repeat(40), 0).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    // A native content size larger than the text must not keep growing the field.
+    expect(composerInputFrameHeight("hello", 400, 220).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    expect(composerInputFrameHeight("a".repeat(40), 400, 200).height).toBe(
+      COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT,
+    );
+  });
+
+  it("keeps centering slack out of the text box so the caret stays on the last line", () => {
+    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT)).toBe(
+      COMPOSER_INPUT_LINE_HEIGHT,
+    );
+    expect(
+      composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT),
+    ).toBe(COMPOSER_INPUT_LINE_HEIGHT * 2);
+    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MAX_HEIGHT)).toBe(
+      COMPOSER_INPUT_LINE_HEIGHT * 6,
+    );
+    expect(composerInputTextBoxHeight(112)).toBe(112);
+  });
+
+  it("covers the home-indicator gap under the pill", () => {
+    expect(composerGapFadeHeight(0)).toBe(0);
+    expect(composerGapFadeHeight(34)).toBeGreaterThan(34 * 2);
   });
 
   it("keeps a wrap height while the same draft changes and drops it on reset", () => {

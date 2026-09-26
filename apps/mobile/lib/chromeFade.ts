@@ -26,3 +26,34 @@ export function bottomChromeFadeColors(theme: Theme): readonly string[] {
     theme.bg,
   ];
 }
+
+function clampUnit(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Drawer header veil. Solid through the status bar, then dissolves across the
+ * Recall / search row so chat titles blur as they slide underneath.
+ */
+export function drawerHeaderFade(
+  theme: Theme,
+  solidUntil: number,
+  headerBottom: number,
+  fadeHeight: number,
+): {
+  colors: readonly [string, string, string, string];
+  locations: readonly [number, number, number, number];
+} {
+  const span = Math.max(1, fadeHeight);
+  const start = clampUnit(solidUntil / span, 0, 0.75);
+  const mid = clampUnit(headerBottom / span, start + 0.08, 0.92);
+  return {
+    locations: [0, start, mid, 1],
+    colors: [
+      theme.bg,
+      theme.bg,
+      withAlpha(theme.bg, 0.5),
+      withAlpha(theme.bg, 0),
+    ],
+  };
+}
