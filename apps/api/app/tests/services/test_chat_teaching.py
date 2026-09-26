@@ -324,6 +324,21 @@ async def test_ok_after_a_lesson_step_asks_for_the_next_step():
 
 
 @pytest.mark.asyncio
+async def test_random_input_after_lesson_step_does_not_restart_or_regrade_step():
+    recent = [
+        SimpleNamespace(id=uuid4(), role="user", content="Teach me python dictionary step by step"),
+        SimpleNamespace(id=uuid4(), role="assistant", content=STEP_ONE),
+        SimpleNamespace(id=uuid4(), role="user", content="Bad bdbd head hdjjd jdjdd"),
+    ]
+    system = await _system_prompt(recent, "Bad bdbd head hdjjd jdjdd")
+    assert "A lesson is in progress" in system
+    assert "Do not reproduce that step" in system
+    assert "Accidental, nonsensical, keyboard-smash" in system
+    assert "do NOT grade it as wrong" in system
+    assert "Step 2/6" in system
+
+
+@pytest.mark.asyncio
 async def test_ordinary_follow_up_gets_no_lesson_hint():
     recent = [
         SimpleNamespace(id=uuid4(), role="user", content="What is the capital of France?"),
