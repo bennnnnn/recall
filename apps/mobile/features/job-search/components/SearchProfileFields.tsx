@@ -5,11 +5,11 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/ui/icons/Icon";
 import type { JobSearchProfile } from "@/lib/api";
 import { searchProfileFields } from "@/features/job-search/model/searchFields";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { Chip } from "@/ui/controls/Chip";
+import { Type } from "@/lib/type";
 
 /**
  * Search-card body: one row per profile field — icon + caption label on the
@@ -29,11 +29,7 @@ export function SearchProfileFields({ profile }: { profile: JobSearchProfile }) 
           </View>
           <View style={s.values}>
             {field.values.map((value) => (
-              <View key={value} style={s.chip}>
-                <Text style={s.chipText} numberOfLines={1}>
-                  {value}
-                </Text>
-              </View>
+              <Chip key={value} variant="tag" label={value} />
             ))}
           </View>
         </View>
@@ -56,14 +52,5 @@ function makeStyles(C: Theme) {
     },
     labelText: { ...Type.caption, color: C.textSecondary, flexShrink: 1 },
     values: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: Space.xxs },
-    chip: {
-      minHeight: 28,
-      justifyContent: "center",
-      paddingHorizontal: Space.xs,
-      borderRadius: Radius.full,
-      backgroundColor: C.surfaceAlt,
-      maxWidth: "100%",
-    },
-    chipText: { ...Type.compact, color: C.text, ...Weight.semibold },
   });
 }

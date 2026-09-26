@@ -1,14 +1,12 @@
 import { ComponentProps, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import type { JobMatch } from "@/lib/api";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
-import { IconSize } from "@/ui/icons/sizes";
+import { Chip } from "@/ui/controls/Chip";
 
 export function matchScoreColor(score: number | null, C: Theme): string {
   if (score == null) return C.primary;
@@ -31,17 +29,16 @@ export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
   return (
     <View style={s.chips}>
       {chips.map((chip) => (
-        <View
+        <Chip
           key={`${chip.icon}-${chip.label}-${chip.value}`}
-          style={s.chip}
+          variant="tag"
+          icon={chip.icon}
+          iconColor={C.textTertiary}
+          prefix={`${chip.label}:`}
+          label={chip.value}
+          numberOfLines={2}
           accessibilityLabel={`${chip.label}: ${chip.value}`}
-        >
-          <Icon name={chip.icon} size={IconSize.xxs} color={C.textTertiary} />
-          <Text style={s.chipText} numberOfLines={2}>
-            <Text style={s.chipLabel}>{chip.label}: </Text>
-            {chip.value}
-          </Text>
-        </View>
+        />
       ))}
     </View>
   );
@@ -100,17 +97,5 @@ export function JobMatchMetaChips({
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     chips: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
-    chip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xxs,
-      minHeight: 28,
-      paddingHorizontal: Space.xs,
-      borderRadius: Radius.full,
-      backgroundColor: C.surfaceAlt,
-      maxWidth: "100%",
-    },
-    chipLabel: { color: C.textTertiary, ...Weight.bold },
-    chipText: { ...Type.compact, color: C.textSecondary, flexShrink: 1 },
   });
 }

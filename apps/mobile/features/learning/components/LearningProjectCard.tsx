@@ -10,9 +10,10 @@ import { IconSize } from "@/ui/icons/sizes";
 import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { learningProjectTitle } from "@/features/learning/model/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { Chip } from "@/ui/controls/Chip";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   project: Learning;
@@ -103,11 +104,7 @@ export const LearningProjectCard = memo(function LearningProjectCard({
           {showLearningUi ? (
             <View style={s.chipRow}>
               {chips.map((chip) => (
-                <View key={chip} style={s.chip}>
-                  <Text style={s.chipText} numberOfLines={1}>
-                    {chip}
-                  </Text>
-                </View>
+                <Chip key={chip} variant="tag" label={chip} />
               ))}
               <Text style={s.continueText}>{t("lesson.open_map")}</Text>
             </View>
@@ -214,20 +211,6 @@ function makeStyles(theme: Theme) {
       flexWrap: "wrap",
       gap: Space.xs,
       paddingHorizontal: Space.md,
-    },
-    chip: {
-      backgroundColor: theme.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: Radius.full,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      maxWidth: "100%",
-    },
-    chipText: {
-      ...Type.caption,
-      ...Weight.semibold,
-      color: theme.text,
     },
   });
 }

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -9,9 +9,8 @@ import { type GalleryFilter } from "@/features/attachments/model/gallery";
 import { type GalleryLayout } from "@/features/attachments/model/galleryLayout";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
-import { Radius } from "@/lib/radius";
+import { Chip } from "@/ui/controls/Chip";
 
 type Props = {
   filter: GalleryFilter;
@@ -52,24 +51,19 @@ export function GalleryLibraryHeader({
         clearTestID="gallery-search-clear"
       />
       <View style={s.tabs}>
-        {filters.map((tab) => {
-          const active = tab.key === filter;
-          return (
-            <Pressable
-              key={tab.key}
-              style={[s.tab, active && s.tabActive]}
-              onPress={() => {
-                tap();
-                onFilterChange(tab.key);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={tab.label}
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[s.tabText, active && s.tabTextActive]}>{tab.label}</Text>
-            </Pressable>
-          );
-        })}
+        {filters.map((tab) => (
+          <Chip
+            key={tab.key}
+            variant="filter"
+            accessibilityRole="radio"
+            label={tab.label}
+            selected={tab.key === filter}
+            onPress={() => {
+              tap();
+              onFilterChange(tab.key);
+            }}
+          />
+        ))}
         <Pressable
           onPress={onToggleLayout}
           accessibilityRole="button"
@@ -105,27 +99,6 @@ function makeStyles(C: Theme) {
       flexWrap: "wrap",
       alignItems: "center",
       gap: Space.xs,
-    },
-    tab: {
-      minHeight: 44,
-      justifyContent: "center",
-      paddingVertical: Space.xs,
-      paddingHorizontal: Space.sm,
-      borderRadius: Radius.card,
-      flexGrow: 0,
-      flexShrink: 0,
-    },
-    tabActive: {
-      backgroundColor: C.surfaceAlt,
-    },
-    tabText: {
-      ...Type.label,
-      color: C.textSecondary,
-      ...Weight.medium,
-    },
-    tabTextActive: {
-      color: C.text,
-      ...Weight.semibold,
     },
     layoutToggle: {
       minHeight: 44,

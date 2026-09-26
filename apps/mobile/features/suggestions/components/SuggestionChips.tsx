@@ -1,13 +1,11 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/ui/icons/Icon";
+import { Chip } from "@/ui/controls/Chip";
 import type { Suggestion } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { IconSize } from "@/ui/icons/sizes";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   suggestions: Suggestion[];
@@ -30,20 +28,15 @@ export function SuggestionChips({ suggestions, onSelect, onDismiss }: Props) {
           const label =
             item.text.length > 48 ? `${item.text.slice(0, 47).trimEnd()}…` : item.text;
           return (
-            <Pressable
+            <Chip
               key={item.id}
-              style={s.chip}
+              label={label}
+              icon="lightbulb"
+              numberOfLines={2}
               onPress={() => onSelect(item.text)}
               onLongPress={() => onDismiss(item.id)}
-              accessibilityRole="button"
-              accessibilityLabel={label}
               accessibilityHint={t("chat.home.dismiss_suggestion")}
-            >
-              <Icon name="lightbulb" size={IconSize.xxs} color={theme.primary} />
-              <Text style={s.chipText} numberOfLines={2}>
-                {label}
-              </Text>
-            </Pressable>
+            />
           );
         })}
       </View>
@@ -67,19 +60,5 @@ function makeStyles(theme: Theme) {
       letterSpacing: 0.6,
     },
     row: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
-    chip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      maxWidth: "100%",
-      minHeight: 44,
-      backgroundColor: theme.surface,
-      borderRadius: Radius.full,
-      paddingHorizontal: Space.sm,
-      paddingVertical: Space.xs,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-    },
-    chipText: { flexShrink: 1, ...Type.compact, color: theme.text, ...Weight.medium },
   });
 }

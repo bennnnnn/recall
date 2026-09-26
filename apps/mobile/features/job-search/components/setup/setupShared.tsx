@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 import type {
   JobSearchExperience,
@@ -9,6 +9,7 @@ import type {
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
+import { Chip } from "@/ui/controls/Chip";
 import { Type, Weight } from "@/lib/type";
 
 export const WORK_MODE_VALUES: JobSearchWorkMode[] = ["remote", "hybrid", "onsite"];
@@ -75,22 +76,14 @@ export function SelectChip<T extends string>({
   onPress: (value: T) => void;
   disabled?: boolean;
 }) {
-  const s = useSetupStyles();
   return (
-    <Pressable
-      style={({ pressed }) => [
-        s.chip,
-        selected && s.chipSelected,
-        pressed && !disabled && s.pressed,
-        disabled && s.disabled,
-      ]}
-      onPress={() => onPress(value)}
+    <Chip
+      variant="filter"
+      label={label}
+      selected={selected}
       disabled={disabled}
-      accessibilityRole="button"
-      accessibilityState={{ selected, disabled: !!disabled }}
-    >
-      <Text style={[s.chipText, selected && s.chipTextSelected]}>{label}</Text>
-    </Pressable>
+      onPress={() => onPress(value)}
+    />
   );
 }
 
@@ -192,22 +185,6 @@ function makeStyles(C: Theme) {
       flexWrap: "wrap",
       gap: Space.xs,
     },
-    chip: {
-      minHeight: 42,
-      paddingHorizontal: Space.md,
-      borderRadius: Radius.full,
-      backgroundColor: C.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    chipSelected: {
-      backgroundColor: C.primaryLight,
-      borderColor: C.primary,
-    },
-    chipText: { ...Type.secondary, ...Weight.semibold, color: C.textSecondary },
-    chipTextSelected: { color: C.primary },
     resumeCard: {
       minHeight: 72,
       borderRadius: Radius.xl,

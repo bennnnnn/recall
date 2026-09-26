@@ -10,8 +10,9 @@ import { isValidCustomOption, matchOption, rankedOptions } from "@/features/job-
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { Chip } from "@/ui/controls/Chip";
+import { Type } from "@/lib/type";
 
 type Props = {
   values: string[];
@@ -103,19 +104,14 @@ export function SearchableMultiSelect({
       {values.length > 0 ? (
         <View style={s.chips}>
           {values.map((value) => (
-            <View key={value.toLowerCase()} style={s.chip}>
-              <Text style={s.chipText}>{value}</Text>
-              <Pressable
-                onPress={() => removeValue(value)}
-                disabled={disabled}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={t("my_job.role_remove_a11y", { role: value })}
-                style={({ pressed }) => [s.chipRemove, pressed && s.pressed]}
-              >
-                <Icon name="close" size={IconSize.xxs} color={C.primary} />
-              </Pressable>
-            </View>
+            <Chip
+              key={value.toLowerCase()}
+              variant="input"
+              label={value}
+              disabled={disabled}
+              onRemove={() => removeValue(value)}
+              removeLabel={t("my_job.role_remove_a11y", { role: value })}
+            />
           ))}
         </View>
       ) : null}
@@ -219,26 +215,6 @@ function makeStyles(C: Theme) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: Space.xs,
-    },
-    chip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      minHeight: 34,
-      paddingLeft: Space.sm,
-      paddingRight: 6,
-      borderRadius: Radius.full,
-      backgroundColor: C.primaryLight,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.primary,
-    },
-    chipText: { ...Type.secondary, ...Weight.semibold, color: C.primary },
-    chipRemove: {
-      width: 24,
-      height: 24,
-      borderRadius: Radius.full,
-      alignItems: "center",
-      justifyContent: "center",
     },
     maxHint: { ...Type.caption, color: C.textTertiary },
     sheetContent: { gap: Space.sm },
