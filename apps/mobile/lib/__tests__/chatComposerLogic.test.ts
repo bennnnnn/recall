@@ -1,10 +1,13 @@
 import {
   buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
+  COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
+  composerGapFadeHeight,
   composerInputFrameHeight,
-  composerInputMetrics,
+  composerInputTextBoxHeight,
+  composerSoftWrapLineCount,
   retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
@@ -36,36 +39,38 @@ describe("composerInputFrameHeight", () => {
     });
   });
 
-  it("sizes the field for the system text size", () => {
-    // Default size: a 24 pt line centered in the 44 pt controls.
-    expect(composerInputMetrics(1)).toEqual({
-      lineHeight: 24,
-      padding: 10,
-      minHeight: COMPOSER_INPUT_MIN_HEIGHT,
-      maxHeight: COMPOSER_INPUT_MAX_HEIGHT,
-    });
-    // Larger text grows the one-line frame; padding stays 10.
-    expect(composerInputMetrics(1.5)).toEqual({
-      lineHeight: 36,
-      padding: 10,
-      minHeight: 56,
-      maxHeight: 236,
-    });
-    // Smaller text keeps the 44 pt frame and centers the line in it.
-    const small = composerInputMetrics(0.85);
-    expect(small.minHeight).toBe(44);
-    expect(small.padding * 2 + small.lineHeight).toBeCloseTo(44);
-    expect(composerInputMetrics(0).lineHeight).toBe(24);
+  it("grows when a line is wider than the field, without a Return", () => {
+    expect(composerSoftWrapLineCount("hello", 200)).toBe(1);
+    expect(composerSoftWrapLineCount("a".repeat(40), 200)).toBe(2);
+    expect(composerSoftWrapLineCount("ab\ncd", 200)).toBe(2);
+    expect(composerSoftWrapLineCount("hello", 0)).toBe(1);
+    const wrapped = composerInputFrameHeight("a".repeat(40), 0, 200);
+    expect(wrapped.height).toBe(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT);
+    expect(wrapped.overflows).toBe(false);
+    expect(composerInputFrameHeight("a".repeat(40), 0).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    // A native content size larger than the text must not keep growing the field.
+    expect(composerInputFrameHeight("hello", 400, 220).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    expect(composerInputFrameHeight("a".repeat(40), 400, 200).height).toBe(
+      COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT,
+    );
   });
 
-  it("grows by the scaled line height at larger text sizes", () => {
-    const large = composerInputMetrics(1.5);
-    expect(composerInputFrameHeight("", 0, large)).toEqual({ height: 56, overflows: false });
-    expect(composerInputFrameHeight("a\nb", 0, large).height).toBe(56 + 36);
-    expect(composerInputFrameHeight("line\n".repeat(12), 0, large)).toEqual({
-      height: 236,
-      overflows: true,
-    });
+  it("keeps centering slack out of the text box so the caret stays on the last line", () => {
+    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT)).toBe(
+      COMPOSER_INPUT_LINE_HEIGHT,
+    );
+    expect(
+      composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT),
+    ).toBe(COMPOSER_INPUT_LINE_HEIGHT * 2);
+    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MAX_HEIGHT)).toBe(
+      COMPOSER_INPUT_LINE_HEIGHT * 6,
+    );
+    expect(composerInputTextBoxHeight(112)).toBe(112);
+  });
+
+  it("covers the home-indicator gap under the pill", () => {
+    expect(composerGapFadeHeight(0)).toBe(0);
+    expect(composerGapFadeHeight(34)).toBeGreaterThan(34 * 2);
   });
 
   it("keeps a wrap height while the same draft changes and drops it on reset", () => {

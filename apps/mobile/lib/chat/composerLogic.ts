@@ -13,38 +13,6 @@ export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 export const COMPOSER_INPUT_MIN_HEIGHT = Space.minTouch;
 /** Extra Returns grow by one text line, not another full control. */
 export const COMPOSER_INPUT_LINE_HEIGHT = Space.lg;
-/**
- * Equal padding above and below every line count: one line fills exactly the
- * 44 pt of the + / send controls, so the caret sits on their midline, and each
- * wrap adds one line height. Padding that changed with the line count made
- * the measured height flip the field between its one- and multi-line layouts,
- * and the text jumped up and down while typing.
- */
-export const COMPOSER_INPUT_PADDING = (COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT) / 2;
-
-export type ComposerInputMetrics = {
-  lineHeight: number;
-  padding: number;
-  minHeight: number;
-  maxHeight: number;
-};
-
-/**
- * The field at the system text size. The native line box scales with the text
- * (a 24 pt line height times the font scale); the padding does not. At the
- * default size and below, one line stays centered in the 44 pt controls;
- * larger text grows the one-line frame instead of clipping the caret.
- */
-export function composerInputMetrics(fontScale = 1): ComposerInputMetrics {
-  const lineHeight = COMPOSER_INPUT_LINE_HEIGHT * (fontScale > 0 ? fontScale : 1);
-  const minHeight = Math.max(COMPOSER_INPUT_MIN_HEIGHT, lineHeight + 2 * COMPOSER_INPUT_PADDING);
-  return {
-    lineHeight,
-    padding: (minHeight - lineHeight) / 2,
-    minHeight,
-    maxHeight: minHeight + lineHeight * 5,
-  };
-}
 export const COMPOSER_INPUT_MAX_HEIGHT =
   COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT * 5;
 
@@ -63,26 +31,115 @@ export function retainedComposerContentHeight(
   return stored.height;
 }
 
+/** Latin glyph at Type.body. Wide enough that the field grows before the last glyph clips. */
+const SOFT_WRAP_GLYPH = 9;
+const SOFT_WRAP_WIDE_GLYPH = 16;
+/** Ignore a tiny first layout pass so the field does not jump to the max height. */
+const SOFT_WRAP_MIN_WIDTH = 40;
+
+function glyphWidth(ch: string): number {
+  const code = ch.codePointAt(0) ?? 0;
+  const wide =
+    (code >= 0x1100 && code <= 0x115f) ||
+    (code >= 0x2e80 && code <= 0x9fff) ||
+    (code >= 0xac00 && code <= 0xd7a3) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xfe10 && code <= 0xfe6f) ||
+    (code >= 0xff01 && code <= 0xff60) ||
+    (code >= 0xffe0 && code <= 0xffe6) ||
+    (code >= 0x1f300 && code <= 0x1faff);
+  return wide ? SOFT_WRAP_WIDE_GLYPH : SOFT_WRAP_GLYPH;
+}
+
+function wrapOneLine(line: string, contentWidth: number): number {
+  if (!line) return 1;
+  let used = 0;
+  let lines = 1;
+  for (const ch of line) {
+    const width = glyphWidth(ch);
+    if (used > 0 && used + width > contentWidth) {
+      lines += 1;
+      used = width;
+    } else {
+      used += width;
+    }
+  }
+  return lines;
+}
+
 /**
- * Frame height for the composer field. Returns count as lines even when iOS
- * reports a stale content size, so a new line grows the field instead of
- * painting under the pill. Wrapped lines still use the measured size.
+ * Visual lines for a draft. iOS often will not wrap or report a taller
+ * content size while the field height is locked to one line, so the frame
+ * has to grow from the text width before the native event arrives.
+ * `contentWidth` of 0 counts hard returns only.
+ */
+export function composerSoftWrapLineCount(text: string, contentWidth: number): number {
+  if (!text) return 1;
+  const parts = text.split("\n");
+  if (contentWidth < SOFT_WRAP_MIN_WIDTH) return parts.length;
+  let lines = 0;
+  for (const part of parts) lines += wrapOneLine(part, contentWidth);
+  return Math.max(1, lines);
+}
+
+/**
+ * Frame height for the composer field. Returns and soft wraps count as lines
+ * even when iOS reports a stale content size, so the field grows instead of
+ * clipping the next line under the pill.
+ *
+ * Once the field width is known, ignore the native content size. iOS reports
+ * the height we just set, and trusting that number ratchets the pill (and the
+ * thread) upward on every keystroke.
  */
 export function composerInputFrameHeight(
   text: string,
   measuredContentHeight: number,
-  metrics: ComposerInputMetrics = composerInputMetrics(),
+  contentWidth = 0,
 ): { height: number; overflows: boolean } {
-  if (!text) return { height: metrics.minHeight, overflows: false };
-  const lineCount = text.split("\n").length;
-  const fromLines = metrics.minHeight + (lineCount - 1) * metrics.lineHeight;
-  const measured = measuredContentHeight > 0 ? measuredContentHeight : 0;
-  const desired = Math.max(metrics.minHeight, fromLines, measured);
+  if (!text) return { height: COMPOSER_INPUT_MIN_HEIGHT, overflows: false };
+  const lineCount = composerSoftWrapLineCount(text, contentWidth);
+  const fromLines =
+    COMPOSER_INPUT_MIN_HEIGHT + (lineCount - 1) * COMPOSER_INPUT_LINE_HEIGHT;
+  const measured =
+    contentWidth >= SOFT_WRAP_MIN_WIDTH
+      ? 0
+      : measuredContentHeight > 0
+        ? measuredContentHeight
+        : 0;
+  const desired = Math.max(COMPOSER_INPUT_MIN_HEIGHT, fromLines, measured);
   return {
-    height: Math.min(metrics.maxHeight, desired),
-    overflows: desired > metrics.maxHeight,
+    height: Math.min(COMPOSER_INPUT_MAX_HEIGHT, desired),
+    overflows: desired > COMPOSER_INPUT_MAX_HEIGHT,
   };
 }
+
+/**
+ * Height of the text itself. The frame includes centering slack so one line
+ * lines up with the buttons; that slack must stay on the wrapper. Padding
+ * inside the field makes iOS draw the caret a line too high.
+ */
+export function composerInputTextBoxHeight(frameHeight: number): number {
+  if (frameHeight <= COMPOSER_INPUT_MIN_HEIGHT) return COMPOSER_INPUT_LINE_HEIGHT;
+  const slack = COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT;
+  const onLineGrid =
+    (frameHeight - COMPOSER_INPUT_MIN_HEIGHT) % COMPOSER_INPUT_LINE_HEIGHT === 0;
+  if (!onLineGrid) return frameHeight;
+  return frameHeight - slack;
+}
+
+/** How far the bottom scrim tucks under the pill. */
+export const COMPOSER_GAP_FADE_OVERLAP = 16;
+
+/**
+ * Scrim height. Place the view at `bottom: -bottomPad`.
+ * The extra pad of height covers the gap whether `bottom: 0` is the
+ * screen edge or the top of the padding.
+ */
+export function composerGapFadeHeight(bottomPad: number): number {
+  if (bottomPad <= 0) return 0;
+  return bottomPad * 2 + COMPOSER_GAP_FADE_OVERLAP;
+}
+
 export const CHAT_EMPTY_MIN_HEIGHT = 160;
 
 export type ModelOption = { id: string; label: string; hint?: string };

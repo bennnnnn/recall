@@ -22,8 +22,7 @@ import { Chat } from "@/lib/api";
 import {
   bottomChromeFadeColors,
   BOTTOM_CHROME_FADE_LOCATIONS,
-  topChromeFadeColors,
-  TOP_CHROME_FADE_LOCATIONS,
+  drawerHeaderFade,
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
 import { chatsFromSelection } from "@/lib/drawerChatSelection";
@@ -291,7 +290,7 @@ export function ConversationList() {
     ],
   );
 
-  const topFadeColors = topChromeFadeColors(theme);
+  const topFade = drawerHeaderFade(theme, insets.top + 8, topInset, topFadeHeight);
   const bottomFadeColors = bottomChromeFadeColors(theme);
 
   return (
@@ -367,8 +366,8 @@ export function ConversationList() {
       />
 
       <LinearGradient
-        colors={topFadeColors as [string, string, ...string[]]}
-        locations={[...TOP_CHROME_FADE_LOCATIONS]}
+        colors={topFade.colors}
+        locations={topFade.locations}
         style={[s.topFade, { height: topFadeHeight }]}
         pointerEvents="none"
       />

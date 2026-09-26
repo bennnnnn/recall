@@ -16,6 +16,11 @@ import {
 import { darkTheme, lightTheme } from "@/lib/theme";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 
+jest.mock("expo-linear-gradient", () => {
+  const { View } = jest.requireActual("react-native") as typeof import("react-native");
+  return { LinearGradient: View };
+});
+
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "t",
 }));
@@ -80,8 +85,6 @@ const baseProps = {
   onStop: jest.fn(),
   isOffline: false,
   mathContext: true,
-  // The jest window reports a font scale of 2; pin the default text size.
-  fontScale: 1,
 };
 
 describe("ChatComposer math keyboard", () => {
@@ -228,13 +231,13 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent(composerInput, "contentSizeChange", {
       nativeEvent: { contentSize: { width: 240, height: 112 } },
     });
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112, paddingTop: 0 });
 
     await fireEvent.press(getByLabelText("chat.send_a11y"));
 
     await waitFor(() => {
       expect(getByTestId("chat-composer-input").props.value).toBe("");
-      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 44 });
+      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
     });
   });
 
@@ -257,72 +260,24 @@ describe("ChatComposer math keyboard", () => {
 
     expect(getByTestId("chat-composer-input").props.value).toBe("\n");
     expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 68 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 48, paddingTop: 0 });
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
   });
 
-  it("keeps the same line box and padding as the draft wraps, so the text never jumps", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-
-    const { getByTestId } = await render(<Harness />);
-    // One line fills the 44 pt control height: 10 + 24 + 10, on the + / send midline.
-    const lineBox = { lineHeight: 24, paddingTop: 10, paddingBottom: 10 };
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ ...lineBox, height: 44 });
-
-    await fireEvent.changeText(
-      getByTestId("chat-composer-input"),
-      "The composer is acting crazy. First look it is pushing the text up",
+  it("grows to the next line when text reaches the end of the field", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"a".repeat(40)} />,
     );
-    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
-      nativeEvent: { contentSize: { width: 240, height: 44 } },
-    });
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ ...lineBox, height: 44 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
 
-    // A soft wrap adds one line height and keeps the padding, so the next
-    // measurement agrees with this frame instead of flipping it back.
-    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
-      nativeEvent: { contentSize: { width: 240, height: 68 } },
+    await fireEvent(getByTestId("chat-composer-input"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 44 } },
     });
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ ...lineBox, height: 68 });
-    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
-      nativeEvent: { contentSize: { width: 240, height: 68 } },
-    });
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ ...lineBox, height: 68 });
-    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
-  });
 
-  it("grows the one-line frame with a larger system text size instead of clipping", async () => {
-    function Harness() {
-      const [input, setInput] = useState("");
-      return (
-        <ChatComposer {...baseProps} fontScale={1.5} input={input} onChangeInput={setInput} />
-      );
-    }
-
-    const { getByTestId } = await render(<Harness />);
-    // The native line box scales to 36 pt; 10 + 36 + 10 keeps the empty caret whole.
     expect(getByTestId("chat-composer-input")).toHaveStyle({
-      height: 56,
-      minHeight: 56,
-      paddingTop: 10,
-      paddingBottom: 10,
+      height: 48,
+      paddingTop: 0,
     });
-    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
-
-    await fireEvent.changeText(getByTestId("chat-composer-input"), "A draft long enough to wrap");
-    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
-      nativeEvent: { contentSize: { width: 240, height: 56 } },
-    });
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 56 });
-    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
-
-    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
-      nativeEvent: { contentSize: { width: 240, height: 92 } },
-    });
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 92 });
   });
 
   it("preserves leading indentation while typing a code block", async () => {
@@ -365,7 +320,7 @@ describe("ChatComposer math keyboard", () => {
       nativeEvent: { contentSize: { width: 240, height: 190 } },
     });
 
-    expect(composerInput).toHaveStyle({ height: 164 });
+    expect(composerInput).toHaveStyle({ height: 144, paddingTop: 0 });
     expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
       expanded: false,
     });

@@ -12,6 +12,18 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Composer caret jumps onto the previous line when the field wraps.** `paddingTop` on the multiline `TextInput` makes iOS draw the caret a line too high. Size the text box to the lines and keep the button-centering slack on the wrapper. Do not reset `contentOffset` on each keystroke — that scrolls the caret up a line and then snaps it back.
+
+- **Expo Go aborts on the chat screen (SIGABRT in a Reanimated frame).** `useAnimatedStyle` called `composerGapFadeHeight` from another module. That runs on the UI runtime, throws, and the display-link callback abort-traps the app. Keep the height math inline in the worklet.
+
+- **Composer text clips at the end of a line until Return.** `inputSingleLine` locks the field at 44pt, and iOS skips `onContentSizeChange` for a soft wrap that does not grow the box, so the next line never appears. Grow from the field width (`composerSoftWrapLineCount`) on that keystroke. Do not trust that content size once the width is known — iOS echoes the height you just set and the pill ratchets, and do not push list padding for a soft wrap or the thread jumps with every line.
+
+- **The line under the composer stayed sharp.** The scrim used `bottom: 0`, which sits on the pill, above the bottom padding where the thread actually shows. Hang it at `bottom: -bottomPad`, and start the veil already mostly opaque so that line is not clear.
+
+- **Chat titles vanish under the drawer header.** `topOverlay` was an opaque page color painted over the fade, so rows hit a hard edge under Recall and search. Keep that overlay transparent and dissolve the fade across the title row.
+
+- **Message text stays sharp in the gap under the composer.** The composer block is transparent through the home-indicator pad, so the thread paints there in full. The bottom scrim stays clear for about one line, then solid to the screen edge.
+
 - **A choice list inside the to-do sheet pushes the form up.** An in-modal overlay still joins that sheet’s layout. Keep the editor as an embedded sheet (not a Modal) and open choices in a popup that floats in its own layer (`ui/overlay` Menu / SelectMenu / Dialog — `FullWindowOverlay` on iOS), so the form does not move. iOS will not present a second RN Modal over an open one; the overlay layer avoids that limit.
 
 - **The first direct math answer still paid a multi-second SymPy cold start.** Startup warmed one of three isolated slots, then returned that slot to the back of the free queue, so the first real solve selected an untouched process. Warm every configured slot concurrently before the API reports ready.
