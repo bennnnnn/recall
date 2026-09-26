@@ -9,17 +9,26 @@ import {
 } from "react-native";
 
 import { ActionShimmer } from "../feedback/ActionShimmer";
+import { Icon } from "../icons/Icon";
+import type { IconName } from "../icons/names";
+import { IconSize } from "../icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
+/** sm 36 (inline actions), md 44 (default), lg 52 (a screen's main action). */
+type Size = "sm" | "md" | "lg";
 
 type Props = {
   title: string;
   onPress: () => void;
   variant?: Variant;
+  size?: Size;
+  /** Icon beside the label, e.g. `arrow-right` on a get-started button. */
+  icon?: IconName;
+  iconPlacement?: "start" | "end";
   loading?: boolean;
   loadingLabel?: string;
   disabled?: boolean;
@@ -29,13 +38,17 @@ type Props = {
 };
 
 /**
- * Shared primary CTA. Defaults: Radius.md, minHeight 44, 16/600.
- * Leave specialized controls alone (send circle, pills, branded auth, soft LearningContinueCta).
+ * The app's button: a pill in five variants and three sizes, with an optional
+ * leading icon. Leave specialized controls alone (send circle, branded auth,
+ * the soft LearningContinueCta).
  */
 export function Button({
   title,
   onPress,
   variant = "primary",
+  size = "md",
+  icon,
+  iconPlacement = "start",
   loading = false,
   loadingLabel,
   disabled = false,
@@ -45,11 +58,19 @@ export function Button({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const blocked = disabled || loading;
+  const ink =
+    variant === "primary" || variant === "destructive"
+      ? theme.onPrimary
+      : variant === "ghost"
+        ? theme.primary
+        : theme.textSecondary;
 
   return (
     <Pressable
       style={({ pressed }) => [
         s.base,
+        size === "sm" && s.small,
+        size === "lg" && s.large,
         variant === "primary" && s.primary,
         (variant === "secondary" || variant === "outline") && s.outline,
         variant === "ghost" && s.ghost,
@@ -81,17 +102,23 @@ export function Button({
           color={variant === "primary" || variant === "destructive" ? theme.onPrimary : theme.primary}
         />
       ) : (
-        <Text
-          style={[
-            s.label,
-            variant === "primary" && s.labelPrimary,
-            (variant === "secondary" || variant === "outline") && s.labelOutline,
-            variant === "ghost" && s.labelGhost,
-            variant === "destructive" && s.labelPrimary,
-          ]}
-        >
-          {title}
-        </Text>
+        <>
+          {icon && iconPlacement === "start" ? <Icon name={icon} size={IconSize.sm} color={ink} /> : null}
+          <Text
+            style={[
+              s.label,
+              size === "sm" && s.labelSmall,
+              size === "lg" && s.labelLarge,
+              variant === "primary" && s.labelPrimary,
+              (variant === "secondary" || variant === "outline") && s.labelOutline,
+              variant === "ghost" && s.labelGhost,
+              variant === "destructive" && s.labelPrimary,
+            ]}
+          >
+            {title}
+          </Text>
+          {icon && iconPlacement === "end" ? <Icon name={icon} size={IconSize.sm} color={ink} /> : null}
+        </>
       )}
     </Pressable>
   );
@@ -100,12 +127,23 @@ export function Button({
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     base: {
-      minHeight: 44,
-      borderRadius: Radius.md,
-      paddingHorizontal: Space.md,
+      minHeight: Space.minTouch,
+      borderRadius: Radius.full,
+      paddingHorizontal: Space.gutter,
       paddingVertical: Space.sm,
+      flexDirection: "row",
+      gap: Space.xs,
       alignItems: "center",
       justifyContent: "center",
+    },
+    small: {
+      minHeight: Space.xl + Space.xxs,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.xs,
+    },
+    large: {
+      minHeight: Space.xl + Space.gutter,
+      paddingHorizontal: Space.lg,
     },
     primary: {
       backgroundColor: theme.primary,
@@ -139,6 +177,8 @@ function makeStyles(theme: Theme) {
       ...Type.body,
       ...Weight.semibold,
     },
+    labelSmall: { ...Type.label, ...Weight.semibold },
+    labelLarge: { ...Weight.bold },
     labelPrimary: {
       color: theme.onPrimary,
     },

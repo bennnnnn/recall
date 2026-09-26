@@ -244,15 +244,7 @@ function makeStyles(C: Theme) {
     dateCopy: { flex: 1, gap: 2 },
     dateTitle: { ...Type.label, color: C.text },
     dateMeta: { ...Type.caption, color: C.textTertiary },
-    primaryButton: {
-      minHeight: 56,
-      borderRadius: Radius.full,
-      backgroundColor: C.primary,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: Space.xs,
-    },
-    primaryButtonText: { ...Type.body, ...Weight.bold, color: C.onPrimary },
+    primaryButton: { marginTop: Space.xs },
     pressed: { opacity: 0.72 },
     disabled: { opacity: 0.45 },
   });

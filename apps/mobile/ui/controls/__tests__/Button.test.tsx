@@ -32,4 +32,25 @@ describe("Button", () => {
     fireEvent.press(getByRole("button"));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
+
+  it("is a pill in three heights", async () => {
+    const view = await render(
+      <>
+        <Button title="Small" size="sm" onPress={jest.fn()} />
+        <Button title="Medium" onPress={jest.fn()} />
+        <Button title="Large" size="lg" onPress={jest.fn()} />
+      </>,
+    );
+    expect(view.getByRole("button", { name: "Small" })).toHaveStyle({ minHeight: 36, borderRadius: 999 });
+    expect(view.getByRole("button", { name: "Medium" })).toHaveStyle({ minHeight: 44 });
+    expect(view.getByRole("button", { name: "Large" })).toHaveStyle({ minHeight: 52 });
+  });
+
+  it("puts the icon before or after the label", async () => {
+    const view = await render(
+      <Button title="Get started" icon="arrow-right" iconPlacement="end" onPress={jest.fn()} />,
+    );
+    const children = view.getByRole("button", { name: "Get started" }).children;
+    expect(children).toHaveLength(2);
+  });
 });

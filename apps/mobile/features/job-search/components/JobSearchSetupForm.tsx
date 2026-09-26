@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Keyboard,
   Pressable,
   ScrollView,
@@ -37,8 +36,8 @@ import {
   type JobSearchWorkMode,
 } from "@/lib/api";
 import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
-import { useTheme } from "@/lib/theme";
 import { alertDialog } from "@/ui/overlay/dialogs";
+import { Button } from "@/ui/controls/Button";
 
 type Step = 0 | 1 | 2 | 3;
 type ResultCount = 5 | 10 | 15;
@@ -53,7 +52,6 @@ type Props = {
 export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
   const { token, user } = useAuth();
   const { t } = useTranslation();
-  const C = useTheme();
   const s = useSetupStyles();
   const isPro = user?.plan === "pro";
   const [step, setStep] = useState<Step>(0);
@@ -344,24 +342,13 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
       </ScrollView>
 
       <View style={s.footer}>
-        <Pressable
-          style={({ pressed }) => [
-            s.primaryButton,
-            pressed && s.pressed,
-            busy && s.disabled,
-          ]}
+        <Button
+          title={step === 3 ? finalLabel : t("common.next")}
+          size="lg"
+          loading={busy}
           onPress={() => void moveForward()}
-          disabled={busy}
-          accessibilityRole="button"
-        >
-          {busy ? (
-            <ActivityIndicator color={C.onPrimary} />
-          ) : (
-            <Text style={s.primaryButtonText}>
-              {step === 3 ? finalLabel : t("common.next")}
-            </Text>
-          )}
-        </Pressable>
+          style={s.primaryButton}
+        />
       </View>
 
       <SetupPickers

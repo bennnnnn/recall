@@ -35,6 +35,7 @@ import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 import { ShareSheet } from "@/ui/share/ShareSheet";
+import { Button } from "@/ui/controls/Button";
 
 type Tab = "matches" | "saved" | "all";
 
@@ -254,15 +255,14 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             ))}
           </View>
 
-          <Pressable
-            style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
+          <Button
+            title={t("my_job.setup_cta")}
+            size="lg"
+            icon="arrow-right"
+            iconPlacement="end"
             onPress={openSetup}
-            accessibilityRole="button"
-            accessibilityLabel={t("my_job.setup_cta")}
-          >
-            <Text style={s.primaryButtonText}>{t("my_job.setup_cta")}</Text>
-            <Icon name="arrow-right" size={IconSize.sm} color={C.onPrimary} />
-          </Pressable>
+            style={s.primaryButton}
+          />
           <Text style={s.planNote}>
             {user?.plan === "pro"
               ? t("my_job.plan_note_pro")
@@ -528,20 +528,7 @@ function makeStyles(C: Theme) {
     benefitCopy: { flex: 1 },
     benefitTitle: { ...Type.label, color: C.text },
     benefitBody: { ...Type.secondary, color: C.textSecondary, marginTop: 2 },
-    primaryButton: {
-      width: "100%",
-      maxWidth: 560,
-      minHeight: 56,
-      borderRadius: Radius.full,
-      backgroundColor: C.primary,
-      paddingHorizontal: Space.lg,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.xs,
-      marginTop: Space.xl,
-    },
-    primaryButtonText: { ...Type.body, color: C.onPrimary, ...Weight.bold },
+    primaryButton: { width: "100%", maxWidth: 560, marginTop: Space.xl },
     planNote: { ...Type.caption, color: C.textTertiary, marginTop: Space.sm },
     listContent: { padding: Space.md, paddingBottom: Space.xl },
     headerStack: { gap: Space.md, marginBottom: Space.md },
