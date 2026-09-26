@@ -35,6 +35,10 @@ the whole trace, and the turn keeps its normal model path.
   second-derivative or endpoint check) and related rates, reusing MT2's rule lines.
 - **MT11 — Trig extraction.** Combined and prefixed forms (`2sin(x)cos(x) = 1/2`,
   `sin^2 x + sin x = 0`), with the branch parameter kept.
+- **MT18 — Scanned work goes to the checker.** A scan whose reading is a column of lines
+  from a problem to an answer is the student's own work. The review could offer **Check**
+  beside **Solve** and send `Check my work:` with the lines (today Solve joins them into
+  one "Show steps:" problem).
 - **MT12 — Weighted statistics and broader probability.** Weighted mean from value/frequency
   tables, conditional probability tables, expected value with a stated distribution.
 
