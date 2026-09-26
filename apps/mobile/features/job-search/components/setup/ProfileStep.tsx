@@ -1,4 +1,4 @@
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -12,6 +12,7 @@ import {
   useSetupStyles,
 } from "./setupShared";
 import { IconSize } from "@/ui/icons/sizes";
+import { TextField } from "@/ui/controls/TextField";
 
 type Props = {
   resumeName: string | null;
@@ -114,18 +115,14 @@ export function ProfileStep({
       <View style={s.twoColumnRow}>
         <View style={s.flexField}>
           <FieldLabel>{t("my_job.salary_label")}</FieldLabel>
-          <TextInput
-            style={[s.input, salaryError && s.inputError]}
+          <TextField
             value={salary}
             onChangeText={onSalaryChange}
             placeholder="100000"
-            placeholderTextColor={C.textDisabled}
             editable={!busy}
             keyboardType="number-pad"
+            error={salaryError ? t("my_job.salary_invalid_body") : null}
           />
-          {salaryError ? (
-            <Text style={s.errorText}>{t("my_job.salary_invalid_body")}</Text>
-          ) : null}
         </View>
       </View>
 
@@ -154,16 +151,14 @@ export function ProfileStep({
 
       <View style={s.fieldGroup}>
         <FieldLabel>{t("my_job.excluded_companies_label")}</FieldLabel>
-        <TextInput
-          style={s.input}
+        <TextField
           value={excludedCompanies}
           onChangeText={onExcludedCompaniesChange}
           placeholder={t("my_job.excluded_companies_placeholder")}
-          placeholderTextColor={C.textDisabled}
           editable={!busy}
           autoCapitalize="words"
+          helper={t("my_job.excluded_companies_helper")}
         />
-        <Text style={s.helper}>{t("my_job.excluded_companies_helper")}</Text>
       </View>
     </>
   );

@@ -154,18 +154,6 @@ function makeStyles(C: Theme) {
     subtitle: { ...Type.body, color: C.textSecondary },
     fieldGroup: { gap: Space.xs },
     label: { ...Type.label, color: C.text },
-    input: {
-      ...Type.body,
-      minHeight: 54,
-      borderRadius: Radius.xl,
-      backgroundColor: C.surface,
-      color: C.text,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-    },
-    inputError: { borderColor: C.danger },
     selectRow: {
       flexDirection: "row",
       alignItems: "center",

@@ -11,6 +11,7 @@ import { TodoPickers, type TodoPicker } from "@/features/todos/components/TodoPi
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
 import type { RecurrenceRule, Todo } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { TextField } from "@/ui/controls/TextField";
 
 function dueFromTodo(todo: Todo): Date | null {
   if (!todo.due_at) return null;
@@ -193,16 +194,15 @@ export const TodoEditorSheet = forwardRef<
   ) : (
     <>
       <Text style={s.formLabel}>{t("todos.todo_label")}</Text>
-      <TextInput
-        style={s.titleInput}
+      <TextField
         placeholder={t("todos.todo_placeholder")}
-        placeholderTextColor={C.textDisabled}
         value={text}
         onChangeText={setText}
         autoFocus={!editTodo}
         returnKeyType="done"
         maxLength={500}
         editable={!saving}
+        accessibilityLabel={t("todos.todo_label")}
       />
 
       <TodoCategoryField

@@ -5,7 +5,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
@@ -27,6 +26,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { TextField } from "@/ui/controls/TextField";
 
 export type PlaceValue = {
   country: string;
@@ -219,12 +219,10 @@ export function LocationFields({ value, onChange, disabled }: Props) {
             <Icon name="chevron-down" size={IconSize.sm} color={C.textTertiary} />
           </Pressable>
         ) : (
-          <TextInput
-            style={s.input}
+          <TextField
             value={value.region}
             onChangeText={(region) => onChange({ ...value, region })}
             placeholder={t("my_job.location_region_placeholder")}
-            placeholderTextColor={C.textDisabled}
             editable={!disabled}
             autoCapitalize="words"
           />
@@ -233,13 +231,12 @@ export function LocationFields({ value, onChange, disabled }: Props) {
 
       <View style={s.fieldGroup}>
         <Text style={s.label}>{t("my_job.location_city_label")}</Text>
-        <TextInput
-          style={s.input}
+        <TextField
           value={value.city}
           onChangeText={(city) => onChange({ ...value, city })}
-          placeholderTextColor={C.textDisabled}
           editable={!disabled}
           autoCapitalize="words"
+          accessibilityLabel={t("my_job.location_city_label")}
         />
       </View>
 
@@ -335,17 +332,6 @@ function makeStyles(C: Theme) {
     },
     selectValue: { ...Type.body, color: C.text, flex: 1 },
     selectPlaceholder: { ...Type.body, color: C.textDisabled, flex: 1 },
-    input: {
-      ...Type.body,
-      minHeight: 54,
-      borderRadius: Radius.xl,
-      backgroundColor: C.surface,
-      color: C.text,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-    },
     sheetContent: { gap: Space.sm },
     sheetTitle: {
       ...Type.label,

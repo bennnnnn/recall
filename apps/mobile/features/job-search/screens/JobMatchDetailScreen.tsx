@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -34,6 +33,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { TextField } from "@/ui/controls/TextField";
 
 const STAGES: JobMatchStatus[] = [
   "new",
@@ -252,14 +252,13 @@ function JobMatchDetailView({
 
           <View style={s.notesBlock}>
             <Text style={s.sectionTitle}>{t("my_job.notes_label")}</Text>
-            <TextInput
-              style={s.notesInput}
+            <TextField
               value={notesDraft}
               onChangeText={setNotesDraft}
               onBlur={saveNotes}
               placeholder={t("my_job.notes_placeholder")}
-              placeholderTextColor={C.textTertiary}
               multiline
+              accessibilityLabel={t("my_job.notes_label")}
             />
           </View>
         </ScrollView>
@@ -365,15 +364,6 @@ function makeStyles(C: Theme) {
       borderRadius: Radius.xl,
       padding: Space.md,
       gap: Space.xs,
-    },
-    notesInput: {
-      ...Type.secondary,
-      color: C.text,
-      minHeight: 88,
-      textAlignVertical: "top",
-      backgroundColor: C.surfaceAlt,
-      borderRadius: Radius.md,
-      padding: Space.sm,
     },
     pressed: { opacity: 0.68 },
   });

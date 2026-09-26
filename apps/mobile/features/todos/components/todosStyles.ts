@@ -150,16 +150,6 @@ export function makeTodosStyles(C: Theme) {
     },
     formLabel: { ...Type.label, color: C.textSecondary },
     fieldGap: { marginTop: Space.md },
-    titleInput: {
-      ...Type.navTitle,
-      color: C.text,
-      backgroundColor: C.surface,
-      borderRadius: Radius.md,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderWidth: 1,
-      borderColor: C.border,
-    },
     dateChip: {
       flexDirection: "row",
       alignItems: "center",

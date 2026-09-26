@@ -1,12 +1,11 @@
 import { useMemo } from "react";
-import { StyleSheet, TextInput, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Sheet } from "@/ui/overlay/Sheet";
 import { SheetFormHeader } from "@/ui/overlay/SheetFormHeader";
+import { TextField } from "@/ui/controls/TextField";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
 type Props = {
@@ -45,8 +44,7 @@ export function ChatRenameSheet({
         saveLabel={t("settings.save")}
       />
       <View style={s.body}>
-        <TextInput
-          style={s.input}
+        <TextField
           value={value}
           onChangeText={onChangeText}
           autoFocus
@@ -66,14 +64,5 @@ function makeStyles(C: Theme) {
       paddingTop: 0,
     },
     body: { padding: Space.md },
-    input: {
-      backgroundColor: C.surface,
-      borderRadius: Radius.md,
-      padding: Space.sm,
-      ...Type.body,
-      color: C.text,
-      borderWidth: 1.5,
-      borderColor: C.primary,
-    },
   });
 }
