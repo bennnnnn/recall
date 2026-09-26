@@ -172,7 +172,7 @@ def test_lesson_continue_hint_handles_wrong_and_accidental_inputs_without_replay
 
 def test_lesson_continue_hint_recaps_after_the_last_step():
     hint = lesson_continue_hint(6, 6)
-    assert "last step" in hint and "recap" in hint
+    assert "final lesson step" in hint and "recap" in hint
     assert "Step 7/6" not in hint
 
 
