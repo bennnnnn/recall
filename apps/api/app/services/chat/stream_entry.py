@@ -14,7 +14,7 @@ from app.modules.attachments.content import (
     strip_attachment_from_content,
 )
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
-from app.services.chat.prompt_constants import is_lightweight_chat_turn, is_short_confirmation
+from app.services.chat.prompt_constants import is_lightweight_chat_turn, is_short_reply
 from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
 from app.services.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
@@ -292,7 +292,9 @@ async def stream_chat_response(
         # Account/quota and history are independent once the previous turn is
         # committed. A greeting does not need the recent window before the
         # model starts — that extra Neon read was on the first-token path.
-        obvious_greeting = is_lightweight_chat_turn(content) and not is_short_confirmation(content)
+        # A short reply ("no" to "Understood?") answers the last turn, so it
+        # always loads the window; without it the model greets instead.
+        obvious_greeting = is_lightweight_chat_turn(content) and not is_short_reply(content)
         if obvious_greeting:
             await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
             timing.mark_phase("previous_finalize_ready")

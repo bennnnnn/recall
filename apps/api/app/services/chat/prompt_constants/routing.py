@@ -32,17 +32,24 @@ def is_broad_self_question(text: str) -> bool:
     return bool(_BROAD_SELF_QUESTION.match(cleaned))
 
 
-_LIGHTWEIGHT_TURN = re.compile(
-    r"^(?:"
+# Social turns stand alone; replies answer whatever the assistant just said.
+_SOCIAL_WORDS = (
     r"hi|hello|hey|hiya|yo|sup"
     r"|thanks|thank you|thx|ty"
-    r"|ok|okay|k|cool|nice|great|perfect|awesome"
-    r"|got it|sounds good|makes sense|understood"
-    r"|yes|no|go|yep|nope|sure|bye|goodbye|cya|see ya"
+    r"|bye|goodbye|cya|see ya"
     r"|lol|lmao|haha|hehe"
-    r")(?:[!?.…, ]+(?:thanks|thank you|thx))?[!?.… ]*$",
+)
+_REPLY_WORDS = (
+    r"ok|okay|k|cool|nice|great|perfect|awesome"
+    r"|got it|sounds good|makes sense|understood"
+    r"|yes|no|go|yep|nope|sure"
+)
+_THANKS_TAIL = r"(?:[!?.…, ]+(?:thanks|thank you|thx))?[!?.… ]*$"
+_LIGHTWEIGHT_TURN = re.compile(
+    rf"^(?:{_SOCIAL_WORDS}|{_REPLY_WORDS}){_THANKS_TAIL}",
     re.IGNORECASE,
 )
+_SHORT_REPLY = re.compile(rf"^(?:{_REPLY_WORDS}){_THANKS_TAIL}", re.IGNORECASE)
 
 # Accepting an offer — not a greeting. "no" / "thanks" / "hi" stay off this list.
 _SHORT_CONFIRMATION = re.compile(
@@ -91,8 +98,22 @@ def is_short_confirmation(text: str) -> bool:
     return bool(_SHORT_CONFIRMATION.match(cleaned))
 
 
+def is_short_reply(text: str) -> bool:
+    """True for yes / no / got it / understood — an answer to the last assistant turn.
+
+    Unlike hi / thanks / bye, its meaning depends on what the assistant just
+    said, so the turn needs the recent window ("Understood?" → "no").
+    """
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return False
+    if is_short_confirmation(cleaned):
+        return True
+    return len(cleaned) <= 24 and bool(_SHORT_REPLY.match(cleaned))
+
+
 def prior_looks_like_offer(prior_assistant: str | None) -> bool:
-    """True when the last assistant turn offered to do something."""
+    """True when the last assistant turn offered to do something or asked a question."""
     if not prior_assistant:
         return False
     cleaned = collapse_ws(prior_assistant)
@@ -113,7 +134,8 @@ def is_lightweight_chat_turn(
 
     Memory / status theater is gated separately by ``needs_rich_context`` so we
     do not grow this allowlist for every casual phrase ("how is ur day", etc.).
-    A short yes/go after an offer is follow-through, not a greeting.
+    A short yes / no / got it after a question or an offer is an answer
+    (follow-through, or "no" to "Understood?"), not a greeting.
     """
     cleaned = collapse_ws(text)
     if not cleaned:
@@ -123,7 +145,7 @@ def is_lightweight_chat_turn(
     looks_light = len(cleaned) <= 24 and bool(_LIGHTWEIGHT_TURN.match(cleaned))
     if not looks_light:
         return False
-    if is_short_confirmation(cleaned) and prior_looks_like_offer(prior_assistant):
+    if is_short_reply(cleaned) and prior_looks_like_offer(prior_assistant):
         return False
     return True
 

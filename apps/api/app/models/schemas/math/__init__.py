@@ -62,6 +62,12 @@ from app.models.schemas.math.graph import (
     NumberLineInterval,
 )
 from app.models.schemas.math.intent import MathIntent
+from app.models.schemas.math.word_problem import (
+    WordEquation,
+    WordProblemSetup,
+    WordTarget,
+    WordUnknown,
+)
 
 __all__ = [
     "CircleGeometryBlockSpec",
@@ -116,4 +122,8 @@ __all__ = [
     "TriangleSidesGeometryBlockSpec",
     "TriangleSidesInput",
     "TriangleSidesResult",
+    "WordEquation",
+    "WordProblemSetup",
+    "WordTarget",
+    "WordUnknown",
 ]

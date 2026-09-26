@@ -50,6 +50,8 @@ from app.modules.math.tools.block.graph import (
     _verified_block_point,
     _verified_block_vertical,
 )
+from app.modules.math.tools.block.word import _verified_block_word_problem
+from app.modules.math.tools.block.work import _verified_block_work_check
 from app.services.solving import (
     VerifiedMathBlock as VerifiedMathBlock,
 )
@@ -101,6 +103,8 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
     "combinatorics": _verified_block_combinatorics,
     "number_theory": _verified_block_number_theory,
     "matrix": _verified_block_matrix,
+    "work_check": _verified_block_work_check,
+    "word_problem": _verified_block_word_problem,
 }
 
 

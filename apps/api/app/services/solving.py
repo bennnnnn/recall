@@ -84,11 +84,17 @@ class VerifiedMathBlock:
     # Ordered inverse-operation (or factor / formula) trace for equation lessons.
     key_steps: tuple[KeyStep, ...] = ()
     given_latex: str | None = None
+    # "Given" for an equation; "Find" when the problem line is the question
+    # itself (a derivative or an integral to evaluate).
+    given_label: str = "Given"
     check_latex: str | None = None
     alternate_method_note: str | None = None
     # Paired snapshots of the actual Newton solve; never reconstruct iterations.
     newton_input: NewtonMethodInput | None = None
     newton_result: NewtonMethodResult | None = None
+    # A reply the builder already rendered from verified data (check my work);
+    # sent as is instead of the generic direct formats.
+    direct_reply: str | None = None
 
 
 def wrap_verified_math(text: str) -> str:

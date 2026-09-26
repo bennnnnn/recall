@@ -43,13 +43,22 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     # a shrinking string once per occurrence.
     if len(text) > _MAX_SYMBOLIC_INPUT:
         return False
+    from app.modules.math.tools.word_problem import word_problem_candidate
+    from app.modules.math.tools.work_request import parse_work_request
+
+    if parse_work_request(text) is not None:
+        return True
 
     # Teaching / answer-style wrappers are response metadata, not part of the
     # expression. The extractor already removes them, so the cheaper routing
     # gate must inspect the same underlying math or it will skip SymPy before
     # extraction ever runs (for example, ``Show steps: 2x+3=11``).
     math_text = strip_lesson_prefixes(text)
-    return math_match.needs_symbolic(math_text, has_image_attachment=has_image_attachment)
+    if math_match.needs_symbolic(math_text, has_image_attachment=has_image_attachment):
+        return True
+    # An algebra word problem states no equation; the translation is tried
+    # only after every extractor has passed on it.
+    return not has_image_attachment and word_problem_candidate(text)
 
 
 def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
@@ -227,6 +236,10 @@ async def build_math_augmentation(
                 f"{MATH_REPLY_POLICY}",
                 None,
             )
+    if intent is None and image_math_extract is None:
+        from app.modules.math.tools.word_problem import word_problem_intent
+
+        intent = await word_problem_intent(user_content, settings)
     if intent is None:
         # The gate fired but no regex extractor matched (the "Couldn't verify
         # under a correct ∫ x²" class). One bounded structured-extraction call
