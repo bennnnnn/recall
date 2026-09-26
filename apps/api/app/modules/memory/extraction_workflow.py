@@ -25,6 +25,7 @@ from app.modules.memory.extract_backlog import (
 )
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.name_claim import is_unclaimed_user_name
+from app.modules.memory.self_facts import stated_fact_writes
 from app.modules.memory.text import classify_memory_sensitivity, normalize_memory_text
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.repositories import users as users_repo
@@ -165,14 +166,8 @@ async def extract_and_store_memories(
                 expanded,
                 existing_facts=snapshot.prompt_facts,
             )
-            if not result or not result.ops:
-                if newest_cursor:
-                    await stamp_extract_cursor(user_id, chat_id, newest_cursor)
-                logger.info("memory_extract_yield user_id=%s applied=0 skipped=empty", user_id)
-                return None
-
             writes, skipped = _writes_from_ops(
-                result.ops,
+                result.ops if result else [],
                 chat_id=chat_id,
                 explicit_remember=explicit_remember,
                 include_sensitive=snapshot.include_sensitive,
@@ -180,6 +175,25 @@ async def extract_and_store_memories(
                 transcript=expanded,
                 existing_texts=snapshot.existing_facts.values(),
             )
+            if not forget:
+                writes.extend(
+                    stated_fact_writes(
+                        expanded,
+                        chat_id=chat_id,
+                        existing_facts=(
+                            (str(fact["type"]), str(fact["text"])) for fact in snapshot.prompt_facts
+                        ),
+                        already=writes,
+                        include_sensitive=snapshot.include_sensitive,
+                        explicit_remember=explicit_remember,
+                        model_ops=result.ops if result else (),
+                    )
+                )
+            if not writes:
+                if newest_cursor:
+                    await stamp_extract_cursor(user_id, chat_id, newest_cursor)
+                logger.info("memory_extract_yield user_id=%s applied=0 skipped=empty", user_id)
+                return None
             if writes:
                 await apply_memory_facts(
                     settings,
