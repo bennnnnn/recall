@@ -38,6 +38,11 @@ export function formatLongWeekdayDate(
   });
 }
 
+/** Abbreviated month and numeric day ("Aug 30"). */
+export function formatMonthDay(date: Date, locale?: Locale): string {
+  return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
+}
+
 /** Abbreviated month, numeric day, and numeric year. */
 export function formatMonthDayYear(date: Date, locale?: Locale): string {
   return date.toLocaleDateString(locale, {

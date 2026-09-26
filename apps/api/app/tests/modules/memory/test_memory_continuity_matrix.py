@@ -216,3 +216,118 @@ async def test_extractor_prompt_preserves_current_employer_when_target_is_aspira
     assert isinstance(system_prompt, str)
     assert "keeps Uber as the current employer" in system_prompt
     assert "must not claim the user works at Google" in system_prompt
+
+
+@pytest.mark.asyncio
+async def test_extractor_prompt_keeps_everyday_profile_facts_normal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_complete_structured(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(
+        memory_llm.litellm_gateway,
+        "complete_structured",
+        fake_complete_structured,
+    )
+
+    await memory_llm.revise_memory_facts(
+        Settings(),
+        "User: I'm an engineer at Uber in Oakland, originally from Ethiopia",
+    )
+
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    system_prompt = messages[0]["content"]
+    assert isinstance(system_prompt, str)
+    # Profile is not described as "identity", so job and place facts are not
+    # labelled with the sensitive identity category and dropped.
+    assert "own identity" not in system_prompt
+    assert "normal: name, job, employer, school, city, home country, languages" in system_prompt
+    assert "identity: gender identity, immigration status, or disability" in system_prompt
+    assert "building a dating app or a health tracker is a normal project fact" in system_prompt
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("from_history", [False, True])
+async def test_extractor_prompt_lets_old_chats_only_fill_gaps(
+    monkeypatch: pytest.MonkeyPatch, from_history: bool
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_complete_structured(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+
+    await memory_llm.revise_memory_facts(
+        Settings(), "User: I live in Paris", from_history=from_history
+    )
+
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    system_prompt = messages[0]["content"]
+    user_prompt = messages[1]["content"]
+    rule = "never update, supersede, or delete an existing fact because of these lines"
+    assert (rule in system_prompt) is from_history
+    assert ("Earlier conversation:" in user_prompt) is from_history
+    assert ("New conversation:" in user_prompt) is not from_history
+
+
+@pytest.mark.asyncio
+async def test_instruct_prompt_names_the_open_document_and_asks_for_a_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_complete_structured(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+
+    await memory_llm.instruct_memory(
+        Settings(),
+        "Keep lists under five things",
+        existing_facts=[],
+        existing_areas=[{"topic": "area:recall", "title": "Recall", "summary": ""}],
+        focus_topic="preferences",
+    )
+
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    system_prompt = messages[0]["content"]
+    user_prompt = messages[1]["content"]
+    assert "looking at the preferences document" in system_prompt
+    assert '"reply": "one short sentence to the user"' in system_prompt
+    assert "is a preferences fact" in system_prompt
+    assert "area:recall" in user_prompt
+    assert "Keep lists under five things" in user_prompt
+
+
+def test_memory_op_salvage_keeps_the_reply() -> None:
+    from app.gateways.litellm_gateway import _parse_memory_facts_partial
+
+    parsed = _parse_memory_facts_partial(
+        {
+            "ops": [
+                {"op": "add", "type": "fact", "text": "User likes tea", "confidence": 0.9},
+                {"op": "add", "type": "nonsense", "text": "dropped", "confidence": 0.9},
+            ],
+            "reply": "Saved that you like tea." + " " * 3,
+        }
+    )
+    assert parsed is not None
+    assert [op.text for op in parsed.ops] == ["User likes tea"]
+    assert parsed.reply == "Saved that you like tea."
+    # A reply alone is still an answer; nothing at all is a failure.
+    only_reply = _parse_memory_facts_partial({"ops": [], "reply": "Nothing to change."})
+    assert only_reply is not None and only_reply.reply == "Nothing to change."
+    assert _parse_memory_facts_partial({"ops": [{"op": "bad"}]}) is None

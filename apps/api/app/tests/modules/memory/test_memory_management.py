@@ -23,7 +23,8 @@ def memory_session():
     engine = create_engine("sqlite://")
     with engine.begin() as connection:
         connection.exec_driver_sql(
-            "CREATE TABLE users (id UUID PRIMARY KEY, memory_enabled BOOLEAN NOT NULL)"
+            "CREATE TABLE users (id UUID PRIMARY KEY, memory_enabled BOOLEAN NOT NULL, "
+            "memory_edited_at TIMESTAMP, updated_at TIMESTAMP)"
         )
     Memory.__table__.create(engine)
     with Session(engine, expire_on_commit=False) as sync_session:
@@ -136,6 +137,11 @@ async def test_manual_memory_change_invalidates_home_after_commit(
     _, invalidate_home = memory_services
     session.commit.assert_awaited_once()
     invalidate_home.assert_awaited_once_with(owner_id)
+    # Stamped in the same commit, so the history scan cannot bring the old text back.
+    edited_at = sync_session.execute(
+        text("SELECT memory_edited_at FROM users WHERE id = :id"), {"id": owner_id.hex}
+    ).scalar_one()
+    assert edited_at is not None
 
 
 @pytest.mark.asyncio

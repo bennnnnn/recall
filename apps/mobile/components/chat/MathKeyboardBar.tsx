@@ -3,8 +3,16 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
-import { converterKeyHeight, MathConverterPad } from "@/components/chat/MathConverterPad";
+import { MathConverterPad } from "@/components/chat/MathConverterPad";
 import { selection as hapticSelection } from "@/lib/haptics";
+import {
+  KEY_HEIGHT_MIN,
+  PAD_GAP,
+  PAD_PADDING_V,
+  converterKeyHeight,
+  fillKeyHeight,
+  mathPadHeight,
+} from "@/lib/math/keyboardPad";
 import {
   MATH_KEYBOARD_GROUPS,
   MATH_KEYBOARD_SYMBOLS,
@@ -20,18 +28,6 @@ import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
-
-const PAD_PADDING_V = 20;
-const PAD_GAP = 6;
-const KEY_HEIGHT_MIN = Space.minTouch;
-
-function fillKeyHeight(padHeight: number, tabHeight: number, keyRows: number): number {
-  if (keyRows <= 0) return KEY_HEIGHT_MIN;
-  const gaps = keyRows * PAD_GAP;
-  const inner = padHeight - PAD_PADDING_V - tabHeight - gaps;
-  // Every keypad fills the same gray area. Fewer rows get taller keys, not a gap above them.
-  return Math.max(32, Math.floor(inner / keyRows));
-}
 
 type Props = {
   open: boolean;
@@ -74,10 +70,10 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   const symbolKeyRows =
     fnRows.filter((row) => row.length > 0).length + (canToggleDigits && group !== "basics" ? 1 : 0);
   const digitKeyRows = MATH_NUMPAD_ROWS.length + 1;
-  const keyHeight = fillKeyHeight(height, tabHeight, digitsOpen ? digitKeyRows : symbolKeyRows);
-  const converterRowHeight = converterKeyHeight(
-    height - PAD_PADDING_V - Math.max(tabHeight, KEY_HEIGHT_MIN) - PAD_GAP,
-  );
+  const tab = Math.max(tabHeight, KEY_HEIGHT_MIN);
+  const padHeight = mathPadHeight(height, tab);
+  const keyHeight = fillKeyHeight(padHeight, tab, digitsOpen ? digitKeyRows : symbolKeyRows);
+  const converterRowHeight = converterKeyHeight(padHeight - PAD_PADDING_V - tab - PAD_GAP);
   const trigFill = useMemo(
     () => ({
       theta: MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "trig-theta")!,
@@ -140,7 +136,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
 
   return (
     <View
-      style={[s.pad, { height }]}
+      style={[s.pad, { height: padHeight }]}
       accessibilityLabel={t("chat.math_keyboard_a11y")}
       testID="math-keyboard-pad"
     >

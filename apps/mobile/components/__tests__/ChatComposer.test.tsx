@@ -4,7 +4,15 @@ import * as Clipboard from "expo-clipboard";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/components/chat/ChatComposer";
-import { CONVERTER_HEADER_HEIGHT, converterKeyHeight } from "@/components/chat/MathConverterPad";
+import {
+  CONVERTER_HEADER_HEIGHT,
+  CONVERTER_ROWS,
+  KEY_HEIGHT_MIN,
+  PAD_GAP,
+  PAD_PADDING_V,
+  converterKeyHeight,
+  mathPadHeight,
+} from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 
@@ -422,14 +430,25 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("math-key-caret-right")).toBeNull();
     expect(getByTestId("math-keyboard-abc")).toHaveStyle({ minHeight: 44 });
 
+    await fireEvent.press(getByTestId("math-keyboard-tab-calc"));
+    const calcStyle = getByTestId("math-key-partial-x").props.style;
+    const calcKey = StyleSheet.flatten(
+      typeof calcStyle === "function" ? calcStyle({ pressed: false }) : calcStyle,
+    );
+    expect(calcKey.height).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
+    expect(calcKey.minHeight).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
+
     await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
-    const rowHeight = converterKeyHeight(320 - 20 - 44 - 6);
+    const keysBox = mathPadHeight(320) - PAD_PADDING_V - KEY_HEIGHT_MIN - PAD_GAP;
+    const rowHeight = converterKeyHeight(keysBox);
     const flatKey = (id: string) => {
       const style = getByTestId(id).props.style;
       return StyleSheet.flatten(typeof style === "function" ? style({ pressed: false }) : style);
     };
-    expect(rowHeight).toBeGreaterThan(0);
-    expect(CONVERTER_HEADER_HEIGHT + 24 + rowHeight * 4).toBeLessThanOrEqual(320 - 20 - 44 - 6);
+    expect(rowHeight).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
+    expect(CONVERTER_HEADER_HEIGHT + CONVERTER_ROWS * PAD_GAP + rowHeight * CONVERTER_ROWS).toBeLessThanOrEqual(
+      keysBox,
+    );
     expect(getByTestId("math-converter-from-unit")).toHaveStyle({ alignSelf: "stretch", height: 44 });
     for (const id of ["math-converter-0", "math-converter-dot", "math-converter-insert", "math-converter-ask"]) {
       expect(flatKey(id).height).toBe(rowHeight);
@@ -476,6 +495,8 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId("chat-composer").props.style).top).toBe(0);
+    expect(StyleSheet.flatten(getByTestId("math-keyboard-dismiss").props.style).flex).toBe(1);
     await fireEvent.press(getByTestId("math-keyboard-dismiss"));
     expect(queryByTestId("math-keyboard-pad")).toBeNull();
     await fireEvent(getByTestId("chat-composer-input"), "focus");

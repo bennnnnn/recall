@@ -325,5 +325,9 @@ async def delete_memory_section(session: AsyncSession, user_id: UUID, memory_typ
     return await _crud.delete_memory_section(_seams(), session, user_id, memory_type)
 
 
+async def delete_memory_document(session: AsyncSession, user_id: UUID, topic: str) -> bool:
+    return await _crud.delete_memory_document(_seams(), session, user_id, topic)
+
+
 async def delete_all_memories(session: AsyncSession, user_id: UUID) -> int:
     return await _crud.delete_all_memories(_seams(), session, user_id)

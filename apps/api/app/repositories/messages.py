@@ -63,20 +63,24 @@ async def list_user_contents_since(
     *,
     after_created_at: datetime | None = None,
     after_id: UUID | None = None,
+    newer_than: datetime | None = None,
     limit: int = 20,
 ) -> list[Message]:
     """User messages in a chat after an extract cursor, oldest first.
 
     With no cursor, returns the most recent ``limit`` user lines (still oldest
     first) so a first pass or Redis miss still covers skipped turns.
+    ``newer_than`` leaves out every line written at or before that time.
     """
     page_size = max(limit, 1)
+    scope = [Message.chat_id == chat_id, Message.role == "user"]
+    if newer_than is not None:
+        scope.append(Message.created_at > newer_than)
     if after_created_at is not None and after_id is not None:
         result = await session.execute(
             select(Message)
             .where(
-                Message.chat_id == chat_id,
-                Message.role == "user",
+                *scope,
                 or_(
                     Message.created_at > after_created_at,
                     and_(
@@ -91,7 +95,7 @@ async def list_user_contents_since(
         return list(result.scalars().all())
     result = await session.execute(
         select(Message)
-        .where(Message.chat_id == chat_id, Message.role == "user")
+        .where(*scope)
         .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(page_size)
     )

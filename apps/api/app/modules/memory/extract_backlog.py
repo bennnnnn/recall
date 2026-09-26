@@ -23,10 +23,19 @@ logger = logging.getLogger(__name__)
 _MEMORY_TRANSCRIPT_MAX_CHARS = 4000
 _MEMORY_EXTRACT_BACKLOG = 20
 _CURSOR_TTL_SECONDS = 60 * 60 * 24 * 60
+# A failed model pass keeps the cursor so the next turn retries the same lines.
+# After this many failures in a row the lines are skipped, so one line the model
+# always fails on cannot hold back every later line in the chat.
+FAILED_PASS_LIMIT = 3
+_FAILED_PASS_TTL_SECONDS = 60 * 60 * 24
 
 
 def _cursor_key(user_id: UUID, chat_id: UUID) -> str:
     return f"memory:extract_cursor:{user_id}:{chat_id}"
+
+
+def _failed_pass_key(user_id: UUID, chat_id: UUID) -> str:
+    return f"memory:extract_failures:{user_id}:{chat_id}"
 
 
 def parse_extract_cursor(raw: str | None) -> tuple[datetime | None, UUID | None]:
@@ -52,6 +61,26 @@ def format_user_memory_transcript(user_texts: list[str]) -> str:
         if cleaned:
             lines.append(f"User: {cleaned}")
     return "\n".join(lines)
+
+
+async def history_chat_transcript(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    newer_than: datetime | None,
+) -> str:
+    """A past chat's most recent user lines, capped like a live pass.
+
+    Lines written at or before ``newer_than`` (the user's last hand edit to
+    memory) are left out, so reading them cannot undo that edit.
+    """
+    rows = await messages_repo.list_user_contents_since(
+        session, chat_id, newer_than=newer_than, limit=_MEMORY_EXTRACT_BACKLOG
+    )
+    return cap_text_head_tail(
+        format_user_memory_transcript([row.content for row in rows]),
+        _MEMORY_TRANSCRIPT_MAX_CHARS,
+    )
 
 
 async def expand_memory_extract_transcript(
@@ -107,3 +136,26 @@ async def stamp_extract_cursor(user_id: UUID, chat_id: UUID, cursor: str) -> Non
         )
     except Exception:
         logger.debug("memory extract cursor write failed chat_id=%s", chat_id, exc_info=True)
+
+
+async def note_failed_extract_pass(user_id: UUID, chat_id: UUID) -> bool:
+    """Count a model failure for this chat. True when its lines should be skipped."""
+    key = _failed_pass_key(user_id, chat_id)
+    try:
+        redis = get_redis_client()
+        failures = int(await redis.incr(key))
+        await redis.expire(key, _FAILED_PASS_TTL_SECONDS)
+        if failures < FAILED_PASS_LIMIT:
+            return False
+        await redis.delete(key)
+    except Exception:
+        # Without Redis the cursor cannot be kept either, so nothing is held back.
+        logger.debug("memory extract failure count failed chat_id=%s", chat_id, exc_info=True)
+    return True
+
+
+async def clear_failed_extract_passes(user_id: UUID, chat_id: UUID) -> None:
+    try:
+        await get_redis_client().delete(_failed_pass_key(user_id, chat_id))
+    except Exception:
+        logger.debug("memory extract failure reset failed chat_id=%s", chat_id, exc_info=True)

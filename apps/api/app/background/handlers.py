@@ -32,6 +32,7 @@ from app.modules.integrations import jobs as gmail_sync
 from app.modules.learning import jobs as learning_jobs
 from app.modules.memory import consolidation_workflow as memory_consolidation
 from app.modules.memory import extraction_workflow as memory_extraction
+from app.modules.memory import history_scan as memory_history_scan
 from app.modules.notifications import transactional_email as transactional_email_service
 from app.modules.suggestions import service as suggestion_generation
 from app.modules.todos import jobs as todo_jobs
@@ -140,6 +141,12 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
             f"user_id={payload.get('user_id')} chat_id={payload.get('chat_id')}"
         ),
     )
+
+
+async def _handle_memory_history_scan(settings: Settings, payload: dict[str, Any]) -> None:
+    if await _spend_capped(settings):
+        return
+    await memory_history_scan.scan_recent_chats(settings, user_id=UUID(payload["user_id"]))
 
 
 async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]) -> None:
@@ -283,6 +290,7 @@ def register_all() -> None:
     register("topic", _handle_topic)
     register("memory", _handle_memory)
     register("memory_consolidate", _handle_memory_consolidate)
+    register(memory_history_scan.HISTORY_SCAN_JOB, _handle_memory_history_scan)
     register("todos", _handle_todos)
     register("projects", _handle_projects)
     register("language_path", _handle_language_path)

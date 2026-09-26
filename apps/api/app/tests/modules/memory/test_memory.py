@@ -128,6 +128,20 @@ def test_is_sensitive_memory_text_flags_health_and_finance():
 
 
 @pytest.mark.parametrize(
+    "text,sensitive",
+    [
+        ("User is dating someone from work", True),
+        ("User started dating Sam in June", True),
+        ("User and Sam are dating", True),
+        ("User is building Africana, a dating app for the diaspora", False),
+        ("User's side project is a dating app", False),
+    ],
+)
+def test_is_sensitive_memory_text_reads_dating_as_the_users_love_life(text, sensitive):
+    assert is_sensitive_memory_text(text) is sensitive
+
+
+@pytest.mark.parametrize(
     "sensitivity,text",
     [
         ("health", "Has a peanut allergy"),

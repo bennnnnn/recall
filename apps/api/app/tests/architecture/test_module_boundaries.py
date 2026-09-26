@@ -648,13 +648,16 @@ def test_mobile_memory_has_one_feature_home_and_thin_routes() -> None:
         assert (feature_root / folder).is_dir()
 
     route_targets = {
-        MOBILE_ROOT / "app" / "memory.tsx": "MemoryScreen",
+        MOBILE_ROOT / "app" / "memory" / "index.tsx": "MemoryScreen",
+        MOBILE_ROOT / "app" / "memory" / "[key].tsx": "MemoryDocumentScreen",
         MOBILE_ROOT / "app" / "settings" / "memory-settings.tsx": "MemorySettingsScreen",
     }
     for route, screen in route_targets.items():
         lines = [line for line in route.read_text().splitlines() if line.strip()]
         assert len(lines) == 1
         assert f"features/memory/screens/{screen}" in lines[0]
+    # One route home: the nested stack replaced the single memory.tsx route.
+    assert not (MOBILE_ROOT / "app" / "memory.tsx").exists()
 
     assert not (MOBILE_ROOT / "components" / "memory").exists()
     assert not (MOBILE_ROOT / "lib" / "memoryFacts.ts").exists()
