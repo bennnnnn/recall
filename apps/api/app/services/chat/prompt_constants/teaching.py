@@ -157,7 +157,8 @@ LEARNING_PLAN_HINT = (
     "include tiny code examples where they clarify the skill.\n"
     "- Include progressive exercises/projects, review/checkpoint days, milestones, and a "
     "repeatable daily study routine. End with what the learner should be able to do by the "
-    "final day and what still requires real production experience.\n"
+    "final day and what still requires longer-term real-world practice or experience; for "
+    "software engineering, distinguish learned skills from actual production experience.\n"
     "- Avoid empty advice such as 'master X', 'practice Y', or 'learn best practices' without "
     "naming the subskills, exercise, deliverable, or success criterion."
 )
