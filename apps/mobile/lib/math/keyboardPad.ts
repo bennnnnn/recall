@@ -42,7 +42,7 @@ function converterPadHeight(tab: number): number {
  * Gray pad tall enough that every key stays at least 44pt. A measured keyboard
  * taller than that still wins, so the keys grow instead of leaving a gap.
  */
-export function mathPadHeight(measured: number, tabHeight = KEY_HEIGHT_MIN): number {
+export function mathPadHeight(measured: number, tabHeight: number = KEY_HEIGHT_MIN): number {
   const tab = Math.max(tabHeight, KEY_HEIGHT_MIN);
   return Math.max(measured, symbolPadHeight(tab, densestKeyRows()), converterPadHeight(tab));
 }
