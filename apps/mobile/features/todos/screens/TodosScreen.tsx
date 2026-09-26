@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { Keyboard, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { AddFab } from "@/ui/controls/AddFab";
 import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { HeaderButton } from "@/ui/controls/HeaderButton";
-import { StackBackButton } from "@/ui/controls/StackBackButton";
+import { plainHeaderItems, StackBackButton } from "@/ui/controls/StackBackButton";
 import { TodosListHeader } from "@/features/todos/components/TodosListHeader";
 import { TodoDetailMenu } from "@/features/todos/components/TodoDetailMenu";
 import { TodoEditorSheet, type TodoEditorHandle } from "@/features/todos/components/TodoEditorSheet";
@@ -140,43 +140,45 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   };
 
   useLayoutEffect(() => {
+    const headerLeftElement = detailOpen ? (
+      <HeaderButton
+        icon="arrow-left"
+        variant="plain"
+        accessibilityLabel={t("common.back")}
+        onPress={() => headerBackAction.current()}
+      />
+    ) : (
+      <StackBackButton />
+    );
+    let headerRightElement: ReactElement | null = null;
+    if (!(detailOpen && !editingId)) {
+      headerRightElement = !detailOpen && selecting ? (
+        <Pressable
+          onPress={() => headerRightAction.current()}
+          accessibilityRole="button"
+          accessibilityLabel={t("todos.selection_done")}
+          hitSlop={12}
+        >
+          <Text style={[Type.body, { color: C.primary }]}>{t("todos.selection_done")}</Text>
+        </Pressable>
+      ) : (
+        <HeaderButton
+          ref={menuAnchorRef}
+          icon="more-horizontal"
+          variant="plain"
+          accessibilityLabel={detailOpen ? t("todos.detail_menu") : t("todos.menu")}
+          onPress={() => headerRightAction.current()}
+        />
+      );
+    }
     navigation.setOptions({
       title: t("drawer.reminders"),
       headerStyle: { backgroundColor: detailOpen ? C.surface : C.bg },
       headerShadowVisible: false,
-      headerLeft: () =>
-        detailOpen ? (
-          <HeaderButton
-            icon="arrow-left"
-            accessibilityLabel={t("common.back")}
-            onPress={() => headerBackAction.current()}
-          />
-        ) : (
-          <StackBackButton />
-        ),
-      headerRight: () => {
-        if (detailOpen && !editingId) return null;
-        if (!detailOpen && selecting) {
-          return (
-            <Pressable
-              onPress={() => headerRightAction.current()}
-              accessibilityRole="button"
-              accessibilityLabel={t("todos.selection_done")}
-              hitSlop={12}
-            >
-              <Text style={[Type.body, { color: C.primary }]}>{t("todos.selection_done")}</Text>
-            </Pressable>
-          );
-        }
-        return (
-          <HeaderButton
-            ref={menuAnchorRef}
-            icon="more-horizontal"
-            accessibilityLabel={detailOpen ? t("todos.detail_menu") : t("todos.menu")}
-            onPress={() => headerRightAction.current()}
-          />
-        );
-      },
+      headerLeft: () => headerLeftElement,
+      unstable_headerLeftItems: () => plainHeaderItems(headerLeftElement),
+      headerRight: () => headerRightElement,
+      unstable_headerRightItems: () => plainHeaderItems(headerRightElement),
     });
   }, [navigation, t, selecting, detailOpen, editingId, C.primary, C.surface, C.bg]);
 

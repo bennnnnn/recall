@@ -20,7 +20,7 @@ import { ProjectsProvider } from "@/features/learning/context/ProjectsContext";
 import { TodosProvider } from "@/features/todos/context/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { StackBackButton } from "@/ui/controls/StackBackButton";
+import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackHeaderOptions } from "@/lib/stackHeader";
@@ -68,7 +68,7 @@ function RootNavigator() {
             headerShown: true,
             title: t("memory.title"),
             headerBackVisible: false,
-            headerLeft: () => <StackBackButton />,
+            ...stackBackOptions(),
           }}
         />
         <Stack.Screen
@@ -83,7 +83,7 @@ function RootNavigator() {
             headerShown: true,
             title: t("drawer.reminders"),
             headerBackVisible: false,
-            headerLeft: () => <StackBackButton />,
+            ...stackBackOptions(),
           }}
         />
         <Stack.Screen
@@ -104,7 +104,7 @@ function RootNavigator() {
             title: t("gallery.title"),
             headerBackVisible: false,
             headerRight: undefined,
-            headerLeft: () => <StackBackButton />,
+            ...stackBackOptions(),
           }}
         />
       </Stack>

@@ -2,7 +2,7 @@ import { Stack } from "expo-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
-import { StackBackButton } from "@/ui/controls/StackBackButton";
+import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import { stackPushTransition } from "@/lib/stackTransitions";
@@ -22,7 +22,7 @@ export default function MyJobLayout() {
         headerShown: true,
         contentStyle: { backgroundColor: theme.bg },
         headerBackVisible: false,
-        headerLeft: () => <StackBackButton fallback="/" />,
+        ...stackBackOptions("/"),
       }}
     >
       <Stack.Screen name="index" options={{ title: t("my_job.title") }} />

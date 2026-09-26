@@ -89,7 +89,7 @@ export type Theme = {
   // Overlays
   /** Dims the page under dialogs and sheets. */
   scrim: string;
-  /** Softens the page under popover menus (washes out rather than darkens). */
+  /** Light dim under popover menus so a white card stays readable. */
   wash: string;
 
   // Media surfaces (camera scanner, attachment viewer) — scheme-invariant.
@@ -168,7 +168,7 @@ export const lightTheme: Theme = {
   codeLang: "#5C5C64",
 
   scrim: "rgba(0,0,0,0.40)",
-  wash: "rgba(255,255,255,0.72)",
+  wash: "rgba(17,17,19,0.20)",
 
   onMedia: "#FFFFFF",
   mediaScrim: "#000000",

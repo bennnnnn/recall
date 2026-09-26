@@ -82,7 +82,12 @@ function Gallery() {
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.header}>
-        <HeaderButton icon="arrow-left" accessibilityLabel="Back" onPress={() => router.back()} />
+        <HeaderButton
+          icon="arrow-left"
+          variant="plain"
+          accessibilityLabel="Back"
+          onPress={() => router.back()}
+        />
         <Text style={s.headerTitle}>UI kit</Text>
         <HeaderButton
           ref={menuRef}

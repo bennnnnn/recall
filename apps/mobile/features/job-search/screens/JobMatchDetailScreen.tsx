@@ -102,6 +102,7 @@ function JobMatchDetailView({
       <View style={s.header}>
         <HeaderButton
           icon="arrow-left"
+          variant="plain"
           onPress={() => router.back()}
           accessibilityLabel={t("common.back")}
         />

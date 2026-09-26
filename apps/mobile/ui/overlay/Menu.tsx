@@ -217,22 +217,26 @@ function MenuCard({
       onAccessibilityEscape={onClose}
       accessibilityRole={selectable ? "radiogroup" : "menu"}
     >
-      <ScrollView
-        bounces={false}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.content}
-        onContentSizeChange={(_w, h) => {
-          const next = Math.round(h);
-          if (next > 0 && next !== contentHeight) setContentHeight(next);
-        }}
-      >
-        {title ? (
-          <Text style={s.title} numberOfLines={2}>
-            {title}
-          </Text>
-        ) : null}
-        {rows}
-      </ScrollView>
+      {/* Shadow lives on the outer card. overflow:hidden there clips it, which
+          left a white menu flat on a white page. */}
+      <View style={[s.clip, { maxHeight: placement.maxHeight }]}>
+        <ScrollView
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={s.content}
+          onContentSizeChange={(_w, h) => {
+            const next = Math.round(h);
+            if (next > 0 && next !== contentHeight) setContentHeight(next);
+          }}
+        >
+          {title ? (
+            <Text style={s.title} numberOfLines={2}>
+              {title}
+            </Text>
+          ) : null}
+          {rows}
+        </ScrollView>
+      </View>
     </Animated.View>
   );
 }
@@ -243,10 +247,13 @@ function makeStyles(t: Theme) {
       position: "absolute",
       backgroundColor: t.elevated,
       borderRadius: Radius.menu,
-      borderWidth: t.isDark ? StyleSheet.hairlineWidth : 0,
-      borderColor: t.separator,
-      overflow: "hidden",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
       ...shadowOverlay(t),
+    },
+    clip: {
+      borderRadius: Radius.menu,
+      overflow: "hidden",
     },
     content: { paddingVertical: Space.xs },
     title: {

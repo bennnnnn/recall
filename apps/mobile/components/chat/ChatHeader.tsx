@@ -86,6 +86,7 @@ export const ChatHeader = memo(function ChatHeader({
       >
         <HeaderButton
           icon={fromLibrary ? "arrow-left" : "menu"}
+          variant={fromLibrary ? "plain" : "plate"}
           onPress={() => {
             if (fromLibrary) {
               if (router.canGoBack()) router.back();

@@ -4,7 +4,7 @@ import { Redirect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { StackBackButton } from "@/ui/controls/StackBackButton";
+import { plainHeaderItems, StackBackButton } from "@/ui/controls/StackBackButton";
 import { StateView } from "@/ui/feedback/StateView";
 import {
   makeSettingsStyles,
@@ -36,11 +36,11 @@ export default function DataControlsScreen() {
   const [bulkBusy, setBulkBusy] = useState<"archive" | "delete" | null>(null);
 
   useEffect(() => {
+    const back = busy ? null : <StackBackButton fallback="/settings" />;
     navigation.setOptions({
       gestureEnabled: !busy,
-      headerLeft: busy
-        ? () => null
-        : () => <StackBackButton fallback="/settings" />,
+      headerLeft: () => back,
+      unstable_headerLeftItems: () => plainHeaderItems(back),
     });
   }, [busy, navigation]);
 

@@ -4,6 +4,7 @@ import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-r
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
+import { plainHeaderItems } from "@/ui/controls/StackBackButton";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { LearningPathList } from "@/features/learning/components/LearningPathList";
 import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
@@ -40,18 +41,20 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
   const { project, loading, loadError, load, isCurrentOwner } = useLearningDetail(projectId);
 
   useLayoutEffect(() => {
+    const menu = (
+      <Pressable
+        ref={menuAnchorRef}
+        onPress={() => setMenuOpen((open) => !open)}
+        accessibilityRole="button"
+        accessibilityLabel={t("lesson.menu")}
+        hitSlop={12}
+      >
+        <Icon name="more-horizontal" size={IconSize.md} color={theme.text} />
+      </Pressable>
+    );
     navigation.setOptions({
-      headerRight: () => (
-        <Pressable
-          ref={menuAnchorRef}
-          onPress={() => setMenuOpen((open) => !open)}
-          accessibilityRole="button"
-          accessibilityLabel={t("lesson.menu")}
-          hitSlop={12}
-        >
-          <Icon name="more-horizontal" size={IconSize.md} color={theme.text} />
-        </Pressable>
-      ),
+      headerRight: () => menu,
+      unstable_headerRightItems: () => plainHeaderItems(menu),
     });
   }, [navigation, t, theme.text]);
 
