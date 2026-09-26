@@ -1,14 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Sheet } from "@/ui/overlay/Sheet";
 import { makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
+import { SegmentedControl } from "@/ui/controls/SegmentedControl";
 import { SwitchRow } from "@/ui/controls/SwitchRow";
 import type { LessonFontSize, LessonPrefs } from "@/features/learning/model/lessonPrefs";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { Radius } from "@/lib/radius";
 
 type Props = {
   visible: boolean;
@@ -50,23 +50,13 @@ export function LessonOptionsSheet({ visible, prefs, onClose, onChange }: Props)
       />
       <Text style={s.fontLabel}>{t("lesson.font_size")}</Text>
       <View style={s.fonts}>
-        {FONT_SIZES.map((size) => {
-          const selected = prefs.fontSize === size;
-          return (
-            <Pressable
-              key={size}
-              style={[s.fontChip, selected && s.fontChipOn]}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              accessibilityLabel={t(`lesson.font_${size}`)}
-              onPress={() => onChange({ fontSize: size })}
-            >
-              <Text style={[s.fontChipText, selected && s.fontChipTextOn]}>
-                {t(`lesson.font_${size}`)}
-              </Text>
-            </Pressable>
-          );
-        })}
+        <SegmentedControl
+          segments={FONT_SIZES.map((size) => ({ key: size, label: t(`lesson.font_${size}`) }))}
+          value={prefs.fontSize}
+          onChange={(fontSize) => onChange({ fontSize })}
+          accessibilityLabel={t("lesson.font_size")}
+          testID="lesson-font-size"
+        />
       </View>
     </Sheet>
   );
@@ -95,29 +85,8 @@ function makeStyles(theme: Theme) {
       paddingBottom: Space.xs,
     },
     fonts: {
-      flexDirection: "row",
-      gap: Space.xs,
       paddingHorizontal: 18,
       paddingBottom: Space.md,
-    },
-    fontChip: {
-      flex: 1,
-      minHeight: Space.minTouch,
-      borderRadius: Radius.md,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: theme.surfaceAlt,
-    },
-    fontChipOn: {
-      backgroundColor: theme.primaryLight,
-    },
-    fontChipText: {
-      ...Type.label,
-      color: theme.text,
-    },
-    fontChipTextOn: {
-      color: theme.primary,
-      ...Weight.bold,
     },
   });
 }
