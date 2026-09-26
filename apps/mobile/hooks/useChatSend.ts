@@ -10,7 +10,7 @@ import type { AttachmentSource } from "@/features/attachments/components/Attachm
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
-import type { Message } from "@/lib/api";
+import type { MathScanReading, Message } from "@/lib/api";
 import { clearPendingChatTtft } from "@/lib/chat/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
@@ -47,6 +47,10 @@ import {
   uploadChatAttachment,
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
+import {
+  composerTextAfterMathScanConfirm,
+  mathScanSolveMessage,
+} from "@/lib/math/cameraPrompt";
 import {
   composerTextAfterSubjectScan,
   type ScannerSubject,
@@ -670,13 +674,46 @@ export function useChatSend({
     [attachBusy, feedback, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
   );
 
-  const handleMathScanCaptured = useCallback((pending: PendingAttachment, subject: ScannerSubject) => {
+  const handleMathScanCaptured = useCallback((
+    pending: PendingAttachment,
+    subject: ScannerSubject,
+    confirmedReading?: string,
+  ) => {
     setPendingAttachment(pending);
-    const text = composerTextAfterSubjectScan(inputRef.current, subject);
+    // A checked reading rides with the photo so the API solves what the
+    // student confirmed instead of reading the photo again.
+    const text = subject === "math" && confirmedReading
+      ? withComposerDraft(composerTextAfterMathScanConfirm(confirmedReading), inputRef.current)
+      : composerTextAfterSubjectScan(inputRef.current, subject);
     setInput(text);
     setMathScannerOpen(false);
     void handleSend(text);
   }, [handleSend, setInput, setPendingAttachment, inputRef]);
+
+  const readMathScan = useCallback(
+    async (scan: PendingAttachment, signal: AbortSignal): Promise<MathScanReading | null> => {
+      if (!token) return null;
+      try {
+        // Loaded on use: the API barrel pulls in native file-system modules
+        // this hook otherwise never touches.
+        const { api } = await import("@/lib/api");
+        return await api.readMathScan(token, scan, signal);
+      } catch {
+        // The review offers "Send photo" when the read fails.
+        return null;
+      }
+    },
+    [token],
+  );
+
+  const handleMathScanSolve = useCallback((reading: string) => {
+    setMathScannerOpen(false);
+    const message = mathScanSolveMessage(reading);
+    if (!message) return;
+    const text = withComposerDraft(message, inputRef.current);
+    setInput(text);
+    void handleSend(text);
+  }, [handleSend, setInput, inputRef]);
 
   return {
     setInput,
@@ -694,7 +731,15 @@ export function useChatSend({
     handlePickAttachment,
     handleAttachmentSheetSelect,
     handleMathScanCaptured,
+    readMathScan,
+    handleMathScanSolve,
     creatingRef,
     pendingOutboundId,
   };
+}
+
+/** Keep what the student had already typed, after the scan's own text. */
+function withComposerDraft(text: string, draft: string): string {
+  const kept = draft.trim();
+  return kept ? `${text}\n\n${kept}` : text;
 }

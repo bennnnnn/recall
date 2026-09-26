@@ -172,6 +172,9 @@ class Settings(BaseSettings):
     # SymPy finds exactly one solution in the stated domain.
     math_word_problems_enabled: bool = True
     math_word_problem_timeout_seconds: float = 4.0
+    # POST /math/scan/read runs OCR (Mathpix, then vision) so the student can
+    # confirm what the camera read before it is solved. Per user, per hour.
+    math_scan_read_rate_limit_per_hour: int = 60
     # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
     # Images always send metadata.improve_mathpix=false — student homework is
     # not opted into Mathpix QA storage.
