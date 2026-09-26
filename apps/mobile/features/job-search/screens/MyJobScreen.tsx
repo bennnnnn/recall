@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
 import {
-  Alert,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -35,6 +34,7 @@ import { presentShareSheet } from "@/lib/share";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
 type Tab = "matches" | "saved" | "all";
 
@@ -154,17 +154,17 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   );
 
   const confirmDelete = () => {
-    Alert.alert(t("my_job.delete_title"), t("my_job.delete_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: () => {
-          notifyWarning();
-          void remove();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("my_job.delete_title"),
+      message: t("my_job.delete_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      notifyWarning();
+      void remove();
+    });
   };
 
   const handleEdit = () => {
@@ -193,7 +193,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     try {
       await presentShareSheet({ message, title: t("my_job.title") });
     } catch {
-      Alert.alert(t("my_job.share_failed"));
+      void alertDialog({ title: t("my_job.share_failed") });
     } finally {
       setMenuOpen(false);
     }

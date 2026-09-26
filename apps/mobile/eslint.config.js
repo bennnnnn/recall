@@ -13,6 +13,27 @@ const REPLACED_BY_UI_KIT = [
   },
 ];
 
+/** Popups live in ui/overlay; everything else asks it for one. Tests may still spy on Alert. */
+const POPUPS_OWNED_BY_UI_KIT = [
+  {
+    name: "react-native",
+    importNames: ["Alert"],
+    message: "Use confirmDialog / alertDialog from @/ui/overlay/dialogs, or a toast for a passing error.",
+  },
+  {
+    name: "react-native",
+    importNames: ["Modal"],
+    message: "Use Sheet, Overlay or FullScreenModal from @/ui/overlay.",
+  },
+];
+
+const TEST_FILES = ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"];
+
+const UI_LEAF = {
+  group: ["@/features/*", "@/components/*", "@/contexts/*", "@/hooks/*", "@/app/*"],
+  message: "ui/ never imports product code. Pass data and callbacks in as props.",
+};
+
 module.exports = defineConfig([
   expoConfig,
   {
@@ -20,6 +41,16 @@ module.exports = defineConfig([
   },
   {
     files: ["**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT] },
+      ],
+    },
+  },
+  {
+    files: TEST_FILES,
     rules: {
       "no-restricted-imports": ["error", { paths: REPLACED_BY_UI_KIT }],
     },
@@ -27,20 +58,20 @@ module.exports = defineConfig([
   {
     // The UI kit is a dependency leaf: tokens and helpers from lib/ only.
     files: ["ui/**/*.{ts,tsx}"],
-    ignores: ["**/__tests__/**"],
+    ignores: TEST_FILES,
     rules: {
       "no-restricted-imports": [
         "error",
-        {
-          paths: REPLACED_BY_UI_KIT,
-          patterns: [
-            {
-              group: ["@/features/*", "@/components/*", "@/contexts/*", "@/hooks/*", "@/app/*"],
-              message: "ui/ never imports product code. Pass data and callbacks in as props.",
-            },
-          ],
-        },
+        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT], patterns: [UI_LEAF] },
       ],
+    },
+  },
+  {
+    // The one place that may open a native Modal or Alert.
+    files: ["ui/overlay/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: {
+      "no-restricted-imports": ["error", { paths: REPLACED_BY_UI_KIT, patterns: [UI_LEAF] }],
     },
   },
   {

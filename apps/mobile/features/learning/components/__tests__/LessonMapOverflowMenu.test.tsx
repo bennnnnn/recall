@@ -54,7 +54,7 @@ jest.mock("@/ui/overlay/Menu", () => ({
     return null;
   },
 }));
-jest.mock("@/ui/overlay/dialogs", () => ({ alert: jest.fn() }));
+jest.mock("@/ui/overlay/dialogs", () => ({ alertDialog: jest.fn() }));
 
 const menuProps = { visible: true, anchorRef: { current: null }, onClose: jest.fn() };
 

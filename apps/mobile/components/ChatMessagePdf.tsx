@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -29,6 +28,7 @@ import {
   STATIC_HTML_ORIGIN_WHITELIST,
   useStaticOnlyNavigation,
 } from "@/lib/webView";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 type Props = {
   attachmentId?: string | null;
@@ -105,10 +105,10 @@ export function ChatMessagePdf({
     try {
       await downloadChatAttachment({ uri: remoteUri, token, fileName });
     } catch (error) {
-      Alert.alert(
-        t("common.download_failed"),
-        error instanceof Error ? error.message : t("chat.pdf_export_failed"),
-      );
+      void alertDialog({
+        title: t("common.download_failed"),
+        message: error instanceof Error ? error.message : t("chat.pdf_export_failed"),
+      });
     }
   }, [remoteUri, token, fileName, t]);
 

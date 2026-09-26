@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -14,6 +13,7 @@ import {
   restoreSuggestedReminderToCache,
   subscribeSuggestedRemindersCache,
 } from "@/lib/cache/suggestedRemindersCache";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 type Params = {
   token: string | null;
@@ -67,7 +67,7 @@ export function useSuggestedReminders({
   const reportError = useCallback((key: string) => {
     if (!canAct()) return;
     if (feedback) feedback.error(t(key));
-    else Alert.alert(t("todos.error"), t(key));
+    else void alertDialog({ title: t("todos.error"), message: t(key) });
   }, [canAct, feedback, t]);
 
   const mutate = useCallback(async (reminder: SuggestedReminder, add: boolean) => {

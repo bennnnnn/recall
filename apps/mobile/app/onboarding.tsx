@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -16,6 +16,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const FEATURES = [
   {
@@ -58,8 +59,7 @@ export default function Onboarding() {
       await completeOnboarding();
       router.replace("/login");
     } catch {
-      if (feedback) feedback.error(t("common.error"));
-      else Alert.alert(t("common.error"));
+      reportRecoverableError(feedback, t("common.error"));
     } finally {
       finishingRef.current = false;
       setFinishing(false);

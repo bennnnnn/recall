@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   FlatList,
   StyleSheet,
   View,
@@ -26,6 +25,7 @@ import { saveChatAttachmentToLibrary, shareChatAttachment } from "@/features/att
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 const LIGHTBOX_BG = "#000000";
 
@@ -147,13 +147,13 @@ export function AttachmentImageViewer({
         fileName: currentName,
       });
       if (result === "saved") {
-        Alert.alert(t("common.saved"), t("common.saved_to_photos"));
+        void alertDialog({ title: t("common.saved"), message: t("common.saved_to_photos") });
       }
     } catch (error) {
-      Alert.alert(
-        t("common.download_failed"),
-        error instanceof Error ? error.message : t("common.download_image_error"),
-      );
+      void alertDialog({
+        title: t("common.download_failed"),
+        message: error instanceof Error ? error.message : t("common.download_image_error"),
+      });
     } finally {
       setBusy(null);
     }
@@ -169,10 +169,10 @@ export function AttachmentImageViewer({
         fileName: currentName,
       });
     } catch (error) {
-      Alert.alert(
-        t("common.share_failed"),
-        error instanceof Error ? error.message : t("common.share_image_error"),
-      );
+      void alertDialog({
+        title: t("common.share_failed"),
+        message: error instanceof Error ? error.message : t("common.share_image_error"),
+      });
     } finally {
       setBusy(null);
     }

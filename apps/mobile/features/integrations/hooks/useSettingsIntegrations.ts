@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -13,6 +12,7 @@ import { connectGoogleGmail } from "@/features/integrations/model/googleGmail";
 import { gmailSyncMessage } from "@/features/integrations/model/gmailSyncFeedback";
 import { invalidateSuggestedRemindersCache } from "@/lib/cache/suggestedRemindersCache";
 import { invalidateIntegrationStatusCache, patchIntegrationStatusCache } from "@/features/integrations/model/integrationStatusCache";
+import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
 type Provider = "calendar" | "gmail";
 type Owner = { session: number; signedIn: boolean };
@@ -82,7 +82,9 @@ export function useSettingsIntegrations() {
     const message = error instanceof Error ? error.message : t(fallback);
     if (message.toLowerCase().includes("cancel")) return;
     if (feedback) feedback.error(message);
-    else Alert.alert(t(provider === "calendar" ? "settings.calendar_title" : "settings.gmail_title"), message);
+    else void alertDialog({
+      title: t(provider === "calendar" ? "settings.calendar_title" : "settings.gmail_title"), message,
+    });
   };
   const applyCalendar = (status: GoogleCalendarStatus) => {
     publish({ ...snapshot.current, calendarStatus: status });
@@ -124,11 +126,11 @@ export function useSettingsIntegrations() {
     if (!status) return false;
     const title = t(provider === "calendar" ? "settings.calendar_title" : "settings.gmail_title");
     if (isExpoGo()) {
-      Alert.alert(title, t(provider === "calendar" ? "settings.calendar_expo_go" : "settings.gmail_expo_go"));
+      void alertDialog({ title, message: t(provider === "calendar" ? "settings.calendar_expo_go" : "settings.gmail_expo_go") });
       return false;
     }
     if (!status.configured) {
-      Alert.alert(title, t(provider === "calendar" ? "settings.calendar_not_configured" : "settings.gmail_not_configured"));
+      void alertDialog({ title, message: t(provider === "calendar" ? "settings.calendar_not_configured" : "settings.gmail_not_configured") });
       return false;
     }
     return true;
@@ -190,42 +192,38 @@ export function useSettingsIntegrations() {
   const disconnect = (provider: Provider) => {
     const status = () => provider === "calendar" ? snapshot.current.calendarStatus : snapshot.current.gmailStatus;
     if (!token || !canStart() || !status()?.connected) return;
-    Alert.alert(
-      t(provider === "calendar" ? "settings.calendar_title" : "settings.gmail_title"),
-      t(provider === "calendar" ? "settings.calendar_disconnect_confirm" : "settings.gmail_disconnect_confirm"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t(provider === "calendar" ? "settings.calendar_disconnect" : "settings.gmail_disconnect"),
-          style: "destructive",
-          onPress: async () => {
-            if (!status()?.connected) return;
-            const active = begin(provider);
-            if (!active) return;
-            try {
-              if (provider === "calendar") await api.disconnectGoogleCalendar(token);
-              else await api.disconnectGoogleGmail(token);
-              if (!currentOperation(active)) return;
-              invalidateSuggestedRemindersCache();
-              invalidateIntegrationStatusCache();
-              // Google can revoke the sibling service too. Refresh its state
-              // before offering actions against a possibly revoked connection.
-              const previous = snapshot.current;
-              publish({ ...previous,
-                calendarStatus: provider === "calendar"
-                  ? { configured: previous.calendarStatus?.configured ?? true, connected: false } : null,
-                gmailStatus: provider === "gmail"
-                  ? { configured: previous.gmailStatus?.configured ?? true, connected: false } : null,
-              });
-              await refresh({ silent: true });
-            } catch {
-              if (currentOperation(active)) report(provider,
-                provider === "calendar" ? "settings.calendar_connect_failed" : "settings.gmail_connect_failed");
-            } finally { finish(active); }
-          },
-        },
-      ],
-    );
+    void confirmDialog({
+      title: t(provider === "calendar" ? "settings.calendar_title" : "settings.gmail_title"),
+      message: t(provider === "calendar" ? "settings.calendar_disconnect_confirm" : "settings.gmail_disconnect_confirm"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t(provider === "calendar" ? "settings.calendar_disconnect" : "settings.gmail_disconnect"),
+      destructive: true,
+    }).then(async (ok) => {
+      if (!ok) return;
+      if (!status()?.connected) return;
+      const active = begin(provider);
+      if (!active) return;
+      try {
+        if (provider === "calendar") await api.disconnectGoogleCalendar(token);
+        else await api.disconnectGoogleGmail(token);
+        if (!currentOperation(active)) return;
+        invalidateSuggestedRemindersCache();
+        invalidateIntegrationStatusCache();
+        // Google can revoke the sibling service too. Refresh its state
+        // before offering actions against a possibly revoked connection.
+        const previous = snapshot.current;
+        publish({ ...previous,
+          calendarStatus: provider === "calendar"
+            ? { configured: previous.calendarStatus?.configured ?? true, connected: false } : null,
+          gmailStatus: provider === "gmail"
+            ? { configured: previous.gmailStatus?.configured ?? true, connected: false } : null,
+        });
+        await refresh({ silent: true });
+      } catch {
+        if (currentOperation(active)) report(provider,
+          provider === "calendar" ? "settings.calendar_connect_failed" : "settings.gmail_connect_failed");
+      } finally { finish(active); }
+    });
   };
 
   const visible = state.owner === owner ? state : emptySnapshot(owner);

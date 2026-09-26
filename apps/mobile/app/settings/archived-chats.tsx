@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +20,7 @@ import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function ArchivedChatsScreen() {
   const { token } = useAuth();
@@ -70,29 +71,29 @@ export default function ArchivedChatsScreen() {
 
   const confirmDelete = (chat: Chat) => {
     if (!token || busyId) return;
-    Alert.alert(t("chat.delete_confirm_title"), t("chat.delete_confirm_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            if (!token) return;
-            setBusyId(chat.id);
-            try {
-              await api.deleteChat(token, chat.id);
-              notifyDestructive();
-              invalidateChatListCache();
-              setChats((rows) => rows.filter((row) => row.id !== chat.id));
-            } catch {
-              reportRecoverableError(feedback, t("chat.delete_failed"));
-            } finally {
-              setBusyId(null);
-            }
-          })();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("chat.delete_confirm_title"),
+      message: t("chat.delete_confirm_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        if (!token) return;
+        setBusyId(chat.id);
+        try {
+          await api.deleteChat(token, chat.id);
+          notifyDestructive();
+          invalidateChatListCache();
+          setChats((rows) => rows.filter((row) => row.id !== chat.id));
+        } catch {
+          reportRecoverableError(feedback, t("chat.delete_failed"));
+        } finally {
+          setBusyId(null);
+        }
+      })();
+    });
   };
 
   if (!token) return <Redirect href="/login" />;

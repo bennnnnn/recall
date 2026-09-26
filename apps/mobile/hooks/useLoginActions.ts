@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +8,7 @@ import { formatAppleSignInError } from "@/lib/apple-auth";
 import { isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
 import { tap } from "@/lib/haptics";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 export type LoginProvider = "apple" | "google" | "dev";
 
@@ -21,7 +22,7 @@ export function useLoginActions() {
   const showSignInError = useCallback(
     (message: string) => {
       if (feedback) feedback.error(message);
-      else Alert.alert(t("login.sign_in_failed"), message);
+      else void alertDialog({ title: t("login.sign_in_failed"), message });
     },
     [feedback, t],
   );
@@ -63,10 +64,10 @@ export function useLoginActions() {
     if (busyRef.current) return;
     tap();
     if (isExpoGo()) {
-      Alert.alert(
-        t("login.google_unavailable_title"),
-        t("login.google_unavailable_body"),
-      );
+      void alertDialog({
+        title: t("login.google_unavailable_title"),
+        message: t("login.google_unavailable_body"),
+      });
       return;
     }
     if (!isGoogleWebClientConfigured()) {

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
 
 import { transcribeSpeech } from "@/lib/api";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -13,6 +12,7 @@ import {
   type VoiceRecorder,
   type VoiceRecordingFormat,
 } from "@/lib/speech/voiceAudio";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 type TranscribeFail = "empty" | "network" | "failed";
 
@@ -83,7 +83,10 @@ export function useVoiceInput({
       }
       const permission = await requestVoicePermission(mod);
       if (!permission.granted) {
-        Alert.alert(t("chat.voice_permission_title"), t("chat.voice_permission_body"));
+        void alertDialog({
+          title: t("chat.voice_permission_title"),
+          message: t("chat.voice_permission_body"),
+        });
         return false;
       }
       const next = await startVoiceRecording(recordingFormat);

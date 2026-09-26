@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type Ref } from "react";
-import { Alert, Keyboard, Pressable, Text, View } from "react-native";
+import { Keyboard, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -19,6 +19,7 @@ import {
 import { ensureNotificationPermission } from "@/features/todos/model/todoReminders";
 import { IconSize } from "@/ui/icons/sizes";
 import { useTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 export type SchedulePanel = "date" | "time" | "repeat";
 
@@ -153,7 +154,7 @@ export function TodoDateFields({
           if (!onChangeLead || minutes === lead) return;
           setSavingLead(true);
           void onChangeLead(minutes)
-            .catch(() => { Alert.alert(t("common.error")); })
+            .catch(() => { void alertDialog({ title: t("common.error") }); })
             .finally(() => setSavingLead(false));
         }}
         onClose={() => setRemindOpen(false)}

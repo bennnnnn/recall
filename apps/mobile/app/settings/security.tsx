@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +20,7 @@ import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 function formatSeen(iso: string | null, t: (key: string) => string): string {
   if (!iso) return t("settings.unknown_device");
@@ -64,54 +65,54 @@ export default function SecuritySettingsScreen() {
 
   const revoke = (session: AuthSession) => {
     if (!token || session.current || busyId) return;
-    Alert.alert(t("settings.revoke_session"), t("settings.revoke_session_confirm"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("settings.revoke_session"),
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            if (!token) return;
-            setBusyId(session.id);
-            try {
-              await api.revokeSession(token, session.id);
-              notifyDestructive();
-              setSessions((rows) => rows.filter((row) => row.id !== session.id));
-            } catch {
-              reportRecoverableError(feedback, t("common.error"));
-            } finally {
-              setBusyId(null);
-            }
-          })();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("settings.revoke_session"),
+      message: t("settings.revoke_session_confirm"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("settings.revoke_session"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        if (!token) return;
+        setBusyId(session.id);
+        try {
+          await api.revokeSession(token, session.id);
+          notifyDestructive();
+          setSessions((rows) => rows.filter((row) => row.id !== session.id));
+        } catch {
+          reportRecoverableError(feedback, t("common.error"));
+        } finally {
+          setBusyId(null);
+        }
+      })();
+    });
   };
 
   const confirmLogoutAll = () => {
     if (!token || busyId) return;
-    Alert.alert(t("settings.sign_out_all"), t("settings.sign_out_all_confirm"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("settings.sign_out_all"),
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            if (!token) return;
-            setBusyId("all");
-            try {
-              await api.logoutAll(token);
-              await signOut();
-              notifyDestructive();
-              router.replace("/login");
-            } catch {
-              reportRecoverableError(feedback, t("common.error"));
-              setBusyId(null);
-            }
-          })();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("settings.sign_out_all"),
+      message: t("settings.sign_out_all_confirm"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("settings.sign_out_all"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        if (!token) return;
+        setBusyId("all");
+        try {
+          await api.logoutAll(token);
+          await signOut();
+          notifyDestructive();
+          router.replace("/login");
+        } catch {
+          reportRecoverableError(feedback, t("common.error"));
+          setBusyId(null);
+        }
+      })();
+    });
   };
 
   if (!token) return <Redirect href="/login" />;

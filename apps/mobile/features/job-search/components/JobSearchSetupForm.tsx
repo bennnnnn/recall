@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   Platform,
   Pressable,
@@ -41,6 +40,7 @@ import {
 } from "@/lib/api";
 import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
 import { useTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 type Step = 0 | 1 | 2 | 3;
 type ResultCount = 5 | 10 | 15;
@@ -119,7 +119,10 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
         picked.contentType ===
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       if (!allowed) {
-        Alert.alert(t("my_job.resume_pick_title"), t("my_job.resume_pick_body"));
+        void alertDialog({
+          title: t("my_job.resume_pick_title"),
+          message: t("my_job.resume_pick_body"),
+        });
         return;
       }
       setUploadingResume(true);
@@ -127,10 +130,10 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
       setResumeId(id);
       setResumeName(picked.fileName);
     } catch {
-      Alert.alert(
-        t("my_job.resume_upload_failed_title"),
-        t("my_job.resume_upload_failed_body"),
-      );
+      void alertDialog({
+        title: t("my_job.resume_upload_failed_title"),
+        message: t("my_job.resume_upload_failed_body"),
+      });
     } finally {
       setUploadingResume(false);
     }

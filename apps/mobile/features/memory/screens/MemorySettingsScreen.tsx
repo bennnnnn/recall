@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -26,6 +26,8 @@ import {
 import { notifyDestructive } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function MemorySettingsScreen() {
   const view = useAccountViewOwner();
@@ -45,13 +47,11 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
   const requestRef = useRef(0);
   const feedback = useActionFeedbackOptional();
   const { saving, toggle } = useMemoryToggle(isCurrentView, useCallback(() => {
-    if (feedback) feedback.error(t("common.error"));
-    else Alert.alert(t("common.error"), t("common.error"));
+    reportRecoverableError(feedback, t("common.error"));
   }, [feedback, t]));
 
   const onError = useCallback(() => {
-    if (feedback) feedback.error(t("common.error"));
-    else Alert.alert(t("common.error"), t("common.error"));
+    reportRecoverableError(feedback, t("common.error"));
   }, [feedback, t]);
 
   const loadMemories = useCallback(async (force = false) => {
@@ -79,34 +79,30 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
 
   const confirmClearAll = useCallback(() => {
     if (!token || !isCurrentView() || busy) return;
-    Alert.alert(
-      t("settings.memory_clear_all_confirm_title"),
-      t("settings.memory_clear_all_confirm_body"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("common.delete"),
-          style: "destructive",
-          onPress: () => {
-            void (async () => {
-              if (!isCurrentView()) return;
-              setBusy(true);
-              try {
-                await api.clearMemories(token);
-                if (!isCurrentView()) return;
-                notifyDestructive();
-                setMemoriesCache([]);
-                setMemCount(0);
-              } catch {
-                if (isCurrentView()) onError();
-              } finally {
-                if (isCurrentView()) setBusy(false);
-              }
-            })();
-          },
-        },
-      ],
-    );
+    void confirmDialog({
+      title: t("settings.memory_clear_all_confirm_title"),
+      message: t("settings.memory_clear_all_confirm_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        if (!isCurrentView()) return;
+        setBusy(true);
+        try {
+          await api.clearMemories(token);
+          if (!isCurrentView()) return;
+          notifyDestructive();
+          setMemoriesCache([]);
+          setMemCount(0);
+        } catch {
+          if (isCurrentView()) onError();
+        } finally {
+          if (isCurrentView()) setBusy(false);
+        }
+      })();
+    });
   }, [token, isCurrentView, busy, t, onError]);
 
   if (!token) return <Redirect href="/login" />;

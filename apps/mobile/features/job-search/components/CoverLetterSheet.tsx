@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,6 +19,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 type Props = {
   visible: boolean;
@@ -47,7 +47,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
     try {
       await presentShareSheet({ message: letter });
     } catch {
-      Alert.alert(t("common.share_failed"), t("my_job.share_failed"));
+      void alertDialog({ title: t("common.share_failed"), message: t("my_job.share_failed") });
     }
   };
 

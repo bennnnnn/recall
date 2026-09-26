@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
@@ -13,6 +12,7 @@ import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, pa
 import { notifyDestructive, tap } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 type Options = {
   token: string | null;
@@ -153,37 +153,38 @@ export function useChatManagementActions({
 
   const confirmDelete = useCallback(() => {
     if (!chatId || !token || !currentView()) return;
-    Alert.alert(t("chat.delete_confirm_title"), t("chat.delete_confirm_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"), style: "destructive",
-        onPress: async () => {
-          if (!currentView()) return;
-          const release = beginChatMutation(session, [chatId]);
-          if (!release) return;
-          const snapshot = getCachedChat(chatId) ?? peekCreatedChat(chatId);
-          removeChatGlobal(chatId);
-          try {
-            await api.deleteChat(token, chatId);
-            if (!currentSession()) return;
-            notifyDestructive();
-            removeChatGlobal(chatId);
-            void clearCachedChatMessages(chatId);
-            invalidateGalleryCache();
-            if (currentView()) showActionBanner(t("chat.deleted_toast"), "trash");
-            abandonActiveChatIfDeleted([chatId]);
-          } catch {
-            if (!currentSession()) return;
-            // A failed delete must preserve original dates and project/quiz
-            // metadata. A chat absent from the list needs its real server row.
-            const restored = snapshot ?? await api.getChat(token, chatId).catch(() => null);
-            if (!currentSession()) return;
-            if (restored) insertChatGlobal(restored);
-            if (currentView()) reportRecoverableError(feedback, t("chat.delete_failed"));
-          } finally { release(); }
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("chat.delete_confirm_title"),
+      message: t("chat.delete_confirm_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then(async (ok) => {
+      if (!ok) return;
+      if (!currentView()) return;
+      const release = beginChatMutation(session, [chatId]);
+      if (!release) return;
+      const snapshot = getCachedChat(chatId) ?? peekCreatedChat(chatId);
+      removeChatGlobal(chatId);
+      try {
+        await api.deleteChat(token, chatId);
+        if (!currentSession()) return;
+        notifyDestructive();
+        removeChatGlobal(chatId);
+        void clearCachedChatMessages(chatId);
+        invalidateGalleryCache();
+        if (currentView()) showActionBanner(t("chat.deleted_toast"), "trash");
+        abandonActiveChatIfDeleted([chatId]);
+      } catch {
+        if (!currentSession()) return;
+        // A failed delete must preserve original dates and project/quiz
+        // metadata. A chat absent from the list needs its real server row.
+        const restored = snapshot ?? await api.getChat(token, chatId).catch(() => null);
+        if (!currentSession()) return;
+        if (restored) insertChatGlobal(restored);
+        if (currentView()) reportRecoverableError(feedback, t("chat.delete_failed"));
+      } finally { release(); }
+    });
   }, [chatId, token, currentView, t, session, currentSession, showActionBanner, feedback]);
 
   return { renameVisible, setRenameVisible, renameText, setRenameText, openRename, confirmRename, togglePin, toggleArchive, confirmDelete };

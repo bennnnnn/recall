@@ -5,7 +5,7 @@ import { Dialog } from "./Dialog";
 import { registerDialogHost, type DialogRequest } from "./dialogs";
 
 /**
- * Shows `confirm()` / `alert()` requests as themed dialogs, one at a time.
+ * Shows `confirmDialog()` / `alertDialog()` requests as themed dialogs, one at a time.
  * Mount once near the app root, inside the theme and i18n providers.
  */
 export function DialogHost() {

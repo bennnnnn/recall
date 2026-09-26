@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
-import { Alert, Keyboard, Pressable, Text, View } from "react-native";
+import { Keyboard, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AddFab } from "@/ui/controls/AddFab";
@@ -26,6 +26,7 @@ import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function TodosScreen() {
   const view = useAccountViewOwner();
@@ -263,17 +264,16 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   const deleteSelected = () => {
     if (selectedIds.length === 0) return;
-    Alert.alert(t("todos.delete_many", { count: selectedIds.length }), undefined, [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: () => {
-          void actions.handleDeleteMany(selectedIds);
-          leaveSelection();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("todos.delete_many", { count: selectedIds.length }),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void actions.handleDeleteMany(selectedIds);
+      leaveSelection();
+    });
   };
 
   return (

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -15,6 +15,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 function Action({
   icon,
@@ -81,7 +82,10 @@ export function JobMatchCard({
     try {
       await Linking.openURL(match.url);
     } catch {
-      Alert.alert(t("my_job.open_failed_title"), t("my_job.open_failed_body"));
+      void alertDialog({
+        title: t("my_job.open_failed_title"),
+        message: t("my_job.open_failed_body"),
+      });
     }
   };
 

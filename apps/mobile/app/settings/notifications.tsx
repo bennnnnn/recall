@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -26,6 +26,7 @@ import {
 import { normalizeReminderLeadMinutes } from "@/features/todos/model/reminderTiming";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 const DEFAULT_QUIET_START = 1320;
 const DEFAULT_QUIET_END = 420;
@@ -73,7 +74,7 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
   const reportError = useCallback((key: string) => {
     if (!isCurrent()) return;
     if (feedback) feedback.error(t(key));
-    else Alert.alert(t("common.error"), t(key));
+    else void alertDialog({ title: t("common.error"), message: t(key) });
   }, [isCurrent, feedback, t]);
 
   const acquirePushMutation = useCallback(() => {
@@ -85,7 +86,10 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     [updateUser],
   );
   const reportPushDenied = useCallback(() => {
-    Alert.alert(t("settings.push_blocked_title"), t("settings.push_blocked_message"));
+    void alertDialog({
+      title: t("settings.push_blocked_title"),
+      message: t("settings.push_blocked_message"),
+    });
   }, [t]);
   const reportPushError = useCallback(
     () => reportError("settings.push_register_failed"),

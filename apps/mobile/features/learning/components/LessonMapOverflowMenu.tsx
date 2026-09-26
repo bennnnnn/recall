@@ -16,7 +16,7 @@ import {
 } from "@/features/learning/model/dailyGoals";
 import { useProjectMutationLock } from "@/features/learning/model/projectMutationLock";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { alert } from "@/ui/overlay/dialogs";
+import { alertDialog } from "@/ui/overlay/dialogs";
 import { Menu } from "@/ui/overlay/Menu";
 
 type Props = {
@@ -72,7 +72,7 @@ export function LessonMapOverflowMenu({ project, isCurrent, visible, anchorRef, 
       if (session !== getSessionGeneration() || !isCurrent()) return;
       if (!projectHasExportableItems(detail)) {
         feedback?.dismiss();
-        void alert({
+        void alertDialog({
           title: t("projects.export_pdf_empty_title"),
           message: t("projects.export_pdf_empty_body"),
         });

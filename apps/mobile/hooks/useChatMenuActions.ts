@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -16,6 +15,7 @@ import { isShareCancelled } from "@/lib/exportPdf";
 import { notifyDestructive } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 type Params = {
   token: string | null;
@@ -163,30 +163,34 @@ export function useChatMenuActions({
   }, [token, menuChat, currentView, current, session, closeMenu, moveChatArchiveState, patchChatInGroups, showActionBanner, feedback, t]);
 
   const requestDeleteChat = useCallback((chat: Chat) => {
-    Alert.alert(t("chat.delete_confirm_title"), t("chat.delete_confirm_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("common.delete"), style: "destructive", onPress: async () => {
-        if (!token || !currentView()) return;
-        const release = beginChatMutation(session, [chat.id]);
-        if (!release) return;
-        const snapshot = getCachedChat(chat.id) ?? chat;
+    void confirmDialog({
+      title: t("chat.delete_confirm_title"),
+      message: t("chat.delete_confirm_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then(async (ok) => {
+      if (!ok) return;
+      if (!token || !currentView()) return;
+      const release = beginChatMutation(session, [chat.id]);
+      if (!release) return;
+      const snapshot = getCachedChat(chat.id) ?? chat;
+      removeChatFromGroupsById(chat.id);
+      try {
+        await api.deleteChat(token, chat.id);
+        if (!current()) return;
+        notifyDestructive();
         removeChatFromGroupsById(chat.id);
-        try {
-          await api.deleteChat(token, chat.id);
-          if (!current()) return;
-          notifyDestructive();
-          removeChatFromGroupsById(chat.id);
-          void clearCachedChatMessages(chat.id);
-          invalidateGalleryCache();
-          abandonActiveChatIfDeleted([chat.id]);
-          showActionBanner(t("chat.deleted_toast"), "trash");
-        } catch {
-          if (!current()) return;
-          insertChatInGroups(snapshot);
-          reportRecoverableError(feedback, t("chat.delete_failed"));
-        } finally { release(); }
-      } },
-    ]);
+        void clearCachedChatMessages(chat.id);
+        invalidateGalleryCache();
+        abandonActiveChatIfDeleted([chat.id]);
+        showActionBanner(t("chat.deleted_toast"), "trash");
+      } catch {
+        if (!current()) return;
+        insertChatInGroups(snapshot);
+        reportRecoverableError(feedback, t("chat.delete_failed"));
+      } finally { release(); }
+    });
   }, [token, currentView, current, session, removeChatFromGroupsById, insertChatInGroups, showActionBanner, feedback, t]);
   const confirmDeleteChat = useCallback(() => {
     if (!menuChat || !currentView()) return;

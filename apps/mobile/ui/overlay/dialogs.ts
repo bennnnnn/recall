@@ -30,13 +30,22 @@ export function registerDialogHost(next: Host): () => void {
   };
 }
 
-function show(request: DialogRequest): void {
+/**
+ * No host mounted (tests, code running outside the app root): the platform
+ * alert shows the same choices. It is called the way the app always called
+ * it — a plain notice gets only its title and message.
+ */
+function show(request: DialogRequest, plainNotice = false): void {
   if (host) {
     host(request);
     return;
   }
-  // No host mounted (tests, code running outside the app root): the platform
-  // alert keeps the same choices so callers behave the same either way.
+  if (plainNotice) {
+    if (request.message === undefined) Alert.alert(request.title);
+    else Alert.alert(request.title, request.message);
+    request.onDismiss();
+    return;
+  }
   Alert.alert(
     request.title,
     request.message,
@@ -50,7 +59,6 @@ function show(request: DialogRequest): void {
             : "default",
       onPress: action.onPress,
     })),
-    { cancelable: true, onDismiss: request.onDismiss },
   );
 }
 
@@ -68,7 +76,7 @@ export type ConfirmOptions = {
  * Ask before acting. Resolves true when the person confirms, false on Cancel
  * or when they dismiss the dialog.
  */
-export function confirm(options: ConfirmOptions): Promise<boolean> {
+export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
   return new Promise((resolve) => {
     let settled = false;
     const finish = (value: boolean) => {
@@ -104,7 +112,7 @@ export type AlertOptions = {
 };
 
 /** Tell the person something that needs acknowledging. Resolves when closed. */
-export function alert(options: AlertOptions): Promise<void> {
+export function alertDialog(options: AlertOptions): Promise<void> {
   return new Promise((resolve) => {
     let settled = false;
     const finish = () => {
@@ -112,10 +120,9 @@ export function alert(options: AlertOptions): Promise<void> {
       settled = true;
       resolve();
     };
+    const custom = Boolean(options.actions && options.actions.length > 0);
     const actions: DialogAction[] = (
-      options.actions && options.actions.length > 0
-        ? options.actions
-        : [{ label: label("common.ok"), style: "primary" as const }]
+      custom ? (options.actions as DialogAction[]) : [{ label: label("common.ok"), style: "primary" as const }]
     ).map((action) => ({
       ...action,
       onPress: () => {
@@ -123,6 +130,6 @@ export function alert(options: AlertOptions): Promise<void> {
         finish();
       },
     }));
-    show({ title: options.title, message: options.message, actions, onDismiss: finish });
+    show({ title: options.title, message: options.message, actions, onDismiss: finish }, !custom);
   });
 }
