@@ -176,6 +176,10 @@ def test_seventy_day_mastery_plan_gets_the_learning_roadmap_layout():
     assert "milestone" in HOWTO_FORMAT_HINT
 
 
+def test_elapsed_time_learning_statement_is_not_mistaken_for_a_plan():
+    assert not is_howto_question("I started learning Python 3 days ago")
+
+
 def test_short_style_keeps_the_lesson_with_smaller_steps():
     hints = _hints("Teach me python dictionaries", style="short")
     assert TEACHING_HINT in hints and TEACHING_SHORT_NOTE in hints
