@@ -193,7 +193,7 @@ export const darkTheme: Theme = {
   settingsSurface: "#202023",
   surfaceAlt: "#171719",
   elevated: "#242428",
-  control: "#26262A",
+  control: "#323238",
   border: "#3A3A42",
   separator: "#2E2E34",
   pressed: "rgba(255,255,255,0.08)",

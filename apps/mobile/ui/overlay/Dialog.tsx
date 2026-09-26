@@ -17,6 +17,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
+import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { Overlay, useOverlayProgress } from "./Overlay";
 
 export type DialogActionStyle = "default" | "cancel" | "destructive" | "primary";
@@ -25,6 +26,8 @@ export type DialogAction = {
   label: string;
   onPress?: () => void;
   style?: DialogActionStyle;
+  /** Greyed out and inert (e.g. OK while a typed time is invalid). */
+  disabled?: boolean;
   testID?: string;
 };
 
@@ -36,6 +39,12 @@ type Props = {
   children?: ReactNode;
   /** Buttons, left to right. Omit for a dialog whose content has its own. */
   actions?: DialogAction[];
+  /** Shown at the start of the button row (the time picker's keyboard toggle). */
+  footerStart?: ReactNode;
+  /** `label` is the pickers' small "Select time" heading. */
+  titleVariant?: "title" | "label";
+  /** Lift the card above the keyboard (dialogs with a text field). */
+  avoidKeyboard?: boolean;
   /** Scrim tap / Android back. */
   onClose: () => void;
   dismissible?: boolean;
@@ -71,6 +80,9 @@ function DialogCard({
   message,
   children,
   actions = [],
+  footerStart,
+  titleVariant = "title",
+  avoidKeyboard = false,
   onClose,
   width = DIALOG_WIDTH,
 }: Props) {
@@ -78,6 +90,7 @@ function DialogCard({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const progress = useOverlayProgress();
   const screen = useWindowDimensions();
+  const keyboardHeight = useKeyboardHeight(visible && avoidKeyboard);
   const titleRef = useRef<Text>(null);
   const cardWidth = Math.min(width, screen.width - Space.lg * 2);
   const stacked =
@@ -101,44 +114,54 @@ function DialogCard({
   });
 
   return (
-    <View style={s.center} pointerEvents="box-none">
+    <View style={[s.center, { paddingBottom: Space.lg + keyboardHeight }]} pointerEvents="box-none">
       <Animated.View
         style={[s.card, { width: cardWidth }, cardStyle]}
         accessibilityViewIsModal
         onAccessibilityEscape={onClose}
         accessibilityRole={"alert" as const}
       >
-        <Text ref={titleRef} style={s.title} accessibilityRole="header">
+        <Text
+          ref={titleRef}
+          style={titleVariant === "label" ? s.titleLabel : s.title}
+          accessibilityRole="header"
+        >
           {title}
         </Text>
         {message ? <Text style={s.message}>{message}</Text> : null}
         {children}
-        {actions.length > 0 ? (
-          <View style={[s.actions, stacked && s.actionsStacked]}>
-            {actions.map((action) => (
-              <Pressable
-                key={action.label}
-                style={({ pressed }) => [s.button, pressed && s.buttonPressed]}
-                onPress={() => {
-                  tap();
-                  action.onPress?.();
-                  onClose();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={action.label}
-                testID={action.testID}
-              >
-                <Text
-                  style={[
-                    s.buttonText,
-                    action.style === "cancel" && s.buttonTextCancel,
-                    action.style === "destructive" && s.buttonTextDestructive,
-                  ]}
+        {actions.length > 0 || footerStart ? (
+          <View style={[s.footer, stacked && s.footerStacked]}>
+            {footerStart ? <View style={s.footerStart}>{footerStart}</View> : null}
+            <View style={[s.actions, stacked && s.actionsStacked]}>
+              {actions.map((action) => (
+                <Pressable
+                  key={action.label}
+                  style={({ pressed }) => [s.button, pressed && s.buttonPressed]}
+                  onPress={() => {
+                    tap();
+                    action.onPress?.();
+                    onClose();
+                  }}
+                  disabled={action.disabled}
+                  accessibilityRole="button"
+                  accessibilityLabel={action.label}
+                  accessibilityState={action.disabled ? { disabled: true } : undefined}
+                  testID={action.testID}
                 >
-                  {action.label}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={[
+                      s.buttonText,
+                      action.style === "cancel" && s.buttonTextCancel,
+                      action.style === "destructive" && s.buttonTextDestructive,
+                      action.disabled && s.buttonTextDisabled,
+                    ]}
+                  >
+                    {action.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         ) : null}
       </Animated.View>
@@ -169,17 +192,28 @@ function makeStyles(t: Theme) {
       ...Type.title,
       color: t.text,
     },
+    titleLabel: {
+      ...Type.label,
+      color: t.textSecondary,
+    },
     message: {
       ...Type.body,
       color: t.textSecondary,
     },
+    footer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: Space.sm,
+      marginRight: -Space.sm,
+    },
+    footerStacked: { alignItems: "flex-end" },
+    footerStart: { flex: 1, alignItems: "flex-start", marginLeft: -Space.sm },
     actions: {
+      flex: 1,
       flexDirection: "row",
       justifyContent: "flex-end",
       flexWrap: "wrap",
       gap: Space.xxs,
-      marginTop: Space.sm,
-      marginRight: -Space.sm,
     },
     actionsStacked: {
       flexDirection: "column",
@@ -200,5 +234,6 @@ function makeStyles(t: Theme) {
     },
     buttonTextCancel: { color: t.textSecondary },
     buttonTextDestructive: { color: t.danger },
+    buttonTextDisabled: { color: t.textDisabled },
   });
 }
