@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { SelectMenu } from "@/ui/overlay/SelectMenu";
 import { ReminderDateTimePicker } from "@/features/todos/components/ReminderDateTimePicker";
-import { repeatMessageKey } from "@/features/todos/components/RepeatPickerSheet";
+import { repeatMessageKey } from "@/features/todos/model/repeatLabel";
 import { TodoCategoryPicker } from "@/features/todos/components/TodoCategoryField";
 import type { SchedulePanel } from "@/features/todos/components/TodoDateFields";
 import { withCalendarDate, withClockTime } from "@/features/todos/model/dueDate";

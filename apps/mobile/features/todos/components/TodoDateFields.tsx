@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { SelectMenu } from "@/ui/overlay/SelectMenu";
-import { repeatMessageKey } from "@/features/todos/components/RepeatPickerSheet";
+import { repeatMessageKey } from "@/features/todos/model/repeatLabel";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { defaultDueDate } from "@/features/todos/components/todoHelpers";
 import type { RecurrenceRule, Todo } from "@/lib/api";
