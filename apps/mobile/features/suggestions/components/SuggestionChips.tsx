@@ -5,7 +5,7 @@ import { Chip } from "@/ui/controls/Chip";
 import type { Suggestion } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
-import { Type, Weight } from "@/lib/type";
+import { Type } from "@/lib/type";
 
 type Props = {
   suggestions: Suggestion[];
@@ -52,13 +52,7 @@ function makeStyles(theme: Theme) {
       paddingBottom: Space.xs,
       gap: Space.xs,
     },
-    label: {
-      ...Type.caption,
-      ...Weight.bold,
-      color: theme.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.6,
-    },
+    label: { ...Type.overline, color: theme.textTertiary },
     row: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
   });
 }
