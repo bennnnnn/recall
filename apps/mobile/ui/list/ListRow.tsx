@@ -104,6 +104,7 @@ export function ListRow({
     inset && s.inset,
     style,
   ];
+  const pressedStyle = appearance === "grouped" ? s.pressed : s.plainPressed;
 
   const body = (
     <>
@@ -165,7 +166,7 @@ export function ListRow({
     return (
       <Pressable
         ref={ref}
-        style={({ pressed }) => [...rowStyle, pressed && s.pressed]}
+        style={({ pressed }) => [...rowStyle, pressed && pressedStyle]}
         accessibilityRole="switch"
         accessibilityLabel={accessibilityLabel ?? title}
         accessibilityHint={accessibilityHint ?? subtitle}
@@ -201,7 +202,7 @@ export function ListRow({
   return (
     <Pressable
       ref={ref}
-      style={({ pressed }) => [...rowStyle, pressed && s.pressed]}
+      style={({ pressed }) => [...rowStyle, pressed && pressedStyle]}
       onPress={onPress}
       onLongPress={onLongPress}
       disabled={disabled || busy}
@@ -238,7 +239,9 @@ function makeStyles(t: Theme) {
     plain: {
       minHeight: Space.minTouch,
       gap: Space.sm,
+      borderRadius: Radius.md,
     },
+    plainPressed: { backgroundColor: t.pressed },
     inset: { paddingLeft: Space.xl },
     pressed: { opacity: 0.65 },
     body: { flex: 1, gap: 2 },

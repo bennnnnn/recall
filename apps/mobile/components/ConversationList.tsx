@@ -249,7 +249,6 @@ export function ConversationList() {
       <>
         <DrawerNavLinks
           styles={s}
-          theme={theme}
           showIndicator={showIndicator}
           unseenCount={unseenCount}
           onMyJob={openMyJob}
@@ -273,7 +272,6 @@ export function ConversationList() {
     ),
     [
       s,
-      theme,
       showIndicator,
       unseenCount,
       openMyJob,

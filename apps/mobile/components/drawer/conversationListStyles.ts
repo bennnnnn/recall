@@ -91,23 +91,12 @@ export function makeConversationListStyles(theme: Theme) {
       ...Weight.semibold,
       color: theme.primary,
     },
-    todosLink: {
-      flexDirection: "row",
-      alignItems: "center",
+    navRow: {
       marginHorizontal: Space.md,
       marginBottom: Space.xxs,
       paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      gap: Space.sm,
     },
     // Same primary ink for Learning / Lists / Reminders (and chat rows below).
-    todosLinkText: {
-      flex: 1,
-      ...Type.secondary,
-      ...Weight.semibold,
-      color: theme.text,
-    },
-    todosChevron: { marginLeft: "auto" },
     navIconWrap: {
       width: 22,
       height: 22,
