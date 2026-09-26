@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Expo Go aborts on the chat screen (SIGABRT in a Reanimated frame).** `useAnimatedStyle` called `composerGapFadeHeight` from another module. That runs on the UI runtime, throws, and the display-link callback abort-traps the app. Keep the height math inline in the worklet.
+
 - **Composer text clips at the end of a line until Return.** `inputSingleLine` locks the field at 44pt, and iOS skips `onContentSizeChange` for a soft wrap that does not grow the box, so the next line never appears. Grow from the field width (`composerSoftWrapLineCount`) on that keystroke. Do not trust that content size once the width is known — iOS echoes the height you just set and the pill ratchets, and do not push list padding for a soft wrap or the thread jumps with every line.
 
 - **The line under the composer stayed sharp.** The scrim used `bottom: 0`, which sits on the pill, above the bottom padding where the thread actually shows. Hang it at `bottom: -bottomPad`, and start the veil already mostly opaque so that line is not clear.

@@ -40,8 +40,8 @@ import type { PendingAttachment } from "@/features/attachments/model/attachments
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
   COMPOSER_INPUT_MAX_HEIGHT,
+  COMPOSER_GAP_FADE_OVERLAP,
   COMPOSER_INPUT_MIN_HEIGHT,
-  composerGapFadeHeight,
   composerInputFrameHeight,
   retainedComposerContentHeight,
   composerNativeInputTraits,
@@ -242,9 +242,13 @@ export const ChatComposer = memo(function ChatComposer({
   const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
   const keyboard = useAnimatedKeyboard();
   const gapFadeStyle = useAnimatedStyle(() => {
+    "worklet";
     const pad = keyboard.height.value > 0 || composerExpanded ? 0 : bottomPad;
+    // Inline the height. Calling composerGapFadeHeight here runs on the UI
+    // thread and aborts the app.
+    const height = pad <= 0 ? 0 : pad * 2 + COMPOSER_GAP_FADE_OVERLAP;
     return {
-      height: composerGapFadeHeight(pad),
+      height,
       bottom: pad > 0 ? -pad : 0,
     };
   });
