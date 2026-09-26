@@ -170,6 +170,26 @@ _INTERNATIONAL_LEARNING_PLAN = re.compile(
     re.IGNORECASE,
 )
 
+_DAY_COUNT = re.compile(r"\b(\d{1,3})[\s-]?days?\b", re.IGNORECASE)
+_PROGRAMMING_TAGS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bpython\b", re.IGNORECASE), "python"),
+    (re.compile(r"\b(?:javascript|js)\b", re.IGNORECASE), "javascript"),
+    (re.compile(r"\b(?:typescript|ts)\b", re.IGNORECASE), "typescript"),
+    (re.compile(r"\bjava\b", re.IGNORECASE), "java"),
+    (re.compile(r"\b(?:c\+\+|cpp)\b", re.IGNORECASE), "cpp"),
+    (re.compile(r"\bc#\b", re.IGNORECASE), "csharp"),
+    (re.compile(r"\b(?:shell|bash)\b", re.IGNORECASE), "bash"),
+    (re.compile(r"\b(?:sql|postgres(?:ql)?)\b", re.IGNORECASE), "sql"),
+    (re.compile(r"\bhtml\b", re.IGNORECASE), "html"),
+    (re.compile(r"\bcss\b", re.IGNORECASE), "css"),
+    (re.compile(r"\b(?:swift|swiftui)\b", re.IGNORECASE), "swift"),
+    (re.compile(r"\b(?:kotlin|android)\b", re.IGNORECASE), "kotlin"),
+    (re.compile(r"\bgo(?:lang)?\b", re.IGNORECASE), "go"),
+    (re.compile(r"\brust\b", re.IGNORECASE), "rust"),
+    (re.compile(r"\bruby\b", re.IGNORECASE), "ruby"),
+    (re.compile(r"\bphp\b", re.IGNORECASE), "php"),
+)
+
 LEARNING_PLAN_HINT = (
     "The user wants a complete learning roadmap now, not a thin topic list and not "
     "an interactive quiz. Make the plan actionable and easy to scan on mobile.\n"
@@ -180,19 +200,82 @@ LEARNING_PLAN_HINT = (
     "ability the learner should have at the end of each phase. When it improves clarity, show "
     "the path as a compact arrow progression such as `Foundations → Core skills → Projects`. "
     "Use short headings and lists, not a schedule-style table unless the user explicitly asked for one.\n"
-    "- Then make the roadmap specific. For a named N-day plan up to about 90 days, account "
-    "for every day (or only group adjacent 2-3 days when they intentionally share one skill). "
-    "Do not collapse a 70-day request into ten vague weekly bullets.\n"
+    "- Then make the roadmap specific. For a named N-day plan up to about 90 days, write "
+    "one compact entry for every day, in order. A 70-day plan must explicitly contain "
+    "`Day 1` through `Day 70` with no missing day and no broad multi-week ranges. Only group "
+    "2-3 adjacent days when the user explicitly asks for grouping. Do not collapse a 70-day "
+    "request into ten vague weekly bullets.\n"
+    "- Keep a long daily plan within the response budget: make each day one compact line "
+    "(roughly 20-30 words) in the shape `Topic → Practice/build → Done when ...`. Put one "
+    "short runnable example after each major phase instead of expanding every day into a "
+    "mini-essay. Reserve room for the final day, milestones, daily routine, and caveat.\n"
     "- Every phase must name what to learn, show a concrete example, say exactly what to "
     "practice/build, and make the expected outcome verifiable. For a programming roadmap, "
-    "include small runnable code examples in tagged fences throughout the progression—not only prose.\n"
+    "include small runnable code examples in tagged fences throughout the progression—not only prose. "
+    "For a plan around 70 days, 4-6 short code blocks spread across phases is enough.\n"
     "- Include progressive exercises and projects, review/checkpoint days, milestones, and a "
     "repeatable daily study routine. End with what the learner should be able to do by the "
     "final day and what still requires longer-term real-world practice or experience; for "
-    "software engineering, distinguish learned skills from actual production experience.\n"
+    "software engineering, distinguish learned skills from actual production experience. Before "
+    "sending a named daily plan, silently verify that its last requested day is present.\n"
     "- Avoid empty advice such as 'master X', 'practice Y', or 'learn best practices' without "
     "naming the subskills, exercise, deliverable, or success criterion."
 )
+
+
+def learning_plan_daily_contract(text: str) -> str:
+    """Return an exact day-label contract for bounded daily roadmaps."""
+    match = _DAY_COUNT.search(collapse_ws(text))
+    if match is None:
+        return ""
+    count = int(match.group(1))
+    if count < 2 or count > 90:
+        return ""
+    labels = " | ".join(f"Day {day}" for day in range(1, count + 1))
+    programming_rule = ""
+    tag = _programming_tag(text)
+    if tag:
+        checkpoints = sorted({max(1, round(count * fraction / 5)) for fraction in range(1, 6)})
+        locations = ", ".join(f"Day {day}" for day in checkpoints)
+        programming_rule = (
+            f"\n- Include exactly five short runnable ```{tag} code blocks total, placed after "
+            f"{locations}. Inline snippets do not count."
+        )
+    return (
+        f"HARD DAILY-COVERAGE CONTRACT FOR THIS {count}-DAY PLAN:\n"
+        f"- The daily breakdown must contain exactly {count} separate Markdown lines, one per day.\n"
+        "- Every line must begin with one bold day label in this shape: "
+        "`- **Day N — Topic:** Learn → Practice/build → Done when ...`.\n"
+        "- Do not combine days, skip a number, or use a day range in the daily breakdown.\n"
+        f"- Required labels, in order: {labels}.\n"
+        f"- Keep every day line compact so Day {count} and all closing sections fit.\n"
+        "- After the daily lines, include these exact headings: `### Checkpoints and milestones`, "
+        "`### Daily routine`, and `### Production-experience note`. Under the last heading, "
+        "write the exact sentence `Production experience takes longer than this roadmap.` "
+        f"before briefly explaining why.{programming_rule}"
+    )
+
+
+def _programming_tag(text: str) -> str | None:
+    cleaned = collapse_ws(text)
+    for pattern, tag in _PROGRAMMING_TAGS:
+        if pattern.search(cleaned):
+            return tag
+    return None
+
+
+def programming_lesson_contract(text: str) -> str:
+    """Return a hard tagged-fence requirement for a named programming topic."""
+    tag = _programming_tag(text)
+    if tag is None:
+        return ""
+    return (
+        "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK: Before answering, verify the response contains "
+        f"the literal opening fence ```{tag}, runnable code on following lines, and a closing ```. "
+        "This is mandatory even when Step 1 is conceptual. An inline snippet, pseudo-code, or "
+        "untagged fence fails the requested output. Keep the example short, then end with the "
+        "lesson's one conversational question."
+    )
 
 
 def is_learning_plan_request(text: str) -> bool:
@@ -231,7 +314,9 @@ TEACHING_HINT = (
     "(translate the word Step to the reply language). The denominator must match the number "
     "of top-level outline steps: an 8-step outline uses Step 1/8, never a hard-coded /6. Explain one "
     "main idea in plain language, use 2-4 short paragraphs at most, and show one small "
-    "concrete example (code for programming, a worked example otherwise). Add an analogy "
+    "concrete example (code for programming, a worked example otherwise). In a programming "
+    "lesson, put that example in a language-tagged fence such as ` ```python `—never make the "
+    "only example inline or use an untagged fence. Add an analogy "
     "or visual mental model when it genuinely helps.\n"
     "- End the step with ONE low-pressure conversational question (for example, whether "
     "they want to answer, ask something, see another example, or continue). Keep a question "

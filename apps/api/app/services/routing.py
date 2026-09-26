@@ -310,19 +310,20 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
         return smart
     if _CODE_FENCE.search(content):
         return smart
-    if any(trigger in text for trigger in _SMART_TRIGGERS):
-        return smart
-    # Teaching quality is a product feature, not casual chit-chat. Full learning
-    # roadmaps and interactive tutor sessions need the stronger reasoning tier
-    # even when the user's first message is short ("Teach me dictionaries",
-    # "70 days mastering Python..."). Keep this classifier shared with the
-    # prompt layer so model choice and response behavior cannot drift apart.
+    # Tutoring is structured by a strict prompt contract and is latency-sensitive:
+    # a learner should not wait on a silent reasoning model before every small
+    # step. Gemini Flash followed the lesson state/output contract in live QA at
+    # a fraction of the TTFT, so keep this classifier shared with the prompt
+    # layer and deliberately use the fast lane. Hard coding/math still reaches
+    # the smart checks below when it is not an explicit tutor/roadmap request.
     from app.services.chat.prompt_constants.teaching import (
         is_learning_plan_request,
         is_teaching_request,
     )
 
     if is_learning_plan_request(content) or is_teaching_request(content):
+        return fast
+    if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
     if physics_alias is not None:
@@ -350,13 +351,13 @@ def route_chat_model(
 ) -> str:
     """Return a preferred chat alias for an auto-routed message (before pool filter).
 
-    Active lessons stay on the smart tier. Otherwise, score the current line
-    first: a short continuation of a prior smart turn inherits Pro, while a new
-    topic does not pin the rest of the chat.
+    Active lessons stay on the low-latency teaching tier. Otherwise, score the
+    current line first: a short continuation of a prior smart turn inherits Pro,
+    while a new topic does not pin the rest of the chat.
     """
     smart = model_catalog.auto_smart_alias()
     if lesson_active:
-        return smart
+        return model_catalog.auto_fast_alias()
     preferred = _route_current_line(content, settings)
     if preferred == smart:
         return smart
