@@ -116,6 +116,7 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
     "text",
     [
         "How many people live in Paris?",
+        "How many calories are in two eggs and three slices of bacon in total?",
         "I have 3 cats and 2 dogs, what should I name them?",
         "solve 2x+3=11",
         "Find 2 + 2",

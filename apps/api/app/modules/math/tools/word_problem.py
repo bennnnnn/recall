@@ -115,7 +115,7 @@ Rules:
 
 
 def word_problem_candidate(text: str) -> bool:
-    """A question over at least two stated quantities with a relation word."""
+    """A question over at least two stated quantities (one in digits) with a relation word."""
     if not _MIN_CHARS <= len(text) <= _MAX_CHARS or "=" in text:
         return False
     if not _QUESTION.search(text) or not _RELATION.search(text):
@@ -124,10 +124,12 @@ def word_problem_candidate(text: str) -> bool:
 
     if has_supported_physics_cue(text):
         return False
-    quantities = len(_DIGITS.findall(text)) + sum(
-        1 for word in _WORD.findall(text.lower()) if word in _NUMBER_WORDS
-    )
-    return quantities >= 2
+    digits = len(_DIGITS.findall(text))
+    words = sum(1 for word in _WORD.findall(text.lower()) if word in _NUMBER_WORDS)
+    # At least one number in digits: "how many calories are in two eggs and
+    # three slices" is a lookup, and a false positive here costs the turn a
+    # model call and its web-search classifier.
+    return digits >= 1 and digits + words >= 2
 
 
 def _stated_numbers(text: str) -> set[Fraction]:
