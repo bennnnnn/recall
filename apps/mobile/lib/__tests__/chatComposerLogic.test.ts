@@ -1,9 +1,13 @@
 import {
   buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
+  COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
+  composerGapFadeHeight,
+  composerGapFadeLocations,
   composerInputFrameHeight,
+  composerSoftWrapLineCount,
   retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
@@ -33,6 +37,30 @@ describe("composerInputFrameHeight", () => {
       height: COMPOSER_INPUT_MAX_HEIGHT,
       overflows: true,
     });
+  });
+
+  it("grows when a line is wider than the field, without a Return", () => {
+    expect(composerSoftWrapLineCount("hello", 200)).toBe(1);
+    expect(composerSoftWrapLineCount("a".repeat(40), 200)).toBe(2);
+    expect(composerSoftWrapLineCount("ab\ncd", 200)).toBe(2);
+    expect(composerSoftWrapLineCount("hello", 0)).toBe(1);
+    const wrapped = composerInputFrameHeight("a".repeat(40), 0, 200);
+    expect(wrapped.height).toBe(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT);
+    expect(wrapped.overflows).toBe(false);
+    expect(composerInputFrameHeight("a".repeat(40), 0).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+  });
+
+  it("keeps about one line of the home-indicator gap and hides the rest", () => {
+    expect(composerGapFadeHeight(0)).toBe(0);
+    expect(composerGapFadeHeight(34)).toBe(34 + COMPOSER_INPUT_LINE_HEIGHT);
+    const stops = composerGapFadeLocations(34);
+    expect(stops[0]).toBe(0);
+    expect(stops[stops.length - 1]).toBe(1);
+    expect(stops[1]).toBeGreaterThan(0);
+    expect(stops[1]).toBeLessThan(1);
+    for (let i = 1; i < stops.length; i += 1) {
+      expect(stops[i]).toBeGreaterThan(stops[i - 1]);
+    }
   });
 
   it("keeps a wrap height while the same draft changes and drops it on reset", () => {

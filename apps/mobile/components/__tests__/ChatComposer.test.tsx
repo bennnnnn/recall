@@ -4,6 +4,7 @@ import * as Clipboard from "expo-clipboard";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/components/chat/ChatComposer";
+import { COMPOSER_INPUT_MIN_HEIGHT } from "@/lib/chat/composerLogic";
 import {
   CONVERTER_HEADER_HEIGHT,
   CONVERTER_ROWS,
@@ -15,6 +16,11 @@ import {
 } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+
+jest.mock("expo-linear-gradient", () => {
+  const { View } = jest.requireActual("react-native") as typeof import("react-native");
+  return { LinearGradient: View };
+});
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "t",
@@ -257,6 +263,23 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
     expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 68 });
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("grows to the next line when text reaches the end of the field", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"a".repeat(40)} />,
+    );
+    expect(getByTestId("chat-composer-input")).toHaveStyle({
+      height: COMPOSER_INPUT_MIN_HEIGHT,
+    });
+
+    await fireEvent(getByTestId("chat-composer-input"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 44 } },
+    });
+
+    expect(getByTestId("chat-composer-input")).toHaveStyle({
+      height: COMPOSER_INPUT_MIN_HEIGHT + 24,
+    });
   });
 
   it("preserves leading indentation while typing a code block", async () => {

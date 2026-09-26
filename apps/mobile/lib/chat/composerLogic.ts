@@ -31,17 +31,69 @@ export function retainedComposerContentHeight(
   return stored.height;
 }
 
+/** Latin glyph at Type.body. Wide enough that the field grows before the last glyph clips. */
+const SOFT_WRAP_GLYPH = 9;
+const SOFT_WRAP_WIDE_GLYPH = 16;
+/** Ignore a tiny first layout pass so the field does not jump to the max height. */
+const SOFT_WRAP_MIN_WIDTH = 40;
+
+function glyphWidth(ch: string): number {
+  const code = ch.codePointAt(0) ?? 0;
+  const wide =
+    (code >= 0x1100 && code <= 0x115f) ||
+    (code >= 0x2e80 && code <= 0x9fff) ||
+    (code >= 0xac00 && code <= 0xd7a3) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xfe10 && code <= 0xfe6f) ||
+    (code >= 0xff01 && code <= 0xff60) ||
+    (code >= 0xffe0 && code <= 0xffe6) ||
+    (code >= 0x1f300 && code <= 0x1faff);
+  return wide ? SOFT_WRAP_WIDE_GLYPH : SOFT_WRAP_GLYPH;
+}
+
+function wrapOneLine(line: string, contentWidth: number): number {
+  if (!line) return 1;
+  let used = 0;
+  let lines = 1;
+  for (const ch of line) {
+    const width = glyphWidth(ch);
+    if (used > 0 && used + width > contentWidth) {
+      lines += 1;
+      used = width;
+    } else {
+      used += width;
+    }
+  }
+  return lines;
+}
+
 /**
- * Frame height for the composer field. Returns count as lines even when iOS
- * reports a stale content size, so a new line grows the field instead of
- * painting under the pill. Wrapped lines still use the measured size.
+ * Visual lines for a draft. iOS often will not wrap or report a taller
+ * content size while the field height is locked to one line, so the frame
+ * has to grow from the text width before the native event arrives.
+ * `contentWidth` of 0 counts hard returns only.
+ */
+export function composerSoftWrapLineCount(text: string, contentWidth: number): number {
+  if (!text) return 1;
+  const parts = text.split("\n");
+  if (contentWidth < SOFT_WRAP_MIN_WIDTH) return parts.length;
+  let lines = 0;
+  for (const part of parts) lines += wrapOneLine(part, contentWidth);
+  return Math.max(1, lines);
+}
+
+/**
+ * Frame height for the composer field. Returns and soft wraps count as lines
+ * even when iOS reports a stale content size, so the field grows instead of
+ * clipping the next line under the pill.
  */
 export function composerInputFrameHeight(
   text: string,
   measuredContentHeight: number,
+  contentWidth = 0,
 ): { height: number; overflows: boolean } {
   if (!text) return { height: COMPOSER_INPUT_MIN_HEIGHT, overflows: false };
-  const lineCount = text.split("\n").length;
+  const lineCount = composerSoftWrapLineCount(text, contentWidth);
   const fromLines =
     COMPOSER_INPUT_MIN_HEIGHT + (lineCount - 1) * COMPOSER_INPUT_LINE_HEIGHT;
   const measured = measuredContentHeight > 0 ? measuredContentHeight : 0;
@@ -51,6 +103,27 @@ export function composerInputFrameHeight(
     overflows: desired > COMPOSER_INPUT_MAX_HEIGHT,
   };
 }
+
+/**
+ * Scrim under the composer pill. The top `line` sits behind the pill (clear).
+ * The next line dissolves. The rest of the home-indicator gap is solid, so
+ * about one blurred line shows between the pill and the bottom of the phone.
+ */
+export function composerGapFadeHeight(bottomPad: number): number {
+  if (bottomPad <= 0) return 0;
+  return bottomPad + COMPOSER_INPUT_LINE_HEIGHT;
+}
+
+export function composerGapFadeLocations(bottomPad: number): readonly number[] {
+  if (bottomPad <= 0) return [0, 1];
+  const line = COMPOSER_INPUT_LINE_HEIGHT;
+  const height = bottomPad + line;
+  const clearUntil = line / height;
+  const solidAt = Math.min(1, (line + Math.min(line, bottomPad)) / height);
+  if (solidAt >= 0.999) return [0, clearUntil, 1];
+  return [0, clearUntil, solidAt, 1];
+}
+
 export const CHAT_EMPTY_MIN_HEIGHT = 160;
 
 export type ModelOption = { id: string; label: string; hint?: string };

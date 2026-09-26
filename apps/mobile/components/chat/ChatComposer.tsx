@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Animated, { type AnimatedStyle } from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
@@ -33,8 +34,11 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
+  CHAT_COMPOSER_MIN_BOTTOM_PAD,
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
+  composerGapFadeHeight,
+  composerGapFadeLocations,
   composerInputFrameHeight,
   retainedComposerContentHeight,
   composerNativeInputTraits,
@@ -48,11 +52,17 @@ import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlo
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Space } from "@/lib/space";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
 
 function noopComposerInput(_text: string) {}
+
+function gapFadeColors(bg: string, locations: readonly number[]): string[] {
+  const clear = withAlpha(bg, 0);
+  if (locations.length >= 4) return [clear, clear, bg, bg];
+  return [clear, clear, bg];
+}
 
 export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
@@ -155,6 +165,7 @@ export const ChatComposer = memo(function ChatComposer({
     (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
   const [scanHint, setScanHint] = useState(false);
   const [inputHeight, setInputHeight] = useState<number>(COMPOSER_INPUT_MIN_HEIGHT);
+  const [inputContentWidth, setInputContentWidth] = useState(0);
   const [inputAtLimit, setInputAtLimit] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -212,10 +223,10 @@ export const ChatComposer = memo(function ChatComposer({
       revision,
       input,
     );
-    const frame = composerInputFrameHeight(input, measured);
+    const frame = composerInputFrameHeight(input, measured, inputContentWidth);
     setInputHeight(frame.height);
     setInputAtLimit(frame.overflows);
-  }, [draft?.revision, input]);
+  }, [draft?.revision, input, inputContentWidth]);
 
   const inputFrameExtra = composerExpanded
     ? 0
@@ -251,7 +262,21 @@ export const ChatComposer = memo(function ChatComposer({
     voiceTranscribing,
     hasSendableContent,
   });
-  const singleLineComposer = !composerExpanded && (!input || inputHeight <= COMPOSER_INPUT_MIN_HEIGHT);
+  const draftRevision = draft?.revision ?? 0;
+  const measuredNow = input
+    ? retainedComposerContentHeight(measuredContent.current, draftRevision, input)
+    : 0;
+  const frameNow = composerInputFrameHeight(input, measuredNow, inputContentWidth);
+  // Same render as the keystroke. Waiting for the effect leaves one frame
+  // clipped at the end of the line, which is the bug this width estimate fixes.
+  const fieldHeight = input
+    ? Math.max(inputHeight, frameNow.height)
+    : COMPOSER_INPUT_MIN_HEIGHT;
+  const fieldOverflows = Boolean(input) && (inputAtLimit || frameNow.overflows);
+  const singleLineComposer = !composerExpanded && fieldHeight <= COMPOSER_INPUT_MIN_HEIGHT;
+  const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
+  const gapFadeHeight = composerExpanded ? 0 : composerGapFadeHeight(bottomPad);
+  const gapFadeLocations = composerGapFadeLocations(bottomPad);
 
   const blockStyle = docked ? s.composerDocked : s.composerBlock;
   const expandedBlockStyle = composerExpanded
@@ -260,7 +285,7 @@ export const ChatComposer = memo(function ChatComposer({
   const containerStyle = animatedContainerStyle
     ? [blockStyle, animatedContainerStyle, expandedBlockStyle]
     : [blockStyle, { bottom, paddingBottom }, expandedBlockStyle];
-  const showExpandControl = inputAtLimit || composerExpanded;
+  const showExpandControl = fieldOverflows || composerExpanded;
   // The composer view is only as tall as the field. A target drawn above that
   // box never receives taps, so while the math pad is open the view itself
   // stretches to the top of the screen and the dismiss target fills that space.
@@ -272,6 +297,17 @@ export const ChatComposer = memo(function ChatComposer({
       pointerEvents="box-none"
       testID="chat-composer"
     >
+      {gapFadeHeight > 0 ? (
+        <LinearGradient
+          pointerEvents="none"
+          colors={
+            gapFadeColors(theme.bg, gapFadeLocations) as [string, string, ...string[]]
+          }
+          locations={[...gapFadeLocations] as [number, number, ...number[]]}
+          style={[s.bottomFade, { height: gapFadeHeight }]}
+          testID="composer-bottom-fade"
+        />
+      ) : null}
       {mathDismissCoversScreen ? (
         <Pressable
           style={s.outsideDismiss}
@@ -430,9 +466,9 @@ export const ChatComposer = memo(function ChatComposer({
                       s.input,
                       composerExpanded
                         ? s.inputExpanded
-                        : inputHeight <= COMPOSER_INPUT_MIN_HEIGHT
+                        : fieldHeight <= COMPOSER_INPUT_MIN_HEIGHT
                           ? s.inputSingleLine
-                          : { height: inputHeight, textAlignVertical: "top" },
+                          : { height: fieldHeight, textAlignVertical: "top" as const },
                       parkInput ? s.inputParked : null,
                     ]}
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
@@ -443,13 +479,22 @@ export const ChatComposer = memo(function ChatComposer({
                     // correction does not flip mid-word inside one native session.
                     {...composerNativeInputTraits(math.mathBarOpen || showMathPreview)}
                     onChangeText={math.onChangeText}
+                    onLayout={(event) => {
+                      const next = Math.round(event.nativeEvent.layout.width);
+                      if (next <= 0) return;
+                      setInputContentWidth((current) => (current === next ? current : next));
+                    }}
                     onContentSizeChange={(event) => {
                       const measured = Math.ceil(event.nativeEvent.contentSize.height);
                       measuredContent.current = {
                         revision: draft?.revision ?? 0,
                         height: measured,
                       };
-                      const frame = composerInputFrameHeight(input, measured);
+                      const frame = composerInputFrameHeight(
+                        input,
+                        measured,
+                        inputContentWidth,
+                      );
                       setInputAtLimit(frame.overflows);
                       if (!composerExpanded) {
                         setInputHeight((current) =>
@@ -457,7 +502,7 @@ export const ChatComposer = memo(function ChatComposer({
                         );
                       }
                     }}
-                    scrollEnabled={inputAtLimit && !composerExpanded}
+                    scrollEnabled={fieldOverflows && !composerExpanded}
                     onSelectionChange={math.onSelectionChange}
                     selection={
                       showMathPreview
@@ -627,7 +672,14 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.bg,
     },
     expandedFill: { flex: 1, minHeight: 0 },
-    composerAnchor: { position: "relative", overflow: "visible" },
+    bottomFade: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 0,
+    },
+    composerAnchor: { position: "relative", overflow: "visible", zIndex: 1 },
     composer: { paddingVertical: 6, overflow: "visible" },
     inputStack: { position: "relative", overflow: "visible" },
     liveTalkRow: {

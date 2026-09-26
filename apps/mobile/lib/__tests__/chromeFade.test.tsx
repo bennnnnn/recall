@@ -1,4 +1,4 @@
-import { bottomChromeFadeColors, topChromeFadeColors } from "@/lib/chromeFade";
+import { bottomChromeFadeColors, drawerHeaderFade, topChromeFadeColors } from "@/lib/chromeFade";
 import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("chromeFade", () => {
@@ -24,6 +24,18 @@ describe("chromeFade", () => {
     const stops = bottomChromeFadeColors(darkTheme);
     expect(stops[0]).toBe(withAlpha(darkTheme.bg, 0));
     expect(stops[stops.length - 1]).toBe(darkTheme.bg);
+  });
+
+  it("drawer header stays solid in the status bar and fades across the title row", () => {
+    const fade = drawerHeaderFade(lightTheme, 67, 125, 165);
+    expect(fade.colors[0]).toBe(lightTheme.bg);
+    expect(fade.colors[1]).toBe(lightTheme.bg);
+    expect(fade.colors[3]).toBe(withAlpha(lightTheme.bg, 0));
+    expect(fade.locations[0]).toBe(0);
+    expect(fade.locations[3]).toBe(1);
+    expect(fade.locations[1]).toBeCloseTo(67 / 165, 5);
+    expect(fade.locations[2]).toBeCloseTo(125 / 165, 5);
+    expect(fade.locations[1]).toBeLessThan(fade.locations[2]);
   });
 
   it("light and dark use the same alpha curve (only the base color differs)", () => {
