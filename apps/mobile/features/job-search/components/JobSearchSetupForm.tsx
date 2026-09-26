@@ -2,13 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
-  Platform,
   Pressable,
   ScrollView,
   Text,
   View,
 } from "react-native";
-import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -187,11 +185,6 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
     }
   };
 
-  const onPickerChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === "android") setShowPicker(false);
-    if (event.type === "dismissed" || !date) return;
-    setNextRunAt(date);
-  };
 
   const moveBack = () => {
     if (busy) return;
@@ -388,7 +381,7 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
         onClosePicker={() => setShowPicker(false)}
         onSelectCount={setCount}
         onSelectFrequency={setFrequency}
-        onPickerChange={onPickerChange}
+        onPickNextRun={setNextRunAt}
       />
     </View>
   );

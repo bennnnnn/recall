@@ -11,6 +11,10 @@ const REPLACED_BY_UI_KIT = [
     name: "@expo/vector-icons",
     message: "Use Icon from @/ui/icons/Icon (Lucide line icons), or BrandMark for logos.",
   },
+  {
+    name: "@react-native-community/datetimepicker",
+    message: "Use TimePickerDialog / DatePickerDialog / DateTimePickerDialog from @/ui/pickers.",
+  },
 ];
 
 /** Popups live in ui/overlay; everything else asks it for one. Tests may still spy on Alert. */

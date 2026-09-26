@@ -36,8 +36,8 @@ jest.mock("@/features/job-search/components/SearchableMultiSelect", () => ({
 jest.mock("@/components/settings/SettingsPickerSheet", () => ({
   SettingsPickerSheet: () => null,
 }));
-jest.mock("@/features/todos/components/ReminderDateTimePicker", () => ({
-  ReminderDateTimePicker: () => null,
+jest.mock("@/ui/pickers/DateTimePickerDialog", () => ({
+  DateTimePickerDialog: () => null,
 }));
 jest.mock("@/ui/overlay/Sheet", () => ({
   Sheet: ({ children }: { children: React.ReactNode }) => {

@@ -60,7 +60,6 @@
           "sounds": ["./assets/audio/recall_notify.wav"]
         }
       ],
-      "@react-native-community/datetimepicker",
       [
         "expo-location",
         {

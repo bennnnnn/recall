@@ -1,25 +1,24 @@
-import { useMemo } from "react";
-import { Platform, StyleSheet, View } from "react-native";
-import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { SelectMenu } from "@/ui/overlay/SelectMenu";
-import { ReminderDateTimePicker } from "@/features/todos/components/ReminderDateTimePicker";
+import { DatePickerDialog } from "@/ui/pickers/DatePickerDialog";
+import { TimePickerDialog } from "@/ui/pickers/TimePickerDialog";
 import { repeatMessageKey } from "@/features/todos/model/repeatLabel";
 import { TodoCategoryPicker } from "@/features/todos/components/TodoCategoryField";
 import type { SchedulePanel } from "@/features/todos/components/TodoDateFields";
-import { withCalendarDate, withClockTime } from "@/features/todos/model/dueDate";
+import { withCalendarDate } from "@/features/todos/model/dueDate";
 import type { RecurrenceRule, Todo } from "@/lib/api";
 import { RECURRENCE_RULES } from "@/lib/api/types";
+import { timeFromDate, withTimeOfDay } from "@/lib/datetime/clockDial";
 
 export type TodoPicker = "category" | SchedulePanel;
 
-const CLOCK_HEIGHT = 216;
-
 /**
- * Category, repeat, date, and time use the Settings choice card.
- * Android date and time stay the system dialog, which is already its own window.
+ * The editor's pickers: category sheet, repeat popover, and the app's date
+ * and clock dialogs. They stay mounted so each one can fade out; `picker`
+ * says which is open. A date or time from an earlier opening (another to-do,
+ * or a dialog left over while saving) is dropped.
  */
 export function TodoPickers({
   picker,
@@ -33,7 +32,7 @@ export function TodoPickers({
   onRepeat,
   onClose,
 }: {
-  picker: TodoPicker;
+  picker: TodoPicker | null;
   topic: string;
   todos: Todo[];
   dueDate: Date | null;
@@ -45,55 +44,55 @@ export function TodoPickers({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const s = useMemo(() => StyleSheet.create({ clock: { height: CLOCK_HEIGHT } }), []);
-
-  if (picker === "category") {
-    return (
-      <TodoCategoryPicker
-        topic={topic}
-        todos={todos}
-        disabled={disabled}
-        onChange={onTopic}
-        onClose={onClose}
-      />
-    );
+  const due = dueDate ?? new Date();
+  const opened = useRef({ picker: null as TodoPicker | null, count: 0 });
+  if (picker !== opened.current.picker) {
+    opened.current = { picker, count: opened.current.count + (picker ? 1 : 0) };
   }
+  const openedCount = opened.current.count;
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+  const apply = (next: Date) => {
+    // An older opening leaves whatever is open now alone.
+    if (opened.current.count !== openedCount) return;
+    if (!disabledRef.current) onDueDate(next);
+    onClose();
+  };
 
-  if (picker === "repeat") {
-    const options = [
-      { key: "none", label: t("todos.repeat_none") },
-      ...RECURRENCE_RULES.map((rule) => ({ key: rule, label: t(repeatMessageKey(rule)) })),
-    ];
-    return (
+  return (
+    <>
+      {picker === "category" ? (
+        <TodoCategoryPicker
+          topic={topic}
+          todos={todos}
+          disabled={disabled}
+          onChange={onTopic}
+          onClose={onClose}
+        />
+      ) : null}
       <SelectMenu
-        visible
-        options={options}
+        visible={picker === "repeat"}
+        options={[
+          { key: "none", label: t("todos.repeat_none") },
+          ...RECURRENCE_RULES.map((rule) => ({ key: rule, label: t(repeatMessageKey(rule)) })),
+        ]}
         selectedKey={repeat ?? "none"}
         disabled={disabled}
         onSelect={(key) => onRepeat(key === "none" ? null : (key as RecurrenceRule))}
         onClose={onClose}
       />
-    );
-  }
-
-  if (!dueDate) return null;
-
-  const onChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (event.type === "dismissed" || !date) {
-      if (Platform.OS === "android") onClose();
-      return;
-    }
-    onDueDate(picker === "date" ? withCalendarDate(dueDate, date) : withClockTime(dueDate, date));
-    if (Platform.OS === "android") onClose();
-  };
-  const clock = (
-    <ReminderDateTimePicker mode={picker} value={dueDate} disabled={disabled} onChange={onChange} />
-  );
-  if (Platform.OS === "android") return clock;
-
-  return (
-    <SettingsPickerSheet visible onClose={onClose}>
-      <View style={s.clock}>{clock}</View>
-    </SettingsPickerSheet>
+      <DatePickerDialog
+        visible={picker === "date" && dueDate != null}
+        value={due}
+        onConfirm={(date) => apply(withCalendarDate(due, date))}
+        onCancel={onClose}
+      />
+      <TimePickerDialog
+        visible={picker === "time" && dueDate != null}
+        value={timeFromDate(due)}
+        onConfirm={(time) => apply(withTimeOfDay(due, time))}
+        onCancel={onClose}
+      />
+    </>
   );
 }

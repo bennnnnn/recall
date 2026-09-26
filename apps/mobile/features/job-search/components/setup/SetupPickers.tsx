@@ -1,14 +1,12 @@
 import type { RefObject } from "react";
-import { Platform, Pressable, Text, type View } from "react-native";
-import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import type { View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Sheet } from "@/ui/overlay/Sheet";
 import { SelectMenu } from "@/ui/overlay/SelectMenu";
-import { ReminderDateTimePicker } from "@/features/todos/components/ReminderDateTimePicker";
+import { DateTimePickerDialog } from "@/ui/pickers/DateTimePickerDialog";
 import type { JobSearchFrequency } from "@/lib/api";
 
-import { FREQUENCY_VALUES, useSetupStyles } from "./setupShared";
+import { FREQUENCY_VALUES } from "./setupShared";
 
 type ResultCount = 5 | 10 | 15;
 
@@ -29,7 +27,7 @@ type Props = {
   onClosePicker: () => void;
   onSelectCount: (value: ResultCount) => void;
   onSelectFrequency: (value: JobSearchFrequency) => void;
-  onPickerChange: (event: DateTimePickerEvent, date?: Date) => void;
+  onPickNextRun: (date: Date) => void;
 };
 
 export function SetupPickers({
@@ -49,10 +47,9 @@ export function SetupPickers({
   onClosePicker,
   onSelectCount,
   onSelectFrequency,
-  onPickerChange,
+  onPickNextRun,
 }: Props) {
   const { t } = useTranslation();
-  const s = useSetupStyles();
 
   return (
     <>
@@ -84,36 +81,16 @@ export function SetupPickers({
         onSelect={(key) => onSelectFrequency(key as JobSearchFrequency)}
       />
 
-      {/* Android fires native date→time dialogs from the rendered picker itself;
-          iOS gets the spinner inside a floating sheet with a Done button. */}
-      {Platform.OS === "android" && showPicker ? (
-        <ReminderDateTimePicker
-          mode="datetime"
-          value={nextRunAt}
-          onChange={onPickerChange}
-          disabled={busy}
-        />
-      ) : null}
-      <Sheet
-        visible={Platform.OS === "ios" && showPicker}
-        onClose={onClosePicker}
-        withHandle
-      >
-        <Text style={s.pickerTitle}>{t("my_job.first_delivery_label")}</Text>
-        <ReminderDateTimePicker
-          mode="datetime"
-          value={nextRunAt}
-          onChange={onPickerChange}
-          disabled={busy}
-        />
-        <Pressable
-          style={({ pressed }) => [s.pickerDone, pressed && s.pressed]}
-          onPress={onClosePicker}
-          accessibilityRole="button"
-        >
-          <Text style={s.pickerDoneText}>{t("common.done")}</Text>
-        </Pressable>
-      </Sheet>
+      <DateTimePickerDialog
+        visible={showPicker}
+        value={nextRunAt}
+        minimumDate={new Date()}
+        onConfirm={(date) => {
+          if (!busy) onPickNextRun(date);
+          onClosePicker();
+        }}
+        onCancel={onClosePicker}
+      />
     </>
   );
 }

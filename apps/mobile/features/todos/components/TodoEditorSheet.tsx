@@ -236,20 +236,18 @@ export const TodoEditorSheet = forwardRef<
         >
           {fields}
         </ScrollView>
-        {picker && !readOnly ? (
-          <TodoPickers
-            picker={picker}
-            topic={topic}
-            todos={todos}
-            dueDate={dueDate}
-            repeat={repeat}
-            disabled={saving}
-            onTopic={setTopic}
-            onDueDate={setDueDate}
-            onRepeat={setRepeat}
-            onClose={closePicker}
-          />
-        ) : null}
+        <TodoPickers
+          picker={readOnly ? null : picker}
+          topic={topic}
+          todos={todos}
+          dueDate={dueDate}
+          repeat={repeat}
+          disabled={saving}
+          onTopic={setTopic}
+          onDueDate={setDueDate}
+          onRepeat={setRepeat}
+          onClose={closePicker}
+        />
       </View>
     );
   }
@@ -277,20 +275,18 @@ export const TodoEditorSheet = forwardRef<
 
       <View style={s.sheetBody}>{fields}</View>
     </Sheet>
-    {visible && picker ? (
-      <TodoPickers
-        picker={picker}
-        topic={topic}
-        todos={todos}
-        dueDate={dueDate}
-        repeat={repeat}
-        disabled={saving}
-        onTopic={setTopic}
-        onDueDate={setDueDate}
-        onRepeat={setRepeat}
-        onClose={closePicker}
-      />
-    ) : null}
+    <TodoPickers
+      picker={visible ? picker : null}
+      topic={topic}
+      todos={todos}
+      dueDate={dueDate}
+      repeat={repeat}
+      disabled={saving}
+      onTopic={setTopic}
+      onDueDate={setDueDate}
+      onRepeat={setRepeat}
+      onClose={closePicker}
+    />
     </>
   );
 });

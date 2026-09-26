@@ -267,22 +267,6 @@ function makeStyles(C: Theme) {
     dateCopy: { flex: 1, gap: 2 },
     dateTitle: { ...Type.label, color: C.text },
     dateMeta: { ...Type.caption, color: C.textTertiary },
-    pickerTitle: {
-      ...Type.navTitle,
-      color: C.text,
-      ...Weight.bold,
-      textAlign: "center",
-      marginBottom: Space.xs,
-    },
-    pickerDone: {
-      minHeight: 50,
-      borderRadius: Radius.full,
-      backgroundColor: C.primary,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: Space.sm,
-    },
-    pickerDoneText: { ...Type.secondary, ...Weight.bold, color: C.onPrimary },
     primaryButton: {
       minHeight: 56,
       borderRadius: Radius.full,
