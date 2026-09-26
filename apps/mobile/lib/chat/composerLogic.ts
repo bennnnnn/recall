@@ -13,6 +13,14 @@ export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 export const COMPOSER_INPUT_MIN_HEIGHT = Space.minTouch;
 /** Extra Returns grow by one text line, not another full control. */
 export const COMPOSER_INPUT_LINE_HEIGHT = Space.lg;
+/**
+ * Equal padding above and below every line count: one line fills exactly the
+ * 44 pt of the + / send controls, so the caret sits on their midline, and each
+ * wrap adds one line height. Padding that changed with the line count made
+ * the measured height flip the field between its one- and multi-line layouts,
+ * and the text jumped up and down while typing.
+ */
+export const COMPOSER_INPUT_PADDING = (COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT) / 2;
 export const COMPOSER_INPUT_MAX_HEIGHT =
   COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT * 5;
 

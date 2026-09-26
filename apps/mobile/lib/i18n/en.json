@@ -202,7 +202,7 @@
   "chat.pin": "Pin",
   "chat.pin_failed": "Could not update pin.",
   "chat.pinned_toast": "Chat pinned",
-  "chat.placeholder": "Message Recall...",
+  "chat.placeholder": "Reply to Recall",
   "chat.plan_free": "Free",
   "chat.plan_pro": "Pro",
   "chat.quota_exceeded_free": "You've used up today's free limit.",

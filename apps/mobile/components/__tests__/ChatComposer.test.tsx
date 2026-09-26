@@ -259,6 +259,39 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
   });
 
+  it("keeps the same line box and padding as the draft wraps, so the text never jumps", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+
+    const { getByTestId } = await render(<Harness />);
+    // One line fills the 44 pt control height: 10 + 24 + 10, on the + / send midline.
+    const lineBox = { lineHeight: 24, paddingTop: 10, paddingBottom: 10 };
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ ...lineBox, height: 44 });
+
+    await fireEvent.changeText(
+      getByTestId("chat-composer-input"),
+      "The composer is acting crazy. First look it is pushing the text up",
+    );
+    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 44 } },
+    });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ ...lineBox, height: 44 });
+
+    // A soft wrap adds one line height and keeps the padding, so the next
+    // measurement agrees with this frame instead of flipping it back.
+    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 68 } },
+    });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ ...lineBox, height: 68 });
+    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 68 } },
+    });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ ...lineBox, height: 68 });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
   it("preserves leading indentation while typing a code block", async () => {
     function Harness() {
       const [input, setInput] = useState("");

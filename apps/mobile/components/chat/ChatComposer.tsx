@@ -33,8 +33,10 @@ import { useAuthToken } from "@/contexts/AuthContext";
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
+  COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
+  COMPOSER_INPUT_PADDING,
   composerInputFrameHeight,
   retainedComposerContentHeight,
   composerNativeInputTraits,
@@ -428,11 +430,8 @@ export const ChatComposer = memo(function ChatComposer({
                     testID="chat-composer-input"
                     style={[
                       s.input,
-                      composerExpanded
-                        ? s.inputExpanded
-                        : inputHeight <= COMPOSER_INPUT_MIN_HEIGHT
-                          ? s.inputSingleLine
-                          : { height: inputHeight, textAlignVertical: "top" },
+                      // One layout for every line count; only the height grows.
+                      composerExpanded ? s.inputExpanded : { height: inputHeight },
                       parkInput ? s.inputParked : null,
                     ]}
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
@@ -716,19 +715,16 @@ function makeStyles(theme: Theme) {
       flex: 1,
       ...Type.body,
       color: theme.text,
-      // Let the native line box scale with Dynamic Type. The bounds only
-      // control when the multiline input starts scrolling.
+      // A fixed line box and equal padding: one line is exactly the 44 pt
+      // control height (caret on the + / send midline), and the line being
+      // typed stays on that midline as the field grows upward. The bounds
+      // only control when the multiline input starts scrolling.
+      lineHeight: COMPOSER_INPUT_LINE_HEIGHT,
+      paddingTop: COMPOSER_INPUT_PADDING,
+      paddingBottom: COMPOSER_INPUT_PADDING,
+      textAlignVertical: "top",
       maxHeight: COMPOSER_INPUT_MAX_HEIGHT,
-      paddingVertical: 0,
       minHeight: COMPOSER_INPUT_MIN_HEIGHT,
-    },
-    inputSingleLine: {
-      height: COMPOSER_INPUT_MIN_HEIGHT,
-      // iOS pins multiline text to the top. This padding drops the first
-      // line onto the same midline as the 44pt + button.
-      paddingTop: Space.sm,
-      paddingBottom: 0,
-      textAlignVertical: "center",
     },
     inputExpanded: {
       height: undefined,

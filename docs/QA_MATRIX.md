@@ -42,6 +42,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 2.6 | Offline banner when API unreachable | ☐ | ☐ | |
 | 2.7 | Quota exceeded shows plan-aware alert | ☐ | ☐ | Free vs Pro copy |
 | 2.8 | Teach-me lesson, one step at a time | ☐ | ☐ | “Teach me python dictionary step by step”: one line on how it will go, a short outline, then only `Step 1/N` with an explanation, one small example and a check question at the end (A–D as plain text, no chips). Answer wrong → why, a new explanation, a new question. “No” → re-explained, not a greeting. “ok” / right answer → `Step 2/N`. Last step → short recap. “Just give me everything” → full reference. “How to install python step by step” stays a numbered how-to. |
+| 2.9 | Composer typing | ☐ | ☐ | Empty: “Reply to Recall”, caret level with the middle of + and send. Type a long message: at each wrap the box grows upward by one line and the line being typed stays level with the buttons, with no up-and-down jumps. Delete back to one line, or send: the box returns to one line. Largest text size: nothing clips. |
 
 ---
 
