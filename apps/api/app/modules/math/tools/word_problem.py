@@ -92,6 +92,10 @@ _FRACTION_WORDS = frozenset(
     {"half", "halves", "third", "thirds", "quarter", "quarters", "fourth", "fifth"}
 )
 _WORD = re.compile(r"[a-z]+")
+# "1/2" for half and "15/100" for 15% are one stated value, not two numbers.
+_FRACTION = re.compile(r"(?<![\d.])(\d+)\s*/\s*(\d+)(?![\d.])")
+# "(1 - 0.2)" for 20% off: the 1 belongs to a stated rate between 0 and 1.
+_ONE_AND_RATE = re.compile(r"\(\s*1\s*[+-]\s*(\d*\.\d+|\d+\s*/\s*\d+)\s*\)")
 
 _PROMPT = """Translate the word problem into equations for a symbolic solver.
 
@@ -134,7 +138,7 @@ def word_problem_candidate(text: str) -> bool:
 
 def _stated_numbers(text: str) -> set[Fraction]:
     lowered = text.lower()
-    stated = {Fraction(1)}
+    stated: set[Fraction] = set()
     for number in _DIGITS.findall(lowered):
         stated.add(Fraction(number.replace(",", "")))
     for word in _WORD.findall(lowered):
@@ -148,15 +152,38 @@ def _stated_numbers(text: str) -> set[Fraction]:
     return stated
 
 
+def _unstated(piece: str, stated: set[Fraction]) -> list[str]:
+    """The numbers in ``piece`` that the problem does not state."""
+
+    def rate(match: re.Match[str]) -> str:
+        try:
+            value = Fraction(match.group(1).replace(" ", ""))
+        except (ValueError, ZeroDivisionError):
+            return match.group(0)
+        return f" {match.group(1)} " if 0 < value < 1 and value in stated else match.group(0)
+
+    def fraction(match: re.Match[str]) -> str:
+        numerator, denominator = int(match.group(1)), int(match.group(2))
+        if denominator and Fraction(numerator, denominator) in stated:
+            return " "
+        return match.group(0)
+
+    piece = _FRACTION.sub(fraction, _ONE_AND_RATE.sub(rate, piece))
+    numbers = _DIGITS.findall(piece)
+    return [number for number in numbers if Fraction(number.replace(",", "")) not in stated]
+
+
 def grounded(setup: WordProblemSetup, text: str) -> bool:
-    """Every number in the translation is one the problem states."""
+    """Every number in the translation is one the problem states.
+
+    A 1 counts only when the problem implies it: stated in digits or words
+    ("one", "consecutive"), as a stated fraction ("1/2" for half), or in a
+    stated rate ("(1 - 0.2)" for 20% off). "A number plus 7 is 19" cannot
+    become ``n + 1 = 19``.
+    """
     stated = _stated_numbers(text)
     written = [item.equation for item in setup.equations] + [t.expr for t in setup.targets]
-    for piece in written:
-        for number in _DIGITS.findall(piece):
-            if Fraction(number.replace(",", "")) not in stated:
-                return False
-    return True
+    return not any(_unstated(piece, stated) for piece in written)
 
 
 async def word_problem_intent(text: str, settings: Settings) -> MathIntent | None:

@@ -120,7 +120,8 @@ def solve_word_problem(setup: WordProblemSetup) -> WordSolution | None:
     answers: list[Any] = []
     for target in setup.targets:
         expr = _parse(target.expr, names)
-        if expr is None or not expr.free_symbols <= set(symbols):
+        # A target that names no unknown ("48") would show a stated number as the answer.
+        if expr is None or not expr.free_symbols or not expr.free_symbols <= set(symbols):
             return None
         value = simplify(expr.subs(solution))
         if not getattr(value, "is_number", False) or not value.is_real:

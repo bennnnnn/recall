@@ -268,7 +268,7 @@ def _linear_rows(pairs: list[tuple[Any, Any]], x: Any, y: Any) -> list[tuple[Any
     return rows
 
 
-def _solved_for(lhs: Any, rhs: Any, candidates: tuple[Any, Any]) -> tuple[Any, Any] | None:
+def _solved_for(lhs: Any, rhs: Any, candidates: tuple[Any, ...]) -> tuple[Any, Any] | None:
     """``y = 2x + 1`` → (y, 2x + 1) when one side is exactly one unknown."""
     for side, other in ((lhs, rhs), (rhs, lhs)):
         for var in candidates:
@@ -331,26 +331,27 @@ def _substitution_steps(
     solution: dict[Any, Any],
 ) -> list[KeyStep] | None:
     isolated: tuple[int, Any, Any] | None = None
-    for index, (lhs, rhs) in enumerate(pairs):
-        found = _solved_for(lhs, rhs, (x, y))
-        if found is not None:
-            isolated = (index, found[0], found[1])
-            break
     steps: list[KeyStep] = []
+    # An equation in one unknown ("4x = 8") gives that unknown's value first.
+    for index, (a, b, _) in enumerate(rows):
+        if (a == 0) != (b == 0):
+            isolated = _isolate(pairs, index, y if a == 0 else x, steps)
+            if isolated is None:
+                return None
+            break
+    if isolated is None:
+        for index, (lhs, rhs) in enumerate(pairs):
+            found = _solved_for(lhs, rhs, (x, y))
+            if found is not None:
+                isolated = (index, found[0], found[1])
+                break
     if isolated is None:
         for index, (a, b, _) in enumerate(rows):
             for var, coefficient in ((x, a), (y, b)):
                 if coefficient in (1, -1):
-                    expression = solve(Eq(*pairs[index]), var)
-                    if len(expression) != 1:
+                    isolated = _isolate(pairs, index, var, steps)
+                    if isolated is None:
                         return None
-                    isolated = (index, var, expression[0])
-                    steps.append(
-                        KeyStep(
-                            label=f"Solve equation ({index + 1}) for {latex(var)}",
-                            formula=_equation_tex(var, expression[0]),
-                        )
-                    )
                     break
             if isolated is not None:
                 break
@@ -377,16 +378,36 @@ def _substitution_steps(
     back = expression.subs(other, solution[other])
     if not _holds(var, back, solution):
         return None
+    if other in expression.free_symbols:
+        steps.append(
+            KeyStep(
+                label=f"Substitute {latex(other)} = {label_tex(solution[other])} back",
+                formula=(
+                    f"{latex(var)} = {_substituted_tex(expression, other, solution[other])}"
+                    f" = {latex(simplify(back))}"
+                ),
+            )
+        )
+    return steps
+
+
+def _isolate(
+    pairs: list[tuple[Any, Any]], index: int, var: Any, steps: list[KeyStep]
+) -> tuple[int, Any, Any] | None:
+    """Solve equation ``index`` for ``var``; no step when it already reads ``var = …``."""
+    found = _solved_for(*pairs[index], (var,))
+    if found is not None:
+        return index, var, found[1]
+    expression = solve(Eq(*pairs[index]), var)
+    if len(expression) != 1:
+        return None
     steps.append(
         KeyStep(
-            label=f"Substitute {latex(other)} = {label_tex(solution[other])} back",
-            formula=(
-                f"{latex(var)} = {_substituted_tex(expression, other, solution[other])}"
-                f" = {latex(simplify(back))}"
-            ),
+            label=f"Solve equation ({index + 1}) for {latex(var)}",
+            formula=_equation_tex(var, expression[0]),
         )
     )
-    return steps
+    return index, var, expression[0]
 
 
 def _elimination_steps(
@@ -411,11 +432,16 @@ def _elimination_steps(
                 formula=(f"{_equation_tex(*standard[0])}, \\quad {_equation_tex(*standard[1])}"),
             )
         )
-    # Eliminate the unknown whose coefficients need the smaller common multiple.
-    eliminate_y = ilcm(int(abs(b1)), int(abs(b2))) <= ilcm(int(abs(a1)), int(abs(a2)))
-    first, second = (b1, b2) if eliminate_y else (a1, a2)
-    if first == 0 or second == 0:
+    # Eliminate the unknown whose coefficients need the smaller common multiple;
+    # a column with a zero has nothing to cancel.
+    x_column = a1 != 0 and a2 != 0
+    y_column = b1 != 0 and b2 != 0
+    if not (x_column or y_column):
         return None
+    eliminate_y = y_column and (
+        not x_column or ilcm(int(abs(b1)), int(abs(b2))) <= ilcm(int(abs(a1)), int(abs(a2)))
+    )
+    first, second = (b1, b2) if eliminate_y else (a1, a2)
     common = ilcm(int(abs(first)), int(abs(second)))
     multipliers = (common // int(abs(first)), common // int(abs(second)))
     scaled: list[tuple[Any, Any, Any]] = []

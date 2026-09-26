@@ -10,6 +10,8 @@ from sympy.core.relational import Ge, Gt, Le, Lt
 from app.core.config import Settings
 from app.modules.math import tools as mt
 from app.modules.math.solve.traces import (
+    _elimination_steps,
+    _linear_rows,
     compound_inequality_key_steps,
     inequality_key_steps,
     system_key_steps,
@@ -146,6 +148,43 @@ def test_system_trace_eliminates_with_integer_multipliers():
         ("Divide both sides by 19", "x = 2"),
     ]
     assert steps[-1].formula == "y = 5"
+
+
+def test_system_trace_solves_an_equation_in_one_unknown_first():
+    steps = system_key_steps([(2 * x + 3 * y, sympify(12)), (4 * x, sympify(8))], ["x", "y"])
+    assert _steps(steps)[:2] == [
+        ("Solve equation (2) for x", "x = 2"),
+        ("Substitute into equation (1)", r"2 \left(2\right) + 3 y = 12"),
+    ]
+    assert steps[-1].formula == r"y = \frac{8}{3}"
+
+
+@pytest.mark.parametrize(
+    "pairs, last",
+    [
+        # Already solved: no "Solve" line, and no "x = 2 = 2" back-substitution.
+        ([(x, sympify(2)), (x + y, sympify(5))], "y = 3"),
+        # The one-unknown equation goes first, even beside one solved for y.
+        ([(y, 2 * x + 1), (4 * x, sympify(8))], "y = 5"),
+    ],
+)
+def test_system_trace_skips_the_back_substitution_for_a_known_value(pairs, last):
+    steps = system_key_steps(pairs, ["x", "y"])
+    assert steps[-1].formula == last
+    assert not any("back" in step.label for step in steps)
+
+
+def test_system_elimination_skips_a_column_with_a_zero():
+    pairs = [(2 * x + 3 * y, sympify(12)), (4 * x, sympify(8))]
+    rows = _linear_rows(pairs, x, y)
+    assert rows is not None
+    steps = _elimination_steps(pairs, rows, x, y, {x: sympify(2), y: sympify(8) / 3})
+    assert steps is not None
+    assert _steps(steps)[:2] == [
+        ("Multiply equation (1) by 2", "4 x + 6 y = 24"),
+        ("Subtract equation (2) from equation (1)", "6 y = 16"),
+    ]
+    assert steps[-1].formula == "x = 2"
 
 
 @pytest.mark.parametrize(

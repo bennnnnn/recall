@@ -147,21 +147,37 @@ def test_gate_opens_for_a_word_problem() -> None:
         ("After a 20% discount a shirt costs $40. What was the price?", "p - 0.2*p = 40"),
         ("After a 20% discount a shirt costs $40. What was the price?", "p*(100 - 20)/100 = 40"),
         ("A dozen eggs cost $3 more than 6 apples. Find the cost.", "c = 12"),
+        ("Half of a number is 9. What is the number?", "1/2*n = 9"),
+        ("After a 20% discount a shirt costs $40. What was the price?", "p*(1 - 0.2) = 40"),
+        ("After a 20% discount a shirt costs $40. What was the price?", "p*(1 - 20/100) = 40"),
+        ("A third of the class left and 20 stayed. How many were there?", "n*(1 - 1/3) = 20"),
+        ("One more than twice a number is 15. What is the number?", "2*n + 1 = 15"),
     ],
 )
 def test_grounded_accepts_numbers_the_problem_states(text: str, equation: str) -> None:
     setup = _setup(
-        AGES_SETUP, equations=[{"equation": equation}], targets=[{"expr": "1", "meaning": "x"}]
+        AGES_SETUP, equations=[{"equation": equation}], targets=[{"expr": "n", "meaning": "x"}]
     )
     assert grounded(setup, text)
 
 
-def test_grounded_refuses_a_smuggled_number() -> None:
-    text = "John has 5 more apples than Sam. Together they have 23 apples. How many does Sam have?"
+@pytest.mark.parametrize(
+    "text, equation",
+    [
+        (
+            "John has 5 more apples than Sam. Together they have 23 apples. How many does Sam have?",
+            "s + (s + 7) = 23",
+        ),
+        # A 1 the problem never implies.
+        ("A number plus 7 is 19. What is the number?", "n + 1 = 19"),
+        ("After a 20% discount a shirt costs $40. What was the price?", "p + 1 - 0.2*p = 40"),
+        ("After a 20% discount a shirt costs $40. What was the price?", "p*(1 - 0.3) = 40"),
+        ("Half of a number is 9. What is the number?", "1/3*n = 9"),
+    ],
+)
+def test_grounded_refuses_a_smuggled_number(text: str, equation: str) -> None:
     setup = _setup(
-        AGES_SETUP,
-        equations=[{"equation": "s + (s + 7) = 23"}],
-        targets=[{"expr": "s", "meaning": "Sam's apples"}],
+        AGES_SETUP, equations=[{"equation": equation}], targets=[{"expr": "n", "meaning": "x"}]
     )
     assert not grounded(setup, text)
 
@@ -237,6 +253,9 @@ def test_solve_keeps_one_root_that_fits_the_domain() -> None:
         # Nothing asked.
         {"targets": []},
         {"found": False},
+        # A target that names no unknown would show a stated number as the answer.
+        {"targets": [{"expr": "20", "meaning": "adults who went"}]},
+        {"targets": [{"expr": "a - a + 20", "meaning": "adults who went"}]},
     ],
 )
 def test_solve_refuses(overrides: dict[str, Any]) -> None:
@@ -339,6 +358,8 @@ async def test_intent_uses_one_bounded_call(monkeypatch: pytest.MonkeyPatch) -> 
         None,
         {"found": False},
         {**AGES_SETUP, "equations": [{"equation": "m = 7*s"}, {"equation": "m + s = 48"}]},
+        # A 1 the problem never states.
+        {**AGES_SETUP, "equations": [{"equation": "m = 3*s + 1"}, {"equation": "m + s = 48"}]},
     ],
 )
 async def test_intent_refuses_missing_or_ungrounded(
