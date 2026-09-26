@@ -96,11 +96,12 @@ export function SegmentedControl<K extends string>({
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
+    // The thumb is always the lighter of the two, so the choice reads as raised.
     track: {
       flexDirection: "row",
       padding: Space.xxs,
       borderRadius: Radius.full,
-      backgroundColor: t.control,
+      backgroundColor: t.isDark ? t.surface : t.control,
     },
     thumb: {
       position: "absolute",
@@ -108,7 +109,7 @@ function makeStyles(t: Theme) {
       bottom: Space.xxs,
       left: Space.xxs,
       borderRadius: Radius.full,
-      backgroundColor: t.elevated,
+      backgroundColor: t.isDark ? t.control : t.elevated,
       ...shadowRaised(t),
     },
     segment: {
