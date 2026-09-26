@@ -247,6 +247,21 @@ Rebuild the dev client once first: the native date/time picker module was remove
 | 17.10 | TalkBack / VoiceOver on the clock dial | ☐ | ☐ | One adjustable control; swipe up/down changes the value; the time is read out. |
 | 17.11 | Light and dark mode on the pickers, share sheet, menus and header plates | ☐ | ☐ | Dial and boxes stand out from the dialog in dark mode. |
 
+## 18. Memory pages (Claude-style)
+
+Use a real model (not `MOCK_LLM_ENABLED`). Memory must be on in Settings.
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 18.1 | In a new chat say your job, city, a project you are building by name, and "keep answers short" | ☐ | ☐ | Within a minute Memory shows Profile, Preferences and an Area named after the project, each with a summary and today's date. |
+| 18.2 | Open Memory for the first time on an account with older chats | ☐ | ☐ | "Reading your recent chats…" shows, then pages from those chats appear without leaving the screen. |
+| 18.3 | Type "You can disagree with me more" in the box and send | ☐ | ☐ | A toast repeats what changed; Preferences shows the new line; the box clears. |
+| 18.4 | Open a page, tap a fact | ☐ | ☐ | Edit and Delete appear at the finger; Edit saves new text; Delete asks first. |
+| 18.5 | Delete a whole page | ☐ | ☐ | Confirm dialog, then back to the list without the page. |
+| 18.6 | Say "I have a peanut allergy", then "I'm building a dating app" | ☐ | ☐ | The allergy is not saved unless you said "remember" or turned on sensitive topics; the dating app is saved as a project. |
+| 18.7 | Composer with the keyboard open | ☐ | ☐ | The box sits above the keyboard (iOS) and the list still scrolls; Android resizes. |
+| 18.8 | Switch accounts with Memory open | ☐ | ☐ | The next account never shows the previous account's pages. |
+
 ---
 
 ## Sign-off
