@@ -271,7 +271,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   → correct the misconception briefly with a fresh example, then advance unless the
   learner explicitly says they are confused; confusion → explain differently; keyboard
   smash/accidental input is not graded. Never replay an already-delivered step verbatim
-  unless the learner asks to see it again.
+  unless the learner asks to see it again. Auto model routing must use the smart
+  tier for interactive tutoring and full learning roadmaps; otherwise a short opening prompt
+  silently falls to Flash and recreates the shallow-plan problem even with the right prompt hint.
 - **Study tips were a jokey essay, no Tip/Warning cards.** Slim turns get
   `COMPACT_RESPONSE_FORMAT_HINT` (plain prose) and never see FORMAT_CONTRACT's
   callout line, so "include a warning" became `## A Friendly Warning`. Swap
