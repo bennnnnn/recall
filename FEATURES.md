@@ -106,8 +106,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
   Opening another thread restores that draft and clears attachment and in-progress
   dictation so they cannot send into the wrong conversation.
+- ✅ **Teach-me lessons** — “teach me X”, “help me learn X”, “I want to learn X” (and
+  the teach verbs in the other app languages) run as a lesson, not a how-to list: a
+  short outline, then one step at a time (`### Step 1/6 — …`, a plain explanation,
+  one small example), each ending on one check question (predict the output, fill
+  in a blank, or A–D written as plain text). The next turn grades the answer and
+  explains why, re-explains another way on a wrong answer or “no”, then teaches
+  the next step; the last step ends with a short recap. “Everything at once” / a
+  cheat sheet still gets the full reference, and procedures (“teach me how to
+  install Docker”) keep the how-to steps. No tappable quiz chips in chat.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
-  not a greeting. “One sentence” / briefly beats chart, compare, and how-to
+  not a greeting. A short answer (“no”, “got it”) to a question or lesson step
+  loads the recent messages and continues the thread. “One sentence” / briefly beats chart, compare, and how-to
   layout. Sequence diagrams use `sequenceDiagram`, not a flowchart. Bare
   “write me an email” asks one purpose question; a named purpose still drafts
   now. Real/my chart data without numbers asks once instead of inventing a
@@ -168,7 +178,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 4. Formatting & rendering
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
   inline code, horizontal rules.
-- ✅ **Code blocks** — dark card, language badge, copy button, horizontal scroll.
+- ✅ **Code blocks** — a clean rounded card with the copy button floating in its
+  corner (no header bar or language label), syntax colors, horizontal scroll.
   Fenced bodies stay opaque to math/table beautification (`$$` in a Python string,
   a quoted GFM table, ASCII boxes in ` ```text `).
 - ✅ **Syntax highlighting** — **Prism.js** token coloring for 40+ languages (comments, strings,

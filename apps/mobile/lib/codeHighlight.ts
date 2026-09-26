@@ -189,14 +189,6 @@ export function groupTokensByLine(tokens: HighlightToken[]): HighlightToken[][] 
   return lines;
 }
 
-const HIDDEN_LANG_BADGES = new Set(["", "clike", "plain", "text", "code"]);
-
-export function displayLang(lang: string): string {
-  const trimmed = lang.trim().toLowerCase();
-  if (HIDDEN_LANG_BADGES.has(trimmed)) return "";
-  return trimmed;
-}
-
 /** True for ```html / ```htm / ```markup fences. */
 export function isHtmlFenceLang(lang: string): boolean {
   const l = lang.trim().toLowerCase();

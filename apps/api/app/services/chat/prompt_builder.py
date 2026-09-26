@@ -72,6 +72,8 @@ from app.services.chat.prompt_constants import (
     SHORT_RESPONSE_FORMAT_HINT,
     SOCIAL_DRAFT_HINT,
     STYLE_HINTS,
+    TEACHING_HINT,
+    TEACHING_SHORT_NOTE,
     TONE_FORMAT_GUARD,
     TRANSLATION_FORMAT_HINT,
     UNIVERSAL_FORMAT_BASELINE,
@@ -92,7 +94,10 @@ from app.services.chat.prompt_constants import (
     is_sequence_diagram_question,
     is_short_confirmation,
     is_structured_comparison_question,
+    is_teaching_request,
     is_underspecified_writing_request,
+    lesson_continue_hint,
+    lesson_step,
     recalls_earlier_conversation,
     writing_request_kind,
 )
@@ -678,6 +683,10 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return QUOTE_FORMAT_HINT
     if is_callout_question(query_text):
         return CALLOUT_FORMAT_HINT
+    # "Teach me X step by step" is a lesson, not a how-to ("step by step" alone
+    # used to pick the how-to shape and compress the lesson into a reference list).
+    if is_teaching_request(query_text):
+        return TEACHING_HINT
     if is_howto_question(query_text):
         return HOWTO_FORMAT_HINT
     return None
@@ -711,8 +720,12 @@ def _style_format_hints(
     minimal_personal_context: bool,
     compact: bool = False,
     image_generation_enabled: bool = True,
+    lesson: tuple[int, int] | None = None,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
+
+    ``lesson`` is the (step, total) the previous reply taught, when it was a
+    lesson step: this turn answers its check question, so the lesson goes on.
 
     ``compact`` is for greetings and pasted fragments only — not for
     "no personal data". Ordinary questions get FORMAT_CONTRACT; math/viz
@@ -730,10 +743,11 @@ def _style_format_hints(
             CAPABILITIES_FORMAT_HINT,
             MATH_FENCE_SAFETY_HINT,
         ]
-    if query_text and is_personal_disclosure_turn(query_text):
+    if query_text and is_personal_disclosure_turn(query_text) and not lesson:
         # A first-person update is not an invitation to generate a guide. Keep
         # the contract small and decisive so the general rich-format pack
         # cannot turn "I work at Uber..." into an unsolicited career plan.
+        # Mid-lesson, "I'm confused" answers the check question instead.
         return [
             CLARIFICATION_HINT,
             PRIVACY_HINT,
@@ -745,6 +759,14 @@ def _style_format_hints(
         ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     writing = _writing_format_hint(query_text)
+    teaching = bool(
+        query_text
+        and writing is None
+        and not is_brevity_request(query_text)
+        and is_teaching_request(query_text)
+    )
+    # A new "teach me" starts its own lesson; otherwise the last step goes on.
+    lesson_hint = lesson_continue_hint(*lesson) if lesson and not teaching and not writing else None
     if query_text and writing is None:
         parts.append(NON_DRAFT_TURN_HINT)
     math_intent, viz_intent = _math_viz_intent(query_text)
@@ -762,8 +784,16 @@ def _style_format_hints(
         parts.append(BROAD_SELF_ANSWER_HINT)
     if style == "short":
         parts.append(UNIVERSAL_FORMAT_BASELINE)
-        # Explicit draft/prose still wins over "plain text, skip fences".
-        parts.append(writing if writing else SHORT_RESPONSE_FORMAT_HINT)
+        # Explicit draft/prose still wins over "plain text, skip fences". A lesson
+        # keeps its step headings, only smaller.
+        if writing:
+            parts.append(writing)
+        elif teaching:
+            parts.extend([TEACHING_HINT, TEACHING_SHORT_NOTE])
+        elif lesson_hint:
+            parts.append(TEACHING_SHORT_NOTE)
+        else:
+            parts.append(SHORT_RESPONSE_FORMAT_HINT)
     elif is_day_plan:
         # Day-plan used to miss math guardrails. Keep a short fence-safety
         # line so incidental `$...$` still renders; keep FORMAT_CONTRACT so
@@ -792,6 +822,8 @@ def _style_format_hints(
         layout = _layout_format_hint(query_text)
         if layout:
             parts.append(layout)
+    if lesson_hint:
+        parts.append(lesson_hint)
     if query_text and is_image_generation_mention(query_text):
         parts.append(
             IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT
@@ -1061,6 +1093,15 @@ async def build_prompt_messages(
     ):
         followup_exchange = recent[:-1]
     math_followup = is_math_followup(query_text, followup_exchange)
+    prior_reply = next(
+        (
+            m.content
+            for m in reversed(followup_exchange)
+            if m.role == "assistant" and isinstance(m.content, str)
+        ),
+        None,
+    )
+    lesson = lesson_step(prior_reply)
     chat_history_rag_block = ""
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
@@ -1097,6 +1138,9 @@ async def build_prompt_messages(
     compact_format = bool(query_text and is_bare_writing_line(query_text))
     if query_text and is_short_confirmation(query_text) and not lightweight:
         compact_format = True
+    if lesson:
+        # "ok" / "yes" to a lesson step asks for the next step, not a casual reply.
+        compact_format = False
     if lightweight:
         system_parts.append(LIGHTWEIGHT_REPLY_HINT)
         system_parts.append(SHORT_RESPONSE_FORMAT_HINT)
@@ -1113,6 +1157,7 @@ async def build_prompt_messages(
                 minimal_personal_context=minimal_personal_context,
                 compact=compact_format,
                 image_generation_enabled=settings.image_generation_enabled,
+                lesson=lesson,
             )
         )
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))

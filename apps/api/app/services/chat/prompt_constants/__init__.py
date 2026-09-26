@@ -76,6 +76,13 @@ from app.services.chat.prompt_constants.routing import (
     recalls_earlier_conversation,
     writing_request_kind,
 )
+from app.services.chat.prompt_constants.teaching import (
+    TEACHING_HINT,
+    TEACHING_SHORT_NOTE,
+    is_teaching_request,
+    lesson_continue_hint,
+    lesson_step,
+)
 from app.services.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
     IMAGE_GEN_HONESTY_HINT,
@@ -141,6 +148,8 @@ __all__ = [
     "SHORT_RESPONSE_FORMAT_HINT",
     "SOCIAL_DRAFT_HINT",
     "STYLE_HINTS",
+    "TEACHING_HINT",
+    "TEACHING_SHORT_NOTE",
     "TONE_FORMAT_GUARD",
     "TRANSLATION_FORMAT_HINT",
     "UNIVERSAL_FORMAT_BASELINE",
@@ -168,8 +177,11 @@ __all__ = [
     "is_short_confirmation",
     "is_short_reply",
     "is_structured_comparison_question",
+    "is_teaching_request",
     "is_underspecified_writing_request",
     "is_writing_deliverable_request",
+    "lesson_continue_hint",
+    "lesson_step",
     "needs_rich_context",
     "prior_looks_like_offer",
     "recalls_earlier_conversation",

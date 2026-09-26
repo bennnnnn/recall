@@ -41,6 +41,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 2.5 | New chat created on first message | ☐ | ☐ | No empty chat rows |
 | 2.6 | Offline banner when API unreachable | ☐ | ☐ | |
 | 2.7 | Quota exceeded shows plan-aware alert | ☐ | ☐ | Free vs Pro copy |
+| 2.8 | Teach-me lesson, one step at a time | ☐ | ☐ | “Teach me python dictionary step by step”: one line on how it will go, a short outline, then only `Step 1/N` with an explanation, one small example and a check question at the end (A–D as plain text, no chips). Answer wrong → why, a new explanation, a new question. “No” → re-explained, not a greeting. “ok” / right answer → `Step 2/N`. Last step → short recap. “Just give me everything” → full reference. “How to install python step by step” stays a numbered how-to. |
 
 ---
 
@@ -49,7 +50,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|
 | 3.1 | Markdown (bold, lists, tables) | ☐ | ☐ | |
-| 3.2 | Code blocks + syntax highlight | ☐ | ☐ | |
+| 3.2 | Code blocks + syntax highlight | ☐ | ☐ | Rounded card, no header bar or language label; copy icon floats top-right and turns into ✓. A long line scrolls sideways and does not run under the copy icon at the end. HTML fence: play button sits beside copy. Light and dark. |
 | 3.3 | Math / LaTeX | ☐ | ☐ | |
 | 3.4 | Geometry / graph SVG | ☐ | ☐ | Works in Expo Go |
 | 3.5 | HTML preview (WebView) | ☐ | ☐ | Dev build only |

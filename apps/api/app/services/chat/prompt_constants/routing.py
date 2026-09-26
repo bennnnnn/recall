@@ -9,6 +9,7 @@ from app.services.chat.prompt_constants.locale_cues import (
     is_bare_locale_cue,
     starts_with_locale_cue,
 )
+from app.services.chat.prompt_constants.teaching import lesson_step
 from app.services.text_normalize import collapse_ws
 
 # Patterns assume input was passed through ``collapse_ws`` (single spaces only).
@@ -122,7 +123,10 @@ def prior_looks_like_offer(prior_assistant: str | None) -> bool:
     tail = cleaned[-400:].lower()
     if any(phrase in tail for phrase in _OFFER_PHRASES):
         return True
-    return "?" in cleaned[-200:]
+    if "?" in cleaned[-200:]:
+        return True
+    # A lesson step ends on a check question, even when its options trail it.
+    return lesson_step(prior_assistant) is not None
 
 
 def is_lightweight_chat_turn(
