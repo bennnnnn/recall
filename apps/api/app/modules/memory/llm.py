@@ -98,7 +98,8 @@ async def revise_memory_facts(
         model_alias="memory-model",
         messages=messages,
         schema=MemoryFactUpdateResult,
-        max_tokens=1024,
+        # Room for several ops; a reply cut off mid-JSON is discarded whole.
+        max_tokens=2048,
     )
 
 

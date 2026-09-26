@@ -20,7 +20,9 @@ from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.extract_backlog import (
+    clear_failed_extract_passes,
     expand_memory_extract_transcript,
+    note_failed_extract_pass,
     stamp_extract_cursor,
 )
 from app.modules.memory.facts import should_skip_sensitive_persist
@@ -155,6 +157,10 @@ async def extract_and_store_memories(
             forget = is_explicit_forget_command(expanded)
             explicit_remember = is_explicit_memory_command(expanded) and not forget
             if not explicit_remember and not forget and not is_memory_candidate(expanded):
+                # Small talk only: nothing to learn, but the lines are read. Moving
+                # the cursor keeps a run of "ok"s from hiding every later line.
+                if newest_cursor:
+                    await stamp_extract_cursor(user_id, chat_id, newest_cursor)
                 logger.info(
                     "memory_extract_yield user_id=%s applied=0 skipped=candidate",
                     user_id,
@@ -166,6 +172,19 @@ async def extract_and_store_memories(
                 expanded,
                 existing_facts=snapshot.prompt_facts,
             )
+            if result is None:
+                # Provider error, timeout or unreadable JSON. Keep the cursor so the
+                # next turn retries these lines, up to FAILED_PASS_LIMIT times.
+                advance_cursor = await note_failed_extract_pass(user_id, chat_id)
+                logger.warning(
+                    "memory_extract_model_failed user_id=%s chat_id=%s moving_on=%s",
+                    user_id,
+                    chat_id,
+                    advance_cursor,
+                )
+            else:
+                advance_cursor = True
+                await clear_failed_extract_passes(user_id, chat_id)
             writes, skipped = _writes_from_ops(
                 result.ops if result else [],
                 chat_id=chat_id,
@@ -190,7 +209,7 @@ async def extract_and_store_memories(
                     )
                 )
             if not writes:
-                if newest_cursor:
+                if newest_cursor and advance_cursor:
                     await stamp_extract_cursor(user_id, chat_id, newest_cursor)
                 logger.info("memory_extract_yield user_id=%s applied=0 skipped=empty", user_id)
                 return None
@@ -209,7 +228,7 @@ async def extract_and_store_memories(
                 len(writes),
                 skipped,
             )
-            if newest_cursor:
+            if newest_cursor and advance_cursor:
                 await stamp_extract_cursor(user_id, chat_id, newest_cursor)
         finally:
             await release_memory_write_lock(user_id, lock_token)

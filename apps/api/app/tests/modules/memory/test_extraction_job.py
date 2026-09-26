@@ -206,7 +206,77 @@ async def test_extract_skips_non_candidate_small_talk():
 
     revise.assert_not_awaited()
     apply.assert_not_awaited()
-    stamp.assert_not_awaited()
+    # The lines were read. Keeping the cursor would let a run of small talk fill
+    # the backlog page and hide every later line in the chat.
+    stamp.assert_awaited_once()
+    assert stamp.await_args.args[2] == "cursor-1"
+
+
+@contextmanager
+def _cursor_patches(*, revise: AsyncMock, give_up: bool = False):
+    stamp = AsyncMock()
+    note_failed = AsyncMock(return_value=give_up)
+    clear_failed = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=_user()),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.background.memory_extraction.expand_memory_extract_transcript",
+            AsyncMock(return_value=("User: I build mobile apps with Expo", "cursor-2")),
+        ),
+        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
+        patch("app.background.memory_extraction.apply_memory_facts", AsyncMock()),
+        patch("app.background.memory_extraction.stamp_extract_cursor", stamp),
+        patch("app.background.memory_extraction.note_failed_extract_pass", note_failed),
+        patch("app.background.memory_extraction.clear_failed_extract_passes", clear_failed),
+    ):
+        yield SimpleNamespace(stamp=stamp, note_failed=note_failed, clear_failed=clear_failed)
+
+
+@pytest.mark.asyncio
+async def test_extract_keeps_cursor_when_the_model_call_fails(caplog: pytest.LogCaptureFixture):
+    with _cursor_patches(revise=AsyncMock(return_value=None)) as patched:
+        with caplog.at_level("WARNING", logger="app.modules.memory.extraction_workflow"):
+            await extract_and_store_memories(
+                Settings(), user_id=uuid4(), chat_id=uuid4(), transcript="unused"
+            )
+
+    patched.note_failed.assert_awaited_once()
+    patched.stamp.assert_not_awaited()
+    patched.clear_failed.assert_not_awaited()
+    assert "memory_extract_model_failed" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_extract_moves_on_after_repeated_model_failures():
+    with _cursor_patches(revise=AsyncMock(return_value=None), give_up=True) as patched:
+        await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript="unused"
+        )
+
+    patched.stamp.assert_awaited_once()
+    assert patched.stamp.await_args.args[2] == "cursor-2"
+
+
+@pytest.mark.asyncio
+async def test_extract_resets_failures_after_a_good_pass():
+    revise = AsyncMock(return_value=_ops(_add("project", "User builds mobile apps with Expo.")))
+    with _cursor_patches(revise=revise) as patched:
+        await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript="unused"
+        )
+
+    patched.note_failed.assert_not_awaited()
+    patched.clear_failed.assert_awaited_once()
+    patched.stamp.assert_awaited_once()
 
 
 @pytest.mark.asyncio
