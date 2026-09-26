@@ -3,10 +3,12 @@ import { StyleSheet } from "react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+jest.mock("@/lib/skiaAvailability", () => ({ isSkiaAvailable: () => false }));
+// Chrome icons are SVG too; keep the path counts about the plotted curves.
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 
 describe("FunctionGraphBlock", () => {
   it("renders the expression as the chart title", async () => {
@@ -208,7 +210,7 @@ describe("FunctionGraphBlock", () => {
     expect(queryByText(/y = 2x/)).toBeNull();
   });
 
-  it("renders a verified trajectory as an SVG curve", async () => {
+  it("renders a verified trajectory on the native Skia canvas", async () => {
     const content = JSON.stringify({
       type: "trajectory",
       expr: "h(t) = 20 - 0.5*9.81*t^2",
@@ -222,10 +224,10 @@ describe("FunctionGraphBlock", () => {
         [2, 0.38],
       ],
     });
-    const { getByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
+    const { getByText, getByTestId } = await render(<FunctionGraphBlock content={content} />);
 
     expect(getByText("Height vs. Time")).toBeOnTheScreen();
-    expect(JSON.stringify(toJSON())).toContain("RNSVGPath");
+    expect(getByTestId("trajectory-canvas")).toBeOnTheScreen();
   });
 
   it("formats a backend-supplied SymPy title", async () => {
@@ -288,6 +290,9 @@ describe("FunctionGraphBlock", () => {
       ],
     });
     const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+    expect(getByTestId("graph-expr-input").props.placeholder).toBe(
+      "rich.graph_expr_placeholder",
+    );
     await fireEvent.changeText(getByTestId("graph-expr-input"), "x^2/3");
     expect(getByTestId("graph-expr-input").props.value).toBe("x^2/3");
   });

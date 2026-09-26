@@ -18,7 +18,6 @@ jest.mock("expo-file-system/legacy", () => ({
   writeAsStringAsync: jest.fn(),
   EncodingType: { UTF8: "utf8" },
 }));
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("@/components/WebPreviewCodeBlock", () => ({
   WebPreviewCodeBlock: "WebPreviewCodeBlock",
 }));
@@ -28,11 +27,14 @@ jest.mock("@/components/rich/CircularClockBlock", () => ({
 jest.mock("@/components/rich/AnswerBlock", () => ({
   AnswerBlock: "AnswerBlock",
 }));
-jest.mock("react-native-webview", () => {
-  throw new Error("react-native-webview native module is not linked (test)");
-});
-jest.mock("@expo/dom-webview", () => {
-  throw new Error("@expo/dom-webview native module is not linked (test)");
+// Display math renders via MathJax-SVG now; this suite asserts markdown
+// splitting/punctuation, so stand in the native MathText fallback.
+jest.mock("@/components/rich/MathSvgView", () => {
+  const React = jest.requireActual("react");
+  const { MathText } = jest.requireActual("@/components/rich/MathText");
+  return {
+    MathSvgView: ({ latex }: { latex: string }) => React.createElement(MathText, { latex }),
+  };
 });
 jest.mock("@/components/CodeBlock", () => {
   const { Text: RNText } = jest.requireActual("react-native");
@@ -282,5 +284,17 @@ describe("MarkdownContent math rendering", () => {
     expect(queryByText(/1\/2 - 7\/2 \+ 3 = 0/)).toBeNull();
     expect(getAllByText("= 0").length).toBeGreaterThanOrEqual(2);
     expect(getAllByText("= 18 - 21 + 3").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keeps a lesson formula off the step label line", async () => {
+    const { getByText, queryByText } = await render(
+      <MarkdownContent
+        content={"**2. Simplify**\n\n$3 x = 3$"}
+      />,
+    );
+    expect(getByText("2")).toBeOnTheScreen();
+    expect(getByText("Simplify")).toBeOnTheScreen();
+    expect(getByText("3 x = 3")).toBeOnTheScreen();
+    expect(queryByText(/Simplify 3/)).toBeNull();
   });
 });

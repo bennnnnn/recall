@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Switch, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -15,6 +15,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 function sameIdSet(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
@@ -65,8 +66,7 @@ export default function ModelsSettingsScreen() {
     void updateUser({ enabled_models: buildModelPreferences(auto, nextModels) })
       .catch(() => {
         setDraft(null);
-        if (feedback) feedback.error(t("common.error"));
-        else Alert.alert(t("common.error"));
+        reportRecoverableError(feedback, t("common.error"));
       })
       .finally(() => {
         savingRef.current = false;
@@ -113,7 +113,7 @@ export default function ModelsSettingsScreen() {
           />
         </SettingsGroup>
 
-        <SettingsGroup label={t("settings.model")} styles={s}>
+        <SettingsGroup styles={s}>
           {models.map((option, index) => {
             const proLocked = !isPro && option.plan_access === "pro";
             const enabled = effectiveModels.has(option.id) && !proLocked;
@@ -124,43 +124,22 @@ export default function ModelsSettingsScreen() {
             return (
               <View key={option.id}>
                 {index > 0 ? <View style={s.menuSeparator} /> : null}
-                <View style={s.menuRow}>
-                  <View style={s.rowBody}>
-                    <Text style={s.rowTitle}>{option.label}</Text>
-                    {proLocked ? (
-                      <Text style={s.meta}>{t("settings.account_pro")}</Text>
-                    ) : null}
-                    {!proLocked && option.healthy === false ? (
-                      <Text style={s.meta}>{t("settings.model_degraded")}</Text>
-                    ) : null}
-                  </View>
-                  {savingKey === option.id ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={theme.primary}
-                      accessibilityRole="progressbar"
-                    />
-                  ) : (
-                    <Switch
-                      value={enabled}
-                      disabled={Boolean(savingKey) || switchDisabled}
-                      thumbColor={theme.bg}
-                      trackColor={{ false: theme.border, true: theme.primary }}
-                      accessibilityState={{
-                        disabled: Boolean(savingKey) || switchDisabled,
-                        busy: false,
-                      }}
-                      onValueChange={(v) => {
-                        if (proLocked) {
-                          if (v) setUpgradeVisible(true);
-                          return;
-                        }
-                        if (v && !option.available) return;
-                        toggleModel(option.id, v);
-                      }}
-                    />
-                  )}
-                </View>
+                <SettingsSwitchRow
+                  title={option.label}
+                  subtitle={
+                    proLocked
+                      ? t("settings.account_pro")
+                      : option.healthy === false
+                        ? t("settings.model_degraded")
+                        : undefined
+                  }
+                  value={enabled}
+                  disabled={Boolean(savingKey) || switchDisabled}
+                  busy={savingKey === option.id}
+                  onValueChange={(value) => toggleModel(option.id, value)}
+                  styles={s}
+                  theme={theme}
+                />
               </View>
             );
           })}

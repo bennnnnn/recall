@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { StateView } from "@/components/StateView";
+import { StateView } from "@/ui/feedback/StateView";
+import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -14,9 +16,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type Chat } from "@/lib/api";
 import { invalidateChatListCache } from "@/lib/cache/chatListCache";
+import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function ArchivedChatsScreen() {
   const { token } = useAuth();
@@ -27,20 +31,23 @@ export default function ArchivedChatsScreen() {
   const feedback = useActionFeedbackOptional();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    setLoadError(false);
     try {
       const list = await api.listChats(token);
       setChats(list.archived ?? []);
     } catch {
-      reportRecoverableError(feedback, t("common.error"));
+      // A failed load must not masquerade as an empty list.
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [token, feedback, t]);
+  }, [token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -64,53 +71,69 @@ export default function ArchivedChatsScreen() {
 
   const confirmDelete = (chat: Chat) => {
     if (!token || busyId) return;
-    Alert.alert(t("chat.delete_confirm_title"), t("chat.delete_confirm_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            if (!token) return;
-            setBusyId(chat.id);
-            try {
-              await api.deleteChat(token, chat.id);
-              invalidateChatListCache();
-              setChats((rows) => rows.filter((row) => row.id !== chat.id));
-            } catch {
-              reportRecoverableError(feedback, t("chat.delete_failed"));
-            } finally {
-              setBusyId(null);
-            }
-          })();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("chat.delete_confirm_title"),
+      message: t("chat.delete_confirm_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        if (!token) return;
+        setBusyId(chat.id);
+        try {
+          await api.deleteChat(token, chat.id);
+          notifyDestructive();
+          invalidateChatListCache();
+          setChats((rows) => rows.filter((row) => row.id !== chat.id));
+        } catch {
+          reportRecoverableError(feedback, t("chat.delete_failed"));
+        } finally {
+          setBusyId(null);
+        }
+      })();
+    });
   };
 
   if (!token) return <Redirect href="/login" />;
 
-  if (loading && chats.length === 0) {
-    return <StateView variant="loading" title={t("settings.archived_chats")} />;
+  if (loading && chats.length === 0 && !loadError) {
+    return (
+      <SettingsSkeleton
+        accessibilityLabel={t("settings.archived_chats")}
+      />
+    );
+  }
+
+  if (loadError && chats.length === 0) {
+    return (
+      <StateView
+        variant="error"
+        title={t("common.error")}
+        onRetry={() => void load()}
+      />
+    );
   }
 
   if (!loading && chats.length === 0) {
     return (
       <StateView
         variant="empty"
-        icon="archive-outline"
+        icon="archive"
         title={t("settings.archived_chats_empty")}
       />
     );
   }
 
   return (
-    <ScrollView
+    <FlashList
+      data={chats}
+      keyExtractor={(chat) => chat.id}
       style={s.scroll}
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-    >
-      {chats.map((chat) => (
-        <SettingsGroup key={chat.id} styles={s}>
+      renderItem={({ item: chat }) => (
+        <SettingsGroup styles={s}>
           <SettingsLinkRow
             title={chat.title?.trim() || t("common.untitled")}
             onPress={() => void unarchive(chat)}
@@ -127,7 +150,7 @@ export default function ArchivedChatsScreen() {
             theme={theme}
           />
         </SettingsGroup>
-      ))}
-    </ScrollView>
+      )}
+    />
   );
 }

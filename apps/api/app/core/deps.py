@@ -1,7 +1,12 @@
+import time
+from uuid import UUID
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.asyncio import Redis
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import make_transient_to_detached
 
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
@@ -13,6 +18,44 @@ from app.services import auth as auth_service
 from app.services import tokens as tokens_service
 
 security = HTTPBearer()
+
+# Neon from a laptop is a few hundred milliseconds per checkout. Chat auth
+# runs on every send, so keep the last loaded user in this process and skip
+# that round trip. Profile edits are rare; a short TTL is enough.
+_USER_CACHE_TTL_SECONDS = 60.0
+_user_cache: dict[UUID, tuple[float, User]] = {}
+
+
+def _cached_user(user_id: UUID) -> User | None:
+    hit = _user_cache.get(user_id)
+    if hit is None:
+        return None
+    stored_at, user = hit
+    if time.monotonic() - stored_at > _USER_CACHE_TTL_SECONDS:
+        _user_cache.pop(user_id, None)
+        return None
+    return user
+
+
+def snapshot_user(user: User) -> User:
+    """Detached copy safe to merge into a later request session."""
+    state = sa_inspect(user)
+    # In-memory dict only. getattr on an expired column lazy-loads and raises
+    # MissingGreenlet from an async session.
+    values = {key: state.dict[key] for key in state.mapper.columns.keys() if key in state.dict}
+    snap = User(**values)
+    make_transient_to_detached(snap)
+    return snap
+
+
+def remember_user(user: User) -> None:
+    cached = snapshot_user(user) if isinstance(user, User) else user
+    _user_cache[user.id] = (time.monotonic(), cached)
+
+
+def forget_user(user_id: UUID) -> None:
+    _user_cache.pop(user_id, None)
+
 
 _REDIS_RETRY_AFTER = "5"
 
@@ -36,9 +79,9 @@ async def get_redis_dep() -> Redis:
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis_dep),
+    session: AsyncSession = Depends(get_db),
 ) -> User:
     try:
         user_id = await tokens_service.verify_access_token(redis, credentials.credentials, settings)
@@ -47,9 +90,17 @@ async def get_current_user(
     except GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
+    cached = _cached_user(user_id)
+    if isinstance(cached, User):
+        # Attach the cached row to this request so updates commit.
+        return await session.merge(cached, load=False)
+    if cached is not None:
+        return cached
+
     user = await auth_service.get_current_user(session, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    remember_user(user)
     return user
 
 

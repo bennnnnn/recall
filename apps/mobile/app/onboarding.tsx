@@ -1,33 +1,36 @@
 import { useMemo, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AuthScrollLayout } from "@/components/AuthScrollLayout";
-import { Icon } from "@/components/Icon";
-import { Button } from "@/components/Button";
+import { Icon } from "@/ui/icons/Icon";
+import { Button } from "@/ui/controls/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { tap } from "@/lib/haptics";
+import { Graphic } from "@/lib/graphic";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
+import { Radius } from "@/lib/radius";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const FEATURES = [
   {
-    icon: "chatbubble-ellipses-outline",
+    icon: "message-dots",
     titleKey: "onboarding.chat_title",
     bodyKey: "onboarding.chat_body",
   },
   {
-    icon: "sparkles-outline",
+    icon: "sparkles",
     titleKey: "onboarding.remember_title",
     bodyKey: "onboarding.remember_body",
   },
   {
-    icon: "school-outline",
+    icon: "graduation-cap",
     titleKey: "onboarding.learn_title",
     bodyKey: "onboarding.learn_body",
   },
@@ -56,8 +59,7 @@ export default function Onboarding() {
       await completeOnboarding();
       router.replace("/login");
     } catch {
-      if (feedback) feedback.error(t("common.error"));
-      else Alert.alert(t("common.error"));
+      reportRecoverableError(feedback, t("common.error"));
     } finally {
       finishingRef.current = false;
       setFinishing(false);
@@ -79,7 +81,7 @@ export default function Onboarding() {
           {FEATURES.map((f) => (
             <View key={f.titleKey} style={s.feature}>
               <View style={s.featureIcon}>
-                <Icon name={f.icon as never} size={IconSize.sm} color={theme.primary} />
+                <Icon name={f.icon} size={IconSize.sm} color={theme.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.featureTitle}>{t(f.titleKey)}</Text>
@@ -111,13 +113,13 @@ function makeStyles(theme: Theme) {
     badge: {
       width: 72,
       height: 72,
-      borderRadius: 24,
+      borderRadius: Radius.composer,
       backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: Space.md,
     },
-    badgeStar: { fontSize: 30, color: theme.onPrimary },
+    badgeStar: { ...Graphic.badgeMark, color: theme.onPrimary },
     title: {
       ...Type.display,
       color: theme.text,
@@ -129,23 +131,23 @@ function makeStyles(theme: Theme) {
       marginTop: Space.xs,
       textAlign: "center",
     },
-    features: { gap: 20, marginBottom: Space.xl + Space.xs },
+    features: { gap: Space.gutter, marginBottom: Space.xl + Space.xs },
     feature: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
     featureIcon: {
       width: 40,
       height: 40,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       backgroundColor: theme.primaryLight,
       alignItems: "center",
       justifyContent: "center",
     },
     featureTitle: {
       ...Type.body,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
       marginBottom: 2,
     },
-    featureBody: { ...Type.label, fontWeight: "400", color: theme.textSecondary, lineHeight: 20 },
+    featureBody: { ...Type.label, ...Weight.regular, color: theme.textSecondary },
     cta: {
       alignSelf: "stretch",
     },

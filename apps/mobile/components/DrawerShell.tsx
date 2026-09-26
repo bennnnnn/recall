@@ -38,6 +38,8 @@ import { type Theme, useTheme } from "@/lib/theme";
 
 /** Left-edge hit slop for swipe-to-open (pt). Must stay a local const — Reanimated worklets cannot read imported names here. */
 const EDGE_WIDTH = 28;
+/** Horizontal travel on the open panel before a touch becomes a drawer drag, not a press. */
+const PANEL_DRAG = 24;
 /** Fraction of drawer width that counts as "open enough" to finish open. */
 const OPEN_PROGRESS = 0.35;
 /** Horizontal velocity (px/s from RNGH) to fling open/closed. */
@@ -123,9 +125,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   const open = useCallback(() => settleToRef.current(true, true), []);
   const close = useCallback(() => settleToRef.current(false, false), []);
 
-  useEffect(() => {
-    registerDrawer(open, close);
-  }, [open, close]);
+  useEffect(() => registerDrawer(open, close), [open, close]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -163,7 +163,8 @@ export function DrawerShell({ children }: { children: ReactNode }) {
           const openNow = isOpenSV.value > 0.5;
           // Inline (not shouldClaimDrawerPan): worklets cannot close over
           // imported helpers without a Hermes "Property doesn't exist" crash.
-          const onPanel = openNow && touchStartX.value < w;
+          // A short slide on a row is a press, not a drawer drag.
+          const onPanel = openNow && touchStartX.value < w && Math.abs(dx) >= PANEL_DRAG;
           const onScrimClose = openNow && touchStartX.value >= w && dx < 0;
           const onEdgeOpen = !openNow && touchStartX.value <= EDGE_WIDTH && dx > 0;
           if (onPanel || onScrimClose || onEdgeOpen) {
@@ -171,6 +172,15 @@ export function DrawerShell({ children }: { children: ReactNode }) {
           } else {
             manager.fail();
           }
+        })
+        // A tap never moves enough to activate. Fail on release so the button
+        // underneath gets the press — otherwise the undecided pan swallows it
+        // and search, New chat, and the nav rows do nothing.
+        .onTouchesUp((_e, manager) => {
+          if (didActivate.value === 0) manager.fail();
+        })
+        .onTouchesCancelled((_e, manager) => {
+          if (didActivate.value === 0) manager.fail();
         })
         .onStart(() => {
           didActivate.value = 1;
@@ -225,8 +235,6 @@ export function DrawerShell({ children }: { children: ReactNode }) {
     opacity: overlayOpacity.value,
   }));
 
-  const fakeNav = { openDrawer: open, closeDrawer: close } as any;
-  const fakeProps = { navigation: fakeNav } as any;
   const drawerValue = useMemo(
     () => ({ isOpen: drawerOpen, open, close }),
     [drawerOpen, open, close],
@@ -280,7 +288,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
                 drawerStyle,
               ]}
             >
-              <ConversationList {...fakeProps} />
+              <ConversationList />
             </Animated.View>
           </View>
         </View>

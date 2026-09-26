@@ -46,7 +46,7 @@ _WS_CONNECT_RATE_LIMIT = 30
 _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
 # Drop sockets that connect but never send the auth frame (resource leak).
 _WS_AUTH_TIMEOUT_SECONDS = 10.0
-_CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate", "edit"})
+_CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate"})
 
 
 async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:

@@ -2,7 +2,7 @@ import { Platform, Share } from "react-native";
 
 import { conversationTranscript } from "@/lib/chat/transcript";
 import { Message } from "@/lib/api";
-import { isShareCancelled } from "@/lib/exportPdf";
+import { isShareCancelled } from "@/lib/shareCancelled";
 
 /** Open the OS share sheet (Messages, Mail, Files, …). */
 export async function presentShareSheet(options: {

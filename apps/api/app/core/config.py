@@ -158,6 +158,14 @@ class Settings(BaseSettings):
     # budget (sized for CPU-bound solve/integrate) cut off OCR calls that
     # were still legitimately in flight.
     math_image_extract_timeout_seconds: float = 20.0
+    # Gate-fired-but-regex-extract-None turns get one hidden structured
+    # extraction call on a fast alias before the honesty note (the "Couldn't
+    # verify under a correct ∫ x²" path). Only that already-failing path pays;
+    # gate-miss and regex-hit turns make no LLM call. The result is never
+    # trusted — it reaches the user only when SymPy verifies it. No fallback
+    # retry: bounded latency beats best-effort on a best-effort path.
+    math_llm_extract_enabled: bool = True
+    math_llm_extract_timeout_seconds: float = 2.5
     # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
     # Images always send metadata.improve_mathpix=false — student homework is
     # not opted into Mathpix QA storage.
@@ -183,6 +191,10 @@ class Settings(BaseSettings):
     # Paid Tavily queries per user per UTC day; when exceeded, fall back to DuckDuckGo.
     daily_tavily_searches: int = 20
     daily_tavily_searches_pro: int = 150
+    # My Job: fetch full posting pages (Tavily extract) for the shortlisted
+    # candidates before LLM ranking so salary/experience come from real text.
+    job_search_page_fetch_enabled: bool = True
+    job_search_page_fetch_max: int = 12
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
@@ -264,8 +276,9 @@ class Settings(BaseSettings):
     # brevity is driven by the STYLE_HINTS prompt guidance (short/balanced/
     # detailed). Set high enough that real deliverables (HTML pages, graph
     # JSON, long code) complete instead of truncating mid-fence. The daily
-    # token quota (above) is the real per-user cost guardrail. 8192 is safe
-    # across the catalog (DeepSeek/GLM/GPT/Gemini/Llama/Qwen all support >=8k).
+    # token quota (above) is the real per-user cost guardrail. Keep deployed
+    # environment overrides aligned with this 8192 default; lower legacy caps
+    # can cut advanced derivations off mid-step.
     max_output_tokens: int = 8192
     recent_message_window: int = 20  # hard cap on verbatim messages
 

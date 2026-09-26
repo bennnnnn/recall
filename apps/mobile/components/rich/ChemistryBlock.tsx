@@ -5,7 +5,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { VisualCard } from "@/components/rich/VisualCard";
@@ -13,8 +13,9 @@ import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { parseChemistryFence } from "@/lib/chemistry/fence";
 import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 import { SMILES_DRAWER_MIN_JS } from "@/lib/vendor/smilesDrawerMinJs";
 import {
   getPreviewWebView,
@@ -140,7 +141,7 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
   if (renderError) {
     return (
       <View style={s.previewBox}>
-        <Icon name="alert-circle-outline" size={IconSize.sm} color={theme.danger} />
+        <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
         <Text style={[s.previewText, { color: theme.danger }]}>
           {renderError}
         </Text>
@@ -190,7 +191,7 @@ export function ChemistryBlock({ content }: Props) {
 
   if (!parsed) {
     return (
-      <VisualCard label={t("rich.chemistry_structure")} icon="flask-outline">
+      <VisualCard label={t("rich.chemistry_structure")} icon="flask">
         <View style={s.previewBox}>
           <Text style={s.fallbackHint}>{t("rich.chemistry_invalid")}</Text>
         </View>
@@ -201,7 +202,7 @@ export function ChemistryBlock({ content }: Props) {
   return (
     <VisualCard
       label={t("rich.chemistry_structure")}
-      icon="flask-outline"
+      icon="flask"
       actions={<CopyButton text={smiles} />}
     >
       {caption ? (
@@ -219,7 +220,7 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     captionBox: {
       paddingHorizontal: 14,
-      paddingTop: 8,
+      paddingTop: Space.xs,
       paddingBottom: 0,
       backgroundColor: t.bg,
     },
@@ -240,6 +241,6 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
     },
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
-    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
+    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: Space.xs },
   });
 }

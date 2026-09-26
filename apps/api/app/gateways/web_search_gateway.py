@@ -13,7 +13,13 @@ from app.gateways.http_client import get_pooled_client
 logger = logging.getLogger(__name__)
 
 TAVILY_SEARCH_URL = "https://api.tavily.com/search"
+TAVILY_EXTRACT_URL = "https://api.tavily.com/extract"
 DEFAULT_TIMEOUT_SECONDS = 12.0
+_EXTRACT_TIMEOUT_SECONDS = 20.0
+# One extract call accepts a batch of URLs; keep the batch and per-page text
+# bounded so a ranking prompt never explodes.
+EXTRACT_MAX_URLS = 20
+EXTRACT_MAX_CHARS = 4000
 # Bound the DuckDuckGo to_thread fallback — a stalled DDG socket must not hang
 # TTFT or pin a shared thread-pool worker indefinitely.
 _DDG_TIMEOUT_SECONDS = 8.0
@@ -170,6 +176,45 @@ async def _search_tavily(settings: Settings, query: str, max_results: int) -> li
             )
         )
     return hits
+
+
+async def extract_pages(
+    settings: Settings,
+    urls: list[str],
+    *,
+    max_chars: int = EXTRACT_MAX_CHARS,
+) -> dict[str, str]:
+    """Fetch full page text for a batch of URLs via Tavily Extract.
+
+    Same API key as search. Per-URL failures are tolerated (Tavily reports
+    them under ``failed_results``); the whole call degrades to {} so callers
+    fall back to snippets. Keys are the URLs Tavily returns.
+    """
+    cleaned = [url.strip() for url in urls if url.strip()][:EXTRACT_MAX_URLS]
+    if not cleaned or not is_configured(settings):
+        return {}
+
+    payload = {"api_key": settings.tavily_api_key, "urls": cleaned}
+    try:
+        client = get_pooled_client(_EXTRACT_TIMEOUT_SECONDS)
+        response = await client.post(TAVILY_EXTRACT_URL, json=payload)
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        # URLs are job-board posting links, not user content — safe to count,
+        # but do not log them in clear text.
+        logger.exception("Tavily page extract failed (%d urls)", len(cleaned))
+        return {}
+
+    pages: dict[str, str] = {}
+    for item in data.get("results") or []:
+        if not isinstance(item, dict):
+            continue
+        url = str(item.get("url") or "").strip()
+        text = " ".join(str(item.get("raw_content") or "").split())
+        if url and text:
+            pages[url] = text[:max_chars]
+    return pages
 
 
 async def search_web(

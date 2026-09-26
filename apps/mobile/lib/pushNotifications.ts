@@ -6,6 +6,11 @@ import { api } from "@/lib/api";
 import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
 import { trackProductEvent } from "@/lib/productAnalytics";
+import { lessonMapPath } from "@/features/learning/model/chapterAccess";
+import {
+  ensureAndroidNotificationChannels,
+  TONE_ANDROID_CHANNELS,
+} from "@/lib/notificationChannels";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -13,7 +18,6 @@ type AppRouter = {
 };
 
 let androidChannelReady = false;
-const ANDROID_CHANNEL = "recall-notifications";
 
 export async function getNotificationPermissionGranted(): Promise<boolean> {
   if (Platform.OS === "web") return false;
@@ -35,10 +39,10 @@ export async function ensureNotificationPermission(analyticsToken?: string): Pro
 
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
-  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL, {
-    name: i18n.t("notifications.app_channel"),
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
+  await ensureAndroidNotificationChannels({
+    reminders: i18n.t("notifications.reminders_channel"),
+    learning: i18n.t("notifications.learning_channel"),
+    inbox: i18n.t("notifications.inbox_channel"),
   });
   androidChannelReady = true;
 }
@@ -102,6 +106,7 @@ export async function registerRemotePushToken(
     expo_push_token: expoPushToken,
     platform: Platform.OS,
     device_id: deviceId ?? undefined,
+    ...(Platform.OS === "android" ? { android_channels: TONE_ANDROID_CHANNELS } : {}),
   });
   return "registered";
 }
@@ -161,38 +166,64 @@ type PushData = {
   focus?: string;
   todo_id?: string;
   project_id?: string;
+  profile_id?: string;
   topic?: string;
+  event_start?: string;
+  event_id?: string;
+  event_title?: string;
 };
 
-async function openLearningProject(
+/** Push when the target is a different screen; replace when already on it so
+ * repeated taps never stack duplicate copies of the same route. */
+function navigateToTarget(
   router: AppRouter,
-  _apiToken: string,
-  projectId: string,
-  _topic?: string,
-): Promise<void> {
-  router.push(`/projects/${projectId}`);
+  currentPathname: string | null,
+  href: string | { pathname: string; params?: Record<string, string> },
+): void {
+  const target = typeof href === "string" ? href : href.pathname;
+  if (currentPathname && currentPathname === target) {
+    router.replace(href);
+  } else {
+    router.push(href);
+  }
 }
 
 /** Navigate when the user taps a push notification. */
 export async function handlePushNotificationResponse(
   router: AppRouter,
-  apiToken: string | null,
   data: PushData | undefined,
+  currentPathname?: string | null,
 ): Promise<void> {
   if (!data) return;
+  const current = currentPathname ?? null;
+
+  if (data.type === "job_search_ready" || data.screen === "my-job") {
+    navigateToTarget(router, current, "/my-job");
+    return;
+  }
 
   if (data.type === "calendar_nudge") {
-    router.push({ pathname: "/todos", params: { focus: "reminders" } });
+    // The To-do screen no longer owns a calendar wall. Carry the exact event
+    // context so the notification opens a focused card instead of a dead date.
+    if (data.event_title && data.event_start) {
+      navigateToTarget(router, current, {
+        pathname: "/todos",
+        params: {
+          eventTitle: data.event_title,
+          eventStart: data.event_start,
+          ...(data.event_id ? { eventId: data.event_id } : {}),
+        },
+      });
+    } else {
+      navigateToTarget(router, current, "/");
+    }
     return;
   }
 
   if (data.type === "todo_due" || data.type === "todo_reminder" || data.screen === "todos") {
-    router.push({
+    navigateToTarget(router, current, {
       pathname: "/todos",
-      params: {
-        focus: data.focus ?? "reminders",
-        ...(data.todo_id ? { highlight: data.todo_id } : {}),
-      },
+      params: data.todo_id ? { highlight: data.todo_id } : {},
     });
     return;
   }
@@ -200,26 +231,27 @@ export async function handlePushNotificationResponse(
   if (
     (data.type === "learning_review" ||
       data.type === "learning_continue" ||
-      data.type === "learning_daily_goal" ||
-      data.type === "email_suggestion") &&
-    apiToken &&
+      data.type === "learning_daily_goal") &&
     data.project_id
   ) {
-    await openLearningProject(router, apiToken, data.project_id, data.topic);
+    // Straight to the lesson map — /projects/:id is just a redirect hop.
+    navigateToTarget(router, current, lessonMapPath(data.project_id));
     return;
   }
 
+  // To-do renders pending Gmail suggestions with Add and Dismiss actions.
   if (data.type === "email_suggestion") {
-    router.push({ pathname: "/todos", params: { focus: "reminders" } });
+    navigateToTarget(router, current, "/todos");
     return;
   }
 
   if (data.project_id) {
-    router.push(`/projects/${data.project_id}`);
+    navigateToTarget(router, current, lessonMapPath(data.project_id));
   }
 }
 
 export function configurePushNotificationHandler(): void {
+  void ensureAndroidChannel();
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,

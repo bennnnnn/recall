@@ -4,35 +4,39 @@
  */
 import type { TextStyle } from "react-native";
 
+import { uiFontFamily } from "@/lib/uiFont";
+
+function face(weight: "400" | "500" | "600" | "700"): Pick<TextStyle, "fontFamily" | "fontWeight"> {
+  return { fontFamily: uiFontFamily(weight), fontWeight: weight };
+}
+
 export const Type = {
-  /** Primary body copy */
+  /** Primary body copy. Multiline roles use the platform's scaled line box. */
   body: {
     fontSize: 16,
-    fontWeight: "400",
-    lineHeight: 25,
+    ...face("400"),
   },
   /** Secondary body / supporting paragraphs */
   secondary: {
     fontSize: 14,
-    fontWeight: "400",
-    lineHeight: 20,
+    ...face("400"),
   },
   /** Captions / compact meta */
   caption: {
     fontSize: 12,
-    fontWeight: "500",
+    ...face("500"),
   },
   /** 12pt regular meta — timestamps, domain lines, "PDF" kind labels.
    *  No lineHeight (matches caption/label: single-line roles omit it). */
   meta: {
     fontSize: 12,
-    fontWeight: "400",
+    ...face("400"),
   },
   /** 11pt uppercase tracked overline — drawer/home section dividers.
    *  No lineHeight (single-line role). */
   overline: {
     fontSize: 11,
-    fontWeight: "700",
+    ...face("700"),
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
@@ -40,47 +44,61 @@ export const Type = {
    *  sat between caption (12) and secondary (14). Override weight at the site. */
   compact: {
     fontSize: 13,
-    fontWeight: "400",
-    lineHeight: 18,
+    ...face("400"),
   },
   /** Compact control labels */
   label: {
     fontSize: 14,
-    fontWeight: "600",
+    ...face("600"),
   },
   /** 15pt callout — toasts and dense card titles between body (16) and
    *  secondary (14). */
   callout: {
     fontSize: 15,
-    fontWeight: "600",
-    lineHeight: 21,
+    ...face("600"),
   },
   /** Screen / section titles */
   title: {
     fontSize: 20,
-    fontWeight: "600",
-    lineHeight: 26,
+    ...face("600"),
   },
   /** Nav bar & sheet titles — the 17pt role the scale was missing (8+ sites
    *  invented it as `...Type.title, fontSize: 17` or a bare 17/700). */
   navTitle: {
     fontSize: 17,
-    fontWeight: "600",
-    lineHeight: 22,
+    ...face("600"),
   },
   /** Onboarding / marketing display */
   display: {
     fontSize: 28,
-    fontWeight: "700",
-    lineHeight: 34,
+    ...face("700"),
   },
-  /** Markdown heading ladder (h1–h6). lineHeight prevents clipping when a
-   *  heading wraps to two lines. */
-  h1: { fontSize: 22, fontWeight: "700", lineHeight: 28 },
-  h2: { fontSize: 19, fontWeight: "700", lineHeight: 26 },
-  h3: { fontSize: 17, fontWeight: "700", lineHeight: 24 },
+  /** Large clock numerals (time picker header). Tabular so digits don't jiggle. */
+  clock: {
+    fontSize: 56,
+    ...face("400"),
+    fontVariant: ["tabular-nums"],
+  },
+  /** Markdown heading ladder (h1–h6). Wrapped headings keep scaled line boxes. */
+  h1: { fontSize: 22, ...face("700") },
+  h2: { fontSize: 19, ...face("700") },
+  h3: { fontSize: 17, ...face("700") },
   /** Section label — never smaller than body, or hierarchy inverts. */
-  h4: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
-  h5: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
-  h6: { fontSize: 16, fontWeight: "700", lineHeight: 22 },
+  h4: { fontSize: 16, ...face("700") },
+  h5: { fontSize: 16, ...face("700") },
+  h6: { fontSize: 16, ...face("700") },
+} as const satisfies Record<string, TextStyle>;
+
+/**
+ * Weight changes on top of a role: `{ ...Type.body, ...Weight.bold }`.
+ * Each entry sets the matching Source Sans 3 file together with fontWeight.
+ * A bare `fontWeight` keeps the role's Regular file, which Android draws as a
+ * synthesized (fake) bold while iOS swaps to the real face — so weights looked
+ * different per platform. Lint bans raw `fontWeight`; use this instead.
+ */
+export const Weight = {
+  regular: face("400"),
+  medium: face("500"),
+  semibold: face("600"),
+  bold: face("700"),
 } as const satisfies Record<string, TextStyle>;

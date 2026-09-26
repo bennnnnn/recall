@@ -8,7 +8,6 @@ import {
 } from "react";
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,10 +19,12 @@ import RenderHtml from "react-native-render-html";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
-import { IconSize, type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
+import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type, Weight } from "@/lib/type";
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
 import {
   looksLikeInteractiveHtml,
@@ -38,6 +39,7 @@ import { CODE_FONT } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
 import { getPreviewWebView, HTML_RUN_ORIGIN_WHITELIST } from "@/lib/webView";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
 const EMPTY_CHECK_SCRIPT =
   "<script>(function(){function chk(){var b=document.body;if(!b)return;var txt=(b.innerText||'').trim();var imgs=b.querySelectorAll('img,svg,canvas,video,iframe').length;var els=b.querySelectorAll('div,section,main,article,p,span,ul,ol,table,pre,code,h1,h2,h3,h4,h5,h6').length;if(!txt&&!imgs&&els<=1){try{window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify({kind:'preview-empty'}));}catch(e){}}}if(document.readyState==='complete'){chk();}else{window.addEventListener('load',function(){setTimeout(chk,300);});}})();</script>";
@@ -70,11 +72,11 @@ class PreviewRenderBoundary extends Component<
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <View style={{ padding: 16 }}>
+        <View style={{ padding: Space.md }}>
           <Text
             style={{
+              ...Type.secondary,
               color: this.props.errorColor,
-              fontSize: 14,
               lineHeight: 20,
             }}
           >
@@ -99,33 +101,33 @@ function makeTagStyles(theme: Theme) {
   return {
     body: { color: theme.text },
     p: { marginTop: 0, marginBottom: 10, lineHeight: 22 },
-    h1: { fontSize: 28, fontWeight: "700" as const, marginBottom: 12, color: theme.text },
-    h2: { fontSize: 22, fontWeight: "700" as const, marginBottom: 10, color: theme.text },
-    h3: { fontSize: 18, fontWeight: "700" as const, marginBottom: 8, color: theme.text },
+    h1: { ...Type.display, marginBottom: Space.sm, color: theme.text },
+    h2: { ...Type.h1, marginBottom: 10, color: theme.text },
+    h3: { ...Type.h2, marginBottom: Space.xs, color: theme.text },
     a: { color: theme.primary },
     div: { color: theme.text },
     span: { color: theme.text },
     table: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
-      marginVertical: 8,
+      marginVertical: Space.xs,
     },
     th: {
       backgroundColor: theme.surface,
-      padding: 8,
-      fontWeight: "700" as const,
+      padding: Space.xs,
+      ...Weight.bold,
     },
-    td: { padding: 8 },
+    td: { padding: Space.xs },
     pre: {
       backgroundColor: theme.codeBg,
-      padding: 12,
-      borderRadius: 8,
+      padding: Space.sm,
+      borderRadius: Radius.xs,
+      ...Type.meta,
       fontFamily: CODE_FONT,
-      fontSize: 12,
       lineHeight: 18,
     },
-    code: { fontFamily: CODE_FONT, fontSize: 14 },
-    img: { marginVertical: 8 },
+    code: { ...Type.secondary, fontFamily: CODE_FONT },
+    img: { marginVertical: Space.xs },
   };
 }
 
@@ -186,7 +188,7 @@ function LiveWebPreview({
       ) : loading ? (
         <View style={s.emptyOverlay} pointerEvents="none">
           <ActivityIndicator color={theme.primary} />
-          <Text style={[s.emptyOverlayText, { marginTop: 8 }]}>
+          <Text style={[s.emptyOverlayText, { marginTop: Space.xs }]}>
             {t("preview.loading")}
           </Text>
         </View>
@@ -262,7 +264,7 @@ function ToolbarItem({
   theme,
   styles: s,
 }: {
-  icon: IoniconName;
+  icon: IconName;
   label: string;
   onPress: () => void;
   active?: boolean;
@@ -279,7 +281,7 @@ function ToolbarItem({
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
     >
-      <Icon name={icon} size={IconSize.lg} color={color} />
+      <Icon name={icon} size={IconSize.md} color={color} />
     </Pressable>
   );
 }
@@ -304,7 +306,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
   }, [visible]);
 
   return (
-    <Modal
+    <FullScreenModal
       visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
@@ -315,7 +317,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
       >
         {tab === "run" && interactive && !canUseNativeWebView ? (
           <View style={s.interactiveBanner}>
-            <Icon name="flash-outline" size={16} color={theme.primary} />
+            <Icon name="zap" size={IconSize.xs} color={theme.primary} />
             <Text style={s.interactiveBannerText}>{t("preview.expo_go_banner")}</Text>
           </View>
         ) : null}
@@ -356,7 +358,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             styles={s}
           />
           <ToolbarItem
-            icon="code-slash"
+            icon="code"
             label={t("preview.code_tab")}
             onPress={() => setTab("code")}
             active={tab === "code"}
@@ -372,7 +374,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             styles={s}
           />
           <ToolbarItem
-            icon="share-outline"
+            icon="share"
             label={t("preview.share")}
             onPress={() => void shareHtmlPreview(html)}
             theme={theme}
@@ -380,7 +382,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
           />
         </View>
       </View>
-    </Modal>
+    </FullScreenModal>
   );
 }
 
@@ -400,7 +402,7 @@ const makeStyles = (theme: Theme) =>
     },
     interactiveBannerText: {
       flex: 1,
-      fontSize: 13,
+      ...Type.compact,
       lineHeight: 18,
       color: theme.text,
     },
@@ -434,13 +436,13 @@ const makeStyles = (theme: Theme) =>
       backgroundColor: theme.surfaceAlt,
     },
     emptyOverlayText: {
-      fontSize: 14,
+      ...Type.secondary,
       lineHeight: 20,
       color: theme.text,
     },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: Space.md, paddingVertical: Space.md, paddingBottom: Space.md },
-    base: { color: theme.text, fontSize: 16, lineHeight: 22 },
+    base: { ...Type.body, color: theme.text, lineHeight: 22 },
     toolbar: {
       flexDirection: "row",
       alignItems: "stretch",

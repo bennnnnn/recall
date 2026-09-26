@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
-import { CODE_FONT } from "@/lib/fonts";
+import { MATH_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import {
   parseSimpleLatex,
@@ -10,7 +10,7 @@ import {
 } from "@/lib/math/text";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 type Props = {
   latex: string;
@@ -28,10 +28,17 @@ type Props = {
 type Styles = ReturnType<typeof makeStyles>;
 
 const FRAC_CHAR_PX = 9;
+/** Fraction text is 14px when the math size is 16. Widths below are in that
+ * unscaled space and get multiplied by layoutScale. */
+const FRAC_EM = 14;
+const BASE_EM = 16;
 const FRAC_PAD_PX = 14;
 const FRAC_STACK_HEIGHT = 44;
 const FRAC_LINE_HEIGHT = 18;
 const FRACTIONAL_SCRIPT_HEIGHT = 30;
+/** Math glyph layout needs a numeric line box; unlike prose Type roles, this
+ * scales with the requested math size and React Native's system font scale. */
+const MATH_BODY_LINE_HEIGHT = 25;
 /** Radical sign and radicand share this tight line box so the vinculum (drawn
  * as the radicand's top border) lands on the √ hook. With the base 28px line
  * box the bar floats in the leading, well above both the hook and the digits. */
@@ -74,12 +81,32 @@ function renderMathRun(
 function visualLength(s: string): number {
   let n = 0;
   for (const ch of s) {
-    const c = ch.charCodeAt(0);
-    // Combining marks (√ overlines, accents) must not inflate the frac box.
-    if (c >= 0x0300 && c <= 0x036f) continue;
-    n += 1;
+    if (!isCombiningMark(ch)) n += 1;
   }
   return n;
+}
+
+function isCombiningMark(ch: string): boolean {
+  const c = ch.charCodeAt(0);
+  return c >= 0x0300 && c <= 0x036f;
+}
+
+/** Source Serif 4 is proportional. m/w are about one em, so the
+ * old one-width estimate (SpaceMono) clips a long numerator and its scroll. */
+function isWideFormulaGlyph(ch: string): boolean {
+  return ch === "m" || ch === "w" || ch === "M" || ch === "W" || ch === "%" || ch === "@";
+}
+
+function advancePx(text: string, em: number): number {
+  let width = 0;
+  let counted = false;
+  for (const ch of text) {
+    if (isCombiningMark(ch)) continue;
+    counted = true;
+    // Narrow glyphs keep the old monospace advance so digit fractions stay put.
+    width += isWideFormulaGlyph(ch) ? em : FRAC_CHAR_PX;
+  }
+  return counted ? width : FRAC_CHAR_PX;
 }
 
 function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width: number; height: number } {
@@ -94,8 +121,12 @@ function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width:
       const body = estimateSegmentsSize(seg.body, inFrac);
       width += 14 + (seg.degree ? visualLength(seg.degree) * 8 + 2 : 4) + body.width;
       height = Math.max(height, body.height + (seg.degree ? 6 : 2));
+    } else if (seg.type === "cancel") {
+      const inner = estimateSegmentsSize(seg.body, inFrac);
+      width += inner.width;
+      height = Math.max(height, inner.height);
     } else {
-      width += Math.max(visualLength(seg.value), 1) * FRAC_CHAR_PX;
+      width += advancePx(seg.value, inFrac ? FRAC_EM : BASE_EM);
       if (isFractionalScript(seg)) height = Math.max(height, FRACTIONAL_SCRIPT_HEIGHT);
     }
   }
@@ -125,7 +156,9 @@ function estimateMathTextSize(segments: MathSegment[]): { width: number; height:
 
 function hasTallMath(segments: MathSegment[]): boolean {
   for (const seg of segments) {
-    if (seg.type === "frac" || seg.type === "sqrt" || isFractionalScript(seg)) return true;
+    if (seg.type === "frac" || seg.type === "sqrt" || seg.type === "cancel" || isFractionalScript(seg)) {
+      return true;
+    }
   }
   return false;
 }
@@ -263,6 +296,16 @@ function renderSegments(
         </View>
       );
     }
+    if (seg.type === "cancel") {
+      return (
+        <View key={key} testID="math-cancel" style={styles.cancelWrap} collapsable={false}>
+          {renderSegments(seg.body, `${key}-c`, ctx)}
+          <View style={styles.cancelSlashHit} pointerEvents="none" accessible={false}>
+            <View testID="math-cancel-slash" style={styles.cancelSlash} />
+          </View>
+        </View>
+      );
+    }
     return renderMathRun(seg.value, key, runStyle(ctx), styles.glyph);
   });
 }
@@ -339,10 +382,11 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
   const layoutScale = scale * fontScale;
   return StyleSheet.create({
     base: {
+      fontFamily: MATH_FONT,
       fontSize,
-      // Match body lineHeight (22). 28 made nested `$m$` / `$y=mx+b$` Text
+      // Match body rhythm. 28 made nested `$m$` / `$y=mx+b$` Text
       // wrap onto its own line inside list items ("Slope (" / "m" / "): 3").
-      lineHeight: (compact ? SQRT_LINE_HEIGHT : Type.body.lineHeight) * scale,
+      lineHeight: (compact ? SQRT_LINE_HEIGHT : MATH_BODY_LINE_HEIGHT) * scale,
       color,
     },
     glyph: {
@@ -365,19 +409,22 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       overflow: "visible",
     },
     sup: {
+      fontFamily: MATH_FONT,
       fontSize: 11,
       lineHeight: 14,
       color,
     },
     sub: {
+      fontFamily: MATH_FONT,
       fontSize: 11,
       lineHeight: 14,
       color,
     },
     fractionalSup: {
-      paddingBottom: 12 * layoutScale,
+      paddingBottom: Space.sm * layoutScale,
     },
     scriptText: {
+      fontFamily: MATH_FONT,
       fontSize: 14 * scale,
       lineHeight: FRAC_LINE_HEIGHT * scale,
       color,
@@ -395,7 +442,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       alignItems: "center",
     },
     fracPart: {
-      fontFamily: CODE_FONT,
+      fontFamily: MATH_FONT,
       fontSize: 14 * scale,
       lineHeight: FRAC_LINE_HEIGHT * scale,
       color,
@@ -413,7 +460,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       marginLeft: 6 * layoutScale,
     },
     sqrtIndex: {
-      fontFamily: CODE_FONT,
+      fontFamily: MATH_FONT,
       fontSize: 12 * scale,
       lineHeight: 14 * scale,
       color,
@@ -421,13 +468,13 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       marginTop: -4 * layoutScale,
     },
     sqrtSign: {
-      fontFamily: CODE_FONT,
+      fontFamily: MATH_FONT,
       fontSize,
       lineHeight: SQRT_LINE_HEIGHT * scale,
       color,
     },
     sqrtBody: {
-      fontFamily: CODE_FONT,
+      fontFamily: MATH_FONT,
       fontSize,
       lineHeight: SQRT_LINE_HEIGHT * scale,
       color,
@@ -443,6 +490,21 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       height: StyleSheet.hairlineWidth * 2,
       marginVertical: 2 * layoutScale,
       backgroundColor: color,
+    },
+    cancelWrap: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cancelSlashHit: {
+      ...StyleSheet.absoluteFill,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cancelSlash: {
+      width: "140%",
+      height: 1.5 * layoutScale,
+      backgroundColor: theme.danger,
+      transform: [{ rotate: "-32deg" }],
     },
   });
 };

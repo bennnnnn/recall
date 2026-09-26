@@ -8,16 +8,17 @@ import { parsePlacesJson } from "@/lib/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
-import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
-import { EmailCard } from "@/components/rich/EmailCard";
+import { EmailCard } from "@/features/integrations/components/EmailCard";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import {
   LazyChartBlock,
   LazyChemistryBlock,
+  LazyCircularClockBlock,
   LazyFunctionGraphBlock,
   LazyGeometryBlock,
   LazyMermaidBlock,
   LazyMoleculeCard,
+  LazySimulationBlock,
   LazyMolecule3DBlock,
 } from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
@@ -76,13 +77,15 @@ export function renderRichFenceById(
       return <LazyGeometryBlock key={key} content={content} />;
     case "graph":
       return <LazyFunctionGraphBlock key={key} content={content} />;
+    case "simulation":
+      return <LazySimulationBlock key={key} content={content} />;
     case "places": {
       const places = parsePlacesJson(content);
       if (places.length > 0) return <PlacesListBlock key={key} places={places} />;
       return null;
     }
     case "clock":
-      return <CircularClockBlock key={key} content={content} />;
+      return <LazyCircularClockBlock key={key} content={content} />;
     case "callout":
       return <CalloutBlock key={key} kind={parseCalloutKind(lang)} content={content} />;
     case "collapsible": {

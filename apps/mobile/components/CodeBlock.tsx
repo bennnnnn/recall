@@ -10,6 +10,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { CopyButton } from "@/components/CopyButton";
 
 import { CODE_FONT } from "@/lib/fonts";
+import { Space } from "@/lib/space";
 const CODE_FONT_SIZE = 13;
 const CODE_LINE_HEIGHT = 20;
 
@@ -176,8 +177,8 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xs,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
       backgroundColor: t.codeBg,
@@ -190,11 +191,11 @@ function makeStyles(t: Theme) {
     },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
     codeBody: { overflow: "hidden", backgroundColor: t.codeBg },
-    codeLines: { padding: 12 },
+    codeLines: { padding: Space.sm },
     codeLineRow: { flexDirection: "row", flexWrap: "nowrap", alignItems: "flex-start" },
     expandBtn: {
       alignItems: "center",
-      paddingVertical: 8,
+      paddingVertical: Space.xs,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: t.border,
       backgroundColor: t.codeBg,
@@ -204,8 +205,8 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "flex-end",
-      gap: 4,
-      paddingHorizontal: 8,
+      gap: Space.xxs,
+      paddingHorizontal: Space.xs,
       paddingVertical: 6,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: t.border,

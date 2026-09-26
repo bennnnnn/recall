@@ -45,10 +45,6 @@ jest.mock("@/lib/exportPdf", () => ({
   isShareCancelled: jest.fn(() => false),
 }));
 
-jest.mock("@/lib/share", () => ({
-  shareConversation: jest.fn(),
-}));
-
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
 }));
@@ -135,18 +131,7 @@ describe("useChatActions", () => {
     );
   });
 
-  it("keeps the ⋮ sheet open until Share.share is presented", async () => {
-    (api.listAllMessages as jest.Mock).mockResolvedValue([
-      { id: "m1", role: "user", content: "hi" },
-    ]);
-    const { shareConversation } = jest.requireMock("@/lib/share") as {
-      shareConversation: jest.Mock;
-    };
-    let visibleWhileSharing = false;
-    shareConversation.mockImplementation(async () => {
-      visibleWhileSharing = actions.menuVisible;
-    });
-
+  it("opens the share sheet from ⋮ and closes the menu", async () => {
     await act(async () => {
       render(<Probe />);
     });
@@ -154,33 +139,27 @@ describe("useChatActions", () => {
       actions.setMenuVisible(true);
     });
     await act(async () => {
-      await actions.handleShare();
+      actions.onShareFromMenu();
     });
 
-    expect(shareConversation).toHaveBeenCalled();
-    expect(visibleWhileSharing).toBe(true);
     expect(actions.menuVisible).toBe(false);
+    expect(actions.shareVisible).toBe(true);
+    await act(async () => {
+      actions.closeShare();
+    });
+    expect(actions.shareVisible).toBe(false);
   });
 
-  it("reports share failure through ActionFeedback", async () => {
-    (api.listAllMessages as jest.Mock).mockResolvedValue([
-      { id: "m1", role: "user", content: "hi" },
-    ]);
-    const { shareConversation } = jest.requireMock("@/lib/share") as {
-      shareConversation: jest.Mock;
-    };
-    shareConversation.mockRejectedValue(new Error("fail"));
-
+  it("shares the whole chat, or what is loaded when the full list fails", async () => {
+    const full = [{ id: "m1", role: "user", content: "hi" }];
+    (api.listAllMessages as jest.Mock).mockResolvedValueOnce(full).mockRejectedValueOnce(new Error("offline"));
     await act(async () => {
       render(<Probe />);
     });
-    await act(async () => {
-      await actions.handleShare();
-    });
 
-    expect(mockFeedbackError).toHaveBeenCalledWith("chat.share_failed");
-    expect(Alert.alert).not.toHaveBeenCalled();
-    expect(actions.menuVisible).toBe(false);
+    await expect(actions.loadTranscriptMessages()).resolves.toBe(full);
+    await expect(actions.loadTranscriptMessages()).resolves.toEqual([]);
+    expect(api.listAllMessages).toHaveBeenCalledWith("tok", "chat-1");
   });
 });
 

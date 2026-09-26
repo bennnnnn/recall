@@ -27,7 +27,6 @@ minimumReleaseAgeExclude:
   - expo
   - expo-apple-authentication
   - expo-audio
-  - expo-auth-session
   - expo-camera
   - expo-clipboard
   - expo-constants
@@ -54,7 +53,6 @@ minimumReleaseAgeExclude:
   - expo-speech
   - expo-splash-screen
   - expo-status-bar
-  - expo-symbols
   - expo-web-browser
   - eslint-config-expo
   - react-native

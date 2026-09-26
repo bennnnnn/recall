@@ -1,0 +1,204 @@
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
+
+import { Icon } from "@/ui/icons/Icon";
+import { plainHeaderItems } from "@/ui/controls/StackBackButton";
+import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { LearningPathList } from "@/features/learning/components/LearningPathList";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLearningDetail } from "@/features/learning/hooks/useLearningDetail";
+import { LessonMapOverflowMenu } from "@/features/learning/components/LessonMapOverflowMenu";
+import { openLearningLesson } from "@/features/learning/model/lessonLaunch";
+import { isLanguageProject } from "@/features/learning/model/languageLevels";
+import { chapterKey } from "@/features/learning/model/chapterAccess";
+import { branchAccess, domainAccess, groupPathByDomain } from "@/features/learning/model/domainPath";
+import { resolveDailyGoal } from "@/features/learning/model/dailyGoals";
+import { IconSize } from "@/ui/icons/sizes";
+import { Space } from "@/lib/space";
+import { Theme, useTheme } from "@/lib/theme";
+import { Type, Weight } from "@/lib/type";
+
+export default function LearningLessonMapScreen() {
+  const owner = useAccountViewOwner();
+  return <LessonMapContent key={owner.key} isCurrent={owner.isCurrent} />;
+}
+
+export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
+  const { token } = useAuth();
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const router = useRouter();
+  const navigation = useNavigation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuAnchorRef = useRef<View>(null);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const projectId = typeof id === "string" ? id : undefined;
+  const { project, loading, loadError, load, isCurrentOwner } = useLearningDetail(projectId);
+
+  useLayoutEffect(() => {
+    const menu = (
+      <Pressable
+        ref={menuAnchorRef}
+        onPress={() => setMenuOpen((open) => !open)}
+        accessibilityRole="button"
+        accessibilityLabel={t("lesson.menu")}
+        hitSlop={12}
+      >
+        <Icon name="more-horizontal" size={IconSize.md} color={theme.text} />
+      </Pressable>
+    );
+    navigation.setOptions({
+      headerRight: () => menu,
+      unstable_headerRightItems: () => plainHeaderItems(menu),
+    });
+  }, [navigation, t, theme.text]);
+
+  if (!token) return <Redirect href="/login" />;
+  if (!projectId) return <Redirect href="/projects" />;
+
+  if (loading && !project) return <SkeletonList />;
+
+  if (!project) {
+    return loadError ? (
+      <StateView
+        variant="error"
+        title={t("projects.load_failed")}
+        onRetry={() => void load({ force: true })}
+        retryLabel={t("common.retry")}
+      />
+    ) : (
+      <StateView variant="empty" title={t("projects.not_found")} />
+    );
+  }
+
+  if (!isLanguageProject(project.kind)) {
+    return <Redirect href="/projects" />;
+  }
+
+  const domains = groupPathByDomain(project.path_progress ?? []);
+  const stats = project.stats;
+  const dailyGoal = resolveDailyGoal(project.daily_goal);
+  const completedToday =
+    stats?.completed_today ?? (stats?.mastered_today ?? 0) + (stats?.missed_today ?? 0);
+  const todayPct =
+    dailyGoal > 0
+      ? Math.min(100, Math.round((Math.min(completedToday, dailyGoal) / dailyGoal) * 100))
+      : 0;
+
+  const startChapter = (title: string) => {
+    if (!isCurrent() || !isCurrentOwner()) return;
+    const domain = domains.find((entry) =>
+      entry.chapters.some((chapter) => chapterKey(chapter.title) === chapterKey(title)),
+    );
+    if (!domain) return;
+    const chapter = domain.chapters.find((entry) => chapterKey(entry.title) === chapterKey(title));
+    const locked = domainAccess(domains, domain.title, project.up_next) === "locked";
+    if (!chapter || branchAccess(chapter, project.up_next, locked) === "locked") return;
+    openLearningLesson(router, {
+      projectId: project.id,
+      chapter: chapter.title,
+    });
+  };
+
+  const mapHeader = (
+    <>
+      {loadError ? (
+        <StateView
+          compact
+          variant="error"
+          title={t("projects.load_failed")}
+          onRetry={() => void load({ force: true })}
+        />
+      ) : null}
+      {stats && dailyGoal > 0 ? (
+        <View style={s.todayCard}>
+          <Text style={[s.todayLabel, completedToday >= dailyGoal && s.todayLabelComplete]}>
+            {completedToday >= dailyGoal
+              ? t("projects.list.goal_met_today")
+              : t("projects.list.today_progress", { done: completedToday, goal: dailyGoal })}
+          </Text>
+          <View
+            style={s.todayTrack}
+            accessibilityRole="progressbar"
+            accessibilityValue={{
+              min: 0,
+              max: dailyGoal,
+              now: Math.min(completedToday, dailyGoal),
+            }}
+          >
+            <View
+              style={[
+                s.todayFill,
+                completedToday >= dailyGoal && s.todayFillComplete,
+                { width: `${todayPct}%` },
+              ]}
+            />
+          </View>
+        </View>
+      ) : null}
+    </>
+  );
+
+  return (
+    <View style={s.root}>
+      <LessonMapOverflowMenu
+        project={project}
+        isCurrent={() => isCurrent() && isCurrentOwner()}
+        visible={menuOpen}
+        anchorRef={menuAnchorRef}
+        onClose={() => setMenuOpen(false)}
+      />
+      <LearningPathList
+        domains={domains}
+        projectId={project.id}
+        upNext={project.up_next}
+        onOpenChapter={startChapter}
+        header={mapHeader}
+        empty={
+          <StateView
+            variant="empty"
+            icon="book"
+            title={t("lesson.chapter_empty")}
+          />
+        }
+      />
+    </View>
+  );
+}
+
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: theme.bg },
+    todayCard: {
+      marginBottom: Space.md,
+      gap: 6,
+    },
+    todayLabel: {
+      ...Type.caption,
+      ...Weight.semibold,
+      color: theme.textSecondary,
+    },
+    todayLabelComplete: {
+      color: theme.success,
+    },
+    todayTrack: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: theme.border,
+      overflow: "hidden",
+    },
+    todayFill: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: theme.primary,
+    },
+    todayFillComplete: {
+      backgroundColor: theme.success,
+    },
+  });
+}

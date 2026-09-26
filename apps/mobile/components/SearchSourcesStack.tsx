@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import {
   SearchSource,
@@ -13,7 +14,10 @@ import {
   preferDistinctHostSources,
 } from "@/lib/searchSources";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 const MAX_CHIP_ICONS = 3;
 
@@ -72,13 +76,14 @@ function SearchSourcesSheet({
   sources: SearchSource[];
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeSheetStyles(theme), [theme]);
   const listMaxHeight = Math.round(Dimensions.get("window").height * 0.55);
 
   return (
-    <AppSheet visible={visible} onClose={onClose} minBottomPadding={16} contentContainerStyle={s.sheet}>
-      <Text style={s.title}>Sources</Text>
+    <Sheet visible={visible} onClose={onClose} minBottomPadding={16} contentContainerStyle={s.sheet}>
+      <Text style={s.title}>{t("chat.sources_title")}</Text>
       <ScrollView
         style={[s.list, { maxHeight: listMaxHeight }]}
         bounces={false}
@@ -93,7 +98,7 @@ function SearchSourcesSheet({
           />
         ))}
       </ScrollView>
-    </AppSheet>
+    </Sheet>
   );
 }
 
@@ -133,7 +138,7 @@ function SourceRow({
           </Text>
         ) : null}
       </View>
-      <Icon name="open-outline" size={16} color={theme.textSecondary} />
+      <Icon name="external-link" size={IconSize.xs} color={theme.textSecondary} />
     </Pressable>
   );
 }
@@ -168,7 +173,7 @@ function FaviconCircle({
   if (failed || !uri) {
     return (
       <View style={frame}>
-        <Text style={{ fontSize: size * 0.42, fontWeight: "800", color: theme.primary }}>
+        <Text style={{ fontSize: size * 0.42, ...Weight.bold, color: theme.primary }}>
           {host.slice(0, 1).toUpperCase()}
         </Text>
       </View>
@@ -178,8 +183,11 @@ function FaviconCircle({
   return (
     <View style={frame}>
       <Image
+        testID="search-source-favicon"
         source={{ uri }}
         style={{ width: size - ring * 2, height: size - ring * 2 }}
+        contentFit="contain"
+        cachePolicy="memory-disk"
         onError={() => setFailed(true)}
       />
     </View>
@@ -193,16 +201,16 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      marginTop: 12,
+      marginTop: Space.sm,
       paddingLeft: 14,
-      paddingRight: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
+      paddingRight: Space.sm,
+      paddingVertical: Space.xs,
+      borderRadius: Radius.full,
       backgroundColor: theme.surface,
     },
     chipLabel: {
-      fontSize: 14,
-      fontWeight: "500",
+      ...Type.secondary,
+      ...Weight.medium,
       color: theme.textSecondary,
     },
     iconCluster: {
@@ -221,23 +229,23 @@ function makeStyles(theme: Theme) {
 function makeSheetStyles(theme: Theme) {
   return StyleSheet.create({
     sheet: {
-      paddingTop: 4,
+      paddingTop: Space.xxs,
     },
     list: {
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
     },
     title: {
       ...Type.navTitle,
       color: theme.text,
-      paddingHorizontal: 20,
-      marginBottom: 8,
+      paddingHorizontal: Space.gutter,
+      marginBottom: Space.xs,
     },
     row: {
       flexDirection: "row",
       alignItems: "flex-start",
-      gap: 12,
-      paddingHorizontal: 8,
-      paddingVertical: 12,
+      gap: Space.sm,
+      paddingHorizontal: Space.xs,
+      paddingVertical: Space.sm,
     },
     rowBorder: {
       borderBottomWidth: StyleSheet.hairlineWidth,
@@ -248,18 +256,17 @@ function makeSheetStyles(theme: Theme) {
       gap: 2,
     },
     domain: {
-      fontSize: 12,
-      fontWeight: "600",
+      ...Type.caption,
+      ...Weight.semibold,
       color: theme.textSecondary,
     },
     rowTitle: {
-      fontSize: 15,
-      fontWeight: "600",
+      ...Type.callout,
       color: theme.text,
       lineHeight: 20,
     },
     snippet: {
-      fontSize: 13,
+      ...Type.compact,
       color: theme.textSecondary,
       lineHeight: 18,
       marginTop: 2,

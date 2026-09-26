@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { CopyButton } from "@/components/CopyButton";
 import { CardShell } from "@/components/rich/CardShell";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = { text: string; label?: string };
 
@@ -20,7 +21,7 @@ export function MessagePreview({ text, label }: Props) {
   return (
     <CardShell
       label={resolvedLabel}
-      icon="chatbubble-outline"
+      icon="message"
       accent={false}
       headerActions={<CopyButton text={sanitized} />}
     >
@@ -33,6 +34,6 @@ export function MessagePreview({ text, label }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    body: { color: t.text, fontSize: 16, lineHeight: 24 },
+    body: { ...Type.body, color: t.text, lineHeight: 24 },
   });
 }

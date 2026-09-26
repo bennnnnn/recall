@@ -3,21 +3,24 @@ import { Alert, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useChatMenuActions } from "@/hooks/useChatMenuActions";
 import { api, type Chat } from "@/lib/api";
-import { shareConversation } from "@/lib/share";
 import { beginChatMutation } from "@/lib/chat/mutationLock";
 
 let mockSession = 0;
 const mockError = jest.fn();
+const mockDestructive = jest.fn();
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ error: mockError }) }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("@/lib/api", () => ({ api: { renameChat: jest.fn(), setPin: jest.fn(), setArchive: jest.fn(), deleteChat: jest.fn(), listAllMessages: jest.fn() } }));
 jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: () => undefined }));
-jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: () => false }));
-jest.mock("@/lib/share", () => ({ shareConversation: jest.fn() }));
 jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
+jest.mock("@/lib/haptics", () => ({
+  ...jest.requireActual("@/lib/haptics"),
+  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
+}));
 const chat: Chat = { id: "one", title: "Original", model: "free-chat", pinned: true, archived: false, created_at: "2026-01-01", updated_at: "2026-01-01" };
 const patch = jest.fn();
 const moveArchive = jest.fn();
@@ -60,16 +63,42 @@ it("ignores failed rename completion after account switch", async () => {
   expect(current.renameVisible).toBe(false);
 });
 
-it("does not share fetched private history after drawer dismissal", async () => {
+it("opens the share sheet for the long-pressed chat and loads its messages", async () => {
+  const messages = [{ content: "hello" }];
+  (api.listAllMessages as jest.Mock).mockResolvedValueOnce(messages);
+  await render(<Probe />);
+  await act(async () => { current.showRowMenu(chat); });
+  await act(async () => { current.openShareChat(); });
+  expect(current.menuChat).toBeNull();
+  expect(current.shareChat).toEqual(chat);
+  await expect(current.loadShareMessages()).resolves.toBe(messages);
+  expect(api.listAllMessages).toHaveBeenCalledWith("token", "one");
+  await act(async () => { current.closeShare(); });
+  expect(current.shareChat).toBeNull();
+});
+
+it("does not hand fetched private history to the share sheet after drawer dismissal", async () => {
   let finish!: (messages: unknown[]) => void;
   (api.listAllMessages as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
   const view = await render(<Probe />);
   await act(async () => { current.showRowMenu(chat); });
-  let request!: Promise<void>;
-  await act(async () => { request = current.handleShareChat(); });
+  await act(async () => { current.openShareChat(); });
+  const refused = expect(current.loadShareMessages()).rejects.toThrow("share_closed");
   await view.rerender(<Probe open={false} />);
-  await act(async () => { finish([{ content: "private" }]); await request; });
-  expect(shareConversation).not.toHaveBeenCalled();
+  await act(async () => { finish([{ content: "private" }]); });
+  await refused;
+  expect(current.shareChat).toBeNull();
+});
+
+it("does not load history for the share sheet after an account switch", async () => {
+  const view = await render(<Probe />);
+  await act(async () => { current.showRowMenu(chat); });
+  await act(async () => { current.openShareChat(); });
+  const load = current.loadShareMessages;
+  mockSession++;
+  await view.rerender(<Probe token="b" />);
+  await expect(load()).rejects.toThrow("share_closed");
+  expect(api.listAllMessages).not.toHaveBeenCalled();
 });
 
 it("rejects a delete confirmation retained after account switch", async () => {
@@ -116,6 +145,7 @@ it("reaffirms successful deletion after a concurrent list read", async () => {
   await act(async () => { await confirm(); });
   expect(remove).toHaveBeenCalledTimes(2);
   expect(insert).not.toHaveBeenCalled();
+  expect(mockDestructive).toHaveBeenCalledTimes(1);
 });
 
 it.each(["pin", "archive"])("uses the returned state for the drawer %s confirmation", async (kind) => {
@@ -129,5 +159,5 @@ it.each(["pin", "archive"])("uses the returned state for the drawer %s confirmat
   });
   expect(current.actionBanner).toEqual(kind === "pin"
     ? { message: "chat.pinned_toast", icon: "pin" }
-    : { message: "chat.unarchived_toast", icon: "arrow-undo-outline" });
+    : { message: "chat.unarchived_toast", icon: "unarchive" });
 });

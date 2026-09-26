@@ -23,7 +23,7 @@ async def test_tool_selection_uses_own_budget_and_preserves_visible_cap(budget):
             should_cancel=None,
         )
     assert complete.await_args.kwargs["max_tokens"] == max(1, budget)
-    assert complete.await_args.kwargs["model_alias"] == "free-chat"
+    assert complete.await_args.kwargs["model_alias"] == "gemini-flash"
     assert settings.max_output_tokens == 8192
 
 

@@ -3,7 +3,6 @@ import { render } from "@testing-library/react-native";
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { fetchLinkPreview } from "@/lib/linkPreview";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));

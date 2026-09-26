@@ -1,8 +1,8 @@
-import type { CalendarProposal } from "@/lib/calendarProposal";
-import { parseCalendarProposals, stripCalendarProposalFences } from "@/lib/calendarProposal";
+import type { CalendarProposal } from "@/features/integrations/model/calendarProposal";
+import { parseCalendarProposals, stripCalendarProposalFences } from "@/features/integrations/model/calendarProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
-import { stripReminderFences } from "@/lib/reminderFence";
+import { stripReminderFences } from "@/features/todos/model/reminderFence";
 import type { SearchSource } from "@/lib/api";
 import {
   hasVocabQuizFence,
@@ -12,14 +12,14 @@ import {
   stripVocabQuizPrologue,
   stripVocabSessionMetadata,
   type ParsedVocabQuiz,
-} from "@/lib/parseVocabQuiz";
-import { hasVocabCardFence, stripVocabCardBlock } from "@/lib/parseVocabCard";
+} from "@/features/learning/model/parseVocabQuiz";
+import { hasVocabCardFence, stripVocabCardBlock } from "@/features/learning/model/parseVocabCard";
 import {
   hasLearningLaunchFence,
   parseLearningLaunch,
   stripLearningLaunchBlock,
   type ParsedLearningLaunch,
-} from "@/lib/parseLearningLaunch";
+} from "@/features/learning/model/parseLearningLaunch";
 
 import { isLocationQuestion } from "@/lib/localPlacesQuery";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
@@ -87,6 +87,14 @@ function buildMarkdownContent(options: {
     places,
   } = options;
 
+  // The strips below are fence-scoped — a reply with no fences and no quiz
+  // (the common case) skips ~8 full-content regex passes per derive, keeping
+  // only the chain's whitespace normalization (trim + collapse 3+ newlines).
+  const hasFence = content.includes("```");
+  if (!hasFence && !quizForStrip) {
+    return content.replace(/\n{3,}/g, "\n\n").trim();
+  }
+
   let text = hideCardFenceInMarkdown
     ? stripVocabCardBlock(hideQuizFenceInMarkdown ? stripVocabQuizBlock(content) : content)
     : hideQuizFenceInMarkdown
@@ -99,6 +107,8 @@ function buildMarkdownContent(options: {
     }
     text = stripVocabQuizPrologue(text, quizForStrip);
   }
+
+  if (!hasFence) return text;
 
   if (showLiveClock) text = stripTimeAnswerFences(text);
   text = stripLearningLaunchBlock(text);
@@ -132,8 +142,11 @@ export function deriveAssistantMessageContent(
   // the same height so the prose does not move when icons appear (ChatGPT).
   const actionsReady = showActionSlot && !isGenerating;
 
+  // Defer the expensive quiz parse (its markdown fallback scans line-by-line)
+  // until the stream settles — the fence itself is still hidden mid-stream via
+  // hideQuizFenceInMarkdown; only the prologue strip waits for settle.
   const quizForStrip =
-    isUser || !hasContent
+    isUser || !hasContent || isGenerating
       ? null
       : (() => {
           const quiz = parseVocabQuiz(content);
@@ -149,7 +162,7 @@ export function deriveAssistantMessageContent(
     !layoutFrozen &&
     assistantReplyIsTimeAnswer(content, priorUserText);
 
-  const clockTimezone = extractClockTimezone(content);
+  const clockTimezone = showLiveClock ? extractClockTimezone(content) : "";
   const searchSources = resolveSearchSources(
     content,
     liveSearchSources ?? storedSearchSources,
@@ -167,7 +180,12 @@ export function deriveAssistantMessageContent(
     !isUser && hasContent && !layoutFrozen ? resolvePlaces(content) : [];
   const showPlaces = places.length > 0;
 
-  const parsedImages = !isUser && hasContent ? parseMessageImages(content) : { images: [], textWithoutImages: content };
+  // [Image: …] marker lines only appear in attachment/lookup replies — skip the
+  // per-line split+regex scan for the common no-marker reply.
+  const parsedImages =
+    !isUser && hasContent && content.includes("[Image:")
+      ? parseMessageImages(content)
+      : { images: [], textWithoutImages: content };
   const showImages = parsedImages.images.length > 0 && !layoutFrozen;
   const proseWithoutImages =
     parsedImages.images.length > 0

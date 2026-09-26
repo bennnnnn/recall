@@ -60,7 +60,7 @@ function fenceLang(info: string): string {
 }
 
 /** Walk ``` fences with linear `indexOf` (no nested regex). */
-export function iterFences(text: string): Fence[] {
+function iterFences(text: string): Fence[] {
   const fences: Fence[] = [];
   let index = 0;
   const length = text.length;
@@ -275,7 +275,7 @@ function isPairedMolecule3d(prev: Fence | null, fence: Fence, markdown: string):
 }
 
 /** Replace known rich fences with a human summary; leave real code/math alone. */
-export function replaceRichFences(markdown: string): string {
+function replaceRichFences(markdown: string): string {
   const fences = iterFences(markdown);
   if (fences.length === 0) return markdown;
   const parts: string[] = [];

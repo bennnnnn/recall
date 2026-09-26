@@ -1,9 +1,11 @@
 import { useMemo } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 
 import { getInitials } from "@/lib/profile";
-import { attachmentRequestHeaders, resolveAttachmentUri } from "@/lib/attachmentUri";
+import { attachmentRequestHeaders, resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { Theme, useTheme } from "@/lib/theme";
+import { Weight } from "@/lib/type";
 
 /** Google profile picture when available, otherwise the user's initials. */
 export function Avatar({
@@ -28,6 +30,8 @@ export function Avatar({
         testID="avatar-image"
         source={{ uri: resolvedUri, headers: attachmentRequestHeaders(resolvedUri, token) }}
         style={[dim, { backgroundColor: theme.surface }]}
+        contentFit="cover"
+        cachePolicy="memory-disk"
       />
     );
   }
@@ -45,6 +49,6 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "center",
     },
-    text: { color: theme.onPrimary, fontWeight: "700" },
+    text: { color: theme.onPrimary, ...Weight.bold },
   });
 }

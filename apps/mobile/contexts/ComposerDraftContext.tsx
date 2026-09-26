@@ -39,6 +39,7 @@ type ComposerDraftValue = {
 
 const ComposerDraftApiContext = createContext<ComposerDraftApi | null>(null);
 const ComposerDraftValueContext = createContext<ComposerDraftValue | null>(null);
+const ComposerDraftActivityContext = createContext(false);
 
 /** Owns composer text so keystrokes do not re-render ChatScreen / the message list. */
 export function ComposerDraftProvider({ children }: { children: ReactNode }) {
@@ -96,10 +97,13 @@ export function ComposerDraftProvider({ children }: { children: ReactNode }) {
     [resetForNewSession],
   );
   const value = useMemo<ComposerDraftValue>(() => ({ input, revision }), [input, revision]);
+  const hasContent = input.length > 0;
 
   return (
     <ComposerDraftApiContext.Provider value={api}>
-      <ComposerDraftValueContext.Provider value={value}>{children}</ComposerDraftValueContext.Provider>
+      <ComposerDraftActivityContext.Provider value={hasContent}>
+        <ComposerDraftValueContext.Provider value={value}>{children}</ComposerDraftValueContext.Provider>
+      </ComposerDraftActivityContext.Provider>
     </ComposerDraftApiContext.Provider>
   );
 }
@@ -120,4 +124,9 @@ export function useComposerDraftApiOptional(): ComposerDraftApi | null {
 /** Live draft text — only ChatComposer (or tests) should subscribe. */
 export function useComposerDraftValueOptional(): ComposerDraftValue | null {
   return useContext(ComposerDraftValueContext);
+}
+
+/** Changes only when the composer moves between empty and non-empty. */
+export function useComposerDraftActivity(): boolean {
+  return useContext(ComposerDraftActivityContext);
 }

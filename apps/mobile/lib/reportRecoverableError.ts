@@ -1,6 +1,5 @@
-import { Alert } from "react-native";
-
 import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 /** Recoverable failures: in-tree banner when the provider exists, native fallback otherwise. */
 export function reportRecoverableError(
@@ -11,7 +10,7 @@ export function reportRecoverableError(
     feedback.error(message);
     return;
   }
-  Alert.alert(message);
+  void alertDialog({ title: message });
 }
 
 export function reportRecoverableWarning(
@@ -22,5 +21,5 @@ export function reportRecoverableWarning(
     feedback.warning(message);
     return;
   }
-  Alert.alert(message);
+  void alertDialog({ title: message });
 }

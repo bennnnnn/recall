@@ -23,16 +23,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Session recovery and account boundaries** — atomic secure credential pairs and Redis
   rotation; temporary failures preserve sign-in; startup offers Retry when validation is
   unavailable; old-account requests, cache writes and background sync cannot restore a
-  signed-out account. See [authentication review](docs/AUTH_SESSION_REVIEW_2026-09-04.md).
+  signed-out account.
 - ✅ **Auto sign-out on 401** — refresh is attempted first; definitive rejection signs out,
   while temporary refresh failures preserve the session for retry.
 - ✅ **Sign out** — revokes server tokens, clears local storage, and signs out of Google.
 - ✅ **Sign in with Apple** — iOS only (hidden on Android); requires Apple capability on App ID.
 - 🔜 Email/password, magic links, multi-device session management.
-- ⚠️ **Native sign-in verification (2026-09-04)** — the installed simulator app lacks signing
-  entitlements and cannot use Keychain; no valid signing identity is available in this
-  environment. Configure Apple development signing and rebuild before verifying session
-  persistence and native Google/Apple callbacks. Credentials stay in secure storage.
+- ⚠️ **Simulator Keychain** — unsigned simulator builds cannot use Keychain (`errSecMissingEntitlement`). Configure Apple development signing and rebuild before verifying session persistence and native Google/Apple callbacks. Credentials stay in secure storage.
 
 ## 2. Conversations (chats)
 - ✅ **New chat** — from the header `＋` and the drawer; created **lazily** on the first message
@@ -45,10 +42,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   messages).
 - ✅ **Search** — full-text search across chats and messages via the drawer search bar
   (backend `/search` with debounce + pagination).
-- ✅ **Search reliability review (2026-09-04)** — account/query changes immediately
+- ✅ **Search reliability** — account/query changes immediately
   invalidate old results and requests; first-page and pagination failures offer Retry.
   Results use stable ordering and a consistent page/count database snapshot, and opening
-  a message cancels obsolete navigation work. See [review and release checks](docs/SEARCH_RELIABILITY_REVIEW_2026-09-04.md).
+  a message cancels obsolete navigation work.
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the **native OS
@@ -75,21 +72,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   only after the server confirms the file is gone. Opening Library warms the All page
   from the drawer tap (20s cache, same window as Memory); tab snapshots avoid a
   wrong-grid flash. Logout, chat delete, upload, and image-gen invalidate it.
-- ✅ **Attachment reliability review (2026-09-04)** — picker and Library completions
+- ✅ **Attachment reliability** — picker and Library completions
   stay in their account and conversation; pagination failures retain rows with Retry.
   Downloads use distinct cache files, verify cached files still exist, and clear on logout.
   Temporary storage failures preserve attachment records; failed object deletions remain
   queued for cleanup. Local upload retries cannot overwrite an existing Library file.
-  See [review and validation notes](./docs/ATTACHMENT_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
   **Delete** (with confirm).
-- ✅ **Chat management reliability review (2026-09-04)** — manual titles survive delayed
+- ✅ **Chat management reliability** — manual titles survive delayed
   generation; pin/archive updates are atomic; drawer and header changes stay in sync.
   Bulk partial failures preserve successful actions, and stale reads cannot restore
   deleted chats. Saved history and title polling respect navigation and account changes.
-  See [review and release checks](docs/CHAT_MANAGEMENT_REVIEW_2026-09-04.md).
 - 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
 - 🔜 Folders.
 - ✅ **Learning-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
@@ -193,47 +188,74 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `expo-audio` / attachment URLs. Do not start until image-gen’s storage/cap path is the
   template. Not TTS / not humming into the mic.
 - ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
-  display ` ```math` uses KaTeX (or MathJax for heavy expressions) in a WebView on a
-  **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
-  fullscreen scroll. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
+  display ` ```math` renders as **MathJax-SVG** (`MathSvgView` + `mathjax-full`, lazy-loaded
+  and LRU-cached, themed via `currentColor`) on every build — no WebView — with a readable
+  `MathText` fallback if conversion fails. Native builds use **Skia** for inline function
+  graphs, the expanded pinch/pan graph explorer, number-line solutions, and shaded
+  two-dimensional inequalities, with SVG as the Expo Go / stale-client fallback. Bare arithmetic (`12+3=15`) and identifiers (`x2`) are typeset as
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
   `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
   verified answers (`1+1=x`, factor a quadratic) return directly without an LLM
-  turn; “explain every step” still streams. Recall attaches geometry, graph, and
+  turn. Linear / pure-power / quadratic **lessons** are server-rendered from
+  verified `key_steps` when the style is Detailed, the user asks for steps, or
+  Balanced with two or more operations; other explanations still stream. Recall attaches geometry, graph, and
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
-- ✅ **Physics (narrow verified)** — 1D gravity kinematics, vacuum projectile range / max
-  height (quadratic time-of-flight when a launch height is given), scalar F=ma,
-  KE / PE / work / power (`P = F v` or `W / t`), and momentum / impulse / 1D collisions
-  (`p = mv`, `J = FΔt` or `mΔv`; elastic and perfectly inelastic — an unstated
-  collision type is refused, not guessed), and friction / normal force / incline
-  acceleration (`f = μN`, `N = mg·cosθ`, `a = g(sinθ − μcosθ)`; a block that
-  cannot slide reports `a = 0` rather than a negative acceleration), and circular
-  motion (`a_c = v²/r`, `F_c = mv²/r`, `T = 2πr/v`), and springs / SHM
-  (`F = kx`, `U = ½kx²`, `T = 2π√(m/k)`; the period answer carries an animatable
-  displacement-vs-time curve, normalised when no amplitude is given), plus
-  **circuits** — Ohm's law in all three rearrangements, electrical power, and two
-  resistors in series or parallel. Electrical power is a separate op from the
-  mechanical one: same name and same watt, different quantity. Torque and
-  see-saw moment balance close the mechanics set. The system prompt names the
-  verified list and states plainly that anything outside it (pressure,
-  thermodynamics, gravitation, waves, optics, pendulum) is **not** checked — and
-  a test ties that list to the solver registry so it cannot drift again. Trajectory ` ```graph ` fences only for
-  kinematics and projectile; force and energy are numbers. A speed/velocity ask plots
-  `v(t)`, not height. Projectile and kinematics trajectories **play back on tap** — a dot
-  walks the sampled points, which the solver spaces by uniform time, so the motion is
-  real rather than eased. Never autoplays; Reduce Motion keeps the static curve.
-  The solver gate is the union of those extractor cues.
-  Moon/Mars gravity is a whole-token match (`marsh` stays Earth). See
-  [docs/math.md](./docs/math.md).
-- ✅ **Chemistry (verified kinds)** — server-side RDKit / SymPy + PubChem. Balancing,
-  molar mass (Hill formulas vs organic SMILES — `CO` is 28 g/mol, `CCO` is ethanol),
-  hydrates, stoich / limiting reagent, pH, ideal gas, molarity / dilution, element
-  lookup, descriptors, and compound lookup. Structures: model ` ```smiles `
-  (alias ` ```chemistry `); the server attaches ` ```molecule3d ` (first two valid
-  molecules). Buffers, Ka, thermo, and a `ChemIntent` registry stay deferred. See
-  [docs/chemistry.md](./docs/chemistry.md).
+- ✅ **Physics (twenty verified kinds)** — server-side SymPy. Mechanics:
+  1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
+  max height, time of flight, impact speed, launch angle from a range), scalar
+  F=ma with resultants and components, KE / PE / work / power, momentum /
+  impulse / 1D collisions, friction (`f = μN`, incline acceleration, `μ = tanθ`
+  at the slipping angle, minimum force to move), circular motion
+  (`a_c`, `F_c`, period, RPM and `ω = v/r`), springs and SHM (`F = kx`, `U`, spring and
+  pendulum periods, `f = 1/T`, `v_max = Aω`), torque and moment balance.
+  Beyond mechanics: **circuits** (Ohm's law, power, n-resistor networks,
+  `Q = It`, `E = Pt`, `C = Q/V`, terminal voltage), **waves** (`v = fλ`,
+  `f = 1/T`, Doppler), **optics** (thin lens/mirror, speed-derived refractive
+  index, magnification, Snell, critical
+  angle), **thermal** (`Q = mcΔT`, `PV = nRT`, efficiency), **gravitation**
+  (`F = GMm/r²`, orbital and escape velocity, surface gravity, with a named-body
+  table), **fluids** (`P = F/A`, `ρgh`, upthrust, density, continuity, flow
+  rate), **rotation** (`ω = θ/t`, moment of inertia, `L = Iω`, rotational KE),
+  **magnetism** (`F = BIL`, `F = qvB`, `Φ = BA`), **materials** (`σ = F/A`,
+  `ε = ΔL/L`, `E = σ/ε`) and **modern** (`E = hf` or `hc/λ`, de Broglie, half-life,
+  `E = mc²`).
+  **What it refuses is the design.** An unstated collision type, a 2D collision,
+  a diverging lens (the sign conventions disagree), an absolute temperature
+  written as bare "degrees" (27 °C and 27 K differ elevenfold), efficiency from
+  two temperatures (that is Carnot), a Doppler question with no stated
+  direction, a moment of inertia for a "wheel" (the shape *is* the answer), a
+  planet described but not named, and buoyancy without a submerged volume — all
+  return no verified block rather than a plausible wrong number. Depth pressure
+  says "gauge"; the magnetic force on a charge says it assumes a perpendicular
+  field. The system prompt names the verified list and states plainly that
+  anything outside it (relativity, quantum states, alternating current, entropy,
+  interference) is **not** checked, and a test ties that list to the solver
+  registry so it cannot drift. Every complete, single-request verified physics
+  answer returns directly with Given / Find / Formula / Substitution / Answer,
+  without waiting on the language model. Trajectory ` ```graph ` fences only for
+  kinematics/SUVAT (height or velocity against time), projectile (x-y path) and
+  SHM (displacement against time); a speed/velocity ask plots `v(t)`, not
+  height. Trajectories and simulation scenes render in native Skia and autoplay;
+  `=` stops and `<` restarts playback. A dot walks the sampled points, which the
+  solver spaces by uniform time, so the motion is real rather than eased.
+  Reduce Motion keeps the static curve. The solver gate is the union of those extractor cues, and every
+  param declares an SI dimension (Pint reads a bare `pa` as a *petayear*, so a
+  missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
+  whole-token match (`marsh` stays Earth). See [docs/math.md](./docs/math.md).
+- ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction plus grouped
+  deterministic solvers cover balancing; amount conversions; composition/yield;
+  stoichiometry/limiting reagent; solution concentration; pH/pOH and buffers; ideal gas;
+  heat/Gibbs; simple Kc/Qc; first-order/Arrhenius kinetics; cell/Nernst/electrolysis;
+  half-life decay; and Beer–Lambert. Complete typed questions return the same compact
+  Given / Find / named Formula / Substitution / Answer layout as Physics, with no
+  unnecessary trailing zeros. RDKit / SymPy + PubChem still verify structures,
+  descriptors, elements, and compounds. Structures use ` ```smiles ` (alias
+  ` ```chemistry `); the server attaches ` ```molecule3d ` for the first two valid
+  molecules. Chemically aware 2D layout remains smiles-drawer; interactive 3D now
+  renders on a native Skia canvas, with an SVG fallback for Expo Go or a stale native
+  client. See [docs/chemistry.md](./docs/chemistry.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
   triangle, trapezoid, sector, …) via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays
@@ -275,13 +297,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 5. Models & routing
 - ✅ **Multiple tiers** — **Flash** (`free-chat`) and **Pro** (`smart-chat`), plus named
   models in the picker (Llama, GPT 5.5, GLM, …). No OpenRouter-auto “Max” chip.
-- ✅ **Manual switching** — model picker in the composer + a default in Settings (respected).
+- ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by
+  design; the composer picker was removed to keep the composer single-purpose). Respected
+  per chat turn.
 - ✅ **Chat settings from natural language** — small allowlist, confirm-then-write
   (calendar-proposal style): model (Flash / Pro / Auto, nicknames like “GPT” → GPT 5.5),
   tone (funny / professional / casual / soft), app language, and appearance
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
   No open settings tool. Daily learning goal lives on the lesson map ⋯ menu.
-- ✅ **Auto routing** — an **Auto** chip (composer + Settings) picks Flash vs Pro per message via a
+- ✅ **Auto routing** — an **Auto** option (Settings → Models) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). Short follow-ups of a hard turn inherit
   that turn’s tier; a new topic drops back to Flash. No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
@@ -295,8 +319,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
-- ✅ **Automatic extraction** — every user turn by default (`memory_extract_every_n_turns=1`;
-  always on turn 1). Ops can raise N to skip intermediate LLM cost. Each pass includes
+- ✅ **Automatic extraction** — every substantive user turn by default
+  (`memory_extract_every_n_turns=1`; always on turn 1). Only unmistakable greetings and
+  acknowledgements skip the memory model; natural self-descriptions and durable reply-style
+  corrections are evaluated without requiring phrases such as “I am” or “remember.” Ops can
+  raise N to skip intermediate LLM cost. Each pass includes
   user messages not processed by the previous pass (per-chat extract cursor), so a fact
   on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”
   still extract when N>1. No remember/forget chip or confirmation sheet.
@@ -322,17 +349,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Memory screen** — facts grouped by type, each with a real id, **last confirmed** and
   source chat title (not confidence %). Edit, delete, or mute (“Don’t mention this”).
   `PATCH /memories/{id}` updates text or status; `DELETE /memories/{id}` deletes one fact;
-  `DELETE /memories` clears all. See [docs/MEMORY_V2.md](docs/MEMORY_V2.md).
+  `DELETE /memories` clears all.
 - ✅ **Memory toggle** — turn learning on/off in Settings (stops new learning; saved facts
   remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
   do not implement until this line is promoted.
-- ✅ **Memory management reliability review (2026-09-04)** — account and navigation
+- ✅ **Memory management reliability** — account and navigation
   changes invalidate old dialogs, reads, and feedback; independent section edits compose,
   and pending writes remain exclusive across screen visits. Failed refreshes retain saved
   rows with Retry. Manual changes clear stale embeddings and invalidate derived caches;
   delayed background writes cannot overwrite changed/deleted sections and recheck the
-  learning toggle before saving. See [review and release checks](docs/MEMORY_RELIABILITY_REVIEW_2026-09-04.md).
+  learning toggle before saving.
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
   (editable in Settings → Personalization → About you) and injected into the chat system profile block.
 - ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks
@@ -365,8 +392,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   RAG gather on separate short-lived sessions so the prompt path stays concurrent without
   sharing one `AsyncSession`.
 - ✅ **Slim casual turns** — coaching / chit-chat uses a compact format + math-safety hint (not
-  the full visualization/math-solver pack) and skips calendar/gmail-nudge and web/math/chem
-  prefetch unless the turn is rich or actually needs search, math, chemistry, or calendar/gmail.
+  the full visualization/math-solver pack), keeps bounded personal memory and semantic history
+  available for continuity, and skips calendar/gmail-nudge and web/math/chem prefetch unless the
+  turn is rich or actually needs search, math, chemistry, or calendar/gmail. Exact greetings and
+  acknowledgements stay on the zero-retrieval fast path.
 - ✅ **Prompt token budgeting UI** — Settings → Usage shows today's used / daily
   limit. The composer
   shows a local draft estimate when the text is large enough to matter.
@@ -443,7 +472,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 11. Navigation & UX
 - ✅ **Drawer** — custom slide-in: search, New chat, chat history, profile + settings.
-- ✅ **Chat screen** — composer with model picker, top-right `＋` (new) and `⋯` (Share / Rename /
+- ✅ **Chat screen** — single-purpose composer, top-right `＋` (new) and `⋯` (Share / Rename /
   Pin / Delete).
 - ✅ **States** — login, loading, empty chat ("How can I help?"), empty memory, drawer offline/retry.
 - ✅ **Onboarding** — a first-run welcome screen (value props + "Get started"), shown once before
@@ -459,6 +488,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   chrome use `Type` / `Space` for body, caption, label, title, and display roles.
   Compact chip/pill controls stay specialized (not the shared Button). Login
   wordmark and 11px stat chips keep their one-off sizes.
+
+**UX decisions from the 2026-09 frontend audit (do not relitigate):**
+- Model selection is **settings-only** (Settings → Models); no composer model picker.
+- My Job keeps one combined route (empty state → dashboard); split only if the empty
+  state grows.
+- User-message copy stays **long-press only** (with a "Long press to copy"
+  accessibility hint); no visible copy button on user bubbles.
+- Onboarding keeps a single CTA.
+- Schedule/Learning secondary meta uses the shared `Type.caption` token — no new
+  pill component.
 
 ## 12. Monetization
 - ✅ **Pro subscription (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
@@ -514,14 +553,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   or a failure line — it does not promise a change that has not happened. Route
   `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
-- ✅ **Schedule reliability review (2026-09-04)** — normal reminder saves use the
+- ✅ **Schedule reliability** — normal reminder saves use the
   accepted API payload; failed saves preserve drafts. Account/focus guards, coordinated
   list reads and row mutations, Android date-then-time selection, serialized local
   notifications, and conditional server recurrence/delivery writes protect reminder state.
   Schedule loads through immutable-ID cursor pages so edits between pages cannot hide
   existing reminders. Recurring reminders are excluded from email; one-shot email
   finalization cannot mark a concurrently edited occurrence as delivered.
-  See [review and release checks](docs/SCHEDULE_RELIABILITY_REVIEW_2026-09-04.md).
 - ✅ **Todos API** — create, check off, delete dated reminders; `due_at` is required
   on create and cannot be cleared on update. Recurring without a due date stays invalid.
   Chat extract skips undated adds.
@@ -788,7 +826,7 @@ were removed. Programming help lives in main chat.
   Recall manages lesson content; there are no manual content edit/delete controls.
   Today’s progress sits above the path tree. Locked chapters stay
   visible until the current one is complete. No generic `learning` kind, lesson
-  notes, certificates, or marketplace. See the [Learning review and release checks](docs/LEARNING_REVIEW_2026-09-04.md).
+  notes, certificates, or marketplace.
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
@@ -818,7 +856,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** sends the cropped image to chat (no pre-send OCR). Mathpix/`vision-chat` still run on the chat turn when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`).
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** sends the cropped image to chat (no pre-send OCR). Mathpix/`vision-chat` still run on the chat turn when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
@@ -828,8 +866,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   from the composer on send (daily cap; no separate prompt sheet).
 - ✅ **Per-chat Redis prepare lock** — `chatprep:{chat_id}` around prepare + stream; concurrent
   turns get `ChatBusyError` / `code: "busy"` (#536).
-- ✅ **Math WebView expand / fullscreen** — tall KaTeX/MathJax blocks offer Expand → full-screen
-  modal (`MathFormulaWebView`; #537).
+- ✅ **Math display rendering** — display math renders as MathJax-SVG (`MathSvgView`;
+  replaced the WebView host from #537). Wide formulas scroll horizontally inline.
 - ✅ **Algebra `canonical_fence` / ` ```answer ` rewrite** — SymPy attaches canonical answer
   fences; post-stream `validate_math_fences` rewrites drifted finals (#538). Multi-root
   answers group ± reals and conjugates (`x^6 = 1` → three `aligned` lines, not six
@@ -886,9 +924,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   “Chemical structure” label for that pair. Verified compute coverage is
   [docs/chemistry.md](./docs/chemistry.md); do not treat SMILES rendering as the
   whole chemistry product.
-- 🔜 **ChemIntent extractor registry** — wire new verified kinds through
-  `build_chemistry_context` extractors for now. A math-style `ChemIntent` table is
-  deferred; do not implement buffers / Ka / thermo as fake `[Verified]` blocks.
+- ✅ **Chemistry intent boundary** — `models/schemas/chemistry/ChemistryIntent` separates
+  extraction, solving, and presentation. Incomplete questions deliberately stay on the
+  model path; only successful deterministic results receive verified labels.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
   response caching, full duplex live voice (later).
 - 🔜 **Math scanner capture-quality** — on-device blur/glare/perspective correction and a
@@ -912,6 +950,20 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   quieter chat-header chrome; drawer profile opens Settings; Home overdue uses warning,
   not danger; starter chips have distinct
   icons; composer send/stop/dismiss use `Icon`. Web remains a later project.
+- ✅ **One UI kit (2026-09)** — `apps/mobile/ui/` is the single source for controls
+  (catalog: `apps/mobile/ui/README.md`; dev gallery at Settings → About → UI kit):
+  - **Icons:** Lucide line icons at one stroke weight, plus multicolor brand marks.
+  - **Menus:** every menu is one anchored popover; choices use a checked `SelectMenu`.
+  - **Dialogs:** themed `confirmDialog` / `alertDialog` replace system alerts; passing errors are toasts.
+  - **Pickers:** an Android-style clock time picker (dial, AM/PM, 24-hour inner ring,
+    keyboard entry) and a calendar date picker with a year list, used for quiet hours,
+    to-dos and My Job. The native datetimepicker module is removed.
+  - **Share:** a ChatGPT-style share sheet (preview card with copy, Share / Copy / PDF) for
+    chats, the drawer and My Job.
+  - **Controls:** round header buttons, pill `Button`s, one `Chip`, `SegmentedControl`,
+    `ListRow`, and `TextField`.
+
+  Lint keeps features from rebuilding any of these. Public share links are still not built.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
 
@@ -991,8 +1043,8 @@ Shipped after the Phase 1/2 code review (and follow-up PRs):
 - ✅ **Real-SQL repository tests** — `test_*_db.py` for chats / messages / memories / usage
 - ✅ **RTL test infra** — `@testing-library/react-native` + WebView sandbox / mount-queue tests
   (expand coverage over time; foundation is in)
-- ✅ **Deferred WebView mount queue** — `useDeferredWebViewMount` caps concurrent chart/math/Mermaid
-  WebViews so multi-block messages stay smooth
+- ✅ **Deferred WebView mount queue** — `useDeferredWebViewMount` caps concurrent chart/Mermaid/chemistry
+  WebViews so multi-block messages stay smooth (math is SVG-native now, no WebView)
 - ✅ **Hung-worker heartbeat** — `is_worker_alive` tracks loop heartbeat, not only `task.done()`
 - ✅ **Claude review waves (#533–#539)** — product/reliability fixes + deferred items: chatprep
   lock, math expand, algebra answer fences, hard-disconnect persist, RevenueCat SET NX
@@ -1049,9 +1101,9 @@ Notes: multimodal routes through whichever catalog model supports the modality (
 aliases on OpenRouter). Multimodal calls cost more than text — gated by plan + daily caps
 (images, speech).
 
-### Web client (planned)
+### Web client
 
-A future **web version that reuses this same API** — one backend, multiple clients.
+A **web version that reuses this same API** — one backend, multiple clients. Slice 1 is in `apps/web`; later slices are not.
 
 - 🔜 **Shared API + types** — the web app consumes the same HTTP/WebSocket endpoints and
   request/response shapes; eventually extract the `lib/api.ts` types/client into a package both
@@ -1107,9 +1159,9 @@ structured Learning topic type.
 |-------|--------|--------|
 | MVP (mobile) | Chat + memory + Schedule + Learning + calendar/Gmail + attachments | ~95% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | 🔜 Future (owner ops) |
-| v1.1 | Web client (same API), locale prose, legal localization | 🔜 Future |
+| v1.1 | Remaining web slices (rich fences, Memory/Learning/settings), locale prose, legal localization | 🔜 Future |
 | Next (product) | — | Done (tool loop, scanned-PDF OCR, chat-history RAG) |
-| Later | Google Docs, GitHub, code execution, duplex voice, web client, folders / family plans | 🔜 Future |
+| Later | Google Docs, GitHub, code execution, duplex voice, folders / family plans | 🔜 Future |
 
 Notes already on `main` (not waiting on v2): Fly api/worker split ✅, attachment RAG ✅,
 chat-history RAG ✅, LiteLLM tool loop **on by default** (ordinary chat skips the pre-stream round) ✅, structured profile ✅,
@@ -1183,7 +1235,7 @@ streaks). **OpenRouter / product aliases are the intended model setup** — not 
 
 **Future (not implementing now):** launch ops (provision, landing page, Gmail OAuth, on-device
 QA, prod R2); Google Docs + GitHub; code execution (beyond the HTML sandbox); duplex voice;
-web client; locale prose + legal bodies; folders / family plans; **user-wide attachment RAG**;
+remaining web slices; locale prose + legal bodies; folders / family plans; **user-wide attachment RAG**;
 **SM-2 review-queue UI / Settings deck browse / typed-answer lessons**.
 
 ---

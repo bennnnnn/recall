@@ -1,25 +1,7 @@
-import logging
-from uuid import UUID
+"""Compatibility alias for the Gmail sync job."""
 
-from sqlalchemy.ext.asyncio import AsyncSession
+import sys
 
-from app.core.config import Settings
-from app.services.email import context as email_service
+from app.modules.integrations import jobs as _module
 
-logger = logging.getLogger(__name__)
-
-
-async def sync_gmail_for_user(
-    session: AsyncSession,
-    settings: Settings,
-    *,
-    user_id: UUID,
-) -> None:
-    from app.core.redis import get_redis_client
-
-    try:
-        redis = get_redis_client()
-        await email_service.sync_gmail_for_user(session, settings, user_id, redis=redis)
-    except Exception:
-        logger.exception("Gmail sync job failed for user_id=%s", user_id)
-        raise
+sys.modules[__name__] = _module

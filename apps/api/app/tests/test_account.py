@@ -92,7 +92,7 @@ def test_delete_account_returns_204():
 
 
 def test_delete_account_continues_when_google_revoke_fails():
-    from app.services.google_integrations import GoogleConnectError
+    from app.modules.integrations.connect import GoogleConnectError
 
     user = _fake_user()
     app = _app_with_user(user)
@@ -163,19 +163,19 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
             AsyncMock(),
         ),
         patch(
-            "app.services.attachments.lifecycle.attachments_repo.list_for_user",
+            "app.modules.attachments.lifecycle.attachments_repo.list_for_user",
             AsyncMock(return_value=[ok, bad]),
         ),
         patch(
-            "app.services.attachments.lifecycle.attachments_repo.delete_rows",
+            "app.modules.attachments.lifecycle.attachments_repo.delete_rows",
             AsyncMock(return_value=2),
         ),
         patch(
-            "app.repositories.attachment_chunks.delete_for_attachment_ids",
+            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
             AsyncMock(),
         ),
         patch(
-            "app.services.attachments.lifecycle.get_storage_gateway",
+            "app.modules.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
         patch("app.services.account_lifecycle.users_repo.delete_user", AsyncMock()) as delete_user,

@@ -31,10 +31,15 @@ CLARIFICATION_HINT = (
 PRIVACY_HINT = (
     "Privacy: Profile, memory, reminders, projects, calendar, and Gmail blocks in this "
     "prompt are internal context only — never dump them into a reply.\n"
-    "Do NOT mention email, location, reminders, memories, projects, inbox, or schedule unless "
-    "the user explicitly asks for that specific thing (e.g. 'what's my email?', 'what's due "
-    "today?', 'what time is my flight?', 'what projects am I working on?', "
-    "'what word did I learn today?') or the task obviously requires it.\n"
+    "Use relevant safe profile and memory facts naturally to personalize the answer, but never "
+    "say that memory was consulted. Do NOT surface email, exact location, reminders, inbox, "
+    "calendar, or schedule unless the user explicitly asks for that specific thing (e.g. "
+    "'what's my email?', 'what's due today?', 'what time is my flight?') or the task obviously "
+    "requires it. Do not surface sensitive facts outside a directly relevant request. "
+    "Keep established current facts distinct from goals, hypotheticals, and possible future "
+    "changes. For example, if memory says the user works at Uber and they ask about working at "
+    "Google, Uber remains their current employer and Google is only a possible target unless "
+    "they explicitly say they changed jobs.\n"
     "Learning / vocab / 'what did I learn' questions are explicit asks — answer from the "
     "injected Learning block. Never say you are not connected to their learning app or data "
     "when that block is present.\n"
@@ -43,9 +48,10 @@ PRIVACY_HINT = (
     "bullets. You MAY use memory for concrete examples of their work or learning. "
     "Do NOT dump email, location, calendar events, inbox, or reminder contents, and "
     "do not open ```email / ```sms fences.\n"
-    "'Who am I?' / 'Tell me about me' → at most their first name (or name from profile) and "
-    "a brief, friendly line — do NOT list email, location, schedule, reminders, memories, "
-    "or projects. Offer to share more if they ask for something specific.\n"
+    "'Who am I?' / 'Tell me about me' / 'What do you know about me?' → give a concise, "
+    "friendly summary grounded in the safe profile and memory facts present. You may mention "
+    "their name, work, interests, preferences, goals, and active projects. Never include email, "
+    "exact location, schedule, reminders, inbox, or sensitive facts unless specifically asked.\n"
     "'What's my name?' → name only. 'What's my email?' → email only. 'Where am I?' → location only."
 )
 
@@ -80,8 +86,9 @@ ADVICE_PERSONALIZE_HINT = (
 )
 
 BROAD_SELF_ANSWER_HINT = (
-    "The user asked a general 'who am I' question. Reply with their first name (from profile) "
-    "and ONE short friendly sentence — keep your configured tone. Do NOT mention location, email, "
-    "work, projects, schedule, reminders, or memories. Offer to help if they ask for something "
-    "specific."
+    "The user explicitly asked what you know about them. Give a concise, warm summary grounded "
+    "only in the profile, memory, and past-conversation context present in this prompt. Include "
+    "useful safe details such as work, interests, communication preferences, goals, or projects "
+    "when available. Do not mention the memory system or expose email, exact location, calendar, "
+    "inbox, reminders, or sensitive facts unless the user specifically requests them."
 )

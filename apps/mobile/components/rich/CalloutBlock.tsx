@@ -6,6 +6,7 @@ import { CardShell } from "@/components/rich/CardShell";
 import { RichMathBody } from "@/components/rich/RichMathBody";
 import { CalloutKind } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type, Weight } from "@/lib/type";
 
 function calloutMeta(
   theme: Theme,
@@ -16,21 +17,21 @@ function calloutMeta(
     label: string;
     color: string;
     icon:
-      | "bulb-outline"
-      | "information-circle-outline"
-      | "warning-outline"
-      | "alert-circle-outline";
+      | "lightbulb"
+      | "info"
+      | "warning"
+      | "alert-circle";
   }
 > {
   return {
-    tip: { label: t("rich.callout_tip"), color: theme.success, icon: "bulb-outline" },
-    note: { label: t("rich.callout_note"), color: theme.primary, icon: "information-circle-outline" },
-    info: { label: t("rich.callout_info"), color: theme.primary, icon: "information-circle-outline" },
-    warning: { label: t("rich.callout_warning"), color: theme.warning, icon: "warning-outline" },
+    tip: { label: t("rich.callout_tip"), color: theme.success, icon: "lightbulb" },
+    note: { label: t("rich.callout_note"), color: theme.primary, icon: "info" },
+    info: { label: t("rich.callout_info"), color: theme.primary, icon: "info" },
+    warning: { label: t("rich.callout_warning"), color: theme.warning, icon: "warning" },
     important: {
       label: t("rich.callout_important"),
       color: theme.danger,
-      icon: "alert-circle-outline",
+      icon: "alert-circle",
     },
   };
 }
@@ -63,7 +64,7 @@ export function CalloutBlock({ kind, content }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    body: { fontSize: 16, lineHeight: 24, color: t.text },
-    title: { fontSize: 13, fontWeight: "600", color: t.textSecondary, flexShrink: 1 },
+    body: { ...Type.body, lineHeight: 24, color: t.text },
+    title: { ...Type.compact, ...Weight.semibold, color: t.textSecondary, flexShrink: 1 },
   });
 }

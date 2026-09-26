@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { getCachedChat, peekCreatedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
+import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
 import { beginChatMutation } from "@/lib/chat/mutationLock";
 import { sanitizeManualChatTitle } from "@/lib/chat/title";
 import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { abandonActiveChatIfDeleted, insertChatGlobal, moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
-import { tap } from "@/lib/haptics";
-import type { IoniconName } from "@/lib/icons";
+import { notifyDestructive, tap } from "@/lib/haptics";
+import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 type Options = {
   token: string | null;
@@ -25,7 +25,7 @@ type Options = {
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   closeMenu: () => void;
   dismissActionBanner: () => void;
-  showActionBanner: (message: string, icon?: IoniconName) => void;
+  showActionBanner: (message: string, icon?: IconName) => void;
   t: (key: string, options?: Record<string, unknown>) => string;
 };
 
@@ -82,7 +82,7 @@ export function useChatManagementActions({
       patchChatGlobal(chatId, { title: updated.title });
       if (currentView()) {
         setChatTitle(updated.title);
-        showActionBanner(t("chat.renamed_toast"), "pencil-outline");
+        showActionBanner(t("chat.renamed_toast"), "pencil");
       }
     } catch {
       if (!currentSession()) return;
@@ -109,7 +109,7 @@ export function useChatManagementActions({
       if (currentView()) {
         setPinned(saved.pinned);
         setArchived(Boolean(saved.archived));
-        showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-outline");
+        showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-off");
       }
     } catch {
       if (!currentSession()) return;
@@ -137,7 +137,7 @@ export function useChatManagementActions({
       if (currentView()) {
         setArchived(Boolean(saved.archived));
         setPinned(saved.pinned);
-        showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive-outline" : "arrow-undo-outline");
+        showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive" : "unarchive");
       }
     } catch {
       if (!currentSession()) return;
@@ -153,36 +153,38 @@ export function useChatManagementActions({
 
   const confirmDelete = useCallback(() => {
     if (!chatId || !token || !currentView()) return;
-    Alert.alert(t("chat.delete_confirm_title"), t("chat.delete_confirm_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"), style: "destructive",
-        onPress: async () => {
-          if (!currentView()) return;
-          const release = beginChatMutation(session, [chatId]);
-          if (!release) return;
-          const snapshot = getCachedChat(chatId) ?? peekCreatedChat(chatId);
-          removeChatGlobal(chatId);
-          try {
-            await api.deleteChat(token, chatId);
-            if (!currentSession()) return;
-            removeChatGlobal(chatId);
-            void clearCachedChatMessages(chatId);
-            invalidateGalleryCache();
-            if (currentView()) showActionBanner(t("chat.deleted_toast"), "trash-outline");
-            abandonActiveChatIfDeleted([chatId]);
-          } catch {
-            if (!currentSession()) return;
-            // A failed delete must preserve original dates and project/quiz
-            // metadata. A chat absent from the list needs its real server row.
-            const restored = snapshot ?? await api.getChat(token, chatId).catch(() => null);
-            if (!currentSession()) return;
-            if (restored) insertChatGlobal(restored);
-            if (currentView()) reportRecoverableError(feedback, t("chat.delete_failed"));
-          } finally { release(); }
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("chat.delete_confirm_title"),
+      message: t("chat.delete_confirm_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then(async (ok) => {
+      if (!ok) return;
+      if (!currentView()) return;
+      const release = beginChatMutation(session, [chatId]);
+      if (!release) return;
+      const snapshot = getCachedChat(chatId) ?? peekCreatedChat(chatId);
+      removeChatGlobal(chatId);
+      try {
+        await api.deleteChat(token, chatId);
+        if (!currentSession()) return;
+        notifyDestructive();
+        removeChatGlobal(chatId);
+        void clearCachedChatMessages(chatId);
+        invalidateGalleryCache();
+        if (currentView()) showActionBanner(t("chat.deleted_toast"), "trash");
+        abandonActiveChatIfDeleted([chatId]);
+      } catch {
+        if (!currentSession()) return;
+        // A failed delete must preserve original dates and project/quiz
+        // metadata. A chat absent from the list needs its real server row.
+        const restored = snapshot ?? await api.getChat(token, chatId).catch(() => null);
+        if (!currentSession()) return;
+        if (restored) insertChatGlobal(restored);
+        if (currentView()) reportRecoverableError(feedback, t("chat.delete_failed"));
+      } finally { release(); }
+    });
   }, [chatId, token, currentView, t, session, currentSession, showActionBanner, feedback]);
 
   return { renameVisible, setRenameVisible, renameText, setRenameText, openRename, confirmRename, togglePin, toggleArchive, confirmDelete };

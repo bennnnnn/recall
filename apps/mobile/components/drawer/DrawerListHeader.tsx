@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
-import { DrawerSearchResultsChrome } from "@/components/drawer/DrawerSearchResults";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
+import { DrawerSearchResultsChrome } from "@/features/search/components/DrawerSearchResults";
 
 type Props = {
   loading: boolean;
@@ -39,7 +39,7 @@ export function DrawerListHeader({
         <StateView
           variant="error"
           compact
-          icon="cloud-offline-outline"
+          icon="cloud-off"
           message={t("drawer.cant_reach")}
           onRetry={onRetry}
           retryLabel={t("common.retry")}

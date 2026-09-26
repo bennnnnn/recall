@@ -545,12 +545,14 @@ async def test_get_current_user_from_valid_token():
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
     fake_user = MagicMock()
+    fake_user.id = uid
+    session = AsyncMock()
     with (
         patch("app.core.deps.tokens_service.verify_access_token", AsyncMock(return_value=uid)),
         patch("app.core.deps.auth_service.get_current_user", AsyncMock(return_value=fake_user)),
         patch("app.core.deps.get_settings", return_value=settings),
     ):
-        user = await get_current_user(creds, AsyncMock(), settings)
+        user = await get_current_user(creds, settings, AsyncMock(), session)
     assert user is fake_user
 
 
@@ -573,7 +575,7 @@ async def test_get_current_user_not_found_raises_401():
         patch("app.core.deps.auth_service.get_current_user", AsyncMock(return_value=None)),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(creds, AsyncMock(), settings)
+            await get_current_user(creds, settings, AsyncMock(), AsyncMock())
     assert exc_info.value.status_code == 401
 
 
@@ -594,7 +596,7 @@ async def test_get_current_user_invalid_token_raises_401():
         AsyncMock(side_effect=GoogleAuthError("Invalid token")),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_user(creds, AsyncMock(), settings, AsyncMock())
+            await get_current_user(creds, settings, AsyncMock())
     assert exc_info.value.status_code == 401
     assert "Invalid token" in exc_info.value.detail
 
@@ -1081,7 +1083,7 @@ async def test_embed_text_mock_mode_pads_to_embedding_dim():
     search_semantic (which require embedding IS NOT NULL) never fire in
     dev/mock mode and the full RAG pipeline can't be exercised end-to-end."""
     from app.gateways import embedding_gateway
-    from app.repositories.attachment_chunks import EMBEDDING_DIM
+    from app.modules.attachments.chunks_repository import EMBEDDING_DIM
 
     settings = Settings(mock_llm_enabled=True)
     result = await embedding_gateway.embed_text(settings, "hello")

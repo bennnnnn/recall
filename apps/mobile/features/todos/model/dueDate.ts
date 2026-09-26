@@ -1,0 +1,78 @@
+import i18n from "@/lib/i18n";
+import {
+  formatClockTime,
+  formatMonthDayYear,
+  formatShortWeekdayDate,
+} from "@/lib/datetime/format";
+
+export type DueTone = "overdue" | "today" | "soon" | "later";
+
+export function describeDueAt(iso: string | null | undefined): {
+  label: string;
+  tone: DueTone;
+} | null {
+  if (!iso) return null;
+  const due = new Date(iso);
+  if (Number.isNaN(due.getTime())) return null;
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDue = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+  const dayDiff = Math.round(
+    (startOfDue.getTime() - startOfToday.getTime()) / (24 * 60 * 60 * 1000),
+  );
+
+  if (due.getTime() < now.getTime()) {
+    if (dayDiff === 0) return { label: i18n.t("todos.overdue_today"), tone: "overdue" };
+    const days = Math.max(1, Math.abs(dayDiff));
+    return { label: i18n.t("todos.overdue_days", { count: days }), tone: "overdue" };
+  }
+  if (dayDiff === 0) {
+    return {
+      label: i18n.t("todos.due_today_time", {
+        time: formatClockTime(due),
+      }),
+      tone: "today",
+    };
+  }
+  if (dayDiff === 1) return { label: i18n.t("calendar.tomorrow_heading"), tone: "soon" };
+  if (dayDiff <= 7) {
+    return {
+      label: formatShortWeekdayDate(due),
+      tone: "soon",
+    };
+  }
+  return {
+    label: formatMonthDayYear(due),
+    tone: "later",
+  };
+}
+
+/** When a checked to-do was marked done, including the calendar date and time. */
+export function describeCompletedAt(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const done = new Date(iso);
+  if (Number.isNaN(done.getTime())) return null;
+  return i18n.t("todos.completed_on", {
+    date: formatMonthDayYear(done),
+    time: formatClockTime(done),
+  });
+}
+
+export function toDueAtIso(date: Date): string {
+  return date.toISOString();
+}
+
+/** Keep the clock time and take the calendar day, including the year. */
+export function withCalendarDate(current: Date, picked: Date): Date {
+  const next = new Date(current);
+  next.setFullYear(picked.getFullYear(), picked.getMonth(), picked.getDate());
+  return next;
+}
+
+/** Keep the calendar day and take the clock time. */
+export function withClockTime(current: Date, picked: Date): Date {
+  const next = new Date(current);
+  next.setHours(picked.getHours(), picked.getMinutes(), 0, 0);
+  return next;
+}

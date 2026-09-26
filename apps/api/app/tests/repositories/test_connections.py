@@ -13,7 +13,7 @@ def fake_session():
 
 @pytest.mark.asyncio
 async def test_suggested_reminders_crud(fake_session):
-    from app.repositories import suggested_reminders as repo
+    from app.modules.integrations import suggestions_repository as repo
 
     user_id = uuid4()
     reminder_id = uuid4()
@@ -100,7 +100,7 @@ async def test_push_tokens_upsert_and_delete(fake_session):
 
 @pytest.mark.asyncio
 async def test_calendar_connection_upsert_and_delete(fake_session):
-    from app.repositories import calendar_connections as repo
+    from app.modules.integrations import calendar_repository as repo
 
     user_id = uuid4()
     fake_session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=None))
@@ -125,7 +125,7 @@ async def test_calendar_connection_upsert_and_delete(fake_session):
 
 @pytest.mark.asyncio
 async def test_gmail_connection_repo(fake_session):
-    from app.repositories import gmail_connections as repo
+    from app.modules.integrations import gmail_repository as repo
 
     user_id = uuid4()
     row = MagicMock()

@@ -1,9 +1,13 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { title: string; body: string };
 
@@ -22,8 +26,8 @@ export function CollapsibleBlock({ title, body }: Props) {
         accessibilityLabel={title}
       >
         <Icon
-          name={open ? "chevron-down" : "chevron-forward"}
-          size={16}
+          name={open ? "chevron-down" : "chevron-right"}
+          size={IconSize.xs}
           color={theme.textSecondary}
         />
         <Text style={s.title}>{title}</Text>
@@ -43,28 +47,28 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
       alignSelf: "stretch",
-      borderRadius: 12,
+      borderRadius: Radius.md,
       borderWidth: 1,
       borderColor: t.border,
       backgroundColor: t.bg,
-      marginVertical: 8,
+      marginVertical: Space.xs,
       overflow: "hidden",
     },
     header: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
+      gap: Space.xs,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.sm,
       backgroundColor: t.surface,
     },
-    title: { flex: 1, fontSize: 15, fontWeight: "600", color: t.text },
+    title: { flex: 1, ...Type.callout, color: t.text },
     bodyWrap: {
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: t.border,
     },
-    body: { fontSize: 16, lineHeight: 24, color: t.text },
+    body: { ...Type.body, lineHeight: 24, color: t.text },
   });
 }

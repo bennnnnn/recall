@@ -51,6 +51,14 @@ describe("streaming open-fence math dispatch", () => {
     expect(seq).toContain("diagram");
   });
 
+  it("keeps an open server simulation fence as a quiet diagram placeholder", () => {
+    const seq = previewSequence(
+      '```simulation\n{"type":"free_body","title":"Free-Body Diagram"}\n```\n',
+    );
+    expect(seq).not.toContain("code");
+    expect(seq).toContain("diagram");
+  });
+
   it("does not flash a gray diagram placeholder for open ```molecule3d", () => {
     const seq = previewSequence("```molecule3d\n     RDKit          3D\n```\n");
     expect(seq).not.toContain("diagram");

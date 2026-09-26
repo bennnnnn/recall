@@ -1,13 +1,15 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   error: ResolvedChatError | null;
@@ -38,21 +40,26 @@ export function ChatInlineError({
 
   const iconName =
     error.kind === "quota"
-      ? "flash-outline"
+      ? "zap"
       : error.kind === "busy" || error.kind === "send_rejected"
-        ? "hourglass-outline"
+        ? "hourglass"
         : error.kind === "model_unavailable"
-          ? "cloud-offline-outline"
-          : "alert-circle-outline";
+          ? "cloud-off"
+          : "alert-circle";
 
   return (
     <View style={[s.wrap, { bottom }]}>
       <View style={s.body}>
-        <Icon name={iconName} size={16} color={theme.warning} style={s.icon} />
+        <Icon name={iconName} size={IconSize.xs} color={theme.warning} style={s.icon} />
         <Text style={s.text}>{error.message}</Text>
       </View>
       {error.kind === "quota" && onUpgrade && upgradeLabel ? (
-        <Pressable style={s.cta} onPress={onUpgrade}>
+        <Pressable
+          style={s.cta}
+          onPress={onUpgrade}
+          accessibilityRole="button"
+          accessibilityLabel={upgradeLabel}
+        >
           <Text style={s.ctaText}>{upgradeLabel}</Text>
         </Pressable>
       ) : null}
@@ -118,7 +125,7 @@ export function ChatInlineError({
         accessibilityRole="button"
         accessibilityLabel={t("chat.error_dismiss_a11y")}
       >
-        <Icon name="close" size={16} color={theme.textTertiary} />
+        <Icon name="close" size={IconSize.xs} color={theme.textTertiary} />
       </Pressable>
     </View>
   );
@@ -132,28 +139,38 @@ function makeStyles(theme: Theme) {
       right: 12,
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
       backgroundColor: theme.surface,
       borderRadius: Radius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.warning,
-      paddingLeft: 12,
-      paddingRight: 8,
+      paddingLeft: Space.sm,
+      paddingRight: Space.xs,
       paddingVertical: 10,
       ...shadowElevated(theme, "banner"),
       zIndex: 20,
     },
-    body: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 8 },
+    body: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: Space.xs },
     icon: { marginTop: 1, flexShrink: 0 },
     text: { flex: 1, ...Type.compact, color: theme.text },
     cta: {
       backgroundColor: theme.primary,
       borderRadius: Radius.full,
-      paddingHorizontal: 10,
+      paddingHorizontal: Space.sm,
       paddingVertical: 6,
+      minHeight: 44,
+      justifyContent: "center",
       flexShrink: 0,
     },
-    ctaText: { ...Type.caption, fontWeight: "700", color: theme.onPrimary },
-    close: { padding: 4, flexShrink: 0 },
+    ctaText: { ...Type.caption, ...Weight.bold, color: theme.onPrimary },
+    close: {
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+      marginVertical: -8,
+      marginRight: -6,
+    },
   });
 }

@@ -1,35 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+"""Compatibility import for the images API."""
 
-from app.core.config import Settings
-from app.core.deps import get_current_user, get_settings_dep
-from app.models.orm import User
-from app.models.schemas import ImageGenerateIn, ImageGenerateOut, MessageOut
-from app.services.images import generation as image_generation_service
+import sys
 
-router = APIRouter(prefix="/images", tags=["images"])
+from app.modules.images import api as _module
+from app.modules.images.api import router
 
+sys.modules[__name__] = _module
 
-@router.post("/generate", response_model=ImageGenerateOut)
-async def generate_image(
-    body: ImageGenerateIn,
-    user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings_dep),
-) -> ImageGenerateOut:
-    try:
-        original = (body.user_message or "").strip() or None
-        user_message, assistant_message = await image_generation_service.generate_for_chat(
-            settings,
-            user=user,
-            chat_id=body.chat_id,
-            prompt=body.prompt,
-            aspect_ratio=body.aspect_ratio,
-            user_message_content=original,
-            reference_attachment_ids=body.reference_attachment_ids,
-        )
-    except image_generation_service.ImageGenerationError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
-
-    return ImageGenerateOut(
-        user_message=MessageOut.model_validate(user_message),
-        assistant_message=MessageOut.model_validate(assistant_message),
-    )
+__all__ = ["router"]

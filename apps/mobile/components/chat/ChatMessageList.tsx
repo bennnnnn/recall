@@ -3,8 +3,8 @@ import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeS
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
-import { HomeStarters } from "@/components/HomeStarters";
-import { SkeletonChatBubbles } from "@/components/SkeletonLoader";
+import { HomeStarters } from "@/features/home/components/HomeStarters";
+import { SkeletonChatBubbles } from "@/ui/feedback/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
   beginStreamLayoutHold,
@@ -14,6 +14,9 @@ import {
   STREAM_AUTOSCROLL_RESUME_MS,
 } from "@/lib/messageListLayout";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   listRef: RefObject<FlashListRef<Message> | null>;
@@ -179,27 +182,27 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     messagesArea: { flex: 1 },
     list: { flex: 1 },
-    listContent: { paddingVertical: 8 },
+    listContent: { paddingVertical: Space.xs },
     loadEarlier: {
       alignSelf: "center",
       marginVertical: 10,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 999,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.xs,
+      borderRadius: Radius.full,
       backgroundColor: theme.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
-    loadEarlierText: { fontSize: 14, fontWeight: "600", color: theme.primary },
+    loadEarlierText: { ...Type.label, color: theme.primary },
     empty: {
       flexGrow: 1,
       alignItems: "stretch",
       justifyContent: "flex-start",
-      paddingTop: 4,
+      paddingTop: Space.xxs,
     },
     emptyWithFooter: {
       justifyContent: "flex-end",
-      paddingBottom: 8,
+      paddingBottom: Space.xs,
     },
   });
 }

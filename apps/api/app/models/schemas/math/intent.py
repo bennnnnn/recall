@@ -41,16 +41,6 @@ class MathIntent(BaseModel):
         "probability",
         "complex",
         "unit",
-        "kinematics",
-        "projectile",
-        "force",
-        "energy",
-        "momentum",
-        "friction",
-        "circular",
-        "spring",
-        "circuit",
-        "torque",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -102,6 +92,13 @@ class MathIntent(BaseModel):
     # Definite-integral bounds — strings (infinity-aware, like limit_point).
     integral_lower: str | None = None
     integral_upper: str | None = None
+    # Second axis for a double integral (`from x=0 to 1 and y=0 to 1`).
+    variable2: str | None = None
+    integral_lower2: str | None = None
+    integral_upper2: str | None = None
+    variable3: str | None = None
+    integral_lower3: str | None = None
+    integral_upper3: str | None = None
     # System of equations — list of (lhs, rhs) pairs; `lhs`/`rhs`/`variable`
     # above stay single-equation-only for every other kind.
     system_equations: list[tuple[str, str]] | None = None
@@ -117,28 +114,75 @@ class MathIntent(BaseModel):
     wants_angle: bool = False
     wants_area: bool = False
     wants_perimeter: bool = False
+    # Inverse geometry keeps the original known measurement and the requested
+    # missing dimension so the response can show the universal formula first,
+    # then its rearrangement (for example A = lw, then l = A / w).
+    given_area: float | None = None
+    geometry_target: Literal["width", "length"] | None = None
     # Same idea for circles: only annotate diameter/circumference when asked.
     wants_diameter: bool = False
     wants_circumference: bool = False
-    # Statistics — a raw data list (mean/median/mode/stdev/variance). The
-    # sample_* variants use the (n-1) divisor; the bare "stdev"/"variance"
-    # ops use the population divisor (the historical default).
+    # A supplied diameter is diagram input, not automatically a request to
+    # calculate the diameter. Keep the two meanings separate so an incomplete
+    # "circle diameter 6" prompt does not echo 6 as a solved answer.
+    given_diameter: bool = False
+    # Statistics — one raw list for descriptive stats, or two equal-length lists
+    # for correlation/covariance/simple linear regression.
     stats_op: (
-        Literal["mean", "median", "mode", "variance", "stdev", "sample_stdev", "sample_variance"]
+        Literal[
+            "mean",
+            "median",
+            "mode",
+            "variance",
+            "stdev",
+            "sample_stdev",
+            "sample_variance",
+            "range",
+            "iqr",
+            "quartiles",
+            "percentile",
+            "correlation",
+            "covariance",
+            "sample_covariance",
+            "linear_regression",
+        ]
         | None
     ) = None
     stats_numbers: list[float] | None = None
+    stats_numbers_b: list[float] | None = None
     # Combinatorics — factorial (k unused) / combinations / permutations.
     combo_op: Literal["factorial", "combinations", "permutations"] | None = None
     combo_n: int | None = None
     combo_k: int | None = None
     # Number theory — gcd/lcm/mod take a and b; factorize/is_prime take a only.
-    numtheory_op: Literal["gcd", "lcm", "factorize", "is_prime", "mod"] | None = None
+    numtheory_op: (
+        Literal["gcd", "lcm", "factorize", "is_prime", "mod", "mod_inverse", "totient", "crt"]
+        | None
+    ) = None
     numtheory_a: int | None = None
     numtheory_b: int | None = None
-    # Matrix — determinant/inverse of a small square matrix.
-    matrix_op: Literal["determinant", "inverse"] | None = None
+    # Matrix — small-matrix operations. Multiplication/addition use matrix_rows_b;
+    # determinant/inverse/eigens/diagonalization require a square matrix.
+    matrix_op: (
+        Literal[
+            "determinant",
+            "inverse",
+            "multiply",
+            "rref",
+            "eigenvalues",
+            "eigenvectors",
+            "rank",
+            "nullspace",
+            "columnspace",
+            "rowspace",
+            "diagonalize",
+            "add",
+            "transpose",
+        ]
+        | None
+    ) = None
     matrix_rows: list[list[float]] | None = None
+    matrix_rows_b: list[list[float]] | None = None
     # Triangle by three side lengths (SSS) — `base`/`side` above stay
     # base+height-only for the existing "triangle"/"right_triangle" kinds.
     tri_a: float | None = None
@@ -150,6 +194,7 @@ class MathIntent(BaseModel):
     trapezoid_bottom: float | None = None
     # Parallelogram/sector reuse `base`/`height`/`side`/`radius` above.
     sector_angle_deg: float | None = None
+    wants_arc_length: bool = False
     # Second function for a "graph y=x^2 and y=2x" comparison plot — `expr`/
     # `variable` above hold the first curve, unchanged for every other kind.
     expr2: str | None = None
@@ -177,51 +222,3 @@ class MathIntent(BaseModel):
     unit_from: str | None = None
     unit_to: str | None = None
     taylor_n: int | None = None
-    # Physics — kinematics / projectile / force / energy / momentum / friction /
-    # circular / spring / circuit / torque.
-    # The model sets up the equation with known values; SymPy solves symbolically; the SVG engine
-    # renders the trajectory. See services/physics/extract.py extractors and
-    # services/physics/solver.py solvers.
-    physics_op: (
-        Literal[
-            "position",
-            "velocity",
-            "speed",
-            "acceleration",
-            "time_to_ground",
-            "range",
-            "max_height",
-            "net_force",
-            "kinetic_energy",
-            "potential_energy",
-            "work",
-            "power",
-            "momentum",
-            "impulse",
-            "final_velocity",
-            "friction_force",
-            "normal_force",
-            "incline_acceleration",
-            "centripetal_force",
-            "centripetal_acceleration",
-            "orbital_period",
-            "spring_force",
-            "spring_energy",
-            "shm_period",
-            "voltage",
-            "current",
-            "resistance",
-            "electrical_power",
-            "series_resistance",
-            "parallel_resistance",
-            "torque",
-            "moment_balance",
-        ]
-        | None
-    ) = None
-    # Initial conditions / knowns: {"h0": 20.0, "v0": 0.0, "g": 9.81, ...}.
-    # Keys are the canonical variable names the solver expects.
-    physics_params: dict[str, float] | None = None
-    # Unit labels for the params above: {"h0": "m", "v0": "m/s", "g": "m/s^2"}.
-    # Used to render the answer with proper units.
-    physics_units: dict[str, str] | None = None

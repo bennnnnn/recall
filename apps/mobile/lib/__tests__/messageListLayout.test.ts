@@ -4,7 +4,6 @@ import {
   latchStartRenderingFromBottom,
   messageListItemType,
   messageListKey,
-  ESTIMATED_MESSAGE_HEIGHT,
   STREAM_AUTOSCROLL_RESUME_MS,
   STREAM_LAYOUT_SETTLE_MS,
   shouldHoldStreamLayoutOnPersistedMount,
@@ -89,11 +88,6 @@ describe("messageListLayout", () => {
   it("prefers renderKey for FlashList identity", () => {
     expect(messageListKey({ id: "streaming", renderKey: "stream-1" })).toBe("stream-1");
     expect(messageListKey({ id: "msg-1" })).toBe("msg-1");
-  });
-
-  it("exports a reasonable default height hint", () => {
-    expect(ESTIMATED_MESSAGE_HEIGHT).toBeGreaterThan(40);
-    expect(ESTIMATED_MESSAGE_HEIGHT).toBeLessThan(200);
   });
 
   it("detects fresh stream render keys", () => {

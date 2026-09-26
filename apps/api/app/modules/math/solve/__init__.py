@@ -1,0 +1,137 @@
+"""Symbolic math via SymPy — server-side only."""
+
+from __future__ import annotations
+
+from app.modules.math.solve.algebra import (
+    compute_limit,
+    differentiate_expression,
+    evaluate_series_sum,
+    expand_expression,
+    factor_expression,
+    factored_key_step,
+    integrate_definite,
+    integrate_double,
+    integrate_expression,
+    integrate_triple,
+    newton_method,
+    simplify_expression,
+    solve_compound_inequality,
+    solve_equation,
+    solve_inequality,
+    solve_system,
+)
+from app.modules.math.solve.discrete import (
+    compute_combinatorics,
+    compute_matrix,
+    compute_number_theory,
+    compute_statistics,
+    guess_variables,
+)
+from app.modules.math.solve.extract_eq import (
+    rejected_equality_chain,
+    try_extract_compound_inequality_from_text,
+    try_extract_equation_from_text,
+    try_extract_equations_from_text,
+    try_extract_inequality_from_text,
+)
+from app.modules.math.solve.geometry import (
+    circle_geometry,
+    format_degree_label,
+    format_geometry_decimal,
+    parallelogram_geometry,
+    rectangle_geometry,
+    right_triangle_geometry,
+    sector_geometry,
+    sides_from_interior_angles,
+    solid_geometry,
+    square_geometry,
+    trapezoid_geometry,
+    triangle_geometry,
+    triangle_sides_geometry,
+)
+from app.modules.math.solve.graph import (
+    build_ellipse_graph_spec,
+    expr_looks_like_inequality,
+    number_line_spec_from_expr,
+    parse_ellipse_relation,
+    sample_ellipse,
+    sample_function,
+    sample_parametric_curve,
+    sample_polar_curve,
+)
+from app.modules.math.solve.parse import (
+    _SAFE_EXPR_CHARS as _SAFE_EXPR_CHARS,
+)
+from app.modules.math.solve.parse import (
+    _normalize_latex_to_sympy as _normalize_latex_to_sympy,
+)
+from app.modules.math.solve.parse import (
+    _parse_expression as _parse_expression,
+)
+from app.modules.math.solve.parse import (
+    format_verified_latex as format_verified_latex,
+)
+from app.modules.math.solve.parse import (
+    parse_equation as parse_equation,
+)
+from app.modules.math.solve.statistics import compute_bivariate_statistics
+from app.services.solving import (
+    MathServiceError as MathServiceError,
+)
+
+__all__ = [
+    "_SAFE_EXPR_CHARS",
+    "MathServiceError",
+    "_normalize_latex_to_sympy",
+    "_parse_expression",
+    "build_ellipse_graph_spec",
+    "circle_geometry",
+    "compute_bivariate_statistics",
+    "compute_combinatorics",
+    "compute_limit",
+    "compute_matrix",
+    "compute_number_theory",
+    "compute_statistics",
+    "differentiate_expression",
+    "evaluate_series_sum",
+    "expand_expression",
+    "expr_looks_like_inequality",
+    "factor_expression",
+    "factored_key_step",
+    "format_degree_label",
+    "format_geometry_decimal",
+    "format_verified_latex",
+    "guess_variables",
+    "integrate_definite",
+    "integrate_double",
+    "integrate_expression",
+    "integrate_triple",
+    "newton_method",
+    "number_line_spec_from_expr",
+    "parallelogram_geometry",
+    "parse_ellipse_relation",
+    "parse_equation",
+    "rectangle_geometry",
+    "rejected_equality_chain",
+    "right_triangle_geometry",
+    "sample_ellipse",
+    "sample_function",
+    "sample_parametric_curve",
+    "sample_polar_curve",
+    "sector_geometry",
+    "sides_from_interior_angles",
+    "simplify_expression",
+    "solid_geometry",
+    "solve_compound_inequality",
+    "solve_equation",
+    "solve_inequality",
+    "solve_system",
+    "square_geometry",
+    "trapezoid_geometry",
+    "triangle_geometry",
+    "triangle_sides_geometry",
+    "try_extract_compound_inequality_from_text",
+    "try_extract_equation_from_text",
+    "try_extract_equations_from_text",
+    "try_extract_inequality_from_text",
+]

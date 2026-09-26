@@ -82,7 +82,11 @@ async def invoke_validated(name: str, raw_args: str | dict[str, Any]) -> ToolRes
     if schema_cls is not None and issubclass(schema_cls, BaseModel):
         try:
             parsed = schema_cls.model_validate(payload)
-            args = parsed.model_dump()
+            # Preserve omission semantics for partial-update tools. Adapters
+            # already provide their own runtime defaults via ``args.get``;
+            # materializing every Pydantic default here made an omitted nullable
+            # field indistinguishable from an explicit request to clear it.
+            args = parsed.model_dump(exclude_unset=True)
         except ValidationError as exc:
             return ToolResult(name=adapter.name, content=f"Invalid arguments: {exc.errors()}")
     else:

@@ -32,6 +32,24 @@ export const Motion = {
      * The axis states the real time; the animation shows the shape.
      */
     trajectory: 1600,
+    /**
+     * A scene needs enough time for the user to inspect forces and stop the
+     * motion deliberately. Graph playback stays compact; moving bodies use a
+     * slower pass because their labels and vectors are part of the lesson.
+     */
+    simulation: 4000,
+  },
+  /**
+   * Reanimated `withSpring` configs. Popovers grow from their anchor, dialogs
+   * settle in the middle, press feedback snaps back. Skip them under Reduce
+   * Motion (`useReduceMotion`).
+   */
+  spring: {
+    popover: { damping: 24, stiffness: 340, mass: 0.9 },
+    dialog: { damping: 22, stiffness: 300, mass: 1 },
+    press: { damping: 18, stiffness: 420, mass: 0.6 },
+    /** Clock hand and similar pointers gliding to a new value. */
+    pointer: { damping: 20, stiffness: 260, mass: 0.8 },
   },
   easing: {
     inOut: Easing.inOut(Easing.ease),

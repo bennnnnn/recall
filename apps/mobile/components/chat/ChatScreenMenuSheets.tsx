@@ -1,8 +1,15 @@
-import { ChatActionsSheet } from "@/components/ChatActionsSheet";
+import type { RefObject } from "react";
+import type { View } from "react-native";
+
+import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
+import { ChatShareSheet } from "@/components/chat/ChatShareSheet";
+import type { Message } from "@/lib/api";
 
 type Props = {
   menuVisible: boolean;
+  /** The header ⋮ button the menu drops from. */
+  menuAnchorRef: RefObject<View | null>;
   chatTitle: string | null;
   pinned: boolean;
   archived: boolean;
@@ -18,10 +25,14 @@ type Props = {
   onRenameTextChange: (text: string) => void;
   onCloseRename: () => void;
   onConfirmRename: () => void;
+  shareVisible: boolean;
+  onCloseShare: () => void;
+  loadShareMessages: () => Promise<Message[]>;
 };
 
 export function ChatScreenMenuSheets({
   menuVisible,
+  menuAnchorRef,
   chatTitle,
   pinned,
   archived,
@@ -37,11 +48,15 @@ export function ChatScreenMenuSheets({
   onRenameTextChange,
   onCloseRename,
   onConfirmRename,
+  shareVisible,
+  onCloseShare,
+  loadShareMessages,
 }: Props) {
   return (
     <>
-      <ChatActionsSheet
+      <ChatActionsMenu
         visible={menuVisible}
+        anchorRef={menuAnchorRef}
         title={chatTitle}
         pinned={pinned}
         archived={archived}
@@ -59,6 +74,12 @@ export function ChatScreenMenuSheets({
         onChangeText={onRenameTextChange}
         onClose={onCloseRename}
         onSave={onConfirmRename}
+      />
+      <ChatShareSheet
+        visible={shareVisible}
+        onClose={onCloseShare}
+        title={chatTitle}
+        loadMessages={loadShareMessages}
       />
     </>
   );

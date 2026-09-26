@@ -46,17 +46,20 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#0F0F10"
+          }
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#6366F1"
+          "color": "#4F56E5",
+          "sounds": ["./assets/audio/recall_notify.wav"]
         }
       ],
-      "@react-native-community/datetimepicker",
       [
         "expo-location",
         {

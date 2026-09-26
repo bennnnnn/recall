@@ -1,10 +1,11 @@
 import { useMemo } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { StateView } from "@/components/StateView";
+import { StateView } from "@/ui/feedback/StateView";
+import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton";
 import { makeSettingsStyles, SettingsGroup } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUsage } from "@/hooks/useUsage";
@@ -19,7 +20,7 @@ import { useTheme } from "@/lib/theme";
 
 export default function UsageSettingsScreen() {
   const { token, user } = useAuth();
-  const { usage, error, refresh } = useUsage();
+  const { usage, loading, error, refresh } = useUsage();
   const { t } = useTranslation();
   const theme = useTheme();
   const styles = useMemo(() => makeSettingsStyles(theme), [theme]);
@@ -44,44 +45,38 @@ export default function UsageSettingsScreen() {
       ]}
     >
       <SettingsGroup label={t("settings.usage_today")} styles={styles}>
-        {error ? (
+        {error || (!loading && !usage) ? (
           <StateView
             variant="error"
             compact
             message={t("common.error")}
             onRetry={() => void refresh({ force: true })}
           />
-        ) : (
+        ) : usage && usedPercent !== null ? (
           <View style={styles.menuRow}>
             <View style={styles.rowBody}>
               <Text style={styles.rowTitle}>{t("settings.usage_daily")}</Text>
-              {usage && usedPercent !== null ? (
-                <>
-                  <Text style={styles.meta}>{usedLabel}</Text>
-                  <View
-                    style={styles.usageTrack}
-                    accessible
-                    accessibilityRole="progressbar"
-                    accessibilityLabel={t("settings.usage_daily")}
-                    accessibilityValue={{ min: 0, max: 100, now: usedPercent, text: usedLabel }}
-                  >
-                    <View style={[styles.usageFill, { width: `${usedPercent}%` }]} />
-                  </View>
-                  <Text style={styles.meta}>
-                    {formatUsageSummary(usage, user?.plan === "pro", t)}
-                  </Text>
-                </>
-              ) : (
-                <ActivityIndicator
-                  color={theme.primary}
-                  accessible
-                  accessibilityRole="progressbar"
-                  accessibilityLabel={t("settings.usage_daily")}
-                  accessibilityState={{ busy: true }}
-                />
-              )}
+              <Text style={styles.meta}>{usedLabel}</Text>
+              <View
+                style={styles.usageTrack}
+                accessible
+                accessibilityRole="progressbar"
+                accessibilityLabel={t("settings.usage_daily")}
+                accessibilityValue={{ min: 0, max: 100, now: usedPercent, text: usedLabel }}
+              >
+                <View style={[styles.usageFill, { width: `${usedPercent}%` }]} />
+              </View>
+              <Text style={styles.meta}>
+                {formatUsageSummary(usage, user?.plan === "pro", t)}
+              </Text>
             </View>
           </View>
+        ) : (
+          <SettingsSkeleton
+            rows={1}
+            contained
+            accessibilityLabel={t("settings.usage_daily")}
+          />
         )}
       </SettingsGroup>
     </ScrollView>

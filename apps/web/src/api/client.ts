@@ -7,7 +7,7 @@ export function apiUrl(path: string): string {
   return `${API_URL}${path}`;
 }
 
-export class ApiRequestError extends Error {
+class ApiRequestError extends Error {
   readonly status: number;
   constructor(status: number, body: string) {
     super(body || `Request failed: ${status}`);
@@ -45,7 +45,7 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
-export function getCsrfToken(): string | null {
+function getCsrfToken(): string | null {
   try {
     return sessionStorage.getItem(CSRF_KEY);
   } catch {

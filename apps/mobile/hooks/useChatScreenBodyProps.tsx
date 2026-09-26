@@ -9,20 +9,28 @@ import {
   type RefObject,
 } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
-import { type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
+import { type NativeScrollEvent, type NativeSyntheticEvent, type View, type ViewStyle } from "react-native";
 import { type AnimatedStyle } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 
 type Router = ReturnType<typeof useRouter>;
 
 import { ChatHeader } from "@/components/chat/ChatHeader";
-import type { ChatScreenBodyProps } from "@/components/chat/ChatScreenBody";
+import type {
+  ChatScreenBodyProps,
+  ChatScreenChromeProps,
+  ChatScreenComposerProps,
+  ChatScreenLayoutProps,
+  ChatScreenListProps,
+  ChatScreenSheetsProps,
+} from "@/components/chat/ChatScreenBody";
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
-import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
+import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
-import type { PendingAttachment } from "@/lib/attachments";
+import type { PendingAttachment } from "@/features/attachments/model/attachments";
+import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
 import { openDrawer } from "@/lib/drawer";
 import type { Theme } from "@/lib/theme";
@@ -36,11 +44,12 @@ type QuotaNudge = {
 export type UseChatScreenBodyPropsParams = {
   styles: ChatScreenStyles;
   theme: Theme;
-  token: string;
   drawerOpen: boolean;
   routeChatId?: string;
   layout: {
+    headerMinimumHeight: number;
     headerInset: number;
+    onHeaderHeightChange: (height: number) => void;
     composerClearance: number;
     listBottomPad: number;
     emptyHeight: number;
@@ -48,7 +57,7 @@ export type UseChatScreenBodyPropsParams = {
   listBottomPadRef: MutableRefObject<number>;
   actionBanner: {
     message: string;
-    icon?: IoniconName;
+    icon?: IconName;
   } | null;
   dismissActionBanner: () => void;
   /** Everything needed to render the collapsible ChatHeader (title, nav, menu). */
@@ -61,6 +70,8 @@ export type UseChatScreenBodyPropsParams = {
     startNewChat: (opts?: { force?: boolean }) => void;
     setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
     menuOverlayOpen: boolean;
+    /** The header ⋮ button; the chat menu drops from it. */
+    menuAnchorRef: RefObject<View | null>;
   };
   /** Message list data + scroll/pagination handlers for ChatMessageList. */
   list: {
@@ -90,9 +101,10 @@ export type UseChatScreenBodyPropsParams = {
     handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
     mathScannerOpen: boolean;
     closeMathScanner: () => void;
-    handleMathScanCaptured: (pending: PendingAttachment) => void;
+    handleMathScanCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
     onOpenMathScanner?: () => void;
     onMathChromeHeightChange?: (height: number) => void;
+    onInputFrameExtraChange?: (extra: number) => void;
   };
   quotaNudge: QuotaNudge;
   chatError: ResolvedChatError | null;
@@ -102,6 +114,7 @@ export type UseChatScreenBodyPropsParams = {
   composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
   sendBusy: boolean;
+  sendStatus?: string;
   stopGeneration: () => void;
   isOffline: boolean;
   voice: {
@@ -125,7 +138,6 @@ export type UseChatScreenBodyPropsParams = {
 export function useChatScreenBodyProps({
   styles,
   theme,
-  token,
   drawerOpen,
   routeChatId,
   layout,
@@ -141,6 +153,7 @@ export function useChatScreenBodyProps({
     startNewChat,
     setMenuVisible,
     menuOverlayOpen,
+    menuAnchorRef,
   },
   list: {
     listRef,
@@ -171,6 +184,7 @@ export function useChatScreenBodyProps({
     handleMathScanCaptured,
     onOpenMathScanner,
     onMathChromeHeightChange,
+    onInputFrameExtraChange,
   },
   quotaNudge,
   chatError,
@@ -180,6 +194,7 @@ export function useChatScreenBodyProps({
   composerAnimatedStyle,
   streaming,
   sendBusy,
+  sendStatus,
   stopGeneration,
   isOffline,
   voice: {
@@ -197,7 +212,14 @@ export function useChatScreenBodyProps({
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const openUpgradeSheet = useCallback(() => setUpgradeVisible(true), []);
 
-  const { headerInset, composerClearance, listBottomPad, emptyHeight } = layout;
+  const {
+    headerMinimumHeight,
+    headerInset,
+    onHeaderHeightChange,
+    composerClearance,
+    listBottomPad,
+    emptyHeight,
+  } = layout;
   listBottomPadRef.current = listBottomPad;
 
   // Keep list-facing callbacks identity-stable. Composer text lives in
@@ -236,10 +258,11 @@ export function useChatScreenBodyProps({
     },
     [handleSend],
   );
+  const quotaDismiss = quotaNudge.dismiss;
   const onQuotaUpgrade = useCallback(() => {
-    quotaNudge.dismiss();
+    quotaDismiss();
     setUpgradeVisible(true);
-  }, [quotaNudge]);
+  }, [quotaDismiss]);
   const onUpgrade = useCallback(() => setUpgradeVisible(true), []);
   const onChangeModel = useCallback(() => {
     dismissChatError();
@@ -256,13 +279,31 @@ export function useChatScreenBodyProps({
     void toggleVoiceInput();
   }, [toggleVoiceInput]);
   const onCloseUpgrade = useCallback(() => setUpgradeVisible(false), []);
+  const stableLiveTalkSession = useMemo(
+    () =>
+      liveTalkSession
+        ? {
+            muted: liveTalkSession.muted,
+            onClose: liveTalkSession.onClose,
+            onMutePress: liveTalkSession.onMutePress,
+            onYield: liveTalkSession.onYield,
+          }
+        : null,
+    [
+      liveTalkSession?.muted,
+      liveTalkSession?.onClose,
+      liveTalkSession?.onMutePress,
+      liveTalkSession?.onYield,
+    ],
+  );
 
   const listHeader = useMemo(
     () =>
       !drawerOpen ? (
         <ChatHeader
           paddingTop={insetsTop}
-          height={headerInset}
+          minimumHeight={headerMinimumHeight}
+          onHeightChange={onHeaderHeightChange}
           menuOverlayOpen={menuOverlayOpen}
           headerTitleLabel={headerTitleLabel}
           titleGenerating={titleGenerating}
@@ -273,12 +314,14 @@ export function useChatScreenBodyProps({
           onOpenDrawer={openDrawer}
           onNewChat={startNewChat}
           onOpenMenu={() => setMenuVisible((v) => !v)}
+          menuAnchorRef={menuAnchorRef}
         />
       ) : null,
     [
       drawerOpen,
       insetsTop,
-      headerInset,
+      headerMinimumHeight,
+      onHeaderHeightChange,
       menuOverlayOpen,
       headerTitleLabel,
       titleGenerating,
@@ -287,62 +330,80 @@ export function useChatScreenBodyProps({
       routeChatId,
       startNewChat,
       setMenuVisible,
+      menuAnchorRef,
     ],
   );
 
-  const bodyProps = useMemo(
-    (): ChatScreenBodyProps => ({
+  const layoutProps = useMemo(
+    (): ChatScreenLayoutProps => ({
       styles,
       theme,
-      token,
       drawerOpen,
       composerClearance,
-      actionBanner,
-      onDismissActionBanner: dismissActionBanner,
-      listRef,
-      messages,
       headerInset,
       listBottomPad,
+      emptyHeight,
+    }),
+    [
+      styles,
+      theme,
+      drawerOpen,
+      composerClearance,
+      headerInset,
+      listBottomPad,
+      emptyHeight,
+    ],
+  );
+
+  const listProps = useMemo(
+    (): ChatScreenListProps => ({
+      listRef,
+      messages,
       hasMoreOlder,
       loadingOlder,
       chatLoading,
       routeChatId,
-      emptyHeight,
       renderItem,
       onLoadOlder,
       onScroll: handleScroll,
       onScrollEnd: handleScrollEnd,
       onSelectStarter,
+      header: listHeader,
+      footer: listFooter,
+      hideHomeStarters,
+    }),
+    [
+      listRef,
+      messages,
+      hasMoreOlder,
+      loadingOlder,
+      chatLoading,
+      routeChatId,
+      renderItem,
+      onLoadOlder,
+      handleScroll,
+      handleScrollEnd,
+      onSelectStarter,
       listHeader,
-      showScrollToBottom,
-      scrollAwayCount,
-      onScrollToLatest: scrollToLatest,
-      attachSheetOpen,
-      onCloseAttachSheet: closeAttachSheet,
-      quotaNudgeVisible: quotaNudge.show,
-      quotaUsedPct: quotaNudge.usedPct,
-      onQuotaUpgrade,
-      onQuotaDismiss: quotaNudge.dismiss,
-      chatError,
-      isPro,
-      onUpgrade,
-      onRetryChatError: retryChatError,
-      onChangeModel,
-      onDismissChatError: dismissChatError,
-      composerAnimatedStyle,
+      listFooter,
+      hideHomeStarters,
+    ],
+  );
+
+  const composerProps = useMemo(
+    (): ChatScreenComposerProps => ({
+      animatedStyle: composerAnimatedStyle,
       streaming,
       attachBusy,
       attachPicking,
       sendBusy,
+      sendStatus,
       pendingAttachment,
       onRemoveAttachment,
       onPickAttachment: handlePickAttachment,
-      onAttachmentSource,
-      mathScannerOpen,
-      onCloseMathScanner: closeMathScanner,
-      onMathScanCaptured: handleMathScanCaptured,
       onOpenMathScanner,
       onMathChromeHeightChange,
+      onInputFrameExtraChange,
       onSend,
       onStop: stopGeneration,
       isOffline,
@@ -352,62 +413,21 @@ export function useChatScreenBodyProps({
       voiceMeterLevel,
       onVoicePress,
       onLiveTalkPress,
-      liveTalkSession,
-      upgradeVisible,
-      onCloseUpgrade,
-      listFooter,
-      hideHomeStarters,
+      liveTalkSession: stableLiveTalkSession,
     }),
     [
-      styles,
-      theme,
-      token,
-      drawerOpen,
-      composerClearance,
-      actionBanner,
-      dismissActionBanner,
-      listRef,
-      messages,
-      headerInset,
-      listBottomPad,
-      hasMoreOlder,
-      loadingOlder,
-      chatLoading,
-      routeChatId,
-      emptyHeight,
-      renderItem,
-      onLoadOlder,
-      handleScroll,
-      handleScrollEnd,
-      onSelectStarter,
-      listHeader,
-      showScrollToBottom,
-      scrollAwayCount,
-      scrollToLatest,
-      attachSheetOpen,
-      closeAttachSheet,
-      quotaNudge,
-      onQuotaUpgrade,
-      chatError,
-      isPro,
-      onUpgrade,
-      retryChatError,
-      onChangeModel,
-      dismissChatError,
       composerAnimatedStyle,
       streaming,
       attachBusy,
       attachPicking,
       sendBusy,
+      sendStatus,
       pendingAttachment,
       onRemoveAttachment,
       handlePickAttachment,
-      onAttachmentSource,
-      mathScannerOpen,
-      closeMathScanner,
-      handleMathScanCaptured,
       onOpenMathScanner,
       onMathChromeHeightChange,
+      onInputFrameExtraChange,
       onSend,
       stopGeneration,
       isOffline,
@@ -417,12 +437,79 @@ export function useChatScreenBodyProps({
       voiceMeterLevel,
       onVoicePress,
       onLiveTalkPress,
-      liveTalkSession,
+      stableLiveTalkSession,
+    ],
+  );
+
+  const chromeProps = useMemo(
+    (): ChatScreenChromeProps => ({
+      actionBanner,
+      onDismissActionBanner: dismissActionBanner,
+      showScrollToBottom,
+      scrollAwayCount,
+      onScrollToLatest: scrollToLatest,
+      quotaNudgeVisible: quotaNudge.show,
+      quotaUsedPct: quotaNudge.usedPct,
+      onQuotaUpgrade,
+      onQuotaDismiss: quotaDismiss,
+      chatError,
+      isPro,
+      onUpgrade,
+      onRetryChatError: retryChatError,
+      onChangeModel,
+      onDismissChatError: dismissChatError,
+    }),
+    [
+      actionBanner,
+      dismissActionBanner,
+      showScrollToBottom,
+      scrollAwayCount,
+      scrollToLatest,
+      quotaNudge.show,
+      quotaNudge.usedPct,
+      onQuotaUpgrade,
+      quotaDismiss,
+      chatError,
+      isPro,
+      onUpgrade,
+      retryChatError,
+      onChangeModel,
+      dismissChatError,
+    ],
+  );
+
+  const sheetsProps = useMemo(
+    (): ChatScreenSheetsProps => ({
+      attachSheetOpen,
+      onCloseAttachSheet: closeAttachSheet,
+      onAttachmentSource,
+      mathScannerOpen,
+      onCloseMathScanner: closeMathScanner,
+      onMathScanCaptured: handleMathScanCaptured,
       upgradeVisible,
       onCloseUpgrade,
-      listFooter,
-      hideHomeStarters,
+    }),
+    [
+      attachSheetOpen,
+      closeAttachSheet,
+      onAttachmentSource,
+      mathScannerOpen,
+      closeMathScanner,
+      handleMathScanCaptured,
+      upgradeVisible,
+      onCloseUpgrade,
     ],
+  );
+
+  const bodyProps = useMemo(
+    (): ChatScreenBodyProps => ({
+      layout: layoutProps,
+      list: listProps,
+      composer: composerProps,
+      chrome: chromeProps,
+      sheets: sheetsProps,
+    }),
+    [layoutProps, listProps, composerProps, chromeProps, sheetsProps],
   );
 
   return { bodyProps, openUpgradeSheet };

@@ -200,6 +200,19 @@ def test_yes_follow_through_hint_is_not_a_greeting():
     assert "Carry out that offer" in CONFIRM_FOLLOW_THROUGH_HINT
 
 
+def test_bare_y_does_not_invent_an_offer_to_follow_through_on():
+    from app.services.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
+
+    parts = _style_format_hints(
+        query_text="y",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        compact=True,
+    )
+    assert CONFIRM_FOLLOW_THROUGH_HINT not in parts
+
+
 def test_clarification_hint_asks_once_when_purpose_or_data_missing():
     from app.services.chat.prompt_constants import (
         CLARIFICATION_HINT,
@@ -618,3 +631,115 @@ def test_capabilities_overview_skips_email_draft_contract():
     assert "Never emit ```email" in joined
     assert "No ## headings" in joined
     assert "put only send-ready text" not in joined.lower()
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "I work at Uber but I want to change to Google",
+        "I work at Uber and Google is my next goal",
+        "My current employer is Uber; I may apply to Google",
+        "I am thinking about leaving Uber for Google",
+        "Google looks interesting, but I still work at Uber",
+    ],
+)
+def test_career_updates_are_conversation_not_unsolicited_email_drafts(query):
+    from app.services.chat.prompt_builder import _style_format_hints
+    from app.services.chat.prompt_constants import (
+        EMAIL_DRAFT_HINT,
+        NON_DRAFT_TURN_HINT,
+        is_email_or_message_request,
+        writing_request_kind,
+    )
+
+    assert writing_request_kind(query) is None
+    assert not is_email_or_message_request(query)
+    parts = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert NON_DRAFT_TURN_HINT in parts
+    assert EMAIL_DRAFT_HINT not in parts
+
+
+def test_explicit_google_outreach_request_still_gets_email_draft_contract():
+    from app.services.chat.prompt_builder import _style_format_hints
+    from app.services.chat.prompt_constants import EMAIL_DRAFT_HINT, NON_DRAFT_TURN_HINT
+
+    parts = _style_format_hints(
+        query_text="Write an email to a Google recruiter about my software engineering experience",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert EMAIL_DRAFT_HINT in parts
+    assert NON_DRAFT_TURN_HINT not in parts
+
+
+def test_plain_career_disclosure_gets_short_conversation_contract():
+    from app.services.chat.prompt_builder import _style_format_hints
+    from app.services.chat.prompt_constants import (
+        COPY_DELIVERABLE_HINT,
+        FORMAT_CONTRACT,
+        PERSONAL_DISCLOSURE_HINT,
+        SHORT_RESPONSE_FORMAT_HINT,
+        is_personal_disclosure_turn,
+    )
+
+    query = "I work at Uber but I want to change to Google"
+    assert is_personal_disclosure_turn(query)
+    parts = _style_format_hints(
+        query_text=query,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert PERSONAL_DISCLOSURE_HINT in parts
+    assert "entire reply" in PERSONAL_DISCLOSURE_HINT
+    assert "no heading, list, steps, or action plan" in PERSONAL_DISCLOSURE_HINT
+    assert "currently at X; considering Y" in PERSONAL_DISCLOSURE_HINT
+    assert SHORT_RESPONSE_FORMAT_HINT in parts
+    assert FORMAT_CONTRACT not in parts
+    assert COPY_DELIVERABLE_HINT not in parts
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "I work at Uber. What skills should I build for Google?",
+        "I work at Uber; can you compare it with Google?",
+        "My goal is Google—help me make a plan",
+        "I work at Uber, search for current Google roles",
+        "I work at Uber. Write an email to a Google recruiter",
+        "I work at Uber; make me a transition plan",
+        "Should I leave Uber for Google?",
+    ],
+)
+def test_personal_context_with_a_real_request_is_not_only_a_disclosure(query):
+    from app.services.chat.prompt_constants import is_personal_disclosure_turn
+
+    assert not is_personal_disclosure_turn(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "We need a hotel in Paris",
+        "Our team needs current API pricing",
+        "We are looking for a restaurant nearby",
+        "Our company wants the latest tax guidance",
+    ],
+)
+def test_collective_implicit_requests_are_not_personal_disclosures(query):
+    from app.services.chat.prompt_constants import is_personal_disclosure_turn
+
+    assert not is_personal_disclosure_turn(query)
+
+
+@pytest.mark.parametrize("query", ["We moved to Boston", "We work in healthcare"])
+def test_collective_personal_facts_remain_disclosures(query):
+    from app.services.chat.prompt_constants import is_personal_disclosure_turn
+
+    assert is_personal_disclosure_turn(query)

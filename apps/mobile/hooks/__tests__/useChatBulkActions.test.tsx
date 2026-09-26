@@ -1,15 +1,16 @@
 import React from "react";
-import { Alert, Text } from "react-native";
+import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useChatBulkActions } from "@/hooks/useChatBulkActions";
 import { api, type Chat } from "@/lib/api";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
 import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { getCachedChat } from "@/lib/cache/chatListCache";
-import { invalidateGalleryCache } from "@/lib/cache/galleryListCache";
+import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
 
 let mockSession = 0;
 const mockError = jest.fn();
+const mockDestructive = jest.fn();
 const mockT = jest.fn((key: string, _options?: Record<string, unknown>) => key);
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
@@ -18,7 +19,11 @@ jest.mock("@/lib/api", () => ({ api: { setArchive: jest.fn(), deleteChat: jest.f
 jest.mock("@/lib/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
 jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/lib/cache/chatListCache", () => ({ getCachedChat: jest.fn() }));
-jest.mock("@/lib/cache/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
+jest.mock("@/lib/haptics", () => ({
+  ...jest.requireActual("@/lib/haptics"),
+  notifyDestructive: (...args: unknown[]) => mockDestructive(...args),
+}));
 const first: Chat = {
   id: "first", title: "First", pinned: true, archived: false, model: "free-chat",
   created_at: "2026-01-01", updated_at: "2026-01-01",
@@ -37,9 +42,19 @@ function Probe({ token = "token", isDrawerOpen = true }: { token?: string; isDra
   React.useLayoutEffect(() => { actions = value; });
   return <Text>Bulk actions</Text>;
 }
+// The test answers the confirm dialog for the person. Answering returns the
+// rest of the flow so a test can wait for it.
+let mockAnswer: ((ok: boolean) => Promise<void>) | null = null;
+jest.mock("@/ui/overlay/dialogs", () => ({
+  confirmDialog: () => ({
+    then: (handler: (ok: boolean) => Promise<void>) => {
+      mockAnswer = handler;
+    },
+  }),
+}));
 function confirmation() {
-  const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2] as { onPress?: () => Promise<void> }[];
-  return buttons.find((button) => button.onPress)!.onPress!;
+  const answer = mockAnswer!;
+  return () => answer(true);
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -48,9 +63,8 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 beforeEach(() => {
-  jest.clearAllMocks(); mockSession = 0;
+  jest.clearAllMocks(); mockSession = 0; mockAnswer = null;
   jest.mocked(getCachedChat).mockReturnValue(undefined);
-  jest.spyOn(Alert, "alert").mockImplementation(() => {});
 });
 
 it("keeps successful deletes removed, clears their cache and abandons only deleted active chats on partial failure", async () => {
@@ -68,6 +82,23 @@ it("keeps successful deletes removed, clears their cache and abandons only delet
   expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith([first.id]);
   expect(complete).not.toHaveBeenCalled();
   expect(mockError).toHaveBeenCalledWith("chat.delete_failed");
+  expect(mockDestructive).not.toHaveBeenCalled();
+});
+
+it("haptics once only after confirmed bulk deletion has a successful result", async () => {
+  const request = deferred<void>();
+  (api.deleteChat as jest.Mock).mockReturnValue(request.promise);
+  await render(<Probe />);
+
+  await act(async () => { actions.bulkDeleteChats([first]); });
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  let pending!: Promise<void>;
+  await act(async () => { pending = confirmation()(); });
+  expect(mockDestructive).not.toHaveBeenCalled();
+
+  await act(async () => { request.resolve(); await pending; });
+  expect(mockDestructive).toHaveBeenCalledTimes(1);
 });
 
 it("waits for all archive results and restores only failed snapshots, including their pins", async () => {

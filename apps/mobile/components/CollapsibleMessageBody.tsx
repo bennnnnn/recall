@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 
 import { MESSAGE_FOLD_MAX_HEIGHT } from "@/lib/markdown/messageFold";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
+import { Type } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 type Props = {
   children: ReactNode;
@@ -76,12 +78,11 @@ function makeStyles(theme: Theme) {
     },
     toggle: {
       alignSelf: "flex-start",
-      paddingVertical: 4,
+      paddingVertical: Space.xxs,
       marginTop: 2,
     },
     toggleText: {
-      fontSize: 14,
-      fontWeight: "600",
+      ...Type.label,
       color: theme.primary,
     },
   });

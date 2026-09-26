@@ -8,7 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import MathImageExtract
-from app.services.math.tools.prompt import (
+from app.modules.math.tools.prompt import (
     VERIFIED_MATH_REPLY_HINT,
     augment_prompt_messages,
     build_math_augmentation,
@@ -34,8 +34,8 @@ async def test_live_inequality_injects_concise_guidance_nearest_result_and_user(
     }
     assert verified.text.endswith("[END VERIFIED MATH]")
     assert VERIFIED_MATH_REPLY_HINT not in verified.text
-    assert "give one concise answer with at most the key transformation" in updated[-2]["content"]
-    assert "Do not add unsolicited headings" in updated[-2]["content"]
+    assert "Given, Find, Formula, Substitution, then the final Answer" in updated[-2]["content"]
+    assert "do not wrap the calculation in prose paragraphs" in updated[-2]["content"]
     assert "repeat the result in equivalent forms" in updated[-2]["content"]
 
 
@@ -74,7 +74,7 @@ async def test_verified_camera_math_uses_same_result_adjacent_guidance() -> None
 
 @pytest.mark.asyncio
 async def test_missing_verified_result_keeps_existing_honesty_path() -> None:
-    with patch("app.services.math.tools._build_verified_block_async", AsyncMock(return_value=None)):
+    with patch("app.modules.math.tools._build_verified_block_async", AsyncMock(return_value=None)):
         note, verified = await build_math_augmentation(
             "Solve x^2 < 4", Settings(math_tools_enabled=True)
         )

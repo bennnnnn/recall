@@ -1,0 +1,120 @@
+import { useEffect } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Icon } from "@/ui/icons/Icon";
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
+
+import { Motion, useReduceMotion } from "@/lib/motion";
+import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
+
+type Props = {
+  recording: boolean;
+  transcribing: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+};
+
+export function VoiceMicButton({ recording, transcribing, disabled, onPress }: Props) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const reduceMotion = useReduceMotion();
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    cancelAnimation(pulse);
+    if (!recording || reduceMotion) {
+      pulse.value = 0;
+      return;
+    }
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, {
+          duration: Motion.duration.soft,
+          easing: Motion.easing.out,
+        }),
+        withTiming(0, {
+          duration: Motion.duration.soft,
+          easing: Motion.easing.in,
+        }),
+      ),
+      -1,
+      false,
+    );
+  }, [recording, pulse, reduceMotion]);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: 0.55 * (1 - pulse.value),
+    transform: [{ scale: 1 + pulse.value * 0.45 }],
+  }));
+
+  return (
+    <Pressable
+      style={[styles.hit, disabled && styles.dim]}
+      onPress={onPress}
+      disabled={disabled || transcribing}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={t("chat.voice_a11y")}
+      accessibilityHint={recording ? t("chat.voice_stop_hint") : t("chat.voice_start_hint")}
+      accessibilityState={{ disabled: Boolean(disabled || transcribing), busy: transcribing }}
+    >
+      <View style={styles.slot}>
+        {recording ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.ring, { borderColor: theme.primary }, ringStyle]}
+          />
+        ) : null}
+        <View
+          style={[
+            styles.btn,
+            {
+              borderColor: recording ? theme.primary : theme.border,
+              backgroundColor: recording ? theme.primary : theme.surface,
+            },
+          ]}
+        >
+          <Icon
+            name={recording ? "stop" : "mic"}
+            size={recording ? IconSize.xs : IconSize.md}
+            color={recording ? theme.onPrimary : theme.primary}
+          />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  hit: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  dim: { opacity: 0.55 },
+  slot: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ring: {
+    position: "absolute",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+  },
+  btn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+});

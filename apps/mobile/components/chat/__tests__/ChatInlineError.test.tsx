@@ -2,7 +2,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { ChatInlineError } from "@/components/chat/ChatInlineError";
 
-jest.mock("@/components/Icon", () => ({
+jest.mock("@/ui/icons/Icon", () => ({
   Icon: () => null,
 }));
 
@@ -33,6 +33,22 @@ jest.mock("@/lib/theme", () => ({
 }));
 
 describe("ChatInlineError", () => {
+  it("exposes the quota upgrade CTA as a labeled button", async () => {
+    const onUpgrade = jest.fn();
+    const view = await render(
+      <ChatInlineError
+        error={{ kind: "quota", message: "Daily limit reached." }}
+        upgradeLabel="Go Pro"
+        onUpgrade={onUpgrade}
+        onDismiss={jest.fn()}
+        bottom={20}
+      />,
+    );
+
+    fireEvent.press(view.getByRole("button", { name: "Go Pro" }));
+    expect(onUpgrade).toHaveBeenCalledTimes(1);
+  });
+
   it("offers Retry instead of Stop for a rejected unsaved message", async () => {
     const onRetry = jest.fn();
     const onStop = jest.fn();

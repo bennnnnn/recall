@@ -1,13 +1,6 @@
 """Pydantic API schemas. Prefer `from app.models.schemas import X`."""
 
 from app.models.schemas.analytics import ProductEventBatchIn, ProductEventIn, ProductEventName
-from app.models.schemas.attachments import (
-    AttachmentListItemOut,
-    AttachmentListOut,
-    AttachmentOut,
-    AttachmentPresignIn,
-    AttachmentPresignOut,
-)
 from app.models.schemas.auth import (
     AppleAuthRequest,
     AuthResponse,
@@ -31,8 +24,6 @@ from app.models.schemas.chats import (
     ChatRename,
     EmailDraftUpdate,
     FeedbackUpdate,
-    ImageGenerateIn,
-    ImageGenerateOut,
     MessageOut,
     MessagePageOut,
     PinUpdate,
@@ -63,6 +54,22 @@ from app.models.schemas.home import (
     SuggestionOut,
 )
 from app.models.schemas.integrations import (
+    PushTokenIn,
+    SpeechLiveStatusOut,
+    SpeechTranscriptionIn,
+    SpeechTranscriptionOut,
+    SpeechTtsIn,
+    SpeechTtsOut,
+    WebSearchClassification,
+)
+from app.modules.attachments.schemas import (
+    AttachmentListItemOut,
+    AttachmentListOut,
+    AttachmentOut,
+    AttachmentPresignIn,
+    AttachmentPresignOut,
+)
+from app.modules.integrations.schemas import (
     CalendarConflictOut,
     CalendarConflictsOut,
     CalendarEventProposalIn,
@@ -73,17 +80,10 @@ from app.models.schemas.integrations import (
     GoogleCalendarStatusOut,
     GoogleGmailConnectRequest,
     GoogleGmailStatusOut,
-    PushTokenIn,
-    SpeechLiveStatusOut,
-    SpeechTranscriptionIn,
-    SpeechTranscriptionOut,
-    SpeechTtsIn,
-    SpeechTtsOut,
     SuggestedReminderOut,
     SuggestedRemindersOut,
-    WebSearchClassification,
 )
-from app.models.schemas.learning import (
+from app.modules.learning.schemas import (
     DailyHistoryStatus,
     LearningActionItem,
     LearningCreate,
@@ -100,7 +100,7 @@ from app.models.schemas.learning import (
     PathChapterProgress,
     VocabStatus,
 )
-from app.models.schemas.memory import (
+from app.modules.memory.schemas import (
     MemoryFactOp,
     MemoryFactUpdateResult,
     MemoryOut,
@@ -108,7 +108,7 @@ from app.models.schemas.memory import (
     MemorySectionUpdateResult,
     MemoryUpdate,
 )
-from app.models.schemas.schedule import (
+from app.modules.todos.schemas import (
     RecurrenceRule,
     TodoActionItem,
     TodoCreate,
@@ -155,8 +155,6 @@ __all__ = [
     "HomeScreenOut",
     "HomeStarter",
     "HomeUrgentTodo",
-    "ImageGenerateIn",
-    "ImageGenerateOut",
     "LearningActionItem",
     "LearningCreate",
     "LearningDailyHistoryDay",

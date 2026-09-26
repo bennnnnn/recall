@@ -2,12 +2,15 @@ import React, { Suspense, useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
 import { bundleHtmlPreview, previewHasSiblingAssets } from "@/lib/htmlPreviewBundle";
 import { useHtmlPreviewFiles } from "@/lib/htmlPreviewFiles";
 import { openHtmlInBrowser } from "@/lib/openHtmlPreview";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 const HtmlPreviewModalLazy = React.lazy(() =>
   import("@/components/HtmlPreviewModal").then((m) => ({
@@ -50,8 +53,8 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
             accessibilityLabel={previewLabel}
           >
             <Icon
-              name="play-outline"
-              size={16}
+              name="play"
+              size={IconSize.xs}
               color={modalOpen ? theme.primary : theme.textSecondary}
             />
           </TouchableOpacity>
@@ -66,7 +69,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               accessibilityRole="button"
               accessibilityLabel={previewLabel}
             >
-              <Icon name="play-outline" size={18} color={theme.textSecondary} />
+              <Icon name="play" size={IconSize.sm} color={theme.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={s.iconBtn}
@@ -76,7 +79,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               accessibilityRole="button"
               accessibilityLabel={t("preview.open_in_browser")}
             >
-              <Icon name="open-outline" size={18} color={theme.textSecondary} />
+              <Icon name="external-link" size={IconSize.sm} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
         }
@@ -96,12 +99,12 @@ function makeStyles(t: Theme) {
     footerActions: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
+      gap: Space.xxs,
     },
     iconBtn: {
       width: 44,
       height: 44,
-      borderRadius: 8,
+      borderRadius: Radius.xs,
       alignItems: "center",
       justifyContent: "center",
     },

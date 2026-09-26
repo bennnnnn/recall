@@ -45,10 +45,6 @@ jest.mock("expo-haptics", () => ({
 
 // Icon glyphs aren't relevant to this test and pulling in the real font
 // asset registration is unnecessary risk for a fallback-rendering check.
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 describe("MermaidBlock", () => {
   it("renders the static source fallback when no preview WebView is available", async () => {
     const content = "graph TD; A-->B;";

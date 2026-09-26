@@ -1,20 +1,22 @@
 import { useState } from "react";
 import { StyleSheet } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/components/chat/ChatComposer";
+import { CONVERTER_HEADER_HEIGHT, converterKeyHeight } from "@/components/chat/MathConverterPad";
+import { darkTheme, lightTheme } from "@/lib/theme";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+
+jest.mock("@/contexts/AuthContext", () => ({
+  useAuthToken: () => "t",
+}));
 
 jest.mock("expo-clipboard", () => ({
   setStringAsync: jest.fn(),
   getStringAsync: jest.fn(async () => ""),
   hasImageAsync: jest.fn(async () => false),
   getImageAsync: jest.fn(),
-}));
-
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
 }));
 
 jest.mock("react-i18next", () => ({
@@ -35,15 +37,15 @@ jest.mock("expo-haptics", () => ({
   NotificationFeedbackType: { Success: "success", Warning: "warning" },
 }));
 
-jest.mock("@/components/chat/VoiceComposerWaveform", () => ({
+jest.mock("@/features/speech/components/VoiceComposerWaveform", () => ({
   VoiceComposerWaveform: () => null,
 }));
 
-jest.mock("@/components/chat/VoiceMicButton", () => ({
+jest.mock("@/features/speech/components/VoiceMicButton", () => ({
   VoiceMicButton: () => null,
 }));
 
-jest.mock("@/components/chat/LiveTalkButton", () => {
+jest.mock("@/features/speech/components/LiveTalkButton", () => {
   const { Pressable } = jest.requireActual("react-native") as typeof import("react-native");
   return {
     LiveTalkButton: ({ onPress }: { onPress: () => void }) => (
@@ -52,13 +54,12 @@ jest.mock("@/components/chat/LiveTalkButton", () => {
   };
 });
 
-jest.mock("@/components/ComposerAttachmentPreview", () => ({
+jest.mock("@/features/attachments/components/ComposerAttachmentPreview", () => ({
   ComposerAttachmentPreview: () => null,
 }));
 
 const baseProps = {
   visible: true,
-  token: "t",
   input: "",
   onChangeInput: jest.fn(),
   streaming: false,
@@ -82,7 +83,7 @@ describe("ChatComposer math keyboard", () => {
     "What is sqrt{81}?",
     "Let x=-5. Evaluate x^2",
     "Use $x^2$ with a $5 example",
-  ])("keeps ordinary typing literal and the native caret active: %s", async (text) => {
+  ])("keeps ordinary typing on the messaging keyboard with the native caret: %s", async (text) => {
     function Harness() {
       const [input, setInput] = useState("");
       return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
@@ -93,9 +94,9 @@ describe("ChatComposer math keyboard", () => {
       await fireEvent.changeText(getByTestId("chat-composer-input"), next);
       const native = getByTestId("chat-composer-input");
       expect(native.props.value).toBe(next);
-      expect(native.props.autoCorrect).toBe(false);
-      expect(native.props.spellCheck).toBe(false);
-      expect(native.props.autoCapitalize).toBe("none");
+      expect(native.props.autoCorrect).toBe(true);
+      expect(native.props.spellCheck).toBe(true);
+      expect(native.props.autoCapitalize).toBe("sentences");
       expect(native.props.selection).toBeUndefined();
       expect(native.props.caretHidden).toBe(false);
       expect(native.props.pointerEvents).toBe("auto");
@@ -103,19 +104,25 @@ describe("ChatComposer math keyboard", () => {
     }
   });
 
-  it("keeps native keyboard traits stable when opening and leaving the math pad", async () => {
+  it("uses messaging input until the math pad is open", async () => {
     const { getByTestId } = await render(<ChatComposer {...baseProps} />);
-    const expectStableTraits = () => {
+    const expectMessaging = () => {
+      const native = getByTestId("chat-composer-input");
+      expect(native.props.autoCorrect).toBe(true);
+      expect(native.props.spellCheck).toBe(true);
+      expect(native.props.autoCapitalize).toBe("sentences");
+    };
+    const expectMathEditor = () => {
       const native = getByTestId("chat-composer-input");
       expect(native.props.autoCorrect).toBe(false);
       expect(native.props.spellCheck).toBe(false);
       expect(native.props.autoCapitalize).toBe("none");
     };
-    expectStableTraits();
+    expectMessaging();
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
-    expectStableTraits();
+    expectMathEditor();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
-    expectStableTraits();
+    expectMessaging();
   });
 
   it("does not enable preview just by opening and closing an empty math pad", async () => {
@@ -172,6 +179,134 @@ describe("ChatComposer math keyboard", () => {
     expect(send.props.accessibilityState).toEqual({ disabled: true, busy: true });
     await fireEvent.press(send);
     expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("shows an immediate locating status without clearing the draft", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer
+        {...baseProps}
+        input="coffee near me"
+        sendBusy
+        sendStatus="chat.locating"
+      />,
+    );
+
+    expect(getByTestId("chat-composer-input").props.value).toBe("coffee near me");
+    expect(getByTestId("composer-send-status").props.children).toBe(
+      "chat.locating",
+    );
+  });
+
+  it("returns an expanded multiline input to its default height after send", async () => {
+    function Harness() {
+      const [input, setInput] = useState(
+        "A long message that wraps across several lines in the composer before it is sent.",
+      );
+      return (
+        <ChatComposer
+          {...baseProps}
+          input={input}
+          onChangeInput={setInput}
+          onSend={() => setInput("")}
+        />
+      );
+    }
+
+    const { getByTestId, getByLabelText } = await render(<Harness />);
+    const composerInput = getByTestId("chat-composer-input");
+
+    await fireEvent(composerInput, "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 112 } },
+    });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112 });
+
+    await fireEvent.press(getByLabelText("chat.send_a11y"));
+
+    await waitFor(() => {
+      expect(getByTestId("chat-composer-input").props.value).toBe("");
+      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 44 });
+    });
+  });
+
+  it("grows the field when a leading Return adds a line", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+
+    const { getByTestId } = await render(<Harness />);
+    const composerInput = getByTestId("chat-composer-input");
+
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+    expect(composerInput.props.placeholder).toBe("chat.placeholder");
+
+    await fireEvent.changeText(composerInput, "\n");
+    await fireEvent(composerInput, "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 50 } },
+    });
+
+    expect(getByTestId("chat-composer-input").props.value).toBe("\n");
+    expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 68 });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("preserves leading indentation while typing a code block", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
+    }
+
+    const { getByTestId } = await render(<Harness />);
+    const composerInput = getByTestId("chat-composer-input");
+
+    await fireEvent.changeText(composerInput, " ");
+    expect(getByTestId("chat-composer-input").props.value).toBe(" ");
+    await fireEvent.changeText(getByTestId("chat-composer-input"), "  const answer = 42;");
+    expect(getByTestId("chat-composer-input").props.value).toBe("  const answer = 42;");
+  });
+
+  it("bottom-aligns controls only after visible multiline text is entered", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"First line\nSecond line"} />,
+    );
+
+    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 50 } },
+    });
+
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("offers a full-height editor when the multiline input reaches its limit", async () => {
+    const { getByTestId, getByLabelText } = await render(
+      <ChatComposer
+        {...baseProps}
+        input={"A long draft\n".repeat(20)}
+      />,
+    );
+    const composerInput = getByTestId("chat-composer-input");
+
+    await fireEvent(composerInput, "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 190 } },
+    });
+
+    expect(composerInput).toHaveStyle({ height: 164 });
+    expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
+      expanded: false,
+    });
+
+    await fireEvent.press(getByLabelText("rich.expand"));
+
+    expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
+      expanded: true,
+    });
+    expect(getByTestId("chat-composer")).toHaveStyle({ top: 8 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({
+      flex: 1,
+      minHeight: 0,
+    });
+    expect(getByLabelText("rich.collapse")).toBeTruthy();
   });
 
   it("uses Ionicon send and stop glyphs instead of text arrows", async () => {
@@ -278,6 +413,79 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-converter")).toBeTruthy();
   });
 
+  it("keeps math navigation and converter controls at least 44pt", async () => {
+    const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+
+    expect(getByTestId("math-keyboard-tab-basics")).toHaveStyle({ minHeight: 44 });
+    expect(queryByTestId("math-key-caret-left")).toBeNull();
+    expect(queryByTestId("math-key-caret-right")).toBeNull();
+    expect(getByTestId("math-keyboard-abc")).toHaveStyle({ minHeight: 44 });
+
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    const rowHeight = converterKeyHeight(320 - 20 - 44 - 6);
+    const flatKey = (id: string) => {
+      const style = getByTestId(id).props.style;
+      return StyleSheet.flatten(typeof style === "function" ? style({ pressed: false }) : style);
+    };
+    expect(rowHeight).toBeGreaterThan(0);
+    expect(CONVERTER_HEADER_HEIGHT + 24 + rowHeight * 4).toBeLessThanOrEqual(320 - 20 - 44 - 6);
+    expect(getByTestId("math-converter-from-unit")).toHaveStyle({ alignSelf: "stretch", height: 44 });
+    for (const id of ["math-converter-0", "math-converter-dot", "math-converter-insert", "math-converter-ask"]) {
+      expect(flatKey(id).height).toBe(rowHeight);
+    }
+    expect(getByTestId("math-converter-swap")).toHaveStyle({
+      minWidth: 44,
+      minHeight: 44,
+    });
+    expect(getByTestId("math-converter-from-unit")).toHaveStyle({ minHeight: 44 });
+
+    await fireEvent.press(getByTestId("math-converter-from-unit"));
+    expect(getByTestId("math-converter-picker-close")).toHaveStyle({
+      minWidth: 44,
+      minHeight: 44,
+    });
+    expect(getByTestId("math-converter-cat-length")).toHaveStyle({ minHeight: 44 });
+  });
+
+  it("uses white keys, red text for clear and delete, and normal text for ±", async () => {
+    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    const flat = (style: unknown) =>
+      StyleSheet.flatten(typeof style === "function" ? style({ pressed: false }) : style);
+    const danger = [lightTheme.danger, darkTheme.danger];
+    const ink = [lightTheme.text, darkTheme.text];
+    const white = [lightTheme.bg, darkTheme.bg];
+    expect(white).toContain(flat(getByTestId("math-converter-5").props.style).backgroundColor);
+    expect(white).toContain(flat(getByTestId("math-converter-ask").props.style).backgroundColor);
+    for (const [id, label] of [
+      ["math-converter-AC", "chat.math_converter_clear"],
+      ["math-converter-back", "chat.math_keyboard_backspace"],
+    ] as const) {
+      const key = getByTestId(id);
+      expect(white).toContain(flat(key.props.style).backgroundColor);
+      expect(danger).toContain(flat(within(key).getByText(label).props.style).color);
+    }
+    const sign = getByTestId("math-converter-±");
+    expect(white).toContain(flat(sign.props.style).backgroundColor);
+    expect(ink).toContain(flat(within(sign).getByText("±").props.style).color);
+  });
+
+  it("hides the math keyboard on an outside tap and restores it from the composer", async () => {
+    const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-dismiss"));
+    expect(queryByTestId("math-keyboard-pad")).toBeNull();
+    await fireEvent(getByTestId("chat-composer-input"), "focus");
+    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-abc"));
+    expect(queryByTestId("math-keyboard-pad")).toBeNull();
+    await fireEvent(getByTestId("chat-composer-input"), "focus");
+    expect(queryByTestId("math-keyboard-pad")).toBeNull();
+  });
+
   it("inserts the converter result into the composer as math", async () => {
     let latest = "";
     function Harness() {
@@ -336,11 +544,21 @@ describe("ChatComposer math keyboard", () => {
     );
   });
 
-  it("hides the number pad on Trig, Calc, and Greek until 123", async () => {
+  it("hides the number pad on every symbol tab until 123", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
-    expect(getByTestId("math-keyboard-numpad")).toBeTruthy();
-    expect(queryByTestId("math-keyboard-123")).toBeNull();
+    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
+    expect(getByTestId("math-keyboard-123")).toBeTruthy();
+    expect(getByTestId("math-key-sqrt")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-123"));
+    expect(getByTestId("math-key-percent")).toBeTruthy();
+    expect(getByTestId("math-key-pm")).toBeTruthy();
+    expect([lightTheme.text, darkTheme.text]).toContain(
+      StyleSheet.flatten(within(getByTestId("math-key-pm")).getByText("±").props.style).color,
+    );
+    expect(getByTestId("math-key-deg")).toBeTruthy();
+    expect(getByTestId("math-key-approx")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     expect(queryByTestId("math-keyboard-numpad")).toBeNull();
     expect(getByTestId("math-key-arccos")).toBeTruthy();
@@ -348,8 +566,14 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-key-rad")).toBeTruthy();
     expect(getByTestId("math-key-arcsinh")).toBeTruthy();
     expect(getByTestId("math-key-arccosh")).toBeTruthy();
-    expect(getByTestId("math-key-digit-1")).toBeTruthy();
-    expect(getByTestId("math-key-digit-7")).toBeTruthy();
+    expect(getByTestId("math-key-trig-theta")).toBeTruthy();
+    expect(getByTestId("math-key-sech")).toBeTruthy();
+    expect(getByTestId("math-key-pi-over-2")).toBeTruthy();
+    expect(queryByTestId("math-key-sqrt")).toBeNull();
+    expect(queryByTestId("math-key-sup")).toBeNull();
+    expect(queryByTestId("math-key-abs")).toBeNull();
+    expect(queryByTestId("math-key-digit-1")).toBeNull();
+    expect(queryByTestId("math-key-digit-7")).toBeNull();
     expect(queryByTestId("math-key-log")).toBeNull();
     expect(getByTestId("math-keyboard-123")).toBeTruthy();
     await fireEvent.press(getByTestId("math-keyboard-123"));
@@ -368,12 +592,25 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("math-key-oint")).toBeTruthy();
     expect(getByTestId("math-key-vec")).toBeTruthy();
     expect(getByTestId("math-key-ddv")).toBeTruthy();
+    expect(getByTestId("math-key-partial-x")).toBeTruthy();
+    expect(getByTestId("math-key-dy")).toBeTruthy();
+    expect(getByTestId("math-key-ddt")).toBeTruthy();
+    expect(getByTestId("math-key-prime")).toBeTruthy();
+    expect(queryByTestId("math-key-sqrt")).toBeNull();
+    expect(queryByTestId("math-key-sup")).toBeNull();
+    expect(queryByTestId("math-key-abs")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-tab-greek"));
     expect(queryByTestId("math-keyboard-numpad")).toBeNull();
     expect(queryByTestId("math-key-digit-7")).toBeNull();
     expect(getByTestId("math-key-alpha")).toBeTruthy();
     expect(getByTestId("math-key-lambda")).toBeTruthy();
     expect(getByTestId("math-key-Omega")).toBeTruthy();
+    expect(getByTestId("math-key-iota")).toBeTruthy();
+    expect(getByTestId("math-key-upsilon")).toBeTruthy();
+    expect(getByTestId("math-key-Theta")).toBeTruthy();
+    expect(getByTestId("math-key-Phi")).toBeTruthy();
+    expect(queryByTestId("math-key-pi")).toBeNull();
+    expect(queryByTestId("math-key-sqrt")).toBeNull();
     expect(getByTestId("math-key-backspace")).toBeTruthy();
   });
 
@@ -408,12 +645,15 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-key-frac"));
     expect(getByTestId("math-slot-num-caret")).toBeTruthy();
     expect(getByTestId("math-slot-den-placeholder")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-1"));
     await fireEvent.press(getByTestId("math-slot-den"));
     await fireEvent.press(getByTestId("math-key-digit-2"));
     expect(getByTestId("math-slot-num")).toBeTruthy();
     expect(getByTestId("math-slot-den")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-times"));
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-2"));
     expect(latest).toBe("$\\frac{1}{2}\\times 2$");
     expect(getByTestId("math-slot-after")).toBeTruthy();
@@ -470,6 +710,7 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByText } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-sqrt"));
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
     expect(getByTestId("math-sqrt")).toBeTruthy();
     expect(getByTestId("math-sqrt-radicand")).toBeTruthy();
@@ -510,8 +751,10 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-nroot"));
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-3"));
     expect(getByTestId("math-slot-nroot-index-caret-end")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-nroot"));
     expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
   });
@@ -528,6 +771,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     await fireEvent.press(getByTestId("math-key-deg"));
     expect(latest).toBe("$^{\\circ}$");
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-3"));
     expect(latest).toBe("$3^{\\circ}$");
   });
@@ -557,6 +801,7 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-var-y"));
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-comma"));
     expect(getByTestId("chat-composer-input").props.value).toBe("$y,$");
   });
@@ -626,6 +871,7 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
     await fireEvent.press(getByTestId("math-slot-den"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
@@ -649,6 +895,7 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
     await fireEvent.press(getByTestId("math-slot-den"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
@@ -672,6 +919,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-slot-after"));
     expect(queryByTestId("math-slot-before-caret")).toBeNull();
     expect(getByTestId("math-slot-after-caret")).toBeTruthy();
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-7"));
     expect(latest).toBe("$|5|997$");
   });
@@ -686,6 +934,7 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
+    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-9"));
     expect(getByTestId("math-slot-num-caret-end")).toBeTruthy();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
@@ -784,6 +1033,7 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("live-talk-close")).toBeTruthy();
     expect(getByTestId("chat-composer-input")).toBeTruthy();
     expect(getByLabelText("chat.attach_a11y")).toBeTruthy();
+    expect(getByTestId("composer-attachment-add-icon").props.name).toBe("plus");
   });
 
   it("hides mute and close while the user is typing in live talk", async () => {

@@ -1,31 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, ViewStyle } from "react-native";
+import { StyleSheet, ViewStyle } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { notifySuccess, tap } from "@/lib/haptics";
-import { inkIconColor } from "@/lib/icons";
+import { IconButton } from "@/ui/controls/IconButton";
+import { notifySuccess } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   text: string;
   /** Disable haptic feedback if a parent already fired one. */
   haptic?: boolean;
   style?: ViewStyle;
-  hitSlop?: number;
   /** Override the a11y label (defaults to "Copy" / "Copied"). */
   accessibilityLabel?: string;
 };
 
 const COPIED_RESET_MS = 1500;
-const ICON_SIZE = 20;
+const ICON_SIZE = IconSize.sm;
 
 export function CopyButton({
   text,
   haptic = true,
   style,
-  hitSlop = 8,
   accessibilityLabel,
 }: Props) {
   const { t } = useTranslation();
@@ -43,42 +41,36 @@ export function CopyButton({
 
   const onCopy = async () => {
     if (!text.trim()) return;
-    if (haptic) tap();
     await Clipboard.setStringAsync(text);
     setCopied(true);
-    notifySuccess();
+    if (haptic) notifySuccess();
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setCopied(false), COPIED_RESET_MS);
   };
 
   const label = copied ? t("common.copied") : t("common.copy");
-  const ink = copied ? theme.primary : inkIconColor(theme);
+  const ink = copied ? theme.primary : theme.text;
 
   return (
-    <Pressable
-      style={[s.btn, style]}
-      onPress={onCopy}
-      hitSlop={hitSlop}
-      accessibilityRole="button"
+    <IconButton
+      name={copied ? "check" : "copy"}
+      size={ICON_SIZE}
+      color={ink}
+      onPress={() => void onCopy()}
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={copied ? { selected: true } : undefined}
-    >
-      <Icon
-        name={copied ? "checkmark-outline" : "copy-outline"}
-        size={ICON_SIZE}
-        color={ink}
-      />
-    </Pressable>
+      style={[s.btn, style]}
+    />
   );
 }
 
 function makeStyles() {
   return StyleSheet.create({
     btn: {
-      width: 32,
-      height: 32,
-      alignItems: "center",
-      justifyContent: "center",
+      // 44×44 touch target; negative margins keep the visual footprint at the
+      // old 32×32 so card headers don't grow.
+      width: 44,
+      height: 44,
+      margin: -6,
     },
   });
 }

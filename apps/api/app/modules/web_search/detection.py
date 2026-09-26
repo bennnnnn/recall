@@ -1,0 +1,252 @@
+"""Decide whether a turn needs live web search."""
+
+from __future__ import annotations
+
+import logging
+import re
+
+from app.core.config import Settings
+from app.models.schemas import WebSearchClassification
+from app.modules.web_search.geo_intent import is_geo_query, is_vocab_quiz_answer
+from app.modules.web_search.patterns import (
+    _CLARIFICATION,
+    _EXPLICIT_SEARCH,
+    _LOOK_IT_UP,
+    _NEWS,
+    _ONGOING,
+    _PERSONAL_PLANNING,
+    _SHORT_FOLLOWUP_WORDS,
+    _SKIP,
+    _SPORTS,
+    _SPORTS_LOOKUP,
+    _TEAM_POSSESSIVE_SCORE,
+    _TEAM_SCORE,
+    _WORLD_CUP,
+    _YESTERDAY,
+    collapse_ws,
+    has_recency,
+)
+from app.modules.web_search.subject import (
+    _prior_searchable_topic,
+    resolve_search_subject,
+)
+from app.services import time_context as time_context_service
+from app.services.chat.prompt_constants import (
+    is_lightweight_chat_turn,
+    is_personal_disclosure_turn,
+    is_short_confirmation,
+    prior_looks_like_offer,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# Questions about the user's own stored profile must be answered from memory,
+# not by searching the public web. Keep this deliberately narrower than every
+# first-person question: "find jobs for me" or "restaurants near me" may still
+# need live results, while these clauses ask Recall to repeat a personal fact.
+_PERSONAL_MEMORY_QUESTION = re.compile(
+    r"(?:"
+    r"\bwhere\s+(?:do|did)\s+i\s+(?:currently\s+)?work"
+    r"(?:\s+(?:currently|now|right\s+now))?\b"
+    r"|\bwho\s+do\s+i\s+(?:currently\s+)?work\s+for\b"
+    r"|\b(?:what|which)\s+company\s+(?:do\s+i\s+work\s+(?:for|at)"
+    r"|am\s+i\s+(?:currently\s+)?(?:working\s+(?:for|at)|employed\s+(?:by|at)))\b"
+    r"|\bwhere\s+am\s+i\s+(?:currently\s+)?employed\b"
+    r"|\bwhat(?:'s|\s+is|\s+was)\s+my\s+(?:current\s+)?"
+    r"(?:job|role|title|employer|company|occupation|profession)\b"
+    r"(?=\s*(?:[?.!,]|$|\band\b))"
+    r"|\b(?:what|which)\s+(?:company|job|role|employer)\s+(?:am|was)\s+i\s+"
+    r"(?:considering|targeting|pursuing|interested\s+in|moving\s+to|"
+    r"planning\s+to\s+join|trying\s+to\s+join|hoping\s+to\s+join)\b"
+    r"|\bwhat(?:'s|\s+is|\s+was)\s+my\s+"
+    r"(?:current\s+|future\s+|career\s+|long[- ]term\s+)?"
+    r"(?:goal|target|aspiration|plan)\b"
+    r"(?=\s*(?:[?.!,]|$|\band\b))"
+    r"|\b(?:do|can)\s+you\s+remember\s+(?:where|who|what)\s+i\b"
+    r"|\bwhat\s+(?:do|did)\s+you\s+(?:remember|know)\s+about\s+my\s+"
+    r"(?:job|work|career|role|employer|company|goals?|plans?)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def web_search_skip(
+    text: str,
+    *,
+    prior_user_messages: list[str] | None = None,
+    prior_assistant: str | None = None,
+) -> bool:
+    """Hard no — never run web search or the classifier."""
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return True
+    follow_up = bool(prior_user_messages) or prior_looks_like_offer(prior_assistant)
+    if len(cleaned) < 4 and not (is_short_confirmation(cleaned) and follow_up):
+        return True
+    confirming = is_short_confirmation(cleaned) and follow_up
+    if not confirming and is_lightweight_chat_turn(cleaned, prior_assistant=prior_assistant):
+        return True
+    if is_vocab_quiz_answer(cleaned):
+        return True
+    if is_personal_disclosure_turn(cleaned):
+        return True
+    if _PERSONAL_MEMORY_QUESTION.search(cleaned):
+        return True
+    if time_context_service.is_local_now_question(cleaned):
+        return True
+    if time_context_service.is_location_question(cleaned):
+        return True
+    if _SKIP.search(cleaned):
+        return True
+    if _PERSONAL_PLANNING.search(cleaned):
+        return True
+    from app.modules.integrations import is_external_calendar_question
+
+    if is_external_calendar_question(cleaned):
+        return True
+    return False
+
+
+# Stable schoolbook questions ("what is the capital of France") must not pay
+# an LLM classifier before the reply. A time-sensitive question still does,
+# even when it lacks one of the live-word tokens below.
+_MAYBE_LIVE = re.compile(
+    r"\b(?:who\s+is|who\s+leads|current|latest|today|tonight|right\s+now|"
+    r"price|pricing|hotel|weather|score|news|ceo|near\s+me)\b",
+    re.IGNORECASE,
+)
+_STABLE_FACT = re.compile(
+    r"\b(?:what(?:'s| is| are)|how (?:do|does|can|to)|why (?:is|does|do)|"
+    r"explain|define|capital of|solve|calculate|simplify|translate)\b",
+    re.IGNORECASE,
+)
+_TIME_SENSITIVE = re.compile(
+    r"\b(?:when|next|upcoming|release|coming out|launch)\b",
+    re.IGNORECASE,
+)
+
+
+def _stable_without_live_lookup(text: str) -> bool:
+    if _MAYBE_LIVE.search(text) or _TIME_SENSITIVE.search(text):
+        return False
+    return _STABLE_FACT.search(text) is not None
+
+
+def web_search_fast_yes(
+    text: str,
+    *,
+    prior_user_messages: list[str] | None = None,
+) -> bool:
+    """Obvious yes — skip the classifier."""
+    cleaned = collapse_ws(text)
+    if _LOOK_IT_UP.match(cleaned):
+        return bool(prior_user_messages)
+    if _EXPLICIT_SEARCH.search(cleaned):
+        return True
+    if _NEWS.search(cleaned):
+        return True
+    if _SPORTS_LOOKUP.search(cleaned):
+        return True
+    if _TEAM_SCORE.search(cleaned) or _TEAM_POSSESSIVE_SCORE.search(cleaned):
+        return True
+    if _YESTERDAY.search(cleaned) and _SPORTS.search(cleaned):
+        return True
+    if _WORLD_CUP.search(cleaned) and (_ONGOING.search(cleaned) or _SPORTS.search(cleaned)):
+        return True
+    subject = resolve_search_subject(cleaned, prior_user_messages=prior_user_messages)
+    if _SPORTS_LOOKUP.search(subject):
+        return True
+    if _YESTERDAY.search(subject) and _SPORTS.search(subject):
+        return True
+    if _WORLD_CUP.search(subject) and (_ONGOING.search(cleaned) or _SPORTS.search(subject)):
+        return True
+    if is_geo_query(cleaned):
+        return True
+    return False
+
+
+def needs_web_search_heuristic(
+    text: str,
+    *,
+    prior_user_messages: list[str] | None = None,
+) -> bool:
+    """Regex fallback for follow-ups and recency when the classifier is off or fails."""
+    cleaned = collapse_ws(text)
+    if _CLARIFICATION.search(cleaned) and prior_user_messages:
+        return _prior_searchable_topic(prior_user_messages) is not None
+    if prior_user_messages and len(cleaned.split()) <= _SHORT_FOLLOWUP_WORDS:
+        if _prior_searchable_topic(prior_user_messages) is not None:
+            return True
+    if has_recency(cleaned) and "?" in cleaned:
+        return True
+    if has_recency(cleaned) and len(cleaned.split()) >= 6:
+        return True
+    return False
+
+
+def needs_web_search(
+    text: str,
+    *,
+    prior_user_messages: list[str] | None = None,
+    prior_assistant: str | None = None,
+) -> bool:
+    """Sync gate: skip + fast-path + heuristic (tests and legacy callers)."""
+    if web_search_skip(
+        text, prior_user_messages=prior_user_messages, prior_assistant=prior_assistant
+    ):
+        return False
+    if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
+        return True
+    return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
+
+
+async def classify_web_search(
+    text: str,
+    settings: Settings,
+    *,
+    prior_user_messages: list[str] | None = None,
+) -> WebSearchClassification | None:
+    """LLM gate for ambiguous turns; None when classifier disabled or call fails."""
+    if not settings.web_search_classifier_enabled:
+        return None
+    from app.modules.web_search.classify import classify_web_search_need
+
+    try:
+        return await classify_web_search_need(
+            settings,
+            text,
+            prior_user_messages=prior_user_messages,
+        )
+    except Exception:
+        logger.warning("Web-search classifier failed; using heuristic", exc_info=True)
+    # CancelledError intentionally propagates: stopping a turn cancels its IO.
+    return None
+
+
+async def should_web_search(
+    text: str,
+    settings: Settings,
+    *,
+    prior_user_messages: list[str] | None = None,
+    prior_assistant: str | None = None,
+) -> bool:
+    """Async gate: regex fast paths, then LLM classifier for everything else."""
+    if not settings.web_search_enabled:
+        return False
+    if web_search_skip(
+        text, prior_user_messages=prior_user_messages, prior_assistant=prior_assistant
+    ):
+        return False
+    if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
+        return True
+    if _stable_without_live_lookup(collapse_ws(text)):
+        return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
+    classification = await classify_web_search(
+        text,
+        settings,
+        prior_user_messages=prior_user_messages,
+    )
+    if classification is None:
+        return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
+    return classification.needs_search

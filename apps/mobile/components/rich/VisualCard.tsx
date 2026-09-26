@@ -1,16 +1,17 @@
 import { ReactNode, useMemo } from "react";
 import { LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
 
-import { Icon } from "@/components/Icon";
-import { type IoniconName } from "@/lib/icons";
+import { Icon } from "@/ui/icons/Icon";
+import type { IconName } from "@/ui/icons/names";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   label: string;
-  icon?: IoniconName;
+  icon?: IconName;
   headerRight?: ReactNode;
   actions?: ReactNode;
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -33,7 +34,7 @@ export function VisualCard({
     <View style={s.wrap} onLayout={onLayout}>
       <View style={s.header}>
         <View style={s.headerLeft}>
-          {icon ? <Icon name={icon} size={16} color={theme.primary} /> : null}
+          {icon ? <Icon name={icon} size={IconSize.xs} color={theme.primary} /> : null}
           <Text style={s.headerLabel}>{label}</Text>
         </View>
         {headerRight}
@@ -65,7 +66,7 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: Space.xs },
-    headerLabel: { ...Type.label, fontWeight: "700", color: t.text },
+    headerLabel: { ...Type.label, ...Weight.bold, color: t.text },
     actions: {
       flexDirection: "row",
       alignItems: "center",

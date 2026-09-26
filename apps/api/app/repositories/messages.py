@@ -1,10 +1,7 @@
 from datetime import datetime
-from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy import delete as sql_delete
-from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Message
@@ -178,10 +175,9 @@ async def list_range(
     BUG FIX (was silent): ordering by created_at alone is not a stable sort —
     two messages created in the same millisecond can be returned in either
     order across calls, so offset/limit pagination could skip or double-count
-    a row at a page boundary. Every other message-ordering query in this repo
-    (delete_messages_from, ids_from_chat_at_or_after) already tuple-orders by
-    (created_at, id) for exactly this reason; this one didn't. Don't drop the
-    id tiebreaker again.
+    a row at a page boundary. Other message-ordering queries in this repo
+    already tuple-order by (created_at, id) for exactly this reason; this one
+    didn't. Don't drop the id tiebreaker again.
     """
     if limit <= 0:
         return []
@@ -195,24 +191,49 @@ async def list_range(
     return list(result.scalars().all())
 
 
+async def list_before(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    before_created_at: datetime,
+    before_id: UUID,
+    limit: int,
+) -> list[Message]:
+    """Up to ``limit`` messages strictly before a cursor, oldest first."""
+    if limit <= 0:
+        return []
+    result = await session.execute(
+        select(Message)
+        .where(
+            Message.chat_id == chat_id,
+            or_(
+                Message.created_at < before_created_at,
+                and_(
+                    Message.created_at == before_created_at,
+                    Message.id < before_id,
+                ),
+            ),
+        )
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(limit)
+    )
+    rows = list(result.scalars().all())
+    rows.reverse()
+    return rows
+
+
 async def get_last(session: AsyncSession, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message)
         .where(Message.chat_id == chat_id)
         # id.desc() tiebreaker: created_at has millisecond resolution and two
         # turns can share a timestamp (esp. under load / fast edits), which made
-        # the "last" message non-deterministic and broke edit/regenerate/quiz
-        # grading that rely on a single canonical "last" row.
+        # the "last" message non-deterministic and broke regenerate that relies
+        # on a single canonical "last" row.
         .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(1)
     )
     return result.scalar_one_or_none()
-
-
-async def list_ids_for_chat(session: AsyncSession, chat_id: UUID) -> list[UUID]:
-    """All message IDs for a chat (edit-from-here storage detach, etc.)."""
-    result = await session.execute(select(Message.id).where(Message.chat_id == chat_id))
-    return list(result.scalars().all())
 
 
 async def get_last_assistant(session: AsyncSession, chat_id: UUID) -> Message | None:
@@ -223,43 +244,6 @@ async def get_last_assistant(session: AsyncSession, chat_id: UUID) -> Message | 
         .limit(1)
     )
     return result.scalar_one_or_none()
-
-
-async def list_recent_assistants(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    limit: int = 12,
-) -> list[Message]:
-    """Newest-first assistant messages (service applies quiz filtering)."""
-    result = await session.execute(
-        select(Message)
-        .where(Message.chat_id == chat_id, Message.role == "assistant")
-        .order_by(Message.created_at.desc(), Message.id.desc())
-        .limit(max(1, limit))
-    )
-    return list(result.scalars().all())
-
-
-async def list_user_messages_since(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    after: datetime,
-    limit: int = 100,
-) -> list[Message]:
-    """User messages after ``after``, oldest-first (bounded for quiz lookback)."""
-    result = await session.execute(
-        select(Message)
-        .where(
-            Message.chat_id == chat_id,
-            Message.role == "user",
-            Message.created_at > after,
-        )
-        .order_by(Message.created_at.asc(), Message.id.asc())
-        .limit(max(1, limit))
-    )
-    return list(result.scalars().all())
 
 
 async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:
@@ -315,53 +299,6 @@ async def get_for_user(session: AsyncSession, message_id: UUID, user_id: UUID) -
         select(Message).where(Message.id == message_id, Message.user_id == user_id)
     )
     return result.scalar_one_or_none()
-
-
-async def ids_from_chat_at_or_after(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    from_created_at: datetime,
-    from_message_id: UUID,
-) -> list[UUID]:
-    result = await session.execute(
-        select(Message.id).where(
-            Message.chat_id == chat_id,
-            or_(
-                Message.created_at > from_created_at,
-                and_(
-                    Message.created_at == from_created_at,
-                    Message.id >= from_message_id,
-                ),
-            ),
-        )
-    )
-    return list(result.scalars().all())
-
-
-async def delete_messages_from(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    from_created_at: datetime,
-    from_message_id: UUID,
-) -> int:
-    # Tuple ordering (created_at, id) so messages with identical timestamps are
-    # deleted in stable order and the anchor message is included.
-    result = await session.execute(
-        sql_delete(Message).where(
-            Message.chat_id == chat_id,
-            or_(
-                Message.created_at > from_created_at,
-                and_(
-                    Message.created_at == from_created_at,
-                    Message.id >= from_message_id,
-                ),
-            ),
-        )
-    )
-    await session.commit()
-    return cast(CursorResult[Any], result).rowcount or 0
 
 
 async def delete_message(session: AsyncSession, message: Message) -> None:

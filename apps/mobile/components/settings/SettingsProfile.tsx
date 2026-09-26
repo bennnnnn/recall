@@ -9,7 +9,7 @@ import { useProfileEditor } from "@/hooks/useProfileEditor";
 import { getDisplayName } from "@/lib/profile";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export function SettingsProfile() {
   const { user, token } = useAuth();
@@ -25,7 +25,7 @@ export function SettingsProfile() {
         uri={user?.avatar_url}
         token={token}
         size={88}
-        icon="pencil-outline"
+        icon="pencil"
         label={t("settings.edit_profile")}
         onPress={editor.open}
       />
@@ -41,7 +41,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     name: {
       ...Type.h1,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.text,
       textAlign: "center",
       marginTop: Space.md,

@@ -2,17 +2,23 @@ import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
+import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
 import { splitAnswerBranches } from "@/lib/math/answerLayout";
-import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
+import {
+  isHeavyInlineMath,
+  stripEmbeddedDollarWraps,
+  stripRedundantDollarWrap,
+} from "@/lib/math/fenceRetag";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { latexHasNestedMathView, readableLatexFallback } from "@/lib/math/text";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
-import { supportsInlineHtmlMathWebView } from "@/lib/math/webViewSupport";
-import { getPreviewWebView } from "@/lib/webView";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import { Icon } from "@/ui/icons/Icon";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { content: string };
 
@@ -28,19 +34,21 @@ function normalizeAnswerContent(raw: string): string {
   );
 }
 
-function answerNeedsKatex(text: string): boolean {
+function answerNeedsDisplayMath(text: string): boolean {
   if (isHeavyInlineMath(text)) return true;
-  return splitInlineMath(text).some((p) => p.type === "math" && isHeavyInlineMath(p.value));
+  return splitInlineMath(text).some(
+    (p) => p.type === "math" && isHeavyInlineMath(p.value),
+  );
 }
 
 /**
- * Final answer — same gray surface as other math blocks, no Copy affordance.
+ * Final answer — chat-canvas background, no Copy affordance.
  * (```answer / short numeric or simplified-expression finals only.)
  *
  * Light answers stay on native `MathText`. Heavy LaTeX environments
- * (`\begin{cases|matrix|aligned|…}`) use the KaTeX WebView in **stretch
- * displayMode** — never `compact` + centered zero-width wrap, which used to
- * collapse into a thin vertical sliver / tall pill inside this gray box.
+ * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in the **stretch**
+ * box — never `compact` + centered zero-width wrap, which used to collapse
+ * into a thin vertical sliver / tall pill inside this box.
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
@@ -49,12 +57,11 @@ export function AnswerBlock({ content }: Props) {
   const text = normalizeAnswerContent(content);
   const parts = splitInlineMath(text);
   const hasInlineMath = parts.some((p) => p.type === "math");
-  const preview = getPreviewWebView();
-  const useKatex = answerNeedsKatex(text) && supportsInlineHtmlMathWebView(preview?.mode);
+  const useSvgMath = answerNeedsDisplayMath(text);
   // A nested math View (stacked frac / sqrt) must be a direct child of the box,
   // NOT wrapped in a Text. iOS clips a View nested inside a Text to the line
   // box — which cut the radicand's bottom (the digit under √ lost its baseline)
-  // in this gray answer box. Mirrors markdownRenderRules' nested-View guard.
+  // in this answer box. Mirrors markdownRenderRules' nested-View guard.
   const hasNestedView = hasInlineMath
     ? parts.some((p) => p.type === "math" && latexHasNestedMathView(p.value))
     : latexHasNestedMathView(text);
@@ -63,74 +70,114 @@ export function AnswerBlock({ content }: Props) {
   // Drop a trailing lone ":" when nested math Views are present — the colon
   // can't share the math View's line box and strands as a lone "two dots".
   // Mirrors markdownRenderRules' trailing-colon drop (MO-020).
-  const trimmedParts = hasNestedView && hasInlineMath
-    ? parts.filter((p, i) => {
-        if (p.type !== "text") return true;
-        if (i !== parts.length - 1) return true;
-        return p.value.trim() !== ":";
-      })
-    : parts;
+  const trimmedParts =
+    hasNestedView && hasInlineMath
+      ? parts.filter((p, i) => {
+          if (p.type !== "text") return true;
+          if (i !== parts.length - 1) return true;
+          return p.value.trim() !== ":";
+        })
+      : parts;
 
   return (
     <View
       style={s.row}
       accessibilityRole="text"
-      accessibilityLabel={t("rich.answer_a11y", { text: readableLatexFallback(text) })}
+      accessibilityLabel={t("rich.answer_a11y", {
+        text: readableLatexFallback(text),
+      })}
     >
-      <View style={[s.box, useKatex || hasNestedView ? s.boxStretch : null]}>
-        {useKatex ? (
-          <MathFormulaWebView
-            latex={text}
-            displayMode
-            textColor={theme.text}
-            bgColor={theme.surfaceAlt}
-          />
-        ) : hasNestedView ? (
-          <View style={s.answerLines}>
-            {nativeLines.map((line, lineIndex) => (
-              <ScrollView
-                key={lineIndex}
-                testID={`answer-line-scroll-${lineIndex}`}
-                horizontal
-                nestedScrollEnabled
-                showsHorizontalScrollIndicator
-                bounces={false}
-                style={s.lineViewport}
-                contentContainerStyle={s.lineScroll}
-              >
-                <View style={s.answerRow} testID={lineIndex === 0 ? "answer-row" : `answer-row-${lineIndex}`}>
-                  {hasInlineMath
-                    ? trimmedParts.map((part, i) =>
+      <View
+        style={[
+          s.answerAndCheck,
+          useSvgMath || hasNestedView ? s.answerAndCheckStretch : null,
+        ]}
+      >
+        <View
+          testID="answer-box"
+          style={[s.box, useSvgMath || hasNestedView ? s.boxStretch : null]}
+        >
+          {useSvgMath ? (
+            <MathSvgView latex={text} textColor={theme.text} minHeight={48} />
+          ) : hasNestedView ? (
+            <View style={s.answerLines}>
+              {nativeLines.map((line, lineIndex) => (
+                <ScrollView
+                  key={lineIndex}
+                  testID={`answer-line-scroll-${lineIndex}`}
+                  horizontal
+                  nestedScrollEnabled
+                  showsHorizontalScrollIndicator
+                  bounces={false}
+                  style={s.lineViewport}
+                  contentContainerStyle={s.lineScroll}
+                >
+                  <View
+                    style={s.answerRow}
+                    testID={
+                      lineIndex === 0 ? "answer-row" : `answer-row-${lineIndex}`
+                    }
+                  >
+                    {hasInlineMath ? (
+                      trimmedParts.map((part, i) =>
                         part.type === "math" ? (
-                          <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
+                          <MathText
+                            key={i}
+                            latex={part.value}
+                            textColor={theme.text}
+                            fontSize={ANSWER_FONT_SIZE}
+                          />
                         ) : (
                           <Text key={i} style={s.answer} selectable>
                             {part.value}
                           </Text>
                         ),
                       )
-                    : <MathText latex={line} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />}
-                </View>
-              </ScrollView>
-            ))}
-          </View>
-        ) : hasInlineMath ? (
-          <Text style={s.answer} selectable>
-            {parts.map((part, i) =>
-              part.type === "math" ? (
-                <MathText key={i} latex={part.value} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
-              ) : (
-                <Text key={i} style={s.answer}>
-                  {part.value}
-                </Text>
-              ),
-            )}
-          </Text>
-        ) : (
-          <Text style={s.answer} selectable>
-            <MathText latex={text} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
-          </Text>
-        )}
+                    ) : (
+                      <MathText
+                        latex={line}
+                        textColor={theme.text}
+                        fontSize={ANSWER_FONT_SIZE}
+                      />
+                    )}
+                  </View>
+                </ScrollView>
+              ))}
+            </View>
+          ) : hasInlineMath ? (
+            <Text style={s.answer} selectable>
+              {parts.map((part, i) =>
+                part.type === "math" ? (
+                  <MathText
+                    key={i}
+                    latex={part.value}
+                    textColor={theme.text}
+                    fontSize={ANSWER_FONT_SIZE}
+                  />
+                ) : (
+                  <Text key={i} style={s.answer}>
+                    {part.value}
+                  </Text>
+                ),
+              )}
+            </Text>
+          ) : (
+            <Text style={s.answer} selectable>
+              <MathText
+                latex={text}
+                textColor={theme.text}
+                fontSize={ANSWER_FONT_SIZE}
+              />
+            </Text>
+          )}
+        </View>
+        <Icon
+          testID="answer-success-check"
+          name="check-circle-filled"
+          size={IconSize.md}
+          color={theme.success}
+          style={s.successCheck}
+        />
       </View>
     </View>
   );
@@ -143,24 +190,34 @@ const makeStyles = (t: Theme) =>
       alignItems: "center",
       marginVertical: 10,
     },
+    answerAndCheck: {
+      maxWidth: "100%",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    answerAndCheckStretch: {
+      alignSelf: "stretch",
+    },
     box: {
       alignSelf: "center",
       maxWidth: "100%",
       paddingVertical: 10,
       paddingHorizontal: 18,
-      // One step stronger than contentSurface so finals read on the chat
-      // canvas / assistant bubble without introducing a new hue.
-      backgroundColor: t.surfaceAlt,
-      borderRadius: 10,
+      backgroundColor: t.bg,
+      borderRadius: Radius.sm,
       alignItems: "center",
       justifyContent: "center",
     },
-    // Full-width chrome so the KaTeX WebView gets a real layout width
+    // Full-width chrome so the MathJax-SVG view gets a real layout width
     // (compact + alignSelf:center was the thin-sliver bug).
     boxStretch: {
-      alignSelf: "stretch",
+      flex: 1,
       alignItems: "stretch",
       paddingHorizontal: 10,
+    },
+    successCheck: {
+      marginLeft: 6,
     },
     // Hosts a nested math View (sqrt/frac) as a direct child so iOS doesn't
     // clip it to a Text line box. Centers the run like the `answer` Text would.
@@ -173,7 +230,7 @@ const makeStyles = (t: Theme) =>
     },
     answerLines: {
       alignSelf: "stretch",
-      gap: 8,
+      gap: Space.xs,
     },
     lineViewport: {
       alignSelf: "stretch",
@@ -183,7 +240,7 @@ const makeStyles = (t: Theme) =>
       flexGrow: 1,
       alignItems: "center",
       justifyContent: "center",
-      paddingHorizontal: 4,
+      paddingHorizontal: Space.xxs,
     },
     answer: {
       fontSize: ANSWER_FONT_SIZE,

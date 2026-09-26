@@ -11,10 +11,10 @@ from app.core.db import SessionLocal
 from app.core.ids import uuid7
 from app.exceptions import ChatBusyError, ChatNotFoundError
 from app.models.orm import Chat, User
+from app.modules.billing import plan as plan_service
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
-from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_prep.attachments import _process_attachments
 from app.services.chat.turn_prep.context import (
@@ -44,7 +44,7 @@ def _should_use_vision_chat(
         return True
     if not recent_messages:
         return False
-    from app.services.attachments.content import history_has_image_marker
+    from app.modules.attachments.content import history_has_image_marker
 
     return history_has_image_marker(recent_messages)
 
@@ -155,8 +155,8 @@ async def prepare_chat_turn(
                 message_id=pending_id,
             )
             if attachment_ids and settings.attachments_enabled:
-                from app.repositories import attachments as attachments_repo
-                from app.services.attachments import rag as attachment_rag_service
+                from app.modules.attachments import rag as attachment_rag_service
+                from app.modules.attachments import repository as attachments_repo
 
                 linked = await attachments_repo.link_to_message(
                     session,
@@ -289,7 +289,7 @@ async def prepare_chat_turn(
         )
 
     prompt_messages = bundle.prompt_messages
-    from app.services.attachments import content as attachment_content_service
+    from app.modules.attachments import content as attachment_content_service
 
     if has_image_attachment and image_attachments and gateway is not None:
         await attachment_content_service.inject_vision_content(
@@ -303,7 +303,7 @@ async def prepare_chat_turn(
         prior_ids = attachment_content_service.prior_image_attachment_ids(prompt_messages)
         if prior_ids:
             from app.gateways.storage_gateway import get_storage_gateway
-            from app.repositories import attachments as attachments_repo
+            from app.modules.attachments import repository as attachments_repo
 
             rehydrate_gateway = gateway or get_storage_gateway(settings)
             async with SessionLocal() as session:

@@ -51,6 +51,7 @@ export type FenceId =
   | "molecule3d"
   | "places"
   | "quote"
+  | "simulation"
   | "social"
   | "sources"
   | "steps";
@@ -174,6 +175,16 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server",
     fallback: "graph",
+  },
+  // Server-owned like geometry/graph: the prompt forbids it and
+  // validate_math_fences replaces or strikes out anything the model invents.
+  {
+    id: "simulation",
+    langs: ["simulation"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "server",
+    fallback: "visual",
   },
   {
     id: "chemistry",
@@ -331,7 +342,8 @@ export function isVisualDiagramFenceLang(lang: string): boolean {
     id === "mermaid" ||
     id === "chemistry" ||
     id === "molecule" ||
-    id === "molecule3d"
+    id === "molecule3d" ||
+    id === "simulation"
   );
 }
 
@@ -343,7 +355,8 @@ export function isDiagramFenceId(id: FenceId | undefined): boolean {
     id === "mermaid" ||
     id === "chemistry" ||
     id === "molecule" ||
-    id === "molecule3d"
+    id === "molecule3d" ||
+    id === "simulation"
   );
 }
 

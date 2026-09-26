@@ -3,7 +3,7 @@ import { AppState, type AppStateStatus } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
 import { useFocusEffect, useRouter } from "expo-router";
 
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 
 import { api, type Chat, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
@@ -54,7 +54,7 @@ type Options = {
   imageGeneratingRef?: React.MutableRefObject<boolean>;
   stopGeneration: () => void;
   listRef: React.RefObject<FlashListRef<Message> | null>;
-  showActionBanner: (message: string, icon?: IoniconName) => void;
+  showActionBanner: (message: string, icon?: IconName) => void;
   t: (key: string) => string;
 };
 
@@ -380,20 +380,28 @@ export function useChatRouteLoader({
       }
       setChatLoading(true);
       setHasMoreOlder(false);
-      // Detach the previous conversation immediately; its pending work must not
-      // paint into this route while the cache or network is still loading.
-      setChatId(openChatId);
-      setMessages([]);
-      setChatTitle(null);
-      setPinned(false);
-      setArchived(false);
       try {
+        // Stale-while-revalidate: keep the previous thread painted during the
+        // (fast) cache read, then swap in one shot — no blank flash on open.
+        // The old thread's pending work still cannot paint into this route
+        // because every set below is guarded by isCurrent().
         const cached = await readCachedChatMessages(openChatId);
         if (!isCurrent()) return;
         const listed = getCachedChat(openChatId);
+        setChatId(openChatId);
+        setMessages((prev) => {
+          const incoming = cached?.messages ?? [];
+          // Orphan local-URI carry-over only makes sense when prev is the same
+          // thread; on a chat swap it could leak the old chat's local image
+          // onto the new chat's row.
+          const incomingIds = new Set(incoming.map((m) => m.id));
+          const sameThread = prev.some((m) => incomingIds.has(m.id));
+          return sameThread ? mergeLocalAttachmentUris(prev, incoming) : incoming;
+        });
+        setChatTitle(null);
+        setPinned(false);
+        setArchived(false);
         if (cached) {
-          setChatId(openChatId);
-          setMessages((prev) => mergeLocalAttachmentUris(prev, cached.messages));
           setHasMoreOlder(cached.has_more);
           if (listed) {
             applyMetadata(listed);
@@ -422,7 +430,7 @@ export function useChatRouteLoader({
             void clearCachedChatMessages(openChatId);
             startNewChat({ force: true });
           }
-          showActionBanner(t("common.error"), "alert-circle-outline");
+          showActionBanner(t("common.error"), "alert-circle");
         }
       } finally {
         if (isCurrent()) setChatLoading(false);
@@ -483,7 +491,7 @@ export function useChatRouteLoader({
       });
       setHasMoreOlder(page.has_more);
     } catch {
-      if (isCurrent()) showActionBanner(t("common.error"), "alert-circle-outline");
+      if (isCurrent()) showActionBanner(t("common.error"), "alert-circle");
     } finally {
       if (isCurrent()) {
         olderRequestRef.current = null;

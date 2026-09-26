@@ -22,6 +22,7 @@ jest.mock("expo-notifications", () => ({
   setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
   getExpoPushTokenAsync: jest.fn().mockResolvedValue({ data: "ExponentPushToken[abc]" }),
   setNotificationHandler: jest.fn(),
+  AndroidImportance: { HIGH: 4, DEFAULT: 3 },
 }));
 
 jest.mock("react-native", () => ({
@@ -69,7 +70,17 @@ describe("push gating on user.push_notifications_enabled", () => {
         device_id: "dev-1",
       }),
     );
+    expect(registerMock.mock.calls[0]?.[1]).not.toHaveProperty("android_channels");
     expect(updateMeMock).not.toHaveBeenCalled();
+  });
+
+  it("registerRemotePushToken tells the API this Android install created the tone channels", async () => {
+    Platform.OS = "android";
+    await expect(registerRemotePushToken("tok", true)).resolves.toBe("registered");
+    expect(registerMock).toHaveBeenCalledWith(
+      "tok",
+      expect.objectContaining({ android_channels: "tone", platform: "android" }),
+    );
   });
 
   it("records the result only when the OS permission prompt is shown", async () => {

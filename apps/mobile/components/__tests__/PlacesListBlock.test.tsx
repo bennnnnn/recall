@@ -8,10 +8,6 @@ jest.mock("react-i18next", () => ({
   }),
 }));
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("@/lib/reduceMotion", () => ({
   useReduceMotion: () => false,
 }));
@@ -21,7 +17,7 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 describe("PlacesListBlock", () => {
-  it("opens place details in AppSheet", async () => {
+  it("opens place details in Sheet", async () => {
     const { getByText, getByTestId } = await render(
       <PlacesListBlock
         places={[

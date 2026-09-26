@@ -2,12 +2,15 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { PlaceItem, resolvePlaceLinkUrl } from "@/lib/placesList";
 import { Theme, useTheme } from "@/lib/theme";
-import { IconSize } from "@/lib/icons";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   places: PlaceItem[];
@@ -82,7 +85,7 @@ function PlaceDetailsSheet({
   };
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       minBottomPadding={16}
@@ -107,50 +110,50 @@ function PlaceDetailsSheet({
             ) : null}
           </View>
           <Pressable style={s.openBtn} onPress={openInMaps}>
-            <Icon name="map-outline" size={IconSize.sm} color={theme.onPrimary} />
+            <Icon name="map" size={IconSize.sm} color={theme.onPrimary} />
             <Text style={s.openBtnText}>{t("places.open_in_maps")}</Text>
           </Pressable>
         </>
       ) : null}
-    </AppSheet>
+    </Sheet>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     list: {
-      marginVertical: 8,
+      marginVertical: Space.xs,
       gap: 10,
     },
     row: {
       flexDirection: "row",
       alignItems: "flex-start",
-      gap: 8,
+      gap: Space.xs,
     },
     index: {
       width: 22,
       paddingTop: 1,
-      fontSize: 16,
+      ...Type.body,
       lineHeight: 22,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: t.text,
     },
     body: {
       flex: 1,
       minWidth: 0,
-      gap: 4,
+      gap: Space.xxs,
     },
     name: {
-      fontSize: 16,
+      ...Type.body,
       lineHeight: 22,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: t.text,
       textDecorationLine: "underline",
       textDecorationStyle: "dotted",
       textDecorationColor: t.textSecondary,
     },
     note: {
-      fontSize: 14,
+      ...Type.secondary,
       lineHeight: 20,
       color: t.textSecondary,
     },
@@ -158,16 +161,16 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       flexWrap: "wrap",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
     },
     price: {
-      fontSize: 13,
-      fontWeight: "600",
+      ...Type.compact,
+      ...Weight.semibold,
       color: t.textSecondary,
     },
     address: {
       flexShrink: 1,
-      fontSize: 13,
+      ...Type.compact,
       lineHeight: 18,
       color: t.textTertiary,
     },
@@ -177,17 +180,17 @@ function makeStyles(t: Theme) {
 function makeSheetStyles(t: Theme) {
   return StyleSheet.create({
     sheet: {
-      paddingHorizontal: 20,
+      paddingHorizontal: Space.gutter,
       gap: 10,
     },
     title: {
-      fontSize: 18,
-      fontWeight: "700",
+      ...Type.h2,
       color: t.text,
       lineHeight: 23,
     },
     note: {
-      fontSize: 15,
+      ...Type.callout,
+      ...Weight.regular,
       lineHeight: 21,
       color: t.textSecondary,
     },
@@ -195,16 +198,15 @@ function makeSheetStyles(t: Theme) {
       flexDirection: "row",
       flexWrap: "wrap",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
     },
     price: {
-      fontSize: 14,
-      fontWeight: "600",
+      ...Type.label,
       color: t.textSecondary,
     },
     address: {
       flexShrink: 1,
-      fontSize: 14,
+      ...Type.secondary,
       lineHeight: 19,
       color: t.textTertiary,
     },
@@ -212,15 +214,15 @@ function makeSheetStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
+      gap: Space.xs,
       backgroundColor: t.primary,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       paddingVertical: 14,
       marginTop: 6,
     },
     openBtnText: {
-      fontSize: 16,
-      fontWeight: "700",
+      ...Type.body,
+      ...Weight.bold,
       color: t.onPrimary,
     },
   });

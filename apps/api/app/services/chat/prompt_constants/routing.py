@@ -38,7 +38,7 @@ _LIGHTWEIGHT_TURN = re.compile(
     r"|thanks|thank you|thx|ty"
     r"|ok|okay|k|cool|nice|great|perfect|awesome"
     r"|got it|sounds good|makes sense|understood"
-    r"|yes|no|yep|nope|sure|bye|goodbye|cya|see ya"
+    r"|yes|no|go|yep|nope|sure|bye|goodbye|cya|see ya"
     r"|lol|lmao|haha|hehe"
     r")(?:[!?.…, ]+(?:thanks|thank you|thx))?[!?.… ]*$",
     re.IGNORECASE,
@@ -47,7 +47,7 @@ _LIGHTWEIGHT_TURN = re.compile(
 # Accepting an offer — not a greeting. "no" / "thanks" / "hi" stay off this list.
 _SHORT_CONFIRMATION = re.compile(
     r"^(?:"
-    r"yes|yep|yeah|yup|yea|y|"
+    r"yes|yep|yeah|yup|yea|"
     r"sure(?: thing)?|"
     r"ok(?:ay)?|k|"
     r"go(?: ahead)?|"
@@ -118,9 +118,9 @@ def is_lightweight_chat_turn(
     cleaned = collapse_ws(text)
     if not cleaned:
         return True
-    looks_light = (len(cleaned) <= 2 and cleaned.isalpha()) or (
-        len(cleaned) <= 24 and bool(_LIGHTWEIGHT_TURN.match(cleaned))
-    )
+    # Only real greetings (hi, ok, go). A short fragment stays with the
+    # thread so the solver can keep the open problem.
+    looks_light = len(cleaned) <= 24 and bool(_LIGHTWEIGHT_TURN.match(cleaned))
     if not looks_light:
         return False
     if is_short_confirmation(cleaned) and prior_looks_like_offer(prior_assistant):
@@ -169,6 +169,78 @@ _LEARNING_PROGRESS_CUE = re.compile(
     r")",
     re.IGNORECASE,
 )
+
+
+# Continuity asks that should still search earlier chats on a slim turn.
+# Phrase scan (not a regex) so a longer question cannot blow up matching.
+_EARLIER_CONVERSATION_PHRASES = (
+    "did we",
+    "didn't we",
+    "didnt we",
+    "we pick",
+    "we chose",
+    "we picked",
+    "we decided",
+    "we said",
+    "we talked",
+    "we were talking",
+    "last year",
+    "last month",
+    "last week",
+    "last time",
+    "what did i say",
+    "what did i tell",
+    "what did i choose",
+    "what did we talk",
+    "what did we decide",
+    "didn't i mention",
+    "didnt i mention",
+    "didn't i tell",
+    "didnt i tell",
+    "didn't i say",
+    "didnt i say",
+    "did i mention",
+    "what were we talking",
+    "what were we discussing",
+    "which one did i",
+    "which one did we",
+    "where we left off",
+    "pick up from where",
+    "continue where we",
+    "you know the thing",
+    "the thing i told you",
+    "what was my idea",
+    "what was that idea",
+    "i told you about",
+    "as i said",
+    "like i said",
+    "talking about yesterday",
+)
+
+
+def _phrase_at_word_boundary(text: str, phrase: str) -> bool:
+    """True when ``phrase`` occurs with a non-letter on each side."""
+    start = 0
+    while True:
+        found = text.find(phrase, start)
+        if found < 0:
+            return False
+        before = found == 0 or not text[found - 1].isalnum()
+        end = found + len(phrase)
+        after = end == len(text) or not text[end].isalnum()
+        if before and after:
+            return True
+        start = found + 1
+
+
+def recalls_earlier_conversation(text: str) -> bool:
+    """True when the user is asking about something said in an earlier chat."""
+    cleaned = collapse_ws(text).lower()
+    if not cleaned:
+        return False
+    return any(
+        _phrase_at_word_boundary(cleaned, phrase) for phrase in _EARLIER_CONVERSATION_PHRASES
+    )
 
 
 def is_learning_progress_question(text: str) -> bool:
@@ -346,6 +418,111 @@ LIGHTWEIGHT_REPLY_HINT = (
     "This is a short social turn (greeting / ack). Reply in one brief sentence. "
     "Do not dig into memory, lists, calendar, or projects unless the user asked."
 )
+
+PERSONAL_DISCLOSURE_HINT = (
+    "The user is sharing personal context or a goal, not asking for a task. Your entire reply "
+    "must be one or two natural sentences with no heading, list, steps, or action plan. "
+    "Acknowledge the update and connect relevant known context only when useful. Do not browse, "
+    "draft outreach, recommend next steps, or turn the statement into unsolicited advice. You "
+    "may ask one brief follow-up question only if it would genuinely help. When the update "
+    "contrasts a current situation with a future goal, explicitly preserve both in the "
+    "acknowledgement (currently at X; considering Y) instead of mentioning only the goal."
+)
+
+_PERSONAL_DISCLOSURE_PREFIXES = (
+    "i'm ",
+    "i\u2019m ",
+    "i am ",
+    "i work ",
+    "i currently ",
+    "i have ",
+    "i prefer ",
+    "i like ",
+    "i love ",
+    "i dislike ",
+    "i use ",
+    "i live ",
+    "i study ",
+    "i learn ",
+    "i got ",
+    "i started ",
+    "i moved ",
+    "i finished ",
+    "i decided ",
+    "my ",
+    "remember that ",
+    "remember this ",
+    "please remember ",
+    "don't forget ",
+    "do not forget ",
+)
+_PERSONAL_REQUEST_MARKERS = (
+    " can you ",
+    " could you ",
+    " would you ",
+    " will you ",
+    " should i ",
+    " help me ",
+    " tell me ",
+    " give me ",
+    " find ",
+    " search ",
+    " look up ",
+    " write ",
+    " draft ",
+    " compose ",
+    " email ",
+    " message ",
+    " text ",
+    " reply ",
+    " rewrite ",
+    " create ",
+    " make ",
+    " build ",
+    " show ",
+    " explain ",
+    " plan ",
+    " compare ",
+    " recommend ",
+    " advise ",
+    " advice ",
+    " what ",
+    " how ",
+    " why ",
+    " when ",
+    " where ",
+    " which ",
+    " who ",
+    " latest ",
+    " news ",
+    " need ",
+    " needs ",
+    " looking for ",
+)
+
+_COLLECTIVE_DISCLOSURE = re.compile(
+    r"^(?:"
+    r"we\s+(?:work|live|study|learn|prefer|like|love|dislike|use|moved|started|finished|decided)\b|"
+    r"we\s+are\s+(?:based|employed|living|working|studying|learning|moving)\b|"
+    r"we(?:'|\u2019)re\s+(?:based|employed|living|working|studying|learning|moving)\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def is_personal_disclosure_turn(text: str) -> bool:
+    """True for a first-person fact/goal with no actual request attached."""
+    cleaned = collapse_ws(text).casefold()
+    if not cleaned or "?" in cleaned:
+        return False
+    if not cleaned.startswith(_PERSONAL_DISCLOSURE_PREFIXES) and not _COLLECTIVE_DISCLOSURE.match(
+        cleaned
+    ):
+        return False
+    request_text = re.sub(r"[^\w']+", " ", cleaned)
+    padded = f" {request_text} "
+    return not any(marker in padded for marker in _PERSONAL_REQUEST_MARKERS)
+
 
 CONFIRM_FOLLOW_THROUGH_HINT = (
     "The user accepted your last offer with a short yes/go/sure. "

@@ -4,26 +4,36 @@ Learning classes map to the `projects` / `project_items` tables. Schedule
 exports `TodoItem`. Database table and column names are unchanged.
 """
 
-from app.models.orm.attachments import Attachment, AttachmentChunk, MessageChunk
+from app.models.orm.attachments import MessageChunk
 from app.models.orm.chat import Chat, Message
-from app.models.orm.integrations import (
-    PushToken,
+from app.models.orm.integrations import PushToken
+from app.models.orm.usage import ProductEvent, UsageDaily
+from app.models.orm.user import User
+from app.modules.attachments.models import Attachment, AttachmentChunk
+from app.modules.integrations.models import (
     SuggestedReminder,
     UserCalendarConnection,
     UserGmailConnection,
 )
-from app.models.orm.learning import Learning, LearningItem, QuizMissEvent, VocabDeck, VocabEntry
-from app.models.orm.learning_practice import LearningPracticeEvent
-from app.models.orm.memory import Memory
-from app.models.orm.schedule import TodoItem
-from app.models.orm.suggestions import Suggestion
-from app.models.orm.usage import ProductEvent, UsageDaily
-from app.models.orm.user import User
+from app.modules.job_search.models import JobMatch, JobSearchProfile
+from app.modules.learning.models import (
+    Learning,
+    LearningItem,
+    LearningPracticeEvent,
+    QuizMissEvent,
+    VocabDeck,
+    VocabEntry,
+)
+from app.modules.memory.models import Memory
+from app.modules.suggestions.models import Suggestion
+from app.modules.todos.models import TodoItem
 
 __all__ = [
     "Attachment",
     "AttachmentChunk",
     "Chat",
+    "JobMatch",
+    "JobSearchProfile",
     "Learning",
     "LearningItem",
     "LearningPracticeEvent",

@@ -26,15 +26,16 @@ jest.mock("expo-notifications", () => ({
 }));
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => "/",
 }));
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuthOptional: () => ({ token: null }),
+  useAuthOptional: () => ({ token: null, loading: false }),
 }));
 jest.mock("@/lib/pushNotifications", () => ({
   configurePushNotificationHandler: jest.fn(),
   handlePushNotificationResponse: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock("@/lib/todos/todoReminders", () => ({
+jest.mock("@/features/todos/model/todoReminders", () => ({
   cancelTodoReminder: jest.fn(async () => undefined),
 }));
 

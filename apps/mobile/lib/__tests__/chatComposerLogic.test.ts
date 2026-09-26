@@ -1,6 +1,11 @@
 import {
   buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
+  COMPOSER_INPUT_MAX_HEIGHT,
+  COMPOSER_INPUT_MIN_HEIGHT,
+  composerInputFrameHeight,
+  retainedComposerContentHeight,
+  composerNativeInputTraits,
   composerShowsMic,
   composerShowsSend,
   computeChatLayoutMetrics,
@@ -10,7 +15,35 @@ import {
   resolveSelectedModelLabel,
   shouldReserveComposerActionGap,
 } from "@/lib/chat/composerLogic";
-import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
+
+describe("composerInputFrameHeight", () => {
+  it("grows one line per Return and caps at the field max", () => {
+    expect(composerInputFrameHeight("", 80)).toEqual({
+      height: COMPOSER_INPUT_MIN_HEIGHT,
+      overflows: false,
+    });
+    expect(composerInputFrameHeight("\n\n", 0).height).toBeGreaterThan(
+      COMPOSER_INPUT_MIN_HEIGHT,
+    );
+    expect(composerInputFrameHeight("K\nk", 20).height).toBeGreaterThan(
+      COMPOSER_INPUT_MIN_HEIGHT,
+    );
+    expect(composerInputFrameHeight("line\n".repeat(12), 400)).toEqual({
+      height: COMPOSER_INPUT_MAX_HEIGHT,
+      overflows: true,
+    });
+  });
+
+  it("keeps a wrap height while the same draft changes and drops it on reset", () => {
+    const stored = { revision: 2, height: 88 };
+    expect(retainedComposerContentHeight(stored, 2, "hello world")).toBe(88);
+    expect(retainedComposerContentHeight(stored, 2, "hello worlds")).toBe(88);
+    expect(retainedComposerContentHeight(stored, 2, "")).toBe(0);
+    expect(retainedComposerContentHeight(stored, 3, "hello world")).toBe(0);
+    expect(retainedComposerContentHeight(null, 2, "hello world")).toBe(0);
+  });
+});
 
 describe("chatComposerLogic", () => {
   const catalog = [
@@ -126,6 +159,19 @@ describe("chatComposerLogic", () => {
     expect(isComposerMenuOverlayOpen(true)).toBe(true);
   });
 
+  it("composer input is a messaging field until the math editor owns it", () => {
+    expect(composerNativeInputTraits(false)).toEqual({
+      autoCorrect: true,
+      spellCheck: true,
+      autoCapitalize: "sentences",
+    });
+    expect(composerNativeInputTraits(true)).toEqual({
+      autoCorrect: false,
+      spellCheck: false,
+      autoCapitalize: "none",
+    });
+  });
+
   it("composerShowsMic and composerShowsSend are mutually exclusive for typed text", () => {
     expect(
       composerShowsMic({
@@ -189,6 +235,8 @@ describe("chatComposerLogic", () => {
       streaming: false,
       lastMessageId: "msg-1",
     });
+    expect(idle.headerMinimumHeight).toBe(96);
+    expect(idle.headerInset).toBe(96);
     expect(idle.composerLift).toBe(0);
     expect(idle.composerBottomPad).toBe(20);
     expect(idle.listBottomPad).toBe(idle.composerClearance);
@@ -247,6 +295,35 @@ describe("chatComposerLogic", () => {
       streaming: false,
     });
     expect(withMathBar.composerBlockHeight).toBe(144);
+
+    const grownHeader = computeChatLayoutMetrics({
+      insetsTop: 44,
+      insetsBottom: 20,
+      windowHeight: 800,
+      keyboardHeight: 0,
+      composerHeight: 100,
+      attachmentExtra: 0,
+      messagesLength: 2,
+      streaming: false,
+      measuredHeaderHeight: 124,
+    });
+    expect(grownHeader.headerMinimumHeight).toBe(96);
+    expect(grownHeader.headerInset).toBe(124);
+    expect(grownHeader.emptyHeight).toBe(idle.emptyHeight - 28);
+
+    const scaledHeader = computeChatLayoutMetrics({
+      insetsTop: 44,
+      insetsBottom: 20,
+      windowHeight: 800,
+      fontScale: 3,
+      keyboardHeight: 0,
+      composerHeight: 100,
+      attachmentExtra: 0,
+      messagesLength: 2,
+      streaming: false,
+    });
+    expect(scaledHeader.headerMinimumHeight).toBeGreaterThan(96);
+    expect(scaledHeader.headerInset).toBe(scaledHeader.headerMinimumHeight);
   });
 
   it("shouldReserveComposerActionGap only for in-flight placeholders", () => {

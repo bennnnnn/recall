@@ -1,7 +1,7 @@
 import { Alert } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import NotificationsSettingsScreen from "@/app/settings/notifications";
-import { cancelAllTodoReminders, syncTodoReminders } from "@/lib/todos/todoReminders";
+import { cancelAllTodoReminders, syncTodoReminders } from "@/features/todos/model/todoReminders";
 import { ensureNotificationPermission, getNotificationPermissionGranted, registerRemotePushToken, unregisterRemotePushToken } from "@/lib/pushNotifications";
 
 let mockSession = 0;
@@ -10,15 +10,20 @@ const mockUpdate = jest.fn();
 const mockFeedback = { error: jest.fn() };
 const mockT = (key: string) => key;
 const mockSwitches: Record<string, { onValueChange: (value: boolean) => Promise<void>; disabled: boolean; value?: boolean }> = {};
+const mockLinks: Record<string, { onPress: () => void; value: string }> = {};
 let mockPicker: { onSelect: (key: string) => void };
+let mockTimePicker: { visible: boolean; onConfirm: (time: { hour: number; minute: number }) => void };
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 let mockUser: {
   id: string;
   reminder_lead_minutes: number;
   push_notifications_enabled: boolean;
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start_minute?: number;
+  quiet_hours_end_minute?: number;
 } = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: false };
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token", user: mockUser, updateUser: mockUpdate }) }));
-jest.mock("@/contexts/TodosContext", () => ({ useTodos: () => ({ todos: [{ id: "stale-row" }] }) }));
+jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: [{ id: "stale-row" }] }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => mockFeedback }));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
@@ -26,14 +31,21 @@ jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/components/settings/settingsUi", () => ({
   makeSettingsStyles: () => ({}), SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
   SettingsSwitchRow: (props: { title: string } & (typeof mockSwitches)[string]) => { mockSwitches[props.title] = props; return null; },
+  SettingsLinkRow: (props: { title: string } & (typeof mockLinks)[string]) => { mockLinks[props.title] = props; return null; },
   SettingsInlinePicker: (props: typeof mockPicker) => { mockPicker = props; return null; },
 }));
-jest.mock("@/lib/reminderPrefs", () => ({
+jest.mock("@/ui/pickers/TimePickerDialog", () => ({
+  TimePickerDialog: (props: typeof mockTimePicker) => {
+    mockTimePicker = props;
+    return null;
+  },
+}));
+jest.mock("@/features/todos/model/reminderPrefs", () => ({
   DEFAULT_REMINDER_LEAD_MINUTES: 10, REMINDER_LEAD_OPTIONS: [0, 10, 30],
   getReminderLeadMinutes: jest.fn(async () => 10), setReminderLeadMinutes: jest.fn(async () => undefined),
   syncReminderLeadFromServer: jest.fn(async () => 10),
 }));
-jest.mock("@/lib/todos/todoReminders", () => ({ cancelAllTodoReminders: jest.fn(), syncTodoReminders: jest.fn() }));
+jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn(), syncTodoReminders: jest.fn() }));
 jest.mock("@/lib/pushNotifications", () => ({
   ensureNotificationPermission: jest.fn(async () => true),
   getNotificationPermissionGranted: jest.fn(async () => true),
@@ -68,6 +80,43 @@ it("never resyncs a captured todo list after a delayed settings save", async () 
   expect(mockUpdate).toHaveBeenCalledWith({ reminder_lead_minutes: 30 });
   expect(syncTodoReminders).not.toHaveBeenCalled();
   expect(cancelAllTodoReminders).not.toHaveBeenCalled();
+});
+
+it("saves one quiet-hours selection for the current account", async () => {
+  mockUser = {
+    id: "user",
+    reminder_lead_minutes: 10,
+    push_notifications_enabled: false,
+    quiet_hours_enabled: true,
+    quiet_hours_start_minute: 1320,
+    quiet_hours_end_minute: 420,
+  };
+  await render(<NotificationsSettingsScreen />);
+  await act(() => mockLinks["settings.quiet_hours_start"].onPress());
+  expect(mockTimePicker.visible).toBe(true);
+
+  await act(() => mockTimePicker.onConfirm({ hour: 23, minute: 15 }));
+
+  expect(mockUpdate).toHaveBeenCalledTimes(1);
+  expect(mockUpdate).toHaveBeenCalledWith({ quiet_hours_start_minute: 1395 });
+});
+
+it("rejects a quiet-hours save after the account changes", async () => {
+  mockUser = {
+    id: "user",
+    reminder_lead_minutes: 10,
+    push_notifications_enabled: false,
+    quiet_hours_enabled: true,
+    quiet_hours_start_minute: 1320,
+    quiet_hours_end_minute: 420,
+  };
+  await render(<NotificationsSettingsScreen />);
+  await act(() => mockLinks["settings.quiet_hours_start"].onPress());
+  mockSession++;
+
+  await act(() => mockTimePicker.onConfirm({ hour: 23, minute: 15 }));
+
+  expect(mockUpdate).not.toHaveBeenCalled();
 });
 
 it("does not register push or change the next account after delayed permission", async () => {
@@ -165,4 +214,66 @@ it("turns the server pref off when enabling push is blocked by the OS", async ()
   expect(Alert.alert).toHaveBeenCalledTimes(1);
   expect(registerRemotePushToken).not.toHaveBeenCalled();
   expect(mockUpdate).toHaveBeenCalledWith({ push_notifications_enabled: false });
+});
+
+it("optimistically turns push on while registration is pending", async () => {
+  const registration = deferred<void>();
+  jest.mocked(registerRemotePushToken).mockReturnValueOnce(registration.promise);
+  await render(<NotificationsSettingsScreen />);
+
+  let pending!: Promise<void>;
+  await act(async () => {
+    pending = mockSwitches["settings.push_notifications"].onValueChange(true);
+    await Promise.resolve();
+  });
+  expect(mockSwitches["settings.push_notifications"].value).toBe(true);
+  expect(mockSwitches["settings.push_notifications"].disabled).toBe(true);
+  expect(mockUpdate).not.toHaveBeenCalled();
+
+  await act(async () => {
+    registration.resolve();
+    await pending;
+  });
+  expect(mockUpdate).toHaveBeenCalledWith({ push_notifications_enabled: true });
+});
+
+it("rolls an optimistic push enablement back when registration fails", async () => {
+  jest.mocked(registerRemotePushToken).mockRejectedValueOnce(new Error("offline"));
+  await render(<NotificationsSettingsScreen />);
+
+  await act(async () => {
+    await mockSwitches["settings.push_notifications"].onValueChange(true);
+  });
+
+  expect(mockSwitches["settings.push_notifications"].value).toBe(false);
+  expect(mockUpdate).not.toHaveBeenCalled();
+  expect(mockFeedback.error).toHaveBeenCalledWith("settings.push_register_failed");
+});
+
+it("rolls an optimistic push disablement back when the preference save fails", async () => {
+  mockUser = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: true };
+  mockUpdate.mockRejectedValueOnce(new Error("offline"));
+  await render(<NotificationsSettingsScreen />);
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  await act(async () => {
+    await mockSwitches["settings.push_notifications"].onValueChange(false);
+  });
+
+  expect(mockSwitches["settings.push_notifications"].value).toBe(true);
+  expect(unregisterRemotePushToken).not.toHaveBeenCalled();
+  expect(mockFeedback.error).toHaveBeenCalledWith("settings.push_register_failed");
+});
+
+it("surfaces an initial OS permission read failure and stays off", async () => {
+  jest.mocked(getNotificationPermissionGranted).mockRejectedValueOnce(new Error("native failure"));
+  await render(<NotificationsSettingsScreen />);
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(mockSwitches["settings.push_notifications"].value).toBe(false);
+  expect(mockFeedback.error).toHaveBeenCalledWith("settings.push_register_failed");
 });

@@ -1,9 +1,10 @@
 import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { Theme } from "@/lib/theme";
 import type { ConversationListStyles } from "./conversationListStyles";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   styles: ConversationListStyles;
@@ -37,8 +38,8 @@ export function DrawerSelectionBar({
         accessibilityRole="button"
       >
         <Icon
-          name="archive-outline"
-          size={18}
+          name="archive"
+          size={IconSize.sm}
           color={archiveDisabled ? theme.textTertiary : theme.primary}
         />
         <Text style={[s.selectionActionText, archiveDisabled && s.selectionActionTextDisabled]}>
@@ -52,8 +53,8 @@ export function DrawerSelectionBar({
         accessibilityRole="button"
       >
         <Icon
-          name="trash-outline"
-          size={18}
+          name="trash"
+          size={IconSize.sm}
           color={disabled ? theme.textTertiary : theme.danger}
         />
         <Text

@@ -157,16 +157,13 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
   }, [patchChatInGroups]);
 
   useEffect(() => {
-    registerChatPatcher(patchChatInGroups);
-    registerChatInserter(insertChatInGroups);
-    registerChatRemover(removeChatFromGroupsById);
-    registerChatArchiveMover(moveChatArchiveState);
-    return () => {
-      registerChatPatcher(null);
-      registerChatInserter(null);
-      registerChatRemover(null);
-      registerChatArchiveMover(null);
-    };
+    const unregisters = [
+      registerChatPatcher(patchChatInGroups),
+      registerChatInserter(insertChatInGroups),
+      registerChatRemover(removeChatFromGroupsById),
+      registerChatArchiveMover(moveChatArchiveState),
+    ];
+    return () => unregisters.forEach((unregister) => unregister());
   }, [patchChatInGroups, insertChatInGroups, removeChatFromGroupsById, moveChatArchiveState]);
   useEffect(() => subscribeChatTitleGenerating(() => setTitlePendingTick((n) => n + 1)), []);
 

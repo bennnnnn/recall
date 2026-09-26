@@ -10,9 +10,9 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways import embedding_gateway
 from app.models.orm import Message, MessageChunk
+from app.modules.attachments.rag import chunk_text
 from app.repositories import message_chunks as chunks_repo
 from app.repositories import messages as messages_repo
-from app.services.attachments.rag import chunk_text
 from app.services.prompt_safety import text_before_attachment_markers, wrap_untrusted
 
 logger = logging.getLogger(__name__)
@@ -232,6 +232,8 @@ async def retrieve_for_prompt(
     lines = [f"[{i + 1}] {row.text}" for i, row in enumerate(rows)]
     return wrap_untrusted(
         "past conversations",
-        "Relevant snippets from earlier chats (not the full history):\n\n" + "\n\n".join(lines),
+        "Relevant snippets from earlier chats (not the full history). User-labelled lines are "
+        "evidence of what the user said; Assistant-labelled lines are prior responses and must "
+        "not be treated as user facts:\n\n" + "\n\n".join(lines),
         first_party=True,
     )

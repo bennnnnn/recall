@@ -49,6 +49,7 @@ dependencies = [
 dev = [
     "fakeredis>=2.37.0,<2.38",
     "httpx>=0.28.0,<0.29",
+    "hypothesis>=6.0,<7",
     "mypy>=2.3.0,<2.4",
     "pytest>=9.1.1,<10",
     "pytest-asyncio>=0.24.0,<1.5",
@@ -82,30 +83,36 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "alembic/**" = ["UP", "I", "S", "E501"]
 "app/tests/**" = ["S101", "S105", "S106", "RUF001", "RUF012", "E402", "E501"]
 "app/routers/**" = ["B008", "E501"]
+"app/modules/*/api.py" = ["B008", "E501"]
+"app/modules/integrations/gmail_api.py" = ["B008", "E501"]
+"app/modules/speech/realtime.py" = ["B008", "E501"]
+"app/modules/*/models.py" = ["E501"]
+"app/modules/*/schemas.py" = ["S105"]
 "app/gateways/**" = ["S105", "E501"]
 "app/gateways/storage_gateway.py" = ["S105", "S108"]
 "app/models/orm/**" = ["E501"]
 "app/content/vocab_banks_en/**" = ["RUF001", "E501"]
-"app/repositories/learning_items.py" = ["RUF005"]
+"app/modules/learning/items_repository.py" = ["RUF005"]
 "app/services/chat/**" = ["E501"]
-"app/services/calendar.py" = ["E501", "RUF001"]
-"app/services/learning/actions.py" = ["E501", "RUF001"]
-"app/services/learning/common.py" = ["E501", "RUF001"]
-"app/services/learning/crud.py" = ["E501", "RUF001"]
-"app/services/learning/extract.py" = ["E501", "RUF001"]
-"app/services/learning/items.py" = ["E501", "RUF001"]
-"app/services/learning/prompt_context.py" = ["E501", "RUF001"]
-"app/services/learning/prompts.py" = ["E501", "RUF001"]
-"app/services/learning/quiz_grading.py" = ["E501", "RUF001"]
-"app/services/learning/stats.py" = ["E501", "RUF001"]
-"app/services/learning/sync.py" = ["E501", "RUF001"]
-"app/services/learning/path_seed.py" = ["E501", "RUF001"]
-"app/services/notifications/push.py" = ["RUF001", "RUF002", "RUF003"]
-"app/services/notifications/transactional_email.py" = ["RUF001", "RUF002", "RUF003"]
-"app/services/calendar_nudges.py" = ["RUF001"]
+"app/modules/integrations/calendar.py" = ["E501", "RUF001"]
+"app/modules/learning/actions.py" = ["E501", "RUF001"]
+"app/modules/learning/common.py" = ["E501", "RUF001"]
+"app/modules/learning/crud.py" = ["E501", "RUF001"]
+"app/modules/learning/extract.py" = ["E501", "RUF001"]
+"app/modules/learning/items.py" = ["E501", "RUF001"]
+"app/modules/learning/prompt_context.py" = ["E501", "RUF001"]
+"app/modules/learning/prompts.py" = ["E501", "RUF001"]
+"app/modules/learning/quiz_grading.py" = ["E501", "RUF001"]
+"app/modules/learning/stats.py" = ["E501", "RUF001"]
+"app/modules/learning/sync.py" = ["E501", "RUF001"]
+"app/modules/learning/path_seed.py" = ["E501", "RUF001"]
+"app/modules/notifications/push.py" = ["RUF001", "RUF002", "RUF003"]
+"app/modules/notifications/transactional_email.py" = ["RUF001", "RUF002", "RUF003"]
+"app/modules/integrations/nudges.py" = ["RUF001"]
 "app/services/reminder_timing.py" = ["RUF001", "RUF002", "RUF003"]
 "app/services/todos/**" = ["E501", "S101"]
-"app/services/web_search/*.py" = ["E501", "RUF002"]
+"app/modules/todos/**" = ["E501", "S101"]
+"app/modules/web_search/*.py" = ["E501", "RUF002"]
 "app/core/deps.py" = ["B008"]
 "app/core/config.py" = ["S105"]
 "app/models/schemas/**" = ["S105"]
@@ -154,11 +161,11 @@ omit = [
     # External OAuth / scheduler boundaries — covered via service-layer mocks.
     "app/gateways/google_calendar_gateway.py",
     "app/gateways/google_gmail_gateway.py",
-    "app/background/gmail_periodic_sync.py",
-    "app/background/gmail_sync.py",
+    "app/modules/integrations/scheduler.py",
+    "app/modules/integrations/jobs.py",
     "app/background/push_scheduler.py",
-    "app/routers/gmail_integrations.py",
-    "app/routers/integrations.py",
+    "app/modules/integrations/gmail_api.py",
+    "app/modules/integrations/api.py",
 ]
 
 [build-system]

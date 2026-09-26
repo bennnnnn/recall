@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -9,24 +8,27 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AttachmentPdfViewer } from "@/components/AttachmentPdfViewer";
-import { Icon } from "@/components/Icon";
+import { AttachmentPdfViewer } from "@/features/attachments/components/AttachmentPdfViewer";
+import { Icon } from "@/ui/icons/Icon";
 
 import { useAuthToken } from "@/contexts/AuthContext";
-import { useAttachmentIndexed } from "@/hooks/useAttachmentIndexed";
+import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { resolveAttachmentUri } from "@/lib/attachmentUri";
-import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
-import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
+import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
+import { downloadChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
+import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 import {
   getPreviewWebView,
   STATIC_HTML_ORIGIN_WHITELIST,
   useStaticOnlyNavigation,
 } from "@/lib/webView";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 type Props = {
   attachmentId?: string | null;
@@ -103,10 +105,10 @@ export function ChatMessagePdf({
     try {
       await downloadChatAttachment({ uri: remoteUri, token, fileName });
     } catch (error) {
-      Alert.alert(
-        t("common.download_failed"),
-        error instanceof Error ? error.message : t("chat.pdf_export_failed"),
-      );
+      void alertDialog({
+        title: t("common.download_failed"),
+        message: error instanceof Error ? error.message : t("chat.pdf_export_failed"),
+      });
     }
   }, [remoteUri, token, fileName, t]);
 
@@ -121,7 +123,7 @@ export function ChatMessagePdf({
         accessibilityRole="button"
       >
         <View style={s.iconWrap}>
-          <Icon name="document-text-outline" size={IconSize.md} color={theme.primary} />
+          <Icon name="file-text" size={IconSize.md} color={theme.primary} />
         </View>
         <View style={s.meta}>
           <Text style={s.name} numberOfLines={2}>
@@ -131,7 +133,7 @@ export function ChatMessagePdf({
             {indexFailed ? t("chat.file_index_failed") : indexed ? "PDF" : t("chat.file_indexing")}
           </Text>
         </View>
-        <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
+        <Icon name="chevron-right" size={IconSize.sm} color={theme.textTertiary} />
       </Pressable>
 
       {!compact && canRenderInline && WebView && canMount && previewHtml ? (
@@ -173,9 +175,9 @@ function makeStyles(t: Theme, compact: boolean) {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: compact ? 8 : 10,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
@@ -184,18 +186,18 @@ function makeStyles(t: Theme, compact: boolean) {
     iconWrap: {
       width: 36,
       height: 36,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: t.primaryLight,
     },
     meta: { flex: 1, minWidth: 0 },
-    name: { fontSize: 14, fontWeight: "600", color: t.text },
+    name: { ...Type.label, color: t.text },
     kind: { ...Type.meta, color: t.textTertiary, marginTop: 2 },
     previewWrap: {
-      marginTop: 8,
+      marginTop: Space.xs,
       height: 180,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       overflow: "hidden",
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
@@ -204,6 +206,6 @@ function makeStyles(t: Theme, compact: boolean) {
       justifyContent: "center",
     },
     previewWeb: { flex: 1, width: "100%", backgroundColor: "transparent" },
-    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 6 },
+    fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: 6 },
   });
 }

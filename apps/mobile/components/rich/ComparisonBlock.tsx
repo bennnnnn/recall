@@ -3,6 +3,9 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { ComparisonDraft } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type, Weight } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { data: ComparisonDraft };
 
@@ -45,21 +48,21 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
       alignSelf: "stretch",
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      marginVertical: 8,
+      marginVertical: Space.xs,
       overflow: "hidden",
     },
     row: { flexDirection: "row" },
-    col: { flex: 1, padding: 12, gap: 6 },
+    col: { flex: 1, padding: Space.sm, gap: 6 },
     leftCol: {},
     rightCol: {},
     divider: { width: StyleSheet.hairlineWidth, backgroundColor: t.border },
-    heading: { fontSize: 14, fontWeight: "700", color: t.text, marginBottom: 4 },
+    heading: { ...Type.secondary, ...Weight.bold, color: t.text, marginBottom: Space.xxs },
     itemRow: { flexDirection: "row", gap: 6, alignItems: "flex-start" },
-    bullet: { fontSize: 14, fontWeight: "700", color: t.success, lineHeight: 21 },
+    bullet: { ...Type.secondary, ...Weight.bold, color: t.success, lineHeight: 21 },
     bulletNeg: { color: t.danger },
-    item: { flex: 1, fontSize: 15, lineHeight: 21, color: t.text },
+    item: { flex: 1, ...Type.callout, ...Weight.regular, lineHeight: 21, color: t.text },
   });
 }

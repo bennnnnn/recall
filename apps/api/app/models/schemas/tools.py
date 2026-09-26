@@ -2,14 +2,127 @@
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from app.modules.job_search.schemas import (
+    JobMatchStatus,
+    JobSearchPreferencesPatch,
+    JobSearchStatus,
+)
 
 
 class WebSearchToolInput(BaseModel):
     query: str = Field(min_length=1, max_length=500)
+
+
+class JobSearchToolInput(BaseModel):
+    action: Literal[
+        "list",
+        "get_profile",
+        "update_profile",
+        "update_status",
+        "search_now",
+        "analyze_job",
+        "update_match",
+    ] = "list"
+    preferences: JobSearchPreferencesPatch | None = None
+    result_limit: int | None = Field(
+        default=None,
+        ge=1,
+        le=15,
+        description="Maximum verified jobs for this one search; does not change the saved profile.",
+    )
+    search_status: JobSearchStatus | None = None
+    job_url: str | None = Field(default=None, max_length=2000)
+    match_id: UUID | None = None
+    match_status: JobMatchStatus | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="before")
+    @classmethod
+    def decode_stringified_preferences(cls, value: object) -> object:
+        """Normalize providers that serialize the nested preference object.
+
+        Some function-calling providers emit a compact ``key: value`` string
+        even though the advertised schema requires an object. Keep the parser
+        deliberately bounded to known preference labels so malformed or
+        ambiguous updates still fail validation instead of being guessed.
+        """
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        preferences = normalized.get("preferences")
+        if not isinstance(preferences, str):
+            return normalized
+        try:
+            decoded = json.loads(preferences)
+        except (TypeError, ValueError):
+            decoded = None
+        if isinstance(decoded, dict):
+            normalized["preferences"] = decoded
+            return normalized
+
+        label_aliases = {
+            "role": "target_roles",
+            "roles": "target_roles",
+            "target role": "target_roles",
+            "target roles": "target_roles",
+            "skill": "skills",
+            "skills": "skills",
+            "location": "location",
+            "locations": "location",
+            "work mode": "work_modes",
+            "work modes": "work_modes",
+            "work style": "work_modes",
+            "work type": "work_modes",
+            "experience": "experience_levels",
+            "experience level": "experience_levels",
+            "experience levels": "experience_levels",
+            "excluded company": "excluded_companies",
+            "excluded companies": "excluded_companies",
+            "frequency": "frequency",
+        }
+        parsed: dict[str, object] = {}
+        compact = preferences.strip().removeprefix("{").removesuffix("}")
+        labels_pattern = "|".join(re.escape(label) for label in label_aliases)
+        compact = re.sub(
+            rf",\s*(?=(?:{labels_pattern.replace(r'\ ', r'[ _]')})\s*:)",
+            ";",
+            compact,
+            flags=re.IGNORECASE,
+        )
+        segments = [segment.strip() for segment in compact.replace("\n", ";").split(";")]
+        for segment in segments:
+            if not segment:
+                continue
+            label, separator, raw_value = segment.partition(":")
+            if not separator:
+                label, separator, raw_value = segment.partition("=")
+            normalized_label = " ".join(label.strip().casefold().replace("_", " ").split())
+            canonical = label_aliases.get(normalized_label)
+            clean_value = raw_value.strip()
+            if not separator or canonical is None or not clean_value:
+                return normalized
+            if canonical in {
+                "target_roles",
+                "skills",
+                "work_modes",
+                "experience_levels",
+                "excluded_companies",
+            }:
+                parsed[canonical] = [
+                    item.strip() for item in clean_value.split(",") if item.strip()
+                ]
+            else:
+                parsed[canonical] = clean_value
+        if parsed:
+            normalized["preferences"] = parsed
+        return normalized
 
 
 class SympyToolInput(BaseModel):

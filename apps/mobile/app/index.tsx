@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   useWindowDimensions,
   View,
@@ -8,11 +8,11 @@ import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/components/chat/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/components/chat/ChatScreenMenuSheets";
-import { LiveTalkOverlay } from "@/components/chat/LiveTalkOverlay";
+import { LiveTalkOverlay } from "@/features/speech/components/LiveTalkOverlay";
 import { makeChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import {
   COMPOSER_HEIGHT,
@@ -20,11 +20,11 @@ import {
 } from "@/components/chat/ChatComposer";
 import { DrawerShell } from "@/components/DrawerShell";
 import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
-import { EmailDraftPersistProvider } from "@/contexts/emailDraftPersist";
+import { EmailDraftPersistProvider } from "@/features/integrations/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProjects } from "@/contexts/ProjectsContext";
+import { useProjects } from "@/features/learning/context/ProjectsContext";
 import { useDrawer } from "@/contexts/DrawerContext";
-import { useHome } from "@/contexts/HomeContext";
+import { useHome } from "@/features/home/context/HomeContext";
 import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
 import { composerThreadKey } from "@/lib/chat/composerThreadDraft";
 import { useChat } from "@/hooks/useChat";
@@ -33,24 +33,24 @@ import { useChatComposerState } from "@/hooks/useChatComposerState";
 import { useChatDraftWarmup } from "@/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/hooks/useChatMessageList";
-import { useChatSuggestions } from "@/hooks/useChatSuggestions";
+import { useChatSuggestions } from "@/features/suggestions/hooks/useChatSuggestions";
 import { useChatQuizContext } from "@/hooks/useChatQuizContext";
 import { useChatRegenerate } from "@/hooks/useChatRegenerate";
 import { useChatRouteLoader } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
-import { useVoiceInput } from "@/hooks/useVoiceInput";
-import { useLiveTalk } from "@/hooks/useLiveTalk";
+import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
+import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
 import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
-import { useTodosOptional } from "@/contexts/TodosContext";
+import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chat/composerLogic";
-import { invalidateLearningDetail } from "@/lib/cache/projectDetailCache";
-import { openLearningLesson } from "@/lib/lessonLaunch";
-import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { invalidateLearningDetail } from "@/features/learning/model/projectDetailCache";
+import { openLearningLesson } from "@/features/learning/model/lessonLaunch";
+import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
@@ -61,7 +61,7 @@ function ChatScreen() {
   const s = useMemo(() => makeChatScreenStyles(C), [C]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, fontScale } = useWindowDimensions();
   const drawerOpen = useDrawer().isOpen;
   const { chatId: routeChatId, highlightMessage: routeHighlightMessage } =
     useLocalSearchParams<{ chatId?: string; highlightMessage?: string }>();
@@ -96,7 +96,7 @@ function ChatScreen() {
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
   const closeAttachSheetRef = useRef<() => void>(() => {});
   const showActionBannerRef = useRef<
-    (message: string, icon?: IoniconName) => void
+    (message: string, icon?: IconName) => void
   >(() => {});
 
   const todosCtx = useTodosOptional();
@@ -212,6 +212,9 @@ function ChatScreen() {
     handleFeedback,
     handleSaveEmailDraft,
     confirmRename,
+    shareVisible,
+    closeShare,
+    loadTranscriptMessages,
     onShareFromMenu,
     onExportPdfFromMenu,
     onRenameFromMenu,
@@ -232,7 +235,7 @@ function ChatScreen() {
   const openUpgradeRef = useRef<(() => void) | null>(null);
 
   const notifyOfflineBlocked = useCallback(() => {
-    showActionBannerRef.current(t("chat.offline_body"), "cloud-offline-outline");
+    showActionBannerRef.current(t("chat.offline_body"), "cloud-off");
   }, [t]);
 
   const imageGen = useImageGeneration({
@@ -293,11 +296,17 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     onOfflineBlocked: notifyOfflineBlocked,
     isOffline,
-    resolveQuizProjectId,
     imageGenerating: imageGen.generating,
-    onGenerateImage: (prompt, userMessage, reference) => {
-      void imageGen.submitPrompt({ prompt, userMessage, aspectRatio: null,
-        referenceAttachment: reference?.attachment, referenceAttachmentIds: reference?.ids });
+    onGenerateImage: (prompt, userMessage, reference, persistence) => {
+      void imageGen.submitPrompt({
+        prompt,
+        userMessage,
+        aspectRatio: null,
+        referenceAttachment: reference?.attachment,
+        referenceAttachmentIds: reference?.ids,
+        persistenceReady: persistence?.ready,
+        onPersistenceFailure: persistence?.onFailure,
+      });
     },
   });
 
@@ -321,6 +330,7 @@ function ChatScreen() {
   } = send;
 
   const [mathChromeExtra, setMathChromeExtra] = useState(0);
+  const [composerInputExtra, setComposerInputExtra] = useState(0);
 
   const composerThread = composerThreadKey(
     typeof routeChatId === "string" ? routeChatId : undefined,
@@ -388,18 +398,16 @@ function ChatScreen() {
     setMathScannerOpen(true);
   }, [setMathScannerOpen]);
 
-  useEffect(() => {
-    setActiveChatIdGlobal(chatId);
-    return () => setActiveChatIdGlobal(null);
-  }, [chatId]);
+  useEffect(() => setActiveChatIdGlobal(chatId), [chatId]);
 
-  useEffect(() => {
-    registerNewChat((opts) => {
-      dismissChatError();
-      startNewChat(opts);
-    });
-    return () => registerNewChat(null);
-  }, [startNewChat, dismissChatError]);
+  useEffect(
+    () =>
+      registerNewChat((opts) => {
+        dismissChatError();
+        startNewChat(opts);
+      }),
+    [startNewChat, dismissChatError],
+  );
 
   const {
     listRef,
@@ -491,8 +499,9 @@ function ChatScreen() {
     insetsTop: insets.top,
     insetsBottom: insets.bottom,
     windowHeight,
+    fontScale,
     keyboardHeight,
-    composerHeight: COMPOSER_HEIGHT,
+    composerHeight: COMPOSER_HEIGHT + composerInputExtra,
     attachmentExtra: composerAttachmentExtra(pendingAttachment),
     mathBarExtra: mathChromeExtra,
     messagesLength: displayMessages.length,
@@ -501,11 +510,11 @@ function ChatScreen() {
   });
 
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
+  const menuAnchorRef = useRef<View>(null);
 
   const chatScreenBody = useChatScreenBodyProps({
     styles: s,
     theme: C,
-    token: token ?? "",
     drawerOpen,
     routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
     layout,
@@ -521,6 +530,7 @@ function ChatScreen() {
       startNewChat,
       setMenuVisible,
       menuOverlayOpen,
+      menuAnchorRef,
     },
     list: {
       listRef,
@@ -551,6 +561,7 @@ function ChatScreen() {
       handleMathScanCaptured,
       onOpenMathScanner: openMathScanner,
       onMathChromeHeightChange: setMathChromeExtra,
+      onInputFrameExtraChange: setComposerInputExtra,
     },
     quotaNudge,
     chatError,
@@ -560,6 +571,7 @@ function ChatScreen() {
     composerAnimatedStyle,
     streaming: streamActive,
     sendBusy: chatLoading || sendPhase !== "idle",
+    sendStatus: sendPhase === "locating" ? t("chat.locating") : undefined,
     stopGeneration: stopTurn,
     isOffline,
     voice: {
@@ -600,6 +612,7 @@ function ChatScreen() {
 
         <ChatScreenMenuSheets
           menuVisible={menuVisible}
+          menuAnchorRef={menuAnchorRef}
           chatTitle={chatTitle}
           pinned={pinned}
           archived={archived}
@@ -615,6 +628,9 @@ function ChatScreen() {
           onRenameTextChange={setRenameText}
           onCloseRename={() => setRenameVisible(false)}
           onConfirmRename={() => void confirmRename()}
+          shareVisible={shareVisible}
+          onCloseShare={closeShare}
+          loadShareMessages={loadTranscriptMessages}
         />
       </View>
     </EmailDraftPersistProvider>

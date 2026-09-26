@@ -1,9 +1,9 @@
 import type { AttachmentListItem } from "@/lib/api";
-import type { AttachmentKind, PendingAttachment } from "@/lib/attachments";
-import { resolveAttachmentUri } from "@/lib/attachmentUri";
-import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
-import { attachmentSessionGuard } from "@/lib/attachmentSession";
-import { galleryFileName } from "@/lib/gallery";
+import type { AttachmentKind, PendingAttachment } from "@/features/attachments/model/attachments";
+import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
+import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
+import { attachmentSessionGuard } from "@/features/attachments/model/attachmentSession";
+import { galleryFileName } from "@/features/attachments/model/gallery";
 
 /** Retain local bytes so a restored Library attachment can be uploaded again. */
 export async function pendingFromLibraryItem(

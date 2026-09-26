@@ -528,7 +528,7 @@ def test_create_chat_with_other_users_project_id_rejected():
     # project_id that doesn't belong to the user → learning_repo.get_by_id
     # returns None → router must 400 instead of linking to a foreign project.
     pid = uuid4()
-    with patch("app.services.chats.learning_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.services.chats.get_owned_project", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/chats",
@@ -560,7 +560,7 @@ def test_create_chat_with_owned_project_id_accepted():
     project.id = pid
     project.user_id = user.id
     with (
-        patch("app.services.chats.learning_repo.get_by_id", AsyncMock(return_value=project)),
+        patch("app.services.chats.get_owned_project", AsyncMock(return_value=project)),
         patch("app.services.chats.chats_repo.create", AsyncMock(return_value=chat)),
     ):
         client = TestClient(app)
@@ -836,7 +836,7 @@ def test_list_memories_empty():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.services.memory.enqueue_policy.memories_repo.list_for_user",
+        "app.modules.memory.enqueue_policy.memories_repo.list_for_user",
         AsyncMock(return_value=[]),
     ):
         client = TestClient(app)
@@ -850,7 +850,7 @@ def test_consolidate_memories_skipped_when_memory_disabled():
     user.memory_enabled = False
     app = _app_with_user(user)
     with patch(
-        "app.services.memory.enqueue_policy.memories_repo.list_for_user",
+        "app.modules.memory.enqueue_policy.memories_repo.list_for_user",
         AsyncMock(),
     ) as list_mock:
         client = TestClient(app)
@@ -889,14 +889,14 @@ def test_list_memories_skips_consolidation_scan_when_already_locked():
         return m
 
     with (
-        patch("app.routers.memories.get_redis_client", return_value=fake_redis),
+        patch("app.modules.memory.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.memory.enqueue_policy.memories_repo.list_for_user",
+            "app.modules.memory.enqueue_policy.memories_repo.list_for_user",
             AsyncMock(side_effect=lambda *a, **kw: [_messy_memory()]),
         ),
-        patch("app.services.memory.enqueue_policy.jobs.enqueue", AsyncMock()) as enqueue_job,
+        patch("app.modules.memory.enqueue_policy.jobs.enqueue", AsyncMock()) as enqueue_job,
         patch(
-            "app.services.memory.enqueue_policy.memory_service.facts_need_consolidation",
+            "app.modules.memory.enqueue_policy.memory_service.facts_need_consolidation",
             wraps=lambda memories: True,
         ) as scan_mock,
     ):
@@ -914,7 +914,9 @@ def test_list_memories_skips_consolidation_scan_when_already_locked():
 def test_delete_memory_not_found():
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.memories.memory_service.delete_memory", AsyncMock(return_value=False)):
+    with patch(
+        "app.modules.memory.api.memory_service.delete_memory", AsyncMock(return_value=False)
+    ):
         client = TestClient(app)
         r = client.delete(f"/memories/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 404
@@ -939,7 +941,7 @@ def test_update_memory_ok():
     updated.created_at = datetime(2026, 1, 1)
     updated.updated_at = datetime(2026, 7, 20)
     with patch(
-        "app.routers.memories.memory_service.update_memory",
+        "app.modules.memory.api.memory_service.update_memory",
         AsyncMock(return_value=updated),
     ) as update:
         client = TestClient(app)
@@ -956,7 +958,7 @@ def test_update_memory_ok():
 def test_update_memory_not_found():
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.memories.memory_service.update_memory", AsyncMock(return_value=None)):
+    with patch("app.modules.memory.api.memory_service.update_memory", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.patch(
             f"/memories/{uuid4()}",
@@ -969,35 +971,22 @@ def test_update_memory_not_found():
 def test_delete_memory_ok():
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.memories.memory_service.delete_memory", AsyncMock(return_value=True)):
+    with patch("app.modules.memory.api.memory_service.delete_memory", AsyncMock(return_value=True)):
         client = TestClient(app)
         r = client.delete(f"/memories/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
-
-
-def test_disable_and_clear_memories_ok():
-    user = _fake_user()
-    app = _app_with_user(user)
-    with patch(
-        "app.routers.memories.memory_service.disable_and_clear_memories",
-        AsyncMock(return_value=3),
-    ) as disable:
-        client = TestClient(app)
-        r = client.post("/memories/disable-and-clear", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 204
-    disable.assert_awaited_once()
 
 
 def test_delete_memory_write_lock_busy_returns_409_not_404():
     """A background extraction/consolidation pass holds the memory write
     lock — the router must surface this as a distinct, retryable 409, not
     the same 404 it uses for "no such memory"."""
-    from app.services import memory as memory_service
+    from app.modules import memory as memory_service
 
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.memories.memory_service.delete_memory",
+        "app.modules.memory.api.memory_service.delete_memory",
         AsyncMock(side_effect=memory_service.MemoryWriteLockBusyError(user.id)),
     ):
         client = TestClient(app)

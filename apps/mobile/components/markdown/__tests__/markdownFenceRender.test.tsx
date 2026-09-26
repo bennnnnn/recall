@@ -4,9 +4,10 @@
 import { render, waitFor } from "@testing-library/react-native";
 
 import { renderFence, type FenceNode } from "../markdownFenceRender";
+import { renderRichFenceById } from "@/components/rich/RichFence";
 
 // markdownFenceRender.tsx statically imports CodeBlock/CopyBlock (both pull
-// in expo-clipboard + @expo/vector-icons) regardless of which fence branch
+// in expo-clipboard) regardless of which fence branch
 // actually runs — this plain @react-native/jest-preset environment (no
 // jest-expo) doesn't stub expo-modules-core, so these need simple no-op
 // fakes to keep import-time safe. Same pattern as MermaidBlock.test.tsx.
@@ -26,18 +27,8 @@ jest.mock("expo-file-system/legacy", () => ({
   writeAsStringAsync: jest.fn(),
   EncodingType: { UTF8: "utf8" },
 }));
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
-// WebPreviewCodeBlock pulls in expo-file-system (via HtmlPreviewModal ->
-// openHtmlPreview) transitively — none of this file's fence bodies are
-// html/css/js, so the real component is never actually rendered; a stub
-// avoids needing to satisfy that unrelated dependency chain at import time.
-jest.mock("@/components/WebPreviewCodeBlock", () => ({
-  WebPreviewCodeBlock: "WebPreviewCodeBlock",
 }));
 // This suite's jest env cannot evaluate React.lazy dynamic import(). Eager
 // stand-ins keep geometry/graph dispatch coverage without vm-modules.
@@ -48,7 +39,6 @@ jest.mock("@/components/rich/LazyHeavyRich", () => {
   const { GeometryBlock } = require("@/components/rich/GeometryBlock");
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
   const { FunctionGraphBlock } = require("@/components/rich/FunctionGraphBlock");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
   const { Molecule3DBlock } = require("@/components/rich/Molecule3DBlock");
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest mock factory
@@ -62,14 +52,21 @@ jest.mock("@/components/rich/LazyHeavyRich", () => {
     LazyMolecule3DBlock: ({ content }: { content: string }) =>
       React.createElement(Molecule3DBlock, { content }),
     LazyMoleculeCard: () => React.createElement(RNText, null, "molecule-card"),
+    LazyCircularClockBlock: ({ content }: { content: string }) =>
+      React.createElement(RNText, null, `lazy-clock:${content}`),
+    LazyWebPreviewCodeBlock: ({ code, lang }: { code: string; lang: string }) =>
+      React.createElement(RNText, null, `lazy-web:${lang}:${code}`),
   };
 });
-// Same reasoning — CircularClockBlock pulls in react-native-reanimated,
-// which needs native worklets init unavailable in this test env; none of
-// this file's fence bodies are clock content.
-jest.mock("@/components/rich/CircularClockBlock", () => ({
-  CircularClockBlock: "CircularClockBlock",
-}));
+// Display math renders via MathJax-SVG now; this suite asserts fence
+// dispatch, so stand in the native MathText fallback for MathBlock.
+jest.mock("@/components/rich/MathSvgView", () => {
+  const React = jest.requireActual("react");
+  const { MathText } = jest.requireActual("@/components/rich/MathText");
+  return {
+    MathSvgView: ({ latex }: { latex: string }) => React.createElement(MathText, { latex }),
+  };
+});
 // CodeBlock's real syntax-tokenizer loads via a dynamic import() that Jest's
 // CJS transform can't resolve without --experimental-vm-modules — a stub
 // that just echoes its props is enough to assert dispatch reached it.
@@ -243,6 +240,27 @@ describe("renderFence geometry/graph dispatch", () => {
 });
 
 describe("renderFence edge cases", () => {
+  it("routes HTML preview fences through the lazy web preview boundary", async () => {
+    const { getByText } = await render(
+      <>{renderFence(node("<main>Hello</main>", "html"))}</>,
+    );
+    expect(getByText("lazy-web:html:<main>Hello</main>")).toBeOnTheScreen();
+  });
+
+  it("routes clock fences through the lazy clock boundary", async () => {
+    const { getByText } = await render(
+      <>{renderFence(node("America/New_York", "clock"))}</>,
+    );
+    expect(getByText("lazy-clock:America/New_York")).toBeOnTheScreen();
+  });
+
+  it("keeps registry clock dispatch behind the lazy clock boundary", async () => {
+    const { getByText } = await render(
+      <>{renderRichFenceById("clock", "clock", "UTC", "clock-key")}</>,
+    );
+    expect(getByText("lazy-clock:UTC")).toBeOnTheScreen();
+  });
+
   it("renders nothing for a whitespace-only fence body", () => {
     expect(renderFence(node("   \n  "))).toBeNull();
   });

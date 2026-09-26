@@ -5,7 +5,7 @@ import {
   markdownToSpeechText,
 } from "@/lib/markdown/plain";
 import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
-import { projectLearningToPrintHtml } from "@/lib/exportProjectPdf";
+import { projectLearningToPrintHtml } from "@/features/learning/model/exportProjectPdf";
 import type { LearningDetail, LearningItem } from "@/lib/api";
 
 describe("markdownPlain", () => {

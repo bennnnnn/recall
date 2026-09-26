@@ -4,6 +4,8 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { SettingsGroup, type SettingsStyles } from "@/components/settings/settingsUi";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Weight } from "@/lib/type";
 
 export function ConnectedAppCard({
   title,
@@ -81,8 +83,8 @@ const card = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: Space.sm,
     paddingVertical: Space.xs,
-    borderRadius: 24,
+    borderRadius: Radius.composer,
   },
-  actionText: { fontWeight: "500", textAlign: "center" },
+  actionText: { ...Weight.medium, textAlign: "center" },
   description: { paddingHorizontal: Space.gutter, paddingBottom: Space.gutter },
 });

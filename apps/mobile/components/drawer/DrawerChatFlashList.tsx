@@ -3,8 +3,8 @@ import { Pressable, RefreshControl, Text } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { StateView } from "@/components/StateView";
+import { Icon } from "@/ui/icons/Icon";
+import { StateView } from "@/ui/feedback/StateView";
 import {
   ConversationRow,
   makeConversationRowStyles,
@@ -12,7 +12,7 @@ import {
 import {
   DrawerSearchLoadMore,
   DrawerSearchResultRow,
-} from "@/components/drawer/DrawerSearchResults";
+} from "@/features/search/components/DrawerSearchResults";
 import { makeConversationListStyles } from "@/components/drawer/conversationListStyles";
 import {
   ARCHIVED_CHAT_SECTION,
@@ -25,6 +25,7 @@ import {
 import { isChatTitleGenerating } from "@/lib/drawer";
 import { Chat, ChatList, type SearchResult } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 export type DrawerChatListItem =
   | {
@@ -50,7 +51,7 @@ type Props = {
   activeChatId?: string | null;
   onOpenChat: (id: string, messageId?: string | null) => void;
   onOpenSearchResult: (id: string, messageId?: string | null) => void;
-  onShowRowMenu: (chat: Chat) => void;
+  onShowRowMenu: (chat: Chat, point: { x: number; y: number }) => void;
   selectionMode?: boolean;
   selectedIds?: ReadonlySet<string>;
   onToggleSelect?: (chatId: string) => void;
@@ -182,7 +183,7 @@ export function DrawerChatFlashList({
             <Text style={s.sectionCount}>{item.count}</Text>
             <Icon
               name={collapsed ? "chevron-down" : "chevron-up"}
-              size={16}
+              size={IconSize.xs}
               color={theme.textTertiary}
             />
           </Pressable>

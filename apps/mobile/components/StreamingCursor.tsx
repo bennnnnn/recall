@@ -11,6 +11,7 @@ import Animated, {
 
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 /** Blinking caret shown while assistant text is streaming in. */
 export function StreamingCursor() {
@@ -58,7 +59,7 @@ function makeStyles(t: Theme) {
     wrap: {
       alignSelf: "flex-start",
       marginTop: -2,
-      marginBottom: 4,
+      marginBottom: Space.xxs,
       paddingLeft: 1,
     },
     caret: {

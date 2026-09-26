@@ -1,4 +1,4 @@
-jest.mock("@/lib/attachments", () => ({
+jest.mock("@/features/attachments/model/attachments", () => ({
   messageTextForSend: (text: string, attached?: { kind: string; fileName?: string } | null) => {
     const trimmed = text.trim();
     if (trimmed) return trimmed;

@@ -24,13 +24,24 @@ export type Theme = {
   accentLight: string;
   accentDark: string;
 
-  // Surfaces — `bg` is the page; `surface` / `inputBg` are raised planes
+  // Surfaces — `bg` is the page; `surface` / `inputBg` are raised planes.
+  // Ladder: bg → surface (cards, fields) → surfaceAlt (pressed / selected
+  // wells) → elevated (anything floating: menus, dialogs, sheets).
+  // `inputBg`, `contentSurface` and `codeBg` are role names for `surface`.
   bg: string;
   surface: string;
   /** Segmented cards on the Settings overview. */
   settingsSurface: string;
   surfaceAlt: string;
+  /** Floating panels — menus, dialogs, sheets, pickers. Lifts off `bg` in dark mode. */
+  elevated: string;
+  /** Round chrome plates — header buttons, icon wells, picker dial face. */
+  control: string;
   border: string;
+  /** Hairlines between rows inside one card or menu. */
+  separator: string;
+  /** Press feedback wash laid over any surface. */
+  pressed: string;
 
   // Text
   text: string;
@@ -57,6 +68,8 @@ export type Theme = {
 
   // Status
   danger: string;
+  /** Readable ink on `danger` fills — destructive badges must pass WCAG AA. */
+  onDanger: string;
   dangerLight: string;
   warning: string;
   /** Ink on `warning` — banner labels must pass WCAG AA. */
@@ -74,7 +87,10 @@ export type Theme = {
   codeLang: string;
 
   // Overlays
+  /** Dims the page under dialogs and sheets. */
   scrim: string;
+  /** Light dim under popover menus so a white card stays readable. */
+  wash: string;
 
   // Media surfaces (camera scanner, attachment viewer) — scheme-invariant.
   // Camera chrome must not invert: white ink reads on a live camera feed in
@@ -89,6 +105,10 @@ export type Theme = {
     gmail: string;
     /** Google "G" blue — vendor-mandated, same in light & dark. */
     google: string;
+    /** The other three Google logo colors (four-color "G", Gmail "M"). */
+    googleRed: string;
+    googleYellow: string;
+    googleGreen: string;
     /** Apple Sign-In button fill (black) and its ink (white) — vendor-mandated. */
     apple: string;
     appleInk: string;
@@ -111,7 +131,11 @@ export const lightTheme: Theme = {
   surface: "#F7F7F8",
   settingsSurface: "#F3F3F3",
   surfaceAlt: "#EBEBED",
+  elevated: "#FFFFFF",
+  control: "#F1F1F3",
   border: "#D9D9DE",
+  separator: "#EBEBED",
+  pressed: "rgba(17,17,19,0.06)",
 
   text: "#111113",
   textSecondary: "#5C5C64",
@@ -130,6 +154,7 @@ export const lightTheme: Theme = {
   contentSurface: "#F7F7F8",
 
   danger: "#D92D20",
+  onDanger: "#FFFFFF",
   dangerLight: "#FDECEC",
   warning: "#B54708",
   onWarning: "#FFFFFF",
@@ -143,11 +168,12 @@ export const lightTheme: Theme = {
   codeLang: "#5C5C64",
 
   scrim: "rgba(0,0,0,0.40)",
+  wash: "rgba(17,17,19,0.20)",
 
   onMedia: "#FFFFFF",
   mediaScrim: "#000000",
 
-  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", apple: "#000000", appleInk: "#FFFFFF" },
+  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", googleRed: "#EA4335", googleYellow: "#FBBC05", googleGreen: "#34A853", apple: "#000000", appleInk: "#FFFFFF" },
 };
 
 export const darkTheme: Theme = {
@@ -166,7 +192,11 @@ export const darkTheme: Theme = {
   surface: "#202023",
   settingsSurface: "#202023",
   surfaceAlt: "#171719",
+  elevated: "#242428",
+  control: "#323238",
   border: "#3A3A42",
+  separator: "#2E2E34",
+  pressed: "rgba(255,255,255,0.08)",
 
   text: "#F5F5F6",
   textSecondary: "#A5A5AC",
@@ -185,6 +215,7 @@ export const darkTheme: Theme = {
   contentSurface: "#202023",
 
   danger: "#FF6B6B",
+  onDanger: "#0F0F10",
   dangerLight: "#3B1513",
   warning: "#F5A524",
   onWarning: "#111113",
@@ -198,11 +229,12 @@ export const darkTheme: Theme = {
   codeLang: "#7B7B83",
 
   scrim: "rgba(0,0,0,0.60)",
+  wash: "rgba(0,0,0,0.45)",
 
   onMedia: "#FFFFFF",
   mediaScrim: "#000000",
 
-  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", apple: "#000000", appleInk: "#FFFFFF" },
+  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", googleRed: "#EA4335", googleYellow: "#FBBC05", googleGreen: "#34A853", apple: "#000000", appleInk: "#FFFFFF" },
 };
 
 /** Active palette for the current color scheme (system or user override). */

@@ -2,12 +2,14 @@ import { memo } from "react";
 import { Pressable, StyleSheet, Text, View, ViewStyle, TextStyle } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import type { Chat } from "@/lib/api";
 import { displayChatTitle } from "@/lib/chat/title";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 export type ConversationRowStyles = {
   row: ViewStyle;
@@ -30,7 +32,8 @@ type Props = {
    * defeat that by changing the onOpen prop's identity every render.
    */
   onOpen: (chatId: string) => void;
-  onLongPress: (chat: Chat) => void;
+  /** `point` is where the finger was, so the row menu opens there. */
+  onLongPress: (chat: Chat, point: { x: number; y: number }) => void;
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (chatId: string) => void;
@@ -70,9 +73,9 @@ export const ConversationRow = memo(function ConversationRow({
         if (selectionMode) onToggleSelect?.(chat.id);
         else onOpen(chat.id);
       }}
-      onLongPress={() => {
+      onLongPress={(event) => {
         if (selectionMode) onToggleSelect?.(chat.id);
-        else onLongPress(chat);
+        else onLongPress(chat, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
       }}
       accessibilityRole={selectionMode ? "checkbox" : "button"}
       accessibilityLabel={label}
@@ -83,14 +86,14 @@ export const ConversationRow = memo(function ConversationRow({
       {selectionMode ? (
         <View style={r.rowIcon}>
           <Icon
-            name={selected ? "checkbox" : "square-outline"}
+            name={selected ? "checkbox-checked" : "square"}
             size={IconSize.sm}
             color={selected ? theme.primary : theme.textTertiary}
           />
         </View>
       ) : chat.pinned ? (
         <View style={r.rowIcon}>
-          <Icon name="bookmark" size={16} color={theme.primary} />
+          <Icon name="bookmark" size={IconSize.xs} color={theme.primary} />
         </View>
       ) : null}
       <Text
@@ -113,26 +116,26 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
       flexDirection: "row",
       alignItems: "center",
       minHeight: 44,
-      paddingVertical: 12,
-      paddingHorizontal: 16,
+      paddingVertical: Space.sm,
+      paddingHorizontal: Space.md,
       gap: 10,
     },
     rowIcon: { flexShrink: 0 },
-    title: { flex: 1, ...Type.body, fontWeight: "500", color: theme.text },
+    title: { flex: 1, ...Type.body, ...Weight.medium, color: theme.text },
     titlePending: { color: theme.textTertiary, fontStyle: "italic" },
     // Wash already signals active — keep ink on theme.text, just bolder.
-    titleActive: { fontWeight: "700" },
+    titleActive: { ...Weight.bold },
     rowHighlighted: {
       backgroundColor: theme.primaryLight,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       marginHorizontal: 6,
-      paddingHorizontal: 8,
+      paddingHorizontal: Space.xs,
     },
     rowActive: {
       backgroundColor: theme.surfaceAlt,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       marginHorizontal: 6,
-      paddingHorizontal: 8,
+      paddingHorizontal: Space.xs,
     },
     rowSelected: {
       backgroundColor: theme.primaryLight,

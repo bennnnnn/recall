@@ -2,6 +2,7 @@ import { Dimensions, StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
+import { lightTheme } from "@/lib/theme";
 
 describe("MathText", () => {
   beforeEach(() => {
@@ -29,6 +30,21 @@ describe("MathText", () => {
     expect(toJSON()).toBeNull();
   });
 
+  it("draws a red slash through a cancelled factor, not a red number", async () => {
+    const { getAllByTestId, getAllByText } = await render(
+      <MathText latex={String.raw`\frac{\cancel{3} x}{\cancel{3}}`} />,
+    );
+    expect(getAllByTestId("math-cancel")).toHaveLength(2);
+    const threes = getAllByText("3");
+    expect(threes).toHaveLength(2);
+    for (const three of threes) {
+      expect(StyleSheet.flatten(three.props.style).color).toBe(lightTheme.text);
+    }
+    for (const slash of getAllByTestId("math-cancel-slash")) {
+      expect(StyleSheet.flatten(slash.props.style).backgroundColor).toBe(lightTheme.danger);
+    }
+  });
+
   it("renders a simple fraction as a stacked vinculum (num / bar / den)", async () => {
     // User-requested: real stacked fraction with a straight horizontal
     // vinculum — not ½, not ¹⁄₂, and never the broken ¹─₂ bar hack.
@@ -45,6 +61,15 @@ describe("MathText", () => {
     expect(getByTestId("math-text-tall")).toHaveStyle({ width: 29, height: 44 });
     expect(getByTestId("math-frac")).toHaveStyle({ width: 23, height: 44 });
     expect(getByText("1")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
+  });
+
+  it("gives a wide serif numerator a longer bar than the same run of digits", async () => {
+    const wide = await render(<MathText latex={String.raw`\frac{mmmmmmmmmmmm}{1}`} />);
+    const narrow = await render(<MathText latex={String.raw`\frac{111111111111}{1}`} />);
+    const wideWidth = StyleSheet.flatten(wide.getByTestId("math-frac").props.style).width as number;
+    const narrowWidth = StyleSheet.flatten(narrow.getByTestId("math-frac").props.style).width as number;
+    expect(narrowWidth).toBe(12 * 9 + 14);
+    expect(wideWidth).toBeGreaterThan(narrowWidth + 40);
   });
 
   it("renders letter fractions stacked the same way (m over m)", async () => {

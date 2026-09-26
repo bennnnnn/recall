@@ -1,7 +1,14 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, View } from "react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { View } from "react-native";
 import Markdown from "react-native-markdown-display";
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
@@ -21,14 +28,15 @@ import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
 import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
 import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streaming";
 import {
-  nextStreamUiFlushDelay,
-  STREAM_UI_INTERVAL_MS,
-} from "@/lib/streamUiTiming";
-import { collectPreviewFiles } from "@/lib/htmlPreviewBundle";
+  advancePreviewFilesScan,
+  type PreviewScanState,
+} from "@/lib/htmlPreviewBundle";
 import { HtmlPreviewFilesProvider } from "@/lib/htmlPreviewFiles";
 import { draftFenceProseText } from "@/lib/copyBlock";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = { content: string; streaming?: boolean; mathFormat?: (expr: string) => string };
 
@@ -55,8 +63,7 @@ const MarkdownStreamChunk = React.memo(function MarkdownStreamChunk({
   );
 });
 
-/** Pulsing placeholder for open math/diagram fences during streaming.
- *  Uses RN's built-in Animated (no Reanimated worklet dependency). */
+/** Pulsing placeholder for open math/diagram fences during streaming. */
 const StreamingPlaceholder = React.memo(function StreamingPlaceholder({
   height,
 }: {
@@ -64,39 +71,29 @@ const StreamingPlaceholder = React.memo(function StreamingPlaceholder({
 }) {
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  const opacity = useSharedValue(0.5);
   useEffect(() => {
+    cancelAnimation(opacity);
     if (reduceMotion) {
-      opacity.setValue(0.75);
+      opacity.value = 0.75;
       return;
     }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0.5,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
+    opacity.value = withRepeat(withTiming(1, { duration: 1200 }), -1, true);
+    return () => cancelAnimation(opacity);
   }, [opacity, reduceMotion]);
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
-    <View style={{ marginVertical: 8 }}>
+    <View style={{ marginVertical: Space.xs }}>
       <Animated.View
-        style={{
-          width: "100%",
-          height,
-          borderRadius: 10,
-          backgroundColor: theme.border,
-          opacity,
-        }}
+        style={[
+          {
+            width: "100%",
+            height,
+            borderRadius: Radius.sm,
+            backgroundColor: theme.border,
+          },
+          pulseStyle,
+        ]}
       />
     </View>
   );
@@ -122,7 +119,7 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
     return <StreamingPlaceholder height={48} />;
   }
   return (
-    <View style={{ marginVertical: 4 }}>
+    <View style={{ marginVertical: Space.xxs }}>
       <MathText latex={trimmed} textColor={theme.text} />
     </View>
   );
@@ -136,13 +133,10 @@ const StreamingDiagramPlaceholder = React.memo(function StreamingDiagramPlacehol
 export function MarkdownContent({ content, streaming = false, mathFormat }: Props) {
   const t = useTheme();
   const { rules, mdStyles } = useMemo(() => makeRenderRules(t, streaming), [t, streaming]);
-  // While streaming, throttle re-parses. Settled chunks parse once ever, so
-  // only the small tail is re-tokenized per flush — a short interval keeps
-  // text appearing fluidly without whole-message parse cost. The trailing
-  // flush ensures the final render is always the complete content.
-  // Non-streaming renders parse immediately (no throttle).
-  const [throttled, setThrottled] = useState(content);
-  const lastFlushRef = useRef(0);
+  // Streaming input arrives already throttled at the draft→UI boundary
+  // (useStreamingDraft, ~30fps), so parse immediately — a second throttle here
+  // only added latency. Settled chunks parse once ever; per flush, only the
+  // small tail is re-tokenized.
   const streamPreprocessRef = useRef<StreamingPreprocessCache | null>(null);
   const streamBlocksRef = useRef<StreamBlocksState | null>(null);
   useEffect(() => {
@@ -151,26 +145,13 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
       streamBlocksRef.current = null;
     }
   }, [streaming]);
-  useEffect(() => {
-    if (!streaming) {
-      setThrottled(content);
-      return;
-    }
-    const elapsed = Date.now() - lastFlushRef.current;
-    const wait = nextStreamUiFlushDelay(elapsed, STREAM_UI_INTERVAL_MS);
-    if (wait === 0) {
-      lastFlushRef.current = Date.now();
-      setThrottled(content);
-      return;
-    }
-    const id = setTimeout(() => {
-      lastFlushRef.current = Date.now();
-      setThrottled(content);
-    }, wait);
-    return () => clearTimeout(id);
-  }, [content, streaming]);
-  const renderContent = streaming ? throttled : content;
-  const previewFiles = useMemo(() => collectPreviewFiles(renderContent), [renderContent]);
+  const renderContent = content;
+  // Incremental: streaming content grows append-only, so rescan just the new
+  // suffix per flush instead of splitting/scanning the whole message.
+  const previewScanRef = useRef<PreviewScanState | null>(null);
+  const previewScan = advancePreviewFilesScan(previewScanRef.current, renderContent);
+  previewScanRef.current = previewScan;
+  const previewFiles = previewScan.files;
   const prepared = useMemo(() => {
     try {
       if (streaming) {
@@ -206,11 +187,22 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
         ? classifyOpenFencePreview(openRegion.lang, openRegion.body)
         : null;
 
+    // Key chunks by content offset + length, not index: chunks are append-only
+    // so offsets are stable while one reply streams, and a reset (new stream /
+    // regenerate) reusing the same position gets a fresh key instead of
+    // recycling a component whose memoized parse belongs to the old reply.
+    const chunkOffsets: number[] = [];
+    let chunkOffset = 0;
+    for (const chunk of blocks.chunks) {
+      chunkOffsets.push(chunkOffset);
+      chunkOffset += chunk.length;
+    }
+
     return (
       <HtmlPreviewFilesProvider files={previewFiles}>
         {blocks.chunks.map((chunk, index) => (
           <MarkdownStreamChunk
-            key={`chunk-${index}`}
+            key={`chunk-${chunkOffsets[index]}-${chunk.length}`}
             content={chunk}
             rules={rules}
             mdStyles={mdStyles}

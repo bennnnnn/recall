@@ -1,4 +1,4 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 
 import {
@@ -9,6 +9,7 @@ import {
   numberLineTicks,
   NumberLineInterval,
 } from "@/lib/math/graphBlock";
+import { isSkiaAvailable } from "@/lib/skiaAvailability";
 
 type Props = {
   spec: GraphSpec;
@@ -22,6 +23,12 @@ type Props = {
 
 const PAD = 28;
 const LINE_HEIGHT = 80;
+
+const SkiaNumberLineChartLazy = lazy(() =>
+  import("@/components/rich/skia/SkiaNumberLineChart").then((module) => ({
+    default: module.SkiaNumberLineChart,
+  })),
+);
 
 function formatTick(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
@@ -155,7 +162,16 @@ function endpointMarker(
   );
 }
 
-export function NumberLineChart({
+export function NumberLineChart(props: Props) {
+  if (!isSkiaAvailable()) return <SvgNumberLineChart {...props} />;
+  return (
+    <Suspense fallback={<SvgNumberLineChart {...props} />}>
+      <SkiaNumberLineChartLazy {...props} />
+    </Suspense>
+  );
+}
+
+function SvgNumberLineChart({
   spec,
   width,
   height,

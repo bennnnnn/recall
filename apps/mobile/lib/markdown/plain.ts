@@ -215,6 +215,8 @@ function copyMathSegments(segments: MathSegment[], depth = 0): string {
         const index = segment.degree ? `[${copyMathSegments(parseSimpleLatex(segment.degree), depth + 1)}]` : "";
         return `√${index}(${copyMathSegments(segment.body, depth + 1)})`;
       }
+      case "cancel":
+        return copyMathSegments(segment.body, depth + 1);
     }
   }).join("");
 }

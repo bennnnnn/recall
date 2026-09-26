@@ -1,7 +1,17 @@
-import { useCallback, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
+  lazy,
+  Suspense,
+  useCallback,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import {
+  ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -17,7 +27,7 @@ import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
 import {
   type DrawnSeries,
@@ -25,18 +35,39 @@ import {
   useGraphSeries,
   useGraphViewport,
 } from "@/hooks/useInteractiveGraph";
-import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
+import { useSheetPanDismiss } from "@/ui/overlay/useSheetPanDismiss";
+import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { CODE_FONT } from "@/lib/fonts";
 import { formatGraphExpr, type GraphSpec } from "@/lib/math/graphBlock";
-import { defaultInteractiveBounds } from "@/lib/math/graphViewport";
-import { IconSize } from "@/lib/icons";
+import { defaultInteractiveBounds, expandGraphView } from "@/lib/math/graphViewport";
+import { isSkiaAvailable } from "@/lib/skiaAvailability";
+import { IconSize } from "@/ui/icons/sizes";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
 
 const CHART_HEIGHT = 220;
 const MODAL_LIST_MAX = 220;
 const MODAL_PLOT_MIN = 200;
+/** Skia explorer samples a 3x window at 3x density for mid-gesture runway. */
+const SKIA_SAMPLE_EXPAND = 3;
+const SKIA_SAMPLES = 480;
+
+// Skia stays out of the import graph unless a native graph actually renders
+// (Expo Go and stale clients keep the SVG compatibility path).
+const SkiaGraphExplorerLazy = lazy(() =>
+  import("@/components/rich/skia/SkiaGraphExplorer").then((m) => ({
+    default: m.SkiaGraphExplorer,
+  })),
+);
+const SkiaGraphCanvasLazy = lazy(() =>
+  import("@/components/rich/skia/SkiaGraphExplorer").then((m) => ({
+    default: m.SkiaGraphCanvas,
+  })),
+);
 
 type Props = {
   spec: GraphSpec;
@@ -77,6 +108,14 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
   const cardWidth = Math.max(1, plotWidth);
   const cardAspect = (cardWidth - GRAPH_AXIS_PAD * 2) / (CHART_HEIGHT - GRAPH_AXIS_PAD * 2 || 1);
   const cardBounds = useMemo(() => defaultInteractiveBounds(cardAspect), [cardAspect]);
+  const ignoreCardCommit = useCallback(() => {}, []);
+  const cardSkiaViewport = useSkiaGraphViewport({
+    width: cardWidth,
+    height: CHART_HEIGHT,
+    pad: GRAPH_AXIS_PAD,
+    initialView: cardBounds,
+    onCommit: ignoreCardCommit,
+  });
   const cardDrawn = useMemo(
     () => series.map((row, i) => drawGraphSeries(row, palette[i % palette.length], variable, cardBounds)),
     [cardBounds, palette, series, variable],
@@ -89,6 +128,10 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
     height: modalPlot.height,
     pad: GRAPH_AXIS_PAD,
   });
+  const skiaExplorer = isSkiaAvailable();
+  const modalAspect =
+    (modalPlot.width - GRAPH_AXIS_PAD * 2) / (modalPlot.height - GRAPH_AXIS_PAD * 2 || 1);
+  const modalInitialView = useMemo(() => defaultInteractiveBounds(modalAspect), [modalAspect]);
   const onCardLayout = (e: LayoutChangeEvent) => {
     const w = Math.round(e.nativeEvent.layout.width);
     if (w > 0 && w !== plotWidth) setPlotWidth(w);
@@ -101,12 +144,24 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
       setModalPlot({ width: w, height: h });
     }
   };
+  // The Skia explorer pans/zooms on the UI thread against samples taken over
+  // an expanded window; viewport.bounds only moves on gesture-end commits.
+  const sampleBounds = useMemo(
+    () => (skiaExplorer ? expandGraphView(viewport.bounds, SKIA_SAMPLE_EXPAND) : viewport.bounds),
+    [skiaExplorer, viewport.bounds],
+  );
   const modalDrawn = useMemo(
     () =>
       series.map((row, i) =>
-        drawGraphSeries(row, palette[i % palette.length], variable, viewport.bounds),
+        drawGraphSeries(
+          row,
+          palette[i % palette.length],
+          variable,
+          sampleBounds,
+          skiaExplorer ? SKIA_SAMPLES : 160,
+        ),
       ),
-    [palette, series, variable, viewport.bounds],
+    [palette, series, variable, sampleBounds, skiaExplorer],
   );
   const customTitle =
     spec.title != null && spec.title.trim() !== "" && spec.title.trim() !== spec.expr
@@ -147,18 +202,48 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
         accessibilityLabel={t("rich.expand")}
         style={[explorerStyles.plotPress, { width: cardWidth, height: CHART_HEIGHT }]}
       >
-        <GraphCanvas
-          spec={spec}
-          theme={theme}
-          clipId={cardClipId}
-          width={cardWidth}
-          height={CHART_HEIGHT}
-          bounds={cardBounds}
-          drawn={cardDrawn}
-          verticalX={verticalX}
-        />
+        {skiaExplorer ? (
+          <Suspense
+            fallback={
+              <GraphCanvas
+                spec={spec}
+                theme={theme}
+                clipId={cardClipId}
+                width={cardWidth}
+                height={CHART_HEIGHT}
+                bounds={cardBounds}
+                drawn={cardDrawn}
+                verticalX={verticalX}
+              />
+            }
+          >
+            <SkiaGraphCanvasLazy
+              drawn={cardDrawn}
+              verticalX={verticalX}
+              xName={spec.variable ?? "x"}
+              yName="y"
+              width={cardWidth}
+              height={CHART_HEIGHT}
+              pad={GRAPH_AXIS_PAD}
+              theme={theme}
+              viewport={cardSkiaViewport}
+              testID="skia-graph-card"
+            />
+          </Suspense>
+        ) : (
+          <GraphCanvas
+            spec={spec}
+            theme={theme}
+            clipId={cardClipId}
+            width={cardWidth}
+            height={CHART_HEIGHT}
+            bounds={cardBounds}
+            drawn={cardDrawn}
+            verticalX={verticalX}
+          />
+        )}
         <View style={explorerStyles.expandBadge} pointerEvents="none">
-          <Icon name="expand-outline" size={16} color={theme.textSecondary} />
+          <Icon name="expand" size={IconSize.xs} color={theme.textSecondary} />
         </View>
       </Pressable>
       {open ? null : seriesEditor(cardDrawn, "card")}
@@ -177,6 +262,9 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
         drawn={modalDrawn}
         verticalX={verticalX}
         editor={seriesEditor(modalDrawn, "modal")}
+        skia={skiaExplorer}
+        initialView={modalInitialView}
+        onCommitBounds={viewport.commitBounds}
       />
     </View>
   );
@@ -201,6 +289,9 @@ function ExplorerModal({
   drawn,
   verticalX,
   editor,
+  skia,
+  initialView,
+  onCommitBounds,
 }: {
   open: boolean;
   onClose: () => void;
@@ -216,13 +307,23 @@ function ExplorerModal({
   drawn: DrawnSeries[];
   verticalX?: number;
   editor: ReactNode;
+  skia: boolean;
+  initialView: ReturnType<typeof defaultInteractiveBounds>;
+  onCommitBounds: (next: ReturnType<typeof defaultInteractiveBounds>) => void;
 }) {
   const { t } = useTranslation();
   const reduceMotion = useReduceMotion();
   const { pan, panStyle } = useSheetPanDismiss(open, reduceMotion, onClose);
+  const skiaViewport = useSkiaGraphViewport({
+    width: plot.width,
+    height: plot.height,
+    pad: GRAPH_AXIS_PAD,
+    initialView,
+    onCommit: onCommitBounds,
+  });
 
   return (
-    <Modal
+    <FullScreenModal
       visible={open}
       transparent
       animationType="slide"
@@ -248,19 +349,16 @@ function ExplorerModal({
               <GestureDetector gesture={pan}>
                 <View style={styles.modalToolbar} testID="graph-sheet-handle">
                   <View style={styles.handle} />
-                  <Pressable
+                  <HeaderButton
+                    icon="close"
                     onPress={onClose}
                     testID="graph-close"
-                    accessibilityRole="button"
                     accessibilityLabel={t("preview.close")}
-                    hitSlop={8}
                     style={styles.closeBtn}
-                  >
-                    <Icon name="close-outline" size={IconSize.lg} color={theme.text} />
-                  </Pressable>
+                  />
                 </View>
               </GestureDetector>
-              <GestureDetector gesture={gesture}>
+              {skia ? (
                 <View
                   collapsable={false}
                   pointerEvents="box-only"
@@ -269,24 +367,55 @@ function ExplorerModal({
                   onLayout={onPlotLayout}
                   style={styles.modalPlot}
                 >
-                  <GraphCanvas
-                    spec={spec}
-                    theme={theme}
-                    clipId={clipId}
-                    width={plot.width}
-                    height={plot.height}
-                    bounds={bounds}
-                    drawn={drawn}
-                    verticalX={verticalX}
-                  />
+                  <Suspense
+                    fallback={
+                      <View style={styles.skiaLoading}>
+                        <ActivityIndicator color={theme.textSecondary} />
+                      </View>
+                    }
+                  >
+                    <SkiaGraphExplorerLazy
+                      drawn={drawn}
+                      verticalX={verticalX}
+                      xName={spec.variable ?? "x"}
+                      yName="y"
+                      width={plot.width}
+                      height={plot.height}
+                      pad={GRAPH_AXIS_PAD}
+                      theme={theme}
+                      viewport={skiaViewport}
+                    />
+                  </Suspense>
                 </View>
-              </GestureDetector>
+              ) : (
+                <GestureDetector gesture={gesture}>
+                  <View
+                    collapsable={false}
+                    pointerEvents="box-only"
+                    accessible
+                    accessibilityLabel={t("rich.graph_plot_a11y")}
+                    onLayout={onPlotLayout}
+                    style={styles.modalPlot}
+                  >
+                    <GraphCanvas
+                      spec={spec}
+                      theme={theme}
+                      clipId={clipId}
+                      width={plot.width}
+                      height={plot.height}
+                      bounds={bounds}
+                      drawn={drawn}
+                      verticalX={verticalX}
+                    />
+                  </View>
+                </GestureDetector>
+              )}
               {editor}
             </Animated.View>
           </KeyboardAvoidingView>
         </GestureHandlerRootView>
       ) : null}
-    </Modal>
+    </FullScreenModal>
   );
 }
 
@@ -333,7 +462,7 @@ function SeriesList({
           accessibilityLabel={t("rich.graph_add_function")}
           style={styles.addBtn}
         >
-          <Icon name="add-outline" size={16} color={theme.primary} />
+          <Icon name="plus" size={IconSize.xs} color={theme.primary} />
           <Text style={styles.addText}>{t("rich.graph_add_function")}</Text>
         </Pressable>
       ) : null}
@@ -384,7 +513,7 @@ function SeriesRow({
         spellCheck={false}
         accessibilityLabel={t("rich.graph_expr_a11y")}
         testID={inputId}
-        placeholder="y = x^2"
+        placeholder={t("rich.graph_expr_placeholder")}
         placeholderTextColor={theme.textSecondary}
         style={[
           styles.input,
@@ -403,8 +532,8 @@ function SeriesRow({
             style={styles.iconBtn}
           >
             <Icon
-              name={row.visible ? "eye-outline" : "eye-off-outline"}
-              size={18}
+              name={row.visible ? "eye" : "eye-off"}
+              size={IconSize.sm}
               color={theme.textSecondary}
             />
           </Pressable>
@@ -416,7 +545,7 @@ function SeriesRow({
             hitSlop={8}
             style={styles.iconBtn}
           >
-            <Icon name="trash-outline" size={18} color={theme.textSecondary} />
+            <Icon name="trash" size={IconSize.sm} color={theme.textSecondary} />
           </Pressable>
         </>
       )}
@@ -441,7 +570,7 @@ const makeExplorerStyles = (theme: Theme) =>
       right: 8,
       width: 32,
       height: 32,
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
       backgroundColor: theme.bg,
@@ -468,12 +597,16 @@ const makeExplorerStyles = (theme: Theme) =>
     },
     closeBtn: {
       alignSelf: "flex-start",
-      padding: Space.xs,
-      marginLeft: Space.xs,
+      marginLeft: Space.sm,
     },
     modalPlot: {
       flex: 1,
       minHeight: MODAL_PLOT_MIN,
+    },
+    skiaLoading: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
     },
     modalList: {
       flexGrow: 0,
@@ -484,12 +617,12 @@ const makeExplorerStyles = (theme: Theme) =>
       paddingHorizontal: Space.md,
       paddingTop: Space.xs,
       paddingBottom: Space.sm,
-      gap: 8,
+      gap: Space.xs,
     },
     list: {
       alignSelf: "stretch",
-      marginTop: 8,
-      gap: 8,
+      marginTop: Space.xs,
+      gap: Space.xs,
     },
     row: {
       flexDirection: "row",
@@ -517,14 +650,14 @@ const makeExplorerStyles = (theme: Theme) =>
       opacity: 0.4,
     },
     iconBtn: {
-      padding: 4,
+      padding: Space.xxs,
     },
     addBtn: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
+      gap: Space.xxs,
       alignSelf: "flex-start",
-      paddingVertical: 4,
+      paddingVertical: Space.xxs,
     },
     addText: {
       fontSize: 14,

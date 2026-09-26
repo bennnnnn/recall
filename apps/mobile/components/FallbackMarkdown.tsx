@@ -19,6 +19,9 @@ import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
 import { fenceIdForLang } from "@/lib/fenceRegistry";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type, Weight } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 // react-native-markdown-display's AST exposes the fence's language tag as
 // `sourceInfo`, not `info` — see markdownFenceRender.tsx's FenceNode.
@@ -146,22 +149,22 @@ function renderFallbackFence(
 
 function makeMdStyles(t: Theme) {
   return StyleSheet.create({
-    body: { color: t.assistantText, fontSize: 16, lineHeight: 24 },
+    body: { ...Type.body, color: t.assistantText, lineHeight: 24 },
     code_inline: inlineCodeTextStyle(t),
-    heading1: { fontSize: 20, fontWeight: "700", marginVertical: 8 },
-    heading2: { fontSize: 18, fontWeight: "700", marginVertical: 6 },
-    heading3: { fontSize: 16, fontWeight: "600", marginVertical: 4 },
-    heading4: { fontSize: 15, fontWeight: "600", marginVertical: 4, color: t.text },
-    heading5: { fontSize: 14, fontWeight: "600", marginVertical: 2, color: t.text },
-    heading6: { fontSize: 13, fontWeight: "600", marginVertical: 2, color: t.text },
-    strong: { fontWeight: "700" },
+    heading1: { ...Type.title, ...Weight.bold, marginVertical: Space.xs },
+    heading2: { ...Type.h2, marginVertical: 6 },
+    heading3: { ...Type.h4, ...Weight.semibold, marginVertical: Space.xxs },
+    heading4: { ...Type.callout, marginVertical: Space.xxs, color: t.text },
+    heading5: { ...Type.label, marginVertical: 2, color: t.text },
+    heading6: { ...Type.compact, ...Weight.semibold, marginVertical: 2, color: t.text },
+    strong: { ...Weight.bold },
     blockquote: {
       borderLeftWidth: 3,
       borderLeftColor: t.primary,
-      paddingLeft: 12,
-      marginVertical: 8,
+      paddingLeft: Space.sm,
+      marginVertical: Space.xs,
     },
-    table: { marginVertical: 8 },
+    table: { marginVertical: Space.xs },
     link: { color: t.primary },
   });
 }
@@ -170,26 +173,27 @@ function makeFenceStyles(t: Theme) {
   return StyleSheet.create({
     codeWrap: {
       backgroundColor: t.codeBg,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      marginVertical: 8,
+      marginVertical: Space.xs,
       overflow: "hidden",
     },
     lang: {
-      fontSize: 11,
-      fontWeight: "600",
+      ...Type.overline,
+      ...Weight.semibold,
+      letterSpacing: 0,
       color: t.codeLang,
       textTransform: "lowercase",
-      paddingHorizontal: 12,
-      paddingTop: 8,
+      paddingHorizontal: Space.sm,
+      paddingTop: Space.xs,
     },
     code: {
+      ...Type.compact,
       fontFamily: CODE_FONT,
-      fontSize: 13,
       lineHeight: 20,
       color: t.text,
-      padding: 12,
+      padding: Space.sm,
     },
   });
 }
@@ -200,19 +204,19 @@ function makeCalloutStyles(t: Theme) {
       backgroundColor: t.contentSurface,
       borderLeftWidth: 3,
       borderLeftColor: t.primary,
-      borderRadius: 8,
-      paddingHorizontal: 12,
+      borderRadius: Radius.xs,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
-      marginVertical: 8,
+      marginVertical: Space.xs,
     },
     label: {
-      fontSize: 12,
-      fontWeight: "700",
+      ...Type.caption,
+      ...Weight.bold,
       color: t.primary,
       textTransform: "uppercase",
       letterSpacing: 0.5,
-      marginBottom: 4,
+      marginBottom: Space.xxs,
     },
-    body: { fontSize: 15, lineHeight: 21, color: t.text },
+    body: { ...Type.callout, ...Weight.regular, lineHeight: 21, color: t.text },
   });
 }

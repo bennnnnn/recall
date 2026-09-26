@@ -1,7 +1,8 @@
 import { hasSettingsProposalFence } from "@/lib/settingsProposal";
 
-/** Typical bubble height for FlashList layout hints (variable-height items). */
-export const ESTIMATED_MESSAGE_HEIGHT = 88;
+// Note: no estimatedItemSize / size hints here — FlashList v2 measures items
+// itself and `overrideItemLayout` only supports span. Recycling quality comes
+// from `getItemType` (messageListItemType below).
 
 /** Delay post-stream rich chrome (sources, full markdown) so layout settles once. */
 export const STREAM_LAYOUT_SETTLE_MS = 280;
@@ -85,6 +86,9 @@ export function messageListItemType(item: {
 }): string {
   if (item.role !== "assistant") return item.role;
   const content = item.content ?? "";
+  // Cheap gate: proposal cards always carry a fenced block, and most messages
+  // have none — skip the full-content regex scans for them.
+  if (!content.includes("```")) return "assistant";
   if (CALENDAR_PROPOSAL_FENCE_RE.test(content)) return "assistant-calendar";
   if (hasSettingsProposalFence(content)) return "assistant-settings";
   return "assistant";

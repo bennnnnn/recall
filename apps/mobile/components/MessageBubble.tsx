@@ -1,23 +1,23 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { CalendarProposalCard } from "@/components/CalendarProposalCard";
+import { CalendarProposalCard } from "@/features/integrations/components/CalendarProposalCard";
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { UserMessageContent } from "@/components/UserMessageContent";
 import { ChatMessageImageStrip } from "@/components/ChatMessageImageStrip";
-import { ImageGenPlaceholder } from "@/components/ImageGenPlaceholder";
-import { ActionShimmer } from "@/components/ActionShimmer";
+import { ImageGenPlaceholder } from "@/features/images/components/ImageGenPlaceholder";
+import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
-import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
+import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
-import { LearningLaunchButton } from "@/components/LearningLaunchButton";
-import { AssistantMessageScope } from "@/contexts/emailDraftPersist";
+import { LearningLaunchButton } from "@/features/learning/components/LearningLaunchButton";
+import { AssistantMessageScope } from "@/features/integrations/context/emailDraftPersist";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
@@ -28,13 +28,16 @@ import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
-import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
+import { Type } from "@/lib/type";
+import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
 import { speechLocale } from "@/lib/i18n/languages";
 import { useAuth, useAuthToken } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useTranslation } from "react-i18next";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 type Props = {
   message: Message;
@@ -65,6 +68,29 @@ function userMessageCopyText(content: string): string {
   return caption || content.trim();
 }
 
+function useCopyFeedback() {
+  const [copied, setCopied] = useState(false);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showCopied = useCallback(() => {
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    setCopied(true);
+    resetTimerRef.current = setTimeout(() => {
+      resetTimerRef.current = null;
+      setCopied(false);
+    }, 1500);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    },
+    [],
+  );
+
+  return { copied, showCopied };
+}
+
 function UserActions({
   content,
   theme,
@@ -73,15 +99,13 @@ function UserActions({
   theme: Theme;
 }) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { copied, showCopied } = useCopyFeedback();
 
   const handleCopy = async () => {
     if (!content.trim()) return;
-    tap();
     await copyText(content);
-    setCopied(true);
+    showCopied();
     notifySuccess();
-    setTimeout(() => setCopied(false), 1500);
   };
 
   return (
@@ -95,7 +119,7 @@ function UserActions({
         accessibilityLabel={t("common.copy")}
       >
         <Icon
-          name={copied ? "checkmark-outline" : "copy-outline"}
+          name={copied ? "check" : "copy"}
           size={IconSize.sm}
           color={copied ? theme.primary : theme.textSecondary}
         />
@@ -130,18 +154,16 @@ function AssistantActions({
   const { user } = useAuth();
   const token = useAuthToken();
   const feedbackApi = useActionFeedbackOptional();
-  const [copied, setCopied] = useState(false);
+  const { copied, showCopied } = useCopyFeedback();
   const [speaking, setSpeaking] = useState(false);
   const speakGenRef = useRef(0);
   const copyPayload = extractPrimaryCopyText(markdown);
 
   const handleCopy = async () => {
     if (!copyPayload.trim()) return;
-    tap();
     await copyText(copyPayload);
-    setCopied(true);
+    showCopied();
     notifySuccess();
-    setTimeout(() => setCopied(false), 1500);
   };
 
   const handleSpeak = async () => {
@@ -196,7 +218,7 @@ function AssistantActions({
             accessibilityLabel={t("common.copy")}
           >
             <Icon
-              name={copied ? "checkmark-outline" : "copy-outline"}
+              name={copied ? "check" : "copy"}
               size={IconSize.sm}
               color={copied ? theme.primary : theme.textSecondary}
             />
@@ -210,7 +232,8 @@ function AssistantActions({
             accessibilityLabel={t("chat.read_aloud_a11y")}
           >
             <Icon
-              name={speaking ? "volume-high" : "volume-high-outline"}
+              name="volume"
+              filled={speaking}
               size={IconSize.sm}
               color={speaking ? theme.primary : theme.textSecondary}
             />
@@ -225,7 +248,8 @@ function AssistantActions({
         accessibilityLabel={t("chat.thumbs_up_a11y")}
       >
         <Icon
-          name={feedback === "up" ? "thumbs-up" : "thumbs-up-outline"}
+          name="thumbs-up"
+          filled={feedback === "up"}
           size={IconSize.sm}
           color={feedback === "up" ? theme.primary : theme.textSecondary}
         />
@@ -238,7 +262,8 @@ function AssistantActions({
         accessibilityLabel={t("chat.thumbs_down_a11y")}
       >
         <Icon
-          name={feedback === "down" ? "thumbs-down" : "thumbs-down-outline"}
+          name="thumbs-down"
+          filled={feedback === "down"}
           size={IconSize.sm}
           color={feedback === "down" ? theme.danger : theme.textSecondary}
         />
@@ -259,7 +284,7 @@ function AssistantActions({
           {regenerating ? (
             <ActivityIndicator size="small" color={theme.primary} />
           ) : (
-            <Icon name="refresh-outline" size={IconSize.sm} color={theme.textSecondary} />
+            <Icon name="refresh" size={IconSize.sm} color={theme.textSecondary} />
           )}
         </Pressable>
       ) : null}
@@ -429,7 +454,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             ) : null}
             {showImages ? <ChatMessageImageStrip images={images} /> : null}
             {showLiveClock ? (
-              <CircularClockBlock content={clockTimezone} />
+              <LazyCircularClockBlock content={clockTimezone} />
             ) : null}
             {hasMarkdown ? (
               <AssistantMessageScope messageId={message.id}>
@@ -509,7 +534,7 @@ const a = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
-    marginTop: 4,
+    marginTop: Space.xxs,
     marginLeft: 2,
   },
   userRow: {
@@ -517,7 +542,7 @@ const a = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 2,
-    marginTop: 4,
+    marginTop: Space.xxs,
     marginRight: 2,
   },
   rowHidden: {
@@ -533,21 +558,21 @@ const a = StyleSheet.create({
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    row: { marginVertical: 6, paddingHorizontal: 16 },
+    row: { marginVertical: 6, paddingHorizontal: Space.md },
     rowHighlighted: {
       backgroundColor: t.primaryLight,
-      borderRadius: 12,
-      marginHorizontal: 8,
-      paddingHorizontal: 8,
+      borderRadius: Radius.md,
+      marginHorizontal: Space.xs,
+      paddingHorizontal: Space.xs,
     },
     userRow: { alignItems: "flex-end" },
     userColumn: { alignItems: "flex-end", maxWidth: "88%" },
     sendingStatus: {
-      marginTop: 4,
-      marginRight: 4,
+      marginTop: Space.xxs,
+      marginRight: Space.xxs,
     },
     sendingLabel: {
-      fontSize: 13,
+      ...Type.compact,
     },
     assistantRow: { alignItems: "stretch" },
     assistantBubble: {
@@ -559,21 +584,21 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      paddingVertical: 4,
+      paddingVertical: Space.xxs,
     },
     imageGenWaitingWrap: {
       flexDirection: "column",
       alignItems: "flex-start",
-      gap: 8,
-      paddingVertical: 4,
+      gap: Space.xs,
+      paddingVertical: Space.xxs,
     },
     statusLabel: {
-      fontSize: 14,
+      ...Type.secondary,
       color: t.textTertiary,
     },
     stoppedFooter: {
-      marginTop: 8,
-      fontSize: 13,
+      marginTop: Space.xs,
+      ...Type.compact,
       color: t.textTertiary,
     },
     actionRowSlot: {

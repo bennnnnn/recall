@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 
-import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
+import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { Space } from "@/lib/space";
 

@@ -11,8 +11,9 @@ Be concrete, not clever. Optimize real bottlenecks — don't gold-plate.
 ## Structure & placement
 - Keep files focused. If one exceeds ~300 lines or mixes concerns, split it (extract hooks,
   components, helpers). Screens stay thin — logic in hooks, not the screen.
-- Put code in the right layer: routers thin → services (logic) → gateways/repositories (IO).
-  Mobile: all network in `lib/api.ts`, UI in components, state/logic in hooks/contexts.
+- Put code in the right owner: migrated backend domains live in `modules/<domain>/`; shared
+  infrastructure stays in `core/`, `gateways/`, and `repositories/`. Mobile product code lives
+  in `features/<feature>/`; feature API slices compose through `lib/api.ts`.
 - No dead code, commented-out blocks, or duplicated logic — extract a shared helper.
 - Name by intent; no magic numbers (use named constants / config).
 

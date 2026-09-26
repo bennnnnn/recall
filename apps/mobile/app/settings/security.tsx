@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { StateView } from "@/components/StateView";
+import { StateView } from "@/ui/feedback/StateView";
+import { SettingsSkeleton } from "@/components/settings/SettingsSkeleton";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -14,9 +16,11 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type AuthSession } from "@/lib/api";
+import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 function formatSeen(iso: string | null, t: (key: string) => string): string {
   if (!iso) return t("settings.unknown_device");
@@ -35,20 +39,23 @@ export default function SecuritySettingsScreen() {
   const feedback = useActionFeedbackOptional();
   const [sessions, setSessions] = useState<AuthSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    setLoadError(false);
     try {
       const data = await api.listSessions(token);
       setSessions(data.sessions ?? []);
     } catch {
-      reportRecoverableError(feedback, t("common.error"));
+      // A failed load must not look like "no other sessions".
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [token, feedback, t]);
+  }, [token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,66 +65,81 @@ export default function SecuritySettingsScreen() {
 
   const revoke = (session: AuthSession) => {
     if (!token || session.current || busyId) return;
-    Alert.alert(t("settings.revoke_session"), t("settings.revoke_session_confirm"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("settings.revoke_session"),
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            if (!token) return;
-            setBusyId(session.id);
-            try {
-              await api.revokeSession(token, session.id);
-              setSessions((rows) => rows.filter((row) => row.id !== session.id));
-            } catch {
-              reportRecoverableError(feedback, t("common.error"));
-            } finally {
-              setBusyId(null);
-            }
-          })();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("settings.revoke_session"),
+      message: t("settings.revoke_session_confirm"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("settings.revoke_session"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        if (!token) return;
+        setBusyId(session.id);
+        try {
+          await api.revokeSession(token, session.id);
+          notifyDestructive();
+          setSessions((rows) => rows.filter((row) => row.id !== session.id));
+        } catch {
+          reportRecoverableError(feedback, t("common.error"));
+        } finally {
+          setBusyId(null);
+        }
+      })();
+    });
   };
 
   const confirmLogoutAll = () => {
     if (!token || busyId) return;
-    Alert.alert(t("settings.sign_out_all"), t("settings.sign_out_all_confirm"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("settings.sign_out_all"),
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            if (!token) return;
-            setBusyId("all");
-            try {
-              await api.logoutAll(token);
-              await signOut();
-              router.replace("/login");
-            } catch {
-              reportRecoverableError(feedback, t("common.error"));
-              setBusyId(null);
-            }
-          })();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("settings.sign_out_all"),
+      message: t("settings.sign_out_all_confirm"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("settings.sign_out_all"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        if (!token) return;
+        setBusyId("all");
+        try {
+          await api.logoutAll(token);
+          await signOut();
+          notifyDestructive();
+          router.replace("/login");
+        } catch {
+          reportRecoverableError(feedback, t("common.error"));
+          setBusyId(null);
+        }
+      })();
+    });
   };
 
   if (!token) return <Redirect href="/login" />;
 
   return (
-    <ScrollView
+    <FlashList
+      data={sessions}
+      keyExtractor={(session) => session.id}
       style={s.scroll}
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-    >
-      {loading && sessions.length === 0 ? (
-        <StateView variant="loading" title={t("settings.security")} />
-      ) : null}
-      {sessions.map((session) => (
-        <SettingsGroup key={session.id} styles={s}>
+      ListEmptyComponent={
+        loading && !loadError ? (
+          <SettingsSkeleton
+            rows={3}
+            contained
+            accessibilityLabel={t("settings.security")}
+          />
+        ) : loadError ? (
+          <StateView
+            variant="error"
+            title={t("common.error")}
+            onRetry={() => void load()}
+          />
+        ) : null
+      }
+      renderItem={({ item: session }) => (
+        <SettingsGroup styles={s}>
           <SettingsValueRow
             title={session.device_label?.trim() || t("settings.unknown_device")}
             subtitle={formatSeen(session.last_seen_at, t)}
@@ -138,16 +160,18 @@ export default function SecuritySettingsScreen() {
             </>
           )}
         </SettingsGroup>
-      ))}
-      <SettingsGroup styles={s}>
-        <SettingsLinkRow
-          title={t("settings.sign_out_all")}
-          danger
-          onPress={confirmLogoutAll}
-          styles={s}
-          theme={theme}
-        />
-      </SettingsGroup>
-    </ScrollView>
+      )}
+      ListFooterComponent={
+        <SettingsGroup styles={s}>
+          <SettingsLinkRow
+            title={t("settings.sign_out_all")}
+            danger
+            onPress={confirmLogoutAll}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
+      }
+    />
   );
 }

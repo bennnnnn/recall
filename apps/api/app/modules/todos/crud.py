@@ -1,0 +1,204 @@
+"""HTTP-facing todos CRUD (create/update/delete + home cache invalidate)."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from uuid import UUID
+
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.orm import TodoItem, User
+from app.modules import home as home_service
+from app.modules.todos import repository as todos_repo
+from app.modules.todos.recurrence import (
+    RecurrenceRule,
+    is_recurrence_rule,
+    next_recurring_due,
+    snap_first_due,
+)
+from app.modules.todos.schedule_repository import TodoScheduleSnapshot, advance_schedules_if_current
+from app.repositories import chats as chats_repo
+from app.services.time_context import normalize_due_at
+
+
+class TodosError(Exception):
+    def __init__(self, detail: str, *, status_code: int) -> None:
+        self.detail = detail
+        self.status_code = status_code
+        super().__init__(detail)
+
+
+async def list_todos(
+    session: AsyncSession, user: User, *, limit: int = 1000, offset: int = 0
+) -> list[TodoItem]:
+    items = await todos_repo.list_for_user(session, user.id, limit=limit, offset=offset)
+    if not user.push_notifications_enabled and await _advance_past_recurring(
+        session, items, timezone=user.timezone
+    ):
+        # Reload both successful advances and concurrent edits/deletions.
+        items = await todos_repo.list_for_user(
+            session, user.id, limit=limit, offset=offset, populate_existing=True
+        )
+        await home_service.invalidate_home_cache(user.id)
+    return items
+
+
+async def list_todos_page(
+    session: AsyncSession,
+    user: User,
+    *,
+    limit: int = 1000,
+    cursor: UUID | None = None,
+) -> tuple[list[TodoItem], UUID | None]:
+    user_id = user.id
+    selected = await todos_repo.list_after_id(session, user_id, limit=limit + 1, cursor=cursor)
+    items = selected[:limit]
+    page_ids = [item.id for item in items]
+    # Preserve this boundary even when catch-up races a deletion of the last row.
+    next_cursor = page_ids[-1] if len(selected) > limit else None
+    if not user.push_notifications_enabled and await _advance_past_recurring(
+        session, items, timezone=user.timezone
+    ):
+        items = await todos_repo.list_by_ids(session, user_id, page_ids)
+        await home_service.invalidate_home_cache(user_id)
+    return items, next_cursor
+
+
+async def list_topics(session: AsyncSession, user: User) -> list[str]:
+    return await todos_repo.list_topics(session, user.id)
+
+
+async def create_todo(
+    session: AsyncSession,
+    user: User,
+    *,
+    content: str,
+    topic: str | None,
+    chat_id: UUID | None,
+    project_id: UUID | None,
+    due_at: datetime | None,
+    recurrence_rule: RecurrenceRule | None = None,
+) -> TodoItem:
+    if chat_id is not None:
+        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        if chat is None:
+            raise TodosError("Chat not found", status_code=400)
+    if project_id is not None:
+        raise TodosError("To-dos cannot be linked to a Learning project", status_code=400)
+    normalized_due = normalize_due_at(due_at, user.timezone)
+    if normalized_due is not None and recurrence_rule:
+        normalized_due = snap_first_due(normalized_due, recurrence_rule, timezone=user.timezone)
+    if normalized_due is None:
+        recurrence_rule = None
+    try:
+        item = await todos_repo.create(
+            session,
+            user_id=user.id,
+            content=content,
+            topic=topic or todos_repo.DEFAULT_TOPIC,
+            chat_id=chat_id,
+            project_id=project_id,
+            due_at=normalized_due,
+            recurrence_rule=recurrence_rule,
+        )
+    except IntegrityError as exc:
+        if not todos_repo.is_open_content_due_conflict(exc) or normalized_due is None:
+            raise
+        await session.rollback()
+        existing = await todos_repo.get_open_dated_duplicate(
+            session, user.id, content=content, due_at=normalized_due
+        )
+        if existing is None:
+            raise
+        return existing
+    await home_service.invalidate_home_cache(user.id)
+    return item
+
+
+async def reorder_todos(
+    session: AsyncSession,
+    user: User,
+    items: list[tuple[UUID, int, str | None]],
+) -> list[TodoItem]:
+    reordered = await todos_repo.reorder(session, user.id, items)
+    await home_service.invalidate_home_cache(user.id)
+    return reordered
+
+
+async def update_todo(
+    session: AsyncSession,
+    user: User,
+    todo_id: UUID,
+    fields: dict,
+) -> TodoItem:
+    item = await todos_repo.get_by_id(session, todo_id, user.id)
+    if not item:
+        raise TodosError("Todo not found", status_code=404)
+    patch = dict(fields)
+    if "project_id" in patch:
+        raise TodosError("To-dos cannot be linked to a Learning project", status_code=400)
+    if "due_at" in patch:
+        if patch["due_at"] is None:
+            if is_recurrence_rule(patch.get("recurrence_rule")):
+                raise TodosError("recurrence_rule requires due_at", status_code=422)
+            # An undated item cannot recur. Clearing its date therefore clears
+            # the repeat rule atomically instead of leaving an invalid pair.
+            patch["recurrence_rule"] = None
+        else:
+            patch["due_at"] = normalize_due_at(patch["due_at"], user.timezone)
+    rule = patch.get("recurrence_rule", item.recurrence_rule)
+    due = patch["due_at"] if "due_at" in patch else item.due_at
+    if is_recurrence_rule(rule) and due is None:
+        raise TodosError("recurrence_rule requires due_at", status_code=422)
+    if due is not None and is_recurrence_rule(rule):
+        patch["due_at"] = snap_first_due(due, rule, timezone=user.timezone)
+    updated = await todos_repo.update(session, item, **patch)
+    await home_service.invalidate_home_cache(user.id)
+    return updated
+
+
+async def _advance_past_recurring(
+    session: AsyncSession,
+    items: list[TodoItem],
+    *,
+    timezone: str | None,
+    now: datetime | None = None,
+) -> bool:
+    when = now or datetime.now(UTC)
+    advances = []
+    for item in items:
+        rule = item.recurrence_rule
+        if item.checked or item.due_at is None or not is_recurrence_rule(rule):
+            continue
+        if item.due_at > when:
+            continue
+        advances.append(
+            (
+                TodoScheduleSnapshot.from_todo(item),
+                next_recurring_due(item.due_at, rule, now=when, timezone=timezone),
+            )
+        )
+    if not advances:
+        return False
+    try:
+        await advance_schedules_if_current(session, advances)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    return True
+
+
+async def delete_todo(session: AsyncSession, user: User, todo_id: UUID) -> None:
+    deleted = await todos_repo.delete_by_id(session, todo_id, user.id)
+    if not deleted:
+        raise TodosError("Todo not found", status_code=404)
+    await home_service.invalidate_home_cache(user.id)
+
+
+async def delete_topic(session: AsyncSession, user: User, topic: str) -> None:
+    removed = await todos_repo.delete_by_topic(session, user.id, topic)
+    if not removed:
+        raise TodosError("List not found", status_code=404)
+    await home_service.invalidate_home_cache(user.id)

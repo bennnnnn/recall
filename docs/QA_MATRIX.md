@@ -3,7 +3,7 @@
 Manual QA checklist for iOS and Android before store submission. Run against a **dev build** (not Expo Go) for native features; use **Expo Go + Dev User** for quick smoke only.
 
 **Automated backend smoke (no device):** `./scripts/qa-smoke.sh`  
-**Full local gate:** `./scripts/check.sh`
+**Full local gate:** `./scripts/dev.sh check` (same as `./scripts/check.sh`)
 
 ---
 
@@ -80,10 +80,15 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 |---|------|-----|---------|-------|
 | 5.1 | Memory screen — view + delete | ☐ | ☐ | |
 | 5.2 | Memory toggle in Settings | ☐ | ☐ | |
-| 5.3 | Todos CRUD + reminders | ☐ | ☐ | |
-| 5.4 | Learning project — vocab quiz flow | ☐ | ☐ | |
-| 5.5 | Trivia project quiz | ☐ | ☐ | |
-| 5.6 | Home suggestions load | ☐ | ☐ | |
+| 5.3 | Natural profile fact carries into a new chat | ☐ | ☐ | Say “As a software engineer at Uber…” without “remember”; later advice should use it naturally |
+| 5.4 | Durable reply preference is learned and applied | ☐ | ☐ | “From now on, keep answers concise and scannable”; a later unrelated turn should follow it without announcing memory |
+| 5.5 | “What do you know about me?” gives a safe useful summary | ☐ | ☐ | Work, interests, preferences, goals, projects are allowed; never dump email, exact location, inbox, schedule, or sensitive facts |
+| 5.6 | Relevant detail from an older chat is recalled on an ordinary turn | ☐ | ☐ | User should not need to say “remember” or “last time” |
+| 5.7 | Correction and forget commands update recall | ☐ | ☐ | New employer supersedes old; explicit forget removes the fact from future prompts |
+| 5.8 | Todos CRUD + reminders | ☐ | ☐ | |
+| 5.9 | Learning project — vocab quiz flow | ☐ | ☐ | |
+| 5.10 | Trivia project quiz | ☐ | ☐ | |
+| 5.11 | Home suggestions load | ☐ | ☐ | |
 
 ---
 
@@ -209,6 +214,38 @@ These need a **dev build on hardware**. Simulator FPS and memory are not evidenc
 | 15.8 | 10 minutes of mixed chat (send, scroll, open drawer, rotate if Android) | ☐ | ☐ | Thermal/jank after warmup. Stop if the OS kills the app. |
 
 **Pass bar:** the chat remains usable (scroll, send, stop) on the low-end Android. Cosmetic hitch on first WebView mount is OK; a multi-second freeze or crash is a blocker.
+
+---
+
+## 16. Accessibility layout stress
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 16.1 | Maximum system text size / Dynamic Type | ☐ | n/a | Chat title, multiline messages, count pills, Settings, sheets, and composer text do not clip; first chat row stays below the measured header. |
+| 16.2 | Maximum Android font size and display size | n/a | ☐ | Repeat 16.1; math tabs, converter keys, unit chips, swap, and close controls remain reachable and at least 44dp. |
+| 16.3 | Narrow phone portrait layout | ☐ | ☐ | Use the narrowest supported simulator/emulator; long translated labels wrap or truncate intentionally without overlapping header actions. Open and close the drawer and confirm the first message keeps its inset. |
+| 16.4 | Reduce Motion enabled | ☐ | ☐ | Navigation, drawer, sheets, lesson transitions, streaming chrome, and loading states remain understandable without required motion or flicker. |
+
+---
+
+## 17. UI kit (menus, dialogs, pickers, share)
+
+Rebuild the dev client once first: the native date/time picker module was removed.
+**Settings → About → UI kit** (dev builds) shows every piece in one place.
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 17.1 | Chat ⋮, drawer long-press, To-dos ⋮, My Job ⋮, photo viewer ⋮ open the same popover | ☐ | ☐ | Drops from the button (or the finger), flips above near the bottom edge, closes on outside tap and Android back. |
+| 17.2 | Delete a chat, a to-do and a photo | ☐ | ☐ | Themed dialog with a red Delete; Cancel and outside tap keep the item. |
+| 17.3 | Open a confirm or a picker from inside the to-do editor sheet | ☐ | ☐ | Floats above the sheet (iOS `FullWindowOverlay`); the sheet stays put. |
+| 17.4 | Quiet hours start: tap 9 on the dial, then drag to 31 | ☐ | ☐ | Hand glides, number under it turns white, a tick per number, hour then minutes, OK saves. |
+| 17.5 | Time picker keyboard mode | ☐ | ☐ | The keyboard does not cover OK; 13 on a 12-hour clock turns red and disables OK. |
+| 17.6 | 24-hour device setting | ☐ | ☐ | Inner ring shows 00 and 13–23; no AM/PM. |
+| 17.7 | To-do date: arrows, swipe, and the year list | ☐ | ☐ | Week starts on the locale's day; today has a ring; OK keeps the time of day. |
+| 17.8 | My Job first delivery | ☐ | ☐ | Date, then time; past days greyed. |
+| 17.9 | Chat ⋮ → Share | ☐ | ☐ | Share sheet appears, the OS share menu opens on top; after closing it, Copy shows a check and PDF exports. |
+| 17.10 | TalkBack / VoiceOver on the clock dial | ☐ | ☐ | One adjustable control; swipe up/down changes the value; the time is read out. |
+| 17.11 | Light and dark mode on the pickers, share sheet, menus and header plates | ☐ | ☐ | Dial and boxes stand out from the dialog in dark mode. |
 
 ---
 

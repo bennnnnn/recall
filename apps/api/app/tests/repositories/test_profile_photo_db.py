@@ -9,7 +9,8 @@ from sqlalchemy import select, update
 
 from app.core.config import Settings
 from app.models.orm import Attachment, User
-from app.repositories import attachments, users
+from app.modules.attachments import repository as attachments
+from app.repositories import users
 from app.services import account_lifecycle, auth
 
 

@@ -1,10 +1,31 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 
 import ModelsSettingsScreen from "@/app/settings/models";
 
 const mockUpdateUser = jest.fn();
+const mockBuildModelPreferences = jest.fn(
+  (_auto: boolean, modelIds: Set<string>) => [...modelIds],
+);
+let mockIsPro = true;
+let mockAutoEnabled = true;
+let mockEnabledModelIds = ["free-chat"];
+let mockUpgradeVisible = false;
+let mockModels = [
+  {
+    id: "free-chat",
+    label: "Flash",
+    description: "",
+    tier: "flash",
+    plan_access: "free",
+    available: true,
+    input_price_per_m: 0,
+    output_price_per_m: 0,
+    quota_multiplier: 1,
+    healthy: true,
+    latency_p50_ms: 1214,
+  },
+];
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -23,9 +44,33 @@ jest.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 jest.mock("@/hooks/useModels", () => ({
-  buildModelPreferences: () => ["free-chat"],
+  buildModelPreferences: (...args: [boolean, Set<string>]) => mockBuildModelPreferences(...args),
   useModels: () => ({
-    models: [
+    models: mockModels,
+    isPro: mockIsPro,
+    autoEnabled: mockAutoEnabled,
+    modelEnabledSet: new Set(mockEnabledModelIds),
+  }),
+}));
+jest.mock("@/contexts/actionFeedbackCore", () => ({
+  useActionFeedbackOptional: () => null,
+}));
+jest.mock("@/components/UpgradeSheet", () => ({
+  UpgradeSheet: ({ visible }: { visible: boolean }) => {
+    mockUpgradeVisible = visible;
+    return null;
+  },
+}));
+
+describe("models settings", () => {
+  beforeEach(() => {
+    mockUpdateUser.mockReset().mockResolvedValue(undefined);
+    mockBuildModelPreferences.mockClear();
+    mockIsPro = true;
+    mockAutoEnabled = true;
+    mockEnabledModelIds = ["free-chat"];
+    mockUpgradeVisible = false;
+    mockModels = [
       {
         id: "free-chat",
         label: "Flash",
@@ -39,22 +84,7 @@ jest.mock("@/hooks/useModels", () => ({
         healthy: true,
         latency_p50_ms: 1214,
       },
-    ],
-    isPro: true,
-    autoEnabled: true,
-    modelEnabledSet: new Set(["free-chat"]),
-  }),
-}));
-jest.mock("@/contexts/actionFeedbackCore", () => ({
-  useActionFeedbackOptional: () => null,
-}));
-jest.mock("@/components/UpgradeSheet", () => ({
-  UpgradeSheet: () => null,
-}));
-
-describe("models settings", () => {
-  beforeEach(() => {
-    mockUpdateUser.mockReset().mockResolvedValue(undefined);
+    ];
   });
 
   it("keeps model controls without Usage or Advanced diagnostics", async () => {
@@ -74,5 +104,79 @@ describe("models settings", () => {
     const { getByText } = await render(<ModelsSettingsScreen />);
     await fireEvent.press(getByText("settings.model_auto"));
     expect(mockUpdateUser).toHaveBeenCalledWith({ enabled_models: ["free-chat"] });
+  });
+
+  it("keeps the last enabled model protected when Auto is off", async () => {
+    mockAutoEnabled = false;
+    const { getByRole } = await render(<ModelsSettingsScreen />);
+
+    expect(getByRole("switch", { name: "Flash" }).props.accessibilityState).toEqual({
+      checked: true,
+      disabled: true,
+    });
+  });
+
+  it("preserves degraded metadata and disables an unavailable model", async () => {
+    mockModels = [
+      {
+        ...mockModels[0],
+        id: "offline-chat",
+        label: "Offline",
+        available: false,
+        healthy: false,
+      },
+    ];
+    mockEnabledModelIds = [];
+    const { getByRole, getByText } = await render(<ModelsSettingsScreen />);
+
+    expect(getByText("settings.model_degraded")).toBeTruthy();
+    expect(getByRole("switch", { name: "Offline" }).props.accessibilityState).toEqual({
+      checked: false,
+      disabled: true,
+    });
+  });
+
+  it("keeps Pro-locked model rows actionable for the upgrade sheet", async () => {
+    mockIsPro = false;
+    mockModels = [
+      {
+        ...mockModels[0],
+        id: "smart-chat",
+        label: "Smart",
+        plan_access: "pro",
+      },
+    ];
+    mockEnabledModelIds = [];
+    const { getByRole, getByText } = await render(<ModelsSettingsScreen />);
+    const smartSwitch = getByRole("switch", { name: "Smart" });
+
+    expect(getByText("settings.account_pro")).toBeTruthy();
+    expect(smartSwitch.props.accessibilityState.disabled).toBe(false);
+    await fireEvent.press(smartSwitch);
+    expect(mockUpgradeVisible).toBe(true);
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it("rolls controlled model draft state back after a failed save", async () => {
+    mockAutoEnabled = false;
+    mockModels = [
+      mockModels[0],
+      { ...mockModels[0], id: "balanced-chat", label: "Balanced" },
+    ];
+    let reject!: (error: Error) => void;
+    mockUpdateUser.mockReturnValueOnce(
+      new Promise((_resolve, rejectPromise) => {
+        reject = rejectPromise;
+      }),
+    );
+    const { getByRole } = await render(<ModelsSettingsScreen />);
+
+    await fireEvent.press(getByRole("switch", { name: "Balanced" }));
+    expect(getByRole("progressbar")).toBeTruthy();
+
+    await act(async () => {
+      reject(new Error("offline"));
+    });
+    expect(getByRole("switch", { name: "Balanced" }).props.accessibilityState.checked).toBe(false);
   });
 });

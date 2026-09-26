@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Platform,
   Pressable,
@@ -14,24 +13,22 @@ import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AuthScrollLayout } from "@/components/AuthScrollLayout";
-import { Button } from "@/components/Button";
-import { Icon } from "@/components/Icon";
+import { Button } from "@/ui/controls/Button";
+import { BrandMark } from "@/ui/icons/brand";
+import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
-import {
-  formatAppleSignInError,
-  shouldShowAppleSignInButton,
-} from "@/lib/apple-auth";
+import { useLoginActions } from "@/hooks/useLoginActions";
+import { shouldShowAppleSignInButton } from "@/lib/apple-auth";
 import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
-import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
-import { tap } from "@/lib/haptics";
+import { isExpoGo } from "@/lib/google-auth";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Space } from "@/lib/space";
 import { shadowGlow } from "@/lib/shadow";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
+import { Radius } from "@/lib/radius";
 
 /** Frosted-glass tint over the hero gradient — deliberately theme-invariant
  * white, unlike the primary-tinted border below (which DOES follow theme). */
@@ -40,20 +37,17 @@ const GLASS_WHITE = "#FFFFFF";
 const APP_ICON = require("@/assets/images/icon.png");
 
 const HIGHLIGHTS = [
-  { icon: "school-outline" as const, labelKey: "login.highlight_learn" },
-  { icon: "calendar-outline" as const, labelKey: "login.highlight_organize" },
+  { icon: "graduation-cap" as const, labelKey: "login.highlight_learn" },
+  { icon: "calendar" as const, labelKey: "login.highlight_organize" },
 ];
 
 export default function LoginScreen() {
-  const { token, loading, onboarded, signInWithApple, signInWithGoogle, signInWithDev } =
-    useAuth();
+  const { token, loading, onboarded } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const feedback = useActionFeedbackOptional();
-  const busyRef = useRef(false);
-  const [busyProvider, setBusyProvider] = useState<"apple" | "google" | "dev" | null>(null);
-  const busy = busyProvider !== null;
+  const { busyProvider, busy, handleApple, handleGoogle, handleDev } =
+    useLoginActions();
   const showDevLogin = config.devAuthEnabled && __DEV__;
   const showGoogleLogin =
     !isExpoGo() &&
@@ -62,10 +56,6 @@ export default function LoginScreen() {
   const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
   const expoGoIos = isExpoGo() && Platform.OS === "ios";
   const expoGoAndroid = isExpoGo() && Platform.OS === "android";
-  const showSignInError = (message: string) => {
-    if (feedback) feedback.error(message);
-    else Alert.alert(t("login.sign_in_failed"), message);
-  };
 
   if (loading) {
     return (
@@ -78,80 +68,6 @@ export default function LoginScreen() {
   if (token) return <Redirect href="/" />;
   if (!onboarded) return <Redirect href="/onboarding" />;
 
-  const signInErrorMessage = (error: unknown, provider: "google" | "apple") => {
-    const key =
-      provider === "google" ? formatGoogleSignInError(error) : formatAppleSignInError(error);
-    if (key === "cancelled") return null;
-    if (key === "bundle_load_failed") return t("login.error_bundle");
-    if (key === "native_module_missing") return t("login.error_native_module");
-    if (key === "not_configured") return t("login.error_not_configured");
-    if (key === "android_oauth_setup") return t("login.error_android_google");
-    if (key === "generic") return t("login.error_generic");
-    return key;
-  };
-
-  const handleApple = async () => {
-    if (busyRef.current) return;
-    tap();
-    busyRef.current = true;
-    setBusyProvider("apple");
-    try {
-      await signInWithApple();
-    } catch (e) {
-      const message = signInErrorMessage(e, "apple");
-      if (message) showSignInError(message);
-    } finally {
-      busyRef.current = false;
-      setBusyProvider(null);
-    }
-  };
-
-  const handleGoogle = async () => {
-    if (busyRef.current) return;
-    tap();
-    if (isExpoGo()) {
-      Alert.alert(
-        t("login.google_unavailable_title"),
-        t("login.google_unavailable_body"),
-      );
-      return;
-    }
-    if (!isGoogleWebClientConfigured()) {
-      showSignInError(t("login.error_not_configured"));
-      return;
-    }
-    if (Platform.OS === "ios" && !isGoogleSignInConfigured()) {
-      showSignInError(t("login.error_not_configured"));
-      return;
-    }
-    busyRef.current = true;
-    setBusyProvider("google");
-    try {
-      await signInWithGoogle();
-    } catch (e) {
-      const message = signInErrorMessage(e, "google");
-      if (message) showSignInError(message);
-    } finally {
-      busyRef.current = false;
-      setBusyProvider(null);
-    }
-  };
-
-  const handleDev = async () => {
-    if (busyRef.current) return;
-    tap();
-    busyRef.current = true;
-    setBusyProvider("dev");
-    try {
-      await signInWithDev();
-    } catch (e) {
-      showSignInError(e instanceof Error ? e.message : t("login.error_generic"));
-    } finally {
-      busyRef.current = false;
-      setBusyProvider(null);
-    }
-  };
-
   const gradientColors = [theme.primaryLight, theme.bg] as const;
 
   return (
@@ -159,16 +75,16 @@ export default function LoginScreen() {
       <AuthScrollLayout justify="space-between">
         <View style={s.hero}>
           <View style={s.logoGlow}>
-            <Image source={APP_ICON} style={s.logo} accessibilityLabel="Recall" />
+            <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
           </View>
-          <Text style={s.title}>Recall</Text>
+          <Text style={s.title}>{t("app.name")}</Text>
           <Text style={s.subtitle}>{t("login.tagline")}</Text>
 
           <View style={s.highlights}>
             {HIGHLIGHTS.map((item) => (
               <View key={item.labelKey} style={s.highlight}>
                 <View style={s.highlightIcon}>
-                  <Icon name={item.icon} size={16} color={theme.primary} />
+                  <Icon name={item.icon} size={IconSize.xs} color={theme.primary} />
                 </View>
                 <Text style={s.highlightText}>{t(item.labelKey)}</Text>
               </View>
@@ -180,7 +96,7 @@ export default function LoginScreen() {
           {expoGoAndroid && showDevLogin ? (
             <>
               <View style={s.devBanner}>
-                <Icon name="information-circle-outline" size={18} color={theme.primary} />
+                <Icon name="info" size={IconSize.sm} color={theme.primary} />
                 <Text style={s.devBannerText}>{t("login.dev_expo_hint")}</Text>
               </View>
               <Button
@@ -196,7 +112,7 @@ export default function LoginScreen() {
             <>
               {expoGoIos ? (
                 <View style={s.devBanner}>
-                  <Icon name="information-circle-outline" size={18} color={theme.primary} />
+                  <Icon name="info" size={IconSize.sm} color={theme.primary} />
                   <Text style={s.devBannerText}>{t("login.dev_expo_ios_hint")}</Text>
                 </View>
               ) : null}
@@ -217,7 +133,7 @@ export default function LoginScreen() {
                     <ActivityIndicator color={theme.brand.appleInk} />
                   ) : (
                     <>
-                      <Icon name="logo-apple" size={IconSize.sm} color={theme.brand.appleInk} />
+                      <BrandMark name="apple" size={IconSize.sm} color={theme.brand.appleInk} />
                       <Text style={s.appleText}>{t("login.apple")}</Text>
                     </>
                   )}
@@ -240,14 +156,14 @@ export default function LoginScreen() {
                     <ActivityIndicator color={theme.textSecondary} />
                   ) : (
                     <>
-                      <Icon name="logo-google" size={IconSize.sm} color={theme.brand.google} />
+                      <BrandMark name="google" size={IconSize.sm} />
                       <Text style={s.googleText}>{t("login.google")}</Text>
                     </>
                   )}
                 </Pressable>
               ) : showDevLogin && !showAppleLogin ? (
                 <View style={s.devBanner}>
-                  <Icon name="information-circle-outline" size={18} color={theme.primary} />
+                  <Icon name="info" size={IconSize.sm} color={theme.primary} />
                   <Text style={s.devBannerText}>{t("login.error_not_configured")}</Text>
                 </View>
               ) : null}
@@ -349,23 +265,21 @@ function makeStyles(theme: Theme) {
     },
     logoGlow: {
       borderRadius: 28,
-      marginBottom: 20,
+      marginBottom: Space.gutter,
       ...shadowGlow(theme, theme.primary),
     },
     logo: {
       width: 88,
       height: 88,
-      borderRadius: 24,
+      borderRadius: Radius.composer,
     },
     title: {
-      fontSize: 36,
-      fontWeight: "700",
+      ...Type.display,
       color: theme.text,
       letterSpacing: -1,
     },
     subtitle: {
       ...Type.body,
-      lineHeight: 24,
       color: theme.textSecondary,
       marginTop: Space.xs,
       textAlign: "center",
@@ -385,7 +299,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: 6,
       backgroundColor: theme.isDark ? theme.surface : withAlpha(GLASS_WHITE, 0.72),
-      borderRadius: 999,
+      borderRadius: Radius.full,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
       borderWidth: StyleSheet.hairlineWidth,
@@ -394,7 +308,7 @@ function makeStyles(theme: Theme) {
     highlightIcon: {
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       backgroundColor: theme.primaryLight,
       alignItems: "center",
       justifyContent: "center",
@@ -412,7 +326,7 @@ function makeStyles(theme: Theme) {
       alignItems: "flex-start",
       gap: 10,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.08 : 0.5),
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       paddingHorizontal: 14,
       paddingVertical: Space.sm,
       borderWidth: StyleSheet.hairlineWidth,
@@ -423,7 +337,7 @@ function makeStyles(theme: Theme) {
     devBannerText: {
       flex: 1,
       ...Type.caption,
-      fontWeight: "400",
+      ...Weight.regular,
       lineHeight: 19,
       color: theme.textSecondary,
     },
@@ -437,18 +351,18 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       gap: 10,
       width: "100%",
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       paddingVertical: Space.md,
       backgroundColor: theme.brand.apple,
     },
-    appleText: { ...Type.body, fontWeight: "600", color: theme.brand.appleInk },
+    appleText: { ...Type.body, ...Weight.semibold, color: theme.brand.appleInk },
     googleBtn: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 10,
       width: "100%",
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       borderWidth: 1.5,
       borderColor: theme.isDark
         ? withAlpha(GLASS_WHITE, 0.12)
@@ -456,7 +370,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: Space.md,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.08 : 0.55),
     },
-    googleText: { ...Type.body, fontWeight: "600", color: theme.text },
+    googleText: { ...Type.body, ...Weight.semibold, color: theme.text },
     orText: {
       ...Type.caption,
       color: theme.textTertiary,
@@ -466,7 +380,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "center",
       width: "100%",
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       borderWidth: 1.5,
       borderColor: theme.isDark
         ? withAlpha(GLASS_WHITE, 0.12)
@@ -474,7 +388,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: 14,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.06 : 0.45),
     },
-    devSecondaryText: { ...Type.secondary, fontWeight: "600", color: theme.primary },
+    devSecondaryText: { ...Type.secondary, ...Weight.semibold, color: theme.primary },
     dim: { opacity: 0.55 },
     pressed: { opacity: 0.85 },
     links: {
@@ -484,8 +398,8 @@ function makeStyles(theme: Theme) {
       gap: Space.xs,
       marginTop: 2,
     },
-    link: { ...Type.caption, fontWeight: "400", color: theme.primary },
+    link: { ...Type.caption, ...Weight.regular, color: theme.primary },
     linkPressable: { textDecorationLine: "underline" },
-    dot: { ...Type.caption, fontWeight: "400", color: theme.textTertiary },
+    dot: { ...Type.caption, ...Weight.regular, color: theme.textTertiary },
   });
 }

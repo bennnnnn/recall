@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { ScrollView, View } from "react-native";
 import Constants from "expo-constants";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -20,6 +21,7 @@ export default function AboutScreen() {
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const appVersion = Constants.expoConfig?.version ?? "1.0.0";
 
   return (
@@ -30,7 +32,6 @@ export default function AboutScreen() {
       <SettingsGroup styles={s}>
         <SettingsLinkRow
           title={t("privacy.title")}
-          subtitle={t("settings.privacy_summary")}
           onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
           styles={s}
           theme={theme}
@@ -38,7 +39,6 @@ export default function AboutScreen() {
         <View style={s.menuSeparator} />
         <SettingsLinkRow
           title={t("terms.title")}
-          subtitle={t("settings.terms_summary")}
           onPress={() => void openAllowedUrl(getLegalTermsUrl())}
           styles={s}
           theme={theme}
@@ -52,6 +52,11 @@ export default function AboutScreen() {
           theme={theme}
         />
       </SettingsGroup>
+      {__DEV__ ? (
+        <SettingsGroup>
+          <SettingsLinkRow icon="grid" title="UI kit" onPress={() => router.push("/dev-ui")} />
+        </SettingsGroup>
+      ) : null}
     </ScrollView>
   );
 }

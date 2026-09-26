@@ -1,6 +1,6 @@
 /**
  * Async-split Mermaid (~3.4MB), Vega (~0.85MB), SmilesDrawer (~0.25MB),
- * and geometry/graph SVG blocks off the chat import graph.
+ * Web preview, clock, and geometry/graph SVG blocks off the chat import graph.
  */
 import React, { Suspense } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -31,6 +31,22 @@ const GeometryBlockLazy = React.lazy(() =>
 
 const FunctionGraphBlockLazy = React.lazy(() =>
   import("@/components/rich/FunctionGraphBlock").then((m) => ({ default: m.FunctionGraphBlock })),
+);
+
+const SimulationBlockLazy = React.lazy(() =>
+  import("@/components/rich/SimulationBlock").then((m) => ({ default: m.SimulationBlock })),
+);
+
+const CircularClockBlockLazy = React.lazy(() =>
+  import("@/components/rich/CircularClockBlock").then((m) => ({
+    default: m.CircularClockBlock,
+  })),
+);
+
+const WebPreviewCodeBlockLazy = React.lazy(() =>
+  import("@/components/WebPreviewCodeBlock").then((m) => ({
+    default: m.WebPreviewCodeBlock,
+  })),
 );
 
 function RichLoadPlaceholder({ height }: { height: number }) {
@@ -93,6 +109,38 @@ export function LazyFunctionGraphBlock({ content }: { content: string }) {
   return (
     <Suspense fallback={<RichLoadPlaceholder height={280} />}>
       <FunctionGraphBlockLazy content={content} />
+    </Suspense>
+  );
+}
+
+export function LazySimulationBlock({ content }: { content: string }) {
+  return (
+    <Suspense fallback={<RichLoadPlaceholder height={240} />}>
+      <SimulationBlockLazy content={content} />
+    </Suspense>
+  );
+}
+
+export function LazyCircularClockBlock({ content }: { content: string }) {
+  return (
+    <Suspense fallback={<RichLoadPlaceholder height={340} />}>
+      <CircularClockBlockLazy content={content} />
+    </Suspense>
+  );
+}
+
+export function LazyWebPreviewCodeBlock({
+  code,
+  lang = "html",
+}: {
+  code: string;
+  lang?: string;
+}) {
+  const visibleLines = Math.min(code.split("\n").length, 14);
+  const placeholderHeight = 112 + visibleLines * 20;
+  return (
+    <Suspense fallback={<RichLoadPlaceholder height={placeholderHeight} />}>
+      <WebPreviewCodeBlockLazy code={code} lang={lang} />
     </Suspense>
   );
 }

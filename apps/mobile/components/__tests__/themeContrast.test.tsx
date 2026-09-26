@@ -19,6 +19,22 @@ function contrastRatio(fg: string, bg: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+function compositeOver(color: string, underlay: string): string {
+  const match = color.match(
+    /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/,
+  );
+  if (!match) return color;
+  const base = underlay.replace("#", "");
+  const alpha = Number(match[4]);
+  const channels = [0, 1, 2].map((index) =>
+    Math.round(
+      Number(match[index + 1]) * alpha +
+        parseInt(base.slice(index * 2, index * 2 + 2), 16) * (1 - alpha),
+    ),
+  );
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
 const AA = 4.5;
 
 describe("semantic text contrast", () => {
@@ -42,6 +58,21 @@ describe("semantic text contrast", () => {
     ["dark", darkTheme],
   ] as const)("%s userText is AA on the user bubble", (_name, theme) => {
     expect(contrastRatio(theme.userText, theme.userBubble)).toBeGreaterThanOrEqual(AA);
+  });
+
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s semantic foregrounds are AA on their fills", (_name, theme) => {
+    expect(contrastRatio(theme.onDanger, theme.danger)).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(theme.onMedia, theme.mediaScrim)).toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(theme.primaryDark, theme.primaryLight)).toBeGreaterThanOrEqual(AA);
+    expect(
+      contrastRatio(
+        theme.text,
+        compositeOver(theme.successLight, theme.surface),
+      ),
+    ).toBeGreaterThanOrEqual(AA);
   });
 
   it("textDisabled may sit below AA (placeholders / decoration only)", () => {

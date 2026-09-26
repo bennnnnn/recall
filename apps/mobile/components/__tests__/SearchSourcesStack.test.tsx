@@ -9,10 +9,6 @@ jest.mock("react-i18next", () => ({
   }),
 }));
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("@/lib/reduceMotion", () => ({
   useReduceMotion: () => false,
 }));
@@ -22,7 +18,31 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 describe("SearchSourcesStack", () => {
-  it("opens sources in AppSheet with a scrollable list", async () => {
+  it("caches favicons and falls back to the host letter after load failure", async () => {
+    const { getByTestId, getByText, queryByTestId } = await render(
+      <SearchSourcesStack
+        sources={[
+          {
+            url: "https://example.com/rain",
+            title: "Rainfall averages",
+          },
+        ]}
+      />,
+    );
+
+    const favicon = getByTestId("search-source-favicon");
+    expect(favicon.props.source).toEqual({
+      uri: "https://www.google.com/s2/favicons?domain=example.com&sz=64",
+    });
+    expect(favicon.props.contentFit).toBe("contain");
+    expect(favicon.props.cachePolicy).toBe("memory-disk");
+
+    await fireEvent(favicon, "error");
+    expect(queryByTestId("search-source-favicon")).toBeNull();
+    expect(getByText("E")).toBeTruthy();
+  });
+
+  it("opens sources in Sheet with a scrollable list", async () => {
     const { getByText, getByTestId } = await render(
       <SearchSourcesStack
         sources={[

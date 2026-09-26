@@ -29,7 +29,7 @@ jest.mock("@/components/CollapsibleMessageBody", () => {
 jest.mock("@/components/LinkPreviewCard", () => ({
   LinkPreviewCard: "LinkPreviewCard",
 }));
-jest.mock("@/hooks/useAttachmentIndexed", () => ({
+jest.mock("@/features/attachments/hooks/useAttachmentIndexed", () => ({
   useAttachmentIndexed: () => ({ indexed: true, failed: false }),
 }));
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
@@ -44,7 +44,6 @@ jest.mock("expo-file-system/legacy", () => ({
   writeAsStringAsync: jest.fn(),
   EncodingType: { UTF8: "utf8" },
 }));
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("@/components/WebPreviewCodeBlock", () => ({
   WebPreviewCodeBlock: "WebPreviewCodeBlock",
 }));

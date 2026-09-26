@@ -1,0 +1,422 @@
+"""Router-facing Learning project list / create / detail surface."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.orm import Learning, LearningItem, User
+from app.models.schemas import LearningItemOut, LearningListGroup, LearningStats
+from app.modules import home as home_service
+from app.modules.learning import items_repository as learning_items_repo
+from app.modules.learning import repository as learning_repo
+from app.modules.learning import stats as learning_stats
+from app.modules.learning.common import (
+    DEFAULT_LIST,
+    LEARNING_PRODUCT_KINDS,
+    _is_language_project,
+    _list_key,
+    is_learning_product_kind,
+    locale_language,
+    normalize_learning_kind,
+    normalize_target_language,
+)
+from app.modules.learning.errors import LearningError
+from app.modules.learning.path import (
+    build_path_progress,
+    enqueue_language_path_job,
+    parse_learning_path,
+    sort_list_titles,
+    up_next_chapter,
+    with_learning_path,
+)
+from app.modules.learning.prompt_context import _stats_for_items
+
+
+def group_items(
+    items: list[LearningItem],
+    *,
+    learning_path: list[str] | None = None,
+    target_language: str | None = None,
+) -> list[LearningListGroup]:
+    """Group items by chapter title.
+
+    Leftover catalog chapters that are not on this class's path (for example
+    English Hotel/SAT after the conversation-path switch) stay out of PDF
+    ``lists``. Unspecified titles such as General still appear.
+    """
+    path_keys = {_list_key(title) for title in (learning_path or [])}
+    off_path_catalog: set[str] = set()
+    if path_keys:
+        from app.content.vocab_catalog import decks_for_language
+
+        lang = (target_language or "en").strip().lower() or "en"
+        off_path_catalog = {
+            _list_key(deck.title) for deck in decks_for_language(lang, include_sat=True)
+        } - path_keys
+    by_list: dict[str, list[LearningItem]] = {}
+    for item in items:
+        lst = item.list_title.strip() or DEFAULT_LIST
+        by_list.setdefault(lst, []).append(item)
+    groups: list[LearningListGroup] = []
+    for list_title in sort_list_titles(list(by_list.keys()), learning_path):
+        if _list_key(list_title) in off_path_catalog:
+            continue
+        groups.append(
+            LearningListGroup(
+                list_title=list_title,
+                items=[LearningItemOut.model_validate(i) for i in by_list[list_title]],
+            )
+        )
+    return groups
+
+
+def build_stats(items: list[LearningItem]) -> LearningStats:
+    raw = _stats_for_items(items)
+    return LearningStats.model_validate(raw)
+
+
+def _build_enriched_stats(
+    project: Learning,
+    items: list[LearningItem],
+    *,
+    timezone_name: str,
+    daily_goal_history: list[dict[str, int | str]] | None = None,
+    daily_history: list[dict[str, object]] | None = None,
+) -> LearningStats:
+    from app.modules.learning import daily as daily_learning
+    from app.modules.learning import insights as learning_insights
+
+    raw = learning_stats.stats_from_items(items, timezone_name=timezone_name)
+    if daily_history is None:
+        daily_history = daily_learning.build_daily_history(
+            items,
+            timezone_name=timezone_name,
+            daily_goal=daily_learning.resolve_daily_goal(project),
+            active_since=project.created_at,
+            daily_goal_history=daily_goal_history,
+        )
+    enriched = learning_insights.enrich_learning_stats(
+        raw,
+        project=project,
+        items=items,
+        timezone_name=timezone_name,
+        daily_history=daily_history,
+    )
+    return LearningStats.model_validate(enriched)
+
+
+async def _resolve_daily_goal_history(
+    project: Learning,
+    items: list[LearningItem],
+    *,
+    timezone_name: str,
+) -> list[dict[str, int | str]]:
+    """Compute (in-memory only) goal history for stats — read path must not write.
+
+    BUG FIX (dead code): this used to take a `persist: bool = False` parameter meant
+    to cache the inferred backfill onto the project row, but every call site passed
+    persist=False (get_learning_detail never opted in), so the persistence branch was
+    unreachable. Removed rather than wired up — caching here would mean writing on a
+    GET, which the caller's own comment says a read path must not do.
+    """
+    from app.modules.learning import daily as daily_learning
+
+    return daily_learning.ensure_daily_goal_history(
+        project,
+        items,
+        timezone_name=timezone_name,
+    )
+
+
+async def list_learning_for_user(
+    session: AsyncSession,
+    user: User,
+    *,
+    client_timezone: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return product learning projects with optional stats."""
+    from app.services import time_context as time_context_service
+
+    items = await learning_repo.list_for_user(session, user.id)
+    visible = [item for item in items if is_learning_product_kind(item.kind)]
+    learning_ids = [item.id for item in visible]
+    stats_by_project: dict[UUID, LearningStats] = {}
+    if learning_ids:
+        tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
+        raw_stats = await learning_stats.count_stats_by_learning(
+            session,
+            learning_ids,
+            timezone_by_project={pid: tz_name for pid in learning_ids},
+        )
+        stats_by_project = {
+            pid: LearningStats.model_validate(raw_stats.get(pid, {})) for pid in learning_ids
+        }
+    return [
+        {
+            **{
+                "id": item.id,
+                "title": item.title,
+                "description": item.description,
+                "kind": normalize_learning_kind(item.kind),
+                "target_language": item.target_language,
+                "native_language": item.native_language,
+                "daily_goal": item.daily_goal,
+                "learning_path": parse_learning_path(item),
+                "archived": item.archived,
+                "created_at": item.created_at,
+                "updated_at": item.updated_at,
+            },
+            "stats": stats_by_project.get(item.id),
+        }
+        for item in visible
+    ]
+
+
+async def create_learning_project(
+    session: AsyncSession,
+    user: User,
+    *,
+    title: str,
+    description: str | None,
+    kind: str,
+    target_language: str = "en",
+    native_language: str | None = None,
+    daily_goal: int | None = None,
+) -> Learning:
+    """Create a language project; raises ValueError with a stable code."""
+    from app.services import time_context as time_context_service
+
+    normalized = normalize_learning_kind(kind)
+    if normalized not in LEARNING_PRODUCT_KINDS:
+        raise ValueError("unsupported_project_kind")
+    resolved_target = target_language
+    resolved_native = native_language
+    if normalized == "language":
+        resolved = normalize_target_language(target_language)
+        if resolved is None:
+            raise ValueError("unsupported_target_language")
+        resolved_target = resolved
+        resolved_native = normalize_target_language(native_language) or locale_language(
+            getattr(user, "locale", None)
+        )
+        existing = await learning_repo.find_language_by_target(session, user.id, resolved_target)
+        if existing:
+            raise ValueError("language_project_exists")
+    project = await learning_repo.create(
+        session,
+        user_id=user.id,
+        title=title,
+        description=description,
+        kind=normalized,
+        target_language=resolved_target,
+        native_language=resolved_native,
+        daily_goal=daily_goal if normalized in LEARNING_PRODUCT_KINDS else None,
+        timezone_name=time_context_service.effective_timezone(user.timezone, None),
+    )
+    await home_service.invalidate_home_cache(user.id)
+    if normalized == "language":
+        await enqueue_language_path_job(user.id, project.id)
+    return project
+
+
+async def update_learning_project(
+    session: AsyncSession,
+    user: User,
+    project_id: UUID,
+    fields: dict[str, Any],
+    *,
+    client_timezone: str | None = None,
+) -> Learning:
+    from app.modules.learning import daily as daily_learning
+    from app.services import time_context as time_context_service
+
+    item = await learning_repo.get_by_id(session, project_id, user.id)
+    if item is None or not is_learning_product_kind(item.kind):
+        raise LearningError("Learning not found", status_code=404)
+    patch = dict(fields)
+    if "kind" in patch:
+        patch["kind"] = normalize_learning_kind(patch["kind"])
+        if patch["kind"] not in LEARNING_PRODUCT_KINDS:
+            raise LearningError("unsupported_project_kind", status_code=400)
+    if "target_language" in patch and patch["target_language"] is not None:
+        kind = normalize_learning_kind(patch.get("kind") or item.kind)
+        if kind == "language":
+            resolved = normalize_target_language(patch["target_language"])
+            if resolved is None:
+                raise LearningError("unsupported_target_language", status_code=400)
+            if resolved != (item.target_language or "en").strip().lower():
+                other = await learning_repo.find_language_by_target(session, user.id, resolved)
+                if other and other.id != item.id:
+                    raise LearningError("language_project_exists", status_code=409)
+            patch["target_language"] = resolved
+    new_goal = patch.get("daily_goal")
+    if isinstance(new_goal, int) and new_goal != item.daily_goal:
+        tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
+        tz = time_context_service.resolve_timezone(tz_name)
+        today = datetime.now(tz).date()
+        existing = daily_learning.parse_daily_goal_history(item)
+        patch["daily_goal_history"] = daily_learning.append_daily_goal_history(
+            existing or None,
+            old_goal=item.daily_goal,
+            new_goal=new_goal,
+            project_created=item.created_at,
+            effective_from=today,
+            timezone_name=tz_name,
+        )
+    updated = await learning_repo.update(session, item, **patch)
+    await home_service.invalidate_home_cache(user.id)
+    return updated
+
+
+async def delete_learning_project(
+    session: AsyncSession,
+    user: User,
+    project_id: UUID,
+) -> None:
+    item = await learning_repo.get_by_id(session, project_id, user.id)
+    if item is None or not is_learning_product_kind(item.kind):
+        raise LearningError("Learning not found", status_code=404)
+    deleted = await learning_repo.delete_by_id(session, project_id, user.id)
+    if not deleted:
+        raise LearningError("Learning not found", status_code=404)
+    await home_service.invalidate_home_cache(user.id)
+
+
+async def get_learning_detail(
+    session: AsyncSession,
+    user: User,
+    project_id: UUID,
+    *,
+    client_timezone: str | None = None,
+    include_lists: bool = False,
+) -> dict[str, Any] | None:
+    """Assemble project detail for a language class; None if missing or unsupported.
+
+    Default response includes stats, 14-day count history, and recent day item maps
+    built from the same in-memory item load (no extra queries). Full deck ``lists``
+    stay omitted unless ``include_lists=True`` (PDF export).
+    """
+    from app.models.schemas import LearningDailyHistoryDay, LearningItemOut, LearningOut
+    from app.modules.learning import daily as daily_learning
+    from app.services import time_context as time_context_service
+
+    user_id = user.id
+    item = await learning_repo.get_by_id(session, project_id, user_id)
+    if item is None or not is_learning_product_kind(item.kind):
+        return None
+
+    tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
+    project_items = await learning_items_repo.list_for_user(
+        session, user_id, project_id=project_id, limit=5000
+    )
+    path_project: object = item
+    if _is_language_project(item):
+        from app.modules.learning.path_seed import (
+            apply_full_catalog_path,
+            current_catalog_items,
+            needs_catalog_sync,
+        )
+
+        if needs_catalog_sync(item, project_items):
+            await enqueue_language_path_job(user_id, item.id)
+        project_items = current_catalog_items(item, project_items)
+        path_project = with_learning_path(item, apply_full_catalog_path(item))
+    # BUG FIX (was silent): day-attribution used to read last_incorrect_at, a single
+    # mutable column, so a later miss on an item silently erased which day an earlier
+    # miss belonged to. Load the append-only miss-event log so past days stay stable.
+    miss_events_by_item = await learning_items_repo.list_miss_events_for_items(
+        session, [i.id for i in project_items]
+    )
+    # Read path must not write — compute history in memory only.
+    goal_history = await _resolve_daily_goal_history(item, project_items, timezone_name=tz_name)
+    history_rows = daily_learning.build_daily_history(
+        project_items,
+        timezone_name=tz_name,
+        daily_goal=daily_learning.resolve_daily_goal(item),
+        active_since=item.created_at,
+        daily_goal_history=goal_history,
+        days=14,
+        miss_events_by_item=miss_events_by_item,
+    )
+    from app.modules.learning import practice_repository as practice_repo
+    from app.modules.learning.practice_history import merge_practice_history, merge_practice_items
+
+    events = await practice_repo.list_events(
+        session, [project_id], since=datetime.now(UTC) - timedelta(days=15)
+    )
+    visible_item_ids = {word.id for word in project_items}
+    events = [event for event in events if event.item_id in visible_item_ids]
+    history_rows = merge_practice_history(
+        history_rows,
+        project_items,
+        events,
+        timezone_name=tz_name,
+        miss_events_by_item=miss_events_by_item,
+    )
+    stats = _build_enriched_stats(
+        item,
+        project_items,
+        timezone_name=tz_name,
+        daily_goal_history=goal_history,
+        daily_history=history_rows,
+    )
+    daily_history = [LearningDailyHistoryDay.model_validate(row) for row in history_rows]
+    history_days = {day.date for day in daily_history}
+    # Recent activity only (not the full deck) — cheap to serialize from items
+    # already loaded for stats, and lets the detail screen paint without a
+    # second /daily-items round trip.
+    daily_items_by_date = {
+        day_key: [LearningItemOut.model_validate(i) for i in day_items]
+        for day_key, day_items in merge_practice_items(
+            daily_learning.group_mastered_items_by_date(
+                project_items, timezone_name=tz_name, days=14
+            ),
+            project_items,
+            events,
+            timezone_name=tz_name,
+            allowed_days=history_days,
+        ).items()
+    }
+    daily_missed_by_date = {
+        day_key: [LearningItemOut.model_validate(i) for i in day_items]
+        for day_key, day_items in merge_practice_items(
+            daily_learning.group_missed_items_by_date(
+                project_items,
+                timezone_name=tz_name,
+                days=14,
+                miss_events_by_item=miss_events_by_item,
+            ),
+            project_items,
+            events,
+            timezone_name=tz_name,
+            allowed_days=history_days,
+            missed=True,
+        ).items()
+    }
+    lists: list[Any] = []
+    path = parse_learning_path(path_project)
+    if include_lists:
+        lists = group_items(
+            project_items,
+            learning_path=path,
+            target_language=getattr(item, "target_language", None),
+        )
+    path_progress = build_path_progress(path_project, project_items)
+    return {
+        **LearningOut.model_validate(item).model_dump(),
+        "kind": normalize_learning_kind(item.kind),
+        "learning_path": path,
+        "path_progress": path_progress,
+        "up_next": up_next_chapter(path_project, project_items) if path_progress else None,
+        "mastered_count": stats.mastered_count,
+        "total_count": stats.total,
+        "stats": stats,
+        "daily_history": daily_history,
+        "daily_items_by_date": daily_items_by_date,
+        "daily_missed_by_date": daily_missed_by_date,
+        "lists": lists,
+    }

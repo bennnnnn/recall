@@ -1,16 +1,16 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import {
   makeSettingsStyles,
   SettingsGroup,
   SettingsInlinePicker,
   SettingsLinkRow,
+  SettingsSwitchRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -22,8 +22,13 @@ import {
   RESPONSE_TONES,
 } from "@/lib/responseTone";
 import { type User } from "@/lib/api";
+import { getDeviceLocationLabel } from "@/lib/deviceLocation";
+import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 const STYLES = ["short", "balanced", "detailed"] as const;
 type AboutField = "age" | "country" | "job";
@@ -40,8 +45,10 @@ export default function PreferencesSettingsScreen() {
   const savingRef = useRef(false);
   const [openPicker, setOpenPicker] = useState<"style" | "tone" | null>(null);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const languageRowRef = useRef<View>(null);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
+  const [locationBusy, setLocationBusy] = useState(false);
   const [editField, setEditField] = useState<AboutField | null>(null);
   const [fieldText, setFieldText] = useState("");
   const [fieldSaving, setFieldSaving] = useState(false);
@@ -62,8 +69,7 @@ export default function PreferencesSettingsScreen() {
         await updateUser(fields);
         return true;
       } catch {
-        if (feedback) feedback.error(t("common.error"));
-        else Alert.alert(t("common.error"), t("common.error"));
+        reportRecoverableError(feedback, t("common.error"));
         return false;
       } finally {
         savingRef.current = false;
@@ -73,6 +79,31 @@ export default function PreferencesSettingsScreen() {
     },
     [feedback, t, updateUser],
   );
+
+  const toggleLocation = useCallback(async (enabled: boolean) => {
+    if (!token || locationBusy) return;
+    setLocationBusy(true);
+    try {
+      if (!enabled) {
+        await updateUser({ location_enabled: false, location: null });
+        return;
+      }
+      if (!canUseDeviceLocation()) {
+        void alertDialog({ title: t("common.error"), message: t("settings.location_expo_go") });
+        return;
+      }
+      const label = await getDeviceLocationLabel();
+      if (!label) {
+        void alertDialog({ title: t("settings.location_denied") });
+        return;
+      }
+      await updateUser({ location_enabled: true, location: label });
+    } catch {
+      reportRecoverableError(feedback, t("common.error"));
+    } finally {
+      setLocationBusy(false);
+    }
+  }, [token, locationBusy, updateUser, t, feedback]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -121,7 +152,7 @@ export default function PreferencesSettingsScreen() {
       } else {
         const age = Number.parseInt(trimmed, 10);
         if (!Number.isFinite(age) || age < 13 || age > 120) {
-          Alert.alert(t("common.error"), t("settings.age_invalid"));
+          void alertDialog({ title: t("common.error"), message: t("settings.age_invalid") });
           return;
         }
         if (age === user.age) {
@@ -151,8 +182,7 @@ export default function PreferencesSettingsScreen() {
       await updateUser(patchBody);
       setEditField(null);
     } catch {
-      if (feedback) feedback.error(t("common.error"));
-      else Alert.alert(t("common.error"), t("common.error"));
+      reportRecoverableError(feedback, t("common.error"));
     } finally {
       fieldSavingRef.current = false;
       setFieldSaving(false);
@@ -181,7 +211,6 @@ export default function PreferencesSettingsScreen() {
         <SettingsGroup label={t("settings.chat")} styles={s}>
           <SettingsInlinePicker
             title={t("settings.style")}
-            subtitle={t("settings.style_summary")}
             value={t(`settings.style_${selectedStyle}`)}
             options={STYLES.map((st) => ({
               key: st,
@@ -201,7 +230,6 @@ export default function PreferencesSettingsScreen() {
           <View style={s.menuSeparator} />
           <SettingsInlinePicker
             title={t("settings.tone")}
-            subtitle={t("settings.tone_hint")}
             value={t(`settings.tone_${selectedTone}`)}
             options={RESPONSE_TONE_ORDER.map((tone) => ({
               key: tone,
@@ -223,8 +251,8 @@ export default function PreferencesSettingsScreen() {
           />
           <View style={s.menuSeparator} />
           <SettingsLinkRow
+            ref={languageRowRef}
             title={t("settings.language")}
-            subtitle={t("settings.language_summary")}
             value={selectedLanguage.label}
             onPress={() => setLanguageOpen(true)}
             styles={s}
@@ -233,7 +261,6 @@ export default function PreferencesSettingsScreen() {
           <View style={s.menuSeparator} />
           <SettingsLinkRow
             title={t("settings.custom_instructions")}
-            subtitle={t("settings.custom_instructions_summary")}
             value={
               user?.custom_instructions?.trim()
                 ? t("settings.on")
@@ -270,16 +297,28 @@ export default function PreferencesSettingsScreen() {
             theme={theme}
           />
         </SettingsGroup>
+
+        <SettingsGroup styles={s}>
+          <SettingsSwitchRow
+            title={t("settings.use_current_location")}
+            value={user?.location_enabled === true}
+            disabled={locationBusy}
+            busy={locationBusy}
+            onValueChange={(enabled) => void toggleLocation(enabled)}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
       </ScrollView>
 
-      <SettingsPickerSheet
+      <SelectMenu
         visible={languageOpen}
-        title={t("settings.language")}
+        anchorRef={languageRowRef}
         options={LANGUAGES.map((lang) => ({ key: lang.code, label: lang.label }))}
         selectedKey={user?.locale ?? selectedLanguage.code}
         onSelect={(code) => void patch({ locale: code }, "language")}
         onClose={() => setLanguageOpen(false)}
-        busy={savingAction === "language"}
+        disabled={savingAction === "language"}
       />
 
       <SettingsFieldSheet

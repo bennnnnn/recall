@@ -368,17 +368,21 @@ function normalizeMathLine(line: string, format?: (expr: string) => string, whol
   );
 
   out = wrapInlineLatexCommands(out);
-  // Model often wraps a whole bullet as `$- 1\cdot x = …$`. Stripping those
-  // dollars so `- Base = 8 cm` stays prose also used to dump real latex
-  // (`\cdot`, `\frac`) onto the list item as raw source. Keep `$…$` when
-  // the inner span is math; then re-wrap any leftover bare commands.
+  // Model often wraps a whole prose bullet as `$- Base = 8 cm$`. Only unwrap
+  // those prose bullets. A math span that starts with a unary minus, such as
+  // `$- x = -2$`, is an equation rather than Markdown list syntax; moving the
+  // minus outside the dollars turns it into a visible bullet and changes the
+  // equation to `x = -2`.
   out = out.replace(
     /^(\s*)\$([-*•])\s*(.+?)\s*\$$/,
     (_full, indent: string, mark: string, inner: string) => {
       const body = String(inner).trim();
-      if (/\\[a-zA-Z]+/.test(body) || /[\^_]/.test(body) || looksLikeBareEquation(body)) {
-        return `${indent}${mark} $${body}$`;
+      const mathLike =
+        /\\[a-zA-Z]+/.test(body) || /[\^_]/.test(body) || looksLikeBareEquation(body);
+      if (mark === "-" && mathLike) {
+        return `${indent}$${mark} ${body}$`;
       }
+      if (mathLike) return `${indent}${mark} $${body}$`;
       return `${indent}${mark} ${body}`;
     },
   );

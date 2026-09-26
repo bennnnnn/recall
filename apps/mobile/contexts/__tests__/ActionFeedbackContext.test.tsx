@@ -7,7 +7,7 @@ import {
 } from "@/contexts/ActionFeedbackContext";
 import { notifySuccess } from "@/lib/haptics";
 
-jest.mock("@/components/ActionBanner", () => {
+jest.mock("@/ui/feedback/ActionBanner", () => {
   const { Text: RNText } = jest.requireActual("react-native") as typeof import("react-native");
   return {
     ActionBanner: ({ message, tone }: { message: string; tone: string }) => (

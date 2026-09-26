@@ -29,7 +29,6 @@ jest.mock("react-native-safe-area-context", () => {
     useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   };
 });
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("@/lib/apple-auth", () => ({
   shouldShowAppleSignInButton: () => true,
   formatAppleSignInError: () => "generic",
@@ -75,9 +74,11 @@ describe("LoginScreen", () => {
   });
 
   it("BUG FIX regression: only the tapped button shows its spinner, not every visible button", async () => {
-    const { getByText, queryByText } = await render(<LoginScreen />);
+    const { getByLabelText, getByText, queryByText } = await render(<LoginScreen />);
 
     // Both buttons rendered with their normal (non-busy) content.
+    expect(getByText("app.name")).toBeOnTheScreen();
+    expect(getByLabelText("app.name")).toBeOnTheScreen();
     expect(getByText("login.apple")).toBeOnTheScreen();
     expect(getByText("login.google")).toBeOnTheScreen();
 

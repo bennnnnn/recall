@@ -23,12 +23,33 @@ function normalizeSmilesLine(raw: string): string {
 }
 
 /** Element token for structure-formula detection (not full SMILES). */
-const ELEMENT_TOKEN = String.raw`(?:\[[A-Z][a-z]?[+\-]?\d*\]|[A-Z][a-z]?)`;
+// An *unbracketed* atom is restricted to SMILES' organic subset (plus H, which
+// `DIATOMIC_SMILES` brackets on the way out). That is the spec, not a guess:
+// every other element must be written `[W]`, so a bare `W` was never valid
+// SMILES — which is exactly why RDKit answered "Could not render that
+// structure" when a physics reply's `W = F d` arrived here as a molecule.
+//
+// `[A-Z][a-z]?` accepted any capital, so W (work), P (power), F (force) and T
+// (tension) all read as elements, and a collapsed `F d` read as the element
+// "Fd". Narrowing to the subset rejects every one of those on the token itself.
+const ORGANIC_SUBSET = String.raw`(?:Cl|Br|[BCNOPSFIH])`;
+const ELEMENT_TOKEN = String.raw`(?:\[[A-Z][a-z]?[+\-]?\d*\]|${ORGANIC_SUBSET})`;
 /** Bond between atoms in math-ish molecule formulas. */
 const BOND_TOKEN = String.raw`(?:=|#|-|\\equiv|≡)`;
 const STRUCTURE_FORMULA_RE = new RegExp(
   `^${ELEMENT_TOKEN}(?:\\s*${BOND_TOKEN}\\s*${ELEMENT_TOKEN})+$`,
 );
+
+/**
+ * A bare ASCII bond with space around it is algebra, not chemistry.
+ *
+ * Chemists write `O=O`, `H-H`, `N#N` tight; `N = W` is an equation. The
+ * organic-subset rule above catches most physics, but not a line whose letters
+ * happen to be in the subset — `N = P`, say. Spacing separates those, and it
+ * costs nothing real: the LaTeX and unicode triple bonds (`\equiv`, `≡`) need
+ * their spaces and are deliberately not listed here.
+ */
+const SPACED_ASCII_BOND_RE = /\s[=#-]|[=#-]\s/;
 
 /** Real math / LaTeX that must never be retagged as chemistry. */
 const MATH_REJECT_RE =
@@ -87,6 +108,10 @@ export function normalizeMoleculeFormulaToSmiles(raw: string): string | null {
     if (single) s = single[1].trim();
   }
   if (!s || MATH_REJECT_RE.test(s)) return null;
+  // Read the spacing before anything collapses it, and only on the bonds the
+  // author actually typed as ASCII — the `\equiv` below becomes a `#` and
+  // would look wrongly spaced if this ran after.
+  if (SPACED_ASCII_BOND_RE.test(s)) return null;
 
   // Collapse LaTeX/unicode triple bonds and whitespace around bonds.
   s = s

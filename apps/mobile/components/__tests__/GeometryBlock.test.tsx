@@ -9,11 +9,18 @@ import { GeometryBlock } from "@/components/rich/GeometryBlock";
 describe("GeometryBlock", () => {
   it("labels angles-only side lengths as relative and omits an invented area", async () => {
     const content = JSON.stringify({
-      type: "triangle_sides", a: 1, b: 1.7321, c: 2,
-      relative_lengths: true, unit: "units", area: 0.866,
+      type: "triangle_sides",
+      a: 1,
+      b: 1.7321,
+      c: 2,
+      relative_lengths: true,
+      unit: "units",
+      area: 0.866,
       labels: { a: "1 cm", b: "1.7321 cm", c: "2 cm", area: "0.87 cm²" },
     });
-    const { toJSON, queryByTestId, getByTestId } = await render(<GeometryBlock content={content} />);
+    const { toJSON, queryByTestId, getByTestId } = await render(
+      <GeometryBlock content={content} />,
+    );
     const tree = JSON.stringify(toJSON());
     expect(getByTestId("sss-relative-label")).toBeOnTheScreen();
     expect(queryByTestId("sss-area-label")).toBeNull();
@@ -23,7 +30,12 @@ describe("GeometryBlock", () => {
   });
 
   it("renders a rectangle diagram with computed width/height labels", async () => {
-    const content = JSON.stringify({ type: "rectangle", width: 6, height: 4, unit: "cm" });
+    const content = JSON.stringify({
+      type: "rectangle",
+      width: 6,
+      height: 4,
+      unit: "cm",
+    });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
 
@@ -44,7 +56,13 @@ describe("GeometryBlock", () => {
   });
 
   it("renders a triangle-by-sides (SSS) diagram with side labels", async () => {
-    const content = JSON.stringify({ type: "triangle_sides", a: 3, b: 4, c: 5, unit: "cm" });
+    const content = JSON.stringify({
+      type: "triangle_sides",
+      a: 3,
+      b: 4,
+      c: 5,
+      unit: "cm",
+    });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
 
@@ -56,35 +74,58 @@ describe("GeometryBlock", () => {
     expect(tree).toContain("53.1°");
   });
 
-  it.each([false, true])("keeps an obtuse 3,5,3 triangle inside the chart with angle labels=%s", async (showAngle) => {
-    const content = JSON.stringify({
-      type: "triangle_sides", a: 3, b: 5, c: 3, unit: "cm",
-      show_angle: showAngle, show_altitude: false, show_median: false,
-    });
-    const { toJSON, getByTestId } = await render(<GeometryBlock content={content} />);
-    const svg = getByTestId("sss-svg");
-    const width = Number(svg.props.width);
-    const height = Number(svg.props.height);
-    const path = JSON.stringify(toJSON()).match(/"d":"M([^\"]+)z"/);
-    expect(path).not.toBeNull();
-    const coordinates = path![1].trim().split(/[ ,]+/).map(Number);
-    for (let i = 0; i < coordinates.length; i += 2) {
-      expect(coordinates[i]).toBeGreaterThanOrEqual(0);
-      expect(coordinates[i]).toBeLessThanOrEqual(width);
-      expect(coordinates[i + 1]).toBeGreaterThanOrEqual(0);
-      expect(coordinates[i + 1]).toBeLessThanOrEqual(height);
-    }
-    expect(width).toBeLessThanOrEqual(Dimensions.get("window").width - 28);
-  });
+  it.each([false, true])(
+    "keeps an obtuse 3,5,3 triangle inside the chart with angle labels=%s",
+    async (showAngle) => {
+      const content = JSON.stringify({
+        type: "triangle_sides",
+        a: 3,
+        b: 5,
+        c: 3,
+        unit: "cm",
+        show_angle: showAngle,
+        show_altitude: false,
+        show_median: false,
+      });
+      const { toJSON, getByTestId } = await render(
+        <GeometryBlock content={content} />,
+      );
+      const svg = getByTestId("sss-svg");
+      const width = Number(svg.props.width);
+      const height = Number(svg.props.height);
+      const path = JSON.stringify(toJSON()).match(/"d":"M([^\"]+)z"/);
+      expect(path).not.toBeNull();
+      const coordinates = path![1].trim().split(/[ ,]+/).map(Number);
+      for (let i = 0; i < coordinates.length; i += 2) {
+        expect(coordinates[i]).toBeGreaterThanOrEqual(0);
+        expect(coordinates[i]).toBeLessThanOrEqual(width);
+        expect(coordinates[i + 1]).toBeGreaterThanOrEqual(0);
+        expect(coordinates[i + 1]).toBeLessThanOrEqual(height);
+      }
+      expect(width).toBeLessThanOrEqual(Dimensions.get("window").width - 28);
+    },
+  );
 
   it("falls back for an impossible triangle (sides that can't close)", async () => {
-    const content = JSON.stringify({ type: "triangle_sides", a: 1, b: 1, c: 10, unit: "cm" });
+    const content = JSON.stringify({
+      type: "triangle_sides",
+      a: 1,
+      b: 1,
+      c: 10,
+      unit: "cm",
+    });
     const { getByText } = await render(<GeometryBlock content={content} />);
     expect(getByText("Could not render geometry diagram.")).toBeOnTheScreen();
   });
 
   it("renders a trapezoid diagram with top/bottom/height labels", async () => {
-    const content = JSON.stringify({ type: "trapezoid", top: 4, bottom: 8, height: 5, unit: "cm" });
+    const content = JSON.stringify({
+      type: "trapezoid",
+      top: 4,
+      bottom: 8,
+      height: 5,
+      unit: "cm",
+    });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
 
@@ -122,7 +163,12 @@ describe("GeometryBlock", () => {
   });
 
   it("renders a circle sector diagram with an angle label", async () => {
-    const content = JSON.stringify({ type: "sector", radius: 5, angle_deg: 90, unit: "cm" });
+    const content = JSON.stringify({
+      type: "sector",
+      radius: 5,
+      angle_deg: 90,
+      unit: "cm",
+    });
     const { toJSON } = await render(<GeometryBlock content={content} />);
 
     expect(JSON.stringify(toJSON())).toContain("90");
@@ -130,8 +176,13 @@ describe("GeometryBlock", () => {
 
   it("shows only known measurements for a base-and-height triangle", async () => {
     const content = JSON.stringify({
-      type: "triangle", base: 3, height: 4, unit: "cm",
-      show_ticks: true, show_angle: true, show_altitude: true,
+      type: "triangle",
+      base: 3,
+      height: 4,
+      unit: "cm",
+      show_ticks: true,
+      show_angle: true,
+      show_altitude: true,
     });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
@@ -203,6 +254,50 @@ describe("GeometryBlock", () => {
     expect(JSON.stringify(toJSON())).toContain("RNSVGLine");
   });
 
+  it("labels every square side and marks all four right angles uniformly", async () => {
+    const content = JSON.stringify({ type: "square", side: 5, unit: "cm" });
+    const { toJSON, getByTestId } = await render(
+      <GeometryBlock content={content} />,
+    );
+    const tree = JSON.stringify(toJSON());
+    expect((tree.match(/5 cm/g) ?? []).length).toBeGreaterThanOrEqual(4);
+    for (const corner of [
+      "top-left",
+      "top-right",
+      "bottom-right",
+      "bottom-left",
+    ]) {
+      expect(getByTestId(`rectangle-right-angle-${corner}`)).toBeOnTheScreen();
+    }
+  });
+
+  it("labels both pairs of known rectangle sides", async () => {
+    const content = JSON.stringify({
+      type: "rectangle",
+      width: 4,
+      height: 5,
+      unit: "cm",
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect((tree.match(/4 cm/g) ?? []).length).toBe(2);
+    expect((tree.match(/5 cm/g) ?? []).length).toBe(2);
+  });
+
+  it("draws a requested diameter across the full circle", async () => {
+    const content = JSON.stringify({
+      type: "circle",
+      radius: 3,
+      unit: "cm",
+      show_diameter: true,
+      diameter: 6,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain("6 cm");
+    expect(tree).not.toContain("3 cm");
+  });
+
   it("does not draw altitude on an SSS triangle unless asked", async () => {
     const content = JSON.stringify({
       type: "triangle_sides",
@@ -213,7 +308,9 @@ describe("GeometryBlock", () => {
       show_angle: true,
     });
     const { toJSON } = await render(<GeometryBlock content={content} />);
-    expect(JSON.stringify(toJSON())).not.toContain("\"strokeDasharray\":[\"5\",\"4\"]");
+    expect(JSON.stringify(toJSON())).not.toContain(
+      '"strokeDasharray":["5","4"]',
+    );
   });
 
   it("draws altitude and equal-side ticks on an isosceles SSS triangle", async () => {
@@ -229,7 +326,7 @@ describe("GeometryBlock", () => {
     });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
-    expect(tree).toContain("\"strokeDasharray\":[\"5\",\"4\"]");
+    expect(tree).toContain('"strokeDasharray":["5","4"]');
     expect(tree).toContain("RNSVGLine");
   });
 
@@ -246,8 +343,8 @@ describe("GeometryBlock", () => {
     });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
-    expect(tree).toContain("\"strokeDasharray\":[\"5\",\"4\"]");
-    expect(tree).toContain("\"strokeDasharray\":[\"2\",\"3\"]");
+    expect(tree).toContain('"strokeDasharray":["5","4"]');
+    expect(tree).toContain('"strokeDasharray":["2","3"]');
   });
 
   it("hides labels when show_labels is false", async () => {
@@ -265,7 +362,13 @@ describe("GeometryBlock", () => {
   });
 
   it("BUG FIX regression: SSS area label sits inside the SVG height", async () => {
-    const content = JSON.stringify({ type: "triangle_sides", a: 3, b: 4, c: 5, unit: "cm" });
+    const content = JSON.stringify({
+      type: "triangle_sides",
+      a: 3,
+      b: 4,
+      c: 5,
+      unit: "cm",
+    });
     const { getByTestId } = await render(<GeometryBlock content={content} />);
     const svg = getByTestId("sss-svg");
     const label = getByTestId("sss-area-label");

@@ -6,7 +6,7 @@ import { useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 import { useActionFeedbackOptional } from "@/contexts/ActionFeedbackContext";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
 
-import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
+import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
@@ -21,17 +21,21 @@ import {
   type ComposerSendDraft,
 } from "@/lib/chat/sendLogic";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/lib/chat/composerThreadDraft";
-import { flushEmailDrafts } from "@/lib/emailDraftFlush";
+import { flushEmailDrafts } from "@/features/integrations/model/emailDraftFlush";
 import {
   extractImageGenPromptFromThread,
   extractAttachedImageEditPrompt,
   extractImageRevisionPrompt,
   imageGenRevisionContext,
-} from "@/lib/imageGenIntent";
-import { extractImageLookupQuery } from "@/lib/imageLookupIntent";
+} from "@/features/images/model/imageGenIntent";
+import { extractImageLookupQuery } from "@/features/images/model/imageLookupIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
+import { retireHomeGuidance } from "@/features/home/model/homeGuidancePrefs";
 import type { ClientGeo } from "@/lib/clientGeo";
-import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
+import {
+  queryNeedsClientGeo,
+  resolveClientGeoForQuery,
+} from "@/lib/resolveClientGeoForQuery";
 import {
   pickDocument,
   HeicUnsupportedError,
@@ -41,19 +45,26 @@ import {
   pickFromCamera,
   pickFromPhotoLibrary,
   uploadChatAttachment,
-  defaultMathCameraPrompt,
   type PendingAttachment,
-} from "@/lib/attachments";
-import { composerTextAfterMathScan } from "@/lib/math/cameraPrompt";
+} from "@/features/attachments/model/attachments";
+import {
+  composerTextAfterSubjectScan,
+  type ScannerSubject,
+} from "@/lib/scanner/subjects";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
-} from "@/lib/pendingComposerAttachment";
+} from "@/features/attachments/model/pendingComposerAttachment";
 
 type Router = ReturnType<typeof useRouter>;
 type DraftChat = ReturnType<typeof useDraftChat>;
 type ChatScroll = ReturnType<typeof useChatScroll>;
-export type ChatSendPhase = "idle" | "preparing" | "uploading" | "creating";
+export type ChatSendPhase =
+  | "idle"
+  | "locating"
+  | "preparing"
+  | "uploading"
+  | "creating";
 
 type SendMessageFn = (
   text: string,
@@ -95,10 +106,17 @@ type Options = {
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
   isOffline: boolean;
-  resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
-  onGenerateImage?: (prompt: string, userMessage: string, reference?: { attachment?: PendingAttachment; ids?: string[] }) => void;
+  onGenerateImage?: (
+    prompt: string,
+    userMessage: string,
+    reference?: { attachment?: PendingAttachment; ids?: string[] },
+    persistence?: {
+      ready: Promise<boolean>;
+      onFailure: () => void;
+    },
+  ) => void;
   imageGenerating?: boolean;
 };
 
@@ -117,12 +135,12 @@ export function useChatSend({
   setMessages,
   messages,
   selectedModel,
+  user,
   updateUser,
   t,
   onStreamBusy,
   onOfflineBlocked,
   isOffline,
-  resolveQuizProjectId,
   onBeforeSend,
   onGenerateImage,
   imageGenerating = false,
@@ -305,6 +323,7 @@ export function useChatSend({
       tap();
       if (onBeforeSend?.(text) === true) return;
       const queuedAttachment = pendingAttachmentRef.current;
+      const sendThreadKey = getThreadKey();
 
       // Reference-photo lookup ("show me an ear") wants a real photo, not AI
       // art — checked first so generation's bare colloquial fallback can't
@@ -330,21 +349,38 @@ export function useChatSend({
         const imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
         if (imagePrompt) {
           if (imageGenerating) return;
+          if (user?.id) void retireHomeGuidance(user.id);
           sendInFlightRef.current = true;
           setSendPhase("preparing");
-          const draftsSaved = await flushEmailDrafts();
-          if (!isCurrentView()) return;
-          sendInFlightRef.current = false;
-          setSendPhase("idle");
-          if (!draftsSaved) return;
+          const draftsPromise = flushEmailDrafts();
           setInput("");
           setPendingAttachment(null);
           Keyboard.dismiss();
+          const restoreImageDraft = () => {
+            if (!isCurrentSession()) return;
+            if (!isCurrentView() || getThreadKey() !== sendThreadKey) {
+              stashFailedDraftForThread(sendThreadKey, composerText);
+              return;
+            }
+            if (
+              !pendingAttachmentRef.current &&
+              shouldRestoreFailedSend(inputRef.current, composerText)
+            ) {
+              setInput(composerText);
+              setPendingAttachment(queuedAttachment);
+              return;
+            }
+            feedback?.error(t("chat.restore_draft_blocked"));
+          };
           const reference = queuedAttachment ? { attachment: queuedAttachment }
             : revision && revisionContext.referenceAttachmentId
               ? { ids: [revisionContext.referenceAttachmentId] } : undefined;
-          if (reference) onGenerateImage(imagePrompt, text, reference);
-          else onGenerateImage(imagePrompt, text);
+          onGenerateImage(imagePrompt, text, reference, {
+            ready: draftsPromise,
+            onFailure: restoreImageDraft,
+          });
+          sendInFlightRef.current = false;
+          setSendPhase("idle");
           return;
         }
       }
@@ -353,16 +389,25 @@ export function useChatSend({
       if (!authToken) return;
 
       let attached = queuedAttachment;
-      const sendThreadKey = getThreadKey();
+      const needsClientGeo = queryNeedsClientGeo(text);
       sendInFlightRef.current = true;
-      setSendPhase(attached ? "uploading" : "preparing");
-      const draftsSaved = await flushEmailDrafts();
-      if (!isCurrentView()) return;
-      if (!draftsSaved) {
+      setSendPhase(
+        needsClientGeo ? "locating" : attached ? "uploading" : "preparing",
+      );
+
+      // Geo intents: resolve the OS permission before painting anything, so a
+      // deny never makes a just-painted bubble vanish. Instant for non-geo text.
+      const geoResult = await resolveClientGeoForQuery(authToken, text, t, updateUser);
+      if (!geoResult.ok || !isCurrentView()) {
         sendInFlightRef.current = false;
         setSendPhase("idle");
         return;
       }
+      const clientGeo = geoResult.clientGeo;
+      setSendPhase(attached ? "uploading" : "preparing");
+
+      if (user?.id) void retireHomeGuidance(user.id);
+
       // Clear the composer immediately so the next draft can be typed.
       // Keep Send/Attach busy until the turn is accepted — an idle button
       // with sendInFlightRef set looked finished and ate the next tap.
@@ -406,6 +451,10 @@ export function useChatSend({
         setSendPhase("idle");
       };
 
+      // Flush in-progress email card edits in parallel with the attachment
+      // upload instead of blocking the optimistic bubble on the flush.
+      const draftsPromise = flushEmailDrafts();
+
       let attachmentIds: string[] | undefined;
       if (attached) {
         try {
@@ -425,12 +474,12 @@ export function useChatSend({
         }
       }
 
-      const geoResult = await resolveClientGeoForQuery(authToken, text, t, updateUser);
-      if (!geoResult.ok || !isCurrentView()) {
+      const draftsSaved = await draftsPromise;
+      if (!isCurrentView()) return;
+      if (!draftsSaved) {
         restoreDraft();
         return;
       }
-      const clientGeo = geoResult.clientGeo;
 
       if (!chatId) {
         creatingRef.current = true;
@@ -504,6 +553,7 @@ export function useChatSend({
       routeChatId,
       newMessageCountRef,
       selectedModel,
+      user,
       setMessages,
       prepareDraftChat,
       skipLoadForChatIdRef,
@@ -586,10 +636,6 @@ export function useChatSend({
           setMathScannerOpen(true);
           return;
         }
-        if (source === "library") {
-          router.push({ pathname: "/gallery", params: { pick: "1", composerThread } });
-          return;
-        }
         const picked =
           source === "camera"
             ? await pickFromCamera()
@@ -621,12 +667,12 @@ export function useChatSend({
         setAttachPicking(false);
       }
     },
-    [attachBusy, composerThread, feedback, router, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
+    [attachBusy, feedback, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
   );
 
-  const handleMathScanCaptured = useCallback((pending: PendingAttachment) => {
+  const handleMathScanCaptured = useCallback((pending: PendingAttachment, subject: ScannerSubject) => {
     setPendingAttachment(pending);
-    const text = composerTextAfterMathScan(inputRef.current, defaultMathCameraPrompt());
+    const text = composerTextAfterSubjectScan(inputRef.current, subject);
     setInput(text);
     setMathScannerOpen(false);
     void handleSend(text);

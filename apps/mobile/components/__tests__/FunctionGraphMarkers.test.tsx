@@ -2,10 +2,10 @@ import { render } from "@testing-library/react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+jest.mock("@/lib/skiaAvailability", () => ({ isSkiaAvailable: () => false }));
 
 const mockCircle = jest.fn((_props: Record<string, unknown>) => null);
 jest.mock("react-native-svg", () => ({

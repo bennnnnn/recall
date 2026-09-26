@@ -1,23 +1,23 @@
-import { memo, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { memo, useCallback, useMemo, useRef, type RefObject } from "react";
+import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { usePathname, useRouter } from "expo-router";
-import { Icon } from "@/components/Icon";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { HeaderButton, HeaderButtonGroup } from "@/ui/controls/HeaderButton";
 import { useTranslation } from "react-i18next";
 
-import { HamburgerIcon } from "@/components/HamburgerIcon";
-import { NewChatIcon } from "@/components/NewChatIcon";
 import {
   CHROME_FADE_EXTRA,
   TOP_CHROME_FADE_LOCATIONS,
   topChromeFadeColors,
 } from "@/lib/chromeFade";
 import { Theme, useTheme } from "@/lib/theme";
-import { IconSize } from "@/lib/icons";
+import { Type, Weight } from "@/lib/type";
+import { Space } from "@/lib/space";
 
 type Props = {
   paddingTop: number;
-  height: number;
+  minimumHeight: number;
+  onHeightChange: (height: number) => void;
   menuOverlayOpen: boolean;
   headerTitleLabel: string | null;
   titleGenerating: boolean;
@@ -27,11 +27,14 @@ type Props = {
   onOpenDrawer: () => void;
   onNewChat: () => void;
   onOpenMenu: () => void;
+  /** Attached to ⋮ so the chat menu opens from it. */
+  menuAnchorRef?: RefObject<View | null>;
 };
 
 export const ChatHeader = memo(function ChatHeader({
   paddingTop,
-  height,
+  minimumHeight,
+  onHeightChange,
   menuOverlayOpen,
   headerTitleLabel,
   titleGenerating,
@@ -40,13 +43,24 @@ export const ChatHeader = memo(function ChatHeader({
   onOpenDrawer,
   onNewChat,
   onOpenMenu,
+  menuAnchorRef,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const pathname = usePathname();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const router = useRouter();
-  const fromLibrary = pathname === "/open-chat";
+  const fromLibrary = returnTo === "gallery";
+  const lastReportedHeight = useRef(0);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const next = Math.ceil(event.nativeEvent.layout.height);
+      if (next <= 0 || next === lastReportedHeight.current) return;
+      lastReportedHeight.current = next;
+      onHeightChange(next);
+    },
+    [onHeightChange],
+  );
 
   return (
     <View
@@ -57,22 +71,22 @@ export const ChatHeader = memo(function ChatHeader({
       <LinearGradient
         colors={topChromeFadeColors(theme) as [string, string, ...string[]]}
         locations={[...TOP_CHROME_FADE_LOCATIONS]}
-        style={[s.headerFade, { height: height + CHROME_FADE_EXTRA }]}
+        style={s.headerFade}
         pointerEvents="none"
       />
       <View
         style={[
           s.header,
-          { paddingTop, height },
+          { paddingTop, minHeight: minimumHeight },
           menuOverlayOpen && s.headerMuted,
         ]}
+        onLayout={handleLayout}
+        testID="chat-header"
         pointerEvents="box-none"
       >
-        <Pressable
-          style={({ pressed }) => [
-            s.headerBtn,
-            pressed && !menuOverlayOpen && s.headerBtnPressed,
-          ]}
+        <HeaderButton
+          icon={fromLibrary ? "arrow-left" : "menu"}
+          variant={fromLibrary ? "plain" : "plate"}
           onPress={() => {
             if (fromLibrary) {
               if (router.canGoBack()) router.back();
@@ -81,16 +95,9 @@ export const ChatHeader = memo(function ChatHeader({
             }
             onOpenDrawer();
           }}
-          hitSlop={12}
-          accessibilityRole="button"
           accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
-        >
-          {fromLibrary ? (
-            <Icon name="chevron-back" size={IconSize.md} color={theme.text} />
-          ) : (
-            <HamburgerIcon size={IconSize.md} color={theme.text} />
-          )}
-        </Pressable>
+          testID="chat-header-leading"
+        />
         {headerTitleLabel ? (
           <View style={s.headerCenter} pointerEvents="none">
             <Text
@@ -109,32 +116,21 @@ export const ChatHeader = memo(function ChatHeader({
         <View style={s.headerRight}>
           {/* Home (no turns): drawer only. New-chat + ⋮ only once there are messages. */}
           {hasMessages ? (
-            <View style={s.actionGroup}>
-              <Pressable
-                style={({ pressed }) => [
-                  s.actionGroupBtn,
-                  pressed && s.actionGroupBtnPressed,
-                ]}
+            <HeaderButtonGroup>
+              <HeaderButton
+                variant="plain"
+                icon="edit"
                 onPress={onNewChat}
-                hitSlop={8}
-                accessibilityRole="button"
                 accessibilityLabel={t("chat.new_chat")}
-              >
-                <NewChatIcon size={IconSize.md} color={theme.text} />
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  s.actionGroupBtn,
-                  pressed && s.actionGroupBtnPressed,
-                ]}
+              />
+              <HeaderButton
+                ref={menuAnchorRef}
+                variant="plain"
+                icon="more-vertical"
                 onPress={onOpenMenu}
-                hitSlop={8}
-                accessibilityRole="button"
                 accessibilityLabel={t("chat.menu")}
-              >
-                <Icon name="ellipsis-vertical" size={IconSize.md} color={theme.text} />
-              </Pressable>
-            </View>
+              />
+            </HeaderButtonGroup>
           ) : null}
         </View>
       </View>
@@ -157,54 +153,34 @@ function makeStyles(theme: Theme) {
       top: 0,
       left: 0,
       right: 0,
+      bottom: -CHROME_FADE_EXTRA,
     },
     header: {
       flexDirection: "row",
       alignItems: "flex-end",
-      paddingHorizontal: 4,
-      paddingBottom: 4,
+      paddingHorizontal: Space.sm,
+      paddingBottom: Space.xxs,
       backgroundColor: "transparent",
     },
     headerMuted: { opacity: 0.55 },
-    headerBtn: {
-      width: 44,
-      height: 44,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: 10,
-    },
-    headerBtnPressed: { backgroundColor: theme.surfaceAlt },
     headerRight: { flexDirection: "row", alignItems: "center", gap: 2 },
-    actionGroup: {
-      flexDirection: "row",
-      alignItems: "center",
-      height: 44,
-      overflow: "hidden",
-    },
-    actionGroupBtn: {
-      width: 44,
-      height: 44,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    actionGroupBtnPressed: { backgroundColor: theme.surfaceAlt },
     headerCenter: {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      paddingHorizontal: 8,
+      paddingHorizontal: Space.xs,
       minWidth: 0,
     },
     headerTitleText: {
-      fontSize: 16,
-      fontWeight: "700",
+      ...Type.navTitle,
+      ...Weight.bold,
       color: theme.text,
       textAlign: "center",
     },
     headerTitlePending: {
       color: theme.textTertiary,
       fontStyle: "italic",
-      fontWeight: "600",
+      ...Weight.semibold,
     },
     headerSpacer: { flex: 1, pointerEvents: "none" as const },
   });

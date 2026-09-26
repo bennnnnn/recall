@@ -8,7 +8,8 @@ export type MathSegment =
   | { type: "sup"; value: string }
   | { type: "sub"; value: string }
   | { type: "frac"; num: MathSegment[]; den: MathSegment[] }
-  | { type: "sqrt"; body: MathSegment[]; degree?: string };
+  | { type: "sqrt"; body: MathSegment[]; degree?: string }
+  | { type: "cancel"; body: MathSegment[] };
 
 /**
  * Placeholder for a backslash inside `$...$` / `\(...\)` math that
@@ -91,7 +92,8 @@ export function latexHasStackedFrac(latex: string): boolean {
 }
 
 export function latexHasNestedMathView(latex: string): boolean {
-  return latexHasStackedFrac(latex) || /\\sqrt|\^\{[^{}]*\/[^{}]*\}/.test(restoreMathEscapes(latex));
+  return latexHasStackedFrac(latex)
+    || /\\sqrt|\^\{[^{}]*\/[^{}]*\}|\\(?:x|b)?cancel/.test(restoreMathEscapes(latex));
 }
 
 const CMD_REPLACEMENTS: [RegExp, string][] = [
@@ -661,10 +663,32 @@ function parseSqrt(
   return null;
 }
 
+/**
+ * \\cancel{3} / \\bcancel / \\xcancel — strike a cancelled factor in a divide step.
+ */
+function parseCancel(
+  input: string,
+  start: number,
+  depth: number,
+): { seg: MathSegment; next: number } | null {
+  const names = ["\\xcancel", "\\bcancel", "\\cancel"] as const;
+  const name = names.find((n) => input.startsWith(n, start));
+  if (!name) return null;
+  let i = start + name.length;
+  while (input[i] === " ") i += 1;
+  const group = readGroup(input, i);
+  if (!group) return null;
+  return {
+    seg: { type: "cancel", body: parseSimpleLatex(group.value, depth + 1) },
+    next: group.next,
+  };
+}
+
 function segmentToPlain(seg: MathSegment): string {
   if (seg.type === "text") return seg.value;
   if (seg.type === "sup") return `^${seg.value}`;
   if (seg.type === "sub") return `_${seg.value}`;
+  if (seg.type === "cancel") return segmentsToPlain(seg.body);
   if (seg.type === "sqrt") {
     // Radicand under a combining overline ("4̅"), not "(4)" in parens — the
     // bar itself delimits what's under the root, closer to how it's drawn
@@ -733,6 +757,13 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
     if (sqrt) {
       out.push(sqrt.seg);
       i = sqrt.next;
+      continue;
+    }
+
+    const cancel = parseCancel(input, i, depth);
+    if (cancel) {
+      out.push(cancel.seg);
+      i = cancel.next;
       continue;
     }
 

@@ -1,24 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Image,
-  ImageSourcePropType,
-  type ImageLoadEvent,
   Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
 } from "react-native";
+import { Image, type ImageLoadEventData, type ImageSource } from "expo-image";
 import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
-import { Icon } from "@/components/Icon";
-import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
+import { Icon } from "@/ui/icons/Icon";
+import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
-import { resolveAttachmentUri, attachmentRequestHeaders } from "@/lib/attachmentUri";
-import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
-import { fitAttachmentImage, type ImageSize } from "@/lib/attachmentImageSize";
+import { resolveAttachmentUri, attachmentRequestHeaders } from "@/features/attachments/model/attachmentUri";
+import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
+import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);
 const REVEAL_DURATION_MS = 280;
@@ -53,11 +52,11 @@ export function useThumbnailSize() {
 }
 
 type RevealingImageProps = {
-  source: ImageSourcePropType;
+  source: ImageSource;
   style: ReturnType<typeof makeStyles>["preview"];
   layerStyle: ReturnType<typeof makeStyles>["layer"];
   onError: () => void;
-  onLoad: (event: ImageLoadEvent) => void;
+  onLoad: (event: ImageLoadEventData) => void;
   reduceMotion: boolean;
   previewFit: "cover" | "contain";
 };
@@ -78,7 +77,7 @@ function RevealingImage({
   const sharpStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: 1 - reveal.value }));
 
-  const handleLoad = (event: ImageLoadEvent) => {
+  const handleLoad = (event: ImageLoadEventData) => {
     onLoad(event);
     // Reanimated shared values are designed to be mutated from any JS-thread
     // callback, including a plain event handler like this one — this isn't
@@ -97,7 +96,8 @@ function RevealingImage({
       <AnimatedImage
         source={source}
         style={[style, layerStyle]}
-        resizeMode={previewFit}
+        contentFit={previewFit}
+        cachePolicy="memory-disk"
         onError={onError}
         onLoad={onLoad}
       />
@@ -111,13 +111,15 @@ function RevealingImage({
       <AnimatedImage
         source={source}
         style={[style, layerStyle, blurStyle]}
-        resizeMode={previewFit}
+        contentFit={previewFit}
+        cachePolicy="memory-disk"
         blurRadius={REVEAL_BLUR_RADIUS}
       />
       <AnimatedImage
         source={source}
         style={[style, layerStyle, sharpStyle]}
-        resizeMode={previewFit}
+        contentFit={previewFit}
+        cachePolicy="memory-disk"
         onLoad={handleLoad}
         onError={onError}
       />
@@ -126,7 +128,16 @@ function RevealingImage({
 }
 
 export function ChatMessageImage(props: Props) {
-  const uri = resolveAttachmentUri({ attachmentId: props.attachmentId, localUri: props.localUri, path: props.path });
+  // Request a server-resized thumb (?w=) at 2× the layout width — pulling the
+  // full-resolution original into a ~148px bubble wastes decode time and data.
+  const thumb = useThumbnailSize();
+  const maxWidth = props.width ?? thumb.width;
+  const uri = resolveAttachmentUri({
+    attachmentId: props.attachmentId,
+    localUri: props.localUri,
+    path: props.path,
+    width: Math.round(maxWidth * 2),
+  });
   if (!uri) return null;
   // A new source owns new load/error state; a late event from the old image
   // cannot resize the next attachment, including local-to-remote replacement.
@@ -157,9 +168,9 @@ function ChatMessageImageContent({
     ? fitAttachmentImage(decodedSize, { width: maxWidth, height: maxHeight })
     : null;
   const { width, height } = fitted ?? { width: maxWidth, height: maxHeight };
-  const onLoad = (event: ImageLoadEvent) => {
+  const onLoad = (event: ImageLoadEventData) => {
     if (previewFit !== "contain") return;
-    const size = event.nativeEvent.source;
+    const size = event.source;
     if (fitAttachmentImage(size, { width: maxWidth, height: maxHeight })) {
       setDecodedSize({ width: size.width, height: size.height });
     }
@@ -219,13 +230,14 @@ function ChatMessageImageContent({
               style={[s.preview, s.fallback]}
               accessibilityLabel={t("chat.image_unavailable_a11y")}
             >
-              <Icon name="image-outline" size={28} color={C.textTertiary} />
+              <Icon name="image" size={IconSize.lg} color={C.textTertiary} />
             </View>
           ) : usePlainPreview ? (
             <Image
               source={localUri ? { uri: localUri } : source}
               style={s.preview}
-              resizeMode={previewFit}
+              contentFit={previewFit}
+              cachePolicy="memory-disk"
               onError={() => setFailed(true)}
               onLoad={onLoad}
               testID="chat-image-preview"

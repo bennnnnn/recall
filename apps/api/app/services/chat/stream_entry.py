@@ -8,12 +8,13 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, ChatServiceError, QuotaExceededError
-from app.models.orm import User
-from app.services.attachments.content import (
+from app.models.orm import Chat, User
+from app.modules.attachments.content import (
     image_attachment_ids_from_text,
     strip_attachment_from_content,
 )
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
+from app.services.chat.prompt_constants import is_lightweight_chat_turn, is_short_confirmation
 from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
 from app.services.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
@@ -193,6 +194,7 @@ async def stream_chat_response(
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
     user: User | None = None,
+    chat: Chat | None = None,
     skip_usage_seed: bool = False,
     resources: Any | None = None,
 ) -> AsyncIterator[str]:
@@ -210,47 +212,102 @@ async def stream_chat_response(
         borrowed=resources,
     ) as res:
 
-        async def _load_user_and_quota() -> tuple[User, int, Any]:
-            loaded = user
-            need_usage_seed = False
-            if not skip_usage_seed:
-                try:
-                    need_usage_seed = not await seams.quota_service.has_daily_usage_key(
-                        redis, str(user_id)
-                    )
-                except Exception:
-                    need_usage_seed = True
+        async def _load_user() -> User:
+            if user is not None:
+                timing.mark_phase("user_ready")
+                return user
             async with seams.SessionLocal() as session:
-                if loaded is None:
-                    loaded = await seams.users_repo.get_by_id(session, user_id)
-                    if loaded is None:
-                        raise ChatNotFoundError("User not found.")
-                if need_usage_seed:
-                    await seams.seed_usage_from_db(redis, session, user_id)
-                chat = await seams.chats_repo.get_by_id(session, chat_id, user_id)
-                if chat is None:
-                    raise ChatNotFoundError("Chat not found.")
-                limit = seams.quota_service.daily_limit_for_user(loaded, settings)
-            return loaded, limit, chat
+                loaded = await seams.users_repo.get_by_id(session, user_id)
+            if loaded is None:
+                raise ChatNotFoundError("User not found.")
+            timing.mark_phase("user_ready")
+            return loaded
 
-        # Wait is the previous turn's DB finalize only — never the WS
-        # producer (gather runs this as a child Task; waiting on self is 10s).
-        _, (user, daily_limit, chat) = await asyncio.gather(
-            seams.wait_for_pending_finalize(chat_id, redis, require_complete=True),
-            _load_user_and_quota(),
-        )
-        # History and model routing depend on the previous assistant insert.
-        # Read them only after finalize, outside the preload transaction.
-        async with seams.SessionLocal() as session:
-            window = settings.recent_message_window
-            recent = await seams.messages_repo.list_recent(session, chat_id, limit=window)
-            prior_count = await _prior_count_for_window(
-                recent,
-                window,
-                count_for_chat=seams.messages_repo.count_for_chat,
-                session=session,
-                chat_id=chat_id,
+        async def _load_chat() -> Chat:
+            if chat is not None:
+                timing.mark_phase("chat_ready")
+                return chat
+            peek = getattr(seams.chats_repo, "peek_recent_chat", None)
+            remembered = peek(chat_id, user_id) if callable(peek) else None
+            if remembered is not None:
+                timing.mark_phase("chat_ready")
+                return remembered
+            async with seams.SessionLocal() as session:
+                loaded = await seams.chats_repo.get_by_id(session, chat_id, user_id)
+            if loaded is None:
+                raise ChatNotFoundError("Chat not found.")
+            timing.mark_phase("chat_ready")
+            return loaded
+
+        async def _needs_usage_seed() -> bool:
+            if skip_usage_seed:
+                timing.mark_phase("quota_probe_ready")
+                return False
+            try:
+                missing = not await seams.quota_service.has_daily_usage_key(redis, str(user_id))
+            except Exception:
+                missing = True
+            timing.mark_phase("quota_probe_ready")
+            return missing
+
+        async def _load_user_and_quota() -> tuple[User, int, Chat]:
+            # User ownership, chat ownership, and the Redis quota probe are
+            # independent. Live simulator timing showed the old user->chat
+            # serial DB reads dominating this lane, so overlap them. Each DB
+            # read gets its own AsyncSession; SQLAlchemy AsyncSession itself is
+            # intentionally not used concurrently.
+            loaded_user, loaded_chat, need_usage_seed = await asyncio.gather(
+                _load_user(),
+                _load_chat(),
+                _needs_usage_seed(),
             )
+            if need_usage_seed:
+                async with seams.SessionLocal() as session:
+                    await seams.seed_usage_from_db(redis, session, user_id)
+            timing.mark_phase("quota_seed_ready")
+            limit = seams.quota_service.daily_limit_for_user(loaded_user, settings)
+            timing.mark_phase("account_quota_ready")
+            return loaded_user, limit, loaded_chat
+
+        async def _load_history_after_finalize() -> tuple[list[Any], int]:
+            # History must observe the previous assistant commit, but it does
+            # not depend on the current turn's user/chat lookup. Run both lanes
+            # concurrently so a remote DB round trip is paid once in wall time,
+            # not once for account/chat and again for recent messages.
+            await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
+            timing.mark_phase("previous_finalize_ready")
+            async with seams.SessionLocal() as session:
+                window = settings.recent_message_window
+                recent = await seams.messages_repo.list_recent(session, chat_id, limit=window)
+                prior_count = await _prior_count_for_window(
+                    recent,
+                    window,
+                    count_for_chat=seams.messages_repo.count_for_chat,
+                    session=session,
+                    chat_id=chat_id,
+                )
+            timing.mark_phase("history_ready")
+            return recent, prior_count
+
+        # Account/quota and history are independent once the previous turn is
+        # committed. A greeting does not need the recent window before the
+        # model starts — that extra Neon read was on the first-token path.
+        obvious_greeting = is_lightweight_chat_turn(content) and not is_short_confirmation(content)
+        if obvious_greeting:
+            await seams.wait_for_pending_finalize(chat_id, redis, require_complete=True)
+            timing.mark_phase("previous_finalize_ready")
+            user, daily_limit, chat = await _load_user_and_quota()
+            recent, prior_count = [], 0
+            timing.mark_phase("history_ready")
+        else:
+            (user, daily_limit, chat), (recent, prior_count) = await asyncio.gather(
+                _load_user_and_quota(),
+                _load_history_after_finalize(),
+            )
+        # Only short confirmation turns touch the DB here; ordinary lightweight
+        # greetings classify synchronously, so opening a fresh AsyncSession has
+        # no checkout/network cost on the common path.
+        async with seams.SessionLocal() as session:
             turn_mode = await _classify_turn_mode(session, chat, content)
         prior_user, prior_model = last_user_turn(recent)
         model = seams.plan_service.resolve_user_model_override(

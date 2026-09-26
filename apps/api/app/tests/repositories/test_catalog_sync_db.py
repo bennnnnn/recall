@@ -5,7 +5,7 @@ from sqlalchemy import delete
 
 from app.content.vocab_catalog import all_catalog_decks, word_id
 from app.models.orm import VocabEntry
-from app.services.learning.catalog_sync import ensure_catalog_rows
+from app.modules.learning.catalog_sync import ensure_catalog_rows
 
 
 @pytest.mark.asyncio

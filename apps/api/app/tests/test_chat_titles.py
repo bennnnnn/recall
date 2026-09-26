@@ -28,6 +28,17 @@ from app.services.chat.titles import (
         ('"My Trip Plan".', "My Trip Plan"),
         ('"My Trip Plan"!', "My Trip Plan"),
         ("\u201cMy Trip Plan\u201d.", "My Trip Plan"),
+        # Markdown emphasis the title model sometimes emits.
+        ("**Document Summaries**", "Document Summaries"),
+        ("**D**ocument** Summaries", "Document Summaries"),
+        ("__Trip Plan__", "Trip Plan"),
+        ("*Trip Plan*", "Trip Plan"),
+        ("_Trip Plan_", "Trip Plan"),
+        ('"**My Trip Plan**"', "My Trip Plan"),
+        ("A *great* trip", "A great trip"),
+        # Not emphasis: math and identifiers keep their characters.
+        ("Solve x*2 = 10", "Solve x*2 = 10"),
+        ("my_snake_case notes", "my_snake_case notes"),
         ("ab", None),
         ("", None),
         (None, None),
@@ -59,6 +70,22 @@ def test_chat_out_preserves_user_chosen_generic_title():
         updated_at=datetime.now(UTC),
     )
     assert out.title == "New chat"
+
+
+def test_chat_out_strips_markdown_emphasis_from_stored_title():
+    """Already-persisted `**...**` titles render clean — no migration needed."""
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    out = ChatOut(
+        id=uuid4(),
+        title="**D**ocument** Summaries",
+        model="auto",
+        pinned=False,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    assert out.title == "Document Summaries"
 
 
 @pytest.mark.parametrize(

@@ -23,7 +23,7 @@ def test_list_todos_empty():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.services.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[])):
+    with patch("app.modules.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[])):
         client = TestClient(app)
         r = client.get("/todos", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -49,7 +49,7 @@ def test_list_todos_returns_items():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.services.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[todo_mock])
+        "app.modules.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[todo_mock])
     ):
         client = TestClient(app)
         r = client.get("/todos", headers={"Authorization": "Bearer tok"})
@@ -68,7 +68,7 @@ def test_list_todos_passes_pagination_and_clamps_limit():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.services.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[])
+        "app.modules.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[])
     ) as list_mock:
         client = TestClient(app)
         # explicit pagination is forwarded
@@ -106,8 +106,8 @@ def test_create_todo():
     app = _app_with_user(user)
     invalidate_mock = AsyncMock()
     with (
-        patch("app.services.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
-        patch("app.services.todos.crud.home_service.invalidate_home_cache", invalidate_mock),
+        patch("app.modules.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.home_service.invalidate_home_cache", invalidate_mock),
     ):
         client = TestClient(app)
         r = client.post(
@@ -147,8 +147,8 @@ def test_create_todo_with_chat_id():
     chat_mock.id = cid
     chat_mock.user_id = user.id
     with (
-        patch("app.services.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
-        patch("app.services.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=chat_mock)),
+        patch("app.modules.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=chat_mock)),
     ):
         client = TestClient(app)
         r = client.post(
@@ -182,7 +182,7 @@ def test_create_todo_with_other_users_chat_id_rejected():
     # chats_repo.get_by_id returns None → the chat doesn't belong to this user
     # (or doesn't exist). The cross-user FK guard must reject with 400 rather
     # than silently linking the todo to a foreign chat.
-    with patch("app.services.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/todos",
@@ -198,7 +198,7 @@ def test_create_todo_with_unowned_chat_id_404s():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.services.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/todos",
@@ -257,8 +257,8 @@ def test_update_todo():
     user = _fake_user()
     app = _app_with_user(user)
     with (
-        patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
-        patch("app.services.todos.crud.todos_repo.update", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.todos_repo.update", AsyncMock(return_value=todo_mock)),
     ):
         client = TestClient(app)
         r = client.patch(
@@ -291,7 +291,7 @@ def test_update_todo_not_found():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.patch(
             f"/todos/{uuid4()}",
@@ -306,7 +306,7 @@ def test_delete_todo():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.services.todos.crud.todos_repo.delete_by_id", AsyncMock(return_value=True)):
+    with patch("app.modules.todos.crud.todos_repo.delete_by_id", AsyncMock(return_value=True)):
         client = TestClient(app)
         r = client.delete(
             f"/todos/{uuid4()}",
@@ -320,7 +320,7 @@ def test_delete_todo_not_found():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.services.todos.crud.todos_repo.delete_by_id", AsyncMock(return_value=False)):
+    with patch("app.modules.todos.crud.todos_repo.delete_by_id", AsyncMock(return_value=False)):
         client = TestClient(app)
         r = client.delete(
             f"/todos/{uuid4()}",
@@ -338,9 +338,9 @@ def test_delete_todo_topic_batches_list_delete():
     app = _app_with_user(user)
     with (
         patch(
-            "app.services.todos.crud.todos_repo.delete_by_topic", AsyncMock(return_value=5)
+            "app.modules.todos.crud.todos_repo.delete_by_topic", AsyncMock(return_value=5)
         ) as delete_by_topic,
-        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.delete(
@@ -358,7 +358,7 @@ def test_delete_todo_topic_not_found():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.services.todos.crud.todos_repo.delete_by_topic", AsyncMock(return_value=0)):
+    with patch("app.modules.todos.crud.todos_repo.delete_by_topic", AsyncMock(return_value=0)):
         client = TestClient(app)
         r = client.delete(
             "/todos/topic/Nope",
@@ -397,8 +397,8 @@ def test_create_todo_normalizes_naive_due_at_to_user_timezone():
     app = _app_with_user(user)
     create_mock = AsyncMock(return_value=todo_mock)
     with (
-        patch("app.services.todos.crud.todos_repo.create", create_mock),
-        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.todos.crud.todos_repo.create", create_mock),
+        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         # Naive 9:00 — should be interpreted as 9:00 America/New_York -> 14:00 UTC.
@@ -416,22 +416,43 @@ def test_create_todo_normalizes_naive_due_at_to_user_timezone():
     assert due_at.hour == 14
 
 
-def test_create_todo_requires_due_at():
-    """Schedule items must have a due date — undated creates 422."""
+def test_create_todo_accepts_plain_undated_item():
+    """A plain To-do is valid without a date."""
     from fastapi.testclient import TestClient
 
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Test"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.recurrence_rule = None
+    todo_mock.sort_order = None
+    todo_mock.chat_id = None
+    todo_mock.project_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
     user = _fake_user()
     app = _app_with_user(user)
-    client = TestClient(app)
-    r = client.post(
-        "/todos",
-        headers={"Authorization": "Bearer tok"},
-        json={"content": "Test"},
-    )
-    assert r.status_code == 422
+    create_mock = AsyncMock(return_value=todo_mock)
+    with (
+        patch("app.modules.todos.crud.todos_repo.create", create_mock),
+        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "Test"},
+        )
+    assert r.status_code == 201
+    assert create_mock.await_args.kwargs["due_at"] is None
+    assert create_mock.await_args.kwargs["topic"] == "General"
 
 
-def test_update_todo_clearing_due_at_returns_422():
+def test_update_todo_can_clear_due_at_and_repeat():
     from fastapi.testclient import TestClient
 
     tid = uuid4()
@@ -442,6 +463,8 @@ def test_update_todo_clearing_due_at_returns_422():
     todo_mock.topic = "General"
     todo_mock.checked = False
     todo_mock.due_at = now
+    todo_mock.recurrence_rule = "weekly"
+    todo_mock.sort_order = None
     todo_mock.chat_id = None
     todo_mock.project_id = None
     todo_mock.created_at = now
@@ -449,9 +472,23 @@ def test_update_todo_clearing_due_at_returns_422():
 
     user = _fake_user()
     app = _app_with_user(user)
+    updated_mock = MagicMock()
+    updated_mock.id = tid
+    updated_mock.content = "Test"
+    updated_mock.topic = "General"
+    updated_mock.checked = False
+    updated_mock.due_at = None
+    updated_mock.recurrence_rule = None
+    updated_mock.sort_order = None
+    updated_mock.chat_id = None
+    updated_mock.project_id = None
+    updated_mock.created_at = now
+    updated_mock.updated_at = now
+    update_mock = AsyncMock(return_value=updated_mock)
     with (
-        patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
-        patch("app.services.todos.crud.todos_repo.update", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.todos_repo.update", update_mock),
+        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.patch(
@@ -459,7 +496,9 @@ def test_update_todo_clearing_due_at_returns_422():
             headers={"Authorization": "Bearer tok"},
             json={"due_at": None},
         )
-    assert r.status_code == 422
+    assert r.status_code == 200
+    assert update_mock.await_args.kwargs["due_at"] is None
+    assert update_mock.await_args.kwargs["recurrence_rule"] is None
 
 
 def test_update_todo_normalizes_naive_due_at():
@@ -483,9 +522,9 @@ def test_update_todo_normalizes_naive_due_at():
     app = _app_with_user(user)
     update_mock = AsyncMock(return_value=todo_mock)
     with (
-        patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
-        patch("app.services.todos.crud.todos_repo.update", update_mock),
-        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.modules.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.modules.todos.crud.todos_repo.update", update_mock),
+        patch("app.modules.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         # Naive 9:00 — should be interpreted as 9:00 Asia/Tokyo -> 0:00 UTC.
@@ -510,7 +549,7 @@ def test_list_projects_empty():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.learning.learning_repo.list_for_user", AsyncMock(return_value=[])):
+    with patch("app.modules.learning.api.learning_repo.list_for_user", AsyncMock(return_value=[])):
         client = TestClient(app)
         r = client.get("/projects", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -537,9 +576,9 @@ def test_create_project():
     fake.updated_at = now
 
     with (
-        patch("app.routers.learning.learning_repo.create", AsyncMock(return_value=fake)),
+        patch("app.modules.learning.api.learning_repo.create", AsyncMock(return_value=fake)),
         patch(
-            "app.routers.learning.learning_repo.find_language_by_target",
+            "app.modules.learning.api.learning_repo.find_language_by_target",
             AsyncMock(return_value=None),
         ),
     ):
@@ -574,7 +613,7 @@ def test_search_returns_results():
         }
     ]
     with patch(
-        "app.routers.search.search_service.search_conversations",
+        "app.modules.search.api.search_service.search_conversations",
         AsyncMock(return_value=(fake_results, 1)),
     ):
         client = TestClient(app)
@@ -595,7 +634,7 @@ def test_search_returns_empty():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.search.search_service.search_conversations",
+        "app.modules.search.api.search_service.search_conversations",
         AsyncMock(return_value=([], 0)),
     ):
         client = TestClient(app)
@@ -648,7 +687,7 @@ def test_search_respects_limit():
         for _ in range(5)
     ]
     with patch(
-        "app.routers.search.search_service.search_conversations",
+        "app.modules.search.api.search_service.search_conversations",
         AsyncMock(return_value=(fake_results, 42)),  # total=42, but only 5 returned
     ):
         client = TestClient(app)
@@ -671,7 +710,7 @@ def test_list_suggestions_empty():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.suggestions.suggestions_repo.list_active",
+        "app.modules.suggestions.api.suggestions_repo.list_active",
         AsyncMock(return_value=[]),
     ):
         client = TestClient(app)
@@ -695,7 +734,7 @@ def test_list_suggestions_returns_active():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.suggestions.suggestions_repo.list_active",
+        "app.modules.suggestions.api.suggestions_repo.list_active",
         AsyncMock(return_value=[sug_mock]),
     ):
         client = TestClient(app)
@@ -713,11 +752,11 @@ def test_dismiss_suggestion():
     app = _app_with_user(user)
     with (
         patch(
-            "app.routers.suggestions.suggestions_repo.dismiss",
+            "app.modules.suggestions.api.suggestions_repo.dismiss",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.routers.suggestions.home_service.invalidate_home_cache",
+            "app.modules.suggestions.api.home_service.invalidate_home_cache",
             AsyncMock(),
         ) as invalidate_mock,
     ):
@@ -736,7 +775,7 @@ def test_dismiss_suggestion_not_found():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.suggestions.suggestions_repo.dismiss",
+        "app.modules.suggestions.api.suggestions_repo.dismiss",
         AsyncMock(return_value=False),
     ):
         client = TestClient(app)
@@ -1061,7 +1100,7 @@ async def test_generate_suggestions_releases_db_before_llm():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_count_active():
-    from app.repositories.suggestions import count_active
+    from app.modules.suggestions.repository import count_active
 
     session = AsyncMock()
     mock_result = MagicMock()
@@ -1074,7 +1113,7 @@ async def test_suggestions_repo_count_active():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_list_active():
-    from app.repositories.suggestions import list_active
+    from app.modules.suggestions.repository import list_active
 
     s = MagicMock()
     session = AsyncMock()
@@ -1091,7 +1130,7 @@ async def test_suggestions_repo_list_active_cap_matches_generator():
     """list_active must surface up to MAX_ACTIVE_SUGGESTIONS (the generator's
     cap), not a smaller hard-coded limit — otherwise home/API under-shows."""
     from app.background.suggestion_generation import MAX_ACTIVE_SUGGESTIONS as gen_cap
-    from app.repositories.suggestions import MAX_ACTIVE_SUGGESTIONS, list_active
+    from app.modules.suggestions.repository import MAX_ACTIVE_SUGGESTIONS, list_active
 
     assert MAX_ACTIVE_SUGGESTIONS == gen_cap == 10
     session = AsyncMock()
@@ -1109,7 +1148,7 @@ async def test_suggestions_repo_list_active_cap_matches_generator():
 @pytest.mark.asyncio
 async def test_suggestions_repo_dismiss_found():
     from app.models.orm import Suggestion
-    from app.repositories.suggestions import dismiss
+    from app.modules.suggestions.repository import dismiss
 
     sid = uuid4()
     uid = uuid4()
@@ -1128,7 +1167,7 @@ async def test_suggestions_repo_dismiss_found():
 @pytest.mark.asyncio
 async def test_suggestions_repo_dismiss_wrong_user():
     from app.models.orm import Suggestion
-    from app.repositories.suggestions import dismiss
+    from app.modules.suggestions.repository import dismiss
 
     sid = uuid4()
     item = MagicMock(spec=Suggestion)
@@ -1143,7 +1182,7 @@ async def test_suggestions_repo_dismiss_wrong_user():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_dismiss_not_found():
-    from app.repositories.suggestions import dismiss
+    from app.modules.suggestions.repository import dismiss
 
     session = AsyncMock()
     session.get = AsyncMock(return_value=None)
@@ -1154,7 +1193,7 @@ async def test_suggestions_repo_dismiss_not_found():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_create_many():
-    from app.repositories.suggestions import create_many
+    from app.modules.suggestions.repository import create_many
 
     session = AsyncMock()
     session.add = MagicMock()
@@ -1174,7 +1213,7 @@ async def test_suggestions_repo_create_many():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_delete_expired():
-    from app.repositories.suggestions import delete_expired
+    from app.modules.suggestions.repository import delete_expired
 
     session = AsyncMock()
     mock_result = MagicMock()
@@ -1191,7 +1230,7 @@ async def test_suggestions_repo_delete_expired():
 
 
 def test_search_snippet_exact_match():
-    from app.repositories.search import _snippet
+    from app.modules.search.repository import _snippet
 
     content = "The quick brown fox jumps over the lazy dog"
     result = _snippet(content, "fox", 120)
@@ -1199,7 +1238,7 @@ def test_search_snippet_exact_match():
 
 
 def test_search_snippet_no_match():
-    from app.repositories.search import _snippet
+    from app.modules.search.repository import _snippet
 
     content = "Hello world"
     result = _snippet(content, "zzz", 120)
@@ -1207,7 +1246,7 @@ def test_search_snippet_no_match():
 
 
 def test_search_snippet_truncation():
-    from app.repositories.search import _snippet
+    from app.modules.search.repository import _snippet
 
     content = "a" * 300 + "needle" + "b" * 300
     result = _snippet(content, "needle", 120)
@@ -1221,7 +1260,7 @@ def test_search_snippet_truncation():
 
 @pytest.mark.asyncio
 async def test_todos_repo_create():
-    from app.repositories.todos import create
+    from app.modules.todos.repository import create
 
     todo_mock = MagicMock()
     session = AsyncMock()
@@ -1230,8 +1269,8 @@ async def test_todos_repo_create():
     session.refresh = AsyncMock()
 
     with (
-        patch("app.repositories.todos.next_sort_order", AsyncMock(return_value=1)),
-        patch("app.repositories.todos.TodoItem", return_value=todo_mock),
+        patch("app.modules.todos.repository.next_sort_order", AsyncMock(return_value=1)),
+        patch("app.modules.todos.repository.TodoItem", return_value=todo_mock),
     ):
         result = await create(session, user_id=uuid4(), content="Task 1")
     assert result is todo_mock
@@ -1241,7 +1280,7 @@ async def test_todos_repo_create():
 
 @pytest.mark.asyncio
 async def test_todos_repo_create_commit_false_flushes_without_commit():
-    from app.repositories.todos import create
+    from app.modules.todos.repository import create
 
     todo_mock = MagicMock()
     session = AsyncMock()
@@ -1251,8 +1290,8 @@ async def test_todos_repo_create_commit_false_flushes_without_commit():
     session.refresh = AsyncMock()
 
     with (
-        patch("app.repositories.todos.next_sort_order", AsyncMock(return_value=1)),
-        patch("app.repositories.todos.TodoItem", return_value=todo_mock),
+        patch("app.modules.todos.repository.next_sort_order", AsyncMock(return_value=1)),
+        patch("app.modules.todos.repository.TodoItem", return_value=todo_mock),
     ):
         result = await create(session, user_id=uuid4(), content="Task 1", commit=False)
     assert result is todo_mock
@@ -1263,7 +1302,7 @@ async def test_todos_repo_create_commit_false_flushes_without_commit():
 
 @pytest.mark.asyncio
 async def test_todos_repo_update_unchecks():
-    from app.repositories.todos import update
+    from app.modules.todos.repository import update
 
     todo = MagicMock()
     todo.checked = True
@@ -1278,7 +1317,7 @@ async def test_todos_repo_update_unchecks():
 
 @pytest.mark.asyncio
 async def test_todos_repo_delete_not_found():
-    from app.repositories.todos import delete_by_id
+    from app.modules.todos.repository import delete_by_id
 
     session = AsyncMock()
     mock_result = MagicMock()

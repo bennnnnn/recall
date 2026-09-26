@@ -2,7 +2,9 @@ import { StyleSheet, type TextStyle } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import type { Theme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 
 /**
  * Nested-Text inline code. The markdown-display default is a block recipe
@@ -11,16 +13,14 @@ import { Type } from "@/lib/type";
  */
 export function inlineCodeTextStyle(t: Theme): TextStyle {
   return {
+    ...Type.secondary,
     fontFamily: CODE_FONT,
-    fontSize: 14,
-    lineHeight: Type.body.lineHeight,
-    fontWeight: Type.body.fontWeight,
     color: t.text,
     backgroundColor: t.surfaceAlt,
     borderWidth: 0,
     borderColor: "transparent",
     padding: 0,
-    paddingHorizontal: 4,
+    paddingHorizontal: Space.xxs,
     paddingVertical: 0,
     borderRadius: 4,
   };
@@ -49,7 +49,7 @@ export function makeVerifyCheckStyles(t: Theme) {
       backgroundColor: t.success,
       alignItems: "center",
       justifyContent: "center",
-      marginLeft: 8,
+      marginLeft: Space.xs,
       marginTop: 2,
       flexShrink: 0,
     },
@@ -79,7 +79,7 @@ export function makeMdMath(t: Theme) {
       borderRadius: 4,
       backgroundColor: t.primary,
       // Body is 16/22 — center the disc on the first line.
-      marginTop: 8,
+      marginTop: Space.xs,
       marginRight: 10,
       marginLeft: 2,
       flexShrink: 0,
@@ -89,12 +89,11 @@ export function makeMdMath(t: Theme) {
 
 export function makeMdTable(t: Theme) {
   return StyleSheet.create({
-    cellText: { fontSize: 15, lineHeight: 22, color: t.text, flexShrink: 1 },
-    headerText: { fontWeight: "600", color: t.text },
+    cellText: { ...Type.callout, ...Weight.regular, color: t.text, flexShrink: 1 },
+    headerText: { ...Weight.semibold, color: t.text },
     cellCode: {
       ...inlineCodeTextStyle(t),
-      fontSize: 13,
-      lineHeight: 18,
+      ...Type.compact,
     },
   });
 }
@@ -104,7 +103,7 @@ export function makeMdImg(t: Theme) {
     image: {
       width: "100%",
       height: 200,
-      borderRadius: 8,
+      borderRadius: Radius.xs,
       marginVertical: 6,
       backgroundColor: t.contentSurface,
     },
@@ -130,12 +129,12 @@ export function makeMdStyles(t: Theme) {
       minWidth: 22,
       textAlign: "right",
       marginLeft: 0,
-      marginRight: 8,
+      marginRight: Space.xs,
     },
     heading1: {
       ...Type.h1,
       marginTop: 18,
-      marginBottom: 8,
+      marginBottom: Space.xs,
       color: t.text,
       flexDirection: "row",
       flexWrap: "wrap",
@@ -143,7 +142,7 @@ export function makeMdStyles(t: Theme) {
     },
     heading2: {
       ...Type.h2,
-      marginTop: 16,
+      marginTop: Space.md,
       marginBottom: 6,
       color: t.text,
       flexDirection: "row",
@@ -152,8 +151,8 @@ export function makeMdStyles(t: Theme) {
     },
     heading3: {
       ...Type.h3,
-      marginTop: 12,
-      marginBottom: 4,
+      marginTop: Space.sm,
+      marginBottom: Space.xxs,
       color: t.text,
       flexDirection: "row",
       flexWrap: "wrap",
@@ -162,7 +161,7 @@ export function makeMdStyles(t: Theme) {
     heading4: {
       ...Type.h4,
       marginTop: 10,
-      marginBottom: 4,
+      marginBottom: Space.xxs,
       color: t.text,
       flexDirection: "row",
       flexWrap: "wrap",
@@ -170,7 +169,7 @@ export function makeMdStyles(t: Theme) {
     },
     heading5: {
       ...Type.h5,
-      marginTop: 8,
+      marginTop: Space.xs,
       marginBottom: 2,
       color: t.text,
       flexDirection: "row",
@@ -179,17 +178,17 @@ export function makeMdStyles(t: Theme) {
     },
     heading6: {
       ...Type.h6,
-      marginTop: 8,
+      marginTop: Space.xs,
       marginBottom: 2,
       color: t.text,
       flexDirection: "row",
       flexWrap: "wrap",
       alignItems: "flex-start",
     },
-    strong: { fontWeight: "700", color: t.text },
+    strong: { ...Weight.bold, color: t.text },
     em: { fontStyle: "italic" },
     blockquote: { marginVertical: 0, padding: 0, borderWidth: 0 },
-    hr: { backgroundColor: t.border, height: 1, marginVertical: 12 },
+    hr: { backgroundColor: t.border, height: 1, marginVertical: Space.sm },
     link: { color: t.primary },
   });
 }

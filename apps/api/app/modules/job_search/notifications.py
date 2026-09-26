@@ -1,0 +1,63 @@
+"""Push delivery for completed My Job searches."""
+
+from __future__ import annotations
+
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import Settings
+from app.gateways import expo_push_gateway
+from app.models.orm import PushToken, User
+from app.modules.notifications import PUSH_SOUND, channel_id_for_token
+
+
+async def notify_job_matches_ready(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    profile_id: UUID,
+    new_match_count: int,
+) -> None:
+    if not settings.push_enabled or new_match_count <= 0:
+        return
+
+    user = await session.get(User, user_id)
+    if user is None or not user.push_notifications_enabled:
+        return
+
+    rows = list(
+        (await session.scalars(select(PushToken).where(PushToken.user_id == user_id))).all()
+    )
+    if not rows:
+        return
+
+    noun = "job match" if new_match_count == 1 else "job matches"
+    body = f"{new_match_count} new {noun} are ready to review."
+    data = {
+        "type": "job_search_ready",
+        "screen": "my-job",
+        "profile_id": str(profile_id),
+    }
+    messages = []
+    for row in rows:
+        message: dict[str, Any] = {
+            "to": row.expo_push_token,
+            "sound": PUSH_SOUND,
+            "title": "New job matches",
+            "body": body,
+            "data": data,
+        }
+        channel_id = channel_id_for_token(row, data)
+        if channel_id is not None:
+            message["channelId"] = channel_id
+        messages.append(message)
+    result = await expo_push_gateway.send_push_messages(messages)
+    if result.invalid_tokens:
+        await session.execute(
+            delete(PushToken).where(PushToken.expo_push_token.in_(result.invalid_tokens))
+        )
+        await session.commit()

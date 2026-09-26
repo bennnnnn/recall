@@ -4,7 +4,9 @@
 import React from "react";
 import { render } from "@testing-library/react-native";
 
-jest.mock("@/components/Icon", () => ({
+import { MoleculeCard } from "@/components/rich/MoleculeCard";
+
+jest.mock("@/ui/icons/Icon", () => ({
   Icon: () => null,
 }));
 
@@ -34,8 +36,6 @@ jest.mock("@/lib/theme", () => ({
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-
-import { MoleculeCard } from "@/components/rich/MoleculeCard";
 
 const VALID_SDF = `Ethanol
      RDKit          3D

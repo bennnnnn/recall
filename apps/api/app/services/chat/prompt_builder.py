@@ -13,17 +13,26 @@ from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.models.schemas.math import MathImageExtract
+from app.modules import learning as learning_service
+from app.modules import memory as memory_service
+from app.modules import todos as todos_service
+from app.modules import web_search as web_search_service
+from app.modules.integrations import calendar as calendar_service
+from app.modules.integrations import inbox as email_service
+from app.modules.math import tools as math_tools_service
+from app.modules.math.followup import (
+    MATH_FOLLOWUP_HINT,
+    is_math_followup,
+    readable_standalone_answer,
+)
+from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.tools import VerifiedMathBlock
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
-from app.services import calendar as calendar_service
-from app.services import learning as learning_service
 from app.services import locale as locale_service
-from app.services import memory as memory_service
 from app.services import profile as profile_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
-from app.services import todos as todos_service
-from app.services import web_search as web_search_service
 from app.services.chat import tools as chat_tools_service
 from app.services.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
@@ -50,6 +59,11 @@ from app.services.chat.prompt_constants import (
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
     MERMAID_FORMAT_HINT,
+    NON_DRAFT_TURN_HINT,
+    PERSONAL_DISCLOSURE_HINT,
+    PHYSICS_INTENT_HINT,
+    PHYSICS_REPLY_POLICY,
+    PHYSICS_SHORT_HINT,
     PRIVACY_HINT,
     PROSE_WRITING_HINT,
     QUOTE_FORMAT_HINT,
@@ -65,6 +79,7 @@ from app.services.chat.prompt_constants import (
     WRITING_LINE_HINT,
     is_bare_writing_line,
     is_brevity_request,
+    is_broad_self_question,
     is_callout_question,
     is_capabilities_question,
     is_chart_question,
@@ -72,11 +87,13 @@ from app.services.chat.prompt_constants import (
     is_howto_question,
     is_learning_progress_question,
     is_mermaid_question,
+    is_personal_disclosure_turn,
     is_quote_question,
     is_sequence_diagram_question,
     is_short_confirmation,
     is_structured_comparison_question,
     is_underspecified_writing_request,
+    recalls_earlier_conversation,
     writing_request_kind,
 )
 from app.services.chat.prompt_constants.visuals import (
@@ -86,17 +103,15 @@ from app.services.chat.prompt_constants.visuals import (
     is_image_generation_mention,
 )
 from app.services.chat.stream_status import StreamStatusFn
-from app.services.context_window import select_recent_window
-from app.services.day_planning import is_day_planning_question, is_day_reflection_question
-from app.services.email import context as email_service
-from app.services.math import tools as math_tools_service
-from app.services.math.followup import (
-    MATH_FOLLOWUP_HINT,
-    is_math_followup,
-    readable_standalone_answer,
+from app.services.context_window import (
+    UNSUMMARIZED_GAP_MAX_MESSAGES,
+    estimate_tokens,
+    messages_within_token_budget,
+    select_recent_window,
+    trim_message_for_summary,
+    unsummarized_gap_bounds,
 )
-from app.services.math.reply_policy import MATH_REPLY_POLICY
-from app.services.math.tools import VerifiedMathBlock
+from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.md_fence_scan import strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import (
@@ -106,14 +121,48 @@ from app.services.prompt_safety import (
 )
 
 _PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places")
-_ADVICE_MEMORY_MAX_CHARS = 1000
+_SLIM_MEMORY_MAX_CHARS = 1000
+_BROAD_SELF_HISTORY_QUERY = (
+    "Personal details the user stated about their background, work, employer, interests, "
+    "preferences, communication style, goals, and active projects"
+)
 
 
-def _cap_advice_memory_block(block: str) -> str:
-    if len(block) <= _ADVICE_MEMORY_MAX_CHARS:
+def _cap_slim_memory_block(block: str) -> str:
+    if len(block) <= _SLIM_MEMORY_MAX_CHARS:
         return block
-    cut = max(1, _ADVICE_MEMORY_MAX_CHARS - 1)
-    return f"{block[:cut].rstrip()}…"
+
+    lines = block.splitlines()
+    if not lines:
+        return ""
+
+    # Memory blocks are rendered as a title followed by section headings and
+    # bullet facts. Keep complete facts and skip any one fact that does not fit;
+    # slicing the string can turn a remembered detail into a different claim.
+    packed = [lines[0]]
+    current_heading: str | None = None
+    emitted_heading: str | None = None
+    for line in lines[1:]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("## "):
+            current_heading = stripped
+            continue
+        if not stripped.startswith("- "):
+            continue
+
+        addition: list[str] = []
+        if current_heading and current_heading != emitted_heading:
+            addition.extend(["", current_heading])
+        addition.append(stripped)
+        trial = "\n".join([*packed, *addition])
+        if len(trial) > _SLIM_MEMORY_MAX_CHARS:
+            continue
+        packed.extend(addition)
+        emitted_heading = current_heading
+
+    return "\n".join(packed) if len(packed) > 1 else ""
 
 
 def _strip_prompt_owned_fences(content: str) -> str:
@@ -138,6 +187,15 @@ def _math_viz_intent(query_text: str | None) -> tuple[bool, bool]:
         or is_html_ui_question(query_text)
     )
     return math_intent, viz_intent
+
+
+def _physics_turn(query_text: str | None) -> bool:
+    """A physics template, so the turn must not be labeled as math."""
+    if not query_text or not query_text.strip():
+        return False
+    from app.modules.physics import has_supported_physics_cue
+
+    return has_supported_physics_cue(query_text)
 
 
 def _custom_instructions_block(user: User) -> str | None:
@@ -255,7 +313,8 @@ async def fetch_web_and_tools(
         user_content, has_image_attachment=has_image_attachment
     )
     if needs_math and on_status is not None:
-        await on_status("calculating")
+        phase = "physics" if _physics_turn(user_content) else "calculating"
+        await on_status(phase)
 
     (web_block, search_sources), (math_block, verified_math) = await asyncio.gather(
         web_search_service.build_search_augmentation(
@@ -410,8 +469,11 @@ async def _load_context_blocks(
             return None
         from app.services.chat import history_rag as chat_history_rag_service
 
+        history_query = (
+            _BROAD_SELF_HISTORY_QUERY if is_broad_self_question(query_text) else query_text
+        )
         return await chat_history_rag_service.embed_query_for_prompt(
-            settings, user_id=user.id, query=query_text
+            settings, user_id=user.id, query=history_query
         )
 
     async def _fetch_recent() -> list[Any]:
@@ -443,10 +505,6 @@ async def _load_context_blocks(
             history_rag_query_vec=history_rag_query_vec,
         )
 
-    if chat is None:
-        async with SessionLocal() as s:
-            chat = await chats_repo.get_by_id(s, chat_id, user.id)
-
     # Each of these is an independent read with no dependency on the others'
     # output — give each its own short-lived session (a single AsyncSession
     # cannot safely run concurrent operations) and gather them, instead of
@@ -466,20 +524,28 @@ async def _load_context_blocks(
             )
 
     if slim_context and load_memory:
-        recent_all, memory_block = await asyncio.gather(_fetch_recent(), _memory_block())
+        recent_all, memory_block, history_rag_query_vec = await asyncio.gather(
+            _fetch_recent(),
+            _memory_block(),
+            _history_rag_embed(),
+        )
         if out is not None:
             out["recalled"] = 0
             out["memory_hints"] = []
         return _PromptContextBlocks(
-            memory_block=_cap_advice_memory_block(memory_block),
+            memory_block=_cap_slim_memory_block(memory_block),
             todos_section=None,
             gmail_todos_section=None,
             projects_block="",
             recent_all=recent_all,
             attachment_rag_block="",
             chat=chat,
-            history_rag_query_vec=None,
+            history_rag_query_vec=history_rag_query_vec,
         )
+
+    if chat is None:
+        async with SessionLocal() as s:
+            chat = await chats_repo.get_by_id(s, chat_id, user.id)
 
     async def _todos_section() -> tuple[str | None, str | None]:
         async with db_slots, SessionLocal() as s:
@@ -534,7 +600,7 @@ async def _load_context_blocks(
         # HTTP/embed-bound — do not hold a DB pool slot.
         if not settings.attachment_rag_enabled or not query_text:
             return ""
-        from app.services.attachments import rag as attachment_rag_service
+        from app.modules.attachments import rag as attachment_rag_service
 
         return await attachment_rag_service.retrieve_for_prompt(
             settings,
@@ -664,8 +730,23 @@ def _style_format_hints(
             CAPABILITIES_FORMAT_HINT,
             MATH_FENCE_SAFETY_HINT,
         ]
+    if query_text and is_personal_disclosure_turn(query_text):
+        # A first-person update is not an invitation to generate a guide. Keep
+        # the contract small and decisive so the general rich-format pack
+        # cannot turn "I work at Uber..." into an unsolicited career plan.
+        return [
+            CLARIFICATION_HINT,
+            PRIVACY_HINT,
+            NON_DRAFT_TURN_HINT,
+            PERSONAL_DISCLOSURE_HINT,
+            UNIVERSAL_FORMAT_BASELINE,
+            SHORT_RESPONSE_FORMAT_HINT,
+            MATH_FENCE_SAFETY_HINT,
+        ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     writing = _writing_format_hint(query_text)
+    if query_text and writing is None:
+        parts.append(NON_DRAFT_TURN_HINT)
     math_intent, viz_intent = _math_viz_intent(query_text)
     if query_text and is_short_confirmation(query_text):
         parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
@@ -715,7 +796,12 @@ def _style_format_hints(
         parts.append(
             IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT
         )
-    if math_intent:
+    if math_intent and _physics_turn(query_text):
+        if style == "short" or compact:
+            parts.append(PHYSICS_SHORT_HINT)
+        else:
+            parts.append(PHYSICS_INTENT_HINT)
+    elif math_intent:
         if style == "short" or compact:
             parts.append(SHORT_MATH_SAFETY_HINT)
             parts.append(MATH_SHORT_RESPONSE_HINT)
@@ -732,7 +818,9 @@ def _style_format_hints(
         parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
-    if math_intent:
+    if math_intent and _physics_turn(query_text):
+        parts.append(PHYSICS_REPLY_POLICY)
+    elif math_intent:
         # Keep requested detail last, after general layout and tutoring hints.
         parts.append(MATH_REPLY_POLICY)
     return parts
@@ -790,6 +878,68 @@ def _integration_hints(
     return parts
 
 
+def _persisted_messages(window: list[Any], current_user_message_id: UUID | None) -> list[Any]:
+    """Drop the synthetic current turn. It is not a stored row yet."""
+    if current_user_message_id is None:
+        return window
+    return [
+        message for message in window if getattr(message, "id", None) != current_user_message_id
+    ]
+
+
+async def _load_unsummarized_gap(
+    chat_id: UUID,
+    chat: Chat | None,
+    window: list[Any],
+    tail: list[Any],
+    *,
+    recent_limit: int,
+    token_budget: int,
+    current_user_message_id: UUID | None,
+) -> list[Any]:
+    """Messages after the summary and before the messages the prompt kept.
+
+    ``tail`` is that kept list. A synthetic current user row can push one
+    stored message out of a full window; that row is included here, then the
+    whole gap is cut to the tokens the recent window did not already use.
+    """
+    tail_ids = {message.id for message in tail}
+    dropped = [
+        message
+        for message in _persisted_messages(window, current_user_message_id)
+        if message.id not in tail_ids
+    ]
+    older: list[Any] = []
+    persisted = _persisted_messages(window, current_user_message_id)
+    if chat is not None and len(persisted) >= recent_limit and persisted:
+        oldest = persisted[0]
+        created_at = getattr(oldest, "created_at", None)
+        oldest_id = getattr(oldest, "id", None)
+        if created_at is not None and oldest_id is not None:
+            summarized = int(getattr(chat, "summary_message_count", 0) or 0)
+            async with SessionLocal() as session:
+                total = await messages_repo.count_for_chat(session, chat_id)
+                bounds = unsummarized_gap_bounds(
+                    total=total,
+                    summarized=summarized,
+                    loaded=len(persisted),
+                )
+                if bounds is not None:
+                    _offset, count = bounds
+                    older = await messages_repo.list_before(
+                        session,
+                        chat_id,
+                        before_created_at=created_at,
+                        before_id=oldest_id,
+                        limit=count,
+                    )
+    return messages_within_token_budget(
+        [*older, *dropped],
+        token_budget,
+        max_messages=UNSUMMARIZED_GAP_MAX_MESSAGES,
+    )
+
+
 async def build_prompt_messages(
     user: User,
     chat_id: UUID,
@@ -817,27 +967,34 @@ async def build_prompt_messages(
     connection across the concurrent gather.
     """
     recent_limit = settings.recent_message_window
-    # Opt-in rich context: casual chat skips memory embed / todos / projects.
-    # ``lightweight`` is only the ultra-brief social reply style (hi/thanks).
+    # Greetings stay on the short-reply style. Other turns load memory and
+    # past-chat retrieval only when the text is actually about the user.
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
     # If this chat has indexed attachment chunks, force rich context so a
     # casual follow-up ("what's on page 10?") still retrieves RAG chunks.
     # Without this, a lightweight query after uploading a PDF skips RAG
     # entirely and the user gets no document context on follow-ups.
     if not rich_context and settings.attachment_rag_enabled and probe_attachment_rag:
-        from app.repositories import attachment_chunks as chunks_repo
+        from app.modules.attachments import chunks_repository as chunks_repo
 
         try:
             async with SessionLocal() as s:
                 rich_context = await chunks_repo.has_chunks_for_chat(s, user.id, chat_id)
         except Exception:
             logger.debug("has_chunks_for_chat probe failed for chat_id=%s", chat_id, exc_info=True)
-    load_memory = (
-        (rich_context or advice_memory) and not lightweight and not minimal_personal_context
-    )
+    # Personal continuity only when this turn is actually about the user.
+    # A normal question ("what is the capital of France") used to embed memory
+    # and chat history on every non-greeting, which sat on the first token
+    # for seconds before the model started.
+    personal_context = (rich_context or advice_memory) and not lightweight
+    load_memory = personal_context
     slim_context = minimal_personal_context or lightweight or not rich_context
+    recalls_shared_past = bool(query_text and recalls_earlier_conversation(query_text))
     history_rag = bool(
-        not slim_context and settings.chat_history_rag_enabled and query_text and query_text.strip()
+        (personal_context or recalls_shared_past)
+        and settings.chat_history_rag_enabled
+        and query_text
+        and query_text.strip()
     )
     blocks = await _load_context_blocks(
         user,
@@ -860,6 +1017,24 @@ async def build_prompt_messages(
         recent_source = [m for m in recent_source if m.id not in omit_message_ids]
     keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
     recent = recent_source[-keep:] if keep else []
+    tail_tokens = sum(
+        estimate_tokens(message.content)
+        for message in recent
+        if isinstance(getattr(message, "content", None), str)
+    )
+    gap = await _load_unsummarized_gap(
+        chat_id,
+        chat,
+        blocks.recent_all,
+        recent,
+        recent_limit=recent_limit,
+        token_budget=max(0, settings.context_token_budget - tail_tokens),
+        current_user_message_id=current_user_message_id,
+    )
+    if omit_message_ids:
+        gap = [m for m in gap if m.id not in omit_message_ids]
+    recent_ids = {m.id for m in recent}
+    gap = [m for m in gap if m.id not in recent_ids]
     followup_exchange = recent
     # New-turn preparation includes its current user in history, sometimes
     # before persistence completes. Only the caller's explicit ID proves that
@@ -892,7 +1067,7 @@ async def build_prompt_messages(
     if history_rag and blocks.history_rag_query_vec is not None:
         from app.services.chat import history_rag as chat_history_rag_service
 
-        exclude = {m.id for m in recent}
+        exclude = {m.id for m in recent} | {m.id for m in gap}
         if omit_message_ids:
             exclude |= omit_message_ids
         chat_history_rag_block = await chat_history_rag_service.retrieve_for_prompt(
@@ -976,18 +1151,29 @@ async def build_prompt_messages(
                 chat_history_rag_block=chat_history_rag_block,
             )
         )
-    elif load_memory:
+    elif load_memory or recalls_shared_past:
         if blocks.memory_block:
             system_parts.append(wrap_untrusted("memory", blocks.memory_block, first_party=True))
+        if chat_history_rag_block:
+            system_parts.append(chat_history_rag_block)
         if advice_memory and not (query_text and is_capabilities_question(query_text)):
             system_parts.append(ADVICE_PERSONALIZE_HINT)
 
     if math_followup:
         system_parts.extend([MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT])
 
+    # Keep the acknowledgement contract closest to the user turn. Memory and
+    # integration context is appended after the style pack and can otherwise
+    # tempt the model into an unsolicited plan even though no task was asked.
+    if query_text and is_personal_disclosure_turn(query_text):
+        system_parts.append(PERSONAL_DISCLOSURE_HINT)
+
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
-    for msg in recent:
+    gap_ids = {m.id for m in gap}
+    for msg in (*gap, *recent):
         content = msg.content
+        if msg.id in gap_ids:
+            content = trim_message_for_summary(content)
         if msg.role == "user":
             content = wrap_persisted_attachment_excerpts(content)
         elif msg.role == "assistant":

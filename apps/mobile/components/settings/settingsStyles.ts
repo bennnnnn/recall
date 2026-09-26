@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -11,39 +12,38 @@ export function makeSettingsStyles(theme: Theme) {
     root: { flex: 1, backgroundColor: theme.bg },
     scroll: { flex: 1, backgroundColor: theme.bg },
     content: {
-      paddingHorizontal: Space.gutter,
+      paddingHorizontal: Space.md,
       paddingTop: Space.xs,
       paddingBottom: Space.xl + Space.xs,
     },
-    section: { marginTop: Space.xl },
+    section: { marginTop: Space.lg },
     sectionLabel: {
-      ...Type.body,
-      fontSize: 17,
+      ...Type.secondary,
       color: theme.textSecondary,
-      marginHorizontal: Space.gutter,
+      marginHorizontal: Space.md,
       marginBottom: Space.sm,
     },
     footerGroup: {
       backgroundColor: theme.bg,
-      borderRadius: 28,
+      borderRadius: Radius.xl,
       overflow: "hidden",
     },
     overviewCard: { gap: 2 },
     menuRow: {
       flexDirection: "row",
       alignItems: "center",
-      minHeight: 68,
-      paddingHorizontal: Space.gutter,
-      paddingVertical: Space.gutter,
-      gap: Space.gutter,
+      minHeight: 56,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
+      gap: Space.md,
       borderRadius: 4,
       backgroundColor: theme.settingsSurface,
     },
     rowPressed: { opacity: 0.65 },
     rowBody: { flex: 1, gap: 2 },
-    rowTitle: { ...Type.body, fontSize: 18, color: theme.text },
-    meta: { ...Type.callout, fontWeight: "400", color: theme.textSecondary },
-    linkValue: { ...Type.callout, fontWeight: "400", color: theme.textSecondary },
+    rowTitle: { ...Type.body, color: theme.text },
+    meta: { ...Type.secondary, color: theme.textSecondary },
+    linkValue: { ...Type.secondary, color: theme.textSecondary },
     linkTrailing: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     menuSeparator: { height: 2, backgroundColor: theme.bg },
     usageTrack: {

@@ -51,11 +51,11 @@ def stream_offline_io():
             patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock())
         )
         stack.enter_context(
-            patch("app.services.web_search.is_vocab_quiz_answer", return_value=False)
+            patch("app.modules.web_search.is_vocab_quiz_answer", return_value=False)
         )
         stack.enter_context(
             patch(
-                "app.services.calendar.has_write_access",
+                "app.modules.integrations.calendar.has_write_access",
                 AsyncMock(return_value=False),
             )
         )

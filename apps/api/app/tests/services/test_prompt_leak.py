@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.math.tools.block.common import (
+from app.services.solving import (
     VERIFIED_MATH_BEGIN,
     VERIFIED_MATH_END,
     strip_verified_math_markers,

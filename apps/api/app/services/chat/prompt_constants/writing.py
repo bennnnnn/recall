@@ -25,6 +25,14 @@ WRITING_LINE_HINT = (
     "or bit about the words."
 )
 
+NON_DRAFT_TURN_HINT = (
+    "This turn is not an explicit writing request. Reply conversationally in normal Markdown; "
+    "do not create an email, message, SMS, social-post, or copy fence. A personal update, goal, "
+    "employer/company mention, or career-change statement is context to understand and respond "
+    "to—not an implicit request to draft outreach. Only draft when the user explicitly asks you "
+    "to write, draft, compose, email, message, text, reply, or rewrite something."
+)
+
 EMAIL_DRAFT_HINT = (
     "Email and message drafting (purpose is already in the ask):\n"
     "When the user wants an email, text, or message written and they said what it "

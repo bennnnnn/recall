@@ -60,6 +60,18 @@ _SMART_TRIGGERS = (
 # escape velocity, …). needs_symbolic stays the solver gate so we don't
 # inject fake verified fences; Auto still escalates so a weak model isn't
 # left to invent F=ma on an incline. Bare "physics" must not match.
+#
+# Deliberately a separate list from `services.physics.extract.PHYSICS_CUES` /
+# `has_supported_physics_cue`, not a duplicate of it: that one gates "the
+# solver's extractors might handle this text," which has grown to twenty
+# kinds. This one gates "escalate Auto to the smarter model," which some
+# entries here now overlap with a covered kind (momentum, simple harmonic,
+# centripetal) — kept anyway, since a smarter model's surrounding
+# explanation is still worth it even when the number itself is guaranteed.
+# If that stops being true for a given phrase, prune it here; don't point
+# this at `has_supported_physics_cue` — inverting the gate would escalate
+# exactly the questions the solver already has covered, and stop escalating
+# the ones it doesn't, which is backwards from this function's purpose.
 _PHYSICS_HOMEWORK_CUES = (
     "frictionless",
     "incline",
@@ -289,7 +301,7 @@ def _should_inherit_smart(
     return _looks_like_smart_continuation(content)
 
 
-def _route_current_line(content: str) -> str:
+def _route_current_line(content: str, settings: Settings | None = None) -> str:
     """Score this message alone — no prior-turn inherit."""
     text = content.lower()
     smart = model_catalog.auto_smart_alias()
@@ -300,15 +312,16 @@ def _route_current_line(content: str) -> str:
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
-    if _looks_like_physics_homework(content):
-        return smart
+    physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
+    if physics_alias is not None:
+        return physics_alias
     # Math / structured turns (equations, graphs, geometry, calculus, stats,
     # …) route to the smart model up front. A weak model on a math ask used to
     # produce wrong worked steps even with SymPy-verified fences injected, so
     # the verified answer and the prose disagreed. needs_symbolic is the same
     # gate the math pipeline uses, so routing and augmentation agree on what
     # "a math turn" is. Lazy import keeps routing import-time cheap.
-    from app.services.math.match import needs_symbolic
+    from app.modules.math.match import needs_symbolic
 
     if needs_symbolic(content) and not _verified_math_stays_fast(content):
         return smart
@@ -320,6 +333,7 @@ def route_chat_model(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    settings: Settings | None = None,
 ) -> str:
     """Return a preferred chat alias for an auto-routed message (before pool filter).
 
@@ -327,7 +341,7 @@ def route_chat_model(
     turn inherits Pro; a new topic does not pin the rest of the chat.
     """
     smart = model_catalog.auto_smart_alias()
-    preferred = _route_current_line(content)
+    preferred = _route_current_line(content, settings)
     if preferred == smart:
         return smart
     if (
@@ -339,14 +353,56 @@ def route_chat_model(
     return preferred
 
 
+def _physics_intent_solves(intent: Any) -> bool:
+    from app.modules.physics import solve_physics
+    from app.services.solving import MathServiceError
+
+    try:
+        solve_physics(intent)
+    except MathServiceError:
+        return False
+    return True
+
+
+def _physics_route(
+    content: str,
+    *,
+    fast: str,
+    smart: str,
+    settings: Settings | None = None,
+) -> str | None:
+    """Verified physics stays on the fast model. Uncovered homework goes smart.
+
+    The fast tier is only for a template the solver actually finishes, and
+    only while math tools are on. Otherwise the strong model answers it.
+    """
+    homework = _looks_like_physics_homework(content)
+    from app.modules.math.match import needs_symbolic
+
+    if not homework and not needs_symbolic(content):
+        return None
+    from app.models.schemas.physics.intent import PhysicsIntent
+    from app.modules.math.tools.extract import extract_math_intent
+
+    intent = extract_math_intent(content)
+    if isinstance(intent, PhysicsIntent):
+        tools_on = settings is None or settings.math_tools_enabled
+        if tools_on and _physics_intent_solves(intent):
+            return fast
+        return smart
+    if homework:
+        return smart
+    return None
+
+
 def _verified_math_stays_fast(content: str) -> bool:
     """SymPy already covers these; a reasoning model only writes a CoT essay.
 
     Keep equations / calculus / graphs on smart. Bare factorial ("4!") and
     "what is 1+1" style arithmetic stay on the fast model.
     """
-    from app.services.math.match.discrete import combinatorics_signal
-    from app.services.math.match.scan import bare_arithmetic_expr, prepare
+    from app.modules.math.match.discrete import combinatorics_signal
+    from app.modules.math.match.scan import bare_arithmetic_expr, prepare
 
     cleaned = prepare(content)
     if not cleaned:
@@ -387,7 +443,12 @@ def resolve_alias_in_pool(
         return model_catalog.auto_fast_alias()
 
     if alias == "auto":
-        preferred = route_chat_model(content, prior_user=prior_user, prior_model=prior_model)
+        preferred = route_chat_model(
+            content,
+            prior_user=prior_user,
+            prior_model=prior_model,
+            settings=settings,
+        )
         return _pick_preferred_tier(preferred, pool)
 
     if alias == "fast":

@@ -1,8 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Alert, Platform, ScrollView, View } from "react-native";
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -17,21 +14,20 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
+import { usePushNotificationToggle } from "@/hooks/usePushNotificationToggle";
 import { getSessionGeneration } from "@/lib/auth";
+import { minutesFromTime, timeFromMinutes } from "@/lib/datetime/clockDial";
+import { formatMinuteOfDay } from "@/lib/datetime/format";
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
   getReminderLeadMinutes,
   REMINDER_LEAD_OPTIONS,
-} from "@/lib/reminderPrefs";
-import { normalizeReminderLeadMinutes } from "@/lib/todos/reminderTiming";
-import {
-  ensureNotificationPermission,
-  getNotificationPermissionGranted,
-  registerRemotePushToken,
-  unregisterRemotePushToken,
-} from "@/lib/pushNotifications";
+} from "@/features/todos/model/reminderPrefs";
+import { normalizeReminderLeadMinutes } from "@/features/todos/model/reminderTiming";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
+import { TimePickerDialog } from "@/ui/pickers/TimePickerDialog";
 
 const DEFAULT_QUIET_START = 1320;
 const DEFAULT_QUIET_END = 420;
@@ -43,23 +39,6 @@ function subscribe(listener: () => void) {
   return () => { listeners.delete(listener); };
 }
 function notify() { listeners.forEach((listener) => listener()); }
-
-function dateFromMinute(minutes: number): Date {
-  const date = new Date();
-  date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
-  return date;
-}
-
-function minuteFromDate(date: Date): number {
-  return date.getHours() * 60 + date.getMinutes();
-}
-
-function formatClock(minutes: number): string {
-  return dateFromMinute(minutes).toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 export default function NotificationsSettingsScreen() {
   const view = useAccountViewOwner();
@@ -73,7 +52,6 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [leadOpen, setLeadOpen] = useState(false);
-  const [osPushGranted, setOsPushGranted] = useState<boolean | null>(null);
   const [reminderLeadMinutes, setReminderLeadMinutesState] = useState(
     DEFAULT_REMINDER_LEAD_MINUTES,
   );
@@ -97,17 +75,36 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
   const reportError = useCallback((key: string) => {
     if (!isCurrent()) return;
     if (feedback) feedback.error(t(key));
-    else Alert.alert(t("common.error"), t(key));
+    else void alertDialog({ title: t("common.error"), message: t(key) });
   }, [isCurrent, feedback, t]);
 
-  useEffect(() => {
-    if (!isCurrent()) return;
-    let active = true;
-    void getNotificationPermissionGranted().then((granted) => {
-      if (active && isCurrent()) setOsPushGranted(granted);
-    }).catch(() => { if (active && isCurrent()) setOsPushGranted(false); });
-    return () => { active = false; };
-  }, [isCurrent]);
+  const acquirePushMutation = useCallback(() => {
+    const request = begin("push");
+    return request ? () => finish(request) : null;
+  }, [begin, finish]);
+  const updatePushPreference = useCallback(
+    (enabled: boolean) => updateUser({ push_notifications_enabled: enabled }),
+    [updateUser],
+  );
+  const reportPushDenied = useCallback(() => {
+    void alertDialog({
+      title: t("settings.push_blocked_title"),
+      message: t("settings.push_blocked_message"),
+    });
+  }, [t]);
+  const reportPushError = useCallback(
+    () => reportError("settings.push_register_failed"),
+    [reportError],
+  );
+  const pushToggle = usePushNotificationToggle({
+    token,
+    serverEnabled: user?.push_notifications_enabled ?? true,
+    isCurrentView: isCurrent,
+    updatePreference: updatePushPreference,
+    acquireMutation: acquirePushMutation,
+    onPermissionDenied: reportPushDenied,
+    onError: reportPushError,
+  });
 
   useEffect(() => {
     if (!isCurrent()) return;
@@ -140,35 +137,6 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     } finally { finish(request); }
   }, [begin, reminderLeadMinutes, updateUser, isCurrent, reportError, finish]);
 
-  const togglePush = useCallback(async (enabled: boolean) => {
-    if (!token) return;
-    const request = begin("push");
-    if (!request) return;
-    try {
-      if (!enabled) {
-        await updateUser({ push_notifications_enabled: false });
-        if (sameAccount()) await unregisterRemotePushToken(token);
-        return;
-      }
-      const granted = await ensureNotificationPermission(token);
-      if (!sameAccount()) return;
-      if (!granted) {
-        if (isCurrent()) {
-          setOsPushGranted(false);
-          Alert.alert(t("settings.push_blocked_title"), t("settings.push_blocked_message"));
-        }
-        if (user?.push_notifications_enabled !== false && sameAccount()) {
-          await updateUser({ push_notifications_enabled: false });
-        }
-        return;
-      }
-      setOsPushGranted(true);
-      await registerRemotePushToken(token, true);
-      if (sameAccount()) await updateUser({ push_notifications_enabled: true });
-    } catch { reportError("settings.push_register_failed"); }
-    finally { finish(request); }
-  }, [token, begin, updateUser, sameAccount, isCurrent, t, reportError, finish, user?.push_notifications_enabled]);
-
   const toggleEmailReminders = useCallback(async (enabled: boolean) => {
     const request = begin("email");
     if (!request) return;
@@ -189,30 +157,32 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     }
   }, [begin, updateUser, reportError, finish]);
 
-  const onQuietPickerChange = useCallback(
-    (which: "start" | "end", event: DateTimePickerEvent, date?: Date) => {
-      if (event.type === "dismissed") {
-        setPickingQuiet(null);
-        return;
-      }
-      if (Platform.OS === "android") setPickingQuiet(null);
-      if (!date) return;
-      const minutes = minuteFromDate(date);
-      void (async () => {
-        const request = begin(`quiet-${which}`);
-        if (!request) return;
-        try {
-          if (which === "start") {
-            await updateUser({ quiet_hours_start_minute: minutes });
-          } else {
-            await updateUser({ quiet_hours_end_minute: minutes });
-          }
-        } catch {
-          reportError("common.error");
-        } finally {
-          finish(request);
+  // The dialog keeps its title and time through the closing fade.
+  const quietShown = useRef<"start" | "end">("start");
+  const openQuietPicker = useCallback(
+    (which: "start" | "end") => {
+      if (!isCurrent()) return;
+      quietShown.current = which;
+      setPickingQuiet(which);
+    },
+    [isCurrent],
+  );
+
+  const saveQuietMinutes = useCallback(
+    async (which: "start" | "end", minutes: number) => {
+      const request = begin(`quiet-${which}`);
+      if (!request) return;
+      try {
+        if (which === "start") {
+          await updateUser({ quiet_hours_start_minute: minutes });
+        } else {
+          await updateUser({ quiet_hours_end_minute: minutes });
         }
-      })();
+      } catch {
+        reportError("common.error");
+      } finally {
+        finish(request);
+      }
     },
     [begin, updateUser, reportError, finish],
   );
@@ -225,21 +195,18 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
         style={s.scroll}
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
       >
-        <SettingsGroup label={t("settings.notifications")} styles={s}>
+        <SettingsGroup styles={s}>
           <SettingsSwitchRow
             title={t("settings.push_notifications")}
-            subtitle={t("settings.push_notifications_desc")}
-            value={(user?.push_notifications_enabled ?? true) && osPushGranted === true}
+            value={pushToggle.value}
             disabled={busyAction !== null}
-            busy={busyAction === "push"}
-            onValueChange={togglePush}
+            onValueChange={pushToggle.toggle}
             styles={s}
             theme={theme}
           />
           <View style={s.menuSeparator} />
           <SettingsSwitchRow
             title={t("settings.email_reminders")}
-            subtitle={t("settings.email_reminders_summary")}
             value={user?.email_reminders_enabled ?? false}
             disabled={busyAction !== null}
             busy={busyAction === "email"}
@@ -249,10 +216,9 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           />
         </SettingsGroup>
 
-        <SettingsGroup label={t("settings.quiet_hours")} styles={s}>
+        <SettingsGroup styles={s}>
           <SettingsSwitchRow
             title={t("settings.quiet_hours")}
-            subtitle={t("settings.quiet_hours_desc")}
             value={quietEnabled}
             disabled={busyAction !== null}
             busy={busyAction === "quiet"}
@@ -264,34 +230,21 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
             <>
               <View style={s.menuSeparator} />
               <SettingsLinkRow
-                title={t("settings.quiet_hours")}
-                value={t("settings.quiet_hours_range", {
-                  start: formatClock(quietStart),
-                  end: formatClock(quietEnd),
-                })}
-                onPress={() => {
-                  if (isCurrent()) setPickingQuiet((cur) => (cur ? null : "start"));
-                }}
-                styles={s}
-                theme={theme}
-              />
-              <View style={s.menuSeparator} />
-              <SettingsLinkRow
                 title={t("settings.quiet_hours_start")}
-                value={formatClock(quietStart)}
-                onPress={() => {
-                  if (isCurrent()) setPickingQuiet("start");
-                }}
+                value={formatMinuteOfDay(quietStart)}
+                disabled={busyAction !== null}
+                busy={busyAction === "quiet-start"}
+                onPress={() => openQuietPicker("start")}
                 styles={s}
                 theme={theme}
               />
               <View style={s.menuSeparator} />
               <SettingsLinkRow
                 title={t("settings.quiet_hours_end")}
-                value={formatClock(quietEnd)}
-                onPress={() => {
-                  if (isCurrent()) setPickingQuiet("end");
-                }}
+                value={formatMinuteOfDay(quietEnd)}
+                disabled={busyAction !== null}
+                busy={busyAction === "quiet-end"}
+                onPress={() => openQuietPicker("end")}
                 styles={s}
                 theme={theme}
               />
@@ -299,19 +252,9 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           ) : null}
         </SettingsGroup>
 
-        {pickingQuiet && quietEnabled ? (
-          <DateTimePicker
-            mode="time"
-            value={dateFromMinute(pickingQuiet === "start" ? quietStart : quietEnd)}
-            onChange={(event, date) => onQuietPickerChange(pickingQuiet, event, date)}
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-          />
-        ) : null}
-
-        <SettingsGroup label={t("settings.reminders")} styles={s}>
+        <SettingsGroup styles={s}>
           <SettingsInlinePicker
             title={t("settings.reminder_lead")}
-            subtitle={t("settings.reminder_lead_desc")}
             value={t("settings.reminder_lead_value", { count: reminderLeadMinutes })}
             options={REMINDER_LEAD_OPTIONS.map((minutes) => ({
               key: String(minutes),
@@ -328,6 +271,22 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
           />
         </SettingsGroup>
       </ScrollView>
+
+      <TimePickerDialog
+        visible={pickingQuiet !== null && quietEnabled}
+        title={t(
+          quietShown.current === "end"
+            ? "settings.quiet_hours_end"
+            : "settings.quiet_hours_start",
+        )}
+        value={timeFromMinutes(quietShown.current === "end" ? quietEnd : quietStart)}
+        onCancel={() => setPickingQuiet(null)}
+        onConfirm={(time) => {
+          const which = pickingQuiet;
+          setPickingQuiet(null);
+          if (which) void saveQuietMinutes(which, minutesFromTime(time));
+        }}
+      />
     </>
   );
 }

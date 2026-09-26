@@ -19,6 +19,44 @@ export type DeviceGeoRequestResult =
 
 type ExpoLocationModule = typeof import("expo-location");
 
+type GeoRun<T> =
+  | { status: "granted"; value: T }
+  | { status: "denied" | "blocked" | "expo_go" | "error" };
+
+/**
+ * Shared permission flow: show the system sheet when the OS still allows it,
+ * then run the read. Only `blocked` means the sheet can never appear again.
+ */
+async function runWithLocationPermission<T>(
+  read: (Location: ExpoLocationModule) => Promise<T>,
+): Promise<GeoRun<T>> {
+  if (!canUseDeviceLocation()) {
+    return { status: "expo_go" };
+  }
+
+  try {
+    const Location = await import("expo-location");
+    const current = await Location.getForegroundPermissionsAsync();
+
+    if (current.status === "granted") {
+      return { status: "granted", value: await read(Location) };
+    }
+
+    // System Allow / Don't Allow sheet — only while the OS still permits it.
+    if (current.status === "undetermined" || current.canAskAgain) {
+      const req = await Location.requestForegroundPermissionsAsync();
+      if (req.status === "granted") {
+        return { status: "granted", value: await read(Location) };
+      }
+      return req.canAskAgain === false ? { status: "blocked" } : { status: "denied" };
+    }
+
+    return { status: "blocked" };
+  } catch {
+    return { status: "error" };
+  }
+}
+
 async function readDeviceGeo(Location: ExpoLocationModule): Promise<DeviceGeo> {
   const pos = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.Balanced,
@@ -47,37 +85,52 @@ async function readDeviceGeo(Location: ExpoLocationModule): Promise<DeviceGeo> {
  * when possible. Only report `blocked` when the OS will not show that sheet again.
  */
 export async function requestDeviceGeo(): Promise<DeviceGeoRequestResult> {
-  if (!canUseDeviceLocation()) {
-    return { status: "expo_go" };
-  }
-
-  try {
-    const Location = await import("expo-location");
-    const current = await Location.getForegroundPermissionsAsync();
-
-    if (current.status === "granted") {
-      return { status: "granted", geo: await readDeviceGeo(Location) };
-    }
-
-    // System Allow / Don't Allow sheet — only while the OS still permits it.
-    if (current.status === "undetermined" || current.canAskAgain) {
-      const req = await Location.requestForegroundPermissionsAsync();
-      if (req.status === "granted") {
-        return { status: "granted", geo: await readDeviceGeo(Location) };
-      }
-      return req.canAskAgain === false ? { status: "blocked" } : { status: "denied" };
-    }
-
-    return { status: "blocked" };
-  } catch {
-    return { status: "error" };
-  }
+  const result = await runWithLocationPermission(readDeviceGeo);
+  if (result.status !== "granted") return { status: result.status };
+  return { status: "granted", geo: result.value };
 }
 
 /** GPS coordinates + optional city/region from reverse geocode. */
 export async function getDeviceGeo(): Promise<DeviceGeo | null> {
   const result = await requestDeviceGeo();
   return result.status === "granted" ? result.geo : null;
+}
+
+/** Structured reverse-geocode parts for pickers (city / region / country). */
+export type DevicePlace = {
+  city: string | null;
+  region: string | null;
+  country: string | null;
+};
+
+export type DevicePlaceRequestResult =
+  | { status: "granted"; place: DevicePlace }
+  | { status: "denied" }
+  | { status: "blocked" }
+  | { status: "expo_go" }
+  | { status: "error" };
+
+async function readDevicePlace(Location: ExpoLocationModule): Promise<DevicePlace> {
+  const pos = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.Balanced,
+  });
+  const places = await Location.reverseGeocodeAsync({
+    latitude: pos.coords.latitude,
+    longitude: pos.coords.longitude,
+  });
+  const place = places[0];
+  return {
+    city: place?.city?.trim() || null,
+    region: place?.region?.trim() || null,
+    country: place?.country?.trim() || null,
+  };
+}
+
+/** City / region / country from device GPS, for structured location fields. */
+export async function requestDevicePlace(): Promise<DevicePlaceRequestResult> {
+  const result = await runWithLocationPermission(readDevicePlace);
+  if (result.status !== "granted") return { status: result.status };
+  return { status: "granted", place: result.value };
 }
 
 /** City/region label from device GPS + reverse geocode, or null if unavailable. */

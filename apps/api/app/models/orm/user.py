@@ -21,9 +21,9 @@ from app.core.db import Base
 
 if TYPE_CHECKING:
     from app.models.orm.chat import Chat
-    from app.models.orm.integrations import UserCalendarConnection, UserGmailConnection
-    from app.models.orm.learning import Learning
-    from app.models.orm.memory import Memory
+    from app.modules.integrations.models import UserCalendarConnection, UserGmailConnection
+    from app.modules.learning.models import Learning
+    from app.modules.memory.models import Memory
 
 
 class User(Base):

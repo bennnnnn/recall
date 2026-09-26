@@ -1,10 +1,10 @@
-import { ReactElement, RefObject, useCallback, useEffect, useMemo } from "react";
+import { memo, ReactElement, RefObject, useCallback, useEffect, useMemo } from "react";
 import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type AnimatedStyle } from "react-native-reanimated";
 
-import { ActionBanner } from "@/components/ActionBanner";
-import { AttachmentSourceSheet } from "@/components/AttachmentSourceSheet";
+import { ActionBanner } from "@/ui/feedback/ActionBanner";
+import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
 import { MathEquationScanner } from "@/components/MathEquationScanner";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { ChatInlineError } from "@/components/chat/ChatInlineError";
@@ -15,69 +15,55 @@ import { ChatScrollFab } from "@/components/chat/ChatScrollFab";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
-import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
+import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { Message } from "@/lib/api";
-import type { PendingAttachment } from "@/lib/attachments";
+import type { PendingAttachment } from "@/features/attachments/model/attachments";
+import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { messagesLookLikeMath } from "@/lib/math/composerIntent";
 import type { Theme } from "@/lib/theme";
 
-export type ChatScreenBodyProps = {
+export interface ChatScreenLayoutProps {
   styles: ChatScreenStyles;
   theme: Theme;
-  token: string;
   drawerOpen: boolean;
   composerClearance: number;
-  actionBanner: {
-    message: string;
-    icon?: IoniconName;
-  } | null;
-  onDismissActionBanner: () => void;
-  listRef: RefObject<FlashListRef<Message> | null>;
-  messages: Message[];
   headerInset: number;
   listBottomPad: number;
+  emptyHeight: number;
+}
+
+export interface ChatScreenListProps {
+  listRef: RefObject<FlashListRef<Message> | null>;
+  messages: Message[];
   hasMoreOlder: boolean;
   loadingOlder: boolean;
   chatLoading: boolean;
   routeChatId?: string;
-  emptyHeight: number;
   renderItem: (info: ListRenderItemInfo<Message>) => ReactElement | null;
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
   onSelectStarter: (prompt: string, chatId?: string) => void;
-  listHeader: ReactElement | null;
-  showScrollToBottom: boolean;
-  scrollAwayCount: number;
-  onScrollToLatest: () => void;
-  attachSheetOpen: boolean;
-  onCloseAttachSheet: () => void;
-  quotaNudgeVisible: boolean;
-  quotaUsedPct: number;
-  onQuotaUpgrade: () => void;
-  onQuotaDismiss: () => void;
-  chatError: ResolvedChatError | null;
-  isPro: boolean;
-  onUpgrade: () => void;
-  onRetryChatError: () => void;
-  onChangeModel: () => void;
-  onDismissChatError: () => void;
-  composerAnimatedStyle?: AnimatedStyle<ViewStyle>;
+  header: ReactElement | null;
+  footer?: ReactElement | null;
+  hideHomeStarters?: boolean;
+}
+
+export interface ChatScreenComposerProps {
+  animatedStyle?: AnimatedStyle<ViewStyle>;
   streaming: boolean;
   attachBusy: boolean;
   attachPicking: boolean;
   sendBusy: boolean;
+  sendStatus?: string;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
   onPickAttachment: () => void;
-  onAttachmentSource: (source: AttachmentSource) => void;
-  mathScannerOpen: boolean;
-  onCloseMathScanner: () => void;
-  onMathScanCaptured: (pending: PendingAttachment) => void;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
+  onInputFrameExtraChange?: (extra: number) => void;
   onSend: (text?: string) => void;
   onStop: () => void;
   isOffline: boolean;
@@ -93,83 +79,80 @@ export type ChatScreenBodyProps = {
     onMutePress: () => void;
     onYield: () => void;
   } | null;
+}
+
+export interface ChatScreenChromeProps {
+  actionBanner: {
+    message: string;
+    icon?: IconName;
+  } | null;
+  onDismissActionBanner: () => void;
+  showScrollToBottom: boolean;
+  scrollAwayCount: number;
+  onScrollToLatest: () => void;
+  quotaNudgeVisible: boolean;
+  quotaUsedPct: number;
+  onQuotaUpgrade: () => void;
+  onQuotaDismiss: () => void;
+  chatError: ResolvedChatError | null;
+  isPro: boolean;
+  onUpgrade: () => void;
+  onRetryChatError: () => void;
+  onChangeModel: () => void;
+  onDismissChatError: () => void;
+}
+
+export interface ChatScreenSheetsProps {
+  attachSheetOpen: boolean;
+  onCloseAttachSheet: () => void;
+  onAttachmentSource: (source: AttachmentSource) => void;
+  mathScannerOpen: boolean;
+  onCloseMathScanner: () => void;
+  onMathScanCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
-  listFooter?: ReactElement | null;
-  hideHomeStarters?: boolean;
-};
+}
 
-export function ChatScreenBody({
-  styles: s,
-  theme,
-  token,
-  drawerOpen,
-  composerClearance,
-  actionBanner,
-  onDismissActionBanner,
-  listRef,
-  messages,
-  headerInset,
-  listBottomPad,
-  hasMoreOlder,
-  loadingOlder,
-  chatLoading,
-  routeChatId,
-  emptyHeight,
-  renderItem,
-  onLoadOlder,
-  onScroll,
-  onScrollEnd,
-  onSelectStarter,
-  listHeader,
-  showScrollToBottom,
-  scrollAwayCount,
-  onScrollToLatest,
-  attachSheetOpen,
-  onCloseAttachSheet,
-  quotaNudgeVisible,
-  quotaUsedPct,
-  onQuotaUpgrade,
-  onQuotaDismiss,
-  chatError,
-  isPro,
-  onUpgrade,
-  onRetryChatError,
-  onChangeModel,
-  onDismissChatError,
-  composerAnimatedStyle,
-  streaming,
-  attachBusy,
-  attachPicking,
-  sendBusy,
-  pendingAttachment,
-  onRemoveAttachment,
-  onPickAttachment,
-  onAttachmentSource,
-  mathScannerOpen,
-  onCloseMathScanner,
-  onMathScanCaptured,
-  onOpenMathScanner,
-  onMathChromeHeightChange,
-  onSend,
-  onStop,
-  isOffline,
-  voiceAvailable,
-  voiceRecording,
-  voiceTranscribing,
-  voiceMeterLevel,
-  onVoicePress,
-  onLiveTalkPress,
-  liveTalkSession = null,
-  upgradeVisible,
-  onCloseUpgrade,
-  listFooter = null,
-  hideHomeStarters = false,
+export interface ChatScreenBodyProps {
+  layout: ChatScreenLayoutProps;
+  list: ChatScreenListProps;
+  composer: ChatScreenComposerProps;
+  chrome: ChatScreenChromeProps;
+  sheets: ChatScreenSheetsProps;
+}
+
+export const ChatScreenBody = memo(function ChatScreenBody({
+  layout,
+  list,
+  composer,
+  chrome,
+  sheets,
 }: ChatScreenBodyProps) {
   const { t } = useTranslation();
+  const { styles: s, drawerOpen } = layout;
+  const { messages } = list;
+  const { liveTalkSession, onSend } = composer;
+  const { mathScannerOpen, onCloseMathScanner } = sheets;
+  // messagesLookLikeMath only reads the last 8 messages — fingerprint exactly
+  // those so a prepend of older pages (or any unrelated list change) doesn't
+  // re-run the regex scan, and never map the full history to get there.
+  const recentMathFingerprint = useMemo(() => {
+    const start = Math.max(0, messages.length - 8);
+    let fingerprint = "";
+    for (let i = start; i < messages.length; i += 1) {
+      const message = messages[i];
+      fingerprint += `${message.id}:${message.content.length};`;
+    }
+    return fingerprint;
+  }, [messages]);
   const mathContext = useMemo(
-    () => messagesLookLikeMath(messages.map((m) => m.content)),
-    [messages],
+    () =>
+      messagesLookLikeMath(
+        messages.slice(Math.max(0, messages.length - 8)).map((m) => m.content),
+      ),
+    // recentMathFingerprint captures exactly the inputs this reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [recentMathFingerprint],
   );
   const handleComposerSend = useCallback(
     (text?: string) => {
@@ -187,103 +170,134 @@ export function ChatScreenBody({
     <View style={s.container}>
       <StreamingDraftProvider>
         <ChatMessageList
-          listRef={listRef}
+          listRef={list.listRef}
           messages={messages}
-          headerInset={headerInset}
-          listBottomPad={listBottomPad}
-          hasMoreOlder={hasMoreOlder}
-          loadingOlder={loadingOlder}
-          chatLoading={chatLoading}
-          routeChatId={routeChatId}
-          emptyHeight={emptyHeight}
-          renderItem={renderItem}
-          onLoadOlder={onLoadOlder}
-          onScroll={onScroll}
-          onScrollEnd={onScrollEnd}
-          onSelectStarter={onSelectStarter}
-          header={listHeader}
-          hideHomeStarters={hideHomeStarters}
-          listFooter={listFooter}
-          streamActive={streaming}
+          headerInset={layout.headerInset}
+          listBottomPad={layout.listBottomPad}
+          hasMoreOlder={list.hasMoreOlder}
+          loadingOlder={list.loadingOlder}
+          chatLoading={list.chatLoading}
+          routeChatId={list.routeChatId}
+          emptyHeight={layout.emptyHeight}
+          renderItem={list.renderItem}
+          onLoadOlder={list.onLoadOlder}
+          onScroll={list.onScroll}
+          onScrollEnd={list.onScrollEnd}
+          onSelectStarter={list.onSelectStarter}
+          header={list.header}
+          hideHomeStarters={list.hideHomeStarters}
+          listFooter={list.footer}
+          streamActive={composer.streaming}
         />
       </StreamingDraftProvider>
 
-      <ChatScrollFab
-        visible={!drawerOpen && showScrollToBottom}
-        bottomOffset={composerClearance + 8}
-        scrollAwayCount={scrollAwayCount}
-        onPress={onScrollToLatest}
+      <ChatComposer
+        visible={!drawerOpen}
+        animatedContainerStyle={composer.animatedStyle}
+        streaming={composer.streaming}
+        attachBusy={composer.attachBusy}
+        attachPicking={composer.attachPicking}
+        sendBusy={composer.sendBusy}
+        sendStatus={composer.sendStatus}
+        pendingAttachment={composer.pendingAttachment}
+        onRemoveAttachment={composer.onRemoveAttachment}
+        onCloseAttachSheet={sheets.onCloseAttachSheet}
+        onPickAttachment={composer.onPickAttachment}
+        onSend={handleComposerSend}
+        onStop={composer.onStop}
+        isOffline={composer.isOffline}
+        voiceAvailable={composer.voiceAvailable}
+        voiceRecording={composer.voiceRecording}
+        voiceTranscribing={composer.voiceTranscribing}
+        voiceMeterLevel={composer.voiceMeterLevel}
+        onVoicePress={composer.onVoicePress}
+        onLiveTalkPress={composer.onLiveTalkPress}
+        liveTalkChrome={composer.liveTalkSession}
+        onOpenMathScanner={composer.onOpenMathScanner}
+        onMathChromeHeightChange={composer.onMathChromeHeightChange}
+        onInputFrameExtraChange={composer.onInputFrameExtraChange}
+        mathContext={mathContext}
       />
 
-      {quotaNudgeVisible && !chatError ? (
+      <ChatOverlays
+        layout={layout}
+        chrome={chrome}
+        sheets={sheets}
+        onStop={composer.onStop}
+        quotaUpgradeLabel={t("chat.quota_nudge_cta")}
+      />
+    </View>
+  );
+});
+
+type ChatOverlaysProps = {
+  layout: ChatScreenLayoutProps;
+  chrome: ChatScreenChromeProps;
+  sheets: ChatScreenSheetsProps;
+  onStop: () => void;
+  quotaUpgradeLabel: string;
+};
+
+const ChatOverlays = memo(function ChatOverlays({
+  layout,
+  chrome,
+  sheets,
+  onStop,
+  quotaUpgradeLabel,
+}: ChatOverlaysProps) {
+  const { styles, theme, drawerOpen, composerClearance } = layout;
+
+  return (
+    <>
+      <ChatScrollFab
+        visible={!drawerOpen && chrome.showScrollToBottom}
+        bottomOffset={composerClearance + 8}
+        scrollAwayCount={chrome.scrollAwayCount}
+        onPress={chrome.onScrollToLatest}
+      />
+
+      {chrome.quotaNudgeVisible && !chrome.chatError ? (
         <ChatQuotaNudge
-          styles={s}
+          styles={styles}
           theme={theme}
           bottomOffset={composerClearance + 8}
-          usedPct={quotaUsedPct}
-          onUpgrade={onQuotaUpgrade}
-          onDismiss={onQuotaDismiss}
+          usedPct={chrome.quotaUsedPct}
+          onUpgrade={chrome.onQuotaUpgrade}
+          onDismiss={chrome.onQuotaDismiss}
         />
       ) : null}
 
       <ChatInlineError
-        error={chatError}
+        error={chrome.chatError}
         bottom={composerClearance + 8}
-        upgradeLabel={!isPro ? t("chat.quota_nudge_cta") : undefined}
-        onUpgrade={!isPro ? onUpgrade : undefined}
+        upgradeLabel={!chrome.isPro ? quotaUpgradeLabel : undefined}
+        onUpgrade={!chrome.isPro ? chrome.onUpgrade : undefined}
         onStop={onStop}
-        onRetry={onRetryChatError}
-        onChangeModel={onChangeModel}
-        onDismiss={onDismissChatError}
-      />
-
-      <ChatComposer
-        visible={!drawerOpen}
-        animatedContainerStyle={composerAnimatedStyle}
-        token={token}
-        streaming={streaming}
-        attachBusy={attachBusy}
-            attachPicking={attachPicking}
-            sendBusy={sendBusy}
-        pendingAttachment={pendingAttachment}
-        onRemoveAttachment={onRemoveAttachment}
-        onCloseAttachSheet={onCloseAttachSheet}
-        onPickAttachment={onPickAttachment}
-        onSend={handleComposerSend}
-        onStop={onStop}
-        isOffline={isOffline}
-        voiceAvailable={voiceAvailable}
-        voiceRecording={voiceRecording}
-        voiceTranscribing={voiceTranscribing}
-        voiceMeterLevel={voiceMeterLevel}
-        onVoicePress={onVoicePress}
-        onLiveTalkPress={onLiveTalkPress}
-        liveTalkChrome={liveTalkSession}
-        onOpenMathScanner={onOpenMathScanner}
-        onMathChromeHeightChange={onMathChromeHeightChange}
-        mathContext={mathContext}
+        onRetry={chrome.onRetryChatError}
+        onChangeModel={chrome.onChangeModel}
+        onDismiss={chrome.onDismissChatError}
       />
 
       <ActionBanner
-        message={actionBanner?.message ?? null}
-        icon={actionBanner?.icon}
+        message={chrome.actionBanner?.message ?? null}
+        icon={chrome.actionBanner?.icon}
         bottomOffset={composerClearance + 12}
-        onDismiss={onDismissActionBanner}
+        onDismiss={chrome.onDismissActionBanner}
       />
 
       <AttachmentSourceSheet
-        visible={attachSheetOpen && !drawerOpen}
-        onClose={onCloseAttachSheet}
-        onSelect={onAttachmentSource}
+        visible={sheets.attachSheetOpen && !drawerOpen}
+        onClose={sheets.onCloseAttachSheet}
+        onSelect={sheets.onAttachmentSource}
       />
 
       <MathEquationScanner
-        visible={mathScannerOpen}
-        onClose={onCloseMathScanner}
-        onCaptured={onMathScanCaptured}
+        visible={sheets.mathScannerOpen}
+        onClose={sheets.onCloseMathScanner}
+        onCaptured={sheets.onMathScanCaptured}
       />
 
-      <UpgradeSheet visible={upgradeVisible} onClose={onCloseUpgrade} />
-    </View>
+      <UpgradeSheet visible={sheets.upgradeVisible} onClose={sheets.onCloseUpgrade} />
+    </>
   );
-}
+});

@@ -45,6 +45,11 @@ from app.services.chat.prompt_constants.math import (
     MATH_TUTORING_HINT,
     SHORT_MATH_SAFETY_HINT,
 )
+from app.services.chat.prompt_constants.physics import (
+    PHYSICS_INTENT_HINT,
+    PHYSICS_REPLY_POLICY,
+    PHYSICS_SHORT_HINT,
+)
 from app.services.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
     BROAD_SELF_ANSWER_HINT,
@@ -55,16 +60,19 @@ from app.services.chat.prompt_constants.privacy import (
 from app.services.chat.prompt_constants.routing import (
     CONFIRM_FOLLOW_THROUGH_HINT,
     LIGHTWEIGHT_REPLY_HINT,
+    PERSONAL_DISCLOSURE_HINT,
     is_broad_self_question,
     is_email_or_message_request,
     is_learning_progress_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
+    is_personal_disclosure_turn,
     is_short_confirmation,
     is_underspecified_writing_request,
     is_writing_deliverable_request,
     needs_rich_context,
     prior_looks_like_offer,
+    recalls_earlier_conversation,
     writing_request_kind,
 )
 from app.services.chat.prompt_constants.visuals import (
@@ -80,6 +88,7 @@ from app.services.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
+    NON_DRAFT_TURN_HINT,
     PROSE_WRITING_HINT,
     SOCIAL_DRAFT_HINT,
     TRANSLATION_FORMAT_HINT,
@@ -117,6 +126,11 @@ __all__ = [
     "MATH_SOLVER_HINT",
     "MATH_TUTORING_HINT",
     "MERMAID_FORMAT_HINT",
+    "NON_DRAFT_TURN_HINT",
+    "PERSONAL_DISCLOSURE_HINT",
+    "PHYSICS_INTENT_HINT",
+    "PHYSICS_REPLY_POLICY",
+    "PHYSICS_SHORT_HINT",
     "PRIVACY_HINT",
     "PROSE_WRITING_HINT",
     "QUOTE_FORMAT_HINT",
@@ -147,6 +161,7 @@ __all__ = [
     "is_lightweight_chat_turn",
     "is_mermaid_question",
     "is_personal_advice_question",
+    "is_personal_disclosure_turn",
     "is_quote_question",
     "is_sequence_diagram_question",
     "is_short_confirmation",
@@ -155,5 +170,6 @@ __all__ = [
     "is_writing_deliverable_request",
     "needs_rich_context",
     "prior_looks_like_offer",
+    "recalls_earlier_conversation",
     "writing_request_kind",
 ]

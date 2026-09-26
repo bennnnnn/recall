@@ -1,0 +1,345 @@
+"""Prompt inject + camera extract → MathIntent."""
+
+from __future__ import annotations
+
+import logging
+from typing import Literal, cast
+
+from app.core.config import Settings
+from app.models.schemas.math import (
+    MathImageExtract,
+    MathIntent,
+)
+from app.models.schemas.physics import PhysicsIntent
+from app.modules.math import solve as math_solve
+from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.tools.block import VerifiedMathBlock
+from app.modules.math.tools.extract import (
+    extract_math_intent,
+    resolve_graph_followup,
+    trig_domain_would_be_dropped,
+)
+from app.modules.math.tools.llm_extract import llm_extract_math_intent
+from app.services.prompt_inject import inject_before_last_user
+
+logger = logging.getLogger(__name__)
+
+_MAX_SYMBOLIC_INPUT = 1000
+
+VERIFIED_MATH_REPLY_HINT = (
+    "Reply guidance for this request: The solver working above is supporting data, "
+    "not a request to explain every step. "
+    f"{MATH_REPLY_POLICY}"
+)
+
+
+def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
+    from app.modules.math import match as math_match
+    from app.modules.math.tools.lesson import strip_lesson_prefixes
+
+    # Match scanning rejects normalized inputs above this bound. Reject the
+    # raw message before repeatedly stripping lesson phrases too; otherwise a
+    # maximum-size string of repeated prefixes makes the stripping loop copy
+    # a shrinking string once per occurrence.
+    if len(text) > _MAX_SYMBOLIC_INPUT:
+        return False
+
+    # Teaching / answer-style wrappers are response metadata, not part of the
+    # expression. The extractor already removes them, so the cheaper routing
+    # gate must inspect the same underlying math or it will skip SymPy before
+    # extraction ever runs (for example, ``Show steps: 2x+3=11``).
+    math_text = strip_lesson_prefixes(text)
+    return math_match.needs_symbolic(math_text, has_image_attachment=has_image_attachment)
+
+
+def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
+    """Map a vision extract onto an existing MathIntent kind (no second parser)."""
+    variable = extract.variables[0]
+    if extract.kind == "system" and extract.equations:
+        return MathIntent(
+            kind="system",
+            system_equations=extract.equations[:4],
+            system_variables=extract.variables,
+            operation="solve",
+        )
+    if extract.kind == "inequality" and extract.comparator:
+        return MathIntent(
+            kind="inequality",
+            lhs=extract.lhs,
+            rhs=extract.rhs,
+            comparator=extract.comparator,
+            operation="solve",
+            variable=variable,
+        )
+    if extract.kind == "calculus" and extract.expr and extract.operation:
+        return MathIntent(
+            kind="calculus",
+            expr=extract.expr,
+            operation=cast(
+                Literal["simplify", "differentiate", "integrate", "factor", "expand"],
+                extract.operation,
+            ),
+            variable=variable,
+            integral_lower=extract.integral_lower,
+            integral_upper=extract.integral_upper,
+        )
+    if extract.kind == "limit" and extract.expr and extract.limit_point:
+        return MathIntent(
+            kind="limit",
+            expr=extract.expr,
+            limit_point=extract.limit_point,
+            operation="limit",
+            variable=variable,
+        )
+    if extract.kind == "graph" and extract.expr:
+        return MathIntent(
+            kind="graph",
+            expr=extract.expr,
+            operation="graph",
+            variable=variable,
+        )
+    if extract.kind == "rectangle" and extract.width is not None and extract.height is not None:
+        return MathIntent(
+            kind="rectangle",
+            width=extract.width,
+            height=extract.height,
+            unit=extract.unit or "cm",
+            wants_area=True,
+            wants_perimeter=True,
+        )
+    if extract.kind == "circle" and extract.radius is not None:
+        return MathIntent(
+            kind="circle",
+            radius=extract.radius,
+            unit=extract.unit or "cm",
+            wants_area=True,
+            wants_circumference=True,
+        )
+    if (
+        extract.kind == "triangle_sides"
+        and extract.tri_a is not None
+        and extract.tri_b is not None
+        and extract.tri_c is not None
+    ):
+        return MathIntent(
+            kind="triangle_sides",
+            tri_a=extract.tri_a,
+            tri_b=extract.tri_b,
+            tri_c=extract.tri_c,
+            unit=extract.unit or "cm",
+            operation="solve",
+        )
+    if extract.kind == "statistics" and extract.stats_numbers and extract.stats_op:
+        return MathIntent(
+            kind="statistics",
+            stats_op=cast(
+                Literal["mean", "median", "mode", "variance", "stdev"],
+                extract.stats_op,
+            ),
+            stats_numbers=extract.stats_numbers,
+            operation="solve",
+        )
+    return MathIntent(
+        kind="equation",
+        lhs=extract.lhs,
+        rhs=extract.rhs,
+        operation="solve",
+        variable=variable,
+    )
+
+
+async def build_math_augmentation(
+    user_content: str,
+    settings: Settings,
+    *,
+    has_image_attachment: bool = False,
+    image_math_extract: MathImageExtract | None = None,
+    needs_math: bool | None = None,
+    prior_user_messages: list[str] | None = None,
+) -> tuple[str | None, VerifiedMathBlock | None]:
+    """Compute the verified-math system block (or None) without mutating messages.
+
+    Safe to run concurrently with web-search augmentation on the same base
+    prompt — the caller injects returned blocks after gather.
+
+    ``needs_math`` lets a caller that already evaluated the math-intent signal
+    (e.g. prompt_builder uses it to gate the "calculating" status) pass it
+    through so the same message isn't scanned twice per turn. When None,
+    needs_symbolic_math is evaluated here (the historical behavior, kept for
+    any caller that doesn't pre-compute it).
+
+    ``prior_user_messages`` lets ``graph it`` reuse the last plottable
+    equation or curve from this thread.
+    """
+    if not settings.math_tools_enabled:
+        return None, None
+    if image_math_extract is None:
+        user_content, skip_math = resolve_graph_followup(user_content, prior_user_messages)
+        if skip_math:
+            return None, None
+    if needs_math is None:
+        needs_math = needs_symbolic_math(user_content, has_image_attachment=has_image_attachment)
+    if not needs_math and image_math_extract is None:
+        from app.modules.math.followup import open_math_problem
+
+        opened = open_math_problem(user_content, prior_user_messages)
+        if opened:
+            user_content = opened
+            needs_math = True
+    if not needs_math:
+        return None, None
+
+    if image_math_extract is not None:
+        # OCR already produced a Pydantic-validated extract — map it straight
+        # to MathIntent (do not re-parse through the text regex, which mangles
+        # unicode ops / abs bars a photographed problem can contain).
+        intent: MathIntent | PhysicsIntent | None = _intent_from_image_extract(image_math_extract)
+        if (
+            intent is not None
+            and intent.kind == "equation"
+            and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
+        ):
+            intent = None
+    else:
+        intent = extract_math_intent(user_content)
+    if intent is None and has_image_attachment:
+        lines = [
+            "The user attached an image that may contain a math problem. "
+            "Extract the equation as lhs/rhs only if the notation and measures are legible. "
+            "Do NOT claim SymPy verification unless a verified system block is present. "
+            "Use $...$ for formulas. Do not emit ```geometry / ```graph. "
+            "Never invent measures.",
+            MATH_REPLY_POLICY,
+        ]
+        return "\n".join(lines), None
+
+    if intent is None and image_math_extract is None:
+        from app.modules.math.solve.extract_eq import rejected_equality_chain
+
+        if rejected_equality_chain(user_content):
+            # An empty extract is also what a regex miss looks like. A chain
+            # must not fall through to the LLM extractor, which can rewrite
+            # ``a=b=c`` into one solvable equation.
+            return (
+                "The message chains equalities (a=b=c). Ask which single "
+                "equation to solve. Do not collapse the chain or claim a "
+                "verified answer.\n\n"
+                f"{MATH_REPLY_POLICY}",
+                None,
+            )
+    if intent is None:
+        # The gate fired but no regex extractor matched (the "Couldn't verify
+        # under a correct ∫ x²" class). One bounded structured-extraction call
+        # on a fast alias; the candidate still has to survive SymPy below.
+        # Only this already-failing path pays — gate-miss and regex-hit turns
+        # never make this call.
+        intent = await llm_extract_math_intent(user_content, settings)
+        if (
+            intent is not None
+            and intent.kind == "equation"
+            and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
+        ):
+            intent = None
+
+    if intent is None:
+        return (
+            "No verified solver result is available for this request. "
+            "Do not claim verification or invent missing measures.\n\n"
+            f"{MATH_REPLY_POLICY}",
+            None,
+        )
+
+    from app.modules.math import tools as mt
+
+    verified = await mt._build_verified_block_async(intent, settings)
+    if not verified:
+        # Intent matched but SymPy timed out / rejected / had no builder result.
+        # Inject honesty so the model does not reuse the same "verified" UX.
+        return _unverified_math_note(intent.kind), None
+    # Keep presentation guidance adjacent to the result, after any worked
+    # steps, so the model does not treat solver data as a tutorial request.
+    # The canonical block remains data-only for direct replies/fence validation.
+    return f"{verified.text}\n\n{VERIFIED_MATH_REPLY_HINT}", verified
+
+
+def _unverified_math_note(kind: str) -> str:
+    """System note when symbolic intent fired but no VerifiedMathBlock landed."""
+    return (
+        "Math note: a symbolic problem was detected "
+        f"(kind={kind}), but a verified result could not be produced "
+        "(timeout, unsupported expression, or incomplete extract).\n"
+        "Do NOT claim the answer was "
+        "verified. Write the result in `$...$` and mark uncertainty when "
+        "you are unsure. Do NOT emit ```answer, ```geometry, or ```graph. "
+        "Do not invent geometry/graph dimensions or point lists. "
+        "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
+        "diagram for a function plot.\n\n"
+        f"{MATH_REPLY_POLICY}"
+    )
+
+
+async def augment_prompt_messages(
+    messages: list[dict[str, str]],
+    user_content: str,
+    settings: Settings,
+    *,
+    has_image_attachment: bool = False,
+    image_math_extract: MathImageExtract | None = None,
+    prior_user_messages: list[str] | None = None,
+) -> tuple[list[dict[str, str]], VerifiedMathBlock | None]:
+    block, verified = await build_math_augmentation(
+        user_content,
+        settings,
+        has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
+        prior_user_messages=prior_user_messages,
+    )
+    if block is None:
+        return messages, None
+    return inject_before_last_user(messages, block), verified
+
+
+async def _build_verified_block_async(
+    intent: MathIntent | PhysicsIntent, settings: Settings
+) -> VerifiedMathBlock | None:
+    """Run the sync, CPU-bound SymPy work in a bounded subprocess with a
+    hard timeout + SIGTERM on timeout.
+
+    ``_build_verified_block`` calls into SymPy's ``solve``/``integrate``/etc.,
+    which are synchronous and can take arbitrarily long on a pathological
+    expression. Running them on the shared default ``asyncio.to_thread`` pool
+    would (a) starve unrelated async work and (b) leak the thread on timeout
+    (the await cancels but the thread keeps running). Isolated 1-worker
+    process slots can be hard-killed on timeout without terminating siblings.
+    """
+    from app.modules.math import tools as mt
+    from app.modules.math.sympy_executor import run_sympy
+
+    try:
+        return await run_sympy(
+            mt._build_verified_block,
+            intent,
+            settings,
+            timeout=settings.math_solve_timeout_seconds,
+        )
+    except TimeoutError:
+        logger.warning(
+            "math_tools solve timed out after %ss for kind=%s",
+            settings.math_solve_timeout_seconds,
+            intent.kind,
+        )
+        return None
+    except math_solve.MathServiceError as exc:
+        # Sync builder also catches this; keep the async boundary honest if a
+        # patched/edge path raises through the executor.
+        logger.info("math_tools skipped: %s", exc)
+        return None
+    except Exception:
+        # BrokenProcessPool / cancelled sibling futures after another caller's
+        # timeout kill — degrade to the honesty note, do not fail the turn.
+        logger.warning(
+            "math_tools solve failed for kind=%s",
+            intent.kind,
+            exc_info=True,
+        )
+        return None

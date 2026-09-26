@@ -1,21 +1,25 @@
+import { attachmentsApi } from "@/features/attachments/api";
+import { homeApi } from "@/features/home/api";
+import { imagesApi } from "@/features/images/api";
+import { integrationsApi } from "@/features/integrations/api";
+import { jobSearchApi } from "@/features/job-search/api";
+import { learningApi } from "@/features/learning/api";
+import { memoriesApi } from "@/features/memory/api";
+import { searchApi } from "@/features/search/api";
+import { speechApi } from "@/features/speech/api";
+import { suggestionsApi } from "@/features/suggestions/api";
+import { todosApi } from "@/features/todos/api";
 import { accountApi } from "@/lib/api/account";
 import { analyticsApi } from "@/lib/api/analytics";
-import { attachmentsApi } from "@/lib/api/attachments";
 import { chatsApi } from "@/lib/api/chats";
 import { discoverApi } from "@/lib/api/discover";
-import { imagesApi } from "@/lib/api/images";
-import { integrationsApi } from "@/lib/api/integrations";
-import { memoriesApi } from "@/lib/api/memories";
-import { learningApi } from "@/lib/api/learning";
-import { speechApi } from "@/lib/api/speech";
-import { todosApi } from "@/lib/api/todos";
+import { pushApi } from "@/lib/api/push";
 
 export type * from "@/lib/api/types";
 export type { ProductEventName } from "@/lib/api/analytics";
-export {
-  attachmentRecordExists,
-  type AttachmentListItem,
-} from "@/lib/api/attachments";
+export type * from "@/features/job-search/api";
+export { attachmentRecordExists } from "@/features/attachments/api";
+export type { AttachmentListItem } from "@/features/attachments/types";
 export {
   loginWithApple,
   loginWithDev,
@@ -34,11 +38,16 @@ export const api = {
   ...analyticsApi,
   ...chatsApi,
   ...memoriesApi,
+  ...homeApi,
+  ...searchApi,
+  ...suggestionsApi,
   ...discoverApi,
   ...todosApi,
   ...learningApi,
   ...integrationsApi,
+  ...pushApi,
   ...attachmentsApi,
   ...imagesApi,
   ...speechApi,
+  ...jobSearchApi,
 };

@@ -2,7 +2,8 @@ import "@/lib/i18n";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useFonts, SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
+import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
+import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo } from "react";
 import { InteractionManager, StyleSheet } from "react-native";
@@ -12,14 +13,15 @@ import { useTranslation } from "react-i18next";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
-import { HomeProvider } from "@/contexts/HomeContext";
+import { HomeProvider } from "@/features/home/context/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
 import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
-import { ProjectsProvider } from "@/contexts/ProjectsContext";
-import { TodosProvider } from "@/contexts/TodosContext";
+import { ProjectsProvider } from "@/features/learning/context/ProjectsContext";
+import { TodosProvider } from "@/features/todos/context/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { StackBackButton } from "@/components/StackBackButton";
+import { stackBackOptions } from "@/ui/controls/StackBackButton";
+import { DialogHost } from "@/ui/overlay/DialogHost";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import {
@@ -30,6 +32,7 @@ import {
 } from "@/lib/stackTransitions";
 import { initMobileSentry } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
+import { UI_FONT } from "@/lib/uiFont";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -65,7 +68,7 @@ function RootNavigator() {
             headerShown: true,
             title: t("memory.title"),
             headerBackVisible: false,
-            headerLeft: () => <StackBackButton />,
+            ...stackBackOptions(),
           }}
         />
         <Stack.Screen
@@ -80,11 +83,16 @@ function RootNavigator() {
             headerShown: true,
             title: t("drawer.reminders"),
             headerBackVisible: false,
-            headerLeft: () => <StackBackButton />,
+            ...stackBackOptions(),
           }}
         />
         <Stack.Screen
           name="projects"
+          options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
+        />
+        {/* Nested-stack drawer hubs share one transition preset. */}
+        <Stack.Screen
+          name="my-job"
           options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
         />
         <Stack.Screen
@@ -96,12 +104,8 @@ function RootNavigator() {
             title: t("gallery.title"),
             headerBackVisible: false,
             headerRight: undefined,
-            headerLeft: () => <StackBackButton />,
+            ...stackBackOptions(),
           }}
-        />
-        <Stack.Screen
-          name="open-chat"
-          options={{ headerShown: false }}
         />
       </Stack>
     </>
@@ -111,6 +115,11 @@ function RootNavigator() {
 export default function RootLayout() {
   useFonts({
     SpaceMono: SpaceMono_400Regular,
+    SourceSerif4: require("@expo-google-fonts/source-serif-4/400Regular/SourceSerif4_400Regular.ttf"),
+    [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
+    [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
+    [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),
+    [UI_FONT.bold]: require("@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf"),
   });
 
   useEffect(() => {
@@ -136,6 +145,7 @@ export default function RootLayout() {
                     <NetworkProvider>
                       <PushNotificationBootstrap />
                       <RootNavigator />
+                      <DialogHost />
                     </NetworkProvider>
                   </HomeProvider>
                 </ProjectsProvider>

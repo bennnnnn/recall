@@ -12,6 +12,21 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A choice list inside the to-do sheet pushes the form up.** An in-modal overlay still joins that sheet’s layout. Keep the editor as an embedded sheet (not a Modal) and open choices in a popup that floats in its own layer (`ui/overlay` Menu / SelectMenu / Dialog — `FullWindowOverlay` on iOS), so the form does not move. iOS will not present a second RN Modal over an open one; the overlay layer avoids that limit.
+
+- **The first direct math answer still paid a multi-second SymPy cold start.** Startup warmed one of three isolated slots, then returned that slot to the back of the free queue, so the first real solve selected an untouched process. Warm every configured slot concurrently before the API reports ready.
+
+- **Physics answers narrate “doing math”.** A physics question still trips `needs_symbolic_math`, so the status is “Working through the math…”, the prompt gets `MATH_INTENT_HINT` / `MATH_TUTORING_HINT`, and the numbers are wrapped `[BEGIN VERIFIED MATH]`. The model copies that voice. On the subject split, physics gets its own status, hint, and verified block. Do not leave physics inside the math hint or a `modules/stem/` package.
+
+- **Equation step math sat on the same line as “2. Simplify”.** CommonMark tight lists make `2. Label\n$3x=3$` one paragraph, so a short formula wraps beside the label. Emit `**1. Add 3 to both sides**` plus a blank line then `$formula$`; keep `— this cancels…` only for Detailed / explain. Divide steps wrap matching factors in `\cancel{…}` (native MathText slash). Answer chips use `theme.bg`, not gray `surfaceAlt`.
+
+- **`Show steps: 2x+3=11` never extracted.** `_extract_equation_intent` treats
+  leading `show ` as an unclaimed plot verb, and leftover English (`show`+`steps`)
+  also blocked the solve. Strip show-steps / just-the-answer wrappers before
+  the plot-verb and leftover checks; keep generic `explain` so `explain why y=mx+b`
+  stays unverified. Server-render the lesson from `key_steps` instead of handing
+  Detailed to the model.
+
 - **Pinch on an in-chat graph never zoomed.** `Gesture.Exclusive(doubleTap, pinch)` waits out the second tap, and FlashList plus the drawer pan steal two-finger touches. Open a full-screen `Modal` with its own `GestureHandlerRootView` and `Gesture.Simultaneous(pinch, pan)`.
 - **`graph it` after `4x^2-5x-12=0` stamped Couldn't verify, then drew two vertical lines.** `sample_function` rejects Equalities; solve-for-y needs `y`. Rewrite `f(x)=0` (no y) as lhs-rhs; resolve pronoun follow-ups from a prior equation. `schoolViewBounds` then origin-cropped y to ±4, hiding the vertex at y≈-13 — keep a modest vertex in the window so the U is visible. Ellipse `x^2+y^2=1` stays a relation.
 - **Shifted parabola looked like a needle under the x-axis.** Equal-scale + ±10 x put the axis at the top and clipped the arms at y≈4. Zoom x to the roots and let y run from the vertex up the arms (~30); do not expand x to match that tall y.
@@ -22,7 +37,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 - **Settings tone/style still expanded in the gray card.** The ChatGPT-style
   popup was committed on `feat/memory-v2-atomic` and never merged; FEATURES
   still said “expand inline”, so later work kept `SettingsInlinePicker` as an
-  accordion. `SettingsPickerSheet` on main; do not expand in the card.
+  accordion. Choices open the `SelectMenu` popover; do not expand in the card.
 - **Leftover SSE reported the next chat's TTFT.** Leave must not abort SSE, and
   `parseChatWsPayload` used to record first token before the active-view filter.
   Key the sample by optimistic turn id; mark transport/token only for that id
@@ -627,8 +642,16 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 - **System dark mode on a static `C` palette.** Keep `C` (light) for unmigrated screens; add
   `useTheme()` and convert module-level `StyleSheet.create` into `makeX(t: Theme)` factories
   called via `useMemo`. Low-churn and incremental.
+- **A leading minus inside `$...$` became a blue bullet.** The implicit-math normalizer
+  treated every `$- ...$` line as a Markdown list item, so `$- x = -2$` visibly became the
+  false equation `x = -2`. Only unwrap dollar-wrapped prose bullets; keep math-like bodies
+  intact so their unary sign stays inside the math span.
+- **"Show steps" bypassed the verified lesson.** The equation extractor stripped lesson
+  metadata, but the earlier symbolic-math gate inspected the unstripped sentence and returned
+  false, sending a closed equation to the model. Strip the same lesson prefixes before gating;
+  cover the full augmentation path, not only direct-formatter unit tests.
 - **Mobile deps won't install in this env.** npm points at an auth-gated internal registry, so
   `tsc`/Expo can't run here — verify mobile changes with `pnpm typecheck`/`pnpm lint` locally.
 - **expo-av / voice crash (`ExponentAV` not found).** `expo-av` is incompatible with SDK 56 — use
-  `expo-audio` instead; lazy-load via `lib/voiceAudio.ts` for Expo Go; rebuild dev client with
+  `expo-audio` instead; lazy-load via `lib/speech/voiceAudio.ts` for Expo Go; rebuild dev client with
   `pnpm expo run:ios` (not Expo Go).

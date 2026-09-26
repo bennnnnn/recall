@@ -63,7 +63,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     const generation = getSessionGeneration();
     let cancelled = false;
     let cleanup: (() => void) | undefined;
-    void import("@/lib/gmailAutoSync").then(({ attachGmailForegroundSync }) => {
+    void import("@/features/integrations/model/gmailAutoSync").then(({ attachGmailForegroundSync }) => {
       if (cancelled || generation !== getSessionGeneration()) return;
       cleanup = attachGmailForegroundSync(token);
     }).catch(() => {});
@@ -104,7 +104,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     if (reminderLeadMinutes == null) return;
     const generation = getSessionGeneration();
     let cancelled = false;
-    void import("@/lib/reminderPrefs").then(({ syncReminderLeadFromServer }) => {
+    void import("@/features/todos/model/reminderPrefs").then(({ syncReminderLeadFromServer }) => {
       if (cancelled || generation !== getSessionGeneration()) return;
       return syncReminderLeadFromServer(reminderLeadMinutes);
     }).catch(() => {});

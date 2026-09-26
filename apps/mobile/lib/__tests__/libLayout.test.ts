@@ -23,6 +23,9 @@ const LIB = `${__dirname}/..`;
 /** Folders whose domain is also spelled as a different module prefix. */
 const PREFIX_ALIASES: Record<string, string[]> = {
   chemistry: ["molecule"],
+  images: ["image"],
+  speech: ["cloud", "lesson", "liveTalk", "pronunciation", "realtime", "tts", "voice"],
+  todos: ["homeReminder", "homeUrgent", "reminder", "todo"],
 };
 
 /** Vendored code keeps upstream names; it is not one of our domains. */
@@ -44,14 +47,15 @@ function flatModules(): string[] {
 }
 
 /**
- * `mathHtml` shadows `math/`; `cachedUser` does not shadow `cache/`.
+ * A flat `mathFoo.ts` beside `math/` shadows the domain folder; `cachedUser`
+ * does not shadow `cache/`.
  *
  * An exact match is the barrel idiom, not a split: lib/api.ts re-exports
  * lib/api/* on purpose and CLAUDE.md requires it to stay the single network
  * boundary. Only a camelCase extension of a folder name is a stray module.
  */
-function shadows(module: string, prefix: string): boolean {
-  if (module === prefix) return false;
+function shadows(module: string, prefix: string, exactBarrelAllowed = false): boolean {
+  if (module === prefix) return !exactBarrelAllowed;
   if (!module.startsWith(prefix)) return false;
   const next = module[prefix.length];
   return next !== undefined && next === next.toUpperCase() && next !== next.toLowerCase();
@@ -62,15 +66,20 @@ describe("lib layout", () => {
 
   it.each(flatModules())("lib/%s.ts does not shadow a domain folder", (module: string) => {
     for (const folder of folders) {
-      for (const prefix of [folder, ...(PREFIX_ALIASES[folder] ?? [])]) {
-        if (shadows(module, prefix)) {
-          throw new Error(
-            `lib/${module}.ts belongs inside lib/${folder}/ as ` +
-              `${module.slice(prefix.length, prefix.length + 1).toLowerCase()}` +
-              `${module.slice(prefix.length + 1)}.ts — a domain with a folder ` +
-              `does not also keep modules beside it.`,
-          );
-        }
+      const prefixes = [folder, ...(PREFIX_ALIASES[folder] ?? [])];
+      const prefix = prefixes.find((candidate, index) =>
+        shadows(module, candidate, index === 0),
+      );
+      if (prefix) {
+        const suffix = module.slice(prefix.length);
+        const destination = suffix
+          ? `${suffix.slice(0, 1).toLowerCase()}${suffix.slice(1)}`
+          : module;
+        throw new Error(
+          `lib/${module}.ts belongs inside lib/${folder}/ as ` +
+            `${destination}.ts — a domain with a folder ` +
+            `does not also keep modules beside it.`,
+        );
       }
     }
   });

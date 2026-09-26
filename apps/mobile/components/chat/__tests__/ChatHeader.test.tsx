@@ -1,3 +1,4 @@
+import { StyleSheet } from "react-native";
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -5,19 +6,15 @@ import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
-let mockPathname = "/";
+let mockReturnTo: string | undefined;
 
 jest.mock("expo-router", () => ({
-  usePathname: () => mockPathname,
+  useLocalSearchParams: () => ({ returnTo: mockReturnTo }),
   useRouter: () => ({
     back: mockBack,
     canGoBack: () => true,
     replace: mockReplace,
   }),
-}));
-
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
 }));
 
 jest.mock("react-i18next", () => ({
@@ -40,14 +37,10 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: View };
 });
 
-jest.mock("@/components/NewChatIcon", () => {
-  const { View } = jest.requireActual("react-native") as typeof import("react-native");
-  return { NewChatIcon: () => <View testID="new-chat-icon" /> };
-});
-
 const props = {
   paddingTop: 47,
-  height: 96,
+  minimumHeight: 96,
+  onHeightChange: jest.fn(),
   menuOverlayOpen: false,
   headerTitleLabel: "Trip",
   titleGenerating: false,
@@ -61,7 +54,7 @@ const props = {
 describe("ChatHeader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPathname = "/";
+    mockReturnTo = undefined;
   });
 
   it("opens the drawer from home chat", async () => {
@@ -80,8 +73,8 @@ describe("ChatHeader", () => {
     expect(queryByLabelText("reminders.badge_accessibility")).toBeNull();
   });
 
-  it("goes back to Library from /open-chat", async () => {
-    mockPathname = "/open-chat";
+  it("goes back to Library when pushed with returnTo=gallery", async () => {
+    mockReturnTo = "gallery";
     const onOpenDrawer = jest.fn();
     const { getByLabelText, queryByLabelText } = await render(
       <ChatHeader {...props} onOpenDrawer={onOpenDrawer} />,
@@ -91,5 +84,28 @@ describe("ChatHeader", () => {
     await fireEvent.press(getByLabelText("common.back"));
     expect(mockBack).toHaveBeenCalled();
     expect(onOpenDrawer).not.toHaveBeenCalled();
+  });
+
+  it("uses a minimum height and reports a grown Dynamic Type layout once", async () => {
+    const onHeightChange = jest.fn();
+    const { getByTestId, getByText } = await render(
+      <ChatHeader {...props} onHeightChange={onHeightChange} />,
+    );
+    const header = getByTestId("chat-header");
+
+    expect(StyleSheet.flatten(header.props.style)).toMatchObject({
+      minHeight: 96,
+      paddingTop: 47,
+    });
+    expect(StyleSheet.flatten(getByText("Trip").props.style)).toMatchObject({
+      fontSize: 17,
+      fontWeight: "700",
+    });
+
+    const layout = { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 118 } } };
+    await fireEvent(header, "layout", layout);
+    await fireEvent(header, "layout", layout);
+    expect(onHeightChange).toHaveBeenCalledTimes(1);
+    expect(onHeightChange).toHaveBeenCalledWith(118);
   });
 });

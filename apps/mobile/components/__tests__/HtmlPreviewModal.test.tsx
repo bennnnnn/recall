@@ -2,7 +2,7 @@ import { render } from "@testing-library/react-native";
 
 import { HtmlPreviewModal } from "@/components/HtmlPreviewModal";
 
-// Same guard pattern as MermaidBlock.test.tsx / MathFormulaWebView.test.tsx —
+// Same guard pattern as MermaidBlock.test.tsx —
 // without either WebView backend linked, the Run tab must fall back to the
 // static renderer.
 jest.mock("react-native-webview", () => {
@@ -35,7 +35,6 @@ jest.mock("expo-haptics", () => ({
   ImpactFeedbackStyle: { Light: "Light" },
   NotificationFeedbackType: { Success: "Success", Warning: "Warning" },
 }));
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));

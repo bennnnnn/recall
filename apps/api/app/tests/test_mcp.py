@@ -8,9 +8,17 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp.registry import get
+from app.modules.math.tool import SympyAdapter
+from app.modules.web_search import WebSearchAdapter
 from app.services.mcp import setup_mcp_adapters
-from app.services.mcp.sympy_adapter import SympyAdapter
-from app.services.mcp.web_search_adapter import WebSearchAdapter
+
+
+def test_sympy_adapter_shim_is_the_math_tool():
+    import app.modules.math.tool as math_tool
+    import app.services.mcp.sympy_adapter as legacy
+
+    assert legacy is math_tool
+    assert legacy.SympyAdapter is SympyAdapter
 
 
 @pytest.mark.asyncio
@@ -24,7 +32,7 @@ async def test_web_search_adapter_missing_query():
 async def test_web_search_adapter_uses_cached_search_with_quota_context(fake_redis):
     """Model-initiated web_search must go through search_cache (Tavily quota)."""
     from app.gateways.web_search_gateway import WebSearchHit
-    from app.services.mcp.web_search_adapter import bind_search_quota_context
+    from app.modules.web_search import bind_search_quota_context
 
     user = MagicMock()
     user.id = uuid4()
@@ -33,7 +41,7 @@ async def test_web_search_adapter_uses_cached_search_with_quota_context(fake_red
 
     with (
         patch(
-            "app.services.mcp.web_search_adapter.run_cached_search",
+            "app.modules.web_search.tool.run_cached_search",
             AsyncMock(return_value=([hit], ["q"])),
         ) as cached,
         bind_search_quota_context(user=user, redis=fake_redis),
@@ -58,7 +66,7 @@ async def test_web_search_adapter_does_not_call_gateway_directly():
     adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
     with (
         patch(
-            "app.services.mcp.web_search_adapter.run_cached_search",
+            "app.modules.web_search.tool.run_cached_search",
             AsyncMock(return_value=([], ["q"])),
         ),
         patch("app.gateways.web_search_gateway.search_web", AsyncMock()) as direct,
@@ -71,7 +79,7 @@ async def test_web_search_adapter_does_not_call_gateway_directly():
 @pytest.mark.asyncio
 async def test_web_search_adapter_second_invoke_reuses_first_result(fake_redis):
     from app.gateways.web_search_gateway import WebSearchHit
-    from app.services.mcp.web_search_adapter import bind_search_quota_context
+    from app.modules.web_search import bind_search_quota_context
 
     user = MagicMock()
     user.id = uuid4()
@@ -80,7 +88,7 @@ async def test_web_search_adapter_second_invoke_reuses_first_result(fake_redis):
     cached = AsyncMock(return_value=([hit], ["q"]))
 
     with (
-        patch("app.services.mcp.web_search_adapter.run_cached_search", cached),
+        patch("app.modules.web_search.tool.run_cached_search", cached),
         bind_search_quota_context(user=user, redis=fake_redis),
     ):
         first = await adapter.invoke({"query": "latest news"})
@@ -303,7 +311,7 @@ async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
         time.sleep(1)
         raise AssertionError("should have been cancelled by the timeout")
 
-    with patch("app.services.mcp.sympy_adapter.math_solve.simplify_expression", side_effect=_hang):
+    with patch("app.modules.math.tool.math_solve.simplify_expression", side_effect=_hang):
         result = await asyncio.wait_for(
             adapter.invoke({"action": "simplify", "expr": "x + x", "variable": "x"}),
             timeout=5,
@@ -321,7 +329,7 @@ async def test_sympy_adapter_broken_pool_degrades_like_timeout(
     async def boom(*_args: object, **_kwargs: object) -> None:
         raise BrokenProcessPool("killed by sibling timeout")
 
-    monkeypatch.setattr("app.services.math.sympy_executor.run_sympy", boom)
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", boom)
     adapter = SympyAdapter(Settings(math_solve_timeout_seconds=5))
     result = await adapter.invoke({"action": "simplify", "expr": "x + x", "variable": "x"})
     assert "timed out" in result.content
@@ -347,7 +355,7 @@ async def test_sympy_adapter_solve_times_out_instead_of_blocking(
         time.sleep(1)
         raise AssertionError("should have been cancelled by the timeout")
 
-    with patch("app.services.mcp.sympy_adapter.math_solve.solve_equation", side_effect=_hang):
+    with patch("app.modules.math.tool.math_solve.solve_equation", side_effect=_hang):
         result = await asyncio.wait_for(
             adapter.invoke({"action": "solve", "lhs": "x", "rhs": "0", "variables": ["x"]}),
             timeout=5,

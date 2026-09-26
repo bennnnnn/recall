@@ -78,6 +78,9 @@ async def run_tool_loop_path(
     has_instant = ctx.instant_reply is not None
     has_verified = ctx.verified_math is not None
     has_sources = bool(sources)
+    from app.modules.job_search.chat_intent import wants_job_search_turn
+
+    job_search_turn = wants_job_search_turn(ctx.prompt_messages)
     web_search_flag: bool | None = None
     if await seams.quota_service.global_spend_exceeded(redis, settings):
         logger.warning(
@@ -94,6 +97,7 @@ async def run_tool_loop_path(
         has_instant_reply=has_instant,
         has_verified_math=has_verified,
         has_search_sources=has_sources,
+        job_search_turn=job_search_turn,
         settings=settings,
         user=ctx.user,
     ):
@@ -109,8 +113,8 @@ async def run_tool_loop_path(
             if isinstance(ctx.web_search_classified, bool):
                 web_search_flag = ctx.web_search_classified
             else:
-                from app.services.web_search.detection import should_web_search
-                from app.services.web_search.subject import (
+                from app.modules.web_search.detection import should_web_search
+                from app.modules.web_search.subject import (
                     _prior_user_messages,
                     last_assistant_content,
                 )
@@ -129,6 +133,7 @@ async def run_tool_loop_path(
             has_verified_math=has_verified,
             has_search_sources=has_sources,
             web_search=web_search_flag,
+            job_search_turn=job_search_turn,
             settings=settings,
             user=ctx.user,
         ):
@@ -156,6 +161,9 @@ async def run_tool_loop_path(
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
         ctx.terminal_image_model = terminal_image.resolved_model
+    direct_reply = tool_loop_service.direct_tool_reply(ctx.prompt_messages)
+    if direct_reply is not None:
+        ctx.instant_reply = direct_reply
     if tool_search_hits and not ctx.search_sources:
         ctx.search_sources = tool_search_hits
 
@@ -269,7 +277,7 @@ async def enrich_final_content(
                     user_text=ctx.user_message_content,
                 )
 
-        from app.services.math.sympy_executor import run_sympy
+        from app.modules.math.sympy_executor import run_sympy
 
         try:
             # Direct verified replies already carry ```answer. Running that
@@ -307,17 +315,17 @@ async def enrich_final_content(
         # Prompt scaffolding must never survive into the reply. The model is
         # told not to mention a system block, but instruction is not
         # enforcement — this is the enforcement.
-        from app.services.math.tools.block.common import strip_verified_math_markers
+        from app.services.solving import strip_verified_math_markers
 
         assistant_text = strip_verified_math_markers(assistant_text)
 
-        from app.services.chat.learning_fences import strip_learning_chat_fences
+        from app.modules.learning import strip_learning_chat_fences
 
         assistant_text = strip_learning_chat_fences(assistant_text)
         if settings.chemistry_enabled and (
             "```smiles" in assistant_text.lower() or "```chemistry" in assistant_text.lower()
         ):
-            from app.services.chemistry import fence as chemistry_fence_service
+            from app.modules.chemistry import fence as chemistry_fence_service
 
             try:
                 assistant_text = await run_sympy(
@@ -531,18 +539,26 @@ async def stream_and_finalize(
                     await await_user_message_persist(ctx)
                     await finalize_terminal_image_turn(seams, redis, settings, ctx, result)
                     return
-                async for token in run_llm_token_stream(
-                    seams,
-                    redis,
-                    settings,
-                    ctx,
-                    usage=usage,
-                    should_cancel=should_cancel,
-                    result=result,
-                    on_reasoning=on_reasoning,
-                    accum=accum,
-                ):
-                    yield token
+                if ctx.instant_reply:
+                    async for token in run_instant_reply_path(
+                        ctx,
+                        should_cancel=should_cancel,
+                        accum=accum,
+                    ):
+                        yield token
+                else:
+                    async for token in run_llm_token_stream(
+                        seams,
+                        redis,
+                        settings,
+                        ctx,
+                        usage=usage,
+                        should_cancel=should_cancel,
+                        result=result,
+                        on_reasoning=on_reasoning,
+                        accum=accum,
+                    ):
+                        yield token
         except asyncio.CancelledError:
             if not accum.parts:
                 raise

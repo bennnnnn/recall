@@ -1,10 +1,10 @@
-import { attachmentRecordExists, attachmentsApi } from "@/lib/api/attachments";
+import { attachmentRecordExists, attachmentsApi } from "@/features/attachments/api";
 import { request } from "@/lib/api/client";
-import { removeCachedAttachmentFiles } from "@/lib/downloadChatAttachment";
-import { learningApi } from "@/lib/api/learning";
+import { removeCachedAttachmentFiles } from "@/features/attachments/model/downloadChatAttachment";
+import { learningApi } from "@/features/learning/api";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
-jest.mock("@/lib/downloadChatAttachment", () => ({
+jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
   removeCachedAttachmentFiles: jest.fn(async () => undefined),
 }));
 jest.mock("@/lib/deviceTimezone", () => ({

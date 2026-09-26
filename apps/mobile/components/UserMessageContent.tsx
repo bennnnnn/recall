@@ -2,7 +2,7 @@ import React, { Suspense, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -10,7 +10,7 @@ import {
   sentMessageShowsMathPreview,
   MathDraftPreview,
 } from "@/components/chat/MathDraftPreview";
-import { useAttachmentIndexed } from "@/hooks/useAttachmentIndexed";
+import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import { Message } from "@/lib/api";
 import {
   fileLabelFromContentType,
@@ -23,6 +23,8 @@ import { displayMathToInline } from "@/lib/math/solutionBars";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 // Async-split pdf.js (~1.4MB) off the chat cold path — same pattern as
 // LazyHeavyRich / HtmlPreviewModal. Only a PDF attachment evaluates the vendor.
@@ -104,7 +106,7 @@ export function UserMessageContent({ message }: Props) {
                 style={s.fileChip}
                 accessibilityLabel={nonPdfFileStatus}
               >
-                <Icon name="document-outline" size={16} color={C.primary} />
+                <Icon name="file" size={IconSize.xs} color={C.primary} />
                 <Text style={s.fileChipText} numberOfLines={1}>
                   {nonPdfFileStatus}
                 </Text>
@@ -154,9 +156,9 @@ function makeStyles(C: Theme) {
       paddingVertical: 2,
     },
     fileChipText: {
+      ...Type.secondary,
+      ...Weight.medium,
       color: C.textSecondary,
-      fontSize: 14,
-      fontWeight: "500",
     },
   });
 }

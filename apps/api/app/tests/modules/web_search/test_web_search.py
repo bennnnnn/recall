@@ -1,0 +1,1230 @@
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from app.core.config import Settings
+from app.gateways.web_search_gateway import WebSearchHit, mock_search_results, search_web
+from app.models.schemas import WebSearchClassification
+from app.modules.web_search import (
+    augment_prompt_messages,
+    build_search_queries,
+    build_search_query,
+    format_location_not_set_answer,
+    format_search_block,
+    format_search_empty_block,
+    format_sources_fence,
+    needs_web_search,
+    resolve_search_subject,
+    should_web_search,
+    web_search_skip,
+)
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("search the web for iPhone 17 rumors", True),
+        ("What's the latest news on SpaceX?", True),
+        ("look up online who won the game last night", True),
+        ("look it up", False),
+        ("what's happening in the world today", True),
+        ("what's cookin in the world", True),
+        ("Show me yesterdays game", True),
+        ("show me yesterday's game result", True),
+        ("Ethiopias game score", True),
+        ("explain Python decorators", False),
+        ("what time is it", False),
+        ("what year is it", False),
+        ("what's the date", False),
+        ("where am I?", False),
+        ("Where am iI", False),
+        ("help me write an email to my boss", False),
+        ("remember that I like hiking", False),
+        ("I work at Uber but I want to change to Google", False),
+        (
+            "Where do I work right now, and which company am I considering for the future?",
+            False,
+        ),
+        ("Who do I work for?", False),
+        ("What company do I work at?", False),
+        ("Where am I currently employed?", False),
+        ("What's my current employer?", False),
+        ("What is my job?", False),
+        ("Which company am I targeting?", False),
+        ("What is my career goal?", False),
+        ("Do you remember where I work?", False),
+        ("What do you know about my career?", False),
+        ("Best restaurants near me", True),
+        ("where should I eat tonight?", True),
+        ("What am I trying to get done today?", False),
+        ("What's on my plate today?", False),
+        ("How's my day looking so far?", False),
+        ("What's still open for me to finish tonight?", False),
+        ("help me prioritize my tasks", False),
+    ],
+)
+def test_needs_web_search(text, expected):
+    assert needs_web_search(text) is expected
+
+
+def test_is_local_places_query():
+    from app.modules.web_search import is_distance_query, is_geo_query, is_proximity_query
+
+    assert is_proximity_query("Best restaurants near me")
+    assert is_proximity_query("coffee shops nearby")
+    assert is_proximity_query("The nearest gas station")
+    assert is_proximity_query("nearest hospital")
+    assert is_proximity_query("closest casino")
+    assert is_proximity_query("libraries around here")
+    assert is_geo_query("The nearest gas station")
+    assert is_distance_query("how far is the airport")
+    assert is_distance_query("driving time to Golden Gate Bridge")
+    assert is_distance_query("how long does it take to get to the airport")
+    assert is_distance_query("how long is the drive")
+    assert is_geo_query("how far is the airport")
+    assert not is_geo_query("distance between NYC and LA")
+    kinematics = (
+        "A car starts from rest and accelerates at a constant rate of 1.2 m/s^2. "
+        "How long does it take the car to travel a distance of 500 meters?"
+    )
+    assert not is_distance_query(kinematics)
+    assert not is_geo_query(kinematics)
+    assert not is_geo_query(
+        "A 5 N force is 2 m from the pivot. "
+        "How far must a 10 N force be from the pivot to balance the lever?"
+    )
+    assert not is_distance_query("How long does it take the ball to fall 20 meters?")
+    assert not is_distance_query("A car accelerates at 2 m/s^2. How far does it travel in 10 s?")
+    assert not is_proximity_query("explain Python decorators")
+    assert not is_proximity_query("find the nearest prime number")
+    assert not is_proximity_query("who is my closest friend")
+
+
+def test_is_ambiguous_local_places_query():
+    from app.modules.web_search import is_ambiguous_local_places_query
+
+    assert is_ambiguous_local_places_query("Nearest house")
+    assert is_ambiguous_local_places_query("homes near me")
+    assert not is_ambiguous_local_places_query("Places near me")
+    assert is_ambiguous_local_places_query("closest property")
+    assert not is_ambiguous_local_places_query("nearest house for sale")
+    assert not is_ambiguous_local_places_query("nearest house near 123 Market St")
+    assert not is_ambiguous_local_places_query("nearest gas station")
+    assert not is_ambiguous_local_places_query("nearest hospital")
+
+
+def test_build_search_queries_local_places_with_location():
+    queries = build_search_queries(
+        "Best restaurants near me",
+        user_location="San Francisco, CA",
+    )
+    assert "San Francisco" in queries[0]
+    assert "near me" not in queries[0].lower()
+    assert any("official website" in q.lower() for q in queries)
+
+
+def test_build_search_queries_local_places_with_coordinates():
+    queries = build_search_queries(
+        "Nearest gas station",
+        user_location="San Francisco, CA",
+        latitude=37.8044,
+        longitude=-122.2712,
+    )
+    assert "37.80440,-122.27120" in queries[0]
+    assert "near me" not in queries[0].lower()
+
+
+def test_format_search_block_local_places_links():
+    block = format_search_block(
+        [
+            WebSearchHit(
+                title="Zuni Café",
+                url="https://www.zunicafe.com",
+                snippet="Market St, San Francisco.",
+            )
+        ],
+        local_places=True,
+    )
+    assert "places fence" in block.lower()
+    assert '"name"' in block
+    assert "Zuni Café (https://www.zunicafe.com)" in block
+    assert "Google Maps" in block
+
+
+def test_places_payload_from_hits():
+    from app.modules.web_search import places_payload_from_hits
+
+    rows = places_payload_from_hits(
+        [
+            WebSearchHit(
+                title="CODE Salon",
+                url="https://www.yelp.com/search?find_desc=Hair+Salons",
+                snippet="123 Market St, San Francisco.",
+            )
+        ]
+    )
+    assert rows[0]["name"] == "CODE Salon"
+    assert rows[0]["url"].startswith("https://www.google.com/maps/search/")
+    assert "CODE" in rows[0]["url"]
+    assert rows[0]["address"] == "123 Market St, San Francisco"
+
+
+def test_places_payload_keeps_direct_venue_url():
+    from app.modules.web_search import places_payload_from_hits
+
+    rows = places_payload_from_hits(
+        [
+            WebSearchHit(
+                title="CODE Salon",
+                url="https://www.yelp.com/biz/code-salon-san-francisco",
+                snippet="Top rated salon.",
+            )
+        ]
+    )
+    assert rows[0]["url"] == "https://www.yelp.com/biz/code-salon-san-francisco"
+
+
+def test_format_search_empty_block_local_places():
+    block = format_search_empty_block(["best restaurants San Francisco"], local_places=True)
+    assert "Do NOT invent restaurant names" in block
+
+
+def test_needs_web_search_look_it_up_with_prior():
+    prior = ["Show me yesterdays game"]
+    assert needs_web_search("Look it up", prior_user_messages=prior) is True
+    assert needs_web_search("look it up", prior_user_messages=[]) is False
+
+
+def test_needs_web_search_clarification_follow_up():
+    prior = ["Show me yesterdays game", "Look it up"]
+    assert needs_web_search("No, the ongoing one.", prior_user_messages=prior) is True
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A",
+        "B",
+        "C",
+        "D.",
+        "Start an interactive vocabulary quiz for my English project",
+    ],
+)
+def test_needs_web_search_skips_vocab_quiz(text):
+    assert needs_web_search(text) is False
+    assert needs_web_search(text, prior_user_messages=["Show me yesterdays game"]) is False
+
+
+def test_needs_web_search_skips_lightweight_greeting():
+    assert needs_web_search("thanks!") is False
+    assert needs_web_search("hi") is False
+    assert needs_web_search("yes") is False
+
+
+def test_needs_web_search_yes_after_search_offer():
+    prior = ["Show me yesterdays game"]
+    offer = "Want me to check the current result?"
+    assert needs_web_search("yes", prior_user_messages=prior, prior_assistant=offer) is True
+    assert needs_web_search("go", prior_user_messages=prior, prior_assistant=offer) is True
+    assert needs_web_search("thanks", prior_user_messages=prior, prior_assistant=offer) is False
+    assert needs_web_search("yes", prior_user_messages=prior) is True
+
+
+def test_build_search_query_clarification_world_cup():
+    queries = build_search_queries(
+        "No, the ongoing one.",
+        user_timezone="UTC",
+        prior_user_messages=["Show me World Cup scores"],
+    )
+    assert queries[0].startswith("FIFA World Cup 2026")
+    assert "2026" in queries[0]
+
+
+def test_build_search_query_team_score_not_world_cup():
+    queries = build_search_queries("Ethiopias game score", user_timezone="UTC")
+    assert queries[0].startswith("Ethiopia")
+    assert "World Cup 2026 qualified" in queries[-1]
+    assert not any(q.startswith("FIFA World Cup 2026 live") for q in queries)
+
+
+def test_resolve_search_subject_follow_up():
+    prior = ["Show me yesterdays game"]
+    assert (
+        resolve_search_subject("Look it up", prior_user_messages=prior) == "Show me yesterdays game"
+    )
+
+
+def test_build_search_query_strips_prefix():
+    assert build_search_query("search the web for tesla stock price") == "tesla stock price"
+
+
+def test_build_search_query_yesterday_sports():
+    queries = build_search_queries("Show me yesterdays game", user_timezone="UTC")
+    # Generic yesterday+sports must not hijack into World Cup.
+    assert not any("World Cup" in q for q in queries)
+    assert any("scores" in q.lower() or "result" in q.lower() for q in queries)
+
+
+def test_build_search_query_team_yesterday_not_world_cup():
+    queries = build_search_queries("did the Lakers win yesterday", user_timezone="UTC")
+    assert not any("World Cup" in q for q in queries)
+    assert any("Lakers" in q for q in queries)
+
+
+def test_build_search_query_news_defaults():
+    assert build_search_query("what's happening in the world today") == "top news today"
+
+
+def test_build_search_query_follow_up_uses_prior():
+    queries = build_search_queries(
+        "Look it up",
+        user_timezone="UTC",
+        prior_user_messages=["Show me yesterdays game"],
+    )
+    assert queries[0] != "Look it up"
+    assert any("scores" in q.lower() for q in queries)
+
+
+def test_format_search_block_includes_links():
+    block = format_search_block(
+        [
+            WebSearchHit(
+                title="Example",
+                url="https://example.com/a",
+                snippet="Snippet text.",
+            )
+        ]
+    )
+    assert "Example (https://example.com/a)" in block
+    assert "Snippet text." in block
+
+
+def test_format_search_empty_block_forbids_roleplay():
+    block = format_search_empty_block(["top news today"])
+    assert "returned no usable results" in block
+    assert "could not verify that live" in block
+    assert "Do NOT invent tournament schedules" in block
+
+
+def test_format_sources_fence_json():
+    block = format_sources_fence(
+        [WebSearchHit(title="Example", url="https://example.com/a", snippet="info")]
+    )
+    assert block.startswith("\n\n```sources\n")
+    assert '"title": "Example"' in block
+    assert '"url": "https://example.com/a"' in block
+
+
+def test_strip_sources_from_text_removes_fence_and_bare_json():
+    from app.modules.web_search.formatting import strip_sources_from_text
+
+    fenced = 'Answer here.\n\n```sources\n[{"title":"A","url":"https://a.com","snippet":"x"}]\n```'
+    assert strip_sources_from_text(fenced) == "Answer here."
+
+    labeled = (
+        "Afternoon in DC.\n\n**sources**\n```\n"
+        '[{"title":"DC time","url":"https://example.com/dc"}]\n```'
+    )
+    assert strip_sources_from_text(labeled) == "Afternoon in DC."
+
+    nav = (
+        "Here is the config you asked for:\n\n"
+        '```json\n[{"title":"Home","url":"/home"},{"title":"Docs","url":"/docs"}]\n```'
+    )
+    assert strip_sources_from_text(nav) == nav.strip()
+
+    trailing = (
+        'Answer here.\n\n[{"title":"World Cup","url":"https://example.com",'
+        '"snippet":"Scores today."}]'
+    )
+    assert "World Cup" in strip_sources_from_text(trailing)
+
+
+def test_format_sources_fence_sanitizes_backticks_in_snippets():
+    from app.modules.web_search.formatting import format_sources_fence, strip_sources_from_text
+
+    block = format_sources_fence(
+        [
+            WebSearchHit(
+                title="Docs",
+                url="https://example.com",
+                snippet="Use ```python\nprint(1)\n``` in docs",
+            )
+        ]
+    )
+    assert "```python" not in block
+    cleaned = strip_sources_from_text("Hello" + block)
+    assert cleaned == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_injects_results_before_user():
+    settings = Settings(mock_llm_enabled=True, tavily_api_key="", mcp_tool_loop_enabled=False)
+    messages = [
+        {"role": "system", "content": "base"},
+        {"role": "user", "content": "old"},
+        {"role": "assistant", "content": "ok"},
+        {"role": "user", "content": "search the web for latest AI news"},
+    ]
+    with patch(
+        "app.modules.web_search.search_cache.web_search_gateway.search_web",
+        AsyncMock(
+            return_value=[
+                WebSearchHit(title="Hit", url="https://x.com", snippet="info"),
+            ]
+        ),
+    ):
+        out, hits = await augment_prompt_messages(
+            messages,
+            "search the web for latest AI news",
+            settings,
+        )
+    assert out[-1]["role"] == "user"
+    assert out[-2]["role"] == "system"
+    assert "Web search results" in out[-2]["content"]
+    assert len(hits) == 1
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_emits_searching_status_with_query_detail():
+    settings = Settings(mock_llm_enabled=True, tavily_api_key="", mcp_tool_loop_enabled=False)
+    messages = [
+        {"role": "user", "content": "search the web for latest AI news"},
+    ]
+    statuses: list[tuple[str, str | None]] = []
+
+    async def on_status(phase: str, detail: str | None = None) -> None:
+        statuses.append((phase, detail))
+
+    with patch(
+        "app.modules.web_search.search_cache.web_search_gateway.search_web",
+        AsyncMock(
+            return_value=[
+                WebSearchHit(title="Hit", url="https://x.com", snippet="info"),
+            ]
+        ),
+    ):
+        await augment_prompt_messages(
+            messages,
+            "search the web for latest AI news",
+            settings,
+            on_status=on_status,
+        )
+
+    assert len(statuses) == 1
+    phase, detail = statuses[0]
+    assert phase == "searching"
+    # The first search query rides along so the client can show what
+    # is being looked up.
+    assert detail
+    assert "ai news" in detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_injects_empty_block_when_no_hits():
+    settings = Settings(
+        mock_llm_enabled=False, web_search_fallback_enabled=False, mcp_tool_loop_enabled=False
+    )
+    messages = [
+        {"role": "system", "content": "base"},
+        {"role": "user", "content": "what's happening in the world today"},
+    ]
+    with patch(
+        "app.modules.web_search.search_cache.web_search_gateway.search_web",
+        AsyncMock(return_value=[]),
+    ):
+        out, hits = await augment_prompt_messages(
+            messages,
+            "what's happening in the world today",
+            settings,
+        )
+    assert out[-1]["role"] == "user"
+    assert out[-2]["role"] == "system"
+    assert "returned no usable results" in out[-2]["content"]
+    assert hits == []
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_follow_up_look_it_up(fake_redis):
+    settings = Settings(mcp_tool_loop_enabled=False)
+    messages = [
+        {"role": "system", "content": "base"},
+        {"role": "user", "content": "Show me yesterdays game"},
+        {"role": "assistant", "content": "I don't have live scores."},
+        {"role": "user", "content": "Look it up"},
+    ]
+    with (
+        patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.web_search.search_cache.web_search_gateway.search_web",
+            AsyncMock(
+                return_value=[
+                    WebSearchHit(title="Scores", url="https://scores.example", snippet="2-1"),
+                ]
+            ),
+        ) as search_mock,
+    ):
+        out, hits = await augment_prompt_messages(
+            messages, "Look it up", settings, user_timezone="UTC"
+        )
+    assert search_mock.await_count >= 1
+    first_query = search_mock.await_args_list[0].args[1]
+    assert first_query.lower() != "look it up"
+    assert "Web search results" in out[-2]["content"]
+    assert len(hits) == 1
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_skips_personal_planning():
+    settings = Settings()
+    messages = [{"role": "system", "content": "base"}]
+    with patch(
+        "app.modules.web_search.search_cache.web_search_gateway.search_web",
+        AsyncMock(),
+    ) as search_mock:
+        out, hits = await augment_prompt_messages(
+            messages, "What am I trying to get done today?", settings
+        )
+    search_mock.assert_not_called()
+    assert out == messages
+    assert hits == []
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_skips_when_not_needed():
+    settings = Settings()
+    messages = [{"role": "system", "content": "base"}]
+    with patch(
+        "app.modules.web_search.search_cache.web_search_gateway.search_web",
+        AsyncMock(),
+    ) as search_mock:
+        out, hits = await augment_prompt_messages(messages, "explain recursion", settings)
+    search_mock.assert_not_called()
+    assert out == messages
+    assert hits == []
+
+
+@pytest.mark.asyncio
+async def test_search_web_uses_mock_without_api_key():
+    settings = Settings(mock_llm_enabled=True, tavily_api_key="", web_search_fallback_enabled=False)
+    hits = await search_web(settings, "test query")
+    assert len(hits) == 1
+    assert "Mock search" in hits[0].title
+
+
+@pytest.mark.asyncio
+async def test_run_search_parallelizes_queries():
+    import asyncio
+    import time
+
+    from app.modules.web_search.search_cache import _run_search
+
+    settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
+
+    async def mock_search(_settings, query, *, max_results, budget=None, redis=None):
+        await asyncio.sleep(0.04 if query == "slow" else 0.01)
+        return [
+            WebSearchHit(
+                title=f"{query} hit",
+                url=f"https://example.com/{query}",
+                snippet="snippet",
+            )
+        ]
+
+    with patch("app.modules.web_search.search_cache._search_with_cache", side_effect=mock_search):
+        start = time.monotonic()
+        merged, tried = await _run_search(settings, ["slow", "fast-a", "fast-b"])
+        elapsed = time.monotonic() - start
+
+    assert tried == ["slow", "fast-a", "fast-b"]
+    assert len(merged) == 3
+    assert elapsed < 0.08
+
+
+@pytest.mark.asyncio
+async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
+    """A multi-query turn must spend at most ONE daily Tavily search, not one
+    per fanned-out query — the whole point of the shared per-turn budget."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.modules.web_search.search_cache import _run_search
+
+    settings = Settings(web_search_max_results=10, mock_llm_enabled=True, tavily_api_key="test-key")
+    user = MagicMock()
+    user.id = uuid4()
+    user.plan = "free"
+
+    reserve_calls = 0
+
+    async def counting_reserve(_redis, _user_id, *, limit):
+        nonlocal reserve_calls
+        reserve_calls += 1
+        return True
+
+    async def fake_search(_settings, query, *, max_results=10, skip_tavily=False):
+        return [WebSearchHit(title=query, url=f"https://ex/{query}", snippet="s")]
+
+    with (
+        patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+            counting_reserve,
+        ),
+        patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
+    ):
+        merged, tried = await _run_search(
+            settings,
+            ["q1", "q2", "q3", "q4"],
+            user=user,
+            redis=fake_redis,
+        )
+
+    assert reserve_calls == 1
+    assert len(merged) == 4
+
+
+@pytest.mark.asyncio
+async def test_run_cached_search_shares_bound_tavily_budget(fake_redis):
+    """Two MCP-style run_cached_search calls in one turn spend one Tavily slot."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.modules.web_search.search_cache import bind_tavily_turn_budget, run_cached_search
+
+    settings = Settings(web_search_max_results=10, mock_llm_enabled=True, tavily_api_key="test-key")
+    user = MagicMock()
+    user.id = uuid4()
+    user.plan = "free"
+
+    reserve_calls = 0
+
+    async def counting_reserve(_redis, _user_id, *, limit):
+        nonlocal reserve_calls
+        reserve_calls += 1
+        return True
+
+    async def fake_search(_settings, query, *, max_results=10, skip_tavily=False):
+        return [WebSearchHit(title=query, url=f"https://ex/{query}", snippet="s")]
+
+    with (
+        patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+            counting_reserve,
+        ),
+        patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
+        bind_tavily_turn_budget(settings=settings, user=user),
+    ):
+        await run_cached_search(settings, ["q1"], user=user, redis=fake_redis)
+        await run_cached_search(settings, ["q2"], user=user, redis=fake_redis)
+
+    assert reserve_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_run_search_skips_tavily_reservation_when_unconfigured(fake_redis):
+    """No Tavily key → the turn uses free DuckDuckGo, so it must not spend a
+    daily Tavily search reserving a call Tavily never performs."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.modules.web_search.search_cache import _run_search
+
+    settings = Settings(web_search_max_results=10, mock_llm_enabled=True, tavily_api_key="")
+    user = MagicMock()
+    user.id = uuid4()
+    user.plan = "free"
+
+    reserve_calls = 0
+
+    async def counting_reserve(_redis, _user_id, *, limit):
+        nonlocal reserve_calls
+        reserve_calls += 1
+        return True
+
+    async def fake_search(_settings, query, *, max_results=10, skip_tavily=False):
+        return [WebSearchHit(title=query, url=f"https://ex/{query}", snippet="s")]
+
+    with (
+        patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+            counting_reserve,
+        ),
+        patch("app.modules.web_search.search_cache.web_search_gateway.search_web", fake_search),
+    ):
+        merged, _tried = await _run_search(settings, ["q1", "q2"], user=user, redis=fake_redis)
+
+    assert reserve_calls == 0
+    assert len(merged) == 2
+
+
+@pytest.mark.asyncio
+async def test_skip_tavily_when_user_missing(fake_redis):
+    """No user on the budget must not run uncapped Tavily."""
+    from app.modules.web_search.search_cache import _TurnTavilyBudget
+
+    settings = Settings(tavily_api_key="test-key")
+    budget = _TurnTavilyBudget(settings=settings, user=None)
+    reserve = AsyncMock(side_effect=AssertionError("must not reserve without a user"))
+    with patch(
+        "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+        reserve,
+    ):
+        assert await budget.skip_tavily(fake_redis) is True
+        assert await budget.skip_tavily(fake_redis) is True
+    reserve.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_skip_tavily_on_redis_reserve_error(fake_redis):
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.exceptions import RedisUnavailableError
+    from app.modules.web_search.search_cache import _TurnTavilyBudget
+
+    settings = Settings(tavily_api_key="test-key")
+    user = MagicMock()
+    user.id = uuid4()
+    user.plan = "free"
+    budget = _TurnTavilyBudget(settings=settings, user=user)
+    with patch(
+        "app.modules.web_search.search_cache.quota_service.reserve_tavily_search",
+        AsyncMock(side_effect=RedisUnavailableError()),
+    ):
+        assert await budget.skip_tavily(fake_redis) is True
+        assert await budget.skip_tavily(fake_redis) is True
+
+
+@pytest.mark.asyncio
+async def test_search_cache_is_per_user(fake_redis):
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.modules.web_search.search_cache import _search_with_cache, _TurnTavilyBudget
+
+    settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True, tavily_api_key="")
+    u1 = MagicMock()
+    u1.id = uuid4()
+    u1.plan = "free"
+    u2 = MagicMock()
+    u2.id = uuid4()
+    u2.plan = "free"
+    hit = WebSearchHit(title="Hit", url="https://example.com", snippet="snippet")
+    search_mock = AsyncMock(return_value=[hit])
+    with (
+        patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch("app.modules.web_search.search_cache.web_search_gateway.search_web", search_mock),
+    ):
+        await _search_with_cache(
+            settings,
+            "same query",
+            max_results=3,
+            budget=_TurnTavilyBudget(settings=settings, user=u1),
+            redis=fake_redis,
+        )
+        await _search_with_cache(
+            settings,
+            "same query",
+            max_results=3,
+            budget=_TurnTavilyBudget(settings=settings, user=u2),
+            redis=fake_redis,
+        )
+    assert search_mock.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_run_search_dedupes_across_queries_and_respects_limit():
+    from app.modules.web_search.search_cache import _run_search
+
+    settings = Settings(web_search_max_results=2, mock_llm_enabled=True)
+
+    async def mock_search(_settings, query, *, max_results, budget=None, redis=None):
+        if query == "q1":
+            return [
+                WebSearchHit(title="A", url="https://dup", snippet="1"),
+                WebSearchHit(title="B", url="https://b", snippet="2"),
+            ]
+        return [WebSearchHit(title="A dup", url="https://dup", snippet="3")]
+
+    with patch("app.modules.web_search.search_cache._search_with_cache", side_effect=mock_search):
+        merged, tried = await _run_search(settings, ["q1", "q2"])
+
+    assert tried == ["q1", "q2"]
+    assert len(merged) == 2
+    assert merged[0].url == "https://dup"
+    assert merged[1].url == "https://b"
+
+
+@pytest.mark.asyncio
+async def test_search_web_falls_back_to_duckduckgo():
+    settings = Settings(mock_llm_enabled=False, tavily_api_key="", web_search_fallback_enabled=True)
+    ddg_hit = WebSearchHit(title="DDG", url="https://news.example", snippet="story")
+    with patch(
+        "app.gateways.web_search_gateway._search_duckduckgo",
+        AsyncMock(return_value=[ddg_hit]),
+    ):
+        hits = await search_web(settings, "top news today")
+    assert hits[0].title == "DDG"
+
+
+@pytest.mark.asyncio
+async def test_search_web_returns_empty_when_all_providers_fail():
+    settings = Settings(mock_llm_enabled=False, tavily_api_key="", web_search_fallback_enabled=True)
+    with patch(
+        "app.gateways.web_search_gateway._search_duckduckgo",
+        AsyncMock(return_value=[]),
+    ):
+        hits = await search_web(settings, "test query")
+    assert hits == []
+
+
+@pytest.mark.asyncio
+async def test_search_duckduckgo_timeout_returns_empty():
+    """Stalled DDG must not hang the turn — wait_for returns []."""
+    import asyncio
+
+    from app.gateways import web_search_gateway as gw
+
+    async def never_finishes(*_args: object, **_kwargs: object) -> list[WebSearchHit]:
+        await asyncio.sleep(3600)
+        return []
+
+    with (
+        patch.object(gw, "_DDG_TIMEOUT_SECONDS", 0.05),
+        patch.object(gw.asyncio, "to_thread", side_effect=never_finishes),
+    ):
+        hits = await gw._search_duckduckgo("slow query", max_results=3)
+    assert hits == []
+
+
+@pytest.mark.asyncio
+async def test_search_with_cache_reuses_redis(fake_redis):
+    from app.modules.web_search.search_cache import _search_with_cache
+
+    settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
+    with patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis):
+        first = await _search_with_cache(settings, "cached query", max_results=3)
+        second = await _search_with_cache(settings, "cached query", max_results=3)
+    assert len(first) >= 1
+    assert second == first
+
+
+@pytest.mark.asyncio
+async def test_search_with_cache_honors_injected_redis():
+    from app.modules.web_search.search_cache import _search_with_cache
+
+    injected = AsyncMock()
+    injected.get = AsyncMock(return_value=None)
+    injected.set = AsyncMock(return_value=True)
+    injected.delete = AsyncMock(return_value=1)
+
+    settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
+    hit = WebSearchHit(title="Hit", url="https://example.com", snippet="snippet")
+    with (
+        patch(
+            "app.modules.web_search.search_cache.get_redis_client",
+            side_effect=AssertionError("should use injected redis"),
+        ),
+        patch(
+            "app.modules.web_search.search_cache.web_search_gateway.search_web",
+            AsyncMock(return_value=[hit]),
+        ),
+    ):
+        results = await _search_with_cache(
+            settings,
+            "injected query",
+            max_results=3,
+            redis=injected,
+        )
+
+    assert results == [hit]
+    injected.get.assert_awaited()
+    injected.set.assert_awaited()
+    injected.delete.assert_awaited()
+
+
+def test_search_cache_key_includes_max_results():
+    from app.modules.web_search.search_cache import _search_cache_key
+
+    assert _search_cache_key("Foo", 3) != _search_cache_key("Foo", 5)
+    assert _search_cache_key("Foo", 3) == _search_cache_key("foo", 3)
+
+
+def test_search_cache_key_includes_user_id():
+    from app.modules.web_search.search_cache import _search_cache_key
+
+    assert _search_cache_key("Foo", 3, user_id="a") != _search_cache_key("Foo", 3, user_id="b")
+    assert _search_cache_key("Foo", 3) == _search_cache_key("Foo", 3, user_id="anon")
+
+
+@pytest.mark.asyncio
+async def test_search_with_cache_separate_entries_per_max_results(fake_redis):
+    from app.modules.web_search.search_cache import _search_with_cache
+
+    settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
+    hit = WebSearchHit(title="Hit", url="https://example.com", snippet="snippet")
+    search_mock = AsyncMock(return_value=[hit])
+    with (
+        patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch("app.modules.web_search.search_cache.web_search_gateway.search_web", search_mock),
+    ):
+        await _search_with_cache(settings, "same query", max_results=1)
+        await _search_with_cache(settings, "same query", max_results=5)
+
+    assert search_mock.call_count == 2
+    assert search_mock.call_args_list[0].kwargs["max_results"] == 1
+    assert search_mock.call_args_list[1].kwargs["max_results"] == 5
+
+
+@pytest.mark.asyncio
+async def test_search_with_cache_single_flight_on_miss(fake_redis):
+    import asyncio
+
+    from app.modules.web_search.search_cache import _search_with_cache
+
+    settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
+    call_count = 0
+
+    async def slow_search(_settings, _query, *, max_results=5, skip_tavily=False):
+        nonlocal call_count
+        call_count += 1
+        await asyncio.sleep(0.25)
+        return [
+            WebSearchHit(title="Hit", url="https://example.com", snippet="snippet"),
+        ]
+
+    with (
+        patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch("app.modules.web_search.search_cache.web_search_gateway.search_web", slow_search),
+    ):
+        results = await asyncio.gather(
+            *[_search_with_cache(settings, "same query", max_results=3) for _ in range(3)]
+        )
+
+    assert call_count == 1
+    assert all(result == results[0] for result in results)
+
+
+def test_mock_search_results_respects_limit():
+    hits = mock_search_results("query", max_results=1)
+    assert len(hits) == 1
+
+
+def test_prioritize_team_hits():
+    from app.modules.web_search.query_builders import _prioritize_team_hits
+
+    hits = [
+        WebSearchHit(title="World Cup group stage", url="https://a.com", snippet="Brazil vs Spain"),
+        WebSearchHit(
+            title="Ethiopia latest", url="https://b.com", snippet="Ethiopia national team"
+        ),
+        WebSearchHit(title="Other", url="https://c.com", snippet="generic"),
+    ]
+    ordered = _prioritize_team_hits(hits, "Ethiopia")
+    assert ordered[0].title == "Ethiopia latest"
+    assert ordered[1].title == "World Cup group stage"
+
+
+def test_format_places_fence():
+    from app.modules.web_search import format_places_fence
+
+    fence = format_places_fence(
+        [
+            WebSearchHit(
+                title="Benu",
+                url="https://www.yelp.com/biz/benu",
+                snippet="3 Michelin stars at 22 Hawthorne St ($$$)",
+            )
+        ]
+    )
+    assert fence.startswith("\n\n```places\n")
+    assert "Benu" in fence
+    assert "$$$" in fence
+    assert "22 Hawthorne St" in fence
+
+
+def test_format_search_block_warns_when_location_missing():
+    block = format_search_block(
+        [WebSearchHit(title="Cafe", url="https://cafe.com", snippet="Nice spot")],
+        local_places=True,
+        user_location=None,
+    )
+    assert "User location is not set" in block
+
+
+def test_format_location_not_set_answer_prompts_to_enable():
+    answer = format_location_not_set_answer()
+    assert "location" in answer.lower()
+    assert "Settings" in answer
+    assert "nearby" in answer.lower()
+
+
+def test_places_payload_extracts_price():
+    from app.modules.web_search import places_payload_from_hits
+
+    rows = places_payload_from_hits(
+        [
+            WebSearchHit(
+                title="Nopa",
+                url="https://www.nopasf.com",
+                snippet="California cuisine ($$$) — 560 Divisadero St",
+            )
+        ]
+    )
+    assert rows[0]["price"] == "$$$"
+    assert rows[0]["address"] == "560 Divisadero St"
+
+
+def test_post_stream_fences_from_search_hits():
+    """Sources + places fences match what chat appends after streaming."""
+    hits = [
+        WebSearchHit(title="Venue", url="https://venue.example", snippet="123 Main St"),
+    ]
+    sources = format_sources_fence(hits)
+    from app.modules.web_search import format_places_fence
+
+    places = format_places_fence(hits)
+    assert "```sources" in sources
+    assert "Venue" in sources
+    assert "```places" in places
+    assert "123 Main St" in places
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_classifier_yes_for_factual_lookup():
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+    )
+    assert await should_web_search("Who is the CEO of Anthropic?", settings) is True
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_classifies_a_release_question():
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    with patch(
+        "app.modules.web_search.detection.classify_web_search",
+        AsyncMock(return_value=WebSearchClassification(needs_search=True, query="next iPhone")),
+    ) as classify:
+        assert await should_web_search("When is the next iPhone coming out?", settings) is True
+    classify.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_classifier_no_for_stable_topic():
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+    )
+    assert await should_web_search("Explain how recursion works in Python", settings) is False
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_skips_classifier_for_plain_personal_disclosure():
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    with patch(
+        "app.modules.web_search.detection.classify_web_search",
+        AsyncMock(),
+    ) as classify:
+        assert (
+            await should_web_search(
+                "I work at Uber but I want to change to Google",
+                settings,
+            )
+            is False
+        )
+    classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "We need a hotel in Paris",
+        "Our team needs current API pricing",
+    ],
+)
+async def test_collective_implicit_request_reaches_web_search_classifier(query):
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    assert web_search_skip(query) is False
+    with patch(
+        "app.modules.web_search.detection.classify_web_search",
+        AsyncMock(return_value=WebSearchClassification(needs_search=True, query=query)),
+    ) as classify:
+        assert await should_web_search(query, settings) is True
+    classify.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_skips_classifier_for_personal_memory_question():
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    with patch(
+        "app.modules.web_search.detection.classify_web_search",
+        AsyncMock(),
+    ) as classify:
+        assert (
+            await should_web_search(
+                "Where do I work right now, and which company am I considering for the future?",
+                settings,
+            )
+            is False
+        )
+    classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_fast_path_skips_classifier():
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+    )
+    with patch(
+        "app.modules.web_search.classify.classify_web_search_need",
+        AsyncMock(),
+    ) as classify:
+        assert await should_web_search("search the web for AI news", settings) is True
+        classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_classifier_disabled_uses_heuristic():
+    settings = Settings(web_search_classifier_enabled=False)
+    assert await should_web_search("What is the latest price of Bitcoin?", settings) is True
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_falls_back_when_classifier_fails():
+    settings = Settings(mock_llm_enabled=False, web_search_classifier_enabled=True)
+    with patch(
+        "app.modules.web_search.classify.classify_web_search_need",
+        AsyncMock(return_value=None),
+    ):
+        assert await should_web_search("What is the latest price of Bitcoin?", settings) is True
+
+
+@pytest.mark.asyncio
+async def test_classify_web_search_need_skips_llm_when_spend_capped():
+    from app.modules.web_search.classify import classify_web_search_need
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        web_search_classifier_enabled=True,
+        daily_global_spend_usd=1.0,
+    )
+    with (
+        patch(
+            "app.modules.web_search.classify.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.modules.web_search.classify.litellm_gateway.complete_structured",
+            AsyncMock(),
+        ) as complete,
+        patch("app.modules.web_search.classify.get_redis_client", return_value=AsyncMock()),
+    ):
+        assert await classify_web_search_need(settings, "Who is the CEO of Anthropic?") is None
+    complete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_classify_web_search_need_records_global_spend():
+    from app.models.schemas import WebSearchClassification
+    from app.modules.web_search.classify import classify_web_search_need
+
+    settings = Settings(mock_llm_enabled=False, web_search_classifier_enabled=True)
+    classification = WebSearchClassification(needs_search=True, query="anthropic ceo")
+    record = AsyncMock()
+    with (
+        patch(
+            "app.modules.web_search.classify.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.modules.web_search.classify.litellm_gateway.complete_structured",
+            AsyncMock(return_value=classification),
+        ),
+        patch("app.modules.web_search.classify.quota_service.record_global_spend", record),
+        patch("app.modules.web_search.classify.get_redis_client", return_value=AsyncMock()),
+    ):
+        result = await classify_web_search_need(settings, "Who is the CEO of Anthropic?")
+    assert result == classification
+    record.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_classifier_routes_factual_lookup(fake_redis):
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+        mcp_tool_loop_enabled=False,
+    )
+    messages = [
+        {"role": "system", "content": "base"},
+        {"role": "user", "content": "Who is the CEO of OpenAI?"},
+    ]
+    with (
+        patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.web_search.search_cache.web_search_gateway.search_web",
+            AsyncMock(
+                return_value=[WebSearchHit(title="CEO", url="https://example.com", snippet="Sam")]
+            ),
+        ) as search_mock,
+    ):
+        out, hits = await augment_prompt_messages(
+            messages,
+            "Who is the CEO of OpenAI?",
+            settings,
+        )
+    search_mock.assert_awaited()
+    assert "Web search results" in out[-2]["content"]
+    assert len(hits) == 1
+
+
+@pytest.mark.asyncio
+async def test_augment_uses_classifier_query_when_present(fake_redis):
+    from app.models.schemas import WebSearchClassification
+
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+        mcp_tool_loop_enabled=False,
+    )
+    messages = [
+        {"role": "system", "content": "base"},
+        {"role": "user", "content": "Who runs that company?"},
+    ]
+    with (
+        patch("app.modules.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.web_search.augment.classify_web_search",
+            AsyncMock(
+                return_value=WebSearchClassification(
+                    needs_search=True,
+                    query="OpenAI CEO 2026",
+                )
+            ),
+        ),
+        patch(
+            "app.modules.web_search.search_cache.web_search_gateway.search_web",
+            AsyncMock(
+                return_value=[WebSearchHit(title="CEO", url="https://example.com", snippet="Sam")]
+            ),
+        ) as search_mock,
+    ):
+        await augment_prompt_messages(
+            messages,
+            "Who runs that company?",
+            settings,
+        )
+    search_mock.assert_awaited()
+    assert search_mock.await_args is not None
+    assert search_mock.await_args.args[1] == "OpenAI CEO 2026"

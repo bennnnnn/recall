@@ -16,7 +16,7 @@ jest.mock("@/components/ChatMessageImage", () => {
     ),
   };
 });
-jest.mock("@/components/AttachmentImageViewer", () => {
+jest.mock("@/features/attachments/components/AttachmentImageViewer", () => {
   const { View: MockView } = jest.requireActual("react-native");
   return {
     AttachmentImageViewer: ({

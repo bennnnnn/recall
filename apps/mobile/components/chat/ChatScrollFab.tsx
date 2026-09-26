@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
+import { CountBadge } from "@/ui/feedback/CountBadge";
 import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/lib/chat/scrollLogic";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   visible: boolean;
@@ -35,9 +36,7 @@ export function ChatScrollFab({ visible, bottomOffset, scrollAwayCount, onPress 
       >
         <Icon name="chevron-down" size={IconSize.md} color={C.text} />
         {badgeLabel ? (
-          <View style={s.badge}>
-            <Text style={s.badgeText}>{badgeLabel}</Text>
-          </View>
+          <CountBadge count={scrollAwayCount} max={9} style={s.badge} />
         ) : null}
       </Pressable>
     </View>
@@ -67,17 +66,5 @@ const makeS = (C: Theme) =>
       position: "absolute",
       top: -4,
       right: -4,
-      minWidth: 18,
-      height: 18,
-      borderRadius: 9,
-      paddingHorizontal: 4,
-      backgroundColor: C.primary,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    badgeText: {
-      fontSize: 11,
-      fontWeight: "700",
-      color: C.onPrimary,
     },
   });

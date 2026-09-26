@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { clearChatHighlightGlobal, closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
@@ -6,8 +6,9 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/lib/theme";
-import { ActionBanner } from "@/components/ActionBanner";
-import { ChatActionsSheet } from "@/components/ChatActionsSheet";
+import { ActionBanner } from "@/ui/feedback/ActionBanner";
+import { ChatShareSheet } from "@/components/chat/ChatShareSheet";
+import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -15,8 +16,8 @@ import { useChatBulkActions } from "@/hooks/useChatBulkActions";
 import { useChatMenuActions } from "@/hooks/useChatMenuActions";
 import { useDrawerChatList } from "@/hooks/useDrawerChatList";
 import { useDrawerChatSelection } from "@/hooks/useDrawerChatSelection";
-import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
-import { useDrawerSearch } from "@/hooks/useDrawerSearch";
+import { useReminderBadgeCount } from "@/features/todos/hooks/useReminderBadgeCount";
+import { useDrawerSearch } from "@/features/search/hooks/useDrawerSearch";
 import { Chat } from "@/lib/api";
 import {
   bottomChromeFadeColors,
@@ -26,7 +27,7 @@ import {
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
 import { chatsFromSelection } from "@/lib/drawerChatSelection";
-import { prefetchGallery } from "@/lib/cache/galleryListCache";
+import { prefetchGallery } from "@/features/attachments/model/galleryListCache";
 import { DrawerChatFlashList } from "@/components/drawer/DrawerChatFlashList";
 import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
 import { DrawerFooter } from "@/components/drawer/DrawerFooter";
@@ -40,7 +41,7 @@ import {
   TOP_CHROME,
 } from "@/components/drawer/conversationListStyles";
 
-export function ConversationList(_props: unknown) {
+export function ConversationList() {
   const token = useAuthToken();
   const { isOpen } = useDrawer();
   const theme = useTheme();
@@ -94,7 +95,10 @@ export function ConversationList(_props: unknown) {
     showActionBanner,
     closeMenu,
     showRowMenu,
-    handleShareChat,
+    shareChat,
+    openShareChat,
+    closeShare,
+    loadShareMessages,
     openRenameFromMenu,
     confirmRename,
     togglePinChat,
@@ -172,9 +176,14 @@ export function ConversationList(_props: unknown) {
     startNewChatGlobal();
   }, []);
 
+  const openMyJob = useCallback(() => {
+    closeDrawer();
+    router.push("/my-job");
+  }, [router]);
+
   const openReminders = useCallback(() => {
     closeDrawer();
-    router.push({ pathname: "/todos", params: { focus: "reminders" } });
+    router.push("/todos");
   }, [router]);
 
   const openProjects = useCallback(() => {
@@ -188,9 +197,11 @@ export function ConversationList(_props: unknown) {
     router.push("/gallery");
   }, [router, token]);
 
+  const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | null>(null);
   const onShowRowMenu = useCallback(
-    (chat: Chat) => {
+    (chat: Chat, point: { x: number; y: number }) => {
       tap();
+      setMenuPoint(point);
       showRowMenu(chat);
     },
     [showRowMenu],
@@ -219,7 +230,7 @@ export function ConversationList(_props: unknown) {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  // Only the logo / search row is fixed; Learning/Schedule scroll with titles.
+  // Only the logo / search row is fixed; Learning/To-do scroll with titles.
   const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
@@ -238,9 +249,9 @@ export function ConversationList(_props: unknown) {
       <>
         <DrawerNavLinks
           styles={s}
-          theme={theme}
           showIndicator={showIndicator}
           unseenCount={unseenCount}
+          onMyJob={openMyJob}
           onProjects={openProjects}
           onReminders={openReminders}
           onGallery={openGallery}
@@ -261,9 +272,9 @@ export function ConversationList(_props: unknown) {
     ),
     [
       s,
-      theme,
       showIndicator,
       unseenCount,
+      openMyJob,
       openProjects,
       openReminders,
       openGallery,
@@ -285,15 +296,16 @@ export function ConversationList(_props: unknown) {
 
   return (
     <View style={s.root}>
-      <ChatActionsSheet
+      <ChatActionsMenu
         visible={menuChat != null}
+        anchorPoint={menuPoint}
         title={menuChat?.title ?? null}
         pinned={menuChat?.pinned ?? false}
         archived={menuChat?.archived ?? false}
         onClose={closeMenu}
         onShare={() => {
           tap();
-          void handleShareChat();
+          openShareChat();
         }}
         onRename={() => {
           tap();
@@ -312,6 +324,12 @@ export function ConversationList(_props: unknown) {
           confirmDeleteChat();
         }}
         onSelectChats={handleSelectFromMenu}
+      />
+      <ChatShareSheet
+        visible={shareChat != null}
+        onClose={closeShare}
+        title={shareChat?.title ?? null}
+        loadMessages={loadShareMessages}
       />
       <ChatRenameSheet
         visible={renameVisible}

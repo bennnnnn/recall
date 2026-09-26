@@ -1,14 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 
 import type { Message } from "@/lib/api";
 import {
   deriveAssistantMessageContent,
   type AssistantMessageContent,
 } from "@/lib/markdown/assistantMessageContent";
-import {
-  nextStreamUiFlushDelay,
-  STREAM_UI_INTERVAL_MS,
-} from "@/lib/streamUiTiming";
 
 type Options = {
   message: Pick<Message, "id" | "content" | "search_sources" | "renderKey">;
@@ -31,64 +27,37 @@ export function useAssistantMessageContent({
 }: Options): AssistantMessageContent & { content: string } {
   const content = liveContent ?? message.content;
 
-  // Draft publishes ~rAF; fence strip/parse (calendar/places/images) is
-  // far heavier than painting tokens. Throttle derive inputs to the shared
-  // stream UI cadence while generating, and flush immediately when the
-  // stream ends so the final reply is never stuck on a stale strip.
-  const [deriveContent, setDeriveContent] = useState(content);
-  const [deriveSearchSources, setDeriveSearchSources] = useState(liveSearchSources);
-  const lastFlushRef = useRef(0);
-
-  useEffect(() => {
-    if (!isGenerating) {
-      setDeriveContent(content);
-      setDeriveSearchSources(liveSearchSources);
-      lastFlushRef.current = 0;
-      return;
-    }
-    const elapsed = Date.now() - lastFlushRef.current;
-    const wait = nextStreamUiFlushDelay(elapsed, STREAM_UI_INTERVAL_MS);
-    if (wait === 0) {
-      lastFlushRef.current = Date.now();
-      setDeriveContent(content);
-      setDeriveSearchSources(liveSearchSources);
-      return;
-    }
-    const id = setTimeout(() => {
-      lastFlushRef.current = Date.now();
-      setDeriveContent(content);
-      setDeriveSearchSources(liveSearchSources);
-    }, wait);
-    return () => clearTimeout(id);
-  }, [content, liveSearchSources, isGenerating]);
-
+  // Streaming input is already throttled once at the draft→UI boundary
+  // (useStreamingDraft, ~32ms), so derive runs straight off the incoming
+  // content — a second throttle here would only add latency. The expensive
+  // fence parsers defer themselves until the stream settles (see
+  // deriveAssistantMessageContent).
   const derived = useMemo(
     () =>
       deriveAssistantMessageContent({
-        content: deriveContent,
+        content,
         layoutFrozen,
         isUser,
         priorUserText,
         storedSearchSources: message.search_sources,
-        liveSearchSources: deriveSearchSources,
+        liveSearchSources,
         messageId: message.id,
         isGenerating,
         renderKey: message.renderKey,
       }),
     [
-      deriveContent,
+      content,
       layoutFrozen,
       isUser,
       priorUserText,
       message.search_sources,
-      deriveSearchSources,
+      liveSearchSources,
       message.id,
       isGenerating,
       message.renderKey,
     ],
   );
 
-  // Live buffer for waiting-indicator / length checks; derived fences stay throttled.
   return {
     ...derived,
     content,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Linking } from "react-native";
+import { Linking } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,10 +10,11 @@ import {
   PhotoLibraryPermissionError,
   uploadChatAttachment,
   type PendingAttachment,
-} from "@/lib/attachments";
+} from "@/features/attachments/model/attachments";
 import { getSessionGeneration } from "@/lib/auth";
 import { sanitizeDisplayName } from "@/lib/profile";
 import { discardProfilePhoto, pickProfilePhoto } from "@/lib/profilePhoto";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 type Owner = { session: number; userId: string | undefined; signedIn: boolean };
 type Editor = {
@@ -112,17 +113,20 @@ export function useProfileEditor() {
     } catch (error) {
       if (!isCurrent(revision)) return;
       if (error instanceof PhotoLibraryPermissionError) {
-        Alert.alert(t("settings.change_photo"), t("settings.photo_permission"), [
-          { text: t("settings.cancel"), style: "cancel" },
-          { text: t("chat.location_open_settings"), onPress: () => {
-            if (!isCurrent(revision)) return;
-            void Linking.openSettings().catch(() => {
-              if (isCurrent(revision)) {
-                publish({ ...editor.current, error: t("settings.photo_permission") });
-              }
-            });
-          } },
-        ]);
+        void confirmDialog({
+          title: t("settings.change_photo"),
+          message: t("settings.photo_permission"),
+          cancelLabel: t("settings.cancel"),
+          confirmLabel: t("chat.location_open_settings"),
+        }).then((ok) => {
+          if (!ok) return;
+          if (!isCurrent(revision)) return;
+          void Linking.openSettings().catch(() => {
+            if (isCurrent(revision)) {
+              publish({ ...editor.current, error: t("settings.photo_permission") });
+            }
+          });
+        });
       } else {
         const key = error instanceof NativePickerBusyError || error instanceof NativePickerTimeoutError
           ? "chat.picker_busy" : "settings.photo_update_failed";

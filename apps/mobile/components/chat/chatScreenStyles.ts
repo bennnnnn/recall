@@ -4,7 +4,7 @@ import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export function makeChatScreenStyles(C: Theme) {
   return StyleSheet.create({
@@ -14,7 +14,6 @@ export function makeChatScreenStyles(C: Theme) {
       justifyContent: "center",
       backgroundColor: C.bg,
     },
-    loadingDot: { fontSize: 48, color: C.primary, opacity: 0.4 },
     container: { flex: 1, backgroundColor: C.bg },
     quotaNudge: {
       position: "absolute",
@@ -41,9 +40,8 @@ export function makeChatScreenStyles(C: Theme) {
     quotaNudgeText: {
       flex: 1,
       ...Type.caption,
-      fontWeight: "400",
+      ...Weight.regular,
       color: C.text,
-      lineHeight: 18,
     },
     quotaNudgeCta: {
       backgroundColor: C.primary,
@@ -54,7 +52,7 @@ export function makeChatScreenStyles(C: Theme) {
     },
     quotaNudgeCtaText: {
       ...Type.caption,
-      fontWeight: "700",
+      ...Weight.bold,
       color: C.onPrimary,
     },
     quotaNudgeClose: { padding: Space.xxs, flexShrink: 0 },

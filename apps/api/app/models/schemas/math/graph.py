@@ -55,7 +55,7 @@ class GraphBlockSpec(BaseModel):
     # Same bounds as every other math input model in this file (EquationInput,
     # GraphSampleInput, MathImageExtract) — this one was missing them, an
     # inconsistency worth closing even though this field is currently
-    # display-only (math_fence.py never re-parses it through SymPy).
+    # display-only (math/fence.py never re-parses it through SymPy).
     expr: str = Field(default="", max_length=256)
     variable: str = Field(default="x", min_length=1, max_length=8)
     x_min: float = -10.0

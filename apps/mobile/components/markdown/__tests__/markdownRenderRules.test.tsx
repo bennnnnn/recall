@@ -5,7 +5,6 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { makeMdStyles } from "@/components/markdown/markdownContentStyles";
 import { lightTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 
 jest.mock("@/components/LinkPreviewCard", () => {
   const { Pressable, Text } = jest.requireActual("react-native") as typeof import("react-native");
@@ -33,7 +32,6 @@ jest.mock("expo-file-system/legacy", () => ({
   writeAsStringAsync: jest.fn(),
   EncodingType: { UTF8: "utf8" },
 }));
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("@/components/WebPreviewCodeBlock", () => ({
   WebPreviewCodeBlock: "WebPreviewCodeBlock",
 }));
@@ -84,9 +82,9 @@ describe("markdown render rules", () => {
       padding: 0,
       backgroundColor: lightTheme.surfaceAlt,
       fontSize: 14,
-      lineHeight: Type.body.lineHeight,
       paddingHorizontal: 4,
     });
+    expect(inline.lineHeight).toBeUndefined();
     expect(inline.padding).not.toBe(10);
   });
 
@@ -274,11 +272,27 @@ describe("markdown render rules", () => {
     expect(queryByText("2.")).toBeNull();
   });
 
-  it("exposes markdown image alt text to the screen reader", async () => {
+  it("renders allowed markdown images through the memory-disk cache", async () => {
     const { getByLabelText } = await render(
       <MarkdownContent content={"![A red triangle](https://example.com/tri.png)"} />,
     );
-    expect(getByLabelText("A red triangle")).toBeOnTheScreen();
+    const image = getByLabelText("A red triangle");
+    expect(image).toBeOnTheScreen();
+    expect(image.props.source).toEqual({ uri: "https://example.com/tri.png" });
+    expect(image.props.contentFit).toBe("contain");
+    expect(image.props.cachePolicy).toBe("memory-disk");
+  });
+
+  it.each([
+    "http://example.com/tracker.png",
+    "file:///private/secret.png",
+    "content://private/secret.png",
+    "javascript:alert(1)",
+  ])("does not load unsafe markdown image URI %s", async (uri) => {
+    const { queryByRole } = await render(
+      <MarkdownContent content={`![unsafe](${uri})`} />,
+    );
+    expect(queryByRole("image")).toBeNull();
   });
 
   it("marks markdown links with the link role", async () => {
@@ -300,5 +314,39 @@ describe("markdown render rules", () => {
       <MarkdownContent content={"[the docs](https://example.com/docs)"} />,
     );
     expect(getByTestId("link-preview-card")).toBeOnTheScreen();
+  });
+
+  it("puts a lesson step number in a badge apart from the label", async () => {
+    const { getByTestId, getByText } = await render(
+      <MarkdownContent content={"**1. Divide both sides by 3**"} />,
+    );
+    expect(getByTestId("lesson-step")).toBeOnTheScreen();
+    expect(getByText("1")).toBeOnTheScreen();
+    expect(getByText("Divide both sides by 3")).toBeOnTheScreen();
+  });
+
+  it("indents a lesson formula under the step label", async () => {
+    const { getByTestId } = await render(
+      <MarkdownContent content={"**2. Simplify**\n$x^2 = 1$"} />,
+    );
+    expect(getByTestId("lesson-step-formula")).toBeOnTheScreen();
+  });
+
+  it("preserves a link after a numbered bold paragraph", async () => {
+    const { getByRole, queryByTestId } = await render(
+      <MarkdownContent
+        content={"**1. Resource** [docs](https://example.com/docs)"}
+      />,
+    );
+    expect(queryByTestId("lesson-step")).toBeNull();
+    expect(getByRole("link", { name: "docs" })).toBeOnTheScreen();
+  });
+
+  it.each([
+    "**1. Result** $x^2$",
+    "**1. Command** `pnpm test`",
+  ])("leaves non-lesson inline content in the markdown renderer: %s", async (content) => {
+    const { queryByTestId } = await render(<MarkdownContent content={content} />);
+    expect(queryByTestId("lesson-step")).toBeNull();
   });
 });

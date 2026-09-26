@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { url: string };
 
@@ -43,7 +46,7 @@ export function LinkPreviewCard({ url }: Props) {
         accessibilityRole="link"
         accessibilityLabel={url}
       >
-        <Icon name="link-outline" size={16} color={theme.primary} />
+        <Icon name="link" size={IconSize.xs} color={theme.primary} />
         <Text style={s.url} numberOfLines={2}>
           {url}
         </Text>
@@ -83,20 +86,20 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     wrap: {
       alignSelf: "stretch",
-      borderRadius: 12,
+      borderRadius: Radius.md,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface,
-      paddingHorizontal: 12,
+      paddingHorizontal: Space.sm,
       paddingVertical: 10,
-      marginVertical: 8,
-      gap: 4,
+      marginVertical: Space.xs,
+      gap: Space.xxs,
     },
     loading: { opacity: 0.7 },
-    loadingText: { fontSize: 14, color: theme.textSecondary },
-    title: { fontSize: 15, fontWeight: "700", color: theme.text },
-    desc: { fontSize: 14, lineHeight: 20, color: theme.textSecondary },
+    loadingText: { ...Type.secondary, color: theme.textSecondary },
+    title: { ...Type.callout, ...Weight.bold, color: theme.text },
+    desc: { ...Type.secondary, lineHeight: 20, color: theme.textSecondary },
     domain: { ...Type.meta, color: theme.primary, marginTop: 2 },
-    url: { flex: 1, fontSize: 14, color: theme.primary },
+    url: { flex: 1, ...Type.secondary, color: theme.primary },
   });
 }

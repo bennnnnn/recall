@@ -28,17 +28,44 @@ from app.core.redis_lock import (
 )
 from app.gateways import litellm_gateway as litellm_gateway
 from app.models.orm import User
+from app.modules.attachments import (  # noqa: F401 - stream_entry reaches this through the stream module
+    lifecycle as attachment_lifecycle,
+)
+from app.modules.images import generation as image_generation
+from app.modules.images import search as image_search
+from app.modules.images.gen_intent import (
+    could_be_image_revision as could_be_image_revision,
+)
+from app.modules.images.gen_intent import (
+    could_be_image_thread_followup as could_be_image_thread_followup,
+)
+from app.modules.images.gen_intent import (
+    extract_image_gen_prompt as extract_image_gen_prompt,
+)
+from app.modules.images.gen_intent import (
+    extract_image_gen_prompt_from_thread as extract_image_gen_prompt_from_thread,
+)
+from app.modules.images.gen_intent import (
+    extract_image_revision_prompt as extract_image_revision_prompt,
+)
+from app.modules.images.gen_intent import (
+    image_gen_revision_context as image_gen_revision_context,
+)
+from app.modules.images.gen_intent import (
+    prior_user_contents_for_image_gen as prior_user_contents_for_image_gen,
+)
+from app.modules.images.lookup_intent import (
+    extract_image_lookup_query as extract_image_lookup_query,
+)
+from app.modules.integrations import calendar
+from app.modules.math import fence as math_fence
 from app.repositories import chats, messages, users
+from app.services import model_catalog as model_catalog
 from app.services import (
-    calendar,
     plan,
     quota,
     todos,
     web_search,
-)
-from app.services import model_catalog as model_catalog
-from app.services.attachments import (  # noqa: F401 - stream_entry reaches this through the stream module
-    lifecycle as attachment_lifecycle,
 )
 from app.services.chat import stream_entry as _entry
 from app.services.chat import stream_pipeline as _pipeline
@@ -89,33 +116,6 @@ from app.services.chat.turn_prep import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens as estimate_tokens
-from app.services.images import generation as image_generation
-from app.services.images import search as image_search
-from app.services.images.gen_intent import (
-    could_be_image_revision as could_be_image_revision,
-)
-from app.services.images.gen_intent import (
-    could_be_image_thread_followup as could_be_image_thread_followup,
-)
-from app.services.images.gen_intent import (
-    extract_image_gen_prompt as extract_image_gen_prompt,
-)
-from app.services.images.gen_intent import (
-    extract_image_gen_prompt_from_thread as extract_image_gen_prompt_from_thread,
-)
-from app.services.images.gen_intent import (
-    extract_image_revision_prompt as extract_image_revision_prompt,
-)
-from app.services.images.gen_intent import (
-    image_gen_revision_context as image_gen_revision_context,
-)
-from app.services.images.gen_intent import (
-    prior_user_contents_for_image_gen as prior_user_contents_for_image_gen,
-)
-from app.services.images.lookup_intent import (
-    extract_image_lookup_query as extract_image_lookup_query,
-)
-from app.services.math import fence as math_fence
 
 chats_repo = chats
 messages_repo = messages

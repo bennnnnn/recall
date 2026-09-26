@@ -5,8 +5,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.repositories.todo_email import TodoEmailSnapshot
-from app.services.notifications import reminder_email as reminder_emails
+from app.modules.notifications import reminder_email as reminder_emails
+from app.modules.todos.email_repository import TodoEmailSnapshot
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ async def test_process_todo_reminder_emails_sends_and_marks(email_write):
     session.commit = AsyncMock()
 
     with patch(
-        "app.services.notifications.reminder_email.tx_email.send_todo_reminder",
+        "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
         AsyncMock(return_value=True),
     ) as send:
         count = await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
@@ -99,7 +99,7 @@ async def test_process_todo_reminder_emails_isolates_one_todo_failure(email_writ
         return True
 
     with patch(
-        "app.services.notifications.reminder_email.tx_email.send_todo_reminder",
+        "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
         AsyncMock(side_effect=fake_send),
     ):
         count = await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
@@ -125,7 +125,7 @@ async def test_process_todo_reminder_emails_localizes_title(email_write):
     session.commit = AsyncMock()
 
     with patch(
-        "app.services.notifications.reminder_email.tx_email.send_todo_reminder",
+        "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
         AsyncMock(return_value=True),
     ) as send:
         await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
@@ -162,7 +162,7 @@ async def test_process_todo_reminder_emails_skips_quiet_hours():
     session.execute = AsyncMock(return_value=result)
 
     with patch(
-        "app.services.notifications.reminder_email.tx_email.send_todo_reminder",
+        "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
         AsyncMock(return_value=True),
     ) as send:
         count = await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
@@ -200,15 +200,15 @@ async def test_process_learning_nudge_emails_sends_when_due():
 
     with (
         patch(
-            "app.services.learning.nudges.user_local_hour",
+            "app.modules.learning.nudges.user_local_hour",
             return_value=10,
         ),
         patch(
-            "app.services.learning.nudges.learning_repo.list_for_users",
+            "app.modules.learning.nudges.learning_repo.list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.learning.stats.count_stats_by_learning",
+            "app.modules.learning.stats.count_stats_by_learning",
             AsyncMock(
                 return_value={
                     project.id: {
@@ -220,7 +220,7 @@ async def test_process_learning_nudge_emails_sends_when_due():
             ),
         ),
         patch(
-            "app.services.notifications.reminder_email.tx_email.send_learning_nudge",
+            "app.modules.notifications.reminder_email.tx_email.send_learning_nudge",
             AsyncMock(return_value=True),
         ) as send,
     ):

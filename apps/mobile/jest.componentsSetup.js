@@ -1,7 +1,7 @@
 const { jest: jestGlobals } = require("@jest/globals");
 
 /**
- * AppSheet (and other chrome) import RNGH + Reanimated. The RN jest env has
+ * Sheet (and other chrome) import RNGH + Reanimated. The RN jest env has
  * neither native module, so mock them before any component test file loads.
  */
 jestGlobals.mock("react-native-reanimated", () => {
@@ -47,8 +47,15 @@ jestGlobals.mock("react-native-reanimated", () => {
     runOnUI: (fn) => (...args) => fn(...args),
     useAnimatedStyle: (factory) => (typeof factory === "function" ? factory() : {}),
     useAnimatedProps: (factory) => (typeof factory === "function" ? factory() : {}),
+    // Evaluate once so tests see the initial derived value (no UI thread here).
+    useDerivedValue: (factory) => ({
+      value: typeof factory === "function" ? factory() : undefined,
+    }),
     useAnimatedReaction: () => undefined,
-    useSharedValue: (value) => ({ value }),
+    // Reanimated keeps one shared-value object for the lifetime of a component.
+    // Preserve that identity so a React state update does not look like a fresh
+    // animation mount and retrigger effects in component tests.
+    useSharedValue: (value) => React.useRef({ value }).current,
     withSpring: id,
     withTiming: id,
     withRepeat: id,
@@ -80,6 +87,7 @@ jestGlobals.mock("react-native-gesture-handler", () => {
       Pan: () => chain(),
       Pinch: () => chain(),
       Tap: () => chain(),
+      LongPress: () => chain(),
       Simultaneous: () => chain(),
       Exclusive: () => chain(),
     },
@@ -91,6 +99,63 @@ jestGlobals.mock("react-native-gesture-handler", () => {
   };
 });
 
-jestGlobals.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
+// expo-constants pulls expo-modules-core's native EventEmitter in this env.
+// Standalone (not Expo Go) so native-module gates probe their module mock.
+// Screens render without a SafeAreaProvider in tests. The library's own mock
+// reports zero insets there; files that mock the module themselves still win.
+jestGlobals.mock("react-native-safe-area-context", () =>
+  require("react-native-safe-area-context/jest/mock").default,
+);
+
+jestGlobals.mock("expo-constants", () => ({
+  __esModule: true,
+  default: { executionEnvironment: "standalone", appOwnership: null },
+  ExecutionEnvironment: { Bare: "bare", Standalone: "standalone", StoreClient: "storeClient" },
 }));
+
+// expo-haptics is a native module (expo-modules-core EventEmitter) that cannot
+// load in this env; lib/haptics is imported by shared chrome like
+// SheetFormHeader and SettingsSwitchRow.
+jestGlobals.mock("expo-haptics", () => ({
+  impactAsync: () => Promise.resolve(),
+  notificationAsync: () => Promise.resolve(),
+  selectionAsync: () => Promise.resolve(),
+  ImpactFeedbackStyle: { Light: "light", Medium: "medium", Heavy: "heavy" },
+  NotificationFeedbackType: { Success: "success", Warning: "warning", Error: "error" },
+}));
+
+// expo-clipboard is a native module (expo-modules-core EventEmitter) that
+// cannot load here; the share sheet renders in the chat screen and drawer.
+// Tests that check copying mock it themselves.
+jestGlobals.mock("expo-clipboard", () => ({
+  setStringAsync: jestGlobals.fn(async () => true),
+  getStringAsync: jestGlobals.fn(async () => ""),
+  hasStringAsync: jestGlobals.fn(async () => false),
+  getImageAsync: jestGlobals.fn(async () => null),
+  hasImageAsync: jestGlobals.fn(async () => false),
+}));
+
+// expo-image's Image is a native view (requireNativeViewManager) that cannot
+// load here. Wrap RN's Image and translate the load event into expo-image's
+// shape ({ source } instead of { nativeEvent: { source } }) so components
+// under test see the real contract.
+jestGlobals.mock("expo-image", () => {
+  const React = require("react");
+  const { Image: RNImage } = require("react-native");
+  const Image = React.forwardRef(
+    ({ onLoad, contentFit, cachePolicy, transition, ...rest }, ref) =>
+      React.createElement(RNImage, {
+        ...rest,
+        ref,
+        resizeMode: contentFit,
+        contentFit,
+        cachePolicy,
+        transition,
+        onLoad: onLoad
+          ? (event) => onLoad({ source: event?.nativeEvent?.source ?? {} })
+          : undefined,
+      }),
+  );
+  Image.displayName = "ExpoImageMock";
+  return { Image };
+});

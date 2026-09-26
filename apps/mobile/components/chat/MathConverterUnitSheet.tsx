@@ -2,15 +2,18 @@ import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import {
   UNIT_CATEGORIES,
   UNITS_BY_CATEGORY,
   type UnitCategory,
 } from "@/lib/unitConverter";
+import { IconSize } from "@/ui/icons/sizes";
 
 /** Fixed so Length / Temp / Volume don't bounce the sheet when the list length changes. */
 const UNIT_PICKER_SHEET_HEIGHT = 520;
@@ -38,7 +41,7 @@ export function MathConverterUnitSheet({
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       variant="bottom"
@@ -51,12 +54,12 @@ export function MathConverterUnitSheet({
         <Text style={s.title}>{t("chat.math_converter_select_unit")}</Text>
         <Pressable
           onPress={onClose}
-          hitSlop={8}
+          style={s.close}
           testID="math-converter-picker-close"
           accessibilityRole="button"
           accessibilityLabel={t("common.close")}
         >
-          <Icon name="close" size={20} color={theme.textSecondary} />
+          <Icon name="close" size={IconSize.sm} color={theme.textSecondary} />
         </Pressable>
       </View>
       <ScrollView
@@ -72,6 +75,8 @@ export function MathConverterUnitSheet({
               onPress={() => onPickCategory(id)}
               style={[s.cat, selected && s.catSelected]}
               testID={`math-converter-cat-${id}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
             >
               <Text style={[s.catLabel, selected && s.catLabelSelected]}>
                 {t(`chat.math_converter_cat_${id}`)}
@@ -102,7 +107,7 @@ export function MathConverterUnitSheet({
           );
         })}
       </ScrollView>
-    </AppSheet>
+    </Sheet>
   );
 }
 
@@ -110,9 +115,9 @@ const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     sheet: {
       backgroundColor: theme.surface,
-      paddingHorizontal: 16,
-      paddingTop: 8,
-      paddingBottom: 8,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.xs,
+      paddingBottom: Space.xs,
       height: UNIT_PICKER_SHEET_HEIGHT,
     },
     header: {
@@ -122,11 +127,18 @@ const makeStyles = (theme: Theme) =>
       marginBottom: 10,
     },
     title: { ...Type.navTitle, color: theme.text },
-    cats: { gap: 8, paddingBottom: 12 },
+    close: {
+      minWidth: Space.minTouch,
+      minHeight: Space.minTouch,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    cats: { gap: Space.xs, paddingBottom: Space.sm },
     cat: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 16,
+      paddingHorizontal: Space.sm,
+      minHeight: Space.minTouch,
+      justifyContent: "center",
+      borderRadius: Radius.xl,
       backgroundColor: theme.surfaceAlt,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,

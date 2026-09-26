@@ -1,14 +1,13 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
-import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
+import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
-import { supportsInlineHtmlMathWebView } from "@/lib/math/webViewSupport";
-import { getPreviewWebView } from "@/lib/webView";
-import { latexHasNestedMathView, MATH_TALL_LINE_HEIGHT, restoreMathEscapes, splitMathLines } from "@/lib/math/text";
+import { restoreMathEscapes, splitMathLines } from "@/lib/math/text";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/math/fenceRetag";
 import { useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 export function MathInline({ latex }: { latex: string }) {
   const theme = useTheme();
@@ -27,7 +26,7 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
   // line into one expression with no separator. splitMathLines is
   // environment-aware: it returns the whole body as one entry when it
   // contains a \begin{…} (aligned/cases/matrix/…), so multi-line
-  // environments render as a single KaTeX block instead of being shattered
+  // environments render as one MathJax-SVG block instead of being shattered
   // into per-row parse errors.
   const lines = splitMathLines(trimmed);
   if (lines.length > 1) {
@@ -42,76 +41,17 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
     );
   }
 
-  const preview = getPreviewWebView();
-  // RNC (dev client) or expo-dom (Expo Go) — both can host inline KaTeX HTML.
-  if (supportsInlineHtmlMathWebView(preview?.mode)) {
-    return (
-      <View style={styles.wrap}>
-        <MathFormulaWebView
-          latex={trimmed}
-          displayMode
-          minHeight={48}
-          textColor={theme.text}
-          bgColor="transparent"
-        />
-      </View>
-    );
-  }
-
-  // No WebView — native MathText can still outgrow the bubble; allow pan.
-  // A nested math View (stacked frac / sqrt) must be a direct child of the box
-  // View, NOT wrapped in a Text — iOS clips a View nested inside a Text to the
-  // line box, which cut the radicand's bottom in this fallback box. Mirrors
-  // AnswerBlock.tsx's hasNestedView guard.
-  const hasNestedView = latexHasNestedMathView(trimmed);
   return (
-    <View style={[styles.wrap, styles.fallbackBox]}>
-      <ScrollView
-        horizontal
-        nestedScrollEnabled
-        showsHorizontalScrollIndicator
-        contentContainerStyle={styles.lineScroll}
-      >
-        {hasNestedView ? (
-          <View style={styles.nestedRow} testID="math-block-nested">
-            <MathText latex={trimmed} textColor={theme.text} />
-          </View>
-        ) : (
-          <Text style={styles.line} selectable>
-            <MathText latex={trimmed} textColor={theme.text} />
-          </Text>
-        )}
-      </ScrollView>
+    <View style={styles.wrap}>
+      <MathSvgView latex={trimmed} textColor={theme.text} minHeight={48} />
     </View>
   );
 });
 
 const styles = StyleSheet.create({
   wrap: {
-    marginVertical: 8,
+    marginVertical: Space.xs,
     alignSelf: "stretch",
     width: "100%",
-  },
-  fallbackBox: {
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-  },
-  lineScroll: {
-    flexGrow: 1,
-    justifyContent: "center",
-    minWidth: "100%",
-    paddingHorizontal: 8,
-  },
-  line: {
-    textAlign: "center",
-    lineHeight: MATH_TALL_LINE_HEIGHT,
-  },
-  // Hosts a nested math View (sqrt/frac) as a direct child so iOS doesn't
-  // clip it to a Text line box. Centers the run like the `line` Text would.
-  nestedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    flexWrap: "nowrap",
   },
 });

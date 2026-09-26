@@ -16,6 +16,7 @@ describe("typingPulseKindForPhase", () => {
   it("maps search / math / inbox / calendar to busy", () => {
     expect(typingPulseKindForPhase("searching")).toBe("busy");
     expect(typingPulseKindForPhase("calculating")).toBe("busy");
+    expect(typingPulseKindForPhase("physics")).toBe("busy");
     expect(typingPulseKindForPhase("checking_inbox")).toBe("busy");
     expect(typingPulseKindForPhase("loading_calendar")).toBe("busy");
   });

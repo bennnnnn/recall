@@ -1,80 +1,81 @@
 import { Platform, Vibration } from "react-native";
 import * as Haptics from "expo-haptics";
 
-/** Cached after first call — false when native haptics aren't linked (e.g. Expo Go). */
-let iosHapticsAvailable: boolean | null = null;
+/** Platform where native haptics failed. Vibration is the Android fallback only. */
+let unavailableOn: string | null = null;
 
-async function runIosHaptic(fn: () => Promise<void>): Promise<void> {
-  if (iosHapticsAvailable === false) return;
+function vibrateAndroid(ms: number): void {
+  if (Platform.OS !== "android") return;
   try {
-    await fn();
-    iosHapticsAvailable = true;
+    Vibration.vibrate(ms);
   } catch {
-    iosHapticsAvailable = false;
+    /* ignore */
   }
 }
 
-/** Light tactile feedback for key actions. Never throws — safe in Expo Go. */
+function play(fn: () => Promise<void>, androidFallbackMs: number): void {
+  if (unavailableOn === Platform.OS) {
+    vibrateAndroid(androidFallbackMs);
+    return;
+  }
+  let pending: Promise<void>;
+  try {
+    pending = Promise.resolve(fn());
+  } catch {
+    unavailableOn = Platform.OS;
+    vibrateAndroid(androidFallbackMs);
+    return;
+  }
+  void pending
+    .then(() => {
+      unavailableOn = null;
+    })
+    .catch(() => {
+      unavailableOn = Platform.OS;
+      vibrateAndroid(androidFallbackMs);
+    });
+}
+
+/** @internal Resets the Expo Go miss cache between tests. */
+export function resetHapticsAvailabilityForTests(): void {
+  unavailableOn = null;
+}
+
+/** Light tactile feedback for an important press. Never throws. */
 export function tap(): void {
-  if (Platform.OS === "ios") {
-    void runIosHaptic(() =>
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
-    );
-    return;
-  }
-  if (Platform.OS === "android") {
-    try {
-      Vibration.vibrate(10);
-    } catch {
-      /* ignore */
-    }
-  }
+  play(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light), 10);
 }
 
-/** Picker / toggle feedback (iOS selection click). */
+/** Picker / toggle feedback. */
 export function selection(): void {
-  if (Platform.OS === "ios") {
-    void runIosHaptic(() => Haptics.selectionAsync());
-    return;
-  }
-  tap();
+  play(() => Haptics.selectionAsync(), 8);
 }
 
 /** Camera shutter / other medium impacts. */
 export function impactMedium(): void {
-  if (Platform.OS === "ios") {
-    void runIosHaptic(() =>
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium),
-    );
-    return;
-  }
-  if (Platform.OS === "android") {
-    try {
-      Vibration.vibrate(18);
-    } catch {
-      /* ignore */
-    }
-  }
+  play(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium), 18);
 }
 
-/** Positive confirmation — copy succeeded, thumbs up, etc. */
+/** One confirmation. Copy, a saved change, or a completed task. */
 export function notifySuccess(): void {
-  if (Platform.OS === "ios") {
-    void runIosHaptic(() =>
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
-    );
-    return;
-  }
-  tap();
+  play(
+    () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+    12,
+  );
 }
 
-/** Destructive or negative confirmation — thumbs down, errors. */
+/** Validation, a failed send, or a confirmed destructive action. */
 export function notifyWarning(): void {
-  if (Platform.OS === "ios") {
-    void runIosHaptic(() =>
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
-    );
-    return;
-  }
-  tap();
+  play(
+    () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
+    16,
+  );
+}
+
+/**
+ * Feedback for a confirmed destructive action. Call once, after the
+ * destructive operation succeeds — never when opening or cancelling an alert.
+ */
+export function notifyDestructive(): void {
+  notifyWarning();
 }
