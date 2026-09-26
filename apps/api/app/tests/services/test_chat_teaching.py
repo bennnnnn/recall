@@ -15,6 +15,7 @@ from app.services.chat.prompt_constants import (
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
     TEACHING_SHORT_NOTE,
+    is_howto_question,
     is_lightweight_chat_turn,
     is_teaching_request,
     lesson_continue_hint,
@@ -118,11 +119,22 @@ def test_lesson_step(reply, expected):
     assert lesson_step(reply) == expected
 
 
-def test_lesson_continue_hint_moves_to_the_next_step():
+def test_lesson_continue_hint_moves_to_the_next_step_without_replaying():
     hint = lesson_continue_hint(2, 6)
     assert "Step 2/6" in hint and "Step 3/6" in hint
-    assert "another way" in hint
+    assert "NEVER reproduce" in hint
+    assert "Do NOT make them retry" in hint
+    assert "gibberish, accidental, or too unclear" in hint
+    assert "do not repeat Step 2/6" in hint
     assert "unrelated to the lesson" in hint
+
+
+def test_lesson_continue_hint_reexplains_only_on_explicit_confusion():
+    hint = lesson_continue_hint(2, 6)
+    assert "explicitly say they are confused" in hint
+    assert "explain it differently" in hint
+    assert "NEW analogy/example/representation" in hint
+    assert "Never repeat the old paragraphs or old example" in hint
 
 
 def test_lesson_continue_hint_recaps_after_the_last_step():
@@ -152,6 +164,16 @@ def test_procedure_keeps_the_howto_layout():
     hints = _hints("How to install python step by step")
     assert HOWTO_FORMAT_HINT in hints
     assert TEACHING_HINT not in hints
+
+
+def test_seventy_day_mastery_plan_gets_the_learning_roadmap_layout():
+    text = "70 days mastering Python from beginner to senior level plan"
+    assert is_howto_question(text)
+    hints = _hints(text)
+    assert HOWTO_FORMAT_HINT in hints
+    assert "preserve the requested duration" in HOWTO_FORMAT_HINT
+    assert "concrete example or practice task" in HOWTO_FORMAT_HINT
+    assert "milestone" in HOWTO_FORMAT_HINT
 
 
 def test_short_style_keeps_the_lesson_with_smaller_steps():
