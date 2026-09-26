@@ -1,14 +1,12 @@
-import { useMemo } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo, useRef } from "react";
+import { StyleSheet, View } from "react-native";
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { IconSize } from "@/lib/icons";
-import { Radius } from "@/lib/radius";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
+import { Menu } from "@/ui/overlay/Menu";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -58,6 +56,7 @@ export function AttachmentLightboxChrome({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const moreRef = useRef<View>(null);
   if (!visible) return null;
 
   return (
@@ -66,51 +65,38 @@ export function AttachmentLightboxChrome({
         pointerEvents="box-none"
         style={[s.header, { paddingTop: Math.max(insets.top, Space.xs) }]}
       >
-        <Pressable
-          style={s.iconBtn}
+        <HeaderButton
+          variant="media"
+          icon="close"
           onPress={onClose}
-          hitSlop={8}
           accessibilityLabel={t("preview.close")}
-        >
-          <Icon name="close" size={IconSize.md} color={theme.onMedia} />
-        </Pressable>
+        />
 
         <View style={s.headerActions}>
-          <Pressable
-            style={[s.iconBtn, busy === "share" && s.iconBtnDisabled]}
+          <HeaderButton
+            variant="media"
+            icon="share"
             onPress={onShare}
+            busy={busy === "share"}
             disabled={!canShare || busy != null}
-            hitSlop={8}
             accessibilityLabel={t("preview.share")}
-          >
-            {busy === "share" ? (
-              <ActivityIndicator color={theme.onMedia} size="small" />
-            ) : (
-              <Icon name="share-outline" size={IconSize.md} color={theme.onMedia} />
-            )}
-          </Pressable>
-          <Pressable
-            style={[s.iconBtn, busy === "download" && s.iconBtnDisabled]}
+          />
+          <HeaderButton
+            variant="media"
+            icon="download"
             onPress={onDownload}
+            busy={busy === "download"}
             disabled={!canShare || busy != null}
-            hitSlop={8}
             accessibilityLabel={t("common.download")}
-          >
-            {busy === "download" ? (
-              <ActivityIndicator color={theme.onMedia} size="small" />
-            ) : (
-              <Icon name="download-outline" size={IconSize.md} color={theme.onMedia} />
-            )}
-          </Pressable>
+          />
           {showOverflow ? (
-            <Pressable
-              style={s.iconBtn}
+            <HeaderButton
+              ref={moreRef}
+              variant="media"
+              icon="more-horizontal"
               onPress={onToggleOverflow}
-              hitSlop={8}
               accessibilityLabel={t("preview.more_a11y")}
-            >
-              <Icon name="ellipsis-horizontal-outline" size={IconSize.md} color={theme.onMedia} />
-            </Pressable>
+            />
           ) : null}
         </View>
       </View>
@@ -123,51 +109,23 @@ export function AttachmentLightboxChrome({
         </View>
       ) : null}
 
-      {overflowOpen ? (
-        <>
-          <Pressable
-            testID="lightbox-overflow-dismiss"
-            style={s.menuDismiss}
-            onPress={onCloseOverflow}
-            accessibilityLabel={t("preview.close")}
-          />
-          <View
-            testID="lightbox-overflow-menu"
-            style={[s.menu, { marginBottom: Math.max(insets.bottom, Space.sm) }]}
-          >
-            {showUseInChat ? (
-              <Pressable
-                style={({ pressed }) => [s.menuRow, pressed && s.menuRowPressed]}
-                onPress={onUseInChat}
-                accessibilityLabel={t("gallery.use_in_chat")}
-              >
-                <Icon name="attach-outline" size={IconSize.sm} color={theme.onMedia} />
-                <Text style={s.menuLabel}>{t("gallery.use_in_chat")}</Text>
-              </Pressable>
-            ) : null}
-            {showOpenChat ? (
-              <Pressable
-                style={({ pressed }) => [s.menuRow, pressed && s.menuRowPressed]}
-                onPress={onOpenChat}
-                accessibilityLabel={t("gallery.open_chat_a11y")}
-              >
-                <Icon name="chatbubble-outline" size={IconSize.sm} color={theme.onMedia} />
-                <Text style={s.menuLabel}>{t("gallery.open_chat")}</Text>
-              </Pressable>
-            ) : null}
-            {showDelete ? (
-              <Pressable
-                style={({ pressed }) => [s.menuRow, pressed && s.menuRowPressed]}
-                onPress={onDelete}
-                accessibilityLabel={t("common.delete")}
-              >
-                <Icon name="trash-outline" size={IconSize.sm} danger />
-                <Text style={[s.menuLabel, { color: theme.danger }]}>{t("common.delete")}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </>
-      ) : null}
+      <Menu
+        visible={overflowOpen}
+        onClose={onCloseOverflow}
+        anchorRef={moreRef}
+        testID="lightbox-overflow-menu"
+        items={[
+          ...(showUseInChat
+            ? [{ key: "use", icon: "attach" as const, label: t("gallery.use_in_chat"), onPress: onUseInChat }]
+            : []),
+          ...(showOpenChat
+            ? [{ key: "open", icon: "message" as const, label: t("gallery.open_chat"), onPress: onOpenChat }]
+            : []),
+          ...(showDelete
+            ? [{ key: "delete", icon: "trash" as const, label: t("common.delete"), destructive: true, onPress: onDelete }]
+            : []),
+        ]}
+      />
     </>
   );
 }
@@ -191,17 +149,6 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: Space.xs,
     },
-    iconBtn: {
-      width: Space.minTouch,
-      height: Space.minTouch,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: Radius.full,
-      backgroundColor: withAlpha(theme.onMedia, 0.18),
-    },
-    iconBtnDisabled: {
-      opacity: 0.45,
-    },
     dots: {
       position: "absolute",
       left: 0,
@@ -222,36 +169,6 @@ function makeStyles(theme: Theme) {
     },
     dotActive: {
       backgroundColor: theme.onMedia,
-    },
-    menuDismiss: {
-      ...StyleSheet.absoluteFill,
-      zIndex: 3,
-    },
-    menu: {
-      position: "absolute",
-      left: Space.md,
-      right: Space.md,
-      bottom: 0,
-      zIndex: 4,
-      borderRadius: Radius.lg,
-      backgroundColor: withAlpha(theme.mediaScrim, 0.94),
-      overflow: "hidden",
-    },
-    menuRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 14,
-      paddingHorizontal: 18,
-      paddingVertical: Space.md,
-    },
-    menuRowPressed: {
-      backgroundColor: withAlpha(theme.onMedia, 0.08),
-    },
-    menuLabel: {
-      flex: 1,
-      ...Type.navTitle,
-      fontWeight: "400",
-      color: theme.onMedia,
     },
   });
 }

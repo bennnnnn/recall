@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/ui/controls/Button";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 export type StepPickerOption<T> = {
   key: string;
@@ -68,7 +69,7 @@ export function StepPicker<T>({
               onPress={() => onSelect(option.value)}
             >
               <Text style={[s.rowText, selected && s.rowTextActive]}>{option.label}</Text>
-              {selected ? <Icon name="checkmark" size={18} color={theme.primary} /> : null}
+              {selected ? <Icon name="check" size={IconSize.sm} color={theme.primary} /> : null}
             </Pressable>
           );
         })}
@@ -96,7 +97,7 @@ export function StepPicker<T>({
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    label: { ...Type.title, fontWeight: "700", color: theme.text },
+    label: { ...Type.title, ...Weight.bold, color: theme.text },
     hint: { ...Type.secondary, color: theme.textSecondary, marginBottom: Space.xxs },
     list: { gap: Space.xs },
     row: {
@@ -111,7 +112,7 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
     },
     rowActive: { borderColor: theme.primary, backgroundColor: theme.primaryLight },
-    rowText: { ...Type.body, fontWeight: "600", color: theme.text },
+    rowText: { ...Type.body, ...Weight.semibold, color: theme.text },
     rowTextActive: { color: theme.primaryDark },
     actions: { flexDirection: "row", gap: 10, marginTop: Space.xs },
     actionBtn: { flex: 1 },

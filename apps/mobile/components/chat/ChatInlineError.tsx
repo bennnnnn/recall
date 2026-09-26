@@ -1,14 +1,15 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   error: ResolvedChatError | null;
@@ -39,17 +40,17 @@ export function ChatInlineError({
 
   const iconName =
     error.kind === "quota"
-      ? "flash-outline"
+      ? "zap"
       : error.kind === "busy" || error.kind === "send_rejected"
-        ? "hourglass-outline"
+        ? "hourglass"
         : error.kind === "model_unavailable"
-          ? "cloud-offline-outline"
-          : "alert-circle-outline";
+          ? "cloud-off"
+          : "alert-circle";
 
   return (
     <View style={[s.wrap, { bottom }]}>
       <View style={s.body}>
-        <Icon name={iconName} size={16} color={theme.warning} style={s.icon} />
+        <Icon name={iconName} size={IconSize.xs} color={theme.warning} style={s.icon} />
         <Text style={s.text}>{error.message}</Text>
       </View>
       {error.kind === "quota" && onUpgrade && upgradeLabel ? (
@@ -124,7 +125,7 @@ export function ChatInlineError({
         accessibilityRole="button"
         accessibilityLabel={t("chat.error_dismiss_a11y")}
       >
-        <Icon name="close" size={16} color={theme.textTertiary} />
+        <Icon name="close" size={IconSize.xs} color={theme.textTertiary} />
       </Pressable>
     </View>
   );
@@ -161,7 +162,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       flexShrink: 0,
     },
-    ctaText: { ...Type.caption, fontWeight: "700", color: theme.onPrimary },
+    ctaText: { ...Type.caption, ...Weight.bold, color: theme.onPrimary },
     close: {
       width: 44,
       height: 44,

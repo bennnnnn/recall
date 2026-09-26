@@ -108,6 +108,7 @@ describe("resolveClientGeoForQuery", () => {
       (a: { text: string }) => a.text === "chat.location_open_settings",
     );
     openSettingsAction.onPress();
+    await new Promise<void>((resolve) => setImmediate(resolve));
     expect(Linking.openSettings).toHaveBeenCalled();
   });
 

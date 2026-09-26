@@ -23,7 +23,6 @@ jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn()
 jest.mock("@/features/attachments/model/galleryListCache", () => ({ invalidateGalleryCache: jest.fn() }));
 jest.mock("@/lib/exportMessagePdf", () => ({ exportConversationAsPdf: jest.fn() }));
 jest.mock("@/lib/exportPdf", () => ({ isShareCancelled: jest.fn() }));
-jest.mock("@/lib/share", () => ({ shareConversation: jest.fn() }));
 jest.mock("@/lib/haptics", () => ({
   ...jest.requireActual("@/lib/haptics"),
   notifyDestructive: (...args: unknown[]) => mockDestructive(...args),

@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { AttachmentPdfViewer } from "@/features/attachments/components/AttachmentPdfViewer";
 import { AttachmentTextViewer } from "@/features/attachments/components/AttachmentTextViewer";
-import { GalleryItemActionsSheet } from "@/features/attachments/components/GalleryItemActionsSheet";
+import { GalleryItemActionsMenu } from "@/features/attachments/components/GalleryItemActionsMenu";
 import { useGalleryLibrary } from "@/features/attachments/hooks/useGalleryLibrary";
 import type { AttachmentListItem } from "@/lib/api";
 import {
@@ -91,8 +91,9 @@ export function GalleryMediaModals({ items, pickMode, library }: Props) {
         }}
       />
 
-      <GalleryItemActionsSheet
+      <GalleryItemActionsMenu
         visible={!pickMode && library.actionItem != null}
+        anchorPoint={library.actionPoint}
         canOpenChat={Boolean(library.actionItem?.chat_id)}
         onClose={() => library.setActionItem(null)}
         onUseInChat={() => {

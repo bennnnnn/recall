@@ -1,10 +1,10 @@
 import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "@/ui/controls/IconButton";
 import { liveTalkMuteA11yKey } from "@/features/speech/model/liveTalkLogic";
 import { useTheme } from "@/lib/theme";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
 
 type Props = {
@@ -30,8 +30,8 @@ export function LiveTalkComposerControls({ muted, onMutePress, onClose }: Props)
         ]}
         accessibilityLabel={t(liveTalkMuteA11yKey(muted))}
         testID="live-talk-mute"
-        name={muted ? "mic-off" : "mic-outline"}
-        size={IconSize.lg}
+        name={muted ? "mic-off" : "mic"}
+        size={IconSize.md}
         color={muted ? theme.onPrimary : theme.text}
       />
       <IconButton

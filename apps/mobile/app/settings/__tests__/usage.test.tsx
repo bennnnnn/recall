@@ -9,7 +9,6 @@ let mockError = false;
 let mockLoading = false;
 let mockPlan = "free";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {

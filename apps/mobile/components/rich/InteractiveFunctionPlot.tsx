@@ -12,7 +12,6 @@ import {
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -28,7 +27,7 @@ import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
 import {
   type DrawnSeries,
@@ -36,17 +35,19 @@ import {
   useGraphSeries,
   useGraphViewport,
 } from "@/hooks/useInteractiveGraph";
-import { useSheetPanDismiss } from "@/hooks/useSheetPanDismiss";
+import { useSheetPanDismiss } from "@/ui/overlay/useSheetPanDismiss";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { CODE_FONT } from "@/lib/fonts";
 import { formatGraphExpr, type GraphSpec } from "@/lib/math/graphBlock";
 import { defaultInteractiveBounds, expandGraphView } from "@/lib/math/graphViewport";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
 
 const CHART_HEIGHT = 220;
 const MODAL_LIST_MAX = 220;
@@ -242,7 +243,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
           />
         )}
         <View style={explorerStyles.expandBadge} pointerEvents="none">
-          <Icon name="expand-outline" size={16} color={theme.textSecondary} />
+          <Icon name="expand" size={IconSize.xs} color={theme.textSecondary} />
         </View>
       </Pressable>
       {open ? null : seriesEditor(cardDrawn, "card")}
@@ -322,7 +323,7 @@ function ExplorerModal({
   });
 
   return (
-    <Modal
+    <FullScreenModal
       visible={open}
       transparent
       animationType="slide"
@@ -348,16 +349,13 @@ function ExplorerModal({
               <GestureDetector gesture={pan}>
                 <View style={styles.modalToolbar} testID="graph-sheet-handle">
                   <View style={styles.handle} />
-                  <Pressable
+                  <HeaderButton
+                    icon="close"
                     onPress={onClose}
                     testID="graph-close"
-                    accessibilityRole="button"
                     accessibilityLabel={t("preview.close")}
-                    hitSlop={8}
                     style={styles.closeBtn}
-                  >
-                    <Icon name="close-outline" size={IconSize.lg} color={theme.text} />
-                  </Pressable>
+                  />
                 </View>
               </GestureDetector>
               {skia ? (
@@ -417,7 +415,7 @@ function ExplorerModal({
           </KeyboardAvoidingView>
         </GestureHandlerRootView>
       ) : null}
-    </Modal>
+    </FullScreenModal>
   );
 }
 
@@ -464,7 +462,7 @@ function SeriesList({
           accessibilityLabel={t("rich.graph_add_function")}
           style={styles.addBtn}
         >
-          <Icon name="add-outline" size={16} color={theme.primary} />
+          <Icon name="plus" size={IconSize.xs} color={theme.primary} />
           <Text style={styles.addText}>{t("rich.graph_add_function")}</Text>
         </Pressable>
       ) : null}
@@ -534,8 +532,8 @@ function SeriesRow({
             style={styles.iconBtn}
           >
             <Icon
-              name={row.visible ? "eye-outline" : "eye-off-outline"}
-              size={18}
+              name={row.visible ? "eye" : "eye-off"}
+              size={IconSize.sm}
               color={theme.textSecondary}
             />
           </Pressable>
@@ -547,7 +545,7 @@ function SeriesRow({
             hitSlop={8}
             style={styles.iconBtn}
           >
-            <Icon name="trash-outline" size={18} color={theme.textSecondary} />
+            <Icon name="trash" size={IconSize.sm} color={theme.textSecondary} />
           </Pressable>
         </>
       )}
@@ -599,8 +597,7 @@ const makeExplorerStyles = (theme: Theme) =>
     },
     closeBtn: {
       alignSelf: "flex-start",
-      padding: Space.xs,
-      marginLeft: Space.xs,
+      marginLeft: Space.sm,
     },
     modalPlot: {
       flex: 1,

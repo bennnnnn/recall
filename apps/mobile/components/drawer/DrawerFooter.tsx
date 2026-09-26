@@ -2,12 +2,13 @@ import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Avatar } from "@/components/Avatar";
-import { EditIcon } from "@/lib/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { tap } from "@/lib/haptics";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
+import { IconSize } from "@/ui/icons/sizes";
+import { Icon } from "@/ui/icons/Icon";
 
 type Props = {
   styles: ConversationListStyles;
@@ -38,7 +39,7 @@ export function DrawerFooter({
         accessibilityRole="button"
         accessibilityLabel={t("drawer.new_chat")}
       >
-        <EditIcon size={18} color={theme.onPrimary} />
+        <Icon name="edit" size={IconSize.sm} color={theme.onPrimary} />
         <Text style={s.footerNewChatText}>{t("drawer.new_chat")}</Text>
       </Pressable>
       <Pressable

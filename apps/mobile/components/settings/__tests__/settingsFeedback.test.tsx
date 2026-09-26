@@ -8,14 +8,13 @@ import {
 } from "@/components/settings/settingsUi";
 import { lightTheme } from "@/lib/theme";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock("@/components/AppSheet", () => {
+jest.mock("@/ui/overlay/Sheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
-    AppSheet: ({
+    Sheet: ({
       children,
       visible,
     }: {
@@ -82,7 +81,7 @@ describe("settings action feedback", () => {
     );
 
     expect(getByText("Balanced")).toBeOnTheScreen();
-    expect(queryByTestId("settings-picker-sheet")).toBeNull();
+    expect(queryByTestId("select-menu")).toBeNull();
     expect(getByRole("button").props.accessibilityState).toEqual({
       expanded: false,
       disabled: true,
@@ -110,7 +109,7 @@ describe("settings action feedback", () => {
       />,
     );
 
-    expect(getByTestId("settings-picker-sheet")).toBeOnTheScreen();
+    expect(getByTestId("select-menu")).toBeOnTheScreen();
     expect(queryByText("Funny")).toBeOnTheScreen();
     fireEvent.press(getByLabelText("Funny"));
     expect(onSelect).toHaveBeenCalledWith("funny");

@@ -1,17 +1,16 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { SearchField } from "@/components/SearchField";
+import { Icon } from "@/ui/icons/Icon";
+import { SearchField } from "@/ui/controls/SearchField";
 import { tap } from "@/lib/haptics";
 import { type GalleryFilter } from "@/features/attachments/model/gallery";
 import { type GalleryLayout } from "@/features/attachments/model/galleryLayout";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
-import { Radius } from "@/lib/radius";
+import { IconSize } from "@/ui/icons/sizes";
+import { Chip } from "@/ui/controls/Chip";
 
 type Props = {
   filter: GalleryFilter;
@@ -52,24 +51,19 @@ export function GalleryLibraryHeader({
         clearTestID="gallery-search-clear"
       />
       <View style={s.tabs}>
-        {filters.map((tab) => {
-          const active = tab.key === filter;
-          return (
-            <Pressable
-              key={tab.key}
-              style={[s.tab, active && s.tabActive]}
-              onPress={() => {
-                tap();
-                onFilterChange(tab.key);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={tab.label}
-              accessibilityState={{ selected: active }}
-            >
-              <Text style={[s.tabText, active && s.tabTextActive]}>{tab.label}</Text>
-            </Pressable>
-          );
-        })}
+        {filters.map((tab) => (
+          <Chip
+            key={tab.key}
+            variant="filter"
+            accessibilityRole="radio"
+            label={tab.label}
+            selected={tab.key === filter}
+            onPress={() => {
+              tap();
+              onFilterChange(tab.key);
+            }}
+          />
+        ))}
         <Pressable
           onPress={onToggleLayout}
           accessibilityRole="button"
@@ -82,7 +76,7 @@ export function GalleryLibraryHeader({
           testID="gallery-layout-toggle"
         >
           <Icon
-            name={layout === "grid" ? "list-outline" : "grid-outline"}
+            name={layout === "grid" ? "list" : "grid"}
             size={IconSize.md}
             color={C.textSecondary}
           />
@@ -105,27 +99,6 @@ function makeStyles(C: Theme) {
       flexWrap: "wrap",
       alignItems: "center",
       gap: Space.xs,
-    },
-    tab: {
-      minHeight: 44,
-      justifyContent: "center",
-      paddingVertical: Space.xs,
-      paddingHorizontal: Space.sm,
-      borderRadius: Radius.sheet,
-      flexGrow: 0,
-      flexShrink: 0,
-    },
-    tabActive: {
-      backgroundColor: C.surfaceAlt,
-    },
-    tabText: {
-      ...Type.label,
-      color: C.textSecondary,
-      fontWeight: "500",
-    },
-    tabTextActive: {
-      color: C.text,
-      fontWeight: "600",
     },
     layoutToggle: {
       minHeight: 44,

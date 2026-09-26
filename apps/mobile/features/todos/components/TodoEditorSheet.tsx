@@ -2,8 +2,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useSt
 import { BackHandler, ScrollView, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { SheetFormHeader } from "@/components/SheetFormHeader";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { SheetFormHeader } from "@/ui/overlay/SheetFormHeader";
 import { TodoCategoryField } from "@/features/todos/components/TodoCategoryField";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { TodoDateFields } from "@/features/todos/components/TodoDateFields";
@@ -11,6 +11,7 @@ import { TodoPickers, type TodoPicker } from "@/features/todos/components/TodoPi
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
 import type { RecurrenceRule, Todo } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { TextField } from "@/ui/controls/TextField";
 
 function dueFromTodo(todo: Todo): Date | null {
   if (!todo.due_at) return null;
@@ -193,16 +194,15 @@ export const TodoEditorSheet = forwardRef<
   ) : (
     <>
       <Text style={s.formLabel}>{t("todos.todo_label")}</Text>
-      <TextInput
-        style={s.titleInput}
+      <TextField
         placeholder={t("todos.todo_placeholder")}
-        placeholderTextColor={C.textDisabled}
         value={text}
         onChangeText={setText}
         autoFocus={!editTodo}
         returnKeyType="done"
         maxLength={500}
         editable={!saving}
+        accessibilityLabel={t("todos.todo_label")}
       />
 
       <TodoCategoryField
@@ -236,27 +236,25 @@ export const TodoEditorSheet = forwardRef<
         >
           {fields}
         </ScrollView>
-        {picker && !readOnly ? (
-          <TodoPickers
-            picker={picker}
-            topic={topic}
-            todos={todos}
-            dueDate={dueDate}
-            repeat={repeat}
-            disabled={saving}
-            onTopic={setTopic}
-            onDueDate={setDueDate}
-            onRepeat={setRepeat}
-            onClose={closePicker}
-          />
-        ) : null}
+        <TodoPickers
+          picker={readOnly ? null : picker}
+          topic={topic}
+          todos={todos}
+          dueDate={dueDate}
+          repeat={repeat}
+          disabled={saving}
+          onTopic={setTopic}
+          onDueDate={setDueDate}
+          onRepeat={setRepeat}
+          onClose={closePicker}
+        />
       </View>
     );
   }
 
   return (
     <>
-    <AppSheet
+    <Sheet
       embedded
       visible={visible}
       onClose={handleClose}
@@ -276,21 +274,19 @@ export const TodoEditorSheet = forwardRef<
       />
 
       <View style={s.sheetBody}>{fields}</View>
-    </AppSheet>
-    {visible && picker ? (
-      <TodoPickers
-        picker={picker}
-        topic={topic}
-        todos={todos}
-        dueDate={dueDate}
-        repeat={repeat}
-        disabled={saving}
-        onTopic={setTopic}
-        onDueDate={setDueDate}
-        onRepeat={setRepeat}
-        onClose={closePicker}
-      />
-    ) : null}
+    </Sheet>
+    <TodoPickers
+      picker={visible ? picker : null}
+      topic={topic}
+      todos={todos}
+      dueDate={dueDate}
+      repeat={repeat}
+      disabled={saving}
+      onTopic={setTopic}
+      onDueDate={setDueDate}
+      onRepeat={setRepeat}
+      onClose={closePicker}
+    />
     </>
   );
 });

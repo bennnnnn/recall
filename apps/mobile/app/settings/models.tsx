@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -15,6 +15,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 function sameIdSet(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
@@ -65,8 +66,7 @@ export default function ModelsSettingsScreen() {
     void updateUser({ enabled_models: buildModelPreferences(auto, nextModels) })
       .catch(() => {
         setDraft(null);
-        if (feedback) feedback.error(t("common.error"));
-        else Alert.alert(t("common.error"));
+        reportRecoverableError(feedback, t("common.error"));
       })
       .finally(() => {
         savingRef.current = false;

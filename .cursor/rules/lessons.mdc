@@ -12,7 +12,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
-- **A choice list inside the to-do sheet pushes the form up.** An in-modal overlay still joins that sheet’s layout. Keep the editor as an embedded sheet (not a Modal) and open `SettingsPickerSheet` as the real centered Modal over it, so the form does not move. Android date/time stay the system dialog. iOS will not present a second Modal over an open one.
+- **A choice list inside the to-do sheet pushes the form up.** An in-modal overlay still joins that sheet’s layout. Keep the editor as an embedded sheet (not a Modal) and open choices in a popup that floats in its own layer (`ui/overlay` Menu / SelectMenu / Dialog — `FullWindowOverlay` on iOS), so the form does not move. iOS will not present a second RN Modal over an open one; the overlay layer avoids that limit.
 
 - **The first direct math answer still paid a multi-second SymPy cold start.** Startup warmed one of three isolated slots, then returned that slot to the back of the free queue, so the first real solve selected an untouched process. Warm every configured slot concurrently before the API reports ready.
 
@@ -37,7 +37,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 - **Settings tone/style still expanded in the gray card.** The ChatGPT-style
   popup was committed on `feat/memory-v2-atomic` and never merged; FEATURES
   still said “expand inline”, so later work kept `SettingsInlinePicker` as an
-  accordion. `SettingsPickerSheet` on main; do not expand in the card.
+  accordion. Choices open the `SelectMenu` popover; do not expand in the card.
 - **Leftover SSE reported the next chat's TTFT.** Leave must not abort SSE, and
   `parseChatWsPayload` used to record first token before the active-view filter.
   Key the sample by optimistic turn id; mark transport/token only for that id

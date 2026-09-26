@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { clearChatHighlightGlobal, closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
@@ -6,8 +6,9 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/lib/theme";
-import { ActionBanner } from "@/components/ActionBanner";
-import { ChatActionsSheet } from "@/components/ChatActionsSheet";
+import { ActionBanner } from "@/ui/feedback/ActionBanner";
+import { ChatShareSheet } from "@/components/chat/ChatShareSheet";
+import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -94,7 +95,10 @@ export function ConversationList() {
     showActionBanner,
     closeMenu,
     showRowMenu,
-    handleShareChat,
+    shareChat,
+    openShareChat,
+    closeShare,
+    loadShareMessages,
     openRenameFromMenu,
     confirmRename,
     togglePinChat,
@@ -193,9 +197,11 @@ export function ConversationList() {
     router.push("/gallery");
   }, [router, token]);
 
+  const [menuPoint, setMenuPoint] = useState<{ x: number; y: number } | null>(null);
   const onShowRowMenu = useCallback(
-    (chat: Chat) => {
+    (chat: Chat, point: { x: number; y: number }) => {
       tap();
+      setMenuPoint(point);
       showRowMenu(chat);
     },
     [showRowMenu],
@@ -243,7 +249,6 @@ export function ConversationList() {
       <>
         <DrawerNavLinks
           styles={s}
-          theme={theme}
           showIndicator={showIndicator}
           unseenCount={unseenCount}
           onMyJob={openMyJob}
@@ -267,7 +272,6 @@ export function ConversationList() {
     ),
     [
       s,
-      theme,
       showIndicator,
       unseenCount,
       openMyJob,
@@ -292,15 +296,16 @@ export function ConversationList() {
 
   return (
     <View style={s.root}>
-      <ChatActionsSheet
+      <ChatActionsMenu
         visible={menuChat != null}
+        anchorPoint={menuPoint}
         title={menuChat?.title ?? null}
         pinned={menuChat?.pinned ?? false}
         archived={menuChat?.archived ?? false}
         onClose={closeMenu}
         onShare={() => {
           tap();
-          void handleShareChat();
+          openShareChat();
         }}
         onRename={() => {
           tap();
@@ -319,6 +324,12 @@ export function ConversationList() {
           confirmDeleteChat();
         }}
         onSelectChats={handleSelectFromMenu}
+      />
+      <ChatShareSheet
+        visible={shareChat != null}
+        onClose={closeShare}
+        title={shareChat?.title ?? null}
+        loadMessages={loadShareMessages}
       />
       <ChatRenameSheet
         visible={renameVisible}

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -6,22 +6,22 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
+import { HeaderButton, HEADER_BUTTON_SIZE } from "@/ui/controls/HeaderButton";
 import { CoverLetterSheet } from "@/features/job-search/components/CoverLetterSheet";
 import { CompanyLogo } from "@/features/job-search/components/CompanyLogo";
 import { JobFitBadge } from "@/features/job-search/components/JobFitBadge";
 import { JobMatchDetailSkeleton } from "@/features/job-search/components/JobMatchDetailSkeleton";
 import { JobMatchMetaChips } from "@/features/job-search/components/JobMatchMetaChips";
 import { JobMatchReasons } from "@/features/job-search/components/JobMatchReasons";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
-import { StateView } from "@/components/StateView";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useJobMatchDetail } from "@/features/job-search/hooks/useJobMatchDetail";
@@ -31,7 +31,9 @@ import { canToggleApplied, hasApplied } from "@/features/job-search/model/stages
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
+import { TextField } from "@/ui/controls/TextField";
 
 const STAGES: JobMatchStatus[] = [
   "new",
@@ -86,6 +88,7 @@ function JobMatchDetailView({
     letter,
     generateLetter,
   } = useJobMatchDetail(id, isCurrent);
+  const stageRowRef = useRef<View>(null);
 
   const stageLabel = (status: JobMatchStatus): string => {
     if (status === "applied") return t("my_job.applied");
@@ -97,14 +100,11 @@ function JobMatchDetailView({
   return (
     <View style={[s.screen, { paddingTop: insets.top }]}>
       <View style={s.header}>
-        <Pressable
-          style={({ pressed }) => [s.headerButton, pressed && s.pressed]}
+        <HeaderButton
+          icon="arrow-left"
           onPress={() => router.back()}
-          accessibilityRole="button"
           accessibilityLabel={t("common.back")}
-        >
-          <Icon name="chevron-back" size={22} color={C.text} />
-        </Pressable>
+        />
         <Text style={s.headerTitle} numberOfLines={1}>
           {match?.company ?? t("my_job.title")}
         </Text>
@@ -127,7 +127,7 @@ function JobMatchDetailView({
       ) : match == null ? (
         <StateView
           variant="empty"
-          icon="briefcase-outline"
+          icon="briefcase"
           title={t("my_job.detail_not_found")}
         />
       ) : (
@@ -163,7 +163,7 @@ function JobMatchDetailView({
               }}
               accessibilityRole="button"
             >
-              <Icon name="open-outline" size={18} color={C.primary} />
+              <Icon name="external-link" size={IconSize.sm} color={C.primary} />
               <Text style={[s.actionText, s.actionTextPrimary]}>{t("my_job.view_job")}</Text>
             </Pressable>
             <Pressable
@@ -180,8 +180,9 @@ function JobMatchDetailView({
               accessibilityState={{ selected: match.is_saved }}
             >
               <Icon
-                name={match.is_saved ? "bookmark" : "bookmark-outline"}
-                size={18}
+                name="bookmark"
+                filled={match.is_saved}
+                size={IconSize.sm}
                 color={match.is_saved ? C.primary : C.textSecondary}
               />
               <Text
@@ -208,8 +209,8 @@ function JobMatchDetailView({
               }}
             >
               <Icon
-                name="checkmark-circle-outline"
-                size={18}
+                name="check-circle"
+                size={IconSize.sm}
                 color={applicationStarted ? C.primary : C.textSecondary}
               />
               <Text
@@ -226,13 +227,14 @@ function JobMatchDetailView({
               onPress={() => void generateLetter()}
               accessibilityRole="button"
             >
-              <Icon name="sparkles-outline" size={18} color={C.primary} />
+              <Icon name="sparkles" size={IconSize.sm} color={C.primary} />
               <Text style={s.letterCtaText}>{t("my_job.cover_letter_cta")}</Text>
-              <Icon name="chevron-forward" size={16} color={C.textTertiary} />
+              <Icon name="chevron-right" size={IconSize.xs} color={C.textTertiary} />
             </Pressable>
           ) : null}
 
           <Pressable
+            ref={stageRowRef}
             style={({ pressed }) => [s.stageRow, pressed && s.pressed]}
             onPress={() => {
               tap();
@@ -244,20 +246,19 @@ function JobMatchDetailView({
             <Text style={s.sectionTitle}>{t("my_job.stage_label")}</Text>
             <View style={s.stageValue}>
               <Text style={s.stageValueText}>{stageLabel(match.status)}</Text>
-              <Icon name="chevron-down" size={16} color={C.textTertiary} />
+              <Icon name="chevron-down" size={IconSize.xs} color={C.textTertiary} />
             </View>
           </Pressable>
 
           <View style={s.notesBlock}>
             <Text style={s.sectionTitle}>{t("my_job.notes_label")}</Text>
-            <TextInput
-              style={s.notesInput}
+            <TextField
               value={notesDraft}
               onChangeText={setNotesDraft}
               onBlur={saveNotes}
               placeholder={t("my_job.notes_placeholder")}
-              placeholderTextColor={C.textTertiary}
               multiline
+              accessibilityLabel={t("my_job.notes_label")}
             />
           </View>
         </ScrollView>
@@ -265,15 +266,14 @@ function JobMatchDetailView({
       </KeyboardAvoidingView>
 
       {match != null ? (
-        <SettingsPickerSheet
+        <SelectMenu
           visible={stageOpen}
+          anchorRef={stageRowRef}
           title={t("my_job.stage_label")}
           options={STAGES.map((stage) => ({ key: stage, label: stageLabel(stage) }))}
           selectedKey={match.status}
           onClose={() => setStageOpen(false)}
           onSelect={(key) => {
-            setStageOpen(false);
-            selection();
             void updateStatus(key as JobMatchStatus);
           }}
         />
@@ -300,13 +300,7 @@ function makeStyles(C: Theme) {
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
     },
-    headerButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: "center",
-      justifyContent: "center",
-    },
+    headerButton: { width: HEADER_BUTTON_SIZE, height: HEADER_BUTTON_SIZE },
     headerTitle: {
       ...Type.navTitle,
       color: C.text,
@@ -316,7 +310,7 @@ function makeStyles(C: Theme) {
     content: { padding: Space.md, gap: Space.md },
     headingRow: { flexDirection: "row", alignItems: "center", gap: Space.sm },
     headingCopy: { flex: 1, minWidth: 0 },
-    title: { ...Type.navTitle, color: C.text, fontWeight: "700" },
+    title: { ...Type.navTitle, color: C.text, ...Weight.bold },
     company: { ...Type.body, color: C.textSecondary, marginTop: 2 },
     sectionTitle: { ...Type.label, color: C.text },
     source: { ...Type.caption, color: C.textTertiary },
@@ -336,7 +330,7 @@ function makeStyles(C: Theme) {
       paddingHorizontal: Space.xs,
     },
     actionActive: { backgroundColor: C.primaryLight },
-    actionText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    actionText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold },
     actionTextPrimary: { color: C.primary },
     actionTextActive: { color: C.primary },
     letterCta: {
@@ -351,7 +345,7 @@ function makeStyles(C: Theme) {
     letterCtaText: {
       ...Type.secondary,
       color: C.primary,
-      fontWeight: "700",
+      ...Weight.bold,
       flex: 1,
     },
     stageRow: {
@@ -364,21 +358,12 @@ function makeStyles(C: Theme) {
       paddingHorizontal: Space.md,
     },
     stageValue: { flexDirection: "row", alignItems: "center", gap: Space.xxs },
-    stageValueText: { ...Type.secondary, color: C.primary, fontWeight: "600" },
+    stageValueText: { ...Type.secondary, color: C.primary, ...Weight.semibold },
     notesBlock: {
       backgroundColor: C.surface,
       borderRadius: Radius.xl,
       padding: Space.md,
       gap: Space.xs,
-    },
-    notesInput: {
-      ...Type.secondary,
-      color: C.text,
-      minHeight: 88,
-      textAlignVertical: "top",
-      backgroundColor: C.surfaceAlt,
-      borderRadius: Radius.md,
-      padding: Space.sm,
     },
     pressed: { opacity: 0.68 },
   });

@@ -49,7 +49,7 @@ describe("instantHomePlaceholder", () => {
   });
 
   it("gives the two welcome chips distinct icons", () => {
-    expect(welcomeStarterIcon(0)).toBe("sparkles-outline");
-    expect(welcomeStarterIcon(1)).toBe("help-circle-outline");
+    expect(welcomeStarterIcon(0)).toBe("sparkles");
+    expect(welcomeStarterIcon(1)).toBe("help");
   });
 });

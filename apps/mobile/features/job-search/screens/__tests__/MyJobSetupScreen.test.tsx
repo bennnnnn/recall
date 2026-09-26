@@ -36,11 +36,11 @@ jest.mock("@/features/job-search/components/JobSearchSetupForm", () => {
   const { Text } = jest.requireActual("react-native");
   return { JobSearchSetupForm: () => <Text>SetupForm</Text> };
 });
-jest.mock("@/components/SkeletonLoader", () => {
+jest.mock("@/ui/feedback/SkeletonLoader", () => {
   const { Text } = jest.requireActual("react-native");
   return { SkeletonList: () => <Text>SkeletonList</Text> };
 });
-jest.mock("@/components/StateView", () => {
+jest.mock("@/ui/feedback/StateView", () => {
   const { Pressable, Text } = jest.requireActual("react-native");
   return {
     StateView: ({ title, onRetry }: { title?: string; onRetry?: () => void }) => (

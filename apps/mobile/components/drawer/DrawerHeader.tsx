@@ -1,10 +1,10 @@
 import { Pressable, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { SearchField } from "@/components/SearchField";
+import { Icon } from "@/ui/icons/Icon";
+import { SearchField } from "@/ui/controls/SearchField";
 import { tap } from "@/lib/haptics";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -111,7 +111,7 @@ export function DrawerHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("search.open_accessibility")}
               >
-                <Icon name="search-outline" size={IconSize.sm} color={theme.text} />
+                <Icon name="search" size={IconSize.sm} color={theme.text} />
               </Pressable>
             </View>
           </View>

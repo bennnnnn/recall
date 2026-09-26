@@ -1,7 +1,7 @@
 const { jest: jestGlobals } = require("@jest/globals");
 
 /**
- * AppSheet (and other chrome) import RNGH + Reanimated. The RN jest env has
+ * Sheet (and other chrome) import RNGH + Reanimated. The RN jest env has
  * neither native module, so mock them before any component test file loads.
  */
 jestGlobals.mock("react-native-reanimated", () => {
@@ -99,12 +99,14 @@ jestGlobals.mock("react-native-gesture-handler", () => {
   };
 });
 
-jestGlobals.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 // expo-constants pulls expo-modules-core's native EventEmitter in this env.
 // Standalone (not Expo Go) so native-module gates probe their module mock.
+// Screens render without a SafeAreaProvider in tests. The library's own mock
+// reports zero insets there; files that mock the module themselves still win.
+jestGlobals.mock("react-native-safe-area-context", () =>
+  require("react-native-safe-area-context/jest/mock").default,
+);
+
 jestGlobals.mock("expo-constants", () => ({
   __esModule: true,
   default: { executionEnvironment: "standalone", appOwnership: null },
@@ -120,6 +122,17 @@ jestGlobals.mock("expo-haptics", () => ({
   selectionAsync: () => Promise.resolve(),
   ImpactFeedbackStyle: { Light: "light", Medium: "medium", Heavy: "heavy" },
   NotificationFeedbackType: { Success: "success", Warning: "warning", Error: "error" },
+}));
+
+// expo-clipboard is a native module (expo-modules-core EventEmitter) that
+// cannot load here; the share sheet renders in the chat screen and drawer.
+// Tests that check copying mock it themselves.
+jestGlobals.mock("expo-clipboard", () => ({
+  setStringAsync: jestGlobals.fn(async () => true),
+  getStringAsync: jestGlobals.fn(async () => ""),
+  hasStringAsync: jestGlobals.fn(async () => false),
+  getImageAsync: jestGlobals.fn(async () => null),
+  hasImageAsync: jestGlobals.fn(async () => false),
 }));
 
 // expo-image's Image is a native view (requireNativeViewManager) that cannot

@@ -6,7 +6,6 @@ import { CoverLetterSheet } from "@/features/job-search/components/CoverLetterSh
 const mockSetString = jest.fn(async () => {});
 const mockShare = jest.fn(async () => ({}));
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));

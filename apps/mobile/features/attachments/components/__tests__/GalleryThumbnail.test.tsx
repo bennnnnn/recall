@@ -17,9 +17,6 @@ jest.mock("@/lib/api", () => ({
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
 jest.mock("@/lib/theme", () => ({
   ...jest.requireActual("@/lib/theme"),
   useTheme: () => mockLightTheme,

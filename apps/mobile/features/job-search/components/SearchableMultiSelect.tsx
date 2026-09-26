@@ -3,13 +3,15 @@ import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
-import { SearchField } from "@/components/SearchField";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
+import { SearchField } from "@/ui/controls/SearchField";
 import { isValidCustomOption, matchOption, rankedOptions } from "@/features/job-search/model/optionSearch";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
+import { Chip } from "@/ui/controls/Chip";
 import { Type } from "@/lib/type";
 
 type Props = {
@@ -89,32 +91,27 @@ export function SearchableMultiSelect({
         disabled={disabled}
         accessibilityRole="button"
       >
-        <Icon name="search" size={18} color={C.textTertiary} />
+        <Icon name="search" size={IconSize.sm} color={C.textTertiary} />
         <Text
           style={values.length > 0 ? s.fieldValue : s.fieldPlaceholder}
           numberOfLines={2}
         >
           {values.length > 0 ? values.join(", ") : placeholder}
         </Text>
-        <Icon name="chevron-down" size={18} color={C.textTertiary} />
+        <Icon name="chevron-down" size={IconSize.sm} color={C.textTertiary} />
       </Pressable>
 
       {values.length > 0 ? (
         <View style={s.chips}>
           {values.map((value) => (
-            <View key={value.toLowerCase()} style={s.chip}>
-              <Text style={s.chipText}>{value}</Text>
-              <Pressable
-                onPress={() => removeValue(value)}
-                disabled={disabled}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={t("my_job.role_remove_a11y", { role: value })}
-                style={({ pressed }) => [s.chipRemove, pressed && s.pressed]}
-              >
-                <Icon name="close" size={14} color={C.primary} />
-              </Pressable>
-            </View>
+            <Chip
+              key={value.toLowerCase()}
+              variant="input"
+              label={value}
+              disabled={disabled}
+              onRemove={() => removeValue(value)}
+              removeLabel={t("my_job.role_remove_a11y", { role: value })}
+            />
           ))}
         </View>
       ) : null}
@@ -123,7 +120,7 @@ export function SearchableMultiSelect({
         <Text style={s.maxHint}>{t("my_job.picker_max_reached", { max: maxSelections })}</Text>
       ) : null}
 
-      <AppSheet
+      <Sheet
         visible={open}
         onClose={() => setOpen(false)}
         variant="bottom"
@@ -158,7 +155,7 @@ export function SearchableMultiSelect({
                   onPress={() => addValue(trimmed)}
                   accessibilityRole="button"
                 >
-                  <Icon name="pencil-outline" size={18} color={C.textSecondary} />
+                  <Icon name="pencil" size={IconSize.sm} color={C.textSecondary} />
                   <Text style={s.customText} numberOfLines={1}>
                     {t("my_job.role_add_custom", { text: trimmed })}
                   </Text>
@@ -176,7 +173,7 @@ export function SearchableMultiSelect({
                 disabled={atMax}
                 accessibilityRole="button"
               >
-                <Icon name="add-circle-outline" size={20} color={C.primary} />
+                <Icon name="plus-circle" size={IconSize.sm} color={C.primary} />
                 <Text style={s.sheetRowText} numberOfLines={1}>
                   {item}
                 </Text>
@@ -191,7 +188,7 @@ export function SearchableMultiSelect({
         >
           <Text style={s.doneText}>{t("my_job.picker_done")}</Text>
         </Pressable>
-      </AppSheet>
+      </Sheet>
     </View>
   );
 }
@@ -218,26 +215,6 @@ function makeStyles(C: Theme) {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: Space.xs,
-    },
-    chip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      minHeight: 34,
-      paddingLeft: Space.sm,
-      paddingRight: 6,
-      borderRadius: Radius.full,
-      backgroundColor: C.primaryLight,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.primary,
-    },
-    chipText: { ...Type.secondary, fontWeight: "600", color: C.primary },
-    chipRemove: {
-      width: 24,
-      height: 24,
-      borderRadius: Radius.full,
-      alignItems: "center",
-      justifyContent: "center",
     },
     maxHint: { ...Type.caption, color: C.textTertiary },
     sheetContent: { gap: Space.sm },

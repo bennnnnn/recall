@@ -8,7 +8,7 @@ import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/components/chat/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/components/chat/ChatScreenMenuSheets";
@@ -96,7 +96,7 @@ function ChatScreen() {
   const onFirstReplyRef = useRef<(id?: string | null) => Promise<void>>(async () => {});
   const closeAttachSheetRef = useRef<() => void>(() => {});
   const showActionBannerRef = useRef<
-    (message: string, icon?: IoniconName) => void
+    (message: string, icon?: IconName) => void
   >(() => {});
 
   const todosCtx = useTodosOptional();
@@ -212,6 +212,9 @@ function ChatScreen() {
     handleFeedback,
     handleSaveEmailDraft,
     confirmRename,
+    shareVisible,
+    closeShare,
+    loadTranscriptMessages,
     onShareFromMenu,
     onExportPdfFromMenu,
     onRenameFromMenu,
@@ -232,7 +235,7 @@ function ChatScreen() {
   const openUpgradeRef = useRef<(() => void) | null>(null);
 
   const notifyOfflineBlocked = useCallback(() => {
-    showActionBannerRef.current(t("chat.offline_body"), "cloud-offline-outline");
+    showActionBannerRef.current(t("chat.offline_body"), "cloud-off");
   }, [t]);
 
   const imageGen = useImageGeneration({
@@ -507,6 +510,7 @@ function ChatScreen() {
   });
 
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
+  const menuAnchorRef = useRef<View>(null);
 
   const chatScreenBody = useChatScreenBodyProps({
     styles: s,
@@ -526,6 +530,7 @@ function ChatScreen() {
       startNewChat,
       setMenuVisible,
       menuOverlayOpen,
+      menuAnchorRef,
     },
     list: {
       listRef,
@@ -607,6 +612,7 @@ function ChatScreen() {
 
         <ChatScreenMenuSheets
           menuVisible={menuVisible}
+          menuAnchorRef={menuAnchorRef}
           chatTitle={chatTitle}
           pinned={pinned}
           archived={archived}
@@ -622,6 +628,9 @@ function ChatScreen() {
           onRenameTextChange={setRenameText}
           onCloseRename={() => setRenameVisible(false)}
           onConfirmRename={() => void confirmRename()}
+          shareVisible={shareVisible}
+          onCloseShare={closeShare}
+          loadShareMessages={loadTranscriptMessages}
         />
       </View>
     </EmailDraftPersistProvider>

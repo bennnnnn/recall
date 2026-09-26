@@ -1,16 +1,16 @@
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { ReminderBadge } from "@/components/ReminderBadge";
 import { tap } from "@/lib/haptics";
-import type { Theme } from "@/lib/theme";
+import { ListRow } from "@/ui/list/ListRow";
 
 import type { ConversationListStyles } from "./conversationListStyles";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   styles: ConversationListStyles;
-  theme: Theme;
   showIndicator: boolean;
   unseenCount: number;
   onMyJob: () => void;
@@ -21,7 +21,6 @@ type Props = {
 
 export function DrawerNavLinks({
   styles: s,
-  theme,
   showIndicator,
   unseenCount,
   onMyJob,
@@ -33,70 +32,56 @@ export function DrawerNavLinks({
 
   return (
     <View style={s.drawerNav}>
-      <Pressable
-        style={s.todosLink}
+      <ListRow
+        appearance="plain"
+        icon="briefcase"
+        title={t("drawer.my_job")}
         onPress={() => {
           tap();
           onMyJob();
         }}
-        accessibilityRole="button"
-        accessibilityLabel={t("drawer.my_job")}
-      >
-        <Icon name="briefcase-outline" size={18} />
-        <Text style={s.todosLinkText}>{t("drawer.my_job")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
-      </Pressable>
-
-      <Pressable
-        style={s.todosLink}
+        style={s.navRow}
+      />
+      <ListRow
+        appearance="plain"
+        icon="graduation-cap"
+        title={t("drawer.projects")}
         onPress={() => {
           tap();
           onProjects();
         }}
-        accessibilityRole="button"
-        accessibilityLabel={t("drawer.projects")}
-      >
-        <Icon name="school-outline" size={18} />
-        <Text style={s.todosLinkText}>{t("drawer.projects")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
-      </Pressable>
-
-      <Pressable
-        style={s.todosLink}
-        onPress={() => {
-          tap();
-          onReminders();
-        }}
-        accessibilityRole="button"
+        style={s.navRow}
+      />
+      <ListRow
+        appearance="plain"
+        leading={
+          <View style={s.navIconWrap}>
+            <Icon name="calendar" size={IconSize.sm} />
+            {showIndicator ? <ReminderBadge count={unseenCount} style={s.navBadge} /> : null}
+          </View>
+        }
+        title={t("drawer.reminders")}
         accessibilityLabel={
           showIndicator
             ? t("reminders.badge_accessibility", { count: unseenCount })
             : t("drawer.reminders")
         }
-      >
-        <View style={s.navIconWrap}>
-          <Icon name="calendar-outline" size={18} />
-          {showIndicator ? (
-            <ReminderBadge count={unseenCount} style={s.navBadge} />
-          ) : null}
-        </View>
-        <Text style={s.todosLinkText}>{t("drawer.reminders")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
-      </Pressable>
-
-      <Pressable
-        style={s.todosLink}
+        onPress={() => {
+          tap();
+          onReminders();
+        }}
+        style={s.navRow}
+      />
+      <ListRow
+        appearance="plain"
+        icon="images"
+        title={t("drawer.gallery")}
         onPress={() => {
           tap();
           onGallery();
         }}
-        accessibilityRole="button"
-        accessibilityLabel={t("drawer.gallery")}
-      >
-        <Icon name="library-outline" size={18} />
-        <Text style={s.todosLinkText}>{t("drawer.gallery")}</Text>
-        <Icon name="chevron-forward" size={16} color={theme.textTertiary} style={s.todosChevron} />
-      </Pressable>
+        style={s.navRow}
+      />
     </View>
   );
 }

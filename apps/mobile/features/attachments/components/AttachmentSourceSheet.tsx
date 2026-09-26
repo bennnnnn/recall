@@ -1,10 +1,12 @@
 import { useMemo } from "react";
+import { StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
-import { AppSheet } from "@/components/AppSheet";
+import { ListRow } from "@/ui/list/ListRow";
+import { Sheet } from "@/ui/overlay/Sheet";
 import { selection } from "@/lib/haptics";
-import { useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
+import { type Theme, useTheme } from "@/lib/theme";
 
 export type AttachmentSource =
   | "camera"
@@ -18,11 +20,11 @@ type Props = {
   onSelect: (source: AttachmentSource) => void;
 };
 
-/** Attach / math-scan source picker — same floating AppSheet chrome as chat actions. */
+/** Attach / math-scan source picker — same floating Sheet chrome as chat actions. */
 export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
-  const panelStyle = useMemo(() => makeActionSheetPanelStyle(theme), [theme]);
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   const pick = (source: AttachmentSource) => {
     selection();
@@ -30,7 +32,7 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   };
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       variant="bottom"
@@ -38,32 +40,43 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
       floating
       keyboardAvoiding
       minBottomPadding={12}
-      contentContainerStyle={panelStyle}
+      contentContainerStyle={s.panel}
     >
-      <ActionSheetRow
-        icon="scan-outline"
-        label={t("chat.attach_solve_math_camera")}
+      <ListRow
+        appearance="plain"
+        icon="scan"
+        title={t("chat.attach_solve_math_camera")}
         onPress={() => pick("solve_math_camera")}
-        theme={theme}
+        style={s.row}
       />
-      <ActionSheetRow
-        icon="camera-outline"
-        label={t("chat.attach_camera")}
+      <ListRow
+        appearance="plain"
+        icon="camera"
+        title={t("chat.attach_camera")}
         onPress={() => pick("camera")}
-        theme={theme}
+        style={s.row}
       />
-      <ActionSheetRow
-        icon="image-outline"
-        label={t("chat.attach_photo")}
+      <ListRow
+        appearance="plain"
+        icon="image"
+        title={t("chat.attach_photo")}
         onPress={() => pick("photo")}
-        theme={theme}
+        style={s.row}
       />
-      <ActionSheetRow
-        icon="document-outline"
-        label={t("chat.attach_file")}
+      <ListRow
+        appearance="plain"
+        icon="file"
+        title={t("chat.attach_file")}
         onPress={() => pick("file")}
-        theme={theme}
+        style={s.row}
       />
-    </AppSheet>
+    </Sheet>
   );
+}
+
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    panel: { backgroundColor: theme.elevated },
+    row: { minHeight: Space.xl + Space.gutter, paddingHorizontal: Space.gutter },
+  });
 }

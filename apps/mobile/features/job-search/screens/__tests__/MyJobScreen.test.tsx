@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, within } from "@testing-library/react-native";
 
 import MyJobScreen from "@/app/my-job";
 import type { JobMatch, JobSearchDashboard, JobSearchProfile } from "@/lib/api";
@@ -42,13 +42,16 @@ jest.mock("@shopify/flash-list");
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock("@/lib/share", () => ({ presentShareSheet: jest.fn() }));
+const mockPresentShare = jest.fn(async () => undefined);
+jest.mock("@/lib/share", () => ({
+  presentShareSheet: (...args: unknown[]) => mockPresentShare(...(args as [])),
+}));
 jest.mock("@/lib/haptics", () => ({
   notifyWarning: jest.fn(),
   selection: jest.fn(),
   tap: jest.fn(),
 }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/features/job-search/components/JobMatchCard", () => {
   const { Text } = jest.requireActual("react-native");
   return {
@@ -60,11 +63,11 @@ jest.mock("@/features/job-search/components/JobMatchCard", () => {
 jest.mock("@/features/job-search/components/SearchProfileFields", () => ({
   SearchProfileFields: () => null,
 }));
-jest.mock("@/components/SkeletonLoader", () => {
+jest.mock("@/ui/feedback/SkeletonLoader", () => {
   const { Text } = jest.requireActual("react-native");
   return { SkeletonList: () => <Text>SkeletonList</Text> };
 });
-jest.mock("@/components/StateView", () => {
+jest.mock("@/ui/feedback/StateView", () => {
   const { Pressable, Text } = jest.requireActual("react-native");
   return {
     StateView: ({
@@ -85,8 +88,12 @@ jest.mock("@/components/StateView", () => {
     ),
   };
 });
-jest.mock("@/features/job-search/components/JobSearchActionsSheet", () => ({
-  JobSearchActionsSheet: () => null,
+let mockMenu: { onShare: () => void; visible: boolean };
+jest.mock("@/features/job-search/components/JobSearchActionsMenu", () => ({
+  JobSearchActionsMenu: (props: typeof mockMenu) => {
+    mockMenu = props;
+    return null;
+  },
 }));
 
 beforeEach(() => {
@@ -279,4 +286,27 @@ test("shows a retry action when the last search failed", async () => {
   expect(screen.getByText("my_job.run_failed_title")).toBeTruthy();
   await fireEvent.press(screen.getByText("common.retry"));
   expect(mockRunNow).toHaveBeenCalledTimes(1);
+});
+
+test("shares the search from the share sheet", async () => {
+  mockLoading = false;
+  mockDashboard = { profile: profile(), matches: [] };
+  const screen = await render(<MyJobScreen />);
+  const hidden = { includeHiddenElements: true };
+  expect(screen.queryByText("share.search_heading", hidden)).toBeNull();
+
+  await act(async () => mockMenu.onShare());
+  expect(mockMenu.visible).toBe(false);
+  expect(screen.getByText("share.search_heading", hidden)).toBeTruthy();
+  const sheet = within(screen.getByTestId("job-search-share-sheet", hidden));
+  expect(sheet.getByText("Registered Nurse", hidden)).toBeTruthy();
+  expect(sheet.queryByTestId("job-search-share-sheet-pdf", hidden)).toBeNull();
+
+  await act(async () => {
+    fireEvent(screen.getByTestId("app-sheet-modal", hidden), "show");
+  });
+  expect(mockPresentShare).toHaveBeenCalledWith({
+    message: "Registered Nurse\nBerlin · onsite\nmy_job.cadence_weekly",
+    title: "my_job.title",
+  });
 });

@@ -3,9 +3,9 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { ActionShimmer } from "@/components/ActionShimmer";
-import { Button } from "@/components/Button";
-import { StateView } from "@/components/StateView";
+import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
+import { Button } from "@/ui/controls/Button";
+import { StateView } from "@/ui/feedback/StateView";
 import { VocabCard } from "@/features/learning/components/VocabCard";
 import { LessonCompleteCard } from "@/features/learning/components/LessonCompleteCard";
 import { LessonGradeSheet } from "@/features/learning/components/LessonGradeSheet";
@@ -22,7 +22,7 @@ import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { lessonMapPath } from "@/features/learning/model/chapterAccess";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 
 export default function LearningLessonPlayScreen() {
@@ -120,7 +120,7 @@ export function LessonPlayContent({ isCurrent }: { isCurrent: () => boolean }) {
         {empty ? (
           <StateView
             variant="empty"
-            icon="book-outline"
+            icon="book"
             title={t("lesson.chapter_empty")}
           />
         ) : null}
@@ -237,7 +237,7 @@ function makeStyles(theme: Theme) {
     contextSentence: { ...Type.body, color: theme.textSecondary },
     question: {
       fontSize: 24,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
       lineHeight: 32,
     },

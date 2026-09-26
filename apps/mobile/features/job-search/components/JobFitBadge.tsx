@@ -6,7 +6,7 @@ import { matchScoreColor } from "@/features/job-search/components/JobMatchMetaCh
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export function JobFitBadge({ score }: { score: number | null }) {
   const C = useTheme();
@@ -32,6 +32,6 @@ function makeStyles(C: Theme) {
       borderRadius: Radius.full,
       backgroundColor: C.surfaceAlt,
     },
-    text: { ...Type.secondary, fontWeight: "800" },
+    text: { ...Type.secondary, ...Weight.bold },
   });
 }

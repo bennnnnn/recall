@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, Text } from "react-native";
+import { Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { useChatBulkActions } from "@/hooks/useChatBulkActions";
 import { api, type Chat } from "@/lib/api";
@@ -42,9 +42,19 @@ function Probe({ token = "token", isDrawerOpen = true }: { token?: string; isDra
   React.useLayoutEffect(() => { actions = value; });
   return <Text>Bulk actions</Text>;
 }
+// The test answers the confirm dialog for the person. Answering returns the
+// rest of the flow so a test can wait for it.
+let mockAnswer: ((ok: boolean) => Promise<void>) | null = null;
+jest.mock("@/ui/overlay/dialogs", () => ({
+  confirmDialog: () => ({
+    then: (handler: (ok: boolean) => Promise<void>) => {
+      mockAnswer = handler;
+    },
+  }),
+}));
 function confirmation() {
-  const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2] as { onPress?: () => Promise<void> }[];
-  return buttons.find((button) => button.onPress)!.onPress!;
+  const answer = mockAnswer!;
+  return () => answer(true);
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -53,9 +63,8 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 beforeEach(() => {
-  jest.clearAllMocks(); mockSession = 0;
+  jest.clearAllMocks(); mockSession = 0; mockAnswer = null;
   jest.mocked(getCachedChat).mockReturnValue(undefined);
-  jest.spyOn(Alert, "alert").mockImplementation(() => {});
 });
 
 it("keeps successful deletes removed, clears their cache and abandons only deleted active chats on partial failure", async () => {

@@ -1,7 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
 import {
-  Alert,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -12,16 +11,16 @@ import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { JobMatchCard } from "@/features/job-search/components/JobMatchCard";
-import { JobSearchActionsSheet } from "@/features/job-search/components/JobSearchActionsSheet";
+import { JobSearchActionsMenu } from "@/features/job-search/components/JobSearchActionsMenu";
 import {
   JobStageFilter,
   type JobStageFilterValue,
 } from "@/features/job-search/components/JobStageFilter";
 import { SearchProfileFields } from "@/features/job-search/components/SearchProfileFields";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useJobSearch } from "@/features/job-search/hooks/useJobSearch";
@@ -31,9 +30,12 @@ import { nextDeliveryDate } from "@/features/job-search/model/searchFields";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { notifyWarning, selection, tap } from "@/lib/haptics";
-import { presentShareSheet } from "@/lib/share";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
+import { confirmDialog } from "@/ui/overlay/dialogs";
+import { ShareSheet } from "@/ui/share/ShareSheet";
+import { Button } from "@/ui/controls/Button";
 
 type Tab = "matches" | "saved" | "all";
 
@@ -113,6 +115,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const [stageFilter, setStageFilter] = useState<JobStageFilterValue>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const menuAnchorRef = useRef<View>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -152,17 +156,17 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   );
 
   const confirmDelete = () => {
-    Alert.alert(t("my_job.delete_title"), t("my_job.delete_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: () => {
-          notifyWarning();
-          void remove();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("my_job.delete_title"),
+      message: t("my_job.delete_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      notifyWarning();
+      void remove();
+    });
   };
 
   const handleEdit = () => {
@@ -175,27 +179,18 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     setMenuOpen(false);
     void setSearchStatus(profile.status === "paused" ? "active" : "paused");
   };
-  const handleShare = async () => {
-    if (!profile) return;
-    const message = [
-      profile.target_roles.join(" · "),
-      [profile.location, profile.work_modes.join(" / ")]
-        .filter(Boolean)
-        .join(" · "),
-      cadence(profile, t),
+  const handleShare = () => {
+    setMenuOpen(false);
+    setShareOpen(true);
+  };
+  const shareText = (search: JobSearchProfile) =>
+    [
+      search.target_roles.join(" · "),
+      [search.location, search.work_modes.join(" / ")].filter(Boolean).join(" · "),
+      cadence(search, t),
     ]
       .filter(Boolean)
       .join("\n");
-    // Keep the AppSheet up until the share sheet returns — closing the Modal
-    // first tears down the presenter and iOS dismisses the activity sheet.
-    try {
-      await presentShareSheet({ message, title: t("my_job.title") });
-    } catch {
-      Alert.alert(t("my_job.share_failed"));
-    } finally {
-      setMenuOpen(false);
-    }
-  };
   const handleDelete = () => {
     setMenuOpen(false);
     confirmDelete();
@@ -219,7 +214,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
       <View style={s.root}>
         <View style={s.onboarding}>
           <View style={s.heroIcon}>
-            <Icon name="briefcase-outline" size={34} color={C.primary} />
+            <Icon name="briefcase" size={IconSize.xl} color={C.primary} />
           </View>
           <Text style={s.heroTitle}>{t("my_job.hero_title")}</Text>
           <Text style={s.heroBody}>{t("my_job.hero_body")}</Text>
@@ -228,17 +223,17 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             {(
               [
                 [
-                  "search-outline",
+                  "search",
                   t("my_job.benefit_fresh_title"),
                   t("my_job.benefit_fresh_body"),
                 ],
                 [
-                  "sparkles-outline",
+                  "sparkles",
                   t("my_job.benefit_matched_title"),
                   t("my_job.benefit_matched_body"),
                 ],
                 [
-                  "notifications-outline",
+                  "bell",
                   t("my_job.benefit_delivered_title"),
                   t("my_job.benefit_delivered_body"),
                 ],
@@ -247,8 +242,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               <View key={title} style={s.benefitRow}>
                 <View style={s.benefitIcon}>
                   <Icon
-                    name={icon as "search-outline"}
-                    size={21}
+                    name={icon}
+                    size={IconSize.sm}
                     color={C.primary}
                   />
                 </View>
@@ -260,15 +255,14 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             ))}
           </View>
 
-          <Pressable
-            style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
+          <Button
+            title={t("my_job.setup_cta")}
+            size="lg"
+            icon="arrow-right"
+            iconPlacement="end"
             onPress={openSetup}
-            accessibilityRole="button"
-            accessibilityLabel={t("my_job.setup_cta")}
-          >
-            <Text style={s.primaryButtonText}>{t("my_job.setup_cta")}</Text>
-            <Icon name="arrow-forward" size={20} color={C.onPrimary} />
-          </Pressable>
+            style={s.primaryButton}
+          />
           <Text style={s.planNote}>
             {user?.plan === "pro"
               ? t("my_job.plan_note_pro")
@@ -308,16 +302,16 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               });
   const emptyIcon =
     effectiveFilter === "saved"
-      ? "bookmark-outline"
+      ? "bookmark"
       : effectiveFilter === "applied"
-        ? "checkmark-circle-outline"
+        ? "check-circle"
         : effectiveFilter === "interviewing"
-          ? "people-outline"
+          ? "users"
           : effectiveFilter === "offer"
-            ? "trophy-outline"
+            ? "trophy"
             : effectiveFilter === "rejected"
-              ? "remove-circle-outline"
-              : "search-outline";
+              ? "minus-circle"
+              : "search";
 
   return (
     <View style={s.root}>
@@ -352,6 +346,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                   </Text>
                 </View>
                 <Pressable
+                  ref={menuAnchorRef}
                   style={({ pressed }) => [s.iconButton, pressed && s.pressed]}
                   onPress={() => {
                     tap();
@@ -360,7 +355,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                   accessibilityRole="button"
                   accessibilityLabel={t("my_job.menu_a11y")}
                 >
-                  <Icon name="ellipsis-horizontal" size={21} color={C.text} />
+                  <Icon name="more-horizontal" size={IconSize.sm} color={C.text} />
                 </Pressable>
               </View>
 
@@ -397,14 +392,14 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
 
             {error ? (
               <Pressable style={s.errorCard} onPress={() => void refresh()}>
-                <Icon name="alert-circle-outline" size={20} color={C.danger} />
+                <Icon name="alert-circle" size={IconSize.sm} color={C.danger} />
                 <Text style={s.errorText}>{t("my_job.refresh_error")}</Text>
               </Pressable>
             ) : null}
 
             {profile.last_run_status === "error" ? (
               <View style={s.runErrorCard} accessibilityRole="alert">
-                <Icon name="alert-circle-outline" size={21} color={C.danger} />
+                <Icon name="alert-circle" size={IconSize.sm} color={C.danger} />
                 <View style={s.runErrorCopy}>
                   <Text style={s.runErrorTitle}>
                     {t("my_job.run_failed_title")}
@@ -444,15 +439,41 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
           />
         )}
       />
-      <JobSearchActionsSheet
+      <JobSearchActionsMenu
         visible={menuOpen}
+        anchorRef={menuAnchorRef}
         paused={profile.status === "paused"}
         busy={busy}
         onClose={() => setMenuOpen(false)}
         onEdit={handleEdit}
         onTogglePause={handleTogglePause}
-        onShare={() => void handleShare()}
+        onShare={handleShare}
         onDelete={handleDelete}
+      />
+      <ShareSheet
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        heading={t("share.search_heading")}
+        note={t("share.search_note")}
+        preview={{
+          title: profile.target_roles.join(" · ") || t("my_job.title"),
+          meta: cadence(profile, t),
+          icon: "briefcase",
+        }}
+        load={async () => shareText(profile)}
+        shareTitle={t("my_job.title")}
+        labels={{
+          share: t("share.action_share"),
+          copy: t("share.action_copy"),
+          copied: t("share.copied"),
+          copyText: t("share.copy_text"),
+          failed: {
+            share: t("my_job.share_failed"),
+            copy: t("share.copy_failed"),
+            pdf: t("share.pdf_failed"),
+          },
+        }}
+        testID="job-search-share-sheet"
       />
     </View>
   );
@@ -507,20 +528,7 @@ function makeStyles(C: Theme) {
     benefitCopy: { flex: 1 },
     benefitTitle: { ...Type.label, color: C.text },
     benefitBody: { ...Type.secondary, color: C.textSecondary, marginTop: 2 },
-    primaryButton: {
-      width: "100%",
-      maxWidth: 560,
-      minHeight: 56,
-      borderRadius: Radius.full,
-      backgroundColor: C.primary,
-      paddingHorizontal: Space.lg,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.xs,
-      marginTop: Space.xl,
-    },
-    primaryButtonText: { ...Type.body, color: C.onPrimary, fontWeight: "700" },
+    primaryButton: { width: "100%", maxWidth: 560, marginTop: Space.xl },
     planNote: { ...Type.caption, color: C.textTertiary, marginTop: Space.sm },
     listContent: { padding: Space.md, paddingBottom: Space.xl },
     headerStack: { gap: Space.md, marginBottom: Space.md },
@@ -540,7 +548,7 @@ function makeStyles(C: Theme) {
     searchTitle: {
       ...Type.title,
       color: C.text,
-      fontWeight: "700",
+      ...Weight.bold,
       marginTop: Space.xs,
     },
     iconButton: {
@@ -567,7 +575,7 @@ function makeStyles(C: Theme) {
       gap: Space.xxs,
     },
     tabActive: { backgroundColor: C.bg },
-    tabText: { ...Type.compact, color: C.textSecondary, fontWeight: "600" },
+    tabText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold },
     tabTextActive: { color: C.text },
     tabCount: {
       minWidth: 22,
@@ -612,7 +620,7 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
       backgroundColor: C.surface,
     },
-    retryButtonText: { ...Type.compact, color: C.danger, fontWeight: "700" },
+    retryButtonText: { ...Type.compact, color: C.danger, ...Weight.bold },
     pressed: { opacity: 0.68 },
   });
 }

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   recording: boolean;
@@ -82,8 +83,8 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
           ]}
         >
           <Icon
-            name={recording ? "stop" : "mic-outline"}
-            size={recording ? 16 : 22}
+            name={recording ? "stop" : "mic"}
+            size={recording ? IconSize.xs : IconSize.md}
             color={recording ? theme.onPrimary : theme.primary}
           />
         </View>

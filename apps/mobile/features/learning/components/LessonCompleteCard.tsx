@@ -10,12 +10,13 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { notifySuccess } from "@/lib/haptics";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 const BURST = 280;
 const ICON = 96;
@@ -91,7 +92,7 @@ export function LessonCompleteCard({
           </>
         ) : null}
         <Animated.View style={[s.iconWrap, iconAnim]}>
-          <Icon name="checkmark-circle" size={56} color={theme.success} />
+          <Icon name="check-circle-filled" size={IconSize.hero} color={theme.success} />
         </Animated.View>
       </View>
       <Animated.View style={iconAnim}>
@@ -232,7 +233,7 @@ function makeStyles(theme: Theme) {
     },
     title: {
       ...Type.title,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
       textAlign: "center",
     },

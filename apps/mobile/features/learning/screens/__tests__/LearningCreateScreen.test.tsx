@@ -31,7 +31,7 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/features/learning/components/StepPicker", () => ({
   StepPicker: (props: any) => {
     mockStep = props;

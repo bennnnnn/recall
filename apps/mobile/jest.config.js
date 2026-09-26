@@ -21,6 +21,7 @@ module.exports = {
         "**/lib/__tests__/**/*.test.ts",
         "**/lib/**/__tests__/**/*.test.ts",
         "**/features/**/__tests__/**/*.test.ts",
+        "**/ui/**/__tests__/**/*.test.ts",
       ],
       preset: "ts-jest",
       testEnvironment: "node",
@@ -58,7 +59,7 @@ module.exports = {
           "@react-native/jest-preset/jest/assetFileTransformer.js",
         ),
       },
-      // AppSheet pan-to-dismiss imports RNGH + Reanimated (no native modules
+      // Sheet pan-to-dismiss imports RNGH + Reanimated (no native modules
       // in this env). Keep the RN preset setup and add those mocks.
       setupFiles: [
         ...require("@react-native/jest-preset").setupFiles,

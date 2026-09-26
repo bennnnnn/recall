@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -8,13 +8,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
 
 type Props = {
   current: number;
@@ -75,24 +74,8 @@ export function LessonPlayHeader({
   return (
     <View style={s.wrap}>
       <View style={s.top}>
-        <Pressable
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel={t("lesson.close")}
-          hitSlop={8}
-          style={s.iconBtn}
-        >
-          <Icon name="close" size={26} color={theme.text} />
-        </Pressable>
-        <Pressable
-          onPress={onOpenMenu}
-          accessibilityRole="button"
-          accessibilityLabel={t("lesson.menu")}
-          hitSlop={8}
-          style={s.iconBtn}
-        >
-          <Icon name="ellipsis-vertical" size={IconSize.md} color={theme.text} />
-        </Pressable>
+        <HeaderButton icon="close" onPress={onClose} accessibilityLabel={t("lesson.close")} />
+        <HeaderButton icon="more-vertical" onPress={onOpenMenu} accessibilityLabel={t("lesson.menu")} />
       </View>
       <View style={s.barRow}>
         <View
@@ -129,12 +112,6 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-    },
-    iconBtn: {
-      minWidth: Space.minTouch,
-      minHeight: Space.minTouch,
-      alignItems: "center",
-      justifyContent: "center",
     },
     barRow: {
       flexDirection: "row",

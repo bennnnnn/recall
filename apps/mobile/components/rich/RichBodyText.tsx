@@ -4,6 +4,7 @@ import { Text, type TextProps } from "react-native";
 import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
 import { parseInlineMarkdown } from "@/lib/markdown/inlineMarkdown";
 import { useTheme } from "@/lib/theme";
+import { Weight } from "@/lib/type";
 
 /**
  * Renders a rich-fence body string with minimal inline markdown (bold, italic,
@@ -29,7 +30,7 @@ export function RichBodyText(props: TextProps) {
       {tokens.map((token, i) => {
         if (token.type === "bold") {
           return (
-            <Text key={i} style={{ fontWeight: "800" }}>
+            <Text key={i} style={{ ...Weight.bold }}>
               {token.value}
             </Text>
           );

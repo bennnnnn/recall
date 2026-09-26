@@ -1,13 +1,13 @@
-import { useLayoutEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { LearningPathList } from "@/features/learning/components/LearningPathList";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLearningDetail } from "@/features/learning/hooks/useLearningDetail";
 import { LessonMapOverflowMenu } from "@/features/learning/components/LessonMapOverflowMenu";
@@ -16,10 +16,10 @@ import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { chapterKey } from "@/features/learning/model/chapterAccess";
 import { branchAccess, domainAccess, groupPathByDomain } from "@/features/learning/model/domainPath";
 import { resolveDailyGoal } from "@/features/learning/model/dailyGoals";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export default function LearningLessonMapScreen() {
   const owner = useAccountViewOwner();
@@ -34,6 +34,7 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
   const router = useRouter();
   const navigation = useNavigation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuAnchorRef = useRef<View>(null);
   const { id } = useLocalSearchParams<{ id: string }>();
   const projectId = typeof id === "string" ? id : undefined;
   const { project, loading, loadError, load, isCurrentOwner } = useLearningDetail(projectId);
@@ -42,12 +43,13 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
     navigation.setOptions({
       headerRight: () => (
         <Pressable
+          ref={menuAnchorRef}
           onPress={() => setMenuOpen((open) => !open)}
           accessibilityRole="button"
           accessibilityLabel={t("lesson.menu")}
           hitSlop={12}
         >
-          <Icon name="ellipsis-horizontal" size={IconSize.md} color={theme.text} />
+          <Icon name="more-horizontal" size={IconSize.md} color={theme.text} />
         </Pressable>
       ),
     });
@@ -110,12 +112,6 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
           onRetry={() => void load({ force: true })}
         />
       ) : null}
-      {menuOpen ? (
-        <LessonMapOverflowMenu
-          project={project}
-          isCurrent={() => isCurrent() && isCurrentOwner()}
-        />
-      ) : null}
       {stats && dailyGoal > 0 ? (
         <View style={s.todayCard}>
           <Text style={[s.todayLabel, completedToday >= dailyGoal && s.todayLabelComplete]}>
@@ -147,6 +143,13 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
 
   return (
     <View style={s.root}>
+      <LessonMapOverflowMenu
+        project={project}
+        isCurrent={() => isCurrent() && isCurrentOwner()}
+        visible={menuOpen}
+        anchorRef={menuAnchorRef}
+        onClose={() => setMenuOpen(false)}
+      />
       <LearningPathList
         domains={domains}
         projectId={project.id}
@@ -156,7 +159,7 @@ export function LessonMapContent({ isCurrent }: { isCurrent: () => boolean }) {
         empty={
           <StateView
             variant="empty"
-            icon="book-outline"
+            icon="book"
             title={t("lesson.chapter_empty")}
           />
         }
@@ -174,7 +177,7 @@ function makeStyles(theme: Theme) {
     },
     todayLabel: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
     },
     todayLabelComplete: {

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type RecurrenceRule, type Todo } from "@/lib/api";
@@ -9,6 +8,7 @@ import { markReminderIdsSeen } from "@/features/todos/model/reminderSeen";
 import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/features/todos/model/optimisticTodo";
 import { beginTodoMutation, getTodoMutationState } from "@/features/todos/model/todoMutationState";
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
+import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
 type Params = {
   token: string | null;
@@ -65,7 +65,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
   const reportError = useCallback((bodyKey: string) => {
     if (!canAct()) return;
     if (feedback) feedback.error(t(bodyKey));
-    else Alert.alert(t("todos.error"), t(bodyKey));
+    else void alertDialog({ title: t("todos.error"), message: t(bodyKey) });
   }, [canAct, feedback, t]);
   const latestTodo = useCallback((id: string) => (getTodos?.() ?? todosRef.current).find((item) => item.id === id), [getTodos]);
   const applyTodos = useCallback((update: (rows: Todo[]) => Todo[]) => {
@@ -163,15 +163,19 @@ export function useTodosActions({ token, userId, todos, getTodos,
     if (!token || !canAct() || owner.mutations.pendingIds.has(todo.id)) return;
     const current = latestTodo(todo.id);
     if (!current) return;
-    Alert.alert(t("todos.delete_confirm"), t("todos.delete_confirm_body", { title: current.content }), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("common.delete"), style: "destructive", onPress: async () => {
-        await mutateRow(todo.id, () => null, async () => {
-          await api.deleteTodo(token, todo.id);
-          return null;
-        }, "todos.error_delete");
-      } },
-    ]);
+    void confirmDialog({
+      title: t("todos.delete_confirm"),
+      message: t("todos.delete_confirm_body", { title: current.content }),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then(async (ok) => {
+      if (!ok) return;
+      await mutateRow(todo.id, () => null, async () => {
+        await api.deleteTodo(token, todo.id);
+        return null;
+      }, "todos.error_delete");
+    });
   }, [token, canAct, owner, latestTodo, t, mutateRow]);
 
   const openTodoEditor = useCallback((todo: Todo) => {

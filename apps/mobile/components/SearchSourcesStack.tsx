@@ -3,8 +3,8 @@ import { Image } from "expo-image";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import {
   SearchSource,
@@ -14,9 +14,10 @@ import {
   preferDistinctHostSources,
 } from "@/lib/searchSources";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 const MAX_CHIP_ICONS = 3;
 
@@ -81,7 +82,7 @@ function SearchSourcesSheet({
   const listMaxHeight = Math.round(Dimensions.get("window").height * 0.55);
 
   return (
-    <AppSheet visible={visible} onClose={onClose} minBottomPadding={16} contentContainerStyle={s.sheet}>
+    <Sheet visible={visible} onClose={onClose} minBottomPadding={16} contentContainerStyle={s.sheet}>
       <Text style={s.title}>{t("chat.sources_title")}</Text>
       <ScrollView
         style={[s.list, { maxHeight: listMaxHeight }]}
@@ -97,7 +98,7 @@ function SearchSourcesSheet({
           />
         ))}
       </ScrollView>
-    </AppSheet>
+    </Sheet>
   );
 }
 
@@ -137,7 +138,7 @@ function SourceRow({
           </Text>
         ) : null}
       </View>
-      <Icon name="open-outline" size={16} color={theme.textSecondary} />
+      <Icon name="external-link" size={IconSize.xs} color={theme.textSecondary} />
     </Pressable>
   );
 }
@@ -172,7 +173,7 @@ function FaviconCircle({
   if (failed || !uri) {
     return (
       <View style={frame}>
-        <Text style={{ fontSize: size * 0.42, fontWeight: "800", color: theme.primary }}>
+        <Text style={{ fontSize: size * 0.42, ...Weight.bold, color: theme.primary }}>
           {host.slice(0, 1).toUpperCase()}
         </Text>
       </View>
@@ -209,7 +210,7 @@ function makeStyles(theme: Theme) {
     },
     chipLabel: {
       ...Type.secondary,
-      fontWeight: "500",
+      ...Weight.medium,
       color: theme.textSecondary,
     },
     iconCluster: {
@@ -256,7 +257,7 @@ function makeSheetStyles(theme: Theme) {
     },
     domain: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
     },
     rowTitle: {

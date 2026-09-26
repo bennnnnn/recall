@@ -4,24 +4,24 @@ import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { AddFab } from "@/components/AddFab";
+import { AddFab } from "@/ui/controls/AddFab";
 import { LearningProjectCard } from "@/features/learning/components/LearningProjectCard";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/features/learning/context/ProjectsContext";
 import { isLanguageProject } from "@/features/learning/model/languageLevels";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { formatDailyGoalShort, resolveDailyGoal } from "@/features/learning/model/dailyGoals";
 import { lessonMapPath } from "@/features/learning/model/chapterAccess";
 import { canAddLearningProject } from "@/features/learning/model/projectCreateFlow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
-function kindIcon(kind: string): IoniconName {
-  if (isLanguageProject(kind)) return "language-outline";
-  return "folder-outline";
+function kindIcon(kind: string): IconName {
+  if (isLanguageProject(kind)) return "languages";
+  return "folder";
 }
 
 export default function ProjectsScreen() {
@@ -86,7 +86,7 @@ function ProjectsContent({ isCurrent }: { isCurrent: () => boolean }) {
           ListHeaderComponent={
             <>
               {!error && visibleProjects.length === 0 ? (
-                <StateView variant="empty" icon="book-outline" title={t("projects.empty_title")} />
+                <StateView variant="empty" icon="book" title={t("projects.empty_title")} />
               ) : null}
               {error ? (
                 <StateView

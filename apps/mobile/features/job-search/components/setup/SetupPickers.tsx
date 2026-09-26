@@ -1,17 +1,18 @@
-import { Platform, Pressable, Text } from "react-native";
-import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import type { RefObject } from "react";
+import type { View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
-import { ReminderDateTimePicker } from "@/features/todos/components/ReminderDateTimePicker";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
+import { DateTimePickerDialog } from "@/ui/pickers/DateTimePickerDialog";
 import type { JobSearchFrequency } from "@/lib/api";
 
-import { FREQUENCY_VALUES, useSetupStyles } from "./setupShared";
+import { FREQUENCY_VALUES } from "./setupShared";
 
 type ResultCount = 5 | 10 | 15;
 
 type Props = {
+  countRowRef: RefObject<View | null>;
+  frequencyRowRef: RefObject<View | null>;
   isPro: boolean;
   busy: boolean;
   showCount: boolean;
@@ -26,10 +27,12 @@ type Props = {
   onClosePicker: () => void;
   onSelectCount: (value: ResultCount) => void;
   onSelectFrequency: (value: JobSearchFrequency) => void;
-  onPickerChange: (event: DateTimePickerEvent, date?: Date) => void;
+  onPickNextRun: (date: Date) => void;
 };
 
 export function SetupPickers({
+  countRowRef,
+  frequencyRowRef,
   isPro,
   busy,
   showCount,
@@ -44,15 +47,15 @@ export function SetupPickers({
   onClosePicker,
   onSelectCount,
   onSelectFrequency,
-  onPickerChange,
+  onPickNextRun,
 }: Props) {
   const { t } = useTranslation();
-  const s = useSetupStyles();
 
   return (
     <>
-      <SettingsPickerSheet
+      <SelectMenu
         visible={showCount}
+        anchorRef={countRowRef}
         options={([5, 10, 15] as const).map((option) => ({
           key: String(option),
           label: `${option} ${t("my_job.count_jobs")}`,
@@ -63,8 +66,9 @@ export function SetupPickers({
         onClose={onCloseCount}
         onSelect={(key) => onSelectCount(Number(key) as ResultCount)}
       />
-      <SettingsPickerSheet
+      <SelectMenu
         visible={showFrequency}
+        anchorRef={frequencyRowRef}
         options={FREQUENCY_VALUES.map((value) => ({
           key: value,
           label: frequencyLabel(value),
@@ -77,36 +81,16 @@ export function SetupPickers({
         onSelect={(key) => onSelectFrequency(key as JobSearchFrequency)}
       />
 
-      {/* Android fires native date→time dialogs from the rendered picker itself;
-          iOS gets the spinner inside a floating sheet with a Done button. */}
-      {Platform.OS === "android" && showPicker ? (
-        <ReminderDateTimePicker
-          mode="datetime"
-          value={nextRunAt}
-          onChange={onPickerChange}
-          disabled={busy}
-        />
-      ) : null}
-      <AppSheet
-        visible={Platform.OS === "ios" && showPicker}
-        onClose={onClosePicker}
-        withHandle
-      >
-        <Text style={s.pickerTitle}>{t("my_job.first_delivery_label")}</Text>
-        <ReminderDateTimePicker
-          mode="datetime"
-          value={nextRunAt}
-          onChange={onPickerChange}
-          disabled={busy}
-        />
-        <Pressable
-          style={({ pressed }) => [s.pickerDone, pressed && s.pressed]}
-          onPress={onClosePicker}
-          accessibilityRole="button"
-        >
-          <Text style={s.pickerDoneText}>{t("common.done")}</Text>
-        </Pressable>
-      </AppSheet>
+      <DateTimePickerDialog
+        visible={showPicker}
+        value={nextRunAt}
+        minimumDate={new Date()}
+        onConfirm={(date) => {
+          if (!busy) onPickNextRun(date);
+          onClosePicker();
+        }}
+        onCancel={onClosePicker}
+      />
     </>
   );
 }

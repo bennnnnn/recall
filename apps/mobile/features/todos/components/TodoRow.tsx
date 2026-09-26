@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 
@@ -11,7 +11,7 @@ import { categoryText } from "@/features/todos/model/todoCategories";
 import type { TodoSection } from "@/features/todos/model/todoListRows";
 import { notifyWarning, selection } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   todo: Todo;
@@ -96,7 +96,7 @@ export const TodoRow = memo(function TodoRow({
           <ActivityIndicator size="small" color={C.primary} />
         ) : (
           <Icon
-            name={marked ? "checkmark-circle" : "ellipse-outline"}
+            name={marked ? "check-circle-filled" : "circle"}
             size={IconSize.md}
             color={marked ? C.primary : C.textTertiary}
           />
@@ -145,7 +145,7 @@ export const TodoRow = memo(function TodoRow({
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
         >
-          <Icon name="trash-outline" size={18} color={C.onPrimary} />
+          <Icon name="trash" size={IconSize.sm} color={C.onPrimary} />
           <Text style={s.swipeDeleteText}>{t("common.delete")}</Text>
         </Pressable>
       )}

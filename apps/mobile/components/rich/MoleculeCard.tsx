@@ -38,7 +38,7 @@ export function MoleculeCard({ content }: { content: string }) {
 
   if (!parsed) {
     return (
-      <VisualCard label={t("rich.chemistry_structure")} icon="flask-outline">
+      <VisualCard label={t("rich.chemistry_structure")} icon="flask">
         <View style={s.previewBox}>
           <Text style={s.fallbackHint}>{t("rich.chemistry_invalid")}</Text>
         </View>
@@ -79,7 +79,7 @@ export function MoleculeCard({ content }: { content: string }) {
   return (
     <VisualCard
       label={t("rich.chemistry_structure")}
-      icon="flask-outline"
+      icon="flask"
       headerRight={modeToggle}
       actions={<CopyButton text={smiles} />}
     >

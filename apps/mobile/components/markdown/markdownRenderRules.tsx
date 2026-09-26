@@ -1,6 +1,6 @@
 import { Children, Fragment, ReactNode } from "react";
 import { Image } from "expo-image";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
@@ -48,8 +48,7 @@ import { isAllowedImageUri } from "@/lib/images/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Type } from "@/lib/type";
-import { uiFontFamily } from "@/lib/uiFont";
+import { Type, Weight } from "@/lib/type";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
 import { parseQuoteAttribution } from "@/lib/richBlocks";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
@@ -58,6 +57,7 @@ import {
   mathRunLineHeight,
 } from "@/lib/math/text";
 import type { Theme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 type StyleMap = Record<string, object>;
 
@@ -75,7 +75,7 @@ function withGreenTicks(
     bit === "✓" || bit === "✔" || bit === "✅" ? (
       <Text
         key={`${keyPrefix}-tick-${i}`}
-        style={{ color: tickColor, fontWeight: "700" }}
+        style={{ color: tickColor, ...Weight.bold }}
       >
         {bit}
       </Text>
@@ -434,8 +434,8 @@ function makeSharedRules(
         return (
           <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
             <Icon
-              name="square-outline"
-              size={18}
+              name="square"
+              size={IconSize.sm}
               color={t.textTertiary}
               style={{ marginTop: 2 }}
             />
@@ -543,8 +543,7 @@ function makeSharedRules(
               >
                 <Text
                   style={{
-                    fontFamily: uiFontFamily("700"),
-                    fontWeight: "700",
+                    ...Weight.bold,
                     fontSize: Type.caption.fontSize,
                     color: t.text,
                   }}

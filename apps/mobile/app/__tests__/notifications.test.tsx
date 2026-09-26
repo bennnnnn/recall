@@ -12,7 +12,7 @@ const mockT = (key: string) => key;
 const mockSwitches: Record<string, { onValueChange: (value: boolean) => Promise<void>; disabled: boolean; value?: boolean }> = {};
 const mockLinks: Record<string, { onPress: () => void; value: string }> = {};
 let mockPicker: { onSelect: (key: string) => void };
-let mockTimePicker: { visible: boolean; onSave: (minutes: number) => void };
+let mockTimePicker: { visible: boolean; onConfirm: (time: { hour: number; minute: number }) => void };
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 let mockUser: {
   id: string;
@@ -34,8 +34,8 @@ jest.mock("@/components/settings/settingsUi", () => ({
   SettingsLinkRow: (props: { title: string } & (typeof mockLinks)[string]) => { mockLinks[props.title] = props; return null; },
   SettingsInlinePicker: (props: typeof mockPicker) => { mockPicker = props; return null; },
 }));
-jest.mock("@/components/settings/TimePickerSheet", () => ({
-  TimePickerSheet: (props: typeof mockTimePicker) => {
+jest.mock("@/ui/pickers/TimePickerDialog", () => ({
+  TimePickerDialog: (props: typeof mockTimePicker) => {
     mockTimePicker = props;
     return null;
   },
@@ -95,7 +95,7 @@ it("saves one quiet-hours selection for the current account", async () => {
   await act(() => mockLinks["settings.quiet_hours_start"].onPress());
   expect(mockTimePicker.visible).toBe(true);
 
-  await act(() => mockTimePicker.onSave(23 * 60 + 15));
+  await act(() => mockTimePicker.onConfirm({ hour: 23, minute: 15 }));
 
   expect(mockUpdate).toHaveBeenCalledTimes(1);
   expect(mockUpdate).toHaveBeenCalledWith({ quiet_hours_start_minute: 1395 });
@@ -114,7 +114,7 @@ it("rejects a quiet-hours save after the account changes", async () => {
   await act(() => mockLinks["settings.quiet_hours_start"].onPress());
   mockSession++;
 
-  await act(() => mockTimePicker.onSave(23 * 60 + 15));
+  await act(() => mockTimePicker.onConfirm({ hour: 23, minute: 15 }));
 
   expect(mockUpdate).not.toHaveBeenCalled();
 });

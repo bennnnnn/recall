@@ -1,7 +1,7 @@
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { JobSearchExperience } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 
@@ -11,6 +11,8 @@ import {
   SelectChip,
   useSetupStyles,
 } from "./setupShared";
+import { IconSize } from "@/ui/icons/sizes";
+import { TextField } from "@/ui/controls/TextField";
 
 type Props = {
   resumeName: string | null;
@@ -65,7 +67,7 @@ export function ProfileStep({
           }
         >
           <View style={s.resumeIcon}>
-            <Icon name="document-text-outline" size={23} color={C.primary} />
+            <Icon name="file-text" size={IconSize.md} color={C.primary} />
           </View>
           <View style={s.resumeCopy}>
             <Text style={s.resumeTitle} numberOfLines={1}>
@@ -81,7 +83,7 @@ export function ProfileStep({
                 : t("my_job.resume_meta")}
             </Text>
           </View>
-          <Icon name="chevron-forward" size={19} color={C.textTertiary} />
+          <Icon name="chevron-right" size={IconSize.sm} color={C.textTertiary} />
         </Pressable>
         {resumeName ? (
           <Pressable
@@ -113,18 +115,14 @@ export function ProfileStep({
       <View style={s.twoColumnRow}>
         <View style={s.flexField}>
           <FieldLabel>{t("my_job.salary_label")}</FieldLabel>
-          <TextInput
-            style={[s.input, salaryError && s.inputError]}
+          <TextField
             value={salary}
             onChangeText={onSalaryChange}
             placeholder="100000"
-            placeholderTextColor={C.textDisabled}
             editable={!busy}
             keyboardType="number-pad"
+            error={salaryError ? t("my_job.salary_invalid_body") : null}
           />
-          {salaryError ? (
-            <Text style={s.errorText}>{t("my_job.salary_invalid_body")}</Text>
-          ) : null}
         </View>
       </View>
 
@@ -153,16 +151,14 @@ export function ProfileStep({
 
       <View style={s.fieldGroup}>
         <FieldLabel>{t("my_job.excluded_companies_label")}</FieldLabel>
-        <TextInput
-          style={s.input}
+        <TextField
           value={excludedCompanies}
           onChangeText={onExcludedCompaniesChange}
           placeholder={t("my_job.excluded_companies_placeholder")}
-          placeholderTextColor={C.textDisabled}
           editable={!busy}
           autoCapitalize="words"
+          helper={t("my_job.excluded_companies_helper")}
         />
-        <Text style={s.helper}>{t("my_job.excluded_companies_helper")}</Text>
       </View>
     </>
   );

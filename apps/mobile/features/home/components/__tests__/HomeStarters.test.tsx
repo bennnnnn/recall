@@ -30,7 +30,7 @@ jest.mock("@/features/home/model/homeGuidancePrefs", () => ({
 }));
 jest.mock("@/features/home/model/homeWelcome", () => ({
   instantHomePlaceholder: () => ({ greeting: "Hello" }),
-  welcomeStarterIcon: () => "sparkles-outline",
+  welcomeStarterIcon: () => "sparkles",
   welcomeStarters: () => [
     { text: "Help me think", prompt: "Help me think through something", kind: "general" },
   ],

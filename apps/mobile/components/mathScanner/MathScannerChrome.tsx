@@ -18,9 +18,9 @@ import Animated, {
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { ScannerSubjectSwitcher } from "@/components/mathScanner/ScannerSubjectSwitcher";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import {
   SCANNER_SHUTTER_PX,
   SCANNER_SUBJECT_SWITCHER_PX,
@@ -31,7 +31,7 @@ import { Radius } from "@/lib/radius";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   insets: EdgeInsets;
@@ -112,7 +112,7 @@ export function MathScannerChrome({
             accessibilityRole="button"
             accessibilityLabel={t("common.close")}
           >
-            <Icon name="close" size={IconSize.lg} color={theme.onMedia} />
+            <Icon name="close" size={IconSize.md} color={theme.onMedia} />
           </Pressable>
         </View>
       ) : null}
@@ -168,7 +168,7 @@ export function MathScannerChrome({
               accessibilityState={{ disabled: busy }}
               accessibilityLabel={t("chat.math_scan_photos_a11y")}
             >
-              <Icon name="folder-open-outline" size={IconSize.lg} color={theme.onMedia} />
+              <Icon name="folder-open" size={IconSize.md} color={theme.onMedia} />
             </GHPressable>
             <GHPressable
               onPressIn={() => {
@@ -208,8 +208,8 @@ export function MathScannerChrome({
                 }
               >
                 <Icon
-                  name={torchOn ? "flashlight" : "flashlight-outline"}
-                  size={IconSize.lg}
+                  name={torchOn ? "flashlight" : "flashlight-off"}
+                  size={IconSize.md}
                   color={torchOn ? theme.primary : theme.onMedia}
                   style={s.torchIcon}
                 />
@@ -353,7 +353,7 @@ function makeStyles(theme: Theme) {
     previewSecondaryText: {
       ...Type.label,
       color: theme.onMedia,
-      fontWeight: "700",
+      ...Weight.bold,
     },
     previewPrimary: {
       flex: 1,
@@ -367,7 +367,7 @@ function makeStyles(theme: Theme) {
     previewPrimaryText: {
       ...Type.label,
       color: theme.onPrimary,
-      fontWeight: "700",
+      ...Weight.bold,
     },
   });
 }

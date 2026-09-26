@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/ui/controls/Button";
 import { useSettingsProposal } from "@/hooks/useSettingsProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -35,7 +35,7 @@ export function SettingsProposalCard({ proposal, disabled }: Props) {
   return (
     <View style={s.card}>
       <View style={s.header}>
-        <Icon name="options-outline" size={IconSize.sm} color={theme.primary} />
+        <Icon name="sliders" size={IconSize.sm} color={theme.primary} />
         <Text style={s.title}>{t("settings.proposal_title")}</Text>
       </View>
       {proposal.changes.map((change) => (
@@ -46,7 +46,7 @@ export function SettingsProposalCard({ proposal, disabled }: Props) {
       {error ? <Text style={s.error}>{error}</Text> : null}
       {done ? (
         <View style={s.doneRow}>
-          <Icon name="checkmark-circle" size={18} color={theme.primary} />
+          <Icon name="check-circle-filled" size={IconSize.sm} color={theme.primary} />
           <Text style={s.doneText}>{t("settings.proposal_applied")}</Text>
         </View>
       ) : (
@@ -74,7 +74,7 @@ const makeStyles = (theme: Theme) =>
       gap: Space.xs,
     },
     header: { flexDirection: "row", alignItems: "center", gap: 10 },
-    title: { flex: 1, ...Type.body, fontWeight: "700", color: theme.text },
+    title: { flex: 1, ...Type.body, ...Weight.bold, color: theme.text },
     change: { ...Type.label, color: theme.textSecondary },
     error: { ...Type.compact, color: theme.danger },
     btn: { marginTop: Space.xxs },

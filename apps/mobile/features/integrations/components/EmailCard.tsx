@@ -3,18 +3,18 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { CopyButton } from "@/components/CopyButton";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { CardShell } from "@/components/rich/CardShell";
-import { GmailMark } from "@/components/rich/chatgptDraftIcons";
+import { BrandMark } from "@/ui/icons/brand";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useEmailCardPersist } from "@/features/integrations/hooks/useEmailCardPersist";
 import { fullEmailText } from "@/features/integrations/model/emailCompose";
 import { openGmailCompose } from "@/features/integrations/model/openGmailCompose";
 import { notifySuccess, tap } from "@/lib/haptics";
-import { EditIcon, IconSize, inkIconColor } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { EmailDraft } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -107,7 +107,7 @@ export function EmailCard({ draft }: Props) {
   return (
     <CardShell
       label={t("chat.email_card_title")}
-      icon="mail-outline"
+      icon="mail"
       accent={false}
       headerActions={
         <>
@@ -123,9 +123,9 @@ export function EmailCard({ draft }: Props) {
             }
           >
             {editing ? (
-              <Icon name="checkmark-outline" size={IconSize.sm} />
+              <Icon name="check" size={IconSize.sm} />
             ) : (
-              <EditIcon size={IconSize.sm} color={inkIconColor(theme)} />
+              <Icon name="edit" size={IconSize.sm} color={theme.text} />
             )}
           </Pressable>
           <CopyButton
@@ -140,7 +140,7 @@ export function EmailCard({ draft }: Props) {
             accessibilityLabel={t("chat.email_card_gmail")}
             disabled={gmailOpening || editing}
           >
-            <GmailMark size={18} />
+            <BrandMark name="gmail" size={IconSize.sm} />
           </Pressable>
         </>
       }
@@ -232,7 +232,7 @@ function makeStyles(t: Theme) {
     body: { gap: Space.xs },
     fieldLabel: {
       ...Type.caption,
-      fontWeight: "700",
+      ...Weight.bold,
       color: t.textTertiary,
       textTransform: "uppercase",
       letterSpacing: 0.4,
@@ -249,10 +249,10 @@ function makeStyles(t: Theme) {
     },
     bodyInput: { minHeight: 140, lineHeight: 24 },
     meta: { ...Type.secondary, lineHeight: 20, color: t.textSecondary },
-    metaKey: { fontWeight: "600", color: t.textTertiary },
+    metaKey: { ...Weight.semibold, color: t.textTertiary },
     subject: {
       ...Type.body,
-      fontWeight: "700",
+      ...Weight.bold,
       lineHeight: 22,
       color: t.text,
     },

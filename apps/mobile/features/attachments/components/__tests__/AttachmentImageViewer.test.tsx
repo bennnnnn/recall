@@ -22,9 +22,6 @@ jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -142,7 +139,7 @@ describe("AttachmentImageViewer", () => {
       />,
     );
     await fireEvent.press(getByLabelText("preview.more_a11y"));
-    expect(queryByLabelText("gallery.open_chat_a11y")).toBeNull();
+    expect(queryByLabelText("gallery.open_chat")).toBeNull();
     expect(getByLabelText("common.delete")).toBeTruthy();
   });
 
@@ -155,9 +152,9 @@ describe("AttachmentImageViewer", () => {
         onOpenChat={onOpenChat}
       />,
     );
-    expect(queryByLabelText("gallery.open_chat_a11y")).toBeNull();
+    expect(queryByLabelText("gallery.open_chat")).toBeNull();
     await fireEvent.press(getByLabelText("preview.more_a11y"));
-    await fireEvent.press(getByLabelText("gallery.open_chat_a11y"));
+    await fireEvent.press(getByLabelText("gallery.open_chat"));
     expect(onOpenChat).toHaveBeenCalledWith(expect.objectContaining({ attachmentId: "a", chatId: "c1" }));
   });
 

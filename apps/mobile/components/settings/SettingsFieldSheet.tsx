@@ -1,6 +1,6 @@
 /**
  * Bottom-sheet text editor for settings (profile fields, custom instructions).
- * Matches ChatRenameSheet AppSheet pattern.
+ * Matches ChatRenameSheet Sheet pattern.
  */
 import { useMemo } from "react";
 import {
@@ -8,14 +8,14 @@ import {
   Platform,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type KeyboardTypeOptions,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { SheetFormHeader } from "@/components/SheetFormHeader";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { SheetFormHeader } from "@/ui/overlay/SheetFormHeader";
+import { TextField } from "@/ui/controls/TextField";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -68,7 +68,7 @@ export function SettingsFieldSheet({
           <View />
         </InputAccessoryView>
       ) : null}
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={() => {
         if (!saving) onClose();
@@ -90,8 +90,7 @@ export function SettingsFieldSheet({
       />
       <View style={s.body}>
         {hint ? <Text style={s.hint}>{hint}</Text> : null}
-        <TextInput
-          style={[s.input, multiline && s.inputMultiline]}
+        <TextField
           value={value}
           onChangeText={onChangeText}
           autoFocus
@@ -102,14 +101,12 @@ export function SettingsFieldSheet({
           }
           maxLength={maxLength}
           placeholder={placeholder}
-          placeholderTextColor={theme.textDisabled}
           keyboardType={keyboardType}
           multiline={multiline}
-          textAlignVertical={multiline ? "top" : "center"}
           editable={!saving}
         />
       </View>
-    </AppSheet>
+    </Sheet>
     </>
   );
 }
@@ -125,16 +122,5 @@ function makeStyles(C: Theme) {
     },
     body: { padding: Space.md, gap: Space.sm },
     hint: { ...Type.secondary, color: C.textSecondary },
-    input: {
-      backgroundColor: C.settingsSurface,
-      borderRadius: Radius.xl,
-      minHeight: 56,
-      padding: Space.md,
-      ...Type.body,
-      color: C.text,
-    },
-    inputMultiline: {
-      minHeight: 120,
-    },
   });
 }

@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { TimePickerSheet } from "@/components/settings/TimePickerSheet";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -17,6 +16,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { usePushNotificationToggle } from "@/hooks/usePushNotificationToggle";
 import { getSessionGeneration } from "@/lib/auth";
+import { minutesFromTime, timeFromMinutes } from "@/lib/datetime/clockDial";
 import { formatMinuteOfDay } from "@/lib/datetime/format";
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
@@ -26,6 +26,8 @@ import {
 import { normalizeReminderLeadMinutes } from "@/features/todos/model/reminderTiming";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
+import { TimePickerDialog } from "@/ui/pickers/TimePickerDialog";
 
 const DEFAULT_QUIET_START = 1320;
 const DEFAULT_QUIET_END = 420;
@@ -73,7 +75,7 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
   const reportError = useCallback((key: string) => {
     if (!isCurrent()) return;
     if (feedback) feedback.error(t(key));
-    else Alert.alert(t("common.error"), t(key));
+    else void alertDialog({ title: t("common.error"), message: t(key) });
   }, [isCurrent, feedback, t]);
 
   const acquirePushMutation = useCallback(() => {
@@ -85,7 +87,10 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     [updateUser],
   );
   const reportPushDenied = useCallback(() => {
-    Alert.alert(t("settings.push_blocked_title"), t("settings.push_blocked_message"));
+    void alertDialog({
+      title: t("settings.push_blocked_title"),
+      message: t("settings.push_blocked_message"),
+    });
   }, [t]);
   const reportPushError = useCallback(
     () => reportError("settings.push_register_failed"),
@@ -152,9 +157,12 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     }
   }, [begin, updateUser, reportError, finish]);
 
+  // The dialog keeps its title and time through the closing fade.
+  const quietShown = useRef<"start" | "end">("start");
   const openQuietPicker = useCallback(
     (which: "start" | "end") => {
       if (!isCurrent()) return;
+      quietShown.current = which;
       setPickingQuiet(which);
     },
     [isCurrent],
@@ -170,14 +178,13 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
         } else {
           await updateUser({ quiet_hours_end_minute: minutes });
         }
-        if (isCurrent()) setPickingQuiet(null);
       } catch {
         reportError("common.error");
       } finally {
         finish(request);
       }
     },
-    [begin, updateUser, isCurrent, reportError, finish],
+    [begin, updateUser, reportError, finish],
   );
 
   if (!token) return <Redirect href="/login" />;
@@ -225,6 +232,8 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
               <SettingsLinkRow
                 title={t("settings.quiet_hours_start")}
                 value={formatMinuteOfDay(quietStart)}
+                disabled={busyAction !== null}
+                busy={busyAction === "quiet-start"}
                 onPress={() => openQuietPicker("start")}
                 styles={s}
                 theme={theme}
@@ -233,6 +242,8 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
               <SettingsLinkRow
                 title={t("settings.quiet_hours_end")}
                 value={formatMinuteOfDay(quietEnd)}
+                disabled={busyAction !== null}
+                busy={busyAction === "quiet-end"}
                 onPress={() => openQuietPicker("end")}
                 styles={s}
                 theme={theme}
@@ -261,21 +272,19 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
         </SettingsGroup>
       </ScrollView>
 
-      <TimePickerSheet
-        key={pickingQuiet ?? "closed"}
+      <TimePickerDialog
         visible={pickingQuiet !== null && quietEnabled}
         title={t(
-          pickingQuiet === "end"
+          quietShown.current === "end"
             ? "settings.quiet_hours_end"
             : "settings.quiet_hours_start",
         )}
-        valueMinutes={pickingQuiet === "end" ? quietEnd : quietStart}
-        cancelLabel={t("common.cancel")}
-        saveLabel={t("common.done")}
-        saving={pickingQuiet !== null && busyAction === `quiet-${pickingQuiet}`}
-        onClose={() => setPickingQuiet(null)}
-        onSave={(minutes) => {
-          if (pickingQuiet) void saveQuietMinutes(pickingQuiet, minutes);
+        value={timeFromMinutes(quietShown.current === "end" ? quietEnd : quietStart)}
+        onCancel={() => setPickingQuiet(null)}
+        onConfirm={(time) => {
+          const which = pickingQuiet;
+          setPickingQuiet(null);
+          if (which) void saveQuietMinutes(which, minutesFromTime(time));
         }}
       />
     </>

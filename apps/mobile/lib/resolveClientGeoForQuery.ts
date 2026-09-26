@@ -1,8 +1,9 @@
-import { Alert, Linking } from "react-native";
+import { Linking } from "react-native";
 
 import type { ClientGeo } from "@/lib/clientGeo";
 import { requestDeviceGeo } from "@/lib/deviceLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
+import { alertDialog, confirmDialog } from "@/ui/overlay/dialogs";
 
 export type ClientGeoResolveResult =
   | { ok: true; clientGeo: ClientGeo | null }
@@ -28,15 +29,15 @@ function formatCoordLabel(latitude: number, longitude: number): string {
 }
 
 function alertOpenDeviceSettings(t: Translate): void {
-  Alert.alert(t("chat.location_required_title"), t("chat.location_required_body"), [
-    { text: t("common.cancel"), style: "cancel" },
-    {
-      text: t("chat.location_open_settings"),
-      onPress: () => {
-        void Linking.openSettings();
-      },
-    },
-  ]);
+  void confirmDialog({
+    title: t("chat.location_required_title"),
+    message: t("chat.location_required_body"),
+    cancelLabel: t("common.cancel"),
+    confirmLabel: t("chat.location_open_settings"),
+  }).then((ok) => {
+    if (!ok) return;
+    void Linking.openSettings();
+  });
 }
 
 /**
@@ -79,12 +80,18 @@ export async function resolveClientGeoForQuery(
   }
 
   if (result.status === "expo_go") {
-    Alert.alert(t("chat.location_required_title"), t("settings.location_expo_go"));
+    void alertDialog({
+      title: t("chat.location_required_title"),
+      message: t("settings.location_expo_go"),
+    });
     return { ok: false };
   }
 
   if (result.status === "error") {
-    Alert.alert(t("chat.location_required_title"), t("settings.location_denied"));
+    void alertDialog({
+      title: t("chat.location_required_title"),
+      message: t("settings.location_denied"),
+    });
     return { ok: false };
   }
 

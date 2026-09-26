@@ -11,7 +11,7 @@ jest.mock("@/hooks/useResolvedColorScheme", () => ({
   useResolvedColorScheme: () => "light",
 }));
 
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 
 jest.mock("react-i18next", () => {
   const strings = require("@/lib/i18n/en.json");

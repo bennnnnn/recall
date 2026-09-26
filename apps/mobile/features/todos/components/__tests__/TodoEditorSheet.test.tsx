@@ -3,10 +3,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { TodoEditorSheet } from "@/features/todos/components/TodoEditorSheet";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -34,18 +30,10 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-jest.mock("@react-native-community/datetimepicker", () => {
+jest.mock("@/ui/overlay/Sheet", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
   return {
-    __esModule: true,
-    default: () => <View testID="datetime-picker" />,
-  };
-});
-
-jest.mock("@/components/AppSheet", () => {
-  const { View } = jest.requireActual("react-native") as typeof import("react-native");
-  return {
-    AppSheet: ({
+    Sheet: ({
       children,
       overlay,
       visible,

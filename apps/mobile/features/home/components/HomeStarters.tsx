@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
+import { Chip } from "@/ui/controls/Chip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useComposerDraftActivity } from "@/contexts/ComposerDraftContext";
 import { useHome } from "@/features/home/context/HomeContext";
@@ -18,7 +19,8 @@ import { isHomeGuidanceRetired, retireHomeGuidance } from "@/features/home/model
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   onSelect: (prompt: string, chatId?: string) => void;
@@ -56,7 +58,7 @@ function OverdueReminderRow({
           accessibilityRole="button"
           accessibilityLabel={todo.content}
         >
-              <Icon name="alert-circle-outline" size={18} color={theme.warning} />
+              <Icon name="alert-circle" size={IconSize.sm} color={theme.warning} />
           <View style={s.urgentMain}>
             <Text style={s.urgentTitle} numberOfLines={2}>
               {todo.content}
@@ -67,7 +69,7 @@ function OverdueReminderRow({
               </Text>
             ) : null}
           </View>
-          <Icon name="chevron-forward" size={16} color={theme.warning} />
+          <Icon name="chevron-right" size={IconSize.xs} color={theme.warning} />
         </Pressable>
         <Pressable
           style={s.urgentDismiss}
@@ -79,7 +81,7 @@ function OverdueReminderRow({
           accessibilityLabel={t("chat.home.dismiss_reminder")}
         >
           <View style={s.urgentDismissCircle}>
-            <Icon name="close" size={14} color={theme.textSecondary} />
+            <Icon name="close" size={IconSize.xxs} color={theme.textSecondary} />
           </View>
         </Pressable>
       </View>
@@ -165,23 +167,18 @@ export function HomeStarters({ onSelect }: Props) {
         <View style={s.startersBlock}>
           <View style={s.chipRow}>
             {chips.map((starter, index) => (
-              <Pressable
+              <Chip
                 key={`${starter.kind}-${index}-${starter.text}`}
-                style={s.chip}
+                label={starter.text}
+                icon={welcomeStarterIcon(index)}
+                numberOfLines={2}
                 onPress={() => {
                   setGuidanceRetired(true);
                   if (user?.id) void retireHomeGuidance(user.id);
                   tap();
                   onSelect(starter.prompt, starter.chat_id);
                 }}
-                accessibilityRole="button"
-                accessibilityLabel={starter.text}
-              >
-                <Icon name={welcomeStarterIcon(index)} size={14} color={theme.primary} />
-                <Text style={s.chipText} numberOfLines={2}>
-                  {starter.text}
-                </Text>
-              </Pressable>
+              />
             ))}
           </View>
         </View>
@@ -249,22 +246,8 @@ function makeStyles(t: Theme) {
     },
     urgentMain: { flex: 1, gap: 2 },
     urgentTitle: { ...Type.navTitle, color: t.text },
-    urgentDue: { ...Type.caption, fontWeight: "600", color: t.warning },
+    urgentDue: { ...Type.caption, ...Weight.semibold, color: t.warning },
     startersBlock: { width: "100%", marginTop: Space.xxs },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, justifyContent: "center" },
-    chip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      backgroundColor: t.surfaceAlt,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      borderRadius: Radius.full,
-      paddingHorizontal: Space.md,
-      paddingVertical: 10,
-      minHeight: Space.minTouch,
-      maxWidth: "100%",
-    },
-    chipText: { ...Type.secondary, fontWeight: "500", color: t.text },
   });
 }

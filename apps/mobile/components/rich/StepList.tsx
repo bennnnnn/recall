@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -47,7 +47,7 @@ function makeStyles(t: Theme) {
       flexShrink: 0,
       marginTop: 2,
     },
-    badgeText: { ...Type.compact, fontWeight: "700", color: t.primary },
+    badgeText: { ...Type.compact, ...Weight.bold, color: t.primary },
     text: { flex: 1, ...Type.body, lineHeight: 24, color: t.text },
   });
 }

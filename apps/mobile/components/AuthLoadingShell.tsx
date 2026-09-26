@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/ui/controls/Button";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";

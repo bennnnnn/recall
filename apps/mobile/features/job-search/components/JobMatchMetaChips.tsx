@@ -1,13 +1,12 @@
 import { ComponentProps, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { JobMatch } from "@/lib/api";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Chip } from "@/ui/controls/Chip";
 
 export function matchScoreColor(score: number | null, C: Theme): string {
   if (score == null) return C.primary;
@@ -30,17 +29,16 @@ export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
   return (
     <View style={s.chips}>
       {chips.map((chip) => (
-        <View
+        <Chip
           key={`${chip.icon}-${chip.label}-${chip.value}`}
-          style={s.chip}
+          variant="tag"
+          icon={chip.icon}
+          iconColor={C.textTertiary}
+          prefix={`${chip.label}:`}
+          label={chip.value}
+          numberOfLines={2}
           accessibilityLabel={`${chip.label}: ${chip.value}`}
-        >
-          <Icon name={chip.icon} size={14} color={C.textTertiary} />
-          <Text style={s.chipText} numberOfLines={2}>
-            <Text style={s.chipLabel}>{chip.label}: </Text>
-            {chip.value}
-          </Text>
-        </View>
+        />
       ))}
     </View>
   );
@@ -58,38 +56,38 @@ export function JobMatchMetaChips({
   const chips: MetaChip[] = [];
   if (match.work_mode)
     chips.push({
-      icon: "laptop-outline",
+      icon: "laptop",
       label: t("my_job.meta_work_mode"),
       value: t(`my_job.work_${match.work_mode}`),
     });
   if (match.location)
     chips.push({
-      icon: "location-outline",
+      icon: "map-pin",
       label: t("my_job.meta_location"),
       value: match.location,
     });
   if (match.salary)
     chips.push({
-      icon: "cash-outline",
+      icon: "banknote",
       label: t("my_job.meta_salary"),
       value: match.salary,
     });
   if (match.experience)
     chips.push({
-      icon: "bar-chart-outline",
+      icon: "bar-chart",
       label: t("my_job.meta_experience"),
       value: match.experience,
     });
   const skills = match.required_skills.slice(0, maxSkills);
   if (skills.length > 0)
     chips.push({
-      icon: "construct-outline",
+      icon: "wrench",
       label: t("my_job.meta_skills"),
       value: skills.join(", "),
     });
   if (match.posted_at)
     chips.push({
-      icon: "time-outline",
+      icon: "clock",
       label: t("my_job.meta_posted"),
       value: match.posted_at,
     });
@@ -99,17 +97,5 @@ export function JobMatchMetaChips({
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     chips: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
-    chip: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xxs,
-      minHeight: 28,
-      paddingHorizontal: Space.xs,
-      borderRadius: Radius.full,
-      backgroundColor: C.surfaceAlt,
-      maxWidth: "100%",
-    },
-    chipLabel: { color: C.textTertiary, fontWeight: "700" },
-    chipText: { ...Type.compact, color: C.textSecondary, flexShrink: 1 },
   });
 }

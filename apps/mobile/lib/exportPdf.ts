@@ -3,12 +3,9 @@
 import * as Print from "expo-print";
 import { Share } from "react-native";
 
-export function isShareCancelled(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const message = "message" in error ? String((error as { message?: unknown }).message) : "";
-  // iOS often throws "User did not share"; Android uses cancel/dismiss.
-  return /cancel|dismiss|did not share/i.test(message);
-}
+import { isShareCancelled } from "@/lib/shareCancelled";
+
+export { isShareCancelled };
 
 /** Render HTML to a PDF file and open the system share sheet. */
 export async function printHtmlToSharedPdf(

@@ -4,7 +4,7 @@ import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 export const TOP_CHROME = 58;
 export const FOOTER_CHROME = 54;
@@ -45,7 +45,7 @@ export function makeConversationListStyles(theme: Theme) {
     logo: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     logoText: {
       ...Type.title,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
       letterSpacing: -0.5,
     },
@@ -73,7 +73,7 @@ export function makeConversationListStyles(theme: Theme) {
       flex: 1,
       textAlign: "center",
       ...Type.body,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
     },
     selectionHeaderAction: {
@@ -82,32 +82,21 @@ export function makeConversationListStyles(theme: Theme) {
     },
     selectionHeaderActionText: {
       ...Type.secondary,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.primary,
     },
     searchCancel: { paddingLeft: Space.xxs },
     searchCancelText: {
       ...Type.secondary,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.primary,
     },
-    todosLink: {
-      flexDirection: "row",
-      alignItems: "center",
+    navRow: {
       marginHorizontal: Space.md,
       marginBottom: Space.xxs,
       paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      gap: Space.sm,
     },
     // Same primary ink for Learning / Lists / Reminders (and chat rows below).
-    todosLinkText: {
-      flex: 1,
-      ...Type.secondary,
-      fontWeight: "600",
-      color: theme.text,
-    },
-    todosChevron: { marginLeft: "auto" },
     navIconWrap: {
       width: 22,
       height: 22,
@@ -195,7 +184,7 @@ export function makeConversationListStyles(theme: Theme) {
     },
     selectionActionText: {
       ...Type.secondary,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.primary,
     },
     selectionActionTextDanger: {

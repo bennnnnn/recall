@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { ComparisonDraft } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -59,10 +59,10 @@ function makeStyles(t: Theme) {
     leftCol: {},
     rightCol: {},
     divider: { width: StyleSheet.hairlineWidth, backgroundColor: t.border },
-    heading: { ...Type.secondary, fontWeight: "700", color: t.text, marginBottom: Space.xxs },
+    heading: { ...Type.secondary, ...Weight.bold, color: t.text, marginBottom: Space.xxs },
     itemRow: { flexDirection: "row", gap: 6, alignItems: "flex-start" },
-    bullet: { ...Type.secondary, fontWeight: "700", color: t.success, lineHeight: 21 },
+    bullet: { ...Type.secondary, ...Weight.bold, color: t.success, lineHeight: 21 },
     bulletNeg: { color: t.danger },
-    item: { flex: 1, ...Type.callout, fontWeight: "400", lineHeight: 21, color: t.text },
+    item: { flex: 1, ...Type.callout, ...Weight.regular, lineHeight: 21, color: t.text },
   });
 }

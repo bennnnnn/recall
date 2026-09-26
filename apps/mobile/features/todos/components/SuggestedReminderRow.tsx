@@ -2,14 +2,15 @@ import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { describeDueAt } from "@/features/todos/model/dueDate";
 import type { SuggestedReminder } from "@/lib/api";
 import { selection, tap } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   reminder: SuggestedReminder;
@@ -28,7 +29,7 @@ export function SuggestedReminderRow({ reminder, busy, onAdd, onDismiss }: Props
   return (
     <View style={s.row}>
       <View style={s.iconWrap}>
-        <Icon name="mail-outline" size={18} color={C.primary} />
+        <Icon name="mail" size={IconSize.sm} color={C.primary} />
       </View>
       <View style={s.body}>
         <Text style={s.title} numberOfLines={2}>{reminder.title}</Text>
@@ -90,7 +91,7 @@ function makeStyles(C: Theme) {
       justifyContent: "center",
     },
     body: { flex: 1 },
-    title: { ...Type.body, fontWeight: "600", color: C.text },
+    title: { ...Type.body, ...Weight.semibold, color: C.text },
     meta: { ...Type.compact, color: C.textSecondary, marginTop: 2 },
     snippet: { ...Type.compact, color: C.textSecondary, marginTop: Space.xxs },
     actions: { flexDirection: "row", gap: Space.sm, marginTop: Space.sm },

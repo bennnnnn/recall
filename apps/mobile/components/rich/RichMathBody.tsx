@@ -8,6 +8,7 @@ import { RichBodyText } from "@/components/rich/RichBodyText";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { parseRichMathText } from "@/lib/markdown/richMathText";
 import { useTheme } from "@/lib/theme";
+import { Weight } from "@/lib/type";
 
 /** Math-aware callout text without invoking MarkdownContent or rich-fence routing. */
 export function RichMathBody({ content, style }: { content: string; style?: StyleProp<TextStyle> }) {
@@ -44,6 +45,6 @@ export function RichMathBody({ content, style }: { content: string; style?: Styl
 const styles = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", flexShrink: 1 },
   break: { width: "100%", height: 0 },
-  bold: { fontWeight: "800" },
+  bold: { ...Weight.bold },
   italic: { fontStyle: "italic" },
 });

@@ -16,8 +16,6 @@
     "@expo-google-fonts/source-serif-4": "0.4.1",
     "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo/dom-webview": "^57.0.1",
-    "@expo/vector-icons": "^15.1.1",
-    "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@sentry/react-native": "^8.16.0",
@@ -89,6 +87,7 @@
     "eslint": "^9.39.4",
     "eslint-config-expo": "~57.0.0",
     "jest": "^30.5.0",
+    "lucide-static": "1.48.0",
     "test-renderer": "^1.2.0",
     "ts-jest": "29.4.11",
     "typescript": "~6.0.3"
@@ -99,8 +98,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint",
-    "test": "jest"
+    "lint": "expo lint app components ui features hooks lib contexts",
+    "test": "jest",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "pnpm": {
     "overrides": {

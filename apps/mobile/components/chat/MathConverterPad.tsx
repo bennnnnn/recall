@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import { MathConverterUnitSheet } from "@/components/chat/MathConverterUnitSheet";
@@ -19,6 +19,7 @@ import {
   formatConvertNumber,
   type UnitCategory,
 } from "@/lib/unitConverter";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   onAsk: (text: string) => void;
@@ -119,7 +120,7 @@ export const MathConverterPad = memo(function MathConverterPad({
           accessibilityLabel={t("chat.math_converter_swap")}
           testID="math-converter-swap"
         >
-          <Icon name="swap-horizontal" size={18} color={theme.primary} />
+          <Icon name="swap" size={IconSize.sm} color={theme.primary} />
         </Pressable>
         <View style={s.col}>
           <Text style={[s.value, s.valueOut]} numberOfLines={1} testID="math-converter-to-value">
@@ -213,7 +214,7 @@ function UnitChip({
       testID={testID}
     >
       <Text style={s.unitBtnLabel}>{symbol}</Text>
-      <Icon name="chevron-down" size={14} color={theme.primary} />
+      <Icon name="chevron-down" size={IconSize.xxs} color={theme.primary} />
     </Pressable>
   );
 }

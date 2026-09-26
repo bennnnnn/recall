@@ -1,11 +1,9 @@
 import { StyleSheet } from "react-native";
 
 import { Radius } from "@/lib/radius";
-import { shadowOverlay } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { uiFontFamily } from "@/lib/uiFont";
+import { Type, Weight } from "@/lib/type";
 
 export function makeTodosStyles(C: Theme) {
   return StyleSheet.create({
@@ -18,8 +16,7 @@ export function makeTodosStyles(C: Theme) {
     },
     dayHeading: {
       ...Type.body,
-      fontFamily: uiFontFamily("700"),
-      fontWeight: "700",
+      ...Weight.bold,
       color: C.text,
     },
     list: { flex: 1 },
@@ -44,7 +41,7 @@ export function makeTodosStyles(C: Theme) {
     },
     sectionEmpty: {
       ...Type.label,
-      fontWeight: "400",
+      ...Weight.regular,
       color: C.textTertiary,
       paddingHorizontal: Space.md,
       paddingBottom: Space.sm,
@@ -94,7 +91,7 @@ export function makeTodosStyles(C: Theme) {
     },
     swipeDeleteText: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: C.onPrimary,
     },
     checkbox: {
@@ -123,7 +120,7 @@ export function makeTodosStyles(C: Theme) {
       borderRadius: Radius.sm,
       backgroundColor: C.dangerLight,
     },
-    overlapNoteText: { flex: 1, ...Type.caption, fontWeight: "400", color: C.danger },
+    overlapNoteText: { flex: 1, ...Type.caption, ...Weight.regular, color: C.danger },
     pickerOverlapNote: { marginHorizontal: Space.md, marginBottom: Space.xs },
     detailPage: { flex: 1, zIndex: 0, backgroundColor: C.surface },
     reviewTitle: {
@@ -146,24 +143,6 @@ export function makeTodosStyles(C: Theme) {
     },
     reviewChipText: { ...Type.secondary, color: C.text },
     reviewList: { marginTop: Space.lg, gap: Space.xxs },
-    reviewRowMain: {
-      flex: 1,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: Space.minTouch,
-    },
-    reviewSubRow: { paddingLeft: Space.xl },
-    reviewLabel: { ...Type.body, color: C.text },
-    reviewValue: {
-      marginLeft: "auto",
-      maxWidth: "52%",
-      borderRadius: Radius.sm,
-      backgroundColor: C.bg,
-      paddingHorizontal: Space.sm,
-      paddingVertical: Space.xs,
-    },
-    reviewValueText: { ...Type.secondary, color: C.text },
     todoDone: {
       ...Type.body,
       color: C.textSecondary,
@@ -171,16 +150,6 @@ export function makeTodosStyles(C: Theme) {
     },
     formLabel: { ...Type.label, color: C.textSecondary },
     fieldGap: { marginTop: Space.md },
-    titleInput: {
-      ...Type.navTitle,
-      color: C.text,
-      backgroundColor: C.surface,
-      borderRadius: Radius.md,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderWidth: 1,
-      borderColor: C.border,
-    },
     dateChip: {
       flexDirection: "row",
       alignItems: "center",
@@ -191,7 +160,7 @@ export function makeTodosStyles(C: Theme) {
       paddingVertical: Space.sm,
       alignSelf: "flex-start",
     },
-    dateChipText: { ...Type.secondary, fontWeight: "600", color: C.text },
+    dateChipText: { ...Type.secondary, ...Weight.semibold, color: C.text },
     dateRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -218,7 +187,7 @@ export function makeTodosStyles(C: Theme) {
     choiceItemActive: { backgroundColor: C.primaryLight },
     choiceItemPressed: { opacity: 0.7 },
     choiceLabel: { ...Type.secondary, color: C.text },
-    choiceLabelActive: { ...Type.secondary, fontWeight: "600", color: C.primary },
+    choiceLabelActive: { ...Type.secondary, ...Weight.semibold, color: C.primary },
     choiceCreate: {
       flexDirection: "row",
       alignItems: "center",
@@ -235,45 +204,6 @@ export function makeTodosStyles(C: Theme) {
       borderTopColor: C.border,
     },
     todoRowSelected: { backgroundColor: C.primaryLight },
-    menuLayer: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      zIndex: 50,
-      elevation: 50,
-    },
-    menuScrim: {
-      position: "absolute",
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-    },
-    menuCard: {
-      position: "absolute",
-      top: Space.xs,
-      right: Space.sm,
-      minWidth: 220,
-      borderRadius: Radius.lg,
-      backgroundColor: C.bg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-      paddingVertical: Space.xs,
-      zIndex: 1,
-      elevation: 12,
-      ...shadowOverlay(C),
-    },
-    menuItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: Space.minTouch,
-      paddingHorizontal: Space.md,
-    },
-    menuItemPressed: { backgroundColor: C.surfaceAlt },
-    menuLabel: { flex: 1, ...Type.body, color: C.text },
     filterEmpty: {
       ...Type.body,
       color: C.textSecondary,
@@ -294,8 +224,8 @@ export function makeTodosStyles(C: Theme) {
       backgroundColor: C.bg,
     },
     selectionCount: { flex: 1, ...Type.secondary, color: C.textSecondary },
-    selectionAction: { ...Type.secondary, fontWeight: "600", color: C.primary },
-    selectionDelete: { ...Type.secondary, fontWeight: "600", color: C.danger },
+    selectionAction: { ...Type.secondary, ...Weight.semibold, color: C.primary },
+    selectionDelete: { ...Type.secondary, ...Weight.semibold, color: C.danger },
     selectionDisabled: { color: C.textDisabled },
     removeDateButton: {
       minWidth: Space.minTouch,

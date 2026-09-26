@@ -9,7 +9,6 @@ const mockUpdateUser = jest.fn();
 const mockPickProfilePhoto = jest.fn();
 const mockUploadPhoto = jest.fn();
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -83,10 +82,10 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   NativePickerBusyError: class extends Error {},
   NativePickerTimeoutError: class extends Error {},
 }));
-jest.mock("@/components/AppSheet", () => {
+jest.mock("@/ui/overlay/Sheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
-    AppSheet: ({ children, visible }: { children: ReactNode; visible: boolean }) =>
+    Sheet: ({ children, visible }: { children: ReactNode; visible: boolean }) =>
       visible ? <RNView>{children}</RNView> : null,
   };
 });
@@ -179,15 +178,15 @@ describe("settings home", () => {
 
   it("opens and selects Appearance without navigating to another page", async () => {
     const { getByText, getByLabelText, queryByTestId } = await render(<SettingsScreen />);
-    expect(queryByTestId("settings-picker-sheet")).toBeNull();
+    expect(queryByTestId("select-menu")).toBeNull();
 
     await fireEvent.press(getByText("settings.appearance"));
-    expect(queryByTestId("settings-picker-sheet")).toBeTruthy();
-    expect(getByLabelText("settings.appearance_system").props.accessibilityState.selected).toBe(true);
+    expect(queryByTestId("select-menu")).toBeTruthy();
+    expect(getByLabelText("settings.appearance_system").props.accessibilityState.checked).toBe(true);
     await fireEvent.press(getByLabelText("settings.appearance_dark"));
 
     expect(mockSetPreference).toHaveBeenCalledWith("dark");
-    expect(queryByTestId("settings-picker-sheet")).toBeNull();
+    expect(queryByTestId("select-menu")).toBeNull();
     expect(mockPush).not.toHaveBeenCalled();
   });
 
@@ -197,7 +196,7 @@ describe("settings home", () => {
     await fireEvent.press(getByLabelText("settings.appearance_system"));
 
     expect(mockSetPreference).not.toHaveBeenCalled();
-    expect(queryByTestId("settings-picker-sheet")).toBeNull();
+    expect(queryByTestId("select-menu")).toBeNull();
     expect(mockPush).not.toHaveBeenCalled();
   });
 });

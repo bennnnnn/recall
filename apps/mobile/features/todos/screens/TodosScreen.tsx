@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
-import { Alert, Keyboard, Pressable, Text, View } from "react-native";
+import { Keyboard, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AddFab } from "@/components/AddFab";
-import { IconButton } from "@/components/IconButton";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StackBackButton } from "@/components/StackBackButton";
+import { AddFab } from "@/ui/controls/AddFab";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
+import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { TodosListHeader } from "@/features/todos/components/TodosListHeader";
 import { TodoDetailMenu } from "@/features/todos/components/TodoDetailMenu";
 import { TodoEditorSheet, type TodoEditorHandle } from "@/features/todos/components/TodoEditorSheet";
@@ -22,10 +22,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
 import { todosForView, type TodoView } from "@/features/todos/model/todoListFilter";
-import { IconSize } from "@/lib/icons";
-import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function TodosScreen() {
   const view = useAccountViewOwner();
@@ -59,6 +58,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailMenu, setDetailMenu] = useState(false);
   const editRef = useRef<TodoEditorHandle>(null);
+  /** Header ⋮ — both the list menu and the detail menu drop from it. */
+  const menuAnchorRef = useRef<View>(null);
   const [view, setView] = useState<TodoView>("all");
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -145,12 +146,10 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       headerShadowVisible: false,
       headerLeft: () =>
         detailOpen ? (
-          <IconButton
-            name="chevron-back"
-            size={IconSize.lg}
+          <HeaderButton
+            icon="arrow-left"
             accessibilityLabel={t("common.back")}
             onPress={() => headerBackAction.current()}
-            style={{ marginLeft: Space.xxs }}
           />
         ) : (
           <StackBackButton />
@@ -170,18 +169,16 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           );
         }
         return (
-          <IconButton
-            name="ellipsis-horizontal"
-            size={IconSize.md}
-            color={C.text}
+          <HeaderButton
+            ref={menuAnchorRef}
+            icon="more-horizontal"
             accessibilityLabel={detailOpen ? t("todos.detail_menu") : t("todos.menu")}
             onPress={() => headerRightAction.current()}
-            style={{ marginRight: Space.xxs }}
           />
         );
       },
     });
-  }, [navigation, t, selecting, detailOpen, editingId, C.primary, C.text, C.surface, C.bg]);
+  }, [navigation, t, selecting, detailOpen, editingId, C.primary, C.surface, C.bg]);
 
   const onPullRefresh = useCallback(async () => {
     if (!isCurrentView() || refreshingRef.current) return;
@@ -260,17 +257,16 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   const deleteSelected = () => {
     if (selectedIds.length === 0) return;
-    Alert.alert(t("todos.delete_many", { count: selectedIds.length }), undefined, [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: () => {
-          void actions.handleDeleteMany(selectedIds);
-          leaveSelection();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("todos.delete_many", { count: selectedIds.length }),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void actions.handleDeleteMany(selectedIds);
+      leaveSelection();
+    });
   };
 
   return (
@@ -299,20 +295,20 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       />
       )}
 
-      {menuOpen && !selecting && !detailOpen ? (
-        <TodosViewMenu
-          view={view}
-          onView={(next) => {
-            setView(next);
-            leaveSelection();
-          }}
-          onSelect={() => {
-            setSelectedIds([]);
-            setSelecting(true);
-          }}
-          onClose={() => setMenuOpen(false)}
-        />
-      ) : null}
+      <TodosViewMenu
+        visible={menuOpen && !selecting && !detailOpen}
+        anchorRef={menuAnchorRef}
+        view={view}
+        onView={(next) => {
+          setView(next);
+          leaveSelection();
+        }}
+        onSelect={() => {
+          setSelectedIds([]);
+          setSelecting(true);
+        }}
+        onClose={() => setMenuOpen(false)}
+      />
 
       {selecting ? (
         <TodoSelectionBar
@@ -368,37 +364,37 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
         }}
       />
 
-      {detailMenu && actions.editingTodo ? (
-        <TodoDetailMenu
-          checked={todos.find((todo) => todo.id === actions.editingTodo?.id)?.checked ?? actions.editingTodo.checked}
-          onMarkDone={() => {
-            const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;
-            setDetailMenu(false);
-            if (!current) return;
-            const draft = editRef.current?.pending() ?? null;
-            void (async () => {
-              if (draft) {
-                const saved = await actions.handleUpdateTodo(
-                  current,
-                  draft.content,
-                  draft.dueDate,
-                  draft.recurrence,
-                  draft.topic,
-                  false,
-                );
-                if (!saved) return;
-              }
-              await actions.handleToggle(current);
-            })();
-          }}
-          onDelete={() => {
-            const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;
-            setDetailMenu(false);
-            if (current) actions.handleDeleteItem(current);
-          }}
-          onClose={() => setDetailMenu(false)}
-        />
-      ) : null}
+      <TodoDetailMenu
+        visible={detailMenu && actions.editingTodo != null}
+        anchorRef={menuAnchorRef}
+        checked={todos.find((todo) => todo.id === actions.editingTodo?.id)?.checked ?? actions.editingTodo?.checked ?? false}
+        onMarkDone={() => {
+          const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;
+          setDetailMenu(false);
+          if (!current) return;
+          const draft = editRef.current?.pending() ?? null;
+          void (async () => {
+            if (draft) {
+              const saved = await actions.handleUpdateTodo(
+                current,
+                draft.content,
+                draft.dueDate,
+                draft.recurrence,
+                draft.topic,
+                false,
+              );
+              if (!saved) return;
+            }
+            await actions.handleToggle(current);
+          })();
+        }}
+        onDelete={() => {
+          const current = todos.find((todo) => todo.id === actions.editingTodo?.id) ?? actions.editingTodo;
+          setDetailMenu(false);
+          if (current) actions.handleDeleteItem(current);
+        }}
+        onClose={() => setDetailMenu(false)}
+      />
     </View>
   );
 }

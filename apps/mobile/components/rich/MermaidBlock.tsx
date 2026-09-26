@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { VisualCard } from "@/components/rich/VisualCard";
@@ -28,7 +28,7 @@ import {
   useStaticOnlyNavigation,
 } from "@/lib/webView";
 import { MERMAID_MIN_JS } from "@/lib/vendor/mermaidMinJs";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -170,7 +170,7 @@ export function MermaidBlock({ content }: Props) {
   return (
     <VisualCard
       label={t("rich.mermaid_diagram")}
-      icon="git-network-outline"
+      icon="network"
       headerRight={
         <Pressable
           onPress={() => setShowSource((v) => !v)}
@@ -179,7 +179,7 @@ export function MermaidBlock({ content }: Props) {
           accessibilityLabel={showSource ? t("rich.diagram") : t("rich.source")}
         >
           <Icon
-            name={showSource ? "eye-off-outline" : "code-slash-outline"}
+            name={showSource ? "eye-off" : "code"}
             size={IconSize.sm}
             color={theme.primary}
           />
@@ -197,14 +197,14 @@ export function MermaidBlock({ content }: Props) {
               accessibilityLabel={expanded ? t("rich.collapse") : t("rich.expand")}
             >
               <Icon
-                name={expanded ? "contract-outline" : "expand-outline"}
+                name={expanded ? "collapse" : "expand"}
                 size={IconSize.sm}
                 color={theme.textSecondary}
               />
             </Pressable>
           ) : null}
           <Pressable style={s.openBtn} onPress={handleOpenLiveEditor} hitSlop={8}>
-            <Icon name="open-outline" size={18} color={theme.onPrimary} />
+            <Icon name="external-link" size={IconSize.sm} color={theme.onPrimary} />
             <Text style={s.openLabel}>{t("rich.mermaid_live")}</Text>
           </Pressable>
         </>
@@ -212,7 +212,7 @@ export function MermaidBlock({ content }: Props) {
     >
       {renderError ? (
         <View style={s.previewBox}>
-          <Icon name="alert-circle-outline" size={IconSize.sm} color={theme.danger} />
+          <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
           <Text style={[s.previewText, { color: theme.danger }]}>
             {renderError}
           </Text>

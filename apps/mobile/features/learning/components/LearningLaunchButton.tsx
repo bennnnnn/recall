@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/ui/controls/Button";
 import { Space } from "@/lib/space";
 import type { LearningLaunchAction } from "@/features/learning/model/parseLearningLaunch";
 

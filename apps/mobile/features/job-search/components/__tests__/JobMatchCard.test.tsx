@@ -3,10 +3,6 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { JobMatchCard } from "@/features/job-search/components/JobMatchCard";
 import type { JobMatch } from "@/lib/api";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,

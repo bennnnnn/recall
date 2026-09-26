@@ -1,10 +1,9 @@
 import { StyleSheet } from "react-native";
-import { render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 
 import { AttachmentLightboxChrome } from "@/features/attachments/components/AttachmentLightboxChrome";
 import { lightTheme as mockLightTheme, withAlpha } from "@/lib/theme";
 
-jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -47,10 +46,31 @@ it("derives attachment chrome from media theme tokens", async () => {
       backgroundColor: withAlpha(mockLightTheme.onMedia, 0.18),
     });
 
-  await ui.rerender(<AttachmentLightboxChrome {...props} overflowOpen />);
-  expect(
-    StyleSheet.flatten(ui.getByTestId("lightbox-overflow-menu").props.style),
-  ).toMatchObject({
-    backgroundColor: withAlpha(mockLightTheme.mediaScrim, 0.94),
-  });
+});
+
+it("opens the overflow as the shared popover and runs the picked row", async () => {
+  const props = {
+    visible: true,
+    overflowOpen: true,
+    insets: { top: 0, right: 0, bottom: 0, left: 0 },
+    busy: null,
+    canShare: true,
+    showOverflow: true,
+    showUseInChat: true,
+    showOpenChat: true,
+    showDelete: true,
+    showDots: false,
+    pageIndex: 0,
+    pageCount: 1,
+    ...actions,
+  } as const;
+  const ui = await render(<AttachmentLightboxChrome {...props} />);
+  const hidden = { includeHiddenElements: true };
+  const rows = ui.getAllByRole("menuitem", hidden).map((row) => row.props.accessibilityLabel);
+  expect(rows).toEqual(["gallery.use_in_chat", "gallery.open_chat", "common.delete"]);
+
+  await fireEvent.press(ui.getByRole("menuitem", { name: "gallery.open_chat", ...hidden }));
+  expect(actions.onCloseOverflow).toHaveBeenCalledTimes(1);
+  expect(actions.onOpenChat).toHaveBeenCalledTimes(1);
+  expect(actions.onDelete).not.toHaveBeenCalled();
 });

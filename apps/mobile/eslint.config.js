@@ -2,10 +2,90 @@
 const { defineConfig } = require('eslint/config');
 const expoConfig = require("eslint-config-expo/flat");
 
+/**
+ * Imports the UI kit replaces. Screens use the kit's component instead, so a
+ * feature cannot quietly bring back its own version.
+ */
+const REPLACED_BY_UI_KIT = [
+  {
+    name: "@expo/vector-icons",
+    message: "Use Icon from @/ui/icons/Icon (Lucide line icons), or BrandMark for logos.",
+  },
+  {
+    name: "@react-native-community/datetimepicker",
+    message: "Use TimePickerDialog / DatePickerDialog / DateTimePickerDialog from @/ui/pickers.",
+  },
+];
+
+/** Popups live in ui/overlay; everything else asks it for one. Tests may still spy on Alert. */
+const POPUPS_OWNED_BY_UI_KIT = [
+  {
+    name: "react-native",
+    importNames: ["Alert"],
+    message: "Use confirmDialog / alertDialog from @/ui/overlay/dialogs, or a toast for a passing error.",
+  },
+  {
+    name: "react-native",
+    importNames: ["Modal"],
+    message: "Use Sheet, Overlay or FullScreenModal from @/ui/overlay.",
+  },
+];
+
+/** Controls the kit draws itself. ui/ may use them to build its rows. */
+const CONTROLS_OWNED_BY_UI_KIT = [
+  {
+    name: "react-native",
+    importNames: ["Switch"],
+    message: "Use ListRow with switchValue from @/ui/list/ListRow; the whole row toggles.",
+  },
+];
+
+const TEST_FILES = ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"];
+
+const UI_LEAF = {
+  group: ["@/features/*", "@/components/*", "@/contexts/*", "@/hooks/*", "@/app/*"],
+  message: "ui/ never imports product code. Pass data and callbacks in as props.",
+};
+
 module.exports = defineConfig([
   expoConfig,
   {
     ignores: ["dist/*", "vendor/**", ".expo/**"],
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT] },
+      ],
+    },
+  },
+  {
+    files: TEST_FILES,
+    rules: {
+      "no-restricted-imports": ["error", { paths: REPLACED_BY_UI_KIT }],
+    },
+  },
+  {
+    // The UI kit is a dependency leaf: tokens and helpers from lib/ only.
+    files: ["ui/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT], patterns: [UI_LEAF] },
+      ],
+    },
+  },
+  {
+    // The one place that may open a native Modal or Alert.
+    files: ["ui/overlay/**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: {
+      "no-restricted-imports": ["error", { paths: REPLACED_BY_UI_KIT, patterns: [UI_LEAF] }],
+    },
   },
   {
     rules: {
@@ -22,32 +102,30 @@ module.exports = defineConfig([
       "**/__tests__/**",
       "**/*.test.ts",
       "**/*.test.tsx",
-      "lib/type.ts",
-      "lib/graphic.ts",
       "lib/vendor/**",
       "lib/math/**",
+      "components/rich/geometry/**",
       "components/CodeBlock.tsx",
-      "components/rich/MathText.tsx",
+      "components/chat/MathConverterPad.tsx",
+      "components/chat/MathConverterUnitSheet.tsx",
+      "components/chat/MathDraftPreview.tsx",
+      "components/chat/MathKeyboardBar.tsx",
       "components/rich/AnswerBlock.tsx",
+      "components/rich/ChartBlock.tsx",
+      "components/rich/ChemistryBlock.tsx",
       "components/rich/CircularClockBlock.tsx",
-      "components/rich/InteractiveFunctionPlot.tsx",
-      "components/rich/InequalityGraphChart.tsx",
       "components/rich/FunctionGraphBlock.tsx",
       "components/rich/GeometryBlock.tsx",
-      "components/rich/geometry/**",
-      "components/rich/NumberLineChart.tsx",
-      "components/rich/CartesianAxes.tsx",
-      "components/rich/SimulationBlock.tsx",
+      "components/rich/InequalityGraphChart.tsx",
+      "components/rich/InteractiveFunctionPlot.tsx",
+      "components/rich/MathText.tsx",
+      "components/rich/MermaidBlock.tsx",
       "components/rich/Molecule3DBlock.tsx",
       "components/rich/MoleculeCard.tsx",
-      "components/rich/ChemistryBlock.tsx",
-      "components/rich/ChartBlock.tsx",
-      "components/rich/MermaidBlock.tsx",
-      "components/chat/MathKeyboardBar.tsx",
-      "components/chat/MathConverterUnitSheet.tsx",
-      "components/chat/MathConverterPad.tsx",
-      "components/chat/MathDraftPreview.tsx",
+      "components/rich/SimulationBlock.tsx",
       "features/learning/screens/LessonPlayScreen.tsx",
+      "lib/graphic.ts",
+      "lib/type.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -56,6 +134,11 @@ module.exports = defineConfig([
           selector: "Property[key.name='fontSize'][value.raw=/^\\d/]",
           message:
             "Use a Type role from lib/type.ts. Raw font sizes belong in that file, or in domain graphics.",
+        },
+        {
+          selector: "Property[key.name='fontWeight']",
+          message:
+            "Use Weight from lib/type.ts (`...Weight.bold`). It switches to the matching Source Sans file; a bare fontWeight draws fake bold on Android.",
         },
       ],
     },
@@ -66,34 +149,30 @@ module.exports = defineConfig([
       "**/__tests__/**",
       "**/*.test.ts",
       "**/*.test.tsx",
-      "lib/type.ts",
-      "lib/graphic.ts",
       "lib/vendor/**",
       "lib/math/**",
-      "lib/shadow.ts",
-      "lib/theme.ts",
+      "components/rich/geometry/**",
       "components/CodeBlock.tsx",
-      "components/rich/MathText.tsx",
+      "components/chat/MathConverterPad.tsx",
+      "components/chat/MathConverterUnitSheet.tsx",
+      "components/chat/MathDraftPreview.tsx",
+      "components/chat/MathKeyboardBar.tsx",
       "components/rich/AnswerBlock.tsx",
+      "components/rich/ChartBlock.tsx",
+      "components/rich/ChemistryBlock.tsx",
       "components/rich/CircularClockBlock.tsx",
-      "components/rich/InteractiveFunctionPlot.tsx",
-      "components/rich/InequalityGraphChart.tsx",
       "components/rich/FunctionGraphBlock.tsx",
       "components/rich/GeometryBlock.tsx",
-      "components/rich/geometry/**",
-      "components/rich/NumberLineChart.tsx",
-      "components/rich/CartesianAxes.tsx",
-      "components/rich/SimulationBlock.tsx",
+      "components/rich/InequalityGraphChart.tsx",
+      "components/rich/InteractiveFunctionPlot.tsx",
+      "components/rich/MathText.tsx",
+      "components/rich/MermaidBlock.tsx",
       "components/rich/Molecule3DBlock.tsx",
       "components/rich/MoleculeCard.tsx",
-      "components/rich/ChemistryBlock.tsx",
-      "components/rich/ChartBlock.tsx",
-      "components/rich/MermaidBlock.tsx",
-      "components/chat/MathKeyboardBar.tsx",
-      "components/chat/MathConverterUnitSheet.tsx",
-      "components/chat/MathConverterPad.tsx",
-      "components/chat/MathDraftPreview.tsx",
+      "components/rich/SimulationBlock.tsx",
       "features/learning/screens/LessonPlayScreen.tsx",
+      "lib/graphic.ts",
+      "lib/type.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -102,6 +181,11 @@ module.exports = defineConfig([
           selector: "Property[key.name='fontSize'][value.raw=/^\\d/]",
           message:
             "Use a Type role from lib/type.ts. Raw font sizes belong in that file, or in domain graphics.",
+        },
+        {
+          selector: "Property[key.name='fontWeight']",
+          message:
+            "Use Weight from lib/type.ts (`...Weight.bold`). It switches to the matching Source Sans file; a bare fontWeight draws fake bold on Android.",
         },
         {
           selector:
@@ -117,33 +201,17 @@ module.exports = defineConfig([
       "**/__tests__/**",
       "**/*.test.ts",
       "**/*.test.tsx",
-      "lib/graphic.ts",
       "lib/math/**",
-      "lib/type.ts",
-      "components/rich/CartesianAxes.tsx",
-      "components/rich/GeometryBlock.tsx",
-      "components/rich/NumberLineChart.tsx",
-      "components/rich/SimulationBlock.tsx",
       "components/rich/geometry/**",
-      "features/learning/screens/LessonPlayScreen.tsx",
-      "lib/radius.ts",
-      "lib/shadow.ts",
-      "lib/space.ts",
-      "lib/theme.ts",
       "lib/vendor/**",
       // Spacing and radius only. Color stays enforced on these files.
       // They still use a number that is not on the scale.
       "app/login.tsx",
       "app/onboarding.tsx",
-      "app/settings/index.tsx",
-      "components/ActionBanner.tsx",
-      "components/ActionSheetRow.tsx",
-      "components/AddFab.tsx",
       "components/ChatMessageImage.tsx",
       "components/ChatMessagePdf.tsx",
       "components/CodeBlock.tsx",
       "components/CopyBlock.tsx",
-      "components/CountBadge.tsx",
       "components/FallbackMarkdown.tsx",
       "components/HtmlPreviewModal.tsx",
       "components/LinkPreviewCard.tsx",
@@ -152,7 +220,6 @@ module.exports = defineConfig([
       "components/PlacesListBlock.tsx",
       "components/SearchSourcesStack.tsx",
       "components/SettingsProposalCard.tsx",
-      "components/SkeletonLoader.tsx",
       "components/UpgradeSheet.tsx",
       "components/UserMessageContent.tsx",
       "components/chat/ChatComposer.tsx",
@@ -177,6 +244,7 @@ module.exports = defineConfig([
       "components/rich/CollapsibleBlock.tsx",
       "components/rich/ComparisonBlock.tsx",
       "components/rich/FunctionGraphBlock.tsx",
+      "components/rich/GeometryBlock.tsx",
       "components/rich/InequalityGraphChart.tsx",
       "components/rich/InteractiveFunctionPlot.tsx",
       "components/rich/KeyValueBlock.tsx",
@@ -186,15 +254,14 @@ module.exports = defineConfig([
       "components/rich/Molecule3DBlock.tsx",
       "components/rich/MoleculeCard.tsx",
       "components/rich/QuoteBlock.tsx",
+      "components/rich/SimulationBlock.tsx",
       "components/rich/StepList.tsx",
       "components/rich/VisualCard.tsx",
-      "components/settings/SettingsPickerSheet.tsx",
       "components/settings/SettingsProfileSheet.tsx",
       "components/settings/SettingsSkeleton.tsx",
       "components/settings/settingsStyles.ts",
       "features/attachments/components/AttachmentLightboxChrome.tsx",
       "features/attachments/components/ComposerAttachmentPreview.tsx",
-      "features/attachments/components/GalleryLibraryHeader.tsx",
       "features/attachments/screens/GalleryScreen.tsx",
       "features/home/components/HomeStarters.tsx",
       "features/images/components/ImageGenPlaceholder.tsx",
@@ -203,8 +270,6 @@ module.exports = defineConfig([
       "features/job-search/components/JobMatchReasons.tsx",
       "features/job-search/components/JobStageFilter.tsx",
       "features/job-search/components/SearchProfileFields.tsx",
-      "features/job-search/components/SearchableMultiSelect.tsx",
-      "features/job-search/screens/JobMatchDetailScreen.tsx",
       "features/job-search/screens/MyJobScreen.tsx",
       "features/learning/components/LearningPathList.tsx",
       "features/learning/components/LearningProjectCard.tsx",
@@ -213,15 +278,16 @@ module.exports = defineConfig([
       "features/learning/screens/LearningCreateScreen.tsx",
       "features/learning/screens/LearningListScreen.tsx",
       "features/learning/screens/LessonMapScreen.tsx",
-      "features/memory/components/MemoryRows.tsx",
+      "features/learning/screens/LessonPlayScreen.tsx",
       "features/search/components/DrawerSearchResults.tsx",
       "features/speech/components/LiveTalkButton.tsx",
       "features/speech/components/LiveTalkComposerControls.tsx",
       "features/speech/components/LiveTalkOrb.tsx",
       "features/speech/components/VoiceMicButton.tsx",
-      "features/suggestions/components/SuggestionChips.tsx",
       "features/todos/components/CalendarNudgeCard.tsx",
       "features/todos/components/todosStyles.ts",
+      "lib/graphic.ts",
+      "lib/type.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -230,6 +296,11 @@ module.exports = defineConfig([
           selector: "Property[key.name='fontSize'][value.raw=/^\\d/]",
           message:
             "Use a Type role from lib/type.ts. Raw font sizes belong in that file, or in domain graphics.",
+        },
+        {
+          selector: "Property[key.name='fontWeight']",
+          message:
+            "Use Weight from lib/type.ts (`...Weight.bold`). It switches to the matching Source Sans file; a bare fontWeight draws fake bold on Android.",
         },
         {
           selector:

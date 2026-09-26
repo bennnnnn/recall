@@ -3,7 +3,7 @@ import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type AnimatedStyle } from "react-native-reanimated";
 
-import { ActionBanner } from "@/components/ActionBanner";
+import { ActionBanner } from "@/ui/feedback/ActionBanner";
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
 import { MathEquationScanner } from "@/components/MathEquationScanner";
 import { ChatComposer } from "@/components/chat/ChatComposer";
@@ -20,7 +20,7 @@ import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { messagesLookLikeMath } from "@/lib/math/composerIntent";
 import type { Theme } from "@/lib/theme";
 
@@ -84,7 +84,7 @@ export interface ChatScreenComposerProps {
 export interface ChatScreenChromeProps {
   actionBanner: {
     message: string;
-    icon?: IoniconName;
+    icon?: IconName;
   } | null;
   onDismissActionBanner: () => void;
   showScrollToBottom: boolean;

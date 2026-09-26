@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -23,6 +22,7 @@ import { selection, tap } from "@/lib/haptics";
 import { queueComposerAttachment } from "@/features/attachments/model/pendingComposerAttachment";
 import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export function useGalleryLibrary(
   items: AttachmentListItem[],
@@ -39,6 +39,7 @@ export function useGalleryLibrary(
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [fileItem, setFileItem] = useState<AttachmentListItem | null>(null);
   const [actionItem, setActionItem] = useState<AttachmentListItem | null>(null);
+  const [actionPoint, setActionPoint] = useState<{ x: number; y: number } | null>(null);
   const sharingRef = useRef(false);
   const attachingRef = useRef(false);
   const deletingRef = useRef(new Set<string>());
@@ -173,22 +174,27 @@ export function useGalleryLibrary(
 
   const confirmDelete = useCallback(
     (item: AttachmentListItem) => {
-      Alert.alert(t("gallery.delete_confirm_title"), t("gallery.delete_confirm_body"), [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("common.delete"),
-          style: "destructive",
-          onPress: () => void deleteItem(item),
-        },
-      ]);
+      void confirmDialog({
+        title: t("gallery.delete_confirm_title"),
+        message: t("gallery.delete_confirm_body"),
+        cancelLabel: t("common.cancel"),
+        confirmLabel: t("common.delete"),
+        destructive: true,
+      }).then((ok) => {
+        if (ok) void deleteItem(item);
+      });
     },
     [t, deleteItem],
   );
 
-  const openActions = useCallback((item: AttachmentListItem) => {
-    selection();
-    setActionItem(item);
-  }, []);
+  const openActions = useCallback(
+    (item: AttachmentListItem, point?: { x: number; y: number }) => {
+      selection();
+      setActionPoint(point ?? null);
+      setActionItem(item);
+    },
+    [],
+  );
 
   const openImage = useCallback((item: AttachmentListItem) => {
     tap();
@@ -217,6 +223,7 @@ export function useGalleryLibrary(
     fileItem,
     setFileItem,
     actionItem,
+    actionPoint,
     setActionItem,
     shareFile,
     openChat,

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { SkeletonBlock } from "@/components/SkeletonLoader";
+import { SkeletonBlock } from "@/ui/feedback/SkeletonLoader";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 

@@ -2,12 +2,13 @@ import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { Layer } from "@/lib/layer";
 import type { ConnectivityStatus } from "@/lib/networkProbe";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   status: ConnectivityStatus;
@@ -26,7 +27,7 @@ export function OfflineBanner({ status }: Props) {
 
   return (
     <View style={[s.wrap, { paddingTop: insets.top + 6 }]} accessibilityRole="alert">
-      <Icon name="cloud-offline-outline" size={16} color={theme.onWarning} />
+      <Icon name="cloud-off" size={IconSize.xs} color={theme.onWarning} />
       <Text style={s.text}>{label}</Text>
     </View>
   );
@@ -50,7 +51,7 @@ function makeStyles(theme: Theme) {
     },
     text: {
       ...Type.compact,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.onWarning,
     },
   });

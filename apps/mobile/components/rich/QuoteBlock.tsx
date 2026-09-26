@@ -1,12 +1,13 @@
 import { useMemo, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { quote?: string; author?: string; children?: ReactNode };
 
@@ -17,8 +18,8 @@ export function QuoteBlock({ quote, author, children }: Props) {
   return (
     <View style={s.wrap}>
       <Icon
-        name="chatbox-ellipses-outline"
-        size={18}
+        name="message-quote"
+        size={IconSize.sm}
         color={theme.textTertiary}
         style={s.icon}
       />
@@ -41,7 +42,7 @@ function makeStyles(t: Theme) {
       backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      borderRadius: Radius.sheet,
+      borderRadius: Radius.card,
       paddingHorizontal: 14,
       paddingVertical: Space.sm,
       marginTop: 0,

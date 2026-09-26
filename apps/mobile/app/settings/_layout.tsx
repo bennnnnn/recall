@@ -2,7 +2,7 @@ import { Stack } from "expo-router";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
-import { StackBackButton } from "@/components/StackBackButton";
+import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { stackPushTransition } from "@/lib/stackTransitions";
@@ -15,7 +15,7 @@ function subScreen(
   return {
     ...header,
     title,
-    headerLeft: () => <StackBackButton icon="arrow-back" fallback="/settings" />,
+    headerLeft: () => <StackBackButton fallback="/settings" />,
   };
 }
 
@@ -33,7 +33,7 @@ export default function SettingsLayout() {
         headerShown: true,
         contentStyle: { backgroundColor: theme.bg },
         headerBackVisible: false,
-        headerLeft: () => <StackBackButton icon="arrow-back" fallback="/" />,
+        headerLeft: () => <StackBackButton fallback="/" />,
       }}
     >
       <Stack.Screen name="index" options={{ title: t("settings.title"), headerShown: false }} />

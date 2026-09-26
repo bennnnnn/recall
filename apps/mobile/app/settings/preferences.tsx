@@ -1,11 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -27,6 +26,9 @@ import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 const STYLES = ["short", "balanced", "detailed"] as const;
 type AboutField = "age" | "country" | "job";
@@ -43,6 +45,7 @@ export default function PreferencesSettingsScreen() {
   const savingRef = useRef(false);
   const [openPicker, setOpenPicker] = useState<"style" | "tone" | null>(null);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const languageRowRef = useRef<View>(null);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
   const [locationBusy, setLocationBusy] = useState(false);
@@ -66,8 +69,7 @@ export default function PreferencesSettingsScreen() {
         await updateUser(fields);
         return true;
       } catch {
-        if (feedback) feedback.error(t("common.error"));
-        else Alert.alert(t("common.error"), t("common.error"));
+        reportRecoverableError(feedback, t("common.error"));
         return false;
       } finally {
         savingRef.current = false;
@@ -87,18 +89,17 @@ export default function PreferencesSettingsScreen() {
         return;
       }
       if (!canUseDeviceLocation()) {
-        Alert.alert(t("common.error"), t("settings.location_expo_go"));
+        void alertDialog({ title: t("common.error"), message: t("settings.location_expo_go") });
         return;
       }
       const label = await getDeviceLocationLabel();
       if (!label) {
-        Alert.alert(t("settings.location_denied"));
+        void alertDialog({ title: t("settings.location_denied") });
         return;
       }
       await updateUser({ location_enabled: true, location: label });
     } catch {
-      if (feedback) feedback.error(t("common.error"));
-      else Alert.alert(t("common.error"), t("common.error"));
+      reportRecoverableError(feedback, t("common.error"));
     } finally {
       setLocationBusy(false);
     }
@@ -151,7 +152,7 @@ export default function PreferencesSettingsScreen() {
       } else {
         const age = Number.parseInt(trimmed, 10);
         if (!Number.isFinite(age) || age < 13 || age > 120) {
-          Alert.alert(t("common.error"), t("settings.age_invalid"));
+          void alertDialog({ title: t("common.error"), message: t("settings.age_invalid") });
           return;
         }
         if (age === user.age) {
@@ -181,8 +182,7 @@ export default function PreferencesSettingsScreen() {
       await updateUser(patchBody);
       setEditField(null);
     } catch {
-      if (feedback) feedback.error(t("common.error"));
-      else Alert.alert(t("common.error"), t("common.error"));
+      reportRecoverableError(feedback, t("common.error"));
     } finally {
       fieldSavingRef.current = false;
       setFieldSaving(false);
@@ -251,6 +251,7 @@ export default function PreferencesSettingsScreen() {
           />
           <View style={s.menuSeparator} />
           <SettingsLinkRow
+            ref={languageRowRef}
             title={t("settings.language")}
             value={selectedLanguage.label}
             onPress={() => setLanguageOpen(true)}
@@ -310,14 +311,14 @@ export default function PreferencesSettingsScreen() {
         </SettingsGroup>
       </ScrollView>
 
-      <SettingsPickerSheet
+      <SelectMenu
         visible={languageOpen}
-        title={t("settings.language")}
+        anchorRef={languageRowRef}
         options={LANGUAGES.map((lang) => ({ key: lang.code, label: lang.label }))}
         selectedKey={user?.locale ?? selectedLanguage.code}
         onSelect={(code) => void patch({ locale: code }, "language")}
         onClose={() => setLanguageOpen(false)}
-        busy={savingAction === "language"}
+        disabled={savingAction === "language"}
       />
 
       <SettingsFieldSheet

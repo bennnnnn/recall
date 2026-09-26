@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 import type {
   JobSearchExperience,
@@ -9,7 +9,8 @@ import type {
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Chip } from "@/ui/controls/Chip";
+import { Type, Weight } from "@/lib/type";
 
 export const WORK_MODE_VALUES: JobSearchWorkMode[] = ["remote", "hybrid", "onsite"];
 export const EXPERIENCE_VALUES: JobSearchExperience[] = [
@@ -75,22 +76,14 @@ export function SelectChip<T extends string>({
   onPress: (value: T) => void;
   disabled?: boolean;
 }) {
-  const s = useSetupStyles();
   return (
-    <Pressable
-      style={({ pressed }) => [
-        s.chip,
-        selected && s.chipSelected,
-        pressed && !disabled && s.pressed,
-        disabled && s.disabled,
-      ]}
-      onPress={() => onPress(value)}
+    <Chip
+      variant="filter"
+      label={label}
+      selected={selected}
       disabled={disabled}
-      accessibilityRole="button"
-      accessibilityState={{ selected, disabled: !!disabled }}
-    >
-      <Text style={[s.chipText, selected && s.chipTextSelected]}>{label}</Text>
-    </Pressable>
+      onPress={() => onPress(value)}
+    />
   );
 }
 
@@ -161,18 +154,6 @@ function makeStyles(C: Theme) {
     subtitle: { ...Type.body, color: C.textSecondary },
     fieldGroup: { gap: Space.xs },
     label: { ...Type.label, color: C.text },
-    input: {
-      ...Type.body,
-      minHeight: 54,
-      borderRadius: Radius.xl,
-      backgroundColor: C.surface,
-      color: C.text,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-    },
-    inputError: { borderColor: C.danger },
     selectRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -192,22 +173,6 @@ function makeStyles(C: Theme) {
       flexWrap: "wrap",
       gap: Space.xs,
     },
-    chip: {
-      minHeight: 42,
-      paddingHorizontal: Space.md,
-      borderRadius: Radius.full,
-      backgroundColor: C.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    chipSelected: {
-      backgroundColor: C.primaryLight,
-      borderColor: C.primary,
-    },
-    chipText: { ...Type.secondary, fontWeight: "600", color: C.textSecondary },
-    chipTextSelected: { color: C.primary },
     resumeCard: {
       minHeight: 72,
       borderRadius: Radius.xl,
@@ -232,7 +197,7 @@ function makeStyles(C: Theme) {
     resumeTitle: { ...Type.label, color: C.text },
     resumeMeta: { ...Type.caption, color: C.textTertiary },
     removeResume: { alignSelf: "flex-start", paddingVertical: Space.xxs },
-    removeResumeText: { ...Type.secondary, fontWeight: "600", color: C.danger },
+    removeResumeText: { ...Type.secondary, ...Weight.semibold, color: C.danger },
     twoColumnRow: { flexDirection: "row", gap: Space.sm },
     flexField: { flex: 1, gap: Space.xs },
     dateCard: {
@@ -267,31 +232,7 @@ function makeStyles(C: Theme) {
     dateCopy: { flex: 1, gap: 2 },
     dateTitle: { ...Type.label, color: C.text },
     dateMeta: { ...Type.caption, color: C.textTertiary },
-    pickerTitle: {
-      ...Type.navTitle,
-      color: C.text,
-      fontWeight: "700",
-      textAlign: "center",
-      marginBottom: Space.xs,
-    },
-    pickerDone: {
-      minHeight: 50,
-      borderRadius: Radius.full,
-      backgroundColor: C.primary,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: Space.sm,
-    },
-    pickerDoneText: { ...Type.secondary, fontWeight: "700", color: C.onPrimary },
-    primaryButton: {
-      minHeight: 56,
-      borderRadius: Radius.full,
-      backgroundColor: C.primary,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: Space.xs,
-    },
-    primaryButtonText: { ...Type.body, fontWeight: "700", color: C.onPrimary },
+    primaryButton: { marginTop: Space.xs },
     pressed: { opacity: 0.72 },
     disabled: { opacity: 0.45 },
   });

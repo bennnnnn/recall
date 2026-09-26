@@ -15,7 +15,7 @@ jest.mock("@/lib/motion", () => ({
 jest.mock("@/hooks/useResolvedColorScheme", () => ({
   useResolvedColorScheme: () => "light",
 }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, opts?: { done?: number; total?: number; count?: number }) => {

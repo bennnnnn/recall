@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { AppSheet } from "@/components/AppSheet";
-import { Button } from "@/components/Button";
+import { Icon } from "@/ui/icons/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Button } from "@/ui/controls/Button";
 import { useSubscriptionActions } from "@/hooks/useSubscriptionActions";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import {
   getMonthlyProPackage,
   isPurchaseCancelled,
@@ -20,7 +20,8 @@ import { trackProductEvent } from "@/lib/productAnalytics";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   visible: boolean;
@@ -137,21 +138,21 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const priceLabel = pkg?.priceString ?? t("upgrade.price_fallback");
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       minBottomPadding={36}
       contentContainerStyle={s.sheet}
     >
       <View style={s.iconWrap}>
-        <Icon name="sparkles" size={28} color={theme.primary} />
+        <Icon name="sparkles" size={IconSize.lg} color={theme.primary} />
       </View>
       <Text style={s.title}>{t("upgrade.title")}</Text>
       <Text style={s.body}>{t("upgrade.body")}</Text>
       <View style={s.featureList}>
-        <FeatureRow icon="flash-outline" text={t("upgrade.feature_models")} theme={theme} />
-        <FeatureRow icon="infinite-outline" text={t("upgrade.feature_limits")} theme={theme} />
-        <FeatureRow icon="options-outline" text={t("upgrade.feature_pick")} theme={theme} />
+        <FeatureRow icon="zap" text={t("upgrade.feature_models")} theme={theme} />
+        <FeatureRow icon="infinity" text={t("upgrade.feature_limits")} theme={theme} />
+        <FeatureRow icon="sliders" text={t("upgrade.feature_pick")} theme={theme} />
       </View>
       {error ? <Text style={s.error}>{error}</Text> : null}
       {purchasesReady ? (
@@ -196,7 +197,7 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           <Text style={s.devBtnText}>{t("upgrade.dev_enable")}</Text>
         </Pressable>
       ) : null}
-    </AppSheet>
+    </Sheet>
   );
 }
 
@@ -205,13 +206,13 @@ function FeatureRow({
   text,
   theme,
 }: {
-  icon: IoniconName;
+  icon: IconName;
   text: string;
   theme: Theme;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: Space.xs }}>
-      <Icon name={icon} size={18} color={theme.primary} />
+      <Icon name={icon} size={IconSize.sm} color={theme.primary} />
       <Text style={{ flex: 1, ...Type.secondary, color: theme.textSecondary }}>{text}</Text>
     </View>
   );
@@ -268,7 +269,7 @@ const makeStyles = (theme: Theme) =>
     legalLink: {
       ...Type.caption,
       color: theme.primary,
-      fontWeight: "600",
+      ...Weight.semibold,
     },
     legalSeparator: {
       ...Type.caption,

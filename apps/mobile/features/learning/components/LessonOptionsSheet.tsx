@@ -1,14 +1,13 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
-import { SwitchRow } from "@/components/SwitchRow";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { SegmentedControl } from "@/ui/controls/SegmentedControl";
+import { ListRow } from "@/ui/list/ListRow";
 import type { LessonFontSize, LessonPrefs } from "@/features/learning/model/lessonPrefs";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { Radius } from "@/lib/radius";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -23,60 +22,52 @@ export function LessonOptionsSheet({ visible, prefs, onClose, onChange }: Props)
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
-  const panelStyle = makeActionSheetPanelStyle(theme);
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       variant="bottom"
       withHandle
       floating
       minBottomPadding={12}
-      contentContainerStyle={panelStyle}
+      contentContainerStyle={s.panel}
     >
       <Text style={s.title}>{t("lesson.menu")}</Text>
-      <SwitchRow
-        label={t("lesson.effect_sound")}
-        value={prefs.effectSound}
-        onValueChange={(effectSound) => onChange({ effectSound })}
+      <ListRow
+        appearance="plain"
+        title={t("lesson.effect_sound")}
+        switchValue={prefs.effectSound}
+        onSwitchChange={(effectSound) => onChange({ effectSound })}
         style={s.row}
       />
-      <SwitchRow
-        label={t("lesson.read_words")}
-        value={prefs.readWords}
-        onValueChange={(readWords) => onChange({ readWords })}
+      <ListRow
+        appearance="plain"
+        title={t("lesson.read_words")}
+        switchValue={prefs.readWords}
+        onSwitchChange={(readWords) => onChange({ readWords })}
         style={s.row}
       />
       <Text style={s.fontLabel}>{t("lesson.font_size")}</Text>
       <View style={s.fonts}>
-        {FONT_SIZES.map((size) => {
-          const selected = prefs.fontSize === size;
-          return (
-            <Pressable
-              key={size}
-              style={[s.fontChip, selected && s.fontChipOn]}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              accessibilityLabel={t(`lesson.font_${size}`)}
-              onPress={() => onChange({ fontSize: size })}
-            >
-              <Text style={[s.fontChipText, selected && s.fontChipTextOn]}>
-                {t(`lesson.font_${size}`)}
-              </Text>
-            </Pressable>
-          );
-        })}
+        <SegmentedControl
+          segments={FONT_SIZES.map((size) => ({ key: size, label: t(`lesson.font_${size}`) }))}
+          value={prefs.fontSize}
+          onChange={(fontSize) => onChange({ fontSize })}
+          accessibilityLabel={t("lesson.font_size")}
+          testID="lesson-font-size"
+        />
       </View>
-    </AppSheet>
+    </Sheet>
   );
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    panel: { backgroundColor: theme.elevated },
     title: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
       textAlign: "center",
       paddingTop: Space.xs,
@@ -88,36 +79,15 @@ function makeStyles(theme: Theme) {
     },
     fontLabel: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
       paddingHorizontal: 18,
       paddingTop: Space.sm,
       paddingBottom: Space.xs,
     },
     fonts: {
-      flexDirection: "row",
-      gap: Space.xs,
       paddingHorizontal: 18,
       paddingBottom: Space.md,
-    },
-    fontChip: {
-      flex: 1,
-      minHeight: Space.minTouch,
-      borderRadius: Radius.md,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: theme.surfaceAlt,
-    },
-    fontChipOn: {
-      backgroundColor: theme.primaryLight,
-    },
-    fontChipText: {
-      ...Type.label,
-      color: theme.text,
-    },
-    fontChipTextOn: {
-      color: theme.primary,
-      fontWeight: "700",
     },
   });
 }

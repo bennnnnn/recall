@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { Redirect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { StackBackButton } from "@/components/StackBackButton";
-import { StateView } from "@/components/StateView";
+import { StackBackButton } from "@/ui/controls/StackBackButton";
+import { StateView } from "@/ui/feedback/StateView";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -20,6 +20,7 @@ import { notifyDestructive } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function DataControlsScreen() {
   const { token } = useAuth();
@@ -57,16 +58,16 @@ export default function DataControlsScreen() {
 
   const confirmDeleteAccount = () => {
     if (!token || busy) return;
-    Alert.alert(t("delete.title"), t("delete.message"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: () => {
-          void runDelete();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("delete.title"),
+      message: t("delete.message"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void runDelete();
+    });
   };
 
   const runDelete = async () => {
@@ -81,52 +82,52 @@ export default function DataControlsScreen() {
 
   const confirmArchiveAll = () => {
     if (!token || bulkBusy) return;
-    Alert.alert(t("settings.archive_all_chats"), t("settings.archive_all_confirm"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("settings.archive_all_chats"),
-        onPress: () => {
-          void (async () => {
-            if (!token) return;
-            setBulkBusy("archive");
-            try {
-              await api.archiveAllChats(token);
-              invalidateChatListCache();
-            } catch {
-              reportRecoverableError(feedback, t("common.error"));
-            } finally {
-              setBulkBusy(null);
-            }
-          })();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("settings.archive_all_chats"),
+      message: t("settings.archive_all_confirm"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("settings.archive_all_chats"),
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        if (!token) return;
+        setBulkBusy("archive");
+        try {
+          await api.archiveAllChats(token);
+          invalidateChatListCache();
+        } catch {
+          reportRecoverableError(feedback, t("common.error"));
+        } finally {
+          setBulkBusy(null);
+        }
+      })();
+    });
   };
 
   const confirmDeleteAll = () => {
     if (!token || bulkBusy) return;
-    Alert.alert(t("settings.delete_all_chats_title"), t("settings.delete_all_chats_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("settings.delete_all_chats"),
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            if (!token) return;
-            setBulkBusy("delete");
-            try {
-              await api.deleteAllChats(token);
-              notifyDestructive();
-              invalidateChatListCache();
-            } catch {
-              reportRecoverableError(feedback, t("common.error"));
-            } finally {
-              setBulkBusy(null);
-            }
-          })();
-        },
-      },
-    ]);
+    void confirmDialog({
+      title: t("settings.delete_all_chats_title"),
+      message: t("settings.delete_all_chats_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("settings.delete_all_chats"),
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        if (!token) return;
+        setBulkBusy("delete");
+        try {
+          await api.deleteAllChats(token);
+          notifyDestructive();
+          invalidateChatListCache();
+        } catch {
+          reportRecoverableError(feedback, t("common.error"));
+        } finally {
+          setBulkBusy(null);
+        }
+      })();
+    });
   };
 
   if (!token && progress !== "deleting") return <Redirect href="/login" />;

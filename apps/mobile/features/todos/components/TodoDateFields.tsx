@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
-import { Alert, Keyboard, Pressable, Text, View } from "react-native";
+import { useMemo, useRef, useState, type Ref } from "react";
+import { Keyboard, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
-import { repeatMessageKey } from "@/features/todos/components/RepeatPickerSheet";
+import { Icon } from "@/ui/icons/Icon";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
+import { repeatMessageKey } from "@/features/todos/model/repeatLabel";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { defaultDueDate } from "@/features/todos/components/todoHelpers";
 import type { RecurrenceRule, Todo } from "@/lib/api";
@@ -17,8 +17,10 @@ import {
   remindAtDate,
 } from "@/features/todos/model/reminderTiming";
 import { ensureNotificationPermission } from "@/features/todos/model/todoReminders";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { useTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
+import { ListRow } from "@/ui/list/ListRow";
 
 export type SchedulePanel = "date" | "time" | "repeat";
 
@@ -58,6 +60,7 @@ export function TodoDateFields({
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const [remindOpen, setRemindOpen] = useState(false);
   const [savingLead, setSavingLead] = useState(false);
+  const remindRowRef = useRef<View>(null);
   const lead = normalizeReminderLeadMinutes(leadMinutes ?? DEFAULT_REMINDER_LEAD_MINUTES);
   const remindAt = dueDate ? remindAtDate(dueDate, lead) : null;
 
@@ -92,7 +95,7 @@ export function TodoDateFields({
       <>
       <View style={s.reviewList}>
         <ReviewRow
-          icon="calendar-outline"
+          icon="calendar"
           label={t("todos.date_label")}
           value={dateLabel}
           disabled={disabled}
@@ -100,7 +103,7 @@ export function TodoDateFields({
           accessibilityLabel={dueDate ? t("todos.change_due") : t("todos.add_date")}
         />
         <ReviewRow
-          icon="time-outline"
+          icon="clock"
           label={t("todos.time_label")}
           value={timeLabel}
           disabled={disabled}
@@ -109,7 +112,8 @@ export function TodoDateFields({
         />
         {remindAt ? (
           <ReviewRow
-            icon="notifications-outline"
+            ref={remindRowRef}
+            icon="bell"
             label={t("todos.remind_at")}
             value={formatClockTime(remindAt)}
             disabled={disabled || savingLead}
@@ -121,7 +125,7 @@ export function TodoDateFields({
           />
         ) : null}
         <ReviewRow
-          icon="repeat-outline"
+          icon="repeat"
           label={t("todos.repeat_label")}
           value={repeatLabel}
           disabled={disabled}
@@ -130,28 +134,28 @@ export function TodoDateFields({
         />
         {overlap ? (
           <View style={s.overlapNote}>
-            <Icon name="information-circle-outline" size={16} color={C.danger} />
+            <Icon name="info" size={IconSize.xs} color={C.danger} />
             <Text style={s.overlapNoteText}>
               {t("todos.overlap_inline", { title: overlap.content })}
             </Text>
           </View>
         ) : null}
       </View>
-      <SettingsPickerSheet
+      <SelectMenu
         visible={remindOpen}
+        anchorRef={remindRowRef}
         options={REMINDER_LEAD_OPTIONS.map((minutes) => ({
           key: String(minutes),
           label: t("settings.reminder_lead_value", { count: minutes }),
         }))}
         selectedKey={String(lead)}
         disabled={disabled || savingLead}
-        busy={savingLead}
         onSelect={(key) => {
           const minutes = normalizeReminderLeadMinutes(Number(key));
           if (!onChangeLead || minutes === lead) return;
           setSavingLead(true);
           void onChangeLead(minutes)
-            .catch(() => { Alert.alert(t("common.error")); })
+            .catch(() => { void alertDialog({ title: t("common.error") }); })
             .finally(() => setSavingLead(false));
         }}
         onClose={() => setRemindOpen(false)}
@@ -171,7 +175,7 @@ export function TodoDateFields({
           accessibilityRole="button"
           accessibilityLabel={dueDate ? t("todos.change_due") : t("todos.add_date")}
         >
-          <Icon name={dueDate ? "calendar" : "calendar-outline"} size={18} color={C.primary} />
+          <Icon name="calendar" size={IconSize.sm} color={C.primary} />
           <Text style={s.repeatFieldText}>{dateLabel}</Text>
         </Pressable>
         {dueDate ? (
@@ -182,7 +186,7 @@ export function TodoDateFields({
             accessibilityRole="button"
             accessibilityLabel={t("todos.remove_date")}
           >
-            <Icon name="close-circle" size={22} color={C.textTertiary} />
+            <Icon name="close-circle" size={IconSize.md} color={C.textTertiary} />
           </Pressable>
         ) : null}
       </View>
@@ -195,7 +199,7 @@ export function TodoDateFields({
         accessibilityRole="button"
         accessibilityLabel={t("todos.time_label")}
       >
-        <Icon name="time-outline" size={18} color={C.primary} />
+        <Icon name="clock" size={IconSize.sm} color={C.primary} />
         <Text style={s.repeatFieldText}>{timeLabel}</Text>
       </Pressable>
 
@@ -208,12 +212,12 @@ export function TodoDateFields({
         accessibilityLabel={`${t("todos.repeat_label")}, ${repeatLabel}`}
       >
         <Text style={s.repeatFieldText}>{repeatLabel}</Text>
-        <Icon name="chevron-forward" size={18} color={C.textTertiary} />
+        <Icon name="chevron-right" size={IconSize.sm} color={C.textTertiary} />
       </Pressable>
 
       {overlap ? (
         <View style={s.overlapNote}>
-          <Icon name="information-circle-outline" size={16} color={C.danger} />
+          <Icon name="info" size={IconSize.xs} color={C.danger} />
           <Text style={s.overlapNoteText}>
             {t("todos.overlap_inline", { title: overlap.content })}
           </Text>
@@ -231,30 +235,31 @@ function ReviewRow({
   inset = false,
   onPress,
   accessibilityLabel,
+  ref,
 }: {
-  icon?: "calendar-outline" | "time-outline" | "notifications-outline" | "repeat-outline";
+  icon?: "calendar" | "clock" | "bell" | "repeat";
   label: string;
   value: string;
   disabled?: boolean;
   inset?: boolean;
   onPress: () => void;
   accessibilityLabel: string;
+  ref?: Ref<View>;
 }) {
   const C = useTheme();
-  const s = useMemo(() => makeTodosStyles(C), [C]);
   return (
-    <Pressable
-      style={[s.reviewRowMain, inset && s.reviewSubRow]}
-      onPress={onPress}
+    <ListRow
+      ref={ref}
+      appearance="plain"
+      icon={icon}
+      iconColor={C.textSecondary}
+      title={label}
+      detail={value}
+      detailStyle="pill"
+      inset={inset}
       disabled={disabled}
-      accessibilityRole="button"
+      onPress={onPress}
       accessibilityLabel={accessibilityLabel}
-    >
-      {icon ? <Icon name={icon} size={IconSize.sm} color={C.textSecondary} /> : null}
-      <Text style={s.reviewLabel}>{label}</Text>
-      <View style={s.reviewValue}>
-        <Text style={s.reviewValueText} numberOfLines={1}>{value}</Text>
-      </View>
-    </Pressable>
+    />
   );
 }

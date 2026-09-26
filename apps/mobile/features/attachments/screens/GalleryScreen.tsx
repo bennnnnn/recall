@@ -16,9 +16,9 @@ import { GalleryColumnRow } from "@/features/attachments/components/GalleryColum
 import { GalleryLibraryHeader } from "@/features/attachments/components/GalleryLibraryHeader";
 import { GalleryMediaModals } from "@/features/attachments/components/GalleryMediaModals";
 import { GalleryThumbnail } from "@/features/attachments/components/GalleryThumbnail";
-import { Icon } from "@/components/Icon";
-import { SkeletonList } from "@/components/SkeletonLoader";
-import { StateView } from "@/components/StateView";
+import { Icon } from "@/ui/icons/Icon";
+import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { StateView } from "@/ui/feedback/StateView";
 import { useGalleryData } from "@/features/attachments/hooks/useGalleryData";
 import { useGalleryLibrary } from "@/features/attachments/hooks/useGalleryLibrary";
 import { type AttachmentListItem } from "@/lib/api";
@@ -32,8 +32,9 @@ import {
 } from "@/features/attachments/model/gallery";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
+import { IconSize } from "@/ui/icons/sizes";
 
 export default function GalleryScreen() {
   const { t } = useTranslation();
@@ -79,8 +80,8 @@ export default function GalleryScreen() {
             item={item}
             fileName={fileName}
             onPress={onPress}
-            onLongPress={() => {
-              if (!pickMode) library.openActions(item);
+            onLongPress={(point) => {
+              if (!pickMode) library.openActions(item, point);
             }}
             onMissing={removeItem}
           />
@@ -90,8 +91,10 @@ export default function GalleryScreen() {
         return (
           <Pressable
             onPress={onPress}
-            onLongPress={() => {
-              if (!pickMode) library.openActions(item);
+            onLongPress={(event) => {
+              if (!pickMode) {
+                library.openActions(item, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+              }
             }}
             accessibilityRole="button"
             accessibilityLabel={
@@ -110,8 +113,10 @@ export default function GalleryScreen() {
       return (
         <Pressable
           onPress={onPress}
-          onLongPress={() => {
-            if (!pickMode) library.openActions(item);
+          onLongPress={(event) => {
+            if (!pickMode) {
+              library.openActions(item, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
+            }
           }}
           accessibilityRole="button"
           accessibilityLabel={
@@ -119,7 +124,7 @@ export default function GalleryScreen() {
           }
         >
           <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
-            <Icon name="document-outline" size={32} color={C.textTertiary} />
+            <Icon name="file" size={IconSize.xl} color={C.textTertiary} />
             <Text style={s.fileLabel} numberOfLines={1}>
               {fileName}
             </Text>
@@ -186,7 +191,7 @@ export default function GalleryScreen() {
           ListEmptyComponent={
             <StateView
               variant="empty"
-              icon="library-outline"
+              icon="images"
               title={t(galleryEmptyKey(filter, searchQuery))}
               message={
                 searchQuery.trim()
@@ -227,7 +232,7 @@ function makeStyles(C: Theme) {
     },
     fileLabel: {
       ...Type.overline,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: C.textTertiary,
     },
   });

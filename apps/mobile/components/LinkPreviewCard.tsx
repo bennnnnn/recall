@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
 import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { url: string };
 
@@ -45,7 +46,7 @@ export function LinkPreviewCard({ url }: Props) {
         accessibilityRole="link"
         accessibilityLabel={url}
       >
-        <Icon name="link-outline" size={16} color={theme.primary} />
+        <Icon name="link" size={IconSize.xs} color={theme.primary} />
         <Text style={s.url} numberOfLines={2}>
           {url}
         </Text>
@@ -96,7 +97,7 @@ function makeStyles(theme: Theme) {
     },
     loading: { opacity: 0.7 },
     loadingText: { ...Type.secondary, color: theme.textSecondary },
-    title: { ...Type.callout, fontWeight: "700", color: theme.text },
+    title: { ...Type.callout, ...Weight.bold, color: theme.text },
     desc: { ...Type.secondary, lineHeight: 20, color: theme.textSecondary },
     domain: { ...Type.meta, color: theme.primary, marginTop: 2 },
     url: { flex: 1, ...Type.secondary, color: theme.primary },

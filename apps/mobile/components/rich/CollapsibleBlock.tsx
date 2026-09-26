@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { title: string; body: string };
 
@@ -25,8 +26,8 @@ export function CollapsibleBlock({ title, body }: Props) {
         accessibilityLabel={title}
       >
         <Icon
-          name={open ? "chevron-down" : "chevron-forward"}
-          size={16}
+          name={open ? "chevron-down" : "chevron-right"}
+          size={IconSize.xs}
           color={theme.textSecondary}
         />
         <Text style={s.title}>{title}</Text>

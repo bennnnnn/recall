@@ -1,8 +1,8 @@
-import { IconSize } from "@/lib/icons/sizes";
+import { IconSize } from "@/ui/icons/sizes";
 import { Layer } from "@/lib/layer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 describe("type and space tokens", () => {
   it("owns the screen type roles", () => {
@@ -18,6 +18,13 @@ describe("type and space tokens", () => {
     expect(Type.body.fontFamily).toBe("SourceSans3");
     expect(Type.label.fontFamily).toBe("SourceSans3-Semibold");
     expect(Type.display.fontFamily).toBe("SourceSans3-Bold");
+  });
+
+  it("pairs every weight with its own Source Sans file", () => {
+    expect(Weight.regular).toEqual({ fontFamily: "SourceSans3", fontWeight: "400" });
+    expect(Weight.medium).toEqual({ fontFamily: "SourceSans3-Medium", fontWeight: "500" });
+    expect(Weight.semibold).toEqual({ fontFamily: "SourceSans3-Semibold", fontWeight: "600" });
+    expect(Weight.bold).toEqual({ fontFamily: "SourceSans3-Bold", fontWeight: "700" });
   });
 
   it("lets multiline roles use scaled platform line boxes", () => {
@@ -53,11 +60,18 @@ describe("type and space tokens", () => {
 
   it("owns chrome radius, icon, and overlay layers", () => {
     expect(Radius.md).toBe(12);
-    expect(Radius.sheet).toBe(20);
+    expect(Radius.card).toBe(20);
+    expect(Radius.menu).toBe(24);
+    expect(Radius.sheet).toBe(28);
+    expect(Radius.dialog).toBe(28);
     expect(Radius.composer).toBe(24);
+    expect(IconSize.xxs).toBe(14);
+    expect(IconSize.xs).toBe(16);
     expect(IconSize.sm).toBe(20);
-    expect(IconSize.md).toBe(22);
-    expect(IconSize.lg).toBe(24);
+    expect(IconSize.md).toBe(24);
+    expect(IconSize.lg).toBe(28);
+    expect(IconSize.xl).toBe(40);
+    expect(IconSize.hero).toBe(56);
     expect(Layer.toast).toBe(9999);
     expect(Layer.drawer).toBeGreaterThan(Layer.composer);
     expect(Layer.composer).toBeGreaterThan(Layer.header);

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { LearningPathNode } from "@/features/learning/components/LearningPathNode";
 import {
   branchAccess,
@@ -16,7 +16,8 @@ import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type ChapterRow = {
   kind: "chapter";
@@ -106,7 +107,7 @@ const ChapterCard = memo(function ChapterCard({
         ) : null}
       </View>
 
-      {locked ? null : <Icon name="chevron-forward" size={18} color={theme.textTertiary} />}
+      {locked ? null : <Icon name="chevron-right" size={IconSize.sm} color={theme.textTertiary} />}
     </Pressable>
   );
 });
@@ -228,8 +229,8 @@ function makeStyles(theme: Theme) {
       ...Type.h3,
       color: theme.text,
     },
-    titleLocked: { color: theme.textTertiary, fontWeight: "600" },
-    meta: { ...Type.caption, color: theme.textTertiary, fontWeight: "500" },
+    titleLocked: { color: theme.textTertiary, ...Weight.semibold },
+    meta: { ...Type.caption, color: theme.textTertiary, ...Weight.medium },
     metaActive: { color: theme.textSecondary },
     progressTrack: {
       height: 4,

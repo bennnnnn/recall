@@ -4,7 +4,7 @@ import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { StepPicker } from "@/features/learning/components/StepPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -30,8 +30,9 @@ import {
 } from "@/features/learning/model/projectCreateFlow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
+import { IconSize } from "@/ui/icons/sizes";
 
 export default function CreateLearningScreen() {
   const owner = useAccountViewOwner();
@@ -154,7 +155,7 @@ function CreateLearningView({ owner }: { owner: ReturnType<typeof useAccountView
                       <Text style={s.subjectHint}>{t("projects.language_continue")}</Text>
                     ) : null}
                   </View>
-                  <Icon name="chevron-forward" size={18} color={C.textTertiary} />
+                  <Icon name="chevron-right" size={IconSize.sm} color={C.textTertiary} />
                 </Pressable>
               );
             })}
@@ -211,7 +212,7 @@ function makeStyles(C: Theme) {
     createLabel: { ...Type.title, color: C.text },
     stepHint: {
       ...Type.label,
-      fontWeight: "400",
+      ...Weight.regular,
       color: C.textSecondary,
       marginBottom: Space.xxs,
     },
@@ -228,7 +229,7 @@ function makeStyles(C: Theme) {
       borderColor: C.border,
     },
     subjectMain: { flex: 1, gap: 2 },
-    subjectText: { ...Type.body, fontWeight: "600", color: C.text },
-    subjectHint: { ...Type.caption, fontWeight: "400", color: C.textSecondary },
+    subjectText: { ...Type.body, ...Weight.semibold, color: C.text },
+    subjectHint: { ...Type.caption, ...Weight.regular, color: C.textSecondary },
   });
 }

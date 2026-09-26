@@ -11,7 +11,7 @@ jest.mock("react-i18next", () => ({
 jest.mock("@/hooks/useResolvedColorScheme", () => ({
   useResolvedColorScheme: () => "light",
 }));
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/features/job-search/components/LocationFields", () => {
   const React = jest.requireActual<typeof import("react")>("react");
   const { Pressable, Text } = jest.requireActual("react-native");

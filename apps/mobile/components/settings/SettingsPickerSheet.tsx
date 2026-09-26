@@ -5,12 +5,13 @@
 import { useMemo, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Option = { key: string; label: string; disabled?: boolean; note?: string };
 
@@ -74,7 +75,7 @@ function PickerBody({
           >
             <Text style={[s.optionText, optionDisabled && s.optionTextDisabled]}>{option.label}</Text>
             {active ? (
-              <Icon name="checkmark" size={22} color={theme.primary} />
+              <Icon name="check" size={IconSize.md} color={theme.primary} />
             ) : option.note ? (
               <Text style={s.optionNote}>{option.note}</Text>
             ) : null}
@@ -98,7 +99,7 @@ export function SettingsPickerSheet({
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       onDismiss={onDismiss}
@@ -108,7 +109,7 @@ export function SettingsPickerSheet({
       contentContainerStyle={s.sheet}
     >
       <PickerBody {...rest} onClose={onClose} />
-    </AppSheet>
+    </Sheet>
   );
 }
 
@@ -116,7 +117,7 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     sheet: {
       backgroundColor: t.bg,
-      borderRadius: Radius.sheet,
+      borderRadius: Radius.dialog,
       width: "86%",
       maxWidth: 340,
       padding: 0,
@@ -147,7 +148,7 @@ function makeStyles(t: Theme) {
     optionNote: {
       ...Type.caption,
       color: t.primary,
-      fontWeight: "600",
+      ...Weight.semibold,
     },
   });
 }

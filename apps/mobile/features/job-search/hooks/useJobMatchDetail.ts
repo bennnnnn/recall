@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Linking } from "react-native";
+import { Linking } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type JobMatch, type JobMatchStatus } from "@/lib/api";
 import { tap } from "@/lib/haptics";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   cacheJobMatch,
   cacheJobMatches,
   getCachedJobMatch,
 } from "@/features/job-search/model/matchCache";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 export function useJobMatchDetail(id: string | undefined, isCurrent: () => boolean) {
   const { token, user } = useAuth();
   const accountId = user?.id;
   const { t } = useTranslation();
+  const feedback = useActionFeedbackOptional();
   const router = useRouter();
   const tokenRef = useRef(token);
   tokenRef.current = token;
@@ -117,11 +121,11 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
         setCurrentMatch(previous);
         if (accountId) cacheJobMatch(accountId, previous);
         if (notes !== undefined) setNotesDraftState(previous.notes ?? "");
-        Alert.alert(t("my_job.refresh_error"));
+        reportRecoverableError(feedback, t("my_job.error_match"));
         return false;
       }
     },
-    [accountId, isActive, router, setCurrentMatch, t],
+    [accountId, feedback, isActive, router, setCurrentMatch, t],
   );
 
   const updateSaved = useCallback(
@@ -145,11 +149,11 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
         if (!isActive() || request !== mutationRequestRef.current) return false;
         setCurrentMatch(previous);
         if (accountId) cacheJobMatch(accountId, previous);
-        Alert.alert(t("my_job.refresh_error"));
+        reportRecoverableError(feedback, t("my_job.error_match"));
         return false;
       }
     },
-    [accountId, isActive, setCurrentMatch, t],
+    [accountId, feedback, isActive, setCurrentMatch, t],
   );
 
   const saveNotes = useCallback(() => {
@@ -171,7 +175,10 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
       await Linking.openURL(current.url);
     } catch {
       if (isActive()) {
-        Alert.alert(t("my_job.open_failed_title"), t("my_job.open_failed_body"));
+        void alertDialog({
+          title: t("my_job.open_failed_title"),
+          message: t("my_job.open_failed_body"),
+        });
       }
     }
   }, [isActive, t]);
@@ -194,7 +201,7 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
     } catch {
       if (isActive() && request === letterRequestRef.current) {
         setLetterOpen(false);
-        Alert.alert(t("my_job.cover_letter_error"));
+        reportRecoverableError(feedback, t("my_job.cover_letter_error"));
       }
     } finally {
       if (request === letterRequestRef.current) {
@@ -202,7 +209,7 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
         if (isActive()) setLetterLoading(false);
       }
     }
-  }, [isActive, t]);
+  }, [feedback, isActive, t]);
 
   return {
     match,

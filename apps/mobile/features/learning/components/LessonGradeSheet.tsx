@@ -10,14 +10,14 @@ import Animated, {
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Button } from "@/components/Button";
-import { Icon } from "@/components/Icon";
+import { Button } from "@/ui/controls/Button";
+import { Icon } from "@/ui/icons/Icon";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 
 const SLIDE = 64;
 
@@ -88,8 +88,8 @@ export function LessonGradeSheet({
     >
       <View style={s.copyRow}>
         <Icon
-          name={correct ? "checkmark-circle" : "close-circle"}
-          size={IconSize.lg}
+          name={correct ? "check-circle-filled" : "close-circle-filled"}
+          size={IconSize.md}
           color={correct ? theme.success : theme.danger}
         />
         <View style={s.copy}>
@@ -127,7 +127,7 @@ function makeStyles(theme: Theme, scale: number) {
       gap: Space.sm,
     },
     copy: { flex: 1, gap: Space.xxs },
-    heading: { ...Type.body, fontWeight: "700", fontSize: n(16) },
+    heading: { ...Type.body, ...Weight.bold, fontSize: n(16) },
     body: { ...Type.body, color: theme.text, fontSize: n(16), lineHeight: n(26) },
     error: {
       ...Type.secondary,

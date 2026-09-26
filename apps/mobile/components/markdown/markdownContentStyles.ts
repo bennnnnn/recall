@@ -2,7 +2,7 @@ import { StyleSheet, type TextStyle } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import type { Theme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -89,8 +89,8 @@ export function makeMdMath(t: Theme) {
 
 export function makeMdTable(t: Theme) {
   return StyleSheet.create({
-    cellText: { ...Type.callout, fontWeight: "400", color: t.text, flexShrink: 1 },
-    headerText: { fontWeight: "600", color: t.text },
+    cellText: { ...Type.callout, ...Weight.regular, color: t.text, flexShrink: 1 },
+    headerText: { ...Weight.semibold, color: t.text },
     cellCode: {
       ...inlineCodeTextStyle(t),
       ...Type.compact,
@@ -185,7 +185,7 @@ export function makeMdStyles(t: Theme) {
       flexWrap: "wrap",
       alignItems: "flex-start",
     },
-    strong: { fontWeight: "700", color: t.text },
+    strong: { ...Weight.bold, color: t.text },
     em: { fontStyle: "italic" },
     blockquote: { marginVertical: 0, padding: 0, borderWidth: 0 },
     hr: { backgroundColor: t.border, height: 1, marginVertical: Space.sm },

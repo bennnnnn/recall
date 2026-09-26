@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { StateView } from "@/components/StateView";
+import { StateView } from "@/ui/feedback/StateView";
 import {
   CalendarNudgeCard,
   type CalendarNudge,
@@ -35,7 +35,7 @@ export function TodosListHeader({
       ) : showEmpty ? (
         <StateView
           variant="empty"
-          icon="checkmark-circle-outline"
+          icon="check-circle"
           title={t("todos.empty_title")}
         />
       ) : null}

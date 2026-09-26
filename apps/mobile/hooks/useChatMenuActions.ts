@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -9,13 +8,12 @@ import { clearCachedChatMessages } from "@/lib/chat/messageCache";
 import { getCachedChat } from "@/lib/cache/chatListCache";
 import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
 import { abandonActiveChatIfDeleted } from "@/lib/drawer";
-import { type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
 import { beginChatMutation } from "@/lib/chat/mutationLock";
 import { sanitizeManualChatTitle } from "@/lib/chat/title";
-import { isShareCancelled } from "@/lib/exportPdf";
 import { notifyDestructive } from "@/lib/haptics";
-import { shareConversation } from "@/lib/share";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 
 type Params = {
   token: string | null;
@@ -46,8 +44,10 @@ export function useChatMenuActions({
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameText, setRenameText] = useState("");
   const [renameTarget, setRenameTarget] = useState<Chat | null>(null);
-  const sharing = useRef(false);
-  const [actionBanner, setActionBanner] = useState<{ message: string; icon?: IoniconName } | null>(null);
+  const [shareChat, setShareChat] = useState<Chat | null>(null);
+  const shareRef = useRef(shareChat);
+  shareRef.current = shareChat;
+  const [actionBanner, setActionBanner] = useState<{ message: string; icon?: IconName } | null>(null);
   const current = useCallback(() => mounted.current && session === getSessionGeneration(), [session]);
   const viewVersion = view.current.version;
   const currentView = useCallback(() => current() && view.current.isDrawerOpen && view.current.version === viewVersion, [current, viewVersion]);
@@ -60,9 +60,10 @@ export function useChatMenuActions({
     setRenameVisible(false);
     setRenameTarget(null);
     setActionBanner(null);
+    setShareChat(null);
   }, [session, isDrawerOpen]);
 
-  const showActionBanner = useCallback((message: string, icon?: IoniconName) => {
+  const showActionBanner = useCallback((message: string, icon?: IconName) => {
     if (current()) setActionBanner({ message, icon });
   }, [current]);
   const dismissActionBanner = useCallback(() => setActionBanner(null), []);
@@ -72,24 +73,21 @@ export function useChatMenuActions({
   }, [currentView]);
   const closeRename = useCallback(() => { setRenameVisible(false); setRenameTarget(null); }, []);
 
-  const handleShareChat = useCallback(async () => {
-    if (!token || !menuChat || !currentView() || sharing.current) return;
+  const openShareChat = useCallback(() => {
+    if (!menuChat || !currentView()) return;
     const chat = getCachedChat(menuChat.id) ?? menuChat;
-    const selectedMenu = menuRef.current;
-    const shareCurrent = () => currentView() && menuRef.current === selectedMenu;
-    sharing.current = true;
-    try {
-      const msgs = await api.listAllMessages(token, chat.id);
-      if (!shareCurrent()) return;
-      // Keep the menu mounted while presenting the iOS activity controller.
-      await shareConversation(chat.title, msgs);
-    } catch (error) {
-      if (shareCurrent() && !isShareCancelled(error)) reportRecoverableError(feedback, t("chat.share_failed"));
-    } finally {
-      sharing.current = false;
-      if (shareCurrent()) closeMenu();
-    }
-  }, [token, menuChat, currentView, closeMenu, feedback, t]);
+    closeMenu();
+    setShareChat(chat);
+  }, [menuChat, currentView, closeMenu]);
+  const closeShare = useCallback(() => setShareChat(null), []);
+  /** Private history reaches the share sheet only while the drawer and account are unchanged. */
+  const loadShareMessages = useCallback(async () => {
+    const chat = shareRef.current;
+    if (!token || !chat || !currentView()) throw new Error("share_closed");
+    const msgs = await api.listAllMessages(token, chat.id);
+    if (!currentView() || shareRef.current !== chat) throw new Error("share_closed");
+    return msgs;
+  }, [token, currentView]);
 
   const openRenameFromMenu = useCallback(() => {
     if (!menuChat || !currentView()) return;
@@ -113,7 +111,7 @@ export function useChatMenuActions({
       const saved = await api.renameChat(token, chat.id, title);
       if (!current()) return;
       patchChatInGroups(chat.id, { title: saved.title });
-      showActionBanner(t("chat.renamed_toast"), "pencil-outline");
+      showActionBanner(t("chat.renamed_toast"), "pencil");
     } catch {
       if (!current()) return;
       patchChatInGroups(chat.id, { title: chat.title });
@@ -134,7 +132,7 @@ export function useChatMenuActions({
       const saved = await api.setPin(token, chat.id, next);
       if (!current()) return;
       patchChatInGroups(chat.id, { pinned: saved.pinned, archived: saved.archived });
-      showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-outline");
+      showActionBanner(saved.pinned ? t("chat.pinned_toast") : t("chat.unpinned_toast"), saved.pinned ? "pin" : "pin-off");
     } catch {
       if (!current()) return;
       moveChatPinState(chat.id, chat.pinned);
@@ -154,7 +152,7 @@ export function useChatMenuActions({
       const saved = await api.setArchive(token, chat.id, next);
       if (!current()) return;
       patchChatInGroups(chat.id, { archived: saved.archived, pinned: saved.pinned });
-      showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive-outline" : "arrow-undo-outline");
+      showActionBanner(saved.archived ? t("chat.archived_toast") : t("chat.unarchived_toast"), saved.archived ? "archive" : "unarchive");
     } catch {
       if (!current()) return;
       patchChatInGroups(chat.id, { archived: chat.archived ?? false, pinned: chat.pinned });
@@ -163,30 +161,34 @@ export function useChatMenuActions({
   }, [token, menuChat, currentView, current, session, closeMenu, moveChatArchiveState, patchChatInGroups, showActionBanner, feedback, t]);
 
   const requestDeleteChat = useCallback((chat: Chat) => {
-    Alert.alert(t("chat.delete_confirm_title"), t("chat.delete_confirm_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: t("common.delete"), style: "destructive", onPress: async () => {
-        if (!token || !currentView()) return;
-        const release = beginChatMutation(session, [chat.id]);
-        if (!release) return;
-        const snapshot = getCachedChat(chat.id) ?? chat;
+    void confirmDialog({
+      title: t("chat.delete_confirm_title"),
+      message: t("chat.delete_confirm_body"),
+      cancelLabel: t("common.cancel"),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    }).then(async (ok) => {
+      if (!ok) return;
+      if (!token || !currentView()) return;
+      const release = beginChatMutation(session, [chat.id]);
+      if (!release) return;
+      const snapshot = getCachedChat(chat.id) ?? chat;
+      removeChatFromGroupsById(chat.id);
+      try {
+        await api.deleteChat(token, chat.id);
+        if (!current()) return;
+        notifyDestructive();
         removeChatFromGroupsById(chat.id);
-        try {
-          await api.deleteChat(token, chat.id);
-          if (!current()) return;
-          notifyDestructive();
-          removeChatFromGroupsById(chat.id);
-          void clearCachedChatMessages(chat.id);
-          invalidateGalleryCache();
-          abandonActiveChatIfDeleted([chat.id]);
-          showActionBanner(t("chat.deleted_toast"), "trash-outline");
-        } catch {
-          if (!current()) return;
-          insertChatInGroups(snapshot);
-          reportRecoverableError(feedback, t("chat.delete_failed"));
-        } finally { release(); }
-      } },
-    ]);
+        void clearCachedChatMessages(chat.id);
+        invalidateGalleryCache();
+        abandonActiveChatIfDeleted([chat.id]);
+        showActionBanner(t("chat.deleted_toast"), "trash");
+      } catch {
+        if (!current()) return;
+        insertChatInGroups(snapshot);
+        reportRecoverableError(feedback, t("chat.delete_failed"));
+      } finally { release(); }
+    });
   }, [token, currentView, current, session, removeChatFromGroupsById, insertChatInGroups, showActionBanner, feedback, t]);
   const confirmDeleteChat = useCallback(() => {
     if (!menuChat || !currentView()) return;
@@ -199,7 +201,8 @@ export function useChatMenuActions({
     menuChat: currentView() ? menuChat : null,
     renameVisible: currentView() && renameVisible,
     renameText, setRenameText, actionBanner, dismissActionBanner, showActionBanner,
-    closeMenu, showRowMenu, handleShareChat, openRenameFromMenu, confirmRename,
+    closeMenu, showRowMenu, openRenameFromMenu, confirmRename,
+    shareChat: currentView() ? shareChat : null, openShareChat, closeShare, loadShareMessages,
     togglePinChat, toggleArchiveChat, confirmDeleteChat, closeRename,
   };
 }

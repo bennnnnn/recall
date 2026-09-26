@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,14 +9,14 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IconButton } from "@/components/IconButton";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { fetchAttachmentBytes } from "@/features/attachments/model/fetchAttachmentBytes";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { Type, Weight } from "@/lib/type";
+import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
 
 const MAX_PREVIEW_CHARS = 200_000;
 
@@ -79,26 +78,14 @@ export function AttachmentTextViewer({
   }, [visible, remoteUri, token]);
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <FullScreenModal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
-          <IconButton
-            onPress={onClose}
-            accessibilityLabel={t("preview.close")}
-            name="close"
-            size={IconSize.lg}
-            color={theme.text}
-          />
+          <HeaderButton icon="close" onPress={onClose} accessibilityLabel={t("preview.close")} />
           <Text style={s.title} numberOfLines={1}>
             {fileName}
           </Text>
-          <IconButton
-            onPress={onShare}
-            accessibilityLabel={t("preview.share")}
-            name="share-outline"
-            size={IconSize.md}
-            color={theme.primary}
-          />
+          <HeaderButton icon="share" onPress={onShare} accessibilityLabel={t("preview.share")} />
         </View>
         <View style={s.body}>
           {loading ? (
@@ -117,7 +104,7 @@ export function AttachmentTextViewer({
           )}
         </View>
       </View>
-    </Modal>
+    </FullScreenModal>
   );
 }
 
@@ -133,7 +120,7 @@ function makeStyles(t: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    title: { flex: 1, ...Type.body, fontWeight: "600", color: t.text },
+    title: { flex: 1, ...Type.body, ...Weight.semibold, color: t.text },
     body: { flex: 1 },
     scroll: { padding: Space.md },
     fileText: { ...Type.body, color: t.text },

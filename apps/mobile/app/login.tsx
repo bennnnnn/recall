@@ -13,8 +13,9 @@ import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { AuthScrollLayout } from "@/components/AuthScrollLayout";
-import { Button } from "@/components/Button";
-import { Icon } from "@/components/Icon";
+import { Button } from "@/ui/controls/Button";
+import { BrandMark } from "@/ui/icons/brand";
+import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoginActions } from "@/hooks/useLoginActions";
 import { shouldShowAppleSignInButton } from "@/lib/apple-auth";
@@ -25,8 +26,8 @@ import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Space } from "@/lib/space";
 import { shadowGlow } from "@/lib/shadow";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 
 /** Frosted-glass tint over the hero gradient — deliberately theme-invariant
@@ -36,8 +37,8 @@ const GLASS_WHITE = "#FFFFFF";
 const APP_ICON = require("@/assets/images/icon.png");
 
 const HIGHLIGHTS = [
-  { icon: "school-outline" as const, labelKey: "login.highlight_learn" },
-  { icon: "calendar-outline" as const, labelKey: "login.highlight_organize" },
+  { icon: "graduation-cap" as const, labelKey: "login.highlight_learn" },
+  { icon: "calendar" as const, labelKey: "login.highlight_organize" },
 ];
 
 export default function LoginScreen() {
@@ -83,7 +84,7 @@ export default function LoginScreen() {
             {HIGHLIGHTS.map((item) => (
               <View key={item.labelKey} style={s.highlight}>
                 <View style={s.highlightIcon}>
-                  <Icon name={item.icon} size={16} color={theme.primary} />
+                  <Icon name={item.icon} size={IconSize.xs} color={theme.primary} />
                 </View>
                 <Text style={s.highlightText}>{t(item.labelKey)}</Text>
               </View>
@@ -95,7 +96,7 @@ export default function LoginScreen() {
           {expoGoAndroid && showDevLogin ? (
             <>
               <View style={s.devBanner}>
-                <Icon name="information-circle-outline" size={18} color={theme.primary} />
+                <Icon name="info" size={IconSize.sm} color={theme.primary} />
                 <Text style={s.devBannerText}>{t("login.dev_expo_hint")}</Text>
               </View>
               <Button
@@ -111,7 +112,7 @@ export default function LoginScreen() {
             <>
               {expoGoIos ? (
                 <View style={s.devBanner}>
-                  <Icon name="information-circle-outline" size={18} color={theme.primary} />
+                  <Icon name="info" size={IconSize.sm} color={theme.primary} />
                   <Text style={s.devBannerText}>{t("login.dev_expo_ios_hint")}</Text>
                 </View>
               ) : null}
@@ -132,7 +133,7 @@ export default function LoginScreen() {
                     <ActivityIndicator color={theme.brand.appleInk} />
                   ) : (
                     <>
-                      <Icon name="logo-apple" size={IconSize.sm} color={theme.brand.appleInk} />
+                      <BrandMark name="apple" size={IconSize.sm} color={theme.brand.appleInk} />
                       <Text style={s.appleText}>{t("login.apple")}</Text>
                     </>
                   )}
@@ -155,14 +156,14 @@ export default function LoginScreen() {
                     <ActivityIndicator color={theme.textSecondary} />
                   ) : (
                     <>
-                      <Icon name="logo-google" size={IconSize.sm} color={theme.brand.google} />
+                      <BrandMark name="google" size={IconSize.sm} />
                       <Text style={s.googleText}>{t("login.google")}</Text>
                     </>
                   )}
                 </Pressable>
               ) : showDevLogin && !showAppleLogin ? (
                 <View style={s.devBanner}>
-                  <Icon name="information-circle-outline" size={18} color={theme.primary} />
+                  <Icon name="info" size={IconSize.sm} color={theme.primary} />
                   <Text style={s.devBannerText}>{t("login.error_not_configured")}</Text>
                 </View>
               ) : null}
@@ -336,7 +337,7 @@ function makeStyles(theme: Theme) {
     devBannerText: {
       flex: 1,
       ...Type.caption,
-      fontWeight: "400",
+      ...Weight.regular,
       lineHeight: 19,
       color: theme.textSecondary,
     },
@@ -354,7 +355,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: Space.md,
       backgroundColor: theme.brand.apple,
     },
-    appleText: { ...Type.body, fontWeight: "600", color: theme.brand.appleInk },
+    appleText: { ...Type.body, ...Weight.semibold, color: theme.brand.appleInk },
     googleBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -369,7 +370,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: Space.md,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.08 : 0.55),
     },
-    googleText: { ...Type.body, fontWeight: "600", color: theme.text },
+    googleText: { ...Type.body, ...Weight.semibold, color: theme.text },
     orText: {
       ...Type.caption,
       color: theme.textTertiary,
@@ -387,7 +388,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: 14,
       backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.06 : 0.45),
     },
-    devSecondaryText: { ...Type.secondary, fontWeight: "600", color: theme.primary },
+    devSecondaryText: { ...Type.secondary, ...Weight.semibold, color: theme.primary },
     dim: { opacity: 0.55 },
     pressed: { opacity: 0.85 },
     links: {
@@ -397,8 +398,8 @@ function makeStyles(theme: Theme) {
       gap: Space.xs,
       marginTop: 2,
     },
-    link: { ...Type.caption, fontWeight: "400", color: theme.primary },
+    link: { ...Type.caption, ...Weight.regular, color: theme.primary },
     linkPressable: { textDecorationLine: "underline" },
-    dot: { ...Type.caption, fontWeight: "400", color: theme.textTertiary },
+    dot: { ...Type.caption, ...Weight.regular, color: theme.textTertiary },
   });
 }

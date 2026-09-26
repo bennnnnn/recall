@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
 
-import { CountBadge } from "@/components/CountBadge";
+import { CountBadge } from "@/ui/feedback/CountBadge";
 import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/lib/chat/scrollLogic";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   visible: boolean;

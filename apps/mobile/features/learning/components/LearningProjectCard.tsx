@@ -2,20 +2,22 @@ import { memo, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import type { Learning } from "@/lib/api";
 import { resolveDailyGoal } from "@/features/learning/model/dailyGoals";
-import { IconSize, type IoniconName } from "@/lib/icons";
+import type { IconName } from "@/ui/icons/names";
+import { IconSize } from "@/ui/icons/sizes";
 import { isLanguageProject } from "@/features/learning/model/languageLevels";
 import { learningProjectTitle } from "@/features/learning/model/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { Chip } from "@/ui/controls/Chip";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   project: Learning;
-  icon: IoniconName;
+  icon: IconName;
   onOpen: (projectId: string) => void;
   dailyLabel: string;
 };
@@ -68,7 +70,7 @@ export const LearningProjectCard = memo(function LearningProjectCard({
                 </Text>
               ) : null}
             </View>
-            <Icon name="chevron-forward" size={18} color={theme.textTertiary} />
+            <Icon name="chevron-right" size={IconSize.sm} color={theme.textTertiary} />
           </View>
 
           {showLearningUi && stats ? (
@@ -102,11 +104,7 @@ export const LearningProjectCard = memo(function LearningProjectCard({
           {showLearningUi ? (
             <View style={s.chipRow}>
               {chips.map((chip) => (
-                <View key={chip} style={s.chip}>
-                  <Text style={s.chipText} numberOfLines={1}>
-                    {chip}
-                  </Text>
-                </View>
+                <Chip key={chip} variant="tag" label={chip} />
               ))}
               <Text style={s.continueText}>{t("lesson.open_map")}</Text>
             </View>
@@ -121,7 +119,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     continueText: {
       ...Type.compact,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.primary,
       paddingVertical: 5,
       marginLeft: "auto",
@@ -161,12 +159,12 @@ function makeStyles(theme: Theme) {
     },
     headerTitle: {
       ...Type.body,
-      fontWeight: "700",
+      ...Weight.bold,
       color: theme.text,
     },
     headerSubtitle: {
       ...Type.compact,
-      fontWeight: "500",
+      ...Weight.medium,
       // Same primary ink as Lists / Reminders body text — not muted gray.
       color: theme.text,
       lineHeight: 18,
@@ -183,7 +181,7 @@ function makeStyles(theme: Theme) {
     },
     progressLabel: {
       ...Type.compact,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.text,
     },
     progressLabelComplete: {
@@ -191,7 +189,7 @@ function makeStyles(theme: Theme) {
     },
     streakText: {
       ...Type.caption,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: theme.textSecondary,
     },
     track: {
@@ -213,20 +211,6 @@ function makeStyles(theme: Theme) {
       flexWrap: "wrap",
       gap: Space.xs,
       paddingHorizontal: Space.md,
-    },
-    chip: {
-      backgroundColor: theme.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      borderRadius: Radius.full,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      maxWidth: "100%",
-    },
-    chipText: {
-      ...Type.caption,
-      fontWeight: "600",
-      color: theme.text,
     },
   });
 }

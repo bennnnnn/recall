@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { PlaceItem, resolvePlaceLinkUrl } from "@/lib/placesList";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
-import { IconSize } from "@/lib/icons";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -85,7 +85,7 @@ function PlaceDetailsSheet({
   };
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       minBottomPadding={16}
@@ -110,12 +110,12 @@ function PlaceDetailsSheet({
             ) : null}
           </View>
           <Pressable style={s.openBtn} onPress={openInMaps}>
-            <Icon name="map-outline" size={IconSize.sm} color={theme.onPrimary} />
+            <Icon name="map" size={IconSize.sm} color={theme.onPrimary} />
             <Text style={s.openBtnText}>{t("places.open_in_maps")}</Text>
           </Pressable>
         </>
       ) : null}
-    </AppSheet>
+    </Sheet>
   );
 }
 
@@ -135,7 +135,7 @@ function makeStyles(t: Theme) {
       paddingTop: 1,
       ...Type.body,
       lineHeight: 22,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: t.text,
     },
     body: {
@@ -146,7 +146,7 @@ function makeStyles(t: Theme) {
     name: {
       ...Type.body,
       lineHeight: 22,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: t.text,
       textDecorationLine: "underline",
       textDecorationStyle: "dotted",
@@ -165,7 +165,7 @@ function makeStyles(t: Theme) {
     },
     price: {
       ...Type.compact,
-      fontWeight: "600",
+      ...Weight.semibold,
       color: t.textSecondary,
     },
     address: {
@@ -190,7 +190,7 @@ function makeSheetStyles(t: Theme) {
     },
     note: {
       ...Type.callout,
-      fontWeight: "400",
+      ...Weight.regular,
       lineHeight: 21,
       color: t.textSecondary,
     },
@@ -222,7 +222,7 @@ function makeSheetStyles(t: Theme) {
     },
     openBtnText: {
       ...Type.body,
-      fontWeight: "700",
+      ...Weight.bold,
       color: t.onPrimary,
     },
   });

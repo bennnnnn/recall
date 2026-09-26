@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,14 +10,16 @@ import {
 import { useTranslation } from "react-i18next";
 import { setStringAsync } from "expo-clipboard";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { tap } from "@/lib/haptics";
 import { presentShareSheet } from "@/lib/share";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
+import { IconSize } from "@/ui/icons/sizes";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 type Props = {
   visible: boolean;
@@ -46,12 +47,12 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
     try {
       await presentShareSheet({ message: letter });
     } catch {
-      Alert.alert(t("common.share_failed"), t("my_job.share_failed"));
+      void alertDialog({ title: t("common.share_failed"), message: t("my_job.share_failed") });
     }
   };
 
   return (
-    <AppSheet visible={visible} onClose={onClose} withHandle>
+    <Sheet visible={visible} onClose={onClose} withHandle>
       <View style={s.header}>
         <Text style={s.headerTitle}>{t("my_job.cover_letter_title")}</Text>
         <Pressable
@@ -60,7 +61,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
           accessibilityRole="button"
           accessibilityLabel={t("common.close")}
         >
-          <Icon name="close" size={18} color={C.textSecondary} />
+          <Icon name="close" size={IconSize.sm} color={C.textSecondary} />
         </Pressable>
       </View>
       {loading ? (
@@ -81,7 +82,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
               onPress={() => void copy()}
               accessibilityRole="button"
             >
-              <Icon name="copy-outline" size={18} color={C.textSecondary} />
+              <Icon name="copy" size={IconSize.sm} color={C.textSecondary} />
               <Text style={s.actionText}>{t("common.copy")}</Text>
             </Pressable>
             <Pressable
@@ -89,7 +90,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
               onPress={() => void share()}
               accessibilityRole="button"
             >
-              <Icon name="share-outline" size={18} color={C.onPrimary} />
+              <Icon name="share" size={IconSize.sm} color={C.onPrimary} />
               <Text style={[s.actionText, s.actionTextPrimary]}>
                 {t("my_job.cover_letter_share")}
               </Text>
@@ -97,7 +98,7 @@ export function CoverLetterSheet({ visible, loading, letter, onClose }: Props) {
           </View>
         </View>
       ) : null}
-    </AppSheet>
+    </Sheet>
   );
 }
 
@@ -109,7 +110,7 @@ function makeStyles(C: Theme) {
       justifyContent: "space-between",
       marginBottom: Space.sm,
     },
-    headerTitle: { ...Type.navTitle, color: C.text, fontWeight: "700" },
+    headerTitle: { ...Type.navTitle, color: C.text, ...Weight.bold },
     closeButton: {
       width: Space.minTouch,
       height: Space.minTouch,
@@ -140,7 +141,7 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
     },
     actionPrimary: { backgroundColor: C.primary, flexGrow: 1 },
-    actionText: { ...Type.secondary, color: C.textSecondary, fontWeight: "600" },
+    actionText: { ...Type.secondary, color: C.textSecondary, ...Weight.semibold },
     actionTextPrimary: { color: C.onPrimary },
     pressed: { opacity: 0.68 },
   });

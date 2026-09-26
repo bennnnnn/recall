@@ -17,10 +17,6 @@ jest.mock("expo-clipboard", () => ({
   getImageAsync: jest.fn(),
 }));
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -948,7 +944,7 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("live-talk-close")).toBeTruthy();
     expect(getByTestId("chat-composer-input")).toBeTruthy();
     expect(getByLabelText("chat.attach_a11y")).toBeTruthy();
-    expect(getByTestId("composer-attachment-add-icon").props.name).toBe("add");
+    expect(getByTestId("composer-attachment-add-icon").props.name).toBe("plus");
   });
 
   it("hides mute and close while the user is typing in live talk", async () => {

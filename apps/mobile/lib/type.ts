@@ -73,6 +73,12 @@ export const Type = {
     fontSize: 28,
     ...face("700"),
   },
+  /** Large clock numerals (time picker header). Tabular so digits don't jiggle. */
+  clock: {
+    fontSize: 56,
+    ...face("400"),
+    fontVariant: ["tabular-nums"],
+  },
   /** Markdown heading ladder (h1–h6). Wrapped headings keep scaled line boxes. */
   h1: { fontSize: 22, ...face("700") },
   h2: { fontSize: 19, ...face("700") },
@@ -81,4 +87,18 @@ export const Type = {
   h4: { fontSize: 16, ...face("700") },
   h5: { fontSize: 16, ...face("700") },
   h6: { fontSize: 16, ...face("700") },
+} as const satisfies Record<string, TextStyle>;
+
+/**
+ * Weight changes on top of a role: `{ ...Type.body, ...Weight.bold }`.
+ * Each entry sets the matching Source Sans 3 file together with fontWeight.
+ * A bare `fontWeight` keeps the role's Regular file, which Android draws as a
+ * synthesized (fake) bold while iOS swaps to the real face — so weights looked
+ * different per platform. Lint bans raw `fontWeight`; use this instead.
+ */
+export const Weight = {
+  regular: face("400"),
+  medium: face("500"),
+  semibold: face("600"),
+  bold: face("700"),
 } as const satisfies Record<string, TextStyle>;

@@ -9,10 +9,6 @@ jest.mock("react-i18next", () => ({
   }),
 }));
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
 jest.mock("@/lib/reduceMotion", () => ({
   useReduceMotion: () => false,
 }));
@@ -46,7 +42,7 @@ describe("SearchSourcesStack", () => {
     expect(getByText("E")).toBeTruthy();
   });
 
-  it("opens sources in AppSheet with a scrollable list", async () => {
+  it("opens sources in Sheet with a scrollable list", async () => {
     const { getByText, getByTestId } = await render(
       <SearchSourcesStack
         sources={[

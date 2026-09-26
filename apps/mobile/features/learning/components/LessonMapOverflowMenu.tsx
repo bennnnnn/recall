@@ -1,13 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, View } from "react-native";
+import { useEffect, useState, type RefObject } from "react";
+import type { View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import {
-  makeSettingsStyles,
-  SettingsGroup,
-  SettingsInlinePicker,
-  SettingsLinkRow,
-} from "@/components/settings/settingsUi";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjectActions } from "@/features/learning/hooks/useProjectActions";
@@ -22,18 +16,22 @@ import {
 } from "@/features/learning/model/dailyGoals";
 import { useProjectMutationLock } from "@/features/learning/model/projectMutationLock";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { useTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
+import { Menu } from "@/ui/overlay/Menu";
 
 type Props = {
   project: Learning;
   isCurrent: () => boolean;
+  visible: boolean;
+  /** The header ⋮ button. */
+  anchorRef: RefObject<View | null>;
+  onClose: () => void;
 };
 
-export function LessonMapOverflowMenu({ project, isCurrent }: Props) {
+/** Lesson map ⋮: words per day (a choice menu) and Export PDF. */
+export function LessonMapOverflowMenu({ project, isCurrent, visible, anchorRef, onClose }: Props) {
   const { token } = useAuth();
   const { t } = useTranslation();
-  const theme = useTheme();
-  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const { updateProject, getExportProject } = useProjectActions();
   const feedback = useActionFeedbackOptional();
   const session = getSessionGeneration();
@@ -68,11 +66,16 @@ export function LessonMapOverflowMenu({ project, isCurrent }: Props) {
     if (!token || !isCurrent()) return;
     const release = mutations.begin("export");
     if (!release) return;
+    feedback?.info(t("chat.status.preparing"), { icon: "file-text" });
     try {
       const detail = await getExportProject(project.id);
       if (session !== getSessionGeneration() || !isCurrent()) return;
       if (!projectHasExportableItems(detail)) {
-        Alert.alert(t("projects.export_pdf_empty_title"), t("projects.export_pdf_empty_body"));
+        feedback?.dismiss();
+        void alertDialog({
+          title: t("projects.export_pdf_empty_title"),
+          message: t("projects.export_pdf_empty_body"),
+        });
         return;
       }
       await exportProjectAsPdf(
@@ -95,8 +98,12 @@ export function LessonMapOverflowMenu({ project, isCurrent }: Props) {
         },
         isCurrent,
       );
+      feedback?.dismiss();
     } catch (error) {
-      if (!isCurrent() || isShareCancelled(error)) return;
+      if (!isCurrent() || isShareCancelled(error)) {
+        feedback?.dismiss();
+        return;
+      }
       reportRecoverableError(feedback, t("projects.export_pdf_failed"));
     } finally {
       release();
@@ -104,37 +111,49 @@ export function LessonMapOverflowMenu({ project, isCurrent }: Props) {
   };
 
   return (
-    <SettingsGroup styles={s}>
-      <SettingsInlinePicker
+    <>
+      <Menu
+        visible={visible}
+        onClose={onClose}
+        anchorRef={anchorRef}
+        testID="lesson-map-menu"
+        items={[
+          {
+            key: "goal",
+            icon: "target",
+            label: t("settings.learning.words_label"),
+            trailing: formatDailyGoalShort(localGoal),
+            disabled: mutations.pending(`goal:${project.id}`),
+            onPress: () => {
+              if (isCurrent()) setGoalOpen(true);
+            },
+          },
+          {
+            key: "export",
+            icon: "file-text",
+            label: t("settings.learning.export_pdf"),
+            disabled: mutations.pending("export"),
+            onPress: () => void exportPdf(),
+          },
+        ]}
+      />
+      <Menu
+        visible={goalOpen}
+        onClose={() => setGoalOpen(false)}
+        anchorRef={anchorRef}
+        selectable
         title={t("settings.learning.words_label")}
-        value={formatDailyGoalShort(localGoal)}
-        options={dailyGoalPickerOptions("language", t)}
-        selectedKey={String(localGoal)}
-        expanded={goalOpen}
-        busy={mutations.pending(`goal:${project.id}`)}
-        onToggle={() => {
-          if (isCurrent()) setGoalOpen((open) => !open);
-        }}
-        onSelect={(key) => {
-          const nextGoal = Number(key);
-          if (!Number.isFinite(nextGoal)) return;
-          void saveDailyGoal(nextGoal);
-        }}
-        styles={s}
-        theme={theme}
+        testID="lesson-goal-menu"
+        items={dailyGoalPickerOptions("language", t).map((option) => ({
+          key: option.key,
+          label: option.label,
+          selected: option.key === String(localGoal),
+          onPress: () => {
+            const nextGoal = Number(option.key);
+            if (Number.isFinite(nextGoal) && nextGoal !== localGoal) void saveDailyGoal(nextGoal);
+          },
+        }))}
       />
-      <View style={s.menuSeparator} />
-      <SettingsLinkRow
-        title={t("settings.learning.export_pdf")}
-        onPress={() => void exportPdf()}
-        styles={s}
-        theme={theme}
-      />
-      {mutations.pending("export") ? (
-        <View style={s.menuRow}>
-          <ActivityIndicator color={theme.primary} />
-        </View>
-      ) : null}
-    </SettingsGroup>
+    </>
   );
 }

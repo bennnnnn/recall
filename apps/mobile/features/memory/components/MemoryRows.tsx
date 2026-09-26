@@ -126,13 +126,7 @@ function makeStyles(theme: Theme) {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.border,
     },
-    groupTitle: {
-      ...Type.caption,
-      fontWeight: "700",
-      color: theme.text,
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
-    },
+    groupTitle: { ...Type.overline, color: theme.text },
     factRow: {
       backgroundColor: theme.surfaceAlt,
       paddingHorizontal: Space.md,

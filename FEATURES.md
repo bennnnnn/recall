@@ -950,6 +950,20 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   quieter chat-header chrome; drawer profile opens Settings; Home overdue uses warning,
   not danger; starter chips have distinct
   icons; composer send/stop/dismiss use `Icon`. Web remains a later project.
+- ✅ **One UI kit (2026-09)** — `apps/mobile/ui/` is the single source for controls
+  (catalog: `apps/mobile/ui/README.md`; dev gallery at Settings → About → UI kit):
+  - **Icons:** Lucide line icons at one stroke weight, plus multicolor brand marks.
+  - **Menus:** every menu is one anchored popover; choices use a checked `SelectMenu`.
+  - **Dialogs:** themed `confirmDialog` / `alertDialog` replace system alerts; passing errors are toasts.
+  - **Pickers:** an Android-style clock time picker (dial, AM/PM, 24-hour inner ring,
+    keyboard entry) and a calendar date picker with a year list, used for quiet hours,
+    to-dos and My Job. The native datetimepicker module is removed.
+  - **Share:** a ChatGPT-style share sheet (preview card with copy, Share / Copy / PDF) for
+    chats, the drawer and My Job.
+  - **Controls:** round header buttons, pill `Button`s, one `Chip`, `SegmentedControl`,
+    `ListRow`, and `TextField`.
+
+  Lint keeps features from rebuilding any of these. Public share links are still not built.
 
 **Not implemented (future — do not start now).** Remaining 🔜 / partial items in this file:
 

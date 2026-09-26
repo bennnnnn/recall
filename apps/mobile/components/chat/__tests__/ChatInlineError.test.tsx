@@ -2,7 +2,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { ChatInlineError } from "@/components/chat/ChatInlineError";
 
-jest.mock("@/components/Icon", () => ({
+jest.mock("@/ui/icons/Icon", () => ({
   Icon: () => null,
 }));
 

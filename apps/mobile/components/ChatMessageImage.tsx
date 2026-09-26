@@ -9,7 +9,7 @@ import { Image, type ImageLoadEventData, type ImageSource } from "expo-image";
 import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri, attachmentRequestHeaders } from "@/features/attachments/model/attachmentUri";
@@ -17,6 +17,7 @@ import { ensureLocalAttachmentFile } from "@/features/attachments/model/download
 import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
+import { IconSize } from "@/ui/icons/sizes";
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);
 const REVEAL_DURATION_MS = 280;
@@ -229,7 +230,7 @@ function ChatMessageImageContent({
               style={[s.preview, s.fallback]}
               accessibilityLabel={t("chat.image_unavailable_a11y")}
             >
-              <Icon name="image-outline" size={28} color={C.textTertiary} />
+              <Icon name="image" size={IconSize.lg} color={C.textTertiary} />
             </View>
           ) : usePlainPreview ? (
             <Image

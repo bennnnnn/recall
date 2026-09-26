@@ -2,11 +2,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 
 import { StepPicker } from "@/features/learning/components/StepPicker";
 
-jest.mock("@expo/vector-icons", () => ({
-  Ionicons: "Ionicons",
-}));
-
-jest.mock("@/components/ActionShimmer", () => {
+jest.mock("@/ui/feedback/ActionShimmer", () => {
   const { Text, View } = jest.requireActual("react-native");
   return {
     ActionShimmer: ({ label }: { label: string }) => (
@@ -136,6 +132,6 @@ describe("StepPicker", () => {
     );
 
     const tree = JSON.stringify(toJSON());
-    expect((tree.match(/"checkmark"/g) ?? []).length).toBe(1);
+    expect((tree.match(/"check"/g) ?? []).length).toBe(1);
   });
 });

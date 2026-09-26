@@ -1,15 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Keyboard,
-  Platform,
   Pressable,
   ScrollView,
   Text,
   View,
 } from "react-native";
-import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -40,7 +36,8 @@ import {
   type JobSearchWorkMode,
 } from "@/lib/api";
 import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
-import { useTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
+import { Button } from "@/ui/controls/Button";
 
 type Step = 0 | 1 | 2 | 3;
 type ResultCount = 5 | 10 | 15;
@@ -55,7 +52,6 @@ type Props = {
 export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
   const { token, user } = useAuth();
   const { t } = useTranslation();
-  const C = useTheme();
   const s = useSetupStyles();
   const isPro = user?.plan === "pro";
   const [step, setStep] = useState<Step>(0);
@@ -73,6 +69,8 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
   );
   const [showCount, setShowCount] = useState(false);
   const [showFrequency, setShowFrequency] = useState(false);
+  const countRowRef = useRef<View>(null);
+  const frequencyRowRef = useRef<View>(null);
   const [nextRunAt, setNextRunAt] = useState(nextMorning);
   const [showPicker, setShowPicker] = useState(false);
   const [resumeId, setResumeId] = useState<string | null>(null);
@@ -117,7 +115,10 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
         picked.contentType ===
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       if (!allowed) {
-        Alert.alert(t("my_job.resume_pick_title"), t("my_job.resume_pick_body"));
+        void alertDialog({
+          title: t("my_job.resume_pick_title"),
+          message: t("my_job.resume_pick_body"),
+        });
         return;
       }
       setUploadingResume(true);
@@ -125,10 +126,10 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
       setResumeId(id);
       setResumeName(picked.fileName);
     } catch {
-      Alert.alert(
-        t("my_job.resume_upload_failed_title"),
-        t("my_job.resume_upload_failed_body"),
-      );
+      void alertDialog({
+        title: t("my_job.resume_upload_failed_title"),
+        message: t("my_job.resume_upload_failed_body"),
+      });
     } finally {
       setUploadingResume(false);
     }
@@ -182,11 +183,6 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
     }
   };
 
-  const onPickerChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === "android") setShowPicker(false);
-    if (event.type === "dismissed" || !date) return;
-    setNextRunAt(date);
-  };
 
   const moveBack = () => {
     if (busy) return;
@@ -329,6 +325,8 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
           ) : null}
           {step === 3 ? (
             <DeliveryStep
+              countRowRef={countRowRef}
+              frequencyRowRef={frequencyRowRef}
               count={count}
               frequencyLabel={frequencyOptionLabel(frequency)}
               timeLabel={formatRunDate(nextRunAt)}
@@ -344,27 +342,18 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
       </ScrollView>
 
       <View style={s.footer}>
-        <Pressable
-          style={({ pressed }) => [
-            s.primaryButton,
-            pressed && s.pressed,
-            busy && s.disabled,
-          ]}
+        <Button
+          title={step === 3 ? finalLabel : t("common.next")}
+          size="lg"
+          loading={busy}
           onPress={() => void moveForward()}
-          disabled={busy}
-          accessibilityRole="button"
-        >
-          {busy ? (
-            <ActivityIndicator color={C.onPrimary} />
-          ) : (
-            <Text style={s.primaryButtonText}>
-              {step === 3 ? finalLabel : t("common.next")}
-            </Text>
-          )}
-        </Pressable>
+          style={s.primaryButton}
+        />
       </View>
 
       <SetupPickers
+        countRowRef={countRowRef}
+        frequencyRowRef={frequencyRowRef}
         isPro={isPro}
         busy={busy}
         showCount={showCount}
@@ -379,7 +368,7 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
         onClosePicker={() => setShowPicker(false)}
         onSelectCount={setCount}
         onSelectFrequency={setFrequency}
-        onPickerChange={onPickerChange}
+        onPickNextRun={setNextRunAt}
       />
     </View>
   );

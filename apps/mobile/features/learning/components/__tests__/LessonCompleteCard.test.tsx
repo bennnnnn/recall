@@ -13,7 +13,7 @@ jest.mock("@/hooks/useResolvedColorScheme", () => ({
 
 jest.mock("@/lib/haptics", () => ({ notifySuccess: jest.fn() }));
 
-jest.mock("@/components/Icon", () => ({ Icon: () => null }));
+jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 
 jest.mock("react-i18next", () => {
   const strings = require("@/lib/i18n/en.json");

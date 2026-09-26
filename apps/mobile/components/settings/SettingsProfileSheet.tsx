@@ -2,12 +2,12 @@ import { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
+import { Sheet } from "@/ui/overlay/Sheet";
 import { EditableProfileAvatar } from "@/components/settings/EditableProfileAvatar";
 import { type useProfileEditor } from "@/hooks/useProfileEditor";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 type Props = {
   editor: ReturnType<typeof useProfileEditor>;
@@ -22,7 +22,7 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
   const busy = editor.saving || editor.picking;
 
   return (
-    <AppSheet
+    <Sheet
       visible={editor.visible}
       onClose={editor.close}
       variant="bottom"
@@ -38,7 +38,7 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
           uri={editor.photo?.localUri ?? avatarUri}
           token={token}
           size={144}
-          icon="camera-outline"
+          icon="camera"
           label={t("settings.change_photo")}
           onPress={() => void editor.choosePhoto()}
           disabled={busy}
@@ -83,7 +83,7 @@ export function SettingsProfileSheet({ editor, avatarUri, token }: Props) {
           <Text style={s.cancelText}>{t("settings.cancel")}</Text>
         </Pressable>
       </View>
-    </AppSheet>
+    </Sheet>
   );
 }
 
@@ -114,7 +114,7 @@ function makeStyles(theme: Theme) {
     },
     nameInput: {
       ...Type.h1,
-      fontWeight: "400",
+      ...Weight.regular,
       color: theme.text,
       paddingHorizontal: Space.lg,
       paddingVertical: Space.md,
@@ -134,7 +134,7 @@ function makeStyles(theme: Theme) {
     },
     saveText: { ...Type.h1, color: theme.bg },
     cancel: { alignSelf: "center", marginTop: Space.sm, minHeight: 48, justifyContent: "center", paddingHorizontal: Space.lg },
-    cancelText: { ...Type.body, fontWeight: "600", color: theme.text },
+    cancelText: { ...Type.body, ...Weight.semibold, color: theme.text },
     pressed: { opacity: 0.65 },
     disabled: { opacity: 0.55 },
   });

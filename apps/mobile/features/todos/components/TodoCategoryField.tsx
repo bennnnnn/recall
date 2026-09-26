@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/components/Icon";
+import { Icon } from "@/ui/icons/Icon";
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import {
@@ -14,7 +14,7 @@ import {
 } from "@/features/todos/model/todoCategories";
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
 import type { Todo } from "@/lib/api";
-import { IconSize } from "@/lib/icons";
+import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -85,7 +85,7 @@ export function TodoCategoryField({
         accessibilityLabel={`${t("todos.category_label")}, ${current}`}
       >
         <Text style={s.repeatFieldText}>{current}</Text>
-        <Icon name="chevron-forward" size={18} color={C.textTertiary} />
+        <Icon name="chevron-right" size={IconSize.sm} color={C.textTertiary} />
       </Pressable>
     </View>
   );
@@ -156,7 +156,7 @@ export function TodoCategoryPicker({
             accessibilityRole="button"
             accessibilityLabel={t("todos.category_new")}
           >
-            <Icon name="add" size={22} color={C.primary} />
+            <Icon name="plus" size={IconSize.md} color={C.primary} />
             <Text style={s.createLabel}>{t("todos.category_new")}</Text>
           </Pressable>
         )

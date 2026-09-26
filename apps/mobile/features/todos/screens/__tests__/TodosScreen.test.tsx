@@ -46,8 +46,8 @@ jest.mock("@/lib/i18n", () => ({
   ensureLocale: jest.fn(),
 }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
-jest.mock("@/components/SkeletonLoader", () => ({ SkeletonList: () => null }));
-jest.mock("@/components/AddFab", () => ({ AddFab: (props: typeof mockAdd) => { mockAdd = props; return null; } }));
+jest.mock("@/ui/feedback/SkeletonLoader", () => ({ SkeletonList: () => null }));
+jest.mock("@/ui/controls/AddFab", () => ({ AddFab: (props: typeof mockAdd) => { mockAdd = props; return null; } }));
 jest.mock("@/features/todos/components/TodoEditorSheet", () => ({
   TodoEditorSheet: (props: typeof mockSheet & { editTodo?: unknown }) => {
     // The screen renders two instances: the add sheet (no editTodo prop) and

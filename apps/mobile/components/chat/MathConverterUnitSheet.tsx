@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { AppSheet } from "@/components/AppSheet";
-import { Icon } from "@/components/Icon";
+import { Sheet } from "@/ui/overlay/Sheet";
+import { Icon } from "@/ui/icons/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
@@ -13,6 +13,7 @@ import {
   UNITS_BY_CATEGORY,
   type UnitCategory,
 } from "@/lib/unitConverter";
+import { IconSize } from "@/ui/icons/sizes";
 
 /** Fixed so Length / Temp / Volume don't bounce the sheet when the list length changes. */
 const UNIT_PICKER_SHEET_HEIGHT = 520;
@@ -40,7 +41,7 @@ export function MathConverterUnitSheet({
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <AppSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       variant="bottom"
@@ -58,7 +59,7 @@ export function MathConverterUnitSheet({
           accessibilityRole="button"
           accessibilityLabel={t("common.close")}
         >
-          <Icon name="close" size={20} color={theme.textSecondary} />
+          <Icon name="close" size={IconSize.sm} color={theme.textSecondary} />
         </Pressable>
       </View>
       <ScrollView
@@ -106,7 +107,7 @@ export function MathConverterUnitSheet({
           );
         })}
       </ScrollView>
-    </AppSheet>
+    </Sheet>
   );
 }
 
