@@ -457,10 +457,10 @@ def test_callout_query_gets_blockquote_layout():
     assert CALLOUT_FORMAT_HINT in rich
 
 
-def test_howto_query_gets_headings_and_lists_layout():
+def test_learning_plan_query_gets_complete_actionable_roadmap_policy():
     from app.services.chat.prompt_constants import (
         COMPACT_RESPONSE_FORMAT_HINT,
-        HOWTO_FORMAT_HINT,
+        LEARNING_PLAN_HINT,
     )
 
     query = "Give me a 4-week plan to learn Spanish for travel."
@@ -471,7 +471,7 @@ def test_howto_query_gets_headings_and_lists_layout():
         minimal_personal_context=False,
         compact=True,
     )
-    assert HOWTO_FORMAT_HINT in slim
+    assert LEARNING_PLAN_HINT in slim
     assert COMPACT_RESPONSE_FORMAT_HINT not in slim
 
     rich = _style_format_hints(
@@ -481,7 +481,11 @@ def test_howto_query_gets_headings_and_lists_layout():
         minimal_personal_context=False,
         compact=False,
     )
-    assert HOWTO_FORMAT_HINT in rich
+    assert LEARNING_PLAN_HINT in rich
+    joined = "\n".join(rich)
+    assert "complete learning roadmap" in joined
+    assert "concrete example" in joined
+    assert "expected outcome" in joined
 
 
 def test_vs_query_gets_table_with_conditional_code_examples():
