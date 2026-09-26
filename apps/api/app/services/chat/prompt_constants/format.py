@@ -324,6 +324,7 @@ _HOWTO_TURN = re.compile(
     r"\bplan\s+to\s+learn\b|"
     r"\bfrom scratch\b|"
     r"\bhow (?:do i|to) (?:set up|setup|install|configure|build)\b|"
+    r"\bwalk\s+me\s+through\b|"
     r"\bstep[\s-]?by[\s-]?step\b|"
     r"\bplan\s+de\s+\d+[\s-]?(?:semana|semanas|semaine|semaines)\b|"
     r"\b\d+[\s-]?wochen[\s-]?plan\b|"

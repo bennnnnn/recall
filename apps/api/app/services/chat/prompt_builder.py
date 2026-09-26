@@ -80,6 +80,7 @@ from app.services.chat.prompt_constants import (
     UNIVERSAL_FORMAT_BASELINE,
     VISUALIZATION_HINTS,
     WRITING_LINE_HINT,
+    active_lesson_step,
     is_bare_writing_line,
     is_brevity_request,
     is_broad_self_question,
@@ -99,7 +100,6 @@ from app.services.chat.prompt_constants import (
     is_teaching_request,
     is_underspecified_writing_request,
     lesson_continue_hint,
-    lesson_step,
     recalls_earlier_conversation,
     writing_request_kind,
 )
@@ -1112,15 +1112,7 @@ async def build_prompt_messages(
     ):
         followup_exchange = recent[:-1]
     math_followup = is_math_followup(query_text, followup_exchange)
-    prior_reply = next(
-        (
-            m.content
-            for m in reversed(followup_exchange)
-            if m.role == "assistant" and isinstance(m.content, str)
-        ),
-        None,
-    )
-    lesson = lesson_step(prior_reply)
+    lesson = active_lesson_step(followup_exchange)
     chat_history_rag_block = ""
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.

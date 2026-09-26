@@ -14,6 +14,7 @@ projects, and milestones rather than entering the one-step-at-a-time tutor.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from app.services.text_normalize import collapse_ws
 
@@ -28,7 +29,6 @@ _TEACH_TURN = re.compile(
     r"\bi\s+wanna\s+learn\b|"
     r"\btutor\s+me\b|"
     r"\b(?:be|become|act\s+as)\s+my\s+(?:tutor|teacher)\b|"
-    r"\bwalk\s+me\s+through\b|"
     r"\b(?:give\s+me\s+)?an?\s+(?:lesson|crash\s+course)\s+(?:on|in|about)\b|"
     # es / pt
     r"\bens[eé]ñ(?:ame|anos|arme)\b|\bquiero\s+aprender\b|\bay[uú]dame\s+a\s+aprender\b|"
@@ -117,26 +117,55 @@ _MAX_LESSON_STEPS = 20
 _QUESTION_MARKS = ("?", "？", "፧")
 
 # A bounded roadmap/course request is different from an interactive teach-me
-# session. It asks for the whole progression now.
-_LEARNING_PLAN_TURN = re.compile(
+# session. Keep the pieces separate so common word orders remain readable and
+# elapsed-time statements can be rejected before they become accidental plans.
+_DURATION_TEXT = r"\b\d{1,3}[\s-]?(?:day|days|week|weeks|month|months)\b"
+_DURATION = re.compile(_DURATION_TEXT, re.IGNORECASE)
+_EXPLICIT_LEARNING_PLAN = re.compile(
     r"(?:"
-    # Explicit learning-roadmap language.
-    r"\b(?:learning|study|mastery)\s+(?:plan|roadmap)\b|"
-    r"\b(?:plan|roadmap)\s+(?:to|for)\s+(?:learn|master|study)\b|"
+    r"\b(?:learning|study|mastery|training)\s+(?:plan|roadmap|curriculum|schedule)\b|"
+    r"\b(?:plan|roadmap)\s+(?:to|for)\s+(?:learn|learning|master|mastering|study|studying)\b|"
     r"\b(?:plan|roadmap)\b[^.?!]{0,45}\b(?:to\s+)?(?:learn|master|study)\b|"
-    # A bounded course/skill progression. Require a learning cue so ordinary
-    # 30-day workout/business/project plans do not get hijacked by this policy.
-    r"\b\d+[\s-]?(?:day|days|week|weeks|month|months)\b"
-    r"[^.?!]{0,120}\b(?:learn|learning|master|mastering|mastery|study|studying|"
-    r"beginner|intermediate|advanced|senior|course|skill)\b|"
-    r"\b(?:learn|master|study)\b[^.?!]{0,100}\b(?:in|over)\s+"
-    r"\d+[\s-]?(?:day|days|week|weeks|month|months)\b|"
-    r"\bteach\s+(?:me|us)\b[^.?!]{0,100}\b(?:in|over)\s+"
-    r"\d+[\s-]?(?:day|days|week|weeks|month|months)\b|"
-    # es / pt / fr / de
-    r"\bplan\s+de\s+\d+[\s-]?(?:d[ií]as|dias|semanas|meses|semaines|mois)\b"
+    r"\b(?:curriculum|syllabus|course\s+plan)\b"
+    r")",
+    re.IGNORECASE,
+)
+_LEARNING_CUE = re.compile(
+    r"\b(?:learn|learning|master|mastering|mastery|study|studying|train|training|"
+    r"beginner|intermediate|advanced|senior|course|curriculum|syllabus|skill)\b",
+    re.IGNORECASE,
+)
+_PLAN_CUE = re.compile(r"\b(?:plan|roadmap|curriculum|syllabus|course)\b", re.IGNORECASE)
+_TEACH_WITH_DURATION = re.compile(
+    rf"\b(?:teach\s+(?:me|us)|help\s+me\s+learn|i\s+(?:want|need|would\s+like)\s+to\s+learn)"
+    rf"\b[^.?!]{{0,140}}{_DURATION_TEXT}",
+    re.IGNORECASE,
+)
+_REQUESTED_DURATION_PLAN = re.compile(
+    rf"\b(?:give|create|make|build|write|design|show|want|need)\b[^.?!]{{0,80}}"
+    rf"{_DURATION_TEXT}[^.?!]{{0,60}}\b(?:plan|roadmap|curriculum|syllabus)\b",
+    re.IGNORECASE,
+)
+_ELAPSED_LEARNING = re.compile(
+    rf"(?:"
+    rf"\b(?:started|finished|completed|spent)\b[^.?!]{{0,100}}{_DURATION_TEXT}|"
+    rf"\b(?:i(?:'ve|\s+have)|we(?:'ve|\s+have)|has|had)\s+(?:already\s+)?(?:been\s+)?"
+    rf"(?:learning|studying|practicing|training|working)\b[^.?!]{{0,100}}{_DURATION_TEXT}|"
+    rf"\b(?:learned|studied|practiced|trained|worked)\b[^.?!]{{0,100}}\bfor\s+{_DURATION_TEXT}|"
+    rf"{_DURATION_TEXT}\s+(?:ago|so\s+far)\b"
+    rf")",
+    re.IGNORECASE,
+)
+_NON_LEARNING_PLAN_CUE = re.compile(
+    r"\b(?:business|workout|fitness|exercise|meal|diet|launch|marketing|content|"
+    r"social\s+media|product|project|travel|vacation|budget|savings|campaign)\b",
+    re.IGNORECASE,
+)
+_INTERNATIONAL_LEARNING_PLAN = re.compile(
+    r"(?:"
+    r"\bplan\s+de\s+\d{1,3}[\s-]?(?:d[ií]as|dias|semanas|meses|semaines|mois)\b"
     r"[^.?!]{0,80}\b(?:aprender|apprendre|estudiar|étudier|estudar)\b|"
-    r"\b\d+[\s-]?(?:tage|wochen|monate)\b[^.?!]{0,80}\blernplan\b"
+    r"\b\d{1,3}[\s-]?(?:tage|wochen|monate)\b[^.?!]{0,80}\blernplan\b"
     r")",
     re.IGNORECASE,
 )
@@ -148,15 +177,16 @@ LEARNING_PLAN_HINT = (
     "title or experience level, calibrate it in one sentence, then still give the "
     "strongest achievable knowledge/skill plan.\n"
     "- Start with an at-a-glance progression: phase/day ranges, focus, and the concrete "
-    "ability the learner should have at the end of each phase. Use short headings and lists, "
-    "not a schedule-style table unless the user explicitly asked for one.\n"
+    "ability the learner should have at the end of each phase. When it improves clarity, show "
+    "the path as a compact arrow progression such as `Foundations → Core skills → Projects`. "
+    "Use short headings and lists, not a schedule-style table unless the user explicitly asked for one.\n"
     "- Then make the roadmap specific. For a named N-day plan up to about 90 days, account "
     "for every day (or only group adjacent 2-3 days when they intentionally share one skill). "
     "Do not collapse a 70-day request into ten vague weekly bullets.\n"
-    "- Each learning unit should say what to learn, show a concrete example when useful, "
-    "say exactly what to practice/build, and state the expected outcome. For programming, "
-    "include tiny code examples where they clarify the skill.\n"
-    "- Include progressive exercises/projects, review/checkpoint days, milestones, and a "
+    "- Every phase must name what to learn, show a concrete example, say exactly what to "
+    "practice/build, and make the expected outcome verifiable. For a programming roadmap, "
+    "include small runnable code examples in tagged fences throughout the progression—not only prose.\n"
+    "- Include progressive exercises and projects, review/checkpoint days, milestones, and a "
     "repeatable daily study routine. End with what the learner should be able to do by the "
     "final day and what still requires longer-term real-world practice or experience; for "
     "software engineering, distinguish learned skills from actual production experience.\n"
@@ -170,7 +200,22 @@ def is_learning_plan_request(text: str) -> bool:
     cleaned = collapse_ws(text)
     if not cleaned or len(cleaned) > 800:
         return False
-    return bool(_LEARNING_PLAN_TURN.search(cleaned))
+    if _INTERNATIONAL_LEARNING_PLAN.search(cleaned):
+        return True
+    explicit = _EXPLICIT_LEARNING_PLAN.search(cleaned)
+    duration = _DURATION.search(cleaned)
+    if explicit and (not _NON_LEARNING_PLAN_CUE.search(cleaned) or _LEARNING_CUE.search(cleaned)):
+        return True
+    if duration is None:
+        return False
+    if _ELAPSED_LEARNING.search(cleaned) and not _TEACH_WITH_DURATION.search(cleaned):
+        return False
+    if _NON_LEARNING_PLAN_CUE.search(cleaned) and not _LEARNING_CUE.search(cleaned):
+        return False
+    if _REQUESTED_DURATION_PLAN.search(cleaned) or _TEACH_WITH_DURATION.search(cleaned):
+        return True
+    around_duration = cleaned[max(0, duration.start() - 140) : duration.end() + 140]
+    return bool(_LEARNING_CUE.search(around_duration) or _PLAN_CUE.search(around_duration))
 
 
 TEACHING_HINT = (
@@ -259,6 +304,16 @@ def lesson_step(text: str | None) -> tuple[int, int] | None:
     return found
 
 
+def active_lesson_step(messages: list[Any] | None) -> tuple[int, int] | None:
+    """Lesson state from the most recent assistant reply in an oldest-first window."""
+    for message in reversed(messages or []):
+        if getattr(message, "role", None) != "assistant":
+            continue
+        content = getattr(message, "content", None)
+        return lesson_step(content if isinstance(content, str) else None)
+    return None
+
+
 def lesson_continue_hint(step: int, total: int) -> str:
     """Adaptive policy for the turn after a delivered lesson step."""
     lead = (
@@ -274,9 +329,10 @@ def lesson_continue_hint(step: int, total: int) -> str:
         "step unless the learner explicitly says they are confused or wants to stay here. "
         "Do not require a second correct attempt to unlock progress.\n"
         "- Explicit confusion ('I don't understand', 'why?', 'show me another example', or "
-        "'no' to an understanding question): stay on the concept and keep the SAME Step "
-        f"{step}/{total} heading, but explain it a DIFFERENT way with a new analogy/example. "
-        "End with one low-pressure conversational question. Never paste the old lesson.\n"
+        "'no' to an understanding question): stay on the concept and begin with the exact "
+        f"same `### Step {step}/{total} — ...` heading, but explain it a DIFFERENT way with a "
+        "new analogy/example. End with one low-pressure conversational question containing "
+        "a question mark so lesson state survives the next turn. Never paste the old lesson.\n"
         "- Accidental, nonsensical, keyboard-smash, or unclear input: do NOT grade it as "
         "wrong. Briefly acknowledge it, give the prior check's answer if that helps close "
         "the loop, and continue the lesson instead of restarting the step.\n"
