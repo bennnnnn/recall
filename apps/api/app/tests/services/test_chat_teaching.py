@@ -11,10 +11,12 @@ from app.services.chat.prompt_builder import _style_format_hints, build_prompt_m
 from app.services.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
     HOWTO_FORMAT_HINT,
+    LEARNING_PLAN_HINT,
     PERSONAL_DISCLOSURE_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
     TEACHING_SHORT_NOTE,
+    is_learning_plan_request,
     is_lightweight_chat_turn,
     is_teaching_request,
     lesson_continue_hint,
@@ -27,8 +29,8 @@ STEP_ONE = (
     "### Step 1/6 — What a dictionary is\n\n"
     "A dictionary stores key-value pairs.\n\n"
     "```python\ncar = {'brand': 'Toyota', 'year': 2024}\nprint(car['brand'])\n```\n\n"
-    "What will this print?\n\nA. Toyota\nB. brand\nC. 2024\nD. 0\n\n"
-    "Answer it, and then we'll go to Step 2: accessing values in different ways."
+    "Quick check (optional): what will this print?\n\nA. Toyota\nB. brand\nC. 2024\nD. 0\n\n"
+    "You can answer, ask a question, request another example, or just say next."
 )
 
 
@@ -92,6 +94,35 @@ def test_teaching_request_declines(text):
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        "70 days mastering python from beginner to senior level plan",
+        "Give me a 70-day Python mastery plan",
+        "Teach me Python in 70 days",
+        "Create a 12-week roadmap to learn backend engineering",
+        "learning plan for SQL",
+        "roadmap to master FastAPI",
+        "Dame un plan de 4 semanas para aprender español",
+    ],
+)
+def test_learning_plan_request_detected(text):
+    assert is_learning_plan_request(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Teach me python dictionary step by step",
+        "What is a dictionary?",
+        "How to install Docker",
+        "Explain recursion",
+    ],
+)
+def test_learning_plan_request_declines_non_plans(text):
+    assert not is_learning_plan_request(text)
+
+
+@pytest.mark.parametrize(
     "reply, expected",
     [
         (STEP_ONE, (1, 6)),
@@ -121,8 +152,18 @@ def test_lesson_step(reply, expected):
 def test_lesson_continue_hint_moves_to_the_next_step():
     hint = lesson_continue_hint(2, 6)
     assert "Step 2/6" in hint and "Step 3/6" in hint
-    assert "another way" in hint
-    assert "unrelated to the lesson" in hint
+    assert "DIFFERENT way" in hint
+    assert "diagnostic, never gates" in hint
+    assert "Do not reproduce that step" in hint
+
+
+def test_lesson_continue_hint_handles_wrong_and_accidental_inputs_without_replay():
+    hint = lesson_continue_hint(1, 6)
+    assert "Plausible wrong or partial answer" in hint
+    assert "Do not require a second correct attempt" in hint
+    assert "Accidental, nonsensical, keyboard-smash" in hint
+    assert "do NOT grade it as wrong" in hint
+    assert "continue the lesson instead of restarting the step" in hint
 
 
 def test_lesson_continue_hint_recaps_after_the_last_step():
@@ -145,7 +186,31 @@ def _hints(text, *, style="balanced", lesson=None, compact=False):
 def test_teach_request_gets_a_lesson_not_a_howto():
     hints = _hints("Teach me python dictionary step by step")
     assert TEACHING_HINT in hints
+    assert LEARNING_PLAN_HINT not in hints
     assert HOWTO_FORMAT_HINT not in hints
+
+
+def test_70_day_learning_plan_gets_complete_roadmap_policy():
+    hints = _hints("70 days mastering python from beginner to senior level plan")
+    assert LEARNING_PLAN_HINT in hints
+    assert TEACHING_HINT not in hints
+    joined = "\n".join(hints)
+    assert "account for every day" in joined
+    assert "Do not collapse a 70-day request" in joined
+    assert "tiny code examples" in joined
+    assert "progressive exercises/projects" in joined
+
+
+def test_teach_me_in_70_days_is_a_plan_not_an_interactive_lesson():
+    hints = _hints("Teach me Python in 70 days")
+    assert LEARNING_PLAN_HINT in hints
+    assert TEACHING_HINT not in hints
+
+
+def test_short_style_does_not_crush_an_explicit_learning_plan():
+    hints = _hints("Give me a 30-day plan to learn FastAPI", style="short")
+    assert LEARNING_PLAN_HINT in hints
+    assert SHORT_RESPONSE_FORMAT_HINT not in hints
 
 
 def test_procedure_keeps_the_howto_layout():
@@ -182,6 +247,21 @@ def test_new_teach_request_starts_a_new_lesson():
     hints = _hints("Teach me python sets", lesson=(3, 6))
     assert TEACHING_HINT in hints
     assert not any("A lesson is in progress" in hint for hint in hints)
+
+
+def test_full_roadmap_request_exits_an_active_lesson():
+    hints = _hints("Give me a 30-day roadmap to learn Python", lesson=(3, 6))
+    assert LEARNING_PLAN_HINT in hints
+    assert not any("A lesson is in progress" in hint for hint in hints)
+
+
+def test_random_input_mid_lesson_keeps_adaptive_continuation_policy():
+    hints = _hints("Bad bdbd head hdjjd jdjdd", lesson=(1, 6))
+    joined = "\n".join(hints)
+    assert "Accidental, nonsensical, keyboard-smash" in joined
+    assert "do NOT grade it as wrong" in joined
+    assert "Step 2/6" in joined
+    assert "Do not reproduce that step" in joined
 
 
 def test_short_style_lesson_step_drops_the_no_headings_rule():
