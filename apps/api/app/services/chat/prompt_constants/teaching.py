@@ -1,12 +1,14 @@
 # ruff: noqa: RUF001
-"""Teach-me turns: a lesson one step at a time, not a how-to or reference sheet.
+"""Adaptive tutoring and learning-plan routing.
 
-"Teach me python dictionary step by step" used to take the how-to layout
-("a one-line goal, then numbered steps") under the answer-first defaults, so
-the reply was a compressed reference list: no explanation, no check, no wait.
-A lesson outlines the path, teaches one step, asks one check question and
-stops. The next turn finds that step (``lesson_step``) and continues from it:
-grade the answer, re-explain when it is wrong, then the next step.
+Teach-me turns are conversations, not pass/fail quizzes. The assistant shows a
+small roadmap, teaches one concept at a time, and adapts to correct, wrong,
+confused, accidental, or off-topic follow-ups without replaying already-seen
+content.
+
+Learning-plan requests ("70-day Python plan", "4-week roadmap") are separate:
+they should return a complete actionable roadmap with examples, practice,
+projects, and milestones rather than entering the one-step-at-a-time tutor.
 """
 
 from __future__ import annotations
@@ -113,25 +115,80 @@ _LESSON_STEP = re.compile(
 _MAX_LESSON_STEPS = 20
 _QUESTION_MARKS = ("?", "？", "፧")
 
+# A bounded roadmap/course request is different from an interactive teach-me
+# session. It asks for the whole progression now.
+_LEARNING_PLAN_TURN = re.compile(
+    r"(?:"
+    r"\b(?:give|make|create|build|write)\s+(?:me\s+)?(?:an?\s+)?"
+    r"(?:(?:\d+)[\s-]?(?:day|days|week|weeks|month|months)\s+)?"
+    r"(?:(?:learning|study|mastery)\s+)?(?:plan|roadmap)\b|"
+    r"\b(?:learning|study|mastery)\s+(?:plan|roadmap)\b|"
+    r"\b(?:plan|roadmap)\s+(?:to|for)\s+(?:learn|master|study)\b|"
+    r"\b\d+[\s-]?(?:day|days|week|weeks|month|months)\b"
+    r"[^.?!]{0,120}\b(?:plan|roadmap|learn|master|study|beginner|advanced|senior)\b|"
+    r"\b(?:learn|master|study)\b[^.?!]{0,100}\b(?:in|over)\s+"
+    r"\d+[\s-]?(?:day|days|week|weeks|month|months)\b|"
+    # es / pt / fr / de
+    r"\bplan\s+de\s+\d+[\s-]?(?:d[ií]as|dias|semanas|meses|semaines|mois)\b|"
+    r"\b\d+[\s-]?(?:tage|wochen|monate)\b[^.?!]{0,80}\blernplan\b"
+    r")",
+    re.IGNORECASE,
+)
+
+LEARNING_PLAN_HINT = (
+    "The user wants a complete learning roadmap now, not a thin topic list and not "
+    "an interactive quiz. Make the plan actionable and easy to scan on mobile.\n"
+    "- Match the requested duration and target. If the target is unrealistic as a job "
+    "title or experience level, calibrate it in one sentence, then still give the "
+    "strongest achievable knowledge/skill plan.\n"
+    "- Start with an at-a-glance progression: phase/day ranges, focus, and the concrete "
+    "ability the learner should have at the end of each phase. Use short headings/lists; "
+    "a compact table is fine only when it genuinely improves scanning and stays to 2-3 columns.\n"
+    "- Then make the roadmap specific. For a named N-day plan up to about 90 days, account "
+    "for every day (or only group adjacent 2-3 days when they intentionally share one skill). "
+    "Do not collapse a 70-day request into ten vague weekly bullets.\n"
+    "- Each learning unit should say what to learn, show a concrete example when useful, "
+    "say exactly what to practice/build, and state the expected outcome. For programming, "
+    "include tiny code examples where they clarify the skill.\n"
+    "- Include progressive exercises/projects, review/checkpoint days, milestones, and a "
+    "repeatable daily study routine. End with what the learner should be able to do by the "
+    "final day and what still requires real production experience.\n"
+    "- Avoid empty advice such as 'master X', 'practice Y', or 'learn best practices' without "
+    "naming the subskills, exercise, deliverable, or success criterion."
+)
+
+
+def is_learning_plan_request(text: str) -> bool:
+    """True for bounded roadmaps/courses that should be delivered in full."""
+    cleaned = collapse_ws(text)
+    if not cleaned or len(cleaned) > 800:
+        return False
+    return bool(_LEARNING_PLAN_TURN.search(cleaned))
+
+
 TEACHING_HINT = (
-    "The user wants to be taught this topic. Run it as a lesson, not a how-to, "
-    "roadmap, or reference sheet; this layout replaces the answer-first default for "
-    "this turn.\n"
-    "- First reply: one short sentence on how the lesson will go (one idea at a "
-    "time, a quick check after each), a numbered outline of 4-8 step titles, then "
-    "teach Step 1 only.\n"
+    "The user wants an adaptive conversational lesson, not a static quiz, slideshow, "
+    "roadmap, or reference sheet. Understanding is the goal; checks are diagnostic, "
+    "never gates.\n"
+    "- First reply: one short sentence on how the lesson will work, a numbered outline "
+    "of about 5-10 meaningful step titles, then teach Step 1 only. Do not dump the whole "
+    "course unless the user asks for everything at once.\n"
     "- Each step starts with a heading like `### Step 1/6 — What a dictionary is` "
-    "(write the word Step in the reply language; keep the 1/6 numbers). Then a "
-    "plain-language explanation in 2-4 short paragraphs, one small example (a "
-    "code block for code, a worked example otherwise), and a simple mental model "
-    "or analogy when it helps.\n"
-    "- One new idea per step. Keep examples tiny and concrete, and define any "
-    "term the user may not know in one line.\n"
-    "- End every step with exactly one check question: predict the output, fill "
-    "in a blank, or choose from options written as plain lines `A.` to `D.`. "
-    "Stop there: do not answer it and do not start the next step.\n"
-    "- If the user asks for everything at once, a summary, or a cheat sheet, give "
-    "the full reference instead."
+    "(translate the word Step to the reply language; keep the 1/6 numbers). Explain one "
+    "main idea in plain language, use 2-4 short paragraphs at most, and show one small "
+    "concrete example (code for programming, a worked example otherwise). Add an analogy "
+    "or visual mental model when it genuinely helps.\n"
+    "- End the step with ONE low-pressure question or invitation so the learner can "
+    "answer, ask a question, request another example, or simply say next. A knowledge "
+    "check is optional and should be labeled as optional/quick when used; never say they "
+    "must answer correctly before continuing.\n"
+    "- Do not force a multiple-choice question after every tiny idea. Prefer natural "
+    "predict/explain/try-it prompts; use A-D only when choices actually help.\n"
+    "- Treat mistakes as information for teaching, not failure. Never punish a wrong, "
+    "partial, accidental, or unclear response by restarting the lesson. Never replay an "
+    "already-delivered step verbatim unless the learner explicitly asks to see it again.\n"
+    "- If the learner asks for everything at once, a summary, a cheat sheet, or a full "
+    "roadmap, switch to that format immediately."
 )
 
 # Short style: the same lesson, smaller steps (the SHORT format bans headings).
@@ -142,11 +199,13 @@ TEACHING_SHORT_NOTE = (
 
 
 def is_teaching_request(text: str) -> bool:
-    """True when the user asks to be taught ("teach me X", "I want to learn X")."""
+    """True for interactive tutoring, not a procedure or full learning roadmap."""
     cleaned = collapse_ws(text)
     if not cleaned or len(cleaned) > 400:
         return False
     if not _TEACH_TURN.search(cleaned):
+        return False
+    if is_learning_plan_request(cleaned):
         return False
     return not _asks_for_a_procedure(cleaned)
 
@@ -178,29 +237,42 @@ def lesson_step(text: str | None) -> tuple[int, int] | None:
 
 
 def lesson_continue_hint(step: int, total: int) -> str:
-    """The next turn of a lesson whose last reply taught ``step`` of ``total``."""
+    """Adaptive policy for the turn after a delivered lesson step."""
     lead = (
-        f"A lesson is in progress: your last reply taught Step {step}/{total} and "
-        "ended with a check question. Treat this message as the student's answer "
-        "or reaction to it.\n"
-        "- If they answered, say whether it is right and why in one or two sentences.\n"
-        "- If it is wrong, or they say no or that they don't understand, explain the "
-        "same idea another way with a new small example and ask a new check "
-        "question on it. Do not move on yet.\n"
+        f"A lesson is in progress. The learner has ALREADY SEEN Step {step}/{total}. "
+        "Do not reproduce that step, its paragraphs, its example, or its check question "
+        "verbatim. The latest message is a reaction to the lesson, not automatically an "
+        "exam answer. Checks are diagnostic, never gates.\n"
+        "Interpret the learner's intent first:\n"
+        "- Correct answer / 'got it' / 'ok' / 'next': acknowledge in one short sentence, "
+        "then continue.\n"
+        "- Plausible wrong or partial answer: correct only the specific misunderstanding "
+        "in 1-3 sentences, preferably with a FRESH tiny example, then continue to the next "
+        "step unless the learner explicitly says they are confused or wants to stay here. "
+        "Do not require a second correct attempt to unlock progress.\n"
+        "- Explicit confusion ('I don't understand', 'why?', 'show me another example'): "
+        "stay on the concept, explain it a DIFFERENT way with a new analogy/example, and "
+        "end with one low-pressure check or choice to continue. Never paste the old lesson.\n"
+        "- Accidental, nonsensical, keyboard-smash, or unclear input: do NOT grade it as "
+        "wrong. Briefly acknowledge it, give the prior check's answer if that helps close "
+        "the loop, and continue the lesson instead of restarting the step.\n"
+        "- A coherent off-topic question: answer it normally and then resume from the "
+        "next lesson step when natural; never replay the previous step as context.\n"
     )
     if step >= total:
         nxt = (
-            f"- Step {total}/{total} was the last step. When they have it, give a "
-            "short recap of the whole lesson in 3-5 bullets and offer one bigger "
-            "practice exercise or a next topic.\n"
+            f"- Step {total}/{total} was the final lesson step. Once the learner is not "
+            "asking for clarification on it, give a short 3-5 bullet recap and one optional "
+            "larger practice exercise or next topic.\n"
         )
     else:
         nxt = (
-            f"- When they have it (right answer, 'got it', 'next'), teach Step "
-            f"{step + 1}/{total} in the same format and end with one check question.\n"
+            f"- Normal progression is Step {step + 1}/{total}. Teach that next step in the "
+            "same concise tutor format and end with one low-pressure question/invitation.\n"
         )
     tail = (
-        "- If they ask to skip, stop, or get everything at once, do that. If the "
-        "message is unrelated to the lesson, answer it normally."
+        "- If the learner asks to skip, stop, change topics, or get everything at once, "
+        "follow that request immediately. Maintain conversational continuity; optimize for "
+        "understanding, not test completion."
     )
     return lead + nxt + tail
