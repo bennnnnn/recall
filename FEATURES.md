@@ -196,9 +196,24 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
   `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
   verified answers (`1+1=x`, factor a quadratic) return directly without an LLM
-  turn. Linear / pure-power / quadratic **lessons** are server-rendered from
-  verified `key_steps` when the style is Detailed, the user asks for steps, or
-  Balanced with two or more operations; other explanations still stream. Recall attaches geometry, graph, and
+  turn. **Lessons** are server-rendered from verified `key_steps` when the style
+  is Detailed, the user asks for steps, or Balanced with two or more operations:
+  equations (linear, pure-power, quadratic), linear and compound inequalities,
+  2×2 linear systems, derivatives rule by rule, and indefinite integrals by
+  method (u-substitution and integration by parts included). SymPy checks every
+  line before it is shown; other explanations still stream.
+- ✅ **Check my work** — “check my work”, “where did I go wrong” or a bare column of
+  worked lines: each line is checked against line 1 with SymPy (one unknown,
+  polynomial sides up to degree 2). The reply marks every line, names the first
+  slip (a sign lost moving a term, one side only, multiplying where dividing undoes,
+  an inequality not reversed, a half-expanded bracket, a lost root, …) and
+  continues from the corrected line with verified steps. “Don't finish it for me”
+  / “just a hint” names the slip as a question and never shows the fix or answer.
+- ✅ **Word problems** — ages, sums and differences, tickets and prices, consecutive
+  integers: one structured call (`title-model`, flag `math_word_problems_enabled`)
+  translates the problem into unknowns and equations. It is used only when every
+  number is stated in the problem and SymPy finds exactly one solution in the
+  stated domain; the reply shows the setup, the verified steps and the answer. Recall attaches geometry, graph, and
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
@@ -856,7 +871,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** sends the cropped image to chat (no pre-send OCR). Mathpix/`vision-chat` still run on the chat turn when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** → **I read this as** (`POST /math/scan/read`: Mathpix, then `vision-chat`, no solve). The student edits the reading if needed and taps **Solve**, which sends it as text through the full math pipeline, or **Send photo**, which sends the crop at once with the checked reading so the turn does not read it again. Physics and biology scans send the crop directly. Mathpix runs when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
