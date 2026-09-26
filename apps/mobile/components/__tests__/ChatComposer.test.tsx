@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
@@ -70,6 +70,17 @@ jest.mock("@/features/speech/components/LiveTalkButton", () => {
 jest.mock("@/features/attachments/components/ComposerAttachmentPreview", () => ({
   ComposerAttachmentPreview: () => null,
 }));
+
+// The RN jest preset reports a 2x text size. Sizes here are at the default
+// unless a test raises it; the preset's other window metrics stay.
+const presetDimensionsGet = Dimensions.get.bind(Dimensions);
+let windowFontScale = 1;
+jest
+  .spyOn(Dimensions, "get")
+  .mockImplementation((dim) => ({ ...presetDimensionsGet(dim), fontScale: windowFontScale }));
+beforeEach(() => {
+  windowFontScale = 1;
+});
 
 const baseProps = {
   visible: true,
@@ -1113,5 +1124,54 @@ describe("ChatComposer math keyboard", () => {
     );
     expect(queryByTestId("live-talk-mute")).toBeTruthy();
     expect(queryByTestId("live-talk-close")).toBeTruthy();
+  });
+});
+
+describe("ChatComposer at a larger text size", () => {
+  it.each([
+    [1.5, 36, 4],
+    [2, 48, 0],
+  ])("keeps one line level with the buttons at %sx", async (scale, line, spaceBelow) => {
+    windowFontScale = scale;
+    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
+
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: line });
+    expect(getByTestId("chat-composer-field")).toHaveStyle({ paddingBottom: spaceBelow });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+  });
+
+  it("grows by a scaled line per Return", async () => {
+    windowFontScale = 1.5;
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"First line\nSecond line"} />,
+    );
+
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 72 });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("wraps sooner than at the default size", async () => {
+    windowFontScale = 1.5;
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"a".repeat(20)} />,
+    );
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 36 });
+
+    await fireEvent(getByTestId("chat-composer-input"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 44 } },
+    });
+
+    // Twenty glyphs fit 200 pt at the default size; at 1.5x they take two lines.
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 72 });
+  });
+
+  it("moves the thread up when one line is taller than the buttons", async () => {
+    windowFontScale = 2;
+    const onInputFrameExtraChange = jest.fn();
+    await render(
+      <ChatComposer {...baseProps} onInputFrameExtraChange={onInputFrameExtraChange} />,
+    );
+
+    expect(onInputFrameExtraChange).toHaveBeenLastCalledWith(4);
   });
 });

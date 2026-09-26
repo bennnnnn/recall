@@ -15,6 +15,34 @@ export const COMPOSER_INPUT_MIN_HEIGHT = Space.minTouch;
 export const COMPOSER_INPUT_LINE_HEIGHT = Space.lg;
 export const COMPOSER_INPUT_MAX_HEIGHT =
   COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT * 5;
+/** Cap on the field at large text sizes: fewer than six lines when six would pass it. */
+const COMPOSER_INPUT_MAX_FRAME = 240;
+
+export type ComposerInputMetrics = {
+  /** One text line. */
+  line: number;
+  /** One-line frame: the + / send height, or the line when that is taller. */
+  min: number;
+  /** Frame at which the field stops growing and scrolls. */
+  max: number;
+  /** Frame height outside the text box. Half of it sits under the last line. */
+  slack: number;
+};
+
+/**
+ * Field sizes at the system text size. Native text scales the 24 pt line box
+ * by the font scale, so a frame sized for 24 pt lines clips a larger text
+ * size. At a font scale of 1 these are the constants above.
+ */
+export function composerInputMetrics(fontScale = 1): ComposerInputMetrics {
+  const line = COMPOSER_INPUT_LINE_HEIGHT * (fontScale > 0 ? fontScale : 1);
+  const min = Math.max(COMPOSER_INPUT_MIN_HEIGHT, line);
+  const extraLines = Math.max(
+    1,
+    Math.min(5, Math.floor((COMPOSER_INPUT_MAX_FRAME - min) / line)),
+  );
+  return { line, min, max: min + line * extraLines, slack: min - line };
+}
 
 /**
  * Last native content height stays valid while the same draft is edited.
@@ -73,12 +101,18 @@ function wrapOneLine(line: string, contentWidth: number): number {
  * has to grow from the text width before the native event arrives.
  * `contentWidth` of 0 counts hard returns only.
  */
-export function composerSoftWrapLineCount(text: string, contentWidth: number): number {
+export function composerSoftWrapLineCount(
+  text: string,
+  contentWidth: number,
+  fontScale = 1,
+): number {
   if (!text) return 1;
   const parts = text.split("\n");
   if (contentWidth < SOFT_WRAP_MIN_WIDTH) return parts.length;
+  // Glyphs widen with the text size, so fewer fit on a line.
+  const width = contentWidth / (fontScale > 0 ? fontScale : 1);
   let lines = 0;
-  for (const part of parts) lines += wrapOneLine(part, contentWidth);
+  for (const part of parts) lines += wrapOneLine(part, width);
   return Math.max(1, lines);
 }
 
@@ -95,21 +129,22 @@ export function composerInputFrameHeight(
   text: string,
   measuredContentHeight: number,
   contentWidth = 0,
+  fontScale = 1,
 ): { height: number; overflows: boolean } {
-  if (!text) return { height: COMPOSER_INPUT_MIN_HEIGHT, overflows: false };
-  const lineCount = composerSoftWrapLineCount(text, contentWidth);
-  const fromLines =
-    COMPOSER_INPUT_MIN_HEIGHT + (lineCount - 1) * COMPOSER_INPUT_LINE_HEIGHT;
+  const { line, min, max } = composerInputMetrics(fontScale);
+  if (!text) return { height: min, overflows: false };
+  const lineCount = composerSoftWrapLineCount(text, contentWidth, fontScale);
+  const fromLines = min + (lineCount - 1) * line;
   const measured =
     contentWidth >= SOFT_WRAP_MIN_WIDTH
       ? 0
       : measuredContentHeight > 0
         ? measuredContentHeight
         : 0;
-  const desired = Math.max(COMPOSER_INPUT_MIN_HEIGHT, fromLines, measured);
+  const desired = Math.max(min, fromLines, measured);
   return {
-    height: Math.min(COMPOSER_INPUT_MAX_HEIGHT, desired),
-    overflows: desired > COMPOSER_INPUT_MAX_HEIGHT,
+    height: Math.min(max, desired),
+    overflows: desired > max,
   };
 }
 
@@ -118,11 +153,12 @@ export function composerInputFrameHeight(
  * lines up with the buttons; that slack must stay on the wrapper. Padding
  * inside the field makes iOS draw the caret a line too high.
  */
-export function composerInputTextBoxHeight(frameHeight: number): number {
-  if (frameHeight <= COMPOSER_INPUT_MIN_HEIGHT) return COMPOSER_INPUT_LINE_HEIGHT;
-  const slack = COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT;
-  const onLineGrid =
-    (frameHeight - COMPOSER_INPUT_MIN_HEIGHT) % COMPOSER_INPUT_LINE_HEIGHT === 0;
+export function composerInputTextBoxHeight(frameHeight: number, fontScale = 1): number {
+  const { line, min, slack } = composerInputMetrics(fontScale);
+  if (frameHeight <= min) return line;
+  // Scaled lines are fractional, so the grid check allows float error.
+  const lines = (frameHeight - min) / line;
+  const onLineGrid = Math.abs(lines - Math.round(lines)) < 1e-6;
   if (!onLineGrid) return frameHeight;
   return frameHeight - slack;
 }
