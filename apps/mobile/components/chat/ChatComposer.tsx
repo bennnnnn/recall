@@ -261,10 +261,18 @@ export const ChatComposer = memo(function ChatComposer({
     ? [blockStyle, animatedContainerStyle, expandedBlockStyle]
     : [blockStyle, { bottom, paddingBottom }, expandedBlockStyle];
   const showExpandControl = inputAtLimit || composerExpanded;
+  // The composer view is only as tall as the field. A target drawn above that
+  // box never receives taps, so while the math pad is open the view itself
+  // stretches to the top of the screen and the dismiss target fills that space.
+  const mathDismissCoversScreen = math.mathBarOpen && !composerExpanded && !docked;
 
   return (
-    <Animated.View style={containerStyle} testID="chat-composer">
-      {math.mathBarOpen ? (
+    <Animated.View
+      style={[containerStyle, mathDismissCoversScreen && s.mathHitHost]}
+      pointerEvents="box-none"
+      testID="chat-composer"
+    >
+      {mathDismissCoversScreen ? (
         <Pressable
           style={s.outsideDismiss}
           onPress={() => {
@@ -606,13 +614,8 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: Space.sm,
       paddingTop: 2,
     },
-    outsideDismiss: {
-      position: "absolute",
-      left: -Space.sm,
-      right: -Space.sm,
-      bottom: "100%",
-      height: 4000,
-    },
+    mathHitHost: { top: 0 },
+    outsideDismiss: { flex: 1, marginHorizontal: -Space.sm },
     composerDocked: {
       overflow: "visible",
       backgroundColor: "transparent",
