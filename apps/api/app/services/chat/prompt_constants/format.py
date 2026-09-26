@@ -317,7 +317,9 @@ def is_callout_question(text: str) -> bool:
 
 _HOWTO_TURN = re.compile(
     r"(?:"
-    r"\b\d+[\s-]?week(?:s)?\s+plan\b|"
+    r"\b\d+[\s-]?(?:day|days|week|weeks|month|months)\s+(?:learning\s+|study\s+|mastery\s+)?plan\b|"
+    r"\b\d+[\s-]?(?:day|days|week|weeks|month|months)\b[^.?!]{0,80}"
+    r"\b(?:learn|learning|master|mastering|study|studying)\b|"
     r"\bweek[\s-]?by[\s-]?week\b|"
     r"\broadmap(?:\s+to\s+learn)?\b|"
     r"\b(?:learning|study)\s+plan\b|"
@@ -335,13 +337,22 @@ _HOWTO_TURN = re.compile(
 )
 
 HOWTO_FORMAT_HINT = (
-    "This turn is a how-to, roadmap, or N-week learning plan.\n"
-    "Do not write a joke setup. Prefer lists over a pipe table—a week-by-week plan "
-    "is normally not a schedule grid. If the user explicitly asks for a compact table, "
-    "honor that request and keep it to 2-3 columns.\n"
-    "Use ## headings per week or phase. Under each: a one-line goal, then "
-    "numbered steps or short bullets. Keep vocab/phrases in bullets, not table "
-    "columns."
+    "This turn is a how-to, roadmap, or time-boxed learning plan.\n"
+    "Do not write a joke setup. Prefer lists over a pipe table—a week-by-week or "
+    "day-by-day learning plan is normally not a schedule grid. If the user explicitly "
+    "asks for a compact table, honor that request and keep it to 2-3 columns.\n"
+    "Use ## headings per week, phase, or meaningful day range. Under each, give a "
+    "one-line goal plus concrete topics and actions—not vague labels such as 'practice' "
+    "or 'learn the basics' with no detail.\n"
+    "For a learning roadmap/plan specifically: preserve the requested duration and show "
+    "a real progression. A 70-day request should cover the full 70-day journey (for "
+    "example 10 weeks or explicit day ranges), not collapse into a few broad bullets. "
+    "For every phase include: what to learn, at least one concrete example or practice "
+    "task, what to build/apply when appropriate, and a milestone describing what the "
+    "learner should be able to do afterward. Include a practical daily/weekly study "
+    "routine when a duration is given. Completeness beats artificial brevity here.\n"
+    "For ordinary procedures rather than learning plans, keep the answer focused on the "
+    "ordered actions needed to complete the task."
 )
 
 
