@@ -252,7 +252,9 @@ function makeStyles(t: Theme) {
     pill: {
       maxWidth: "52%",
       borderRadius: Radius.sm,
-      backgroundColor: t.bg,
+      backgroundColor: t.elevated,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
     },
