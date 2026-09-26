@@ -11,10 +11,13 @@ from app.services.chat.prompt_builder import _style_format_hints, build_prompt_m
 from app.services.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
     HOWTO_FORMAT_HINT,
+    LEARNING_PLAN_HINT,
     PERSONAL_DISCLOSURE_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
     TEACHING_SHORT_NOTE,
+    active_lesson_step,
+    is_learning_plan_request,
     is_lightweight_chat_turn,
     is_teaching_request,
     lesson_continue_hint,
@@ -27,8 +30,8 @@ STEP_ONE = (
     "### Step 1/6 — What a dictionary is\n\n"
     "A dictionary stores key-value pairs.\n\n"
     "```python\ncar = {'brand': 'Toyota', 'year': 2024}\nprint(car['brand'])\n```\n\n"
-    "What will this print?\n\nA. Toyota\nB. brand\nC. 2024\nD. 0\n\n"
-    "Answer it, and then we'll go to Step 2: accessing values in different ways."
+    "Quick check (optional): what will this print?\n\nA. Toyota\nB. brand\nC. 2024\nD. 0\n\n"
+    "You can answer, ask a question, request another example, or just say next."
 )
 
 
@@ -43,6 +46,9 @@ STEP_ONE = (
         "I would like to learn how derivatives work",
         "i wanna learn react hooks",
         "tutor me in chemistry",
+        "become my tutor for Python",
+        "act as my teacher for algebra",
+        "teach me how to pass an L3 coding interview",
         "Give me a lesson on fractions",
         "a crash course in git",
         "Enséñame los diccionarios de Python",
@@ -84,11 +90,55 @@ def test_teaching_request_detected(text):
         "teach me how to tie a knot",
         "Can you teach me to cook?",
         "I want to learn how to cook",
+        "Walk me through Python dictionaries",
+        "Walk me through changing a tire",
+        "Walk me through baking bread",
+        "Walk me through filing my taxes",
         "",
     ],
 )
 def test_teaching_request_declines(text):
     assert not is_teaching_request(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "70 days mastering python from beginner to senior level plan",
+        "Give me a 70-day Python mastery plan",
+        "Teach me Python in 70 days",
+        "Teach me Python over the next 70 days",
+        "Create a 70-day Python plan",
+        "70-day roadmap for Python",
+        "Give me a daily Python curriculum for 70 days",
+        "Create a 12-week roadmap to learn backend engineering",
+        "learning plan for SQL",
+        "roadmap to master FastAPI",
+        "Dame un plan de 4 semanas para aprender español",
+    ],
+)
+def test_learning_plan_request_detected(text):
+    assert is_learning_plan_request(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Teach me python dictionary step by step",
+        "What is a dictionary?",
+        "How to install Docker",
+        "Explain recursion",
+        "Give me a 30-day workout plan",
+        "Create a 12-week business plan",
+        "Make a 30-day launch plan for my app",
+        "I started learning Python 3 days ago",
+        "I've been studying Python for 8 weeks",
+        "I studied Python for 70 days and now plan to apply for jobs",
+        "Plan my day",
+    ],
+)
+def test_learning_plan_request_declines_non_plans(text):
+    assert not is_learning_plan_request(text)
 
 
 @pytest.mark.parametrize(
@@ -118,16 +168,47 @@ def test_lesson_step(reply, expected):
     assert lesson_step(reply) == expected
 
 
+def test_active_lesson_step_reads_only_the_latest_assistant_reply():
+    messages = [
+        SimpleNamespace(role="user", content="Teach me dictionaries"),
+        SimpleNamespace(role="assistant", content=STEP_ONE),
+        SimpleNamespace(role="user", content="red"),
+    ]
+    assert active_lesson_step(messages) == (1, 6)
+    messages.append(SimpleNamespace(role="assistant", content="That lesson is now stopped."))
+    assert active_lesson_step(messages) is None
+
+
 def test_lesson_continue_hint_moves_to_the_next_step():
     hint = lesson_continue_hint(2, 6)
     assert "Step 2/6" in hint and "Step 3/6" in hint
-    assert "another way" in hint
-    assert "unrelated to the lesson" in hint
+    assert "DIFFERENT way" in hint
+    assert "diagnostic, never gates" in hint
+    assert "Do not reproduce that step" in hint
+
+
+def test_lesson_continue_hint_handles_wrong_and_accidental_inputs_without_replay():
+    hint = lesson_continue_hint(1, 6)
+    assert "Plausible wrong or partial answer" in hint
+    assert "Do not require a second correct attempt" in hint
+    assert "Accidental, nonsensical, keyboard-smash" in hint
+    assert "do NOT grade it as wrong" in hint
+    assert "continue the lesson instead of restarting the step" in hint
+
+
+def test_lesson_continue_hint_preserves_state_during_confusion_and_mode_switches():
+    hint = lesson_continue_hint(2, 6)
+    assert "same `### Step 2/6 — ...` heading" in hint
+    assert "lesson state survives the next turn" in hint
+    assert "Do not repeat the original lesson outline" in hint
+    assert "`### Step 3/6 — ...`" in hint
+    assert "quiz/test/practice-only mode" in hint
+    assert "Do not score or grade" in hint
 
 
 def test_lesson_continue_hint_recaps_after_the_last_step():
     hint = lesson_continue_hint(6, 6)
-    assert "last step" in hint and "recap" in hint
+    assert "final lesson step" in hint and "recap" in hint
     assert "Step 7/6" not in hint
 
 
@@ -145,11 +226,51 @@ def _hints(text, *, style="balanced", lesson=None, compact=False):
 def test_teach_request_gets_a_lesson_not_a_howto():
     hints = _hints("Teach me python dictionary step by step")
     assert TEACHING_HINT in hints
+    assert LEARNING_PLAN_HINT not in hints
     assert HOWTO_FORMAT_HINT not in hints
+
+
+def test_explicit_teach_request_beats_comparison_layout():
+    from app.services.chat.prompt_constants import COMPARISON_FORMAT_HINT
+
+    hints = _hints("Teach me the difference between Python vs Java")
+    assert TEACHING_HINT in hints
+    assert COMPARISON_FORMAT_HINT not in hints
+
+
+def test_70_day_learning_plan_gets_complete_roadmap_policy():
+    hints = _hints("70 days mastering python from beginner to senior level plan")
+    assert LEARNING_PLAN_HINT in hints
+    assert TEACHING_HINT not in hints
+    joined = "\n".join(hints)
+    assert "account for every day" in joined
+    assert "Do not collapse a 70-day request" in joined
+    assert "Foundations → Core skills → Projects" in joined
+    assert "small runnable code examples in tagged fences" in joined
+    assert "progressive exercises and projects" in joined
+    assert "make the expected outcome verifiable" in joined
+
+
+def test_teach_me_in_70_days_is_a_plan_not_an_interactive_lesson():
+    hints = _hints("Teach me Python in 70 days")
+    assert LEARNING_PLAN_HINT in hints
+    assert TEACHING_HINT not in hints
+
+
+def test_short_style_does_not_crush_an_explicit_learning_plan():
+    hints = _hints("Give me a 30-day plan to learn FastAPI", style="short")
+    assert LEARNING_PLAN_HINT in hints
+    assert SHORT_RESPONSE_FORMAT_HINT not in hints
 
 
 def test_procedure_keeps_the_howto_layout():
     hints = _hints("How to install python step by step")
+    assert HOWTO_FORMAT_HINT in hints
+    assert TEACHING_HINT not in hints
+
+
+def test_walk_me_through_procedure_is_a_howto_not_an_interactive_lesson():
+    hints = _hints("Walk me through changing a tire")
     assert HOWTO_FORMAT_HINT in hints
     assert TEACHING_HINT not in hints
 
@@ -182,6 +303,21 @@ def test_new_teach_request_starts_a_new_lesson():
     hints = _hints("Teach me python sets", lesson=(3, 6))
     assert TEACHING_HINT in hints
     assert not any("A lesson is in progress" in hint for hint in hints)
+
+
+def test_full_roadmap_request_exits_an_active_lesson():
+    hints = _hints("Give me a 30-day roadmap to learn Python", lesson=(3, 6))
+    assert LEARNING_PLAN_HINT in hints
+    assert not any("A lesson is in progress" in hint for hint in hints)
+
+
+def test_random_input_mid_lesson_keeps_adaptive_continuation_policy():
+    hints = _hints("Bad bdbd head hdjjd jdjdd", lesson=(1, 6))
+    joined = "\n".join(hints)
+    assert "Accidental, nonsensical, keyboard-smash" in joined
+    assert "do NOT grade it as wrong" in joined
+    assert "Step 2/6" in joined
+    assert "Do not reproduce that step" in joined
 
 
 def test_short_style_lesson_step_drops_the_no_headings_rule():
@@ -241,6 +377,21 @@ async def test_ok_after_a_lesson_step_asks_for_the_next_step():
     assert "Step 2/6" in system
     # "ok" would otherwise get the casual one-liner layout.
     assert COMPACT_RESPONSE_FORMAT_HINT not in system
+
+
+@pytest.mark.asyncio
+async def test_random_input_after_lesson_step_does_not_restart_or_regrade_step():
+    recent = [
+        SimpleNamespace(id=uuid4(), role="user", content="Teach me python dictionary step by step"),
+        SimpleNamespace(id=uuid4(), role="assistant", content=STEP_ONE),
+        SimpleNamespace(id=uuid4(), role="user", content="Bad bdbd head hdjjd jdjdd"),
+    ]
+    system = await _system_prompt(recent, "Bad bdbd head hdjjd jdjdd")
+    assert "A lesson is in progress" in system
+    assert "Do not reproduce that step" in system
+    assert "Accidental, nonsensical, keyboard-smash" in system
+    assert "do NOT grade it as wrong" in system
+    assert "Step 2/6" in system
 
 
 @pytest.mark.asyncio

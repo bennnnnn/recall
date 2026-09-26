@@ -51,6 +51,18 @@ def test_pro_user_auto_can_pick_smart():
     assert resolved == "smart-chat"
 
 
+def test_pro_user_auto_keeps_an_active_lesson_on_smart():
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    resolved = plan_service.resolve_user_model(
+        user,
+        "Bad bdbd head hdjjd jdjdd",
+        settings,
+        lesson_active=True,
+    )
+    assert resolved == "smart-chat"
+
+
 def test_manual_mode_uses_fixed_model():
     user = ManualUser()
     user.plan = "pro"

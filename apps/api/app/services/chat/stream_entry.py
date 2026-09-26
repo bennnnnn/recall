@@ -14,7 +14,11 @@ from app.modules.attachments.content import (
     strip_attachment_from_content,
 )
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
-from app.services.chat.prompt_constants import is_lightweight_chat_turn, is_short_reply
+from app.services.chat.prompt_constants import (
+    active_lesson_step,
+    is_lightweight_chat_turn,
+    is_short_reply,
+)
 from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
 from app.services.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
@@ -319,6 +323,7 @@ async def stream_chat_response(
             settings,
             prior_user=prior_user,
             prior_model=prior_model,
+            lesson_active=active_lesson_step(recent) is not None,
         )
         timing.mark_phase("user_quota")
 

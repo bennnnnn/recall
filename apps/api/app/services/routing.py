@@ -312,6 +312,18 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
+    # Teaching quality is a product feature, not casual chit-chat. Full learning
+    # roadmaps and interactive tutor sessions need the stronger reasoning tier
+    # even when the user's first message is short ("Teach me dictionaries",
+    # "70 days mastering Python..."). Keep this classifier shared with the
+    # prompt layer so model choice and response behavior cannot drift apart.
+    from app.services.chat.prompt_constants.teaching import (
+        is_learning_plan_request,
+        is_teaching_request,
+    )
+
+    if is_learning_plan_request(content) or is_teaching_request(content):
+        return smart
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
     if physics_alias is not None:
         return physics_alias
@@ -333,14 +345,18 @@ def route_chat_model(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
     settings: Settings | None = None,
 ) -> str:
     """Return a preferred chat alias for an auto-routed message (before pool filter).
 
-    Scores the current line first. A short continuation of a prior smart user
-    turn inherits Pro; a new topic does not pin the rest of the chat.
+    Active lessons stay on the smart tier. Otherwise, score the current line
+    first: a short continuation of a prior smart turn inherits Pro, while a new
+    topic does not pin the rest of the chat.
     """
     smart = model_catalog.auto_smart_alias()
+    if lesson_active:
+        return smart
     preferred = _route_current_line(content, settings)
     if preferred == smart:
         return smart
@@ -421,11 +437,17 @@ def resolve_alias(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
 ) -> str:
     """Resolve ``auto`` / ``fast`` / ``smart`` without a pool (legacy/tests)."""
     all_ids = [m.id for m in model_catalog.selectable_models()]
     return resolve_alias_in_pool(
-        alias, content, all_ids, prior_user=prior_user, prior_model=prior_model
+        alias,
+        content,
+        all_ids,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
     )
 
 
@@ -437,6 +459,7 @@ def resolve_alias_in_pool(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
 ) -> str:
     """Resolve a model mode or alias within an allowed pool."""
     if not pool:
@@ -447,6 +470,7 @@ def resolve_alias_in_pool(
             content,
             prior_user=prior_user,
             prior_model=prior_model,
+            lesson_active=lesson_active,
             settings=settings,
         )
         return _pick_preferred_tier(preferred, pool)

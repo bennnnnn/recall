@@ -109,12 +109,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Teach-me lessons** — “teach me X”, “help me learn X”, “I want to learn X” (and
   the teach verbs in the other app languages) run as a lesson, not a how-to list: a
   short outline, then one step at a time (`### Step 1/6 — …`, a plain explanation,
-  one small example), each ending on one check question (predict the output, fill
-  in a blank, or A–D written as plain text). The next turn grades the answer and
-  explains why, re-explains another way on a wrong answer or “no”, then teaches
-  the next step; the last step ends with a short recap. “Everything at once” / a
-  cheat sheet still gets the full reference, and procedures (“teach me how to
-  install Docker”) keep the how-to steps. No tappable quiz chips in chat.
+  one small example), each ending with one low-pressure question or optional check.
+  Checks are diagnostic, never gates: a plausible wrong answer gets a brief targeted
+  correction and then advances, explicit confusion gets a fresh explanation on the same
+  step, and accidental/random input is not graded or used to restart the lesson. The last
+  step ends with a short recap. “Everything at once” / a cheat sheet still gets the full
+  reference, and procedures (“teach me how to install Docker” / “walk me through changing
+  a tire”) keep the how-to steps. No tappable quiz chips in chat.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
   not a greeting. A short answer (“no”, “got it”) to a question or lesson step
   loads the recent messages and continues the thread. “One sentence” / briefly beats chart, compare, and how-to
@@ -332,8 +333,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
   No open settings tool. Daily learning goal lives on the lesson map ⋯ menu.
 - ✅ **Auto routing** — an **Auto** option (Settings → Models) picks Flash vs Pro per message via a
-  fast heuristic (length, code fences, reasoning keywords). Short follow-ups of a hard turn inherit
-  that turn’s tier; a new topic drops back to Flash. No extra LLM call.
+  fast heuristic (length, code fences, reasoning keywords). Explicit chat tutoring and substantive
+  learning roadmaps route to Pro-quality reasoning even when the opening ask is short. Short
+  follow-ups of a hard turn inherit that turn’s tier; a new topic drops back to Flash. No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
   key, base URL, and pricing per entry. All chat aliases route through **OpenRouter** via LiteLLM
   (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
