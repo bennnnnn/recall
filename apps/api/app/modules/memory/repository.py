@@ -6,7 +6,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Memory
+from app.models.orm import Memory, MemoryArea
 from app.modules.memory.ops import ACTIVE_STATUS, MUTED_STATUS, normalize_memory_text
 from app.modules.memory.writes_repository import MemoryFactWrite as MemoryFactWrite
 from app.modules.memory.writes_repository import apply_fact_ops as apply_fact_ops
@@ -33,6 +33,37 @@ async def list_for_user(
         select(Memory).where(*filters).order_by(Memory.type.asc(), Memory.last_confirmed_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def list_areas(session: AsyncSession, user_id: UUID) -> list[MemoryArea]:
+    result = await session.execute(
+        select(MemoryArea).where(MemoryArea.user_id == user_id).order_by(MemoryArea.title.asc())
+    )
+    return list(result.scalars().all())
+
+
+async def delete_topic(
+    session: AsyncSession,
+    user_id: UUID,
+    topic: str,
+    *,
+    commit: bool = True,
+) -> int:
+    """Delete one memory document: every fact with this topic, and its area row."""
+    result = cast(
+        CursorResult[Any],
+        await session.execute(
+            delete(Memory).where(Memory.user_id == user_id, Memory.topic == topic)
+        ),
+    )
+    await session.execute(
+        delete(MemoryArea).where(MemoryArea.user_id == user_id, MemoryArea.key == topic)
+    )
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    return int(result.rowcount or 0)
 
 
 async def has_any_embedding(session: AsyncSession, user_id: UUID) -> bool:
@@ -183,6 +214,7 @@ async def delete_all_for_user(
         CursorResult[Any],
         await session.execute(delete(Memory).where(Memory.user_id == user_id)),
     )
+    await session.execute(delete(MemoryArea).where(MemoryArea.user_id == user_id))
     if commit:
         await session.commit()
     else:

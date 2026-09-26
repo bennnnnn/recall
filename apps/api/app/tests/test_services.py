@@ -34,6 +34,12 @@ def _memory_persistence_gate_enabled():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _no_memory_areas():
+    with patch("app.modules.memory.repository.list_areas", AsyncMock(return_value=[])):
+        yield
+
+
 @pytest.fixture
 def embedding_write():
     with patch("app.modules.memory.repository.update_embedding_if_current", AsyncMock()) as write:
@@ -223,8 +229,8 @@ async def test_revise_memory_sections_prompt_user_stated_only():
         )
 
     system = captured["messages"][0]["content"]  # type: ignore[index]
-    assert "explicitly stated or confirmed by the User line" in system
-    assert "never from assistant inferences" in system
+    assert "Use only what the User lines state or clearly show about the user" in system
+    assert "never assistant inferences, suggestions, or restatements" in system
     assert "Each op is ONE fact" in system
     assert "explicitly asks to remember a fact" in system
     assert "explicitly asks to forget a fact" in system

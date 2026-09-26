@@ -29,6 +29,12 @@ from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.self_facts import stated_fact_writes
 from app.modules.memory.text import classify_memory_sensitivity, normalize_memory_text
+from app.modules.memory.topics import (
+    fact_topic,
+    is_area,
+    parse_topic,
+    topic_memory_type,
+)
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.repositories import users as users_repo
 
@@ -36,42 +42,54 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class _MemoryExtractionSnapshot:
+class MemorySnapshot:
     memory_enabled: bool
     include_sensitive: bool
     existing_facts: dict[UUID, str]
     prompt_facts: list[dict[str, str]]
+    prompt_areas: list[dict[str, str]]
 
 
-async def _load_memory_extraction_snapshot(
+async def load_memory_snapshot(
     session: AsyncSession,
     user_id: UUID,
-) -> _MemoryExtractionSnapshot:
+) -> MemorySnapshot:
     user = await users_repo.get_by_id(session, user_id)
     if user is None or not getattr(user, "memory_enabled", True):
-        return _MemoryExtractionSnapshot(
+        return MemorySnapshot(
             memory_enabled=False,
             include_sensitive=False,
             existing_facts={},
             prompt_facts=[],
+            prompt_areas=[],
         )
     existing = await memories_repo.list_for_user(
         session, user_id, include_muted=False, include_superseded=False
     )
-    return _MemoryExtractionSnapshot(
+    areas = await memories_repo.list_areas(session, user_id)
+    return MemorySnapshot(
         memory_enabled=True,
         include_sensitive=bool(getattr(user, "memory_include_sensitive", False)),
         existing_facts={memory.id: memory.text for memory in existing},
         prompt_facts=[
-            {"id": str(memory.id), "type": memory.type, "text": memory.text} for memory in existing
+            {
+                "id": str(memory.id),
+                "type": memory.type,
+                "topic": fact_topic(memory),
+                "text": memory.text,
+            }
+            for memory in existing
+        ],
+        prompt_areas=[
+            {"topic": area.key, "title": area.title, "summary": area.summary} for area in areas
         ],
     )
 
 
-def _writes_from_ops(
+def writes_from_ops(
     result_ops: list,
     *,
-    chat_id: UUID,
+    chat_id: UUID | None,
     explicit_remember: bool,
     include_sensitive: bool,
     min_confidence: float,
@@ -109,16 +127,23 @@ def _writes_from_ops(
             logger.info("Skipping memory name the user did not claim")
             skipped += 1
             continue
+        # No valid topic keeps a matched fact where it is; a new fact then gets
+        # the default document for its type.
+        topic = parse_topic(op.topic)
         writes.append(
             MemoryFactWrite(
                 op=op.op,
-                type=op.type,
+                # The document decides the type, so the two never disagree.
+                type=topic_memory_type(topic) if topic else op.type,
                 text=text,
                 confidence=confidence,
                 sensitivity=sensitivity,
                 importance=float(op.importance),
                 match_text=op.match_text,
                 source_chat_id=chat_id,
+                topic=topic,
+                area_title=op.topic_title if topic and is_area(topic) else None,
+                area_summary=op.topic_summary if topic and is_area(topic) else None,
             )
         )
     return writes, skipped
@@ -130,8 +155,13 @@ async def extract_and_store_memories(
     user_id: UUID,
     chat_id: UUID,
     transcript: str,
+    from_history: bool = False,
 ) -> str | None:
-    """Return ``skipped_lock`` when a caller should retry after backoff."""
+    """Return ``skipped_lock`` when a caller should retry after backoff.
+
+    ``from_history`` reads ``transcript`` as given (the one pass over a user's
+    recent chats) and leaves the chat's live cursor and retry count alone.
+    """
     try:
         lock_token = await acquire_memory_write_lock(user_id)
         if not lock_token:
@@ -142,15 +172,18 @@ async def extract_and_store_memories(
             return "skipped_lock"
         try:
             async with SessionLocal() as session:
-                snapshot = await _load_memory_extraction_snapshot(session, user_id)
+                snapshot = await load_memory_snapshot(session, user_id)
                 if not snapshot.memory_enabled:
                     return None
-                expanded, newest_cursor = await expand_memory_extract_transcript(
-                    session,
-                    user_id=user_id,
-                    chat_id=chat_id,
-                    fallback_transcript=transcript,
-                )
+                if from_history:
+                    expanded, newest_cursor = transcript, None
+                else:
+                    expanded, newest_cursor = await expand_memory_extract_transcript(
+                        session,
+                        user_id=user_id,
+                        chat_id=chat_id,
+                        fallback_transcript=transcript,
+                    )
             if not expanded.strip():
                 return None
 
@@ -171,11 +204,14 @@ async def extract_and_store_memories(
                 settings,
                 expanded,
                 existing_facts=snapshot.prompt_facts,
+                existing_areas=snapshot.prompt_areas,
             )
             if result is None:
                 # Provider error, timeout or unreadable JSON. Keep the cursor so the
                 # next turn retries these lines, up to FAILED_PASS_LIMIT times.
-                advance_cursor = await note_failed_extract_pass(user_id, chat_id)
+                advance_cursor = (
+                    False if from_history else await note_failed_extract_pass(user_id, chat_id)
+                )
                 logger.warning(
                     "memory_extract_model_failed user_id=%s chat_id=%s moving_on=%s",
                     user_id,
@@ -184,8 +220,9 @@ async def extract_and_store_memories(
                 )
             else:
                 advance_cursor = True
-                await clear_failed_extract_passes(user_id, chat_id)
-            writes, skipped = _writes_from_ops(
+                if not from_history:
+                    await clear_failed_extract_passes(user_id, chat_id)
+            writes, skipped = writes_from_ops(
                 result.ops if result else [],
                 chat_id=chat_id,
                 explicit_remember=explicit_remember,

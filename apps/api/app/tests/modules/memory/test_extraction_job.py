@@ -8,6 +8,7 @@ import pytest
 
 from app.background.memory_extraction import extract_and_store_memories
 from app.core.config import Settings
+from app.models.orm import Memory
 from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.models.schemas.common import MemoryType
 from app.modules.memory import embedding_text_hash
@@ -751,3 +752,122 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         )
 
     assert apply.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_extract_files_facts_into_documents():
+    extraction = _ops(
+        MemoryFactOp(
+            op="add",
+            type="fact",
+            text="User is building Recall, a personal AI chat app.",
+            confidence=0.9,
+            topic="area:recall",
+            topic_title="Recall",
+            topic_summary="Personal AI chat app built with Expo",
+        ),
+        MemoryFactOp(
+            op="add",
+            type="fact",
+            text="User prefers short answers.",
+            confidence=0.9,
+            topic="preferences",
+        ),
+        MemoryFactOp(
+            op="add",
+            type="fact",
+            text="User uses FastAPI for backends.",
+            confidence=0.9,
+            topic="not-a-topic",
+            topic_title="ignored",
+        ),
+    )
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+    with _extract_patches(session_locals=session_locals, extraction=extraction, apply=apply):
+        await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript=_CANDIDATE
+        )
+
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    area, preference, unknown = writes[:3]
+    assert (area.topic, area.type) == ("area:recall", "project")
+    assert area.area_title == "Recall"
+    assert area.area_summary == "Personal AI chat app built with Expo"
+    # The document decides the type.
+    assert (preference.topic, preference.type) == ("preferences", "preference")
+    # No valid topic: keep the model's type and let the writer pick the default.
+    assert (unknown.topic, unknown.type, unknown.area_title) == (None, "fact", None)
+
+
+@pytest.mark.asyncio
+async def test_extract_shows_the_model_existing_topics_and_areas():
+    existing = [
+        Memory(
+            id=uuid4(),
+            user_id=uuid4(),
+            type="project",
+            topic="area:recall",
+            text="User is building Recall.",
+            status="active",
+        )
+    ]
+    area = SimpleNamespace(key="area:recall", title="Recall", summary="AI chat app")
+    revise = AsyncMock(return_value=None)
+    _, session_locals = _extraction_sessions()
+    with (
+        _extract_patches(
+            session_locals=session_locals, extraction=None, apply=AsyncMock(), listed=existing
+        ),
+        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_areas",
+            AsyncMock(return_value=[area]),
+        ),
+    ):
+        await extract_and_store_memories(
+            Settings(), user_id=uuid4(), chat_id=uuid4(), transcript=_CANDIDATE
+        )
+
+    kwargs = revise.await_args.kwargs
+    assert kwargs["existing_facts"][0]["topic"] == "area:recall"
+    assert kwargs["existing_areas"] == [
+        {"topic": "area:recall", "title": "Recall", "summary": "AI chat app"}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_extract_from_history_reads_the_given_lines_and_leaves_cursors_alone():
+    expand = AsyncMock()
+    stamp = AsyncMock()
+    note_failed = AsyncMock()
+    revise = AsyncMock(return_value=None)
+    _, session_locals = _extraction_sessions()
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=_user()),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch("app.background.memory_extraction.expand_memory_extract_transcript", expand),
+        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
+        patch("app.background.memory_extraction.apply_memory_facts", AsyncMock()),
+        patch("app.background.memory_extraction.stamp_extract_cursor", stamp),
+        patch("app.background.memory_extraction.note_failed_extract_pass", note_failed),
+    ):
+        await extract_and_store_memories(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: I run every morning before work",
+            from_history=True,
+        )
+
+    expand.assert_not_awaited()
+    assert revise.await_args.args[1] == "User: I run every morning before work"
+    note_failed.assert_not_awaited()
+    stamp.assert_not_awaited()

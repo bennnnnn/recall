@@ -57,6 +57,10 @@ class User(Base):
     memory_include_sensitive: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    # When memory last read the user's recent chats in one pass (history scan).
+    memory_history_scanned_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     push_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )

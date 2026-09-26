@@ -250,6 +250,30 @@ async def delete_memory_section(
         await seams.release_memory_write_lock(user_id, lock_token)
 
 
+async def delete_memory_document(
+    seams: Any,
+    session: AsyncSession,
+    user_id: UUID,
+    topic: str,
+) -> bool:
+    """Delete every fact in one document (and an area's title row)."""
+    from app.modules.memory import repository as memories_repo
+
+    lock_token = await seams._acquire_memory_write_lock_or_raise(user_id)
+    try:
+        try:
+            removed = await memories_repo.delete_topic(session, user_id, topic, commit=False)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        if removed:
+            await _invalidate_caches(seams, user_id)
+        return removed > 0
+    finally:
+        await seams.release_memory_write_lock(user_id, lock_token)
+
+
 async def delete_all_memories(seams: Any, session: AsyncSession, user_id: UUID) -> int:
     from app.modules.memory import repository as memories_repo
 

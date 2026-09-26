@@ -63,6 +63,13 @@ def format_user_memory_transcript(user_texts: list[str]) -> str:
     return "\n".join(lines)
 
 
+def history_transcript(user_texts: list[str]) -> str:
+    """User lines from an old chat, capped like a live pass."""
+    return cap_text_head_tail(
+        format_user_memory_transcript(user_texts), _MEMORY_TRANSCRIPT_MAX_CHARS
+    )
+
+
 async def expand_memory_extract_transcript(
     session: AsyncSession,
     *,

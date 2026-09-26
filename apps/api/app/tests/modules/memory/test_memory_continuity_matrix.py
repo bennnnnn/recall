@@ -250,3 +250,56 @@ async def test_extractor_prompt_keeps_everyday_profile_facts_normal(
     assert "normal: name, job, employer, school, city, home country, languages" in system_prompt
     assert "identity: gender identity, immigration status, or disability" in system_prompt
     assert "building a dating app or a health tracker is a normal project fact" in system_prompt
+
+
+@pytest.mark.asyncio
+async def test_instruct_prompt_names_the_open_document_and_asks_for_a_reply(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_complete_structured(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+
+    await memory_llm.instruct_memory(
+        Settings(),
+        "Keep lists under five things",
+        existing_facts=[],
+        existing_areas=[{"topic": "area:recall", "title": "Recall", "summary": ""}],
+        focus_topic="preferences",
+    )
+
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    system_prompt = messages[0]["content"]
+    user_prompt = messages[1]["content"]
+    assert "looking at the preferences document" in system_prompt
+    assert '"reply": "one short sentence to the user"' in system_prompt
+    assert "is a preferences fact" in system_prompt
+    assert "area:recall" in user_prompt
+    assert "Keep lists under five things" in user_prompt
+
+
+def test_memory_op_salvage_keeps_the_reply() -> None:
+    from app.gateways.litellm_gateway import _parse_memory_facts_partial
+
+    parsed = _parse_memory_facts_partial(
+        {
+            "ops": [
+                {"op": "add", "type": "fact", "text": "User likes tea", "confidence": 0.9},
+                {"op": "add", "type": "nonsense", "text": "dropped", "confidence": 0.9},
+            ],
+            "reply": "Saved that you like tea." + " " * 3,
+        }
+    )
+    assert parsed is not None
+    assert [op.text for op in parsed.ops] == ["User likes tea"]
+    assert parsed.reply == "Saved that you like tea."
+    # A reply alone is still an answer; nothing at all is a failure.
+    only_reply = _parse_memory_facts_partial({"ops": [], "reply": "Nothing to change."})
+    assert only_reply is not None and only_reply.reply == "Nothing to change."
+    assert _parse_memory_facts_partial({"ops": [{"op": "bad"}]}) is None
