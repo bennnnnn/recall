@@ -170,6 +170,15 @@ def test_lesson_continue_hint_handles_wrong_and_accidental_inputs_without_replay
     assert "continue the lesson instead of restarting the step" in hint
 
 
+def test_lesson_continue_hint_preserves_state_during_confusion_and_mode_switches():
+    hint = lesson_continue_hint(2, 6)
+    assert "keep the SAME Step 2/6 heading" in hint
+    assert "Do not repeat the original lesson outline" in hint
+    assert "`### Step 3/6 — ...`" in hint
+    assert "quiz/test/practice-only mode" in hint
+    assert "Do not score or grade" in hint
+
+
 def test_lesson_continue_hint_recaps_after_the_last_step():
     hint = lesson_continue_hint(6, 6)
     assert "final lesson step" in hint and "recap" in hint
