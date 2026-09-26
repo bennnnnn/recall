@@ -1,9 +1,10 @@
-import { Platform, Pressable, Text } from "react-native";
+import type { RefObject } from "react";
+import { Platform, Pressable, Text, type View } from "react-native";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useTranslation } from "react-i18next";
 
 import { Sheet } from "@/ui/overlay/Sheet";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
 import { ReminderDateTimePicker } from "@/features/todos/components/ReminderDateTimePicker";
 import type { JobSearchFrequency } from "@/lib/api";
 
@@ -12,6 +13,8 @@ import { FREQUENCY_VALUES, useSetupStyles } from "./setupShared";
 type ResultCount = 5 | 10 | 15;
 
 type Props = {
+  countRowRef: RefObject<View | null>;
+  frequencyRowRef: RefObject<View | null>;
   isPro: boolean;
   busy: boolean;
   showCount: boolean;
@@ -30,6 +33,8 @@ type Props = {
 };
 
 export function SetupPickers({
+  countRowRef,
+  frequencyRowRef,
   isPro,
   busy,
   showCount,
@@ -51,8 +56,9 @@ export function SetupPickers({
 
   return (
     <>
-      <SettingsPickerSheet
+      <SelectMenu
         visible={showCount}
+        anchorRef={countRowRef}
         options={([5, 10, 15] as const).map((option) => ({
           key: String(option),
           label: `${option} ${t("my_job.count_jobs")}`,
@@ -63,8 +69,9 @@ export function SetupPickers({
         onClose={onCloseCount}
         onSelect={(key) => onSelectCount(Number(key) as ResultCount)}
       />
-      <SettingsPickerSheet
+      <SelectMenu
         visible={showFrequency}
+        anchorRef={frequencyRowRef}
         options={FREQUENCY_VALUES.map((value) => ({
           key: value,
           label: frequencyLabel(value),

@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -8,6 +9,9 @@ import { FieldLabel, useSetupStyles } from "./setupShared";
 import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
+  /** The count and frequency rows the choice menus open from. */
+  countRowRef: RefObject<View | null>;
+  frequencyRowRef: RefObject<View | null>;
   count: 5 | 10 | 15;
   frequencyLabel: string;
   timeLabel: string;
@@ -20,6 +24,8 @@ type Props = {
 };
 
 export function DeliveryStep({
+  countRowRef,
+  frequencyRowRef,
   count,
   frequencyLabel,
   timeLabel,
@@ -49,6 +55,7 @@ export function DeliveryStep({
       <View style={s.fieldGroup}>
         <FieldLabel>{t("my_job.count_label")}</FieldLabel>
         <Pressable
+          ref={countRowRef}
           style={({ pressed }) => [
             s.selectRow,
             pressed && s.pressed,
@@ -68,6 +75,7 @@ export function DeliveryStep({
       <View style={s.fieldGroup}>
         <FieldLabel>{t("my_job.frequency_label")}</FieldLabel>
         <Pressable
+          ref={frequencyRowRef}
           style={({ pressed }) => [
             s.selectRow,
             pressed && s.pressed,

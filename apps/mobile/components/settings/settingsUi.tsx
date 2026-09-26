@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useRef, type Ref } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,11 +7,11 @@ import {
   View,
 } from "react-native";
 import { Icon } from "@/ui/icons/Icon";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import { type SettingsStyles } from "@/components/settings/settingsStyles";
 import { selection } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
 import { Theme } from "@/lib/theme";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
 import { IconSize } from "@/ui/icons/sizes";
 
 export { makeSettingsStyles, type SettingsStyles } from "@/components/settings/settingsStyles";
@@ -93,6 +93,7 @@ export function SettingsLinkRow({
   onPress,
   styles,
   theme,
+  ref,
 }: {
   title: string;
   subtitle?: string;
@@ -105,9 +106,12 @@ export function SettingsLinkRow({
   onPress: () => void;
   styles: SettingsStyles;
   theme: Theme;
+  /** Lets a SelectMenu open from this row. */
+  ref?: Ref<View>;
 }) {
   return (
     <Pressable
+      ref={ref}
       style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
       onPress={onPress}
       disabled={disabled || busy}
@@ -190,10 +194,12 @@ export function SettingsInlinePicker({
   styles: SettingsStyles;
   theme: Theme;
 }) {
-  // Popup only — never render options under this row (see chat-ux-bans §13).
+  const rowRef = useRef<View>(null);
+  // Popover only — never render options under this row (see chat-ux-bans §13).
   return (
     <View>
       <Pressable
+        ref={rowRef}
         style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
         onPress={onToggle}
         disabled={disabled}
@@ -210,8 +216,9 @@ export function SettingsInlinePicker({
           theme={theme}
         />
       </Pressable>
-      <SettingsPickerSheet
+      <SelectMenu
         visible={expanded}
+        anchorRef={rowRef}
         options={options}
         selectedKey={selectedKey}
         disabled={disabled}

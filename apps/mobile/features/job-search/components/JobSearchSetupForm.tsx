@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -73,6 +73,8 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
   );
   const [showCount, setShowCount] = useState(false);
   const [showFrequency, setShowFrequency] = useState(false);
+  const countRowRef = useRef<View>(null);
+  const frequencyRowRef = useRef<View>(null);
   const [nextRunAt, setNextRunAt] = useState(nextMorning);
   const [showPicker, setShowPicker] = useState(false);
   const [resumeId, setResumeId] = useState<string | null>(null);
@@ -329,6 +331,8 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
           ) : null}
           {step === 3 ? (
             <DeliveryStep
+              countRowRef={countRowRef}
+              frequencyRowRef={frequencyRowRef}
               count={count}
               frequencyLabel={frequencyOptionLabel(frequency)}
               timeLabel={formatRunDate(nextRunAt)}
@@ -365,6 +369,8 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
       </View>
 
       <SetupPickers
+        countRowRef={countRowRef}
+        frequencyRowRef={frequencyRowRef}
         isPro={isPro}
         busy={busy}
         showCount={showCount}

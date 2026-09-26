@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -27,6 +26,7 @@ import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
 
 const STYLES = ["short", "balanced", "detailed"] as const;
 type AboutField = "age" | "country" | "job";
@@ -43,6 +43,7 @@ export default function PreferencesSettingsScreen() {
   const savingRef = useRef(false);
   const [openPicker, setOpenPicker] = useState<"style" | "tone" | null>(null);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const languageRowRef = useRef<View>(null);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [instructionsText, setInstructionsText] = useState("");
   const [locationBusy, setLocationBusy] = useState(false);
@@ -251,6 +252,7 @@ export default function PreferencesSettingsScreen() {
           />
           <View style={s.menuSeparator} />
           <SettingsLinkRow
+            ref={languageRowRef}
             title={t("settings.language")}
             value={selectedLanguage.label}
             onPress={() => setLanguageOpen(true)}
@@ -310,14 +312,14 @@ export default function PreferencesSettingsScreen() {
         </SettingsGroup>
       </ScrollView>
 
-      <SettingsPickerSheet
+      <SelectMenu
         visible={languageOpen}
-        title={t("settings.language")}
+        anchorRef={languageRowRef}
         options={LANGUAGES.map((lang) => ({ key: lang.code, label: lang.label }))}
         selectedKey={user?.locale ?? selectedLanguage.code}
         onSelect={(code) => void patch({ locale: code }, "language")}
         onClose={() => setLanguageOpen(false)}
-        busy={savingAction === "language"}
+        disabled={savingAction === "language"}
       />
 
       <SettingsFieldSheet

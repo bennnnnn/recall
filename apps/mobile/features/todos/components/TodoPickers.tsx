@@ -4,6 +4,7 @@ import type { DateTimePickerEvent } from "@react-native-community/datetimepicker
 import { useTranslation } from "react-i18next";
 
 import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
 import { ReminderDateTimePicker } from "@/features/todos/components/ReminderDateTimePicker";
 import { repeatMessageKey } from "@/features/todos/components/RepeatPickerSheet";
 import { TodoCategoryPicker } from "@/features/todos/components/TodoCategoryField";
@@ -64,7 +65,7 @@ export function TodoPickers({
       ...RECURRENCE_RULES.map((rule) => ({ key: rule, label: t(repeatMessageKey(rule)) })),
     ];
     return (
-      <SettingsPickerSheet
+      <SelectMenu
         visible
         options={options}
         selectedKey={repeat ?? "none"}

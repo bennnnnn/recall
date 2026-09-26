@@ -83,7 +83,7 @@ If a plan or FEATURES item asks for these, **push back and skip** — they are e
 
 ## 13. No inline Settings choice expand
 - Appearance, style, tone, language, reminder lead, and daily goal open a
-  **floating popup** (`SettingsPickerSheet`). Do **not** expand options inside
+  **floating popup** (the `SelectMenu` popover from `apps/mobile/ui/overlay`). Do **not** expand options inside
   the gray card (`inlineOptionWell` / accordion). FEATURES must not say
   “expand inline”. Do not revive PR #707’s in-list picker.
 

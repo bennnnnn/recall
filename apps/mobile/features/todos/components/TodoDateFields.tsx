@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type Ref } from "react";
 import { Alert, Keyboard, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
 import { repeatMessageKey } from "@/features/todos/components/RepeatPickerSheet";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { defaultDueDate } from "@/features/todos/components/todoHelpers";
@@ -58,6 +58,7 @@ export function TodoDateFields({
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const [remindOpen, setRemindOpen] = useState(false);
   const [savingLead, setSavingLead] = useState(false);
+  const remindRowRef = useRef<View>(null);
   const lead = normalizeReminderLeadMinutes(leadMinutes ?? DEFAULT_REMINDER_LEAD_MINUTES);
   const remindAt = dueDate ? remindAtDate(dueDate, lead) : null;
 
@@ -109,6 +110,7 @@ export function TodoDateFields({
         />
         {remindAt ? (
           <ReviewRow
+            ref={remindRowRef}
             icon="bell"
             label={t("todos.remind_at")}
             value={formatClockTime(remindAt)}
@@ -137,15 +139,15 @@ export function TodoDateFields({
           </View>
         ) : null}
       </View>
-      <SettingsPickerSheet
+      <SelectMenu
         visible={remindOpen}
+        anchorRef={remindRowRef}
         options={REMINDER_LEAD_OPTIONS.map((minutes) => ({
           key: String(minutes),
           label: t("settings.reminder_lead_value", { count: minutes }),
         }))}
         selectedKey={String(lead)}
         disabled={disabled || savingLead}
-        busy={savingLead}
         onSelect={(key) => {
           const minutes = normalizeReminderLeadMinutes(Number(key));
           if (!onChangeLead || minutes === lead) return;
@@ -231,6 +233,7 @@ function ReviewRow({
   inset = false,
   onPress,
   accessibilityLabel,
+  ref,
 }: {
   icon?: "calendar" | "clock" | "bell" | "repeat";
   label: string;
@@ -239,11 +242,13 @@ function ReviewRow({
   inset?: boolean;
   onPress: () => void;
   accessibilityLabel: string;
+  ref?: Ref<View>;
 }) {
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   return (
     <Pressable
+      ref={ref}
       style={[s.reviewRowMain, inset && s.reviewSubRow]}
       onPress={onPress}
       disabled={disabled}

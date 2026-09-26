@@ -81,7 +81,7 @@ describe("settings action feedback", () => {
     );
 
     expect(getByText("Balanced")).toBeOnTheScreen();
-    expect(queryByTestId("settings-picker-sheet")).toBeNull();
+    expect(queryByTestId("select-menu")).toBeNull();
     expect(getByRole("button").props.accessibilityState).toEqual({
       expanded: false,
       disabled: true,
@@ -109,7 +109,7 @@ describe("settings action feedback", () => {
       />,
     );
 
-    expect(getByTestId("settings-picker-sheet")).toBeOnTheScreen();
+    expect(getByTestId("select-menu")).toBeOnTheScreen();
     expect(queryByText("Funny")).toBeOnTheScreen();
     fireEvent.press(getByLabelText("Funny"));
     expect(onSelect).toHaveBeenCalledWith("funny");

@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode, type Ref } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -21,6 +21,8 @@ type SettingsOverviewRowProps = {
   expanded?: boolean;
   danger?: boolean;
   accent?: boolean;
+  /** Lets a SelectMenu open from this row. */
+  ref?: Ref<View>;
 };
 
 export function SettingsOverviewGroup({ label, children }: SettingsOverviewGroupProps) {
@@ -44,6 +46,7 @@ export function SettingsOverviewRow({
   expanded,
   danger,
   accent,
+  ref,
 }: SettingsOverviewRowProps) {
   const theme = useTheme();
   const styles = useMemo(() => makeSettingsStyles(theme), [theme]);
@@ -77,6 +80,7 @@ export function SettingsOverviewRow({
 
   return (
     <Pressable
+      ref={ref}
       style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
       onPress={onPress}
       accessibilityRole="button"

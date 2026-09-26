@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -20,7 +20,7 @@ import { JobFitBadge } from "@/features/job-search/components/JobFitBadge";
 import { JobMatchDetailSkeleton } from "@/features/job-search/components/JobMatchDetailSkeleton";
 import { JobMatchMetaChips } from "@/features/job-search/components/JobMatchMetaChips";
 import { JobMatchReasons } from "@/features/job-search/components/JobMatchReasons";
-import { SettingsPickerSheet } from "@/components/settings/SettingsPickerSheet";
+import { SelectMenu } from "@/ui/overlay/SelectMenu";
 import { StateView } from "@/ui/feedback/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
@@ -87,6 +87,7 @@ function JobMatchDetailView({
     letter,
     generateLetter,
   } = useJobMatchDetail(id, isCurrent);
+  const stageRowRef = useRef<View>(null);
 
   const stageLabel = (status: JobMatchStatus): string => {
     if (status === "applied") return t("my_job.applied");
@@ -235,6 +236,7 @@ function JobMatchDetailView({
           ) : null}
 
           <Pressable
+            ref={stageRowRef}
             style={({ pressed }) => [s.stageRow, pressed && s.pressed]}
             onPress={() => {
               tap();
@@ -267,15 +269,14 @@ function JobMatchDetailView({
       </KeyboardAvoidingView>
 
       {match != null ? (
-        <SettingsPickerSheet
+        <SelectMenu
           visible={stageOpen}
+          anchorRef={stageRowRef}
           title={t("my_job.stage_label")}
           options={STAGES.map((stage) => ({ key: stage, label: stageLabel(stage) }))}
           selectedKey={match.status}
           onClose={() => setStageOpen(false)}
           onSelect={(key) => {
-            setStageOpen(false);
-            selection();
             void updateStatus(key as JobMatchStatus);
           }}
         />
