@@ -91,10 +91,7 @@ export default function SettingsScreen() {
         ]}
       >
         <View style={s.profileHeader}>
-          <StackBackButton
-            icon="arrow-left"
-            style={s.backButton}
-          />
+          <StackBackButton style={s.backButton} />
           <SettingsProfile />
         </View>
 
@@ -213,16 +210,7 @@ function makeStyles(theme: Theme) {
     backButton: {
       position: "absolute",
       left: 0,
-      marginLeft: 0,
       top: 0,
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor: theme.bg,
-      shadowColor: theme.text,
-      shadowOffset: { width: 0, height: Space.xs },
-      shadowOpacity: 0.04,
-      shadowRadius: Space.xl,
     },
   });
 }

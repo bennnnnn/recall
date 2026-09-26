@@ -1,9 +1,10 @@
 import { useMemo } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -66,51 +67,37 @@ export function AttachmentLightboxChrome({
         pointerEvents="box-none"
         style={[s.header, { paddingTop: Math.max(insets.top, Space.xs) }]}
       >
-        <Pressable
-          style={s.iconBtn}
+        <HeaderButton
+          variant="media"
+          icon="close"
           onPress={onClose}
-          hitSlop={8}
           accessibilityLabel={t("preview.close")}
-        >
-          <Icon name="close" size={IconSize.md} color={theme.onMedia} />
-        </Pressable>
+        />
 
         <View style={s.headerActions}>
-          <Pressable
-            style={[s.iconBtn, busy === "share" && s.iconBtnDisabled]}
+          <HeaderButton
+            variant="media"
+            icon="share"
             onPress={onShare}
+            busy={busy === "share"}
             disabled={!canShare || busy != null}
-            hitSlop={8}
             accessibilityLabel={t("preview.share")}
-          >
-            {busy === "share" ? (
-              <ActivityIndicator color={theme.onMedia} size="small" />
-            ) : (
-              <Icon name="share" size={IconSize.md} color={theme.onMedia} />
-            )}
-          </Pressable>
-          <Pressable
-            style={[s.iconBtn, busy === "download" && s.iconBtnDisabled]}
+          />
+          <HeaderButton
+            variant="media"
+            icon="download"
             onPress={onDownload}
+            busy={busy === "download"}
             disabled={!canShare || busy != null}
-            hitSlop={8}
             accessibilityLabel={t("common.download")}
-          >
-            {busy === "download" ? (
-              <ActivityIndicator color={theme.onMedia} size="small" />
-            ) : (
-              <Icon name="download" size={IconSize.md} color={theme.onMedia} />
-            )}
-          </Pressable>
+          />
           {showOverflow ? (
-            <Pressable
-              style={s.iconBtn}
+            <HeaderButton
+              variant="media"
+              icon="more-horizontal"
               onPress={onToggleOverflow}
-              hitSlop={8}
               accessibilityLabel={t("preview.more_a11y")}
-            >
-              <Icon name="more-horizontal" size={IconSize.md} color={theme.onMedia} />
-            </Pressable>
+            />
           ) : null}
         </View>
       </View>
@@ -190,17 +177,6 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: Space.xs,
-    },
-    iconBtn: {
-      width: Space.minTouch,
-      height: Space.minTouch,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: Radius.full,
-      backgroundColor: withAlpha(theme.onMedia, 0.18),
-    },
-    iconBtnDisabled: {
-      opacity: 0.45,
     },
     dots: {
       position: "absolute",

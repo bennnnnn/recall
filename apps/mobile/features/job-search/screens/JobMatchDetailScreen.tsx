@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/ui/icons/Icon";
+import { HeaderButton, HEADER_BUTTON_SIZE } from "@/ui/controls/HeaderButton";
 import { CoverLetterSheet } from "@/features/job-search/components/CoverLetterSheet";
 import { CompanyLogo } from "@/features/job-search/components/CompanyLogo";
 import { JobFitBadge } from "@/features/job-search/components/JobFitBadge";
@@ -99,14 +100,11 @@ function JobMatchDetailView({
   return (
     <View style={[s.screen, { paddingTop: insets.top }]}>
       <View style={s.header}>
-        <Pressable
-          style={({ pressed }) => [s.headerButton, pressed && s.pressed]}
+        <HeaderButton
+          icon="arrow-left"
           onPress={() => router.back()}
-          accessibilityRole="button"
           accessibilityLabel={t("common.back")}
-        >
-          <Icon name="chevron-left" size={IconSize.md} color={C.text} />
-        </Pressable>
+        />
         <Text style={s.headerTitle} numberOfLines={1}>
           {match?.company ?? t("my_job.title")}
         </Text>
@@ -303,13 +301,7 @@ function makeStyles(C: Theme) {
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
     },
-    headerButton: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: "center",
-      justifyContent: "center",
-    },
+    headerButton: { width: HEADER_BUTTON_SIZE, height: HEADER_BUTTON_SIZE },
     headerTitle: {
       ...Type.navTitle,
       color: C.text,

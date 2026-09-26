@@ -8,12 +8,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IconButton } from "@/ui/controls/IconButton";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
-import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
@@ -23,6 +21,7 @@ import {
   useStaticOnlyNavigation,
 } from "@/lib/webView";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
 
 type Props = {
   visible: boolean;
@@ -89,23 +88,11 @@ export function AttachmentPdfViewer({
     <FullScreenModal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
-          <IconButton
-            onPress={onClose}
-            accessibilityLabel={t("chat.pdf_close_a11y")}
-            name="close"
-            size={IconSize.md}
-            color={theme.text}
-          />
+          <HeaderButton icon="close" onPress={onClose} accessibilityLabel={t("chat.pdf_close_a11y")} />
           <Text style={s.title} numberOfLines={1}>
             {fileName}
           </Text>
-          <IconButton
-            onPress={onShare}
-            accessibilityLabel={t("chat.pdf_share_a11y")}
-            name="share"
-            size={IconSize.md}
-            color={theme.primary}
-          />
+          <HeaderButton icon="share" onPress={onShare} accessibilityLabel={t("chat.pdf_share_a11y")} />
         </View>
         <View style={s.body}>
           {loading ? (

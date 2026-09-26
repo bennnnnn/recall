@@ -2,8 +2,7 @@ import { memo, useCallback, useMemo, useRef, type RefObject } from "react";
 import { StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Icon } from "@/ui/icons/Icon";
-import { IconButton } from "@/ui/controls/IconButton";
+import { HeaderButton, HeaderButtonGroup } from "@/ui/controls/HeaderButton";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -12,9 +11,7 @@ import {
   topChromeFadeColors,
 } from "@/lib/chromeFade";
 import { Theme, useTheme } from "@/lib/theme";
-import { IconSize } from "@/ui/icons/sizes";
 import { Type, Weight } from "@/lib/type";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
 type Props = {
@@ -87,28 +84,19 @@ export const ChatHeader = memo(function ChatHeader({
         testID="chat-header"
         pointerEvents="box-none"
       >
-        <View style={s.headerBtnPlate}>
-          <IconButton
-            style={s.headerBtn}
-            pressedStyle={menuOverlayOpen ? undefined : s.headerBtnPressed}
-            onPress={() => {
-              if (fromLibrary) {
-                if (router.canGoBack()) router.back();
-                else router.replace("/");
-                return;
-              }
-              onOpenDrawer();
-            }}
-            accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
-            icon={
-              fromLibrary ? (
-                <Icon name="chevron-left" size={IconSize.md} color={theme.text} />
-              ) : (
-                <Icon name="menu" size={IconSize.md} color={theme.text} />
-              )
+        <HeaderButton
+          icon={fromLibrary ? "arrow-left" : "menu"}
+          onPress={() => {
+            if (fromLibrary) {
+              if (router.canGoBack()) router.back();
+              else router.replace("/");
+              return;
             }
-          />
-        </View>
+            onOpenDrawer();
+          }}
+          accessibilityLabel={fromLibrary ? t("common.back") : t("chat.open_drawer_a11y")}
+          testID="chat-header-leading"
+        />
         {headerTitleLabel ? (
           <View style={s.headerCenter} pointerEvents="none">
             <Text
@@ -127,25 +115,21 @@ export const ChatHeader = memo(function ChatHeader({
         <View style={s.headerRight}>
           {/* Home (no turns): drawer only. New-chat + ⋮ only once there are messages. */}
           {hasMessages ? (
-            <View style={s.actionGroup}>
-              <IconButton
-                style={s.actionGroupBtn}
-                pressedStyle={s.actionGroupBtnPressed}
+            <HeaderButtonGroup>
+              <HeaderButton
+                variant="plain"
+                icon="edit"
                 onPress={onNewChat}
                 accessibilityLabel={t("chat.new_chat")}
-                icon={<Icon name="edit" size={IconSize.md} color={theme.text} />}
               />
-              <IconButton
+              <HeaderButton
                 ref={menuAnchorRef}
-                style={s.actionGroupBtn}
-                pressedStyle={s.actionGroupBtnPressed}
+                variant="plain"
+                icon="more-vertical"
                 onPress={onOpenMenu}
                 accessibilityLabel={t("chat.menu")}
-                name="more-vertical"
-                size={IconSize.md}
-                color={theme.text}
               />
-            </View>
+            </HeaderButtonGroup>
           ) : null}
         </View>
       </View>
@@ -173,39 +157,12 @@ function makeStyles(theme: Theme) {
     header: {
       flexDirection: "row",
       alignItems: "flex-end",
-      paddingHorizontal: Space.xxs,
+      paddingHorizontal: Space.sm,
       paddingBottom: Space.xxs,
       backgroundColor: "transparent",
     },
     headerMuted: { opacity: 0.55 },
-    headerBtnPlate: {
-      backgroundColor: theme.inputBg,
-      borderRadius: Radius.sm,
-    },
-    headerBtn: {
-      width: 44,
-      height: 44,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: Radius.sm,
-    },
-    headerBtnPressed: { backgroundColor: theme.surfaceAlt },
     headerRight: { flexDirection: "row", alignItems: "center", gap: 2 },
-    actionGroup: {
-      flexDirection: "row",
-      alignItems: "center",
-      height: 44,
-      overflow: "hidden",
-      backgroundColor: theme.inputBg,
-      borderRadius: Radius.sm,
-    },
-    actionGroupBtn: {
-      width: 44,
-      height: 44,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    actionGroupBtnPressed: { backgroundColor: theme.surfaceAlt },
     headerCenter: {
       flex: 1,
       alignItems: "center",

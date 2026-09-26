@@ -47,6 +47,7 @@ import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
 
 const CHART_HEIGHT = 220;
 const MODAL_LIST_MAX = 220;
@@ -348,16 +349,13 @@ function ExplorerModal({
               <GestureDetector gesture={pan}>
                 <View style={styles.modalToolbar} testID="graph-sheet-handle">
                   <View style={styles.handle} />
-                  <Pressable
+                  <HeaderButton
+                    icon="close"
                     onPress={onClose}
                     testID="graph-close"
-                    accessibilityRole="button"
                     accessibilityLabel={t("preview.close")}
-                    hitSlop={8}
                     style={styles.closeBtn}
-                  >
-                    <Icon name="close" size={IconSize.md} color={theme.text} />
-                  </Pressable>
+                  />
                 </View>
               </GestureDetector>
               {skia ? (
@@ -599,8 +597,7 @@ const makeExplorerStyles = (theme: Theme) =>
     },
     closeBtn: {
       alignSelf: "flex-start",
-      padding: Space.xs,
-      marginLeft: Space.xs,
+      marginLeft: Space.sm,
     },
     modalPlot: {
       flex: 1,

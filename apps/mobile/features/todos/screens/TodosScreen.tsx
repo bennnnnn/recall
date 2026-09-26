@@ -4,8 +4,8 @@ import { Keyboard, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AddFab } from "@/ui/controls/AddFab";
-import { IconButton } from "@/ui/controls/IconButton";
 import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { HeaderButton } from "@/ui/controls/HeaderButton";
 import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { TodosListHeader } from "@/features/todos/components/TodosListHeader";
 import { TodoDetailMenu } from "@/features/todos/components/TodoDetailMenu";
@@ -22,8 +22,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
 import { todosForView, type TodoView } from "@/features/todos/model/todoListFilter";
-import { IconSize } from "@/ui/icons/sizes";
-import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { confirmDialog } from "@/ui/overlay/dialogs";
@@ -148,12 +146,10 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       headerShadowVisible: false,
       headerLeft: () =>
         detailOpen ? (
-          <IconButton
-            name="chevron-left"
-            size={IconSize.md}
+          <HeaderButton
+            icon="arrow-left"
             accessibilityLabel={t("common.back")}
             onPress={() => headerBackAction.current()}
-            style={{ marginLeft: Space.xxs }}
           />
         ) : (
           <StackBackButton />
@@ -173,19 +169,16 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           );
         }
         return (
-          <IconButton
+          <HeaderButton
             ref={menuAnchorRef}
-            name="more-horizontal"
-            size={IconSize.md}
-            color={C.text}
+            icon="more-horizontal"
             accessibilityLabel={detailOpen ? t("todos.detail_menu") : t("todos.menu")}
             onPress={() => headerRightAction.current()}
-            style={{ marginRight: Space.xxs }}
           />
         );
       },
     });
-  }, [navigation, t, selecting, detailOpen, editingId, C.primary, C.text, C.surface, C.bg]);
+  }, [navigation, t, selecting, detailOpen, editingId, C.primary, C.surface, C.bg]);
 
   const onPullRefresh = useCallback(async () => {
     if (!isCurrentView() || refreshingRef.current) return;
