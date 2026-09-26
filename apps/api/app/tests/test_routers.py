@@ -875,6 +875,7 @@ def test_list_memories_skips_consolidation_scan_when_already_locked():
         m = MagicMock()
         m.id = uuid4()
         m.type = "profile"
+        m.topic = "profile"
         m.text = "User's name is Bini. User's name is Binalfew. User is a developer."
         m.confidence = 0.9
         m.status = "active"
@@ -929,6 +930,7 @@ def test_update_memory_ok():
     updated = MagicMock()
     updated.id = memory_id
     updated.type = "fact"
+    updated.topic = "interests"
     updated.text = "As of 2026-07-20: Likes hiking"
     updated.confidence = 0.9
     updated.status = "active"
@@ -952,6 +954,7 @@ def test_update_memory_ok():
         )
     assert r.status_code == 200
     assert r.json()["text"] == "As of 2026-07-20: Likes hiking"
+    assert r.json()["topic"] == "interests"
     update.assert_awaited_once()
 
 

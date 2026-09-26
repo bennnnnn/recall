@@ -24,7 +24,7 @@ from app.modules.learning.models import (
     VocabDeck,
     VocabEntry,
 )
-from app.modules.memory.models import Memory
+from app.modules.memory.models import Memory, MemoryArea
 from app.modules.suggestions.models import Suggestion
 from app.modules.todos.models import TodoItem
 
@@ -38,6 +38,7 @@ __all__ = [
     "LearningItem",
     "LearningPracticeEvent",
     "Memory",
+    "MemoryArea",
     "Message",
     "MessageChunk",
     "ProductEvent",

@@ -62,14 +62,7 @@ function RootNavigator() {
         />
         <Stack.Screen
           name="memory"
-          options={{
-            ...stackUtilityTransition(reduceMotion),
-            ...header,
-            headerShown: true,
-            title: t("memory.title"),
-            headerBackVisible: false,
-            ...stackBackOptions(),
-          }}
+          options={{ ...stackUtilityTransition(reduceMotion), headerShown: false }}
         />
         <Stack.Screen
           name="settings"

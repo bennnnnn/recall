@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -20,6 +21,7 @@ class MemoryOut(BaseModel):
 
     id: UUID
     type: MemoryType
+    topic: str = "notes"
     text: str
     confidence: float | None
     status: MemoryStatus = "active"
@@ -58,7 +60,49 @@ class MemoryFactOp(BaseModel):
     sensitivity: MemorySensitivity = "normal"
     importance: float = Field(default=0.5, ge=0.0, le=1.0)
     match_text: str | None = Field(default=None, max_length=MEMORY_TEXT_MAX_LENGTH)
+    # The memory document (topics.py). Unknown keys fall back to the type's
+    # default, and long titles are trimmed, so neither fails the whole op.
+    topic: str | None = None
+    topic_title: str | None = None
+    topic_summary: str | None = None
+
+
+MEMORY_REPLY_MAX_LENGTH = 400
 
 
 class MemoryFactUpdateResult(BaseModel):
     ops: list[MemoryFactOp] = Field(default_factory=list)
+    # A direct memory edit also says, in a sentence, what changed.
+    reply: str = Field(default="", max_length=MEMORY_REPLY_MAX_LENGTH)
+
+
+class MemoryDocumentOut(BaseModel):
+    """One memory document: every fact with the same topic."""
+
+    key: str
+    group: Literal["you", "topics", "areas"]
+    title: str
+    summary: str
+    updated_at: datetime | None
+    facts: list[MemoryOut]
+
+
+class MemoryDocumentsOut(BaseModel):
+    documents: list[MemoryDocumentOut]
+    # True while memory reads the user's recent chats for the first time.
+    scanning: bool = False
+
+
+MEMORY_INSTRUCTION_MAX_LENGTH = 500
+
+
+class MemoryInstructIn(BaseModel):
+    instruction: str = Field(min_length=1, max_length=MEMORY_INSTRUCTION_MAX_LENGTH)
+    # The document the user is looking at, if any.
+    topic: str | None = Field(default=None, max_length=64)
+
+
+class MemoryInstructOut(BaseModel):
+    reply: str
+    applied: int
+    documents: list[MemoryDocumentOut]

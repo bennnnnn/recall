@@ -14,6 +14,7 @@ from app.gateways import mock_llm
 from app.models import model_catalog
 from app.models.model_catalog import ChatModel
 from app.models.schemas import (
+    MEMORY_REPLY_MAX_LENGTH,
     MemoryFactOp,
     MemoryFactUpdateResult,
     MemorySectionItem,
@@ -734,9 +735,11 @@ def _parse_memory_facts_partial(data: dict[str, object]) -> MemoryFactUpdateResu
             valid.append(MemoryFactOp.model_validate(item))
         except Exception:
             logger.debug("Skipping invalid memory fact op", exc_info=True)
-    if not valid:
+    raw_reply = data.get("reply")
+    reply = raw_reply.strip()[:MEMORY_REPLY_MAX_LENGTH] if isinstance(raw_reply, str) else ""
+    if not valid and not reply:
         return None
-    return MemoryFactUpdateResult(ops=valid)
+    return MemoryFactUpdateResult(ops=valid, reply=reply)
 
 
 def _parse_memory_sections_partial(data: dict[str, object]) -> MemorySectionUpdateResult | None:

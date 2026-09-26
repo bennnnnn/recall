@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.modules.memory.extraction_workflow import _writes_from_ops
+from app.modules.memory.extraction_workflow import writes_from_ops
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.schemas import MemoryFactOp
 
@@ -73,7 +73,7 @@ def test_writes_drop_unclaimed_names_and_keep_a_real_one():
         confidence=0.9,
         importance=0.8,
     )
-    writes, skipped = _writes_from_ops(
+    writes, skipped = writes_from_ops(
         [dropped, kept],
         chat_id=uuid4(),
         explicit_remember=False,

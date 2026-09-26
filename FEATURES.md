@@ -327,10 +327,34 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   user messages not processed by the previous pass (per-chat extract cursor), so a fact
   on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”
   still extract when N>1. No remember/forget chip or confirmation sheet.
-- ✅ **Extraction hygiene** — only user-stated/confirmed facts; transcript is the **user
-  line only** (assistant restatements dropped), capped ~4k (head+tail); attachment OCR /
-  untrusted blocks stripped before extract; memory wrapped as first-party notes (fence kept);
-  account email injected only for email/draft/inbox intents.
+- ✅ **Extraction hygiene** — only what the user's own lines state or clearly show (the
+  projects they build, the stack they build with, their job, goals, routines, recurring
+  interests); never assistant restatements. Transcript is the **user line only**, capped ~4k
+  (head+tail); attachment OCR / untrusted blocks stripped before extract; memory wrapped as
+  first-party notes (fence kept); account email injected only for email/draft/inbox intents.
+- ✅ **Extraction reliability (2026-09)** — name, job, employer, school, city, home country and
+  languages are `normal` sensitivity (the `identity` label means gender identity, immigration
+  status or disability), and a dating-app project is not a relationship fact. A failed model
+  pass keeps the chat's extract cursor and retries on the next turn (3 tries, then moves on);
+  a small-talk-only batch moves the cursor so it cannot hide later lines; failures log
+  `memory_extract_model_failed`.
+- ✅ **Memory documents (Claude-style)** — each fact has a `topic` that files it into a page:
+  **You** (Profile, Preferences), **Topics** (Interests, Tech stack, Schedule, Recent work,
+  Goals, Side projects, Other) and **Areas** — one page per major project or part of life
+  (`area:<slug>`, title and one-line summary in `memory_areas`, named by the model). Facts
+  stay atomic rows; `type` follows the topic and still drives prompt priority.
+- ✅ **Reads your recent chats once** — the first time the Memory screen opens, a
+  `memory_history_scan` job reads the user lines of the 20 most recent non-quiz chats and
+  records `users.memory_history_scanned_at`; the screen shows "Reading your recent chats…"
+  until it finishes. Chats are read newest first and a pass only adds facts memory is
+  missing, so an old line never overrules a newer fact. Lines written before the user's last
+  hand edit (`users.memory_edited_at`: a delete, edit, mute, clear, or a "forget …" or
+  plain-words edit that changed saved facts) are skipped, so a deleted fact cannot come back.
+  A chat the model or database could not read is retried on a later pass (30 minutes apart,
+  3 passes at most); the chats already read are skipped.
+- ✅ **Plain-words edits** — a box under the pages ("You can disagree with me more", "Keep
+  lists under five things") calls `POST /memories/instruct`; the model turns it into fact
+  edits (saved like "remember this") and replies in a sentence. 30 edits per hour per user.
 - ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (grouping
   categories, not a 20-type taxonomy). Each row is one atomic fact (the old one-paragraph-per-type
   unique constraint is gone). Cap **150 active** facts per user.
@@ -346,10 +370,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
   falls back to scored packing when embeddings are missing).
-- ✅ **Memory screen** — facts grouped by type, each with a real id, **last confirmed** and
-  source chat title (not confidence %). Edit, delete, or mute (“Don’t mention this”).
-  `PATCH /memories/{id}` updates text or status; `DELETE /memories/{id}` deletes one fact;
-  `DELETE /memories` clears all.
+- ✅ **Memory screen** — `GET /memories/documents`: You / Topics / Areas rows with a summary
+  and the last-updated date. A page shows its title, last updated, summary and each fact as a
+  bullet; tap a fact to edit or delete it, **Delete** removes the page
+  (`DELETE /memories/documents/{topic}`). `PATCH /memories/{id}` updates text or status;
+  `DELETE /memories/{id}` deletes one fact; `DELETE /memories` clears all.
 - ✅ **Memory toggle** — turn learning on/off in Settings (stops new learning; saved facts
   remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
