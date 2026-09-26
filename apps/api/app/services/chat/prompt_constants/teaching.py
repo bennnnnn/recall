@@ -128,6 +128,8 @@ _LEARNING_PLAN_TURN = re.compile(
     r"[^.?!]{0,120}\b(?:plan|roadmap|learn|master|study|beginner|advanced|senior)\b|"
     r"\b(?:learn|master|study)\b[^.?!]{0,100}\b(?:in|over)\s+"
     r"\d+[\s-]?(?:day|days|week|weeks|month|months)\b|"
+    r"\bteach\s+(?:me|us)\b[^.?!]{0,100}\b(?:in|over)\s+"
+    r"\d+[\s-]?(?:day|days|week|weeks|month|months)\b|"
     # es / pt / fr / de
     r"\bplan\s+de\s+\d+[\s-]?(?:d[ií]as|dias|semanas|meses|semaines|mois)\b|"
     r"\b\d+[\s-]?(?:tage|wochen|monate)\b[^.?!]{0,80}\blernplan\b"
@@ -194,7 +196,8 @@ TEACHING_HINT = (
 # Short style: the same lesson, smaller steps (the SHORT format bans headings).
 TEACHING_SHORT_NOTE = (
     "Response length is SHORT, so keep each step small: one or two short "
-    "paragraphs and a one-line example. The step heading and check question stay."
+    "paragraphs and a one-line example. Keep the step heading and one low-pressure "
+    "question/invitation so the conversation can continue naturally."
 )
 
 
