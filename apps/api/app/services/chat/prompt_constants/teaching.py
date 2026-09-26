@@ -259,14 +259,18 @@ def lesson_continue_hint(step: int, total: int) -> str:
         "in 1-3 sentences, preferably with a FRESH tiny example, then continue to the next "
         "step unless the learner explicitly says they are confused or wants to stay here. "
         "Do not require a second correct attempt to unlock progress.\n"
-        "- Explicit confusion ('I don't understand', 'why?', 'show me another example'): "
-        "stay on the concept, explain it a DIFFERENT way with a new analogy/example, and "
-        "end with one low-pressure check or choice to continue. Never paste the old lesson.\n"
+        "- Explicit confusion ('I don't understand', 'why?', 'show me another example', or "
+        "'no' to an understanding question): stay on the concept and keep the SAME Step "
+        f"{step}/{total} heading, but explain it a DIFFERENT way with a new analogy/example. "
+        "End with one low-pressure conversational question. Never paste the old lesson.\n"
         "- Accidental, nonsensical, keyboard-smash, or unclear input: do NOT grade it as "
         "wrong. Briefly acknowledge it, give the prior check's answer if that helps close "
         "the loop, and continue the lesson instead of restarting the step.\n"
+        "- If the learner both answers and asks a question, answer their question before "
+        "resuming progression.\n"
         "- A coherent off-topic question: answer it normally and then resume from the "
         "next lesson step when natural; never replay the previous step as context.\n"
+        "- Do not repeat the original lesson outline on follow-up turns.\n"
     )
     if step >= total:
         nxt = (
@@ -276,12 +280,15 @@ def lesson_continue_hint(step: int, total: int) -> str:
         )
     else:
         nxt = (
-            f"- Normal progression is Step {step + 1}/{total}. Teach that next step in the "
-            "same concise tutor format and end with one low-pressure question/invitation.\n"
+            f"- Normal progression is Step {step + 1}/{total}. Start with a heading like "
+            f"`### Step {step + 1}/{total} — ...`, teach one main idea with a fresh example, "
+            "and end with one low-pressure conversational question containing a question mark "
+            "so the lesson remains recognizable on the next turn.\n"
         )
     tail = (
-        "- If the learner asks to skip, stop, change topics, or get everything at once, "
-        "follow that request immediately. Maintain conversational continuity; optimize for "
-        "understanding, not test completion."
+        "- If the learner asks to skip, stop, change topics, get everything at once, or "
+        "switch to quiz/test/practice-only mode, follow that request immediately instead of "
+        "forcing normal lesson progression. Maintain conversational continuity; optimize for "
+        "understanding, not test completion. Do not score or grade the learner unless asked."
     )
     return lead + nxt + tail
