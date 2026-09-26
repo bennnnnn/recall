@@ -27,7 +27,8 @@ _TEACH_TURN = re.compile(
     r"\bi\s*(?:'d|’d|\s+would)?\s+(?:want|like|love|need)\s+to\s+learn\b|"
     r"\bi\s+wanna\s+learn\b|"
     r"\btutor\s+me\b|"
-    r"\bbe\s+my\s+(?:tutor|teacher)\b|"
+    r"\b(?:be|become|act\s+as)\s+my\s+(?:tutor|teacher)\b|"
+    r"\bwalk\s+me\s+through\b|"
     r"\b(?:give\s+me\s+)?an?\s+(?:lesson|crash\s+course)\s+(?:on|in|about)\b|"
     # es / pt
     r"\bens[eé]ñ(?:ame|anos|arme)\b|\bquiero\s+aprender\b|\bay[uú]dame\s+a\s+aprender\b|"
@@ -225,7 +226,18 @@ def _asks_for_a_procedure(cleaned: str) -> bool:
     if _PROCEDURE.search(cleaned):
         return True
     verb = _TO_VERB.search(cleaned)
-    return verb is not None and verb.group(1).lower() not in _LEARNING_VERBS
+    if verb is None:
+        return False
+    action = verb.group(1).lower()
+    # "Teach me how to pass an interview/exam" is preparation/tutoring, not a
+    # one-off procedure like installing Docker or tying a knot.
+    if action == "pass" and re.search(
+        r"\b(?:interview|exam|test|assessment|coding\s+challenge)\b",
+        cleaned,
+        re.IGNORECASE,
+    ):
+        return False
+    return action not in _LEARNING_VERBS
 
 
 def lesson_step(text: str | None) -> tuple[int, int] | None:
