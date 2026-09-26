@@ -6,6 +6,7 @@ import {
   defaultUnits,
   findUnit,
   formatConvertNumber,
+  UNIT_CATEGORIES,
   UNITS_BY_CATEGORY,
 } from "@/lib/unitConverter";
 
@@ -25,6 +26,30 @@ describe("convertUnit", () => {
     expect(convertUnit(1, "atm", "pa")).toBe(101325);
     expect(convertUnit(1, "kn", "n")).toBe(1000);
     expect(convertUnit(180, "deg", "rad")).toBeCloseTo(Math.PI);
+  });
+
+  it("converts school and everyday units", () => {
+    expect(convertUnit(1, "m", "nm")).toBeCloseTo(1e9);
+    expect(convertUnit(1, "cm3", "ml")).toBe(1);
+    expect(convertUnit(1, "t", "kg")).toBe(1000);
+    expect(convertUnit(1, "day", "hr")).toBe(24);
+    expect(convertUnit(1, "hp", "w")).toBeCloseTo(745.7, 0);
+    expect(convertUnit(60, "rpm", "hz")).toBeCloseTo(1);
+    expect(convertUnit(1, "gcm3", "kgm3")).toBe(1000);
+    expect(convertUnit(1, "gb", "mb")).toBe(1000);
+    expect(convertUnit(1, "gib", "mib")).toBe(1024);
+    expect(convertUnit(1, "kohm", "ohm")).toBe(1000);
+    expect(convertUnit(180, "deg", "grad")).toBeCloseTo(200);
+  });
+
+  it("converts the default pair in every category", () => {
+    for (const category of UNIT_CATEGORIES) {
+      const { fromId, toId } = defaultUnits(category);
+      expect(fromId).not.toBe(toId);
+      expect(findUnit(fromId)?.category).toBe(category);
+      expect(findUnit(toId)?.category).toBe(category);
+      expect(convertUnit(1, fromId, toId)).not.toBeNull();
+    }
   });
 
   it("keeps every unit id unique", () => {
