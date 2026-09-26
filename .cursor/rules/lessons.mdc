@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Composer caret jumps onto the previous line when the field wraps.** `paddingTop` on the multiline `TextInput` makes iOS draw the caret a line too high, and growing the frame scrolls it to the top. Size the text box to the lines and keep the button-centering slack on the wrapper. Reset `contentOffset` until the field is actually scrolling.
+
 - **Expo Go aborts on the chat screen (SIGABRT in a Reanimated frame).** `useAnimatedStyle` called `composerGapFadeHeight` from another module. That runs on the UI runtime, throws, and the display-link callback abort-traps the app. Keep the height math inline in the worklet.
 
 - **Composer text clips at the end of a line until Return.** `inputSingleLine` locks the field at 44pt, and iOS skips `onContentSizeChange` for a soft wrap that does not grow the box, so the next line never appears. Grow from the field width (`composerSoftWrapLineCount`) on that keystroke. Do not trust that content size once the width is known — iOS echoes the height you just set and the pill ratchets, and do not push list padding for a soft wrap or the thread jumps with every line.

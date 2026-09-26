@@ -6,6 +6,7 @@ import {
   COMPOSER_INPUT_MIN_HEIGHT,
   composerGapFadeHeight,
   composerInputFrameHeight,
+  composerInputTextBoxHeight,
   composerSoftWrapLineCount,
   retainedComposerContentHeight,
   composerNativeInputTraits,
@@ -52,6 +53,19 @@ describe("composerInputFrameHeight", () => {
     expect(composerInputFrameHeight("a".repeat(40), 400, 200).height).toBe(
       COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT,
     );
+  });
+
+  it("keeps centering slack out of the text box so the caret stays on the last line", () => {
+    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT)).toBe(
+      COMPOSER_INPUT_LINE_HEIGHT,
+    );
+    expect(
+      composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT),
+    ).toBe(COMPOSER_INPUT_LINE_HEIGHT * 2);
+    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MAX_HEIGHT)).toBe(
+      COMPOSER_INPUT_LINE_HEIGHT * 6,
+    );
+    expect(composerInputTextBoxHeight(112)).toBe(112);
   });
 
   it("covers the home-indicator gap under the pill", () => {

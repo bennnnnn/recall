@@ -113,6 +113,20 @@ export function composerInputFrameHeight(
   };
 }
 
+/**
+ * Height of the text itself. The frame includes centering slack so one line
+ * lines up with the buttons; that slack must stay on the wrapper. Padding
+ * inside the field makes iOS draw the caret a line too high.
+ */
+export function composerInputTextBoxHeight(frameHeight: number): number {
+  if (frameHeight <= COMPOSER_INPUT_MIN_HEIGHT) return COMPOSER_INPUT_LINE_HEIGHT;
+  const slack = COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT;
+  const onLineGrid =
+    (frameHeight - COMPOSER_INPUT_MIN_HEIGHT) % COMPOSER_INPUT_LINE_HEIGHT === 0;
+  if (!onLineGrid) return frameHeight;
+  return frameHeight - slack;
+}
+
 /** How far the bottom scrim tucks under the pill. */
 export const COMPOSER_GAP_FADE_OVERLAP = 16;
 

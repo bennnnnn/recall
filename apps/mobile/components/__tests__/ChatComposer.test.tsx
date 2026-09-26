@@ -4,7 +4,6 @@ import * as Clipboard from "expo-clipboard";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/components/chat/ChatComposer";
-import { COMPOSER_INPUT_MIN_HEIGHT } from "@/lib/chat/composerLogic";
 import {
   CONVERTER_HEADER_HEIGHT,
   CONVERTER_ROWS,
@@ -232,13 +231,13 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent(composerInput, "contentSizeChange", {
       nativeEvent: { contentSize: { width: 240, height: 112 } },
     });
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112, paddingTop: 0 });
 
     await fireEvent.press(getByLabelText("chat.send_a11y"));
 
     await waitFor(() => {
       expect(getByTestId("chat-composer-input").props.value).toBe("");
-      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 44 });
+      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
     });
   });
 
@@ -261,7 +260,7 @@ describe("ChatComposer math keyboard", () => {
 
     expect(getByTestId("chat-composer-input").props.value).toBe("\n");
     expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 68 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 48, paddingTop: 0 });
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
   });
 
@@ -269,16 +268,15 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId } = await render(
       <ChatComposer {...baseProps} input={"a".repeat(40)} />,
     );
-    expect(getByTestId("chat-composer-input")).toHaveStyle({
-      height: COMPOSER_INPUT_MIN_HEIGHT,
-    });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
 
     await fireEvent(getByTestId("chat-composer-input"), "layout", {
       nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 44 } },
     });
 
     expect(getByTestId("chat-composer-input")).toHaveStyle({
-      height: COMPOSER_INPUT_MIN_HEIGHT + 24,
+      height: 48,
+      paddingTop: 0,
     });
   });
 
@@ -322,7 +320,7 @@ describe("ChatComposer math keyboard", () => {
       nativeEvent: { contentSize: { width: 240, height: 190 } },
     });
 
-    expect(composerInput).toHaveStyle({ height: 164 });
+    expect(composerInput).toHaveStyle({ height: 144, paddingTop: 0 });
     expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
       expanded: false,
     });
