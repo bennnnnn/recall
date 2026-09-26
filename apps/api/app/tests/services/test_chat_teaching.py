@@ -54,6 +54,13 @@ STEP_ONE = (
         "научи меня python",
         "bana python sözlükleri öğret",
         "ፓይተን አስተምረኝ",
+        # Learning a skill, not doing a task.
+        "teach me how to code in python",
+        "teach me how to use python dictionaries",
+        "help me learn how to play chess",
+        "teach me how recursion works",
+        # A later "how to" is part of the topic, not the ask.
+        "Teach me python dictionaries and how to loop over them",
     ],
 )
 def test_teaching_request_detected(text):
@@ -71,6 +78,12 @@ def test_teaching_request_detected(text):
         "Give me a 4-week roadmap to learn Python",
         "Help me understand this error",
         "Who was my teacher last year?",
+        # Procedures keep the how-to steps, whatever the verb.
+        "Teach me how to bake bread step by step",
+        "teach me how to change a tire",
+        "teach me how to tie a knot",
+        "Can you teach me to cook?",
+        "I want to learn how to cook",
         "",
     ],
 )
@@ -82,14 +95,21 @@ def test_teaching_request_declines(text):
     "reply, expected",
     [
         (STEP_ONE, (1, 6)),
-        ("### Step 2/6 — Accessing values\n\nText.", (2, 6)),
-        ("**Step 3 of 5 — Loops**\n\nText.", (3, 5)),
-        ("### Paso 2/4 — Acceder a valores", (2, 4)),
-        ("### Шаг 4/4 — Итог", (4, 4)),
-        ("### Step 1/6 — A\n\ntext\n\n### Step 2/6 — B", (2, 6)),
-        ("### 1/2 cup of sugar", None),
-        ("Step 2/6 in prose, not a heading", None),
-        ("### Step 7/6 — impossible", None),
+        ("### Step 2/6 — Accessing values\n\nWhat does it print?", (2, 6)),
+        ("**Step 3 of 5 — Loops**\n\nWhich loop runs first?", (3, 5)),
+        ("### Paso 2/4 — Acceder a valores\n\n¿Qué imprime?", (2, 4)),
+        ("### Étape 2/6 — Accès\n\nQue affiche-t-il ?", (2, 6)),
+        ("### Шаг 4/4 — Итог\n\nЧто выведет код?", (4, 4)),
+        ("### Step 1/6 — A\n\ntext\n\n### Step 2/6 — B\n\nWhich one?", (2, 6)),
+        # Plans and multi-part answers are not lessons.
+        ("### Day 1/7 — Arrive\n\nReady for day 2?", None),
+        ("### Phase 1/3 — Setup\n\nQuestions?", None),
+        ("### Part 2/4\n\nMore?", None),
+        # A how-to that numbers its steps asks nothing after the last one.
+        ("### Step 5/5 — Tighten the nuts\n\nYou're done.", None),
+        ("### 1/2 cup of sugar?", None),
+        ("Step 2/6 in prose, not a heading?", None),
+        ("### Step 7/6 — impossible?", None),
         ("The capital of France is Paris.", None),
         (None, None),
     ],

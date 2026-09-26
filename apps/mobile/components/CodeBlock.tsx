@@ -56,7 +56,7 @@ function tokenStyle(color: string) {
 const CODE_COLLAPSED_LINES = 14;
 /** Only fold code blocks with at least this many lines. */
 const CODE_COLLAPSE_MIN_LINES = 18;
-/** Room at the end of each line for the floating copy button (32 pt + gap). */
+/** Room at the end of each line before the corner actions are measured: one copy button. */
 const ACTIONS_GUTTER = 40;
 
 export function CodeBlock({
@@ -80,6 +80,9 @@ export function CodeBlock({
   const { t: tr } = useTranslation();
   const s = useMemo(() => makeStyles(t), [t]);
   const [expanded, setExpanded] = useState(false);
+  // The corner holds copy plus any extras (HTML adds a 44 pt preview button),
+  // so the line gutter follows the measured width, not one button's.
+  const [actionsWidth, setActionsWidth] = useState(0);
   const fenceLang = parseFenceLang(lang);
   const tokenizer = useCodeTokenizer(!streaming);
   const tokens = useMemo(() => {
@@ -116,7 +119,13 @@ export function CodeBlock({
         ]}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled>
-          <View style={[s.codeLines, hasActions && s.codeLinesBesideActions]}>
+          <View
+            testID="code-block-lines"
+            style={[
+              s.codeLines,
+              hasActions && { paddingRight: Space.md + (actionsWidth || ACTIONS_GUTTER) },
+            ]}
+          >
             {lines.map((lineTokens, lineIdx) => (
               <View key={lineIdx} style={s.codeLineRow}>
                 {lineTokens.length > 0 ? (
@@ -134,7 +143,11 @@ export function CodeBlock({
         </ScrollView>
       </View>
       {hasActions ? (
-        <View style={s.actions} testID="code-block-actions">
+        <View
+          style={s.actions}
+          testID="code-block-actions"
+          onLayout={(e) => setActionsWidth(Math.ceil(e.nativeEvent.layout.width))}
+        >
           {headerExtra}
           {copyEnabled ? <CopyButton text={code} /> : null}
         </View>
@@ -182,7 +195,6 @@ function makeStyles(t: Theme) {
     },
     codeBody: { overflow: "hidden", backgroundColor: t.codeBg },
     codeLines: { paddingVertical: Space.md, paddingHorizontal: Space.md },
-    codeLinesBesideActions: { paddingRight: Space.md + ACTIONS_GUTTER },
     codeLineRow: { flexDirection: "row", flexWrap: "nowrap", alignItems: "flex-start" },
     expandBtn: {
       alignItems: "center",

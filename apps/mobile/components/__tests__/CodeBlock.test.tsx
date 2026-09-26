@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import { Text } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
@@ -49,6 +49,18 @@ describe("CodeBlock", () => {
     });
 
     expect(getByTestId("code-block-actions")).toContainElement(getByText("preview"));
+  });
+
+  it("keeps every corner action clear of the end of a line", async () => {
+    const { getByTestId } = await renderBlock({ headerExtra: <Text>preview</Text> });
+    // Before layout: room for the copy button alone.
+    expect(getByTestId("code-block-lines")).toHaveStyle({ paddingRight: 16 + 40 });
+
+    // Preview (44) + gap + copy: the gutter follows the measured group.
+    await fireEvent(getByTestId("code-block-actions"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 82, height: 32 } },
+    });
+    expect(getByTestId("code-block-lines")).toHaveStyle({ paddingRight: 16 + 82 });
   });
 
   it("has no corner actions when copy is off", async () => {

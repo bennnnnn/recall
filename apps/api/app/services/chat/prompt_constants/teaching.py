@@ -53,14 +53,65 @@ _PROCEDURE = re.compile(
     r"fix|repair|reset|log\s*in|sign\s*up)\b",
     re.IGNORECASE,
 )
+# "Teach me (how) to bake bread" asks for a procedure; "teach me how to code"
+# asks to learn a skill. The verb after "to" tells them apart.
+_TO_VERB = re.compile(
+    r"\b(?:(?:teach|help)\s+(?:me|us)\s+(?:how\s+)?to|learn\s+(?:how\s+)?to)\s+([a-z]+)",
+    re.IGNORECASE,
+)
+_LEARNING_VERBS = frozenset(
+    {
+        "add",
+        "analyse",
+        "analyze",
+        "budget",
+        "calculate",
+        "code",
+        "compute",
+        "conjugate",
+        "count",
+        "debug",
+        "differentiate",
+        "divide",
+        "draw",
+        "factor",
+        "graph",
+        "integrate",
+        "invest",
+        "learn",
+        "multiply",
+        "play",
+        "program",
+        "pronounce",
+        "read",
+        "reason",
+        "say",
+        "simplify",
+        "sing",
+        "solve",
+        "speak",
+        "spell",
+        "study",
+        "subtract",
+        "think",
+        "type",
+        "understand",
+        "use",
+        "write",
+    }
+)
 
-# "### Step 2/6 — Accessing values", in any language: a heading (or bold line)
-# whose first word is followed by the step and the total ("2 of 6" too).
+# "### Step 2/6 — Accessing values": a heading (or bold line) with the word
+# Step in an app language, then the step and the total ("2 of 6" too). Other
+# numbered headings ("Day 1/7", "Part 2/4") are plans, not lessons.
+_STEP_WORDS = r"step|paso|[ée]tape|schritt|passo|etapa|шаг|ad[ıi]m|ደረጃ"
 _LESSON_STEP = re.compile(
-    r"^\s*(?:#{1,4}\s+|\*\*)\s*[^\W\d_]+\s+(\d{1,2})\s*(?:/|\s+of\s+)\s*(\d{1,2})\b",
+    r"^\s*(?:#{1,4}\s+|\*\*)\s*(?:" + _STEP_WORDS + r")\s+(\d{1,2})\s*(?:/|\s+of\s+)\s*"
+    r"(\d{1,2})\b",
     re.MULTILINE | re.IGNORECASE,
 )
 _MAX_LESSON_STEPS = 20
+_QUESTION_MARKS = ("?", "？", "፧")
 
 TEACHING_HINT = (
     "The user wants to be taught this topic. Run it as a lesson, not a how-to, "
@@ -97,18 +148,32 @@ def is_teaching_request(text: str) -> bool:
         return False
     if not _TEACH_TURN.search(cleaned):
         return False
-    return not _PROCEDURE.search(cleaned)
+    return not _asks_for_a_procedure(cleaned)
+
+
+def _asks_for_a_procedure(cleaned: str) -> bool:
+    if _PROCEDURE.search(cleaned):
+        return True
+    verb = _TO_VERB.search(cleaned)
+    return verb is not None and verb.group(1).lower() not in _LEARNING_VERBS
 
 
 def lesson_step(text: str | None) -> tuple[int, int] | None:
-    """(step, total) of the last lesson step heading in an assistant reply."""
+    """(step, total) of the last lesson step in an assistant reply.
+
+    A lesson step ends on its check question, so a numbered how-to that happens
+    to say "Step 5/5" without asking anything is not one.
+    """
     if not text:
         return None
     found: tuple[int, int] | None = None
+    end = 0
     for match in _LESSON_STEP.finditer(text):
         step, total = int(match.group(1)), int(match.group(2))
         if 1 <= step <= total <= _MAX_LESSON_STEPS:
-            found = (step, total)
+            found, end = (step, total), match.end()
+    if found is None or not any(mark in text[end:] for mark in _QUESTION_MARKS):
+        return None
     return found
 
 
