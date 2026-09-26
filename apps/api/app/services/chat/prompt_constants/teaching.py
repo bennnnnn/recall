@@ -119,19 +119,22 @@ _QUESTION_MARKS = ("?", "？", "፧")
 # session. It asks for the whole progression now.
 _LEARNING_PLAN_TURN = re.compile(
     r"(?:"
-    r"\b(?:give|make|create|build|write)\s+(?:me\s+)?(?:an?\s+)?"
-    r"(?:(?:\d+)[\s-]?(?:day|days|week|weeks|month|months)\s+)?"
-    r"(?:(?:learning|study|mastery)\s+)?(?:plan|roadmap)\b|"
+    # Explicit learning-roadmap language.
     r"\b(?:learning|study|mastery)\s+(?:plan|roadmap)\b|"
     r"\b(?:plan|roadmap)\s+(?:to|for)\s+(?:learn|master|study)\b|"
+    r"\b(?:plan|roadmap)\b[^.?!]{0,45}\b(?:to\s+)?(?:learn|master|study)\b|"
+    # A bounded course/skill progression. Require a learning cue so ordinary
+    # 30-day workout/business/project plans do not get hijacked by this policy.
     r"\b\d+[\s-]?(?:day|days|week|weeks|month|months)\b"
-    r"[^.?!]{0,120}\b(?:plan|roadmap|learn|master|study|beginner|advanced|senior)\b|"
+    r"[^.?!]{0,120}\b(?:learn|learning|master|mastering|mastery|study|studying|"
+    r"beginner|intermediate|advanced|senior|course|skill)\b|"
     r"\b(?:learn|master|study)\b[^.?!]{0,100}\b(?:in|over)\s+"
     r"\d+[\s-]?(?:day|days|week|weeks|month|months)\b|"
     r"\bteach\s+(?:me|us)\b[^.?!]{0,100}\b(?:in|over)\s+"
     r"\d+[\s-]?(?:day|days|week|weeks|month|months)\b|"
     # es / pt / fr / de
-    r"\bplan\s+de\s+\d+[\s-]?(?:d[ií]as|dias|semanas|meses|semaines|mois)\b|"
+    r"\bplan\s+de\s+\d+[\s-]?(?:d[ií]as|dias|semanas|meses|semaines|mois)\b"
+    r"[^.?!]{0,80}\b(?:aprender|apprendre|estudiar|étudier|estudar)\b|"
     r"\b\d+[\s-]?(?:tage|wochen|monate)\b[^.?!]{0,80}\blernplan\b"
     r")",
     re.IGNORECASE,
@@ -226,8 +229,8 @@ def _asks_for_a_procedure(cleaned: str) -> bool:
 def lesson_step(text: str | None) -> tuple[int, int] | None:
     """(step, total) of the last lesson step in an assistant reply.
 
-    A lesson step ends on its check question, so a numbered how-to that happens
-    to say "Step 5/5" without asking anything is not one.
+    A lesson step ends on a low-pressure question/invitation, so a numbered
+    how-to that happens to say "Step 5/5" without asking anything is not one.
     """
     if not text:
         return None
