@@ -15,3 +15,8 @@ files are route adapters. History/search = drawer.
 - Use product model aliases, never provider names
 - Google Sign-In requires dev build; Expo Go uses dev auth placeholder
 - Physical device: `EXPO_PUBLIC_API_URL` must be Mac LAN IP, not localhost
+- Controls come from `ui/` (see `apps/mobile/ui/README.md`): Button, Chip, ListRow, TextField,
+  HeaderButton, Menu/SelectMenu, `confirmDialog`/`alertDialog`, Sheet, the ui/pickers time and
+  date dialogs, ShareSheet, Icon. Extend the kit instead of styling a one-off copy in a feature
+- Popups: menus are anchored popovers; yes/no questions are `confirmDialog`; passing errors are
+  toasts. Bottom sheets only for forms, attach sources and sharing

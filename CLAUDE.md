@@ -166,6 +166,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | Model | `services/model_catalog.py` | Catalog entry + OpenRouter slug | Remove alias; don’t leave provider names in app code |
 | Mobile network | feature `api.ts` or legacy `lib/api/<domain>.ts`, composed in `lib/api.ts` | Add typed API slice using the shared client | Delete API slice; no raw `fetch` in screens |
 | Rich fence | `lib/fenceRegistry.ts` (`FENCES`) | Add a `FenceSpec`; one block component; wire render | Delete the spec + component |
+| UI primitive | `apps/mobile/ui/` (see `ui/README.md`) | Add or extend one kit component; features import it by path | Delete the component and its callers' use; never fork it inside a feature |
 | Chat UI behavior | `hooks/useChat*.ts` | Hook owns logic; screen stays thin | Don’t add a second composer intercept |
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
@@ -202,6 +203,7 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 - Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `projects/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fenceRegistry.ts` is the lang/id table; `RichFence` renders
+- UI kit: `ui/` — controls (Button, Chip, SegmentedControl, TextField, HeaderButton), `list/` ListRow, `overlay/` (Menu, SelectMenu, `confirmDialog`/`alertDialog`, Sheet), `pickers/` (clock time, calendar date), `share/` ShareSheet, `icons/` (Lucide line icons + BrandMark). Catalog: `ui/README.md`; dev gallery at Settings → About → UI kit. Lint bans raw `Alert`/`Modal`/`Switch`, `@expo/vector-icons` and the native datetimepicker outside it.
 - i18n: `lib/i18n` (9 locales, key parity enforced by test)
 
 ## Build / Run Commands

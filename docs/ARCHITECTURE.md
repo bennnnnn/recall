@@ -14,7 +14,7 @@ application.
 | Mobile product behavior | `apps/mobile/features/<feature>/` |
 | Expo navigation | `apps/mobile/app/` (route adapters only) |
 | Mobile request transport | `apps/mobile/lib/api/client.ts` |
-| Reusable mobile primitives | `apps/mobile/ui/` after extraction |
+| Reusable mobile primitives | `apps/mobile/ui/` (catalog: `apps/mobile/ui/README.md`) |
 
 The rule is simple: if a product feature breaks, its module or feature folder is the first place
 to open. Chat may orchestrate public feature interfaces; it must not know how another feature

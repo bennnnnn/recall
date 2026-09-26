@@ -228,6 +228,27 @@ These need a **dev build on hardware**. Simulator FPS and memory are not evidenc
 
 ---
 
+## 17. UI kit (menus, dialogs, pickers, share)
+
+Rebuild the dev client once first: the native date/time picker module was removed.
+**Settings → About → UI kit** (dev builds) shows every piece in one place.
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 17.1 | Chat ⋮, drawer long-press, To-dos ⋮, My Job ⋮, photo viewer ⋮ open the same popover | ☐ | ☐ | Drops from the button (or the finger), flips above near the bottom edge, closes on outside tap and Android back. |
+| 17.2 | Delete a chat, a to-do and a photo | ☐ | ☐ | Themed dialog with a red Delete; Cancel and outside tap keep the item. |
+| 17.3 | Open a confirm or a picker from inside the to-do editor sheet | ☐ | ☐ | Floats above the sheet (iOS `FullWindowOverlay`); the sheet stays put. |
+| 17.4 | Quiet hours start: tap 9 on the dial, then drag to 31 | ☐ | ☐ | Hand glides, number under it turns white, a tick per number, hour then minutes, OK saves. |
+| 17.5 | Time picker keyboard mode | ☐ | ☐ | The keyboard does not cover OK; 13 on a 12-hour clock turns red and disables OK. |
+| 17.6 | 24-hour device setting | ☐ | ☐ | Inner ring shows 00 and 13–23; no AM/PM. |
+| 17.7 | To-do date: arrows, swipe, and the year list | ☐ | ☐ | Week starts on the locale's day; today has a ring; OK keeps the time of day. |
+| 17.8 | My Job first delivery | ☐ | ☐ | Date, then time; past days greyed. |
+| 17.9 | Chat ⋮ → Share | ☐ | ☐ | Share sheet appears, the OS share menu opens on top; after closing it, Copy shows a check and PDF exports. |
+| 17.10 | TalkBack / VoiceOver on the clock dial | ☐ | ☐ | One adjustable control; swipe up/down changes the value; the time is read out. |
+| 17.11 | Light and dark mode on the pickers, share sheet, menus and header plates | ☐ | ☐ | Dial and boxes stand out from the dialog in dark mode. |
+
+---
+
 ## Sign-off
 
 | Platform | Build profile | Tester | Date | Pass/Fail |
