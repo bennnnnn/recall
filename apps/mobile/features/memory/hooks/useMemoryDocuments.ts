@@ -30,6 +30,39 @@ function withFact(documents: MemoryDocument[], updated: Memory): MemoryDocument[
   }));
 }
 
+type FactPlace = { document: MemoryDocument; fact: Memory; index: number };
+
+function findFact(documents: MemoryDocument[], factId: string): FactPlace | undefined {
+  for (const document of documents) {
+    const index = document.facts.findIndex((fact) => fact.id === factId);
+    if (index >= 0) return { document, fact: document.facts[index], index };
+  }
+  return undefined;
+}
+
+/** Put one removed fact back where it was, keeping every other change. */
+function withFactRestored(documents: MemoryDocument[], place: FactPlace): MemoryDocument[] {
+  if (findFact(documents, place.fact.id)) return documents;
+  if (!documents.some((document) => document.key === place.document.key)) {
+    return [...documents, { ...place.document, facts: [place.fact] }];
+  }
+  return documents.map((document) => {
+    if (document.key !== place.document.key) return document;
+    const facts = [...document.facts];
+    facts.splice(Math.min(place.index, facts.length), 0, place.fact);
+    return { ...document, facts };
+  });
+}
+
+function withDocumentRestored(
+  documents: MemoryDocument[],
+  removed: MemoryDocument,
+): MemoryDocument[] {
+  return documents.some((document) => document.key === removed.key)
+    ? documents
+    : [...documents, removed];
+}
+
 /**
  * Memory as documents (You, Topics, Areas) for the signed-in account. Writes
  * made after an account switch never land in the next account's pages.
@@ -74,38 +107,45 @@ export function useMemoryDocuments(token: string | null) {
     }
   }, [token]);
 
-  const restoreOnFailure = useCallback(async (
-    change: (documents: MemoryDocument[]) => MemoryDocument[],
+  const removeOptimistically = useCallback(async (
+    remove: (documents: MemoryDocument[]) => MemoryDocument[],
+    restore: (documents: MemoryDocument[]) => MemoryDocument[],
     request: () => Promise<void>,
   ): Promise<boolean> => {
     const session = getSessionGeneration();
-    const before = getCachedMemoryDocuments()?.documents;
-    updateMemoryDocuments(change, session);
+    updateMemoryDocuments(remove, session);
     try {
       await request();
+      // A refresh that landed mid-request may have brought the item back.
+      updateMemoryDocuments(remove, session);
       invalidateMemoriesCache();
       return true;
     } catch {
-      if (before) updateMemoryDocuments(() => before, session);
+      // Put back only this item: other deletes may have finished meanwhile.
+      updateMemoryDocuments(restore, session);
       return false;
     }
   }, []);
 
   const deleteDocument = useCallback(async (key: string): Promise<boolean> => {
     if (!token) return false;
-    return restoreOnFailure(
+    const removed = getCachedMemoryDocuments()?.documents.find((document) => document.key === key);
+    return removeOptimistically(
       (documents) => documents.filter((document) => document.key !== key),
+      (documents) => (removed ? withDocumentRestored(documents, removed) : documents),
       () => api.deleteMemoryDocument(token, key),
     );
-  }, [token, restoreOnFailure]);
+  }, [token, removeOptimistically]);
 
   const deleteFact = useCallback(async (factId: string): Promise<boolean> => {
     if (!token) return false;
-    return restoreOnFailure(
+    const place = findFact(getCachedMemoryDocuments()?.documents ?? [], factId);
+    return removeOptimistically(
       (documents) => withoutFact(documents, factId),
+      (documents) => (place ? withFactRestored(documents, place) : documents),
       () => api.deleteMemory(token, factId),
     );
-  }, [token, restoreOnFailure]);
+  }, [token, removeOptimistically]);
 
   const editFact = useCallback(async (factId: string, text: string): Promise<boolean> => {
     if (!token) return false;
