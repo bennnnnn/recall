@@ -81,9 +81,9 @@ export function HeaderButton({
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={ink} size="small" />
+        <ActivityIndicator color={ink} size="small" testID={testID && `${testID}-busy`} />
       ) : (
-        <Icon name={icon} size={IconSize.md} color={ink} />
+        <Icon name={icon} size={IconSize.md} color={ink} testID={testID && `${testID}-icon`} />
       )}
     </Pressable>
   );
