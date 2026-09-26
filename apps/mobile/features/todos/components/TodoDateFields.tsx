@@ -20,6 +20,7 @@ import { ensureNotificationPermission } from "@/features/todos/model/todoReminde
 import { IconSize } from "@/ui/icons/sizes";
 import { useTheme } from "@/lib/theme";
 import { alertDialog } from "@/ui/overlay/dialogs";
+import { ListRow } from "@/ui/list/ListRow";
 
 export type SchedulePanel = "date" | "time" | "repeat";
 
@@ -246,21 +247,19 @@ function ReviewRow({
   ref?: Ref<View>;
 }) {
   const C = useTheme();
-  const s = useMemo(() => makeTodosStyles(C), [C]);
   return (
-    <Pressable
+    <ListRow
       ref={ref}
-      style={[s.reviewRowMain, inset && s.reviewSubRow]}
-      onPress={onPress}
+      appearance="plain"
+      icon={icon}
+      iconColor={C.textSecondary}
+      title={label}
+      detail={value}
+      detailStyle="pill"
+      inset={inset}
       disabled={disabled}
-      accessibilityRole="button"
+      onPress={onPress}
       accessibilityLabel={accessibilityLabel}
-    >
-      {icon ? <Icon name={icon} size={IconSize.sm} color={C.textSecondary} /> : null}
-      <Text style={s.reviewLabel}>{label}</Text>
-      <View style={s.reviewValue}>
-        <Text style={s.reviewValueText} numberOfLines={1}>{value}</Text>
-      </View>
-    </Pressable>
+    />
   );
 }

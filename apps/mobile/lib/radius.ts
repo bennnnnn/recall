@@ -3,6 +3,8 @@
  * for the same control role. Full app migration is incremental.
  */
 export const Radius = {
+  /** 4 — rows inside a rounded list group, so the group keeps the big curve */
+  row: 4,
   /** 8 — tight chips, compact controls */
   xs: 8,
   /** 10 — date chips, small panels */

@@ -217,7 +217,6 @@ module.exports = defineConfig([
       "app/login.tsx",
       "app/onboarding.tsx",
       "app/settings/index.tsx",
-      "components/ActionSheetRow.tsx",
       "components/ChatMessageImage.tsx",
       "components/ChatMessagePdf.tsx",
       "components/CodeBlock.tsx",

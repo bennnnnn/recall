@@ -1,11 +1,10 @@
-import { useMemo, type ReactNode, type Ref } from "react";
-import { Pressable, Text, View } from "react-native";
+import { type ReactNode, type Ref } from "react";
+import { StyleSheet, type View } from "react-native";
 
-import { Icon } from "@/ui/icons/Icon";
-import { makeSettingsStyles } from "@/components/settings/settingsStyles";
+import { Space } from "@/lib/space";
 import type { IconName } from "@/ui/icons/names";
-import { useTheme } from "@/lib/theme";
-import { IconSize } from "@/ui/icons/sizes";
+import { ListGroup } from "@/ui/list/ListGroup";
+import { ListRow } from "@/ui/list/ListRow";
 
 type SettingsOverviewGroupProps = {
   label?: string;
@@ -25,15 +24,13 @@ type SettingsOverviewRowProps = {
   ref?: Ref<View>;
 };
 
-export function SettingsOverviewGroup({ label, children }: SettingsOverviewGroupProps) {
-  const theme = useTheme();
-  const styles = useMemo(() => makeSettingsStyles(theme), [theme]);
+const layout = StyleSheet.create({ section: { marginTop: Space.lg } });
 
+export function SettingsOverviewGroup({ label, children }: SettingsOverviewGroupProps) {
   return (
-    <View style={styles.section}>
-      {label ? <Text style={styles.sectionLabel}>{label}</Text> : null}
-      <View style={[styles.footerGroup, styles.overviewCard]}>{children}</View>
-    </View>
+    <ListGroup label={label} spaced style={layout.section}>
+      {children}
+    </ListGroup>
   );
 }
 
@@ -48,47 +45,18 @@ export function SettingsOverviewRow({
   accent,
   ref,
 }: SettingsOverviewRowProps) {
-  const theme = useTheme();
-  const styles = useMemo(() => makeSettingsStyles(theme), [theme]);
-  const color = danger ? theme.danger : accent ? theme.primary : theme.text;
-  const accessibilityLabel = value ? `${title}, ${value}` : title;
-  const content = (
-    <>
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Icon name={icon} size={IconSize.md} color={color} />
-      </View>
-      <View style={styles.rowBody}>
-        <Text style={[styles.rowTitle, { color }]}>{title}</Text>
-        {value ? <Text style={styles.linkValue}>{value}</Text> : null}
-      </View>
-    </>
-  );
-
-  if (!onPress) {
-    return (
-      <View
-        style={styles.menuRow}
-        accessible
-        accessibilityRole="text"
-        accessibilityLabel={accessibilityLabel}
-        accessibilityHint={accessibilityHint}
-      >
-        {content}
-      </View>
-    );
-  }
-
   return (
-    <Pressable
+    <ListRow
       ref={ref}
-      style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
+      icon={icon}
+      title={title}
+      value={value}
+      danger={danger}
+      accent={accent}
+      expanded={expanded}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={value ? `${title}, ${value}` : title}
       accessibilityHint={accessibilityHint}
-      accessibilityState={expanded === undefined ? undefined : { expanded }}
-    >
-      {content}
-    </Pressable>
+    />
   );
 }

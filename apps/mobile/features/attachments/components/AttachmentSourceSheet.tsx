@@ -1,10 +1,12 @@
 import { useMemo } from "react";
+import { StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
+import { ListRow } from "@/ui/list/ListRow";
 import { Sheet } from "@/ui/overlay/Sheet";
 import { selection } from "@/lib/haptics";
-import { useTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
+import { type Theme, useTheme } from "@/lib/theme";
 
 export type AttachmentSource =
   | "camera"
@@ -22,7 +24,7 @@ type Props = {
 export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
-  const panelStyle = useMemo(() => makeActionSheetPanelStyle(theme), [theme]);
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   const pick = (source: AttachmentSource) => {
     selection();
@@ -38,32 +40,43 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
       floating
       keyboardAvoiding
       minBottomPadding={12}
-      contentContainerStyle={panelStyle}
+      contentContainerStyle={s.panel}
     >
-      <ActionSheetRow
+      <ListRow
+        appearance="plain"
         icon="scan"
-        label={t("chat.attach_solve_math_camera")}
+        title={t("chat.attach_solve_math_camera")}
         onPress={() => pick("solve_math_camera")}
-        theme={theme}
+        style={s.row}
       />
-      <ActionSheetRow
+      <ListRow
+        appearance="plain"
         icon="camera"
-        label={t("chat.attach_camera")}
+        title={t("chat.attach_camera")}
         onPress={() => pick("camera")}
-        theme={theme}
+        style={s.row}
       />
-      <ActionSheetRow
+      <ListRow
+        appearance="plain"
         icon="image"
-        label={t("chat.attach_photo")}
+        title={t("chat.attach_photo")}
         onPress={() => pick("photo")}
-        theme={theme}
+        style={s.row}
       />
-      <ActionSheetRow
+      <ListRow
+        appearance="plain"
         icon="file"
-        label={t("chat.attach_file")}
+        title={t("chat.attach_file")}
         onPress={() => pick("file")}
-        theme={theme}
+        style={s.row}
       />
     </Sheet>
   );
+}
+
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    panel: { backgroundColor: theme.elevated },
+    row: { minHeight: Space.xl + Space.gutter, paddingHorizontal: Space.gutter },
+  });
 }

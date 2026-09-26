@@ -2,9 +2,8 @@ import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Sheet } from "@/ui/overlay/Sheet";
-import { makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
 import { SegmentedControl } from "@/ui/controls/SegmentedControl";
-import { SwitchRow } from "@/ui/controls/SwitchRow";
+import { ListRow } from "@/ui/list/ListRow";
 import type { LessonFontSize, LessonPrefs } from "@/features/learning/model/lessonPrefs";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -23,7 +22,6 @@ export function LessonOptionsSheet({ visible, prefs, onClose, onChange }: Props)
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
-  const panelStyle = makeActionSheetPanelStyle(theme);
 
   return (
     <Sheet
@@ -33,19 +31,21 @@ export function LessonOptionsSheet({ visible, prefs, onClose, onChange }: Props)
       withHandle
       floating
       minBottomPadding={12}
-      contentContainerStyle={panelStyle}
+      contentContainerStyle={s.panel}
     >
       <Text style={s.title}>{t("lesson.menu")}</Text>
-      <SwitchRow
-        label={t("lesson.effect_sound")}
-        value={prefs.effectSound}
-        onValueChange={(effectSound) => onChange({ effectSound })}
+      <ListRow
+        appearance="plain"
+        title={t("lesson.effect_sound")}
+        switchValue={prefs.effectSound}
+        onSwitchChange={(effectSound) => onChange({ effectSound })}
         style={s.row}
       />
-      <SwitchRow
-        label={t("lesson.read_words")}
-        value={prefs.readWords}
-        onValueChange={(readWords) => onChange({ readWords })}
+      <ListRow
+        appearance="plain"
+        title={t("lesson.read_words")}
+        switchValue={prefs.readWords}
+        onSwitchChange={(readWords) => onChange({ readWords })}
         style={s.row}
       />
       <Text style={s.fontLabel}>{t("lesson.font_size")}</Text>
@@ -64,6 +64,7 @@ export function LessonOptionsSheet({ visible, prefs, onClose, onChange }: Props)
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    panel: { backgroundColor: theme.elevated },
     title: {
       ...Type.caption,
       ...Weight.semibold,
