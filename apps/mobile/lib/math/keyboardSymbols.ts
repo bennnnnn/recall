@@ -45,10 +45,10 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "neq", label: "≠", insert: "\\neq ", group: "basics" }),
   key({ id: "lt", label: "<", insert: "<", group: "basics" }),
   key({ id: "gt", label: ">", insert: ">", group: "basics" }),
-  key({ id: "times", label: "×", insert: "\\times ", group: "pad" }),
-  key({ id: "div", label: "÷", insert: "\\div ", group: "pad" }),
-  key({ id: "plus", label: "+", insert: "+", group: "pad" }),
-  key({ id: "minus", label: "−", insert: "-", group: "pad" }),
+  key({ id: "times", label: "×", insert: "\\times ", group: "basics" }),
+  key({ id: "div", label: "÷", insert: "\\div ", group: "basics" }),
+  key({ id: "minus", label: "−", insert: "-", group: "basics" }),
+  key({ id: "plus", label: "+", insert: "+", group: "basics" }),
   key({ id: "eq", label: "=", insert: "=", group: "pad" }),
   key({ id: "parens", label: "( )", insert: "()", group: "pad" }),
   key({ id: "trig-theta", label: "θ", insert: "\\theta ", group: "pad" }),
@@ -74,6 +74,13 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "arcsinh", label: "sinh⁻¹", insert: "\\sinh^{-1}()", group: "trig" }),
   key({ id: "arccosh", label: "cosh⁻¹", insert: "\\cosh^{-1}()", group: "trig" }),
   key({ id: "arctanh", label: "tanh⁻¹", insert: "\\tanh^{-1}()", group: "trig" }),
+  key({ id: "sech", label: "sech", insert: "\\sech()", group: "pad" }),
+  key({ id: "csch", label: "csch", insert: "\\csch()", group: "pad" }),
+  key({ id: "coth", label: "coth", insert: "\\coth()", group: "pad" }),
+  key({ id: "pi-over-6", label: "π/6", insert: "\\frac{\\pi}{6}", group: "pad" }),
+  key({ id: "pi-over-4", label: "π/4", insert: "\\frac{\\pi}{4}", group: "pad" }),
+  key({ id: "pi-over-3", label: "π/3", insert: "\\frac{\\pi}{3}", group: "pad" }),
+  key({ id: "pi-over-2", label: "π/2", insert: "\\frac{\\pi}{2}", group: "pad" }),
 
   key({ id: "int", label: "∫", insert: "\\int ", group: "calc" }),
   key({ id: "dint", label: "∫□", insert: "\\int_{}^{}", group: "calc" }),
@@ -105,6 +112,10 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "vec", label: "vec", insert: "\\vec{}", group: "calc" }),
   key({ id: "cdot", label: "·", insert: "\\cdot ", group: "calc" }),
   key({ id: "ddv", label: "d/d□", insert: "\\frac{d}{d{}}", group: "calc" }),
+  key({ id: "partial-x", label: "∂/∂x", insert: "\\frac{\\partial}{\\partial x}", group: "pad" }),
+  key({ id: "dy", label: "dy", insert: "\\,dy", group: "pad" }),
+  key({ id: "ddt", label: "d/dt", insert: "\\frac{d}{dt}", group: "pad" }),
+  key({ id: "prime", label: "f′", insert: "^{\\prime}", cursorOffset: 0, group: "pad" }),
 
   key({ id: "alpha", label: "α", insert: "\\alpha ", group: "greek" }),
   key({ id: "beta", label: "β", insert: "\\beta ", group: "greek" }),
@@ -130,6 +141,10 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "Delta", label: "Δ", insert: "\\Delta ", group: "greek" }),
   key({ id: "Sigma", label: "Σ", insert: "\\Sigma ", group: "greek" }),
   key({ id: "Omega", label: "Ω", insert: "\\Omega ", group: "greek" }),
+  key({ id: "iota", label: "ι", insert: "\\iota ", group: "pad" }),
+  key({ id: "upsilon", label: "υ", insert: "\\upsilon ", group: "pad" }),
+  key({ id: "Theta", label: "Θ", insert: "\\Theta ", group: "pad" }),
+  key({ id: "Phi", label: "Φ", insert: "\\Phi ", group: "pad" }),
 ];
 
 /** Always-visible pad row when the math keyboard replaces QWERTY. */
@@ -152,19 +167,6 @@ export const MATH_PAD_KEYS: readonly MathKeyboardSymbol[] = [
 ];
 
 export const MATH_SYMBOL_ROW_SIZE = 6;
-
-const INLINE_DIGIT_IDS = [
-  "digit-1",
-  "digit-2",
-  "digit-3",
-  "digit-4",
-  "digit-5",
-  "digit-6",
-  "digit-7",
-  "digit-8",
-  "digit-9",
-  "digit-0",
-] as const;
 
 export function symbolsInGroup(group: MathKeyboardGroup): MathKeyboardSymbol[] {
   return MATH_KEYBOARD_SYMBOLS.filter((s) => s.group === group);
@@ -217,6 +219,13 @@ export const SYMBOL_A11Y: Record<string, string> = {
   arcsinh: "Hyperbolic arcsine",
   arccosh: "Hyperbolic arccosine",
   arctanh: "Hyperbolic arctangent",
+  sech: "Hyperbolic secant",
+  csch: "Hyperbolic cosecant",
+  coth: "Hyperbolic cotangent",
+  "pi-over-6": "Pi over 6",
+  "pi-over-4": "Pi over 4",
+  "pi-over-3": "Pi over 3",
+  "pi-over-2": "Pi over 2",
   int: "Integral",
   dint: "Definite integral",
   iint: "Double integral",
@@ -247,6 +256,10 @@ export const SYMBOL_A11Y: Record<string, string> = {
   vec: "Vector",
   cdot: "Dot product",
   ddv: "Derivative with respect to",
+  "partial-x": "Partial with respect to x",
+  dy: "Differential dy",
+  ddt: "Derivative with respect to t",
+  prime: "Prime",
   alpha: "Alpha",
   beta: "Beta",
   gamma: "Gamma",
@@ -271,6 +284,10 @@ export const SYMBOL_A11Y: Record<string, string> = {
   Delta: "Capital Delta",
   Sigma: "Capital Sigma",
   Omega: "Capital Omega",
+  iota: "Iota",
+  upsilon: "Upsilon",
+  Theta: "Capital Theta",
+  Phi: "Capital Phi",
   "digit-dot": "Decimal point",
   comma: "Comma",
   "var-x": "Variable x",
@@ -283,14 +300,9 @@ export function symbolA11yLabel(spec: MathKeyboardSymbol): string {
   return SYMBOL_A11Y[spec.id] ?? spec.label;
 }
 
-/** Digits are always on Basics. Converter has its own pad. */
-export function mathGroupShowsNumpad(group: MathKeyboardGroup): boolean {
-  return group === "basics";
-}
-
-/** Trig / Calc / Greek start on symbols; 123 reveals the shared number pad. */
+/** Symbol tabs start on their own keys. 123 opens the shared number pad. */
 export function mathGroupCanToggleDigits(group: MathKeyboardGroup): boolean {
-  return group === "trig" || group === "calc" || group === "greek";
+  return group === "basics" || group === "trig" || group === "calc" || group === "greek";
 }
 
 export function isCursorInsideInlineMath(text: string, pos: number): boolean {
@@ -354,7 +366,17 @@ function resolveInsert(
   if (spec.id === "sub") return scriptAttachInsert(text, start, "_");
   if (spec.id === "fact") return factAttachInsert(text, start);
   if (spec.id === "deg") return degAttachInsert(text, start);
+  if (spec.id === "prime") return primeAttachInsert(text, start);
   return spec;
+}
+
+/** f′: attach `'` to an existing base. Alone, leave the caret in front of the prime. */
+function primeAttachInsert(text: string, start: number): { insert: string; cursorOffset: number } {
+  const prev = lastNonSpaceChar(text, start);
+  if (/[0-9a-zA-Z.)\]}|]/.test(prev)) {
+    return { insert: "'", cursorOffset: 1 };
+  }
+  return { insert: "^{\\prime}", cursorOffset: 0 };
 }
 
 function looksLikeUnitConvertDraft(text: string): boolean {
@@ -727,8 +749,7 @@ export function autoAdvanceFracDen(
 export type PadCell =
   | { kind: "insert"; spec: MathKeyboardSymbol }
   | { kind: "backspace" }
-  | { kind: "next" }
-  | { kind: "prev" }
+  | { kind: "digits" }
   | { kind: "spacer" };
 
 function padSpec(id: string): MathKeyboardSymbol {
@@ -737,12 +758,30 @@ function padSpec(id: string): MathKeyboardSymbol {
   return spec;
 }
 
-function insertCell(id: string): PadCell {
-  return { kind: "insert", spec: padSpec(id) };
+function insertRow(ids: readonly string[]): PadCell[] {
+  return ids.map((id) => ({ kind: "insert" as const, spec: padSpec(id) }));
 }
 
-/** Symbol rows for a tab, always 6-wide. Trig leftover cells get 1–0 so keys stay normal size. */
+/** Basics is 6×4. The fourth row starts with the 123 link; x y z = () . are the row above it. */
+function basicsRows(): PadCell[][] {
+  return [
+    insertRow(["frac", "sqrt", "nroot", "sup", "sub", "abs"]),
+    insertRow(["pi", "leq", "geq", "neq", "lt", "gt"]),
+    insertRow(["var-x", "var-y", "var-z", "eq", "parens", "digit-dot"]),
+    [
+      { kind: "digits" },
+      ...insertRow(["times", "div", "minus", "plus"]),
+      { kind: "backspace" },
+    ],
+  ];
+}
+
+/** Fills the short Trig row with keys that are not already on Basics. */
+const TRIG_ROW_TAIL = ["trig-theta", "sech", "csch", "coth"] as const;
+
+/** Symbol rows for a tab, always 6-wide. Digits live on the 123 pad, not in these rows. */
 export function symbolRowsForGroup(group: MathKeyboardGroup): PadCell[][] {
+  if (group === "basics") return basicsRows();
   const functions = symbolsInGroup(group);
   const rows: PadCell[][] = [];
   for (let i = 0; i < functions.length; i += MATH_SYMBOL_ROW_SIZE) {
@@ -750,54 +789,21 @@ export function symbolRowsForGroup(group: MathKeyboardGroup): PadCell[][] {
   }
   if (rows.length === 0) return rows;
   const last = rows[rows.length - 1]!;
-  const room = MATH_SYMBOL_ROW_SIZE - last.length;
-  if (room <= 0) return rows;
-  if (group === "trig") {
-    const digits = INLINE_DIGIT_IDS.map((id) => insertCell(id));
-    last.push(...digits.slice(0, room));
-    for (let i = room; i < digits.length; i += MATH_SYMBOL_ROW_SIZE) {
-      const chunk = digits.slice(i, i + MATH_SYMBOL_ROW_SIZE);
-      while (chunk.length < MATH_SYMBOL_ROW_SIZE) chunk.push({ kind: "spacer" });
-      rows.push(chunk);
-    }
-    return rows;
-  }
   while (last.length < MATH_SYMBOL_ROW_SIZE) last.push({ kind: "spacer" });
+  if (group === "trig") {
+    let extra = 0;
+    for (let i = 0; i < last.length && extra < TRIG_ROW_TAIL.length; i++) {
+      if (last[i]?.kind === "spacer") {
+        last[i] = { kind: "insert", spec: padSpec(TRIG_ROW_TAIL[extra]!) };
+        extra++;
+      }
+    }
+  }
   return rows;
 }
 
-/** 6-column calculator grid under the function tabs. */
+/** Digit grid. x, y, z, =, (), and the dot live on the Basics row above 123. */
 export const MATH_NUMPAD_ROWS: PadCell[][] = [
-  [
-    { kind: "insert", spec: padSpec("digit-7") },
-    { kind: "insert", spec: padSpec("digit-8") },
-    { kind: "insert", spec: padSpec("digit-9") },
-    { kind: "insert", spec: padSpec("times") },
-    { kind: "insert", spec: padSpec("parens") },
-    { kind: "backspace" },
-  ],
-  [
-    { kind: "insert", spec: padSpec("digit-4") },
-    { kind: "insert", spec: padSpec("digit-5") },
-    { kind: "insert", spec: padSpec("digit-6") },
-    { kind: "insert", spec: padSpec("div") },
-    { kind: "insert", spec: padSpec("minus") },
-    { kind: "insert", spec: padSpec("plus") },
-  ],
-  [
-    { kind: "insert", spec: padSpec("digit-1") },
-    { kind: "insert", spec: padSpec("digit-2") },
-    { kind: "insert", spec: padSpec("digit-3") },
-    { kind: "insert", spec: padSpec("digit-0") },
-    { kind: "insert", spec: padSpec("digit-dot") },
-    { kind: "insert", spec: padSpec("comma") },
-  ],
-  [
-    { kind: "insert", spec: padSpec("var-x") },
-    { kind: "insert", spec: padSpec("var-y") },
-    { kind: "insert", spec: padSpec("var-z") },
-    { kind: "insert", spec: padSpec("eq") },
-    { kind: "prev" },
-    { kind: "next" },
-  ],
+  insertRow(["digit-7", "digit-8", "digit-9", "digit-4", "digit-5", "digit-6"]),
+  insertRow(["digit-1", "digit-2", "digit-3", "digit-0", "digit-dot", "comma"]),
 ];
