@@ -20,8 +20,10 @@ from app.services.chat.prompt_constants import (
     is_learning_plan_request,
     is_lightweight_chat_turn,
     is_teaching_request,
+    learning_plan_daily_contract,
     lesson_continue_hint,
     lesson_step,
+    programming_lesson_contract,
 )
 
 STEP_ONE = (
@@ -243,12 +245,48 @@ def test_70_day_learning_plan_gets_complete_roadmap_policy():
     assert LEARNING_PLAN_HINT in hints
     assert TEACHING_HINT not in hints
     joined = "\n".join(hints)
-    assert "account for every day" in joined
+    assert "`Day 1` through `Day 70`" in joined
+    assert "one compact line" in joined
+    assert "Topic → Practice/build → Done when" in joined
     assert "Do not collapse a 70-day request" in joined
     assert "Foundations → Core skills → Projects" in joined
     assert "small runnable code examples in tagged fences" in joined
     assert "progressive exercises and projects" in joined
     assert "make the expected outcome verifiable" in joined
+
+
+def test_programming_tutor_requires_a_tagged_code_example_each_step():
+    joined = "\n".join(_hints("Teach me Python dictionaries step by step"))
+    assert "language-tagged fence" in joined
+    assert "never make the only example inline" in joined
+    assert "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK" in joined
+    assert "```python" in joined
+
+
+def test_named_daily_plan_gets_every_required_label_in_order():
+    contract = learning_plan_daily_contract("Create a 70-day Python plan")
+    assert "exactly 70 separate Markdown lines" in contract
+    assert "Day 1 | Day 2 | Day 3" in contract
+    assert "Day 68 | Day 69 | Day 70" in contract
+    assert contract.index("Day 1") < contract.index("Day 70")
+    assert "### Checkpoints and milestones" in contract
+    assert "Production experience takes longer than this roadmap." in contract
+    assert "exactly five short runnable ```python code blocks" in contract
+    assert "Day 14, Day 28, Day 42, Day 56, Day 70" in contract
+    joined = "\n".join(_hints("Create a 70-day Python plan"))
+    assert contract in joined
+
+
+def test_non_daily_plan_does_not_get_a_daily_label_contract():
+    assert learning_plan_daily_contract("Create a Python learning roadmap") == ""
+    assert learning_plan_daily_contract("Create a 6-month Python plan") == ""
+
+
+def test_programming_lesson_contract_uses_named_language_tag():
+    contract = programming_lesson_contract("Teach me TypeScript interfaces")
+    assert "```typescript" in contract
+    assert "inline snippet" in contract
+    assert "even when Step 1 is conceptual" in contract
 
 
 def test_teach_me_in_70_days_is_a_plan_not_an_interactive_lesson():

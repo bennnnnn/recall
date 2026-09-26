@@ -31,16 +31,17 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("optimize this query", "smart-chat"),
         ("trade-off between latency and throughput", "smart-chat"),
         ("what is the complexity of this", "smart-chat"),
-        # Teaching / learning plans are core quality turns. They should not
-        # silently fall onto the fast tier just because the opening ask is short.
-        ("Teach me python dictionaries", "smart-chat"),
-        ("Help me learn SQL joins", "smart-chat"),
-        ("Give me a 70-day Python mastery plan", "smart-chat"),
-        ("70 days mastering python from beginner to senior level plan", "smart-chat"),
-        ("Create a 70-day Python plan", "smart-chat"),
-        ("70-day roadmap for Python", "smart-chat"),
-        ("Give me a daily Python curriculum for 70 days", "smart-chat"),
-        ("Teach me Python over the next 70 days", "smart-chat"),
+        # Tutoring has a strict format/state contract and uses the low-latency
+        # teaching lane; live QA showed the reasoning tier added 10-20s TTFT.
+        ("Teach me python dictionaries", "gemini-flash"),
+        ("Teach me python dictionaries step by step", "gemini-flash"),
+        ("Help me learn SQL joins", "gemini-flash"),
+        ("Give me a 70-day Python mastery plan", "gemini-flash"),
+        ("70 days mastering python from beginner to senior level plan", "gemini-flash"),
+        ("Create a 70-day Python plan", "gemini-flash"),
+        ("70-day roadmap for Python", "gemini-flash"),
+        ("Give me a daily Python curriculum for 70 days", "gemini-flash"),
+        ("Teach me Python over the next 70 days", "gemini-flash"),
         # Ordinary non-learning plans stay fast.
         ("Give me a 30-day workout plan", "gemini-flash"),
         ("Create a 12-week business plan", "gemini-flash"),
@@ -164,8 +165,8 @@ def test_route_chat_model_inherits_smart_from_prior_turn_model() -> None:
     "reaction",
     ["A", "red", "I'm confused", "why?", "next", "Bad bdbd head hdjjd jdjdd"],
 )
-def test_route_chat_model_keeps_active_tutor_turns_on_smart(reaction: str) -> None:
-    assert route_chat_model(reaction, lesson_active=True) == "smart-chat"
+def test_route_chat_model_keeps_active_tutor_turns_on_low_latency_lane(reaction: str) -> None:
+    assert route_chat_model(reaction, lesson_active=True) == "gemini-flash"
 
 
 def test_route_chat_model_does_not_treat_short_text_as_a_lesson_without_state() -> None:

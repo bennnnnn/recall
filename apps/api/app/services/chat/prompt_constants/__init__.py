@@ -83,8 +83,10 @@ from app.services.chat.prompt_constants.teaching import (
     active_lesson_step,
     is_learning_plan_request,
     is_teaching_request,
+    learning_plan_daily_contract,
     lesson_continue_hint,
     lesson_step,
+    programming_lesson_contract,
 )
 from app.services.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
@@ -186,10 +188,12 @@ __all__ = [
     "is_teaching_request",
     "is_underspecified_writing_request",
     "is_writing_deliverable_request",
+    "learning_plan_daily_contract",
     "lesson_continue_hint",
     "lesson_step",
     "needs_rich_context",
     "prior_looks_like_offer",
+    "programming_lesson_contract",
     "recalls_earlier_conversation",
     "writing_request_kind",
 ]

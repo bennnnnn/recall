@@ -99,7 +99,9 @@ from app.services.chat.prompt_constants import (
     is_structured_comparison_question,
     is_teaching_request,
     is_underspecified_writing_request,
+    learning_plan_daily_contract,
     lesson_continue_hint,
+    programming_lesson_contract,
     recalls_earlier_conversation,
     writing_request_kind,
 )
@@ -874,6 +876,17 @@ def _style_format_hints(
     elif math_intent:
         # Keep requested detail last, after general layout and tutoring hints.
         parts.append(MATH_REPLY_POLICY)
+    # Turn-derived hard contracts come after generic format/math/copy guidance
+    # so smaller models cannot treat exact day coverage or a tagged example as
+    # an optional style preference.
+    if learning_plan and query_text:
+        daily_contract = learning_plan_daily_contract(query_text)
+        if daily_contract:
+            parts.append(daily_contract)
+    if teaching and query_text:
+        code_contract = programming_lesson_contract(query_text)
+        if code_contract:
+            parts.append(code_contract)
     return parts
 
 
@@ -1240,4 +1253,18 @@ async def build_prompt_messages(
             )
             content = prior_result or _strip_prompt_owned_fences(content)
         messages.append({"role": msg.role, "content": content})
+    # Repeat only the machine-checkable turn contract immediately before the
+    # current user message. Smaller low-latency models follow nearby system
+    # constraints more reliably than a clause inside the large base prompt.
+    nearby_contracts: list[str] = []
+    if query_text and is_learning_plan_request(query_text):
+        daily_contract = learning_plan_daily_contract(query_text)
+        if daily_contract:
+            nearby_contracts.append(daily_contract)
+    if query_text and is_teaching_request(query_text):
+        code_contract = programming_lesson_contract(query_text)
+        if code_contract:
+            nearby_contracts.append(code_contract)
+    if nearby_contracts:
+        messages = inject_before_last_user(messages, "\n\n".join(nearby_contracts))
     return messages

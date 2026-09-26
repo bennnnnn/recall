@@ -271,11 +271,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   → correct the misconception briefly with a fresh example, then advance unless the
   learner explicitly says they are confused; confusion → explain differently; keyboard
   smash/accidental input is not graded. Never replay an already-delivered step verbatim
-  unless the learner asks to see it again. Auto model routing must use the smart
-  tier for interactive tutoring, its answer/confusion/random-input follow-ups, and full
-  learning roadmaps; otherwise a short turn silently falls to Flash and recreates the
-  shallow or repetitive output even with the right prompt hint. Derive active lesson state
-  from the latest assistant `Step N/M` reply rather than guessing from the user's short text.
+  unless the learner asks to see it again. Auto model routing uses Gemini Flash for
+  interactive tutoring, its answer/confusion/random-input follow-ups, and full learning
+  roadmaps: live QA measured ~1-3s first-token latency versus 10-20s on the reasoning
+  route. Preserve quality with explicit step/day contracts, tagged programming examples,
+  and compact daily entries that fit the output budget. Derive active lesson state from the
+  latest assistant `Step N/M` reply rather than guessing from the user's short text.
 - **Study tips were a jokey essay, no Tip/Warning cards.** Slim turns get
   `COMPACT_RESPONSE_FORMAT_HINT` (plain prose) and never see FORMAT_CONTRACT's
   callout line, so "include a warning" became `## A Friendly Warning`. Swap

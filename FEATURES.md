@@ -334,8 +334,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   No open settings tool. Daily learning goal lives on the lesson map ⋯ menu.
 - ✅ **Auto routing** — an **Auto** option (Settings → Models) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). Explicit chat tutoring and substantive
-  learning roadmaps route to Pro-quality reasoning even when the opening ask is short. Short
-  follow-ups of a hard turn inherit that turn’s tier; a new topic drops back to Flash. No extra LLM call.
+  learning roadmaps use the low-latency Gemini Flash lane with strict step/day and tagged-example
+  contracts; hard reasoning remains on Pro. Short follow-ups of a hard turn inherit that turn’s tier;
+  a new topic drops back to Flash. No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
   key, base URL, and pricing per entry. All chat aliases route through **OpenRouter** via LiteLLM
   (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
