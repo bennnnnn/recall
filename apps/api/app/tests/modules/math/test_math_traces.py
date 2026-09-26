@@ -340,3 +340,21 @@ def test_a_short_integral_answer_reads_term_by_term():
     assert _reply("integrate x^2 + 3x", "short") == (
         "```answer\n\\frac{x^{3}}{3} + \\frac{3 x^{2}}{2} + C\n```\n"
     )
+
+
+@pytest.mark.parametrize(
+    "text, rule",
+    [
+        ("differentiate x^2 sin(x) step by step", "Product rule"),
+        ("show steps: differentiate x^2 sin(x)", "Product rule"),
+        ("explain how to integrate x e^x", "Choose $u = x$"),
+        ("Show steps: integrate x(x^2+1)^5", "Let $u = x^{2} + 1$"),
+    ],
+)
+def test_teaching_words_around_calculus_still_get_the_lesson(text: str, rule: str) -> None:
+    reply = _reply(text, "balanced")
+    assert reply is not None and "**1." in reply and rule in reply
+
+
+def test_calculus_with_an_unrelated_ask_keeps_the_model() -> None:
+    assert _reply("differentiate x^2 sin(x) and tell me a joke", "balanced") is None

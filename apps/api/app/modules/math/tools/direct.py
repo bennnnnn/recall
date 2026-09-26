@@ -716,7 +716,10 @@ def can_direct_verified_math_reply(
     statistics_request = statistics_direct_request(user_text)
     unit_request = unit_direct_request(user_text)
     solid_request = solid_direct_request(user_text)
-    calculus_request = calculus_direct_request(user_text, answer=verified.canonical_answer)
+    # A lesson request wraps the calculus in teaching words ("show steps:",
+    # "step by step"); the whole-request grammar reads the math under them.
+    calculus_text = lesson_math_text(user_text) if lesson else user_text
+    calculus_request = calculus_direct_request(calculus_text, answer=verified.canonical_answer)
     if (
         statistics_request is False
         or unit_request is False

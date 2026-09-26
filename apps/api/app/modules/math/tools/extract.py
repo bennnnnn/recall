@@ -180,7 +180,10 @@ def work_check_intent(text: str) -> MathIntent | None:
     )
 
 
-_SOLVE_VERB_RE = re.compile(r"^(?:solve|simplify)\s+(?:the\s+(?:inequality|equation|system)\s+)?")
+_SOLVE_VERB_RE = re.compile(
+    r"^(?:solve|simplify|differentiate|integrate|factor|expand|evaluate)\s+"
+    r"(?:the\s+(?:inequality|equation|system)\s+)?"
+)
 _PROSE_WORD_RE = re.compile(r"[a-z]{3,}")
 _FUNCTION_WORDS = frozenset(
     "sin cos tan sec csc cot log sqrt exp abs asin acos atan arcsin arccos arctan "
@@ -189,7 +192,7 @@ _FUNCTION_WORDS = frozenset(
 
 
 def _bare_math_request(text: str) -> bool:
-    """Only math (or "solve" + math) is left: "why y=mx+b" is still prose."""
+    """Only math, or a math verb and math, is left: "why y=mx+b" is still prose."""
     body = _SOLVE_VERB_RE.sub("", text.lower().strip())
     return all(word in _FUNCTION_WORDS for word in _PROSE_WORD_RE.findall(body))
 
