@@ -33,9 +33,6 @@ jest.mock("@/features/job-search/components/LocationFields", () => ({
 jest.mock("@/features/job-search/components/SearchableMultiSelect", () => ({
   SearchableMultiSelect: () => null,
 }));
-jest.mock("@/components/settings/SettingsPickerSheet", () => ({
-  SettingsPickerSheet: () => null,
-}));
 jest.mock("@/ui/pickers/DateTimePickerDialog", () => ({
   DateTimePickerDialog: () => null,
 }));
