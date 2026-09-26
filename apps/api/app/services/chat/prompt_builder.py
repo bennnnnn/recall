@@ -679,18 +679,19 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return SEQUENCE_FORMAT_HINT
     if is_mermaid_question(query_text):
         return MERMAID_FORMAT_HINT
+    # Explicit "teach me" intent owns the interaction shape. A topic may also
+    # contain "vs" / "difference between", but the user asked for a lesson, not
+    # a one-shot comparison table. Explicit visual requests above still win.
+    if is_learning_plan_request(query_text):
+        return LEARNING_PLAN_HINT
+    if is_teaching_request(query_text):
+        return TEACHING_HINT
     if is_structured_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
     if is_quote_question(query_text):
         return QUOTE_FORMAT_HINT
     if is_callout_question(query_text):
         return CALLOUT_FORMAT_HINT
-    # Full roadmaps and interactive tutoring are different products: a learning
-    # plan should arrive complete, while "teach me X" should run one concept at a time.
-    if is_learning_plan_request(query_text):
-        return LEARNING_PLAN_HINT
-    if is_teaching_request(query_text):
-        return TEACHING_HINT
     if is_howto_question(query_text):
         return HOWTO_FORMAT_HINT
     return None
