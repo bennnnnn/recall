@@ -4,6 +4,7 @@ import {
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
   composerInputFrameHeight,
+  composerInputMetrics,
   retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
@@ -31,6 +32,38 @@ describe("composerInputFrameHeight", () => {
     );
     expect(composerInputFrameHeight("line\n".repeat(12), 400)).toEqual({
       height: COMPOSER_INPUT_MAX_HEIGHT,
+      overflows: true,
+    });
+  });
+
+  it("sizes the field for the system text size", () => {
+    // Default size: a 24 pt line centered in the 44 pt controls.
+    expect(composerInputMetrics(1)).toEqual({
+      lineHeight: 24,
+      padding: 10,
+      minHeight: COMPOSER_INPUT_MIN_HEIGHT,
+      maxHeight: COMPOSER_INPUT_MAX_HEIGHT,
+    });
+    // Larger text grows the one-line frame; padding stays 10.
+    expect(composerInputMetrics(1.5)).toEqual({
+      lineHeight: 36,
+      padding: 10,
+      minHeight: 56,
+      maxHeight: 236,
+    });
+    // Smaller text keeps the 44 pt frame and centers the line in it.
+    const small = composerInputMetrics(0.85);
+    expect(small.minHeight).toBe(44);
+    expect(small.padding * 2 + small.lineHeight).toBeCloseTo(44);
+    expect(composerInputMetrics(0).lineHeight).toBe(24);
+  });
+
+  it("grows by the scaled line height at larger text sizes", () => {
+    const large = composerInputMetrics(1.5);
+    expect(composerInputFrameHeight("", 0, large)).toEqual({ height: 56, overflows: false });
+    expect(composerInputFrameHeight("a\nb", 0, large).height).toBe(56 + 36);
+    expect(composerInputFrameHeight("line\n".repeat(12), 0, large)).toEqual({
+      height: 236,
       overflows: true,
     });
   });

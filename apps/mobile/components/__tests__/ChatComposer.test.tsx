@@ -80,6 +80,8 @@ const baseProps = {
   onStop: jest.fn(),
   isOffline: false,
   mathContext: true,
+  // The jest window reports a font scale of 2; pin the default text size.
+  fontScale: 1,
 };
 
 describe("ChatComposer math keyboard", () => {
@@ -290,6 +292,37 @@ describe("ChatComposer math keyboard", () => {
     });
     expect(getByTestId("chat-composer-input")).toHaveStyle({ ...lineBox, height: 68 });
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("grows the one-line frame with a larger system text size instead of clipping", async () => {
+    function Harness() {
+      const [input, setInput] = useState("");
+      return (
+        <ChatComposer {...baseProps} fontScale={1.5} input={input} onChangeInput={setInput} />
+      );
+    }
+
+    const { getByTestId } = await render(<Harness />);
+    // The native line box scales to 36 pt; 10 + 36 + 10 keeps the empty caret whole.
+    expect(getByTestId("chat-composer-input")).toHaveStyle({
+      height: 56,
+      minHeight: 56,
+      paddingTop: 10,
+      paddingBottom: 10,
+    });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+
+    await fireEvent.changeText(getByTestId("chat-composer-input"), "A draft long enough to wrap");
+    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 56 } },
+    });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 56 });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+
+    await fireEvent(getByTestId("chat-composer-input"), "contentSizeChange", {
+      nativeEvent: { contentSize: { width: 240, height: 92 } },
+    });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 92 });
   });
 
   it("preserves leading indentation while typing a code block", async () => {

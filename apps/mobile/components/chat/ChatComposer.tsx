@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from "react-native";
@@ -34,10 +35,9 @@ import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   COMPOSER_INPUT_LINE_HEIGHT,
-  COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
-  COMPOSER_INPUT_PADDING,
   composerInputFrameHeight,
+  composerInputMetrics,
   retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
@@ -110,6 +110,8 @@ type Props = {
   onInputFrameExtraChange?: (extra: number) => void;
   /** Recent chat already has math — offer the math keyboard even with an empty composer. */
   mathContext?: boolean;
+  /** System text size; defaults to the window's. Tests pin it (the jest window reports 2). */
+  fontScale?: number;
 };
 
 export const ChatComposer = memo(function ChatComposer({
@@ -143,6 +145,7 @@ export const ChatComposer = memo(function ChatComposer({
   onMathChromeHeightChange,
   onInputFrameExtraChange,
   mathContext = false,
+  fontScale: fontScaleProp,
 }: Props) {
   const { t } = useTranslation();
   const token = useAuthToken();
@@ -156,7 +159,11 @@ export const ChatComposer = memo(function ChatComposer({
     onChangeInputProp ??
     (draftApi ? (text: string) => draftApi.setInput(text) : noopComposerInput);
   const [scanHint, setScanHint] = useState(false);
-  const [inputHeight, setInputHeight] = useState<number>(COMPOSER_INPUT_MIN_HEIGHT);
+  const { fontScale: windowFontScale } = useWindowDimensions();
+  const fontScale = fontScaleProp ?? windowFontScale;
+  // The line box follows the system text size, so the one-line frame does too.
+  const metrics = useMemo(() => composerInputMetrics(fontScale), [fontScale]);
+  const [inputHeight, setInputHeight] = useState<number>(() => metrics.minHeight);
   const [inputAtLimit, setInputAtLimit] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -204,7 +211,7 @@ export const ChatComposer = memo(function ChatComposer({
     const revision = draft?.revision ?? 0;
     if (!input) {
       measuredContent.current = null;
-      setInputHeight(COMPOSER_INPUT_MIN_HEIGHT);
+      setInputHeight(metrics.minHeight);
       setInputAtLimit(false);
       setComposerExpanded(false);
       return;
@@ -214,11 +221,12 @@ export const ChatComposer = memo(function ChatComposer({
       revision,
       input,
     );
-    const frame = composerInputFrameHeight(input, measured);
+    const frame = composerInputFrameHeight(input, measured, metrics);
     setInputHeight(frame.height);
     setInputAtLimit(frame.overflows);
-  }, [draft?.revision, input]);
+  }, [draft?.revision, input, metrics]);
 
+  // Measured from the default one-line height, so larger text also lifts the thread.
   const inputFrameExtra = composerExpanded
     ? 0
     : Math.max(0, inputHeight - COMPOSER_INPUT_MIN_HEIGHT);
@@ -253,7 +261,7 @@ export const ChatComposer = memo(function ChatComposer({
     voiceTranscribing,
     hasSendableContent,
   });
-  const singleLineComposer = !composerExpanded && (!input || inputHeight <= COMPOSER_INPUT_MIN_HEIGHT);
+  const singleLineComposer = !composerExpanded && (!input || inputHeight <= metrics.minHeight);
 
   const blockStyle = docked ? s.composerDocked : s.composerBlock;
   const expandedBlockStyle = composerExpanded
@@ -430,8 +438,15 @@ export const ChatComposer = memo(function ChatComposer({
                     testID="chat-composer-input"
                     style={[
                       s.input,
+                      { paddingTop: metrics.padding, paddingBottom: metrics.padding },
                       // One layout for every line count; only the height grows.
-                      composerExpanded ? s.inputExpanded : { height: inputHeight },
+                      composerExpanded
+                        ? s.inputExpanded
+                        : {
+                            height: inputHeight,
+                            minHeight: metrics.minHeight,
+                            maxHeight: metrics.maxHeight,
+                          },
                       parkInput ? s.inputParked : null,
                     ]}
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
@@ -448,7 +463,7 @@ export const ChatComposer = memo(function ChatComposer({
                         revision: draft?.revision ?? 0,
                         height: measured,
                       };
-                      const frame = composerInputFrameHeight(input, measured);
+                      const frame = composerInputFrameHeight(input, measured, metrics);
                       setInputAtLimit(frame.overflows);
                       if (!composerExpanded) {
                         setInputHeight((current) =>
@@ -715,16 +730,13 @@ function makeStyles(theme: Theme) {
       flex: 1,
       ...Type.body,
       color: theme.text,
-      // A fixed line box and equal padding: one line is exactly the 44 pt
+      // A fixed line box (scaled natively with the system text size) and
+      // equal padding from composerInputMetrics: one line fills the 44 pt
       // control height (caret on the + / send midline), and the line being
-      // typed stays on that midline as the field grows upward. The bounds
-      // only control when the multiline input starts scrolling.
+      // typed stays on that midline as the field grows upward. The height
+      // bounds only control when the multiline input starts scrolling.
       lineHeight: COMPOSER_INPUT_LINE_HEIGHT,
-      paddingTop: COMPOSER_INPUT_PADDING,
-      paddingBottom: COMPOSER_INPUT_PADDING,
       textAlignVertical: "top",
-      maxHeight: COMPOSER_INPUT_MAX_HEIGHT,
-      minHeight: COMPOSER_INPUT_MIN_HEIGHT,
     },
     inputExpanded: {
       height: undefined,

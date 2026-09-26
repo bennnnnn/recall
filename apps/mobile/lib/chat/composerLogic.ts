@@ -21,6 +21,30 @@ export const COMPOSER_INPUT_LINE_HEIGHT = Space.lg;
  * and the text jumped up and down while typing.
  */
 export const COMPOSER_INPUT_PADDING = (COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT) / 2;
+
+export type ComposerInputMetrics = {
+  lineHeight: number;
+  padding: number;
+  minHeight: number;
+  maxHeight: number;
+};
+
+/**
+ * The field at the system text size. The native line box scales with the text
+ * (a 24 pt line height times the font scale); the padding does not. At the
+ * default size and below, one line stays centered in the 44 pt controls;
+ * larger text grows the one-line frame instead of clipping the caret.
+ */
+export function composerInputMetrics(fontScale = 1): ComposerInputMetrics {
+  const lineHeight = COMPOSER_INPUT_LINE_HEIGHT * (fontScale > 0 ? fontScale : 1);
+  const minHeight = Math.max(COMPOSER_INPUT_MIN_HEIGHT, lineHeight + 2 * COMPOSER_INPUT_PADDING);
+  return {
+    lineHeight,
+    padding: (minHeight - lineHeight) / 2,
+    minHeight,
+    maxHeight: minHeight + lineHeight * 5,
+  };
+}
 export const COMPOSER_INPUT_MAX_HEIGHT =
   COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT * 5;
 
@@ -47,16 +71,16 @@ export function retainedComposerContentHeight(
 export function composerInputFrameHeight(
   text: string,
   measuredContentHeight: number,
+  metrics: ComposerInputMetrics = composerInputMetrics(),
 ): { height: number; overflows: boolean } {
-  if (!text) return { height: COMPOSER_INPUT_MIN_HEIGHT, overflows: false };
+  if (!text) return { height: metrics.minHeight, overflows: false };
   const lineCount = text.split("\n").length;
-  const fromLines =
-    COMPOSER_INPUT_MIN_HEIGHT + (lineCount - 1) * COMPOSER_INPUT_LINE_HEIGHT;
+  const fromLines = metrics.minHeight + (lineCount - 1) * metrics.lineHeight;
   const measured = measuredContentHeight > 0 ? measuredContentHeight : 0;
-  const desired = Math.max(COMPOSER_INPUT_MIN_HEIGHT, fromLines, measured);
+  const desired = Math.max(metrics.minHeight, fromLines, measured);
   return {
-    height: Math.min(COMPOSER_INPUT_MAX_HEIGHT, desired),
-    overflows: desired > COMPOSER_INPUT_MAX_HEIGHT,
+    height: Math.min(metrics.maxHeight, desired),
+    overflows: desired > metrics.maxHeight,
   };
 }
 export const CHAT_EMPTY_MIN_HEIGHT = 160;
