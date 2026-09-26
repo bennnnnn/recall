@@ -8,7 +8,11 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
-import Animated, { type AnimatedStyle } from "react-native-reanimated";
+import Animated, {
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+  type AnimatedStyle,
+} from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -38,7 +42,6 @@ import {
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
   composerGapFadeHeight,
-  composerGapFadeLocations,
   composerInputFrameHeight,
   retainedComposerContentHeight,
   composerNativeInputTraits,
@@ -58,10 +61,11 @@ import { IconSize } from "@/ui/icons/sizes";
 
 function noopComposerInput(_text: string) {}
 
-function gapFadeColors(bg: string, locations: readonly number[]): string[] {
-  const clear = withAlpha(bg, 0);
-  if (locations.length >= 4) return [clear, clear, bg, bg];
-  return [clear, clear, bg];
+const GAP_FADE_LOCATIONS = [0, 1] as const;
+
+/** Washed out at both ends. A clear stop left a sharp line directly under the pill. */
+function gapFadeColors(bg: string): [string, string] {
+  return [withAlpha(bg, 0.92), bg];
 }
 
 export const COMPOSER_HEIGHT = 88;
@@ -166,7 +170,6 @@ export const ChatComposer = memo(function ChatComposer({
   const [scanHint, setScanHint] = useState(false);
   const [inputHeight, setInputHeight] = useState<number>(COMPOSER_INPUT_MIN_HEIGHT);
   const [inputContentWidth, setInputContentWidth] = useState(0);
-  const [inputAtLimit, setInputAtLimit] = useState(false);
   const [composerExpanded, setComposerExpanded] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const measuredContent = useRef<{ revision: number; height: number } | null>(null);
@@ -214,7 +217,6 @@ export const ChatComposer = memo(function ChatComposer({
     if (!input) {
       measuredContent.current = null;
       setInputHeight(COMPOSER_INPUT_MIN_HEIGHT);
-      setInputAtLimit(false);
       setComposerExpanded(false);
       return;
     }
@@ -225,15 +227,27 @@ export const ChatComposer = memo(function ChatComposer({
     );
     const frame = composerInputFrameHeight(input, measured, inputContentWidth);
     setInputHeight(frame.height);
-    setInputAtLimit(frame.overflows);
   }, [draft?.revision, input, inputContentWidth]);
 
+  // Only hard returns move the thread. A soft wrap grows the field in place;
+  // pushing list padding here is what yanks the chat up on every line.
+  const returnFrame = composerInputFrameHeight(input, 0, 0);
   const inputFrameExtra = composerExpanded
     ? 0
-    : Math.max(0, inputHeight - COMPOSER_INPUT_MIN_HEIGHT);
+    : Math.max(0, returnFrame.height - COMPOSER_INPUT_MIN_HEIGHT);
   useEffect(() => {
     onInputFrameExtraChange?.(visible ? inputFrameExtra : 0);
   }, [inputFrameExtra, onInputFrameExtraChange, visible]);
+
+  const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
+  const keyboard = useAnimatedKeyboard();
+  const gapFadeStyle = useAnimatedStyle(() => {
+    const pad = keyboard.height.value > 0 || composerExpanded ? 0 : bottomPad;
+    return {
+      height: composerGapFadeHeight(pad),
+      bottom: pad > 0 ? -pad : 0,
+    };
+  });
 
   const onToggleMathBar = useCallback(() => {
     const wasOpen = mathBarOpen;
@@ -266,17 +280,16 @@ export const ChatComposer = memo(function ChatComposer({
   const measuredNow = input
     ? retainedComposerContentHeight(measuredContent.current, draftRevision, input)
     : 0;
-  const frameNow = composerInputFrameHeight(input, measuredNow, inputContentWidth);
+  const frameNow = composerInputFrameHeight(
+    input,
+    Math.max(measuredNow, inputHeight),
+    inputContentWidth,
+  );
   // Same render as the keystroke. Waiting for the effect leaves one frame
-  // clipped at the end of the line, which is the bug this width estimate fixes.
-  const fieldHeight = input
-    ? Math.max(inputHeight, frameNow.height)
-    : COMPOSER_INPUT_MIN_HEIGHT;
-  const fieldOverflows = Boolean(input) && (inputAtLimit || frameNow.overflows);
+  // clipped at the end of the line.
+  const fieldHeight = input ? frameNow.height : COMPOSER_INPUT_MIN_HEIGHT;
+  const fieldOverflows = Boolean(input) && frameNow.overflows;
   const singleLineComposer = !composerExpanded && fieldHeight <= COMPOSER_INPUT_MIN_HEIGHT;
-  const bottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
-  const gapFadeHeight = composerExpanded ? 0 : composerGapFadeHeight(bottomPad);
-  const gapFadeLocations = composerGapFadeLocations(bottomPad);
 
   const blockStyle = docked ? s.composerDocked : s.composerBlock;
   const expandedBlockStyle = composerExpanded
@@ -297,17 +310,17 @@ export const ChatComposer = memo(function ChatComposer({
       pointerEvents="box-none"
       testID="chat-composer"
     >
-      {gapFadeHeight > 0 ? (
+      <Animated.View
+        pointerEvents="none"
+        style={[s.bottomFade, gapFadeStyle]}
+        testID="composer-bottom-fade"
+      >
         <LinearGradient
-          pointerEvents="none"
-          colors={
-            gapFadeColors(theme.bg, gapFadeLocations) as [string, string, ...string[]]
-          }
-          locations={[...gapFadeLocations] as [number, number, ...number[]]}
-          style={[s.bottomFade, { height: gapFadeHeight }]}
-          testID="composer-bottom-fade"
+          colors={gapFadeColors(theme.bg)}
+          locations={[...GAP_FADE_LOCATIONS]}
+          style={StyleSheet.absoluteFill}
         />
-      ) : null}
+      </Animated.View>
       {mathDismissCoversScreen ? (
         <Pressable
           style={s.outsideDismiss}
@@ -495,7 +508,6 @@ export const ChatComposer = memo(function ChatComposer({
                         measured,
                         inputContentWidth,
                       );
-                      setInputAtLimit(frame.overflows);
                       if (!composerExpanded) {
                         setInputHeight((current) =>
                           current === frame.height ? current : frame.height,
@@ -674,9 +686,8 @@ function makeStyles(theme: Theme) {
     expandedFill: { flex: 1, minHeight: 0 },
     bottomFade: {
       position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
+      left: -Space.sm,
+      right: -Space.sm,
       zIndex: 0,
     },
     composerAnchor: { position: "relative", overflow: "visible", zIndex: 1 },

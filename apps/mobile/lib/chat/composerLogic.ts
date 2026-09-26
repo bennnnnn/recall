@@ -86,6 +86,10 @@ export function composerSoftWrapLineCount(text: string, contentWidth: number): n
  * Frame height for the composer field. Returns and soft wraps count as lines
  * even when iOS reports a stale content size, so the field grows instead of
  * clipping the next line under the pill.
+ *
+ * Once the field width is known, ignore the native content size. iOS reports
+ * the height we just set, and trusting that number ratchets the pill (and the
+ * thread) upward on every keystroke.
  */
 export function composerInputFrameHeight(
   text: string,
@@ -96,7 +100,12 @@ export function composerInputFrameHeight(
   const lineCount = composerSoftWrapLineCount(text, contentWidth);
   const fromLines =
     COMPOSER_INPUT_MIN_HEIGHT + (lineCount - 1) * COMPOSER_INPUT_LINE_HEIGHT;
-  const measured = measuredContentHeight > 0 ? measuredContentHeight : 0;
+  const measured =
+    contentWidth >= SOFT_WRAP_MIN_WIDTH
+      ? 0
+      : measuredContentHeight > 0
+        ? measuredContentHeight
+        : 0;
   const desired = Math.max(COMPOSER_INPUT_MIN_HEIGHT, fromLines, measured);
   return {
     height: Math.min(COMPOSER_INPUT_MAX_HEIGHT, desired),
@@ -104,24 +113,17 @@ export function composerInputFrameHeight(
   };
 }
 
+/** How far the bottom scrim tucks under the pill. */
+export const COMPOSER_GAP_FADE_OVERLAP = 16;
+
 /**
- * Scrim under the composer pill. The top `line` sits behind the pill (clear).
- * The next line dissolves. The rest of the home-indicator gap is solid, so
- * about one blurred line shows between the pill and the bottom of the phone.
+ * Scrim height. Place the view at `bottom: -bottomPad`.
+ * The extra pad of height covers the gap whether `bottom: 0` is the
+ * screen edge or the top of the padding.
  */
 export function composerGapFadeHeight(bottomPad: number): number {
   if (bottomPad <= 0) return 0;
-  return bottomPad + COMPOSER_INPUT_LINE_HEIGHT;
-}
-
-export function composerGapFadeLocations(bottomPad: number): readonly number[] {
-  if (bottomPad <= 0) return [0, 1];
-  const line = COMPOSER_INPUT_LINE_HEIGHT;
-  const height = bottomPad + line;
-  const clearUntil = line / height;
-  const solidAt = Math.min(1, (line + Math.min(line, bottomPad)) / height);
-  if (solidAt >= 0.999) return [0, clearUntil, 1];
-  return [0, clearUntil, solidAt, 1];
+  return bottomPad * 2 + COMPOSER_GAP_FADE_OVERLAP;
 }
 
 export const CHAT_EMPTY_MIN_HEIGHT = 160;

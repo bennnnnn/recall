@@ -5,7 +5,6 @@ import {
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
   composerGapFadeHeight,
-  composerGapFadeLocations,
   composerInputFrameHeight,
   composerSoftWrapLineCount,
   retainedComposerContentHeight,
@@ -48,19 +47,16 @@ describe("composerInputFrameHeight", () => {
     expect(wrapped.height).toBe(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT);
     expect(wrapped.overflows).toBe(false);
     expect(composerInputFrameHeight("a".repeat(40), 0).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    // A native content size larger than the text must not keep growing the field.
+    expect(composerInputFrameHeight("hello", 400, 220).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    expect(composerInputFrameHeight("a".repeat(40), 400, 200).height).toBe(
+      COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT,
+    );
   });
 
-  it("keeps about one line of the home-indicator gap and hides the rest", () => {
+  it("covers the home-indicator gap under the pill", () => {
     expect(composerGapFadeHeight(0)).toBe(0);
-    expect(composerGapFadeHeight(34)).toBe(34 + COMPOSER_INPUT_LINE_HEIGHT);
-    const stops = composerGapFadeLocations(34);
-    expect(stops[0]).toBe(0);
-    expect(stops[stops.length - 1]).toBe(1);
-    expect(stops[1]).toBeGreaterThan(0);
-    expect(stops[1]).toBeLessThan(1);
-    for (let i = 1; i < stops.length; i += 1) {
-      expect(stops[i]).toBeGreaterThan(stops[i - 1]);
-    }
+    expect(composerGapFadeHeight(34)).toBeGreaterThan(34 * 2);
   });
 
   it("keeps a wrap height while the same draft changes and drops it on reset", () => {
