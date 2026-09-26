@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from app.core.config import Settings
 from app.models.schemas.math import (
     CombinatoricsInput,
@@ -12,6 +14,9 @@ from app.models.schemas.math import (
     StatisticsInput,
 )
 from app.modules.math import solve as math_solve
+from app.modules.math.solve.derivative_steps import derivative_trace
+from app.modules.math.solve.integral_steps import integral_trace
+from app.modules.math.solve.key_steps import KeyStep
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 from app.services.solving import (
     VerifiedMathBlock,
@@ -122,9 +127,16 @@ def _verified_block_calculus(
         return None
     if intent.school_op == "identity":
         return None
+    trace: list[KeyStep] = []
+    given: str | None = None
+    checked_answer: str | None = None
     if intent.operation == "simplify":
         out = math_solve.simplify_expression(intent.expr, intent.variable)
     elif intent.operation == "differentiate":
+        if intent.derivative_order in (None, 1):
+            trace, given = derivative_trace(
+                intent.expr[: settings.math_max_expr_length], intent.variable
+            )
         out = math_solve.differentiate_expression(
             intent.expr, intent.variable, intent.derivative_order
         )
@@ -173,6 +185,9 @@ def _verified_block_calculus(
             )
         else:
             out = math_solve.integrate_expression(intent.expr, intent.variable)
+            trace, given, checked_answer = integral_trace(
+                intent.expr[: settings.math_max_expr_length], intent.variable
+            )
     elif intent.operation == "factor":
         out = math_solve.factor_expression(intent.expr, intent.variable)
     elif intent.operation == "expand":
@@ -200,9 +215,14 @@ def _verified_block_calculus(
     # even with a verified final answer.
     if out.steps:
         lines.extend(out.steps)
-        return _finish_with_answer(lines, answer)
-    lines.append(f"Result: {answer}")
-    return _finish_with_answer(lines, answer)
+    else:
+        lines.append(f"Result: {answer}")
+    block = _finish_with_answer(lines, answer, key_steps=trace, given_latex=given)
+    if not trace:
+        return block
+    # An antiderivative the trace found (checked by differentiating back) may
+    # differ from SymPy's by a constant; the lesson ends on its own spelling.
+    return replace(block, given_label="Find", display_answer=checked_answer)
 
 
 def _verified_block_limit(

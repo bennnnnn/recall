@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -29,6 +30,19 @@ class KeyStep:
     reason: str | None = None
     conditions: str | None = None
     branch: str | None = None
+
+
+_PLAIN_LABEL_TEX = re.compile(r"^[\w .,-]*$")
+
+
+def label_tex(value: Any) -> str:
+    """A value inside a step label: ``3`` stays plain, ``\\frac{3}{2}`` gets ``$``.
+
+    Labels render as bold text, so LaTeX markup needs math delimiters to show
+    as math; plain numbers and terms read the same either way.
+    """
+    tex = str(latex(value))
+    return tex if _PLAIN_LABEL_TEX.match(tex) else f"${tex}$"
 
 
 def stringify_key_steps(steps: list[KeyStep]) -> list[str]:
@@ -115,7 +129,7 @@ def _rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] 
         condition = rf", \quad {exclusions}"
     steps = [
         KeyStep(
-            label=f"Multiply both sides by {latex(denominator)}",
+            label=f"Multiply both sides by {label_tex(denominator)}",
             formula=f"{multiplied}{condition}",
         )
     ]
@@ -306,7 +320,7 @@ def _divide_both_sides_step(
     branch: str | None = None,
 ) -> KeyStep:
     return KeyStep(
-        label=label or f"Divide both sides by {latex(coeff)}",
+        label=label or f"Divide both sides by {label_tex(coeff)}",
         formula=(f"{_cancelled_side_tex(cur_l, coeff)} = {_cancelled_side_tex(cur_r, coeff)}"),
         reason=f"this undoes multiplication by {latex(coeff)}",
         branch=branch,
@@ -323,11 +337,11 @@ def _remove_term_step(
 ) -> KeyStep:
     if _is_negative_number(term):
         addend = -term
-        label = f"Add {latex(addend)} to both sides"
+        label = f"Add {label_tex(addend)} to both sides"
         formula = f"{latex(cur_l)} + {latex(addend)} = {latex(cur_r)} + {latex(addend)}"
         reason = f"this cancels the subtracted {latex(addend)}"
     else:
-        label = f"Subtract {latex(term)} from both sides"
+        label = f"Subtract {label_tex(term)} from both sides"
         formula = f"{latex(cur_l)} - {latex(term)} = {latex(cur_r)} - {latex(term)}"
         reason = f"this removes the added {latex(term)}"
     if which is not None:
@@ -382,7 +396,7 @@ def _linear_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
         if multiplier is not None:
             steps.append(
                 KeyStep(
-                    label=f"Multiply both sides by {latex(multiplier)}",
+                    label=f"Multiply both sides by {label_tex(multiplier)}",
                     formula=(
                         f"{latex(multiplier)} \\cdot ({latex(cur_l)}) = "
                         f"{latex(multiplier)} \\cdot ({latex(cur_r)})"
@@ -547,9 +561,9 @@ def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> lis
                     -indep,
                     coeff,
                     label=(
-                        f"Divide both sides of the {which} equation by {latex(coeff)}"
+                        f"Divide both sides of the {which} equation by {label_tex(coeff)}"
                         if which
-                        else f"Divide both sides by {latex(coeff)}"
+                        else f"Divide both sides by {label_tex(coeff)}"
                     ),
                     branch=branch,
                 )

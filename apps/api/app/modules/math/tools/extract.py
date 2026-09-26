@@ -145,6 +145,56 @@ def _closed_math_syntax(text: str) -> bool:
 
 
 def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
+    # Read on the raw text: prepare() collapses the newlines that separate
+    # a student's lines of work.
+    work = work_check_intent(text)
+    if work is not None:
+        return work
+    intent = _extract_math_intent(text)
+    if intent is not None:
+        return intent
+    # "Explain how to solve 2x+3<7" / "show steps for …": the teaching words
+    # are response metadata. Some extractors find math inside prose; the
+    # stricter ones (inequalities) need them gone. One retry, same grammar.
+    from app.modules.math.tools.lesson import lesson_math_text
+
+    stripped = lesson_math_text(text)
+    if not stripped or stripped == text.strip() or not _bare_math_request(stripped):
+        return None
+    return _extract_math_intent(stripped)
+
+
+def work_check_intent(text: str) -> MathIntent | None:
+    """A check-my-work request with the student's lines, or a bare worked column."""
+    from app.modules.math.tools.work_request import parse_work_request
+
+    request = parse_work_request(text)
+    if request is None:
+        return None
+    return MathIntent(
+        kind="work_check",
+        work_lines=list(request.lines),
+        work_hint_only=request.hint_only,
+        variable=request.variable,
+        operation="solve",
+    )
+
+
+_SOLVE_VERB_RE = re.compile(r"^(?:solve|simplify)\s+(?:the\s+(?:inequality|equation|system)\s+)?")
+_PROSE_WORD_RE = re.compile(r"[a-z]{3,}")
+_FUNCTION_WORDS = frozenset(
+    "sin cos tan sec csc cot log sqrt exp abs asin acos atan arcsin arccos arctan "
+    "sinh cosh tanh".split()
+)
+
+
+def _bare_math_request(text: str) -> bool:
+    """Only math (or "solve" + math) is left: "why y=mx+b" is still prose."""
+    body = _SOLVE_VERB_RE.sub("", text.lower().strip())
+    return all(word in _FUNCTION_WORDS for word in _PROSE_WORD_RE.findall(body))
+
+
+def _extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
     from app.modules.math import match as mtm
 
     cleaned = mtm.prepare(text)

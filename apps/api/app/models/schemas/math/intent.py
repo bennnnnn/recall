@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.models.schemas.math.word_problem import WordProblemSetup
+
 
 class MathIntent(BaseModel):
     kind: Literal[
@@ -41,6 +43,8 @@ class MathIntent(BaseModel):
         "probability",
         "complex",
         "unit",
+        "work_check",
+        "word_problem",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -222,3 +226,11 @@ class MathIntent(BaseModel):
     unit_from: str | None = None
     unit_to: str | None = None
     taylor_n: int | None = None
+    # kind == "work_check": the student's lines, one relation each, as written
+    # ("2x+3=11", "2x=8", "x=4"); line 1 is the problem they are checked against.
+    work_lines: list[str] | None = None
+    # "Don't finish it for me": name the slip, never the fixed line or answer.
+    work_hint_only: bool = False
+    # kind == "word_problem": the model's translation into unknowns and
+    # equations, checked for numbers the problem never states before SymPy.
+    word_problem: WordProblemSetup | None = None

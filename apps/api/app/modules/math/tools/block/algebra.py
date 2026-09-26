@@ -15,9 +15,15 @@ from app.modules.math import solve as math_solve
 from app.modules.math.solve.key_steps import (
     equation_check_latex,
     equation_key_steps,
+    stringify_key_steps,
     used_factor_trace,
 )
 from app.modules.math.solve.parse import parse_equation as parse_eq
+from app.modules.math.solve.traces import (
+    compound_inequality_trace,
+    inequality_trace,
+    system_trace,
+)
 from app.modules.math.tools.block.common import (
     _format_equation_answer,
     _format_system_answer,
@@ -85,6 +91,20 @@ def _verified_block_inequality(
         )
     lines.extend(result.steps)
     answer = _format_equation_answer(result.solutions_latex, result.solution_kind)
+    if intent.lower is not None and intent.comparator_upper is not None:
+        key_steps, given = compound_inequality_trace(
+            intent.lower[:max_len],
+            intent.comparator,
+            intent.lhs[:max_len],
+            intent.comparator_upper,
+            intent.rhs[:max_len],
+            intent.variable,
+        )
+    else:
+        key_steps, given = inequality_trace(
+            intent.lhs[:max_len], intent.rhs[:max_len], intent.variable, intent.comparator
+        )
+    lines.extend(stringify_key_steps(key_steps))
     # Reconstruct the inequality text ("x > 4" / "1 < x < 5") so the
     # number-line builder can render the solution set as a diagram. The
     # model often emits a malformed ```graph fence for the number line and
@@ -100,8 +120,19 @@ def _verified_block_inequality(
         ineq_text = f"{intent.lhs} {intent.comparator} {intent.rhs}"
     line_spec = math_solve.number_line_spec_from_expr(ineq_text[:max_len], intent.variable)
     if line_spec is not None:
-        return _diagram_block(lines, line_spec, answer)
-    return _finish_with_answer(lines, answer)
+        # SymPy prints ``x \leq -2 \wedge -\infty < x``; the trace's last
+        # line (``x \le -2``) is the same verified set, spelled for people.
+        return replace(
+            _diagram_block(
+                lines,
+                line_spec,
+                answer,
+                display_answer=key_steps[-1].formula if key_steps else None,
+            ),
+            key_steps=tuple(key_steps),
+            given_latex=given,
+        )
+    return _finish_with_answer(lines, answer, key_steps=key_steps, given_latex=given)
 
 
 def _verified_block_system(
@@ -123,7 +154,11 @@ def _verified_block_system(
     sys_result = math_solve.solve_system(sys_input)
     lines.extend(sys_result.steps)
     answer = _format_system_answer(sys_result.solutions, sys_result.solution_kind)
-    return _finish_with_answer(lines, answer)
+    key_steps, given, check = system_trace(capped_equations, sys_input.variables)
+    lines.extend(stringify_key_steps(key_steps))
+    return _finish_with_answer(
+        lines, answer, key_steps=key_steps, given_latex=given, check_latex=check
+    )
 
 
 def _verified_block_numerical_method(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from app.services.solving import VerifiedMathBlock
 
 # Linear phrase scan — do not put user text through nested-optional regex
@@ -120,6 +122,15 @@ def strip_teaching_signals(text: str) -> str:
     return _strip_phrases(text, _STRIP_PHRASES)
 
 
+def lesson_math_text(text: str) -> str:
+    """The math left after teaching words: "show steps for 2x+3<7" → "2x+3<7"."""
+    stripped = strip_teaching_signals(text).strip().lstrip(":").strip()
+    for filler in ("for ", "of ", "me "):
+        if stripped.lower().startswith(filler):
+            stripped = stripped[len(filler) :].lstrip()
+    return stripped
+
+
 def strip_lesson_prefixes(text: str) -> str:
     """Drop show-steps / just-the-answer wrappers before equation extraction."""
     return _strip_phrases(text, _LESSON_PREFIX_PHRASES)
@@ -176,15 +187,20 @@ def format_equation_lesson_reply(
     if verified.given_latex:
         # Same line as the label. A blank line made Given its own paragraph,
         # so the equation sat a full gap below the word.
-        chunks.append(f"**Given:** ${verified.given_latex}$")
+        chunks.append(f"**{verified.given_label}:** ${verified.given_latex}$")
     for index, step in enumerate(verified.key_steps, start=1):
         heading = f"**{index}. {step.label}**"
         if include_reasons and step.reason:
             heading = f"{heading} — {step.reason}"
         chunks.append(_labelled_formula(heading, step.formula))
     body = "\n\n".join(chunks)
-    answer = (verified.canonical_answer or "").strip()
+    # The same verified value; an inequality spells it as its clean last line.
+    answer = (verified.display_answer or verified.canonical_answer or "").strip()
     reply = f"{body}\n\n```answer\n{answer}\n```\n" if body else f"```answer\n{answer}\n```\n"
+    fence = verified.canonical_fence
+    if isinstance(fence, dict) and fence.get("type") == "number_line":
+        # An inequality lesson keeps its solution set on the number line.
+        reply += f"\n```graph\n{json.dumps(fence, separators=(',', ':'))}\n```\n"
     if include_check and verified.check_latex:
         reply += f"\nCheck: ${verified.check_latex}$\n"
     if verified.alternate_method_note:

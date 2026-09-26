@@ -166,6 +166,12 @@ class Settings(BaseSettings):
     # retry: bounded latency beats best-effort on a best-effort path.
     math_llm_extract_enabled: bool = True
     math_llm_extract_timeout_seconds: float = 2.5
+    # Algebra word problems ("three times as old", "tickets cost $5 and $8"):
+    # one structured call translates them into unknowns and equations, which
+    # reach the user only when every number is stated in the problem and
+    # SymPy finds exactly one solution in the stated domain.
+    math_word_problems_enabled: bool = True
+    math_word_problem_timeout_seconds: float = 4.0
     # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
     # Images always send metadata.improve_mathpix=false — student homework is
     # not opted into Mathpix QA storage.

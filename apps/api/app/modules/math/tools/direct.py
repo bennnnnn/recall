@@ -9,6 +9,7 @@ import re
 from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.modules.math.tools.lesson import (
     format_equation_lesson_reply,
+    lesson_math_text,
     should_render_equation_lesson,
     strip_teaching_signals,
     wants_detailed_math_explanation,
@@ -570,8 +571,14 @@ def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
     return request.replace(" ", "").replace("^", "**") == expr.replace(" ", "").replace("^", "**")
 
 
-def _can_direct_number_line(verified: VerifiedMathBlock, user_text: str) -> bool:
-    """A whole inequality solve can display its answer and solution set directly."""
+def _can_direct_number_line(
+    verified: VerifiedMathBlock, user_text: str, *, require_solve: bool = True
+) -> bool:
+    """A whole inequality solve can display its answer and solution set directly.
+
+    ``require_solve=False`` is for a lesson request whose teaching words were
+    already stripped ("show steps for 2x+3<7" leaves the bare inequality).
+    """
     from app.modules.math.match import prepare
     from app.modules.math.solve.parse import _rewrite_bare_abs_bars
 
@@ -591,9 +598,10 @@ def _can_direct_number_line(verified: VerifiedMathBlock, user_text: str) -> bool
         return False
     if request.lower().startswith("please "):
         request = request[7:].lstrip()
-    if not request.lower().startswith("solve "):
+    if request.lower().startswith("solve "):
+        request = request[6:].strip()
+    elif require_solve:
         return False
-    request = request[6:].strip()
     if request.lower().startswith("the inequality "):
         request = request[15:].lstrip()
     # Keep factorials and all remaining prose/domain clauses intact. Only
@@ -688,6 +696,10 @@ def can_direct_verified_math_reply(
     if _can_direct_graph(verified, user_text):
         return True
     if _can_direct_number_line(verified, user_text):
+        return True
+    if lesson and _can_direct_number_line(
+        verified, lesson_math_text(user_text), require_solve=False
+    ):
         return True
     # Prime factorization has two operation words, which the generic prose
     # counter rejects. Require a whole-request match instead of whitelisting
@@ -854,6 +866,10 @@ def maybe_direct_math_reply(
 ) -> str | None:
     if verified is None:
         return None
+    if verified.direct_reply is not None:
+        # Rendered by the builder from verified data (check my work). With a
+        # photo attached the model reads it, so the image is not ignored.
+        return None if has_image_attachment else verified.direct_reply
     if not can_direct_verified_math_reply(
         verified,
         user_text,
