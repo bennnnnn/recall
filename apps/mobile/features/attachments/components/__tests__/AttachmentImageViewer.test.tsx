@@ -139,7 +139,7 @@ describe("AttachmentImageViewer", () => {
       />,
     );
     await fireEvent.press(getByLabelText("preview.more_a11y"));
-    expect(queryByLabelText("gallery.open_chat_a11y")).toBeNull();
+    expect(queryByLabelText("gallery.open_chat")).toBeNull();
     expect(getByLabelText("common.delete")).toBeTruthy();
   });
 
@@ -152,9 +152,9 @@ describe("AttachmentImageViewer", () => {
         onOpenChat={onOpenChat}
       />,
     );
-    expect(queryByLabelText("gallery.open_chat_a11y")).toBeNull();
+    expect(queryByLabelText("gallery.open_chat")).toBeNull();
     await fireEvent.press(getByLabelText("preview.more_a11y"));
-    await fireEvent.press(getByLabelText("gallery.open_chat_a11y"));
+    await fireEvent.press(getByLabelText("gallery.open_chat"));
     expect(onOpenChat).toHaveBeenCalledWith(expect.objectContaining({ attachmentId: "a", chatId: "c1" }));
   });
 

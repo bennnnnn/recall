@@ -1,15 +1,12 @@
-import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo, useRef } from "react";
+import { StyleSheet, View } from "react-native";
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/ui/icons/Icon";
 import { HeaderButton } from "@/ui/controls/HeaderButton";
-import { IconSize } from "@/ui/icons/sizes";
-import { Radius } from "@/lib/radius";
+import { Menu } from "@/ui/overlay/Menu";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -59,6 +56,7 @@ export function AttachmentLightboxChrome({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const moreRef = useRef<View>(null);
   if (!visible) return null;
 
   return (
@@ -93,6 +91,7 @@ export function AttachmentLightboxChrome({
           />
           {showOverflow ? (
             <HeaderButton
+              ref={moreRef}
               variant="media"
               icon="more-horizontal"
               onPress={onToggleOverflow}
@@ -110,51 +109,23 @@ export function AttachmentLightboxChrome({
         </View>
       ) : null}
 
-      {overflowOpen ? (
-        <>
-          <Pressable
-            testID="lightbox-overflow-dismiss"
-            style={s.menuDismiss}
-            onPress={onCloseOverflow}
-            accessibilityLabel={t("preview.close")}
-          />
-          <View
-            testID="lightbox-overflow-menu"
-            style={[s.menu, { marginBottom: Math.max(insets.bottom, Space.sm) }]}
-          >
-            {showUseInChat ? (
-              <Pressable
-                style={({ pressed }) => [s.menuRow, pressed && s.menuRowPressed]}
-                onPress={onUseInChat}
-                accessibilityLabel={t("gallery.use_in_chat")}
-              >
-                <Icon name="attach" size={IconSize.sm} color={theme.onMedia} />
-                <Text style={s.menuLabel}>{t("gallery.use_in_chat")}</Text>
-              </Pressable>
-            ) : null}
-            {showOpenChat ? (
-              <Pressable
-                style={({ pressed }) => [s.menuRow, pressed && s.menuRowPressed]}
-                onPress={onOpenChat}
-                accessibilityLabel={t("gallery.open_chat_a11y")}
-              >
-                <Icon name="message" size={IconSize.sm} color={theme.onMedia} />
-                <Text style={s.menuLabel}>{t("gallery.open_chat")}</Text>
-              </Pressable>
-            ) : null}
-            {showDelete ? (
-              <Pressable
-                style={({ pressed }) => [s.menuRow, pressed && s.menuRowPressed]}
-                onPress={onDelete}
-                accessibilityLabel={t("common.delete")}
-              >
-                <Icon name="trash" size={IconSize.sm} danger />
-                <Text style={[s.menuLabel, { color: theme.danger }]}>{t("common.delete")}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </>
-      ) : null}
+      <Menu
+        visible={overflowOpen}
+        onClose={onCloseOverflow}
+        anchorRef={moreRef}
+        testID="lightbox-overflow-menu"
+        items={[
+          ...(showUseInChat
+            ? [{ key: "use", icon: "attach" as const, label: t("gallery.use_in_chat"), onPress: onUseInChat }]
+            : []),
+          ...(showOpenChat
+            ? [{ key: "open", icon: "message" as const, label: t("gallery.open_chat"), onPress: onOpenChat }]
+            : []),
+          ...(showDelete
+            ? [{ key: "delete", icon: "trash" as const, label: t("common.delete"), destructive: true, onPress: onDelete }]
+            : []),
+        ]}
+      />
     </>
   );
 }
@@ -198,36 +169,6 @@ function makeStyles(theme: Theme) {
     },
     dotActive: {
       backgroundColor: theme.onMedia,
-    },
-    menuDismiss: {
-      ...StyleSheet.absoluteFill,
-      zIndex: 3,
-    },
-    menu: {
-      position: "absolute",
-      left: Space.md,
-      right: Space.md,
-      bottom: 0,
-      zIndex: 4,
-      borderRadius: Radius.lg,
-      backgroundColor: withAlpha(theme.mediaScrim, 0.94),
-      overflow: "hidden",
-    },
-    menuRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 14,
-      paddingHorizontal: 18,
-      paddingVertical: Space.md,
-    },
-    menuRowPressed: {
-      backgroundColor: withAlpha(theme.onMedia, 0.08),
-    },
-    menuLabel: {
-      flex: 1,
-      ...Type.navTitle,
-      ...Weight.regular,
-      color: theme.onMedia,
     },
   });
 }
