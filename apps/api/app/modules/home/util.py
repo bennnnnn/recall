@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import re
 from datetime import datetime
-from typing import TypeVar
 from zoneinfo import ZoneInfo
 
 from app.models.orm import User
@@ -38,8 +37,6 @@ _LANGUAGE_LEARNING = re.compile(
     re.IGNORECASE,
 )
 
-T = TypeVar("T")
-
 
 def resolve_home_tz(user: User, client_timezone: str | None = None) -> ZoneInfo:
     return time_context_service.resolve_timezone(
@@ -57,7 +54,7 @@ def day_seed(user: User, tz: ZoneInfo) -> int:
     return int(digest[:8], 16)
 
 
-def rotate_list(items: list[T], seed: int) -> list[T]:
+def rotate_list[T](items: list[T], seed: int) -> list[T]:
     if len(items) <= 1:
         return items
     rotated = list(items)

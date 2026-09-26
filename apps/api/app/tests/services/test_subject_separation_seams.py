@@ -62,8 +62,9 @@ def _math_imports(tree: ast.Module) -> set[tuple[str, str]]:
 
 
 def test_legacy_physics_submodule_is_the_canonical_module() -> None:
-    import app.modules.physics.numbers as canonical
     import app.services.physics.numbers as legacy
+
+    import app.modules.physics.numbers as canonical
 
     assert legacy is canonical
 

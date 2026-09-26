@@ -128,7 +128,7 @@ def test_balanced_two_op_linear_is_a_lesson() -> None:
     assert "```answer" in reply
     assert "x = 6" in reply
     # Final simplification lives in the chip, not a second copy above it.
-    before_chip, _, after = reply.partition("```answer")
+    before_chip, _, _after = reply.partition("```answer")
     assert before_chip.count("x = 6") == 0
 
 

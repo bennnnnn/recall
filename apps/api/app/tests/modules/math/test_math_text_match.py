@@ -509,11 +509,11 @@ class TestCombinatoricsSignal:
         ],
     )
     def test_combinatorics_signal(self, text, expected_op):
-        op, n, k = mtm.combinatorics_signal(text)
+        op, _n, _k = mtm.combinatorics_signal(text)
         assert op == expected_op
 
     def test_combinatorics_factorial_k_is_none(self):
-        op, n, k = mtm.combinatorics_signal("5!")
+        op, _n, k = mtm.combinatorics_signal("5!")
         assert op == "factorial"
         assert k is None
 
@@ -546,7 +546,7 @@ class TestMatrixSignal:
         assert rows == [[1.0, 2.0], [3.0, 4.0]]
 
     def test_matrix_signal_inverse(self):
-        op, rows = mtm.matrix_signal("inverse of [[2,0],[1,3]]")
+        op, _rows = mtm.matrix_signal("inverse of [[2,0],[1,3]]")
         assert op == "inverse"
 
     def test_matrix_signal_requires_bracket_notation(self):

@@ -1840,7 +1840,7 @@ async def test_augment_prompt_rectangle_area_query_does_not_force_diagonal_and_a
     (always 90°) corner. The diagram should only annotate what was asked."""
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "What about rectangle area with 4 by 5"}]
-    out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await math_tools.augment_prompt_messages(
         messages,
         "What about rectangle area with 4 by 5",
         settings,
@@ -1885,7 +1885,7 @@ async def test_augment_circle_circumference_answer_not_area() -> None:
     the circumference (≈25.13)."""
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "circumference of circle radius 4"}]
-    out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await math_tools.augment_prompt_messages(
         messages,
         "circumference of circle radius 4",
         settings,
@@ -1902,7 +1902,7 @@ async def test_augment_circle_area_answer_when_only_area_requested() -> None:
     default area path."""
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "area of circle radius 4"}]
-    out, verified = await math_tools.augment_prompt_messages(
+    _out, verified = await math_tools.augment_prompt_messages(
         messages,
         "area of circle radius 4",
         settings,
@@ -1923,7 +1923,7 @@ async def test_augment_stats_sample_stdev_uses_sample_divisor() -> None:
     data = [1, 2, 3, 4, 5]
     content = "sample standard deviation of 1, 2, 3, 4, 5"
     messages = [{"role": "user", "content": content}]
-    out, verified = await math_tools.augment_prompt_messages(messages, content, settings)
+    _out, verified = await math_tools.augment_prompt_messages(messages, content, settings)
     assert verified is not None
     assert verified.canonical_answer is not None
     expected = f"{_stats.stdev(data):.4f}"
@@ -1943,7 +1943,7 @@ async def test_augment_stats_population_stdev_still_default() -> None:
     data = [1, 2, 3, 4, 5]
     content = "standard deviation of 1, 2, 3, 4, 5"
     messages = [{"role": "user", "content": content}]
-    out, verified = await math_tools.augment_prompt_messages(messages, content, settings)
+    _out, verified = await math_tools.augment_prompt_messages(messages, content, settings)
     assert verified is not None
     assert verified.canonical_answer is not None
     assert verified.canonical_answer == f"{_stats.pstdev(data):.4f}"

@@ -560,7 +560,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
     )
     vector = [0.4, 0.5, 0.6]
     apply_writes = AsyncMock(return_value=[memory_id])
-    session, session_locals = _extraction_sessions(count=3)
+    _session, session_locals = _extraction_sessions(count=3)
     with (
         patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
         patch(

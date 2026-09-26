@@ -61,7 +61,7 @@ def _clamp_workers(max_workers: int) -> int:
     return max(1, min(max_workers, _MAX_SYMPY_WORKERS))
 
 
-def _sympy_worker(fn: Callable[..., _T], *args: Any) -> _T:
+def _sympy_worker[T](fn: Callable[..., T], *args: Any) -> T:
     """Top-level worker entry point — picklable so it can cross the
     subprocess boundary. Receives a picklable callable + args, runs them."""
     return fn(*args)
@@ -331,11 +331,11 @@ async def warm_sympy_pool() -> None:
         logger.warning("sympy pool warmup failed", exc_info=True)
 
 
-async def run_sympy(
-    fn: Callable[..., _T],
+async def run_sympy[T](
+    fn: Callable[..., T],
     *args: Any,
     timeout: float,  # noqa: ASYNC109 - we IMPLEMENT the timeout, not consume it
-) -> _T:
+) -> T:
     """Run a picklable callable in the bounded SymPy pool with a hard timeout.
 
     Raises ``TimeoutError`` if the callable does not complete within

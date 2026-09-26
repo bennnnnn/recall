@@ -168,7 +168,7 @@ def _adapt_sample_window(
     if needed <= n:
         return x_min, x_max, n
     if needed <= _MAX_GRAPH_SAMPLES:
-        return x_min, x_max, min(_MAX_GRAPH_SAMPLES, max(n, int(math.ceil(needed))))
+        return x_min, x_max, min(_MAX_GRAPH_SAMPLES, max(n, math.ceil(needed)))
     mid = 0.0 if x_min < 0 < x_max else (x_min + x_max) / 2.0
     half = (_OSCILLATION_PERIODS_IN_VIEW * period) / 2.0
     zoom_n = min(

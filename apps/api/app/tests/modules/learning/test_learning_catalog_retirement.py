@@ -47,7 +47,7 @@ async def test_seed_deletes_retired_rows_and_keeps_current_progress_and_other_ow
     LearningPracticeEvent.__table__.create(sync.get_bind())
     deck = _deck()
     user, project, current = _saved_item(sync, deck)
-    other, other_project, other_item = _saved_item(sync, deck)
+    _other, _other_project, other_item = _saved_item(sync, deck)
     current.status = "mastered"
     current.mastered = True
     current.review_count = 8

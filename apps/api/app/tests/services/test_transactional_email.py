@@ -33,7 +33,7 @@ def test_build_welcome_falls_back_to_greeting_when_no_name():
 
 def test_build_welcome_uses_locale_template():
     user = _user(name="Ada", locale="es")
-    subject, html, text = tx_email.build_welcome(user)
+    subject, _html, text = tx_email.build_welcome(user)
     assert "Bienvenido" in subject
     assert "Ada" in text
     assert "Hola" in text
@@ -48,7 +48,7 @@ def test_build_welcome_falls_back_to_en_for_amharic():
 
 def test_build_receipt_uses_locale_template():
     user = _user(name="Bo", locale="fr")
-    subject, html, text = tx_email.build_receipt(user, event_type="INITIAL_PURCHASE")
+    subject, _html, text = tx_email.build_receipt(user, event_type="INITIAL_PURCHASE")
     assert "reçu" in subject.lower()
     assert "Bonjour" in text
 

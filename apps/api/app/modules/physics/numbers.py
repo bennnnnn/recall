@@ -70,9 +70,11 @@ def normalize_physics_numbers(text: str) -> str | None:
         return None
     text = normalize_physics_units(text).replace("\u2212", "-")
     text = _GROUPED_CANDIDATE.sub(
-        lambda match: match.group().replace(",", "")
-        if "," in match.group() and _GROUPED_LITERAL.fullmatch(match.group())
-        else match.group(),
+        lambda match: (
+            match.group().replace(",", "")
+            if "," in match.group() and _GROUPED_LITERAL.fullmatch(match.group())
+            else match.group()
+        ),
         text,
     )
     if re.search(
