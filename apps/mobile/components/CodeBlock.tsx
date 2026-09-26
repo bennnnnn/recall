@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { displayLang, groupTokensByLine, parseFenceLang, resolveTokenColor, TOKEN_COLORS } from "@/lib/codeHighlight";
+import { groupTokensByLine, parseFenceLang, resolveTokenColor, TOKEN_COLORS } from "@/lib/codeHighlight";
 import type * as CodeTokenizeModule from "@/lib/codeTokenize";
 import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
@@ -56,6 +56,8 @@ function tokenStyle(color: string) {
 const CODE_COLLAPSED_LINES = 14;
 /** Only fold code blocks with at least this many lines. */
 const CODE_COLLAPSE_MIN_LINES = 18;
+/** Room at the end of each line for the floating copy button (32 pt + gap). */
+const ACTIONS_GUTTER = 40;
 
 export function CodeBlock({
   code,
@@ -80,13 +82,6 @@ export function CodeBlock({
   const [expanded, setExpanded] = useState(false);
   const fenceLang = parseFenceLang(lang);
   const tokenizer = useCodeTokenizer(!streaming);
-  const highlightLang = useMemo(
-    () =>
-      !streaming && tokenizer
-        ? tokenizer.resolveHighlightLang(fenceLang, code)
-        : fenceLang,
-    [streaming, tokenizer, fenceLang, code],
-  );
   const tokens = useMemo(() => {
     // While the fence is still open, skip Prism — retokenizing a growing
     // body every ~48ms is the jank the open-fence stream path avoids.
@@ -101,22 +96,17 @@ export function CodeBlock({
   const lineCount = code.split("\n").length;
   const collapsible = !streaming && lineCount >= CODE_COLLAPSE_MIN_LINES;
   const collapsed = collapsible && !expanded;
-  const badge = displayLang(fenceLang || highlightLang);
   const copyEnabled = showCopy && !streaming;
+  const hasActions = copyEnabled || Boolean(headerExtra);
 
   // Syntax colors are saturated mid-tones that read on either background, but
   // the near-black "plain" color is invisible on a dark panel — remap it.
   const colorFor = (c: string) => resolveTokenColor(c, t.isDark);
 
   return (
+    // A clean card: code first, copy floating in the corner, no header bar
+    // or language label (the code says what it is).
     <View style={s.wrap}>
-      <View style={s.header}>
-        {badge ? <Text style={s.lang}>{badge}</Text> : <View />}
-        <View style={s.headerActions}>
-          {headerExtra}
-          {copyEnabled ? <CopyButton text={code} /> : null}
-        </View>
-      </View>
       <View
         style={[
           s.codeBody,
@@ -126,7 +116,7 @@ export function CodeBlock({
         ]}
       >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled>
-          <View style={s.codeLines}>
+          <View style={[s.codeLines, hasActions && s.codeLinesBesideActions]}>
             {lines.map((lineTokens, lineIdx) => (
               <View key={lineIdx} style={s.codeLineRow}>
                 {lineTokens.length > 0 ? (
@@ -143,6 +133,12 @@ export function CodeBlock({
           </View>
         </ScrollView>
       </View>
+      {hasActions ? (
+        <View style={s.actions} testID="code-block-actions">
+          {headerExtra}
+          {copyEnabled ? <CopyButton text={code} /> : null}
+        </View>
+      ) : null}
       {collapsible && (
         <Pressable
           style={s.expandBtn}
@@ -166,32 +162,27 @@ function makeStyles(t: Theme) {
       width: "100%",
       maxWidth: "100%",
       backgroundColor: t.codeBg,
-      borderRadius: Radius.md,
+      borderRadius: Radius.card,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       overflow: "hidden",
       marginTop: 0,
       marginBottom: 10,
     },
-    header: {
+    actions: {
+      position: "absolute",
+      top: Space.xs,
+      right: Space.xs,
       flexDirection: "row",
-      justifyContent: "space-between",
       alignItems: "center",
-      paddingHorizontal: Space.sm,
-      paddingVertical: Space.xs,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
+      gap: 6,
+      borderRadius: Radius.xs,
+      // Masks a long first line that scrolls under the buttons.
       backgroundColor: t.codeBg,
     },
-    lang: {
-      fontSize: 12,
-      color: t.codeLang,
-      fontWeight: "600",
-      textTransform: "lowercase",
-    },
-    headerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
     codeBody: { overflow: "hidden", backgroundColor: t.codeBg },
-    codeLines: { padding: Space.sm },
+    codeLines: { paddingVertical: Space.md, paddingHorizontal: Space.md },
+    codeLinesBesideActions: { paddingRight: Space.md + ACTIONS_GUTTER },
     codeLineRow: { flexDirection: "row", flexWrap: "nowrap", alignItems: "flex-start" },
     expandBtn: {
       alignItems: "center",

@@ -1,5 +1,4 @@
 import {
-  displayLang,
   groupTokensByLine,
   isHtmlFenceLang,
   looksLikeHtmlPage,
@@ -27,19 +26,6 @@ describe("normalizeLang", () => {
 
   it("passes through unknown languages unchanged", () => {
     expect(normalizeLang("cobol")).toBe("cobol");
-  });
-});
-
-describe("displayLang", () => {
-  it("hides generic/plain badges", () => {
-    expect(displayLang("")).toBe("");
-    expect(displayLang("plain")).toBe("");
-    expect(displayLang("text")).toBe("");
-    expect(displayLang("clike")).toBe("");
-  });
-
-  it("shows real language badges lowercased", () => {
-    expect(displayLang("Python")).toBe("python");
   });
 });
 
