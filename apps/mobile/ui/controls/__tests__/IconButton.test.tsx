@@ -7,7 +7,7 @@ describe("IconButton", () => {
   it("uses a button role and a 44-point hit target", async () => {
     const onPress = jest.fn();
     const { getByRole } = await render(
-      <IconButton name="copy-outline" accessibilityLabel="Copy" onPress={onPress} />,
+      <IconButton name="copy" accessibilityLabel="Copy" onPress={onPress} />,
     );
     const button = getByRole("button");
     expect(button.props.accessibilityLabel).toBe("Copy");

@@ -9,7 +9,7 @@ describe("ListRow", () => {
     const onPress = jest.fn();
     const view = await render(
       <ListGroup label="Experience">
-        <ListRow icon="globe" title="Language" value="English" onPress={onPress} />
+        <ListRow icon="languages" title="Language" value="English" onPress={onPress} />
         <ListSeparator />
         <ListRow icon="sun" title="Appearance" value="System" onPress={jest.fn()} />
       </ListGroup>,

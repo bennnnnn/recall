@@ -20,17 +20,17 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 const FEATURES = [
   {
-    icon: "chatbubble-ellipses-outline",
+    icon: "message-dots",
     titleKey: "onboarding.chat_title",
     bodyKey: "onboarding.chat_body",
   },
   {
-    icon: "sparkles-outline",
+    icon: "sparkles",
     titleKey: "onboarding.remember_title",
     bodyKey: "onboarding.remember_body",
   },
   {
-    icon: "school-outline",
+    icon: "graduation-cap",
     titleKey: "onboarding.learn_title",
     bodyKey: "onboarding.learn_body",
   },
@@ -81,7 +81,7 @@ export default function Onboarding() {
           {FEATURES.map((f) => (
             <View key={f.titleKey} style={s.feature}>
               <View style={s.featureIcon}>
-                <Icon name={f.icon as never} size={IconSize.sm} color={theme.primary} />
+                <Icon name={f.icon} size={IconSize.sm} color={theme.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.featureTitle}>{t(f.titleKey)}</Text>

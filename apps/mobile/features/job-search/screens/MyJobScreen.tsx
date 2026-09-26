@@ -228,12 +228,12 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                   t("my_job.benefit_fresh_body"),
                 ],
                 [
-                  "sparkles-outline",
+                  "sparkles",
                   t("my_job.benefit_matched_title"),
                   t("my_job.benefit_matched_body"),
                 ],
                 [
-                  "notifications-outline",
+                  "bell",
                   t("my_job.benefit_delivered_title"),
                   t("my_job.benefit_delivered_body"),
                 ],
@@ -242,7 +242,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               <View key={title} style={s.benefitRow}>
                 <View style={s.benefitIcon}>
                   <Icon
-                    name={icon as "search"}
+                    name={icon}
                     size={IconSize.sm}
                     color={C.primary}
                   />
