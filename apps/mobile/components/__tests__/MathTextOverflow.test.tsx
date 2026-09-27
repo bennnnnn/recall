@@ -28,8 +28,10 @@ describe("inline tall math overflow", () => {
     expect(contentStyle.minWidth).toBeGreaterThan(500);
     expect(frameStyle.width).toBe(contentStyle.minWidth);
     expect(contentStyle.minWidth - Math.min(300, frameStyle.width)).toBeGreaterThan(200);
-    expect(within(viewport).getByText(/Slant Height =/)).toHaveStyle({ fontSize: 16 });
-    expect(within(viewport).getByText(/= 5\./)).toBeOnTheScreen();
+    const uprightRuns = within(viewport).getAllByTestId("math-upright-run");
+    expect(uprightRuns[0]).toHaveTextContent("Slant Height");
+    expect(uprightRuns[0]).toHaveStyle({ fontFamily: "KaTeX_Main", fontSize: 16 });
+    expect(within(viewport).getByText(/= 5/)).toBeOnTheScreen();
     expect(within(viewport).getAllByTestId("math-sqrt")).toHaveLength(4);
     expect(within(viewport).getByText("6")).toHaveStyle({ fontSize: 14 });
     expect(viewport.props.accessibilityLabel).toMatch(/Slant Height.*= 5\./);
@@ -42,7 +44,7 @@ describe("inline tall math overflow", () => {
     );
     const formula = getByTestId("math-text-tall");
     const style = StyleSheet.flatten(formula.props.style);
-    // SpaceMono's20-digit radicand plus radical/margins is wider than198px.
+    // The 20-digit radicand plus radical/margins is wider than 198px.
     // A fixed child frame would hide its final digits outside contentSize.
     expect(style.minWidth).toBe(193);
     expect(style.width).toBeUndefined();

@@ -194,13 +194,14 @@ function speakMath(latex: string): string {
 function copyMathSegments(segments: MathSegment[], depth = 0): string {
   const fractionSide = (side: MathSegment[]): string => {
     const text = copyMathSegments(side, depth + 1).trim();
-    return side.length === 1 && side[0]?.type === "text"
+    return side.length === 1 && (side[0]?.type === "text" || side[0]?.type === "upright")
       && /^(?:[+-]?\d+(?:\.\d+)?|\p{L})$/u.test(text)
       ? text : `(${text})`;
   };
   return segments.map((segment, index) => {
     switch (segment.type) {
       case "text": return segment.value;
+      case "upright": return segment.value;
       case "sup":
       case "sub": {
         const value = depth >= 12 ? segment.value : copyMathSegments(parseSimpleLatex(segment.value), depth + 1);

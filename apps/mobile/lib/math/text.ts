@@ -5,6 +5,7 @@ import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 
 export type MathSegment =
   | { type: "text"; value: string }
+  | { type: "upright"; value: string }
   | { type: "sup"; value: string }
   | { type: "sub"; value: string }
   | { type: "frac"; num: MathSegment[]; den: MathSegment[] }
@@ -33,6 +34,11 @@ export const PROTECTED_MATH_STAR_MARKER = String.fromCharCode(0xe003);
 export const PROTECTED_MATH_APOSTROPHE_MARKER = String.fromCharCode(0xe004);
 // Native-only literal text/escape preservation across recursive frac parsing.
 const NATIVE_LITERAL_APOSTROPHE_MARKER = String.fromCharCode(0xe005);
+// Preserve the semantic boundary of \text{...}/\mathrm{...} until native
+// rendering. Without this, unit labels became italic variables after the
+// dedicated math font was introduced.
+const NATIVE_UPRIGHT_START_MARKER = String.fromCharCode(0xe006);
+const NATIVE_UPRIGHT_END_MARKER = String.fromCharCode(0xe007);
 
 /** Restore source characters after markdown tokenization, before math parsing. */
 export function restoreMathEscapes(latex: string): string {
@@ -479,6 +485,35 @@ function normalizeNativeDerivativePrimes(source: string): string {
   return out;
 }
 
+function preserveNativeUprightRuns(source: string): string {
+  let out = "";
+  for (let i = 0; i < source.length;) {
+    if (source[i] === "\\") {
+      const command = /^\\(?:text|textrm|textsf|texttt|textnormal|textbf|mathrm|operatorname)(?![A-Za-z])/.exec(
+        source.slice(i),
+      );
+      if (command) {
+        let groupAt = i + command[0].length;
+        while (source[groupAt] === " ") groupAt += 1;
+        const group = source[groupAt] === "{" ? readGroup(source, groupAt) : null;
+        if (group) {
+          // Markdown attaches sentence punctuation to a math run as
+          // `\text{.}` / `\text{,}`. Keep that punctuation in the adjacent
+          // run so copy, wrapping, and tests see one continuous expression.
+          out += /^[\s.,;:!?]+$/.test(group.value)
+            ? group.value
+            : `${NATIVE_UPRIGHT_START_MARKER}${group.value}${NATIVE_UPRIGHT_END_MARKER}`;
+          i = group.next;
+          continue;
+        }
+      }
+    }
+    out += source[i];
+    i += 1;
+  }
+  return out;
+}
+
 /** Unwrap only SymPy's invisible function-argument group, before escaped
  * set braces lose their backslashes. Ordinary brace groups stay unchanged. */
 function unwrapSympyFunctionArguments(source: string): string {
@@ -510,6 +545,7 @@ function unwrapSympyFunctionArguments(source: string): string {
 
 function preprocessLatex(latex: string): string {
   let s = normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(restoreMathEscapes(latex.trim())));
+  s = preserveNativeUprightRuns(s);
   // Undo markdownPreprocess.ts's PROTECTED_ESCAPE_MARKER substitution first,
   // before any command table below runs — see the marker's own doc comment.
   s = rewriteSolutionSeparatorBars(s);
@@ -685,7 +721,7 @@ function parseCancel(
 }
 
 function segmentToPlain(seg: MathSegment): string {
-  if (seg.type === "text") return seg.value;
+  if (seg.type === "text" || seg.type === "upright") return seg.value;
   if (seg.type === "sup") return `^${seg.value}`;
   if (seg.type === "sub") return `_${seg.value}`;
   if (seg.type === "cancel") return segmentsToPlain(seg.body);
@@ -768,6 +804,21 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
     }
 
     const ch = input[i];
+
+    if (ch === NATIVE_UPRIGHT_START_MARKER) {
+      const end = input.indexOf(NATIVE_UPRIGHT_END_MARKER, i + 1);
+      if (end >= 0) {
+        out.push({
+          type: "upright",
+          value: input
+            .slice(i + 1, end)
+            .split(NATIVE_LITERAL_APOSTROPHE_MARKER)
+            .join("'"),
+        });
+        i = end + 1;
+        continue;
+      }
+    }
 
     if (ch === "^") {
       i += 1;

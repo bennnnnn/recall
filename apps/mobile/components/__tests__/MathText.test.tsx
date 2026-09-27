@@ -17,6 +17,39 @@ describe("MathText", () => {
     expect(getByText("x + 1")).toBeOnTheScreen();
   });
 
+  it("uses the dedicated math face and keeps lowercase variables unmistakable", async () => {
+    const { getByText, getByTestId } = await render(<MathText latex="x = 3" />);
+    expect(getByText("x = 3")).toHaveStyle({ fontFamily: "KaTeX_Main" });
+    expect(getByTestId("math-variable")).toHaveTextContent("x");
+    expect(getByTestId("math-variable")).toHaveStyle({
+      fontFamily: "KaTeX_MathItalic",
+    });
+  });
+
+  it("keeps named functions upright while variables remain math italic", async () => {
+    const { getByText, getAllByTestId } = await render(
+      <MathText latex={String.raw`\sin{x} = y`} />,
+    );
+    expect(getByText("sin(x) = y")).toBeOnTheScreen();
+    expect(getAllByTestId("math-variable").map((node) => node.props.children)).toEqual([
+      "x",
+      "y",
+    ]);
+  });
+
+  it("keeps physics units in text and roman commands upright", async () => {
+    const { getAllByTestId, getByTestId } = await render(
+      <MathText latex={String.raw`x = 25\,\mathrm{m/s}`} />,
+    );
+    expect(getAllByTestId("math-variable").map((node) => node.props.children)).toEqual([
+      "x",
+    ]);
+    expect(getByTestId("math-upright-run")).toHaveTextContent("m/s");
+    expect(getByTestId("math-upright-run")).toHaveStyle({
+      fontFamily: "KaTeX_Main",
+    });
+  });
+
   it("renders a superscript digit as a real Unicode superscript char", async () => {
     // "2" has a Unicode superscript mapping (unicodeSupSub.ts) — MathText
     // prefers that over the styled-smaller-Text fallback so it reads raised
@@ -123,13 +156,13 @@ describe("MathText", () => {
     // Live quadratic formula: flattened combining overlines turned `-` into a
     // fake `=` and sized the vinculum from those extra marks so it ran under
     // the following prose.
-    const { getByTestId, getByText, queryByText } = await render(
+    const { getByTestId, getAllByText, getByText, queryByText } = await render(
       <MathText latex={String.raw`x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}`} />,
     );
     expect(getByTestId("math-sqrt")).toBeOnTheScreen();
     expect(getByTestId("math-sqrt-radicand")).toBeOnTheScreen();
     expect(queryByText(/̅/)).toBeNull();
-    expect(getByText("b")).toBeOnTheScreen();
+    expect(getAllByText("b")).toHaveLength(2);
     expect(getByText(/4ac/)).toBeOnTheScreen();
     const frac = getByTestId("math-frac");
     const width = StyleSheet.flatten(frac.props.style).width as number;

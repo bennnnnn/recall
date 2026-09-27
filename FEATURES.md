@@ -199,7 +199,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Now Playing UI). Pro + daily cap. Catalog alias + gateway (provider TBD); reuse
   `expo-audio` / attachment URLs. Do not start until image-gen’s storage/cap path is the
   template. Not TTS / not humming into the mic.
-- ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, scalable continuous radicals, tight stacked fractions);
+- ✅ **Math / LaTeX** — inline `$...$` renders in dedicated KaTeX Computer Modern faces (italic variables, upright digits/operators, superscripts, scalable continuous radicals, tight stacked fractions);
   display ` ```math` renders as **MathJax-SVG** (`MathSvgView` + `mathjax-full`, lazy-loaded
   and LRU-cached, themed via `currentColor`) on every build — no WebView — with a readable
   `MathText` fallback if conversion fails. Native builds use **Skia** for inline function

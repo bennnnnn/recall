@@ -57,6 +57,17 @@ describe("standalone answer typography", () => {
     expect(getByTestId("math-fractional-sup")).toHaveStyle({ paddingBottom: 15 });
   });
 
+  it("preserves lowercase x in the final answer with an italic math glyph", async () => {
+    const { getByLabelText, getByTestId } = await render(
+      <AnswerBlock content={String.raw`x = \pm 1`} />,
+    );
+    expect(getByLabelText("Answer: x = ± 1")).toBeOnTheScreen();
+    expect(getByTestId("math-variable")).toHaveTextContent("x");
+    expect(getByTestId("math-variable")).toHaveStyle({
+      fontFamily: "KaTeX_MathItalic",
+    });
+  });
+
   it("scales indexed roots and their radicands together", async () => {
     const { getByText, getByTestId } = await render(<AnswerBlock content={String.raw`\sqrt[6]{9}`} />);
     expect(getByText("6")).toHaveStyle({ fontSize: 15, lineHeight: 17.5 });

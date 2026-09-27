@@ -72,7 +72,8 @@ describe("MarkdownContent math rendering", () => {
     expect(getByText("Convert angle:")).toBeOnTheScreen();
     expect(getByText("radians")).toBeOnTheScreen();
     expect(getByText(/= 2π ≈ 6.28/)).toBeOnTheScreen();
-    expect(getAllByText("π")).toHaveLength(2);
+    // One π in the converted angle and two in the calculation line.
+    expect(getAllByText("π")).toHaveLength(3);
     expect(getAllByTestId("math-frac")).toHaveLength(2);
     expect(queryByText(/\(π\)|\\frac|\\pi/)).toBeNull();
   });

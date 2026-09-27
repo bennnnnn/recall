@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
-import { MATH_FONT } from "@/lib/fonts";
+import { MATH_FONT, MATH_VARIABLE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import {
   parseSimpleLatex,
@@ -54,31 +54,80 @@ const MATH_OPERATOR_CHARS = new Set(
   Array.from("≠≤≥≈∞±∓×÷∈⊂⊆⊃≡∝∼∀∃∅∠⊥∥⟨⟩∘∨∧∖"),
 );
 
+/** Named operators are words, not products of variables, so they stay
+ * upright in the same way KaTeX renders `sin`, `log`, and `mod`. */
+const UPRIGHT_MATH_WORDS = new Set([
+  "arccos", "arcsin", "arctan", "cos", "cosh", "cot", "csc", "det",
+  "exp", "gcd", "if", "lim", "ln", "log", "max", "min", "mod",
+  "otherwise", "rank", "sec", "sin", "sinh", "tan", "tanh", "where",
+]);
+
+const MATH_LETTER_RUN = /[A-Za-z\u0370-\u03ff]+/g;
+
+function isUprightWord(value: string): boolean {
+  return UPRIGHT_MATH_WORDS.has(value.toLowerCase());
+}
+
+function renderNonVariableRun(
+  value: string,
+  key: string,
+  glyphStyle: object,
+): ReactNode[] {
+  return Array.from(value).map((ch, i) =>
+    MATH_OPERATOR_CHARS.has(ch) ? (
+      <Text key={`${key}-g${i}`} style={glyphStyle}>
+        {ch}
+      </Text>
+    ) : (
+      ch
+    ),
+  );
+}
+
 function renderMathRun(
   value: string,
   key: string,
   textStyle: object,
   glyphStyle: object,
+  variableStyle: object,
 ): ReactNode {
-  const chars = Array.from(value);
-  if (!chars.some((ch) => MATH_OPERATOR_CHARS.has(ch))) {
-    return (
-      <Text key={key} style={textStyle}>
-        {value}
-      </Text>
+  const children: ReactNode[] = [];
+  let cursor = 0;
+  let variableIndex = 0;
+  for (const match of value.matchAll(MATH_LETTER_RUN)) {
+    const start = match.index ?? 0;
+    if (start > cursor) {
+      children.push(
+        ...renderNonVariableRun(
+          value.slice(cursor, start),
+          `${key}-t${cursor}`,
+          glyphStyle,
+        ),
+      );
+    }
+    const word = match[0];
+    children.push(
+      isUprightWord(word) ? word : (
+        <Text
+          key={`${key}-v${variableIndex}`}
+          testID="math-variable"
+          style={[textStyle, variableStyle]}
+        >
+          {word}
+        </Text>
+      ),
+    );
+    variableIndex += 1;
+    cursor = start + word.length;
+  }
+  if (cursor < value.length) {
+    children.push(
+      ...renderNonVariableRun(value.slice(cursor), `${key}-t${cursor}`, glyphStyle),
     );
   }
   return (
     <Text key={key} style={textStyle}>
-      {chars.map((ch, i) =>
-        MATH_OPERATOR_CHARS.has(ch) ? (
-          <Text key={`${key}-g${i}`} style={glyphStyle}>
-            {ch}
-          </Text>
-        ) : (
-          ch
-        ),
-      )}
+      {children}
     </Text>
   );
 }
@@ -96,8 +145,8 @@ function isCombiningMark(ch: string): boolean {
   return c >= 0x0300 && c <= 0x036f;
 }
 
-/** Source Serif 4 is proportional. m/w are about one em, so the
- * old one-width estimate (SpaceMono) clips a long numerator and its scroll. */
+/** Computer Modern is proportional. m/w are about one em, so the old
+ * one-width estimate (SpaceMono) clips a long numerator and its scroll. */
 function isWideFormulaGlyph(ch: string): boolean {
   return ch === "m" || ch === "w" || ch === "M" || ch === "W" || ch === "%" || ch === "@";
 }
@@ -368,7 +417,20 @@ function renderSegments(
         </View>
       );
     }
-    return renderMathRun(seg.value, key, runStyle(ctx), styles.glyph);
+    if (seg.type === "upright") {
+      return (
+        <Text key={key} style={runStyle(ctx)} testID="math-upright-run">
+          {renderNonVariableRun(seg.value, `${key}-u`, styles.glyph)}
+        </Text>
+      );
+    }
+    return renderMathRun(
+      seg.value,
+      key,
+      runStyle(ctx),
+      styles.glyph,
+      styles.variable,
+    );
   });
 }
 
@@ -453,12 +515,16 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       color,
     },
     glyph: {
-      // Nested Text inherits SpaceMono unless we name a UI face that has ≠.
+      // KaTeX Main does not carry every Unicode relation symbol.
       fontFamily: Platform.select({
         ios: "Helvetica Neue",
         android: "sans-serif",
         default: undefined,
       }),
+    },
+    variable: {
+      fontFamily: MATH_VARIABLE_FONT,
+      color,
     },
     inlineViewport: {
       maxWidth: "100%",

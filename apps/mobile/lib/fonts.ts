@@ -4,7 +4,9 @@ export const CODE_FONT = "SpaceMono";
 export { UI_FONT, uiFontFamily } from "@/lib/uiFont";
 
 /**
- * One serif for math and physics formulas on every platform.
- * Source Serif 4 regular, loaded in the root layout. Interface text uses Source Sans 3.
+ * KaTeX's Computer Modern faces are purpose-built for mathematical notation.
+ * Main carries digits/operators; Math Italic gives variables an unmistakable
+ * lowercase silhouette (notably x in large final answers).
  */
-export const MATH_FONT = "SourceSerif4";
+export const MATH_FONT = "KaTeX_Main";
+export const MATH_VARIABLE_FONT = "KaTeX_MathItalic";
