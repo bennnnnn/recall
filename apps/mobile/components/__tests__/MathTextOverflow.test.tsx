@@ -46,7 +46,7 @@ describe("inline tall math overflow", () => {
     const style = StyleSheet.flatten(formula.props.style);
     // The 20-digit radicand plus radical/margins is wider than 198px.
     // A fixed child frame would hide its final digits outside contentSize.
-    expect(style.minWidth).toBe(193);
+    expect(style.minWidth).toBe(201);
     expect(style.width).toBeUndefined();
     expect(style.maxWidth).toBeUndefined();
     expect(style.flexShrink).toBe(0);

@@ -48,6 +48,8 @@ const SQRT_LINE_HEIGHT = 20;
 const RADICAL_MIN_LEAD_PX = 13;
 const RADICAL_BODY_TOP_PX = 2;
 const RADICAL_STROKE_PX = 1.35;
+const RADICAL_SIDE_MARGIN_PX = 2;
+const RADICAL_PLAIN_LEFT_MARGIN_PX = 6;
 
 /** SpaceMono has no (or a broken) U+2260 — fallback looks like slashed ≡. */
 const MATH_OPERATOR_CHARS = new Set(
@@ -173,7 +175,9 @@ function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width:
       height = Math.max(height, box.height);
     } else if (seg.type === "sqrt") {
       const box = radicalBoxSize(seg.body, inFrac, seg.degree);
-      width += box.width;
+      // sqrtRow's margins sit outside its explicit width. Include them in the
+      // parent attachment or the next term can paint past the measured frame.
+      width += box.width + radicalOuterMarginWidth(seg.degree);
       height = Math.max(height, box.height);
     } else if (seg.type === "cancel") {
       const inner = estimateSegmentsSize(seg.body, inFrac);
@@ -201,6 +205,11 @@ function radicalBoxSize(
     lead,
     body,
   };
+}
+
+function radicalOuterMarginWidth(degree?: string): number {
+  const left = degree ? RADICAL_SIDE_MARGIN_PX : RADICAL_PLAIN_LEFT_MARGIN_PX;
+  return left + RADICAL_SIDE_MARGIN_PX;
 }
 
 function fracStackSize(num: MathSegment[], den: MathSegment[]): { width: number; height: number } {
@@ -582,11 +591,11 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
     sqrtRow: {
       flexDirection: "row",
       alignItems: "flex-start",
-      marginHorizontal: 2 * layoutScale,
+      marginHorizontal: RADICAL_SIDE_MARGIN_PX * layoutScale,
       overflow: "visible",
     },
     sqrtAfterCoeff: {
-      marginLeft: 6 * layoutScale,
+      marginLeft: RADICAL_PLAIN_LEFT_MARGIN_PX * layoutScale,
     },
     sqrtIndex: {
       position: "absolute",

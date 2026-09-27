@@ -225,6 +225,7 @@ describe("MathText", () => {
     const { getByTestId } = await render(<MathText latex={String.raw`\sqrt{8}`} />);
     expect(getByTestId("math-sqrt")).toHaveStyle({ alignItems: "flex-start" });
     expect(getByTestId("math-sqrt")).toHaveStyle({ width: 22, height: 22 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 30, height: 22 });
     expect(getByTestId("math-sqrt-radicand")).toHaveStyle({
       marginLeft: 13,
       marginTop: 2,
@@ -239,6 +240,7 @@ describe("MathText", () => {
       <MathText latex={String.raw`\sqrt{\frac{x}{y}}`} />,
     );
     expect(getByTestId("math-sqrt")).toHaveStyle({ width: 32, height: 46 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 40, height: 46 });
     expect(getByTestId("math-sqrt-radicand")).toHaveStyle({
       marginLeft: 13,
       marginTop: 2,
