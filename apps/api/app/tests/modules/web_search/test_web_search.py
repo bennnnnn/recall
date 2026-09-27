@@ -333,6 +333,12 @@ def test_ai_developments_today_is_treated_as_same_day_news():
     assert is_news_today_request(query) is True
 
 
+def test_polite_current_date_question_never_needs_web_search():
+    query = "Please tell me the current date."
+    assert web_search_skip(query) is True
+    assert needs_web_search(query) is False
+
+
 def test_build_search_query_follow_up_uses_prior():
     queries = build_search_queries(
         "Look it up",
