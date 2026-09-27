@@ -8,6 +8,7 @@ import {
 import {
   axisTicksW,
   clampGraphViewW,
+  dockAxisW,
   formatShortW,
   formatTickW,
   mapPointW,
@@ -48,6 +49,15 @@ describe("graphWorklets parity", () => {
     );
   });
 
+  it("regenerates visible tick values after a pan and zoom", () => {
+    const panned = axisTicksW(14, 26);
+    const zoomedOut = axisTicksW(-60, 60);
+
+    expect(panned.every((tick) => tick >= 14 && tick <= 26)).toBe(true);
+    expect(panned).not.toContain(0);
+    expect(zoomedOut).toEqual(expect.arrayContaining([-60, -30, 0, 30, 60]));
+  });
+
   it("map/unmap round-trips", () => {
     const b = { xMin: -6, xMax: 6, yMin: -4, yMax: 4 };
     const { px, py } = mapPointW(2.5, -1.5, b, 360, 220, 28);
@@ -76,6 +86,12 @@ describe("nearestSampleW", () => {
 });
 
 describe("worklet tick formatting", () => {
+  it("docks off-screen axes to the nearest visible chart edge", () => {
+    expect(dockAxisW(-50, 28, 332)).toBe(28);
+    expect(dockAxisW(180, 28, 332)).toBe(180);
+    expect(dockAxisW(500, 28, 332)).toBe(332);
+  });
+
   it("formatTickW keeps integers short and fractions precise", () => {
     expect(formatTickW(3)).toBe("3");
     expect(formatTickW(-0)).toBe("0");

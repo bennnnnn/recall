@@ -25,6 +25,8 @@ from app.services.solving import VerifiedMathBlock
     "query",
     [
         "Graph y=x^2 and y=2x on the same graph",
+        "Graph y=x^2 and y=2x on the same graph.",
+        "Graph y=x^2 and y=2x together?",
         "Plot x^2 and 2x",
         "Please graph y=x^2 and y=2x together",
         "Graph y=x^2 and y=2x from 0 to 5",

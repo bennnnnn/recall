@@ -26,6 +26,31 @@ describe("FunctionGraphBlock", () => {
     expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
   });
 
+  it("renders the graph on a distinct raised surface", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: [
+        [-1, 1],
+        [0, 0],
+        [1, 1],
+      ],
+    });
+    const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+    const card = StyleSheet.flatten(getByTestId("graph-card").props.style);
+    const plot = StyleSheet.flatten(getByTestId("graph-expand").props.style);
+
+    expect(card.backgroundColor).toBe("#FFFFFF");
+    expect(card.borderWidth).toBeUndefined();
+    expect(card.borderRadius).toBeGreaterThanOrEqual(12);
+    expect(card.padding).toBe(12);
+    expect(card.shadowOpacity).toBeGreaterThan(0);
+    expect(card.elevation).toBeGreaterThan(0);
+    expect(plot.borderColor).toBe("#E4E6FF");
+    expect(plot.borderWidth).toBe(1);
+    expect(plot.borderRadius).toBeGreaterThanOrEqual(12);
+  });
+
   it("renders even ticks for y = x², not padded −12 / 108 / −8", async () => {
     const content = JSON.stringify({
       type: "function",
@@ -158,13 +183,15 @@ describe("FunctionGraphBlock", () => {
       label: "y = x^2",
       label2: "y = 2x",
     });
-    const { getByDisplayValue, getByTestId, toJSON } = await render(
+    const { getByDisplayValue, getByTestId, queryByTestId, toJSON } = await render(
       <FunctionGraphBlock content={content} />,
     );
 
     expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
     expect(getByDisplayValue("y = 2*x")).toBeOnTheScreen();
     expect(getByTestId("graph-expand")).toBeOnTheScreen();
+    expect(queryByTestId("graph-hide-1")).toBeNull();
+    expect(queryByTestId("graph-remove-1")).toBeNull();
     // Polyline renders as RNSVGPath in this native mock (see the segmented
     // discontinuity test above) — one per curve.
     const pathCount = (JSON.stringify(toJSON()).match(/"RNSVGPath"/g) ?? []).length;
@@ -332,6 +359,17 @@ describe("FunctionGraphBlock", () => {
     await fireEvent.press(getByTestId("graph-expand"));
     expect(getByTestId("graph-sheet-handle")).toBeOnTheScreen();
     expect(getByTestId("graph-close")).toBeOnTheScreen();
+    const backdrop = StyleSheet.flatten(getByTestId("graph-modal-backdrop").props.style);
+    const sheet = StyleSheet.flatten(getByTestId("graph-modal-sheet").props.style);
+    const handle = StyleSheet.flatten(
+      getByTestId("graph-sheet-handle").children[0].props.style,
+    );
+    expect(backdrop.backgroundColor).toBe("rgba(0,0,0,0.40)");
+    expect(sheet.marginTop).toBeGreaterThan(0);
+    expect(sheet.borderTopLeftRadius).toBeGreaterThanOrEqual(24);
+    expect(sheet.borderTopRightRadius).toBeGreaterThanOrEqual(24);
+    expect(handle.width).toBeGreaterThanOrEqual(44);
+    expect(handle.height).toBeGreaterThanOrEqual(5);
     const list = getByTestId("graph-series-scroll");
     expect(list).toBeOnTheScreen();
     const pad = StyleSheet.flatten(list.props.contentContainerStyle);

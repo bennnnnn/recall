@@ -18,6 +18,7 @@ class TestGraphExprPairSignal:
             ("graph y=x^2 and y=2x on the same graph", ("x^2", "2x")),
             ("compare y=x^2 and y=2x", ("x^2", "2x")),
             ("plot x^2 and 2x together", ("x^2", "2x")),
+            ("graph y=x^2 and y=2x on the same graph.", ("x^2", "2x")),
         ],
     )
     def test_matches_two_function_asks(self, text, expected):

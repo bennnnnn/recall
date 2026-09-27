@@ -537,7 +537,10 @@ def graph_expr_pair(text: str) -> tuple[str, str] | None:
         if and_idx == -1:
             continue
         first = _strip_leading_y_equals(rest[:and_idx].strip())
-        second = rest[and_idx + len(" and ") :].strip()
+        # Sentence punctuation belongs to the request, not the second
+        # expression or a presentation suffix ("on the same graph."). Keep
+        # ``!`` because it may be a factorial that must not be dropped.
+        second = rest[and_idx + len(" and ") :].strip().rstrip(".?")
         second_lower = second.lower()
         for suffix in _GRAPH_PAIR_TRAILING_FILLER:
             if second_lower.endswith(suffix):

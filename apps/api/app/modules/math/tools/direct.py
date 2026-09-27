@@ -62,6 +62,100 @@ _MATH_REQUEST_GLUE = frozenset(
 
 _MAX_DIRECT_ANSWER_CHARS = 400
 
+_GRAPH_INTERACTION_WORDS = frozenset(
+    {
+        "a",
+        "able",
+        "an",
+        "and",
+        "around",
+        "can",
+        "controls",
+        "down",
+        "drag",
+        "draggable",
+        "explorable",
+        "explore",
+        "graph",
+        "i",
+        "in",
+        "interactive",
+        "interactively",
+        "it",
+        "left",
+        "let",
+        "make",
+        "me",
+        "move",
+        "movable",
+        "out",
+        "pan",
+        "pannable",
+        "pinch",
+        "pinchable",
+        "plot",
+        "right",
+        "that",
+        "the",
+        "to",
+        "up",
+        "with",
+        "zoom",
+        "zoomable",
+    }
+)
+_GRAPH_INTERACTION_ACTIONS = frozenset(
+    {
+        "drag",
+        "draggable",
+        "explorable",
+        "explore",
+        "interactive",
+        "interactively",
+        "move",
+        "movable",
+        "pan",
+        "pannable",
+        "pinch",
+        "pinchable",
+        "zoom",
+        "zoomable",
+    }
+)
+
+
+def _strip_graph_interaction_tail(request: str) -> str:
+    """Remove a presentation-only graph-control clause.
+
+    This is deliberately a small word grammar rather than one exact phrase:
+    ``make it interactive``, ``let me explore it`` and ``with pinch and pan``
+    are equivalent UI requests. Any number, operator, explanation word or
+    second calculation keeps the normal model path.
+    """
+    clean = request.rstrip(".?").strip()
+    lower = clean.lower()
+    starts: list[int] = []
+    for marker in (" and ", " with ", " as ", " so ", " that "):
+        offset = 0
+        while True:
+            index = lower.find(marker, offset)
+            if index < 0:
+                break
+            starts.append(index)
+            offset = index + len(marker)
+    for index in sorted(set(starts)):
+        tail = lower[index + 1 :].replace("-", " ")
+        if any(not (char.isascii() and (char.isalpha() or char.isspace())) for char in tail):
+            continue
+        words = tail.split()
+        if (
+            words
+            and set(words) <= _GRAPH_INTERACTION_WORDS
+            and set(words) & _GRAPH_INTERACTION_ACTIONS
+        ):
+            return clean[:index].rstrip()
+    return clean
+
 
 def _plot_number(value: object) -> float | None:
     if isinstance(value, bool) or not isinstance(value, str | int | float):
@@ -514,6 +608,7 @@ def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
     # equation; the current line has no f(x) to string-match.
     if is_graph_followup(user_text):
         return True
+    request = _strip_graph_interaction_tail(request)
     domain = graph_domain(request)
     if domain is not None:
         lo, hi, request = domain

@@ -41,6 +41,7 @@ import { CODE_FONT } from "@/lib/fonts";
 import { formatGraphExpr, type GraphSpec } from "@/lib/math/graphBlock";
 import { defaultInteractiveBounds, expandGraphView } from "@/lib/math/graphViewport";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
+import { shadowRaised } from "@/lib/shadow";
 import { IconSize } from "@/ui/icons/sizes";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
@@ -52,17 +53,13 @@ import { HeaderButton } from "@/ui/controls/HeaderButton";
 const CHART_HEIGHT = 220;
 const MODAL_LIST_MAX = 220;
 const MODAL_PLOT_MIN = 200;
+const GRAPH_CARD_INSET = Space.sm;
 /** Skia explorer samples a 3x window at 3x density for mid-gesture runway. */
 const SKIA_SAMPLE_EXPAND = 3;
 const SKIA_SAMPLES = 480;
 
 // Skia stays out of the import graph unless a native graph actually renders
 // (Expo Go and stale clients keep the SVG compatibility path).
-const SkiaGraphExplorerLazy = lazy(() =>
-  import("@/components/rich/skia/SkiaGraphExplorer").then((m) => ({
-    default: m.SkiaGraphExplorer,
-  })),
-);
 const SkiaGraphCanvasLazy = lazy(() =>
   import("@/components/rich/skia/SkiaGraphExplorer").then((m) => ({
     default: m.SkiaGraphCanvas,
@@ -84,7 +81,9 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const [open, setOpen] = useState(false);
-  const [plotWidth, setPlotWidth] = useState(chartWidth);
+  const [plotWidth, setPlotWidth] = useState(
+    Math.max(1, chartWidth - GRAPH_CARD_INSET * 2),
+  );
   const closeModal = useCallback(() => setOpen(false), []);
   const cardClipId = useId().replace(/:/g, "");
   const modalClipId = useId().replace(/:/g, "");
@@ -133,7 +132,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
     (modalPlot.width - GRAPH_AXIS_PAD * 2) / (modalPlot.height - GRAPH_AXIS_PAD * 2 || 1);
   const modalInitialView = useMemo(() => defaultInteractiveBounds(modalAspect), [modalAspect]);
   const onCardLayout = (e: LayoutChangeEvent) => {
-    const w = Math.round(e.nativeEvent.layout.width);
+    const w = Math.round(e.nativeEvent.layout.width - GRAPH_CARD_INSET * 2);
     if (w > 0 && w !== plotWidth) setPlotWidth(w);
   };
   const onModalPlotLayout = (e: LayoutChangeEvent) => {
@@ -190,7 +189,11 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
     ) : null;
 
   return (
-    <View style={[styles.wrap, explorerStyles.card]} onLayout={onCardLayout}>
+    <View
+      style={[styles.wrap, explorerStyles.card]}
+      onLayout={onCardLayout}
+      testID="graph-card"
+    >
       {customTitle ? <Text style={styles.title}>{customTitle}</Text> : null}
       {isVerticalLine ? (
         <Text style={styles.title}>{formatGraphExpr(spec.title ?? spec.expr)}</Text>
@@ -330,17 +333,18 @@ function ExplorerModal({
       onRequestClose={onClose}
     >
       {open ? (
-        <GestureHandlerRootView style={styles.modalRoot}>
+        <GestureHandlerRootView style={styles.modalRoot} testID="graph-modal-backdrop">
           <KeyboardAvoidingView
             style={styles.modalRoot}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
             <Animated.View
+              testID="graph-modal-sheet"
               style={[
                 styles.modalSheet,
                 {
-                  backgroundColor: theme.bg,
-                  paddingTop: insets.top,
+                  backgroundColor: theme.elevated,
+                  marginTop: Math.max(insets.top, Space.sm),
                   paddingBottom: insets.bottom,
                 },
                 panStyle,
@@ -359,34 +363,40 @@ function ExplorerModal({
                 </View>
               </GestureDetector>
               {skia ? (
-                <View
-                  collapsable={false}
-                  pointerEvents="box-only"
-                  accessible
-                  accessibilityLabel={t("rich.graph_plot_a11y")}
-                  onLayout={onPlotLayout}
-                  style={styles.modalPlot}
-                >
-                  <Suspense
-                    fallback={
-                      <View style={styles.skiaLoading}>
-                        <ActivityIndicator color={theme.textSecondary} />
-                      </View>
-                    }
+                // Own the native touch surface here, just like the SVG
+                // fallback below. Keeping the detector inside a box-only
+                // parent made the parent swallow every pinch and pan.
+                <GestureDetector gesture={skiaViewport.gesture}>
+                  <View
+                    collapsable={false}
+                    pointerEvents="box-only"
+                    accessible
+                    accessibilityLabel={t("rich.graph_plot_a11y")}
+                    testID="graph-interaction-surface"
+                    onLayout={onPlotLayout}
+                    style={styles.modalPlot}
                   >
-                    <SkiaGraphExplorerLazy
-                      drawn={drawn}
-                      verticalX={verticalX}
-                      xName={spec.variable ?? "x"}
-                      yName="y"
-                      width={plot.width}
-                      height={plot.height}
-                      pad={GRAPH_AXIS_PAD}
-                      theme={theme}
-                      viewport={skiaViewport}
-                    />
-                  </Suspense>
-                </View>
+                    <Suspense
+                      fallback={
+                        <View style={styles.skiaLoading}>
+                          <ActivityIndicator color={theme.textSecondary} />
+                        </View>
+                      }
+                    >
+                      <SkiaGraphCanvasLazy
+                        drawn={drawn}
+                        verticalX={verticalX}
+                        xName={spec.variable ?? "x"}
+                        yName="y"
+                        width={plot.width}
+                        height={plot.height}
+                        pad={GRAPH_AXIS_PAD}
+                        theme={theme}
+                        viewport={skiaViewport}
+                      />
+                    </Suspense>
+                  </View>
+                </GestureDetector>
               ) : (
                 <GestureDetector gesture={gesture}>
                   <View
@@ -559,10 +569,18 @@ const makeExplorerStyles = (theme: Theme) =>
       alignSelf: "stretch",
       alignItems: "stretch",
       width: "100%",
+      padding: GRAPH_CARD_INSET,
+      borderRadius: Radius.xl,
+      backgroundColor: theme.elevated,
+      ...shadowRaised(theme),
     },
     plotPress: {
       position: "relative",
       alignSelf: "stretch",
+      borderWidth: 1,
+      borderColor: theme.isDark ? theme.border : theme.primaryLight,
+      borderRadius: Radius.md,
+      overflow: "hidden",
     },
     expandBadge: {
       position: "absolute",
@@ -579,21 +597,28 @@ const makeExplorerStyles = (theme: Theme) =>
     },
     modalRoot: {
       flex: 1,
+      backgroundColor: theme.scrim,
     },
     modalSheet: {
       flex: 1,
+      borderTopLeftRadius: Radius.sheet,
+      borderTopRightRadius: Radius.sheet,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      overflow: "hidden",
     },
     modalToolbar: {
       alignSelf: "stretch",
+      minHeight: 60,
     },
     handle: {
       alignSelf: "center",
-      width: 36,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: theme.border,
-      marginTop: Space.xs,
-      marginBottom: Space.xxs,
+      width: 48,
+      height: 5,
+      borderRadius: Radius.full,
+      backgroundColor: theme.textTertiary,
+      marginTop: Space.sm,
+      marginBottom: Space.xs,
     },
     closeBtn: {
       alignSelf: "flex-start",

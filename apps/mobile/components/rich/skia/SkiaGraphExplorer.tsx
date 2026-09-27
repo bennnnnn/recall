@@ -25,6 +25,7 @@ import type { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { selection } from "@/lib/haptics";
 import {
   axisTicksW,
+  dockAxisW,
   formatShortW,
   formatTickW,
   mapPointW,
@@ -161,6 +162,13 @@ function computeChrome(
   const grid = Skia.Path.Make();
   const axes = Skia.Path.Make();
   const origin = mapPointW(0, 0, b, width, height, pad);
+  const xOriginInView = b.xMin <= 0 && b.xMax >= 0;
+  const yOriginInView = b.yMin <= 0 && b.yMax >= 0;
+  const xTickLabelY = dockAxisW(
+    origin.py + 16,
+    pad + TICK_FONT_SIZE,
+    height - pad - 4,
+  );
 
   const xLabels: TickLabel[] = [];
   for (const n of axisTicksW(b.xMin, b.xMax)) {
@@ -170,7 +178,7 @@ function computeChrome(
     grid.lineTo(px, height - pad);
     if (xLabels.length < AXIS_SLOTS) {
       const text = formatTickW(n);
-      xLabels.push({ px: px - measure(text) / 2, py: origin.py + 16, text });
+      xLabels.push({ px: px - measure(text) / 2, py: xTickLabelY, text });
     }
   }
   const yLabels: TickLabel[] = [];
@@ -181,16 +189,25 @@ function computeChrome(
     grid.lineTo(width - pad, py);
     if (py >= pad + 12 && yLabels.length < AXIS_SLOTS) {
       const text = formatTickW(n);
-      yLabels.push({ px: Math.max(4, origin.px - 6 - measure(text)), py: py + 4, text });
+      const textWidth = measure(text);
+      yLabels.push({
+        px: dockAxisW(origin.px - 6 - textWidth, 4, width - textWidth - 4),
+        py: py + 4,
+        text,
+      });
     }
   }
 
-  axes.moveTo(origin.px, pad);
-  axes.lineTo(origin.px, height - pad);
-  axes.moveTo(pad, origin.py);
-  axes.lineTo(width - pad, origin.py);
+  if (xOriginInView) {
+    axes.moveTo(origin.px, pad);
+    axes.lineTo(origin.px, height - pad);
+  }
+  if (yOriginInView) {
+    axes.moveTo(pad, origin.py);
+    axes.lineTo(width - pad, origin.py);
+  }
 
-  const originInView = b.xMin <= 0 && b.xMax >= 0 && b.yMin <= 0 && b.yMax >= 0;
+  const originInView = xOriginInView && yOriginInView;
   return {
     grid,
     axes,
@@ -198,8 +215,14 @@ function computeChrome(
     yLabels,
     origin,
     originInView,
-    xNamePos: { px: width - pad, py: origin.py - 8 },
-    yNamePos: { px: Math.max(origin.px + 8, 4), py: pad + 4 },
+    xNamePos: {
+      px: width - pad,
+      py: dockAxisW(origin.py - 8, pad + TICK_FONT_SIZE, height - pad - 4),
+    },
+    yNamePos: {
+      px: dockAxisW(origin.px + 8, 4, width - pad - TICK_FONT_SIZE),
+      py: pad + 4,
+    },
   };
 }
 

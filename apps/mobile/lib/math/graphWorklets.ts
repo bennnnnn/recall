@@ -17,6 +17,13 @@ export type GraphViewW = {
 const MIN_SPAN_W = 0.002;
 const MAX_SPAN_W = 1e4;
 
+/** Keep axis chrome visible when panning moves the mathematical origin off-screen. */
+export function dockAxisW(value: number, low: number, high: number): number {
+  "worklet";
+  if (!Number.isFinite(value)) return low;
+  return Math.min(high, Math.max(low, value));
+}
+
 export function clampGraphViewW(view: GraphViewW): GraphViewW {
   "worklet";
   let { xMin, xMax, yMin, yMax } = view;

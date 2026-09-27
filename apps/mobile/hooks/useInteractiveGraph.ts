@@ -70,7 +70,9 @@ export function seedGraphSeries(
       id: String(i),
       expr: formatSeriesExpr(raw),
       visible: true,
-      locked: i === 0,
+      // Every server-seeded curve is part of the verified answer. Only rows
+      // created later through "Add function" are disposable overlays.
+      locked: true,
       seedExpr: formatSeriesExpr(raw),
       fallback: fallbacks[i],
     });
