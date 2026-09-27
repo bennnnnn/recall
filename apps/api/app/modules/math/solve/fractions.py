@@ -206,12 +206,16 @@ def build_fraction_work(intent: MathIntent) -> FractionWorkSpec | None:
             [
                 FractionStep(
                     kind="convert",
-                    explanation=(
-                        "Multiply the whole number by the denominator, then add the numerator."
-                    ),
-                    expression=rf"{whole}\times {denominator}+{numerator}",
+                    explanation="Multiply the whole number by the denominator.",
+                    expression=rf"{whole}\times {denominator}",
+                    result=str(whole * denominator),
+                ),
+                FractionStep(
+                    kind="convert",
+                    explanation=("Add the old numerator, then keep the original denominator."),
+                    expression=rf"\frac{{{whole * denominator}+{numerator}}}{{{denominator}}}",
                     result=rf"\frac{{{improper}}}{{{denominator}}}",
-                )
+                ),
             ],
             answer=rf"\frac{{{improper}}}{{{denominator}}}",
         )
@@ -231,12 +235,21 @@ def build_fraction_work(intent: MathIntent) -> FractionWorkSpec | None:
                 FractionStep(
                     kind="convert",
                     explanation=(
-                        "Divide the numerator by the denominator; the remainder becomes "
-                        "the new numerator."
+                        f"{denominator} goes into {numerator} exactly {whole} whole times, "
+                        f"with {remainder} left over."
                     ),
-                    expression=rf"{numerator}\div {denominator}",
-                    result=f"{whole} R{remainder}",
-                )
+                    expression=str(numerator),
+                    result=rf"{denominator}\times {whole}+{remainder}",
+                ),
+                FractionStep(
+                    kind="convert",
+                    explanation=(
+                        "Keep the quotient as the whole number and put the remainder over "
+                        "the original denominator."
+                    ),
+                    expression=rf"\frac{{{numerator}}}{{{denominator}}}",
+                    result=rf"{whole}+\frac{{{remainder}}}{{{denominator}}}",
+                ),
             ],
             answer=answer,
         )

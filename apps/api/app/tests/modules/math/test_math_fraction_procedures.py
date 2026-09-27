@@ -72,6 +72,27 @@ def test_complete_three_term_expression_is_not_mistaken_for_leftover_data() -> N
     assert "99" in intent.expr
 
 
+def test_improper_to_mixed_procedure_shows_the_complete_conversion() -> None:
+    spec = _work("Convert 29/4 to a mixed number and show the steps")
+
+    assert len(spec.steps) == 2
+    assert spec.steps[0].expression == "29"
+    assert spec.steps[0].result == r"4\times 7+1"
+    assert spec.steps[1].expression == r"\frac{29}{4}"
+    assert spec.steps[1].result == r"7+\frac{1}{4}"
+    assert spec.answer == r"7\frac{1}{4}"
+
+
+def test_mixed_to_improper_procedure_keeps_the_denominator_visible() -> None:
+    spec = _work("Convert 2 1/3 to an improper fraction and show the steps")
+
+    assert len(spec.steps) == 2
+    assert spec.steps[0].expression == r"2\times 3"
+    assert spec.steps[0].result == "6"
+    assert spec.steps[1].expression == r"\frac{6+1}{3}"
+    assert spec.steps[1].result == r"\frac{7}{3}"
+
+
 def test_fraction_direct_reply_and_fence_use_only_canonical_trace() -> None:
     question = "Show steps: 1/2 + 1/3"
     intent = extract_math_intent(question)
