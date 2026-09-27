@@ -77,6 +77,9 @@ _ANSWER_NOUNS = frozenset(
 _HINT_WORDS = frozenset({"hint", "nudge", "clue"})
 _CHECK_WORDS = frozenset({"check", "correct", "right", "mistake", "wrong", "grade", "mark"})
 _DETAIL_WORDS = frozenset({"detailed", "thorough", "fully", "complete", "comprehensive"})
+_SCHOOL_METHOD_WORDS = frozenset(
+    {"addition", "subtraction", "multiplication", "division", "regrouping"}
+)
 _REFERENTIAL_VOCAB = frozenset(
     {
         "a",
@@ -260,6 +263,13 @@ def classify_math_response_intent(text: str) -> MathResponseIntent:
         or "steps" in tokens
         or "working" in tokens
         or ("show" in tokens and "work" in tokens)
+        or (
+            any(word in tokens for word in _SCHOOL_METHOD_WORDS)
+            and (
+                any(cue in tokens for cue in ("show", "use", "using"))
+                or ("with" in tokens and "long" in tokens and "division" in tokens)
+            )
+        )
         or ("show" in tokens and set(tokens) <= _REFERENTIAL_VOCAB)
     ):
         mode = MathResponseMode.STEPS

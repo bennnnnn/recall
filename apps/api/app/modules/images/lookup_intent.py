@@ -120,6 +120,39 @@ _NON_IMAGE_WORDS = frozenset(
         "assignments",
         "step",
         "steps",
+        "math",
+        "maths",
+        "arithmetic",
+        "algebra",
+        "algebraic",
+        "calculus",
+        "addition",
+        "add",
+        "subtraction",
+        "subtract",
+        "multiplication",
+        "multiply",
+        "division",
+        "divide",
+        "sum",
+        "difference",
+        "product",
+        "quotient",
+        "remainder",
+        "divisor",
+        "dividend",
+        "fraction",
+        "fractions",
+        "numerator",
+        "denominator",
+        "polynomial",
+        "polynomials",
+        "inequality",
+        "inequalities",
+        "derivative",
+        "derivatives",
+        "integral",
+        "integrals",
         # How-to / listicle heads — "show me the stops of becoming smart"
         # (typo of steps) must not become a stock infographic.
         "stops",
@@ -227,6 +260,10 @@ def _fold_token(word: str) -> str:
 def _clean_subject(raw: str) -> str | None:
     subject = raw.strip().rstrip(".!?").strip()
     if not subject or len(subject) < 2:
+        return None
+    if any(symbol in subject for symbol in ("\u00d7", "\u00f7", "=", "^")) or any(
+        operator in subject for operator in (" + ", " - ", " / ", " * ", " \u2212 ")
+    ):
         return None
     words = subject.split()
     if not words or len(words) > _MAX_SUBJECT_WORDS:

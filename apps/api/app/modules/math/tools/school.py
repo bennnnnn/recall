@@ -1151,6 +1151,15 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
             extracted = _extract_arithmetic_intent(base)
             if extracted is not None and extracted.expr:
                 return extracted.model_copy(update={"school_op": "eval_exact_decimal"})
+    written = mtm.written_arithmetic_request(cleaned)
+    if written is not None:
+        left, right, operator, school_op = written
+        return MathIntent(
+            kind="arithmetic",
+            school_op=school_op,
+            expr=f"{left}{operator}{right}",
+            operation="solve",
+        )
     substituted = substituted_eval_expr(cleaned)
     if substituted is not None:
         return MathIntent(kind="arithmetic", school_op="eval", expr=substituted, operation="solve")
@@ -1448,6 +1457,33 @@ SCHOOL_EXTRACTORS: list[Callable[[str], MathIntent | None]] = [
 def _verified_block_arithmetic(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
+    if (
+        intent.school_op
+        in {
+            "column_addition",
+            "column_subtraction",
+            "column_multiplication",
+            "long_division",
+        }
+        and intent.expr
+    ):
+        from app.modules.math.solve.written_arithmetic import build_written_arithmetic
+
+        # ``intent.expr`` is the extractor-owned canonical expression. Prefix
+        # its ASCII slash with a calculation cue so the public grammar can
+        # keep rejecting ambiguous bare dates such as ``9/9``.
+        request = mtm.written_arithmetic_request(f"calculate {intent.expr}")
+        if request is not None:
+            left, right, _operator, school_op = request
+            work = build_written_arithmetic(left, right, school_op, intent.expr)
+            if work is not None:
+                lines.append(f"Verified {work.operation} procedure:")
+                lines.extend(work.explanations)
+                block = _finish_with_answer(lines, work.answer)
+                return replace(
+                    block,
+                    canonical_fences=[work.model_dump()],
+                )
     if (
         intent.school_op == "z_score"
         and intent.point_x is not None

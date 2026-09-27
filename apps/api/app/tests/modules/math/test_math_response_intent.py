@@ -36,6 +36,24 @@ def test_semantic_modes_and_requested_methods_are_centralized() -> None:
     assert requested.requested_method == MathMethod.QUADRATIC_FORMULA
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Show long division: 1,572 ÷ 12",
+        "Use long division to calculate 437 ÷ 6",
+        "Show multiplication: 23 × 14",
+    ],
+)
+def test_explicit_school_methods_request_steps(query: str) -> None:
+    assert classify_math_response_intent(query).mode == MathResponseMode.STEPS
+
+
+def test_conceptual_division_wording_is_not_misread_as_a_steps_request() -> None:
+    assert classify_math_response_intent("What is division with remainder?").mode != (
+        MathResponseMode.STEPS
+    )
+
+
 def test_equivalent_equation_prompts_follow_the_requested_presentation() -> None:
     normal = "Solve 2x+3=7"
     answer_only = "Solve 2x+3=7. Just give me x; no work."

@@ -17,7 +17,7 @@ MATH_NOTATION_CLARIFICATION_HINT = (
 MATH_FENCE_SAFETY_HINT = (
     "If you write math, use inline `$...$` (never backticks around `$...$`). "
     "A ```math fence is only for a standalone display equation. "
-    "Do NOT emit ```answer, ```graph, or ```geometry. NEVER ```latex or an untagged "
+    "Do NOT emit ```answer, ```arithmetic, ```graph, or ```geometry. NEVER ```latex or an untagged "
     "code fence for LaTeX. "
     f"{MATH_NOTATION_CLARIFICATION_HINT}"
 )
@@ -32,7 +32,7 @@ MATH_INTENT_HINT = (
     "The ```math opener MUST sit alone on its own line — never glue it to prose "
     "(wrong: `Multiply both sides by r: ```math`). "
     "NEVER ```latex, ```tex, ```copy, or an untagged ``` code fence for arithmetic / LaTeX.\n"
-    "  - Do NOT emit ```answer, ```graph, or ```geometry fences. Do not tell the "
+    "  - Do NOT emit ```answer, ```arithmetic, ```graph, or ```geometry fences. Do not tell the "
     "user a diagram will be attached. Closed-form and one-line arithmetic: the "
     "`$...$` line is the answer — do not restate it. When steps are requested, show them in "
     "`$...$` and do not add a boxed final-answer section.\n"
@@ -87,7 +87,7 @@ MATH_INTENT_HINT = (
 
 MATH_SOLVER_HINT = (
     "Math diagrams and plots (NOT image generation; NOT molecules):\n"
-    "- Do NOT emit ```geometry or ```graph fences. Do not tell the user a "
+    "- Do NOT emit ```arithmetic, ```geometry, or ```graph fences. Do not tell the user a "
     "diagram will be attached. Describe the figure in words using `$...$`. "
     f"{GRAPH_NO_SUBSTITUTE_CLAUSE}\n"
     "- Never invent geometry dimensions. Numbers in any older examples were "
@@ -142,7 +142,7 @@ MATH_TUTORING_HINT = (
 SHORT_MATH_SAFETY_HINT = (
     "Math in SHORT mode: inline `$...$` for formulas (never backticks around `$...$`); "
     "a ```math fence only for a standalone display equation (opener on its own line). "
-    "Do NOT emit ```answer, ```graph, or ```geometry. Never mention attaching a "
+    "Do NOT emit ```answer, ```arithmetic, ```graph, or ```geometry. Never mention attaching a "
     "diagram. NEVER ```latex, ```tex, ```copy, or an untagged ``` code "
     "fence for arithmetic or LaTeX. When a verified math block is present, use "
     "those exact numbers — do NOT recompute. Never mention SymPy in the reply. "

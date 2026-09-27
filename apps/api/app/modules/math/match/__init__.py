@@ -61,6 +61,7 @@ from app.modules.math.match.scan import (
     number_after,
     prepare,
     two_numbers_after,
+    written_arithmetic_request,
 )
 from app.modules.math.match.types import (
     CombinatoricsOp,
@@ -111,4 +112,5 @@ __all__ = [
     "triangle_sides_signal",
     "two_numbers_after",
     "vertical_line_x",
+    "written_arithmetic_request",
 ]

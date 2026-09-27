@@ -40,6 +40,7 @@ from app.modules.math.match.scan import (
     number_after,
     prepare,
     two_numbers_after,
+    written_arithmetic_request,
 )
 from app.modules.math.match.statistics import bivariate_stats_signal
 from app.services.text_match import has_equation, word_index
@@ -112,6 +113,8 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # ``8-8*2`` as a rectangle size, extract returned None, and the reply
     # stamped *Couldn't verify this with SymPy.* under a correct -8.
     if bare_arithmetic_expr(cleaned) is not None:
+        return True
+    if written_arithmetic_request(cleaned) is not None:
         return True
     if "=" in cleaned:
         from app.modules.math.tools.helpers import substituted_eval_expr
@@ -479,6 +482,8 @@ def school_homework_cue(cleaned: str) -> bool:
     if "modulus" in lower or "imaginary" in lower or "complex number" in lower:
         return True
     if bare_arithmetic_expr(cleaned) is not None:
+        return True
+    if written_arithmetic_request(cleaned) is not None:
         return True
     has_trig_call = any(f"{fn}(" in lower or f"{fn} " in lower for fn in ("sin", "cos", "tan"))
     if has_trig_call and ("\u00b0" in cleaned or any(ch.isdigit() for ch in cleaned)):

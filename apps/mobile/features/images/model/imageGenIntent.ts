@@ -60,6 +60,7 @@ const NOT_REVISION_STARTERS = new Set([
   "will",
   "am",
   "help",
+  "show",
   "tell",
   "explain",
   "write",

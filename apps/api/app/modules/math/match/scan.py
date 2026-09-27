@@ -621,6 +621,100 @@ def bare_arithmetic_expr(text: str) -> str | None:
     return collapse_ws(_to_ascii_arith(normalized))
 
 
+_WRITTEN_OPERATOR_ALIASES = (
+    ("multiplied by", "*"),
+    ("divided by", "/"),
+    ("times", "*"),
+    ("plus", "+"),
+    ("minus", "-"),
+    ("\u00d7", "*"),
+    ("\u00f7", "/"),
+    ("*", "*"),
+    ("/", "/"),
+    ("+", "+"),
+    ("-", "-"),
+)
+_WRITTEN_SCHOOL_OP = {
+    "+": "column_addition",
+    "-": "column_subtraction",
+    "*": "column_multiplication",
+    "/": "long_division",
+}
+
+
+def _school_number(token: str) -> str | None:
+    value = token.strip()
+    if not value or any(not (ch.isascii() and (ch.isdigit() or ch in ",.")) for ch in value):
+        return None
+    if value.count(".") > 1:
+        return None
+    whole, dot, fraction = value.partition(".")
+    if dot and (not fraction or not fraction.isdigit()):
+        return None
+    if "," in whole:
+        groups = whole.split(",")
+        if not groups[0].isdigit() or not 1 <= len(groups[0]) <= 3:
+            return None
+        if any(len(group) != 3 or not group.isdigit() for group in groups[1:]):
+            return None
+        whole = "".join(groups)
+    elif not whole.isdigit():
+        return None
+    return whole + (f".{fraction}" if dot else "")
+
+
+def written_arithmetic_request(text: str) -> tuple[str, str, str, str] | None:
+    """Return ``(left, right, operator, school_op)`` for one closed school sum.
+
+    This is deliberately narrower than the general calculator grammar. It
+    accepts two non-negative literals and one operation, including grouping
+    commas and common spoken operators, while rejecting every leftover word.
+    """
+    if not text or len(text) > _MAX:
+        return None
+    from app.modules.math.response_intent import strip_math_response_wrappers
+
+    value = collapse_ws(strip_math_response_wrappers(text)).strip(" :?.!").lower()
+    for filler in ("for ", "of ", "me "):
+        if value.startswith(filler):
+            value = value[len(filler) :].lstrip()
+            break
+    value, had_cue = _strip_arith_cues(value)
+    had_long_division_cue = "long division" in value
+    for phrase in (
+        "using long division to",
+        "use long division to",
+        "show long division",
+        "using long division",
+        "use long division",
+        "with long division",
+    ):
+        value = collapse_ws(value.replace(phrase, " ")).strip(" :?.!")
+    found: tuple[str, str] | None = None
+    for alias, operator in _WRITTEN_OPERATOR_ALIASES:
+        index = value.find(alias)
+        if index < 0:
+            continue
+        if value.find(alias, index + len(alias)) >= 0:
+            return None
+        if found is not None:
+            return None
+        found = (alias, operator)
+    if found is None:
+        return None
+    alias, operator = found
+    left_raw, right_raw = value.split(alias, 1)
+    left, right = _school_number(left_raw), _school_number(right_raw)
+    if left is None or right is None:
+        return None
+    compact = f"{left}{operator}{right}"
+    if alias == "/" and not (had_cue or had_long_division_cue):
+        return None
+    if alias == "-" and not had_cue and _looks_like_date_or_phone(compact):
+        return None
+    return left, right, operator, _WRITTEN_SCHOOL_OP[operator]
+
+
 def geometry_dim_context(lower: str) -> bool:
     """Shape / diagonal words that geometry extractors actually require.
 

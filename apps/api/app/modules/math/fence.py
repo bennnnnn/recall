@@ -1,4 +1,4 @@
-"""Validate geometry/graph/answer fences in assistant output.
+"""Validate solver-owned answer, arithmetic, geometry, and graph fences.
 
 The model is asked to explain in Markdown + ``$...$``. Recall attaches
 solver-owned `` ```answer `` / `` ```graph `` / `` ```geometry `` after the
@@ -61,12 +61,14 @@ _MIN_CURVE_POINTS = 48
 _MAX_ANSWER_FENCES = 4
 _MAX_GEOMETRY_FENCES = 4
 _MAX_GRAPH_FENCES = 2
+_MAX_ARITHMETIC_FENCES = 1
 # One scene per answer. Unlike geometry, there is no question whose answer is
 # two animations.
 _MAX_SIMULATION_FENCES = 1
 _ANSWER_FENCE_LANGS = ("answer", "result", "final")
 _CHART_ALIAS_LANGS = ("chart", "vega", "vega-lite", "plot")
 _DIAGRAM_FAIL_NOTE = "\n*Could not render that diagram.*\n"
+_WORKING_FAIL_NOTE = "\n*Could not render that written working.*\n"
 
 _GEOMETRY_TYPES = frozenset(
     {
@@ -389,7 +391,7 @@ def _replace_fence(
     *,
     densify: bool = True,
 ) -> str:
-    """Replace a model geometry/graph fence with the canonical JSON, or strip it.
+    """Replace a model solver-owned fence with canonical JSON, or strip it.
 
     Schema-valid invented numbers must not ship. There is no pass-through
     path for unmatched fences.
@@ -397,7 +399,7 @@ def _replace_fence(
     raw = raw.strip()
     corrected = _canonical_replacement(raw, canonical_fence, canonical_fences)
     if corrected is None:
-        return _DIAGRAM_FAIL_NOTE
+        return _WORKING_FAIL_NOTE if label == "arithmetic" else _DIAGRAM_FAIL_NOTE
     if label != "graph":
         return f"```{label}\n{corrected}\n```"
     # Densify only the verified canonical curve — never an unverified
@@ -438,6 +440,8 @@ def _spec_fence_kind(spec: dict[str, object]) -> str | None:
     spec_type = spec.get("type")
     if spec_type == "answer":
         return "answer"
+    if spec_type == "arithmetic":
+        return "arithmetic"
     # Checked before the key heuristics below, and that ordering is
     # load-bearing: a scene carries `x_min` too, so the "looks like a graph"
     # fallback would claim it and render a projectile as an empty pair of axes.
@@ -773,6 +777,17 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     scene = next((spec for spec in specs if _spec_fence_kind(spec) == "simulation"), None)
     if scene is not None and not has_closed_fence(content, "simulation"):
         extras.append(_markdown_fence("simulation", json.dumps(scene, separators=(",", ":"))))
+    show_working = bool(
+        verified.response_intent is not None
+        and verified.response_intent.reveal_answer
+        and verified.response_intent.wants_explanation
+    )
+    arithmetic = next((spec for spec in specs if _spec_fence_kind(spec) == "arithmetic"), None)
+    if show_working and arithmetic is not None and not has_closed_fence(content, "arithmetic"):
+        extras.insert(
+            0,
+            _markdown_fence("arithmetic", json.dumps(arithmetic, separators=(",", ":"))),
+        )
 
     if not extras:
         return content
@@ -877,7 +892,7 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     if answer_only:
         # “Answer only” means exactly that: do not let a canonical number line,
         # graph, geometry card, or model-authored diagram trail the result.
-        for lang in ("graph", "geometry", "simulation", *_CHART_ALIAS_LANGS):
+        for lang in ("arithmetic", "graph", "geometry", "simulation", *_CHART_ALIAS_LANGS):
             content = strip_closed_fences(content, lang)
     # Models sometimes emit a tool call as text (!function_call:{...}) instead
     # of the structured tool_calls API — strip it so unverified graph JSON
@@ -890,6 +905,25 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
             lambda body: "" if withhold_answer else _replace_answer_fence(body, answer_body),
             max_count=_MAX_ANSWER_FENCES,
         )
+    content = map_closed_fences(
+        content,
+        "arithmetic",
+        lambda body: (
+            _replace_fence(
+                body,
+                "arithmetic",
+                canonical_fence,
+                canonical_fences,
+            )
+            if verified is not None
+            and verified.response_intent is not None
+            and verified.response_intent.reveal_answer
+            and verified.response_intent.wants_explanation
+            else ""
+        ),
+        max_count=_MAX_ARITHMETIC_FENCES,
+        leftover=lambda _body: _WORKING_FAIL_NOTE,
+    )
     content = map_closed_fences(
         content,
         "geometry",
@@ -950,6 +984,7 @@ _FENCE_VALIDATE_MARKERS = (
     "```final",
     "```graph",
     "```geometry",
+    "```arithmetic",
     "```math",
 )
 

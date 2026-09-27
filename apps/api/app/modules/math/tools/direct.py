@@ -770,6 +770,7 @@ def can_direct_verified_math_reply(
     *,
     has_image_attachment: bool = False,
     response_style: str = "balanced",
+    verified_request_text: str | None = None,
 ) -> bool:
     """Skip the LLM for a short closed answer or an explicit verified function plot.
 
@@ -787,6 +788,15 @@ def can_direct_verified_math_reply(
         return False
     if _nonmeasurement_geometry_reply(verified, user_text) is not None:
         return True
+    from app.modules.math.tools.direct_arithmetic import (
+        arithmetic_work_spec,
+        can_direct_written_arithmetic,
+    )
+
+    written_arithmetic = arithmetic_work_spec(verified)
+    if written_arithmetic is not None:
+        guard_text = verified_request_text or user_text
+        return can_direct_written_arithmetic(verified, guard_text, written_arithmetic)
     lesson = should_render_equation_lesson(verified, user_text, response_style)
     if wants_math_explanation(user_text) and not lesson:
         return False
@@ -899,6 +909,14 @@ def can_direct_verified_math_reply(
 
 def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -> str:
     """Display a verified value, diagram, or the missing scale for an AAA request."""
+    from app.modules.math.tools.direct_arithmetic import (
+        arithmetic_work_spec,
+        format_direct_written_arithmetic,
+    )
+
+    written_arithmetic = arithmetic_work_spec(verified)
+    if written_arithmetic is not None:
+        return format_direct_written_arithmetic(written_arithmetic, user_text)
     geometry_reply = _nonmeasurement_geometry_reply(verified, user_text)
     if geometry_reply is not None:
         return geometry_reply
@@ -998,6 +1016,7 @@ def maybe_direct_math_reply(
     *,
     has_image_attachment: bool = False,
     response_style: str = "balanced",
+    verified_request_text: str | None = None,
 ) -> str | None:
     if verified is None:
         return None
@@ -1046,6 +1065,7 @@ def maybe_direct_math_reply(
         user_text,
         has_image_attachment=has_image_attachment,
         response_style=response_style,
+        verified_request_text=verified_request_text,
     ):
         return None
     if response_intent.mode == MathResponseMode.ANSWER_ONLY and verified.canonical_answer:

@@ -1,0 +1,194 @@
+import { render } from "@testing-library/react-native";
+
+import { ArithmeticWorkBlock } from "@/components/rich/ArithmeticWorkBlock";
+
+const BASE = {
+  type: "arithmetic",
+  expression: "",
+  decimal_places: 0,
+  addition_columns: [],
+  subtraction_columns: [],
+  regrouped_minuend: [],
+  partial_products: [],
+  quotient: null,
+  remainder: null,
+  division_steps: [],
+  explanations: ["Verified working."],
+};
+
+describe("ArithmeticWorkBlock", () => {
+  it("renders aligned addition, its carry row, and the verified answer", async () => {
+    const content = JSON.stringify({
+      ...BASE,
+      operation: "addition",
+      operator: "+",
+      expression: "478 + 356",
+      operands: ["478", "356"],
+      working_operands: ["478", "356"],
+      answer: "834",
+      addition_columns: [
+        {
+          position: 0,
+          place: "ones",
+          addends: [8, 6],
+          carry_in: 0,
+          result_digit: 4,
+          carry_out: 1,
+        },
+      ],
+    });
+    const { getByTestId, getByText } = await render(
+      <ArithmeticWorkBlock content={content} />,
+    );
+
+    expect(getByTestId("arithmetic-annotation-row")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-top-row")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-bottom-row")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-result-row")).toBeOnTheScreen();
+    expect(getByText("Verified working.")).toBeOnTheScreen();
+  });
+
+  it("renders long division in a dedicated bracket layout", async () => {
+    const content = JSON.stringify({
+      ...BASE,
+      operation: "division",
+      operator: "÷",
+      expression: "437 / 6",
+      operands: ["437", "6"],
+      working_operands: ["437", "6"],
+      answer: "72\\text{ remainder }5",
+      quotient: "72",
+      remainder: "5",
+      division_steps: [
+        {
+          index: 0,
+          column_end: 1,
+          partial_dividend: "43",
+          quotient_digit: 7,
+          product: "42",
+          remainder: "1",
+          bring_down: 7,
+          next_partial: "17",
+        },
+      ],
+    });
+    const { getByTestId } = await render(
+      <ArithmeticWorkBlock content={content} />,
+    );
+
+    expect(getByTestId("arithmetic-division-layout")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-quotient").props.accessibilityLabel).toBe("72");
+    expect(getByTestId("arithmetic-dividend").props.accessibilityLabel).toBe("437");
+    expect(getByTestId("arithmetic-division-step-0")).toBeOnTheScreen();
+    expect(
+      getByTestId("arithmetic-division-product-0").props.accessibilityLabel,
+    ).toBe("42");
+  });
+
+  it("renders multiplication carries above the partial products", async () => {
+    const content = JSON.stringify({
+      ...BASE,
+      operation: "multiplication",
+      operator: "×",
+      expression: "23 * 14",
+      operands: ["23", "14"],
+      working_operands: ["23", "14"],
+      answer: "322",
+      partial_products: [
+        {
+          position: 0,
+          place: "ones",
+          multiplier_digit: 4,
+          unshifted_product: "92",
+          shifted_product: "92",
+          columns: [
+            {
+              position: 0,
+              place: "ones",
+              multiplicand_digit: 3,
+              carry_in: 0,
+              result_digit: 2,
+              carry_out: 1,
+            },
+            {
+              position: 1,
+              place: "tens",
+              multiplicand_digit: 2,
+              carry_in: 1,
+              result_digit: 9,
+              carry_out: 0,
+            },
+          ],
+        },
+        {
+          position: 1,
+          place: "tens",
+          multiplier_digit: 1,
+          unshifted_product: "23",
+          shifted_product: "230",
+          columns: [
+            {
+              position: 0,
+              place: "ones",
+              multiplicand_digit: 3,
+              carry_in: 0,
+              result_digit: 3,
+              carry_out: 0,
+            },
+          ],
+        },
+      ],
+    });
+    const { getByTestId } = await render(<ArithmeticWorkBlock content={content} />);
+
+    expect(getByTestId("arithmetic-multiplication-carries")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-result-row")).toBeOnTheScreen();
+  });
+
+  it("keeps placeholder zeros inside decimal long division", async () => {
+    const content = JSON.stringify({
+      ...BASE,
+      operation: "division",
+      operator: "÷",
+      expression: "1.0 / 4",
+      operands: ["1.0", "4"],
+      working_operands: ["1.00", "4"],
+      answer: "0.25",
+      decimal_places: 2,
+      quotient: "0.25",
+      remainder: "0",
+      division_steps: [
+        {
+          index: 0,
+          column_end: 1,
+          partial_dividend: "10",
+          quotient_digit: 2,
+          product: "8",
+          remainder: "2",
+          bring_down: 0,
+          next_partial: "20",
+        },
+        {
+          index: 1,
+          column_end: 2,
+          partial_dividend: "20",
+          quotient_digit: 5,
+          product: "20",
+          remainder: "0",
+          bring_down: null,
+          next_partial: null,
+        },
+      ],
+    });
+    const { getByTestId } = await render(<ArithmeticWorkBlock content={content} />);
+
+    expect(getByTestId("arithmetic-dividend").props.accessibilityLabel).toBe("1.00");
+    expect(getByTestId("arithmetic-quotient").props.accessibilityLabel).toBe("0.25");
+    expect(getByTestId("arithmetic-division-step-1")).toBeOnTheScreen();
+  });
+
+  it("renders nothing when the server trace is invalid", async () => {
+    const { toJSON } = await render(<ArithmeticWorkBlock content="not json" />);
+    expect(toJSON()).toBeNull();
+  });
+});

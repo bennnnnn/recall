@@ -6,6 +6,7 @@ import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
 import { parsePlacesJson } from "@/lib/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
+import { ArithmeticWorkBlock } from "@/components/rich/ArithmeticWorkBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
 import { EmailCard } from "@/features/integrations/components/EmailCard";
@@ -73,6 +74,8 @@ export function renderRichFenceById(
       return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
     case "answer":
       return <AnswerBlock key={key} content={content} />;
+    case "arithmetic":
+      return <ArithmeticWorkBlock key={key} content={content} />;
     case "geometry":
       return <LazyGeometryBlock key={key} content={content} />;
     case "graph":

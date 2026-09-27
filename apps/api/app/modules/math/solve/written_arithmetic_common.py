@@ -1,0 +1,51 @@
+"""Bounded exact-number helpers shared by written arithmetic algorithms."""
+
+from __future__ import annotations
+
+from decimal import Decimal, InvalidOperation
+
+MAX_DIGITS = 12
+MAX_DECIMAL_PLACES = 6
+WHOLE_PLACES = ("ones", "tens", "hundreds", "thousands", "ten-thousands")
+DECIMAL_PLACES = ("tenths", "hundredths", "thousandths", "ten-thousandths")
+
+
+def place_name(position: int, scale: int) -> str:
+    power = position - scale
+    if power >= 0:
+        return WHOLE_PLACES[power] if power < len(WHOLE_PLACES) else f"10^{power} place"
+    decimal_index = -power - 1
+    return (
+        DECIMAL_PLACES[decimal_index]
+        if decimal_index < len(DECIMAL_PLACES)
+        else f"10^{power} place"
+    )
+
+
+def number_parts(token: str) -> tuple[Decimal, int] | None:
+    raw = token.replace(",", "")
+    if not raw or raw.startswith(("+", "-")):
+        return None
+    try:
+        value = Decimal(raw)
+    except InvalidOperation:
+        return None
+    if not value.is_finite():
+        return None
+    digits = raw.replace(".", "").lstrip("0") or "0"
+    scale = len(raw.partition(".")[2]) if "." in raw else 0
+    if len(digits) > MAX_DIGITS or scale > MAX_DECIMAL_PLACES:
+        return None
+    return value, scale
+
+
+def scaled_integer(value: Decimal, scale: int) -> int:
+    return int(value.scaleb(scale).to_integral_exact())
+
+
+def format_scaled(value: int, scale: int) -> str:
+    if scale == 0:
+        return str(value)
+    sign = "-" if value < 0 else ""
+    digits = str(abs(value)).zfill(scale + 1)
+    return f"{sign}{digits[:-scale]}.{digits[-scale:]}"

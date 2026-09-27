@@ -15,6 +15,14 @@ from app.models.schemas.math.algebra import (
     NewtonMethodResult,
     SystemOfEquationsInput,
 )
+from app.models.schemas.math.arithmetic import (
+    AdditionColumn,
+    ArithmeticWorkSpec,
+    LongDivisionStep,
+    MultiplicationColumn,
+    PartialProduct,
+    SubtractionColumn,
+)
 from app.models.schemas.math.discrete import (
     CombinatoricsInput,
     CombinatoricsResult,
@@ -70,6 +78,8 @@ from app.models.schemas.math.word_problem import (
 )
 
 __all__ = [
+    "AdditionColumn",
+    "ArithmeticWorkSpec",
     "CircleGeometryBlockSpec",
     "CircleGeometryInput",
     "CircleGeometryResult",
@@ -80,6 +90,7 @@ __all__ = [
     "GraphBlockSpec",
     "GraphSampleInput",
     "GraphSampleResult",
+    "LongDivisionStep",
     "MathExprResult",
     "MathImageExtract",
     "MathIntent",
@@ -89,6 +100,7 @@ __all__ = [
     "MathSystemSolveResult",
     "MatrixInput",
     "MatrixResult",
+    "MultiplicationColumn",
     "NewtonIterationStep",
     "NewtonMethodInput",
     "NewtonMethodResult",
@@ -98,6 +110,7 @@ __all__ = [
     "ParallelogramGeometryBlockSpec",
     "ParallelogramInput",
     "ParallelogramResult",
+    "PartialProduct",
     "RectangleGeometryInput",
     "RectangleGeometryResult",
     "RightTriangleGeometryBlockSpec",
@@ -112,6 +125,7 @@ __all__ = [
     "SquareGeometryResult",
     "StatisticsInput",
     "StatisticsResult",
+    "SubtractionColumn",
     "SystemOfEquationsInput",
     "TrapezoidGeometryBlockSpec",
     "TrapezoidInput",

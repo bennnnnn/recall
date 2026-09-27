@@ -707,6 +707,7 @@ async def build_stream_prompt_context(
             content,
             has_image_attachment=has_image_attachment,
             response_style=getattr(user, "response_style", None) or "balanced",
+            verified_request_text=math_followup_problem,
         )
     if instant_reply is None and verified_chemistry is not None:
         from app.modules.chemistry.direct import maybe_direct_chemistry_reply

@@ -170,6 +170,17 @@ describe("image revision follow-ups", () => {
     ).toBeNull();
   });
 
+  it("does not steal show-style math requests after an image reply", () => {
+    const context = {
+      lastAssistantIsImageOnly: true,
+      previousSubject: "black cat",
+    };
+
+    expect(extractImageRevisionPrompt("Show long division: 1,572 ÷ 12", context)).toBeNull();
+    expect(extractImageRevisionPrompt("Show every step for 503 - 278", context)).toBeNull();
+    expect(extractImageRevisionPrompt("Show steps: 23 × 14", context)).toBeNull();
+  });
+
   it("imageGenRevisionContext finds the prior subject", () => {
     expect(
       imageGenRevisionContext([
