@@ -336,9 +336,13 @@ function ExplorerModal({
       onRequestClose={onClose}
     >
       {open ? (
-        <GestureHandlerRootView style={styles.modalRoot} testID="graph-modal-backdrop">
+        <GestureHandlerRootView
+          style={[styles.modalRoot, styles.modalBackdrop]}
+          testID="graph-modal-backdrop"
+        >
           <KeyboardAvoidingView
             style={styles.modalRoot}
+            testID="graph-modal-keyboard-host"
             behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
             <Animated.View
@@ -594,6 +598,8 @@ const makeExplorerStyles = (theme: Theme) =>
     },
     modalRoot: {
       flex: 1,
+    },
+    modalBackdrop: {
       backgroundColor: theme.scrim,
     },
     modalSheet: {

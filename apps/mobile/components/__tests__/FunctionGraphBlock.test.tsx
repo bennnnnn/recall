@@ -372,11 +372,15 @@ describe("FunctionGraphBlock", () => {
     expect(getByTestId("graph-sheet-handle")).toBeOnTheScreen();
     expect(getByTestId("graph-close")).toBeOnTheScreen();
     const backdrop = StyleSheet.flatten(getByTestId("graph-modal-backdrop").props.style);
+    const keyboardHost = StyleSheet.flatten(
+      getByTestId("graph-modal-keyboard-host").props.style,
+    );
     const sheet = StyleSheet.flatten(getByTestId("graph-modal-sheet").props.style);
     const handle = StyleSheet.flatten(
       getByTestId("graph-sheet-handle").children[0].props.style,
     );
     expect(backdrop.backgroundColor).toBe("rgba(0,0,0,0.40)");
+    expect(keyboardHost.backgroundColor).toBeUndefined();
     expect(sheet.marginTop).toBeGreaterThan(0);
     expect(sheet.borderTopLeftRadius).toBeGreaterThanOrEqual(24);
     expect(sheet.borderTopRightRadius).toBeGreaterThanOrEqual(24);

@@ -122,6 +122,29 @@ _GRAPH_INTERACTION_ACTIONS = frozenset(
         "zoomable",
     }
 )
+_GRAPH_INTERACTION_AFFORDANCES = frozenset(
+    {
+        "controls",
+        "draggable",
+        "explorable",
+        "interactive",
+        "interactively",
+        "movable",
+        "pannable",
+        "pinch",
+        "pinchable",
+        "zoomable",
+    }
+)
+
+
+def _requests_graph_interaction(words: list[str]) -> bool:
+    word_set = set(words)
+    has_action = bool(word_set & _GRAPH_INTERACTION_ACTIONS)
+    has_user_agency = (
+        {"let", "me"} <= word_set or {"can", "i"} <= word_set or {"able", "to"} <= word_set
+    )
+    return has_action and bool(word_set & _GRAPH_INTERACTION_AFFORDANCES or has_user_agency)
 
 
 def _strip_graph_interaction_tail(request: str) -> str:
@@ -148,11 +171,7 @@ def _strip_graph_interaction_tail(request: str) -> str:
         if any(not (char.isascii() and (char.isalpha() or char.isspace())) for char in tail):
             continue
         words = tail.split()
-        if (
-            words
-            and set(words) <= _GRAPH_INTERACTION_WORDS
-            and set(words) & _GRAPH_INTERACTION_ACTIONS
-        ):
+        if words and set(words) <= _GRAPH_INTERACTION_WORDS and _requests_graph_interaction(words):
             return clean[:index].rstrip()
     return clean
 
