@@ -6,6 +6,7 @@ import {
   COMPOSER_INPUT_MIN_HEIGHT,
   composerGapFadeHeight,
   composerInputFrameHeight,
+  composerInputMetrics,
   composerInputTextBoxHeight,
   composerSoftWrapLineCount,
   retainedComposerContentHeight,
@@ -66,6 +67,43 @@ describe("composerInputFrameHeight", () => {
       COMPOSER_INPUT_LINE_HEIGHT * 6,
     );
     expect(composerInputTextBoxHeight(112)).toBe(112);
+  });
+
+  it("scales the field with the system text size", () => {
+    // The default size keeps the fixed field.
+    expect(composerInputMetrics(1)).toEqual({
+      line: COMPOSER_INPUT_LINE_HEIGHT,
+      min: COMPOSER_INPUT_MIN_HEIGHT,
+      max: COMPOSER_INPUT_MAX_HEIGHT,
+      slack: COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT,
+    });
+    // 1.5x: a 36 pt line still fits the 44 pt buttons, 4 pt above and below.
+    expect(composerInputMetrics(1.5)).toEqual({ line: 36, min: 44, max: 224, slack: 8 });
+    expect(composerInputFrameHeight("", 0, 0, 1.5).height).toBe(44);
+    expect(composerInputTextBoxHeight(44, 1.5)).toBe(36);
+    expect(composerInputFrameHeight("\n", 0, 0, 1.5).height).toBe(80);
+    expect(composerInputTextBoxHeight(80, 1.5)).toBe(72);
+    // 2x: one line is taller than the buttons.
+    expect(composerInputFrameHeight("", 0, 0, 2).height).toBe(48);
+    expect(composerInputTextBoxHeight(48, 2)).toBe(48);
+    expect(composerInputTextBoxHeight(96, 2)).toBe(96);
+    // Fractional lines (iOS XXXL) still land on the line grid.
+    const xxxl = composerInputMetrics(1.353);
+    expect(composerInputTextBoxHeight(xxxl.min + xxxl.line * 2, 1.353)).toBeCloseTo(
+      xxxl.line * 3,
+    );
+    // Accessibility sizes stop growing sooner, so the field stays on screen.
+    expect(composerInputMetrics(3.5).max).toBeLessThanOrEqual(240);
+    expect(composerInputFrameHeight("line\n".repeat(12), 0, 0, 3.5)).toEqual({
+      height: composerInputMetrics(3.5).max,
+      overflows: true,
+    });
+  });
+
+  it("wraps sooner at a larger text size", () => {
+    expect(composerSoftWrapLineCount("a".repeat(20), 200)).toBe(1);
+    expect(composerSoftWrapLineCount("a".repeat(20), 200, 1.5)).toBe(2);
+    expect(composerInputFrameHeight("a".repeat(20), 0, 200, 1.5).height).toBe(80);
   });
 
   it("covers the home-indicator gap under the pill", () => {
