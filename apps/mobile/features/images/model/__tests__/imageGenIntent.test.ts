@@ -181,6 +181,23 @@ describe("image revision follow-ups", () => {
     expect(extractImageRevisionPrompt("Show steps: 23 × 14", context)).toBeNull();
   });
 
+  it("preserves show-style image revisions after an image reply", () => {
+    const context = {
+      lastAssistantIsImageOnly: true,
+      previousSubject: "black cat",
+    };
+
+    expect(extractImageRevisionPrompt("Show it at night", context)).toBe(
+      "black cat, Show it at night",
+    );
+    expect(extractImageRevisionPrompt("Show more sky", context)).toBe(
+      "black cat, Show more sky",
+    );
+    expect(extractImageRevisionPrompt("Show the car in blue", context)).toBe(
+      "black cat, Show the car in blue",
+    );
+  });
+
   it("imageGenRevisionContext finds the prior subject", () => {
     expect(
       imageGenRevisionContext([

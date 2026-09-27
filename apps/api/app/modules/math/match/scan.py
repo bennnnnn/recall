@@ -652,6 +652,9 @@ def bare_arithmetic_expr(text: str) -> str | None:
 _WRITTEN_OPERATOR_ALIASES = (
     ("multiplied by", "*"),
     ("divided by", "/"),
+    ("devided by", "/"),
+    ("divide by", "/"),
+    ("devide by", "/"),
     ("times", "*"),
     ("plus", "+"),
     ("minus", "-"),

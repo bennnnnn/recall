@@ -42,6 +42,7 @@ describe("ArithmeticWorkBlock", () => {
     );
 
     expect(getByTestId("arithmetic-annotation-row")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-annotation-row").props.accessibilityLabel).toBe("1");
     expect(getByTestId("arithmetic-top-row")).toBeOnTheScreen();
     expect(getByTestId("arithmetic-bottom-row")).toBeOnTheScreen();
     expect(getByTestId("arithmetic-result-row")).toBeOnTheScreen();
@@ -85,15 +86,15 @@ describe("ArithmeticWorkBlock", () => {
     ).toBe("42");
   });
 
-  it("renders multiplication carries above the partial products", async () => {
+  it("renders carries for every multiplication partial product", async () => {
     const content = JSON.stringify({
       ...BASE,
       operation: "multiplication",
       operator: "×",
-      expression: "23 * 14",
-      operands: ["23", "14"],
-      working_operands: ["23", "14"],
-      answer: "322",
+      expression: "23 * 94",
+      operands: ["23", "94"],
+      working_operands: ["23", "94"],
+      answer: "2162",
       partial_products: [
         {
           position: 0,
@@ -123,17 +124,25 @@ describe("ArithmeticWorkBlock", () => {
         {
           position: 1,
           place: "tens",
-          multiplier_digit: 1,
-          unshifted_product: "23",
-          shifted_product: "230",
+          multiplier_digit: 9,
+          unshifted_product: "207",
+          shifted_product: "2070",
           columns: [
             {
               position: 0,
               place: "ones",
               multiplicand_digit: 3,
               carry_in: 0,
-              result_digit: 3,
-              carry_out: 0,
+              result_digit: 7,
+              carry_out: 2,
+            },
+            {
+              position: 1,
+              place: "tens",
+              multiplicand_digit: 2,
+              carry_in: 2,
+              result_digit: 0,
+              carry_out: 2,
             },
           ],
         },
@@ -141,8 +150,62 @@ describe("ArithmeticWorkBlock", () => {
     });
     const { getByTestId } = await render(<ArithmeticWorkBlock content={content} />);
 
-    expect(getByTestId("arithmetic-multiplication-carries")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-multiplication-carries-0")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-multiplication-carries-1")).toBeOnTheScreen();
+    expect(
+      getByTestId("arithmetic-multiplication-carries-1").props.accessibilityLabel,
+    ).toBe("22");
     expect(getByTestId("arithmetic-result-row")).toBeOnTheScreen();
+  });
+
+  it("shows a leading carry when the answer gains a digit", async () => {
+    const content = JSON.stringify({
+      ...BASE,
+      operation: "addition",
+      operator: "+",
+      expression: "9 + 1",
+      operands: ["9", "1"],
+      working_operands: ["9", "1"],
+      answer: "10",
+      addition_columns: [
+        {
+          position: 0,
+          place: "ones",
+          addends: [9, 1],
+          carry_in: 0,
+          result_digit: 0,
+          carry_out: 1,
+        },
+      ],
+    });
+    const { getByTestId } = await render(<ArithmeticWorkBlock content={content} />);
+
+    expect(getByTestId("arithmetic-annotation-row").props.accessibilityLabel).toBe("1");
+  });
+
+  it("allows very wide written arithmetic to scroll horizontally", async () => {
+    const content = JSON.stringify({
+      ...BASE,
+      operation: "addition",
+      operator: "+",
+      expression: "999999999999999999999999 + 1",
+      operands: ["999999999999999999999999", "1"],
+      working_operands: ["999999999999999999999999", "1"],
+      answer: "1000000000000000000000000",
+      addition_columns: [
+        {
+          position: 0,
+          place: "ones",
+          addends: [9, 1],
+          carry_in: 0,
+          result_digit: 0,
+          carry_out: 1,
+        },
+      ],
+    });
+    const { getByTestId } = await render(<ArithmeticWorkBlock content={content} />);
+
+    expect(getByTestId("arithmetic-work-scroll").props.horizontal).toBe(true);
   });
 
   it("keeps placeholder zeros inside decimal long division", async () => {

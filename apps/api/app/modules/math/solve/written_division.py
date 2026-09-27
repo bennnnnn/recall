@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from math import gcd
 
 from app.models.schemas.math import ArithmeticWorkSpec, LongDivisionStep
@@ -12,6 +12,9 @@ from app.modules.math.solve.written_arithmetic_common import (
     number_parts,
     scaled_integer,
 )
+
+_APPROX_DECIMAL_PLACES = 2
+_ROUNDING_GUARD_PLACES = 1
 
 
 def _plain_decimal(value: Decimal) -> str:
@@ -31,6 +34,21 @@ def _terminating_places(numerator: int, denominator: int) -> int | None:
         fives += 1
     places = max(twos, fives)
     return places if denominator == 1 and places <= MAX_DECIMAL_PLACES else None
+
+
+def _fixed_decimal(
+    numerator: int,
+    denominator: int,
+    places: int,
+    *,
+    rounding: str,
+) -> str:
+    quantum = Decimal(1).scaleb(-places)
+    value = (Decimal(numerator) / Decimal(denominator)).quantize(
+        quantum,
+        rounding=rounding,
+    )
+    return format(value, f".{places}f")
 
 
 def _division_steps(
@@ -98,18 +116,37 @@ def build_long_division(
     integer_digits = len(working_text.partition(".")[0])
     numerator = int(digits or "0")
     denominator = divisor * (10 ** max(0, len(digits) - integer_digits))
-    has_decimal_input = left_scale > 0 or right_scale > 0
-    places = _terminating_places(numerator, denominator) if has_decimal_input else None
-    if has_decimal_input:
-        if places is None:
-            return None
+    places = _terminating_places(numerator, denominator)
+    existing_fraction_places = max(0, len(digits) - integer_digits)
+    repeating = places is None
+    if places is not None:
         quotient_decimal = Decimal(numerator) / Decimal(denominator)
         quotient = _plain_decimal(quotient_decimal)
-        target_extra = max(0, places - max(0, len(digits) - integer_digits))
+        target_extra = max(0, places - existing_fraction_places)
+        answer = quotient
+        answer_places = places
     else:
-        quotient_int, _ = divmod(numerator, divisor)
-        quotient = str(quotient_int)
-        target_extra = 0
+        working_places = max(
+            existing_fraction_places,
+            _APPROX_DECIMAL_PLACES + _ROUNDING_GUARD_PLACES,
+        )
+        quotient = _fixed_decimal(
+            numerator,
+            denominator,
+            working_places,
+            rounding=ROUND_DOWN,
+        )
+        rounded = _fixed_decimal(
+            numerator,
+            denominator,
+            _APPROX_DECIMAL_PLACES,
+            rounding=ROUND_HALF_UP,
+        )
+        common = gcd(numerator, denominator)
+        exact_numerator, exact_denominator = numerator // common, denominator // common
+        answer = f"\\frac{{{exact_numerator}}}{{{exact_denominator}}}\\approx {rounded}"
+        answer_places = _APPROX_DECIMAL_PLACES
+        target_extra = max(0, working_places - existing_fraction_places)
     steps, remainder = _division_steps(digits, divisor, target_extra)
     division_display = working_text
     if target_extra:
@@ -135,15 +172,14 @@ def build_long_division(
         if step.bring_down is not None:
             text += f" Bring down {step.bring_down} → {step.next_partial}."
         explanations.append(text)
-    remainder_text = "0" if has_decimal_input else str(remainder)
-    answer = (
-        quotient if remainder_text == "0" else f"{quotient}\\text{{ remainder }}{remainder_text}"
-    )
-    explanations.append(
-        f"Quotient: {quotient}."
-        if remainder_text == "0"
-        else f"Quotient: {quotient}; remainder: {remainder_text}."
-    )
+    remainder_text = str(remainder)
+    if repeating:
+        explanations.append(
+            "The decimal continues. Keep one guard digit, then round to "
+            f"{_APPROX_DECIMAL_PLACES} decimal places."
+        )
+    else:
+        explanations.append(f"Quotient: {quotient}.")
     return ArithmeticWorkSpec(
         operation="division",
         operator="÷",
@@ -154,7 +190,7 @@ def build_long_division(
         ],
         working_operands=[division_display, str(divisor)],
         answer=answer,
-        decimal_places=places or 0,
+        decimal_places=answer_places or 0,
         quotient=quotient,
         remainder=remainder_text,
         division_steps=steps,

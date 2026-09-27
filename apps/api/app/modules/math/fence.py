@@ -777,12 +777,25 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     scene = next((spec for spec in specs if _spec_fence_kind(spec) == "simulation"), None)
     if scene is not None and not has_closed_fence(content, "simulation"):
         extras.append(_markdown_fence("simulation", json.dumps(scene, separators=(",", ":"))))
-    show_working = bool(
-        verified.response_intent is not None
-        and verified.response_intent.reveal_answer
-        and verified.response_intent.wants_explanation
-    )
     arithmetic = next((spec for spec in specs if _spec_fence_kind(spec) == "arithmetic"), None)
+    division_works_by_default = bool(
+        arithmetic is not None and arithmetic.get("operation") == "division"
+    )
+    show_working = bool(
+        arithmetic is not None
+        and (
+            (verified.response_intent is None and division_works_by_default)
+            or (
+                verified.response_intent is not None
+                and verified.response_intent.reveal_answer
+                and verified.response_intent.mode != "answer_only"
+                and (
+                    verified.response_intent.wants_explanation
+                    or division_works_by_default
+                )
+            )
+        )
+    )
     if show_working and arithmetic is not None and not has_closed_fence(content, "arithmetic"):
         extras.insert(
             0,
@@ -878,6 +891,18 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     )
     canonical_fence = scoped_verified.canonical_fence if scoped_verified is not None else None
     canonical_fences = scoped_verified.canonical_fences if scoped_verified is not None else []
+    canonical_arithmetic = (
+        [
+            spec
+            for spec in _collect_canonical_specs(scoped_verified)
+            if _spec_fence_kind(spec) == "arithmetic"
+        ]
+        if scoped_verified is not None
+        else []
+    )
+    has_default_division_work = any(
+        spec.get("operation") == "division" for spec in canonical_arithmetic
+    )
     answer_body = _canonical_answer_body(verified)
     withhold_answer = bool(
         verified is not None
@@ -916,9 +941,20 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
                 canonical_fences,
             )
             if verified is not None
-            and verified.response_intent is not None
-            and verified.response_intent.reveal_answer
-            and verified.response_intent.wants_explanation
+            and (
+                (verified.response_intent is None and has_default_division_work)
+                or (
+                    verified.response_intent is not None
+                    and verified.response_intent.reveal_answer
+                    and (
+                        verified.response_intent.wants_explanation
+                        or (
+                            has_default_division_work
+                            and verified.response_intent.mode != "answer_only"
+                        )
+                    )
+                )
+            )
             else ""
         ),
         max_count=_MAX_ARITHMETIC_FENCES,

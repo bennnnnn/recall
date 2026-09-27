@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { CardShell } from "@/components/rich/CardShell";
 import { StepList } from "@/components/rich/StepList";
@@ -73,15 +73,23 @@ function annotationRow(
   annotations: Map<number, string>,
 ): { label: string; dot: boolean }[] {
   const padded = cells(template, width);
-  const digitIndexes = padded
-    .map((char, index) => (char >= "0" && char <= "9" ? index : -1))
-    .filter((index) => index >= 0)
-    .reverse();
-  return padded.map((char, index) => {
-    const position = digitIndexes.indexOf(index);
-    const label = position >= 0 ? annotations.get(position) ?? " " : char === "." ? "." : " ";
-    return { label, dot: char === "." };
-  });
+  let position = 0;
+  const row = Array.from({ length: padded.length }, () => ({ label: " ", dot: false }));
+  for (let index = padded.length - 1; index >= 0; index -= 1) {
+    const char = padded[index];
+    if (char === ".") {
+      row[index] = { label: ".", dot: true };
+      continue;
+    }
+    if (char === "-") continue;
+    row[index] = { label: annotations.get(position) ?? " ", dot: false };
+    position += 1;
+  }
+  return row;
+}
+
+function annotationLabel(row: { label: string }[]): string {
+  return row.map(({ label }) => label).join("").trim();
 }
 
 function AnnotationRow({
@@ -109,7 +117,11 @@ function AnnotationRow({
   }
   const row = annotationRow(spec.working_operands[0], width, annotations);
   return (
-    <View style={s.digitRow} testID="arithmetic-annotation-row">
+    <View
+      style={s.digitRow}
+      testID="arithmetic-annotation-row"
+      accessibilityLabel={annotationLabel(row)}
+    >
       <Text style={s.operator}> </Text>
       {row.map(({ label, dot }, index) => (
         <Text key={index} style={[s.annotation, dot && s.dot]}>
@@ -152,36 +164,47 @@ function MultiplicationWork({ spec }: { spec: ArithmeticWorkSpec }) {
     ...spec.working_operands.map((value) => value.length),
     ...rows.map((value) => value.length),
   );
-  const annotations = new Map<number, string>();
-  spec.partial_products[0]?.columns.forEach((column) => {
-    if (column.carry_out) {
-      annotations.set(column.position + 1, String(column.carry_out));
-    }
-  });
-  const carryRow = annotationRow(spec.working_operands[0], width, annotations);
   return (
     <View style={s.work}>
-      {annotations.size ? (
-        <View style={s.digitRow} testID="arithmetic-multiplication-carries">
-          <Text style={s.operator}> </Text>
-          {carryRow.map(({ label, dot }, index) => (
-            <Text key={index} style={[s.annotation, dot && s.dot]}>
-              {label}
-            </Text>
-          ))}
-        </View>
-      ) : null}
       <DigitRow value={spec.working_operands[0]} width={width} />
       <DigitRow value={spec.working_operands[1]} width={width} operator="×" />
       <View style={[s.rule, { width: width * CELL_WIDTH + CELL_WIDTH }]} />
-      {rows.map((row, index) => (
-        <DigitRow
-          key={`${index}-${row}`}
-          value={row}
-          width={width}
-          muted={rows.length > 1}
-        />
-      ))}
+      {spec.partial_products.map((product, index) => {
+        const annotations = new Map<number, string>();
+        product.columns.forEach((column) => {
+          if (column.carry_out) {
+            annotations.set(
+              column.position + product.position + 1,
+              String(column.carry_out),
+            );
+          }
+        });
+        const carryRow = annotationRow(product.shifted_product, width, annotations);
+        return (
+          <View key={`${index}-${product.shifted_product}`}>
+            {annotations.size ? (
+              <View
+                style={s.digitRow}
+                testID={`arithmetic-multiplication-carries-${index}`}
+                accessibilityLabel={annotationLabel(carryRow)}
+              >
+                <Text style={s.operator}> </Text>
+                {carryRow.map(({ label, dot }, carryIndex) => (
+                  <Text key={carryIndex} style={[s.annotation, dot && s.dot]}>
+                    {label}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+            <DigitRow
+              value={product.shifted_product}
+              width={width}
+              muted={rows.length > 1}
+              testID={`arithmetic-partial-product-${index}`}
+            />
+          </View>
+        );
+      })}
       {rows.length > 1 ? (
         <View style={[s.rule, { width: width * CELL_WIDTH + CELL_WIDTH }]} />
       ) : null}
@@ -286,7 +309,15 @@ export function ArithmeticWorkBlock({ content }: { content: string }) {
   const label = `${spec.operands[0]} ${spec.operator} ${spec.operands[1]}`;
   return (
     <CardShell label={label} copyText={`${label} = ${spec.answer}`} accent={false}>
-      {layout}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.workScroll}
+        contentContainerStyle={styles.workScrollContent}
+        testID="arithmetic-work-scroll"
+      >
+        {layout}
+      </ScrollView>
       <View style={styles.steps}>
         <StepList steps={spec.explanations} />
       </View>
@@ -294,7 +325,15 @@ export function ArithmeticWorkBlock({ content }: { content: string }) {
   );
 }
 
-const styles = StyleSheet.create({ steps: { marginTop: Space.sm } });
+const styles = StyleSheet.create({
+  workScroll: { alignSelf: "stretch" },
+  workScrollContent: {
+    minWidth: "100%",
+    alignItems: "center",
+    paddingHorizontal: Space.xs,
+  },
+  steps: { marginTop: Space.sm },
+});
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({

@@ -7,7 +7,7 @@ import json
 from pydantic import ValidationError
 
 from app.models.schemas.math import ArithmeticWorkSpec
-from app.modules.math.response_intent import classify_math_response_intent
+from app.modules.math.response_intent import MathResponseMode, classify_math_response_intent
 from app.modules.math.tools.lesson import lesson_math_text
 from app.services.solving import VerifiedMathBlock
 
@@ -41,7 +41,9 @@ def can_direct_written_arithmetic(
 def format_direct_written_arithmetic(spec: ArithmeticWorkSpec, user_text: str) -> str:
     response = classify_math_response_intent(user_text)
     answer = f"```answer\n{spec.answer}\n```\n"
-    if not response.wants_explanation:
+    if response.mode == MathResponseMode.ANSWER_ONLY or (
+        not response.wants_explanation and spec.operation != "division"
+    ):
         return answer
     body = json.dumps(spec.model_dump(), separators=(",", ":"))
     return f"```arithmetic\n{body}\n```\n\n{answer}"

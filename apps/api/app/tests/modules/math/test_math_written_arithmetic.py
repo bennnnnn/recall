@@ -35,8 +35,9 @@ def _work(question: str):
         ("Show every step for 503 - 278", "column_subtraction", "225"),
         ("23 multiplied by 14", "column_multiplication", "322"),
         ("Use long division to calculate 1,572 ÷ 12", "long_division", "131"),
-        ("437 divided by 6", "long_division", r"72\text{ remainder }5"),
-        ("456/56", "long_division", r"8\text{ remainder }8"),
+        ("437 divided by 6", "long_division", r"\frac{437}{6}\approx 72.83"),
+        ("456/56", "long_division", r"\frac{57}{7}\approx 8.14"),
+        ("59595 devided by 54", "long_division", r"\frac{19865}{18}\approx 1103.61"),
     ],
 )
 def test_written_arithmetic_extracts_on_existing_kind(
@@ -74,10 +75,10 @@ def test_multiplication_trace_has_shifted_partial_products() -> None:
 
 def test_long_division_trace_has_bring_down_and_remainder() -> None:
     _intent, _block, spec = _work("Show long division: 437 ÷ 6")
-    assert spec.quotient == "72"
-    assert spec.remainder == "5"
-    assert [step.partial_dividend for step in spec.division_steps] == ["43", "17"]
-    assert [step.column_end for step in spec.division_steps] == [1, 2]
+    assert spec.quotient == "72.833"
+    assert spec.remainder == "2"
+    assert [step.partial_dividend for step in spec.division_steps[:2]] == ["43", "17"]
+    assert [step.column_end for step in spec.division_steps[:2]] == [1, 2]
     assert spec.division_steps[0].bring_down == 7
     assert spec.division_steps[0].next_partial == "17"
 
@@ -107,6 +108,25 @@ def test_decimal_long_division_appends_visible_placeholder_zeros() -> None:
 
 
 @pytest.mark.parametrize(
+    "question, quotient, answer",
+    [
+        ("1 divided by 4", "0.25", "0.25"),
+        ("1 divided by 6", "0.166", r"\frac{1}{6}\approx 0.17"),
+    ],
+)
+def test_whole_number_division_prefers_decimals_over_forced_remainders(
+    question: str,
+    quotient: str,
+    answer: str,
+) -> None:
+    _intent, _block, spec = _work(question)
+
+    assert spec.quotient == quotient
+    assert spec.answer == answer
+    assert "remainder" not in spec.answer
+
+
+@pytest.mark.parametrize(
     "question, working_operands, answer",
     [
         ("Show long division: 100 ÷ 4", ["100", "4"], "25"),
@@ -123,9 +143,23 @@ def test_long_division_preserves_significant_trailing_zeros(
     assert spec.answer == answer
 
 
-def test_direct_reply_only_shows_working_when_requested() -> None:
+def test_direct_reply_shows_division_working_by_default_and_respects_answer_only() -> None:
     _intent, plain_block, _spec = _work("478 + 356")
     assert maybe_direct_math_reply(plain_block, "478 + 356") == "```answer\n834\n```\n"
+
+    _intent, division_block, _spec = _work("59595 devided by 54")
+    division_reply = maybe_direct_math_reply(division_block, "59595 devided by 54")
+    assert division_reply is not None and "```arithmetic" in division_reply
+    assert "```arithmetic" in validate_math_fences(
+        division_reply,
+        verified=division_block,
+    )
+
+    answer_only = "Just the answer: 59595 divided by 54"
+    _intent, answer_block, _spec = _work(answer_only)
+    assert maybe_direct_math_reply(answer_block, answer_only) == (
+        "```answer\n\\frac{19865}{18}\\approx 1103.61\n```\n"
+    )
 
     _intent, steps_block, _spec = _work("Show steps: 478 + 356")
     reply = maybe_direct_math_reply(steps_block, "Show steps: 478 + 356")
@@ -174,7 +208,7 @@ def test_followup_presentation_intent_keeps_canonical_long_division() -> None:
     assert "```arithmetic" in reply
     cleaned = validate_math_fences(reply, verified=block)
     assert "```arithmetic" in cleaned
-    assert '"answer":"8\\\\text{ remainder }8"' in cleaned
+    assert '"answer":"\\\\frac{57}{7}\\\\approx 8.14"' in cleaned
 
 
 def test_fence_rewriter_uses_only_canonical_written_work() -> None:
