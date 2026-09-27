@@ -304,6 +304,7 @@ async def fetch_web_and_tools(
     prior_user_messages: list[str] | None = None,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
+    math_followup_problem: str | None = None,
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
@@ -318,11 +319,15 @@ async def fetch_web_and_tools(
     # below AND build_math_augmentation's own needs_symbolic_math check, so
     # passing it through avoids re-scanning the same message twice per turn
     # (needs_symbolic_math runs ~30 substring/matcher passes over the text).
-    needs_math = settings.math_tools_enabled and math_tools_service.needs_symbolic_math(
-        user_content, has_image_attachment=has_image_attachment
+    math_user_content = math_followup_problem or user_content
+    needs_math = settings.math_tools_enabled and (
+        math_followup_problem is not None
+        or math_tools_service.needs_symbolic_math(
+            math_user_content, has_image_attachment=has_image_attachment
+        )
     )
     if needs_math and on_status is not None:
-        phase = "physics" if _physics_turn(user_content) else "calculating"
+        phase = "physics" if _physics_turn(math_user_content) else "calculating"
         await on_status(phase)
 
     (web_block, search_sources), (math_block, verified_math) = await asyncio.gather(
@@ -340,7 +345,7 @@ async def fetch_web_and_tools(
             redis=redis,
         ),
         math_tools_service.build_math_augmentation(
-            user_content,
+            math_user_content,
             settings,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
@@ -401,6 +406,7 @@ async def _augment_web_and_tools(
     prior_user_messages: list[str] | None = None,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
+    math_followup_problem: str | None = None,
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
@@ -418,6 +424,7 @@ async def _augment_web_and_tools(
         prior_user_messages=prior_user_messages,
         has_image_attachment=has_image_attachment,
         image_math_extract=image_math_extract,
+        math_followup_problem=math_followup_problem,
         on_status=on_status,
         user=user,
         redis=redis,

@@ -17,6 +17,39 @@ describe("MathText", () => {
     expect(getByText("x + 1")).toBeOnTheScreen();
   });
 
+  it("uses the dedicated math face and keeps lowercase variables unmistakable", async () => {
+    const { getByText, getByTestId } = await render(<MathText latex="x = 3" />);
+    expect(getByText("x = 3")).toHaveStyle({ fontFamily: "KaTeX_Main" });
+    expect(getByTestId("math-variable")).toHaveTextContent("x");
+    expect(getByTestId("math-variable")).toHaveStyle({
+      fontFamily: "KaTeX_MathItalic",
+    });
+  });
+
+  it("keeps named functions upright while variables remain math italic", async () => {
+    const { getByText, getAllByTestId } = await render(
+      <MathText latex={String.raw`\sin{x} = y`} />,
+    );
+    expect(getByText("sin(x) = y")).toBeOnTheScreen();
+    expect(getAllByTestId("math-variable").map((node) => node.props.children)).toEqual([
+      "x",
+      "y",
+    ]);
+  });
+
+  it("keeps physics units in text and roman commands upright", async () => {
+    const { getAllByTestId, getByTestId } = await render(
+      <MathText latex={String.raw`x = 25\,\mathrm{m/s}`} />,
+    );
+    expect(getAllByTestId("math-variable").map((node) => node.props.children)).toEqual([
+      "x",
+    ]);
+    expect(getByTestId("math-upright-run")).toHaveTextContent("m/s");
+    expect(getByTestId("math-upright-run")).toHaveStyle({
+      fontFamily: "KaTeX_Main",
+    });
+  });
+
   it("renders a superscript digit as a real Unicode superscript char", async () => {
     // "2" has a Unicode superscript mapping (unicodeSupSub.ts) — MathText
     // prefers that over the styled-smaller-Text fallback so it reads raised
@@ -58,8 +91,8 @@ describe("MathText", () => {
     // Root is a sized View (not Text wrapping a View) so the paragraph Text
     // can treat it as a character. Nested Text>View was 0×0 on iOS and the
     // next sentence painted on top of this one (live: part (b) smudge).
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 29, height: 44 });
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 23, height: 44 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 24, height: 44 });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 13, height: 44 });
     expect(getByText("1")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
   });
 
@@ -68,7 +101,7 @@ describe("MathText", () => {
     const narrow = await render(<MathText latex={String.raw`\frac{111111111111}{1}`} />);
     const wideWidth = StyleSheet.flatten(wide.getByTestId("math-frac").props.style).width as number;
     const narrowWidth = StyleSheet.flatten(narrow.getByTestId("math-frac").props.style).width as number;
-    expect(narrowWidth).toBe(12 * 9 + 14);
+    expect(narrowWidth).toBe(12 * 9 + 4);
     expect(wideWidth).toBeGreaterThan(narrowWidth + 40);
   });
 
@@ -99,8 +132,8 @@ describe("MathText", () => {
     expect(getByText("π")).toBeOnTheScreen();
     expect(getByText("2")).toBeOnTheScreen();
     expect(queryByText(/[()]/)).toBeNull();
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 23, height: 44 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 29, height: 44 });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 13, height: 44 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 24, height: 44 });
   });
 
   it("groups sums and scripts using the fraction bar without adding source characters", async () => {
@@ -123,13 +156,13 @@ describe("MathText", () => {
     // Live quadratic formula: flattened combining overlines turned `-` into a
     // fake `=` and sized the vinculum from those extra marks so it ran under
     // the following prose.
-    const { getByTestId, getByText, queryByText } = await render(
+    const { getByTestId, getAllByText, getByText, queryByText } = await render(
       <MathText latex={String.raw`x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}`} />,
     );
     expect(getByTestId("math-sqrt")).toBeOnTheScreen();
     expect(getByTestId("math-sqrt-radicand")).toBeOnTheScreen();
     expect(queryByText(/̅/)).toBeNull();
-    expect(getByText("b")).toBeOnTheScreen();
+    expect(getAllByText("b")).toHaveLength(2);
     expect(getByText(/4ac/)).toBeOnTheScreen();
     const frac = getByTestId("math-frac");
     const width = StyleSheet.flatten(frac.props.style).width as number;
@@ -180,6 +213,7 @@ describe("MathText", () => {
       <MathText latex={String.raw`9\sqrt{9}`} />,
     );
     expect(getByTestId("math-sqrt")).toBeOnTheScreen();
+    expect(getByTestId("math-radical-glyph")).toBeOnTheScreen();
     expect(queryByText(/√\[/)).toBeNull();
   });
 
@@ -190,7 +224,34 @@ describe("MathText", () => {
     // the sign's leading.
     const { getByTestId } = await render(<MathText latex={String.raw`\sqrt{8}`} />);
     expect(getByTestId("math-sqrt")).toHaveStyle({ alignItems: "flex-start" });
+    expect(getByTestId("math-sqrt")).toHaveStyle({ width: 22, height: 22 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 30, height: 22 });
+    expect(getByTestId("math-sqrt-radicand")).toHaveStyle({
+      marginLeft: 13,
+      marginTop: 2,
+      width: 9,
+      height: 20,
+    });
     expect(screen.getByText("8")).toHaveStyle({ fontSize: 16, lineHeight: 20 });
+  });
+
+  it("draws one continuous radical around a stacked x over y fraction", async () => {
+    const { getByTestId, getByText } = await render(
+      <MathText latex={String.raw`\sqrt{\frac{x}{y}}`} />,
+    );
+    expect(getByTestId("math-sqrt")).toHaveStyle({ width: 32, height: 46 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 40, height: 46 });
+    expect(getByTestId("math-sqrt-radicand")).toHaveStyle({
+      marginLeft: 13,
+      marginTop: 2,
+      width: 19,
+      height: 44,
+    });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 13, height: 44 });
+    expect(getByTestId("math-radical-glyph")).toHaveProp("width", 32);
+    expect(getByTestId("math-radical-glyph")).toHaveProp("height", 46);
+    expect(getByText("x")).toBeOnTheScreen();
+    expect(getByText("y")).toBeOnTheScreen();
   });
 
   it("BUG FIX regression: a script inside \\sqrt{} does not leak a literal caret", async () => {
@@ -246,7 +307,7 @@ describe("MathText", () => {
       <MathText latex={String.raw`\frac{1}{2}`} fontSize={24} />,
     );
     expect(getByText("1")).toHaveStyle({ fontSize: 21, lineHeight: 27 });
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 34.5, height: 66 });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 19.5, height: 66 });
   });
 
   it("reserves more space when the device increases its font scale", async () => {
@@ -254,13 +315,13 @@ describe("MathText", () => {
       width: 390, height: 844, scale: 3, fontScale: 1.5,
     });
     const { getByTestId } = await render(<MathText latex={String.raw`\frac{1}{2}`} />);
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 34.5, height: 66 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 43.5, height: 66 });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 19.5, height: 66 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 36, height: 66 });
   });
 
   it("raises the root degree above the hook without shrinking the radicand", async () => {
     const { getByText } = await render(<MathText latex={String.raw`\sqrt[6]{9}`} />);
-    expect(getByText("6")).toHaveStyle({ fontSize: 12, marginTop: -4 });
+    expect(getByText("6")).toHaveStyle({ fontSize: 12, transform: [{ translateY: -4 }] });
     expect(getByText("9")).toHaveStyle({ fontSize: 16 });
   });
 });

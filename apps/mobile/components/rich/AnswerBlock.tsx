@@ -140,6 +140,15 @@ export function AnswerBlock({ content }: Props) {
                         fontSize={ANSWER_FONT_SIZE}
                       />
                     )}
+                    {lineIndex === nativeLines.length - 1 ? (
+                      <Icon
+                        testID="answer-success-check"
+                        name="check-circle-filled"
+                        size={IconSize.md}
+                        color={theme.success}
+                        style={s.successCheck}
+                      />
+                    ) : null}
                   </View>
                 </ScrollView>
               ))}
@@ -171,13 +180,15 @@ export function AnswerBlock({ content }: Props) {
             </Text>
           )}
         </View>
-        <Icon
-          testID="answer-success-check"
-          name="check-circle-filled"
-          size={IconSize.md}
-          color={theme.success}
-          style={s.successCheck}
-        />
+        {!hasNestedView ? (
+          <Icon
+            testID="answer-success-check"
+            name="check-circle-filled"
+            size={IconSize.md}
+            color={theme.success}
+            style={s.successCheck}
+          />
+        ) : null}
       </View>
     </View>
   );

@@ -185,6 +185,43 @@ async def test_year_date_time_instant_reply_skipped_when_image_attached(fake_red
 
 
 @pytest.mark.asyncio
+async def test_recurring_pay_reply_skips_prompt_and_model_health_work(fake_redis):
+    user = _make_user()
+    user.timezone = "America/Los_Angeles"
+    chat = _make_chat()
+    content = (
+        "if i make 3400 a every 2 weeks, how much money would i make untill dcember 11th from today"
+    )
+    build_prompt = AsyncMock(side_effect=AssertionError("prompt should not be built"))
+    with (
+        patch("app.services.chat.turn_prep.context.build_prompt_messages", build_prompt),
+        patch("app.services.model_health.enrich_models_health", AsyncMock()) as health,
+    ):
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            content,
+            "gemini-flash",
+            Settings(_env_file=None),
+            fake_redis,
+            client_timezone="America/Los_Angeles",
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+
+    assert bundle.instant_reply is not None
+    assert "**1. Count the time**" in bundle.instant_reply
+    assert bundle.search_sources == []
+    assert bundle.fallback_models == []
+    build_prompt.assert_not_awaited()
+    health.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_fetches_run_concurrently_not_serially():
     """Phase A (build_prompt | instant_reply) and Phase B (integration | web+tools)
     must overlap, so total time is the max of each pair -- not the sum."""

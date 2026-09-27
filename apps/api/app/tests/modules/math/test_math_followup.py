@@ -11,6 +11,7 @@ from app.models.orm import User
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
+    math_working_followup_problem,
     open_math_problem,
     readable_standalone_answer,
 )
@@ -58,6 +59,23 @@ def _exchange(question: str = _SPEED_ASK, result: str = _SPEED_RESULT) -> list[S
 )
 def test_short_referential_request_uses_immediate_math_exchange(query: str) -> None:
     assert is_math_followup(query, _exchange())
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["how", "How?", "why?", "please explain it", "can you show the steps?"],
+)
+def test_working_followup_returns_the_adjacent_problem_for_verified_replay(query: str) -> None:
+    recent = _exchange("3x^2 + 3 = 5", r"x = \pm \frac{\sqrt{6}}{3}")
+    assert math_working_followup_problem(query, recent) == "3x^2 + 3 = 5"
+    as_dicts = [{"role": item.role, "content": item.content} for item in recent]
+    assert math_working_followup_problem(query, as_dicts) == "3x^2 + 3 = 5"
+
+
+@pytest.mark.parametrize("query", ["hint only", "prove it", "give examples"])
+def test_scoped_followups_do_not_replay_the_full_verified_working(query: str) -> None:
+    assert is_math_followup(query, _exchange())
+    assert math_working_followup_problem(query, _exchange()) is None
 
 
 @pytest.mark.parametrize(

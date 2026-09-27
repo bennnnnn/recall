@@ -21,6 +21,7 @@ from app.modules.chemistry import context as chemistry_context_service
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
+from app.modules.math.followup import math_working_followup_problem
 from app.modules.math.tools import VerifiedMathBlock, needs_symbolic_math
 from app.modules.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
@@ -29,6 +30,7 @@ from app.modules.web_search.subject import last_assistant_content
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services import profile as profile_service
+from app.services import recurring_pay as recurring_pay_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_builder import (
@@ -337,6 +339,30 @@ async def build_stream_prompt_context(
             )
             local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
+    # A recurring-pay estimate is fully owned by local date arithmetic. Do not
+    # build memory/RAG context or probe model health for a reply that will never
+    # call a model; that work added roughly a second before the first token.
+    if not has_image_attachment:
+        pay_reply = recurring_pay_service.maybe_recurring_pay_reply(content, local_tz)
+        if pay_reply is not None:
+            if timing is not None:
+                timing.mark_phase("prompt_assembled")
+                timing.mark_phase("augment_done")
+                timing.mark_prompt_ready()
+            return TurnPromptBundle(
+                prompt_messages=[{"role": "user", "content": content}],
+                meta=meta,
+                instant_reply=pay_reply,
+                search_sources=[],
+                local_places=geo.local_places,
+                max_out=settings.max_output_tokens,
+                fallback_models=[],
+                lightweight=mode.lightweight,
+                rich_context=mode.rich_context,
+                geo=geo,
+                local_tz=local_tz,
+            )
+
     # No outer session during prompt gather (RAG/memory embeds use short-lived
     # sessions inside build_prompt_messages). Do not emit preparing/remembering
     # theater — casual chat should look like TTS: tap, then tokens. Real work
@@ -413,6 +439,19 @@ async def build_stream_prompt_context(
     if timing is not None:
         timing.mark_phase("prompt_assembled")
 
+    # A terse "how?" after a completed equation must go back through the
+    # verified solver, not ask the language model to invent a fresh method.
+    # build_prompt_messages has already loaded and adjacency-checked the recent
+    # exchange; drop the current user row before reading that pair.
+    followup_history: list[dict[str, str]] = prompt_messages
+    if (
+        prompt_messages
+        and prompt_messages[-1].get("role") == "user"
+        and prompt_messages[-1].get("content") == content
+    ):
+        followup_history = prompt_messages[:-1]
+    math_followup_problem = math_working_followup_problem(content, followup_history)
+
     # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
         instant_reply = web_search_service.format_location_not_set_answer()
@@ -422,6 +461,7 @@ async def build_stream_prompt_context(
     needs_math = (
         needs_symbolic_math(content, has_image_attachment=has_image_attachment)
         or image_math_extract is not None
+        or (settings.math_tools_enabled and math_followup_problem is not None)
     )
     needs_search = web_search_service.needs_web_search(
         content,
@@ -511,6 +551,7 @@ async def build_stream_prompt_context(
                 prior_user_messages=priors,
                 has_image_attachment=has_image_attachment,
                 image_math_extract=image_math_extract,
+                math_followup_problem=math_followup_problem,
                 on_status=on_status,
                 user=user,
                 redis=redis,

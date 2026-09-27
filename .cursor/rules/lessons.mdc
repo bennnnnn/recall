@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A math answer chip followed by “how?” drifted to model-written steps.** Short style suppressed verified `key_steps`, and the terse follow-up never re-entered math augmentation. Always render supported equation/system/inequality traces unless the user says “just the answer”; adjacency-gate working follow-ups and solve the prior problem again. Native `√` plus a separate border cannot enclose `\frac{x}{y}`—draw one scalable SVG radical path, and keep fraction-bar padding to a minimal overhang.
+
 - **Composer caret jumps onto the previous line when the field wraps.** `paddingTop` on the multiline `TextInput` makes iOS draw the caret a line too high. Size the text box to the lines and keep the button-centering slack on the wrapper. Do not reset `contentOffset` on each keystroke — that scrolls the caret up a line and then snaps it back.
 
 - **Expo Go aborts on the chat screen (SIGABRT in a Reanimated frame).** `useAnimatedStyle` called `composerGapFadeHeight` from another module. That runs on the UI runtime, throws, and the display-link callback abort-traps the app. Keep the height math inline in the worklet.

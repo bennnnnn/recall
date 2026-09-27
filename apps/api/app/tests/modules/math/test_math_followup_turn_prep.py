@@ -14,11 +14,14 @@ from app.models.orm import Chat, User
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.services.chat.prompt_builder import _PromptContextBlocks
+from app.services.chat.turn_prep.context import build_stream_prompt_context
 from app.services.chat.turn_prep.mode import _TurnMode
 from app.services.chat.turn_prep.prepare import prepare_chat_turn
 
 _QUERY = "Sum 1/n^2 from n=1 to infinity"
 _RESULT = r"\frac{\pi^{2}}{6}"
+_EQUATION = "3x^2 + 3 = 5"
+_EQUATION_RESULT = r"x = \pm \frac{\sqrt{6}}{3}"
 
 
 class _Session:
@@ -141,3 +144,94 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
                 await context.user_message_persist
     assert len(persisted_ids) == 1
     assert history[-1].content == "how"
+
+
+@pytest.mark.asyncio
+async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
+    thread_sympy_executor: None,
+) -> None:
+    user = User(
+        id=uuid4(),
+        name="Test",
+        email="test@example.com",
+        response_style="short",
+        locale="en",
+        timezone="UTC",
+        memory_enabled=False,
+    )
+    chat = Chat(id=uuid4(), user_id=user.id, title="Test")
+    current = SimpleNamespace(id=uuid4(), role="user", content="how")
+    history = [
+        SimpleNamespace(id=uuid4(), role="user", content=_EQUATION),
+        SimpleNamespace(
+            id=uuid4(), role="assistant", content=f"```answer\n{_EQUATION_RESULT}\n```"
+        ),
+        current,
+    ]
+    blocks = _PromptContextBlocks(
+        memory_block="",
+        todos_section=None,
+        gmail_todos_section=None,
+        projects_block="",
+        recent_all=history,
+        attachment_rag_block="",
+        chat=chat,
+    )
+    settings = Settings(
+        attachments_enabled=False,
+        attachment_rag_enabled=False,
+        mcp_tool_loop_enabled=False,
+        mcp_tools_enabled=False,
+        math_tools_enabled=True,
+        chemistry_enabled=False,
+        web_search_enabled=False,
+        web_search_classifier_enabled=False,
+        gmail_enabled=False,
+        google_calendar_enabled=False,
+    )
+    with (
+        patch(
+            "app.services.chat.prompt_builder._load_context_blocks",
+            AsyncMock(return_value=blocks),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            AsyncMock(return_value=[_EQUATION]),
+        ),
+        patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
+        patch(
+            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models",
+            return_value=[],
+        ),
+    ):
+        bundle = await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            "how",
+            "free-chat",
+            settings,
+            AsyncMock(),
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_TurnMode(
+                lightweight=False,
+                rich_context=False,
+                minimal_personal=False,
+                day_planning=False,
+                day_reflection=False,
+            ),
+            recent_messages=history,
+            current_user_message_id=current.id,
+        )
+
+    assert bundle.verified_math is not None
+    assert bundle.instant_reply is not None
+    assert bundle.instant_reply.startswith("**Given:**")
+    assert "Subtract 3 from both sides" in bundle.instant_reply
+    assert "Square root" in bundle.instant_reply
+    assert "—" in bundle.instant_reply.split("```answer")[0]
+    assert _EQUATION_RESULT in bundle.instant_reply

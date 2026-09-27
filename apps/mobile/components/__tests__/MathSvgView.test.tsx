@@ -6,6 +6,17 @@ import { setSvgMathRendererForTest } from "@/lib/math/svgMath";
 // Capture the xml instead of mounting react-native-svg's native view.
 const mockSvgXml = jest.fn((_props: { xml: string; width: number; height: number }) => null);
 jest.mock("react-native-svg", () => ({
+  __esModule: true,
+  default: (props: Record<string, unknown>) => {
+    const React = jest.requireActual<typeof import("react")>("react");
+    const { View } = jest.requireActual<typeof import("react-native")>("react-native");
+    return React.createElement(View, props);
+  },
+  Path: (props: Record<string, unknown>) => {
+    const React = jest.requireActual<typeof import("react")>("react");
+    const { View } = jest.requireActual<typeof import("react-native")>("react-native");
+    return React.createElement(View, props);
+  },
   SvgXml: (props: { xml: string; width: number; height: number }) => mockSvgXml(props),
 }));
 

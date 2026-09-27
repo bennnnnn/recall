@@ -199,7 +199,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Now Playing UI). Pro + daily cap. Catalog alias + gateway (provider TBD); reuse
   `expo-audio` / attachment URLs. Do not start until image-gen’s storage/cap path is the
   template. Not TTS / not humming into the mic.
-- ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
+- ✅ **Math / LaTeX** — inline `$...$` renders in dedicated KaTeX Computer Modern faces (italic variables, upright digits/operators, superscripts, scalable continuous radicals, tight stacked fractions);
   display ` ```math` renders as **MathJax-SVG** (`MathSvgView` + `mathjax-full`, lazy-loaded
   and LRU-cached, themed via `currentColor`) on every build — no WebView — with a readable
   `MathText` fallback if conversion fails. Native builds use **Skia** for inline function
@@ -208,9 +208,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
   `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
   verified answers (`1+1=x`, factor a quadratic) return directly without an LLM
-  turn. **Lessons** are server-rendered from verified `key_steps` when the style
-  is Detailed, the user asks for steps, or Balanced with two or more operations:
-  equations (linear, pure-power, quadratic), linear and compound inequalities,
+  turn. **Lessons** are server-rendered from verified `key_steps` for every
+  supported equation/system/inequality unless the user explicitly asks for
+  “just the answer”; an adjacent “how?” replays that same checked trace instead
+  of asking the model to invent steps. Coverage includes equations (linear,
+  pure-power, quadratic), linear and compound inequalities,
   2×2 linear systems, derivatives rule by rule, and indefinite integrals by
   method (u-substitution and integration by parts included). SymPy checks every
   line before it is shown; other explanations still stream.
@@ -229,6 +231,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
+- ✅ **Recurring pay through a date** — questions such as “I make $3,400 every two
+  weeks; how much by December 11?” use the device-local date and a deterministic
+  calendar calculator, not a chat model or web search. The reply shows complete
+  periods, remainder days, payment dates, the today-is-a-payday alternative, and
+  daily proration so the counting assumption is never hidden.
 - ✅ **Physics (twenty verified kinds)** — server-side SymPy. Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar

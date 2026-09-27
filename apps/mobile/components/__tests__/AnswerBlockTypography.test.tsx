@@ -39,14 +39,14 @@ describe("standalone answer typography", () => {
     expect(answer.getByText("π")).toHaveStyle({ fontSize: 17.5, lineHeight: 22.5 });
     expect(answer.getByText("²")).toHaveStyle({ fontSize: 17.5 });
     expect(answer.getByText("6")).toHaveStyle({ fontSize: 17.5 });
-    expect(answer.getByTestId("math-frac")).toHaveStyle({ width: 40, height: 55 });
-    expect(answer.getByTestId("math-text-tall")).toHaveStyle({ width: 47.5, height: 55 });
+    expect(answer.getByTestId("math-frac")).toHaveStyle({ width: 27.5, height: 55 });
+    expect(answer.getByTestId("math-text-tall")).toHaveStyle({ width: 35, height: 55 });
     expect(answer.getByLabelText("Answer: π^2/6")).toBeOnTheScreen();
     expect(mockFormula).not.toHaveBeenCalled();
 
     const inline = await render(<MathText latex={latex} />);
     expect(inline.getByText("π")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
-    expect(inline.getByTestId("math-frac")).toHaveStyle({ width: 32, height: 44 });
+    expect(inline.getByTestId("math-frac")).toHaveStyle({ width: 22, height: 44 });
   });
 
   it("scales fractional exponents in the answer without shrinking their digits", async () => {
@@ -57,11 +57,22 @@ describe("standalone answer typography", () => {
     expect(getByTestId("math-fractional-sup")).toHaveStyle({ paddingBottom: 15 });
   });
 
+  it("preserves lowercase x in the final answer with an italic math glyph", async () => {
+    const { getByLabelText, getByTestId } = await render(
+      <AnswerBlock content={String.raw`x = \pm 1`} />,
+    );
+    expect(getByLabelText("Answer: x = ± 1")).toBeOnTheScreen();
+    expect(getByTestId("math-variable")).toHaveTextContent("x");
+    expect(getByTestId("math-variable")).toHaveStyle({
+      fontFamily: "KaTeX_MathItalic",
+    });
+  });
+
   it("scales indexed roots and their radicands together", async () => {
     const { getByText, getByTestId } = await render(<AnswerBlock content={String.raw`\sqrt[6]{9}`} />);
     expect(getByText("6")).toHaveStyle({ fontSize: 15, lineHeight: 17.5 });
     expect(getByText("9")).toHaveStyle({ fontSize: 20, lineHeight: 25 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ height: 32.5 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ height: 27.5 });
   });
 
   it("keeps native fraction bounds proportional at larger accessibility text scale", async () => {
@@ -69,8 +80,8 @@ describe("standalone answer typography", () => {
       width: 390, height: 844, scale: 3, fontScale: 1.6,
     });
     const { getByTestId, getByText } = await render(<AnswerBlock content={String.raw`\frac{\pi^{2}}{6}`} />);
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 64, height: 88 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 76, height: 88 });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 44, height: 88 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 56, height: 88 });
     // Native Text applies fontScale itself; the style must not multiply it twice.
     expect(getByText("6")).toHaveStyle({ fontSize: 17.5 });
     expect(getByTestId("answer-line-scroll-0").props.horizontal).toBe(true);

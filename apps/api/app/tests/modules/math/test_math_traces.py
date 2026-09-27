@@ -243,11 +243,12 @@ def test_explain_adds_the_reason_for_the_flip():
     ) in reply
 
 
-def test_a_short_inequality_answer_uses_the_clean_spelling():
+def test_a_short_inequality_still_uses_the_verified_trace_and_clean_spelling():
     reply = _reply("solve -3x+2>=8", "short")
     assert reply is not None
-    assert reply.startswith("```answer\nx \\le -2\n```")
-    assert "Given" not in reply
+    assert reply.startswith("**Given:**")
+    assert "Divide both sides by -3" in reply
+    assert "```answer\nx \\le -2\n```" in reply
 
 
 @pytest.mark.parametrize(

@@ -108,7 +108,8 @@ function RootNavigator() {
 export default function RootLayout() {
   useFonts({
     SpaceMono: SpaceMono_400Regular,
-    SourceSerif4: require("@expo-google-fonts/source-serif-4/400Regular/SourceSerif4_400Regular.ttf"),
+    KaTeX_Main: require("katex/dist/fonts/KaTeX_Main-Regular.ttf"),
+    KaTeX_MathItalic: require("katex/dist/fonts/KaTeX_Math-Italic.ttf"),
     [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
     [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
     [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),
