@@ -30,6 +30,7 @@ from app.modules.web_search.subject import last_assistant_content
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services import profile as profile_service
+from app.services import recurring_pay as recurring_pay_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_builder import (
@@ -337,6 +338,30 @@ async def build_stream_prompt_context(
                 client_longitude=client_longitude,
             )
             local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
+
+    # A recurring-pay estimate is fully owned by local date arithmetic. Do not
+    # build memory/RAG context or probe model health for a reply that will never
+    # call a model; that work added roughly a second before the first token.
+    if not has_image_attachment:
+        pay_reply = recurring_pay_service.maybe_recurring_pay_reply(content, local_tz)
+        if pay_reply is not None:
+            if timing is not None:
+                timing.mark_phase("prompt_assembled")
+                timing.mark_phase("augment_done")
+                timing.mark_prompt_ready()
+            return TurnPromptBundle(
+                prompt_messages=[{"role": "user", "content": content}],
+                meta=meta,
+                instant_reply=pay_reply,
+                search_sources=[],
+                local_places=geo.local_places,
+                max_out=settings.max_output_tokens,
+                fallback_models=[],
+                lightweight=mode.lightweight,
+                rich_context=mode.rich_context,
+                geo=geo,
+                local_tz=local_tz,
+            )
 
     # No outer session during prompt gather (RAG/memory embeds use short-lived
     # sessions inside build_prompt_messages). Do not emit preparing/remembering

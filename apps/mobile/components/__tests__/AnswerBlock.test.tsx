@@ -52,6 +52,16 @@ describe("AnswerBlock", () => {
     );
   });
 
+  it("keeps the success check beside a fractional final instead of at the screen edge", async () => {
+    const { getByTestId } = await render(
+      <AnswerBlock content={String.raw`x = \frac{1}{2}`} />,
+    );
+    const row = getByTestId("answer-row");
+    const check = getByTestId("answer-success-check");
+    expect(check.parent).toBe(row);
+    expect(StyleSheet.flatten(check.props.style)).toMatchObject({ marginLeft: 6 });
+  });
+
   it("BUG FIX regression: two roots joined with or stay on MathText so the last root is not clipped", async () => {
     const { getByLabelText } = await render(
       <AnswerBlock content={String.raw`x = \frac{1}{2} \text{ or } x = 3`} />,

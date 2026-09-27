@@ -231,6 +231,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
+- ✅ **Recurring pay through a date** — questions such as “I make $3,400 every two
+  weeks; how much by December 11?” use the device-local date and a deterministic
+  calendar calculator, not a chat model or web search. The reply shows complete
+  periods, remainder days, payment dates, the today-is-a-payday alternative, and
+  daily proration so the counting assumption is never hidden.
 - ✅ **Physics (twenty verified kinds)** — server-side SymPy. Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar
