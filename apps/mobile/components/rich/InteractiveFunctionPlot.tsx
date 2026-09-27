@@ -246,7 +246,8 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
           />
         )}
         <View style={explorerStyles.expandBadge} pointerEvents="none">
-          <Icon name="expand" size={IconSize.xs} color={theme.textSecondary} />
+          <Icon name="expand" size={IconSize.xs} color={theme.onPrimary} />
+          <Text style={explorerStyles.expandText}>{t("rich.expand")}</Text>
         </View>
       </Pressable>
       {open ? null : seriesEditor(cardDrawn, "card")}
@@ -586,14 +587,19 @@ const makeExplorerStyles = (theme: Theme) =>
       position: "absolute",
       bottom: 8,
       right: 8,
-      width: 32,
-      height: 32,
-      borderRadius: Radius.xl,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      backgroundColor: theme.bg,
+      minHeight: 32,
+      paddingHorizontal: Space.sm,
+      borderRadius: Radius.full,
+      backgroundColor: theme.primary,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 6,
+    },
+    expandText: {
+      color: theme.onPrimary,
+      fontSize: 13,
+      fontWeight: "700",
     },
     modalRoot: {
       flex: 1,
