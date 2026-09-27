@@ -16,12 +16,7 @@ from typing import Any
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult, solve_physics
-from app.services.solving import (
-    MathServiceError,
-    VerifiedMathBlock,
-    _diagram_block,
-    _finish_with_answer,
-)
+from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +67,7 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
         result = solve_physics(part)
         value, separator, unit = result.answer_value.partition(" ")
         if not separator or unit not in {"s", "m", "m/s"}:
-            raise MathServiceError("unexpected projectile result representation")
+            raise SolveServiceError("unexpected projectile result representation")
         answers.append(rf"{_PROJECTILE_LABELS[op]} = {value}\,\mathrm{{{unit}}}")
         results.append(result)
     first = results[0]
@@ -86,12 +81,12 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
 
 def _build_physics_block(
     intent: PhysicsIntent, settings: Settings, lines: list[str]
-) -> VerifiedMathBlock | None:
+) -> VerifiedPhysicsBlock | None:
     """Solve the physics problem and build a verified block with answer + graph."""
     result: PhysicsResult | None = None
     try:
         result = _solve_requested_quantities(intent)
-    except MathServiceError as exc:
+    except SolveServiceError as exc:
         logger.info(
             "physics verification skipped kind=%s op=%s reason=%s",
             intent.kind,
@@ -144,35 +139,68 @@ def _build_physics_block(
         for spec in (*result.graph_specs, *result.simulation_specs)
     ]
     if not specs:
-        block = _finish_with_answer(lines, visible_answer, allow_direct=False)
-        return replace(block, physics_working=result.answer)
+        return VerifiedPhysicsBlock(
+            text="\n".join(lines),
+            subject="physics",
+            canonical_fence={"type": "answer", "content": visible_answer},
+            canonical_answer=visible_answer,
+            allow_direct=False,
+            physics_intent=intent.model_copy(deep=True),
+            physics_working=result.answer,
+        )
 
     if result.graph_specs:
         # A graph *is* the answer in visual form, so it leads and the turn may
         # take the direct path exactly as it always could.
-        block = _diagram_block(lines, specs[0], visible_answer)
+        block = VerifiedPhysicsBlock(
+            text="\n".join(lines),
+            subject="physics",
+            canonical_fence=specs[0],
+            canonical_answer=visible_answer,
+            physics_intent=intent.model_copy(deep=True),
+            physics_working=result.answer,
+        )
     else:
         # A scene attached to a scalar answer is decoration, not a second
         # answer. Keep the answer fence primary; the physics direct guard
         # separately requires the solver-owned working before it can format a
         # complete response, so the picture never grants directness by itself.
-        block = _finish_with_answer(lines, visible_answer, allow_direct=False)
+        block = VerifiedPhysicsBlock(
+            text="\n".join(lines),
+            subject="physics",
+            canonical_fence={"type": "answer", "content": visible_answer},
+            canonical_answer=visible_answer,
+            allow_direct=False,
+            physics_intent=intent.model_copy(deep=True),
+            physics_working=result.answer,
+        )
 
     # Extras only. Every reader of `canonical_fences` already prepends
     # `canonical_fence`, so repeating it here would mean a caller that clears
     # the primary still finds a copy — and for a scalar answer the primary
     # *is* the authorisation for a direct reply.
     extras = [spec for spec in specs if spec is not block.canonical_fence]
-    return replace(block, canonical_fences=extras, physics_working=result.answer)
+    return replace(block, canonical_fences=extras)
 
 
-# Any, not PhysicsIntent: the generic dispatch in math/tools/block/__init__.py
-# calls whichever builder it looks up with a MathIntent | PhysicsIntent — see
-# _BlockBuilder there for why the registry's own Callable type has to be
-# this loose even though _build_physics_block's own signature is precise.
-_PhysicsBlockBuilder = Callable[[Any, Settings, list[str]], VerifiedMathBlock | None]
+def build_verified_physics_block(
+    intent: PhysicsIntent, settings: Settings
+) -> VerifiedPhysicsBlock | None:
+    """Public synchronous physics verification entry point.
 
-PHYSICS_BLOCK_BUILDERS: dict[str, _PhysicsBlockBuilder] = {
+    Chat uses the asynchronous wrapper in :mod:`app.modules.physics.prompt`;
+    tests and non-chat integrations use this function without reaching into
+    math's block dispatcher.
+    """
+    block = _build_physics_block(intent, settings, [])
+    if block is None:
+        return None
+    return replace(block, text=wrap_verified_physics(block.text))
+
+PHYSICS_BLOCK_BUILDERS: dict[
+    str,
+    Callable[[PhysicsIntent, Settings, list[str]], VerifiedPhysicsBlock | None],
+] = {
     "kinematics": _build_physics_block,
     "suvat": _build_physics_block,
     "projectile": _build_physics_block,

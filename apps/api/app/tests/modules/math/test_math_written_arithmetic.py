@@ -35,9 +35,9 @@ def _work(question: str):
         ("Show every step for 503 - 278", "column_subtraction", "225"),
         ("23 multiplied by 14", "column_multiplication", "322"),
         ("Use long division to calculate 1,572 ÷ 12", "long_division", "131"),
-        ("437 divided by 6", "long_division", r"\frac{437}{6}\approx 72.83"),
-        ("456/56", "long_division", r"\frac{57}{7}\approx 8.14"),
-        ("59595 devided by 54", "long_division", r"\frac{19865}{18}\approx 1103.61"),
+        ("437 divided by 6", "long_division", "72 R5"),
+        ("456/56", "long_division", "8 R8"),
+        ("59595 devided by 54", "long_division", "1103 R33"),
     ],
 )
 def test_written_arithmetic_extracts_on_existing_kind(
@@ -55,6 +55,17 @@ def test_addition_trace_keeps_real_carry_state() -> None:
     assert [column.carry_out for column in spec.addition_columns] == [1, 1, 0]
     assert [column.result_digit for column in spec.addition_columns] == [4, 3, 8]
     assert "carry 1" in spec.explanations[0].lower()
+
+
+def test_addition_trace_supports_more_than_two_aligned_addends() -> None:
+    intent, _block, spec = _work("Show steps: 478 + 356 + 99")
+
+    assert intent.arithmetic_operands == ["478", "356", "99"]
+    assert spec.operands == ["478", "356", "99"]
+    assert spec.answer == "933"
+    assert spec.addition_columns[0].addends == [8, 6, 9]
+    assert spec.addition_columns[0].carry_out == 2
+    assert spec.addition_columns[1].carry_in == 2
 
 
 def test_subtraction_trace_regroups_across_zero() -> None:
@@ -75,8 +86,10 @@ def test_multiplication_trace_has_shifted_partial_products() -> None:
 
 def test_long_division_trace_has_bring_down_and_remainder() -> None:
     _intent, _block, spec = _work("Show long division: 437 ÷ 6")
-    assert spec.quotient == "72.833"
-    assert spec.remainder == "2"
+    assert spec.quotient == "72"
+    assert spec.remainder == "5"
+    assert spec.answer_mode == "remainder"
+    assert 437 == 6 * int(spec.quotient) + int(spec.remainder)
     assert [step.partial_dividend for step in spec.division_steps[:2]] == ["43", "17"]
     assert [step.column_end for step in spec.division_steps[:2]] == [1, 2]
     assert spec.division_steps[0].bring_down == 7
@@ -110,11 +123,14 @@ def test_decimal_long_division_appends_visible_placeholder_zeros() -> None:
 @pytest.mark.parametrize(
     "question, quotient, answer",
     [
-        ("1 divided by 4", "0.25", "0.25"),
-        ("1 divided by 6", "0.166", r"\frac{1}{6}\approx 0.17"),
+        ("1 divided by 4", "0", "0 R1"),
+        ("1 divided by 6", "0", "0 R1"),
+        ("1 divided by 4 as a decimal", "0.25", "0.25"),
+        ("1 divided by 6 as a decimal", "0.166", r"\frac{1}{6}\approx 0.17"),
+        ("437 divided by 6 as a fraction", "72", r"\frac{437}{6}"),
     ],
 )
-def test_whole_number_division_prefers_decimals_over_forced_remainders(
+def test_whole_number_division_honors_requested_answer_mode(
     question: str,
     quotient: str,
     answer: str,
@@ -123,7 +139,18 @@ def test_whole_number_division_prefers_decimals_over_forced_remainders(
 
     assert spec.quotient == quotient
     assert spec.answer == answer
-    assert "remainder" not in spec.answer
+
+
+def test_division_interpretations_are_explicit_and_preserve_the_invariant() -> None:
+    for question, mode, answer in (
+        ("437 divided by 6 with a remainder", "remainder", "72 R5"),
+        ("437 divided by 6 round up", "round_up", "73"),
+        ("437 divided by 6 discard the remainder", "discard", "72"),
+    ):
+        _intent, _block, spec = _work(question)
+        assert spec.answer_mode == mode
+        assert spec.answer == answer
+        assert 437 == 6 * int(spec.quotient or "0") + int(spec.remainder or "0")
 
 
 @pytest.mark.parametrize(
@@ -157,9 +184,7 @@ def test_direct_reply_shows_division_working_by_default_and_respects_answer_only
 
     answer_only = "Just the answer: 59595 divided by 54"
     _intent, answer_block, _spec = _work(answer_only)
-    assert maybe_direct_math_reply(answer_block, answer_only) == (
-        "```answer\n\\frac{19865}{18}\\approx 1103.61\n```\n"
-    )
+    assert maybe_direct_math_reply(answer_block, answer_only) == "```answer\n1103 R33\n```\n"
 
     _intent, steps_block, _spec = _work("Show steps: 478 + 356")
     reply = maybe_direct_math_reply(steps_block, "Show steps: 478 + 356")
@@ -208,7 +233,7 @@ def test_followup_presentation_intent_keeps_canonical_long_division() -> None:
     assert "```arithmetic" in reply
     cleaned = validate_math_fences(reply, verified=block)
     assert "```arithmetic" in cleaned
-    assert '"answer":"\\\\frac{57}{7}\\\\approx 8.14"' in cleaned
+    assert '"answer":"8 R8"' in cleaned
 
 
 def test_fence_rewriter_uses_only_canonical_written_work() -> None:
@@ -264,3 +289,32 @@ def test_written_grammar_rejects_compound_or_malformed_requests() -> None:
     )
     assert math_match.written_arithmetic_request("2026-09") is None
     assert math_match.written_arithmetic_request("555-1234") is None
+
+
+def test_written_grammar_consumes_school_method_metadata() -> None:
+    assert math_match.written_arithmetic_request("Show 478 + 356 using carrying.") == (
+        "478",
+        "356",
+        "+",
+        "column_addition",
+    )
+    assert math_match.written_arithmetic_request("Show 503 - 278 using borrowing.") == (
+        "503",
+        "278",
+        "-",
+        "column_subtraction",
+    )
+    assert math_match.written_arithmetic_request("Show 12 + 3 using borrowing.") is None
+
+
+def test_school_method_request_uses_the_typed_direct_trace() -> None:
+    question = "Show 478 + 356 using carrying."
+    _intent, block, spec = _work(question)
+    block = replace(block, response_intent=classify_math_response_intent(question))
+
+    assert block.response_intent.wants_explanation
+    reply = maybe_direct_math_reply(block, question)
+    assert reply is not None
+    assert reply.startswith("```arithmetic\n")
+    assert '"operation":"addition"' in reply
+    assert spec.answer == "834"

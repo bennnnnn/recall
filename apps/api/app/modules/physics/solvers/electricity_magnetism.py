@@ -17,7 +17,7 @@ from app.modules.physics.solvers.common import (
     _latex_scientific,
     _params_in_si,
 )
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
@@ -26,7 +26,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "parallel_plate_capacitance":
         if p["area"] <= 0 or p["d"] <= 0:
-            raise MathServiceError("parallel-plate capacitance needs positive area and spacing")
+            raise SolveServiceError("parallel-plate capacitance needs positive area and spacing")
         value = _EPSILON_0 * p["area"] / p["d"]
         return PhysicsResult(
             answer=(
@@ -39,7 +39,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "capacitor_energy":
         if p["capacitance"] < 0:
-            raise MathServiceError("capacitance cannot be negative")
+            raise SolveServiceError("capacitance cannot be negative")
         value = 0.5 * p["capacitance"] * p["V"] ** 2
         return PhysicsResult(
             answer=(
@@ -52,7 +52,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "rc_time_constant":
         if p["R"] < 0 or p["capacitance"] < 0:
-            raise MathServiceError("RC time constant needs nonnegative R and C")
+            raise SolveServiceError("RC time constant needs nonnegative R and C")
         value = p["R"] * p["capacitance"]
         return PhysicsResult(
             answer=(
@@ -67,9 +67,9 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
         # using two is how "2, 3 and 5 ohms in series" answered 5 ohms.
         resistances = [p[key] for key in sorted(p) if _RESISTOR_KEY_RE.fullmatch(key)]
         if len(resistances) < 2:
-            raise MathServiceError("a resistor network needs at least two resistances")
+            raise SolveServiceError("a resistor network needs at least two resistances")
         if any(r <= 0 for r in resistances):
-            raise MathServiceError("resistances must be positive")
+            raise SolveServiceError("resistances must be positive")
         terms = " + ".join(f"{r:g}" for r in resistances)
         if op == "series_resistance":
             total = sum(resistances)
@@ -103,7 +103,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "capacitance":
         if p["V"] == 0:
-            raise MathServiceError("capacitance needs a nonzero voltage")
+            raise SolveServiceError("capacitance needs a nonzero voltage")
         c_val = p["Q"] / p["V"]
         return PhysicsResult(
             answer=(
@@ -135,19 +135,19 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             )
         elif "V" in p and "R" in p:
             if p["R"] == 0:
-                raise MathServiceError("resistance must be nonzero")
+                raise SolveServiceError("resistance must be nonzero")
             val = p["V"] ** 2 / p["R"]
             answer = (
                 rf"P = \frac{{V^2}}{{R}} = \frac{{{_latex_num(p['V'], square=True)}}}"
                 rf"{{{p['R']:g}}} \approx {val:.2f} \text{{ W}}"
             )
         else:
-            raise MathServiceError("electrical power needs two of V, I, R")
+            raise SolveServiceError("electrical power needs two of V, I, R")
         return PhysicsResult(answer=answer, answer_value=f"{val:.2f} W")
 
     if op == "current":
         if p["R"] == 0:
-            raise MathServiceError("resistance must be nonzero")
+            raise SolveServiceError("resistance must be nonzero")
         val = p["V"] / p["R"]
         return PhysicsResult(
             answer=(
@@ -166,7 +166,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "resistance":
         if p["I"] == 0:
-            raise MathServiceError("current must be nonzero")
+            raise SolveServiceError("current must be nonzero")
         val = p["V"] / p["I"]
         return PhysicsResult(
             answer=(
@@ -176,7 +176,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{val:.2f} ohm",
         )
 
-    raise MathServiceError(f"unsupported circuit op: {op}")
+    raise SolveServiceError(f"unsupported circuit op: {op}")
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +190,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "electric_field":
         if p["r"] <= 0:
-            raise MathServiceError("distance from the point charge must be positive")
+            raise SolveServiceError("distance from the point charge must be positive")
         value = _COULOMB_K * abs(p["Q"]) / p["r"] ** 2
         return PhysicsResult(
             answer=(
@@ -203,7 +203,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "electric_potential":
         if p["r"] <= 0:
-            raise MathServiceError("distance from the point charge must be positive")
+            raise SolveServiceError("distance from the point charge must be positive")
         value = _COULOMB_K * p["Q"] / p["r"]
         return PhysicsResult(
             answer=(
@@ -215,7 +215,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "electric_potential_energy":
         if p["r"] <= 0:
-            raise MathServiceError("charge separation must be positive")
+            raise SolveServiceError("charge separation must be positive")
         value = _COULOMB_K * p["q1"] * p["q2"] / p["r"]
         return PhysicsResult(
             answer=(
@@ -229,7 +229,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
     if op == "charged_particle_radius":
         denominator = abs(p["Q"]) * p["b_field"]
         if p["m"] <= 0 or p["v"] < 0 or denominator <= 0:
-            raise MathServiceError("magnetic radius needs positive mass, charge, and field")
+            raise SolveServiceError("magnetic radius needs positive mass, charge, and field")
         value = p["m"] * p["v"] / denominator
         return PhysicsResult(
             answer=(
@@ -253,7 +253,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "magnetic_field_wire":
         if p["r"] <= 0:
-            raise MathServiceError("distance from the wire must be positive")
+            raise SolveServiceError("distance from the wire must be positive")
         value = _MU_0 * p["I"] / (2 * math.pi * p["r"])
         return PhysicsResult(
             answer=(
@@ -267,7 +267,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
     if op == "electric_force":
         separation = p["r"]
         if separation <= 0:
-            raise MathServiceError("charge separation must be positive")
+            raise SolveServiceError("charge separation must be positive")
         value = _COULOMB_K * abs(p["q1"] * p["q2"]) / separation**2
         display_value = f"{value:.4g}"
         return PhysicsResult(
@@ -315,4 +315,4 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{value:.4g} Wb",
         )
 
-    raise MathServiceError(f"unsupported magnetism op: {op}")
+    raise SolveServiceError(f"unsupported magnetism op: {op}")

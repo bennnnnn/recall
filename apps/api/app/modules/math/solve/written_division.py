@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from math import gcd
+from typing import Literal, cast
 
 from app.models.schemas.math import ArithmeticWorkSpec, LongDivisionStep
 from app.modules.math.solve.written_arithmetic_common import (
@@ -97,7 +98,11 @@ def _division_steps(
 
 
 def build_long_division(
-    left_token: str, right_token: str, expression: str
+    left_token: str,
+    right_token: str,
+    expression: str,
+    *,
+    answer_mode: str | None = None,
 ) -> ArithmeticWorkSpec | None:
     left_parts, right_parts = number_parts(left_token), number_parts(right_token)
     if left_parts is None or right_parts is None:
@@ -116,15 +121,48 @@ def build_long_division(
     integer_digits = len(working_text.partition(".")[0])
     numerator = int(digits or "0")
     denominator = divisor * (10 ** max(0, len(digits) - integer_digits))
+    requested_mode = answer_mode or (
+        "decimal" if left_scale or right_scale else "remainder"
+    )
+    if requested_mode not in {"remainder", "fraction", "decimal", "round_up", "discard"}:
+        return None
     places = _terminating_places(numerator, denominator)
     existing_fraction_places = max(0, len(digits) - integer_digits)
-    repeating = places is None
-    if places is not None:
+    integer_quotient, integer_remainder = divmod(numerator, denominator)
+    repeating = places is None and requested_mode == "decimal"
+    if integer_remainder == 0:
+        quotient = str(integer_quotient)
+        target_extra = 0
+        answer = quotient
+        answer_places = 0
+        resolved_mode = "exact"
+    elif requested_mode == "remainder":
+        quotient = str(integer_quotient)
+        target_extra = 0
+        answer = f"{quotient} R{integer_remainder}"
+        answer_places = 0
+        resolved_mode = "remainder"
+    elif requested_mode == "fraction":
+        quotient = str(integer_quotient)
+        target_extra = 0
+        common = gcd(numerator, denominator)
+        exact_numerator, exact_denominator = numerator // common, denominator // common
+        answer = f"\\frac{{{exact_numerator}}}{{{exact_denominator}}}"
+        answer_places = 0
+        resolved_mode = "fraction"
+    elif requested_mode in {"round_up", "discard"}:
+        quotient = str(integer_quotient)
+        target_extra = 0
+        answer = str(integer_quotient + (1 if requested_mode == "round_up" else 0))
+        answer_places = 0
+        resolved_mode = requested_mode
+    elif places is not None:
         quotient_decimal = Decimal(numerator) / Decimal(denominator)
         quotient = _plain_decimal(quotient_decimal)
         target_extra = max(0, places - existing_fraction_places)
         answer = quotient
         answer_places = places
+        resolved_mode = "decimal"
     else:
         working_places = max(
             existing_fraction_places,
@@ -147,6 +185,7 @@ def build_long_division(
         answer = f"\\frac{{{exact_numerator}}}{{{exact_denominator}}}\\approx {rounded}"
         answer_places = _APPROX_DECIMAL_PLACES
         target_extra = max(0, working_places - existing_fraction_places)
+        resolved_mode = "decimal"
     steps, remainder = _division_steps(digits, divisor, target_extra)
     division_display = working_text
     if target_extra:
@@ -173,7 +212,24 @@ def build_long_division(
             text += f" Bring down {step.bring_down} → {step.next_partial}."
         explanations.append(text)
     remainder_text = str(remainder)
-    if repeating:
+    if resolved_mode == "remainder":
+        explanations.append(
+            f"Quotient: {integer_quotient}; remainder: {integer_remainder}. "
+            f"Check: {divisor} x {integer_quotient} + {integer_remainder} = {numerator}."
+        )
+    elif resolved_mode == "fraction":
+        explanations.append(f"Write the exact quotient as the simplified fraction {answer}.")
+    elif resolved_mode == "round_up":
+        explanations.append(
+            f"There are {integer_quotient} full groups and {integer_remainder} left over, "
+            f"so one more group is required: {answer}."
+        )
+    elif resolved_mode == "discard":
+        explanations.append(
+            f"There are {integer_quotient} complete groups; discard the remainder "
+            f"{integer_remainder}."
+        )
+    elif repeating:
         explanations.append(
             "The decimal continues. Keep one guard digit, then round to "
             f"{_APPROX_DECIMAL_PLACES} decimal places."
@@ -192,7 +248,11 @@ def build_long_division(
         answer=answer,
         decimal_places=answer_places or 0,
         quotient=quotient,
-        remainder=remainder_text,
+        remainder=(str(integer_remainder) if resolved_mode != "decimal" else remainder_text),
+        answer_mode=cast(
+            Literal["exact", "remainder", "fraction", "decimal", "round_up", "discard"],
+            resolved_mode,
+        ),
         division_steps=steps,
         explanations=explanations,
     )

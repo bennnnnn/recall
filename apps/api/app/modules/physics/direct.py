@@ -6,16 +6,20 @@ or discard extra clauses. The block carries the exact intent that was solved.
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from typing import Any
 
-from app.models.schemas.math import MathIntent
 from app.models.schemas.physics import PhysicsIntent
 from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics.block import _format_visible_answer
-from app.modules.physics.extract import _LENGTH_UNIT_PATTERN, _VELOCITY_UNIT_PATTERN
-from app.services.solving import VerifiedMathBlock
+from app.modules.physics.extract import (
+    _LENGTH_UNIT_PATTERN,
+    _VELOCITY_UNIT_PATTERN,
+    extract_physics_intent,
+)
+from app.services.solving import VerifiedPhysicsBlock
 
 _NUMBER = r"-?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
 _TIME = r"seconds?|s|minutes?|min|milliseconds?|ms|hours?|hr|h"
@@ -136,27 +140,6 @@ _ENERGY = (
         ),
     ),
 )
-_AVERAGE_SPEED = re.compile(
-    _ASK
-    + r"average speed for "
-    + _quantity("d", _LENGTH_UNIT_PATTERN)
-    + r" in "
-    + _quantity("t", _TIME),
-    re.IGNORECASE,
-)
-_TRAVEL_AVERAGE_SPEED = re.compile(
-    r"(?:a|an|the) [A-Za-z][A-Za-z -]{0,40}? "
-    r"(?:travels?|covers?|moves?) "
-    + _quantity("d", _LENGTH_UNIT_PATTERN)
-    + r" (?:in|over) "
-    + _quantity("t", _TIME)
-    + r"[.!?]? "
-    + _ASK
-    + r"average (?:speed|velocity)",
-    re.IGNORECASE,
-)
-
-
 def _request(text: str) -> tuple[str, float, bool] | None:
     if len(text) > 1000:
         return None
@@ -191,7 +174,7 @@ def _measures(match: re.Match[str]) -> tuple[dict[str, float], dict[str, str]]:
     return params, units
 
 
-def _expected_intent(text: str) -> MathIntent | PhysicsIntent | None:
+def _expected_intent(text: str) -> PhysicsIntent | None:
     parsed = _request(text)
     if parsed is None:
         return None
@@ -242,29 +225,6 @@ def _expected_intent(text: str) -> MathIntent | PhysicsIntent | None:
             params["g"] = g
             units["g"] = "m/s^2"
         return _intent("energy", op, params, units)
-    for pattern in (_AVERAGE_SPEED, _TRAVEL_AVERAGE_SPEED):
-        match = pattern.fullmatch(body)
-        if match is None or explicit_g:
-            continue
-        params, _units = _measures(match)
-        if not 0 <= params["d"] <= 1e6 or not 0 < params["t"] <= 1e6:
-            return None
-        from app.modules.math import extract_average_speed_intent
-
-        intent = extract_average_speed_intent(body)
-        if intent is not None and intent.expr == f"{params['d']}/{params['t']}":
-            return intent
-    if not explicit_g:
-        from app.modules.math import extract_average_speed_intent
-
-        speed_intent = extract_average_speed_intent(body)
-        if speed_intent is not None and speed_intent.school_op in {
-            "average_speed",
-            "speed_formula_speed",
-            "speed_formula_distance",
-            "speed_formula_time",
-        }:
-            return speed_intent
     return None
 
 
@@ -294,13 +254,19 @@ def _expected_trajectory_type(intent: PhysicsIntent) -> str:
     """
     if intent.kind == "projectile":
         return "parametric"
+    if intent.kind == "suvat":
+        if intent.physics_op == "suvat_distance" or (
+            intent.physics_op == "suvat_time" and "d" in (intent.physics_params or {})
+        ):
+            return "position_vs_time"
+        return "velocity_vs_time"
     if intent.physics_op in ("velocity", "speed"):
         return "velocity_vs_time"
     return "position_vs_time"
 
 
 def can_direct_physics(
-    verified: VerifiedMathBlock, text: str, fences: list[dict[str, Any]]
+    verified: VerifiedPhysicsBlock, text: str, fences: list[dict[str, Any]]
 ) -> bool:
     expected = _expected_intent(text)
     intent = verified.physics_intent
@@ -317,43 +283,19 @@ def can_direct_physics(
     answering = [f for f in fences if f.get("type") not in SIMULATION_SPEC_TYPES]
     if not answer or len(answer) > 800 or len(answering) != 1:
         return False
-    if isinstance(intent, PhysicsIntent) and not verified.physics_working:
+    if not verified.physics_working:
         return False
     fence = answering[0]
     # The legacy exact grammars remain a useful second check for their closed
     # subset. Every other physics kind is already guarded by deterministic
     # extraction plus a solver-owned canonical fence, so it can return without
     # waiting for a language model as well.
-    if expected is None:
-        if not isinstance(intent, PhysicsIntent):
-            return False
-        if _EXTRA_REQUEST.search(text):
-            return False
-        if fence.get("type") == "answer":
-            return fence.get("content") == answer
-        if fence.get("type") != "trajectory" or fence.get("expr2") or fence.get("points2"):
-            return False
-        points = fence.get("points")
-        return bool(
-            isinstance(points, list)
-            and len(points) >= 2
-            and all(
-                isinstance(point, list)
-                and len(point) == 2
-                and all(type(value) in {int, float} and math.isfinite(value) for value in point)
-                for point in points
-            )
-        )
-    # Pydantic equality includes private attributes. Math intents now retain
-    # the exact originating request for whole-turn binding, so the verifier's
-    # punctuation-normalized reparse can differ privately while every solved
-    # field is identical. Only validated solver inputs belong in this guard.
-    if type(expected) is not type(intent) or expected.model_dump() != intent.model_dump():
+    actual = expected or extract_physics_intent(text)
+    if actual is None or _EXTRA_REQUEST.search(text):
         return False
-    if not isinstance(expected, PhysicsIntent):
-        # The speed-law cross-checks are MathIntents with a scalar answer.
-        return fence.get("type") == "answer" and fence.get("content") == answer
-    if expected.kind in {"force", "energy"} or expected.physics_op == "acceleration":
+    if actual.model_dump() != intent.model_dump():
+        return False
+    if fence.get("type") == "answer":
         return fence.get("type") == "answer" and fence.get("content") == answer
     if fence.get("type") != "trajectory" or fence.get("expr2") or fence.get("points2"):
         return False
@@ -372,7 +314,7 @@ def can_direct_physics(
             for key in ("x_min", "x_max")
         )
         and fence["x_min"] < fence["x_max"]
-        and fence.get("trajectory_type") == _expected_trajectory_type(expected)
+        and fence.get("trajectory_type") == _expected_trajectory_type(actual)
     )
 
 
@@ -437,6 +379,10 @@ _RESULT_SYMBOLS = {
     "time_to_ground": "t",
     "speed": "v",
     "acceleration": "a",
+    "average_speed": "v",
+    "rate_speed": "v",
+    "rate_distance": "d",
+    "rate_time": "t",
     "range": "R",
     "max_height": "H_{max}",
     "time_of_flight": "t_{flight}",
@@ -572,6 +518,10 @@ _RESULT_SYMBOLS = {
 
 _FORMULA_LAW_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
+        "Distance-speed-time equation",
+        ("average_speed", "rate_speed", "rate_distance", "rate_time"),
+    ),
+    (
         "Constant-acceleration equation",
         ("position", "velocity", "time_to_ground", "speed", "acceleration"),
     ),
@@ -701,6 +651,10 @@ _FORMULA_LAW_NAMES = {
 }
 
 _BASE_FORMULAS = {
+    "average_speed": r"v = \frac{d}{t}",
+    "rate_speed": r"v = \frac{d}{t}",
+    "rate_distance": r"v = \frac{d}{t}",
+    "rate_time": r"v = \frac{d}{t}",
     "net_force": r"F = ma",
     "voltage": r"V = IR",
     "current": r"V = IR",
@@ -895,7 +849,7 @@ def _equation_layout(
     )
 
 
-def format_direct_physics_working(verified: VerifiedMathBlock) -> str | None:
+def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     """Five-section worked layout for a solver-verified instant reply.
 
     This formats the intent and the solver's exact equation chain; it never
@@ -904,91 +858,7 @@ def format_direct_physics_working(verified: VerifiedMathBlock) -> str | None:
     """
     intent = verified.physics_intent
     working = verified.physics_working
-    speed_ops = {
-        "average_speed",
-        "speed_formula_speed",
-        "speed_formula_distance",
-        "speed_formula_time",
-    }
-    if (
-        isinstance(intent, MathIntent)
-        and intent.school_op in speed_ops
-        and intent.unit_from
-        and intent.unit_to
-    ):
-        operation = intent.school_op
-        distance = intent.percent_base
-        speed = intent.percent_rate
-        duration = intent.point_x
-        if operation in {"average_speed", "speed_formula_speed"} and (
-            distance is None or duration is None
-        ):
-            operands = (intent.expr or "").split("/")
-            if len(operands) == 2:
-                try:
-                    distance, duration = (float(value) for value in operands)
-                except ValueError:
-                    return None
-        values = [value for value in (distance, speed, duration) if value is not None]
-        if not values or not all(math.isfinite(value) for value in values):
-            return None
-        length_unit = intent.unit_from
-        time_unit = intent.unit_to
-        if operation in {"average_speed", "speed_formula_speed"}:
-            if distance is None or duration is None or distance < 0 or duration <= 0:
-                return None
-            distance_text = _display_number(distance)
-            duration_text = _display_number(duration)
-            given = (
-                rf"$d = {distance_text}\,\mathrm{{{length_unit}}}$",
-                rf"$t = {duration_text}\,\mathrm{{{time_unit}}}$",
-            )
-            find = "$v$"
-            rearrangement: tuple[str, ...] = ()
-            substitution = (
-                rf"$v = \frac{{{distance_text}\,\mathrm{{{length_unit}}}}}"
-                rf"{{{duration_text}\,\mathrm{{{time_unit}}}}}$"
-            )
-        elif operation == "speed_formula_distance":
-            if speed is None or duration is None or speed < 0 or duration < 0:
-                return None
-            speed_text = _display_number(speed)
-            duration_text = _display_number(duration)
-            given = (
-                rf"$v = {speed_text}\,\mathrm{{{length_unit}/{time_unit}}}$",
-                rf"$t = {duration_text}\,\mathrm{{{time_unit}}}$",
-            )
-            find = "$d$"
-            rearrangement = ("Rearranged for $d$:", "$d = vt$")
-            substitution = rf"$d = {speed_text} \cdot {duration_text}$"
-        else:
-            if distance is None or speed is None or distance < 0 or speed <= 0:
-                return None
-            distance_text = _display_number(distance)
-            speed_text = _display_number(speed)
-            given = (
-                rf"$d = {distance_text}\,\mathrm{{{length_unit}}}$",
-                rf"$v = {speed_text}\,\mathrm{{{length_unit}/{time_unit}}}$",
-            )
-            find = "$t$"
-            rearrangement = ("Rearranged for $t$:", r"$t = \frac{d}{v}$")
-            substitution = rf"$t = \frac{{{distance_text}}}{{{speed_text}}}$"
-        return "\n\n".join(
-            (
-                "**Given**",
-                *given,
-                "**Find**",
-                find,
-                "**Formula**",
-                "Speed formula:",
-                r"$v = \frac{d}{t}$",
-                *rearrangement,
-                "**Substitution**",
-                substitution,
-                "**Answer**",
-            )
-        )
-    if not isinstance(intent, PhysicsIntent) or not working:
+    if intent is None or not working:
         return None
 
     params = intent.physics_params or {}
@@ -1009,6 +879,27 @@ def format_direct_physics_working(verified: VerifiedMathBlock) -> str | None:
     if intent.kind == "kinematics" and intent.physics_op == "speed" and "t" not in params:
         result_symbol = "v_{impact}"
     formulas, substitutions = _equation_layout(working, result_symbol=result_symbol)
+    if intent.physics_op in {"average_speed", "rate_speed"} and {"d", "t"} <= params.keys():
+        distance_unit = _given_unit_suffix(units.get("d"))
+        time_unit = _given_unit_suffix(units.get("t"))
+        substitutions = [
+            rf"v = \frac{{{_display_number(params['d'])}{distance_unit}}}"
+            rf"{{{_display_number(params['t'])}{time_unit}}}"
+        ]
+    elif intent.physics_op == "rate_distance" and {"v", "t"} <= params.keys():
+        speed_unit = _given_unit_suffix(units.get("v"))
+        time_unit = _given_unit_suffix(units.get("t"))
+        substitutions = [
+            rf"d = {_display_number(params['v'])}{speed_unit} \cdot "
+            rf"{_display_number(params['t'])}{time_unit}"
+        ]
+    elif intent.physics_op == "rate_time" and {"d", "v"} <= params.keys():
+        distance_unit = _given_unit_suffix(units.get("d"))
+        speed_unit = _given_unit_suffix(units.get("v"))
+        substitutions = [
+            rf"t = \frac{{{_display_number(params['d'])}{distance_unit}}}"
+            rf"{{{_display_number(params['v'])}{speed_unit}}}"
+        ]
     if intent.physics_op == "final_velocity" and {"m1", "m2", "v1", "v2"} <= params.keys():
         m1 = _display_number(params["m1"])
         m2 = _display_number(params["m2"])
@@ -1060,3 +951,46 @@ def format_direct_physics_working(verified: VerifiedMathBlock) -> str | None:
     rows.extend(f"${substitution}$" for substitution in substitutions)
     rows.append("**Answer**")
     return "\n\n".join(rows)
+
+
+def _solver_fences(verified: VerifiedPhysicsBlock) -> list[dict[str, Any]]:
+    fences: list[dict[str, Any]] = []
+    for fence in (verified.canonical_fence, *verified.canonical_fences):
+        if fence is not None and fence not in fences:
+            fences.append(fence)
+    return fences
+
+
+def maybe_direct_physics_reply(
+    verified: VerifiedPhysicsBlock | None,
+    user_text: str,
+    *,
+    has_image_attachment: bool = False,
+) -> str | None:
+    """Render a complete physics reply from solver-owned data only."""
+    if verified is None or has_image_attachment:
+        return None
+    fences = _solver_fences(verified)
+    if not can_direct_physics(verified, user_text, fences):
+        return None
+    working = format_direct_physics_working(verified)
+    if working is None:
+        return None
+    answer = (verified.display_answer or verified.canonical_answer or "").strip()
+    if not answer:
+        return None
+    parts = [working, f"```answer\n{answer}\n```"]
+    for fence in fences:
+        fence_type = fence.get("type")
+        if fence_type == "answer":
+            continue
+        language = "simulation" if fence_type in SIMULATION_SPEC_TYPES else "graph"
+        parts.append(f"```{language}\n{json.dumps(fence, separators=(',', ':'))}\n```")
+    reply = "\n\n".join(parts) + "\n"
+    intent = verified.physics_intent
+    if intent is not None and intent.kind == "kinematics" and intent.physics_op in {
+        "velocity",
+        "acceleration",
+    }:
+        return f"Upward is positive.\n\n{reply}"
+    return reply

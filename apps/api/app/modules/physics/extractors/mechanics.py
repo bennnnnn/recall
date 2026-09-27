@@ -25,6 +25,8 @@ _MOMENTUM_CUES = (
     "collision",
     "collide",
     "collides",
+    "elastically",
+    "inelastically",
     "recoil",
     "stick together",
     "sticks together",
@@ -569,7 +571,9 @@ _UNSUPPORTED_FORCE_CONTEXT = (
 )
 
 _FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\b(?:find|calculate|determine|compute)\s+f\b(?!\s*\()"),
+    # A bare physics force symbol is ``f``. Function notation and derivatives
+    # (``f(x)``, ``f'(x)``) remain math even when introduced with "find".
+    re.compile(r"\b(?:find|calculate|determine|compute)\s+f\b(?!\s*[('])"),
 )
 
 

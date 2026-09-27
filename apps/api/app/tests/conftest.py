@@ -34,13 +34,21 @@ def _isolate_rest_rate_limiter():
 
 @pytest.fixture(autouse=True)
 def _reset_sympy_executor():
-    """Drop the bounded SymPy executor between tests so each test gets a fresh
-    pool (forking after any monkeypatch is applied, so the worker inherits the
-    patched module). Without this, a pool created by an earlier test would be
-    reused and would NOT see patches applied in the current test."""
-    from app.modules.math.sympy_executor import reset_sympy_executor
+    """Use a fresh in-process math worker for ordinary unit tests.
 
-    reset_sympy_executor()
+    Production hard-kill behavior has dedicated ProcessPoolSympyExecutor
+    tests. Spawning a new subprocess pool in every unrelated async test is
+    both unnecessary and capable of exhausting macOS's semaphore table over
+    a full suite. The thread worker also correctly observes monkeypatches;
+    the production ``spawn`` context intentionally does not inherit them.
+    """
+    from app.modules.math.sympy_executor import (
+        ThreadSympyExecutor,
+        reset_sympy_executor,
+        set_sympy_executor,
+    )
+
+    set_sympy_executor(ThreadSympyExecutor(max_workers=1))
     yield
     reset_sympy_executor()
 

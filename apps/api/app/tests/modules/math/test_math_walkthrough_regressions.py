@@ -29,27 +29,6 @@ from app.modules.physics.extract import _extract_force_intent
         ("Convert 0 C to K", "unit", r"273.15\ \mathrm{K}"),
         ("Convert 32 F to C", "unit", r"0\ \mathrm{°C}"),
         ("Convert -2 m to cm", "unit", r"-200\ \mathrm{cm}"),
-        (
-            "Find the force on a 5 kg object with acceleration 2 m/s^2.",
-            "force",
-            "10 N",
-        ),
-        (
-            "Find the mass of an object with force 20 N and acceleration 4 m/s^2.",
-            "force",
-            "5 kg",
-        ),
-        (
-            "Find the average speed for 100 m in 20 s.",
-            "arithmetic",
-            r"5\ \mathrm{m}/\mathrm{s}",
-        ),
-        (
-            "A car travels 180 meters in 12 seconds. What is its average speed?",
-            "arithmetic",
-            r"15\ \mathrm{m}/\mathrm{s}",
-        ),
-        ("average speed 120 km in 2 hours", "arithmetic", r"60\ \mathrm{km}/\mathrm{h}"),
     ],
 )
 def test_walkthrough_operation_is_gated_and_answers_requested_quantity(

@@ -1,5 +1,35 @@
+import { applyOutsideFences } from "@/lib/mdFenceScan";
+
 const DETAILS_HTML_RE =
   /<details>\s*<summary>([\s\S]*?)<\/summary>\s*([\s\S]*?)<\/details>/gim;
+
+/**
+ * Models occasionally leave padding before a closing bold delimiter:
+ * `**Why this works: **`. CommonMark treats that closer as literal text, so
+ * the user sees the raw `**`. Trim only delimiter-adjacent horizontal space,
+ * and never touch code fences.
+ */
+export function trimBoldDelimiterWhitespace(content: string): string {
+  return applyOutsideFences(content, (prose) =>
+    prose.replace(/\*\*([^*\n]*?\S)[ \t]+\*\*/g, "**$1**"),
+  );
+}
+
+/** Keep a bold-only teaching label on its own visual row.
+ *
+ * CommonMark treats one newline as a space, so ``**Substitute**\n$x=2$``
+ * became one crowded line on iPhone. A blank line preserves the author's
+ * intended step structure and gives tall native fractions/radicals their own
+ * row. List labels and fenced examples are deliberately untouched.
+ */
+export function separateStandaloneBoldLines(content: string): string {
+  return applyOutsideFences(content, (prose) =>
+    prose.replace(
+      /^(\s*\*\*(?!\d+[.)]\s)[^*\n]+\*\*\s*)\n(?!\n)/gm,
+      "$1\n\n",
+    ),
+  );
+}
 
 /** Numbered/bulleted lists and headings — never code fences. */
 export function looksLikeMarkdownListProse(content: string): boolean {

@@ -89,6 +89,7 @@ from app.modules.physics.extractors.oscillations_waves import (
     _extract_spring_intent,
     _extract_waves_intent,
 )
+from app.modules.physics.extractors.rates import _RATE_CUES, extract_rate_intent
 from app.modules.physics.extractors.rotation import (
     _CIRCULAR_CUE_RES,
     _CIRCULAR_CUES,
@@ -100,6 +101,7 @@ from app.modules.physics.extractors.rotation import (
     _extract_rotation_intent,
     _extract_torque_intent,
 )
+from app.services.symbolic_text import normalize_symbolic_request
 
 __all__ = [
     "PHYSICS_CUES",
@@ -118,10 +120,13 @@ __all__ = [
     "_extract_kinematics_intent",
     "_extract_projectile_intent",
     "_extract_torque_intent",
+    "extract_physics_intent",
     "has_supported_physics_cue",
+    "needs_physics",
 ]
 
 PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
+    extract_rate_intent,
     _extract_kinematics_intent,
     # After kinematics, not before: free fall is a constant acceleration too,
     # and kinematics already owns it. SUVAT sees only what gravity did not
@@ -175,6 +180,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
     dict.fromkeys(
         (
             *_KINEMATICS_CUES,
+            *_RATE_CUES,
             *_SUVAT_CUES,
             *_PROJECTILE_CUES,
             *_MOMENTUM_CUES,
@@ -232,3 +238,55 @@ def has_supported_physics_cue(cleaned: str) -> bool:
     Takes the text **as written**, not lowercased. See `_has_cue_either_case`.
     """
     return _has_cue_either_case(cleaned, PHYSICS_CUES, PHYSICS_CUE_RES)
+
+
+_DIGIT_FREE_PHYSICS_RE = re.compile(
+    r"\b(?:escape velocity|escape speed|orbital velocity|orbital speed|"
+    r"surface gravity|gravitational field strength)\b"
+    r"[^.?!]{0,60}?\b(?:earth|moon|mars|jupiter|sun)\b"
+    r"|\b(?:earth|moon|mars|jupiter|sun)\b[^.?!]{0,60}?"
+    r"\b(?:escape velocity|escape speed|orbital velocity|orbital speed|"
+    r"surface gravity|gravitational field strength)\b",
+    re.IGNORECASE,
+)
+
+_ADVANCED_PHYSICS_RE = re.compile(
+    r"\b(?:schr[oö]dinger|hamilton(?:ian|'s equations?)?|lagrang(?:ian|e)|"
+    r"maxwell(?:'s)? equations?|gauss(?:'s)? law|kirchhoff(?:'s)? laws?|"
+    r"quantum harmonic oscillator|wave ?function|probability density|"
+    r"diffraction grating|poiseuille|capillary rise|inductor|rl circuit|"
+    r"ac circuit|impedance|reactance|transformer|nuclear reaction|binding energy|"
+    r"mass defect|rydberg|blackbody distribution|planck distribution|gear ratio)\b",
+    re.IGNORECASE,
+)
+
+
+def needs_physics(text: str) -> bool:
+    """True for a verified template or an unmistakable physics-only request."""
+    cleaned = normalize_symbolic_request(text)
+    if not cleaned:
+        return False
+    if _ADVANCED_PHYSICS_RE.search(cleaned) is not None:
+        return True
+    if not any(char.isdigit() for char in cleaned):
+        return _DIGIT_FREE_PHYSICS_RE.search(cleaned) is not None
+    return has_supported_physics_cue(cleaned)
+
+
+def extract_physics_intent(text: str) -> PhysicsIntent | None:
+    """Extract one complete physics request without entering math dispatch."""
+    from app.modules.physics.request import complete_physics_intent, prepare_physics_request
+
+    cleaned = normalize_symbolic_request(text)
+    if not cleaned:
+        return None
+    request = prepare_physics_request(cleaned)
+    if request.rejected:
+        return None
+    if request.collision is not None:
+        return request.collision
+    for extractor in PHYSICS_EXTRACTORS:
+        intent = extractor(request.text)
+        if intent is not None:
+            return complete_physics_intent(intent, request)
+    return None

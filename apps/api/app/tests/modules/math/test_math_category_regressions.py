@@ -212,6 +212,24 @@ def test_false_show_that_claim_is_rejected_with_its_actual_equality_set() -> Non
     assert r"\left\{2\right\}" in block.direct_reply
 
 
+def test_response_instruction_that_names_identity_still_solves_the_equation() -> None:
+    text = (
+        "Solve 3x^2 + x^0 = 3. Show every step and name each mathematical "
+        "law or identity when it is used."
+    )
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.school_op != "identity"
+    assert intent.lhs == "3x^2 + x^0"
+    assert intent.rhs == "3"
+
+    block = math_tools._build_verified_block(intent, _settings())
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert r"\sqrt{6}" in block.canonical_answer
+
+
 def test_matrix_inverse_preserves_exact_fractions():
     intent = math_tools.extract_math_intent("inverse [[1,2],[3,4]]")
     assert intent is not None and intent.kind == "matrix"

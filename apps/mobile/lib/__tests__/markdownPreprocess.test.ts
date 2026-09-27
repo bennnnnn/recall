@@ -8,7 +8,9 @@ import {
   breakAttachedMathFences,
   unwrapProseMathBackticks,
   mergeStrandedColons,
+  separateStandaloneBoldLines,
   stripBoldListLabelContinuationColons,
+  trimBoldDelimiterWhitespace,
   breakMidlineAtxHeadings,
 } from "@/lib/markdown/preprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
@@ -221,6 +223,31 @@ $)
     expect(normalizeBoldInlineMath("**Final Answer:** $x = 2 or x = -2$")).toBe(
       "**Final Answer:** $x = 2 or x = -2$",
     );
+  });
+
+  it("repairs whitespace before bold closers without touching fences", () => {
+    expect(trimBoldDelimiterWhitespace("**Why not simply $x$: **")).toBe(
+      "**Why not simply $x$:**",
+    );
+    expect(
+      trimBoldDelimiterWhitespace("```md\n**keep this: **\n```\n**repair this: **"),
+    ).toBe("```md\n**keep this: **\n```\n**repair this:**");
+    expect(preprocessMarkdown("**Apply to $\\sqrt{x}$: **")).toBe(
+      "**Apply to $\\sqrt{x}$:**",
+    );
+  });
+
+  it("keeps a bold-only math step label above its formula", () => {
+    const source = "**Substitute and simplify**\n$\\frac{a}{b}=c$";
+    expect(separateStandaloneBoldLines(source)).toBe(
+      "**Substitute and simplify**\n\n$\\frac{a}{b}=c$",
+    );
+    expect(preprocessMarkdown(source)).toContain(
+      "**Substitute and simplify**\n\n$\\frac{a}{b}=c$",
+    );
+    expect(
+      separateStandaloneBoldLines("```md\n**keep**\n$x$\n```"),
+    ).toBe("```md\n**keep**\n$x$\n```");
   });
 
   it("keeps mid-span math inside bold so list labels stay one line", () => {

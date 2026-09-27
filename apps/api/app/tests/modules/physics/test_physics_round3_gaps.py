@@ -19,8 +19,11 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.match.needs import needs_symbolic
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.tests.modules.physics.support import (
+    build_verified_physics_block,
+    extract_physics_intent,
+    needs_physics,
+)
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -42,10 +45,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -147,8 +150,8 @@ VERIFIED: list[tuple[str, str, str, str]] = [
 
 @pytest.mark.parametrize("text,kind,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_round_three_gap_phrasings(text: str, kind: str, op: str, answer: str) -> None:
-    assert needs_symbolic(text), "dropped by the pre-filter before extraction"
-    intent = extract_math_intent(text)
+    assert needs_physics(text), "dropped by the pre-filter before extraction"
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent), "no intent extracted"
     assert intent.kind == kind
     assert intent.physics_op == op
@@ -261,5 +264,5 @@ NOT_PHYSICS = [
 
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_the_round_three_cues_do_not_steal_other_subjects(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS

@@ -78,7 +78,15 @@ _HINT_WORDS = frozenset({"hint", "nudge", "clue"})
 _CHECK_WORDS = frozenset({"check", "correct", "right", "mistake", "wrong", "grade", "mark"})
 _DETAIL_WORDS = frozenset({"detailed", "thorough", "fully", "complete", "comprehensive"})
 _SCHOOL_METHOD_WORDS = frozenset(
-    {"addition", "subtraction", "multiplication", "division", "regrouping"}
+    {
+        "addition",
+        "borrowing",
+        "carrying",
+        "division",
+        "multiplication",
+        "regrouping",
+        "subtraction",
+    }
 )
 _REFERENTIAL_VOCAB = frozenset(
     {
@@ -239,6 +247,13 @@ def classify_math_response_intent(text: str) -> MathResponseIntent:
         and how_index + 1 < len(tokens)
         and tokens[how_index + 1] in {"far", "high", "hot", "long", "many", "much", "old"}
     )
+    # A definition such as "What is division with remainder?" describes the
+    # concept; ``with`` is not a request to execute the written method.  A
+    # concrete calculation still contains at least one numeric token and can
+    # opt into its requested school procedure below.
+    conceptual_definition = tokens[:2] == ["what", "is"] and not any(
+        token.isdigit() for token in tokens
+    )
     method = _requested_method(tokens)
     reveal = not _withhold_answer(tokens)
     has_check = any(word in tokens for word in _CHECK_WORDS) and (
@@ -265,11 +280,9 @@ def classify_math_response_intent(text: str) -> MathResponseIntent:
         or "working" in tokens
         or ("show" in tokens and "work" in tokens)
         or (
-            any(word in tokens for word in _SCHOOL_METHOD_WORDS)
-            and (
-                any(cue in tokens for cue in ("show", "use", "using"))
-                or ("with" in tokens and "long" in tokens and "division" in tokens)
-            )
+            not conceptual_definition
+            and any(word in tokens for word in _SCHOOL_METHOD_WORDS)
+            and any(cue in tokens for cue in ("by", "show", "use", "using", "with"))
         )
         or ("show" in tokens and set(tokens) <= _REFERENTIAL_VOCAB)
         or ("do" in tokens and "again" in tokens and set(tokens) <= _REFERENTIAL_VOCAB)
@@ -279,6 +292,7 @@ def classify_math_response_intent(text: str) -> MathResponseIntent:
         "teach" in tokens
         or "explain" in tokens
         or "why" in tokens
+        or conceptual_definition
         or ("how" in tokens and not quantitative_how)
         or set(tokens) == {"what"}
         or (

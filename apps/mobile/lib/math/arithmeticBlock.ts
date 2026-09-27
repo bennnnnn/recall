@@ -7,7 +7,7 @@ export type ArithmeticOperation =
 export type AdditionColumn = {
   position: number;
   place: string;
-  addends: [number, number];
+  addends: number[];
   carry_in: number;
   result_digit: number;
   carry_out: number;
@@ -57,8 +57,8 @@ export type ArithmeticWorkSpec = {
   operation: ArithmeticOperation;
   operator: "+" | "−" | "×" | "÷";
   expression: string;
-  operands: [string, string];
-  working_operands: [string, string];
+  operands: string[];
+  working_operands: string[];
   answer: string;
   decimal_places: number;
   addition_columns: AdditionColumn[];
@@ -67,18 +67,62 @@ export type ArithmeticWorkSpec = {
   partial_products: PartialProduct[];
   quotient?: string | null;
   remainder?: string | null;
+  answer_mode?:
+    | "exact"
+    | "remainder"
+    | "fraction"
+    | "decimal"
+    | "round_up"
+    | "discard";
   division_steps: DivisionStep[];
   explanations: string[];
+};
+
+export type FractionStep = {
+  kind: string;
+  explanation: string;
+  expression: string;
+  result: string;
+};
+
+export type FractionWorkSpec = {
+  type: "fraction";
+  operation:
+    | "simplify"
+    | "equivalent"
+    | "add"
+    | "subtract"
+    | "multiply"
+    | "divide"
+    | "mixed_to_improper"
+    | "improper_to_mixed"
+    | "of_quantity"
+    | "compare";
+  operands: string[];
+  answer: string;
+  exact_numerator?: number | null;
+  exact_denominator?: number | null;
+  steps: FractionStep[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-function stringPair(value: unknown): value is [string, string] {
+function stringOperands(value: unknown): value is string[] {
   return (
     Array.isArray(value) &&
-    value.length === 2 &&
+    value.length >= 2 &&
+    value.length <= 6 &&
+    value.every((item) => typeof item === "string")
+  );
+}
+
+function fractionOperands(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length >= 1 &&
+    value.length <= 6 &&
     value.every((item) => typeof item === "string")
   );
 }
@@ -98,8 +142,8 @@ export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
     ) ||
     !["+", "−", "×", "÷"].includes(String(data.operator)) ||
     typeof data.expression !== "string" ||
-    !stringPair(data.operands) ||
-    !stringPair(data.working_operands) ||
+    !stringOperands(data.operands) ||
+    !stringOperands(data.working_operands) ||
     typeof data.answer !== "string" ||
     typeof data.decimal_places !== "number" ||
     !Array.isArray(data.explanations) ||
@@ -107,6 +151,13 @@ export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
   ) {
     return null;
   }
+  if (
+    data.operands.length !== data.working_operands.length ||
+    (data.operation !== "addition" && data.operands.length !== 2)
+  ) {
+    return null;
+  }
+  const operandCount = data.operands.length;
   const additionColumns = data.addition_columns;
   const subtractionColumns = data.subtraction_columns;
   const regroupedMinuend = data.regrouped_minuend;
@@ -128,6 +179,8 @@ export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
         (column) =>
           isRecord(column) &&
           typeof column.position === "number" &&
+          Array.isArray(column.addends) &&
+          column.addends.length === operandCount &&
           typeof column.carry_out === "number",
       ),
     subtraction:
@@ -159,4 +212,43 @@ export function parseArithmeticWork(raw: string): ArithmeticWorkSpec | null {
   } as const;
   if (!trace[data.operation as ArithmeticOperation]) return null;
   return data as ArithmeticWorkSpec;
+}
+
+export function parseFractionWork(raw: string): FractionWorkSpec | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isRecord(data) || data.type !== "fraction") return null;
+  if (
+    ![
+      "simplify",
+      "equivalent",
+      "add",
+      "subtract",
+      "multiply",
+      "divide",
+      "mixed_to_improper",
+      "improper_to_mixed",
+      "of_quantity",
+      "compare",
+    ].includes(String(data.operation)) ||
+    !fractionOperands(data.operands) ||
+    typeof data.answer !== "string" ||
+    !Array.isArray(data.steps) ||
+    data.steps.length === 0 ||
+    !data.steps.every(
+      (step) =>
+        isRecord(step) &&
+        typeof step.kind === "string" &&
+        typeof step.explanation === "string" &&
+        typeof step.expression === "string" &&
+        typeof step.result === "string",
+    )
+  ) {
+    return null;
+  }
+  return data as FractionWorkSpec;
 }

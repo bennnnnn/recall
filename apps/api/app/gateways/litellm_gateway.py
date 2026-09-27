@@ -469,6 +469,11 @@ async def stream_chat_completion(
                 usage=attempt_usage,
                 on_reasoning=on_reasoning,
                 stream_meta=stream_meta,
+                first_content_timeout_seconds=(
+                    settings.chat_stream_first_content_timeout_seconds
+                    if index < len(aliases) - 1 and model_catalog.is_reasoning_alias(alias)
+                    else None
+                ),
             ):
                 if not started:
                     pending.append(token)
@@ -535,6 +540,7 @@ async def _stream_chat_once(
     usage: dict[str, int] | None = None,
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     stream_meta: dict[str, str] | None = None,
+    first_content_timeout_seconds: float | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route, latency_sensitive=True)
@@ -542,6 +548,12 @@ async def _stream_chat_once(
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
     response = None
+    first_content_deadline = (
+        time.monotonic() + max(0.1, first_content_timeout_seconds)
+        if first_content_timeout_seconds is not None
+        else None
+    )
+    visible_content_started = False
     try:
         async with asyncio.timeout(settings.chat_stream_connect_timeout_seconds):
             response = await acompletion(
@@ -576,13 +588,39 @@ async def _stream_chat_once(
                     _CHAT_MODEL_UNAVAILABLE_MSG,
                     failed_alias=model_alias,
                 )
+            first_content_remaining: float | None = None
+            if not visible_content_started and first_content_deadline is not None:
+                first_content_remaining = first_content_deadline - time.monotonic()
+                if first_content_remaining <= 0:
+                    logger.warning(
+                        "LiteLLM stream produced no visible content for alias=%s within %ss",
+                        model_alias,
+                        first_content_timeout_seconds,
+                    )
+                    raise ModelUnavailableError(
+                        _CHAT_MODEL_UNAVAILABLE_MSG,
+                        failed_alias=model_alias,
+                    )
+            read_timeout = min(idle_seconds, remaining)
+            if first_content_remaining is not None:
+                read_timeout = min(read_timeout, first_content_remaining)
             try:
                 chunk = await asyncio.wait_for(
                     _next_chunk(),
-                    timeout=min(idle_seconds, remaining),
+                    timeout=read_timeout,
                 )
             except TimeoutError as exc:
-                if time.monotonic() >= deadline:
+                if (
+                    not visible_content_started
+                    and first_content_deadline is not None
+                    and time.monotonic() >= first_content_deadline
+                ):
+                    logger.warning(
+                        "LiteLLM stream produced no visible content for alias=%s within %ss",
+                        model_alias,
+                        first_content_timeout_seconds,
+                    )
+                elif time.monotonic() >= deadline:
                     logger.warning(
                         "LiteLLM stream wall-clock timed out for alias=%s (max=%ss)",
                         model_alias,
@@ -612,9 +650,13 @@ async def _stream_chat_once(
             if content:
                 cleaned = stripper.feed(content)
                 if cleaned:
+                    if cleaned.strip():
+                        visible_content_started = True
                     yield cleaned
         tail = stripper.flush()
         if tail:
+            if tail.strip():
+                visible_content_started = True
             yield tail
     except TimeoutError as exc:
         logger.warning(

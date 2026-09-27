@@ -81,8 +81,8 @@ def _extract_rectangle_intent(cleaned: str) -> MathIntent | None:
             unit=named.unit,
             operation="solve",
             wants_diagonal=named.quantity == "diagonal",
-            wants_area=named.quantity == "area",
-            wants_perimeter=named.quantity == "perimeter",
+            wants_area=named.quantity in {"area", "area_and_perimeter"},
+            wants_perimeter=named.quantity in {"perimeter", "area_and_perimeter"},
             given_area=named.given_area,
             geometry_target=named.target,
         )

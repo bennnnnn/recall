@@ -10,9 +10,12 @@ from app.modules.integrations.calendar import (
     is_calendar_create_request,
     should_inject_calendar_block,
 )
-from app.modules.math.tools import _build_verified_block, extract_math_intent
-from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.physics.direct import _FORMULA_LAW_NAMES, _RESULT_SYMBOLS
+from app.tests.modules.physics.support import (
+    build_verified_physics_block,
+    extract_physics_intent,
+    maybe_direct_physics_reply,
+)
 
 _SETTINGS = Settings(math_tools_enabled=True)
 _HEADINGS = ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**")
@@ -173,14 +176,14 @@ _HEADINGS = ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answ
 def test_audit_prompts_are_verified_instant_structured_physics(
     query: str, kind: str, op: str
 ) -> None:
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
     assert (intent.kind, intent.physics_op) == (kind, op)
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
     assert "name the governing law" in verified.text
     assert "show its universal/base equation first" in verified.text
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert reply.count("```answer") == 1
     assert [reply.index(heading) for heading in _HEADINGS] == sorted(
@@ -198,11 +201,11 @@ def test_every_supported_physics_operation_has_a_named_governing_law() -> None:
 
 def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> None:
     query = "power dissipated by a 4 ohm resistor carrying 3 A"
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert "**Formula**\n\nElectrical-power formula:" in reply
     assert "$P = VI$" in reply
@@ -213,11 +216,11 @@ def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> Non
 
 def test_identical_base_law_is_not_repeated_as_an_equivalent_form() -> None:
     query = "a 5 kg mass accelerates at 2 m/s^2, what is the net force"
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
 
     assert reply is not None
     assert "$F = ma$" in reply
@@ -226,11 +229,11 @@ def test_identical_base_law_is_not_repeated_as_an_equivalent_form() -> None:
 
 def test_numbered_givens_and_degree_units_use_mathematical_notation() -> None:
     query = "a 3 N force east and a 4 N force north, what is the resultant"
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
 
     assert reply is not None
     assert "$F_1 = 3\\,\\mathrm{N}$" in reply
@@ -240,9 +243,9 @@ def test_numbered_givens_and_degree_units_use_mathematical_notation() -> None:
 
 def test_negative_wavelength_is_never_verified() -> None:
     query = "A wave has wavelength -2 m and frequency 5 Hz. Find speed."
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
-    assert _build_verified_block(intent, _SETTINGS) is None
+    assert build_verified_physics_block(intent, _SETTINGS) is None
 
 
 @pytest.mark.parametrize(
@@ -263,9 +266,9 @@ def test_negative_wavelength_is_never_verified() -> None:
     ],
 )
 def test_small_and_directional_results_keep_meaning(query: str, expected: str) -> None:
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
     assert verified.canonical_answer == expected
 
@@ -324,11 +327,11 @@ def test_worked_layout_names_the_requested_unknown(
     rearranged_formula: str | None,
     substitution_line: str,
 ) -> None:
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert f"**Find**\n\n{find_line}" in reply
     assert f"**Formula**\n\n{law_name}:" in reply
@@ -341,22 +344,22 @@ def test_worked_layout_names_the_requested_unknown(
 
 def test_impact_speed_uses_height_formula_and_scientific_givens_stay_readable() -> None:
     query = "A stone starts 60 m high with an initial velocity of 5 m/s downward. Find its impact speed."
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert r"$v_{impact}$" in reply
     assert r"$v_{impact} = \sqrt{v_0^2 + 2gh_0}$" in reply
     assert r"$v_{impact} = \sqrt{(-5)^{2} + 2 \cdot 9.81 \cdot 60}$" in reply
 
     planet = "Find escape velocity for a planet with M = 5.97e24 kg and R = 6.37e6 m."
-    planet_intent = extract_math_intent(planet)
+    planet_intent = extract_physics_intent(planet)
     assert isinstance(planet_intent, PhysicsIntent)
-    planet_verified = _build_verified_block(planet_intent, _SETTINGS)
+    planet_verified = build_verified_physics_block(planet_intent, _SETTINGS)
     assert planet_verified is not None
-    planet_reply = maybe_direct_math_reply(planet_verified, planet)
+    planet_reply = maybe_direct_physics_reply(planet_verified, planet)
     assert planet_reply is not None
     assert r"$M = 5.97e+24\,\mathrm{kg}$" in planet_reply
     assert "5970000000000000281018368" not in planet_reply

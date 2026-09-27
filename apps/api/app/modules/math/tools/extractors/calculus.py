@@ -114,6 +114,11 @@ def _extract_critical_points_intent(cleaned: str) -> MathIntent | None:
 
 
 _IDENTITY_CUES = ("show that", "prove that", "verify that", "always true")
+_EXPLICIT_IDENTITY_CUE = re.compile(
+    r"\b(?:an|the)\s+identity\b|\bidentity\s*:|"
+    r"\b(?:prove|verify|show|check)\s+(?:the\s+)?identity\b",
+    re.IGNORECASE,
+)
 _IDENTITY_SKIP_OPS = {
     "factor",
     "expand",
@@ -130,7 +135,12 @@ def _extract_identity_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math import match as mtm
 
     lower = cleaned.lower()
-    has_cue = "identity" in lower or any(cue in lower for cue in _IDENTITY_CUES)
+    # A bare mention is often a response-format instruction ("name the law or
+    # identity you use"), not a request to prove the equation itself. Require
+    # proposition wording such as "an identity", "identity:", or a proof cue.
+    has_cue = bool(_EXPLICIT_IDENTITY_CUE.search(cleaned)) or any(
+        cue in lower for cue in _IDENTITY_CUES
+    )
     if not has_cue or not mtm.has_equation(cleaned):
         return None
     op_word = mtm.calc_op(cleaned)
@@ -333,6 +343,13 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
             " state all excluded values",
             " state the excluded values",
             " include all excluded values",
+            # The symbolic verifier already creates real-valued symbols. A
+            # real-domain qualifier therefore narrows the same task; consume
+            # it instead of letting prose make sqrt(x*x) unverifiable.
+            " over the real numbers",
+            " over the reals",
+            " assuming x is real",
+            " for real x",
         ):
             at = lower_raw.find(suffix)
             if at != -1:

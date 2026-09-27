@@ -23,7 +23,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -45,15 +45,15 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
 def _op(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     return None if intent is None else getattr(intent, "physics_op", None)
 
 
@@ -148,7 +148,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_projectile_phrasings(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None, f"no intent extracted for {text!r}"
     assert intent.kind == "projectile"
     assert intent.physics_op == op
@@ -236,7 +236,7 @@ def test_kinematics_does_not_claim_a_question_with_a_launch_angle() -> None:
     is half that.
     """
     text = "a ball is launched at 20 m/s at 30 degrees, how long until it hits the ground"
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None
     assert intent.kind == "projectile"
     assert _verified_answer(text) == "2.04 s"
@@ -294,5 +294,5 @@ NOT_PHYSICS = [
 
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_the_new_cues_do_not_steal_other_subjects(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS

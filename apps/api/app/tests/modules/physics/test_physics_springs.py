@@ -19,7 +19,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -38,10 +38,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -86,7 +86,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_spring_phrasings_reach_a_verified_answer(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None, "no intent extracted"
     assert intent.kind == "spring"
     assert intent.physics_op == op
@@ -113,7 +113,7 @@ def test_an_shm_period_emits_an_animatable_trajectory() -> None:
     """
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent(
+    intent = extract_physics_intent(
         "period of a 0.5 kg mass on a spring with k = 200 N/m and amplitude 0.1 m"
     )
     assert isinstance(intent, PhysicsIntent)
@@ -140,7 +140,7 @@ def test_an_unstated_amplitude_is_normalised_not_invented() -> None:
     """
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent("period of a 0.5 kg mass on a spring with k = 200 N/m")
+    intent = extract_physics_intent("period of a 0.5 kg mass on a spring with k = 200 N/m")
     assert isinstance(intent, PhysicsIntent)
 
     spec = solve_physics(intent).graph_specs[0]
@@ -202,7 +202,7 @@ NOT_PHYSICS = [
 
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_spring_cues_do_not_steal_other_subjects(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
@@ -212,10 +212,10 @@ def test_a_season_does_not_engage_the_math_path() -> None:
     These cues feed the global pre-filter, so a bare mention would spend a tool
     round on a question nothing here can answer.
     """
-    from app.modules.math.tools import needs_symbolic_math
+    from app.tests.modules.physics.support import needs_physics
 
-    assert not needs_symbolic_math("spring break starts in 3 weeks")
-    assert needs_symbolic_math("force of a spring with k = 200 N/m stretched 0.1 m")
+    assert not needs_physics("spring break starts in 3 weeks")
+    assert needs_physics("force of a spring with k = 200 N/m stretched 0.1 m")
 
 
 @pytest.mark.parametrize(
@@ -231,7 +231,7 @@ def test_ordinary_energy_questions_are_untouched(text: str, answer: str) -> None
     "elastic potential energy" *should* reach spring; plain potential energy
     must not.
     """
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
 
     assert intent is not None and intent.kind == "energy"
     assert _verified_answer(text) == answer
@@ -260,7 +260,7 @@ PENDULUM: list[tuple[str, str]] = [
 
 @pytest.mark.parametrize("text,answer", PENDULUM, ids=[t[:44] for t, _ in PENDULUM])
 def test_pendulum_phrasings_reach_a_verified_answer(text: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
 
     assert intent is not None and intent.kind == "spring"
     assert intent.physics_op == "pendulum_period"
@@ -311,7 +311,7 @@ def test_the_pendulum_emits_the_same_animatable_curve_as_the_spring() -> None:
     """Shared builder, so P3's playback needs no second implementation."""
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent("period of a 2 m pendulum")
+    intent = extract_physics_intent("period of a 2 m pendulum")
     assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
@@ -327,7 +327,7 @@ def test_the_pendulum_emits_the_same_animatable_curve_as_the_spring() -> None:
 def test_the_spring_period_is_untouched() -> None:
     """A pendulum has a length where a spring has a constant, so the two cannot
     collide — but the pendulum extractor runs first, so this says so."""
-    intent = extract_math_intent("the period of a 200 N/m spring with a 2 kg mass")
+    intent = extract_physics_intent("the period of a 200 N/m spring with a 2 kg mass")
 
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == "shm_period"
     assert _verified_answer("the period of a 200 N/m spring with a 2 kg mass") == "0.63 s"
@@ -348,7 +348,7 @@ def test_pendulum_needs_a_length_beside_it(text: str) -> None:
     So "pendulum" counts only next to an actual length — the co-occurrence
     shape P5 used for friction and P7 for springs.
     """
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 

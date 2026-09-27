@@ -369,6 +369,10 @@ class Settings(BaseSettings):
     chat_stream_max_seconds: int = 600
     # Fail fast when the provider never opens an SSE stream (separate from read timeout).
     chat_stream_connect_timeout_seconds: int = 15
+    # Reasoning models can keep sending hidden chain-of-thought while never
+    # producing a user-visible token. When a fallback exists, stop that silent
+    # attempt and move on rather than making the chat bubble wait indefinitely.
+    chat_stream_first_content_timeout_seconds: float = 8.0
 
     # Prefer Neon's `-pooler` host when DATABASE_URL points at a direct Neon endpoint.
     database_prefer_neon_pooler: bool = True

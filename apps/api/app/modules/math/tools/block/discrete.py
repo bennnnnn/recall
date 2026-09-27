@@ -75,19 +75,66 @@ def _verified_calculus_application(
         )
         lines.append(f"Volume about the {axis}-axis: {answer}")
     block = _finish_with_answer(lines, answer)
-    from sympy import Symbol, diff, latex, sqrt
+    from sympy import (
+        Eq,
+        FiniteSet,
+        Interval,
+        Symbol,
+        diff,
+        integrate,
+        latex,
+        simplify,
+        solveset,
+        sqrt,
+    )
 
     sym = Symbol(intent.variable, real=True)
     parsed = math_solve._parse_expression(intent.expr, [intent.variable], real=True)
     low, high = intent.integral_lower, intent.integral_upper
     if op == "area_between_curves" and intent.expr2:
         second = math_solve._parse_expression(intent.expr2, [intent.variable], real=True)
-        direct = (
-            "**Set up the area**\n"
-            f"$A = \\int_{{{low}}}^{{{high}}} \\left|{latex(parsed - second)}\\right|"
-            f"\\,d{intent.variable}$\n\n"
-            f"**Evaluate**\n$A = {answer}$\n\n"
+        difference = simplify(parsed - second)
+        low_expr = math_solve._parse_expression(str(low), [], real=True)
+        high_expr = math_solve._parse_expression(str(high), [], real=True)
+        roots = solveset(Eq(difference, 0), sym, domain=Interval(low_expr, high_expr))
+        interior_roots = []
+        if isinstance(roots, FiniteSet):
+            interior_roots = [root for root in roots if root != low_expr and root != high_expr]
+        midpoint = simplify((low_expr + high_expr) / 2)
+        sample = difference.subs(sym, midpoint)
+        single_order = (
+            isinstance(roots, FiniteSet) and not interior_roots and sample.is_real is True
         )
+        if single_order and sample.is_nonnegative is True:
+            upper, lower_curve, gap = parsed, second, difference
+        elif single_order and sample.is_nonpositive is True:
+            upper, lower_curve, gap = second, parsed, -difference
+        else:
+            upper = lower_curve = None
+            gap = None
+        if gap is not None:
+            antiderivative = integrate(gap, sym)
+            direct = (
+                "**1. Identify the upper curve**\n\n"
+                f"On $[{low},{high}]$, ${latex(upper)} \\ge {latex(lower_curve)}$, "
+                f"so use upper minus lower.\n\n"
+                "**2. Set up the area**\n\n"
+                f"$A = \\int_{{{low}}}^{{{high}}} \\left({latex(gap)}\\right)"
+                f"\\,d{intent.variable}$\n\n"
+                "**3. Find an antiderivative**\n\n"
+                f"$A = \\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}$\n\n"
+                "**4. Evaluate the endpoints**\n\n"
+                f"$A = {latex(antiderivative.subs(sym, high_expr))}"
+                f" - \\left({latex(antiderivative.subs(sym, low_expr))}\\right)$\n\n"
+                f"$A = {answer}$\n\n"
+            )
+        else:
+            direct = (
+                "**1. The curves change order, so use absolute difference**\n\n"
+                f"$A = \\int_{{{low}}}^{{{high}}} \\left|{latex(difference)}\\right|"
+                f"\\,d{intent.variable}$\n\n"
+                f"**2. Evaluate the integral**\n\n$A = {answer}$\n\n"
+            )
     elif op == "arc_length":
         derivative = diff(parsed, sym)
         integrand = sqrt(1 + derivative**2)
@@ -102,19 +149,46 @@ def _verified_calculus_application(
     else:
         axis = "x" if op.endswith("_x") else "y"
         if axis == "x":
+            cross_section = simplify(parsed**2)
+            antiderivative = integrate(cross_section, sym)
+            low_expr = math_solve._parse_expression(str(low), [], real=True)
+            high_expr = math_solve._parse_expression(str(high), [], real=True)
             setup = (
                 rf"V = \pi\int_{{{low}}}^{{{high}}}\left({latex(parsed)}\right)^2"
                 rf"\,d{intent.variable}"
             )
+            working = (
+                "**2. Simplify the cross-sectional area**\n\n"
+                f"$\\left({latex(parsed)}\\right)^2 = {latex(cross_section)}$\n\n"
+                "**3. Integrate**\n\n"
+                f"$V = \\pi\\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}$\n\n"
+                "**4. Evaluate the endpoints**\n\n"
+                f"$V = \\pi\\left({latex(antiderivative.subs(sym, high_expr))}"
+                f" - {latex(antiderivative.subs(sym, low_expr))}\\right)$\n\n"
+            )
         else:
+            shell_integrand = simplify(sym * parsed)
+            antiderivative = integrate(shell_integrand, sym)
+            low_expr = math_solve._parse_expression(str(low), [], real=True)
+            high_expr = math_solve._parse_expression(str(high), [], real=True)
             setup = (
                 rf"V = 2\pi\int_{{{low}}}^{{{high}}}{intent.variable}"
                 rf"\left({latex(parsed)}\right)\,d{intent.variable}"
             )
+            working = (
+                "**2. Simplify the shell integrand**\n\n"
+                f"${intent.variable}\\left({latex(parsed)}\\right) = {latex(shell_integrand)}$\n\n"
+                "**3. Integrate**\n\n"
+                f"$V = 2\\pi\\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}$\n\n"
+                "**4. Evaluate the endpoints**\n\n"
+                f"$V = 2\\pi\\left({latex(antiderivative.subs(sym, high_expr))}"
+                f" - {latex(antiderivative.subs(sym, low_expr))}\\right)$\n\n"
+            )
         direct = (
-            f"**Set up the {'disk' if axis == 'x' else 'shell'} method**\n"
+            f"**1. Set up the {'disk' if axis == 'x' else 'shell'} method**\n\n"
             f"${setup}$\n\n"
-            f"**Evaluate**\n$V = {answer}$\n\n"
+            f"{working}"
+            f"$V = {answer}$\n\n"
         )
     direct += f"```answer\n{answer}\n```\n"
     return replace(block, direct_reply=direct)

@@ -151,6 +151,21 @@ describe("markdown render rules", () => {
     });
   });
 
+  it("keeps a fraction verification tick attached before tall math", async () => {
+    const { getByText, queryByText, toJSON } = await render(
+      <MarkdownContent
+        content={String.raw`$\frac{3}{4}=\frac{6}{8}$ ✓`}
+      />,
+    );
+    const tick = getByText("✓");
+    expect(StyleSheet.flatten(tick.props.style)).toMatchObject({
+      color: lightTheme.success,
+    });
+    expect(queryByText(/\\frac|\$/)).toBeNull();
+    const tree = JSON.stringify(toJSON());
+    expect(tree.indexOf('"✓"')).toBeLessThan(tree.indexOf("math-text-scroll"));
+  });
+
   it("keeps bold inline in a table cell instead of stacking", async () => {
     const md = [
       "| Feature | Value |",
@@ -325,11 +340,41 @@ describe("markdown render rules", () => {
     expect(getByText("Divide both sides by 3")).toBeOnTheScreen();
   });
 
+  it("renders fraction math natively inside a lesson-step label", async () => {
+    const { getByTestId, queryByText } = await render(
+      <MarkdownContent
+        content={String.raw`**1. Add $\frac{5}{6}$ to both sides**`}
+      />,
+    );
+    expect(getByTestId("lesson-step-label")).toBeOnTheScreen();
+    expect(getByTestId("math-text-tall")).toBeOnTheScreen();
+    expect(queryByText(/\\frac|\$/)).toBeNull();
+  });
+
+  it("does not show malformed bold delimiters around math prose", async () => {
+    const { getByText, queryByText } = await render(
+      <MarkdownContent content={String.raw`**Why not simply $x$: **`} />,
+    );
+    expect(getByText(/Why not simply/)).toBeOnTheScreen();
+    expect(queryByText(/\*\*/)).toBeNull();
+  });
+
   it("indents a lesson formula under the step label", async () => {
     const { getByTestId } = await render(
       <MarkdownContent content={"**2. Simplify**\n$x^2 = 1$"} />,
     );
     expect(getByTestId("lesson-step-formula")).toBeOnTheScreen();
+  });
+
+  it("renders inline math natively inside a lesson-step reason", async () => {
+    const { getByTestId, queryByText } = await render(
+      <MarkdownContent
+        content={String.raw`**1. Zero exponent law** — for nonzero $a$, $a^0=1$:
+$x^0=1$`}
+      />,
+    );
+    expect(getByTestId("lesson-step-reason")).toBeOnTheScreen();
+    expect(queryByText(/\$a|\$x/)).toBeNull();
   });
 
   it("preserves a link after a numbered bold paragraph", async () => {

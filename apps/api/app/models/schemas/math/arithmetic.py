@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, model_validator
 class AdditionColumn(BaseModel):
     position: int = Field(ge=0)
     place: str
-    addends: list[int] = Field(min_length=2, max_length=2)
+    addends: list[int] = Field(min_length=2, max_length=6)
     carry_in: int = Field(ge=0, le=9)
     result_digit: int = Field(ge=0, le=9)
     carry_out: int = Field(ge=0, le=9)
@@ -62,8 +62,8 @@ class ArithmeticWorkSpec(BaseModel):
     operation: Literal["addition", "subtraction", "multiplication", "division"]
     operator: Literal["+", "\u2212", "\u00d7", "\u00f7"]
     expression: str
-    operands: list[str] = Field(min_length=2, max_length=2)
-    working_operands: list[str] = Field(min_length=2, max_length=2)
+    operands: list[str] = Field(min_length=2, max_length=6)
+    working_operands: list[str] = Field(min_length=2, max_length=6)
     answer: str
     decimal_places: int = Field(default=0, ge=0, le=12)
     addition_columns: list[AdditionColumn] = Field(default_factory=list)
@@ -72,6 +72,9 @@ class ArithmeticWorkSpec(BaseModel):
     partial_products: list[PartialProduct] = Field(default_factory=list)
     quotient: str | None = None
     remainder: str | None = None
+    answer_mode: Literal["exact", "remainder", "fraction", "decimal", "round_up", "discard"] = (
+        "exact"
+    )
     division_steps: list[LongDivisionStep] = Field(default_factory=list)
     explanations: list[str] = Field(min_length=1, max_length=32)
 

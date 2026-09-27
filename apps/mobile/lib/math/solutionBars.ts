@@ -115,5 +115,14 @@ export function displayMathToInline(text: string): string {
     out += text[i];
     i += 1;
   }
-  return out;
+  // Sent prose can contain a complete grouped slash fraction without dollar
+  // delimiters: "Simplify (x^2-4)/(x^2-x-2)." The generic parenthetical
+  // normalizer otherwise typesets each side separately and drops the grouping,
+  // leaving the user's bubble as the ambiguous ``x²-4/x²-x-2``. Convert this
+  // common complete form before markdown sees either pair of parentheses.
+  return out.replace(
+    /\(([^()\n]{1,160})\)\s*\/\s*\(([^()\n]{1,160})\)([.!?])?/g,
+    (_full, numerator: string, denominator: string, punctuation?: string) =>
+      `$\\frac{${numerator.trim()}}{${denominator.trim()}}${punctuation ?? ""}$`,
+  );
 }

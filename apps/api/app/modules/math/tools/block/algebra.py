@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 
 from app.core.config import Settings
@@ -13,6 +14,7 @@ from app.models.schemas.math import (
 )
 from app.modules.math import solve as math_solve
 from app.modules.math.solve.key_steps import (
+    KeyStep,
     equation_check_latex,
     equation_key_steps,
     stringify_key_steps,
@@ -117,6 +119,24 @@ def _verified_block_equation(
         intent.variable or "x",
         force_quadratic_formula=intent.school_op == "quadratic_formula",
     )
+    zero_power = re.search(
+        rf"\b{re.escape(intent.variable or 'x')}\s*\^\s*(?:\{{\s*0\s*\}}|0)(?!\w)",
+        f"{intent.lhs} {intent.rhs}",
+        re.IGNORECASE,
+    )
+    if zero_power is not None:
+        symbol = intent.variable or "x"
+        zero_step = KeyStep(
+            label="Use the zero-exponent law",
+            formula=rf"{symbol}^0 = 1",
+            reason="any nonzero base raised to the zero power equals 1",
+            conditions=rf"{symbol} \ne 0",
+        )
+        key_steps = [zero_step, *key_steps]
+        lines.insert(
+            0,
+            rf"Zero-exponent law: {symbol}^0 = 1 for {symbol} \ne 0.",
+        )
     alt = None
     if used_factor_trace(key_steps):
         alt = "Another method is the quadratic formula; it gives the same two solutions."

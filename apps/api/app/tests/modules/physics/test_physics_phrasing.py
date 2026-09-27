@@ -19,7 +19,9 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block as build_math_block
+from app.modules.math.tools import extract_math_intent as extract_real_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {"kinematics", "projectile", "force", "energy"}
 
@@ -29,10 +31,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -106,7 +108,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_natural_phrasing_reaches_a_verified_answer(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent), "no intent extracted"
     assert intent.physics_op == op
     assert _verified_answer(text) == answer
@@ -136,16 +138,17 @@ NOT_PHYSICS = [
 
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_widened_cues_do_not_steal_other_subjects(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
 def test_solve_for_x_still_routes_to_the_equation_extractor() -> None:
     """The one the ticket calls out by name — algebra must stay algebra."""
-    intent = extract_math_intent("solve 2x + 7 = 19")
+    intent = extract_real_math_intent("solve 2x + 7 = 19")
 
     assert intent is not None and intent.kind == "equation"
-    assert _verified_answer("solve 2x + 7 = 19") == "x = 6"
+    block = build_math_block(intent, _settings())
+    assert block is not None and block.canonical_answer == "x = 6"
 
 
 # Free-body problems the solver does not model. Before P2 these were kept out
@@ -193,7 +196,7 @@ def test_speed_without_a_height_draws_the_velocity_line() -> None:
     """
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent("how fast is a dropped ball going after 1 s")
+    intent = extract_physics_intent("how fast is a dropped ball going after 1 s")
     assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
@@ -214,7 +217,7 @@ def test_a_speed_ask_plots_velocity_even_when_a_height_is_given() -> None:
     """
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent("a ball is dropped from 20 m, what is its speed after 1 s")
+    intent = extract_physics_intent("a ball is dropped from 20 m, what is its speed after 1 s")
     assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
@@ -227,7 +230,7 @@ def test_a_height_ask_still_plots_height() -> None:
     """The counterpart: a position question keeps h(t)."""
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent("a ball is dropped from 50 m, what is its height after 2 s")
+    intent = extract_physics_intent("a ball is dropped from 50 m, what is its height after 2 s")
     assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
@@ -245,7 +248,7 @@ def test_a_flat_height_curve_is_still_withheld() -> None:
     """
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent("a ball is dropped from 0 m, what is its height after 2 s")
+    intent = extract_physics_intent("a ball is dropped from 0 m, what is its height after 2 s")
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == "position"
 
     assert solve_physics(intent).graph_specs == []

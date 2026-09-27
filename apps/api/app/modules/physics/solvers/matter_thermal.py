@@ -15,7 +15,7 @@ from app.modules.physics.solvers.common import (
     _params_in_si,
 )
 from app.modules.physics.solvers.mechanics import _free_body_scene
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
@@ -24,7 +24,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "lens_power":
         if p["focal"] == 0:
-            raise MathServiceError("lens focal length cannot be zero")
+            raise SolveServiceError("lens focal length cannot be zero")
         value = 1 / p["focal"]
         return PhysicsResult(
             answer=(
@@ -36,7 +36,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "double_slit_fringe_spacing":
         if p["wavelength"] <= 0 or p["L"] <= 0 or p["d"] <= 0:
-            raise MathServiceError("double-slit spacing needs positive wavelength and distances")
+            raise SolveServiceError("double-slit spacing needs positive wavelength and distances")
         value = p["wavelength"] * p["L"] / p["d"]
         return PhysicsResult(
             answer=(
@@ -49,7 +49,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "diffraction_central_width":
         if p["wavelength"] <= 0 or p["L"] <= 0 or p["d"] <= 0:
-            raise MathServiceError("diffraction width needs positive wavelength and distances")
+            raise SolveServiceError("diffraction width needs positive wavelength and distances")
         value = 2 * p["wavelength"] * p["L"] / p["d"]
         return PhysicsResult(
             answer=(
@@ -73,7 +73,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "brewster_angle":
         if p["n1"] <= 0 or p["n2"] <= 0:
-            raise MathServiceError("refractive indexes must be positive")
+            raise SolveServiceError("refractive indexes must be positive")
         value = math.degrees(math.atan(p["n2"] / p["n1"]))
         return PhysicsResult(
             answer=(
@@ -87,7 +87,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
     if op == "critical_angle":
         n = p["n1"]
         if n <= 1:
-            raise MathServiceError("total internal reflection needs an index above 1")
+            raise SolveServiceError("total internal reflection needs an index above 1")
         theta_c = math.degrees(math.asin(1 / n))
         return PhysicsResult(
             answer=(
@@ -100,7 +100,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
     if op == "refractive_index":
         if "v_wave" in p:
             if p["v_wave"] <= 0:
-                raise MathServiceError("light speed in a medium must be positive")
+                raise SolveServiceError("light speed in a medium must be positive")
             n = _SPEED_OF_LIGHT / p["v_wave"]
             return PhysicsResult(
                 answer=(
@@ -111,7 +111,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
             )
         t1, t2 = p["angle"], p["angle2"]
         if math.sin(t2) == 0:
-            raise MathServiceError("the refracted angle cannot be zero")
+            raise SolveServiceError("the refracted angle cannot be zero")
         n = math.sin(t1) / math.sin(t2)
         return PhysicsResult(
             answer=(
@@ -124,7 +124,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "magnification":
         if p["h_obj"] == 0:
-            raise MathServiceError("the object height cannot be zero")
+            raise SolveServiceError("the object height cannot be zero")
         m_val = p["h_img"] / p["h_obj"]
         return PhysicsResult(
             answer=(
@@ -137,11 +137,11 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
     if op == "image_distance":
         focal, obj = p["focal"], p["d_obj"]
         if focal <= 0 or obj <= 0:
-            raise MathServiceError("only a converging lens with a real object is solved here")
+            raise SolveServiceError("only a converging lens with a real object is solved here")
         if obj <= focal:
             # Inside the focal length the image is virtual, and the sign that
             # says so is exactly what the conventions disagree about.
-            raise MathServiceError("an object inside the focal length forms a virtual image")
+            raise SolveServiceError("an object inside the focal length forms a virtual image")
         img = 1 / (1 / focal - 1 / obj)
         return PhysicsResult(
             answer=(
@@ -152,7 +152,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{img:.4g} m",
         )
 
-    raise MathServiceError(f"unsupported optics op: {op}")
+    raise SolveServiceError(f"unsupported optics op: {op}")
 
 
 def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
@@ -162,7 +162,7 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
     if op == "carnot_efficiency":
         hot, cold = p["temp"], p["temp_env"]
         if hot <= 0 or cold < 0 or cold >= hot:
-            raise MathServiceError("Carnot efficiency needs 0 <= T_c < T_h in kelvin")
+            raise SolveServiceError("Carnot efficiency needs 0 <= T_c < T_h in kelvin")
         value = 1 - cold / hot
         return PhysicsResult(
             answer=(
@@ -175,7 +175,7 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "entropy_change":
         if p["temp"] <= 0:
-            raise MathServiceError("entropy change needs a positive absolute temperature")
+            raise SolveServiceError("entropy change needs a positive absolute temperature")
         value = p["heat"] / p["temp"]
         return PhysicsResult(
             answer=(
@@ -188,7 +188,7 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "heat_conduction_rate":
         if p["thermal_conductivity"] < 0 or p["area"] <= 0 or p["L"] <= 0:
-            raise MathServiceError("heat conduction needs positive area and thickness")
+            raise SolveServiceError("heat conduction needs positive area and thickness")
         value = p["thermal_conductivity"] * p["area"] * abs(p["delta_temp"]) / p["L"]
         return PhysicsResult(
             answer=(
@@ -202,7 +202,7 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "linear_expansion":
         if p["L0"] <= 0 or p["alpha"] < 0:
-            raise MathServiceError("linear expansion needs positive length and nonnegative alpha")
+            raise SolveServiceError("linear expansion needs positive length and nonnegative alpha")
         expansion = p["alpha"] * p["L0"] * p["delta_temp"]
         return PhysicsResult(
             answer=(
@@ -215,7 +215,7 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "latent_heat":
         if p["m"] < 0 or p["latent_heat"] < 0:
-            raise MathServiceError("latent heat needs nonnegative mass and specific latent heat")
+            raise SolveServiceError("latent heat needs nonnegative mass and specific latent heat")
         heat = p["m"] * p["latent_heat"]
         return PhysicsResult(
             answer=(
@@ -248,9 +248,9 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
     if op == "ideal_gas_pressure":
         volume = p["volume"]
         if volume <= 0:
-            raise MathServiceError("volume must be positive")
+            raise SolveServiceError("volume must be positive")
         if p["temp"] <= 0:
-            raise MathServiceError("an absolute temperature must be positive")
+            raise SolveServiceError("an absolute temperature must be positive")
         pressure = p["moles"] * _GAS_CONSTANT * p["temp"] / volume
         return PhysicsResult(
             answer=(
@@ -263,7 +263,7 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
     if op == "thermal_efficiency":
         supplied = p["Q_in"]
         if supplied <= 0:
-            raise MathServiceError("the energy supplied must be positive")
+            raise SolveServiceError("the energy supplied must be positive")
         eta = p["W_out"] / supplied
         return PhysicsResult(
             answer=(
@@ -273,7 +273,7 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{eta:.2f} ({eta * 100:.1f}%)",
         )
 
-    raise MathServiceError(f"unsupported thermal op: {op}")
+    raise SolveServiceError(f"unsupported thermal op: {op}")
 
 
 def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
@@ -282,7 +282,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "mass_flow_rate":
         if p["rho"] <= 0 or p["area"] <= 0:
-            raise MathServiceError("mass flow rate needs positive density and area")
+            raise SolveServiceError("mass flow rate needs positive density and area")
         value = p["rho"] * p["area"] * p["v"]
         return PhysicsResult(
             answer=(
@@ -294,7 +294,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "torricelli_speed":
         if p["depth"] < 0 or p["g"] <= 0:
-            raise MathServiceError("Torricelli speed needs nonnegative head and positive gravity")
+            raise SolveServiceError("Torricelli speed needs nonnegative head and positive gravity")
         value = math.sqrt(2 * p["g"] * p["depth"])
         return PhysicsResult(
             answer=(
@@ -306,7 +306,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "stokes_drag":
         if p["viscosity"] < 0 or p["r"] <= 0 or p["v"] < 0:
-            raise MathServiceError("Stokes drag needs valid viscosity, radius, and speed")
+            raise SolveServiceError("Stokes drag needs valid viscosity, radius, and speed")
         value = 6 * math.pi * p["viscosity"] * p["r"] * p["v"]
         return PhysicsResult(
             answer=(
@@ -318,7 +318,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "reynolds_number":
         if p["viscosity"] <= 0 or p["rho"] <= 0 or p["L"] <= 0:
-            raise MathServiceError("Reynolds number needs positive density, length, and viscosity")
+            raise SolveServiceError("Reynolds number needs positive density, length, and viscosity")
         value = p["rho"] * p["v"] * p["L"] / p["viscosity"]
         return PhysicsResult(
             answer=(
@@ -331,7 +331,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "surface_tension":
         if p["L"] <= 0:
-            raise MathServiceError("contact length must be positive")
+            raise SolveServiceError("contact length must be positive")
         value = p["F"] / p["L"]
         return PhysicsResult(
             answer=(
@@ -343,7 +343,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "laplace_pressure":
         if p["surface_tension"] < 0 or p["r"] <= 0:
-            raise MathServiceError("Laplace pressure needs valid surface tension and radius")
+            raise SolveServiceError("Laplace pressure needs valid surface tension and radius")
         value = p["mode_factor"] * p["surface_tension"] / p["r"]
         symbolic = (
             r"\Delta P = \frac{4\gamma}{r}"
@@ -361,7 +361,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "hydraulic_force":
         if p["A1"] <= 0 or p["A2"] <= 0:
-            raise MathServiceError("hydraulic force needs positive piston areas")
+            raise SolveServiceError("hydraulic force needs positive piston areas")
         force = p["F1"] * p["A2"] / p["A1"]
         return PhysicsResult(
             answer=(
@@ -375,10 +375,10 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "bernoulli_pressure":
         if p["rho"] <= 0 or p["pres1"] < 0:
-            raise MathServiceError("Bernoulli pressure needs positive density and valid pressure")
+            raise SolveServiceError("Bernoulli pressure needs positive density and valid pressure")
         pressure = p["pres1"] + 0.5 * p["rho"] * (p["v1"] ** 2 - p["v2"] ** 2)
         if pressure < 0:
-            raise MathServiceError(
+            raise SolveServiceError(
                 "the stated ideal-flow values imply a negative absolute pressure"
             )
         return PhysicsResult(
@@ -395,7 +395,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
     if op == "pressure_from_force":
         area = p["area"]
         if area <= 0:
-            raise MathServiceError("area must be positive")
+            raise SolveServiceError("area must be positive")
         pressure = p["F"] / area
         return PhysicsResult(
             answer=(
@@ -447,7 +447,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
     if op == "density":
         volume = p["volume"]
         if volume <= 0:
-            raise MathServiceError("volume must be positive")
+            raise SolveServiceError("volume must be positive")
         rho = p["m"] / volume
         return PhysicsResult(
             answer=(
@@ -460,7 +460,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
     if op == "continuity_velocity":
         a2 = p["A2"]
         if a2 <= 0:
-            raise MathServiceError("the second area must be positive")
+            raise SolveServiceError("the second area must be positive")
         v2 = p["A1"] * p["v"] / a2
         return PhysicsResult(
             answer=(
@@ -480,7 +480,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{flow:.4g} m^3/s",
         )
 
-    raise MathServiceError(f"unsupported fluids op: {op}")
+    raise SolveServiceError(f"unsupported fluids op: {op}")
 
 
 def solve_materials(intent: PhysicsIntent) -> PhysicsResult:
@@ -490,7 +490,7 @@ def solve_materials(intent: PhysicsIntent) -> PhysicsResult:
     if op == "stress":
         area = p["area"]
         if area <= 0:
-            raise MathServiceError("area must be positive")
+            raise SolveServiceError("area must be positive")
         value = p["F"] / area
         return PhysicsResult(
             answer=(
@@ -503,7 +503,7 @@ def solve_materials(intent: PhysicsIntent) -> PhysicsResult:
     if op == "strain":
         original = p["L0"]
         if original <= 0:
-            raise MathServiceError("the original length must be positive")
+            raise SolveServiceError("the original length must be positive")
         value = p["dL"] / original
         return PhysicsResult(
             answer=(
@@ -516,7 +516,7 @@ def solve_materials(intent: PhysicsIntent) -> PhysicsResult:
     if op == "youngs_modulus":
         strain = p["strain"]
         if strain == 0:
-            raise MathServiceError("strain cannot be zero")
+            raise SolveServiceError("strain cannot be zero")
         value = p["sigma"] / strain
         return PhysicsResult(
             answer=(
@@ -526,4 +526,4 @@ def solve_materials(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{value:.4g} Pa",
         )
 
-    raise MathServiceError(f"unsupported materials op: {op}")
+    raise SolveServiceError(f"unsupported materials op: {op}")

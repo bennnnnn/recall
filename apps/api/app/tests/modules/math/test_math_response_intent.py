@@ -48,10 +48,16 @@ def test_explicit_school_methods_request_steps(query: str) -> None:
     assert classify_math_response_intent(query).mode == MathResponseMode.STEPS
 
 
-def test_conceptual_division_wording_is_not_misread_as_a_steps_request() -> None:
-    assert classify_math_response_intent("What is division with remainder?").mode != (
-        MathResponseMode.STEPS
-    )
+@pytest.mark.parametrize(
+    "query",
+    [
+        "What is division with remainder?",
+        "What is multiplication using the standard algorithm?",
+        "What is subtraction with regrouping?",
+    ],
+)
+def test_conceptual_school_method_wording_is_not_misread_as_steps(query: str) -> None:
+    assert classify_math_response_intent(query).mode == MathResponseMode.EXPLAIN
 
 
 def test_equivalent_equation_prompts_follow_the_requested_presentation() -> None:

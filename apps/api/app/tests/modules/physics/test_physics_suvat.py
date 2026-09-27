@@ -20,7 +20,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -45,7 +45,7 @@ def _graph(text: str):
     """The one graph a SUVAT solve emits, or an assertion failure saying why."""
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent), f"no intent extracted for {text!r}"
     specs = solve_physics(intent).graph_specs
     assert len(specs) == 1, f"expected one graph for {text!r}, got {len(specs)}"
@@ -53,10 +53,10 @@ def _graph(text: str):
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -125,7 +125,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_suvat_phrasings_reach_a_verified_answer(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None, "no intent extracted"
     assert intent.kind == "suvat"
     assert intent.physics_op == op
@@ -209,7 +209,7 @@ def test_suvat_emits_a_velocity_time_graph() -> None:
     """
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent(
+    intent = extract_physics_intent(
         "a car accelerates from rest at 3 m/s^2 for 5 s, what is its final velocity"
     )
     assert isinstance(intent, PhysicsIntent)
@@ -278,7 +278,7 @@ def test_a_graph_needs_a_time_span_to_be_honest() -> None:
     """
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent(
+    intent = extract_physics_intent(
         "what distance does a car cover accelerating from 10 m/s to 30 m/s at 2 m/s^2"
     )
     assert isinstance(intent, PhysicsIntent)
@@ -306,7 +306,7 @@ def test_plain_f_equals_ma_is_left_alone(text: str, answer: str) -> None:
     time or distance, so SUVAT never has three of its five variables and cannot
     claim the question even though it recognises the wording.
     """
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
 
     assert intent is not None and intent.kind == "force"
     assert _verified_answer(text) == answer
@@ -318,7 +318,7 @@ def test_free_fall_still_belongs_to_kinematics() -> None:
     Order settles it: kinematics runs first and keeps everything it already
     answered.
     """
-    intent = extract_math_intent("a ball is dropped from 20 m, how long until it hits the ground")
+    intent = extract_physics_intent("a ball is dropped from 20 m, how long until it hits the ground")
 
     assert intent is not None and intent.kind == "kinematics"
     assert (
@@ -352,7 +352,7 @@ STOLEN_BY_FREE_FALL = [
     "text,answer", STOLEN_BY_FREE_FALL, ids=[t[:44] for t, _ in STOLEN_BY_FREE_FALL]
 )
 def test_a_stated_acceleration_is_not_replaced_by_gravity(text: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
 
     assert intent is not None and intent.kind == "suvat"
     assert _verified_answer(text) == answer
@@ -392,7 +392,7 @@ def test_a_named_gravity_is_still_free_fall(text: str, answer: str) -> None:
     reading would have taken these away, which is why it compares against the
     gravity `_detect_gravity` already resolves rather than against 9.81.
     """
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
 
     assert intent is not None and intent.kind == "kinematics"
     assert _verified_answer(text) == answer
@@ -416,7 +416,7 @@ def test_suvat_cues_do_not_steal_other_subjects(text: str) -> None:
     extractor, so a loose one costs a model call on every sentence containing
     "accelerates" or "at rest" — P2's lesson, applied before it could bite.
     """
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 

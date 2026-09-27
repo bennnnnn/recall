@@ -11,7 +11,6 @@ from app.models.schemas.math import (
     MathImageExtract,
     MathIntent,
 )
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.math import solve as math_solve
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.response_intent import (
@@ -247,7 +246,7 @@ async def build_math_augmentation(
         # OCR already produced a Pydantic-validated extract — map it straight
         # to MathIntent (do not re-parse through the text regex, which mangles
         # unicode ops / abs bars a photographed problem can contain).
-        intent: MathIntent | PhysicsIntent | None = _intent_from_image_extract(image_math_extract)
+        intent: MathIntent | None = _intent_from_image_extract(image_math_extract)
         if (
             intent is not None
             and intent.kind == "equation"
@@ -387,7 +386,7 @@ async def augment_prompt_messages(
 
 
 async def _build_verified_block_async(
-    intent: MathIntent | PhysicsIntent, settings: Settings
+    intent: MathIntent, settings: Settings
 ) -> VerifiedMathBlock | None:
     """Run the sync, CPU-bound SymPy work in a bounded subprocess with a
     hard timeout + SIGTERM on timeout.

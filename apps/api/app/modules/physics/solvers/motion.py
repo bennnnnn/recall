@@ -17,17 +17,108 @@ from app.modules.physics.solvers.common import (
     _latex_num,
     _params_in_si,
 )
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
+
+_RATE_OPERATIONS = {"average_speed", "rate_speed", "rate_distance", "rate_time"}
+
+
+def _rate_number(value: float) -> str:
+    """Format a checked scalar without inventing presentation precision."""
+    if not math.isfinite(value):
+        raise SolveServiceError("rate result must be finite")
+    return f"{value:.12g}"
+
+
+def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
+    """Solve one closed distance-speed-time request in its supplied units."""
+    params = intent.physics_params or {}
+    units = intent.physics_units or {}
+    op = intent.physics_op
+    if op in {"average_speed", "rate_speed"}:
+        distance, duration = params.get("d"), params.get("t")
+        distance_unit, time_unit = units.get("d"), units.get("t")
+        if (
+            distance is None
+            or duration is None
+            or distance_unit is None
+            or time_unit is None
+            or distance < 0
+            or duration <= 0
+        ):
+            raise SolveServiceError("speed requires a non-negative distance and positive time")
+        value = distance / duration
+        answer_unit = f"{distance_unit}/{time_unit}"
+        working = (
+            rf"v = \frac{{d}}{{t}} = "
+            rf"\frac{{{_rate_number(distance)}\,\mathrm{{{distance_unit}}}}}"
+            rf"{{{_rate_number(duration)}\,\mathrm{{{time_unit}}}}} = "
+            rf"{_rate_number(value)}\,\mathrm{{{answer_unit}}}"
+        )
+    elif op == "rate_distance":
+        speed, duration = params.get("v"), params.get("t")
+        speed_unit, time_unit = units.get("v"), units.get("t")
+        if (
+            speed is None
+            or duration is None
+            or speed_unit is None
+            or time_unit is None
+            or speed < 0
+            or duration < 0
+            or "/" not in speed_unit
+        ):
+            raise SolveServiceError("distance requires a non-negative speed and time")
+        distance_unit, speed_time_unit = speed_unit.split("/", 1)
+        if speed_time_unit != time_unit:
+            raise SolveServiceError("speed and time units must use the same time scale")
+        value = speed * duration
+        answer_unit = distance_unit
+        working = (
+            rf"d = vt = "
+            rf"{_rate_number(speed)}\,\mathrm{{{speed_unit}}} \cdot "
+            rf"{_rate_number(duration)}\,\mathrm{{{time_unit}}} = "
+            rf"{_rate_number(value)}\,\mathrm{{{answer_unit}}}"
+        )
+    elif op == "rate_time":
+        distance, speed = params.get("d"), params.get("v")
+        distance_unit, speed_unit = units.get("d"), units.get("v")
+        if (
+            distance is None
+            or speed is None
+            or distance_unit is None
+            or speed_unit is None
+            or distance < 0
+            or speed <= 0
+            or "/" not in speed_unit
+        ):
+            raise SolveServiceError("time requires a non-negative distance and positive speed")
+        speed_distance_unit, answer_unit = speed_unit.split("/", 1)
+        if speed_distance_unit != distance_unit:
+            raise SolveServiceError("distance and speed units must use the same length scale")
+        value = distance / speed
+        working = (
+            rf"t = \frac{{d}}{{v}} = "
+            rf"\frac{{{_rate_number(distance)}\,\mathrm{{{distance_unit}}}}}"
+            rf"{{{_rate_number(speed)}\,\mathrm{{{speed_unit}}}}} = "
+            rf"{_rate_number(value)}\,\mathrm{{{answer_unit}}}"
+        )
+    else:  # pragma: no cover - caller checks the closed operation set
+        raise SolveServiceError(f"unsupported rate operation: {op}")
+    return PhysicsResult(
+        answer=working,
+        answer_value=f"{_rate_number(value)} {answer_unit}",
+    )
 
 
 def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
+    if intent.physics_op in _RATE_OPERATIONS:
+        return _solve_distance_speed_time(intent)
     p = _params_in_si(intent)
     g = p.get("g", 9.81)
     h0 = p.get("h0", 0.0)
     v0 = p.get("v0", 0.0)
     op = intent.physics_op or "time_to_ground"
     if g <= 0:
-        raise MathServiceError("gravity must be positive")
+        raise SolveServiceError("gravity must be positive")
 
     t = Symbol("t", positive=True, real=True)
     h_sym = h0 + v0 * t - 0.5 * g * t**2
@@ -44,13 +135,13 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         t_asked = p.get("t")
         t_land = _time_to_ground()
         if t_asked is not None and t_land is not None and float(t_asked) > t_land:
-            raise MathServiceError("already on the ground")
+            raise SolveServiceError("already on the ground")
 
     if op == "time_to_ground":
         # Solve h(t) = 0 for t > 0.
         landed = _time_to_ground()
         if landed is None:
-            raise MathServiceError("no positive real time to ground")
+            raise SolveServiceError("no positive real time to ground")
         t_val = landed
         v0_sq = _latex_num(v0, square=True)
         answer_latex = (
@@ -67,7 +158,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         if t_param is None:
             landed = _time_to_ground()
             if landed is None:
-                raise MathServiceError("no positive real time to ground")
+                raise SolveServiceError("no positive real time to ground")
             t_param = landed
         t_val = float(t_param)
         v_val = float(v0 - g * t_val)
@@ -97,7 +188,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     elif op == "position":
         t_param = p.get("t")
         if t_param is None:
-            raise MathServiceError("position requires a time t")
+            raise SolveServiceError("position requires a time t")
         t_val = float(t_param)
         h_val = float(h0 + v0 * t_val - 0.5 * g * t_val**2)
         answer_latex = (
@@ -109,7 +200,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         answer_value = f"{h_val:.2f} m"
     elif op == "max_height":
         if v0 <= 0:
-            raise MathServiceError("maximum height for a vertical launch requires v0 > 0")
+            raise SolveServiceError("maximum height for a vertical launch requires v0 > 0")
         h_val = h0 + v0**2 / (2 * g)
         answer_latex = (
             r"h_{\max} = h_0 + \frac{v_0^2}{2g} = "
@@ -121,7 +212,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         # the scalar answer remains the requested peak height.
         landed = _time_to_ground()
         if landed is None:
-            raise MathServiceError("no positive real time to ground")
+            raise SolveServiceError("no positive real time to ground")
         t_val = landed
     elif op == "acceleration":
         # Constant g for free-fall templates only. The extractor returns
@@ -131,7 +222,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         answer_value = f"{-g:g} m/s^2"
         return PhysicsResult(answer=answer_latex, answer_value=answer_value)
     else:
-        raise MathServiceError(f"unsupported kinematics op: {op}")
+        raise SolveServiceError(f"unsupported kinematics op: {op}")
 
     n_points = 100
 
@@ -231,7 +322,7 @@ def _suvat_velocity(p: dict[str, float]) -> tuple[float, str]:
     if u is not None and a is not None and d is not None:
         square = u * u + 2 * a * d
         if square < 0:
-            raise MathServiceError("no real final velocity: the body stops before that distance")
+            raise SolveServiceError("no real final velocity: the body stops before that distance")
         return (
             math.sqrt(square),
             rf"v = \sqrt{{u^2 + 2as}} = \sqrt{{{_latex_num(u, square=True)} + "
@@ -239,13 +330,13 @@ def _suvat_velocity(p: dict[str, float]) -> tuple[float, str]:
         )
     if u is not None and d is not None and t is not None:
         if t == 0:
-            raise MathServiceError("time must be non-zero")
+            raise SolveServiceError("time must be non-zero")
         return (
             2 * d / t - u,
             rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow v = \frac{{2s}}{{t}} - u = "
             rf"\frac{{2 \cdot {d:g}}}{{{t:g}}} - {u:g}",
         )
-    raise MathServiceError("not enough givens for a final velocity")
+    raise SolveServiceError("not enough givens for a final velocity")
 
 
 def _suvat_distance(p: dict[str, float]) -> tuple[float, str]:
@@ -258,7 +349,7 @@ def _suvat_distance(p: dict[str, float]) -> tuple[float, str]:
         )
     if u is not None and v is not None and a is not None:
         if a == 0:
-            raise MathServiceError("acceleration must be non-zero to find a distance this way")
+            raise SolveServiceError("acceleration must be non-zero to find a distance this way")
         return (
             (v * v - u * u) / (2 * a),
             rf"v^2 = u^2 + 2as \Rightarrow s = \frac{{v^2 - u^2}}{{2a}} = "
@@ -270,14 +361,14 @@ def _suvat_distance(p: dict[str, float]) -> tuple[float, str]:
             0.5 * (u + v) * t,
             rf"s = \tfrac{{1}}{{2}}(u + v)t = 0.5 \cdot ({u:g} + {v:g}) \cdot {t:g}",
         )
-    raise MathServiceError("not enough givens for a distance")
+    raise SolveServiceError("not enough givens for a distance")
 
 
 def _suvat_time(p: dict[str, float]) -> tuple[float, str]:
     u, v, a, d = p.get("u"), p.get("v"), p.get("a"), p.get("d")
     if u is not None and v is not None and a is not None:
         if a == 0:
-            raise MathServiceError("acceleration must be non-zero to find a time this way")
+            raise SolveServiceError("acceleration must be non-zero to find a time this way")
         return (
             (v - u) / a,
             rf"v = u + at \Rightarrow t = \frac{{v - u}}{{a}} = "
@@ -290,7 +381,7 @@ def _suvat_time(p: dict[str, float]) -> tuple[float, str]:
         roots = solve(Eq(0.5 * a * t_sym**2 + u * t_sym, d), t_sym)
         candidates = sorted(float(r) for r in roots if r.is_real and float(r) >= 0)
         if not candidates:
-            raise MathServiceError("the body never reaches that distance")
+            raise SolveServiceError("the body never reaches that distance")
         return (
             candidates[0],
             rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow 0.5 \cdot {_latex_num(a)} t^2 + "
@@ -298,20 +389,20 @@ def _suvat_time(p: dict[str, float]) -> tuple[float, str]:
         )
     if u is not None and v is not None and d is not None:
         if u + v == 0:
-            raise MathServiceError("average velocity is zero, so no time follows")
+            raise SolveServiceError("average velocity is zero, so no time follows")
         return (
             2 * d / (u + v),
             rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow t = \frac{{2s}}{{u + v}} = "
             rf"\frac{{2 \cdot {d:g}}}{{{u:g} + {v:g}}}",
         )
-    raise MathServiceError("not enough givens for a time")
+    raise SolveServiceError("not enough givens for a time")
 
 
 def _suvat_acceleration(p: dict[str, float]) -> tuple[float, str]:
     u, v, t, d = p.get("u"), p.get("v"), p.get("t"), p.get("d")
     if u is not None and v is not None and t is not None:
         if t == 0:
-            raise MathServiceError("time must be non-zero")
+            raise SolveServiceError("time must be non-zero")
         return (
             (v - u) / t,
             rf"v = u + at \Rightarrow a = \frac{{v - u}}{{t}} = "
@@ -319,7 +410,7 @@ def _suvat_acceleration(p: dict[str, float]) -> tuple[float, str]:
         )
     if u is not None and v is not None and d is not None:
         if d == 0:
-            raise MathServiceError("distance must be non-zero")
+            raise SolveServiceError("distance must be non-zero")
         return (
             (v * v - u * u) / (2 * d),
             rf"v^2 = u^2 + 2as \Rightarrow a = \frac{{v^2 - u^2}}{{2s}} = "
@@ -328,13 +419,13 @@ def _suvat_acceleration(p: dict[str, float]) -> tuple[float, str]:
         )
     if u is not None and t is not None and d is not None:
         if t == 0:
-            raise MathServiceError("time must be non-zero")
+            raise SolveServiceError("time must be non-zero")
         return (
             2 * (d - u * t) / (t * t),
             rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow a = \frac{{2(s - ut)}}{{t^2}} = "
             rf"\frac{{2({d:g} - {u:g} \cdot {t:g})}}{{{_latex_num(t, square=True)}}}",
         )
-    raise MathServiceError("not enough givens for an acceleration")
+    raise SolveServiceError("not enough givens for an acceleration")
 
 
 _SUVAT_OPS = {
@@ -411,16 +502,16 @@ def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
     op = intent.physics_op or "suvat_velocity"
     entry = _SUVAT_OPS.get(op)
     if entry is None:
-        raise MathServiceError(f"unsupported suvat op: {op}")
+        raise SolveServiceError(f"unsupported suvat op: {op}")
     compute, unit = entry
 
     value, workings = compute(p)
     if not math.isfinite(value):
-        raise MathServiceError("suvat solution is not finite")
+        raise SolveServiceError("suvat solution is not finite")
     # A negative time or distance means the givens describe no real motion —
     # better refused than reported, since the arithmetic looks fine either way.
     if op in ("suvat_time", "suvat_distance") and value < 0:
-        raise MathServiceError(f"negative {op.removeprefix('suvat_')} from these givens")
+        raise SolveServiceError(f"negative {op.removeprefix('suvat_')} from these givens")
 
     solved = {"suvat_velocity": "v", "suvat_distance": "d", "suvat_time": "t"}.get(op)
     graphs = _suvat_graph(op, p, {solved: value} if solved else {})
@@ -455,11 +546,11 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
         # angle is read: R = v0² sin(2θ)/g inverted. Two angles give the same
         # range (theta and 90 deg - theta); the low one is what people mean.
         if v0 <= 0:
-            raise MathServiceError("launch speed must be positive")
+            raise SolveServiceError("launch speed must be positive")
         r_target = p["d"]
         ratio = r_target * g / (v0 * v0)
         if not -1.0 <= ratio <= 1.0:
-            raise MathServiceError("that range is out of reach at this speed")
+            raise SolveServiceError("that range is out of reach at this speed")
         theta_val = 0.5 * math.asin(ratio)
         deg_val = math.degrees(theta_val)
         return PhysicsResult(
@@ -480,12 +571,12 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
         c = -h0
         disc = b * b - 4 * a * c
         if disc < 0:
-            raise MathServiceError("projectile has no positive flight time")
+            raise SolveServiceError("projectile has no positive flight time")
         t_flight = (-b + math.sqrt(disc)) / (2 * a)
     else:
         t_flight = 2 * v0 * math.sin(theta) / g
     if t_flight <= 0:
-        raise MathServiceError("projectile has no positive flight time")
+        raise SolveServiceError("projectile has no positive flight time")
 
     if op == "range":
         if h0 > 0:
@@ -532,7 +623,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
         )
         answer_value = f"{speed_val:.2f} m/s"
     else:
-        raise MathServiceError(f"unsupported projectile op: {op}")
+        raise SolveServiceError(f"unsupported projectile op: {op}")
 
     # Build trajectory graph: parametric (x(t), y(t)) from t=0 to t=t_flight.
     n_points = 100

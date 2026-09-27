@@ -5,6 +5,7 @@ import pytest
 from app.core.config import Settings
 from app.services.chat import tools as chat_tools
 from app.services.solving import VerifiedMathBlock
+from app.services.subject_solving import SubjectAugmentation
 
 
 @pytest.mark.asyncio
@@ -81,9 +82,9 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
             AsyncMock(return_value=("web", [web_hit])),
         ) as web_mock,
         patch(
-            "app.modules.math.tools.build_math_augmentation",
-            AsyncMock(return_value=(None, None)),
-        ) as math_mock,
+            "app.services.chat.prompt_builder.build_subject_augmentation",
+            AsyncMock(return_value=SubjectAugmentation(None, None, None)),
+        ) as subject_mock,
     ):
         updated, hits, verified_math = await _augment_web_and_tools(
             messages,
@@ -93,15 +94,15 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
 
     web_mock.assert_awaited_once()
     mcp_mock.assert_awaited_once()
-    math_mock.assert_awaited_once()
+    subject_mock.assert_awaited_once()
     assert updated == after_mcp
     assert hits == [web_hit]
     assert verified_math is None
 
 
 @pytest.mark.asyncio
-async def test_augment_web_and_tools_runs_web_and_math_concurrently():
-    """Web search and SymPy must overlap — TTFT pays max(search, math), not sum."""
+async def test_augment_web_and_tools_runs_web_and_subject_solver_concurrently():
+    """Search and deterministic solving overlap, so TTFT pays the slower one."""
     import asyncio
 
     from app.services.chat.prompt_builder import _augment_web_and_tools
@@ -121,15 +122,18 @@ async def test_augment_web_and_tools_runs_web_and_math_concurrently():
         await released.wait()
         return "web-block", []
 
-    async def slow_math(*_a, **_k):
+    async def slow_subject(*_a, **_k):
         await started.wait()
         overlap["web_saw_math_waiting"] = not released.is_set()
         released.set()
-        return "math-block", None
+        return SubjectAugmentation("math", "math-block", None, unverified=True)
 
     with (
         patch("app.modules.web_search.build_search_augmentation", side_effect=slow_web),
-        patch("app.modules.math.tools.build_math_augmentation", side_effect=slow_math),
+        patch(
+            "app.services.chat.prompt_builder.build_subject_augmentation",
+            side_effect=slow_subject,
+        ),
     ):
         updated, _hits, _verified = await _augment_web_and_tools(messages, "q", settings)
 
@@ -162,8 +166,10 @@ async def test_closed_math_does_not_run_web_search() -> None:
             AsyncMock(return_value=("unexpected web", [])),
         ) as web_mock,
         patch(
-            "app.modules.math.tools.build_math_augmentation",
-            AsyncMock(return_value=("math", None)),
+            "app.services.chat.prompt_builder.build_subject_augmentation",
+            AsyncMock(
+                return_value=SubjectAugmentation("math", "math", None, unverified=True)
+            ),
         ),
     ):
         updated, hits, _verified = await _augment_web_and_tools(messages, query, settings)

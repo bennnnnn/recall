@@ -81,6 +81,16 @@ describe("UserMessageContent math/markdown rendering", () => {
     expect(queryByText("x^2 + 2 = 6")).toBeNull();
   });
 
+  it("keeps grouped slash fractions unambiguous in a sent user bubble", async () => {
+    const { getByTestId, queryByText } = await render(
+      <UserMessageContent
+        message={userMessage("Simplify (x^2 - 4)/(x^2 - x - 2).")}
+      />,
+    );
+    expect(getByTestId("math-frac")).toBeOnTheScreen();
+    expect(queryByText("x² - 4/x² - x - 2")).toBeNull();
+  });
+
   it("spaces a bare unspaced equation the user typed", async () => {
     const { getByText } = await render(
       <UserMessageContent message={userMessage("x=3")} />,

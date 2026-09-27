@@ -13,7 +13,7 @@ from app.modules.physics.solvers.common import (
     _latex_num,
     _params_in_si,
 )
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSpec:
@@ -55,10 +55,10 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
     if op == "pendulum_period":
         length = p["L"]
         if length <= 0:
-            raise MathServiceError("pendulum length must be positive")
+            raise SolveServiceError("pendulum length must be positive")
         g = p.get("g", 9.81)
         if g <= 0:
-            raise MathServiceError("gravity must be positive")
+            raise SolveServiceError("gravity must be positive")
         t_period = 2 * math.pi * math.sqrt(length / g)
         answer = (
             rf"T = 2\pi\sqrt{{\frac{{L}}{{g}}}} = 2\pi\sqrt{{\frac{{{length:g}}}{{{g:g}}}}} "
@@ -75,7 +75,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
     if op == "shm_frequency":
         t_period = p["period"]
         if t_period <= 0:
-            raise MathServiceError("period must be positive")
+            raise SolveServiceError("period must be positive")
         freq = 1 / t_period
         return PhysicsResult(
             answer=(
@@ -90,7 +90,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         amplitude = p["x"]
         omega = p["omega"]
         if amplitude <= 0 or omega <= 0:
-            raise MathServiceError("amplitude and angular frequency must be positive")
+            raise SolveServiceError("amplitude and angular frequency must be positive")
         v_max = amplitude * omega
         return PhysicsResult(
             answer=(
@@ -103,7 +103,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
 
     k = p["k"]
     if k <= 0:
-        raise MathServiceError("spring constant must be positive")
+        raise SolveServiceError("spring constant must be positive")
 
     if op == "spring_force":
         x = p["x"]
@@ -127,7 +127,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
     if op == "shm_period":
         m = p["m"]
         if m <= 0:
-            raise MathServiceError("mass must be positive")
+            raise SolveServiceError("mass must be positive")
         t_period = 2 * math.pi * math.sqrt(m / k)
         answer = (
             rf"T = 2\pi\sqrt{{\frac{{m}}{{k}}}} = 2\pi\sqrt{{\frac{{{m:g}}}{{{k:g}}}}} "
@@ -137,7 +137,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         spec = _oscillation_curve(t_period, p.get("x"))
         return PhysicsResult(answer=answer, answer_value=f"{t_period:.2f} s", graph_specs=[spec])
 
-    raise MathServiceError(f"unsupported spring op: {op}")
+    raise SolveServiceError(f"unsupported spring op: {op}")
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +153,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
         tension = p["tension"]
         density = p["linear_density"]
         if tension < 0 or density <= 0:
-            raise MathServiceError(
+            raise SolveServiceError(
                 "string wave speed needs nonnegative tension and positive density"
             )
         value = math.sqrt(tension / density)
@@ -172,11 +172,11 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
         harmonic = p["harmonic"]
         mode_factor = p["mode_factor"]
         if speed <= 0 or length <= 0 or mode_factor not in {2.0, 4.0}:
-            raise MathServiceError("resonance needs positive speed and length")
+            raise SolveServiceError("resonance needs positive speed and length")
         if harmonic < 1 or not harmonic.is_integer():
-            raise MathServiceError("the harmonic number must be a positive integer")
+            raise SolveServiceError("the harmonic number must be a positive integer")
         if mode_factor == 4.0 and int(harmonic) % 2 == 0:
-            raise MathServiceError("a pipe closed at one end supports only odd harmonics")
+            raise SolveServiceError("a pipe closed at one end supports only odd harmonics")
         value = harmonic * speed / (mode_factor * length)
         symbolic = r"f_n = \frac{n v}{4L}" if mode_factor == 4.0 else r"f_n = \frac{n v}{2L}"
         return PhysicsResult(
@@ -192,7 +192,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
         power = p["sound_power"]
         radius = p["r"]
         if power < 0 or radius <= 0:
-            raise MathServiceError("sound intensity needs nonnegative power and positive distance")
+            raise SolveServiceError("sound intensity needs nonnegative power and positive distance")
         value = power / (4 * math.pi * radius**2)
         return PhysicsResult(
             answer=(
@@ -206,7 +206,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
     if op == "beat_frequency":
         first, second = p["freq"], p["freq2"]
         if first < 0 or second < 0:
-            raise MathServiceError("frequencies cannot be negative")
+            raise SolveServiceError("frequencies cannot be negative")
         value = abs(first - second)
         return PhysicsResult(
             answer=(
@@ -219,7 +219,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
     if op == "wave_frequency_from_period":
         t_period = p["period"]
         if t_period <= 0:
-            raise MathServiceError("period must be positive")
+            raise SolveServiceError("period must be positive")
         freq = 1 / t_period
         return PhysicsResult(
             answer=(
@@ -232,7 +232,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
     if op == "wave_period":
         freq = p["freq"]
         if freq <= 0:
-            raise MathServiceError("frequency must be positive")
+            raise SolveServiceError("frequency must be positive")
         t_period = 1 / freq
         return PhysicsResult(
             answer=(
@@ -247,7 +247,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
         sound = p["v_sound"]
         freq = p["freq"]
         if sound - source <= 0:
-            raise MathServiceError("a source at or above the speed of sound has no Doppler shift")
+            raise SolveServiceError("a source at or above the speed of sound has no Doppler shift")
         observed = freq * sound / (sound - source)
         motion = "approaching" if source > 0 else "receding"
         return PhysicsResult(
@@ -261,9 +261,9 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "wave_speed":
         if p["freq"] <= 0:
-            raise MathServiceError("frequency must be positive")
+            raise SolveServiceError("frequency must be positive")
         if p["wavelength"] <= 0:
-            raise MathServiceError("wavelength must be positive")
+            raise SolveServiceError("wavelength must be positive")
         value = p["freq"] * p["wavelength"]
         return PhysicsResult(
             answer=(
@@ -275,7 +275,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "wavelength":
         if p["freq"] <= 0:
-            raise MathServiceError("frequency must be positive")
+            raise SolveServiceError("frequency must be positive")
         value = p["v_wave"] / p["freq"]
         return PhysicsResult(
             answer=(
@@ -287,7 +287,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "wave_frequency":
         if p["wavelength"] <= 0:
-            raise MathServiceError("wavelength must be positive")
+            raise SolveServiceError("wavelength must be positive")
         value = p["v_wave"] / p["wavelength"]
         return PhysicsResult(
             answer=(
@@ -298,4 +298,4 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{value:.2f} Hz",
         )
 
-    raise MathServiceError(f"unsupported waves op: {op}")
+    raise SolveServiceError(f"unsupported waves op: {op}")

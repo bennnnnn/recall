@@ -49,6 +49,33 @@ describe("ArithmeticWorkBlock", () => {
     expect(getByText("Verified working.")).toBeOnTheScreen();
   });
 
+  it("renders every row in a multi-addend sum", async () => {
+    const content = JSON.stringify({
+      ...BASE,
+      operation: "addition",
+      operator: "+",
+      expression: "478 + 356 + 99",
+      operands: ["478", "356", "99"],
+      working_operands: ["478", "356", "99"],
+      answer: "933",
+      addition_columns: [
+        {
+          position: 0,
+          place: "ones",
+          addends: [8, 6, 9],
+          carry_in: 0,
+          result_digit: 3,
+          carry_out: 2,
+        },
+      ],
+    });
+    const { getByTestId } = await render(<ArithmeticWorkBlock content={content} />);
+
+    expect(getByTestId("arithmetic-top-row")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-operand-row-1")).toBeOnTheScreen();
+    expect(getByTestId("arithmetic-bottom-row")).toBeOnTheScreen();
+  });
+
   it("renders long division in a dedicated bracket layout", async () => {
     const content = JSON.stringify({
       ...BASE,
@@ -253,5 +280,60 @@ describe("ArithmeticWorkBlock", () => {
   it("renders nothing when the server trace is invalid", async () => {
     const { toJSON } = await render(<ArithmeticWorkBlock content="not json" />);
     expect(toJSON()).toBeNull();
+  });
+
+  it("renders typed fraction procedure steps without recalculating them", async () => {
+    const content = JSON.stringify({
+      type: "fraction",
+      operation: "add",
+      operands: ["1/2", "1/3"],
+      answer: "\\frac{5}{6}",
+      exact_numerator: 5,
+      exact_denominator: 6,
+      steps: [
+        {
+          kind: "common_denominator",
+          explanation: "Use the least common denominator 6.",
+          expression: "\\frac{3}{6}+\\frac{2}{6}",
+          result: "\\frac{5}{6}",
+        },
+      ],
+    });
+    const { getByTestId, getByText } = await render(
+      <ArithmeticWorkBlock content={content} />,
+    );
+
+    expect(getByTestId("fraction-step-0")).toBeOnTheScreen();
+    expect(getByText("1. Use the least common denominator 6.")).toBeOnTheScreen();
+  });
+
+  it("renders a unary improper-to-mixed procedure", async () => {
+    const content = JSON.stringify({
+      type: "fraction",
+      operation: "improper_to_mixed",
+      operands: ["29/4"],
+      answer: "7\\frac{1}{4}",
+      exact_numerator: 29,
+      exact_denominator: 4,
+      steps: [
+        {
+          kind: "convert",
+          explanation:
+            "Divide the numerator by the denominator; the remainder becomes the new numerator.",
+          expression: "29\\div 4",
+          result: "7 R1",
+        },
+      ],
+    });
+    const { getByTestId, getByText } = await render(
+      <ArithmeticWorkBlock content={content} />,
+    );
+
+    expect(getByTestId("fraction-step-0")).toBeOnTheScreen();
+    expect(
+      getByText(
+        "1. Divide the numerator by the denominator; the remainder becomes the new numerator.",
+      ),
+    ).toBeOnTheScreen();
   });
 });

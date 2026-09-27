@@ -2,10 +2,11 @@ import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { CardShell } from "@/components/rich/CardShell";
+import { MathText } from "@/components/rich/MathText";
 import { StepList } from "@/components/rich/StepList";
 import { MATH_FONT } from "@/lib/fonts";
-import { parseArithmeticWork } from "@/lib/math/arithmeticBlock";
-import type { ArithmeticWorkSpec } from "@/lib/math/arithmeticBlock";
+import { parseArithmeticWork, parseFractionWork } from "@/lib/math/arithmeticBlock";
+import type { ArithmeticWorkSpec, FractionWorkSpec } from "@/lib/math/arithmeticBlock";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -142,13 +143,24 @@ function ColumnWork({ spec }: { spec: ArithmeticWorkSpec }) {
   return (
     <View style={s.work}>
       <AnnotationRow spec={spec} width={width} />
-      <DigitRow value={spec.working_operands[0]} width={width} testID="arithmetic-top-row" />
-      <DigitRow
-        value={spec.working_operands[1]}
-        width={width}
-        operator={spec.operator}
-        testID="arithmetic-bottom-row"
-      />
+      {spec.working_operands.map((operand, index) => {
+        const last = index === spec.working_operands.length - 1;
+        const testID =
+          index === 0
+            ? "arithmetic-top-row"
+            : last
+              ? "arithmetic-bottom-row"
+              : `arithmetic-operand-row-${index}`;
+        return (
+          <DigitRow
+            key={`${index}-${operand}`}
+            value={operand}
+            width={width}
+            operator={last ? spec.operator : undefined}
+            testID={testID}
+          />
+        );
+      })}
       <View style={[s.rule, { width: width * CELL_WIDTH + CELL_WIDTH }]} />
       <DigitRow value={spec.answer} width={width} testID="arithmetic-result-row" />
     </View>
@@ -231,7 +243,8 @@ function positionedValue(value: string, end: number, width: number): string {
 function DivisionWork({ spec }: { spec: ArithmeticWorkSpec }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [dividend, divisor] = spec.working_operands;
+  const dividend = spec.working_operands[0] ?? "";
+  const divisor = spec.working_operands[1] ?? "";
   const width = dividend.length;
   return (
     <View style={s.divisionWork} testID="arithmetic-division-layout">
@@ -297,7 +310,10 @@ function DivisionWork({ spec }: { spec: ArithmeticWorkSpec }) {
 
 export function ArithmeticWorkBlock({ content }: { content: string }) {
   const spec = parseArithmeticWork(content);
-  if (!spec) return null;
+  if (!spec) {
+    const fraction = parseFractionWork(content);
+    return fraction ? <FractionWork spec={fraction} /> : null;
+  }
   const layout =
     spec.operation === "addition" || spec.operation === "subtraction" ? (
       <ColumnWork spec={spec} />
@@ -306,7 +322,7 @@ export function ArithmeticWorkBlock({ content }: { content: string }) {
     ) : (
       <DivisionWork spec={spec} />
     );
-  const label = `${spec.operands[0]} ${spec.operator} ${spec.operands[1]}`;
+  const label = spec.operands.join(` ${spec.operator} `);
   return (
     <CardShell label={label} copyText={`${label} = ${spec.answer}`} accent={false}>
       <ScrollView
@@ -325,6 +341,27 @@ export function ArithmeticWorkBlock({ content }: { content: string }) {
   );
 }
 
+function FractionWork({ spec }: { spec: FractionWorkSpec }) {
+  const theme = useTheme();
+  const label = spec.operands.join(" • ");
+  return (
+    <CardShell label={label} copyText={spec.answer} accent={false}>
+      <View style={styles.fractionSteps}>
+        {spec.steps.map((step, index) => (
+          <View key={`${index}-${step.kind}`} style={styles.fractionStep}>
+            <Text style={[styles.fractionExplanation, { color: theme.textSecondary }]}>
+              {`${index + 1}. ${step.explanation}`}
+            </Text>
+            <View testID={`fraction-step-${index}`}>
+              <MathText latex={`${step.expression} = ${step.result}`} textColor={theme.text} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </CardShell>
+  );
+}
+
 const styles = StyleSheet.create({
   workScroll: { alignSelf: "stretch" },
   workScrollContent: {
@@ -333,6 +370,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.xs,
   },
   steps: { marginTop: Space.sm },
+  fractionSteps: { gap: Space.sm },
+  fractionStep: { gap: Space.xs },
+  fractionExplanation: Type.secondary,
 });
 
 function makeStyles(t: Theme) {

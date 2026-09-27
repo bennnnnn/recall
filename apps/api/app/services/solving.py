@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 # TYPE_CHECKING only: `math.solve` imports `MathServiceError` from this module
 # (see below), so a real import of `math.solve.key_steps` here — which would
@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 # use of KeyStep below is an annotation (`from __future__ import annotations`
 # makes them lazy strings), so no runtime import is needed at all.
 if TYPE_CHECKING:
-    from app.models.schemas.math import MathIntent, NewtonMethodInput, NewtonMethodResult
+    from app.models.schemas.math import NewtonMethodInput, NewtonMethodResult
     from app.models.schemas.physics import PhysicsIntent
     from app.modules.math.response_intent import MathResponseIntent
     from app.modules.math.solve.key_steps import KeyStep
@@ -41,16 +41,18 @@ _VERIFIED_MARKERS = (
 )
 
 
-class MathServiceError(ValueError):
-    """A solve declined: invalid or unsupported input for this subject."""
+class SolveServiceError(ValueError):
+    """A deterministic subject solve declined invalid or unsupported input."""
 
 
 @dataclass(frozen=True)
-class VerifiedMathBlock:
-    """System-prompt hint (numbers and steps) plus the exact fence Recall
-    will attach after the stream. The model is not asked to copy fences.
-    Geometry/graph turns keep the diagram JSON on canonical_fence and the
-    numeric final on canonical_answer.
+class VerifiedSolveBlock:
+    """Subject-neutral transport for one deterministic, verified solve.
+
+    Subject algorithms own extraction, solving, traces, and presentation.
+    Chat owns only this canonical transport: prompt text, exact result fences,
+    and optional subject-rendered direct output.  Subject-specific state lives
+    on the subclasses below rather than turning math into physics' container.
 
     ``canonical_fences`` collects fences across multiple tool-loop rounds
     (e.g. a geometry fence from round 1 and a graph fence from round 2) so
@@ -59,6 +61,7 @@ class VerifiedMathBlock:
     backward compatibility."""
 
     text: str
+    subject: Literal["math", "physics"]
     canonical_fence: dict[str, Any] | None = None
     canonical_answer: str | None = None
     # Optional user-facing spelling of the same verified value. Geometry uses
@@ -66,18 +69,21 @@ class VerifiedMathBlock:
     # correct linear/square unit in the checked answer card.
     display_answer: str | None = None
     canonical_fences: list[dict[str, Any]] = field(default_factory=list)
-    # Force/energy answers are unlabeled quantities — keep the LLM so
-    # MATH_SOLVER_HINT can name the symbol. Geometry stays on the model path;
-    # plain, explicit function plots may return their canonical graph directly.
+    # Some results need language around the canonical data; closed requests
+    # may return a subject-rendered reply without asking a model to recalculate.
     allow_direct: bool = True
-    # The verified-block wrapper binds the exact solved physics intent here.
-    # Includes average speed (a MathIntent, kind="arithmetic" — the one case
-    # this field holds a math-kind intent rather than a PhysicsIntent); guards
-    # compare every parameter/unit without re-solving.
-    physics_intent: MathIntent | PhysicsIntent | None = None
-    # Exact solver-produced equation chain used by the instant physics path to
-    # present Formula and Substitution without asking a model to recompute it.
-    physics_working: str | None = None
+    direct_reply: str | None = None
+    direct_request_text: str | None = None
+    direct_answer_binding: str | None = None
+    domain_conditions: tuple[str, ...] = ()
+    excluded_values: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class VerifiedMathBlock(VerifiedSolveBlock):
+    """Math-only verified state and deterministic teaching traces."""
+
+    subject: Literal["math"] = "math"
     # The one line that shows where the answer came from — e.g. the
     # factorization behind a quadratic's roots. Shown on the direct-reply
     # path for the balanced/detailed response styles, omitted for short.
@@ -93,29 +99,29 @@ class VerifiedMathBlock:
     # Paired snapshots of the actual Newton solve; never reconstruct iterations.
     newton_input: NewtonMethodInput | None = None
     newton_result: NewtonMethodResult | None = None
-    # A reply the builder already rendered from verified data (check my work);
-    # sent as is instead of the generic direct formats.
-    direct_reply: str | None = None
-    # The exact normalized request that produced ``direct_reply``. This binds
-    # builder-rendered working to its own turn and prevents it from bypassing
-    # whole-query guards when a caller presents another request.
-    direct_request_text: str | None = None
     # Standard derivatives/integrals additionally use the strict calculus
     # whole-request grammar; calculus applications have their own extractors
     # and therefore leave this false.
     direct_requires_calculus_guard: bool = False
-    # Snapshot of the verified answer when the rendered direct reply was
-    # created. A later mutation of the block cannot pair stale working with a
-    # different answer fence.
-    direct_answer_binding: str | None = None
     # Presentation is classified once for the turn, then enforced by direct
     # routing, prompt guidance, and final fence attachment. In particular,
     # ``reveal_answer=False`` is a hard policy boundary for tutoring hints.
     response_intent: MathResponseIntent | None = None
-    # Solver-owned conditions from the original problem. They survive
-    # simplification and are available to every presentation path.
-    domain_conditions: tuple[str, ...] = ()
-    excluded_values: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class VerifiedPhysicsBlock(VerifiedSolveBlock):
+    """Physics-only verified state used by physics presentation guards."""
+
+    subject: Literal["physics"] = "physics"
+    physics_intent: PhysicsIntent | None = None
+    physics_working: str | None = None
+
+
+# Compatibility for solver modules and downstream integrations while callers
+# migrate to the subject-neutral name. New cross-subject code uses
+# SolveServiceError; the alias contains no math behavior.
+MathServiceError = SolveServiceError
 
 
 def wrap_verified_math(text: str) -> str:
@@ -132,7 +138,7 @@ def wrap_verified_physics(text: str) -> str:
     return f"{VERIFIED_PHYSICS_BEGIN}\n{body}\n{VERIFIED_PHYSICS_END}"
 
 
-def strip_verified_math_markers(text: str) -> str:
+def strip_verified_solve_markers(text: str) -> str:
     """Remove the verified-math sentinels if a model echoed them into its reply.
 
     ``wrap_verified_math`` puts these around the block injected into the
@@ -152,6 +158,9 @@ def strip_verified_math_markers(text: str) -> str:
     for marker in _VERIFIED_MARKERS:
         stripped = stripped.replace(marker, "")
     return re.sub(r"\n{3,}", "\n\n", stripped).strip()
+
+
+strip_verified_math_markers = strip_verified_solve_markers
 
 
 def _answer_canonical(content: str) -> dict[str, str]:
@@ -176,6 +185,7 @@ def _finish_with_answer(
     lines.append(f"Verified result: {answer}")
     return VerifiedMathBlock(
         text="\n".join(lines),
+        subject="math",
         canonical_fence=_answer_canonical(answer),
         canonical_answer=answer,
         allow_direct=allow_direct,
@@ -200,6 +210,7 @@ def _diagram_block(
     dump = spec.model_dump() if hasattr(spec, "model_dump") else spec
     return VerifiedMathBlock(
         text="\n".join(lines),
+        subject="math",
         canonical_fence=dump,
         canonical_answer=answer,
         display_answer=display_answer,

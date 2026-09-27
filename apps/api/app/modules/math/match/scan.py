@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 import re
+from typing import Literal, cast
 
+from app.services.symbolic_text import (
+    collapse_repeated_si_unit_powers as _collapse_repeated_si_unit_powers,
+)
+from app.services.symbolic_text import (
+    fold_numeric_superscripts,
+    normalize_symbolic_request,
+    strip_inline_math_delimiters,
+)
 from app.services.text_match import has_equation, word_index
 from app.services.text_normalize import collapse_ws
 
@@ -12,9 +21,6 @@ _MAX = 1000
 # it used to turn a sector/circle radius of .5 into a verified radius of 5.
 _NUM = re.compile(r"-?(?:\d+(?:\.\d+)?|\.\d+)")
 # Math keyboard / Unicode units: m/s² and m/s^{2} must match m/s^2.
-_SUP_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
-_SUP_ASCII = "0123456789"
-_SUP_TABLE = str.maketrans(_SUP_GLYPHS, _SUP_ASCII)
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
 _CALC_OP = re.compile(
     r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand|dsolve)\b",
@@ -362,14 +368,7 @@ def strip_inline_math_delims(text: str) -> str:
     to hide the 6 from the vertical-line matcher, so we solved the equation
     in words and never attached the plot.
     """
-    return (
-        text.replace("$$", "")
-        .replace("$", "")
-        .replace("\\(", "")
-        .replace("\\)", "")
-        .replace("\\[", "")
-        .replace("\\]", "")
-    )
+    return strip_inline_math_delimiters(text)
 
 
 def fold_match_superscripts(s: str) -> str:
@@ -378,30 +377,7 @@ def fold_match_superscripts(s: str) -> str:
     Linear scan — math-keyboard superscripts used to miss F=ma extract, then
     the reply still said *Couldn't verify this with SymPy.*
     """
-    out: list[str] = []
-    i = 0
-    n = len(s)
-    while i < n:
-        ch = s[i]
-        if ch in _SUP_GLYPHS:
-            j = i + 1
-            while j < n and s[j] in _SUP_GLYPHS:
-                j += 1
-            out.append("^" + s[i:j].translate(_SUP_TABLE))
-            i = j
-            continue
-        if ch == "^" and i + 1 < n and s[i + 1] == "{":
-            close = s.find("}", i + 2)
-            if close != -1:
-                inner = s[i + 2 : close]
-                # Leave ^{x}^{2} keyboard chains for the graph peeler.
-                if inner.isdigit() and (not out or out[-1] != "}"):
-                    out.append("^" + inner)
-                    i = close + 1
-                    continue
-        out.append(ch)
-        i += 1
-    return "".join(out)
+    return fold_numeric_superscripts(s)
 
 
 def collapse_repeated_si_unit_powers(s: str) -> str:
@@ -410,40 +386,11 @@ def collapse_repeated_si_unit_powers(s: str) -> str:
     ``2 m/s$^2$$^2.$^2`` never bound acceleration, so F=ma shipped the
     *Couldn't verify this with SymPy.* footer under a correct 10 N.
     """
-    out: list[str] = []
-    i = 0
-    n = len(s)
-    while i < n:
-        if i + 4 <= n and s[i : i + 4] == "m/s^":
-            j = i + 4
-            if j < n and s[j].isdigit():
-                k = j + 1
-                while k < n and s[k].isdigit():
-                    k += 1
-                out.append(s[i:k])
-                i = k
-                while i < n:
-                    p = i
-                    if p < n and s[p] == ".":
-                        p += 1
-                    if p < n and s[p] == "^" and p + 1 < n and s[p + 1].isdigit():
-                        p += 1
-                        while p < n and s[p].isdigit():
-                            p += 1
-                        i = p
-                        continue
-                    break
-                continue
-        out.append(s[i])
-        i += 1
-    return "".join(out)
+    return _collapse_repeated_si_unit_powers(s)
 
 
 def prepare(text: str) -> str | None:
-    cleaned = collapse_ws(strip_inline_math_delims(text))
-    if len(cleaned) > _MAX:
-        return None
-    return collapse_repeated_si_unit_powers(fold_match_superscripts(cleaned))
+    return normalize_symbolic_request(text)
 
 
 def _strip_arith_cues(lower: str) -> tuple[str, bool]:
@@ -672,6 +619,58 @@ _WRITTEN_SCHOOL_OP = {
     "/": "long_division",
 }
 
+# Presentation methods that select the typed school-work trace rather than
+# changing the arithmetic.  Keep this as a small grammar (connector + method),
+# not a list of complete user sentences.  The allowed-operation set prevents
+# us from silently answering a request such as "2 + 3 using borrowing" with a
+# carrying trace that does not follow the requested method.
+_WRITTEN_METHODS: tuple[tuple[str, frozenset[str]], ...] = (
+    ("column addition", frozenset({"column_addition"})),
+    ("column subtraction", frozenset({"column_subtraction"})),
+    ("column multiplication", frozenset({"column_multiplication"})),
+    ("long multiplication", frozenset({"column_multiplication"})),
+    ("carrying", frozenset({"column_addition", "column_multiplication"})),
+    ("borrowing", frozenset({"column_subtraction"})),
+    ("regrouping", frozenset({"column_addition", "column_subtraction"})),
+    (
+        "standard algorithm",
+        frozenset({"column_addition", "column_subtraction", "column_multiplication"}),
+    ),
+)
+_WRITTEN_METHOD_CONNECTORS = ("using the", "using", "use the", "use", "with", "by")
+
+
+def _strip_written_method_cues(value: str) -> tuple[str, frozenset[str] | None]:
+    """Remove bounded method metadata and return the compatible school ops."""
+    compatible: frozenset[str] | None = None
+    stripped = value
+    for method, allowed in _WRITTEN_METHODS:
+        for connector in _WRITTEN_METHOD_CONNECTORS:
+            phrase = f"{connector} {method}"
+            index = word_index(stripped, phrase)
+            if index == -1:
+                continue
+            if word_index(stripped[index + len(phrase) :], phrase) != -1:
+                return value, frozenset()
+            stripped = collapse_ws(
+                f"{stripped[:index]} {stripped[index + len(phrase):]}"
+            ).strip(" :?.!")
+            compatible = allowed if compatible is None else compatible & allowed
+    return stripped, compatible
+
+_DIVISION_MODE_PHRASES: tuple[tuple[str, str], ...] = (
+    ("quotient and remainder", "remainder"),
+    ("with a remainder", "remainder"),
+    ("as a remainder", "remainder"),
+    ("as a fraction", "fraction"),
+    ("fraction answer", "fraction"),
+    ("as a decimal", "decimal"),
+    ("decimal answer", "decimal"),
+    ("round up", "round_up"),
+    ("discard the remainder", "discard"),
+    ("ignore the remainder", "discard"),
+)
+
 
 def _school_number(token: str) -> str | None:
     value = token.strip()
@@ -694,6 +693,42 @@ def _school_number(token: str) -> str | None:
     return whole + (f".{fraction}" if dot else "")
 
 
+def written_addition_request(text: str) -> list[str] | None:
+    """Return every addend for one closed two-to-six-addend school sum."""
+    if not text or len(text) > _MAX:
+        return None
+    from app.modules.math.response_intent import strip_math_response_wrappers
+
+    value = collapse_ws(strip_math_response_wrappers(text)).strip(" :?.!").lower()
+    for filler in ("for ", "of ", "me "):
+        if value.startswith(filler):
+            value = value[len(filler) :].lstrip()
+            break
+    value, _had_cue = _strip_arith_cues(value)
+    if any(alias in value for alias in (" - ", " * ", " / ", "minus", "times", "divided")):
+        return None
+    raw_tokens = re.split(r"\s*(?:\+|\bplus\b)\s*", value)
+    if not 2 <= len(raw_tokens) <= 6:
+        return None
+    numbers = [_school_number(token) for token in raw_tokens]
+    if any(number is None for number in numbers):
+        return None
+    return [number for number in numbers if number is not None]
+
+
+def division_answer_mode(
+    text: str, left: str, right: str
+) -> Literal["remainder", "fraction", "decimal", "round_up", "discard"]:
+    """Select the requested interpretation without asking presentation code."""
+    lower = collapse_ws(text).lower()
+    for phrase, mode in _DIVISION_MODE_PHRASES:
+        if phrase in lower:
+            return cast(
+                Literal["remainder", "fraction", "decimal", "round_up", "discard"], mode
+            )
+    return "decimal" if "." in left or "." in right else "remainder"
+
+
 def written_arithmetic_request(text: str) -> tuple[str, str, str, str] | None:
     """Return ``(left, right, operator, school_op)`` for one closed school sum.
 
@@ -711,6 +746,20 @@ def written_arithmetic_request(text: str) -> tuple[str, str, str, str] | None:
             value = value[len(filler) :].lstrip()
             break
     value, had_cue = _strip_arith_cues(value)
+    value, compatible_methods = _strip_written_method_cues(value)
+    if compatible_methods == frozenset():
+        return None
+    # A bare "show" selects presentation, not an arithmetic operation.  Do
+    # this after the established "show long division" grammar has seen the
+    # complete phrase below.
+    if value.startswith("show me "):
+        value = value[8:].lstrip()
+        had_cue = True
+    elif value.startswith("show ") and not value.startswith("show long division"):
+        value = value[5:].lstrip()
+        had_cue = True
+    for phrase, _mode in _DIVISION_MODE_PHRASES:
+        value = collapse_ws(value.replace(phrase, " ")).strip(" :?.!")
     had_long_division_cue = "long division" in value
     for phrase in (
         "using long division to",
@@ -739,13 +788,16 @@ def written_arithmetic_request(text: str) -> tuple[str, str, str, str] | None:
     if left is None or right is None:
         return None
     compact = f"{left}{operator}{right}"
+    school_op = _WRITTEN_SCHOOL_OP[operator]
+    if compatible_methods is not None and school_op not in compatible_methods:
+        return None
     if alias == "/" and not (
         had_cue or had_long_division_cue or _unambiguous_single_slash(compact)
     ):
         return None
     if alias == "-" and not had_cue and _looks_like_date_or_phone(compact):
         return None
-    return left, right, operator, _WRITTEN_SCHOOL_OP[operator]
+    return left, right, operator, school_op
 
 
 def geometry_dim_context(lower: str) -> bool:

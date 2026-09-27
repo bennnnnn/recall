@@ -7,7 +7,6 @@ import math
 from fractions import Fraction
 from typing import Any
 
-from pint import UnitRegistry
 from sympy import (
     Derivative,
     Eq,
@@ -36,22 +35,9 @@ from sympy import (
 
 from app.models.schemas.math import MathExprResult
 from app.modules.math.solve import MathServiceError, _parse_expression
+from app.services.units import get_unit_registry
 
 logger = logging.getLogger(__name__)
-
-# Pint unit registry (singleton — 50-80ms init, paid once at first use).
-# Replaces the hardcoded _LENGTH_TO_M / _MASS_TO_KG / _TIME_TO_S dicts with
-# proper dimensional analysis, compound units (m/s², N, J, Pa), and offset
-# temperature handling (C/F/K).
-_unit_registry: UnitRegistry | None = None
-
-
-def get_unit_registry() -> UnitRegistry:
-    global _unit_registry
-    if _unit_registry is None:
-        _unit_registry = UnitRegistry()
-    return _unit_registry
-
 
 # Aliases the old hardcoded tables accepted that Pint doesn't by default.
 # Maps user-facing unit strings → Pint-compatible strings.

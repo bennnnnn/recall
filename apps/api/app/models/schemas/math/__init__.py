@@ -33,6 +33,7 @@ from app.models.schemas.math.discrete import (
     StatisticsInput,
     StatisticsResult,
 )
+from app.models.schemas.math.fraction import FractionStep, FractionWorkSpec
 from app.models.schemas.math.geometry import (
     CircleGeometryBlockSpec,
     CircleGeometryInput,
@@ -86,6 +87,8 @@ __all__ = [
     "CombinatoricsInput",
     "CombinatoricsResult",
     "EquationInput",
+    "FractionStep",
+    "FractionWorkSpec",
     "GeometryBlockSpec",
     "GraphBlockSpec",
     "GraphSampleInput",

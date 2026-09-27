@@ -8,15 +8,9 @@ rendered by the four modules here:
 - ``direct``  — decides a complete literal ask may show its verified result
 - ``block``   — builds the verified system-prompt block for the chat turn
 
-Physics shares ``VerifiedMathBlock`` and ``MathServiceError`` with math, but
-both live in the subject-neutral ``app.services.solving`` — neither subject
-imports the other's package to reach them (see
-docs/SUBJECT_SEPARATION_TICKETS.md). ``PhysicsIntent`` is its own type
-(20 kinds, disjoint from ``MathIntent``). The still-open dependency is
-dispatch: physics plugs into math's pipeline through four registry seams:
-``PHYSICS_EXTRACTORS``,
-``PHYSICS_BLOCK_BUILDERS``, ``can_direct_physics`` and
-``has_supported_physics_cue``.
+Physics has its own intent, extraction, verified block, prompt augmentation,
+direct presentation, and fence finalization. Only canonical solve transport
+and text normalization are shared with other subjects.
 
 The package surface stays lazy. ``math.tools.block`` imports ``physics.block``
 while it is still initializing, so eager imports here would close that cycle.
@@ -32,10 +26,13 @@ _EXPORTS = {
     "PHYSICS_BLOCK_BUILDERS": ("block", "PHYSICS_BLOCK_BUILDERS"),
     "PHYSICS_EXTRACTORS": ("extract", "PHYSICS_EXTRACTORS"),
     "PhysicsRequest": ("request", "PhysicsRequest"),
+    "build_verified_physics_block": ("block", "build_verified_physics_block"),
     "can_direct_physics": ("direct", "can_direct_physics"),
     "complete_physics_intent": ("request", "complete_physics_intent"),
     "format_direct_physics_working": ("direct", "format_direct_physics_working"),
+    "extract_physics_intent": ("extract", "extract_physics_intent"),
     "has_supported_physics_cue": ("extract", "has_supported_physics_cue"),
+    "needs_physics": ("extract", "needs_physics"),
     "prepare_physics_request": ("request", "prepare_physics_request"),
     "solve_physics": ("solver", "solve_physics"),
 }

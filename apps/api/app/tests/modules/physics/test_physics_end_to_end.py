@@ -11,11 +11,11 @@ import math
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.tools import (
-    _build_verified_block,
-    extract_math_intent,
-    maybe_direct_math_reply,
-    needs_symbolic_math,
+from app.tests.modules.physics.support import (
+    build_verified_physics_block,
+    extract_physics_intent,
+    maybe_direct_physics_reply,
+    needs_physics,
 )
 
 _SETTINGS = Settings(math_tools_enabled=True)
@@ -161,11 +161,11 @@ def test_physics_gate_extract_block_answer(
     expected: tuple[str, float | None],
 ) -> None:
     _display, expected_value = expected
-    assert needs_symbolic_math(message) is True
-    intent = extract_math_intent(message)
+    assert needs_physics(message) is True
+    intent = extract_physics_intent(message)
     assert intent is not None
     assert intent.kind == kind
-    block = _build_verified_block(intent, _SETTINGS)
+    block = build_verified_physics_block(intent, _SETTINGS)
     assert block is not None
     assert block.canonical_answer is not None
     assert "m = 0" not in block.canonical_answer
@@ -178,23 +178,23 @@ def test_physics_gate_extract_block_answer(
 
 def test_car_acceleration_is_not_verified_minus_g() -> None:
     message = "A car speeds up from 0 to 30 m/s in 5 s. What is the acceleration of the car?"
-    assert needs_symbolic_math(message) is True
-    intent = extract_math_intent(message)
+    assert needs_physics(message) is True
+    intent = extract_physics_intent(message)
     assert intent is None or intent.kind != "kinematics" or intent.physics_op != "acceleration"
     if intent is not None:
-        block = _build_verified_block(intent, _SETTINGS)
+        block = build_verified_physics_block(intent, _SETTINGS)
         if block is not None and block.canonical_answer:
             assert "-9.81" not in block.canonical_answer
 
 
 def test_force_direct_reply_uses_the_structured_verified_layout() -> None:
     message = "A net force of 10 N acts on a 2 kg mass. What is the acceleration?"
-    intent = extract_math_intent(message)
+    intent = extract_physics_intent(message)
     assert intent is not None
-    block = _build_verified_block(intent, _SETTINGS)
+    block = build_verified_physics_block(intent, _SETTINGS)
     assert block is not None
     assert block.allow_direct is False
-    reply = maybe_direct_math_reply(block, message)
+    reply = maybe_direct_physics_reply(block, message)
     assert reply is not None
     assert "**Given**" in reply
     assert "**Find**" in reply

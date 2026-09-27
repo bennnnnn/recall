@@ -227,6 +227,12 @@ class MathIntent(BaseModel):
     wants_surface_area: bool = False
     # School extras (arithmetic / coord / vectors / probability / units).
     school_op: str | None = None
+    arithmetic_operands: list[str] | None = None
+    division_answer_mode: (
+        Literal["remainder", "fraction", "decimal", "round_up", "discard"] | None
+    ) = None
+    fraction_operands: list[str] | None = None
+    fraction_target: int | None = None
     x2: float | None = None
     y2: float | None = None
     vec_a: list[float] | None = None

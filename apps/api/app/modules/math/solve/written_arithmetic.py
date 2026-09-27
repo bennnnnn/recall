@@ -52,10 +52,10 @@ def _column_digits(value: int, width: int) -> list[int]:
 
 
 def _addition(
-    left: Decimal, right: Decimal, scales: tuple[int, int], expression: str
+    values: list[Decimal], scales: list[int], expression: str
 ) -> ArithmeticWorkSpec:
     scale = max(scales)
-    integers, operands = _aligned_operands([left, right], scale)
+    integers, operands = _aligned_operands(values, scale)
     total = sum(integers)
     width = max(*(len(str(value)) for value in integers), len(str(total)))
     digits = [_column_digits(value, width) for value in integers]
@@ -241,22 +241,56 @@ def _multiplication(
 
 
 def build_written_arithmetic(
-    left_token: str, right_token: str, school_op: str, expression: str
+    left_token: str,
+    right_token: str,
+    school_op: str,
+    expression: str,
+    *,
+    division_answer_mode: str | None = None,
 ) -> ArithmeticWorkSpec | None:
     """Build a bounded exact trace, or decline unsupported signed/non-finite work."""
+    return build_written_arithmetic_operands(
+        [left_token, right_token],
+        school_op,
+        expression,
+        division_answer_mode=division_answer_mode,
+    )
+
+
+def build_written_arithmetic_operands(
+    tokens: list[str],
+    school_op: str,
+    expression: str,
+    *,
+    division_answer_mode: str | None = None,
+) -> ArithmeticWorkSpec | None:
+    """Build exact typed work for a complete two-to-six operand request."""
     operation = _OPERATOR.get(school_op)
     if school_op == "long_division":
-        return build_long_division(left_token, right_token, expression)
-    left_parts, right_parts = _number_parts(left_token), _number_parts(right_token)
-    if operation is None or left_parts is None or right_parts is None:
+        if len(tokens) != 2:
+            return None
+        return build_long_division(
+            tokens[0],
+            tokens[1],
+            expression,
+            answer_mode=division_answer_mode,
+        )
+    if operation is None or not 2 <= len(tokens) <= 6:
         return None
-    left, left_scale = left_parts
-    right, right_scale = right_parts
-    scales = (left_scale, right_scale)
+    parts = [_number_parts(token) for token in tokens]
+    if any(part is None for part in parts):
+        return None
+    parsed = [part for part in parts if part is not None]
+    values = [part[0] for part in parsed]
+    scales = [part[1] for part in parsed]
     if school_op == "column_addition":
-        return _addition(left, right, scales, expression)
+        return _addition(values, scales, expression)
+    if len(values) != 2:
+        return None
+    left, right = values
+    binary_scales = (scales[0], scales[1])
     if school_op == "column_subtraction":
-        return _subtraction(left, right, scales, expression)
+        return _subtraction(left, right, binary_scales, expression)
     if school_op == "column_multiplication":
-        return _multiplication(left, right, scales, expression)
+        return _multiplication(left, right, binary_scales, expression)
     return None
