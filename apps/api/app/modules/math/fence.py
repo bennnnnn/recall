@@ -789,10 +789,7 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
                 verified.response_intent is not None
                 and verified.response_intent.reveal_answer
                 and verified.response_intent.mode != "answer_only"
-                and (
-                    verified.response_intent.wants_explanation
-                    or division_works_by_default
-                )
+                and (verified.response_intent.wants_explanation or division_works_by_default)
             )
         )
     )
