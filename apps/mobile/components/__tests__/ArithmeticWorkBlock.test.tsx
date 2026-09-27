@@ -100,10 +100,11 @@ describe("ArithmeticWorkBlock", () => {
         },
       ],
     });
-    const { getByTestId } = await render(
+    const { getByTestId, queryByText } = await render(
       <ArithmeticWorkBlock content={content} />,
     );
 
+    expect(getByTestId("arithmetic-work-inline")).toBeOnTheScreen();
     expect(getByTestId("arithmetic-division-layout")).toBeOnTheScreen();
     expect(getByTestId("arithmetic-quotient").props.accessibilityLabel).toBe("72");
     expect(getByTestId("arithmetic-dividend").props.accessibilityLabel).toBe("437");
@@ -111,6 +112,7 @@ describe("ArithmeticWorkBlock", () => {
     expect(
       getByTestId("arithmetic-division-product-0").props.accessibilityLabel,
     ).toBe("42");
+    expect(queryByText("437 ÷ 6")).not.toBeOnTheScreen();
   });
 
   it("renders carries for every multiplication partial product", async () => {
@@ -318,22 +320,29 @@ describe("ArithmeticWorkBlock", () => {
       steps: [
         {
           kind: "convert",
+          explanation: "4 goes into 29 exactly 7 whole times, with 1 left over.",
+          expression: "29",
+          result: "4\\times 7+1",
+        },
+        {
+          kind: "convert",
           explanation:
-            "Divide the numerator by the denominator; the remainder becomes the new numerator.",
-          expression: "29\\div 4",
-          result: "7 R1",
+            "Keep the quotient as the whole number and put the remainder over the original denominator.",
+          expression: "\\frac{29}{4}",
+          result: "7+\\frac{1}{4}",
         },
       ],
     });
-    const { getByTestId, getByText } = await render(
+    const { getByTestId, getByText, queryByText } = await render(
       <ArithmeticWorkBlock content={content} />,
     );
 
+    expect(getByTestId("fraction-work-inline")).toBeOnTheScreen();
     expect(getByTestId("fraction-step-0")).toBeOnTheScreen();
+    expect(getByTestId("fraction-step-1")).toBeOnTheScreen();
     expect(
-      getByText(
-        "1. Divide the numerator by the denominator; the remainder becomes the new numerator.",
-      ),
+      getByText("1. 4 goes into 29 exactly 7 whole times, with 1 left over."),
     ).toBeOnTheScreen();
+    expect(queryByText("29/4")).not.toBeOnTheScreen();
   });
 });
