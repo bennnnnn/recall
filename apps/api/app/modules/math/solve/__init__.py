@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.modules.math.solve.algebra import (
     compute_limit,
+    differentiate_at_point,
     differentiate_expression,
     evaluate_series_sum,
     expand_expression,
@@ -92,6 +93,7 @@ __all__ = [
     "compute_matrix",
     "compute_number_theory",
     "compute_statistics",
+    "differentiate_at_point",
     "differentiate_expression",
     "evaluate_series_sum",
     "expand_expression",

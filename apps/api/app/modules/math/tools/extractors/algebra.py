@@ -317,8 +317,30 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
 
 
 def _extract_equation_intent(cleaned: str) -> MathIntent | None:
+    from app.modules.math.response_intent import (
+        MathMethod,
+        MathResponseMode,
+        classify_math_response_intent,
+    )
     from app.modules.math.tools.lesson import strip_lesson_prefixes
 
+    lower = cleaned.lower()
+    response_intent = classify_math_response_intent(cleaned)
+    if response_intent.mode == MathResponseMode.EXPLAIN and not any(
+        cue in lower for cue in (" solve ", "solve ", " find ", "calculate ", " step", "working")
+    ):
+        # “Explain why y=mx+b” asks about a statement; it does not ask Recall
+        # to solve that equality for one of its symbols.
+        return None
+    requested_method = (
+        "quadratic_formula"
+        if response_intent.requested_method == MathMethod.QUADRATIC_FORMULA
+        else "factoring"
+        if response_intent.requested_method == MathMethod.FACTORING
+        else None
+    )
+    if requested_method is None and "decimal approximation" in lower and "exact" in lower:
+        requested_method = "exact_and_decimal"
     probe = strip_lesson_prefixes(cleaned)
     if _has_unclaimed_plot_verb(probe):
         return None
@@ -339,13 +361,17 @@ def _extract_equation_intent(cleaned: str) -> MathIntent | None:
         return None
     variables = math_solve.guess_variables(lhs + rhs)
     requested = _requested_variable(probe, lhs + rhs)
-    variable = requested or (variables[0] if variables else "x")
+    # In a single school equation, x is the conventional unknown and other
+    # letters are parameters unless the learner explicitly names a target.
+    # Alphabetical selection made ``solve ax=5`` solve for a instead of x.
+    variable = requested or ("x" if "x" in variables else variables[0] if variables else "x")
     return MathIntent(
         kind="equation",
         lhs=lhs,
         rhs=rhs,
         operation="solve",
         variable=variable,
+        school_op=requested_method,
     )
 
 
@@ -353,11 +379,12 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
     # Inequality — only reached when a math keyword already matched (this
     # function is called solely from needs_symbolic_math-gated paths), so bare
     # < / > here is safe from prose false-positives like "less than 5 minutes".
-    compound = math_solve.try_extract_compound_inequality_from_text(cleaned)
+    probe = _strip_number_line_presentation(cleaned)
+    compound = math_solve.try_extract_compound_inequality_from_text(probe)
     if compound is not None:
         low, low_op, mid, high_op, high = compound
         variables = math_solve.guess_variables(f"{low} {mid} {high}")
-        requested = _requested_variable(cleaned, f"{low} {mid} {high}")
+        requested = _requested_variable(probe, f"{low} {mid} {high}")
         variable = requested or (variables[0] if variables else "x")
         return MathIntent(
             kind="inequality",
@@ -369,12 +396,12 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
             operation="solve",
             variable=variable,
         )
-    ineq = math_solve.try_extract_inequality_from_text(cleaned)
+    ineq = math_solve.try_extract_inequality_from_text(probe)
     if not ineq:
         return None
     lhs, rhs, comparator = ineq
     variables = math_solve.guess_variables(lhs + rhs)
-    requested = _requested_variable(cleaned, lhs + rhs)
+    requested = _requested_variable(probe, lhs + rhs)
     variable = requested or (variables[0] if variables else "x")
     return MathIntent(
         kind="inequality",
@@ -384,6 +411,21 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
         operation="solve",
         variable=variable,
     )
+
+
+def _strip_number_line_presentation(text: str) -> str:
+    """Remove a diagram-only suffix without changing the inequality itself."""
+    lower = text.lower().rstrip(".?!")
+    suffixes = (
+        " and show the answer on a number line",
+        " and show it on a number line",
+        " and graph the answer on a number line",
+        " and graph it on a number line",
+    )
+    for suffix in suffixes:
+        if lower.endswith(suffix):
+            return text[: len(lower) - len(suffix)].rstrip()
+    return text
 
 
 PRE_DISCRETE_ALGEBRA_EXTRACTORS = (_extract_numerical_method_intent,)

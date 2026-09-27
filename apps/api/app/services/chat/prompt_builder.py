@@ -330,8 +330,16 @@ async def fetch_web_and_tools(
         phase = "physics" if _physics_turn(math_user_content) else "calculating"
         await on_status(phase)
 
-    (web_block, search_sources), (math_block, verified_math) = await asyncio.gather(
-        web_search_service.build_search_augmentation(
+    async def _web_for_turn() -> tuple[str | None, list[WebSearchHit]]:
+        # Closed symbolic/statistical work is self-contained. Do not ask the
+        # web classifier (or a search provider) whether a z-score, equation,
+        # derivative, etc. needs live sources. Explicit/current-data requests
+        # still pass the ordinary synchronous live-data gate below.
+        if needs_math and not web_search_service.web_search_fast_yes(
+            user_content, prior_user_messages=prior_user_messages
+        ):
+            return None, []
+        return await web_search_service.build_search_augmentation(
             user_content,
             settings,
             messages=prompt_messages,
@@ -343,7 +351,10 @@ async def fetch_web_and_tools(
             on_status=on_status,
             user=user,
             redis=redis,
-        ),
+        )
+
+    (web_block, search_sources), (math_block, verified_math) = await asyncio.gather(
+        _web_for_turn(),
         math_tools_service.build_math_augmentation(
             math_user_content,
             settings,

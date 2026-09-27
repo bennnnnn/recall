@@ -12,6 +12,8 @@ import {
 } from "@/lib/math/graphWorklets";
 import type { GraphView } from "@/lib/math/graphViewport";
 
+const TRACE_HOLD_DELAY_MS = 180;
+
 type Args = {
   width: number;
   height: number;
@@ -73,13 +75,22 @@ export function useSkiaGraphViewport({
       commit(bounds.value);
     });
 
-  const longPress = Gesture.LongPress()
-    .minDuration(220)
+  const tracePan = Gesture.Pan()
+    .activateAfterLongPress(TRACE_HOLD_DELAY_MS)
+    .maxPointers(1)
     .onStart((e) => {
       "worklet";
       traceActive.value = true;
       tracePos.value = { px: e.x, py: e.y };
       traceTick();
+    })
+    .onUpdate((e) => {
+      "worklet";
+      tracePos.value = { px: e.x, py: e.y };
+    })
+    .onFinalize(() => {
+      "worklet";
+      traceActive.value = false;
     });
 
   const pan = Gesture.Pan()
@@ -91,10 +102,6 @@ export function useSkiaGraphViewport({
     })
     .onUpdate((e) => {
       "worklet";
-      if (traceActive.value) {
-        tracePos.value = { px: e.x, py: e.y };
-        return;
-      }
       bounds.value = panGraphViewW(
         gestureStart.value,
         e.translationX,
@@ -106,15 +113,7 @@ export function useSkiaGraphViewport({
     })
     .onEnd(() => {
       "worklet";
-      if (traceActive.value) {
-        traceActive.value = false;
-        return;
-      }
       commit(bounds.value);
-    })
-    .onFinalize(() => {
-      "worklet";
-      traceActive.value = false;
     });
 
   const doubleTap = Gesture.Tap()
@@ -125,7 +124,11 @@ export function useSkiaGraphViewport({
       commit(bounds.value);
     });
 
-  const gesture = Gesture.Simultaneous(pinch, pan, doubleTap, longPress);
+  // Moving first claims a normal pan. Holding first claims trace mode. Race is
+  // important here: simultaneous recognition let a slow drag become a trace
+  // halfway through, which made the viewport look rigid on a real phone.
+  const drag = Gesture.Race(pan, tracePan);
+  const gesture = Gesture.Simultaneous(pinch, drag, doubleTap);
 
   return { bounds, gesture, traceActive, tracePos };
 }

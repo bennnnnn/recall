@@ -1,3 +1,4 @@
+import { defaultInteractiveBounds, type GraphView } from "@/lib/math/graphViewport";
 import { toSuperscript } from "@/lib/unicodeSupSub";
 
 export type NumberLineInterval = {
@@ -15,6 +16,8 @@ export type SampledGraphSpec = {
   variable?: string;
   x_min?: number;
   x_max?: number;
+  /** Learner supplied this x-range; use it for the initial (still movable) view. */
+  domain_explicit?: boolean;
   /** Vertical line at this x (when type is "vertical"). */
   x?: number;
   y_min?: number;
@@ -26,12 +29,15 @@ export type SampledGraphSpec = {
   // Undefined/empty means "one continuous curve," same as before this
   // field existed.
   segments?: [number, number][][];
+  /** Open points at removable discontinuities in the original function. */
+  holes?: [number, number][];
   // Optional second curve for a direct comparison plot ("graph y=x^2 and
   // y=2x on the same axes") — undefined means "single-curve graph," same
   // as every fence before this field existed.
   expr2?: string;
   points2?: [number, number][];
   segments2?: [number, number][][];
+  holes2?: [number, number][];
   label?: string;
   label2?: string;
   intervals?: NumberLineInterval[];
@@ -243,6 +249,18 @@ function parseSegments(raw: unknown): [number, number][][] | undefined {
   return parsed.length > 1 ? parsed : undefined;
 }
 
+function parseHoles(raw: unknown): [number, number][] | null {
+  if (raw == null) return [];
+  if (!Array.isArray(raw) || raw.length > 8) return null;
+  const holes: [number, number][] = [];
+  for (const item of raw) {
+    const point = normalizePoint(item);
+    if (point == null) return null;
+    holes.push(point);
+  }
+  return holes;
+}
+
 export function parseGraphSpec(raw: string): GraphSpec | null {
   try {
     const data = JSON.parse(raw.trim()) as unknown;
@@ -269,12 +287,16 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     if (points.length < 1) return null;
 
     const segments = parseSegments(row.segments);
+    const holes = parseHoles(row.holes);
+    if (holes == null) return null;
 
     // Optional second curve — undefined/incomplete means "single-curve
     // graph," same as every fence before this field existed.
     const expr2Raw = row.expr2 != null ? String(row.expr2).trim() : "";
     const points2 = expr2Raw ? parsePoints(row.points2) : [];
     const hasCurve2 = Boolean(expr2Raw) && expr2Raw.length <= MAX_GRAPH_EXPR_LENGTH && points2.length >= 1;
+    const holes2 = hasCurve2 ? parseHoles(row.holes2) : [];
+    if (holes2 == null) return null;
 
     return {
       type: "function",
@@ -282,12 +304,15 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
       variable: String(row.variable ?? "x"),
       x_min: Number(row.x_min ?? points[0][0]),
       x_max: Number(row.x_max ?? points[points.length - 1][0]),
+      domain_explicit: row.domain_explicit === true,
       title: row.title != null ? String(row.title) : null,
       points,
       segments,
+      holes: holes.length ? holes : undefined,
       expr2: hasCurve2 ? expr2Raw : undefined,
       points2: hasCurve2 ? points2 : undefined,
       segments2: hasCurve2 ? parseSegments(row.segments2) : undefined,
+      holes2: hasCurve2 && holes2.length ? holes2 : undefined,
       label: row.label != null ? String(row.label) : undefined,
       label2: hasCurve2 && row.label2 != null ? String(row.label2) : undefined,
     };
@@ -633,6 +658,27 @@ export function functionPlotBounds(
   );
   if (isTallFeatureWindow(school, plotAspect)) return school;
   return equalScaleGraphBounds(school, plotAspect);
+}
+
+/**
+ * Initial interactive viewport for a verified function graph.
+ *
+ * Ordinary graphs get the familiar adaptive school window. When the learner
+ * explicitly asks for an x-domain, keep those exact horizontal endpoints and
+ * use the sampled curve only to choose a readable vertical crop. The view is
+ * still fully pinchable and pannable after it opens.
+ */
+export function interactiveFunctionBounds(
+  spec: GraphSpec,
+  plotAspect: number,
+): GraphView {
+  const fallback = defaultInteractiveBounds(plotAspect);
+  if (spec.type !== "function" || !spec.domain_explicit) return fallback;
+  const xMin = Number(spec.x_min);
+  const xMax = Number(spec.x_max);
+  if (!Number.isFinite(xMin) || !Number.isFinite(xMax) || xMax <= xMin) return fallback;
+  const fitted = functionPlotBounds(spec.points, spec.points2, plotAspect);
+  return { ...fitted, xMin, xMax };
 }
 
 /** Expand a chosen window so one x unit and one y unit occupy equal pixels. */

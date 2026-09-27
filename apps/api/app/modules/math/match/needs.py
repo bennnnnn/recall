@@ -468,6 +468,8 @@ def school_homework_cue(cleaned: str) -> bool:
         return True
     if "binomial" in lower or "expected value" in lower:
         return True
+    if "z-score" in lower or "z score" in lower:
+        return True
     if "taylor of " in lower or "maclaurin" in lower or ("taylor" in lower and "series" in lower):
         return True
     if "partial of " in lower or "partial derivative" in lower or " wrt" in lower:

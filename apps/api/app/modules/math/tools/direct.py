@@ -43,6 +43,7 @@ _MATH_REQUEST_GLUE = frozenset(
         "the",
         "value",
         "of",
+        "over",
         "for",
         "and",
         "then",
@@ -57,10 +58,125 @@ _MATH_REQUEST_GLUE = frozenset(
         "could",
         "this",
         "that",
+        "real",
+        "numbers",
     }
 )
 
 _MAX_DIRECT_ANSWER_CHARS = 400
+
+_GRAPH_INTERACTION_WORDS = frozenset(
+    {
+        "a",
+        "able",
+        "an",
+        "and",
+        "around",
+        "can",
+        "controls",
+        "down",
+        "drag",
+        "draggable",
+        "explorable",
+        "explore",
+        "graph",
+        "i",
+        "in",
+        "interactive",
+        "interactively",
+        "it",
+        "left",
+        "let",
+        "make",
+        "me",
+        "move",
+        "movable",
+        "out",
+        "pan",
+        "pannable",
+        "pinch",
+        "pinchable",
+        "plot",
+        "right",
+        "that",
+        "the",
+        "to",
+        "up",
+        "with",
+        "zoom",
+        "zoomable",
+    }
+)
+_GRAPH_INTERACTION_ACTIONS = frozenset(
+    {
+        "drag",
+        "draggable",
+        "explorable",
+        "explore",
+        "interactive",
+        "interactively",
+        "move",
+        "movable",
+        "pan",
+        "pannable",
+        "pinch",
+        "pinchable",
+        "zoom",
+        "zoomable",
+    }
+)
+_GRAPH_INTERACTION_AFFORDANCES = frozenset(
+    {
+        "controls",
+        "draggable",
+        "explorable",
+        "interactive",
+        "interactively",
+        "movable",
+        "pannable",
+        "pinch",
+        "pinchable",
+        "zoomable",
+    }
+)
+
+
+def _requests_graph_interaction(words: list[str]) -> bool:
+    word_set = set(words)
+    has_action = bool(word_set & _GRAPH_INTERACTION_ACTIONS)
+    has_user_agency = (
+        {"let", "me"} <= word_set or {"can", "i"} <= word_set or {"able", "to"} <= word_set
+    )
+    return has_action and bool(word_set & _GRAPH_INTERACTION_AFFORDANCES or has_user_agency)
+
+
+def _strip_graph_interaction_tail(request: str) -> str:
+    """Remove a presentation-only graph-control clause.
+
+    This is deliberately a small word grammar rather than one exact phrase:
+    ``make it interactive``, ``let me explore it`` and ``with pinch and pan``
+    are equivalent UI requests. Any number, operator, explanation word or
+    second calculation keeps the normal model path.
+    """
+    clean = request.rstrip(".?").strip()
+    lower = clean.lower()
+    starts: list[int] = []
+    for marker in (" and ", " with ", " as ", " so ", " that "):
+        offset = 0
+        while True:
+            index = lower.find(marker, offset)
+            if index < 0:
+                break
+            starts.append(index)
+            offset = index + len(marker)
+    for index in sorted(set(starts)):
+        tail = lower[index + 1 :].replace("-", " ")
+        if any(not (char.isascii() and (char.isalpha() or char.isspace())) for char in tail):
+            continue
+        words = tail.split()
+        if words and set(words) <= _GRAPH_INTERACTION_WORDS and _requests_graph_interaction(words):
+            return clean[:index].rstrip()
+    return clean
 
 
 def _plot_number(value: object) -> float | None:
@@ -154,6 +270,8 @@ def _can_direct_point_or_vertical(verified: VerifiedMathBlock, user_text: str) -
 
 def _looks_math_token(tok: str) -> bool:
     if not tok:
+        return True
+    if any(tok.startswith(f"{name}(") for name in ("sqrt", "sin", "cos", "tan", "log", "ln")):
         return True
     return any(ch.isdigit() or ch in "=^*/+-%" for ch in tok)
 
@@ -514,6 +632,7 @@ def _can_direct_graph(verified: VerifiedMathBlock, user_text: str) -> bool:
     # equation; the current line has no f(x) to string-match.
     if is_graph_followup(user_text):
         return True
+    request = _strip_graph_interaction_tail(request)
     domain = graph_domain(request)
     if domain is not None:
         lo, hi, request = domain
@@ -604,6 +723,9 @@ def _can_direct_number_line(
         return False
     if request.lower().startswith("the inequality "):
         request = request[15:].lstrip()
+    from app.modules.math.tools.extractors.algebra import _strip_number_line_presentation
+
+    request = _strip_number_line_presentation(request)
     # Keep factorials and all remaining prose/domain clauses intact. Only
     # spelling-equivalent operators and whitespace can differ from the exact
     # inequality the solver used; no new symbolic parsing or prose whitelist.
@@ -656,6 +778,11 @@ def can_direct_verified_math_reply(
     take the direct path when ``key_steps`` exist so the lesson cannot drift
     from the chip.
     """
+    from app.modules.math.response_intent import classify_math_response_intent
+
+    response_intent = verified.response_intent or classify_math_response_intent(user_text)
+    if not response_intent.reveal_answer and verified.canonical_answer is not None:
+        return False
     if has_image_attachment:
         return False
     if _nonmeasurement_geometry_reply(verified, user_text) is not None:
@@ -696,6 +823,11 @@ def can_direct_verified_math_reply(
     if _can_direct_graph(verified, user_text):
         return True
     if _can_direct_number_line(verified, user_text):
+        return True
+    presentation_free = lesson_math_text(user_text)
+    if presentation_free != user_text and _can_direct_number_line(
+        verified, presentation_free, require_solve=False
+    ):
         return True
     if lesson and _can_direct_number_line(
         verified, lesson_math_text(user_text), require_solve=False
@@ -869,10 +1001,46 @@ def maybe_direct_math_reply(
 ) -> str | None:
     if verified is None:
         return None
+    from app.modules.math.response_intent import MathResponseMode, classify_math_response_intent
+
+    response_intent = verified.response_intent or classify_math_response_intent(user_text)
     if verified.direct_reply is not None:
         # Rendered by the builder from verified data (check my work). With a
         # photo attached the model reads it, so the image is not ignored.
-        return None if has_image_attachment else verified.direct_reply
+        if has_image_attachment:
+            return None
+        if not response_intent.reveal_answer and verified.canonical_answer is not None:
+            return None
+        if verified.direct_request_text is not None:
+            current = " ".join(user_text.split()).strip()
+            origin = " ".join(verified.direct_request_text.split()).strip()
+            if current != origin:
+                return None
+        # A deterministic calculus block can be extracted from only the first
+        # clause of a compound request. Keep the model whenever the strict
+        # whole-request grammar says something would be dropped (for example,
+        # “differentiate ... and tell me a joke”).
+        if verified.direct_requires_calculus_guard:
+            from app.modules.math.tools.direct_calculus import calculus_direct_request
+
+            guarded_text = (
+                lesson_math_text(user_text) if wants_math_explanation(user_text) else user_text
+            )
+            if calculus_direct_request(guarded_text, answer=verified.canonical_answer) is not True:
+                return None
+        if verified.canonical_answer is not None:
+            if verified.direct_answer_binding != verified.canonical_answer:
+                return None
+            fences = _solver_fences(verified)
+            if not any(
+                fence.get("type") == "answer" and fence.get("content") == verified.canonical_answer
+                for fence in fences
+            ):
+                return None
+        if response_intent.mode == MathResponseMode.ANSWER_ONLY and verified.canonical_answer:
+            answer = (verified.display_answer or verified.canonical_answer).strip()
+            return f"```answer\n{answer}\n```\n"
+        return verified.direct_reply
     if not can_direct_verified_math_reply(
         verified,
         user_text,
@@ -880,6 +1048,9 @@ def maybe_direct_math_reply(
         response_style=response_style,
     ):
         return None
+    if response_intent.mode == MathResponseMode.ANSWER_ONLY and verified.canonical_answer:
+        answer = (verified.display_answer or verified.canonical_answer).strip()
+        return f"```answer\n{answer}\n```\n"
     reply = format_direct_math_reply(verified, user_text)
     if should_render_equation_lesson(verified, user_text, response_style):
         reply = format_equation_lesson_reply(

@@ -2000,6 +2000,7 @@ async def test_augment_graph_uses_user_named_domain() -> None:
     xs = [p[0] for p in pts]
     assert min(xs) >= 0
     assert max(xs) <= 100
+    assert verified.canonical_fence["domain_explicit"] is True
 
 
 @pytest.mark.parametrize(

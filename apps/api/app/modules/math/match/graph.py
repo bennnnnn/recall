@@ -31,13 +31,25 @@ _LOOKS_LIKE_CUES = ("look like", "looks like", "shape of")
 
 
 def _find_unprefixed_phrase(lower: str, phrase: str, start: int = 0) -> int:
-    """``graph `` inside ``paragraph `` must not count as a graph command."""
+    """Find an actual visual command, excluding words inside other words or negation."""
     while True:
         idx = lower.find(phrase, start)
         if idx == -1:
             return -1
         if idx == 0 or not lower[idx - 1].isalpha():
-            return idx
+            before = lower[max(0, idx - 24) : idx]
+            # Presentation constraints are not commands: "no graph",
+            # "without a plot", and "do not graph it" must leave the math
+            # request available to the equation/inequality extractors.
+            if (
+                re.search(
+                    r"(?:^|\b)(?:no|not|without|do\s+not|don['\u2019]?t)"
+                    r"(?:\s+(?:a|an|the))?\s*$",
+                    before,
+                )
+                is None
+            ):
+                return idx
         start = idx + 1
 
 
@@ -79,12 +91,22 @@ def _parse_bound(token: str) -> float | None:
     """Parse a graph-domain bound: a plain number, ``pi``, ``-pi``, or ``N*pi``
     (``2pi`` / ``2*pi`` / ``0.5pi``). Returns None for anything unparseable so
     the caller falls back to the default window rather than mis-sampling."""
-    t = token.strip().lower().replace(" ", "")
+    t = token.strip().lower().replace("π", "pi").replace(" ", "")
     if not t:
         return None
     neg = t.startswith("-")
     if neg:
         t = t[1:]
+    denominator = 1.0
+    if "/" in t:
+        numerator, raw_denominator = t.split("/", 1)
+        try:
+            denominator = float(raw_denominator)
+        except ValueError:
+            return None
+        if denominator == 0:
+            return None
+        t = numerator
     if t == "pi":
         val = math.pi
     elif t.endswith("pi"):
@@ -100,26 +122,28 @@ def _parse_bound(token: str) -> float | None:
             val = float(t)
         except ValueError:
             return None
+    val /= denominator
     return -val if neg else val
 
 
 # "from <lo> to <hi>" / "between <lo> and <hi>" / "on [<lo>, <hi>]" — the
 # domain the user wants plotted. Bounds may be plain numbers or pi multiples
 # (``pi``, ``2pi``, ``-pi``). Each pattern captures the two bound tokens.
+_GRAPH_BOUND = (
+    r"-?(?:\d+(?:\.\d+)?|\.\d+)"
+    r"|-?(?:\d+(?:\.\d+)?\s*\*?\s*)?(?:pi|π)(?:\s*/\s*\d+(?:\.\d+)?)?"
+)
 _DOMAIN_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(
-        r"\bfrom\s+(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\s+to\s+"
-        r"(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\b",
+        rf"\bfrom\s+({_GRAPH_BOUND})\s+to\s+({_GRAPH_BOUND})\b",
         re.IGNORECASE,
     ),
     re.compile(
-        r"\bbetween\s+(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\s+and\s+"
-        r"(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\b",
+        rf"\bbetween\s+({_GRAPH_BOUND})\s+and\s+({_GRAPH_BOUND})\b",
         re.IGNORECASE,
     ),
     re.compile(
-        r"\bon\s*\[\s*(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\s*,\s*"
-        r"(-?\d+(?:\.\d+)?|-?pi|-?\d+(?:\.\d+)?\s*\*?\s*pi)\s*\]",
+        rf"\bon\s*\[\s*({_GRAPH_BOUND})\s*,\s*({_GRAPH_BOUND})\s*\]",
         re.IGNORECASE,
     ),
 )
@@ -537,7 +561,10 @@ def graph_expr_pair(text: str) -> tuple[str, str] | None:
         if and_idx == -1:
             continue
         first = _strip_leading_y_equals(rest[:and_idx].strip())
-        second = rest[and_idx + len(" and ") :].strip()
+        # Sentence punctuation belongs to the request, not the second
+        # expression or a presentation suffix ("on the same graph."). Keep
+        # ``!`` because it may be a factorial that must not be dropped.
+        second = rest[and_idx + len(" and ") :].strip().rstrip(".?")
         second_lower = second.lower()
         for suffix in _GRAPH_PAIR_TRAILING_FILLER:
             if second_lower.endswith(suffix):

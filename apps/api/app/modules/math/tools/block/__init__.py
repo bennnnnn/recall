@@ -150,7 +150,26 @@ def _build_verified_block(
         wrapper = (
             wrap_verified_physics if intent.kind in PHYSICS_BLOCK_BUILDERS else wrap_verified_math
         )
-        return replace(block, text=wrapper(block.text), physics_intent=physics_intent)
+        return replace(
+            block,
+            text=wrapper(block.text),
+            physics_intent=physics_intent,
+            direct_request_text=(
+                intent._request_text
+                if isinstance(intent, MathIntent) and block.direct_reply is not None
+                else None
+            ),
+            direct_requires_calculus_guard=bool(
+                isinstance(intent, MathIntent)
+                and block.direct_reply is not None
+                and intent.kind == "calculus"
+                and intent.school_op is None
+                and intent.operation in {"differentiate", "integrate"}
+            ),
+            direct_answer_binding=(
+                block.canonical_answer if block.direct_reply is not None else None
+            ),
+        )
     except math_solve.MathServiceError as exc:
         logger.info("math_tools skipped: %s", exc)
         return None

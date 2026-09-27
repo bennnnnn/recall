@@ -323,7 +323,7 @@ async def test_unverified_math_note_appended_to_final_content(
         assistant_parts=["The mass is 12 kg."],
         should_cancel=None,
     )
-    assert "*Couldn't verify this with SymPy.*" in persisted
+    assert "*I couldn't automatically verify this result.*" in persisted
 
 
 @pytest.mark.asyncio

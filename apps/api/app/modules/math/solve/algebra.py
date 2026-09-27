@@ -9,6 +9,8 @@ from sympy import (
     Eq,
     Integral,
     Mul,
+    Rational,
+    S,
     Sum,
     Symbol,
     conjugate,
@@ -19,9 +21,13 @@ from sympy import (
     integrate,
     latex,
     limit,
+    log,
     oo,
     simplify,
     solve,
+    solveset,
+    together,
+    zoo,
 )
 
 from app.core.config import get_settings
@@ -68,6 +74,11 @@ def _solution_value_latex(val: Any) -> str:
     real, imag = val.as_real_imag()
     real, imag = simplify(real), simplify(imag)
     if imag == 0:
+        if real.has(log):
+            # Exponential equations need their exact logarithmic solution;
+            # the generic readability threshold would otherwise replace it
+            # with a decimal before an exact+approximation request can render.
+            return str(latex(real))
         return format_verified_latex(real)
     if real == 0:
         if imag == 1:
@@ -177,11 +188,124 @@ def _reject_high_degree(lhs: Any, rhs: Any, variables: list[str]) -> None:
             raise MathServiceError("Polynomial degree too high")
 
 
+def _real_fractional_power_solutions(lhs: Any, rhs: Any, sym: Any) -> list[Any] | None:
+    """Real-school interpretation of ``x^(p/q)=a`` when q is odd.
+
+    SymPy uses the principal complex branch for rational powers and therefore
+    reports only ``8`` for ``x^(2/3)=4``.  In real algebra the odd root is
+    defined for negative x too, so the equivalent equation is ``x^p=a^q``.
+    Return None for every other shape so the ordinary solver remains in charge.
+    """
+    power, target = lhs, rhs
+    if not (getattr(power, "is_Pow", False) and power.base == sym):
+        if getattr(rhs, "is_Pow", False) and rhs.base == sym:
+            power, target = rhs, lhs
+        else:
+            return None
+    exponent = power.exp
+    if not isinstance(exponent, Rational) or exponent.q == 1 or exponent.q % 2 == 0:
+        return None
+    if exponent.p <= 0 or not getattr(target, "is_number", False) or target.is_real is False:
+        return None
+    real_sym = Symbol(str(sym), real=True)
+    real_equation = Eq(real_sym ** int(exponent.p), simplify(target ** int(exponent.q)))
+    found = solveset(real_equation, real_sym, domain=S.Reals)
+    if not getattr(found, "is_FiniteSet", False):
+        return None
+    return list(found)
+
+
+def _original_domain_conditions(data: EquationInput, sym: Any) -> tuple[list[Any], list[str]]:
+    """Restrictions from the original syntax, before SymPy cancellation."""
+    excluded: list[Any] = []
+    conditions: list[str] = []
+    try:
+        original_sides = (
+            _parse_expression(data.lhs, data.variables, real=True, evaluate=False),
+            _parse_expression(data.rhs, data.variables, real=True, evaluate=False),
+        )
+    except MathServiceError:
+        return excluded, conditions
+    for side in original_sides:
+        denominator = side.as_numer_denom()[1]
+        parsed_sym = next(
+            (item for item in getattr(denominator, "free_symbols", set()) if str(item) == str(sym)),
+            None,
+        )
+        if parsed_sym is None:
+            continue
+        try:
+            roots = solve(Eq(denominator, 0), parsed_sym)
+        except Exception:
+            roots = []
+        for value in roots:
+            if any(_expr_equal(value, seen) for seen in excluded):
+                continue
+            excluded.append(value)
+            conditions.append(rf"{latex(sym)} \ne {latex(value)}")
+    return excluded, conditions
+
+
+def _parameter_solution_conditions(
+    lhs: Any,
+    rhs: Any,
+    sym: Any,
+    raw_solutions: list[dict[Any, Any]],
+) -> tuple[list[str], list[str]]:
+    """Conditions and zero-coefficient branches for symbolic linear solves."""
+    conditions: list[str] = []
+    cases: list[str] = []
+    for solution in raw_solutions:
+        value = solution.get(sym)
+        if value is None:
+            continue
+        denominator = together(value).as_numer_denom()[1]
+        denominator_symbols: set[Any] = set(getattr(denominator, "free_symbols", set()))
+        if denominator != 1 and denominator_symbols and sym not in denominator_symbols:
+            condition = rf"{latex(denominator)} \ne 0"
+            if condition not in conditions:
+                conditions.append(condition)
+    try:
+        polynomial = (lhs - rhs).as_poly(sym)
+        if polynomial is None or polynomial.degree() != 1:
+            return conditions, cases
+        coefficient = simplify(polynomial.coeff_monomial(sym))
+        constant = simplify(polynomial.coeff_monomial(1))
+        parameters = sorted(coefficient.free_symbols - {sym}, key=str)
+        if len(parameters) != 1:
+            return conditions, cases
+        parameter = parameters[0]
+        zero_values = solve(Eq(coefficient, 0), parameter)
+        if len(zero_values) != 1:
+            return conditions, cases
+        zero_value = zero_values[0]
+        condition = rf"{latex(parameter)} \ne {latex(zero_value)}"
+        # Prefer the readable parameter condition over an equivalent
+        # denominator != 0 spelling.
+        conditions = [item for item in conditions if item != rf"{latex(coefficient)} \ne 0"]
+        if condition not in conditions:
+            conditions.append(condition)
+        collapsed = simplify(constant.subs(parameter, zero_value))
+        if collapsed.is_zero:
+            cases.append(
+                rf"{latex(parameter)} = {latex(zero_value)}:\; {latex(sym)} \in \mathbb{{R}}"
+            )
+        elif not collapsed.free_symbols:
+            cases.append(rf"{latex(parameter)} = {latex(zero_value)}:\; \text{{no solution}}")
+    except Exception:
+        return conditions, cases
+    return conditions, cases
+
+
 def solve_equation(data: EquationInput) -> MathSolveResult:
     equation, lhs, rhs = parse_equation(data)
     _reject_high_degree(lhs, rhs, data.variables)
     real = _expr_needs_real_domain(data.lhs, data.rhs)
     syms = [Symbol(v, real=True) if real else Symbol(v) for v in data.variables]
+    original_excluded: list[Any] = []
+    domain_conditions: list[str] = []
+    if len(syms) == 1:
+        original_excluded, domain_conditions = _original_domain_conditions(data, syms[0])
     if len(syms) == 1:
         from app.modules.math.solve.trig_equations import solve_real_trig_equation
 
@@ -189,9 +313,32 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
         if trig_result is not None:
             return trig_result
     try:
-        raw_solutions = solve(equation, syms, dict=True)
+        fractional = _real_fractional_power_solutions(lhs, rhs, syms[0]) if len(syms) == 1 else None
+        raw_solutions = (
+            [{syms[0]: value} for value in fractional]
+            if fractional is not None
+            else solve(equation, syms, dict=True)
+        )
     except Exception as exc:
         raise MathServiceError("Could not solve equation") from exc
+
+    if original_excluded:
+        raw_solutions = [
+            solution
+            for solution in raw_solutions
+            if all(
+                sym not in solution
+                or all(not _expr_equal(solution[sym], value) for value in original_excluded)
+                for sym in syms
+            )
+        ]
+
+    parameter_conditions: list[str] = []
+    alternate_cases: list[str] = []
+    if len(syms) == 1:
+        parameter_conditions, alternate_cases = _parameter_solution_conditions(
+            lhs, rhs, syms[0], raw_solutions
+        )
 
     solutions_latex: list[str] = []
     values_by_var: dict[str, list[Any]] = {}
@@ -237,6 +384,8 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
         lhs_latex=latex(lhs),
         rhs_latex=latex(rhs),
         solution_kind=solution_kind,
+        domain_conditions_latex=[*domain_conditions, *parameter_conditions],
+        alternate_cases_latex=alternate_cases,
     )
 
 
@@ -361,7 +510,10 @@ def newton_method(data: NewtonMethodInput) -> NewtonMethodResult:
 
 
 def simplify_expression(expr: str, variable: str = "x") -> MathExprResult:
-    parsed = _parse_expression(expr, [variable])
+    # School-level simplification is over the reals unless the prompt names a
+    # complex domain.  The real assumption is essential for identities such
+    # as sqrt(x^2) = |x|; an unconstrained complex symbol leaves it unchanged.
+    parsed = _parse_expression(expr, [variable], real=True)
     result = simplify(parsed)
     return MathExprResult(result=str(result), latex=format_verified_latex(result))
 
@@ -450,14 +602,54 @@ def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> 
     if order == 1:
         steps = _differentiation_steps(parsed, sym, result_latex)
     else:
-        steps = [
-            f"Result: $\\frac{{d^{{{order}}}}}{{d{latex(sym)}^{{{order}}}}}"
-            f"\\left[{latex(parsed)}\\right] = {result_latex}$"
-        ]
+        ordinals = {1: "First", 2: "Second", 3: "Third", 4: "Fourth"}
+        current = parsed
+        steps = []
+        for index in range(1, order + 1):
+            current = diff(current, sym)
+            derivative_tex = (
+                rf"\frac{{dy}}{{d{latex(sym)}}}"
+                if index == 1
+                else rf"\frac{{d^{{{index}}}y}}{{d{latex(sym)}^{{{index}}}}}"
+            )
+            steps.append(f"**{ordinals[index]} derivative**\n${derivative_tex} = {latex(current)}$")
     return MathExprResult(
         result=str(result),
         latex=result_latex,
         steps=steps,
+    )
+
+
+def differentiate_at_point(expr: str, variable: str, point: str) -> MathExprResult:
+    """Evaluate the two-sided derivative definition at a named real point."""
+    sym = Symbol(variable, real=True)
+    parsed = _parse_expression(expr, [variable], real=True)
+    at = _parse_expression(point, [variable], real=True)
+    quotient = simplify((parsed - parsed.subs(sym, at)) / (sym - at))
+    try:
+        left = limit(quotient, sym, at, dir="-")
+        right = limit(quotient, sym, at, dir="+")
+    except Exception as exc:
+        raise MathServiceError("Could not evaluate derivative at the requested point") from exc
+    finite = bool(left.is_finite is True and right.is_finite is True)
+    if not finite or not _expr_equal(left, right):
+        if finite:
+            reason = (
+                f"Left derivative: {latex(left)}; right derivative: {latex(right)}; "
+                "they do not agree."
+            )
+        else:
+            reason = "The difference quotient is not finite from both sides."
+        return MathExprResult(
+            result="undefined",
+            latex=r"\text{undefined}",
+            steps=[reason],
+        )
+    value = simplify(left)
+    return MathExprResult(
+        result=str(value),
+        latex=format_verified_latex(value),
+        steps=[f"The left- and right-hand difference quotients both equal {latex(value)}."],
     )
 
 
@@ -570,11 +762,23 @@ def _parse_infinity_aware_point(raw: str) -> Any:
 
 
 def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -> MathLimitResult:
-    sym = Symbol(variable)
-    parsed = _parse_expression(expr, [variable])
+    # School limits are over a real input unless another domain is stated.
+    # Real assumptions are required for piecewise/absolute-value behavior:
+    # without them SymPy cannot decide lim |x|/x at 0.
+    sym = Symbol(variable, real=True)
+    parsed = _parse_expression(expr, [variable], real=True)
     point_val = _parse_infinity_aware_point(point)
     try:
         result = limit(parsed, sym, point_val, dir=direction)
+    except ValueError as exc:
+        if direction != "+-":
+            raise MathServiceError(f"Could not compute limit of: {expr}") from exc
+        try:
+            left = limit(parsed, sym, point_val, dir="-")
+            right = limit(parsed, sym, point_val, dir="+")
+            result = left if simplify(left - right) == 0 else zoo
+        except Exception as side_exc:
+            raise MathServiceError(f"Could not compute limit of: {expr}") from side_exc
     except Exception as exc:
         raise MathServiceError(f"Could not compute limit of: {expr}") from exc
     # A limit can legitimately evaluate to oo/-oo (diverges) or zoo (the

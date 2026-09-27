@@ -137,6 +137,7 @@ def _verified_block_graph(
     # model emitted its own (often wrong) spec.
     x_min = intent.graph_x_min if intent.graph_x_min is not None else -10
     x_max = intent.graph_x_max if intent.graph_x_max is not None else 10
+    domain_explicit = intent.graph_x_min is not None and intent.graph_x_max is not None
     region = affine_inequality_graph_spec(intent.expr, x_min=x_min, x_max=x_max)
     if region is not None:
         boundary = (
@@ -167,8 +168,10 @@ def _verified_block_graph(
         variable=sample.variable,
         x_min=sample.x_min,
         x_max=sample.x_max,
+        domain_explicit=domain_explicit,
         points=sample.points,
         segments=sample.segments if has_discontinuity else [],
+        holes=sample.holes,
     )
     lines.append(f"Function samples for {sample.expr}: {len(sample.points)} points.")
     if has_discontinuity:
@@ -188,6 +191,7 @@ def _verified_block_graph_pair(
         return None
     x_min = intent.graph_x_min if intent.graph_x_min is not None else -10
     x_max = intent.graph_x_max if intent.graph_x_max is not None else 10
+    domain_explicit = intent.graph_x_min is not None and intent.graph_x_max is not None
     sample1 = math_solve.sample_function(
         GraphSampleInput(
             expr=intent.expr[: settings.math_max_expr_length],
@@ -213,12 +217,15 @@ def _verified_block_graph_pair(
         variable=sample1.variable,
         x_min=sample1.x_min,
         x_max=sample1.x_max,
+        domain_explicit=domain_explicit,
         points=sample1.points,
         segments=sample1.segments if has_disc1 else [],
+        holes=sample1.holes,
         expr2=sample2.expr,
         variable2=sample2.variable,
         points2=sample2.points,
         segments2=sample2.segments if has_disc2 else [],
+        holes2=sample2.holes,
         label=f"y = {sample1.expr}",
         label2=f"y = {sample2.expr}",
     )

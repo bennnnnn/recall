@@ -344,7 +344,11 @@ def can_direct_physics(
                 for point in points
             )
         )
-    if expected != intent:
+    # Pydantic equality includes private attributes. Math intents now retain
+    # the exact originating request for whole-turn binding, so the verifier's
+    # punctuation-normalized reparse can differ privately while every solved
+    # field is identical. Only validated solver inputs belong in this guard.
+    if type(expected) is not type(intent) or expected.model_dump() != intent.model_dump():
         return False
     if not isinstance(expected, PhysicsIntent):
         # The speed-law cross-checks are MathIntents with a scalar answer.

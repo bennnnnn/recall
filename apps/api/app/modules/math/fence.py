@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
@@ -280,6 +281,7 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
         variable=variable,
         x_min=out_x_min,
         x_max=out_x_max,
+        domain_explicit=spec.domain_explicit,
         title=spec.title,
         points=points,
         segments=segments,
@@ -412,6 +414,8 @@ def _replace_fence(
 
 def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
     if verified is None:
+        return None
+    if verified.response_intent is not None and not verified.response_intent.reveal_answer:
         return None
     if verified.display_answer and verified.display_answer.strip():
         return verified.display_answer.strip()
@@ -847,9 +851,34 @@ def convert_function_call_text(content: str) -> str:
 
 
 def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = None) -> str:
-    canonical_fence = verified.canonical_fence if verified is not None else None
-    canonical_fences = verified.canonical_fences if verified is not None else []
+    answer_only = bool(
+        verified is not None
+        and verified.response_intent is not None
+        and verified.response_intent.mode == "answer_only"
+    )
+    scoped_verified = (
+        replace(verified, canonical_fence=None, canonical_fences=[])
+        if answer_only and verified is not None
+        else verified
+    )
+    canonical_fence = scoped_verified.canonical_fence if scoped_verified is not None else None
+    canonical_fences = scoped_verified.canonical_fences if scoped_verified is not None else []
     answer_body = _canonical_answer_body(verified)
+    withhold_answer = bool(
+        verified is not None
+        and verified.response_intent is not None
+        and not verified.response_intent.reveal_answer
+    )
+    if withhold_answer and verified is not None and verified.direct_reply:
+        # A hint turn has one server-owned, answer-free payload. Replacing the
+        # whole model draft—not merely its answer fence—also blocks prose,
+        # accessibility text, and copied equations from leaking the result.
+        return verified.direct_reply.rstrip()
+    if answer_only:
+        # “Answer only” means exactly that: do not let a canonical number line,
+        # graph, geometry card, or model-authored diagram trail the result.
+        for lang in ("graph", "geometry", "simulation", *_CHART_ALIAS_LANGS):
+            content = strip_closed_fences(content, lang)
     # Models sometimes emit a tool call as text (!function_call:{...}) instead
     # of the structured tool_calls API — strip it so unverified graph JSON
     # never ships. Canonical diagrams are appended after rewrite.
@@ -858,7 +887,7 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
         content = map_closed_fences(
             content,
             lang,
-            lambda body: _replace_answer_fence(body, answer_body),
+            lambda body: "" if withhold_answer else _replace_answer_fence(body, answer_body),
             max_count=_MAX_ANSWER_FENCES,
         )
     content = map_closed_fences(
@@ -912,7 +941,7 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
         content = strip_closed_fences(content, "mermaid")
         content = strip_gfm_pipe_tables(content)
         content = strip_hand_sketch_filler(content)
-    return _append_missing_canonical_fences(content, verified)
+    return _append_missing_canonical_fences(content, scoped_verified)
 
 
 _FENCE_VALIDATE_MARKERS = (
@@ -938,7 +967,7 @@ def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None
     return validate_math_fences(content, verified=verified)
 
 
-_UNVERIFIED_MATH_NOTE = "*Couldn't verify this with SymPy.*"
+_UNVERIFIED_MATH_NOTE = "*I couldn't automatically verify this result.*"
 
 # Any digit, inline `$...$`, or a LaTeX macro. Deliberately blunt: the first
 # attempt looked for an operator or an `=` and dropped the note from "The mass
@@ -964,7 +993,7 @@ def append_unverified_math_note(content: str) -> str:
     Skipped when the reply holds no math at all. The note is stamped whenever
     a math block was injected and SymPy returned nothing, so every extractor
     false positive reaches here: a chat about anatomy answered "show me" and
-    ended with *Couldn't verify this with SymPy.* Guarding the stamp makes the
+    ended with an internal-solver warning. Guarding the stamp makes the
     whole class fail quietly instead of one misfire at a time.
     """
     if _UNVERIFIED_MATH_NOTE in content:

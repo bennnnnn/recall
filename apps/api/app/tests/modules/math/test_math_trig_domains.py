@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathImageExtract
+from app.models.schemas.math import MathImageExtract, MathIntent
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import build_math_augmentation
@@ -14,7 +14,6 @@ from app.modules.math.tools.prompt import build_math_augmentation
 @pytest.mark.parametrize(
     "query",
     [
-        "Solve sin(x)=1/2 for 0<=x<=2*pi",
         "Solve sin(x)=1/2 on [0,2*pi]",
         "Solve sin(x)=1/2 for x in (0,pi)",
         "Solve sin(x)=1/2 between 0 and pi",
@@ -37,6 +36,13 @@ async def test_explicit_unsupported_domain_uses_model_without_wrong_certificatio
     _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
     assert verified is None
     assert maybe_direct_math_reply(verified, query) is None
+
+
+def test_explicit_chained_radian_domain_is_verified_without_losing_bounds() -> None:
+    query = "Solve sin(x)=1/2 for 0<=x<=2*pi"
+    intent = extract_math_intent(query)
+    assert isinstance(intent, MathIntent)
+    assert intent.school_op == "bounded_radian_equation"
 
 
 @pytest.mark.parametrize(

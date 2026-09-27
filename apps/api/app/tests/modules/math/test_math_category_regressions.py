@@ -8,6 +8,11 @@ from app.core.config import Settings
 from app.modules.math import tools as math_tools
 
 
+def _settings() -> Settings:
+    """Build deterministic test settings without loading a developer .env file."""
+    return Settings(_env_file=None)  # type: ignore[call-arg]
+
+
 @pytest.mark.parametrize(
     "text,kind,answer",
     [
@@ -147,7 +152,7 @@ def test_supported_categories_match_the_requested_calculation(text, kind, answer
     assert math_tools.needs_symbolic_math(text)
     intent = math_tools.extract_math_intent(text)
     assert intent is not None and intent.kind == kind
-    block = math_tools._build_verified_block(intent, Settings(_env_file=None))
+    block = math_tools._build_verified_block(intent, _settings())
     assert block is not None
     assert block.canonical_answer == answer
 
@@ -185,7 +190,6 @@ def test_supported_categories_match_the_requested_calculation(text, kind, answer
         "mix 3 liters of 10% with 5 liters of 20% and 2 liters of 30%",
         "prove by induction that 1=1",
         "double integral of x*y from x=0 to 1",
-        "show that 2*x+3=7",
         "20% discount on 80 and 10",
         "if 3 cost 12, what do 5 cost plus 7",
         "sum to infinity of 1, 2, 3",
@@ -194,14 +198,24 @@ def test_supported_categories_match_the_requested_calculation(text, kind, answer
 )
 def test_unsupported_or_invalid_input_never_certifies_a_different_problem(text):
     intent = math_tools.extract_math_intent(text)
-    block = math_tools._build_verified_block(intent, Settings(_env_file=None)) if intent else None
+    block = math_tools._build_verified_block(intent, _settings()) if intent else None
     assert block is None or block.canonical_answer is None
+
+
+def test_false_show_that_claim_is_rejected_with_its_actual_equality_set() -> None:
+    intent = math_tools.extract_math_intent("show that 2*x+3=7")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, _settings())
+    assert block is not None
+    assert block.canonical_answer == r"\text{false}"
+    assert block.direct_reply is not None
+    assert r"\left\{2\right\}" in block.direct_reply
 
 
 def test_matrix_inverse_preserves_exact_fractions():
     intent = math_tools.extract_math_intent("inverse [[1,2],[3,4]]")
     assert intent is not None and intent.kind == "matrix"
-    block = math_tools._build_verified_block(intent, Settings(_env_file=None))
+    block = math_tools._build_verified_block(intent, _settings())
     assert block is not None
     assert block.canonical_answer == (
         r"\left[\begin{matrix}-2 & 1\\\frac{3}{2} & - \frac{1}{2}\end{matrix}\right]"
@@ -212,7 +226,7 @@ def test_polar_cardioid_samples_cartesian_points():
     intent = math_tools.extract_math_intent("graph r=1+cos(theta)")
     assert intent is not None and intent.kind == "graph"
     assert intent.school_op == "polar"
-    block = math_tools._build_verified_block(intent, Settings(_env_file=None))
+    block = math_tools._build_verified_block(intent, _settings())
     assert block is not None and block.canonical_fence is not None
     points = block.canonical_fence["points"]
     assert isinstance(points, list) and len(points) > 10
@@ -224,7 +238,7 @@ def test_parametric_unit_circle_samples():
     intent = math_tools.extract_math_intent("graph x=cos(t), y=sin(t)")
     assert intent is not None and intent.kind == "graph"
     assert intent.school_op == "parametric"
-    block = math_tools._build_verified_block(intent, Settings(_env_file=None))
+    block = math_tools._build_verified_block(intent, _settings())
     assert block is not None and block.canonical_fence is not None
     points = block.canonical_fence["points"]
     assert isinstance(points, list) and len(points) > 10

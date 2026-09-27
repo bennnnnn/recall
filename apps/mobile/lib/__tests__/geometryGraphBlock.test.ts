@@ -377,6 +377,50 @@ describe("graphBlock", () => {
     expect(spec?.points.length).toBe(3);
   });
 
+  it("preserves whether the learner explicitly requested the graph domain", () => {
+    const spec = parseGraphSpec(
+      '{"type":"function","expr":"tan(x)","x_min":-3.14,"x_max":3.14,"domain_explicit":true,"points":[[-3.14,0],[0,0],[3.14,0]]}',
+    );
+    expect(spec?.domain_explicit).toBe(true);
+  });
+
+  it("keeps finite removable-discontinuity holes for open-circle rendering", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "function",
+        expr: "(x^2-1)/(x-1)",
+        points: [[0, 1], [2, 3]],
+        holes: [[1, 2]],
+      }),
+    );
+
+    expect(spec?.type).toBe("function");
+    expect(spec?.holes).toEqual([[1, 2]]);
+  });
+
+  it("rejects malformed or oversized graph-hole metadata", () => {
+    expect(
+      parseGraphSpec(
+        JSON.stringify({
+          type: "function",
+          expr: "x",
+          points: [[0, 0], [1, 1]],
+          holes: [[1, "not-a-number"]],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      parseGraphSpec(
+        JSON.stringify({
+          type: "function",
+          expr: "x",
+          points: [[0, 0], [1, 1]],
+          holes: Array.from({ length: 9 }, (_, i) => [i, i]),
+        }),
+      ),
+    ).toBeNull();
+  });
+
   it("BUG FIX regression: parses type=vertical fences (x = c)", () => {
     const spec = parseGraphSpec(
       JSON.stringify({

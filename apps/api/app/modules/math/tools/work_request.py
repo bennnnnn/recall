@@ -134,6 +134,11 @@ _PLUS_MINUS = re.compile(rf"^\s*(?P<var>[A-Za-z])\s*=\s*(?:\+-|\+/-)\s*(?P<value
 _OR_SPLIT = re.compile(r"\s+(?:or|and)\s+", re.IGNORECASE)
 _AND_SPLIT = re.compile(r"\s+and\s+", re.IGNORECASE)
 _ORDER = re.compile(r"[<>]")
+_ROOT_CLAIM = re.compile(
+    r"\b(?:i\s+(?:got|found)|i\s+think|my)\s+(?:the\s+)?roots?"
+    r"(?:\s+(?:are|is))?\s+(.+?)\s+for\s+(.+)",
+    re.IGNORECASE,
+)
 
 FUNCTION_WORDS = frozenset(
     "sin cos tan sec csc cot log ln sqrt exp abs pi asin acos atan arcsin arccos arctan "
@@ -171,6 +176,9 @@ def parse_work_request(text: str) -> WorkRequest | None:
     lowered = normalized.lower()
     hint_only = any(cue in lowered for cue in _HINT_CUES)
     cued = hint_only or any(cue in lowered for cue in _CHECK_CUES)
+    claimed = _claimed_roots_request(normalized, hint_only=hint_only, cued=cued)
+    if claimed is not None:
+        return claimed
     if not cued and not _uncued_shape(normalized):
         return None
     lines: list[str] = []
@@ -203,6 +211,42 @@ def parse_work_request(text: str) -> WorkRequest | None:
     if not cued and not _uncued_chain(lines):
         return None
     return WorkRequest(tuple(lines), variable, hint_only, cued)
+
+
+def _claimed_roots_request(text: str, *, hint_only: bool, cued: bool) -> WorkRequest | None:
+    """Turn “I got roots 2 and 6 for …” into a two-line work check."""
+    if not cued:
+        return None
+    match = _ROOT_CLAIM.search(text)
+    if match is None:
+        return None
+    raw_values, raw_equation = match.group(1), match.group(2)
+    value_parts = re.split(r"\s*(?:,|\band\b|\bor\b)\s*", raw_values, flags=re.IGNORECASE)
+    values: list[str] = []
+    for part in value_parts:
+        parsed = _BARE_VALUE.fullmatch(part.strip())
+        if parsed is None:
+            return None
+        values.append(parsed["value"].replace(" ", ""))
+    if not 1 <= len(values) <= 4:
+        return None
+    equation = raw_equation
+    lower_equation = equation.lower()
+    for cue in _CHECK_CUES:
+        index = lower_equation.find(cue)
+        if index > 0:
+            equation = equation[:index]
+            break
+    equation = equation.strip().rstrip(" .?!")
+    line = _math_line(equation)
+    if not isinstance(line, str) or "=" not in line:
+        return None
+    equation_letters = set(re.findall(r"[A-Za-z]", line)) - _RESERVED_LETTERS
+    variable = next((name for name in ("x", "y", "z", "t", "n") if name in equation_letters), None)
+    if variable is None:
+        return None
+    answer_line = " or ".join(f"{variable} = {value}" for value in values)
+    return WorkRequest((line, answer_line), variable, hint_only, cued)
 
 
 def _and_pieces(segment: str) -> list[str]:

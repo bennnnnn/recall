@@ -303,13 +303,16 @@ def test_a_multi_part_derivative_gets_a_lesson_with_a_find_line():
     assert reply.endswith("```answer\n3 x^{2} + 2\n```\n")
 
 
-def test_a_one_rule_derivative_stays_an_answer_card_unless_detailed():
-    assert _reply("differentiate x^2 sin(x)", "balanced") == (
+def test_a_one_rule_derivative_shows_verified_working_at_every_style():
+    balanced = _reply("differentiate x^2 sin(x)", "balanced")
+    assert balanced is not None
+    assert "Product rule" in balanced
+    assert balanced.endswith(
         "```answer\nx \\left(x \\cos{\\left(x \\right)} + 2 \\sin{\\left(x \\right)}\\right)\n```\n"
     )
     detailed = _reply("differentiate x^2 sin(x)", "detailed")
     assert detailed is not None
-    assert "— $(uv)' = u'v + uv'$" in detailed
+    assert "Product rule" in detailed
 
 
 @pytest.mark.parametrize(

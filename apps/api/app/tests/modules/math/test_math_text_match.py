@@ -321,6 +321,18 @@ class TestGraphExpr:
         assert mtm.graph_expr("x^2") is None
         assert mtm.graph_expr("write a paragraph about trees") is None
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Solve x^2 < 4. Just the answer; no graph and no steps.",
+            "Solve x^2 < 4 without a plot.",
+            "Do not graph x^2 < 4; solve it.",
+            "Don't plot x^2 < 4; just answer.",
+        ],
+    )
+    def test_graph_expr_ignores_negated_presentation_cues(self, text):
+        assert mtm.graph_expr(text) is None
+
     def test_soft_plot_prefix_skips_geometry_and_vega(self):
         assert mtm.graph_expr("draw a triangle") is None
         assert mtm.graph_expr("chart of rainfall") is None

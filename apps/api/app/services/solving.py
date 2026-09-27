@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from app.models.schemas.math import MathIntent, NewtonMethodInput, NewtonMethodResult
     from app.models.schemas.physics import PhysicsIntent
+    from app.modules.math.response_intent import MathResponseIntent
     from app.modules.math.solve.key_steps import KeyStep
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
@@ -95,6 +96,26 @@ class VerifiedMathBlock:
     # A reply the builder already rendered from verified data (check my work);
     # sent as is instead of the generic direct formats.
     direct_reply: str | None = None
+    # The exact normalized request that produced ``direct_reply``. This binds
+    # builder-rendered working to its own turn and prevents it from bypassing
+    # whole-query guards when a caller presents another request.
+    direct_request_text: str | None = None
+    # Standard derivatives/integrals additionally use the strict calculus
+    # whole-request grammar; calculus applications have their own extractors
+    # and therefore leave this false.
+    direct_requires_calculus_guard: bool = False
+    # Snapshot of the verified answer when the rendered direct reply was
+    # created. A later mutation of the block cannot pair stale working with a
+    # different answer fence.
+    direct_answer_binding: str | None = None
+    # Presentation is classified once for the turn, then enforced by direct
+    # routing, prompt guidance, and final fence attachment. In particular,
+    # ``reveal_answer=False`` is a hard policy boundary for tutoring hints.
+    response_intent: MathResponseIntent | None = None
+    # Solver-owned conditions from the original problem. They survive
+    # simplification and are available to every presentation path.
+    domain_conditions: tuple[str, ...] = ()
+    excluded_values: tuple[str, ...] = ()
 
 
 def wrap_verified_math(text: str) -> str:

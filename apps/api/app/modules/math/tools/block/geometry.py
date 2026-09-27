@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import math
+from dataclasses import replace
+
+from pydantic import ValidationError
+
 from app.core.config import Settings
 from app.models.schemas.math import (
     CircleGeometryBlockSpec,
@@ -188,6 +193,29 @@ def _verified_block_circle(
 ) -> VerifiedMathBlock | None:
     if not intent.radius:
         return None
+    if intent.chord_length is not None and intent.wants_center_distance:
+        chord = intent.chord_length
+        diameter = 2 * intent.radius
+        if chord > diameter:
+            message = (
+                f"A chord of length {chord:g} cannot fit in a circle of radius "
+                f"{intent.radius:g}; the maximum chord length is the diameter, {diameter:g}."
+            )
+            lines.append(message)
+            return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
+        distance = math.sqrt(intent.radius**2 - (chord / 2) ** 2)
+        answer = math_solve.format_geometry_decimal(distance)
+        direct = (
+            "**Use the perpendicular-bisector right triangle**\n"
+            f"$d = \\sqrt{{r^2-(c/2)^2}} = "
+            f"\\sqrt{{{intent.radius:g}^2-({chord:g}/2)^2}} = {answer}$\n\n"
+            f"```answer\n{answer} {intent.unit}\n```\n"
+        )
+        return replace(
+            _finish_with_answer(lines, answer),
+            display_answer=f"{answer} {intent.unit}",
+            direct_reply=direct,
+        )
     circle_geo = math_solve.circle_geometry(
         CircleGeometryInput(radius=intent.radius, unit=intent.unit)
     )
@@ -215,15 +243,16 @@ def _verified_block_circle(
     # because the canonical answer was unconditionally the area. Honor an
     # explicit circumference or diameter request; fall back to area when
     # only area or nothing specific was asked.
+    circle_answer: str | None
     if intent.wants_circumference:
-        answer = math_solve.format_geometry_decimal(circle_geo.circumference)
+        circle_answer = math_solve.format_geometry_decimal(circle_geo.circumference)
     elif intent.wants_diameter and not intent.wants_area:
-        answer = f"{circle_geo.diameter:g}"
+        circle_answer = f"{circle_geo.diameter:g}"
     elif intent.wants_area:
-        answer = math_solve.format_geometry_decimal(circle_geo.area)
+        circle_answer = math_solve.format_geometry_decimal(circle_geo.area)
     else:
-        answer = None
-    return _finish_geometry(intent, lines, circle_spec, answer)
+        circle_answer = None
+    return _finish_geometry(intent, lines, circle_spec, circle_answer)
 
 
 def _verified_block_triangle(
@@ -304,9 +333,17 @@ def _verified_block_triangle_sides(
 ) -> VerifiedMathBlock | None:
     if not (intent.tri_a and intent.tri_b and intent.tri_c):
         return None
-    tri_geo = math_solve.triangle_sides_geometry(
-        TriangleSidesInput(a=intent.tri_a, b=intent.tri_b, c=intent.tri_c, unit=intent.unit)
-    )
+    try:
+        tri_geo = math_solve.triangle_sides_geometry(
+            TriangleSidesInput(a=intent.tri_a, b=intent.tri_b, c=intent.tri_c, unit=intent.unit)
+        )
+    except ValidationError:
+        message = (
+            "These side lengths do not form a non-degenerate triangle, so its area is not "
+            "defined as a triangle."
+        )
+        lines.append(message)
+        return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
     relative = intent.triangle_relative_lengths
     if relative:
         lines.append(

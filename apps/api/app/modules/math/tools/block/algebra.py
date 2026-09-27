@@ -35,6 +35,45 @@ from app.services.solving import (
 )
 
 
+def _number_line_interval_latex(spec: object) -> str | None:
+    intervals = getattr(spec, "intervals", None)
+    if not intervals:
+        return None
+
+    def endpoint(value: float | None, *, left: bool) -> str:
+        if value is None:
+            return r"-\infty" if left else r"\infty"
+        return str(int(value)) if float(value).is_integer() else f"{value:g}"
+
+    pieces: list[str] = []
+    for interval in intervals:
+        left_bracket = "[" if interval.start_inclusive else "("
+        right_bracket = "]" if interval.end_inclusive else ")"
+        pieces.append(
+            rf"\left{left_bracket}{endpoint(interval.start, left=True)},\;"
+            rf"{endpoint(interval.end, left=False)}\right{right_bracket}"
+        )
+    return r" \cup ".join(pieces)
+
+
+def _rational_interval_is_clearer(intent: MathIntent) -> bool:
+    """Use intervals for sign-chart problems with both zeros and poles."""
+    try:
+        parsed = math_solve._parse_expression(
+            intent.lhs or "", [intent.variable], real=True
+        ) - math_solve._parse_expression(intent.rhs or "", [intent.variable], real=True)
+        variable = next(
+            (symbol for symbol in parsed.free_symbols if str(symbol) == intent.variable),
+            None,
+        )
+        if variable is None:
+            return False
+        numerator, denominator = parsed.as_numer_denom()
+        return variable in denominator.free_symbols and variable in numerator.free_symbols
+    except Exception:
+        return False
+
+
 def _verified_block_equation(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -51,12 +90,37 @@ def _verified_block_equation(
         result.canonical_solutions_latex or result.solutions_latex,
         result.solution_kind,
     )
+    if result.domain_conditions_latex:
+        conditions_to_display = result.domain_conditions_latex
+        if result.solution_kind == "finite":
+            variable_exclusion = rf"{intent.variable} \ne "
+            # Finite roots already satisfy any original x-domain exclusions;
+            # keep those restrictions in the working, not in the result chip.
+            # Parameter conditions (for example a != 0 in ax=5) still belong
+            # in the final because they change whether the formula is valid.
+            conditions_to_display = [
+                condition
+                for condition in conditions_to_display
+                if not condition.startswith(variable_exclusion)
+            ]
+        conditions = r",\; ".join(conditions_to_display)
+        if result.solution_kind == "infinite":
+            answer = rf"{intent.variable} \in \mathbb{{R}},\; {conditions}"
+        elif conditions:
+            answer = rf"{answer},\quad {conditions}"
+    if result.alternate_cases_latex:
+        answer = answer + "\n" + r";\quad ".join(result.alternate_cases_latex)
     _, lhs, rhs = parse_eq(eq)
-    key_steps = equation_key_steps(lhs, rhs, intent.variable or "x")
+    key_steps = equation_key_steps(
+        lhs,
+        rhs,
+        intent.variable or "x",
+        force_quadratic_formula=intent.school_op == "quadratic_formula",
+    )
     alt = None
     if used_factor_trace(key_steps):
         alt = "Another method is the quadratic formula; it gives the same two solutions."
-    return _finish_with_answer(
+    block = _finish_with_answer(
         lines,
         answer,
         key_step=math_solve.factored_key_step(eq.lhs, eq.rhs, intent.variable or "x"),
@@ -65,6 +129,42 @@ def _verified_block_equation(
         check_latex=equation_check_latex(lhs, rhs, intent.variable or "x"),
         alternate_method_note=alt,
     )
+    block = replace(
+        block,
+        domain_conditions=tuple(result.domain_conditions_latex),
+        excluded_values=tuple(
+            condition for condition in result.domain_conditions_latex if r"\ne" in condition
+        ),
+    )
+    if intent.school_op != "exact_and_decimal":
+        return block
+    try:
+        from sympy import Eq, Symbol, latex, solve
+
+        variable = next(
+            (
+                symbol
+                for symbol in getattr(lhs, "free_symbols", set())
+                | getattr(rhs, "free_symbols", set())
+                if str(symbol) == (intent.variable or "x")
+            ),
+            Symbol(intent.variable or "x"),
+        )
+        values = solve(Eq(lhs, rhs), variable)
+        approximations = [str(latex(value.evalf(6))) for value in values]
+    except Exception:
+        return block
+    if not approximations:
+        return block
+    approx_answer = r" \text{ or } ".join(
+        f"{intent.variable or 'x'} \\approx {value}" for value in approximations
+    )
+    direct = (
+        f"**Exact answer**\n\n${answer}$\n\n"
+        f"**Decimal approximation**\n\n${approx_answer}$\n\n"
+        f"```answer\n{answer}\n```\n"
+    )
+    return replace(block, direct_reply=direct)
 
 
 def _verified_block_inequality(
@@ -127,7 +227,15 @@ def _verified_block_inequality(
                 lines,
                 line_spec,
                 answer,
-                display_answer=key_steps[-1].formula if key_steps else None,
+                display_answer=(
+                    key_steps[-1].formula
+                    if key_steps
+                    else (
+                        _number_line_interval_latex(line_spec)
+                        if _rational_interval_is_clearer(intent)
+                        else None
+                    )
+                ),
             ),
             key_steps=tuple(key_steps),
             given_latex=given,

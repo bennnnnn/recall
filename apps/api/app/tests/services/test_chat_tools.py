@@ -4,6 +4,7 @@ import pytest
 
 from app.core.config import Settings
 from app.services.chat import tools as chat_tools
+from app.services.solving import VerifiedMathBlock
 
 
 @pytest.mark.asyncio
@@ -141,6 +142,38 @@ async def test_augment_web_and_tools_runs_web_and_math_concurrently():
 
 
 @pytest.mark.asyncio
+async def test_closed_math_does_not_run_web_search() -> None:
+    from app.services.chat.prompt_builder import _augment_web_and_tools
+
+    settings = Settings(
+        mcp_tools_enabled=False,
+        web_search_enabled=True,
+        math_tools_enabled=True,
+    )
+    query = (
+        "A class has mean score 72 and standard deviation 8. A student scored 88. "
+        "What is the z-score? Then explain what it means, but do not assume "
+        "the distribution is normal."
+    )
+    messages = [{"role": "user", "content": query}]
+    with (
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=("unexpected web", [])),
+        ) as web_mock,
+        patch(
+            "app.modules.math.tools.build_math_augmentation",
+            AsyncMock(return_value=("math", None)),
+        ),
+    ):
+        updated, hits, _verified = await _augment_web_and_tools(messages, query, settings)
+
+    web_mock.assert_not_awaited()
+    assert hits == []
+    assert any(message.get("content") == "math" for message in updated)
+
+
+@pytest.mark.asyncio
 async def test_augment_web_and_tools_injects_math_block_only_once():
     """End-to-end regression for the duplicate verified-block injection bug:
     with mcp_tools_enabled=True and mcp_tool_loop_enabled=False (the exact
@@ -157,8 +190,7 @@ async def test_augment_web_and_tools_injects_math_block_only_once():
     user_text = "differentiate x^2"
     messages = [{"role": "system", "content": "base"}, {"role": "user", "content": user_text}]
 
-    fake_block = MagicMock()
-    fake_block.text = "Verified (SymPy): d/dx(x^2) = 2x. Do NOT recompute."
+    fake_block = VerifiedMathBlock(text="Verified (SymPy): d/dx(x^2) = 2x. Do NOT recompute.")
 
     with patch(
         "app.modules.math.tools._build_verified_block_async",
@@ -172,7 +204,7 @@ async def test_augment_web_and_tools_injects_math_block_only_once():
 
     matches = [m for m in updated if fake_block.text in m.get("content", "")]
     assert len(matches) == 1
-    assert verified_math is fake_block
+    assert verified_math is not None and verified_math.text == fake_block.text
 
 
 def test_owned_tool_loop_defaults_on():
@@ -193,8 +225,7 @@ async def test_augment_web_and_tools_keeps_math_when_tool_loop_on():
     )
     user_text = "differentiate x^2"
     messages = [{"role": "system", "content": "base"}, {"role": "user", "content": user_text}]
-    fake_block = MagicMock()
-    fake_block.text = "Verified (SymPy): d/dx(x^2) = 2x. Do NOT recompute."
+    fake_block = VerifiedMathBlock(text="Verified (SymPy): d/dx(x^2) = 2x. Do NOT recompute.")
 
     with patch(
         "app.modules.math.tools._build_verified_block_async",
@@ -208,4 +239,4 @@ async def test_augment_web_and_tools_keeps_math_when_tool_loop_on():
 
     matches = [m for m in updated if fake_block.text in m.get("content", "")]
     assert len(matches) == 1
-    assert verified_math is fake_block
+    assert verified_math is not None and verified_math.text == fake_block.text
