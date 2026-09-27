@@ -202,7 +202,7 @@
   "chat.pin": "Fijar",
   "chat.pin_failed": "No se pudo actualizar el fijado.",
   "chat.pinned_toast": "Chat fijado",
-  "chat.placeholder": "Escribe a Recall...",
+  "chat.placeholder": "Responder a Recall",
   "chat.plan_free": "Gratis",
   "chat.plan_pro": "Pro",
   "chat.quota_exceeded_free": "Has agotado el límite gratuito de hoy.",

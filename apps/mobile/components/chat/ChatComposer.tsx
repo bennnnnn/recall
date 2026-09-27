@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from "react-native";
@@ -44,6 +45,7 @@ import {
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
   composerInputFrameHeight,
+  composerInputMetrics,
   composerInputTextBoxHeight,
   retainedComposerContentHeight,
   composerNativeInputTraits,
@@ -161,6 +163,8 @@ export const ChatComposer = memo(function ChatComposer({
   const { t } = useTranslation();
   const token = useAuthToken();
   const insets = useSafeAreaInsets();
+  // Native text scales the field's line box with the system text size.
+  const { fontScale } = useWindowDimensions();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const draft = useComposerDraftValueOptional();
@@ -227,13 +231,15 @@ export const ChatComposer = memo(function ChatComposer({
       revision,
       input,
     );
-    const frame = composerInputFrameHeight(input, measured, inputContentWidth);
+    const frame = composerInputFrameHeight(input, measured, inputContentWidth, fontScale);
     setInputHeight(frame.height);
-  }, [draft?.revision, input, inputContentWidth]);
+  }, [draft?.revision, fontScale, input, inputContentWidth]);
 
   // Only hard returns move the thread. A soft wrap grows the field in place;
   // pushing list padding here is what yanks the chat up on every line.
-  const returnFrame = composerInputFrameHeight(input, 0, 0);
+  // Measured from the 44 pt field COMPOSER_HEIGHT assumes, so a taller line
+  // at a large text size moves the thread too.
+  const returnFrame = composerInputFrameHeight(input, 0, 0, fontScale);
   const inputFrameExtra = composerExpanded
     ? 0
     : Math.max(0, returnFrame.height - COMPOSER_INPUT_MIN_HEIGHT);
@@ -286,19 +292,21 @@ export const ChatComposer = memo(function ChatComposer({
   const measuredNow = input
     ? retainedComposerContentHeight(measuredContent.current, draftRevision, input)
     : 0;
+  const field = composerInputMetrics(fontScale);
   const frameNow = composerInputFrameHeight(
     input,
     Math.max(measuredNow, inputHeight),
     inputContentWidth,
+    fontScale,
   );
   // Same render as the keystroke. Waiting for the effect leaves one frame
   // clipped at the end of the line.
-  const fieldHeight = input ? frameNow.height : COMPOSER_INPUT_MIN_HEIGHT;
+  const fieldHeight = input ? frameNow.height : field.min;
   // Text box matches the lines. Centering slack stays on the wrapper so the
   // caret remains on the last line, beside the buttons.
-  const textBoxHeight = composerInputTextBoxHeight(fieldHeight);
+  const textBoxHeight = composerInputTextBoxHeight(fieldHeight, fontScale);
   const fieldOverflows = Boolean(input) && frameNow.overflows;
-  const singleLineComposer = !composerExpanded && fieldHeight <= COMPOSER_INPUT_MIN_HEIGHT;
+  const singleLineComposer = !composerExpanded && fieldHeight <= field.min;
 
   const blockStyle = docked ? s.composerDocked : s.composerBlock;
   const expandedBlockStyle = composerExpanded
@@ -457,7 +465,12 @@ export const ChatComposer = memo(function ChatComposer({
                 />
               ) : (
                 <Pressable
-                  style={[s.inputField, composerExpanded && s.inputFieldExpanded]}
+                  style={[
+                    s.inputField,
+                    // Keeps one line on the button midline. Extra lines grow above the caret.
+                    { paddingBottom: field.slack / 2 },
+                    composerExpanded && s.inputFieldExpanded,
+                  ]}
                   testID="chat-composer-field"
                   onPress={() => {
                     if (math.mathBarOpen || showMathPreview) return;
@@ -491,6 +504,7 @@ export const ChatComposer = memo(function ChatComposer({
                         : {
                             height: textBoxHeight,
                             minHeight: textBoxHeight,
+                            maxHeight: field.max,
                             paddingTop: 0,
                             paddingBottom: 0,
                             textAlignVertical: "top" as const,
@@ -520,6 +534,7 @@ export const ChatComposer = memo(function ChatComposer({
                         input,
                         measured,
                         inputContentWidth,
+                        fontScale,
                       );
                       if (!composerExpanded) {
                         setInputHeight((current) =>
@@ -742,8 +757,6 @@ function makeStyles(theme: Theme) {
       flex: 1,
       justifyContent: "flex-end",
       minHeight: COMPOSER_INPUT_MIN_HEIGHT,
-      // Keeps one line on the button midline. Extra lines grow above the caret.
-      paddingBottom: (COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT) / 2,
       position: "relative",
     },
     inputFieldExpanded: { justifyContent: "flex-start", minHeight: 0, paddingBottom: 0 },
