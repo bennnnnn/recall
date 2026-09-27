@@ -19,14 +19,12 @@ from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
-from app.modules.math import tools as math_tools_service
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
     readable_standalone_answer,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.modules.math.tools import VerifiedMathBlock
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import locale as locale_service
@@ -78,6 +76,7 @@ from app.services.chat.prompt_constants import (
     TONE_FORMAT_GUARD,
     TRANSLATION_FORMAT_HINT,
     UNIVERSAL_FORMAT_BASELINE,
+    VERIFIED_SOLVE_SAFETY_HINT,
     VISUALIZATION_HINTS,
     WRITING_LINE_HINT,
     active_lesson_step,
@@ -128,6 +127,8 @@ from app.services.prompt_safety import (
     wrap_untrusted,
     wrap_user_preferences,
 )
+from app.services.solving import VerifiedSolveBlock
+from app.services.subject_solving import build_subject_augmentation, detect_subject
 
 _PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places")
 _SLIM_MEMORY_MAX_CHARS = 1000
@@ -186,25 +187,21 @@ def _strip_prompt_owned_fences(content: str) -> str:
     return out
 
 
-def _math_viz_intent(query_text: str | None) -> tuple[bool, bool]:
+def _subject_viz_intent(query_text: str | None) -> tuple[str | None, bool]:
     if not query_text or not query_text.strip():
-        return False, False
-    math_intent = math_tools_service.needs_symbolic_math(query_text)
+        return None, False
+    subject = detect_subject(query_text)
     viz_intent = (
         is_chart_question(query_text)
         or is_mermaid_question(query_text)
         or is_html_ui_question(query_text)
     )
-    return math_intent, viz_intent
+    return subject, viz_intent
 
 
 def _physics_turn(query_text: str | None) -> bool:
-    """A physics template, so the turn must not be labeled as math."""
-    if not query_text or not query_text.strip():
-        return False
-    from app.modules.physics import has_supported_physics_cue
-
-    return has_supported_physics_cue(query_text)
+    """Compatibility helper for callers/tests; detection is subject-neutral."""
+    return bool(query_text and detect_subject(query_text) == "physics")
 
 
 def _custom_instructions_block(user: User) -> str | None:
@@ -308,34 +305,33 @@ async def fetch_web_and_tools(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
-) -> tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None]:
+) -> tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None]:
     """Fetch web-search and SymPy augmentation blocks WITHOUT mutating prompt_messages.
 
     Web search (network) and SymPy (subprocess) are independent — gather both.
     Returns ``(web_block, math_block, search_sources, verified_math)``; injection
     is a separate step so this fetch can run concurrently with integration fetches.
     """
-    # Compute the math-intent signal ONCE: it gates the "calculating" status
-    # below AND build_math_augmentation's own needs_symbolic_math check, so
-    # passing it through avoids re-scanning the same message twice per turn
-    # (needs_symbolic_math runs ~30 substring/matcher passes over the text).
     math_user_content = math_followup_problem or user_content
-    needs_math = settings.math_tools_enabled and (
-        math_followup_problem is not None
-        or math_tools_service.needs_symbolic_math(
-            math_user_content, has_image_attachment=has_image_attachment
+    subject = (
+        "math"
+        if math_followup_problem is not None
+        else detect_subject(
+            user_content,
+            has_image_attachment=has_image_attachment,
+            image_math_extract=image_math_extract,
         )
     )
-    if needs_math and on_status is not None:
-        phase = "physics" if _physics_turn(math_user_content) else "calculating"
-        await on_status(phase)
+    needs_subject = settings.math_tools_enabled and subject is not None
+    if needs_subject and on_status is not None:
+        await on_status("physics" if subject == "physics" else "calculating")
 
     async def _web_for_turn() -> tuple[str | None, list[WebSearchHit]]:
         # Closed symbolic/statistical work is self-contained. Do not ask the
         # web classifier (or a search provider) whether a z-score, equation,
         # derivative, etc. needs live sources. Explicit/current-data requests
         # still pass the ordinary synchronous live-data gate below.
-        if needs_math and not web_search_service.web_search_fast_yes(
+        if needs_subject and not web_search_service.web_search_fast_yes(
             user_content, prior_user_messages=prior_user_messages
         ):
             return None, []
@@ -353,18 +349,20 @@ async def fetch_web_and_tools(
             redis=redis,
         )
 
-    (web_block, search_sources), (math_block, verified_math) = await asyncio.gather(
+    (web_block, search_sources), subject_result = await asyncio.gather(
         _web_for_turn(),
-        math_tools_service.build_math_augmentation(
-            math_user_content,
+        build_subject_augmentation(
+            user_content,
             settings,
+            math_user_content=math_user_content,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
-            needs_math=needs_math,
             prior_user_messages=prior_user_messages,
+            response_intent_text=user_content if math_followup_problem is not None else None,
+            detected_subject=subject,
         ),
     )
-    return web_block, math_block, search_sources, verified_math
+    return web_block, subject_result.prompt_block, search_sources, subject_result.verified
 
 
 async def inject_web_and_tools(
@@ -422,7 +420,7 @@ async def _augment_web_and_tools(
     user: User | None = None,
     redis: Redis | None = None,
     has_calendar_write: bool = False,
-) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedMathBlock | None]:
+) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedSolveBlock | None]:
     """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
     web_block, math_block, search_sources, verified_math = await fetch_web_and_tools(
         user_content,
@@ -804,7 +802,7 @@ def _style_format_hints(
     )
     if query_text and writing is None:
         parts.append(NON_DRAFT_TURN_HINT)
-    math_intent, viz_intent = _math_viz_intent(query_text)
+    subject, viz_intent = _subject_viz_intent(query_text)
     if query_text and is_short_confirmation(query_text):
         parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
     if query_text and is_day_planning_question(query_text):
@@ -867,12 +865,14 @@ def _style_format_hints(
         parts.append(
             IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT
         )
-    if math_intent and _physics_turn(query_text):
+    if subject == "physics":
+        parts.append(VERIFIED_SOLVE_SAFETY_HINT)
         if style == "short" or compact:
             parts.append(PHYSICS_SHORT_HINT)
         else:
             parts.append(PHYSICS_INTENT_HINT)
-    elif math_intent:
+    elif subject == "math":
+        parts.append(VERIFIED_SOLVE_SAFETY_HINT)
         if style == "short" or compact:
             parts.append(SHORT_MATH_SAFETY_HINT)
             parts.append(MATH_SHORT_RESPONSE_HINT)
@@ -889,9 +889,9 @@ def _style_format_hints(
         parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
-    if math_intent and _physics_turn(query_text):
+    if subject == "physics":
         parts.append(PHYSICS_REPLY_POLICY)
-    elif math_intent:
+    elif subject == "math":
         # Keep requested detail last, after general layout and tutoring hints.
         parts.append(MATH_REPLY_POLICY)
     # Turn-derived hard contracts come after generic format/math/copy guidance

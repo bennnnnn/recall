@@ -11,7 +11,7 @@ from app.models.schemas.physics import (
     PhysicsIntent,
     SimulationBlockSpec,
 )
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 @dataclass(frozen=True)
@@ -322,7 +322,7 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     """
     if not unit:
         return value
-    from app.modules.math import get_unit_registry
+    from app.services.units import get_unit_registry
 
     ureg = get_unit_registry()
     alias = _UNIT_ALIASES.get(unit.lower(), unit)
@@ -335,15 +335,15 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
             quantity = value * ureg(alias)
         dim_spec = _PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
         if dim_spec is not None and quantity.dimensionality != ureg(dim_spec).dimensionality:
-            raise MathServiceError(
+            raise SolveServiceError(
                 f"unit {unit} does not match expected dimension for {expected_key}"
             )
         base = quantity.to_base_units()
         return float(base.magnitude)
-    except MathServiceError:
+    except SolveServiceError:
         raise
     except Exception as exc:
-        raise MathServiceError(f"unsupported unit: {unit}") from exc
+        raise SolveServiceError(f"unsupported unit: {unit}") from exc
 
 
 def _params_in_si(intent: PhysicsIntent) -> dict[str, float]:

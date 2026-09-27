@@ -46,7 +46,9 @@ def _finish_geometry(
     # asks which quantity the user wants instead of inventing one.
     display_answer: str | None = None
     if answer:
-        if intent.wants_angle and intent.wants_diagonal:
+        if intent.wants_area and intent.wants_perimeter:
+            display_answer = answer
+        elif intent.wants_angle and intent.wants_diagonal:
             display_answer = answer
         elif intent.geometry_target is not None:
             display_answer = format_quantity(answer, intent.unit)
@@ -106,6 +108,10 @@ def _verified_block_rectangle(
         # “Angle made by the diagonal” mentions the diagonal as a reference,
         # not as a request to substitute its length for the angle.
         answer = rf"{rect_geo.angle_deg:g}^\circ"
+    elif intent.wants_area and intent.wants_perimeter:
+        area = format_quantity(f"{rect_geo.area:g}", f"{intent.unit}²")
+        perimeter = format_quantity(f"{rect_geo.perimeter:g}", intent.unit)
+        answer = rf"A = {area},\quad P = {perimeter}"
     elif intent.wants_perimeter:
         answer = f"{rect_geo.perimeter:g}"
     elif intent.wants_diagonal and not intent.wants_area:

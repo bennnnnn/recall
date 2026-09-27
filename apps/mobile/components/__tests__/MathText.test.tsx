@@ -96,6 +96,14 @@ describe("MathText", () => {
     expect(getByText("1")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
   });
 
+  it("renders conditional-probability mid as a vertical relation, not raw text", async () => {
+    const rendered = await render(
+      <MathText latex={String.raw`P(D\mid +)`} />,
+    );
+    expect(JSON.stringify(rendered.toJSON())).toContain("∣");
+    expect(rendered.queryByText(/mid/)).toBeNull();
+  });
+
   it("gives a wide serif numerator a longer bar than the same run of digits", async () => {
     const wide = await render(<MathText latex={String.raw`\frac{mmmmmmmmmmmm}{1}`} />);
     const narrow = await render(<MathText latex={String.raw`\frac{111111111111}{1}`} />);

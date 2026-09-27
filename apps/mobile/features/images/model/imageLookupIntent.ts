@@ -38,6 +38,12 @@ const NON_IMAGE_WORDS = new Set([
   "flowchart", "flowcharts",
   "table",
   "tables", "formula", "formulas", "calculation", "calculations",
+  "math", "maths", "arithmetic", "algebra", "algebraic", "calculus",
+  "addition", "add", "subtraction", "subtract", "multiplication", "multiply",
+  "division", "divide", "sum", "difference", "product", "quotient",
+  "remainder", "divisor", "dividend", "fraction", "fractions", "numerator",
+  "denominator", "polynomial", "polynomials", "inequality", "inequalities",
+  "derivative", "derivatives", "integral", "integrals",
   "translation", "definition", "meaning", "transcript", "attachment",
   "attachments", "document", "documents", "pdf", "explanation", "breakdown",
   "method", "methods", "working", "workings", "derivation",
@@ -68,6 +74,10 @@ function tokens(text: string): string[] {
 function cleanSubject(raw: string): string | null {
   const subject = raw.trim().replace(/[.!?]+$/g, "").trim();
   if (!subject || subject.length < 2) return null;
+  if (
+    ["×", "÷", "=", "^"].some((symbol) => subject.includes(symbol)) ||
+    [" + ", " - ", " / ", " * ", " − "].some((operator) => subject.includes(operator))
+  ) return null;
   const words = subject.split(/\s+/);
   if (!words.length || words.length > MAX_SUBJECT_WORDS) return null;
   const folded = words.map(foldToken);

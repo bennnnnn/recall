@@ -8,9 +8,12 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.match.needs import needs_symbolic
-from app.modules.math.tools import _build_verified_block, extract_math_intent
-from app.modules.math.tools.direct import maybe_direct_math_reply
+from app.tests.modules.physics.support import (
+    build_verified_physics_block,
+    extract_physics_intent,
+    maybe_direct_physics_reply,
+    needs_physics,
+)
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -119,16 +122,16 @@ CASES: list[tuple[str, str, str, str, str]] = [
 def test_new_catalog_problem_is_verified_and_explained(
     query: str, kind: str, operation: str, answer: str, law_name: str
 ) -> None:
-    assert needs_symbolic(query)
-    intent = extract_math_intent(query)
+    assert needs_physics(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
     assert intent.kind == kind
     assert intent.physics_op == operation
 
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
     assert verified.canonical_answer == answer
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert law_name in reply
     headings = ["**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"]
@@ -175,9 +178,9 @@ def test_new_catalog_problem_is_verified_and_explained(
     ],
 )
 def test_new_catalog_operations_convert_mixed_units(query: str, answer: str) -> None:
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
     assert verified.canonical_answer == answer
 
@@ -193,8 +196,8 @@ def test_new_catalog_operations_convert_mixed_units(query: str, answer: str) -> 
     ],
 )
 def test_new_catalog_operations_refuse_ambiguous_or_unsupported_shapes(query: str) -> None:
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     if isinstance(intent, PhysicsIntent):
-        assert _build_verified_block(intent, _SETTINGS) is None
+        assert build_verified_physics_block(intent, _SETTINGS) is None
     else:
         assert intent is None

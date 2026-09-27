@@ -447,7 +447,6 @@ _PROJECTILE_CUES = (
     "fired at an angle",
     "thrown at angle",
     "thrown at an angle",
-    "range of",
     "maximum height",
     "max height",
     "trajectory",

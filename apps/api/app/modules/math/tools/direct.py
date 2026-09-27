@@ -6,7 +6,6 @@ import json
 import math
 import re
 
-from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.modules.math.tools.lesson import (
     format_equation_lesson_reply,
     lesson_math_text,
@@ -770,6 +769,7 @@ def can_direct_verified_math_reply(
     *,
     has_image_attachment: bool = False,
     response_style: str = "balanced",
+    verified_request_text: str | None = None,
 ) -> bool:
     """Skip the LLM for a short closed answer or an explicit verified function plot.
 
@@ -787,13 +787,24 @@ def can_direct_verified_math_reply(
         return False
     if _nonmeasurement_geometry_reply(verified, user_text) is not None:
         return True
+    from app.modules.math.tools.direct_arithmetic import (
+        arithmetic_work_spec,
+        can_direct_fraction,
+        can_direct_written_arithmetic,
+        fraction_work_spec,
+    )
+
+    written_arithmetic = arithmetic_work_spec(verified)
+    if written_arithmetic is not None:
+        guard_text = verified_request_text or user_text
+        return can_direct_written_arithmetic(verified, guard_text, written_arithmetic)
+    fraction_work = fraction_work_spec(verified)
+    if fraction_work is not None:
+        guard_text = verified_request_text or user_text
+        return can_direct_fraction(verified, guard_text, fraction_work)
     lesson = should_render_equation_lesson(verified, user_text, response_style)
     if wants_math_explanation(user_text) and not lesson:
         return False
-    if verified.physics_intent is not None:
-        from app.modules.physics import can_direct_physics
-
-        return can_direct_physics(verified, user_text, _solver_fences(verified))
     if not verified.allow_direct:
         return False
     from app.modules.math.tools.direct_newton import can_direct_newton, has_newton_request
@@ -899,6 +910,19 @@ def can_direct_verified_math_reply(
 
 def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -> str:
     """Display a verified value, diagram, or the missing scale for an AAA request."""
+    from app.modules.math.tools.direct_arithmetic import (
+        arithmetic_work_spec,
+        format_direct_fraction,
+        format_direct_written_arithmetic,
+        fraction_work_spec,
+    )
+
+    written_arithmetic = arithmetic_work_spec(verified)
+    if written_arithmetic is not None:
+        return format_direct_written_arithmetic(written_arithmetic, user_text)
+    fraction_work = fraction_work_spec(verified)
+    if fraction_work is not None:
+        return format_direct_fraction(fraction_work, user_text)
     geometry_reply = _nonmeasurement_geometry_reply(verified, user_text)
     if geometry_reply is not None:
         return geometry_reply
@@ -910,28 +934,9 @@ def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -
     if quantity is not None:
         return f"The {quantity} cannot be determined from angles alone. What is one side length?"
     fences = _solver_fences(verified)
-    # A P14 scene rides alongside the answering fence rather than replacing it,
-    # so it is set aside before the `len(fences) == 1` branches below and put
-    # back at the end. Leaving it in the list matched none of them and silently
-    # reduced every projectile to a bare answer pill — the graph the fast path
-    # had always shown simply stopped appearing.
-    scenes = [f for f in fences if f.get("type") in SIMULATION_SPEC_TYPES]
-    fences = [f for f in fences if f not in scenes]
     answer = (verified.canonical_answer or "").strip()
     display_answer = (verified.display_answer or answer).strip()
-    physics_working: str | None = None
-    if verified.physics_intent is not None:
-        from app.modules.physics import format_direct_physics_working
-
-        physics_working = format_direct_physics_working(verified)
-    if scenes:
-        body = _format_direct_math_body(verified, user_text, fences, answer, display_answer)
-        if physics_working:
-            body = f"{physics_working}\n\n{body}"
-        scene_fence = f"```simulation\n{json.dumps(scenes[0], separators=(',', ':'))}\n```\n"
-        return f"{body}\n{scene_fence}" if body.endswith("\n") else f"{body}\n\n{scene_fence}"
-    body = _format_direct_math_body(verified, user_text, fences, answer, display_answer)
-    return f"{physics_working}\n\n{body}" if physics_working else body
+    return _format_direct_math_body(verified, user_text, fences, answer, display_answer)
 
 
 def _format_direct_math_body(
@@ -998,6 +1003,7 @@ def maybe_direct_math_reply(
     *,
     has_image_attachment: bool = False,
     response_style: str = "balanced",
+    verified_request_text: str | None = None,
 ) -> str | None:
     if verified is None:
         return None
@@ -1046,6 +1052,7 @@ def maybe_direct_math_reply(
         user_text,
         has_image_attachment=has_image_attachment,
         response_style=response_style,
+        verified_request_text=verified_request_text,
     ):
         return None
     if response_intent.mode == MathResponseMode.ANSWER_ONLY and verified.canonical_answer:
@@ -1060,10 +1067,4 @@ def maybe_direct_math_reply(
                 response_style == "detailed" or wants_detailed_math_explanation(user_text)
             ),
         )
-    if (
-        verified.physics_intent is not None
-        and verified.physics_intent.kind == "kinematics"
-        and verified.physics_intent.physics_op in {"velocity", "acceleration"}
-    ):
-        return f"Upward is positive.\n\n{reply}"
     return reply

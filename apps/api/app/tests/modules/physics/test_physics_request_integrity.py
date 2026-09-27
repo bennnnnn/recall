@@ -202,13 +202,13 @@ def test_negative_mass_is_not_certified_after_correct_sign_parsing() -> None:
 
 
 def test_pipeline_leading_decimal_and_scientific_notation() -> None:
-    from app.modules.math.tools import extract_math_intent
+    from app.tests.modules.physics.support import extract_physics_intent
 
     for mass in (".5", "0.5", "5e-1"):
-        intent = extract_math_intent(f"kinetic energy of a {mass} kg object moving at 2 m/s")
+        intent = extract_physics_intent(f"kinetic energy of a {mass} kg object moving at 2 m/s")
         assert isinstance(intent, PhysicsIntent)
         assert intent.physics_params is not None and intent.physics_params["m"] == 0.5
-    intent = extract_math_intent(
+    intent = extract_physics_intent(
         "A projectile is launched at 2e1 m/s at 30 degrees. Find the range. Use g = 1e-2 m/s^2."
     )
     assert isinstance(intent, PhysicsIntent)
@@ -219,40 +219,44 @@ def test_pipeline_leading_decimal_and_scientific_notation() -> None:
 
 @pytest.mark.parametrize("mass", ["1.2.3", "1e+", "1,00", "1/2"])
 def test_pipeline_invalid_quantity_never_falls_through_to_algebra(mass: str) -> None:
-    from app.modules.math.tools import extract_math_intent
+    from app.tests.modules.physics.support import extract_physics_intent
 
-    assert extract_math_intent(f"kinetic energy of a {mass} kg object moving at 2 m/s") is None
+    assert extract_physics_intent(f"kinetic energy of a {mass} kg object moving at 2 m/s") is None
 
 
 def test_pipeline_accepts_standard_grouped_thousands() -> None:
-    from app.modules.math.tools import extract_math_intent
+    from app.tests.modules.physics.support import extract_physics_intent
 
-    intent = extract_math_intent("kinetic energy of a 1,000 kg object moving at 2 m/s")
+    intent = extract_physics_intent("kinetic energy of a 1,000 kg object moving at 2 m/s")
     assert isinstance(intent, PhysicsIntent)
     assert intent.physics_params is not None and intent.physics_params["m"] == 1000
 
 
 def test_pipeline_rejects_missing_collision_conditions() -> None:
-    from app.modules.math.tools import extract_math_intent
+    from app.tests.modules.physics.support import extract_physics_intent
 
-    assert extract_math_intent("a 2 kg ball at 3 m/s hits a 1 kg ball elastically") is None
+    assert extract_physics_intent("a 2 kg ball at 3 m/s hits a 1 kg ball elastically") is None
     assert (
-        extract_math_intent("a 2 kg ball at 3 m/s hits a 1 kg ball at rest inelastically") is None
+        extract_physics_intent("a 2 kg ball at 3 m/s hits a 1 kg ball at rest inelastically")
+        is None
     )
 
 
 def test_pipeline_all_projectile_answers_share_one_visual() -> None:
     from app.core.config import Settings
-    from app.modules.math.tools import _build_verified_block, extract_math_intent
+    from app.tests.modules.physics.support import (
+        build_verified_physics_block,
+        extract_physics_intent,
+    )
 
     text = (
         "A projectile is launched at 20 m/s at 30 degrees. Find the total time of flight, "
         "maximum height, and horizontal range. Use g = 9.8 m/s^2."
     )
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent)
     assert intent.requested_ops == ["time_of_flight", "max_height", "range"]
-    block = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None and block.canonical_answer is not None
     for value in ("2.04", "5.1", "35.35"):
         assert value in block.canonical_answer

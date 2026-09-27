@@ -21,8 +21,12 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.match.needs import needs_symbolic
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import extract_math_intent as extract_real_math_intent
+from app.tests.modules.physics.support import (
+    build_verified_physics_block,
+    extract_physics_intent,
+    needs_physics,
+)
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -53,10 +57,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -149,8 +153,8 @@ VERIFIED: list[tuple[str, str, str, str]] = [
 
 @pytest.mark.parametrize("text,kind,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_round_three_final_phrasings(text: str, kind: str, op: str, answer: str) -> None:
-    assert needs_symbolic(text), "dropped by the pre-filter before extraction"
-    intent = extract_math_intent(text)
+    assert needs_physics(text), "dropped by the pre-filter before extraction"
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent), "no intent extracted"
     assert intent.kind == kind
     assert intent.physics_op == op
@@ -168,8 +172,8 @@ def test_stress_and_pressure_are_the_same_arithmetic_and_different_kinds() -> No
     Nothing about the values can separate these — only the vocabulary can, so
     the ordering and the disjoint cue sets are what this pins.
     """
-    stress = extract_math_intent("what is the stress on a wire from a 200 N force over 0.01 m^2")
-    pressure = extract_math_intent("what is the pressure of a 200 N force over 0.01 m^2")
+    stress = extract_physics_intent("what is the stress on a wire from a 200 N force over 0.01 m^2")
+    pressure = extract_physics_intent("what is the pressure of a 200 N force over 0.01 m^2")
     assert stress is not None and pressure is not None
     assert stress.kind == "materials"
     assert pressure.kind == "fluids"
@@ -182,7 +186,7 @@ def test_stress_and_pressure_are_the_same_arithmetic_and_different_kinds() -> No
 
 def test_an_elastic_modulus_is_not_a_complex_number() -> None:
     """The school extractors run first, and "modulus" is theirs by default."""
-    intent = extract_math_intent(
+    intent = extract_physics_intent(
         "what is the young modulus for a stress of 2e7 Pa and strain of 0.001"
     )
     assert intent is not None
@@ -191,7 +195,7 @@ def test_an_elastic_modulus_is_not_a_complex_number() -> None:
 
 def test_the_modulus_of_a_complex_number_is_untouched() -> None:
     """The guard above must not take complex numbers with it."""
-    intent = extract_math_intent("what is the modulus of 3 + 4i")
+    intent = extract_real_math_intent("what is the modulus of 3 + 4i")
     assert intent is not None
     assert intent.kind == "complex"
 
@@ -229,7 +233,7 @@ def test_each_half_life_halves_what_is_left() -> None:
     ],
 )
 def test_electric_force_unit_variants_and_magnitude(text: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent)
     assert intent.physics_op == "electric_force"
     assert _verified_answer(text) == answer
@@ -247,7 +251,7 @@ def test_electric_force_obeys_inverse_square_law() -> None:
 
 
 def test_electric_force_refuses_three_body_partial_answer() -> None:
-    intent = extract_math_intent(
+    intent = extract_physics_intent(
         "Three point charges of 1 uC, 2 uC, and 3 uC are separated by 1 m. Find the force."
     )
     assert not isinstance(intent, PhysicsIntent) or intent.physics_op != "electric_force"
@@ -295,5 +299,5 @@ NOT_PHYSICS = [
 
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_the_final_cues_do_not_steal_ordinary_english(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS

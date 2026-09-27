@@ -288,6 +288,10 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\rangle(?![a-zA-Z])/g, "⟩"],
   [/\\lvert(?![a-zA-Z])/g, "|"],
   [/\\rvert(?![a-zA-Z])/g, "|"],
+  // Conditional probability / set-builder separator. Without an explicit
+  // native mapping the generic command fallback rendered ``\mid`` as the
+  // literal word "mid" (for example P(D mid +)).
+  [/\\mid(?![a-zA-Z])/g, "∣"],
   [/\\lVert(?![a-zA-Z])/g, "‖"],
   [/\\rVert(?![a-zA-Z])/g, "‖"],
   // Vertical / bidirectional arrows (rightward/implies already handled).

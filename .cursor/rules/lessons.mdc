@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Adding a second arithmetic grammar made dates and phone numbers look solvable again.** The original bare-expression gate rejected ambiguous `9/9`, `2026-09`, and `555-1234`, but the new school-method matcher ran afterward and accepted them. Every new extractor must preserve the gate’s ambiguity rules; only a calculation/long-division cue may admit a bare ASCII slash.
+
 - **A math answer chip followed by “how?” drifted to model-written steps.** Short style suppressed verified `key_steps`, and the terse follow-up never re-entered math augmentation. Always render supported equation/system/inequality traces unless the user says “just the answer”; adjacency-gate working follow-ups and solve the prior problem again. Native `√` plus a separate border cannot enclose `\frac{x}{y}`—draw one scalable SVG radical path, and keep fraction-bar padding to a minimal overhang.
 
 - **Composer caret jumps onto the previous line when the field wraps.** `paddingTop` on the multiline `TextInput` makes iOS draw the caret a line too high. Size the text box to the lines and keep the button-centering slack on the wrapper. Do not reset `contentOffset` on each keystroke — that scrolls the caret up a line and then snaps it back.

@@ -16,7 +16,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {"kinematics", "projectile", "force", "energy", "momentum"}
 
@@ -26,10 +26,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -75,7 +75,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_momentum_phrasings_reach_a_verified_answer(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None, "no intent extracted"
     assert intent.kind == "momentum"
     assert intent.physics_op == op
@@ -103,7 +103,7 @@ def test_elastic_collision_conserves_momentum_and_energy() -> None:
     """
     from app.modules.physics.solver import solve_physics
 
-    intent = extract_math_intent(
+    intent = extract_physics_intent(
         "a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest"
     )
     assert isinstance(intent, PhysicsIntent)
@@ -163,7 +163,7 @@ NOT_PHYSICS = [
 
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_momentum_cues_do_not_steal_other_subjects(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
@@ -173,24 +173,24 @@ def test_the_same_numbers_still_route_by_the_question_asked() -> None:
     Only the noun separates them, and momentum now runs first — so this is the
     pair most likely to cross-fire.
     """
-    assert extract_math_intent("momentum of a 2 kg object moving at 3 m/s").kind == "momentum"  # type: ignore[union-attr]
+    assert extract_physics_intent("momentum of a 2 kg object moving at 3 m/s").kind == "momentum"  # type: ignore[union-attr]
     assert (
-        extract_math_intent("kinetic energy of a 2 kg object moving at 3 m/s").kind  # type: ignore[union-attr]
+        extract_physics_intent("kinetic energy of a 2 kg object moving at 3 m/s").kind  # type: ignore[union-attr]
         == "energy"
     )
     assert _verified_answer("kinetic energy of a 2 kg object moving at 3 m/s") == "9 J"
 
 
 def test_momentum_direct_reply_uses_the_solver_owned_answer() -> None:
-    from app.modules.math.tools.direct import maybe_direct_math_reply
+    from app.tests.modules.physics.support import maybe_direct_physics_reply
 
     text = "momentum of a 2 kg mass moving at 3 m/s"
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     assert block is not None
 
-    reply = maybe_direct_math_reply(block, text)
+    reply = maybe_direct_physics_reply(block, text)
     assert reply is not None
     assert "**Given**" in reply
     assert "**Formula**" in reply
@@ -237,7 +237,7 @@ def test_an_angled_collision_is_never_a_projectile(text: str) -> None:
     extracted — the next ticket to give projectiles a second op would bring
     `0.79 m` straight back.
     """
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
 
     assert intent is None or intent.kind != "projectile"
 

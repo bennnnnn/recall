@@ -2,7 +2,6 @@
 
 from app.core.config import Settings
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.modules.math.tools import _build_verified_block, extract_math_intent
 from app.services.chat.prompt_builder import _physics_turn, _style_format_hints
 from app.services.chat.prompt_constants import (
     MATH_INTENT_HINT,
@@ -11,6 +10,7 @@ from app.services.chat.prompt_constants import (
     PHYSICS_REPLY_POLICY,
 )
 from app.services.solving import strip_verified_math_markers
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 _DROP = "A ball is dropped from a height of 20 m. Find the time to ground. Use g=10."
 _ALGEBRA = "Solve 2x + 3 = 7"
@@ -40,9 +40,9 @@ def test_physics_prompt_uses_physics_hints() -> None:
 
 
 def test_verified_physics_block_is_not_wrapped_as_math() -> None:
-    intent = extract_math_intent(_DROP)
+    intent = extract_physics_intent(_DROP)
     assert intent is not None
-    block = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
     assert block.text.startswith("[BEGIN VERIFIED PHYSICS]")
     assert "[BEGIN VERIFIED MATH]" not in block.text

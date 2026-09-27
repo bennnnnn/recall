@@ -15,7 +15,7 @@ from app.modules.physics.solvers.common import (
     _latex_num,
     _params_in_si,
 )
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _orbit_scene(r: float) -> SimulationBlockSpec:
@@ -65,13 +65,13 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
     omega = p.get("omega")
     v = p.get("v", abs(omega) * r if omega is not None else 0.0)
     if r <= 0:
-        raise MathServiceError("radius must be positive")
+        raise SolveServiceError("radius must be positive")
 
     scene = [_orbit_scene(r)]
 
     if op == "orbital_period":
         if v == 0:
-            raise MathServiceError("period needs a nonzero speed")
+            raise SolveServiceError("period needs a nonzero speed")
         t_val = 2 * math.pi * r / abs(v)
         return PhysicsResult(
             answer=(
@@ -108,7 +108,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "centripetal_force":
         if "m" not in p:
-            raise MathServiceError("centripetal force needs a mass")
+            raise SolveServiceError("centripetal force needs a mass")
         f_val = p["m"] * a_c
         working = (
             rf"F_c = m\omega^2r = {p['m']:g} \cdot "
@@ -123,7 +123,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             simulation_specs=scene,
         )
 
-    raise MathServiceError(f"unsupported circular op: {op}")
+    raise SolveServiceError(f"unsupported circular op: {op}")
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +182,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
         if "d2" in p and "F2" not in p:
             f1, d1, d2 = p["F1"], p["d1"], p["d2"]
             if d2 == 0:
-                raise MathServiceError("balancing arm must be nonzero")
+                raise SolveServiceError("balancing arm must be nonzero")
             f2 = f1 * d1 / d2
             return PhysicsResult(
                 answer=(
@@ -201,7 +201,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
         uses_masses = "m1" in p and "m2" in p
         f1, d1, f2 = (p["m1"], p["d1"], p["m2"]) if uses_masses else (p["F1"], p["d1"], p["F2"])
         if f2 == 0:
-            raise MathServiceError("balancing force must be nonzero")
+            raise SolveServiceError("balancing force must be nonzero")
         d2 = f1 * d1 / f2
         balance_formula = (
             r"m_1 g d_1 = m_2 g d_2 \Rightarrow d_2 = \frac{m_1 d_1}{m_2}"
@@ -227,7 +227,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
     if op == "lever_arm":
         force = p["F"]
         if force == 0:
-            raise MathServiceError("force must be nonzero to find a lever arm")
+            raise SolveServiceError("force must be nonzero to find a lever arm")
         distance = p["tau"] / force
         return PhysicsResult(
             answer=(
@@ -243,7 +243,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
     if op == "net_torque":
         torques = [value for key, value in p.items() if key.startswith("tau")]
         if len(torques) < 2:
-            raise MathServiceError("net torque needs at least two torques")
+            raise SolveServiceError("net torque needs at least two torques")
         net = sum(torques)
         net_direction = "counterclockwise" if net > 0 else "clockwise" if net < 0 else "balanced"
         terms = " + ".join(f"({value:g})" for value in torques)
@@ -283,7 +283,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
             scene[0].vectors[0].dx, scene[0].vectors[0].dy = direction
         return PhysicsResult(answer=answer, answer_value=f"{tau:.2f} N*m", simulation_specs=scene)
 
-    raise MathServiceError(f"unsupported torque op: {op}")
+    raise SolveServiceError(f"unsupported torque op: {op}")
 
 
 # ---------------------------------------------------------------------------
@@ -330,7 +330,7 @@ def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
     if op == "angular_velocity":
         elapsed = p["t"]
         if elapsed <= 0:
-            raise MathServiceError("elapsed time must be positive")
+            raise SolveServiceError("elapsed time must be positive")
         value = p["theta"] / elapsed
         return PhysicsResult(
             answer=(
@@ -340,4 +340,4 @@ def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{value:.2f} rad/s",
         )
 
-    raise MathServiceError(f"unsupported rotation op: {op}")
+    raise SolveServiceError(f"unsupported rotation op: {op}")

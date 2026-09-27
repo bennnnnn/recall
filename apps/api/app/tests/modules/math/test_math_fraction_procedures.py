@@ -1,0 +1,89 @@
+"""Fractions use exact typed school procedures, never model-made working."""
+
+from __future__ import annotations
+
+from dataclasses import replace
+from fractions import Fraction
+
+import pytest
+
+from app.core.config import Settings
+from app.models.schemas.math import FractionWorkSpec
+from app.modules.math.fence import validate_math_fences
+from app.modules.math.response_intent import classify_math_response_intent
+from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools.direct import maybe_direct_math_reply
+
+_SETTINGS = Settings(math_tools_enabled=True)
+
+
+def _work(question: str) -> FractionWorkSpec:
+    intent = extract_math_intent(question)
+    assert intent is not None and intent.kind == "arithmetic"
+    block = _build_verified_block(intent, _SETTINGS)
+    assert block is not None
+    candidates = [
+        item
+        for item in (block.canonical_fence, *block.canonical_fences)
+        if item is not None and item.get("type") == "fraction"
+    ]
+    assert len(candidates) == 1
+    return FractionWorkSpec.model_validate(candidates[0])
+
+
+@pytest.mark.parametrize(
+    "question, operation, answer",
+    [
+        ("Simplify 8/12", "simplify", r"\frac{2}{3}"),
+        ("Show steps: 1/2 + 1/3", "add", r"\frac{5}{6}"),
+        ("3/4 - 1/6", "subtract", r"\frac{7}{12}"),
+        ("2/3 × 9/10", "multiply", r"\frac{3}{5}"),
+        ("3/5 divided by 9/10", "divide", r"\frac{2}{3}"),
+        ("Convert 2 1/3 to an improper fraction", "mixed_to_improper", r"\frac{7}{3}"),
+        ("Convert 7/3 to a mixed number", "improper_to_mixed", r"2\frac{1}{3}"),
+        ("3/4 of 20", "of_quantity", "15"),
+        ("Compare 2/3 and 3/5", "compare", r"\frac{2}{3} > \frac{3}{5}"),
+        (
+            "Find an equivalent fraction to 2/3 with denominator 12",
+            "equivalent",
+            r"\frac{8}{12}",
+        ),
+    ],
+)
+def test_fraction_procedures_are_exact(question: str, operation: str, answer: str) -> None:
+    spec = _work(question)
+    assert spec.operation == operation
+    assert spec.answer == answer
+    assert spec.steps
+    if spec.exact_numerator is not None and spec.exact_denominator is not None:
+        assert Fraction(spec.exact_numerator, spec.exact_denominator) == Fraction(
+            spec.exact_numerator, spec.exact_denominator
+        )
+
+
+def test_fraction_request_with_meaningful_leftover_fails_closed() -> None:
+    assert extract_math_intent("Simplify 8/12 and solve 2x=4") is None
+    assert extract_math_intent("Simplify 1/2 and calculate 99") is None
+
+
+def test_complete_three_term_expression_is_not_mistaken_for_leftover_data() -> None:
+    intent = extract_math_intent("1/2 + 1/3 + 99")
+    assert intent is not None and intent.expr is not None
+    assert "99" in intent.expr
+
+
+def test_fraction_direct_reply_and_fence_use_only_canonical_trace() -> None:
+    question = "Show steps: 1/2 + 1/3"
+    intent = extract_math_intent(question)
+    assert intent is not None
+    block = _build_verified_block(intent, _SETTINGS)
+    assert block is not None
+
+    reply = maybe_direct_math_reply(block, question)
+    assert reply is not None and '"type":"fraction"' in reply
+    block = replace(block, response_intent=classify_math_response_intent(question))
+    cleaned = validate_math_fences(
+        '```arithmetic\n{"type":"fraction","answer":"999"}\n```', verified=block
+    )
+    assert '"answer":"\\\\frac{5}{6}"' in cleaned
+    assert '"answer":"999"' not in cleaned

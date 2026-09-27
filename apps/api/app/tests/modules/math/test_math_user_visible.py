@@ -125,9 +125,15 @@ def test_sector_arc_length_not_area() -> None:
 
 
 def test_projectile_cliff_range_is_not_vacuum() -> None:
-    intent, block = _block(
+    from app.modules.physics import build_verified_physics_block, extract_physics_intent
+
+    question = (
         "A projectile is launched at 20 m/s at 30 degrees from a 10 m cliff. What is its range?"
     )
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
     assert intent.kind == "projectile"
     assert intent.physics_params is not None
     assert intent.physics_params.get("h0") == 10.0
@@ -137,9 +143,12 @@ def test_projectile_cliff_range_is_not_vacuum() -> None:
 
 
 def test_average_speed_is_not_mean() -> None:
-    intent, block = _block("average speed 120 km in 2 hours")
-    assert intent.kind == "arithmetic"
-    assert block.canonical_answer == r"60\ \mathrm{km}/\mathrm{h}"
+    from app.modules.physics import build_verified_physics_block, extract_physics_intent
+
+    intent = extract_physics_intent("average speed 120 km in 2 hours")
+    assert intent is not None and intent.physics_op == "average_speed"
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None and block.canonical_answer == "60 km/h"
 
 
 def test_convert_32_f_to_c_string_is_zero() -> None:

@@ -301,7 +301,7 @@ def compute_matrix(data: MatrixInput) -> MatrixResult:
         for value, _multiplicity, vectors in mat.eigenvects():
             eigenvalue = format_verified_latex(value)
             basis = _matrix_basis_latex(vectors)
-            parts.append(f"\\lambda={eigenvalue}:\ {basis}")
+            parts.append(rf"\lambda={eigenvalue}:\ {basis}")
         answer = r";\quad ".join(parts)
         return MatrixResult(
             operation="eigenvectors",

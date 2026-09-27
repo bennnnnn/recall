@@ -482,6 +482,9 @@ def test_math_formula_shape_rule_is_unified():
     assert "Every equality must remain valid" in MATH_INTENT_HINT
     assert "Honor Short mode" in MATH_INTENT_HINT
     assert "full derivation when the user asks" in MATH_INTENT_HINT
+    assert "name a standard law or identity once" in MATH_INTENT_HINT
+    assert "zero-exponent law" in MATH_INTENT_HINT
+    assert "one equals-sign transformation per formula line" in MATH_INTENT_HINT
     assert "empty bullet" in MATH_INTENT_HINT
     assert "SAME line as the `-`" in MATH_INTENT_HINT
     assert "never omit the colon" not in MATH_INTENT_HINT
@@ -501,14 +504,11 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     assert "illustrative" in lower
     assert "only when a verified" in lower
     assert "do not claim verification" in lower
-    # Assert the *constraint*, not the list of topics it applied to in 2026.
-    # These two lines used to pin "trajectory graphs are only for kinematics"
-    # and "force and energy answers are numbers only" verbatim — which quietly
-    # locked in a claim that P3 (velocity-vs-time) and P7 (SHM displacement)
-    # made false, and kept passing while doing it. The enumeration is now
-    # checked against the live schema in test_physics_prompt_boundary.py.
-    assert "trajectory graphs exist only for" in lower
-    assert "do not invent a plot" in lower
+    # Physics has an independent prompt. Math must not carry formula,
+    # trajectory, or simulation policy for another peer subject.
+    assert "trajectory" not in lower
+    assert "physics" not in lower
+    assert "simulation" not in lower
     from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
 
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in MATH_SOLVER_HINT

@@ -688,8 +688,15 @@ def turn_needs_tool_loop(
         return True
     if lightweight:
         return False
-    if has_verified_math and not leftover_math_after_verified(text):
+    has_leftover_math = leftover_math_after_verified(text)
+    if has_verified_math and not has_leftover_math:
         return False
+    # A compound graph+solve request still needs the tool loop even when the
+    # complete-request audit correctly declined the partial deterministic
+    # intent. Requiring a second extraction here would turn that safe decline
+    # into a silent "no tools" result.
+    if has_leftover_math:
+        return True
 
     from app.modules.images.gen_intent import extract_image_gen_prompt
     from app.modules.images.lookup_intent import extract_image_lookup_query

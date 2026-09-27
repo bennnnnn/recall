@@ -44,4 +44,10 @@ describe("displayMathToInline", () => {
     expect(out).toContain("$x-3=0$");
     expect(out).not.toContain("\\[");
   });
+
+  it("keeps punctuation attached to a grouped slash fraction", () => {
+    expect(displayMathToInline("Simplify (x^2-4)/(x^2-x-2). State restrictions.")).toBe(
+      "Simplify $\\frac{x^2-4}{x^2-x-2}.$ State restrictions.",
+    );
+  });
 });

@@ -228,6 +228,18 @@ def test_square_root_of_a_square_simplifies_to_absolute_value() -> None:
     assert "principal square root is nonnegative" in reply
 
 
+def test_square_root_law_survives_ascii_equivalent_and_real_domain_wording() -> None:
+    answers = []
+    for query in (
+        "Simplify sqrt(x^2) over the real numbers.",
+        "Simplify sqrt(x*x) for real x.",
+    ):
+        _intent, block = _verified(query)
+        answers.append(block.canonical_answer)
+
+    assert answers == [r"\left|{x}\right|", r"\left|{x}\right|"]
+
+
 def test_compound_fraction_simplification_preserves_every_excluded_value() -> None:
     query = "Simplify (1/x + 1/y) / (1/x - 1/y)."
     _intent, block = _verified(query)
@@ -251,6 +263,22 @@ def test_implicit_derivative_consumes_the_whole_xy_equation() -> None:
     assert r"x + 2 y" in reply
 
 
+def test_implicit_derivative_keeps_trailing_teaching_request_out_of_equation() -> None:
+    for derivative_spelling in ("dy/dx", "day/dx"):
+        query = (
+            f"Find {derivative_spelling} implicitly for x^2 + xy + y^2 = 7. "
+            "Show every differentiation step and collect the derivative terms."
+        )
+        intent, block = _verified(query)
+        reply = maybe_direct_math_reply(block, query)
+
+        assert intent.school_op == "implicit"
+        assert block.canonical_answer == r"\frac{- 2 x - y}{x + 2 y}"
+        assert reply is not None
+        assert r"\frac{dy}{dx}" in reply
+        assert "Solve the equation" not in reply
+
+
 def test_logarithmic_substitution_uses_absolute_value_and_states_domain() -> None:
     query = "Integrate 1/(x ln x) dx."
     _intent, block = _verified(query)
@@ -260,6 +288,49 @@ def test_logarithmic_substitution_uses_absolute_value_and_states_domain() -> Non
     assert reply is not None
     assert r"x\ne1" in reply
     assert "$x>0$" in reply
+
+
+def test_logarithmic_substitution_honors_explicit_working_request_directly() -> None:
+    query = (
+        "Integrate 1/(x ln x) dx. Show the substitution, give the exact "
+        "antiderivative, and state the real-domain restrictions."
+    )
+    _intent, block = _verified(query)
+    reply = maybe_direct_math_reply(block, query)
+
+    assert reply is not None
+    assert "**Substitute**" in reply
+    assert "**Integrate**" in reply
+    assert "**Substitute back**" in reply
+    assert r"x\ne1" in reply
+    assert "$x>0$" in reply
+
+
+def test_conditional_dice_enumerates_the_conditioned_sample_space() -> None:
+    query = (
+        "Two fair dice are rolled. Given that the sum is at least 10, what is the "
+        "probability the sum is exactly 12? Show the conditional sample space."
+    )
+    intent, block = _verified(query)
+    reply = maybe_direct_math_reply(block, query)
+
+    assert intent.school_op == "dice_conditional_sum"
+    assert block.canonical_answer == r"\frac{1}{6}"
+    assert reply is not None
+    assert "{(4, 6), (5, 5), (5, 6), (6, 4), (6, 5), (6, 6)}" in reply
+    assert "```answer\n\\frac{1}{6}\n```" in reply
+    assert r"\frac{1}{6}=\frac{1}{6}" not in reply
+
+
+def test_conditional_dice_comparator_variation_uses_the_same_enumerator_logic() -> None:
+    query = (
+        "Two fair dice are thrown. Knowing the sum is at most 4, find the probability "
+        "the sum is equal to 2. List the conditional sample space."
+    )
+    intent, block = _verified(query)
+
+    assert intent.comparator == "<="
+    assert block.canonical_answer == r"\frac{1}{6}"
 
 
 def test_improper_endpoint_definite_integral_uses_verified_limits_directly() -> None:
@@ -293,6 +364,21 @@ def test_volume_chain_bounds_and_when_wording_use_disk_method() -> None:
     assert intent.school_op == "volume_revolution_x"
     assert block.canonical_answer == r"8 \pi"
     assert reply is not None and "disk method" in reply
+    assert "Simplify the cross-sectional area" in reply
+    assert "Evaluate the endpoints" in reply
+
+
+def test_area_between_curves_names_order_and_shows_endpoint_evaluation() -> None:
+    query = "Find the area between y=x and y=x^2 from x=0 to x=1."
+    intent, block = _verified(query)
+    reply = maybe_direct_math_reply(block, query)
+
+    assert intent.school_op == "area_between_curves"
+    assert block.canonical_answer == r"\frac{1}{6}"
+    assert reply is not None
+    assert "Identify the upper curve" in reply
+    assert "Find an antiderivative" in reply
+    assert "Evaluate the endpoints" in reply
 
 
 def test_bounded_radian_trig_and_reciprocal_domain_are_direct() -> None:
@@ -312,18 +398,33 @@ def test_bounded_radian_trig_and_reciprocal_domain_are_direct() -> None:
         assert intent.school_op == "bounded_radian_equation"
         assert reply is not None
         assert all(value in reply for value in expected)
+        if query.startswith("Solve cos"):
+            assert "Use the periodic zero law" in reply
+            assert r"k\in\mathbb{Z}" in reply
+            assert r"k = 0,\;1,\;2,\;3" in reply
+            assert r"0 \le x < 2 \pi" in reply
 
 
 def test_exact_composite_degree_angle_uses_angle_sum_identity() -> None:
-    query = "Find the exact value of cos(75 degrees)."
-    intent, block = _verified(query)
-    reply = maybe_direct_math_reply(block, query)
+    queries = (
+        "Find the exact value of cos(75 degrees).",
+        "Find the exact value of cos(75 degrees). "
+        "Use an angle-sum identity and keep radicals in exact form.",
+    )
+    for query in queries:
+        intent, block = _verified(query)
+        reply = maybe_direct_math_reply(block, query)
 
-    assert intent.school_op == "cos"
-    assert block.canonical_answer == r"\frac{- \sqrt{2} + \sqrt{6}}{4}"
-    assert reply is not None
-    assert "angle-sum identity" in reply
-    assert r"75^\circ = 30^\circ + 45^\circ" in reply
+        assert intent.school_op == "cos"
+        assert block.canonical_answer == r"\frac{- \sqrt{2} + \sqrt{6}}{4}"
+        assert reply is not None
+        assert "angle-sum identity" in reply
+        assert r"75^\circ = 30^\circ + 45^\circ" in reply
+        # Four short component lines stay readable on a narrow phone instead
+        # of becoming a single clipped equation chain.
+        assert r"\cos(30^\circ)=\frac{\sqrt{3}}{2}" in reply
+        assert r"\cos(45^\circ)=\frac{\sqrt{2}}{2}" in reply
+        assert r", \quad" not in reply
 
 
 def test_product_and_second_derivatives_use_verified_working_directly() -> None:

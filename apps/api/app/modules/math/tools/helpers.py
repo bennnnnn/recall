@@ -95,6 +95,42 @@ def _split_and_then(s: str) -> str:
     return s[:cut] if cut is not None else s
 
 
+_RESPONSE_SENTENCE_STARTS = (
+    "show ",
+    "use ",
+    "explain ",
+    "state ",
+    "name ",
+    "list ",
+    "check ",
+    "verify ",
+    "include ",
+    "keep ",
+    "reject ",
+    "preserve ",
+    "identify ",
+    "enumerate ",
+)
+
+
+def _split_response_instruction_sentence(s: str) -> str:
+    """Peel a trailing presentation instruction from a captured expression.
+
+    Requests such as ``... = 7. Show every step`` used to feed the second
+    sentence into SymPy, disabling verification and allowing an unrelated
+    algebra fallback. Only an explicit response/presentation verb is peeled;
+    decimal points and a second mathematical question remain untouched.
+    """
+    lower = s.lower()
+    for index, char in enumerate(s):
+        if char not in ".?!":
+            continue
+        tail = lower[index + 1 :].lstrip()
+        if any(tail.startswith(prefix) for prefix in _RESPONSE_SENTENCE_STARTS):
+            return s[:index]
+    return s
+
+
 def _strip_trailing_filler(expr: str) -> str:
     """`_GRAPH_EXPR`/the calculus expr-match are greedy captures of everything
     after the trigger word, so natural phrasing like "graph x^2 please" or
@@ -105,6 +141,7 @@ def _strip_trailing_filler(expr: str) -> str:
     # Const length compare must sit in this function for CodeQL's ReDoS barrier.
     if len(s) > _MAX_MATH_INPUT:
         return s[:_MAX_MATH_INPUT]
+    s = _split_response_instruction_sentence(s)
     # A conjunction essentially never appears inside a math expression
     # itself — anything from " and "/" then " onward is a new clause of
     # natural language (e.g. "sin(x) and explain it"), not part of the expr.

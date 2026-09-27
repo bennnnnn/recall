@@ -76,6 +76,7 @@ from app.services.chat.prompt_constants.routing import (
     recalls_earlier_conversation,
     writing_request_kind,
 )
+from app.services.chat.prompt_constants.solving import VERIFIED_SOLVE_SAFETY_HINT
 from app.services.chat.prompt_constants.teaching import (
     LEARNING_PLAN_HINT,
     TEACHING_HINT,
@@ -159,6 +160,7 @@ __all__ = [
     "TONE_FORMAT_GUARD",
     "TRANSLATION_FORMAT_HINT",
     "UNIVERSAL_FORMAT_BASELINE",
+    "VERIFIED_SOLVE_SAFETY_HINT",
     "VISUALIZATION_HINTS",
     "WRITING_LINE_HINT",
     "active_lesson_step",

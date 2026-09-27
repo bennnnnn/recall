@@ -37,6 +37,12 @@ const REVISION_LEAD_IN =
 const NON_REVISION =
   /^(?:ok|okay|thanks|thank you|yes|no|sure|cool|nice|lol|great|got it|perfect)$/i;
 
+const SHOW_IMAGE_REVISION =
+  /^show\s+(?:it|them|more|less|another\b|an?\s+|the\s+(?!steps?\b|work(?:ing|out)?\b|answer\b|solution\b|calculation\b|long\s+division\b)).+/i;
+
+const SHOW_NON_IMAGE_REQUEST =
+  /(?:[+\-×÷*/=^]|\b(?:long\s+division|steps?|work(?:ing|out)?|answer|solution|calculation|how)\b)/i;
+
 const NOT_REVISION_STARTERS = new Set([
   "what",
   "what's",
@@ -60,6 +66,7 @@ const NOT_REVISION_STARTERS = new Set([
   "will",
   "am",
   "help",
+  "show",
   "tell",
   "explain",
   "write",
@@ -97,7 +104,11 @@ export function extractImageRevisionPrompt(
   if (!revision || revision.split(/\s+/).length > 8) return null;
   if (trimmed.includes("?")) return null;
   const first = revision.split(/\s+/)[0]?.toLowerCase().replace(/[.!,]+$/, "") ?? "";
-  if (NOT_REVISION_STARTERS.has(first)) return null;
+  const showImageRevision =
+    first === "show" &&
+    SHOW_IMAGE_REVISION.test(revision) &&
+    !SHOW_NON_IMAGE_REQUEST.test(revision);
+  if (NOT_REVISION_STARTERS.has(first) && !showImageRevision) return null;
   if (NON_IMAGE_SUBJECT.test(revision) || NON_REVISION.test(revision)) return null;
   const cleaned = cleanPrompt(revision);
   if (!cleaned) return null;

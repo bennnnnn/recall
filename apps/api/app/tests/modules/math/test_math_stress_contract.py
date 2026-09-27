@@ -151,5 +151,7 @@ def test_named_medical_bayes_maps_specificity_to_the_false_positive_rate() -> No
         assert block.canonical_answer == r"16.2393\%"
         assert block.direct_reply is not None
         assert "false-positive rate" in block.direct_reply
+        assert r"P(+\mid D)" in block.direct_reply
+        assert "=1-0.9=0.1" not in block.direct_reply
         assert "0.019" in block.direct_reply
         assert "0.117" in block.direct_reply

@@ -20,7 +20,9 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block as build_math_block
+from app.modules.math.tools import extract_math_intent as extract_real_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -42,10 +44,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -98,7 +100,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_vector_force_phrasings_reach_a_verified_answer(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
 
     assert intent is not None, "no intent extracted"
     assert intent.kind == "force"
@@ -195,13 +197,15 @@ def test_the_maths_vector_kind_is_untouched() -> None:
     The maths one needs literal angle brackets; this one needs units. Neither
     sentence is ambiguous, so neither had to give way.
     """
-    magnitude = extract_math_intent("magnitude of <3, 4>")
-    dot = extract_math_intent("dot product of <1, 2> and <3, 4>")
+    magnitude = extract_real_math_intent("magnitude of <3, 4>")
+    dot = extract_real_math_intent("dot product of <1, 2> and <3, 4>")
 
     assert magnitude is not None and magnitude.kind == "vector"
     assert dot is not None and dot.kind == "vector"
-    assert _verified_answer("magnitude of <3, 4>") == "5"
-    assert _verified_answer("dot product of <1, 2> and <3, 4>") == "11"
+    magnitude_block = build_math_block(magnitude, _settings())
+    dot_block = build_math_block(dot, _settings())
+    assert magnitude_block is not None and magnitude_block.canonical_answer == "5"
+    assert dot_block is not None and dot_block.canonical_answer == "11"
 
 
 NOT_PHYSICS = [
@@ -222,13 +226,13 @@ def test_resolve_and_component_never_stand_alone(text: str) -> None:
     "component" are not specific at all, so they need the force *and* the angle
     before they count.
     """
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
 def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:
     """This runs before force, so it must not swallow ordinary F = ma."""
-    intent = extract_math_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
+    intent = extract_physics_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
 
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == "net_force"
     assert _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10 N"

@@ -14,9 +14,8 @@ and ``sympy_executor`` (the sandboxed SymPy process pool).
 Physics is a peer subject, not a corner of this package — see
 ``app.modules.physics``.
 
-The package surface stays lazy. ``tools.block`` and ``physics.block`` reference
-each other's primitives during initialization, so eager re-exports would close
-an import cycle. Other modules import only the names in ``_EXPORTS``.
+The package surface stays lazy so importing a matcher does not eagerly load the
+symbolic solver stack. Other modules import only the names in ``_EXPORTS``.
 """
 
 from __future__ import annotations
@@ -24,10 +23,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
-_EXPORTS = {
-    "extract_average_speed_intent": ("tools.school", "extract_average_speed_intent"),
-    "get_unit_registry": ("school", "get_unit_registry"),
-}
+_EXPORTS = {"get_unit_registry": ("school", "get_unit_registry")}
 
 __all__ = list(_EXPORTS)
 

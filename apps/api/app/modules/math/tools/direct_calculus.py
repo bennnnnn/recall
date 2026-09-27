@@ -5,10 +5,9 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.math import MathIntent
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.math.match import calc_op
 from app.modules.math.tools.extract import extract_math_intent
-from app.modules.math.tools.helpers import math_expr_or_none
+from app.modules.math.tools.helpers import _split_response_instruction_sentence, math_expr_or_none
 
 _NUMBER = r"[+-]?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
 _POINT = rf"(?:{_NUMBER}|-?(?:infinity|inf|oo))"
@@ -143,7 +142,12 @@ def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | N
     recognized = recognized or bool(re.search(r"\bd\^?\d+[a-zA-Z]/d[a-zA-Z]\^?\d+\b", request))
     if not recognized:
         return None
-    request = request.rstrip(".?")
+    # The extractor already distinguishes the calculation from a trailing
+    # presentation request ("Show the substitution", "State the domain").
+    # Apply the same boundary to the strict whole-query guard. Without this,
+    # a complete verified worked solution was discarded solely because the
+    # learner explicitly asked to see its working.
+    request = _split_response_instruction_sentence(request).rstrip(".?").rstrip()
     if request.lower().startswith("please "):
         request = request[7:]
     for prefix in (
@@ -161,11 +165,9 @@ def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | N
     if request.lower().startswith("the "):
         request = request[4:]
     actual = extract_math_intent(text)
-    if actual is None or isinstance(actual, PhysicsIntent):
-        # A physics-classified match means the extractor registry already
-        # decided this text isn't calculus (PHYSICS_EXTRACTORS run before
-        # CALCULUS_EXTRACTORS) — treat it the same as no match, not as a
-        # calculus intent missing calculus-only fields like `.expr`.
+    if actual is None:
+        # The math extractor declined the complete request, so the direct
+        # renderer must not reinterpret only a calculus-looking fragment.
         return False
     if actual.operation == "dsolve":
         return None

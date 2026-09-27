@@ -124,10 +124,6 @@ def word_problem_candidate(text: str) -> bool:
         return False
     if not _QUESTION.search(text) or not _RELATION.search(text):
         return False
-    from app.modules.physics import has_supported_physics_cue
-
-    if has_supported_physics_cue(text):
-        return False
     digits = len(_DIGITS.findall(text))
     words = sum(1 for word in _WORD.findall(text.lower()) if word in _NUMBER_WORDS)
     # At least one number in digits: "how many calories are in two eggs and

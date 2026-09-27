@@ -18,6 +18,7 @@ from app.modules.math.match.coordinate_vector import literal_math_tuples
 from app.modules.math.match.scan import _NUM
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
+from app.modules.math.tools.extractors.fractions import extract_fraction_intent
 from app.modules.math.tools.helpers import math_expr_or_none, substituted_eval_expr
 from app.services.text_match import word_index
 
@@ -47,6 +48,18 @@ _BINOMIAL_PARAM = re.compile(
     re.IGNORECASE,
 )
 _PROBABILITY_LIST = re.compile(r"\[([^\[\]]+)\]")
+_DICE_CONDITIONAL_SUM = re.compile(
+    r"^\s*(?:two|2)\s+fair\s+dice\s+are\s+(?:rolled|thrown)\s*[.,;]?\s*"
+    r"(?:given|knowing)(?:\s+that)?\s+(?:the\s+)?sum\s+is\s+"
+    r"(at\s+least|at\s+most|greater\s+than|less\s+than|exactly|equal\s+to)\s+"
+    r"(\d{1,2})\s*[.,;?]?\s*"
+    r"(?:what\s+is|find|calculate|compute)\s+(?:the\s+)?probability"
+    r"(?:\s+(?:that|of))?\s+(?:the\s+)?sum\s+is\s+(?:exactly|equal\s+to)\s+"
+    r"(\d{1,2})"
+    r"(?:\s*[?.]\s*(?:show|list)(?:\s+me)?(?:\s+the)?\s+conditional\s+"
+    r"sample\s+space)?\s*[?.]?\s*$",
+    re.IGNORECASE,
+)
 _UNIT_PATTERN = r"[A-Za-zµμ°][A-Za-z0-9µμ°*/^._-]{0,63}"
 _TWICE_HOT_TAIL = re.compile(
     rf"^({_UNIT_PATTERN})\s*[.?!,;]*\s*(?:then\s+)?"
@@ -95,7 +108,7 @@ _ORDINAL_SUFFIXES = ("st", "nd", "rd", "th")
 
 
 def _extract_unit_intent(cleaned: str) -> MathIntent | None:
-    from app.modules.math.match.units import QUANTITY_NUMBER
+    from app.services.unit_text import QUANTITY_NUMBER
 
     lower = cleaned.lower()
     if "convert" not in lower and " to " not in lower:
@@ -288,6 +301,22 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
     )
     if count >= 2:
         parsed = math_expr_or_none(rewritten)
+        if parsed is not None:
+            return MathIntent(
+                kind="trig",
+                school_op="expression",
+                expr=parsed,
+                operation="solve",
+            )
+    # The same complete-expression path for exact radian inputs. Degree calls
+    # are handled above because their unit must be converted explicitly;
+    # ``pi``/``π`` already denotes radians and needs no per-call special case.
+    radian_expression = expression.replace("π", "pi")
+    trig_call_count = sum(
+        len(re.findall(rf"\b{name}\s*\(", radian_expression, re.IGNORECASE)) for name in _TRIG_FUNCS
+    )
+    if trig_call_count >= 2 and re.search(r"\bpi\b", radian_expression, re.IGNORECASE):
+        parsed = math_expr_or_none(radian_expression)
         if parsed is not None:
             return MathIntent(
                 kind="trig",
@@ -910,148 +939,6 @@ def _extract_set_intent(cleaned: str, lower: str) -> MathIntent | None:
     )
 
 
-def extract_average_speed_intent(cleaned: str) -> MathIntent | None:
-    """Extract the complete speed law, including distance/time rearrangements."""
-    lower = cleaned.lower()
-    if not any(word in lower for word in ("speed", "velocity", "distance", "how far", "how long")):
-        return None
-    from app.modules.math.match.units import (
-        LENGTH_UNITS,
-        QUANTITY_NUMBER,
-        TIME_UNITS,
-        unit_after_quantity,
-    )
-
-    def speed_unit_after_quantity(number_end: int) -> tuple[str, str, int] | None:
-        match = re.match(
-            r"\s*([A-Za-z]+)\s*(?:/|\bper\b)\s*([A-Za-z]+)\b",
-            cleaned[number_end:],
-            re.IGNORECASE,
-        )
-        if match is None:
-            return None
-        length_name, time_name = (group.lower() for group in match.groups())
-        if length_name not in LENGTH_UNITS or time_name not in TIME_UNITS:
-            return None
-        return LENGTH_UNITS[length_name], TIME_UNITS[time_name], number_end + match.end()
-
-    nums = list(QUANTITY_NUMBER.finditer(cleaned))
-    if len(nums) != 2:
-        return None
-    measures: list[tuple[str, float, str, str | None, int]] = []
-    for number in nums:
-        speed_unit = speed_unit_after_quantity(number.end())
-        if speed_unit is not None:
-            length_unit, time_unit, end = speed_unit
-            measures.append(("speed", float(number.group(0)), length_unit, time_unit, end))
-            continue
-        unit_hit = unit_after_quantity(cleaned, number.end())
-        if unit_hit is None:
-            return None
-        unit = unit_hit[0].lower()
-        if unit in LENGTH_UNITS:
-            measures.append(
-                ("distance", float(number.group(0)), LENGTH_UNITS[unit], None, unit_hit[1])
-            )
-        elif unit in TIME_UNITS:
-            measures.append(("time", float(number.group(0)), TIME_UNITS[unit], None, unit_hit[1]))
-        else:
-            return None
-    # A second request or requested output unit needs the model; do not certify
-    # the first two numbers as an answer to an unparsed compound instruction.
-    # Natural word problems commonly put the question after both quantities,
-    # so admit that one closed question while continuing to reject every other
-    # tail (conversions, another leg, explanations, and unrelated requests).
-    tail = cleaned[measures[-1][4] :].strip()
-    plain_tail = tail.strip(" .?!").lower()
-    speed_question = re.fullmatch(
-        r"[.?!]*\s*(?:what\s+is|what's|find|calculate|compute|determine)\s+"
-        r"(?:the|its)\s+(?:average\s+)?(?:speed|velocity)(?:\s+please)?[.?!]*",
-        tail,
-        re.IGNORECASE,
-    )
-    distance_question = re.fullmatch(
-        r"[.?!]*\s*(?:(?:what\s+(?:is\s+)?(?:the|its)?\s*distance)|"
-        r"(?:how\s+far(?:\s+does\s+it\s+travel)?)|"
-        r"(?:(?:find|calculate|compute|determine)\s+(?:the|its)?\s*distance))"
-        r"(?:\s+(?:does\s+it\s+travel|travelled|traveled))?(?:\s+please)?[.?!]*",
-        tail,
-        re.IGNORECASE,
-    )
-    time_question = re.fullmatch(
-        r"[.?!]*\s*(?:(?:how\s+long(?:\s+does\s+it\s+take)?)|"
-        r"(?:(?:what\s+is|find|calculate|compute|determine)\s+(?:the|its)?\s*time))"
-        r"(?:\s+does\s+it\s+take)?(?:\s+please)?[.?!]*",
-        tail,
-        re.IGNORECASE,
-    )
-    prefix = cleaned[: nums[0].start()].strip(" .?!").lower()
-    requested: str | None = None
-    if speed_question is not None or (
-        plain_tail in {"", "please"}
-        and re.search(r"(?:average\s+)?(?:speed|velocity)\s*(?:for|of)?\s*$", prefix)
-    ):
-        requested = "speed"
-    elif distance_question is not None or (
-        plain_tail in {"", "please"}
-        and re.search(r"(?:find|calculate|compute|determine)\s+(?:the\s+)?distance\b", prefix)
-    ):
-        requested = "distance"
-    elif time_question is not None or (
-        plain_tail in {"", "please"}
-        and re.search(r"(?:find|calculate|compute|determine)\s+(?:the\s+)?time\b", prefix)
-    ):
-        requested = "time"
-    if requested is None:
-        return None
-
-    distance = next((measure for measure in measures if measure[0] == "distance"), None)
-    duration = next((measure for measure in measures if measure[0] == "time"), None)
-    speed = next((measure for measure in measures if measure[0] == "speed"), None)
-    if requested == "speed":
-        if distance is None or duration is None or speed is not None:
-            return None
-        if distance[1] < 0 or duration[1] <= 0:
-            return None
-        return MathIntent(
-            kind="arithmetic",
-            school_op="average_speed" if "average" in lower else "speed_formula_speed",
-            expr=f"{distance[1]}/{duration[1]}",
-            unit_from=distance[2],
-            unit_to=duration[2],
-            percent_base=distance[1],
-            point_x=duration[1],
-            operation="solve",
-        )
-    if speed is None or speed[1] < 0:
-        return None
-    if requested == "distance":
-        if duration is None or distance is not None or duration[1] < 0 or speed[3] != duration[2]:
-            return None
-        return MathIntent(
-            kind="arithmetic",
-            school_op="speed_formula_distance",
-            expr=f"{speed[1]}*{duration[1]}",
-            unit_from=speed[2],
-            unit_to=speed[3],
-            percent_rate=speed[1],
-            point_x=duration[1],
-            operation="solve",
-        )
-    if distance is None or duration is not None or speed[1] == 0 or speed[2] != distance[2]:
-        return None
-    return MathIntent(
-        kind="arithmetic",
-        school_op="speed_formula_time",
-        expr=f"{distance[1]}/{speed[1]}",
-        unit_from=distance[2],
-        unit_to=speed[3],
-        percent_base=distance[1],
-        percent_rate=speed[1],
-        operation="solve",
-    )
-
-
 def _hour_quantities(text: str) -> list[float]:
     lower = text.lower()
     found: list[float] = []
@@ -1151,6 +1038,30 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
             extracted = _extract_arithmetic_intent(base)
             if extracted is not None and extracted.expr:
                 return extracted.model_copy(update={"school_op": "eval_exact_decimal"})
+    addition = mtm.written_addition_request(cleaned)
+    if addition is not None:
+        return MathIntent(
+            kind="arithmetic",
+            school_op="column_addition",
+            expr="+".join(addition),
+            arithmetic_operands=addition,
+            operation="solve",
+        )
+    written = mtm.written_arithmetic_request(cleaned)
+    if written is not None:
+        left, right, operator, school_op = written
+        return MathIntent(
+            kind="arithmetic",
+            school_op=school_op,
+            expr=f"{left}{operator}{right}",
+            arithmetic_operands=[left, right],
+            division_answer_mode=(
+                mtm.division_answer_mode(cleaned, left, right)
+                if school_op == "long_division"
+                else None
+            ),
+            operation="solve",
+        )
     substituted = substituted_eval_expr(cleaned)
     if substituted is not None:
         return MathIntent(kind="arithmetic", school_op="eval", expr=substituted, operation="solve")
@@ -1183,9 +1094,6 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     sequence = _extract_sequence_intent(cleaned)
     if sequence is not None:
         return sequence
-    speed = extract_average_speed_intent(cleaned)
-    if speed is not None:
-        return speed
     expr = mtm.bare_arithmetic_expr(cleaned)
     if expr is None:
         return None
@@ -1198,6 +1106,27 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     extra = extract_probability_formulas(cleaned)
     if extra is not None:
         return extra
+    dice = _DICE_CONDITIONAL_SUM.fullmatch(cleaned)
+    if dice is not None:
+        relation, threshold_text, event_text = dice.groups()
+        threshold, event = int(threshold_text), int(event_text)
+        if 2 <= threshold <= 12 and 2 <= event <= 12:
+            comparator = {
+                "at least": ">=",
+                "at most": "<=",
+                "greater than": ">",
+                "less than": "<",
+                "exactly": "=",
+                "equal to": "=",
+            }[" ".join(relation.lower().split())]
+            return MathIntent(
+                kind="probability",
+                school_op="dice_conditional_sum",
+                comparator=comparator,
+                combo_n=threshold,
+                combo_k=event,
+                operation="solve",
+            )
     lower = cleaned.lower()
     if "binomial" in lower or ("n=" in lower.replace(" ", "") and "p=" in lower.replace(" ", "")):
         empty = MathIntent(kind="probability", school_op="binomial", operation="solve")
@@ -1255,29 +1184,8 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     return None
 
 
-# An elastic modulus is not the modulus of a complex number. This extractor
-# runs before the physics ones, so without this "the young modulus for a stress
-# of 2e7 Pa" was read as |z| and failed as an unparseable expression.
-_ELASTIC_MODULUS_RE = re.compile(
-    r"\b(?:young(?:'s)?|bulk|shear|elastic|rigidity)\s+modulus\b", re.IGNORECASE
-)
-_PHYSICS_RESULTANT_MAGNITUDE_RE = re.compile(
-    r"(?=.*\bresultant\b)(?=.*\bmagnitude\b)(?=.*\d\s*N\b)",
-    re.IGNORECASE | re.DOTALL,
-)
-
-
 def _extract_complex_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    # Before anything else: an elastic modulus is not the modulus of a complex
-    # number, and this extractor runs before the physics ones.
-    if _ELASTIC_MODULUS_RE.search(cleaned):
-        return None
-    # “Resultant magnitude” is ordinary vector-force language, not the
-    # modulus of a complex number. Physics runs after this extractor, so this
-    # narrow refusal is what lets a unit-bearing force question reach it.
-    if _PHYSICS_RESULTANT_MAGNITUDE_RE.search(cleaned):
-        return None
     from app.modules.math.tools.extractors.formulas import extract_complex_op
 
     op = extract_complex_op(cleaned)
@@ -1441,6 +1349,7 @@ SCHOOL_EXTRACTORS: list[Callable[[str], MathIntent | None]] = [
     _extract_trig_intent,
     _extract_probability_intent,
     _extract_complex_intent,
+    extract_fraction_intent,
     _extract_arithmetic_intent,
 ]
 
@@ -1448,6 +1357,49 @@ SCHOOL_EXTRACTORS: list[Callable[[str], MathIntent | None]] = [
 def _verified_block_arithmetic(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
+    if intent.school_op and intent.school_op.startswith("fraction_"):
+        from app.modules.math.solve.fractions import build_fraction_work
+
+        fraction_work = build_fraction_work(intent)
+        if fraction_work is not None:
+            lines.append("Verified fraction procedure:")
+            lines.extend(step.explanation for step in fraction_work.steps)
+            block = _finish_with_answer(lines, fraction_work.answer)
+            return replace(block, canonical_fences=[fraction_work.model_dump()])
+    if (
+        intent.school_op
+        in {
+            "column_addition",
+            "column_subtraction",
+            "column_multiplication",
+            "long_division",
+        }
+        and intent.expr
+    ):
+        from app.modules.math.solve.written_arithmetic import build_written_arithmetic_operands
+
+        # ``intent.expr`` is the extractor-owned canonical expression. Prefix
+        # its ASCII slash with a calculation cue so the public grammar can
+        # keep rejecting ambiguous bare dates such as ``9/9``.
+        operands = intent.arithmetic_operands
+        if operands is None:
+            request = mtm.written_arithmetic_request(f"calculate {intent.expr}")
+            operands = list(request[:2]) if request is not None else None
+        if operands is not None:
+            arithmetic_work = build_written_arithmetic_operands(
+                operands,
+                intent.school_op,
+                intent.expr,
+                division_answer_mode=intent.division_answer_mode,
+            )
+            if arithmetic_work is not None:
+                lines.append(f"Verified {arithmetic_work.operation} procedure:")
+                lines.extend(arithmetic_work.explanations)
+                block = _finish_with_answer(lines, arithmetic_work.answer)
+                return replace(
+                    block,
+                    canonical_fences=[arithmetic_work.model_dump()],
+                )
     if (
         intent.school_op == "z_score"
         and intent.point_x is not None
@@ -1687,21 +1639,6 @@ def _verified_block_arithmetic(
             canonical_answer=block.canonical_answer,
             direct_reply=direct,
         )
-    if (
-        intent.school_op
-        in {"average_speed", "speed_formula_speed", "speed_formula_distance", "speed_formula_time"}
-        and intent.unit_from
-        and intent.unit_to
-    ):
-        if re.fullmatch(r"[+-]?\d+\.\d+", answer):
-            answer = answer.rstrip("0").rstrip(".")
-        if intent.school_op in {"average_speed", "speed_formula_speed"}:
-            result_unit = f"{intent.unit_from}/{intent.unit_to}"
-        elif intent.school_op == "speed_formula_distance":
-            result_unit = intent.unit_from
-        else:
-            result_unit = intent.unit_to
-        answer = format_quantity(answer, result_unit)
     lines.append(f"Result: {answer}")
     return _finish_with_answer(lines, answer)
 
@@ -1716,7 +1653,20 @@ def _verified_block_trig(
         and intent.integral_lower is not None
         and intent.integral_upper is not None
     ):
-        from sympy import Eq, FiniteSet, Interval, Symbol, latex, pi, simplify, solveset
+        from sympy import (
+            Eq,
+            FiniteSet,
+            Interval,
+            Symbol,
+            cos,
+            latex,
+            pi,
+            simplify,
+            sin,
+            solve,
+            solveset,
+            tan,
+        )
 
         from app.modules.math import solve as math_solve
         from app.modules.math.solve.parse import parse_equation
@@ -1757,17 +1707,55 @@ def _verified_block_trig(
             joined = r",\;".join(f"{latex(value)}{suffix}" for value in display_values)
             answer = f"{intent.variable} = {joined}"
         degree_suffix = "^\\circ" if intent.school_op == "bounded_degree_equation" else ""
+        left_comparator = r"\le" if intent.comparator == "<=" else "<"
+        right_comparator = r"\le" if intent.comparator_upper == "<=" else "<"
         domain_tex = (
-            f"{intent.integral_lower}{degree_suffix} "
-            f"{intent.comparator} {intent.variable} {intent.comparator_upper} "
-            f"{intent.integral_upper}{degree_suffix}"
+            f"{latex(low)}{degree_suffix} {left_comparator} {intent.variable} "
+            f"{right_comparator} {latex(high)}{degree_suffix}"
         )
+        periodic: str | None = None
+        if rhs == 0 and getattr(lhs, "func", None) in {sin, cos, tan} and len(lhs.args) == 1:
+            integer = Symbol("k", integer=True)
+            angle = lhs.args[0]
+            if lhs.func == cos:
+                angle_solution = pi / 2 + integer * pi
+                zero_law = r"\cos(\theta)=0 \Rightarrow \theta=\frac{\pi}{2}+k\pi"
+            else:
+                angle_solution = integer * pi
+                function_name = "sin" if lhs.func == sin else "tan"
+                zero_law = rf"\{function_name}(\theta)=0 \Rightarrow \theta=k\pi"
+            solved_general = solve(Eq(angle, angle_solution), variable)
+            if len(solved_general) == 1:
+                general = simplify(solved_general[0])
+                k_values: list[str] = []
+                for value in display_values:
+                    candidates = solve(Eq(general, value), integer)
+                    if len(candidates) == 1 and candidates[0].is_integer:
+                        rendered = latex(candidates[0])
+                        if rendered not in k_values:
+                            k_values.append(rendered)
+                joined_k = r",\;".join(k_values)
+                interval_step = (
+                    f"$k = {joined_k}$ gives every value in ${domain_tex}$."
+                    if k_values
+                    else f"Keep the values of $k$ that place $x$ in ${domain_tex}$."
+                )
+                periodic = (
+                    "**1. Use the periodic zero law**\n\n"
+                    f"${zero_law}, \\quad k\\in\\mathbb{{Z}}$\n\n"
+                    "**2. Substitute the angle**\n\n"
+                    f"${latex(angle)} = {latex(angle_solution)}$\n\n"
+                    "**3. Solve for the variable**\n\n"
+                    f"${intent.variable} = {latex(general)}$\n\n"
+                    "**4. Apply the stated interval**\n\n"
+                    f"{interval_step}\n\n"
+                )
         direct = (
             f"**Given:** ${latex(lhs)} = {latex(rhs)}$\n\n"
             f"**Domain:** ${domain_tex}$\n\n"
-            "**Solve within the stated interval**\n"
-            f"${answer}$\n\n"
-            f"```answer\n{answer}\n```\n"
+            + (periodic or "**Solve within the stated interval**\n")
+            + f"${answer}$\n\n"
+            + f"```answer\n{answer}\n```\n"
         )
         lines.extend(
             [
@@ -1835,6 +1823,11 @@ def _verified_block_trig(
                     complementary(first * pi / 180),
                     sin(second * pi / 180),
                 )
+                signed_second = (
+                    simplify(components[0] * components[1] - components[2] * components[3])
+                    if intent.school_op == "cos"
+                    else simplify(components[0] * components[1] + components[2] * components[3])
+                )
                 direct = (
                     "**Split into familiar angles**\n"
                     f"${angle}^\\circ = {first}^\\circ + {second}^\\circ$\n\n"
@@ -1842,10 +1835,13 @@ def _verified_block_trig(
                     f"$\\{intent.school_op}({angle}^\\circ) = "
                     f"\\{left_first}({first}^\\circ)\\{left_second}({second}^\\circ) "
                     f"{sign} \\{right_first}({first}^\\circ)\\{right_second}({second}^\\circ)$\n\n"
-                    "**Substitute exact values**\n"
-                    f"$= {latex(components[0])}\\left({latex(components[1])}\\right) "
-                    f"{sign} {latex(components[2])}\\left({latex(components[3])}\\right) "
-                    f"= {latex(together(simplify(trig(angle * pi / 180))))}$\n\n"
+                    "**Write the exact component values**\n"
+                    f"$\\{left_first}({first}^\\circ)={latex(components[0])}$\n\n"
+                    f"$\\{left_second}({second}^\\circ)={latex(components[1])}$\n\n"
+                    f"$\\{right_first}({first}^\\circ)={latex(components[2])}$\n\n"
+                    f"$\\{right_second}({second}^\\circ)={latex(components[3])}$\n\n"
+                    "**Substitute and simplify**\n"
+                    f"$\\{intent.school_op}({angle}^\\circ) = {latex(signed_second)}$\n\n"
                     f"```answer\n{answer}\n```\n"
                 )
                 return replace(block, direct_reply=direct)
@@ -1924,6 +1920,65 @@ def _verified_block_probability(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
     if (
+        intent.school_op == "dice_conditional_sum"
+        and intent.comparator in {"<", "<=", "=", ">=", ">"}
+        and intent.combo_n is not None
+        and intent.combo_k is not None
+    ):
+        compare = {
+            "<": lambda total: total < intent.combo_n,
+            "<=": lambda total: total <= intent.combo_n,
+            "=": lambda total: total == intent.combo_n,
+            ">=": lambda total: total >= intent.combo_n,
+            ">": lambda total: total > intent.combo_n,
+        }[intent.comparator]
+        sample = [
+            (first, second)
+            for first in range(1, 7)
+            for second in range(1, 7)
+            if compare(first + second)
+        ]
+        favorable = [pair for pair in sample if sum(pair) == intent.combo_k]
+        if not sample:
+            return None
+        probability = Fraction(len(favorable), len(sample))
+        comparator_latex = {"<": "<", "<=": r"\le", "=": "=", ">=": r"\ge", ">": ">"}[
+            intent.comparator
+        ]
+        answer = (
+            str(probability.numerator)
+            if probability.denominator == 1
+            else rf"\frac{{{probability.numerator}}}{{{probability.denominator}}}"
+        )
+        observed_ratio = rf"\frac{{{len(favorable)}}}{{{len(sample)}}}"
+        probability_working = (
+            observed_ratio if observed_ratio == answer else f"{observed_ratio}={answer}"
+        )
+        sample_text = "{" + ", ".join(f"({a}, {b})" for a, b in sample) + "}"
+        favorable_text = (
+            "{" + ", ".join(f"({a}, {b})" for a, b in favorable) + "}" if favorable else "∅"
+        )
+        lines.extend(
+            (
+                f"Conditional sample space: {sample_text}",
+                f"Favorable outcomes: {favorable_text}",
+                f"Probability: {len(favorable)}/{len(sample)} = {probability}",
+            )
+        )
+        direct = (
+            "**Conditional sample space**\n\n"
+            f"Given $S {comparator_latex} {intent.combo_n}$:\n\n"
+            f"${sample_text}$\n\n"
+            f"There are **{len(sample)}** equally likely ordered outcomes.\n\n"
+            "**Favorable outcomes**\n\n"
+            f"For $S = {intent.combo_k}$: ${favorable_text}$\n\n"
+            "**Conditional probability**\n\n"
+            rf"$P(S={intent.combo_k}\mid S {comparator_latex} {intent.combo_n})="
+            f"{probability_working}$" + "\n\n"
+            f"```answer\n{answer}\n```\n"
+        )
+        return replace(_finish_with_answer(lines, answer), direct_reply=direct)
+    if (
         intent.school_op == "binomial"
         and intent.combo_n is not None
         and intent.combo_k is not None
@@ -1989,17 +2044,20 @@ def _verified_block_probability(
         if medical:
             answer = f"{float(posterior) * 100:.6g}\\%"
             direct = (
-                "**1. Translate the test rates**\n"
-                f"$P(D)={prior:g},\\quad P(+\\mid D)={hit:g}$\n\n"
+                "**1. Translate the test rates**\n\n"
+                f"$P(D)={prior:g}$\n\n"
+                f"$P(+\\mid D)={hit:g}$\n\n"
                 "Specificity is $P(-\\mid \\neg D)$, so the false-positive rate is\n"
-                f"$P(+\\mid \\neg D)=1-{1.0 - false_positive:g}={false_positive:g}$.\n\n"
-                "**2. Find the total chance of a positive result**\n"
+                f"$P(+\\mid \\neg D)=1-{1.0 - false_positive:g}$\n\n"
+                f"$P(+\\mid \\neg D)={false_positive:g}$\n\n"
+                "**2. Find the total chance of a positive result**\n\n"
                 f"$P(+\\cap D)=({hit:g})({prior:g})={hit * prior:g}$\n\n"
-                f"$P(+) = ({hit:g})({prior:g}) + ({false_positive:g})(1-{prior:g})"
-                f" = {evidence:g}$\n\n"
-                "**3. Apply Bayes' theorem**\n"
-                f"$P(D\\mid +)=\\frac{{({hit:g})({prior:g})}}{{{evidence:g}}}"
-                f"={posterior}\\approx {answer}$\n\n"
+                f"$P(+) = ({hit:g})({prior:g}) + ({false_positive:g})(1-{prior:g})$\n\n"
+                f"$P(+)={evidence:g}$\n\n"
+                "**3. Apply Bayes' theorem**\n\n"
+                f"$P(D\\mid +)=\\frac{{({hit:g})({prior:g})}}{{{evidence:g}}}$\n\n"
+                f"$P(D\\mid +)={posterior}$\n\n"
+                f"$P(D\\mid +)\\approx {answer}$\n\n"
                 f"```answer\n{answer}\n```\n"
             )
         else:
@@ -2236,13 +2294,7 @@ def apply_calculus_extension(
     return None
 
 
-# Any, not MathIntent: math/tools/block/__init__.py's generic dispatch joins
-# this registry's Callable type with PHYSICS_BLOCK_BUILDERS's (PhysicsIntent)
-# when both are candidates for the same `builder` variable — without this
-# explicit annotation, mypy infers the dict's value type from these
-# MathIntent-only functions and that narrower type wins the join, which then
-# rejects the physics dispatch path entirely.
-_SchoolBlockBuilder = Callable[[Any, Settings, list[str]], VerifiedMathBlock | None]
+_SchoolBlockBuilder = Callable[[MathIntent, Settings, list[str]], VerifiedMathBlock | None]
 
 SCHOOL_BLOCK_BUILDERS: dict[str, _SchoolBlockBuilder] = {
     "arithmetic": _verified_block_arithmetic,

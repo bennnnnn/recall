@@ -45,6 +45,7 @@ const LEGACY_STRUCTURED = [
   "answer",
   "result",
   "final",
+  "arithmetic",
   "clock",
   "time",
   "mermaid",
@@ -127,6 +128,7 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "answer",
   "result",
   "final",
+  "arithmetic",
   "learning_launch",
 ];
 
@@ -209,6 +211,7 @@ describe("fence registry lookups", () => {
   it("does not add fence types without an explicit contract change", () => {
     expect(FENCES.map((spec) => spec.id).sort()).toEqual([
       "answer",
+      "arithmetic",
       "callout",
       "chart",
       "chemistry",
@@ -271,6 +274,7 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       collapsible: "component",
       math: "component",
       answer: "component",
+      arithmetic: "component",
       clock: "component",
       mermaid: "component",
       chart: "component",

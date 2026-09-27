@@ -34,7 +34,9 @@ import {
   convertDetailsBlocks,
   mergeStrandedColons,
   retagVegaFences,
+  separateStandaloneBoldLines,
   stripBoldListLabelContinuationColons,
+  trimBoldDelimiterWhitespace,
   wrapBareVegaJson,
 } from "@/lib/markdown/preprocessNormalize";
 import {
@@ -66,7 +68,9 @@ export {
   breakMidlineAtxHeadings,
   looksLikeMarkdownListProse,
   mergeStrandedColons,
+  separateStandaloneBoldLines,
   stripBoldListLabelContinuationColons,
+  trimBoldDelimiterWhitespace,
 } from "@/lib/markdown/preprocessNormalize";
 export {
   isPipeTable,
@@ -78,6 +82,7 @@ export function preprocessMarkdown(
   mathFormat?: (expr: string) => string,
 ): string {
   let out = repairBrokenMarkdownLinks(content);
+  out = trimBoldDelimiterWhitespace(out);
   // Do this before math normalization can reinterpret a punctuation-only
   // continuation line.
   out = stripBoldListLabelContinuationColons(out);
@@ -132,5 +137,9 @@ export function preprocessMarkdown(
   // After fence inlining: a trailing ✓ used to abort the = split, and
   // inlineShortMathFences can glue `$...$` back onto `For x = 3:`.
   out = layoutCheckVerificationLines(out);
-  return out;
+  out = separateStandaloneBoldLines(out);
+  // Some math normalizers rebuild the surrounding prose while preserving the
+  // model's original delimiter padding. Make this the final prose cleanup so
+  // malformed bold closers can never reach markdown-it as literal `**`.
+  return trimBoldDelimiterWhitespace(out);
 }

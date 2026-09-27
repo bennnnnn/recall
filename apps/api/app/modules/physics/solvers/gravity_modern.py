@@ -21,7 +21,7 @@ from app.modules.physics.solvers.common import (
     _params_in_si,
 )
 from app.modules.physics.solvers.rotation import _orbit_scene
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
@@ -31,7 +31,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
     if op == "gravitational_force":
         r = p["r"]
         if r <= 0:
-            raise MathServiceError("separation must be positive")
+            raise SolveServiceError("separation must be positive")
         f_val = _BIG_G * p["m1"] * p["m2"] / (r * r)
         return PhysicsResult(
             answer=(
@@ -45,7 +45,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
     if op == "orbital_velocity":
         r = p["radius_body"] + p.get("altitude", 0.0)
         if r <= 0:
-            raise MathServiceError("orbital radius must be positive")
+            raise SolveServiceError("orbital radius must be positive")
         v_val = math.sqrt(_BIG_G * p["M"] / r)
         return PhysicsResult(
             answer=(
@@ -59,7 +59,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
     if op == "escape_velocity":
         radius = p["radius_body"]
         if radius <= 0:
-            raise MathServiceError("radius must be positive")
+            raise SolveServiceError("radius must be positive")
         v_val = math.sqrt(2 * _BIG_G * p["M"] / radius)
         return PhysicsResult(
             answer=(
@@ -72,7 +72,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
     if op == "surface_gravity":
         radius = p["radius_body"]
         if radius <= 0:
-            raise MathServiceError("radius must be positive")
+            raise SolveServiceError("radius must be positive")
         g_val = _BIG_G * p["M"] / (radius * radius)
         return PhysicsResult(
             answer=(
@@ -83,7 +83,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{g_val:.2f} m/s^2",
         )
 
-    raise MathServiceError(f"unsupported gravitation op: {op}")
+    raise SolveServiceError(f"unsupported gravitation op: {op}")
 
 
 def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
@@ -93,7 +93,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
     if op in {"lorentz_factor", "time_dilation", "length_contraction"}:
         speed = abs(p["v"])
         if speed >= _SPEED_OF_LIGHT:
-            raise MathServiceError("special relativity requires a speed below c")
+            raise SolveServiceError("special relativity requires a speed below c")
         gamma = 1 / math.sqrt(1 - (speed / _SPEED_OF_LIGHT) ** 2)
         if op == "lorentz_factor":
             return PhysicsResult(
@@ -124,12 +124,12 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "photoelectric_kinetic_energy":
         if p["freq"] <= 0 or p["work_function"] < 0:
-            raise MathServiceError(
+            raise SolveServiceError(
                 "photoelectric energy needs positive frequency and work function"
             )
         value = _PLANCK_H * p["freq"] - p["work_function"]
         if value < 0:
-            raise MathServiceError("the photon energy is below the work function")
+            raise SolveServiceError("the photon energy is below the work function")
         ev = value / _ELEMENTARY_CHARGE
         return PhysicsResult(
             answer=(
@@ -141,7 +141,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "uncertainty_momentum":
         if p["uncertainty_x"] <= 0:
-            raise MathServiceError("position uncertainty must be positive")
+            raise SolveServiceError("position uncertainty must be positive")
         value = _HBAR / (2 * p["uncertainty_x"])
         return PhysicsResult(
             answer=(
@@ -155,7 +155,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
     if op == "particle_box_energy":
         level = p["quantum_n"]
         if p["L"] <= 0 or p["m"] <= 0 or level < 1 or not level.is_integer():
-            raise MathServiceError("box energy needs positive m and L and an integer n >= 1")
+            raise SolveServiceError("box energy needs positive m and L and an integer n >= 1")
         value = level**2 * _PLANCK_H**2 / (8 * p["m"] * p["L"] ** 2)
         ev = value / _ELEMENTARY_CHARGE
         return PhysicsResult(
@@ -171,7 +171,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
     if op == "hydrogen_energy_level":
         level = p["quantum_n"]
         if level < 1 or not level.is_integer():
-            raise MathServiceError("hydrogen energy needs an integer n >= 1")
+            raise SolveServiceError("hydrogen energy needs an integer n >= 1")
         value = -13.6 / level**2
         return PhysicsResult(
             answer=(
@@ -195,7 +195,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "wien_peak":
         if p["temp"] <= 0:
-            raise MathServiceError("blackbody temperature must be positive")
+            raise SolveServiceError("blackbody temperature must be positive")
         value = _WIEN_B / p["temp"]
         return PhysicsResult(
             answer=(
@@ -208,7 +208,9 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "stefan_boltzmann_power":
         if p["temp"] <= 0 or p["area"] <= 0 or not 0 <= p["emissivity"] <= 1:
-            raise MathServiceError("radiated power needs positive T and A and 0 <= emissivity <= 1")
+            raise SolveServiceError(
+                "radiated power needs positive T and A and 0 <= emissivity <= 1"
+            )
         value = p["emissivity"] * _STEFAN_BOLTZMANN * p["area"] * p["temp"] ** 4
         return PhysicsResult(
             answer=(
@@ -223,14 +225,14 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
         if "freq" in p:
             freq = p["freq"]
             if freq <= 0:
-                raise MathServiceError("photon frequency must be positive")
+                raise SolveServiceError("photon frequency must be positive")
             value = _PLANCK_H * freq
             substitution = rf"{_PLANCK_H:.5g} \cdot {freq:.4g}"
             formula = "E = hf"
         else:
             wavelength = p["wavelength"]
             if wavelength <= 0:
-                raise MathServiceError("photon wavelength must be positive")
+                raise SolveServiceError("photon wavelength must be positive")
             value = _PLANCK_H * _SPEED_OF_LIGHT / wavelength
             substitution = (
                 rf"\frac{{{_PLANCK_H:.5g} \cdot {_SPEED_OF_LIGHT:.0f}}}"
@@ -249,7 +251,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
     if op == "de_broglie_wavelength":
         momentum = p["m"] * p["v"]
         if momentum <= 0:
-            raise MathServiceError("momentum must be positive")
+            raise SolveServiceError("momentum must be positive")
         value = _PLANCK_H / momentum
         return PhysicsResult(
             answer=(
@@ -263,12 +265,12 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
         halves = p.get("n_halves")
         if halves is None:
             if p["half_life"] <= 0:
-                raise MathServiceError("half-life must be positive")
+                raise SolveServiceError("half-life must be positive")
             if p["elapsed"] < 0:
-                raise MathServiceError("elapsed time cannot be negative")
+                raise SolveServiceError("elapsed time cannot be negative")
             halves = p["elapsed"] / p["half_life"]
         if halves < 0:
-            raise MathServiceError("the number of half lives cannot be negative")
+            raise SolveServiceError("the number of half lives cannot be negative")
         # Answer in the unit the question used. A sample given in grams should
         # not come back in kilograms; the arithmetic is a ratio either way.
         unit = (intent.physics_units or {}).get("m", "kg")
@@ -292,4 +294,4 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{value:.4g} J",
         )
 
-    raise MathServiceError(f"unsupported modern op: {op}")
+    raise SolveServiceError(f"unsupported modern op: {op}")

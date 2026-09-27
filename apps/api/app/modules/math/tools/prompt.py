@@ -11,7 +11,6 @@ from app.models.schemas.math import (
     MathImageExtract,
     MathIntent,
 )
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.math import solve as math_solve
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.response_intent import (
@@ -209,6 +208,7 @@ async def build_math_augmentation(
     image_math_extract: MathImageExtract | None = None,
     needs_math: bool | None = None,
     prior_user_messages: list[str] | None = None,
+    response_intent_text: str | None = None,
 ) -> tuple[str | None, VerifiedMathBlock | None]:
     """Compute the verified-math system block (or None) without mutating messages.
 
@@ -246,7 +246,7 @@ async def build_math_augmentation(
         # OCR already produced a Pydantic-validated extract — map it straight
         # to MathIntent (do not re-parse through the text regex, which mangles
         # unicode ops / abs bars a photographed problem can contain).
-        intent: MathIntent | PhysicsIntent | None = _intent_from_image_extract(image_math_extract)
+        intent: MathIntent | None = _intent_from_image_extract(image_math_extract)
         if (
             intent is not None
             and intent.kind == "equation"
@@ -329,7 +329,11 @@ async def build_math_augmentation(
         # Intent matched but SymPy timed out / rejected / had no builder result.
         # Inject honesty so the model does not reuse the same "verified" UX.
         return _unverified_math_note(intent.kind), None
-    response_intent = classify_math_response_intent(user_content)
+    # A terse follow-up is solved from the prior mathematical problem, but its
+    # own wording still controls presentation.  Otherwise the final fence pass
+    # sees the original answer-only request and removes the freshly requested
+    # working from “Show me” / “Do it again”.
+    response_intent = classify_math_response_intent(response_intent_text or user_content)
     verified = (
         _withhold_hint_answer(verified, response_intent)
         if not response_intent.reveal_answer
@@ -382,7 +386,7 @@ async def augment_prompt_messages(
 
 
 async def _build_verified_block_async(
-    intent: MathIntent | PhysicsIntent, settings: Settings
+    intent: MathIntent, settings: Settings
 ) -> VerifiedMathBlock | None:
     """Run the sync, CPU-bound SymPy work in a bounded subprocess with a
     hard timeout + SIGTERM on timeout.

@@ -216,6 +216,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   2×2 linear systems, derivatives rule by rule, and indefinite integrals by
   method (u-substitution and integration by parts included). SymPy checks every
   line before it is shown; other explanations still stream.
+- ✅ **Primary-school written arithmetic** — the API owns exact column traces for
+  addition carries, subtraction regrouping across zeros, multiplication carries
+  and partial products, and long division with bring-down rows/remainders. Decimal
+  operands stay exact and terminating division shows placeholder zeros. Mobile
+  renders the canonical trace in a dedicated Computer Modern card; “show steps”
+  and an adjacent “how?” reuse it, while answer-only and hint turns cannot leak it.
 - ✅ **Check my work** — “check my work”, “where did I go wrong” or a bare column of
   worked lines: each line is checked against line 1 with SymPy (one unknown,
   polynomial sides up to degree 2). The reply marks every line, names the first

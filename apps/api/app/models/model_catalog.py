@@ -296,6 +296,10 @@ _DEFAULT = _BY_ID["free-chat"]
 # (free-chat) stays selectable, but Auto's everyday lane uses the faster one.
 _AUTO_FAST = "gemini-flash"
 _AUTO_SMART = "smart-chat"
+# Live phone QA repeatedly saw DeepSeek R1 stream hidden reasoning and then
+# return no visible answer. GLM 5.2 produced the verified worked-math contract
+# in about two seconds, so Auto math uses this strong tier directly.
+_AUTO_MATH = "glm-5.2"
 
 
 def get(model_id: str) -> ChatModel:
@@ -334,6 +338,10 @@ def auto_fast_alias() -> str:
 
 def auto_smart_alias() -> str:
     return _AUTO_SMART
+
+
+def auto_math_alias() -> str:
+    return _AUTO_MATH
 
 
 def is_reasoning_alias(model_id: str) -> bool:

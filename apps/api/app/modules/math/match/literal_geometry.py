@@ -139,14 +139,23 @@ def parse_named_rectangle_request(text: str) -> NamedRectangleRequest | None:
         }.items()
         if any(re.search(pattern, lower) for pattern in patterns)
     ]
+    if re.search(
+        r"\b(?:area\b[^.?!]{0,30}\band\b[^.?!]{0,20}\bperimeter|"
+        r"perimeter\b[^.?!]{0,30}\band\b[^.?!]{0,20}\barea)\b",
+        lower,
+    ):
+        requested.extend(("area", "perimeter"))
     # Also accept the common leading form: "area of a rectangle with ...".
     for quantity in ("area", "perimeter", "diagonal", "width", "length"):
         if re.search(rf"\b{quantity}\s+of\s+(?:a\s+|the\s+)?rectangle\b", lower):
             requested.append(quantity)
     requested = list(dict.fromkeys(requested))
-    if len(requested) != 1:
+    if set(requested) == {"area", "perimeter"}:
+        quantity = "area_and_perimeter"
+    elif len(requested) == 1:
+        quantity = requested[0]
+    else:
         return None
-    quantity = requested[0]
 
     numeric_count = len(re.findall(GEOMETRY_DECIMAL, lower))
     unit_source = _AREA_VALUE.sub(" ", lower)
@@ -154,7 +163,7 @@ def parse_named_rectangle_request(text: str) -> NamedRectangleRequest | None:
     if unit is None:
         return None
 
-    if quantity in {"area", "perimeter", "diagonal"}:
+    if quantity in {"area", "perimeter", "diagonal", "area_and_perimeter"}:
         if width is None or length is None or area is not None or numeric_count != 2:
             return None
         if not (0 < width <= 1_000_000 and 0 < length <= 1_000_000):

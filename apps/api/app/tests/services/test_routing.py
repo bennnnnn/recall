@@ -72,14 +72,15 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("check this out:\n```\nprint(1)\n```", "smart-chat"),
         ("run this:\n```bash\necho hi\n```", "smart-chat"),
         ("what's wrong here:\n```html\n<div></div>\n```", "smart-chat"),
-        # Math / structured turns → smart-chat (a weak model on a math ask
-        # produced wrong worked steps even with SymPy-verified fences).
-        ("solve 2x + 3 = 7", "smart-chat"),
-        ("graph y = x^2", "smart-chat"),
-        ("2x+3=7", "smart-chat"),
-        ("find the area of a circle radius 4", "smart-chat"),
-        ("integrate x^2 from 0 to 1", "smart-chat"),
-        ("standard deviation of 1, 2, 3, 4, 5", "smart-chat"),
+        # Math / structured turns → the low-latency strong math model (a weak
+        # fast model disagreed with verified results, while R1 repeatedly
+        # returned empty visible streams in live QA).
+        ("solve 2x + 3 = 7", "glm-5.2"),
+        ("graph y = x^2", "glm-5.2"),
+        ("2x+3=7", "glm-5.2"),
+        ("find the area of a circle radius 4", "glm-5.2"),
+        ("integrate x^2 from 0 to 1", "glm-5.2"),
+        ("standard deviation of 1, 2, 3, 4, 5", "glm-5.2"),
         # Verified closed-form arithmetic stays free-chat — R1 used to dump a
         # live Reasoning essay ("the user just wrote 4!") on these.
         ("4!", "gemini-flash"),
@@ -89,7 +90,7 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("7*8", "gemini-flash"),
         ("8-8*2", "gemini-flash"),
         # Arithmetic next to a hard question is not a fast-path whole message.
-        ("what is 1+1 and also graph y = x^2", "smart-chat"),
+        ("what is 1+1 and also graph y = x^2", "glm-5.2"),
         # A recognized physics template stays on the fast model; the verifier
         # owns the number. Homework the templates miss still goes to smart-chat.
         (
@@ -163,6 +164,17 @@ def test_route_chat_model_inherits_smart_from_prior_turn_model() -> None:
         route_chat_model("fix it", prior_user="add tests", prior_model="smart-chat") == "smart-chat"
     )
     assert route_chat_model("fix it", prior_user="add tests") == "gemini-flash"
+
+
+def test_route_chat_model_keeps_math_followup_on_low_latency_strong_model() -> None:
+    prior = "solve 3x^2 + x^0 = 3"
+    assert route_chat_model("how?", prior_user=prior) == "glm-5.2"
+    assert route_chat_model("Why is x = -1 rejected?", prior_user=prior) == "glm-5.2"
+    assert route_chat_model("How did you factor that?", prior_user=prior) == "glm-5.2"
+    assert (
+        route_chat_model("show the next step", prior_user="try again", prior_model="glm-5.2")
+        == "glm-5.2"
+    )
 
 
 @pytest.mark.parametrize(

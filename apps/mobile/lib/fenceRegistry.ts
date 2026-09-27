@@ -32,6 +32,7 @@
 
 export type FenceId =
   | "answer"
+  | "arithmetic"
   | "callout"
   | "chart"
   | "chemistry"
@@ -136,6 +137,14 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: true,
     owner: "server",
     fallback: "answer",
+  },
+  {
+    id: "arithmetic",
+    langs: ["arithmetic"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "server",
+    fallback: "visual",
   },
   {
     id: "clock",
@@ -322,7 +331,7 @@ export function isMathFenceLang(lang: string): boolean {
 /** Display math or a diagram fence — not a syntax-highlighted code card. */
 export function isMathDiagramLang(lang: string): boolean {
   const id = fenceIdForLang(lang);
-  return id === "math" || id === "geometry" || id === "graph";
+  return id === "math" || id === "arithmetic" || id === "geometry" || id === "graph";
 }
 
 export function isAnswerFenceLang(lang: string): boolean {
@@ -338,6 +347,7 @@ export function isVisualDiagramFenceLang(lang: string): boolean {
   const id = fenceIdForLang(lang);
   return (
     id === "geometry" ||
+    id === "arithmetic" ||
     id === "graph" ||
     id === "mermaid" ||
     id === "chemistry" ||
@@ -350,6 +360,7 @@ export function isVisualDiagramFenceLang(lang: string): boolean {
 export function isDiagramFenceId(id: FenceId | undefined): boolean {
   return (
     id === "geometry" ||
+    id === "arithmetic" ||
     id === "graph" ||
     id === "chart" ||
     id === "mermaid" ||
@@ -376,5 +387,11 @@ export function isControlFenceLang(lang: string): boolean {
 /** Lift these out of list items so CommonMark treats them as real fences. */
 export function shouldLiftFenceOutOfList(lang: string): boolean {
   const id = fenceIdForLang(lang);
-  return id === "math" || id === "answer" || id === "geometry" || id === "graph";
+  return (
+    id === "math" ||
+    id === "answer" ||
+    id === "arithmetic" ||
+    id === "geometry" ||
+    id === "graph"
+  );
 }

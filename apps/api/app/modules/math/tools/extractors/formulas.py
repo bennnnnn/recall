@@ -717,7 +717,10 @@ def extract_implicit_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "implicit" not in lower:
         return None
-    if "differentiate" not in lower and "derivative" not in lower and "dy/dx" not in lower:
+    # iOS autocorrect can expand the compact token ``dy`` to ``day`` in an
+    # otherwise unambiguous "implicitly" request. Accept that scoped spelling
+    # so algebra cannot append a solve-for-x footer to a derivative answer.
+    if not any(cue in lower for cue in ("differentiate", "derivative", "dy/dx", "day/dx")):
         return None
     eq = cleaned.find("=")
     if eq <= 0:
