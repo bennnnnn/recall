@@ -113,6 +113,7 @@ _BREVITY_MARKERS = (
     "briefly",
     "keep it short",
     "keep it brief",
+    "shorter",
     "tldr",
     "tl;dr",
 )
@@ -120,7 +121,9 @@ _BREVITY_MARKERS = (
 BREVITY_REQUEST_HINT = (
     "The user asked for a one-sentence, one-word, or brief answer. "
     "Ignore decorative table/heading layout and match the length they asked. Preserve a "
-    "draft/code/visual container only when that container is the requested deliverable."
+    "draft/code/visual container only when that container is the requested deliverable. "
+    "When shortening existing text, never drop or blur factual details such as units, "
+    "quantities, dates, names, or commitments."
 )
 
 
@@ -443,6 +446,9 @@ FORMAT_CONTRACT = (
     "then a tagged code fence (```python, ```javascript, etc.). Add notes only when they "
     "help the user run, understand, or safely change it. Never put source code in an untagged "
     "fence.\n"
+    "  - For a bug or snippet question, inspect the literal snippet first and lead with its "
+    "concrete syntax/runtime issue. Prior conversation may explain the likely intent, but it "
+    "must not replace the explicit current question or hide a more immediate bug.\n"
     "\n"
     "Decision / compare (ONLY when the user asks X vs Y, A vs B vs C, or a "
     "feature comparison — not for tips, roadmaps, or how-tos):\n"

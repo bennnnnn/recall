@@ -18,6 +18,13 @@ from app.modules.web_search.patterns import (
     non_geographic_nearest,
 )
 
+_LOCATIONLESS_WEATHER = re.compile(
+    r"^\s*(?:what(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+like)?"
+    r"|weather(?:\s+(?:today|tomorrow|tonight|now))?"
+    r"|(?:the\s+)?forecast(?:\s+(?:today|tomorrow|tonight))?)\s*[?.!]*\s*$",
+    re.IGNORECASE,
+)
+
 
 def _subject_without_proximity(cleaned: str) -> str:
     subject = cleaned.strip()
@@ -54,7 +61,11 @@ def is_distance_query(text: str) -> bool:
 
 def is_geo_query(text: str) -> bool:
     """Any query that needs the user's location — places OR distance. Venue-agnostic."""
-    return is_proximity_query(text) or is_distance_query(text)
+    return (
+        is_proximity_query(text)
+        or is_distance_query(text)
+        or _LOCATIONLESS_WEATHER.fullmatch(text) is not None
+    )
 
 
 def is_places_list_query(text: str) -> bool:

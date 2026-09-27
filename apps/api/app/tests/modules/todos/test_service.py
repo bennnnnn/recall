@@ -794,6 +794,10 @@ def test_transcript_implies_todo_sync_reminder_confirm():
     assert not todos_service.transcript_implies_todo_sync(
         "User: yes\nAssistant: Sounds good — anything else?"
     )
+    assert not todos_service.transcript_implies_todo_sync(
+        "User: Don't create a reminder—just tell me how to remember.\n"
+        "Assistant: You could set a reminder in your phone."
+    )
 
 
 def test_transcript_implies_todo_sync_ignores_schedule_listings():
@@ -897,6 +901,40 @@ async def test_materialize_reminder_fences_creates_todo():
     # 3pm ET → 19:00 UTC
     assert kwargs["due_at"].hour == due.hour
     invalidate_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_respects_user_no_create_request():
+    session = AsyncMock()
+    text = (
+        "You could use a phone alarm.\n\n"
+        "```reminder\n"
+        '{"title":"Submit application","due_at":"2026-09-27T15:00:00-07:00"}\n'
+        "```\n"
+    )
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock()) as list_mock,
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()) as invalidate_mock,
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/Los_Angeles",
+            user_text=(
+                "Don't create a reminder—just tell me how I could remember to submit "
+                "my application tomorrow at 3 PM."
+            ),
+        )
+
+    assert created == 0
+    assert updated == "You could use a phone alarm."
+    assert "```reminder" not in updated
+    list_mock.assert_not_awaited()
+    create_mock.assert_not_awaited()
+    invalidate_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

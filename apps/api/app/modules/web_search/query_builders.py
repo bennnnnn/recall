@@ -11,6 +11,7 @@ from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _GENERIC_NEWS_QUERY,
     _LOOK_IT_UP,
+    _NEWS,
     _ONGOING,
     _QUERY_PREFIX,
     _SPORTS,
@@ -43,6 +44,40 @@ def _today_label(user_timezone: str | None) -> str:
 def _today_iso(user_timezone: str | None) -> str:
     tz = time_context_service.resolve_timezone(user_timezone)
     return datetime.now(tz).strftime("%Y-%m-%d")
+
+
+def anchor_news_query_to_today(query: str, user_timezone: str | None) -> str:
+    """Make a current-news search name the actual local calendar date."""
+    return f"{query.strip()} {_today_label(user_timezone)} {_today_iso(user_timezone)}".strip()
+
+
+def is_current_news_request(text: str) -> bool:
+    return bool(
+        _NEWS.search(text)
+        and re.search(r"\b(?:today|current|latest|right now)\b", text, re.IGNORECASE)
+    )
+
+
+def is_news_today_request(text: str) -> bool:
+    """Return whether the user explicitly constrained news to this day."""
+    return bool(_NEWS.search(text) and re.search(r"\b(?:today|right now)\b", text, re.IGNORECASE))
+
+
+def filter_hits_to_today(hits: list[WebSearchHit], user_timezone: str | None) -> list[WebSearchHit]:
+    """Keep only current-news hits that explicitly name today's local date."""
+    tz = time_context_service.resolve_timezone(user_timezone)
+    now = datetime.now(tz)
+    markers = {
+        now.strftime("%Y-%m-%d").casefold(),
+        now.strftime("%B %d, %Y").replace(" 0", " ").casefold(),
+        now.strftime("%B %d").replace(" 0", " ").casefold(),
+        now.strftime("%b %d").replace(" 0", " ").casefold(),
+    }
+    return [
+        hit
+        for hit in hits
+        if any(marker in f"{hit.title} {hit.snippet}".casefold() for marker in markers)
+    ]
 
 
 def _world_cup_queries(
@@ -184,7 +219,7 @@ def build_search_queries(
     today_iso = _today_iso(user_timezone)
 
     if _GENERIC_NEWS_QUERY.match(cleaned):
-        return ["top news today"]
+        return [anchor_news_query_to_today("top news today", user_timezone)]
 
     if _WORLD_CUP.search(current) or (
         _WORLD_CUP.search(subject) and (_ONGOING.search(current) or _CLARIFICATION.search(current))
@@ -234,6 +269,8 @@ def build_search_queries(
         )
 
     fallback = cleaned or current
+    if fallback and is_current_news_request(current):
+        fallback = anchor_news_query_to_today(fallback, user_timezone)
     return [fallback] if fallback else []
 
 

@@ -163,6 +163,12 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
     text = transcript.strip()
     if not text:
         return False
+    user_body = _first_user_line_body(text)
+    if user_body is not None:
+        from app.modules.todos.reminder_fences import explicitly_declines_reminder_creation
+
+        if explicitly_declines_reminder_creation(user_body):
+            return False
     if _transcript_implies_bulk_shift_to_tomorrow(text):
         return True
     if _transcript_implies_delete_overdue(text):
@@ -174,7 +180,6 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
     if _implies_move_to_tomorrow(text.lower()):
         return True
     # "Yes" / "Sure" after a reminder offer — assistant reply mentions reminder/todo.
-    user_body = _first_user_line_body(text)
     asst_m = _ASSISTANT_LABEL.search(text)
     if user_body is not None and asst_m:
         asst_body = text[asst_m.end() :]

@@ -107,6 +107,22 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             rf"\approx {h_val:.2f} \text{{ m}}"
         )
         answer_value = f"{h_val:.2f} m"
+    elif op == "max_height":
+        if v0 <= 0:
+            raise MathServiceError("maximum height for a vertical launch requires v0 > 0")
+        h_val = h0 + v0**2 / (2 * g)
+        answer_latex = (
+            r"h_{\max} = h_0 + \frac{v_0^2}{2g} = "
+            rf"{h0:g} + \frac{{{_latex_num(v0, square=True)}}}{{2 \cdot {g:g}}} "
+            rf"\approx {h_val:.2f} \text{{ m}}"
+        )
+        answer_value = f"{h_val:.2f} m"
+        # The visual shows the complete trip back to the landing plane while
+        # the scalar answer remains the requested peak height.
+        landed = _time_to_ground()
+        if landed is None:
+            raise MathServiceError("no positive real time to ground")
+        t_val = landed
     elif op == "acceleration":
         # Constant g for free-fall templates only. The extractor returns
         # None unless a gravity-motion cue is present — do not use this

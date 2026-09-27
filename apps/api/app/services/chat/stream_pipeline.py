@@ -154,6 +154,7 @@ async def run_tool_loop_path(
         redis=redis,
         chat_id=ctx.chat_id,
         web_search=web_search_flag,
+        user_timezone=ctx.user_timezone,
     )
     if tool_verified is not None:
         ctx.verified_math = tool_verified
@@ -273,7 +274,7 @@ async def enrich_final_content(
                     user_id=ctx.user_id,
                     chat_id=ctx.chat_id,
                     assistant_text=assistant_text,
-                    user_timezone=getattr(user, "timezone", None),
+                    user_timezone=ctx.user_timezone or getattr(user, "timezone", None),
                     user_text=ctx.user_message_content,
                 )
 
@@ -364,13 +365,20 @@ async def enrich_final_content(
         # Prose artifact cleanup — runs last so it never interferes with
         # fence parsing. Strips orphan colon lines and collapses 3+ blank
         # lines.
-        from app.services.chat.prose_normalizer import normalize_prose_artifacts, prose_changed
+        from app.services.chat.prose_normalizer import (
+            normalize_prose_artifacts,
+            prose_changed,
+            strip_unrequested_recipient_placeholders,
+        )
         from app.services.md_fence_scan import close_unclosed_fences
 
         # A provider can report a normal finish while still omitting a fence
         # closer. Always repair odd fence parity so settled rendering never
         # leaves raw backticks or an open streaming-style block behind.
         assistant_text = close_unclosed_fences(assistant_text)
+        assistant_text = strip_unrequested_recipient_placeholders(
+            assistant_text, ctx.user_message_content
+        )
 
         normalized = normalize_prose_artifacts(assistant_text)
         if prose_changed(assistant_text, normalized):

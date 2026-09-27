@@ -61,6 +61,17 @@ from app.services.settings_intent import extract_settings_changes
 logger = logging.getLogger(__name__)
 
 
+def _last_recent_assistant_content(recent_messages: list[Any] | None) -> str | None:
+    if not recent_messages:
+        return None
+    for message in reversed(recent_messages):
+        role = getattr(message, "role", None)
+        content = getattr(message, "content", None)
+        if role == "assistant" and isinstance(content, str) and content.strip():
+            return content.strip()
+    return None
+
+
 @dataclass
 class RegenerateBackup:
     content: str
@@ -91,6 +102,10 @@ class StreamContext:
     user_message_content: str
     reserved_tokens: int
     max_output_tokens: int
+    # Effective timezone for this request (profile preference overridden by
+    # the current client timezone). Finalization must use the same zone that
+    # prompt construction used for relative dates and reminder clocks.
+    user_timezone: str | None = None
     user: User | None = None
     # Pre-assigned id for the assistant row so `done` can be sent to the client
     # before the background DB insert commits.
@@ -180,6 +195,7 @@ def stream_context_from_bundle(
         user_message_content=user_message_content,
         reserved_tokens=reserved_tokens,
         max_output_tokens=bundle.max_out,
+        user_timezone=getattr(bundle, "local_tz", None),
         user=user,
         recalled_count=int(bundle.meta.get("recalled") or 0),
         memory_hints=list(bundle.meta.get("memory_hints") or []),
@@ -392,7 +408,10 @@ async def build_stream_prompt_context(
                 )
                 await session.commit()
         if reply is None:
-            settings_changes = extract_settings_changes(content)
+            settings_changes = extract_settings_changes(
+                content,
+                prior_assistant=_last_recent_assistant_content(recent_messages),
+            )
             if settings_changes:
                 reply = await settings_proposal_service.materialize_settings_reply(
                     redis, user, settings, settings_changes
