@@ -623,6 +623,12 @@ const makeExplorerStyles = (theme: Theme) =>
     modalPlot: {
       flex: 1,
       minHeight: MODAL_PLOT_MIN,
+      marginHorizontal: Space.sm,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      borderRadius: Radius.md,
+      backgroundColor: theme.surface,
+      overflow: "hidden",
     },
     skiaLoading: {
       flex: 1,

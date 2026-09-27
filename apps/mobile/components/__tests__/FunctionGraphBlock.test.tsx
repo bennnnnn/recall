@@ -345,7 +345,13 @@ describe("FunctionGraphBlock", () => {
     expect(queryByTestId("graph-close")).toBeNull();
     await fireEvent.press(getByTestId("graph-expand"));
     expect(getByTestId("graph-close")).toBeOnTheScreen();
-    expect(getByLabelText("rich.graph_plot_a11y")).toBeOnTheScreen();
+    const expandedPlot = getByLabelText("rich.graph_plot_a11y");
+    expect(expandedPlot).toBeOnTheScreen();
+    const expandedPlotStyle = StyleSheet.flatten(expandedPlot.props.style);
+    expect(expandedPlotStyle.backgroundColor).toBe("#F7F7F8");
+    expect(expandedPlotStyle.borderWidth).toBeGreaterThan(0);
+    expect(expandedPlotStyle.borderRadius).toBeGreaterThanOrEqual(12);
+    expect(expandedPlotStyle.marginHorizontal).toBe(12);
     expect(getByTestId("graph-expr-input")).toBeOnTheScreen();
   });
 
