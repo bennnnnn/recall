@@ -1,6 +1,6 @@
 """Presentation-only context for a short follow-up to the immediately prior math turn."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from app.modules.math.tools.prompt import needs_symbolic_math
@@ -68,6 +68,84 @@ _REFERENTIAL_REQUESTS = frozenset(
     }
 )
 
+# These follow-ups ask for the working behind the immediately preceding
+# result. They can be answered by the same verified key-step trace as the
+# original equation. Proof, hint, and example requests intentionally stay on
+# the conversational model path because replaying a full solution would break
+# their requested scope.
+_WORKING_REQUESTS = frozenset(
+    {
+        "how",
+        "why",
+        "how so",
+        "why is that",
+        "how does that work",
+        "how did you get that",
+        "how did you get this",
+        "how did you get that answer",
+        "how did you calculate that",
+        "how is that calculated",
+        "explain",
+        "explain it",
+        "explain that",
+        "explain this",
+        "explain the answer",
+        "explain the result",
+        "explain the steps",
+        "show the steps",
+        "show me the steps",
+        "show your work",
+        "show me how",
+        "show me why",
+        "walk me through it",
+        "explain step by step",
+    }
+)
+
+
+def _clean_referential_request(query: str | None) -> str | None:
+    if not query or len(query) > 120:
+        return None
+    cleaned = " ".join(query.lower().split()).strip(".!?")
+    for prefix in ("please ", "can you ", "could you ", "would you "):
+        if cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix) :]
+    if cleaned.endswith(" please"):
+        cleaned = cleaned[:-7]
+    return cleaned
+
+
+def _message_field(message: Any, field: str) -> Any:
+    if isinstance(message, Mapping):
+        return message.get(field)
+    return getattr(message, field, None)
+
+
+def _referenced_math_problem(
+    query: str | None,
+    recent: Sequence[Any],
+    *,
+    requests: frozenset[str],
+) -> str | None:
+    """Return the problem from one complete adjacent math exchange."""
+    cleaned = _clean_referential_request(query)
+    if cleaned not in requests or len(recent) < 2:
+        return None
+    question, answer = recent[-2:]
+    if _message_field(question, "role") != "user" or _message_field(answer, "role") != "assistant":
+        return None
+    prior = _message_field(question, "content")
+    reply = _message_field(answer, "content")
+    if not (
+        isinstance(prior, str)
+        and prior.strip()
+        and isinstance(reply, str)
+        and reply.strip()
+        and needs_symbolic_math(prior)
+    ):
+        return None
+    return prior
+
 
 def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str | None:
     """The equation still in progress when this message is only a fragment.
@@ -94,28 +172,12 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
 
 def is_math_followup(query: str | None, recent: Sequence[Any]) -> bool:
     """Require one complete adjacent user/assistant math exchange; never scan older topics."""
-    if not query or len(query) > 120 or len(recent) < 2:
-        return False
-    cleaned = " ".join(query.lower().split()).strip(".!?")
-    for prefix in ("please ", "can you ", "could you ", "would you "):
-        if cleaned.startswith(prefix):
-            cleaned = cleaned[len(prefix) :]
-    if cleaned.endswith(" please"):
-        cleaned = cleaned[:-7]
-    if cleaned not in _REFERENTIAL_REQUESTS:
-        return False
-    question, answer = recent[-2:]
-    if getattr(question, "role", None) != "user" or getattr(answer, "role", None) != "assistant":
-        return False
-    prior = getattr(question, "content", None)
-    reply = getattr(answer, "content", None)
-    return bool(
-        isinstance(prior, str)
-        and prior.strip()
-        and isinstance(reply, str)
-        and reply.strip()
-        and needs_symbolic_math(prior)
-    )
+    return _referenced_math_problem(query, recent, requests=_REFERENTIAL_REQUESTS) is not None
+
+
+def math_working_followup_problem(query: str | None, recent: Sequence[Any]) -> str | None:
+    """Return the adjacent problem when a follow-up asks for its verified working."""
+    return _referenced_math_problem(query, recent, requests=_WORKING_REQUESTS)
 
 
 def readable_standalone_answer(content: str) -> str | None:

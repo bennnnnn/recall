@@ -21,6 +21,7 @@ from app.modules.chemistry import context as chemistry_context_service
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
+from app.modules.math.followup import math_working_followup_problem
 from app.modules.math.tools import VerifiedMathBlock, needs_symbolic_math
 from app.modules.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
@@ -413,6 +414,19 @@ async def build_stream_prompt_context(
     if timing is not None:
         timing.mark_phase("prompt_assembled")
 
+    # A terse "how?" after a completed equation must go back through the
+    # verified solver, not ask the language model to invent a fresh method.
+    # build_prompt_messages has already loaded and adjacency-checked the recent
+    # exchange; drop the current user row before reading that pair.
+    followup_history: list[dict[str, str]] = prompt_messages
+    if (
+        prompt_messages
+        and prompt_messages[-1].get("role") == "user"
+        and prompt_messages[-1].get("content") == content
+    ):
+        followup_history = prompt_messages[:-1]
+    math_followup_problem = math_working_followup_problem(content, followup_history)
+
     # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
         instant_reply = web_search_service.format_location_not_set_answer()
@@ -422,6 +436,7 @@ async def build_stream_prompt_context(
     needs_math = (
         needs_symbolic_math(content, has_image_attachment=has_image_attachment)
         or image_math_extract is not None
+        or (settings.math_tools_enabled and math_followup_problem is not None)
     )
     needs_search = web_search_service.needs_web_search(
         content,
@@ -511,6 +526,7 @@ async def build_stream_prompt_context(
                 prior_user_messages=priors,
                 has_image_attachment=has_image_attachment,
                 image_math_extract=image_math_extract,
+                math_followup_problem=math_followup_problem,
                 on_status=on_status,
                 user=user,
                 redis=redis,

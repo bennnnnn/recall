@@ -100,6 +100,8 @@ _STRIP_PHRASES: tuple[str, ...] = tuple(
 def wants_math_explanation(text: str) -> bool:
     """True when the user asked for language (steps / teaching), not just the value."""
     lowered = text.lower()
+    if " ".join(lowered.split()).strip(".!?") in {"how", "why", "how so"}:
+        return True
     if any(phrase in lowered for phrase in _EXPLAIN_PHRASES):
         return True
     padded = f" {lowered} "
@@ -114,6 +116,8 @@ def wants_answer_only(text: str) -> bool:
 def wants_detailed_math_explanation(text: str) -> bool:
     """True for 'explain' / 'why' — not for 'show steps'."""
     lowered = text.lower()
+    if " ".join(lowered.split()).strip(".!?") in {"how", "why", "how so"}:
+        return True
     return any(phrase in lowered for phrase in _DETAILED_EXPLAIN_PHRASES)
 
 
@@ -163,6 +167,13 @@ def should_render_equation_lesson(
         return False
     if wants_answer_only(user_text):
         return False
+    # A closed equation/system/inequality should teach, regardless of the
+    # global prose-length preference. ``key_steps`` is a short,
+    # server-rendered, SymPy-checked trace; hiding it in Short mode is what
+    # reduced homework to a bare chip. Calculus keeps its existing compact
+    # style rules unless the learner explicitly asks how/why/for steps.
+    if verified.given_label == "Given":
+        return True
     if wants_math_explanation(user_text):
         return True
     if response_style == "short":

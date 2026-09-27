@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 
 import { MATH_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
@@ -32,17 +33,21 @@ const FRAC_CHAR_PX = 9;
  * unscaled space and get multiplied by layoutScale. */
 const FRAC_EM = 14;
 const BASE_EM = 16;
-const FRAC_PAD_PX = 14;
+/** A real vinculum only overhangs its widest glyph slightly. The old 14px
+ * padding added seven pixels per side, making 1/2 look like a blank rule. */
+const FRAC_PAD_PX = 4;
 const FRAC_STACK_HEIGHT = 44;
 const FRAC_LINE_HEIGHT = 18;
 const FRACTIONAL_SCRIPT_HEIGHT = 30;
 /** Math glyph layout needs a numeric line box; unlike prose Type roles, this
  * scales with the requested math size and React Native's system font scale. */
 const MATH_BODY_LINE_HEIGHT = 25;
-/** Radical sign and radicand share this tight line box so the vinculum (drawn
- * as the radicand's top border) lands on the √ hook. With the base 28px line
- * box the bar floats in the leading, well above both the hook and the digits. */
+/** Simple radicands use this tight line box. The radical path adds only its
+ * small top inset; nested fractions contribute their full measured height. */
 const SQRT_LINE_HEIGHT = 20;
+const RADICAL_MIN_LEAD_PX = 13;
+const RADICAL_BODY_TOP_PX = 2;
+const RADICAL_STROKE_PX = 1.35;
 
 /** SpaceMono has no (or a broken) U+2260 — fallback looks like slashed ≡. */
 const MATH_OPERATOR_CHARS = new Set(
@@ -118,9 +123,9 @@ function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width:
       width += box.width + 6;
       height = Math.max(height, box.height);
     } else if (seg.type === "sqrt") {
-      const body = estimateSegmentsSize(seg.body, inFrac);
-      width += 14 + (seg.degree ? visualLength(seg.degree) * 8 + 2 : 4) + body.width;
-      height = Math.max(height, body.height + (seg.degree ? 6 : 2));
+      const box = radicalBoxSize(seg.body, inFrac, seg.degree);
+      width += box.width;
+      height = Math.max(height, box.height);
     } else if (seg.type === "cancel") {
       const inner = estimateSegmentsSize(seg.body, inFrac);
       width += inner.width;
@@ -131,6 +136,22 @@ function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width:
     }
   }
   return { width, height };
+}
+
+function radicalBoxSize(
+  segments: MathSegment[],
+  inFrac: boolean,
+  degree?: string,
+): { width: number; height: number; lead: number; body: { width: number; height: number } } {
+  const body = estimateSegmentsSize(segments, inFrac);
+  const indexLead = degree ? visualLength(degree) * 7 + 5 : 0;
+  const lead = Math.max(RADICAL_MIN_LEAD_PX, indexLead);
+  return {
+    width: lead + body.width,
+    height: Math.max(SQRT_LINE_HEIGHT, body.height + RADICAL_BODY_TOP_PX),
+    lead,
+    body,
+  };
 }
 
 function fracStackSize(num: MathSegment[], den: MathSegment[]): { width: number; height: number } {
@@ -165,6 +186,7 @@ function hasTallMath(segments: MathSegment[]): boolean {
 
 type RenderCtx = {
   styles: Styles;
+  color: string;
   /** Fraction-sized run — numerator/denominator content stays small. */
   inFrac?: boolean;
   /** Overrides the run style for the whole subtree (radicand line box). */
@@ -280,17 +302,57 @@ function renderSegments(
       );
     }
     if (seg.type === "sqrt") {
+      const box = radicalBoxSize(seg.body, Boolean(inFrac), seg.degree);
+      const width = box.width * ctx.layoutScale;
+      const height = box.height * ctx.layoutScale;
+      const top = 1;
+      const hook = Math.max(top + 7, box.height * 0.56);
+      const bottom = box.height - 1;
+      const rise = box.lead - 1;
       return (
         <View
           key={key}
-          style={[styles.sqrtRow, !seg.degree && styles.sqrtAfterCoeff]}
+          style={[
+            styles.sqrtRow,
+            !seg.degree && styles.sqrtAfterCoeff,
+            { width, height },
+          ]}
           testID="math-sqrt"
+          collapsable={false}
         >
+          <Svg
+            testID="math-radical-glyph"
+            width={width}
+            height={height}
+            viewBox={`0 0 ${box.width} ${box.height}`}
+            style={styles.radicalGlyph}
+            pointerEvents="none"
+            accessible={false}
+          >
+            <Path
+              d={`M 0 ${hook} L 3 ${hook} L 5.5 ${bottom} L ${rise} ${top} L ${box.width} ${top}`}
+              fill="none"
+              stroke={ctx.color}
+              strokeWidth={RADICAL_STROKE_PX}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
           {seg.degree ? (
             <Text style={styles.sqrtIndex}>{seg.degree}</Text>
           ) : null}
-          <Text style={inFrac ? styles.fracPart : styles.sqrtSign}>√</Text>
-          <View style={styles.sqrtRadicand} testID="math-sqrt-radicand">
+          <View
+            style={[
+              styles.sqrtRadicand,
+              {
+                marginLeft: box.lead * ctx.layoutScale,
+                marginTop: RADICAL_BODY_TOP_PX * ctx.layoutScale,
+                width: box.body.width * ctx.layoutScale,
+                height: box.body.height * ctx.layoutScale,
+              },
+            ]}
+            testID="math-sqrt-radicand"
+          >
             {renderRadicand(seg.body, `${key}-b`, ctx)}
           </View>
         </View>
@@ -313,6 +375,7 @@ function renderSegments(
 /** Native math: simple runs stay Text; stacked or raised structures own their bounds. */
 export function MathText({ latex, textColor, compact = false, fontSize = 16, scrollOverflow = false }: Props) {
   const theme = useTheme();
+  const color = textColor ?? theme.text;
   const { fontScale } = useWindowDimensions();
   const layoutScale = (fontSize / 16) * fontScale;
   const styles = useMemo(
@@ -341,7 +404,7 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16, scr
           height: size.height * layoutScale,
         }]}
       >
-        {renderSegments(segments, "m", { styles, layoutScale })}
+        {renderSegments(segments, "m", { styles, color, layoutScale })}
       </View>
     );
     if (!scrollOverflow) return content;
@@ -371,7 +434,7 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16, scr
 
   return (
     <Text style={styles.base}>
-      {renderSegments(segments, "m", { styles, layoutScale })}
+      {renderSegments(segments, "m", { styles, color, layoutScale })}
     </Text>
   );
 }
@@ -448,30 +511,26 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       color,
       textAlign: "center",
     },
-    // Tops share an edge: sign and radicand have the same line box, so the
-    // hook meets the bar. `flex-end` bottom-aligned a shorter radicand box and
-    // dropped it into subscript position.
+    // One SVG path draws hook, rising stroke, and bar continuously. Its height
+    // is derived from the radicand, so a stacked denominator stays inside it.
     sqrtRow: {
       flexDirection: "row",
       alignItems: "flex-start",
       marginHorizontal: 2 * layoutScale,
+      overflow: "visible",
     },
     sqrtAfterCoeff: {
       marginLeft: 6 * layoutScale,
     },
     sqrtIndex: {
+      position: "absolute",
+      left: 0,
+      top: 0,
       fontFamily: MATH_FONT,
       fontSize: 12 * scale,
       lineHeight: 14 * scale,
       color,
-      marginRight: layoutScale,
-      marginTop: -4 * layoutScale,
-    },
-    sqrtSign: {
-      fontFamily: MATH_FONT,
-      fontSize,
-      lineHeight: SQRT_LINE_HEIGHT * scale,
-      color,
+      transform: [{ translateY: -4 * layoutScale }],
     },
     sqrtBody: {
       fontFamily: MATH_FONT,
@@ -480,10 +539,14 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       color,
     },
     sqrtRadicand: {
-      borderTopWidth: StyleSheet.hairlineWidth * 2,
-      borderTopColor: color,
-      paddingTop: layoutScale,
-      marginLeft: layoutScale,
+      flexDirection: "row",
+      alignItems: "flex-start",
+      overflow: "visible",
+    },
+    radicalGlyph: {
+      position: "absolute",
+      left: 0,
+      top: 0,
     },
     vinculum: {
       alignSelf: "stretch",

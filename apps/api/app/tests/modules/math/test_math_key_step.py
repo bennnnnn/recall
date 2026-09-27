@@ -2,7 +2,8 @@
 
 ``solve x^2 - 5x + 6 = 0`` used to return a bare chip (or a one-line
 factorization). The working is now a server-rendered Given / one-transformation
-trace so it cannot drift from the chip. SHORT and “just the answer” stay a chip.
+trace so it cannot drift from the chip. Only an explicit “just the answer” opts
+out; the global prose-length preference must not hide mathematical working.
 """
 
 from __future__ import annotations
@@ -107,13 +108,13 @@ async def test_lesson_prefix_reaches_verified_math_routing(text: str) -> None:
     assert verified.canonical_answer
 
 
-def test_one_op_linear_stays_a_chip_on_balanced() -> None:
+def test_one_op_linear_still_shows_its_verified_working() -> None:
     text = "x+7=12"
     reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
 
     assert reply is not None
-    assert "Given" not in reply
-    assert reply.startswith("```answer")
+    assert "**Given:**" in reply
+    assert "Subtract 7 from both sides" in reply
     assert "x = 5" in reply
 
 
@@ -275,14 +276,27 @@ def test_symmetric_factor_trace_finishes_with_compact_chip_value() -> None:
     assert block.key_steps[-1].formula == block.canonical_answer == r"x = \pm 1"
 
 
-def test_short_keeps_the_bare_answer() -> None:
+def test_short_style_keeps_verified_equation_working() -> None:
     text = "solve x^2 - 5x + 6 = 0"
     reply = maybe_direct_math_reply(_block(text), text, response_style="short")
 
     assert reply is not None
-    assert "Factor the left side" not in reply
+    assert "Factor the left side" in reply
     assert "Factors as" not in reply
-    assert reply.startswith("```answer")
+    assert reply.startswith("**Given:**")
+    assert "```answer" in reply
+
+
+def test_bare_how_uses_the_verified_trace_and_explains_each_transformation() -> None:
+    block = _block("3x^2 + 3 = 5")
+    reply = maybe_direct_math_reply(block, "how?", response_style="short")
+
+    assert reply is not None
+    assert "**Given:**" in reply
+    assert "Subtract 3 from both sides" in reply
+    assert "Square root" in reply
+    assert "—" in reply.split("```answer")[0]
+    assert block.canonical_answer in reply
 
 
 def test_detailed_irreducible_quadratic_uses_the_formula() -> None:
