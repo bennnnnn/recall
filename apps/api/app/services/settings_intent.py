@@ -144,6 +144,14 @@ _PUNCT = frozenset("?!.,;:\"'`")
 
 _MAX_COMMAND_TOKENS = 12
 
+_DRAFT_FENCES = ("```message", "```email")
+_REVISION_REFERENCES = frozenset(
+    {"it", "this", "that", "version", "message", "email", "draft", "reply", "text"}
+)
+_EXPLICIT_SETTINGS_WORDS = frozenset(
+    {"setting", "settings", "default", "app", "recall", "preference", "preferences"}
+)
+
 
 @dataclass(frozen=True, slots=True)
 class SettingsChange:
@@ -183,6 +191,23 @@ def _looks_like_command(tokens: list[str]) -> bool:
     if _has_content_request(tokens):
         return False
     return _has_change_cue(tokens) or _has_settings_noun(tokens) or len(tokens) <= 4
+
+
+def _revises_prior_draft(tokens: list[str], prior_assistant: str | None) -> bool:
+    """Keep referential writing edits out of permanent app settings.
+
+    ``Make it less formal`` is a settings command in isolation, but immediately
+    after a ``message``/``email`` draft, "it" refers to that artifact. Explicit
+    app/preference wording still opts into a persistent setting change.
+    """
+    if not prior_assistant:
+        return False
+    prior = prior_assistant.casefold()
+    if not any(fence in prior for fence in _DRAFT_FENCES):
+        return False
+    if any(word in _EXPLICIT_SETTINGS_WORDS for word in tokens):
+        return False
+    return any(word in _REVISION_REFERENCES for word in tokens)
 
 
 def _window_has(tokens: list[str], left: str, right: str) -> bool:
@@ -272,10 +297,14 @@ def _extract_locale(tokens: list[str]) -> str | None:
     return None
 
 
-def extract_settings_changes(content: str) -> list[SettingsChange]:
+def extract_settings_changes(
+    content: str, *, prior_assistant: str | None = None
+) -> list[SettingsChange]:
     """Return allowlisted changes, or empty if this is not a settings command."""
     tokens = _tokens(content)
     if not _looks_like_command(tokens):
+        return []
+    if _revises_prior_draft(tokens, prior_assistant):
         return []
 
     found: list[SettingsChange] = []

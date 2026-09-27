@@ -321,6 +321,14 @@ def test_one_sentence_skips_chart_and_compare_layout():
     assert BREVITY_REQUEST_HINT in compare
 
 
+def test_shorter_preserves_fact_guardrail():
+    from app.services.chat.prompt_constants import BREVITY_REQUEST_HINT, is_brevity_request
+
+    assert is_brevity_request("Shorter.")
+    assert "never drop or blur factual details" in BREVITY_REQUEST_HINT
+    assert "units" in BREVITY_REQUEST_HINT
+
+
 def test_sequence_diagram_uses_sequence_hint_not_flowchart():
     from app.services.chat.prompt_constants import (
         MERMAID_FORMAT_HINT,

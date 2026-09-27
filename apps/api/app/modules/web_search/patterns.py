@@ -111,12 +111,12 @@ def has_recency(text: str) -> bool:
 
 _NEWS = re.compile(
     r"\b("
-    r"what(?:'s| is) (?:happening|going on|new|in the news)"
+    r"what(?:['\u2019]s| is) (?:happening|going on|new|in the news)"
     r"|top (?:news|stories|headlines)"
     r"|news (?:today|this week|stories)"
     r"|in the world(?: today)?"
     r"|world news|current events"
-    r"|what(?:'s| is) cookin(?:'|g)?(?: in the world)?"
+    r"|what(?:['\u2019]s| is) cookin(?:['\u2019]|g)?(?: in the world)?"
     r")\b",
     re.IGNORECASE,
 )

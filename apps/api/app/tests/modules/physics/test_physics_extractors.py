@@ -82,6 +82,34 @@ def test_kinematics_thrown_upward() -> None:
     assert intent.physics_params["v0"] == 15.0
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A ball is thrown upward at 20 m/s. How high does it go?",
+        "A ball is thrown up at 20 m/s. What maximum height will it reach?",
+        "A stone is launched upward at 20 m/s. What is its highest point?",
+    ],
+)
+def test_kinematics_vertical_launch_asks_for_maximum_height(text: str) -> None:
+    intent = _extract_kinematics_intent(text)
+
+    assert intent is not None
+    assert intent.kind == "kinematics"
+    assert intent.physics_op == "max_height"
+    assert intent.physics_params is not None
+    assert intent.physics_params["v0"] == 20.0
+    assert intent.physics_params["g"] == 9.81
+
+
+def test_kinematics_downward_launch_does_not_use_upward_maximum_height_formula() -> None:
+    assert (
+        _extract_kinematics_intent(
+            "A ball is thrown downward at 20 m/s from 30 m. How high does it go?"
+        )
+        is None
+    )
+
+
 def test_kinematics_free_fall_distance_without_from_keyword() -> None:
     """``free fall 20 m`` has no from/height keyword; still a drop height."""
     intent = _extract_kinematics_intent("How long does an object free fall 20 m?")

@@ -63,6 +63,7 @@ def _ctx(
     ctx = MagicMock()
     ctx.user = MagicMock()
     ctx.user.timezone = "UTC"
+    ctx.user_timezone = "UTC"
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
     ctx.search_sources = search_sources or []
@@ -72,6 +73,34 @@ def _ctx(
     ctx.instant_reply = None
     ctx.user_message_content = "what's the news"
     return ctx
+
+
+@pytest.mark.asyncio
+async def test_reminder_finalization_uses_effective_client_timezone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
+    seams = _seams()
+    ctx = _ctx()
+    ctx.user.timezone = "UTC"
+    ctx.user_timezone = "America/Los_Angeles"
+    ctx.user_message_content = "Remind me tomorrow at 3 PM to submit my application."
+
+    await enrich_final_content(
+        seams,
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text="I'll help with that.",
+        usage={"input": 1, "output": 2},
+        result={},
+        was_cancelled=False,
+        assistant_parts=["I'll help with that."],
+        should_cancel=None,
+    )
+
+    kwargs = seams.todos_service.materialize_reminder_fences.await_args.kwargs
+    assert kwargs["user_timezone"] == "America/Los_Angeles"
 
 
 @pytest.mark.asyncio

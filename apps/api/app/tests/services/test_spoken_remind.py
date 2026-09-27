@@ -81,3 +81,16 @@ def test_parse_spoken_remind_dotted_ampm_and_timezone():
     due = parsed[1]
     assert due.tzinfo == ZoneInfo("America/New_York")
     assert due.hour == 17
+
+
+def test_parse_spoken_remind_respects_explicit_no_create_request():
+    now = datetime(2026, 9, 9, 12, tzinfo=UTC)
+
+    assert (
+        parse_spoken_remind(
+            "Don't set a reminder; just tell me how to remember tomorrow at 3 PM.",
+            user_timezone="America/Los_Angeles",
+            now=now,
+        )
+        is None
+    )

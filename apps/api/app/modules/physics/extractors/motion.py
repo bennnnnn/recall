@@ -98,6 +98,24 @@ def _asks_position(lower: str) -> bool:
     return "height after" in lower or "position after" in lower
 
 
+def _asks_max_height(lower: str) -> bool:
+    """Return whether a vertical launch asks for its peak height.
+
+    A straight-up throw is handled by the one-dimensional kinematics solver,
+    not the angled-projectile extractor.  Without this check, ``how high``
+    silently fell through to the kinematics default and returned the time to
+    ground instead of a height.
+    """
+    return (
+        re.search(
+            r"\bmax(?:imum)?\s+height\b|\bhow high\b|\bhighest point\b|\bpeak height\b"
+            r"|\bheight (?:does|will|can) (?:it |the \w+ )?(?:reach|rise)",
+            lower,
+        )
+        is not None
+    )
+
+
 _STATED_ACCELERATION_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*m/s\^?2(?![0-9])", re.IGNORECASE)
 
 
@@ -144,6 +162,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     asks_speed = _asks_speed(lower)
     asks_velocity = _asks_velocity(lower)
     asks_position = _asks_position(lower)
+    asks_max_height = _asks_max_height(lower)
     # Defer to the equation extractor if there's an explicit "=" equation —
     # but strip "g = 1.6" parameter specs first (those are knowns, not algebra).
     # When they asked for v/speed/position at a time, ``t = 1`` is a given,
@@ -209,7 +228,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         return None
 
     # Decide what the user is asking for.
-    op: Literal["position", "velocity", "speed", "acceleration", "time_to_ground"] = (
+    op: Literal["position", "velocity", "speed", "acceleration", "time_to_ground", "max_height"] = (
         "time_to_ground"
     )
     if asks_speed:
@@ -218,6 +237,13 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         op = "velocity"
     elif asks_position:
         op = "position"
+    elif asks_max_height:
+        # A downward launch has its maximum at the starting instant and needs
+        # different wording/working.  Refuse verification instead of showing
+        # the upward-launch formula for a negative initial velocity.
+        if v0 <= 0:
+            return None
+        op = "max_height"
     elif "acceleration" in lower:
         if not any(cue in lower for cue in _GRAVITY_MOTION_CUES):
             return None

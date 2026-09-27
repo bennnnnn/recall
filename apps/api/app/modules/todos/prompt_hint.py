@@ -44,6 +44,8 @@ TODO_HINT = (
     "```\n"
     "Do not say the change is done, coming, or set. The app appends the saved result "
     "after it applies (or a failure line). Without the fence, nothing is saved.\n"
+    "If the user says not to create, set, add, save, or schedule a reminder, do not emit "
+    "a reminder fence and do not claim one was set. Give only the non-saving advice they asked for.\n"
     'Bulk delete overdue ("delete overdue") — emit one delete fence per overdue item. '
     "Bulk moves of every reminder due today still sync after your reply; do not invent "
     "which items remain.\n"

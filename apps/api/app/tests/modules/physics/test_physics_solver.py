@@ -58,6 +58,24 @@ def test_kinematics_time_to_ground_derivation_includes_initial_velocity() -> Non
     assert r"\sqrt{\frac{2 \cdot 0}{9.81}}" not in result.answer
 
 
+def test_kinematics_vertical_launch_maximum_height() -> None:
+    intent = PhysicsIntent(
+        kind="kinematics",
+        physics_op="max_height",
+        physics_params={"h0": 0.0, "v0": 20.0, "g": 9.81},
+        physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2"},
+        operation="solve",
+    )
+
+    result = physics_solver.solve_kinematics(intent)
+
+    assert result.answer_value == "20.39 m"
+    assert r"h_{\max}" in result.answer
+    assert r"\frac{20^{2}}{2 \cdot 9.81}" in result.answer
+    assert len(result.graph_specs) == 1
+    assert max(point[1] for point in result.graph_specs[0].points) == pytest.approx(20.387, 0.001)
+
+
 def test_kinematics_velocity_op() -> None:
     intent = PhysicsIntent(
         kind="kinematics",
