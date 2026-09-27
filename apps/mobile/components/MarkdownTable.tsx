@@ -35,6 +35,11 @@ const TABLE_H_PAD = 32;
 /** Wide enough that a 3-col ChatGPT-style grid pans instead of squeezing. */
 const MIN_COL_WIDTH = 168;
 
+export function tableViewportWidth(screenWidth: number, measuredWidth: number): number {
+  const screenBound = Math.max(200, screenWidth - TABLE_H_PAD);
+  return measuredWidth > 0 ? Math.min(measuredWidth, screenBound) : screenBound;
+}
+
 export function resolveFrozenRowHeight(left?: number, right?: number): number {
   return Math.max(left ?? 0, right ?? 0);
 }
@@ -50,7 +55,10 @@ export function tableShouldFreezeFirstColumn(
   viewportWidth: number,
   columnWidth: number,
 ): boolean {
-  return columns >= 3 && columnWidth * columns > viewportWidth + 1;
+  // On a phone, a frozen first column consumes almost half of the gesture
+  // surface and makes the table feel stuck. Pan the whole grid there; retain
+  // the useful frozen label column on tablet-sized viewports.
+  return viewportWidth >= 600 && columns >= 3 && columnWidth * columns > viewportWidth + 1;
 }
 
 function collectTableRows(children: ReactNode): ReactElement[] {
@@ -97,9 +105,11 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { width: screenWidth } = useWindowDimensions();
-  const fallbackW = Math.max(200, screenWidth - TABLE_H_PAD);
   const [viewportW, setViewportW] = useState(0);
-  const layoutW = viewportW > 0 ? viewportW : fallbackW;
+  // Some message parents report the intrinsic table width during their first
+  // layout pass. Never let that measurement exceed the physical chat canvas,
+  // or `scrollable` becomes false while the last columns are clipped.
+  const layoutW = tableViewportWidth(screenWidth, viewportW);
   const colCount = Math.max(1, columns);
   const columnWidth = tableColumnWidth(layoutW, colCount);
   const scrollable = columnWidth * colCount > layoutW + 1;
@@ -120,7 +130,7 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
   return (
     <TableLayoutContext.Provider value={{ columnWidth }}>
       <View
-        style={s.scrollWrap}
+        style={[s.scrollWrap, { maxWidth: layoutW }]}
         onLayout={(e) => {
           const w = Math.round(e.nativeEvent.layout.width);
           if (w > 0 && Math.abs(w - viewportW) > 1) setViewportW(w);
@@ -136,6 +146,7 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
           />
         ) : (
           <ScrollView
+            testID="markdown-table-scroll"
             horizontal
             nestedScrollEnabled
             directionalLockEnabled
@@ -143,7 +154,7 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
             overScrollMode="never"
             showsHorizontalScrollIndicator={false}
             scrollEnabled={scrollable}
-            style={s.scroll}
+            style={[s.scroll, { maxWidth: layoutW }]}
             contentContainerStyle={
               scrollable ? { width: columnWidth * colCount } : undefined
             }
@@ -205,6 +216,7 @@ function FrozenFirstColumnTable({
         })}
       </View>
       <ScrollView
+        testID="markdown-table-scroll"
         horizontal
         nestedScrollEnabled
         directionalLockEnabled
@@ -310,8 +322,16 @@ function makeStyles(theme: Theme) {
       overflow: "hidden",
       alignSelf: "stretch",
       width: "100%",
+      maxWidth: "100%",
+      minWidth: 0,
+      flexShrink: 1,
     },
-    scroll: { backgroundColor: "transparent" },
+    scroll: {
+      backgroundColor: "transparent",
+      width: "100%",
+      maxWidth: "100%",
+      minWidth: 0,
+    },
     freezeRow: {
       flexDirection: "row",
       alignSelf: "stretch",

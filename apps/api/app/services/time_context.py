@@ -156,7 +156,19 @@ def _normalize_now_ask(text: str) -> str:
     cleaned = cleaned.replace("\u2019", "'").replace("\u2018", "'")
     while cleaned and cleaned[-1] in ".!?":
         cleaned = cleaned[:-1].rstrip()
-    return cleaned.lower()
+    normalized = cleaned.lower()
+    # Courtesy wrappers do not change a local clock/calendar question. Strip
+    # them as grammar so "please/could you tell me..." uses the same local
+    # owner instead of being sent to the web classifier.
+    courtesy_prefixes = ("please ", "can you ", "could you ", "would you ")
+    for _ in range(2):
+        for prefix in courtesy_prefixes:
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix) :].lstrip()
+                break
+        else:
+            break
+    return normalized
 
 
 _YEAR_ASKS = frozenset(
@@ -202,6 +214,9 @@ _DATE_ASKS = frozenset(
         "what is the date now",
         "what's todays date",
         "current date",
+        "tell me the current date",
+        "tell me current date",
+        "tell me today's date",
         "what day is it",
         "what day is it today",
         "what day is today",
@@ -254,7 +269,7 @@ def maybe_local_now_reply(
 
 def is_time_question(text: str) -> bool:
     """True for the user's *local* current-time question only."""
-    cleaned = collapse_ws(text)
+    cleaned = _normalize_now_ask(text)
     if not cleaned:
         return False
     if is_remote_time_question(cleaned):

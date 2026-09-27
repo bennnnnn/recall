@@ -52,15 +52,28 @@ def anchor_news_query_to_today(query: str, user_timezone: str | None) -> str:
 
 
 def is_current_news_request(text: str) -> bool:
+    topical_update = re.search(
+        r"\b(?:news|headlines?|stories|developments?|updates?|current events|happening)\b",
+        text,
+        re.IGNORECASE,
+    )
     return bool(
-        _NEWS.search(text)
+        (_NEWS.search(text) or topical_update)
         and re.search(r"\b(?:today|current|latest|right now)\b", text, re.IGNORECASE)
     )
 
 
 def is_news_today_request(text: str) -> bool:
     """Return whether the user explicitly constrained news to this day."""
-    return bool(_NEWS.search(text) and re.search(r"\b(?:today|right now)\b", text, re.IGNORECASE))
+    topical_update = re.search(
+        r"\b(?:news|headlines?|stories|developments?|updates?|current events|happening)\b",
+        text,
+        re.IGNORECASE,
+    )
+    return bool(
+        (_NEWS.search(text) or topical_update)
+        and re.search(r"\b(?:today|right now)\b", text, re.IGNORECASE)
+    )
 
 
 def filter_hits_to_today(hits: list[WebSearchHit], user_timezone: str | None) -> list[WebSearchHit]:

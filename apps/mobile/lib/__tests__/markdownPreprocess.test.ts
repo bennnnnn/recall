@@ -923,6 +923,15 @@ represents`;
     expect(out).toContain("$x^2 = 4$");
   });
 
+  it("keeps a currency final inside its explicit answer fence", () => {
+    const input = "```answer\n$17,000\n```";
+    const out = preprocessMarkdown(input);
+    const fences = markdownItInstance.parse(out, {}).filter((t) => t.type === "fence");
+    expect(fences).toHaveLength(1);
+    expect(fences[0].info.trim()).toBe("answer");
+    expect(fences[0].content.trim()).toBe("$17,000");
+  });
+
   it("still repairs a genuine bare-$ (no closing paren) price-tier artifact, stripping the leading $", () => {
     const input = "```math\n$\n1. **Benu** – fusion ($$$)\n```";
     const out = preprocessMarkdown(input);

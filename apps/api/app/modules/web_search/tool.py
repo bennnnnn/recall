@@ -23,6 +23,34 @@ from app.modules.web_search.query_builders import (
 from app.modules.web_search.search_cache import bind_tavily_turn_budget, run_cached_search
 from app.services.prompt_safety import wrap_untrusted
 
+_COUNT_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
+
+
+def _requested_news_count(text: str) -> int | None:
+    """Read a small explicit list size without treating dates as counts."""
+    lowered = text.casefold()
+    for word, count in _COUNT_WORDS.items():
+        if f" {word} " in f" {lowered} ":
+            return count
+    for token in lowered.replace("?", " ").replace(",", " ").split():
+        if token.isdigit():
+            count = int(token)
+            if 1 <= count <= 10:
+                return count
+    return None
+
+
 # Request-scoped quota/cache identity for concurrent chat turns sharing the
 # process-global adapter registry. Set by the tool loop before invoke().
 _search_user: ContextVar[User | None] = ContextVar("mcp_web_search_user", default=None)
@@ -112,8 +140,29 @@ class WebSearchAdapter:
         )
         if news_today:
             hits = filter_hits_to_today(hits, _search_user_timezone.get())
+        requested_count = _requested_news_count(user_query) if news_today else None
+        if requested_count is not None and len(hits) < requested_count:
+            result = ToolResult(
+                name=self.name,
+                content=(
+                    f"Only {len(hits)} independently dated same-day result(s) were found, "
+                    f"fewer than the {requested_count} requested. Do not use the result details, "
+                    "split one source into multiple developments, substitute older news, or invent "
+                    "items. Tell the user the requested same-day list could not be verified."
+                ),
+            )
+            _search_invoke_count.set(prior_count + 1)
+            _search_last_result.set(result)
+            return result
         if not hits:
-            result = ToolResult(name=self.name, content="No results.")
+            content = "No results."
+            if news_today:
+                content = (
+                    "No search result explicitly verified an item for the user's current "
+                    "local date. Say that no same-day developments could be verified; do not "
+                    "substitute older news or invent items."
+                )
+            result = ToolResult(name=self.name, content=content)
         else:
             shown = hits[:5]
             lines = [f"- {hit.title}: {hit.url}\n  {hit.snippet}" for hit in shown]

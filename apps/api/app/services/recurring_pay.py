@@ -18,6 +18,8 @@ from app.core.timezone import resolve_timezone
 from app.services.text_normalize import collapse_ws
 
 _MAX_REQUEST_CHARS = 500
+_MULTIPLY = "\u00d7"
+_DIVIDE = "\u00f7"
 
 _INCOME_CUE = re.compile(
     r"\b(?:pay|paid|paycheck|salary|wage|income|make|earn|earning|receive|receiving)\b",
@@ -65,6 +67,14 @@ _INTERVAL = re.compile(
     r"\b(?:once\s+)?(?:every|each|per)\s+"
     r"(?:(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fourteen)\s+)?"
     r"(weeks?|days?)\b",
+    re.IGNORECASE,
+)
+_AMOUNT_ARTICLE_INTERVAL = re.compile(
+    r"(?:\d{1,3}(?:,\d{3})+|\d+(?:\.\d{1,2})?)\s*a\s*(weeks?|days?)\b",
+    re.IGNORECASE,
+)
+_SIMPLE_CADENCE = re.compile(
+    r"(?:\b(weekly|daily)\b|\bonce\s+(?:a|per)\s+(week|day)\b|/\s*(week|wk|day)\b)",
     re.IGNORECASE,
 )
 _BIWEEKLY = re.compile(r"\b(?:bi[\s-]?weekly|fortnightly|every\s+other\s+week)\b", re.IGNORECASE)
@@ -145,6 +155,13 @@ def _parse_amount(text: str) -> Decimal | None:
 def _parse_interval_days(text: str) -> int | None:
     if _BIWEEKLY.search(text):
         return 14
+    simple_match = _SIMPLE_CADENCE.search(text)
+    if simple_match is not None:
+        cadence = next(value for value in simple_match.groups() if value is not None)
+        return 7 if cadence.lower().startswith(("week", "wk")) else 1
+    article_match = _AMOUNT_ARTICLE_INTERVAL.search(text)
+    if article_match is not None:
+        return 7 if article_match.group(1).lower().startswith("week") else 1
     match = _INTERVAL.search(text)
     if match is None:
         return None
@@ -233,8 +250,15 @@ def _money(value: Decimal) -> str:
     return f"{rounded:,.0f}" if rounded == rounded.to_integral() else f"{rounded:,.2f}"
 
 
-def _latex_money(value: Decimal) -> str:
-    return rf"\${_money(value).replace(',', '{,}')}"
+def _display_money(value: Decimal) -> str:
+    """Return currency as ordinary text, outside the LaTeX renderer.
+
+    A leading dollar sign inside ``$...$`` is ambiguous Markdown/LaTeX and
+    previously surfaced raw ``\\times``, braces, and replacement glyphs on
+    mobile. Currency does not need mathematical typesetting, so keep the
+    arithmetic readable with Unicode operators instead.
+    """
+    return f"${_money(value)}"
 
 
 def _date_label(value: date) -> str:
@@ -265,20 +289,26 @@ def format_recurring_pay_reply(estimate: RecurringPayEstimate) -> str:
         estimate.amount * Decimal(estimate.elapsed_days) / Decimal(estimate.interval_days)
     )
     paydays = _payday_labels(estimate)
-    period_name = "two-week" if estimate.interval_days == 14 else f"{estimate.interval_days}-day"
+    period_name = (
+        "weekly"
+        if estimate.interval_days == 7
+        else "two-week"
+        if estimate.interval_days == 14
+        else f"{estimate.interval_days}-day"
+    )
 
     chunks = [
         f"**From:** {_date_label(estimate.start)}  \n**Through:** {_date_label(estimate.target)}",
         (
             "**1. Count the time**\n"
-            f"${estimate.elapsed_days}\\ \\text{{days}} = "
-            f"{estimate.full_periods} \\times {estimate.interval_days}\\ \\text{{days}}"
-            f" + {estimate.remainder_days}\\ \\text{{days}}$"
+            f"{estimate.elapsed_days} days = "
+            f"{estimate.full_periods} {_MULTIPLY} {estimate.interval_days} days"
+            f" + {estimate.remainder_days} days"
         ),
         (
             f"**2. Count completed {period_name} pay periods**\n"
-            f"${estimate.full_periods} \\times {_latex_money(estimate.amount)}"
-            f" = {_latex_money(full_total)}$"
+            f"{estimate.full_periods} {_MULTIPLY} {_display_money(estimate.amount)}"
+            f" = {_display_money(full_total)}"
         ),
     ]
     if paydays:
@@ -289,16 +319,16 @@ def format_recurring_pay_reply(estimate: RecurringPayEstimate) -> str:
                 f"Assuming today starts a new pay period and the first payment arrives in "
                 f"{estimate.interval_days} days:"
             ),
-            f"```answer\n{_latex_money(full_total)}\n```",
+            f"**Estimated total: {_display_money(full_total)}** ✓",
             (
                 f"If **today is already a payday**, count today too: "
-                f"${estimate.full_periods + 1} \\times {_latex_money(estimate.amount)}"
-                f" = {_latex_money(payday_total)}$."
+                f"{estimate.full_periods + 1} {_MULTIPLY} {_display_money(estimate.amount)}"
+                f" = {_display_money(payday_total)}."
             ),
             (
                 "If the pay accrues evenly each day instead of by completed pay periods: "
-                f"${estimate.elapsed_days} \\div {estimate.interval_days} \\times "
-                f"{_latex_money(estimate.amount)} = {_latex_money(prorated_total)}$."
+                f"{estimate.elapsed_days} {_DIVIDE} {estimate.interval_days} {_MULTIPLY} "
+                f"{_display_money(estimate.amount)} = {_display_money(prorated_total)}."
             ),
         ]
     )

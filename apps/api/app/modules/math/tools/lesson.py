@@ -8,8 +8,11 @@ from app.services.solving import VerifiedMathBlock
 
 # Linear phrase scan — do not put user text through nested-optional regex
 # (CodeQL py/polynomial-redos). Substrings are enough: "explain every step"
-# should keep the LLM; "1+1=x" should not.
+# should request the verified lesson renderer; "1+1=x" need not.
 _EXPLAIN_PHRASES: tuple[str, ...] = (
+    "explain why each step is valid",
+    "explain every step",
+    "show every step",
     "explain",
     "teach",
     "show work",
@@ -65,6 +68,14 @@ _METHOD_PHRASES: tuple[str, ...] = (
     "with factoring",
 )
 
+# Display constraints do not add a second task to a closed equation. They are
+# stripped only for the direct-reply safety check; the verified renderer
+# already preserves the solver's lowercase variable name.
+_PRESENTATION_PHRASES: tuple[str, ...] = (
+    "keep x lowercase in the final answer",
+    "keep the variable lowercase in the final answer",
+)
+
 # Prefixes that wrap a closed equation without changing it. Do not include
 # "explain" / "why" — those are conversational asks, not lesson metadata.
 _LESSON_PREFIX_PHRASES: tuple[str, ...] = tuple(
@@ -90,7 +101,12 @@ _LESSON_PREFIX_PHRASES: tuple[str, ...] = tuple(
 
 _STRIP_PHRASES: tuple[str, ...] = tuple(
     sorted(
-        {*_EXPLAIN_PHRASES, *_ANSWER_ONLY_PHRASES, *_METHOD_PHRASES},
+        {
+            *_EXPLAIN_PHRASES,
+            *_ANSWER_ONLY_PHRASES,
+            *_METHOD_PHRASES,
+            *_PRESENTATION_PHRASES,
+        },
         key=len,
         reverse=True,
     )

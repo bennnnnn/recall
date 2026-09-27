@@ -41,6 +41,7 @@ describe("CodeBlock", () => {
     expect(getByText(CODE)).toBeOnTheScreen();
     expect(queryByText("python")).toBeNull();
     expect(getByTestId("code-block-actions")).toContainElement(getByLabelText("common.copy"));
+    expect(getByTestId("code-block-scroll").props.horizontal).toBe(true);
   });
 
   it("puts extra actions in the same corner", async () => {

@@ -118,7 +118,15 @@ export function CodeBlock({
           },
         ]}
       >
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled>
+        <ScrollView
+          testID="code-block-scroll"
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          nestedScrollEnabled
+          directionalLockEnabled
+          style={s.codeScroller}
+          contentContainerStyle={s.codeScrollContent}
+        >
           <View
             testID="code-block-lines"
             style={[
@@ -193,8 +201,20 @@ function makeStyles(t: Theme) {
       // Masks a long first line that scrolls under the buttons.
       backgroundColor: t.codeBg,
     },
-    codeBody: { overflow: "hidden", backgroundColor: t.codeBg },
-    codeLines: { paddingVertical: Space.md, paddingHorizontal: Space.md },
+    codeBody: {
+      overflow: "hidden",
+      backgroundColor: t.codeBg,
+      width: "100%",
+      maxWidth: "100%",
+      minWidth: 0,
+    },
+    codeScroller: { width: "100%", maxWidth: "100%", minWidth: 0 },
+    codeScrollContent: { flexGrow: 0 },
+    codeLines: {
+      paddingVertical: Space.md,
+      paddingHorizontal: Space.md,
+      alignSelf: "flex-start",
+    },
     codeLineRow: { flexDirection: "row", flexWrap: "nowrap", alignItems: "flex-start" },
     expandBtn: {
       alignItems: "center",

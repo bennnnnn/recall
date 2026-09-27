@@ -102,6 +102,8 @@ def test_is_year_question(text, expected):
         ("what's today's date", True),
         ("what date is it", True),
         ("current date", True),
+        ("Please tell me the current date.", True),
+        ("Could you tell me current date?", True),
         ("what day is it", True),
         ("what day is it today", True),
         ("what day", False),
@@ -120,6 +122,8 @@ def test_is_local_now_question_covers_time_year_and_date():
     assert is_local_now_question("what time is it") is True
     assert is_local_now_question("what year is it") is True
     assert is_local_now_question("what's the date") is True
+    assert is_local_now_question("Please tell me the current date.") is True
+    assert is_local_now_question("Could you tell me the current time?") is True
     assert is_local_now_question("what year did WWII end") is False
 
 

@@ -184,18 +184,26 @@ async def test_year_date_time_instant_reply_skipped_when_image_attached(fake_red
     assert bundle.instant_reply is None
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        "if i make 3400 a every 2 weeks, how much money would i make untill dcember 11th from today",
+        (
+            "If i make 1500a week, how much would i make until December 11th? "
+            "Please tell me the current date."
+        ),
+    ],
+)
 @pytest.mark.asyncio
-async def test_recurring_pay_reply_skips_prompt_and_model_health_work(fake_redis):
+async def test_recurring_pay_reply_skips_prompt_model_health_and_web_search(fake_redis, content):
     user = _make_user()
     user.timezone = "America/Los_Angeles"
     chat = _make_chat()
-    content = (
-        "if i make 3400 a every 2 weeks, how much money would i make untill dcember 11th from today"
-    )
     build_prompt = AsyncMock(side_effect=AssertionError("prompt should not be built"))
     with (
         patch("app.services.chat.turn_prep.context.build_prompt_messages", build_prompt),
         patch("app.services.model_health.enrich_models_health", AsyncMock()) as health,
+        patch("app.services.chat.turn_prep.context.fetch_web_and_tools", AsyncMock()) as web_search,
     ):
         bundle = await build_stream_prompt_context(
             user.id,
@@ -219,6 +227,7 @@ async def test_recurring_pay_reply_skips_prompt_and_model_health_work(fake_redis
     assert bundle.fallback_models == []
     build_prompt.assert_not_awaited()
     health.assert_not_awaited()
+    web_search.assert_not_awaited()
 
 
 @pytest.mark.asyncio
