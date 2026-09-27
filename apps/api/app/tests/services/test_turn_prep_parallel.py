@@ -190,8 +190,7 @@ async def test_recurring_pay_reply_skips_prompt_and_model_health_work(fake_redis
     user.timezone = "America/Los_Angeles"
     chat = _make_chat()
     content = (
-        "if i make 3400 a every 2 weeks, how much money would i make "
-        "untill dcember 11th from today"
+        "if i make 3400 a every 2 weeks, how much money would i make untill dcember 11th from today"
     )
     build_prompt = AsyncMock(side_effect=AssertionError("prompt should not be built"))
     with (

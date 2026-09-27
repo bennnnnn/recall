@@ -67,9 +67,7 @@ _INTERVAL = re.compile(
     r"(weeks?|days?)\b",
     re.IGNORECASE,
 )
-_BIWEEKLY = re.compile(
-    r"\b(?:bi[\s-]?weekly|fortnightly|every\s+other\s+week)\b", re.IGNORECASE
-)
+_BIWEEKLY = re.compile(r"\b(?:bi[\s-]?weekly|fortnightly|every\s+other\s+week)\b", re.IGNORECASE)
 
 _MONTHS = {
     "jan": 1,
@@ -133,9 +131,7 @@ class RecurringPayEstimate:
 
 def _parse_amount(text: str) -> Decimal | None:
     match = (
-        _INCOME_AMOUNT.search(text)
-        or _PAY_IS_AMOUNT.search(text)
-        or _CURRENCY_AMOUNT.search(text)
+        _INCOME_AMOUNT.search(text) or _PAY_IS_AMOUNT.search(text) or _CURRENCY_AMOUNT.search(text)
     )
     if match is None:
         return None
@@ -265,13 +261,11 @@ def format_recurring_pay_reply(estimate: RecurringPayEstimate) -> str:
 
     full_total = estimate.amount * estimate.full_periods
     payday_total = estimate.amount * (estimate.full_periods + 1)
-    prorated_total = estimate.amount * Decimal(estimate.elapsed_days) / Decimal(
-        estimate.interval_days
+    prorated_total = (
+        estimate.amount * Decimal(estimate.elapsed_days) / Decimal(estimate.interval_days)
     )
     paydays = _payday_labels(estimate)
-    period_name = (
-        "two-week" if estimate.interval_days == 14 else f"{estimate.interval_days}-day"
-    )
+    period_name = "two-week" if estimate.interval_days == 14 else f"{estimate.interval_days}-day"
 
     chunks = [
         f"**From:** {_date_label(estimate.start)}  \n**Through:** {_date_label(estimate.target)}",

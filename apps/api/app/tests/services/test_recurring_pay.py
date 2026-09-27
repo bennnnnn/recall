@@ -14,8 +14,7 @@ NOW = datetime(2026, 9, 26, 12, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
 
 def test_reported_biweekly_question_uses_local_today_and_shows_assumptions() -> None:
     text = (
-        "if i make 3400 a every 2 weeks, how much money would i make "
-        "untill dcember 11th from today"
+        "if i make 3400 a every 2 weeks, how much money would i make untill dcember 11th from today"
     )
     estimate = parse_recurring_pay_request(text, "America/Los_Angeles", now=NOW)
     assert estimate is not None
