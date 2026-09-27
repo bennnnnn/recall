@@ -35,7 +35,10 @@ def test_actual_undefined_improper_integral_does_not_append_nan_to_explanation()
     assert "did not establish a defined value" in block.text
     assert "diverges" not in block.text
     assert "principal value" in block.text
-    assert maybe_direct_math_reply(block, query) is None
+    assert maybe_direct_math_reply(block, query) == (
+        "This ordinary improper integral does not converge. "
+        "A Cauchy principal value is a separate convention and was not requested."
+    )
     explanation = "The ordinary improper integral does not converge."
     assert validate_math_fences(explanation, verified=block) == explanation
     assert "NaN" not in validate_math_fences(explanation, verified=block)
@@ -54,17 +57,20 @@ def test_nonresults_are_not_mislabeled_as_unevaluated_or_signed_divergence(raw, 
 
 
 @pytest.mark.parametrize(
-    "query,answer,direction",
+    "query,direction",
     [
-        ("Integrate 1/x^2 from -1 to 1", r"\infty", "positive"),
-        ("Integrate -1/x^2 from -1 to 1", r"-\infty", "negative"),
+        ("Integrate 1/x^2 from -1 to 1", "positive"),
+        ("Integrate -1/x^2 from -1 to 1", "negative"),
     ],
 )
-def test_signed_infinity_retains_a_divergence_explanation(query, answer, direction):
+def test_signed_infinity_retains_a_divergence_explanation(query, direction):
     block = _block(query)
-    assert block.canonical_answer == answer
+    assert block.canonical_answer is None
     assert f"diverges to {direction} infinity" in block.text
-    assert maybe_direct_math_reply(block, query) is None
+    symbol = "+∞" if direction == "positive" else "−∞"
+    assert maybe_direct_math_reply(block, query) == (
+        f"This improper integral diverges to {symbol}; it does not converge to a finite value."
+    )
     assert "NaN" not in validate_math_fences("This integral diverges.", verified=block)
 
 
@@ -118,10 +124,13 @@ async def test_tool_loop_uses_the_same_integral_outcome_contract(expr, answer, p
             {"action": "integrate", "expr": expr, "lower": "-1", "upper": "1"}
         )
     assert phrase in result.content
-    if answer is None:
+    if answer is None or "infty" in (answer or ""):
         assert result.data is None
         assert "Verified result" not in result.content
-        assert "diverges" not in result.content
+        if answer is None:
+            assert "diverges" not in result.content
+        else:
+            assert "diverges" in result.content
     else:
         assert result.data is not None
         assert result.data["canonical_answer"] == answer

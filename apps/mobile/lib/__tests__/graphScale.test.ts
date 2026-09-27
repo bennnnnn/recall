@@ -2,6 +2,7 @@ import {
   equalScaleGraphBounds,
   functionPlotBounds,
   graphBounds,
+  interactiveFunctionBounds,
   mapGraphPoint,
   schoolViewBounds,
 } from "@/lib/math/graphBlock";
@@ -87,6 +88,37 @@ describe("equal graph units", () => {
       expect(py).toBeGreaterThanOrEqual(28);
       expect(py).toBeLessThanOrEqual(228);
     }
+  });
+
+  it("starts on an explicitly requested x-domain without making the graph rigid", () => {
+    const points: [number, number][] = Array.from({ length: 101 }, (_, i) => {
+      const x = -Math.PI + (2 * Math.PI * i) / 100;
+      return [x, Math.tan(x)] as [number, number];
+    }).filter(([, y]) => Number.isFinite(y));
+    const bounds = interactiveFunctionBounds({
+      type: "function",
+      expr: "tan(x)",
+      points,
+      x_min: -Math.PI,
+      x_max: Math.PI,
+      domain_explicit: true,
+    }, 1.75);
+    expect(bounds.xMin).toBeCloseTo(-Math.PI, 12);
+    expect(bounds.xMax).toBeCloseTo(Math.PI, 12);
+    expect(bounds.yMax).toBeGreaterThan(bounds.yMin);
+  });
+
+  it("keeps the adaptive school window when no domain was requested", () => {
+    const bounds = interactiveFunctionBounds({
+      type: "function",
+      expr: "x",
+      points: [[0, 0], [1, 1]],
+      x_min: 0,
+      x_max: 1,
+      domain_explicit: false,
+    }, 1.75);
+    expect(bounds.xMin).toBe(-6);
+    expect(bounds.xMax).toBe(6);
   });
 
   it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])("keeps valid bounds when aspect is invalid: %s", (aspect) => {

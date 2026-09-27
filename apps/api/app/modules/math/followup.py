@@ -3,6 +3,10 @@
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from app.modules.math.response_intent import (
+    MathResponseMode,
+    classify_math_response_intent,
+)
 from app.modules.math.tools.prompt import needs_symbolic_math
 
 MATH_FOLLOWUP_HINT = (
@@ -19,101 +23,6 @@ MATH_FOLLOWUP_HINT = (
     "solver verification."
 )
 
-# Whole messages only: do not let an old math question capture a new "how ..." topic.
-_REFERENTIAL_REQUESTS = frozenset(
-    {
-        "how",
-        "why",
-        "how so",
-        "why is that",
-        "how does that work",
-        "how did you get that",
-        "how did you get this",
-        "how did you get that answer",
-        "how did you calculate that",
-        "how is that calculated",
-        "explain",
-        "explain it",
-        "explain that",
-        "explain this",
-        "explain the answer",
-        "explain the result",
-        "explain the steps",
-        "show the steps",
-        "show me the steps",
-        "show your work",
-        "show me how",
-        "show me why",
-        "walk me through it",
-        "explain step by step",
-        "prove it",
-        "prove that",
-        "show the proof",
-        "show me the proof",
-        "hint",
-        "hint only",
-        "a hint",
-        "give a hint",
-        "give me a hint",
-        "give an example",
-        "give me an example",
-        "show an example",
-        "show me an example",
-        "give examples",
-        "give me examples",
-        "show examples",
-        "show me examples",
-        "explain with an example",
-        "explain with examples",
-    }
-)
-
-# These follow-ups ask for the working behind the immediately preceding
-# result. They can be answered by the same verified key-step trace as the
-# original equation. Proof, hint, and example requests intentionally stay on
-# the conversational model path because replaying a full solution would break
-# their requested scope.
-_WORKING_REQUESTS = frozenset(
-    {
-        "how",
-        "why",
-        "how so",
-        "why is that",
-        "how does that work",
-        "how did you get that",
-        "how did you get this",
-        "how did you get that answer",
-        "how did you calculate that",
-        "how is that calculated",
-        "explain",
-        "explain it",
-        "explain that",
-        "explain this",
-        "explain the answer",
-        "explain the result",
-        "explain the steps",
-        "show the steps",
-        "show me the steps",
-        "show your work",
-        "show me how",
-        "show me why",
-        "walk me through it",
-        "explain step by step",
-    }
-)
-
-
-def _clean_referential_request(query: str | None) -> str | None:
-    if not query or len(query) > 120:
-        return None
-    cleaned = " ".join(query.lower().split()).strip(".!?")
-    for prefix in ("please ", "can you ", "could you ", "would you "):
-        if cleaned.startswith(prefix):
-            cleaned = cleaned[len(prefix) :]
-    if cleaned.endswith(" please"):
-        cleaned = cleaned[:-7]
-    return cleaned
-
 
 def _message_field(message: Any, field: str) -> Any:
     if isinstance(message, Mapping):
@@ -125,11 +34,17 @@ def _referenced_math_problem(
     query: str | None,
     recent: Sequence[Any],
     *,
-    requests: frozenset[str],
+    working_only: bool,
 ) -> str | None:
     """Return the problem from one complete adjacent math exchange."""
-    cleaned = _clean_referential_request(query)
-    if cleaned not in requests or len(recent) < 2:
+    response = classify_math_response_intent(query or "")
+    if not response.referential or len(recent) < 2:
+        return None
+    if working_only and response.mode not in {
+        MathResponseMode.EXPLAIN,
+        MathResponseMode.STEPS,
+        MathResponseMode.DETAILED,
+    }:
         return None
     question, answer = recent[-2:]
     if _message_field(question, "role") != "user" or _message_field(answer, "role") != "assistant":
@@ -172,12 +87,12 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
 
 def is_math_followup(query: str | None, recent: Sequence[Any]) -> bool:
     """Require one complete adjacent user/assistant math exchange; never scan older topics."""
-    return _referenced_math_problem(query, recent, requests=_REFERENTIAL_REQUESTS) is not None
+    return _referenced_math_problem(query, recent, working_only=False) is not None
 
 
 def math_working_followup_problem(query: str | None, recent: Sequence[Any]) -> str | None:
     """Return the adjacent problem when a follow-up asks for its verified working."""
-    return _referenced_math_problem(query, recent, requests=_WORKING_REQUESTS)
+    return _referenced_math_problem(query, recent, working_only=True)
 
 
 def readable_standalone_answer(content: str) -> str | None:

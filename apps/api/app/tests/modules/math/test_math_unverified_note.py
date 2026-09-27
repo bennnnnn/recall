@@ -16,7 +16,7 @@ import pytest
 
 from app.modules.math.fence import append_unverified_math_note
 
-NOTE = "*Couldn't verify this with SymPy.*"
+NOTE = "*I couldn't automatically verify this result.*"
 
 
 @pytest.mark.parametrize(

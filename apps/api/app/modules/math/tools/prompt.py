@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Literal, cast
 
 from app.core.config import Settings
@@ -13,6 +14,11 @@ from app.models.schemas.math import (
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.math import solve as math_solve
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.response_intent import (
+    MathResponseIntent,
+    classify_math_response_intent,
+    response_intent_prompt,
+)
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.extract import (
     extract_math_intent,
@@ -22,6 +28,7 @@ from app.modules.math.tools.extract import (
 from app.modules.math.tools.helpers import has_assignment_evaluation_request
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
 from app.services.prompt_inject import inject_before_last_user
+from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +39,42 @@ VERIFIED_MATH_REPLY_HINT = (
     "not a request to explain every step. "
     f"{MATH_REPLY_POLICY}"
 )
+
+
+def _withhold_hint_answer(
+    verified: VerifiedMathBlock,
+    response_intent: MathResponseIntent,
+) -> VerifiedMathBlock:
+    """Remove every answer-bearing channel before a hint reaches the model/UI."""
+    if verified.canonical_answer is None:
+        return replace(verified, response_intent=response_intent)
+    next_move = (
+        verified.key_steps[0].label
+        if verified.key_steps
+        else "Identify one reversible operation you can apply next"
+    )
+    hint = f"{next_move}. Try only that move, then send me your next line."
+    safe_text = (
+        f"{VERIFIED_MATH_BEGIN}\n"
+        "Hint-only request: the verified final result and answer-bearing formulas are withheld.\n"
+        f"Permitted next-move hint: {next_move}.\n"
+        f"{VERIFIED_MATH_END}"
+    )
+    return replace(
+        verified,
+        text=safe_text,
+        canonical_fence=None,
+        canonical_fences=[],
+        canonical_answer=None,
+        display_answer=None,
+        key_step=None,
+        key_steps=(),
+        check_latex=None,
+        alternate_method_note=None,
+        direct_reply=f"**Hint:** {hint}",
+        direct_answer_binding=None,
+        response_intent=response_intent,
+    )
 
 
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
@@ -286,10 +329,19 @@ async def build_math_augmentation(
         # Intent matched but SymPy timed out / rejected / had no builder result.
         # Inject honesty so the model does not reuse the same "verified" UX.
         return _unverified_math_note(intent.kind), None
+    response_intent = classify_math_response_intent(user_content)
+    verified = (
+        _withhold_hint_answer(verified, response_intent)
+        if not response_intent.reveal_answer
+        else replace(verified, response_intent=response_intent)
+    )
     # Keep presentation guidance adjacent to the result, after any worked
     # steps, so the model does not treat solver data as a tutorial request.
     # The canonical block remains data-only for direct replies/fence validation.
-    return f"{verified.text}\n\n{VERIFIED_MATH_REPLY_HINT}", verified
+    return (
+        f"{verified.text}\n\n{response_intent_prompt(response_intent)}\n{VERIFIED_MATH_REPLY_HINT}",
+        verified,
+    )
 
 
 def _unverified_math_note(kind: str) -> str:

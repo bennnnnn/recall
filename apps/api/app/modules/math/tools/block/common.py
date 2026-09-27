@@ -62,6 +62,12 @@ def _format_system_answer(
 ) -> str:
     if solutions:
         sets = [", ".join(f"{k} = {v}" for k, v in sol.items()) for sol in solutions]
+        if solution_kind == "infinite":
+            return (
+                r"\text{infinitely many solutions},\quad "
+                + "; ".join(sets)
+                + r"\quad\text{(one free variable)}"
+            )
         return "; ".join(sets)
     if solution_kind == "infinite":
         return r"\text{infinitely many solutions}"

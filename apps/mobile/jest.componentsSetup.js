@@ -90,6 +90,7 @@ jestGlobals.mock("react-native-gesture-handler", () => {
       Tap: () => chain(),
       LongPress: () => chain(),
       Simultaneous: () => chain(),
+      Race: () => chain(),
       Exclusive: () => chain(),
     },
     GestureDetector: ({ children }) => children,

@@ -14,7 +14,19 @@ _NUMBER = r"[+-]?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
 _POINT = rf"(?:{_NUMBER}|-?(?:infinity|inf|oo))"
 _INTEGER = r"[+-]?[0-9]{1,12}"
 _WRT = re.compile(r"(.+) (?:with respect to|wrt) ([a-zA-Z])", re.IGNORECASE)
+_AT_POINT = re.compile(rf"(.+) at ([a-zA-Z])\s*=\s*({_NUMBER})", re.IGNORECASE)
 _INTEGRAL = re.compile(rf"(.+) from ({_POINT}) to ({_POINT})", re.IGNORECASE)
+_INTEGRAL_BOUNDS_FIRST = re.compile(
+    rf"(?:improper )?integral from ({_POINT}) to ({_POINT}) of (.+)", re.IGNORECASE
+)
+_UNICODE_INTEGRAL = re.compile(
+    rf"∫\s*\[\s*({_POINT})\s*,\s*({_POINT})\s*\]\s*(.+?)(?:\s+d\s*([A-Za-z]))?",
+    re.IGNORECASE,
+)
+_LEIBNIZ_DERIVATIVE = re.compile(
+    r"d\^?(\d+)([a-zA-Z])/d([a-zA-Z])\^?(\d+)\s+(?:if\s+)?\2\s*=\s*(.+)",
+    re.IGNORECASE,
+)
 _LIMIT = re.compile(
     rf"(.+) as ([a-zA-Z]) (?:approaches|goes to|tends to) ({_POINT})"
     r"(?: from (?:the )?(left|right))?",
@@ -61,7 +73,7 @@ _ORDERS = {
 def _expression(raw: str) -> str | None:
     """Reject prose and qualifiers before the existing expression normalizer."""
     if not raw or any(
-        not (char.isascii() and (char.isalnum() or char in " +-*/^().")) for char in raw
+        not (char.isascii() and (char.isalnum() or char in " +-*/^().|")) for char in raw
     ):
         return None
     depth = 0
@@ -128,6 +140,7 @@ def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | N
     recognized = recognized or any(
         word in lower.split() for word in ("limit", "sum", "series", "maclaurin")
     )
+    recognized = recognized or bool(re.search(r"\bd\^?\d+[a-zA-Z]/d[a-zA-Z]\^?\d+\b", request))
     if not recognized:
         return None
     request = request.rstrip(".?")
@@ -157,18 +170,45 @@ def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | N
     if actual.operation == "dsolve":
         return None
     lower = request.lower()
+    unicode_integral = _UNICODE_INTEGRAL.fullmatch(request)
+    if unicode_integral:
+        low, high, expr, explicit_variable = unicode_integral.groups()
+        variable = explicit_variable or _variable(expr, None)
+        return bool(
+            actual.kind == "calculus"
+            and actual.operation == "integrate"
+            and _matches_expression(actual, expr)
+            and actual.variable == variable
+            and _point(actual.integral_lower) == _point(low)
+            and _point(actual.integral_upper) == _point(high)
+        )
     for prefix, order in _ORDERS.items():
         if not lower.startswith(prefix):
             continue
         expr = request[len(prefix) :]
+        assignment = re.fullmatch(r"[a-zA-Z]\s*=\s*(.+)", expr)
+        if assignment:
+            expr = assignment[1]
         wrt = _WRT.fullmatch(expr)
         expr, variable = (wrt[1], wrt[2]) if wrt else (expr, None)
+        at_point = _AT_POINT.fullmatch(expr)
+        point: str | None = None
+        if at_point:
+            expr, variable, point = at_point[1], at_point[2], at_point[3]
         return (
             actual.kind == "calculus"
             and actual.operation == "differentiate"
             and actual.derivative_order == order
             and _matches_expression(actual, expr)
             and actual.variable == _variable(expr, variable)
+            and (
+                (point is None and actual.evaluation_point is None)
+                or (
+                    point is not None
+                    and actual.evaluation_point is not None
+                    and _point(point) == _point(actual.evaluation_point)
+                )
+            )
         )
     if lower.startswith("partial derivative of "):
         match = _WRT.fullmatch(request[len("partial derivative of ") :])
@@ -178,6 +218,17 @@ def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | N
             and actual.operation == "partial"
             and actual.variable == match[2]
             and _matches_expression(actual, match[1])
+        )
+    leibniz = _LEIBNIZ_DERIVATIVE.fullmatch(request)
+    if leibniz:
+        order = int(leibniz[1])
+        return bool(
+            order == int(leibniz[4])
+            and actual.kind == "calculus"
+            and actual.operation == "differentiate"
+            and actual.derivative_order == order
+            and actual.variable == leibniz[3]
+            and _matches_expression(actual, leibniz[5])
         )
     for prefix in (
         "integrate ",
@@ -221,6 +272,21 @@ def calculus_direct_request(text: str, *, answer: str | None = None) -> bool | N
                 if high is None
                 else _point(actual.integral_upper) == _point(high)
             )
+        )
+    bounds_first = _INTEGRAL_BOUNDS_FIRST.fullmatch(request)
+    if bounds_first:
+        low, high, expr = bounds_first[1], bounds_first[2], bounds_first[3]
+        differential = re.fullmatch(r"(.+) d\s*([a-zA-Z])", expr)
+        variable = None
+        if differential:
+            expr, variable = differential[1], differential[2]
+        return bool(
+            actual.kind == "calculus"
+            and actual.operation == "integrate"
+            and _matches_expression(actual, expr)
+            and actual.variable == _variable(expr, variable)
+            and _point(actual.integral_lower) == _point(low)
+            and _point(actual.integral_upper) == _point(high)
         )
     if lower.startswith("limit of "):
         match = _LIMIT.fullmatch(request[len("limit of ") :])

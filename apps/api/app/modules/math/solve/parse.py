@@ -409,6 +409,65 @@ def _rewrite_latex_braced_scripts(s: str) -> str:
     return s
 
 
+def _rewrite_log_bases_once(s: str) -> str:
+    """``log_2(x)`` -> ``log(x)/log(2)`` without dropping the logarithm.
+
+    The equation scanner intentionally rejects underscores. Previously it
+    resumed at the base digit, turning ``log_2(x-1)`` into ``2(x-1)`` and
+    certifying an entirely different equation. Numeric bases cover ordinary
+    school notation while keeping the safe-expression grammar narrow.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        if not s.startswith("log_", i) or (i > 0 and s[i - 1].isalpha()):
+            out.append(s[i])
+            i += 1
+            continue
+        base_start = i + 4
+        base_end = base_start
+        while base_end < n and (s[base_end].isdigit() or s[base_end] == "."):
+            base_end += 1
+        if base_end == base_start:
+            out.append(s[i])
+            i += 1
+            continue
+        paren = base_end
+        while paren < n and s[paren].isspace():
+            paren += 1
+        if paren >= n or s[paren] != "(":
+            out.append(s[i])
+            i += 1
+            continue
+        depth = 1
+        close = paren + 1
+        while close < n and depth:
+            if s[close] == "(":
+                depth += 1
+            elif s[close] == ")":
+                depth -= 1
+            close += 1
+        if depth:
+            out.append(s[i])
+            i += 1
+            continue
+        base = s[base_start:base_end]
+        body = s[paren + 1 : close - 1]
+        out.append(f"(log({body})/log({base}))")
+        i = close
+    return "".join(out)
+
+
+def _rewrite_log_bases(s: str) -> str:
+    for _ in range(8):
+        nxt = _rewrite_log_bases_once(s)
+        if nxt == s:
+            return s
+        s = nxt
+    return s
+
+
 def _normalize_latex_to_sympy(expr: str) -> str:
     """Expand common LaTeX so pasted/OCR homework can pass the safe-char gate."""
     s = _strip_math_dollar_delims(expr)
@@ -441,6 +500,7 @@ def _normalize_latex_to_sympy(expr: str) -> str:
         s = nxt
     s = _rewrite_bare_abs_bars(s)
     s = _rewrite_latex_braced_scripts(s)
+    s = _rewrite_log_bases(s)
     return s
 
 
@@ -448,6 +508,10 @@ def _normalize_expr(text: str) -> str:
     s = text.strip()
     s = _normalize_latex_to_sympy(s)
     s = s.replace("^", "**")
+    # Python tokenizes 0x as the start of a hexadecimal literal before
+    # SymPy's implicit-multiplication transform can see it. Explicitly mark
+    # every number-letter boundary (2x, 0x, 3pi) as multiplication.
+    s = re.sub(r"(?<=\d)(?=[A-Za-z])", "*", s)
     s = re.sub(r"\s+", " ", s)
     return s
 

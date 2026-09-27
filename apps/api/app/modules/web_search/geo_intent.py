@@ -7,6 +7,7 @@ import re
 from app.modules.web_search.patterns import (
     _AMBIGUOUS_NEARBY_SUBJECT,
     _DISTANCE_INTENT,
+    _FIXED_DISTANCE_FROM,
     _FROM_USER,
     _IMPLICIT_LOCAL,
     _MOTION_HOMEWORK,
@@ -55,6 +56,8 @@ def is_distance_query(text: str) -> bool:
     if _MOTION_HOMEWORK.search(cleaned):
         return False
     if distance_between_phrase(cleaned) and not _FROM_USER.search(cleaned):
+        return False
+    if _FIXED_DISTANCE_FROM.search(cleaned) and not _FROM_USER.search(cleaned):
         return False
     return True
 

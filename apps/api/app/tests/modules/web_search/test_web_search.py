@@ -84,6 +84,10 @@ def test_is_local_places_query():
     assert is_distance_query("how long is the drive")
     assert is_geo_query("how far is the airport")
     assert not is_geo_query("distance between NYC and LA")
+    assert not is_geo_query(
+        "A circle has radius 3 and a chord of length 8. Find distance from center to chord."
+    )
+    assert is_geo_query("distance from here to the airport")
     assert is_geo_query("What's the weather?")
     assert is_geo_query("weather tomorrow")
     assert not is_geo_query("What's the weather in London?")

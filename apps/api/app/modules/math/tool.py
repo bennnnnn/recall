@@ -193,10 +193,14 @@ class SympyAdapter:
         answer = expr_result.latex
         if indefinite:
             answer += " + C"
-        prefix = f"{integral_note}\n" if integral_note else ""
+        if integral_note is not None:
+            return ToolResult(
+                name=self.name,
+                content=_verified_content(f"{integral_note}\nResult: {answer}"),
+            )
         return ToolResult(
             name=self.name,
-            content=_verified_content(f"{prefix}Result: {answer}\nVerified result: {answer}"),
+            content=_verified_content(f"Result: {answer}\nVerified result: {answer}"),
             data=_fence_data(math_tools._answer_canonical(answer), canonical_answer=answer),
         )
 

@@ -29,6 +29,9 @@ class GraphSampleResult(BaseModel):
     # instead of) for back-compat with fences the model already knows how
     # to emit with only `points`.
     segments: list[list[list[float]]] = Field(default_factory=list)
+    # Open points where the original expression is undefined even though its
+    # simplified limit is finite (for example (x^2-1)/(x-1) at x=1).
+    holes: list[list[float]] = Field(default_factory=list, max_length=8)
 
 
 class NumberLineInterval(BaseModel):
@@ -60,6 +63,11 @@ class GraphBlockSpec(BaseModel):
     variable: str = Field(default="x", min_length=1, max_length=8)
     x_min: float = -10.0
     x_max: float = 10.0
+    # True when the learner named the x-range (for example, "from -pi to
+    # pi"). Renderers use that range as the initial viewport while still
+    # allowing the learner to pan and zoom. False keeps the adaptive school
+    # window used for ordinary "graph y=x^2" requests.
+    domain_explicit: bool = False
     # Vertical-line fences (`type: "vertical"`) use `x` + y-range instead of
     # sampling y=f(x). Kept optional so ordinary function fences remain unchanged.
     x: float | None = None
@@ -80,6 +88,7 @@ class GraphBlockSpec(BaseModel):
     # only `points` (the common case — most functions have no asymptote)
     # still validates and renders exactly as before.
     segments: list[list[list[float]]] = Field(default_factory=list, max_length=500)
+    holes: list[list[float]] = Field(default_factory=list, max_length=8)
     # Optional second curve for a direct comparison plot ("graph y=x^2 and
     # y=2x on the same axes") — entirely optional so every existing
     # single-function fence (no expr2) still validates and renders unchanged.
@@ -87,6 +96,7 @@ class GraphBlockSpec(BaseModel):
     variable2: str | None = Field(default=None, max_length=8)
     points2: list[list[float]] | None = Field(default=None, max_length=500)
     segments2: list[list[list[float]]] | None = Field(default=None, max_length=500)
+    holes2: list[list[float]] | None = Field(default=None, max_length=8)
     # Short legend labels (e.g. "y = x^2") for the two curves — only
     # meaningful once expr2/points2 make this a two-curve plot.
     label: str | None = Field(default=None, max_length=64)
@@ -124,6 +134,7 @@ class GraphBlockSpec(BaseModel):
                 self.title = self.expr
             self.points = []
             self.segments = []
+            self.holes = []
             return self
         if self.type == "number_line":
             if not self.expr.strip():
@@ -132,6 +143,7 @@ class GraphBlockSpec(BaseModel):
                 self.title = self.expr
             self.points = []
             self.segments = []
+            self.holes = []
             return self
         if self.type == "trajectory":
             if len(self.points) < 2:
@@ -140,6 +152,7 @@ class GraphBlockSpec(BaseModel):
                 self.title = "Trajectory"
             # Trajectory plots are pre-computed; no segments needed.
             self.segments = []
+            self.holes = []
             return self
         if self.type == "vertical":
             if self.x is None:
@@ -170,11 +183,15 @@ class GraphBlockSpec(BaseModel):
             if len(self.points) < 2:
                 self.points = [[float(self.x), y_lo], [float(self.x), y_hi]]
             self.segments = []
+            self.holes = []
             return self
         if not self.expr.strip():
             raise ValueError("function graph requires expr")
         if len(self.points) < 1:
             raise ValueError("graph points need at least one coordinate")
+        for point in [*self.holes, *(self.holes2 or [])]:
+            if len(point) != 2 or not all(math.isfinite(value) for value in point):
+                raise ValueError("graph holes must be finite [x, y] coordinates")
         has_expr2 = bool(self.expr2 and self.expr2.strip())
         has_points2 = bool(self.points2)
         if has_expr2 != has_points2:

@@ -28,7 +28,11 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/ui/icons/Icon";
-import { GraphCanvas, GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
+import {
+  GraphCanvas,
+  GRAPH_AXIS_PAD,
+  type GraphHoleMarker,
+} from "@/components/rich/GraphCanvas";
 import {
   type DrawnSeries,
   drawGraphSeries,
@@ -38,7 +42,11 @@ import {
 import { useSheetPanDismiss } from "@/ui/overlay/useSheetPanDismiss";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { CODE_FONT } from "@/lib/fonts";
-import { formatGraphExpr, type GraphSpec } from "@/lib/math/graphBlock";
+import {
+  formatGraphExpr,
+  interactiveFunctionBounds,
+  type GraphSpec,
+} from "@/lib/math/graphBlock";
 import { defaultInteractiveBounds, expandGraphView } from "@/lib/math/graphViewport";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { IconSize } from "@/ui/icons/sizes";
@@ -102,10 +110,28 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
     seedFallbacks,
   );
   const palette = theme.graphSeries;
+  const holes = useMemo<GraphHoleMarker[]>(() => {
+    if (spec.type !== "function") return [];
+    const markers: GraphHoleMarker[] = [];
+    const append = (
+      row: (typeof series)[number] | undefined,
+      points: [number, number][] | undefined,
+      color: string,
+    ) => {
+      if (!row?.visible || row.seedExpr !== row.expr) return;
+      for (const point of points ?? []) markers.push({ point, color });
+    };
+    append(series[0], spec.holes, palette[0]);
+    append(series[1], spec.holes2, palette[1 % palette.length]);
+    return markers;
+  }, [palette, series, spec]);
   const variable = spec.variable ?? "x";
   const cardWidth = Math.max(1, plotWidth);
   const cardAspect = (cardWidth - GRAPH_AXIS_PAD * 2) / (CHART_HEIGHT - GRAPH_AXIS_PAD * 2 || 1);
-  const cardBounds = useMemo(() => defaultInteractiveBounds(cardAspect), [cardAspect]);
+  const cardBounds = useMemo(
+    () => interactiveFunctionBounds(spec, cardAspect),
+    [cardAspect, spec],
+  );
   const ignoreCardCommit = useCallback(() => {}, []);
   const cardSkiaViewport = useSkiaGraphViewport({
     width: cardWidth,
@@ -121,15 +147,19 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
   const modalWidth = Math.max(1, screenW - insets.left - insets.right);
   const fallbackModalH = Math.max(MODAL_PLOT_MIN, screenH - insets.top - insets.bottom - 200);
   const [modalPlot, setModalPlot] = useState({ width: modalWidth, height: fallbackModalH });
+  const skiaExplorer = isSkiaAvailable();
+  const modalAspect =
+    (modalPlot.width - GRAPH_AXIS_PAD * 2) / (modalPlot.height - GRAPH_AXIS_PAD * 2 || 1);
+  const modalInitialView = useMemo(
+    () => interactiveFunctionBounds(spec, modalAspect),
+    [modalAspect, spec],
+  );
   const viewport = useGraphViewport({
     width: modalPlot.width,
     height: modalPlot.height,
     pad: GRAPH_AXIS_PAD,
+    initialView: modalInitialView,
   });
-  const skiaExplorer = isSkiaAvailable();
-  const modalAspect =
-    (modalPlot.width - GRAPH_AXIS_PAD * 2) / (modalPlot.height - GRAPH_AXIS_PAD * 2 || 1);
-  const modalInitialView = useMemo(() => defaultInteractiveBounds(modalAspect), [modalAspect]);
   const onCardLayout = (e: LayoutChangeEvent) => {
     const w = Math.round(e.nativeEvent.layout.width - GRAPH_CARD_INSET * 2);
     if (w > 0 && w !== plotWidth) setPlotWidth(w);
@@ -215,12 +245,14 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
                 height={CHART_HEIGHT}
                 bounds={cardBounds}
                 drawn={cardDrawn}
+                holes={holes}
                 verticalX={verticalX}
               />
             }
           >
             <SkiaGraphCanvasLazy
               drawn={cardDrawn}
+              holes={holes}
               verticalX={verticalX}
               xName={spec.variable ?? "x"}
               yName="y"
@@ -241,6 +273,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
             height={CHART_HEIGHT}
             bounds={cardBounds}
             drawn={cardDrawn}
+            holes={holes}
             verticalX={verticalX}
           />
         )}
@@ -266,6 +299,7 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
         bounds={viewport.bounds}
         gesture={viewport.gesture}
         drawn={modalDrawn}
+        holes={holes}
         verticalX={verticalX}
         editor={seriesEditor(modalDrawn, "modal")}
         skia={skiaExplorer}
@@ -293,6 +327,7 @@ function ExplorerModal({
   bounds,
   gesture,
   drawn,
+  holes,
   verticalX,
   editor,
   skia,
@@ -311,6 +346,7 @@ function ExplorerModal({
   bounds: ReturnType<typeof defaultInteractiveBounds>;
   gesture: ReturnType<typeof useGraphViewport>["gesture"];
   drawn: DrawnSeries[];
+  holes: GraphHoleMarker[];
   verticalX?: number;
   editor: ReactNode;
   skia: boolean;
@@ -392,6 +428,7 @@ function ExplorerModal({
                     >
                       <SkiaGraphCanvasLazy
                         drawn={drawn}
+                        holes={holes}
                         verticalX={verticalX}
                         xName={spec.variable ?? "x"}
                         yName="y"
@@ -422,6 +459,7 @@ function ExplorerModal({
                       height={plot.height}
                       bounds={bounds}
                       drawn={drawn}
+                      holes={holes}
                       verticalX={verticalX}
                     />
                   </View>

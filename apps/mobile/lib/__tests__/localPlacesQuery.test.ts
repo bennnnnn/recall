@@ -62,6 +62,12 @@ describe("geo intent", () => {
   it("ignores non-geographic or fixed A–B distance", () => {
     expect(isGeoQuery("explain Python decorators")).toBe(false);
     expect(isGeoQuery("distance between NYC and LA")).toBe(false);
+    expect(
+      isGeoQuery(
+        "A circle has radius 3 and a chord of length 8. Find distance from center to chord.",
+      ),
+    ).toBe(false);
+    expect(isGeoQuery("distance from here to the airport")).toBe(true);
     expect(isProximityQuery("find the nearest prime number")).toBe(false);
   });
 

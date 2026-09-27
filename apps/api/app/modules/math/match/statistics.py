@@ -18,7 +18,7 @@ _LIST_RE = re.compile(r"\[([^\[\]]+)\]")
 
 
 def _paired_numeric_lists(text: str) -> tuple[list[float], list[float]] | None:
-    """Read exactly two explicit ``[...]`` numeric lists of equal length."""
+    """Read exactly two explicit numeric lists; validation belongs to the block."""
     if "[[" in text:
         return None
     matches = list(_LIST_RE.finditer(text))
@@ -26,9 +26,9 @@ def _paired_numeric_lists(text: str) -> tuple[list[float], list[float]] | None:
         return None
     first = numeric_data_values(matches[0].group(1))
     second = numeric_data_values(matches[1].group(1))
-    if first is None or second is None or len(first) != len(second):
+    if first is None or second is None:
         return None
-    if len(first) < 2:
+    if len(first) < 2 or len(second) < 2:
         return None
     return first, second
 

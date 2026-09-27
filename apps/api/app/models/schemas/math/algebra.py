@@ -181,6 +181,11 @@ class MathSolveResult(BaseModel):
     # a genuine contradiction (no solution) from a tautology (every value
     # satisfies the equation), which used to collapse into one ambiguous string.
     solution_kind: Literal["finite", "none", "infinite"] = "finite"
+    # Conditions inherited from the original, unsimplified problem. These
+    # remain structured so x/x=1 cannot simplify to 1=1 and lose x != 0.
+    domain_conditions_latex: list[str] = Field(default_factory=list)
+    # Parameter cases that qualify a symbolic solution (for example ax=5).
+    alternate_cases_latex: list[str] = Field(default_factory=list)
 
 
 class MathSystemSolveResult(BaseModel):

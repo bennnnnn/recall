@@ -22,6 +22,7 @@ import {
 import { runOnJS, useAnimatedReaction, useDerivedValue } from "react-native-reanimated";
 
 import type { DrawnSeries } from "@/hooks/useInteractiveGraph";
+import type { GraphHoleMarker } from "@/components/rich/GraphCanvas";
 import type { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { selection } from "@/lib/haptics";
 import {
@@ -43,6 +44,7 @@ const MONO_CHAR_PX = 6.7;
 const MARKER_RADIUS = 4;
 const SLOT_INDICES = Array.from({ length: AXIS_SLOTS }, (_, i) => i);
 const SERIES_INDICES = Array.from({ length: MAX_SERIES_PATHS }, (_, i) => i);
+const HOLE_INDICES = Array.from({ length: 16 }, (_, i) => i);
 
 type Viewport = ReturnType<typeof useSkiaGraphViewport>;
 
@@ -247,6 +249,7 @@ function TickText({
 
 export function SkiaGraphCanvas({
   drawn,
+  holes = [],
   verticalX,
   xName = "x",
   yName = "y",
@@ -259,6 +262,7 @@ export function SkiaGraphCanvas({
   testID = "skia-graph-canvas",
 }: {
   drawn: DrawnSeries[];
+  holes?: GraphHoleMarker[];
   verticalX?: number;
   xName?: string;
   yName?: string;
@@ -304,6 +308,22 @@ export function SkiaGraphCanvas({
   const markerPath = useDerivedValue(
     () => buildMarkerPath(drawn, bounds.value, width, height, pad),
     [drawn, width, height, pad],
+  );
+  const holeXs = HOLE_INDICES.map((i) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
+    useDerivedValue(() => {
+      const marker = holes[i];
+      if (!marker) return -1000;
+      return mapPointW(marker.point[0], marker.point[1], bounds.value, width, height, pad).px;
+    }, [holes, width, height, pad]),
+  );
+  const holeYs = HOLE_INDICES.map((i) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
+    useDerivedValue(() => {
+      const marker = holes[i];
+      if (!marker) return -1000;
+      return mapPointW(marker.point[0], marker.point[1], bounds.value, width, height, pad).py;
+    }, [holes, width, height, pad]),
   );
   const verticalPath = useDerivedValue(() => {
     const path = Skia.Path.Make();
@@ -428,6 +448,24 @@ export function SkiaGraphCanvas({
             </Path>
           ))}
           <Path path={markerPath} color={drawn[0]?.color ?? theme.primary} style="fill" />
+          {HOLE_INDICES.map((i) => (
+            <Group key={`hole-${i}`}>
+              <Circle
+                cx={holeXs[i]}
+                cy={holeYs[i]}
+                r={5}
+                color={theme.elevated}
+              />
+              <Circle
+                cx={holeXs[i]}
+                cy={holeYs[i]}
+                r={5}
+                color={holes[i]?.color ?? theme.primary}
+                style="stroke"
+                strokeWidth={2.25}
+              />
+            </Group>
+          ))}
           <Path
             path={traceLine}
             color={theme.textTertiary}

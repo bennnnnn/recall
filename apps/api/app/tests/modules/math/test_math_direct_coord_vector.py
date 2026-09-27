@@ -69,4 +69,12 @@ async def test_extra_malformed_nonfinite_or_wrong_dimension_operands_are_not_cer
 async def test_complete_operands_with_teaching_or_extra_clauses_keep_the_model_path(query):
     _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
     assert verified is not None
-    assert maybe_direct_math_reply(verified, query) is None
+    reply = maybe_direct_math_reply(verified, query)
+    if "hint only" in query:
+        # Hint scope is enforced before the model sees the solver block, so a
+        # deterministic next-move hint is safer than allowing an answer leak.
+        assert reply is not None
+        assert "Hint:" in reply
+        assert "(2, 3)" not in reply
+    else:
+        assert reply is None

@@ -4,142 +4,31 @@ from __future__ import annotations
 
 import json
 
+from app.modules.math.response_intent import (
+    MathResponseMode,
+    classify_math_response_intent,
+    strip_math_response_wrappers,
+)
 from app.services.solving import VerifiedMathBlock
-
-# Linear phrase scan — do not put user text through nested-optional regex
-# (CodeQL py/polynomial-redos). Substrings are enough: "explain every step"
-# should request the verified lesson renderer; "1+1=x" need not.
-_EXPLAIN_PHRASES: tuple[str, ...] = (
-    "explain why each step is valid",
-    "explain every step",
-    "show every step",
-    "explain",
-    "teach",
-    "show work",
-    "show your work",
-    "show me your work",
-    "show me work",
-    "show the steps",
-    "show me the steps",
-    "show steps",
-    "show me how",
-    "show working",
-    "step by step",
-    "step-by-step",
-    "walk me",
-    "why is",
-    "why does",
-    "how do",
-    "how does",
-    "how to",
-    "how can",
-    "how would",
-)
-
-_ANSWER_ONLY_PHRASES: tuple[str, ...] = (
-    "just the answer",
-    "just the number",
-    "without steps",
-    "no steps",
-    "answer only",
-    "only the answer",
-)
-
-# "Show steps" is a short lesson. These ask for the extra why-sentence.
-_DETAILED_EXPLAIN_PHRASES: tuple[str, ...] = (
-    "explain",
-    "teach",
-    "walk me",
-    "why is",
-    "why does",
-    "how do",
-    "how does",
-    "how to",
-    "how can",
-    "how would",
-    "show me how",
-)
-
-_METHOD_PHRASES: tuple[str, ...] = (
-    "using the quadratic formula",
-    "with the quadratic formula",
-    "using factoring",
-    "by factoring",
-    "with factoring",
-)
-
-# Display constraints do not add a second task to a closed equation. They are
-# stripped only for the direct-reply safety check; the verified renderer
-# already preserves the solver's lowercase variable name.
-_PRESENTATION_PHRASES: tuple[str, ...] = (
-    "keep x lowercase in the final answer",
-    "keep the variable lowercase in the final answer",
-)
-
-# Prefixes that wrap a closed equation without changing it. Do not include
-# "explain" / "why" — those are conversational asks, not lesson metadata.
-_LESSON_PREFIX_PHRASES: tuple[str, ...] = tuple(
-    sorted(
-        {
-            "show work",
-            "show your work",
-            "show me your work",
-            "show me work",
-            "show the steps",
-            "show me the steps",
-            "show steps",
-            "show working",
-            "step by step",
-            "step-by-step",
-            *_ANSWER_ONLY_PHRASES,
-            *_METHOD_PHRASES,
-        },
-        key=len,
-        reverse=True,
-    )
-)
-
-_STRIP_PHRASES: tuple[str, ...] = tuple(
-    sorted(
-        {
-            *_EXPLAIN_PHRASES,
-            *_ANSWER_ONLY_PHRASES,
-            *_METHOD_PHRASES,
-            *_PRESENTATION_PHRASES,
-        },
-        key=len,
-        reverse=True,
-    )
-)
 
 
 def wants_math_explanation(text: str) -> bool:
     """True when the user asked for language (steps / teaching), not just the value."""
-    lowered = text.lower()
-    if " ".join(lowered.split()).strip(".!?") in {"how", "why", "how so"}:
-        return True
-    if any(phrase in lowered for phrase in _EXPLAIN_PHRASES):
-        return True
-    padded = f" {lowered} "
-    return " prove " in padded or " proof " in padded
+    return classify_math_response_intent(text).wants_explanation
 
 
 def wants_answer_only(text: str) -> bool:
-    lowered = text.lower()
-    return any(phrase in lowered for phrase in _ANSWER_ONLY_PHRASES)
+    return classify_math_response_intent(text).mode == MathResponseMode.ANSWER_ONLY
 
 
 def wants_detailed_math_explanation(text: str) -> bool:
     """True for 'explain' / 'why' — not for 'show steps'."""
-    lowered = text.lower()
-    if " ".join(lowered.split()).strip(".!?") in {"how", "why", "how so"}:
-        return True
-    return any(phrase in lowered for phrase in _DETAILED_EXPLAIN_PHRASES)
+    return classify_math_response_intent(text).wants_detailed_explanation
 
 
 def strip_teaching_signals(text: str) -> str:
     """Drop teaching/answer-only metadata so leftover-English still sees the math."""
-    return _strip_phrases(text, _STRIP_PHRASES)
+    return strip_math_response_wrappers(text)
 
 
 def lesson_math_text(text: str) -> str:
@@ -153,25 +42,7 @@ def lesson_math_text(text: str) -> str:
 
 def strip_lesson_prefixes(text: str) -> str:
     """Drop show-steps / just-the-answer wrappers before equation extraction."""
-    return _strip_phrases(text, _LESSON_PREFIX_PHRASES)
-
-
-def _strip_phrases(text: str, phrases: tuple[str, ...]) -> str:
-    result = text
-    lower = result.lower()
-    while True:
-        hit: tuple[int, int] | None = None
-        for phrase in phrases:
-            idx = lower.find(phrase)
-            if idx >= 0:
-                hit = (idx, idx + len(phrase))
-                break
-        if hit is None:
-            break
-        start, end = hit
-        result = f"{result[:start]} {result[end:]}"
-        lower = result.lower()
-    return " ".join(result.split())
+    return strip_math_response_wrappers(text)
 
 
 def should_render_equation_lesson(

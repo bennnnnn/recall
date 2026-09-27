@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from fractions import Fraction
 from typing import Any
@@ -11,25 +12,32 @@ from sympy import (
     Derivative,
     Eq,
     Function,
+    Integral,
+    S,
     Symbol,
     cos,
     diff,
     dsolve,
+    exp,
     expand,
     expand_trig,
     factorial,
+    integrate,
     latex,
     nsimplify,
     pi,
     simplify,
     sin,
     solve,
+    solveset,
     tan,
     trigsimp,
 )
 
 from app.models.schemas.math import MathExprResult
 from app.modules.math.solve import MathServiceError, _parse_expression
+
+logger = logging.getLogger(__name__)
 
 # Pint unit registry (singleton — 50-80ms init, paid once at first use).
 # Replaces the hardcoded _LENGTH_TO_M / _MASS_TO_KG / _TIME_TO_S dicts with
@@ -258,16 +266,47 @@ def twice_as_many(total: float) -> str:
 
 
 def verify_identity(lhs: str, rhs: str) -> str:
-    """Certify ``lhs = rhs`` only when the difference is identically 0."""
+    """Return whether ``lhs = rhs`` is an identity over the real numbers."""
+    holds, _condition, _counterexample = analyze_identity(lhs, rhs)
+    return "true" if holds else "false"
+
+
+def analyze_identity(lhs: str, rhs: str) -> tuple[bool, str | None, str | None]:
+    """Identity truth, equality set, and a small exact counterexample."""
     from app.modules.math.solve.discrete import guess_variables
 
     names = list(dict.fromkeys([*guess_variables(f"{lhs} {rhs}"), "theta", "x", "y", "t"]))
-    left = _parse_expression(lhs, names)
-    right = _parse_expression(rhs, names)
+    left = _parse_expression(lhs, names, real=True)
+    right = _parse_expression(rhs, names, real=True)
     difference = simplify(trigsimp(expand_trig(expand(left - right))))
-    if difference != 0:
-        raise MathServiceError("not identically zero")
-    return "true"
+    if difference == 0:
+        return True, None, None
+    variables = sorted(left.free_symbols | right.free_symbols, key=str)
+    if len(variables) != 1:
+        return False, None, None
+    variable = variables[0]
+    condition: str | None = None
+    try:
+        condition = latex(solveset(Eq(left, right), variable, domain=S.Reals))
+    except Exception as exc:
+        logger.debug("Could not solve identity equality set", exc_info=exc)
+    counterexample: str | None = None
+    for candidate in (-2, -1, 0, 1, 2):
+        try:
+            left_value = simplify(left.subs(variable, candidate))
+            right_value = simplify(right.subs(variable, candidate))
+            if left_value.is_finite is False or right_value.is_finite is False:
+                continue
+            if simplify(left_value - right_value) != 0:
+                counterexample = (
+                    rf"{latex(variable)}={candidate}:\;"
+                    rf"\text{{left}}={latex(left_value)},\;\text{{right}}={latex(right_value)}"
+                )
+                break
+        except Exception as exc:
+            logger.debug("Could not test identity counterexample", exc_info=exc)
+            continue
+    return False, condition, counterexample
 
 
 def _fraction_set(values: list[float]) -> set[Fraction]:
@@ -351,6 +390,10 @@ def expected_value(values: list[float], probs: list[float] | None) -> str:
         return f"{sum(values) / len(values):g}"
     if len(probs) != len(values):
         raise MathServiceError("values and probabilities must match")
+    if any(probability < 0 or probability > 1 for probability in probs):
+        raise MathServiceError("probabilities must be between 0 and 1")
+    if not math.isclose(sum(probs), 1.0, rel_tol=0.0, abs_tol=1e-9):
+        raise MathServiceError("probabilities must sum to 1")
     return f"{sum(v * p for v, p in zip(values, probs, strict=True)):g}"
 
 
@@ -484,7 +527,13 @@ def _ode_side(side: str, variable: str):
     return _parse_expression(text, [variable, "y", "Dy", "Dyy"])
 
 
-def solve_ode(expr: str, variable: str = "x") -> MathExprResult:
+def solve_ode(
+    expr: str,
+    variable: str = "x",
+    *,
+    initial_x: str | None = None,
+    initial_y: str | None = None,
+) -> MathExprResult:
     """Linear ODE in ``y``, up to second order, with terms on either side.
 
     Handles the bare forms (``dy/dx = 2y``, ``y' = 2y``) and the general linear
@@ -507,18 +556,68 @@ def solve_ode(expr: str, variable: str = "x") -> MathExprResult:
         Symbol("Dy"): Derivative(y(ivar), ivar),
         Symbol("y"): y(ivar),
     }
+    x0 = None
+    y0 = None
     try:
         eq = Eq(
             _ode_side(lhs_raw, variable).subs(substitutions),
             _ode_side(rhs_raw, variable).subs(substitutions),
         )
-        sol = dsolve(eq, y(ivar))
+        ics = None
+        if initial_x is not None and initial_y is not None:
+            x0 = _parse_expression(initial_x, [variable])
+            y0 = _parse_expression(initial_y, [variable])
+            ics = {y(x0): y0}
+        sol = dsolve(eq, y(ivar), ics=ics)
     except MathServiceError:
         raise
     except Exception as exc:
         raise MathServiceError("could not solve ODE") from exc
     tex = str(latex(sol))
-    return MathExprResult(result=tex, latex=tex, solved=True)
+    steps = _first_order_separable_ode_steps(eq, y, ivar, x0=x0, y0=y0)
+    return MathExprResult(result=tex, latex=tex, solved=True, steps=steps)
+
+
+def _first_order_separable_ode_steps(
+    equation: Eq,
+    dependent: Function,
+    independent: Symbol,
+    *,
+    x0: Any | None,
+    y0: Any | None,
+) -> list[str]:
+    """Verified trace for the family ``y' = f(x)y``.
+
+    SymPy still owns the final ``dsolve`` result. This helper only emits a
+    derivation when it can prove the ODE is separable into that family; other
+    first- and second-order equations keep the verified answer without
+    invented intermediate steps.
+    """
+    y_of_x = dependent(independent)
+    derivative = Derivative(y_of_x, independent)
+    try:
+        isolated = solve(equation, derivative)
+        if len(isolated) != 1:
+            return []
+        rate = simplify(isolated[0] / y_of_x)
+        if rate.has(y_of_x, derivative) or not rate.free_symbols <= {independent}:
+            return []
+        antiderivative = integrate(rate, independent)
+        if antiderivative.has(Integral):
+            return []
+    except Exception:
+        return []
+
+    var_tex = latex(independent)
+    steps = [
+        rf"\frac{{1}}{{y}}\,dy = {latex(rate)}\,d{var_tex}",
+        rf"\ln\lvert y\rvert = {latex(antiderivative)} + C",
+        rf"y = C e^{{{latex(antiderivative)}}},\quad C\in\mathbb{{R}}",
+    ]
+    if x0 is not None and y0 is not None:
+        constant = simplify(y0 / exp(antiderivative.subs(independent, x0)))
+        steps.append(rf"y({latex(x0)})={latex(y0)}\;\Longrightarrow\;C={latex(constant)}")
+    return steps
 
 
 def critical_points(expr: str, variable: str = "x") -> MathExprResult:

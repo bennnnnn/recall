@@ -52,7 +52,10 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | PhysicsIntent | None]]
 )
 
 _ROOTS_RE = re.compile(r"\b(?:find(?:\s+the)?\s+)?(?:roots|zeros)\s+of\s+(.+)", re.IGNORECASE)
-_TRIG_FUNCTION_RE = re.compile(r"\b(?:sin|cos|tan|cot|sec|csc)\s*\(", re.IGNORECASE)
+_TRIG_FUNCTION_RE = re.compile(
+    r"\b(?:sin|cos|tan|cot|sec|csc)\s*(?:\^\s*(?:\{\d+\}|\d+)|[²³])?\s*\(",
+    re.IGNORECASE,
+)
 _RESTRICTED_TRIG_DOMAIN_RE = re.compile(
     r"[<>\u2264\u2265\u2208\u2102\u2124\u2115\u211a\[\]]"
     r"|\\in\b|\\mathbb\s*\{[CZNQ]\}"
@@ -145,23 +148,33 @@ def _closed_math_syntax(text: str) -> bool:
 
 
 def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
+    # iOS smart punctuation turns derivative primes into curly apostrophes.
+    # Normalize them before every extractor while retaining the original
+    # request text for whole-request direct-reply checks.
+    normalized = text.translate({ord("\u2019"): "'", ord("\u2032"): "'", ord("\u2035"): "'"})
     # Read on the raw text: prepare() collapses the newlines that separate
     # a student's lines of work.
-    work = work_check_intent(text)
+    work = work_check_intent(normalized)
     if work is not None:
+        work._request_text = text.strip()
         return work
-    intent = _extract_math_intent(text)
+    intent = _extract_math_intent(normalized)
     if intent is not None:
+        if isinstance(intent, MathIntent):
+            intent._request_text = text.strip()
         return intent
     # "Explain how to solve 2x+3<7" / "show steps for …": the teaching words
     # are response metadata. Some extractors find math inside prose; the
     # stricter ones (inequalities) need them gone. One retry, same grammar.
     from app.modules.math.tools.lesson import lesson_math_text
 
-    stripped = lesson_math_text(text)
-    if not stripped or stripped == text.strip() or not _bare_math_request(stripped):
+    stripped = lesson_math_text(normalized)
+    if not stripped or stripped == normalized.strip() or not _bare_math_request(stripped):
         return None
-    return _extract_math_intent(stripped)
+    intent = _extract_math_intent(stripped)
+    if isinstance(intent, MathIntent):
+        intent._request_text = text.strip()
+    return intent
 
 
 def work_check_intent(text: str) -> MathIntent | None:

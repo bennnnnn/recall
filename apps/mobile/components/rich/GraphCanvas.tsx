@@ -26,7 +26,13 @@ type Props = {
   height: number;
   bounds: GraphView;
   drawn: DrawnSeries[];
+  holes?: GraphHoleMarker[];
   verticalX?: number;
+};
+
+export type GraphHoleMarker = {
+  point: [number, number];
+  color: string;
 };
 
 export function GraphCanvas({
@@ -37,6 +43,7 @@ export function GraphCanvas({
   height,
   bounds,
   drawn,
+  holes = [],
   verticalX,
 }: Props) {
   const isVerticalLine = verticalX != null;
@@ -60,6 +67,12 @@ export function GraphCanvas({
           .map((x) => mapGraphPoint(x, 0, bounds, width, height, GRAPH_AXIS_PAD))
       : [];
   const clip = `url(#${clipId})`;
+  const holeMarkers = holes
+    .filter(({ point }) => inView(point))
+    .map(({ point: [x, y], color }) => ({
+      ...mapGraphPoint(x, y, bounds, width, height, GRAPH_AXIS_PAD),
+      color,
+    }));
 
   return (
     <Svg width={width} height={height}>
@@ -106,6 +119,18 @@ export function GraphCanvas({
       ))}
       {rootMarkers.map(({ px, py }, i) => (
         <Circle key={`root-${i}`} cx={px} cy={py} r={4} fill={theme.danger} />
+      ))}
+      {holeMarkers.map(({ px, py, color }, i) => (
+        <Circle
+          key={`hole-${i}`}
+          testID={`graph-hole-${i}`}
+          cx={px}
+          cy={py}
+          r={5}
+          fill={theme.elevated}
+          stroke={color}
+          strokeWidth={2.25}
+        />
       ))}
     </Svg>
   );

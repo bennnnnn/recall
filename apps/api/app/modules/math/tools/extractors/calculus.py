@@ -20,6 +20,19 @@ from app.modules.math.tools.helpers import (
 _WRT_VARIABLE = re.compile(r"\b(?:with\s+respect\s+to|wrt)\s+([a-zA-Z])\b", re.IGNORECASE)
 _LEIBNIZ_VARIABLE = re.compile(r"/\s*d\s*([a-zA-Z])\b")
 _INTEGRAL_VARIABLE = re.compile(r"\bd\s*([a-zA-Z])(?=\s+from\b|\s*$)")
+_HIGHER_LEIBNIZ = re.compile(
+    r"\bd\s*(?:\^\s*([2-4])|([²³⁴]))\s*[a-zA-Z]\s*/\s*"
+    r"d\s*([a-zA-Z])\s*(?:\^\s*[2-4]|[²³⁴])",
+    re.IGNORECASE,
+)
+_DERIVATIVE_AT_POINT = re.compile(
+    r"\s+at\s+([a-zA-Z])\s*=\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*$",
+    re.IGNORECASE,
+)
+_UNICODE_SIGMA_EXPR = re.compile(
+    r"Σ\s*(.+?)(?=\s+(?:converges?|diverges?)\b|[?;]|$)",
+    re.IGNORECASE,
+)
 
 
 def _calculus_variable(cleaned: str, raw: str, expr: str, *, integrate: bool) -> str:
@@ -100,7 +113,7 @@ def _extract_critical_points_intent(cleaned: str) -> MathIntent | None:
     )
 
 
-_IDENTITY_CUES = ("show that", "prove that", "verify that")
+_IDENTITY_CUES = ("show that", "prove that", "verify that", "always true")
 _IDENTITY_SKIP_OPS = {
     "factor",
     "expand",
@@ -133,11 +146,19 @@ def _extract_identity_intent(cleaned: str) -> MathIntent | None:
             expr="",
             variable="x",
         )
+    if lower.startswith("is "):
+        cleaned = cleaned[3:].lstrip()
+        lower = cleaned.lower()
     eq = cleaned.find("=")
     if eq <= 0:
         return None
     lhs_raw = cleaned[:eq]
     rhs_raw = cleaned[eq + 1 :]
+    rhs_lower = rhs_raw.lower().rstrip(" .?!")
+    for suffix in (" always true", " true for all real numbers", " true for all real x"):
+        if rhs_lower.endswith(suffix):
+            rhs_raw = rhs_raw[: len(rhs_lower) - len(suffix)]
+            break
     lhs_low = lhs_raw.lower()
     for cue in (*_IDENTITY_CUES, "the identity", "identity"):
         idx = lhs_low.find(cue)
@@ -224,11 +245,53 @@ def _extract_double_integral_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+def _leading_integral_bounds(cleaned: str) -> tuple[str, str, str] | None:
+    """``integral from 1 to infinity of f(x) dx`` -> expression and bounds."""
+    lower = cleaned.lower()
+    integral_at = cleaned.find("∫")
+    if integral_at != -1:
+        rest = cleaned[integral_at + 1 :].strip()
+        if rest.startswith("["):
+            close = rest.find("]")
+            if close != -1:
+                bounds = rest[1:close].split(",")
+                expr = rest[close + 1 :].strip()
+                if len(bounds) == 2 and all(part.strip() for part in bounds) and expr:
+                    return expr, bounds[0].strip(), bounds[1].strip()
+    marker = "integral from "
+    start = lower.find(marker)
+    if start == -1:
+        return None
+    rest = cleaned[start + len(marker) :].strip()
+    to_at = rest.lower().find(" to ")
+    if to_at == -1:
+        return None
+    after_to = rest[to_at + 4 :].strip()
+    of_at = after_to.lower().find(" of ")
+    if of_at == -1:
+        return None
+    low = rest[:to_at].strip()
+    high = after_to[:of_at].strip()
+    expr = after_to[of_at + 4 :].strip()
+    if not low or not high or not expr or " " in low or " " in high:
+        return None
+    return expr, low, high
+
+
 def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math import match as mtm
 
+    higher_leibniz = _HIGHER_LEIBNIZ.search(cleaned)
     op_word = mtm.calc_op(cleaned)
+    if op_word is None and higher_leibniz is not None:
+        op_word = "differentiate"
     if op_word is None or op_word in {"taylor", "partial", "dsolve"}:
+        return None
+    if op_word == "factor" and any(
+        phrase in cleaned.lower() for phrase in ("do not factor", "don't factor")
+    ):
+        # This is a method constraint on an equation, not a request to factor
+        # the pronoun at the end of the sentence.
         return None
     calc_op: Literal["simplify", "differentiate", "integrate", "factor", "expand"] = (
         "differentiate" if op_word in {"differentiate", "derivative"} else "integrate"
@@ -243,8 +306,38 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         # The ordinary integrator does not compute a Cauchy principal value.
         # Do not strip this qualifier and certify a different mathematical request.
         return None
+    leading_bounds = _leading_integral_bounds(cleaned) if calc_op == "integrate" else None
     tail = _calc_expr_tail(cleaned)
-    raw = _strip_trailing_filler(tail) if tail is not None else cleaned
+    if calc_op == "differentiate" and higher_leibniz is not None:
+        # ``find d²y/dx² if y = ...`` puts the function after the derivative
+        # request, not after a word such as "differentiate".  Keep the whole
+        # function definition so ``peel_function_definition`` can remove y=.
+        lower_cleaned = cleaned.lower()
+        if_at = lower_cleaned.find(" if ", higher_leibniz.end())
+        if if_at != -1:
+            tail = cleaned[if_at + 4 :]
+    raw = (
+        _strip_trailing_filler(leading_bounds[0])
+        if leading_bounds is not None
+        else (_strip_trailing_filler(tail) if tail is not None else cleaned)
+    )
+    evaluation_point: str | None = None
+    if calc_op == "differentiate":
+        point_match = _DERIVATIVE_AT_POINT.search(raw.rstrip(".?!"))
+        if point_match is not None:
+            raw = raw[: point_match.start()].rstrip(" ,;.")
+            evaluation_point = point_match.group(2)
+    if calc_op == "simplify":
+        lower_raw = raw.lower()
+        for suffix in (
+            " state all excluded values",
+            " state the excluded values",
+            " include all excluded values",
+        ):
+            at = lower_raw.find(suffix)
+            if at != -1:
+                raw = raw[:at].rstrip(" ,;.")
+                break
     raw = _split_find_clause(raw)
     raw = peel_function_definition(raw)
     # ``simplify 4x+2x=18`` is an equation, not a simplify-of-equality. Fall
@@ -261,12 +354,12 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
             return None
         if pairs and pairs[0][1].strip() in {"0", "0.0"}:
             raw = pairs[0][0]
-    integral_lower: str | None = None
-    integral_upper: str | None = None
+    integral_lower: str | None = leading_bounds[1] if leading_bounds is not None else None
+    integral_upper: str | None = leading_bounds[2] if leading_bounds is not None else None
     raw_with_differential = raw
     if calc_op == "integrate":
         raw = _strip_trailing_differential(raw)
-        bounds = mtm.integral_bounds(raw)
+        bounds = mtm.integral_bounds(raw) if leading_bounds is None else None
         if bounds is not None:
             raw, integral_lower, integral_upper = bounds
     expr = math_expr_or_none(raw)
@@ -282,6 +375,7 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         integral_lower=integral_lower,
         integral_upper=integral_upper,
         derivative_order=_derivative_order(cleaned) if calc_op == "differentiate" else 1,
+        evaluation_point=evaluation_point,
     )
 
 
@@ -308,6 +402,36 @@ def _extract_limit_intent(cleaned: str) -> MathIntent | None:
 
 def _extract_series_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math import match as mtm
+    from app.modules.math import solve as math_solve
+
+    if "Σ" in cleaned:
+        raw_expressions = [
+            match.group(1).strip() for match in _UNICODE_SIGMA_EXPR.finditer(cleaned)
+        ]
+        expressions: list[str] = []
+        variable: str | None = None
+        for raw in raw_expressions[:2]:
+            guarded = math_expr_or_none(_normalize_latex_expr(raw).replace("^", "**"))
+            if guarded is None:
+                return None
+            names = math_solve.guess_variables(guarded)
+            if len(names) != 1:
+                return None
+            if variable is not None and names[0] != variable:
+                return None
+            variable = names[0]
+            expressions.append(guarded)
+        if expressions and variable is not None:
+            return MathIntent(
+                kind="series",
+                expr=expressions[0],
+                expr2=expressions[1] if len(expressions) == 2 else None,
+                variable=variable,
+                series_start="1",
+                series_end="infinity",
+                operation="series",
+                school_op="series_convergence",
+            )
 
     series_hit = mtm.parse_series(cleaned)
     if series_hit is None:

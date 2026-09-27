@@ -10,6 +10,7 @@ from app.modules.math import match as math_match
 from app.modules.math import solve as math_solve
 from app.modules.math.solve import MathServiceError
 from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools.direct import maybe_direct_math_reply
 
 
 def test_function_domain_and_range_are_verified() -> None:
@@ -101,7 +102,13 @@ def test_bivariate_statistics_are_verified() -> None:
 
 def test_bivariate_statistics_require_two_explicit_equal_lists() -> None:
     assert math_match.needs_symbolic("correlation between sales and weather") is False
-    assert extract_math_intent("correlation between [1,2,3] and [2,4]") is None
+    query = "correlation between [1,2,3] and [2,4]"
+    intent = extract_math_intent(query)
+    assert intent is not None
+    block = _build_verified_block(intent, Settings())
+    assert block is not None and block.canonical_answer is None
+    reply = maybe_direct_math_reply(block, query)
+    assert reply is not None and "3 values versus 2" in reply
 
     with pytest.raises(MathServiceError):
         math_solve.compute_bivariate_statistics("correlation", [1, 1], [2, 3])

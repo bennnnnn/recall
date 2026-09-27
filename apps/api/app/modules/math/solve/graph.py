@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 import numpy as np
-from sympy import Symbol
+from sympy import Symbol, denom, limit, solve
 
 from app.models.schemas.math import (
     GraphBlockSpec,
@@ -131,6 +131,33 @@ def _split_at_xs(points: list[list[float]], pole_xs: list[float]) -> list[list[l
     return segments
 
 
+def _removable_holes(
+    original: Any, simplified: Any, sym: Symbol, x_min: float, x_max: float
+) -> list[list[float]]:
+    """Finite limits at zeros of the *original* denominator.
+
+    Sampling the simplified expression alone loses removable discontinuities:
+    SymPy turns ``(x^2-1)/(x-1)`` into ``x+1``.  The original parse is kept
+    unevaluated solely to recover its domain; the plotted y-coordinate still
+    comes from the verified two-sided limit of the simplified expression.
+    """
+    try:
+        roots = solve(denom(original), sym)
+    except Exception:
+        return []
+    holes: list[list[float]] = []
+    for root in roots[:8]:
+        try:
+            x_value = float(root)
+            y_limit = limit(simplified, sym, root)
+            y_value = float(y_limit)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if x_min <= x_value <= x_max and math.isfinite(x_value) and math.isfinite(y_value):
+            holes.append([round(x_value, 4), round(y_value, 4)])
+    return holes
+
+
 _MAX_GRAPH_SAMPLES = 500
 _OSCILLATION_SAMPLES_PER_PERIOD = 16
 _OSCILLATION_PERIODS_IN_VIEW = 8
@@ -183,6 +210,7 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
         raise MathServiceError("x_max must be greater than x_min")
     sym = Symbol(data.variable)
     parsed = _parse_expression(data.expr, [data.variable])
+    original = _parse_expression(data.expr, [data.variable], evaluate=False)
     from sympy.core.relational import Relational
 
     if isinstance(parsed, Relational):
@@ -219,6 +247,7 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
         x_max=x_max,
         points=points,
         segments=_split_at_xs(points, pole_xs) if pole_xs else _split_into_segments(points),
+        holes=_removable_holes(original, parsed, sym, x_min, x_max),
     )
 
 

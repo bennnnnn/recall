@@ -215,6 +215,7 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     wants_circumference = "circumference" in lower
     radius = mtm.number_after(cleaned, "radius")
     if radius is not None:
+        chord = mtm.number_after(cleaned, "chord")
         return MathIntent(
             kind="circle",
             radius=radius,
@@ -223,9 +224,14 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
             wants_area=wants_area,
             wants_circumference=wants_circumference,
             wants_diameter="diameter" in lower,
+            chord_length=chord,
+            wants_center_distance=chord is not None and "distance" in lower and "center" in lower,
             school_op=_geometry_request_mode(
                 lower,
-                wants_area or wants_circumference or "diameter" in lower,
+                wants_area
+                or wants_circumference
+                or "diameter" in lower
+                or (chord is not None and "distance" in lower),
             ),
         )
     diameter = mtm.number_after(cleaned, "diameter")

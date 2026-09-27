@@ -6,14 +6,15 @@ import { axisTicksW } from "@/lib/math/graphWorklets";
 type Handler = (event?: Record<string, number>) => void;
 type HandlerBag = Record<string, Handler>;
 
-const mockHandlers: Record<"pinch" | "pan" | "doubleTap" | "longPress", HandlerBag> = {
+const mockHandlers: Record<"pinch" | "pan" | "tracePan" | "doubleTap", HandlerBag> = {
   pinch: {},
   pan: {},
+  tracePan: {},
   doubleTap: {},
-  longPress: {},
 };
 
 jest.mock("react-native-gesture-handler", () => {
+  let panCount = 0;
   const chain = (name: keyof typeof mockHandlers) => {
     const api: Record<string, (value?: unknown) => typeof api> = {};
     for (const method of [
@@ -21,6 +22,7 @@ jest.mock("react-native-gesture-handler", () => {
       "maxPointers",
       "numberOfTaps",
       "minDuration",
+      "activateAfterLongPress",
     ]) {
       api[method] = () => api;
     }
@@ -35,9 +37,9 @@ jest.mock("react-native-gesture-handler", () => {
   return {
     Gesture: {
       Pinch: () => chain("pinch"),
-      Pan: () => chain("pan"),
+      Pan: () => chain(panCount++ % 2 === 0 ? "tracePan" : "pan"),
       Tap: () => chain("doubleTap"),
-      LongPress: () => chain("longPress"),
+      Race: (...gestures: unknown[]) => gestures,
       Simultaneous: (...gestures: unknown[]) => gestures,
     },
   };
@@ -143,8 +145,8 @@ describe("useSkiaGraphViewport gestures", () => {
     );
 
     await act(() => {
-      mockHandlers.longPress.onStart?.({ x: 140, y: 90 });
-      mockHandlers.pan.onUpdate?.({ translationX: 30, translationY: 20, x: 170, y: 110 });
+      mockHandlers.tracePan.onStart?.({ x: 140, y: 90 });
+      mockHandlers.tracePan.onUpdate?.({ x: 170, y: 110 });
     });
 
     expect(result.current.traceActive.value).toBe(true);
@@ -153,7 +155,7 @@ describe("useSkiaGraphViewport gestures", () => {
     expect(onTraceTick).toHaveBeenCalledTimes(1);
 
     await act(() => {
-      mockHandlers.pan.onEnd?.();
+      mockHandlers.tracePan.onFinalize?.();
     });
     expect(result.current.traceActive.value).toBe(false);
     expect(onCommit).not.toHaveBeenCalled();

@@ -147,6 +147,8 @@ def calc_op(text: str) -> str | None:
     m = _CALC_OP.search(text)
     if m:
         return m.group(1).lower()
+    if "∫" in text:
+        return "integrate"
     if ddx_cue_at(text) is not None:
         return "differentiate"
     if _lagrange_derivative_cue(text):
@@ -390,6 +392,45 @@ def parse_series(text: str) -> SeriesHit | None:
         # also bare "sum of"
         if "sum" not in lower:
             return None
+    # Bounds-first prose: ``sum from n=0 to infinity of (-1)^n``.
+    # This must run before equation extraction sees the lower bound as ``n=0``.
+    bounds_head = "sum from "
+    bounds_at = lower.find(bounds_head)
+    if bounds_at != -1:
+        rest = text[bounds_at + len(bounds_head) :].strip()
+        to_at = rest.lower().find(" to ")
+        if to_at != -1:
+            lower_bound = rest[:to_at].replace(" ", "")
+            after_to = rest[to_at + 4 :].strip()
+            of_at = after_to.lower().find(" of ")
+            if of_at != -1 and "=" in lower_bound:
+                var, start = lower_bound.split("=", 1)
+                end = after_to[:of_at].strip()
+                expr = after_to[of_at + 4 :].strip().rstrip(".?!")
+                low_expr = expr.lower()
+                for suffix in (
+                    " converges or diverges",
+                    " converge or diverge",
+                    " is convergent or divergent",
+                ):
+                    if low_expr.endswith(suffix):
+                        expr = expr[: -len(suffix)].rstrip()
+                        break
+                start_hit = _parse_signed_int_token(start)
+                end_low = end.lower()
+                valid_end = end_low in {"infinity", "inf", "oo"} or (
+                    _parse_signed_int_token(end) or (None, 0)
+                )[1] == len(end)
+                if (
+                    len(var) == 1
+                    and var.isalpha()
+                    and start_hit is not None
+                    and start_hit[1] == len(start)
+                    and valid_end
+                    and expr
+                ):
+                    return SeriesHit(expr=expr, var=var, start=start, end=end)
+
     # sum|series [of] EXPR from VAR=START to END
     for head in ("sum of ", "series of ", "sum ", "series "):
         idx = lower.find(head)
