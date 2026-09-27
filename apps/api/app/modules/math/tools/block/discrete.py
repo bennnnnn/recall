@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from typing import Any
+
 from app.core.config import Settings
 from app.models.schemas.math import (
     CombinatoricsInput,
@@ -12,6 +15,9 @@ from app.models.schemas.math import (
     StatisticsInput,
 )
 from app.modules.math import solve as math_solve
+from app.modules.math.solve.derivative_steps import derivative_trace
+from app.modules.math.solve.integral_steps import integral_trace
+from app.modules.math.solve.key_steps import KeyStep
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 from app.services.solving import (
     VerifiedMathBlock,
@@ -68,7 +74,187 @@ def _verified_calculus_application(
             intent.expr, intent.integral_lower, intent.integral_upper, axis, intent.variable
         )
         lines.append(f"Volume about the {axis}-axis: {answer}")
-    return _finish_with_answer(lines, answer)
+    block = _finish_with_answer(lines, answer)
+    from sympy import (
+        Eq,
+        FiniteSet,
+        Interval,
+        Symbol,
+        diff,
+        integrate,
+        latex,
+        simplify,
+        solveset,
+        sqrt,
+    )
+
+    sym = Symbol(intent.variable, real=True)
+    parsed = math_solve._parse_expression(intent.expr, [intent.variable], real=True)
+    low, high = intent.integral_lower, intent.integral_upper
+    if op == "area_between_curves" and intent.expr2:
+        second = math_solve._parse_expression(intent.expr2, [intent.variable], real=True)
+        difference = simplify(parsed - second)
+        low_expr = math_solve._parse_expression(str(low), [], real=True)
+        high_expr = math_solve._parse_expression(str(high), [], real=True)
+        roots = solveset(Eq(difference, 0), sym, domain=Interval(low_expr, high_expr))
+        interior_roots = []
+        if isinstance(roots, FiniteSet):
+            interior_roots = [root for root in roots if root != low_expr and root != high_expr]
+        midpoint = simplify((low_expr + high_expr) / 2)
+        sample = difference.subs(sym, midpoint)
+        single_order = (
+            isinstance(roots, FiniteSet) and not interior_roots and sample.is_real is True
+        )
+        if single_order and sample.is_nonnegative is True:
+            upper, lower_curve, gap = parsed, second, difference
+        elif single_order and sample.is_nonpositive is True:
+            upper, lower_curve, gap = second, parsed, -difference
+        else:
+            upper = lower_curve = None
+            gap = None
+        if gap is not None:
+            antiderivative = integrate(gap, sym)
+            direct = (
+                "**1. Identify the upper curve**\n\n"
+                f"On $[{low},{high}]$, ${latex(upper)} \\ge {latex(lower_curve)}$, "
+                f"so use upper minus lower.\n\n"
+                "**2. Set up the area**\n\n"
+                f"$A = \\int_{{{low}}}^{{{high}}} \\left({latex(gap)}\\right)"
+                f"\\,d{intent.variable}$\n\n"
+                "**3. Find an antiderivative**\n\n"
+                f"$A = \\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}$\n\n"
+                "**4. Evaluate the endpoints**\n\n"
+                f"$A = {latex(antiderivative.subs(sym, high_expr))}"
+                f" - \\left({latex(antiderivative.subs(sym, low_expr))}\\right)$\n\n"
+                f"$A = {answer}$\n\n"
+            )
+        else:
+            direct = (
+                "**1. The curves change order, so use absolute difference**\n\n"
+                f"$A = \\int_{{{low}}}^{{{high}}} \\left|{latex(difference)}\\right|"
+                f"\\,d{intent.variable}$\n\n"
+                f"**2. Evaluate the integral**\n\n$A = {answer}$\n\n"
+            )
+    elif op == "arc_length":
+        derivative = diff(parsed, sym)
+        integrand = sqrt(1 + derivative**2)
+        direct = (
+            "**Differentiate the curve**\n"
+            f"$y' = {latex(derivative)}$\n\n"
+            "**Arc-length formula**\n"
+            f"$L = \\int_{{{low}}}^{{{high}}} \\sqrt{{1+(y')^2}}\\,d{intent.variable}"
+            f" = \\int_{{{low}}}^{{{high}}} {latex(integrand)}\\,d{intent.variable}$\n\n"
+            f"**Evaluate**\n$L = {answer}$\n\n"
+        )
+    else:
+        axis = "x" if op.endswith("_x") else "y"
+        if axis == "x":
+            cross_section = simplify(parsed**2)
+            antiderivative = integrate(cross_section, sym)
+            low_expr = math_solve._parse_expression(str(low), [], real=True)
+            high_expr = math_solve._parse_expression(str(high), [], real=True)
+            setup = (
+                rf"V = \pi\int_{{{low}}}^{{{high}}}\left({latex(parsed)}\right)^2"
+                rf"\,d{intent.variable}"
+            )
+            working = (
+                "**2. Simplify the cross-sectional area**\n\n"
+                f"$\\left({latex(parsed)}\\right)^2 = {latex(cross_section)}$\n\n"
+                "**3. Integrate**\n\n"
+                f"$V = \\pi\\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}$\n\n"
+                "**4. Evaluate the endpoints**\n\n"
+                f"$V = \\pi\\left({latex(antiderivative.subs(sym, high_expr))}"
+                f" - {latex(antiderivative.subs(sym, low_expr))}\\right)$\n\n"
+            )
+        else:
+            shell_integrand = simplify(sym * parsed)
+            antiderivative = integrate(shell_integrand, sym)
+            low_expr = math_solve._parse_expression(str(low), [], real=True)
+            high_expr = math_solve._parse_expression(str(high), [], real=True)
+            setup = (
+                rf"V = 2\pi\int_{{{low}}}^{{{high}}}{intent.variable}"
+                rf"\left({latex(parsed)}\right)\,d{intent.variable}"
+            )
+            working = (
+                "**2. Simplify the shell integrand**\n\n"
+                f"${intent.variable}\\left({latex(parsed)}\\right) = {latex(shell_integrand)}$\n\n"
+                "**3. Integrate**\n\n"
+                f"$V = 2\\pi\\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}$\n\n"
+                "**4. Evaluate the endpoints**\n\n"
+                f"$V = 2\\pi\\left({latex(antiderivative.subs(sym, high_expr))}"
+                f" - {latex(antiderivative.subs(sym, low_expr))}\\right)$\n\n"
+            )
+        direct = (
+            f"**1. Set up the {'disk' if axis == 'x' else 'shell'} method**\n\n"
+            f"${setup}$\n\n"
+            f"{working}"
+            f"$V = {answer}$\n\n"
+        )
+    direct += f"```answer\n{answer}\n```\n"
+    return replace(block, direct_reply=direct)
+
+
+def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
+    """Render a verified simplification and preserve the original domain."""
+    from sympy import Eq, Symbol, latex, preorder_traversal, solve
+
+    names = math_solve.guess_variables(intent.expr or "") or [intent.variable]
+    original = math_solve._parse_expression(intent.expr or "", names, evaluate=False)
+    display_original = math_solve._parse_expression(intent.expr or "", names)
+    parsed = math_solve._parse_expression(intent.expr or "", names, real=True)
+    restrictions: list[str] = []
+    seen_symmetric: set[tuple[str, str]] = set()
+    denominator_bases = [
+        node.base
+        for node in preorder_traversal(original)
+        if getattr(node, "is_Pow", False)
+        and getattr(node.exp, "is_number", False)
+        and bool(node.exp < 0)
+    ]
+    for name in names:
+        sym = next((item for item in original.free_symbols if str(item) == name), Symbol(name))
+        excluded_values: list[Any] = []
+        for denominator in denominator_bases:
+            if sym not in getattr(denominator, "free_symbols", set()):
+                continue
+            try:
+                for value in solve(Eq(denominator, 0), sym):
+                    if value not in excluded_values:
+                        excluded_values.append(value)
+            except Exception:  # noqa: S112 - one unsolved symbolic factor is non-fatal
+                continue
+        for value in sorted(excluded_values, key=str):
+            if getattr(value, "is_Symbol", False):
+                first, second = sorted((str(sym), str(value)))
+                pair = (first, second)
+                if pair in seen_symmetric:
+                    continue
+                seen_symmetric.add(pair)
+            restrictions.append(rf"{latex(sym)} \ne {latex(value)}")
+    body = f"**Simplify**\n${latex(display_original)} = {answer}$\n"
+    if restrictions:
+        body += (
+            "\n**Restrictions from the original expression**\n$"
+            + r",\; ".join(restrictions)
+            + "$\n"
+        )
+    elif "Abs(" in str(parsed):
+        body += (
+            "\nThe principal square root is nonnegative, so the result is an "
+            "absolute value, not simply the variable.\n"
+        )
+    return f"{body}\n```answer\n{answer}\n```\n"
+
+
+def _is_log_over_x_integral(expr: str, variable: str) -> bool:
+    from sympy import Symbol, log, simplify
+
+    sym = Symbol(variable, real=True)
+    try:
+        parsed = math_solve._parse_expression(expr, [variable], real=True)
+        return bool(simplify(parsed - 1 / (sym * log(sym))) == 0)
+    except Exception:
+        return False
 
 
 def _verified_function_analysis(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -122,9 +308,31 @@ def _verified_block_calculus(
         return None
     if intent.school_op == "identity":
         return None
+    trace: list[KeyStep] = []
+    given: str | None = None
+    checked_answer: str | None = None
     if intent.operation == "simplify":
         out = math_solve.simplify_expression(intent.expr, intent.variable)
     elif intent.operation == "differentiate":
+        if intent.evaluation_point is not None:
+            out = math_solve.differentiate_at_point(
+                intent.expr, intent.variable, intent.evaluation_point
+            )
+            point_tex = intent.evaluation_point
+            lines.extend(out.steps)
+            answer = out.latex
+            direct = (
+                f"At ${intent.variable}={point_tex}$, {out.steps[0]}\n\n```answer\n{answer}\n```\n"
+            )
+            return replace(
+                _finish_with_answer(lines, answer),
+                direct_reply=direct,
+                direct_requires_calculus_guard=True,
+            )
+        if intent.derivative_order in (None, 1):
+            trace, given = derivative_trace(
+                intent.expr[: settings.math_max_expr_length], intent.variable
+            )
         out = math_solve.differentiate_expression(
             intent.expr, intent.variable, intent.derivative_order
         )
@@ -173,6 +381,9 @@ def _verified_block_calculus(
             )
         else:
             out = math_solve.integrate_expression(intent.expr, intent.variable)
+            trace, given, checked_answer = integral_trace(
+                intent.expr[: settings.math_max_expr_length], intent.variable
+            )
     elif intent.operation == "factor":
         out = math_solve.factor_expression(intent.expr, intent.variable)
     elif intent.operation == "expand":
@@ -183,14 +394,45 @@ def _verified_block_calculus(
         undefined_note = undefined_integral_note(out.result)
         if undefined_note is not None:
             lines.append(undefined_note)
-            return VerifiedMathBlock(text="\n".join(lines))
+            return VerifiedMathBlock(
+                text="\n".join(lines),
+                direct_reply=(
+                    "This ordinary improper integral does not converge. "
+                    "A Cauchy principal value is a separate convention and was not requested."
+                ),
+            )
         infinite_note = infinite_integral_note(out.result)
         if infinite_note is not None:
             lines.append(infinite_note)
+            direction = "+\u221e" if out.result == "oo" else "\u2212\u221e"
+            message = (
+                f"This improper integral diverges to {direction}; "
+                "it does not converge to a finite value."
+            )
+            return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
     if not out.solved:
         lines.append(f"No closed-form result (got: {out.latex}).")
         return VerifiedMathBlock(text="\n".join(lines))
     answer = out.latex
+    if (
+        intent.operation == "integrate"
+        and intent.integral_lower is None
+        and _is_log_over_x_integral(intent.expr, intent.variable)
+    ):
+        answer = rf"\log\left|\log\left({intent.variable}\right)\right| + C"
+        direct = (
+            "**Substitute**\n"
+            f"$u = \\log({intent.variable}), \\quad du = \\frac{{1}}{{{intent.variable}}}"
+            f"\\,d{intent.variable}$\n\n"
+            "**Integrate**\n"
+            r"$\int \frac{1}{u}\,du = \log|u| + C$"
+            "\n\n**Substitute back**\n"
+            f"${answer}$\n\n"
+            f"For real values, the domain is ${intent.variable}>0$ with "
+            f"${intent.variable}\\ne1$.\n\n"
+            f"```answer\n{answer}\n```\n"
+        )
+        return replace(_finish_with_answer(lines, answer), direct_reply=direct)
     if intent.operation == "integrate" and intent.integral_lower is None:
         # The service computes one antiderivative; the user's indefinite
         # integral asks for the family, including on the direct reply path.
@@ -200,9 +442,43 @@ def _verified_block_calculus(
     # even with a verified final answer.
     if out.steps:
         lines.extend(out.steps)
-        return _finish_with_answer(lines, answer)
-    lines.append(f"Result: {answer}")
-    return _finish_with_answer(lines, answer)
+    else:
+        lines.append(f"Result: {answer}")
+    block = _finish_with_answer(lines, answer, key_steps=trace, given_latex=given)
+    if (
+        intent.operation == "integrate"
+        and intent.integral_lower is not None
+        and intent.integral_upper is not None
+    ):
+        from sympy import latex
+
+        parsed = math_solve._parse_expression(intent.expr, [intent.variable], real=True)
+        direct = (
+            "**Set up the definite integral**\n"
+            f"$\\int_{{{intent.integral_lower}}}^{{{intent.integral_upper}}} "
+            f"{latex(parsed)}\\,d{intent.variable}$\n\n"
+            "**Evaluate (using endpoint limits if the integral is improper)**\n"
+            f"$= {answer}$\n\n"
+            f"```answer\n{answer}\n```\n"
+        )
+        return replace(block, direct_reply=direct)
+    if intent.operation == "simplify":
+        return replace(block, direct_reply=_simplification_direct_reply(intent, answer))
+    if intent.operation == "differentiate":
+        chunks: list[str] = []
+        if given:
+            chunks.append(f"**Find:** ${given}$")
+        for index, step in enumerate(trace, start=1):
+            chunks.append(f"**{index}. {step.label}**\n${step.formula}$")
+        if not trace:
+            chunks.extend(out.steps)
+        chunks.append(f"```answer\n{answer}\n```\n")
+        return replace(block, direct_reply="\n\n".join(chunks))
+    if not trace:
+        return block
+    # An antiderivative the trace found (checked by differentiating back) may
+    # differ from SymPy's by a constant; the lesson ends on its own spelling.
+    return replace(block, given_label="Find", display_answer=checked_answer)
 
 
 def _verified_block_limit(
@@ -214,10 +490,9 @@ def _verified_block_limit(
         intent.expr, intent.variable, intent.limit_point, intent.limit_direction
     )
     if limit_out.result == "zoo":
-        lines.append(
-            "The two-sided limit does not exist: the sides disagree. Do not call it infinity."
-        )
-        return VerifiedMathBlock(text="\n".join(lines))
+        message = "The two-sided limit does not exist because the one-sided limits disagree."
+        lines.append(f"{message} Do not call it infinity.")
+        return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
     lines.append(f"Result: {limit_out.latex}")
     if limit_out.is_infinite:
         lines.append(
@@ -235,6 +510,39 @@ def _verified_block_series(
     series_out = math_solve.evaluate_series_sum(
         intent.expr, intent.variable, intent.series_start, intent.series_end
     )
+    if intent.school_op == "series_convergence":
+        outcomes = [(intent.expr, series_out)]
+        if intent.expr2:
+            outcomes.append(
+                (
+                    intent.expr2,
+                    math_solve.evaluate_series_sum(
+                        intent.expr2,
+                        intent.variable,
+                        intent.series_start,
+                        intent.series_end,
+                    ),
+                )
+            )
+        from sympy import latex
+
+        rendered: list[str] = []
+        for expression, outcome in outcomes:
+            if outcome.is_convergent is False:
+                status = "diverges"
+            elif outcome.is_convergent is True and outcome.is_absolutely_convergent is False:
+                status = "converges conditionally"
+            elif outcome.is_convergent is True:
+                status = "converges absolutely"
+            else:
+                status = "could not be classified"
+            lines.append(f"Series {expression}: {status}; sum={outcome.latex}")
+            parsed = math_solve._parse_expression(expression, [intent.variable], real=True)
+            rendered.append(
+                f"$\\sum_{{{intent.variable}=1}}^{{\\infty}} {latex(parsed)}$ {status}."
+            )
+        direct = "**Convergence**\n\n" + "\n\n".join(rendered)
+        return VerifiedMathBlock(text="\n".join(lines), direct_reply=direct)
     lines.append(f"Result: {series_out.latex}")
     if series_out.is_convergent is not None:
         lines.append(
@@ -248,7 +556,10 @@ def _verified_block_series(
         )
     if series_out.is_convergent is False and not series_out.is_infinite:
         lines.append("This series diverges; it has no ordinary sum. Do not present a finite value.")
-        return VerifiedMathBlock(text="\n".join(lines))
+        return VerifiedMathBlock(
+            text="\n".join(lines),
+            direct_reply="This series diverges; it has no ordinary sum.",
+        )
     if not series_out.solved:
         lines.append("The sum was not evaluated. Do not claim a closed-form answer.")
         return VerifiedMathBlock(text="\n".join(lines))
@@ -267,7 +578,15 @@ def _verified_block_statistics(
         return None
     if intent.stats_op in _BIVARIATE_STATS_OPS:
         if not intent.stats_numbers_b or len(intent.stats_numbers_b) != len(intent.stats_numbers):
-            return None
+            first_count = len(intent.stats_numbers)
+            second_count = len(intent.stats_numbers_b or [])
+            message = (
+                "The two data lists must have the same number of values before "
+                f"{intent.stats_op.replace('_', ' ')} can be calculated "
+                f"({first_count} values versus {second_count})."
+            )
+            lines.append(message)
+            return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
         answer, steps = math_solve.compute_bivariate_statistics(
             intent.stats_op,
             intent.stats_numbers,
@@ -381,11 +700,32 @@ def _verified_block_matrix(
 ) -> VerifiedMathBlock | None:
     if intent.matrix_op is None or not intent.matrix_rows:
         return None
-    result = math_solve.compute_matrix(
-        MatrixInput(
-            operation=intent.matrix_op, rows=intent.matrix_rows, rows_b=intent.matrix_rows_b
+    if intent.matrix_op == "inverse":
+        determinant = math_solve.compute_matrix(
+            MatrixInput(operation="determinant", rows=intent.matrix_rows)
         )
-    )
+        if determinant.determinant == 0:
+            lines.extend(determinant.steps)
+            message = "This matrix has no inverse because its determinant is 0."
+            lines.append(message)
+            return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
+    try:
+        result = math_solve.compute_matrix(
+            MatrixInput(
+                operation=intent.matrix_op,
+                rows=intent.matrix_rows,
+                rows_b=intent.matrix_rows_b,
+            )
+        )
+    except math_solve.MathServiceError as exc:
+        if intent.matrix_op == "diagonalize" and "not diagonalizable" in str(exc).lower():
+            message = (
+                "This matrix is not diagonalizable: it does not have enough "
+                "linearly independent eigenvectors."
+            )
+            lines.append(message)
+            return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
+        raise
     lines.extend(result.steps)
     if result.operation == "inverse" and result.inverse_latex:
         answer = result.inverse_latex

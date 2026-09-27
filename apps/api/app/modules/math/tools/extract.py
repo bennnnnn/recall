@@ -6,7 +6,7 @@ import re
 from collections.abc import Callable, Sequence
 
 from app.models.schemas.math import MathIntent
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
@@ -26,23 +26,20 @@ from app.modules.math.tools.extractors.geometry_graph import (
     GEOMETRY_GRAPH_EXTRACTORS,
     SOLID_EXTRACTOR,
 )
-from app.modules.math.tools.helpers import has_assignment_evaluation_request, math_expr_or_none
-from app.modules.math.tools.school import SCHOOL_EXTRACTORS
-from app.modules.physics import (
-    PHYSICS_EXTRACTORS,
-    PhysicsRequest,
-    complete_physics_intent,
-    prepare_physics_request,
+from app.modules.math.tools.helpers import (
+    _split_response_instruction_sentence,
+    has_assignment_evaluation_request,
+    math_expr_or_none,
 )
+from app.modules.math.tools.school import SCHOOL_EXTRACTORS
 
-_INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | PhysicsIntent | None]] = (
+_INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     SOLID_EXTRACTOR,
     # Ahead of the school and algebra extractors. "area between y=x and y=x^2
     # from 0 to 1" reads as two simultaneous equations to the algebra side,
     # which is how it once answered with the curves' intersection points.
     *CALCULUS_APPLICATION_EXTRACTORS,
     *SCHOOL_EXTRACTORS,
-    *PHYSICS_EXTRACTORS,
     *GEOMETRY_GRAPH_EXTRACTORS,
     *FUNCTION_EXTRACTORS,
     *CALCULUS_EXTRACTORS,
@@ -52,7 +49,10 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | PhysicsIntent | None]]
 )
 
 _ROOTS_RE = re.compile(r"\b(?:find(?:\s+the)?\s+)?(?:roots|zeros)\s+of\s+(.+)", re.IGNORECASE)
-_TRIG_FUNCTION_RE = re.compile(r"\b(?:sin|cos|tan|cot|sec|csc)\s*\(", re.IGNORECASE)
+_TRIG_FUNCTION_RE = re.compile(
+    r"\b(?:sin|cos|tan|cot|sec|csc)\s*(?:\^\s*(?:\{\d+\}|\d+)|[²³])?\s*\(",
+    re.IGNORECASE,
+)
 _RESTRICTED_TRIG_DOMAIN_RE = re.compile(
     r"[<>\u2264\u2265\u2208\u2102\u2124\u2115\u211a\[\]]"
     r"|\\in\b|\\mathbb\s*\{[CZNQ]\}"
@@ -144,23 +144,85 @@ def _closed_math_syntax(text: str) -> bool:
     return match is not None and math_expr_or_none(match["expr"]) is not None
 
 
-def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
+def extract_math_intent(text: str) -> MathIntent | None:
+    # iOS smart punctuation turns derivative primes into curly apostrophes.
+    # Normalize them before every extractor while retaining the original
+    # request text for whole-request direct-reply checks.
+    normalized = text.translate({ord("\u2019"): "'", ord("\u2032"): "'", ord("\u2035"): "'"})
+    # Read on the raw text: prepare() collapses the newlines that separate
+    # a student's lines of work.
+    work = work_check_intent(normalized)
+    if work is not None:
+        work._request_text = text.strip()
+        return work
+    intent = _extract_math_intent(normalized)
+    if intent is not None and request_consumption_complete(normalized, intent):
+        intent._request_text = text.strip()
+        return intent
+    # A second sentence can specify the teaching method or output format
+    # without changing the mathematical input: ``cos(75°). Use an angle-sum
+    # identity``. Give every extractor one shared retry at that sentence
+    # boundary instead of teaching each subject a growing list of phrasings.
+    presentation_free = _split_response_instruction_sentence(normalized).strip()
+    if presentation_free and presentation_free != normalized.strip():
+        intent = _extract_math_intent(presentation_free)
+        if intent is not None and request_consumption_complete(presentation_free, intent):
+            intent._request_text = text.strip()
+            return intent
+    # "Explain how to solve 2x+3<7" / "show steps for …": the teaching words
+    # are response metadata. Some extractors find math inside prose; the
+    # stricter ones (inequalities) need them gone. One retry, same grammar.
+    from app.modules.math.tools.lesson import lesson_math_text
+
+    stripped = lesson_math_text(normalized)
+    if not stripped or stripped == normalized.strip() or not _bare_math_request(stripped):
+        return None
+    intent = _extract_math_intent(stripped)
+    if intent is not None and request_consumption_complete(stripped, intent):
+        intent._request_text = text.strip()
+        return intent
+    return None
+
+
+def work_check_intent(text: str) -> MathIntent | None:
+    """A check-my-work request with the student's lines, or a bare worked column."""
+    from app.modules.math.tools.work_request import parse_work_request
+
+    request = parse_work_request(text)
+    if request is None:
+        return None
+    return MathIntent(
+        kind="work_check",
+        work_lines=list(request.lines),
+        work_hint_only=request.hint_only,
+        variable=request.variable,
+        operation="solve",
+    )
+
+
+_SOLVE_VERB_RE = re.compile(
+    r"^(?:solve|simplify|differentiate|integrate|factor|expand|evaluate)\s+"
+    r"(?:the\s+(?:inequality|equation|system)\s+)?"
+)
+_PROSE_WORD_RE = re.compile(r"[a-z]{3,}")
+_FUNCTION_WORDS = frozenset(
+    "sin cos tan sec csc cot log sqrt exp abs asin acos atan arcsin arccos arctan "
+    "sinh cosh tanh".split()
+)
+
+
+def _bare_math_request(text: str) -> bool:
+    """Only math, or a math verb and math, is left: "why y=mx+b" is still prose."""
+    body = _SOLVE_VERB_RE.sub("", text.lower().strip())
+    return all(word in _FUNCTION_WORDS for word in _PROSE_WORD_RE.findall(body))
+
+
+def _extract_math_intent(text: str) -> MathIntent | None:
     from app.modules.math import match as mtm
 
     cleaned = mtm.prepare(text)
     if not cleaned:
         return None
-    request = prepare_physics_request(cleaned)
-    if request.rejected:
-        # Broad physics cues include "range of" and "find f". Only a
-        # complete statistics list or formal derivative request may bypass
-        # this refusal; a math fragment in a physics question must not.
-        if not _closed_math_syntax(cleaned):
-            return None
-        request = PhysicsRequest(cleaned)
-    if request.collision is not None:
-        return request.collision
-    cleaned = request.text
     # Function analysis currently verifies the maximal real domain only.
     # Refuse the whole extraction before inequality/algebra fallbacks can
     # verify just the trailing restriction and silently ignore the actual ask.
@@ -175,11 +237,6 @@ def extract_math_intent(text: str) -> MathIntent | PhysicsIntent | None:
     for extractor in _INTENT_EXTRACTORS:
         intent = extractor(cleaned)
         if intent is not None:
-            if isinstance(intent, PhysicsIntent):
-                return complete_physics_intent(intent, request)
-            if request.projectile_ops:
-                # Do not certify an algebraic fragment of a multipart launch.
-                return None
             if region_question and intent.school_op not in _SOLVED_REGION_OPS:
                 # A region question the application extractors declined must
                 # not be answered by whichever other extractor recognises half

@@ -1,3 +1,7 @@
+import {
+  DOCUMENT_GROUPS,
+  STANDARD_DOCUMENT_KEYS,
+} from "@/features/memory/model/memoryDocuments";
 import i18n, { ensureLocale } from "@/lib/i18n";
 import en from "@/lib/i18n/en.json";
 import am from "@/lib/i18n/am.json";
@@ -28,6 +32,28 @@ describe("i18n runtime", () => {
   it("boots with English only", () => {
     expect(i18n.hasResourceBundle("en", "translation")).toBe(true);
     expect(i18n.hasResourceBundle("es", "translation")).toBe(false);
+  });
+
+  it("resolves every English key to its own text", async () => {
+    await ensureLocale("en");
+    const wrong = Object.entries(en)
+      .filter(([, value]) => typeof value === "string" && !value.includes("{{"))
+      .filter(([key, value]) => i18n.t(key) !== value)
+      .map(([key]) => key);
+    expect(wrong).toEqual([]);
+  });
+
+  it("resolves the memory page words the app builds from server keys", async () => {
+    await ensureLocale("en");
+    const keys = [
+      ...STANDARD_DOCUMENT_KEYS.flatMap((key) => [
+        `memory.doc.${key}.title`,
+        `memory.doc.${key}.summary`,
+      ]),
+      ...DOCUMENT_GROUPS.map((group) => `memory.group.${group}`),
+    ];
+    // A key that falls through comes back unchanged.
+    expect(keys.filter((key) => i18n.t(key) === key)).toEqual([]);
   });
 
   it("loads a locale on demand and falls back for unknown codes", async () => {

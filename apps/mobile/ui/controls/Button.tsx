@@ -35,6 +35,7 @@ type Props = {
   accessibilityLabel?: string;
   /** Layout-only overrides (e.g. `{ flex: 1 }` in action rows). */
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 };
 
 /**
@@ -54,6 +55,7 @@ export function Button({
   disabled = false,
   accessibilityLabel,
   style,
+  testID,
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -86,6 +88,7 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? (loading && loadingLabel ? loadingLabel : title)}
       accessibilityState={{ disabled: blocked, busy: loading }}
+      testID={testID}
     >
       {loading && loadingLabel ? (
         <ActionShimmer

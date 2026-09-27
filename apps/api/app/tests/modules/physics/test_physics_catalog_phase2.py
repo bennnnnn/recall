@@ -8,10 +8,13 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.match.needs import needs_symbolic
-from app.modules.math.tools import _build_verified_block, extract_math_intent
-from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.services import tool_loop
+from app.tests.modules.physics.support import (
+    build_verified_physics_block,
+    extract_physics_intent,
+    maybe_direct_physics_reply,
+    needs_physics,
+)
 
 _SETTINGS = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)
 
@@ -159,15 +162,15 @@ CASES: list[tuple[str, str, str]] = [
 def test_phase2_catalog_is_verified_and_uses_structured_working(
     query: str, operation: str, answer: str
 ) -> None:
-    assert needs_symbolic(query)
-    intent = extract_math_intent(query)
+    assert needs_physics(query)
+    intent = extract_physics_intent(query)
     assert isinstance(intent, PhysicsIntent)
     assert intent.physics_op == operation
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
     assert verified.canonical_answer == answer
 
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     headings = ["**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"]
     assert [reply.index(heading) for heading in headings] == sorted(
@@ -191,9 +194,9 @@ def test_phase2_catalog_is_verified_and_uses_structured_working(
     ],
 )
 def test_phase2_catalog_refuses_invalid_or_assumption_sensitive_inputs(query: str) -> None:
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     if isinstance(intent, PhysicsIntent):
-        assert _build_verified_block(intent, _SETTINGS) is None
+        assert build_verified_physics_block(intent, _SETTINGS) is None
     else:
         assert intent is None
 
@@ -207,6 +210,6 @@ def test_phase2_catalog_refuses_invalid_or_assumption_sensitive_inputs(query: st
     ],
 )
 def test_advanced_theory_stays_in_physics_without_opening_an_external_tool_loop(query: str) -> None:
-    assert needs_symbolic(query)
-    assert extract_math_intent(query) is None
+    assert needs_physics(query)
+    assert extract_physics_intent(query) is None
     assert tool_loop.turn_needs_tool_loop(query, settings=_SETTINGS) is False

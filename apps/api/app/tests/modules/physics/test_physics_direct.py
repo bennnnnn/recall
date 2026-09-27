@@ -9,16 +9,20 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.fence import validate_math_fences
-from app.modules.math.tools import _build_verified_block, extract_math_intent, needs_symbolic_math
-from app.modules.math.tools.direct import maybe_direct_math_reply
-from app.modules.math.tools.prompt import build_math_augmentation
 from app.modules.physics.block import _format_visible_answer
 from app.modules.physics.direct import _expected_intent
+from app.modules.physics.prompt import build_physics_augmentation as build_math_augmentation
 from app.services.chat.stream_pipeline import stream_and_finalize
 from app.services.chat.turn_prep.context import StreamContext
-from app.services.solving import VerifiedMathBlock
+from app.services.solving import VerifiedPhysicsBlock
 from app.services.tool_loop import turn_needs_tool_loop
+from app.tests.modules.physics.support import (
+    build_verified_physics_block,
+    extract_physics_intent,
+    maybe_direct_physics_reply,
+    needs_physics,
+    validate_physics_fences,
+)
 
 _SETTINGS = Settings(math_tools_enabled=True, mcp_tool_loop_enabled=True)
 _DROP = "A ball is dropped from a height of 20 m. Find its {} after 1 second. Use g=10."
@@ -44,27 +48,27 @@ _CASES = [
     ("Find the work done by a force of 10 N over a distance of 3 m.", "30 J", False),
     ("What is the power of a force of 10 N moving at 3 m/s?", "30 W", False),
     ("A machine does 1,200 J of work in 30 seconds. What is its power?", "40 W", False),
-    (_AVERAGE_SPEED, r"5\ \mathrm{m}/\mathrm{s}", False),
+    (_AVERAGE_SPEED, "5 m/s", False),
     (_ELECTRIC_FORCE, "0.2157 N", False),
     (
         "A car travels 180 meters in 12 seconds. What is its average speed?",
-        r"15\ \mathrm{m}/\mathrm{s}",
+        "15 m/s",
         False,
     ),
 ]
 
 
-def _verified(query: str) -> VerifiedMathBlock:
-    intent = extract_math_intent(query)
+def _verified(query: str) -> VerifiedPhysicsBlock:
+    intent = extract_physics_intent(query)
     assert intent is not None
-    verified = _build_verified_block(intent, _SETTINGS)
+    verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
     return verified
 
 
 def test_electric_force_uses_textbook_scientific_notation() -> None:
     verified = _verified(_ELECTRIC_FORCE)
-    reply = maybe_direct_math_reply(verified, _ELECTRIC_FORCE)
+    reply = maybe_direct_physics_reply(verified, _ELECTRIC_FORCE)
     assert reply is not None
     assert r"8.987552 \times 10^{9}" in reply
     assert r"2 \times 10^{-6}" in reply
@@ -76,11 +80,11 @@ def test_electric_force_uses_textbook_scientific_notation() -> None:
 async def test_complete_physics_request_streams_existing_answer_without_provider_or_tools(
     query: str, answer: str, graph: bool
 ) -> None:
-    assert needs_symbolic_math(query)
+    assert needs_physics(query)
     _, verified = await build_math_augmentation(query, _SETTINGS)
     assert verified is not None
     assert verified.canonical_answer == answer
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert reply.count("```answer") == 1
     assert f"```answer\n{answer}\n```\n" in reply
@@ -94,7 +98,7 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
         )
     assert "Explanation" not in reply
     assert "$average speed$" not in reply
-    finalized = validate_math_fences(reply, verified=verified)
+    finalized = validate_physics_fences(reply, verified=verified)
     # Finalization may compact the blank line between the two canonical fences.
     assert [line for line in finalized.splitlines() if line] == [
         line for line in reply.splitlines() if line
@@ -142,14 +146,14 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
         ("Find the potential energy of a 0.5 kg object at height 200 cm. Use g=10.", "10 J"),
         ("Find the work done by a force of -10 N over a distance of 300 cm.", "-30 J"),
         ("What is the power of a force of 5 N moving at -2 m/s?", "-10 W"),
-        ("Find the average speed for 1 km in 2 min.", r"0.5\ \mathrm{km}/\mathrm{min}"),
-        ("Find the average speed for 0 m in 20 s.", r"0\ \mathrm{m}/\mathrm{s}"),
+        ("Find the average speed for 1 km in 2 min.", "0.5 km/min"),
+        ("Find the average speed for 0 m in 20 s.", "0 m/s"),
     ],
 )
 def test_other_quantities_units_signs_and_existing_precision(query: str, answer: str) -> None:
     verified = _verified(query)
     assert verified.canonical_answer == answer
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None and f"```answer\n{answer}\n```" in reply
 
 
@@ -170,7 +174,7 @@ def test_visible_physics_values_drop_only_redundant_decimal_zeros(raw: str, visi
 
 def test_projectile_working_substitutes_givens_without_redundant_zeros() -> None:
     query = "A projectile is launched at 20 m/s at 30 degrees. Find its maximum height."
-    reply = maybe_direct_math_reply(_verified(query), query)
+    reply = maybe_direct_physics_reply(_verified(query), query)
     assert reply is not None
     working = reply.split("```", 1)[0]
     assert "5.10" not in working
@@ -186,7 +190,7 @@ def test_collision_hides_the_internal_elasticity_switch_from_given() -> None:
         "A 2 kg cart moving at 6 m/s collides perfectly inelastically with a "
         "4 kg cart at rest. Find the final velocity."
     )
-    reply = maybe_direct_math_reply(_verified(query), query)
+    reply = maybe_direct_physics_reply(_verified(query), query)
 
     assert reply is not None
     given = reply.split("**Find**", 1)[0]
@@ -200,7 +204,7 @@ def test_elastic_collision_shows_both_universal_formulas_and_substitutions() -> 
         "In an elastic collision a 2 kg ball at 3 m/s hits a 1 kg ball at rest. "
         "Find the final velocities."
     )
-    reply = maybe_direct_math_reply(_verified(query), query)
+    reply = maybe_direct_physics_reply(_verified(query), query)
 
     assert reply is not None
     formula = reply.split("**Formula**", 1)[1].split("**Substitution**", 1)[0]
@@ -218,7 +222,7 @@ def test_friction_given_uses_the_coefficient_symbol_not_raw_mu() -> None:
         "A 5 kg block slides down a 30 degree incline with coefficient of kinetic "
         "friction 0.20. Find its acceleration."
     )
-    reply = maybe_direct_math_reply(_verified(query), query)
+    reply = maybe_direct_physics_reply(_verified(query), query)
 
     assert reply is not None
     given = reply.split("**Find**", 1)[0]
@@ -245,7 +249,7 @@ def test_friction_given_uses_the_coefficient_symbol_not_raw_mu() -> None:
 def test_force_rearrangements_name_the_quantity_actually_being_found(
     query: str, symbol: str, substitution: str
 ) -> None:
-    reply = maybe_direct_math_reply(_verified(query), query)
+    reply = maybe_direct_physics_reply(_verified(query), query)
     assert reply is not None
     assert f"**Find**\n\n${symbol}$" in reply
     assert f"**Substitution**\n\n${substitution}$" in reply
@@ -256,24 +260,24 @@ def test_force_rearrangements_name_the_quantity_actually_being_found(
     [
         (
             "A car travels 20 m in 4 s. What is its speed?",
-            r"5\ \mathrm{m}/\mathrm{s}",
+            "5 m/s",
             "$v$",
             None,
             r"$v = \frac{20\,\mathrm{m}}{4\,\mathrm{s}}$",
         ),
         (
             "A car moves at 5 m/s for 4 s. What distance does it travel?",
-            r"20\ \mathrm{m}",
+            "20 m",
             "$d$",
             "$d = vt$",
-            r"$d = 5 \cdot 4$",
+            r"$d = 5\,\mathrm{m/s} \cdot 4\,\mathrm{s}$",
         ),
         (
             "A car travels 20 m at 5 m/s. How long does it take?",
-            r"4\ \mathrm{s}",
+            "4 s",
             "$t$",
             r"$t = \frac{d}{v}$",
-            r"$t = \frac{20}{5}$",
+            r"$t = \frac{20\,\mathrm{m}}{5\,\mathrm{m/s}}$",
         ),
     ],
 )
@@ -284,13 +288,13 @@ def test_speed_law_uses_its_universal_formula_before_any_rearrangement(
     rearranged: str | None,
     substitution: str,
 ) -> None:
-    assert needs_symbolic_math(query)
+    assert needs_physics(query)
     verified = _verified(query)
     assert verified.canonical_answer == answer
-    reply = maybe_direct_math_reply(verified, query)
+    reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert f"**Find**\n\n{find}" in reply
-    assert "**Formula**\n\nSpeed formula:\n\n$v = \\frac{d}{t}$" in reply
+    assert "**Formula**\n\nDistance-speed-time equation:\n\n$v = \\frac{d}{t}$" in reply
     if rearranged is not None:
         assert rearranged in reply
     assert f"**Substitution**\n\n{substitution}" in reply
@@ -300,7 +304,7 @@ def test_speed_law_uses_its_universal_formula_before_any_rearrangement(
 @pytest.mark.parametrize("index", [1, 4])
 def test_signed_free_fall_answer_states_reference_direction(index: int) -> None:
     query, _, _ = _CASES[index]
-    reply = maybe_direct_math_reply(_verified(query), query)
+    reply = maybe_direct_physics_reply(_verified(query), query)
     assert reply is not None and reply.startswith("Upward is positive.\n\n**Given**")
 
 
@@ -308,9 +312,7 @@ def test_signed_free_fall_answer_states_reference_direction(index: int) -> None:
 @pytest.mark.parametrize(
     "suffix",
     [
-        " Explain the formula.",
         " Give a hint only.",
-        " Show steps.",
         " And solve x+1=2.",
         " Convert the answer to feet.",
         " How would air resistance change this?",
@@ -320,8 +322,19 @@ def test_teaching_mixed_and_requested_units_do_not_disappear(
     query: str, answer: str, graph: bool, suffix: str
 ) -> None:
     verified = _verified(query)
-    assert maybe_direct_math_reply(verified, query + suffix) is None
-    assert maybe_direct_math_reply(verified, query, has_image_attachment=True) is None
+    assert maybe_direct_physics_reply(verified, query + suffix) is None
+    assert maybe_direct_physics_reply(verified, query, has_image_attachment=True) is None
+
+
+@pytest.mark.parametrize("suffix", [" Explain the formula.", " Show steps."])
+def test_teaching_suffix_uses_the_same_verified_physics_working(suffix: str) -> None:
+    query = _CASES[0][0]
+    reply = maybe_direct_physics_reply(_verified(query), query + suffix)
+    assert reply is not None
+    assert all(
+        reply.count(heading) == 1
+        for heading in ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**")
+    )
 
 
 @pytest.mark.parametrize(
@@ -374,24 +387,24 @@ def test_extra_conditions_or_unsupported_literal_physics_decline(query: str) -> 
 )
 def test_average_speed_requires_one_complete_distance_and_duration(query: str) -> None:
     assert _expected_intent(query) is None
-    assert maybe_direct_math_reply(_verified(_CASES[-1][0]), query) is None
+    assert maybe_direct_physics_reply(_verified(_CASES[-1][0]), query) is None
 
 
 def test_request_cannot_reuse_another_solved_quantity_unit_or_operation() -> None:
     query = _CASES[1][0]
     verified = _verified(query)
-    assert verified.physics_intent == extract_math_intent(query)
+    assert verified.physics_intent == extract_physics_intent(query)
     for changed in [
         query.replace("20 m", "30 m"),
         query.replace("20 m", "20 cm"),
         query.replace("velocity", "speed"),
         query.replace("g=10", "g=5"),
     ]:
-        assert maybe_direct_math_reply(verified, changed) is None
-    assert maybe_direct_math_reply(replace(verified, physics_intent=None), query) is None
+        assert maybe_direct_physics_reply(verified, changed) is None
+    assert maybe_direct_physics_reply(replace(verified, physics_intent=None), query) is None
     speed = _verified(_AVERAGE_SPEED)
-    assert maybe_direct_math_reply(speed, _AVERAGE_SPEED.replace("100 m", "50 m")) is None
-    assert maybe_direct_math_reply(speed, _AVERAGE_SPEED.replace("20 s", "20 min")) is None
+    assert maybe_direct_physics_reply(speed, _AVERAGE_SPEED.replace("100 m", "50 m")) is None
+    assert maybe_direct_physics_reply(speed, _AVERAGE_SPEED.replace("20 s", "20 min")) is None
 
 
 def test_graph_must_be_single_complete_trajectory() -> None:
@@ -412,11 +425,11 @@ def test_graph_must_be_single_complete_trajectory() -> None:
     ]
     for change in changes:
         assert (
-            maybe_direct_math_reply(replace(verified, canonical_fence=graph | change), query)
+            maybe_direct_physics_reply(replace(verified, canonical_fence=graph | change), query)
             is None
         )
     assert (
-        maybe_direct_math_reply(
+        maybe_direct_physics_reply(
             replace(verified, canonical_fences=[{"type": "answer", "content": "other"}]), query
         )
         is None
@@ -448,10 +461,10 @@ def test_direct_guard_expects_the_type_the_solver_emits(query: str, expected_typ
 
     # Same fence, wrong type — the direct reply must disappear, proving the
     # assertion above is load-bearing rather than decorative.
-    assert maybe_direct_math_reply(verified, query) is not None
+    assert maybe_direct_physics_reply(verified, query) is not None
     wrong = "parametric" if expected_type != "parametric" else "position_vs_time"
     assert (
-        maybe_direct_math_reply(
+        maybe_direct_physics_reply(
             replace(
                 verified, canonical_fence=verified.canonical_fence | {"trajectory_type": wrong}
             ),
@@ -467,20 +480,20 @@ def test_scalar_requires_its_one_canonical_answer() -> None:
     assert (
         verified.allow_direct is False
     )  # No general permission for unlabeled physical quantities.
-    assert maybe_direct_math_reply(verified, query) is not None
-    assert maybe_direct_math_reply(replace(verified, canonical_answer="999 N"), query) is None
-    assert maybe_direct_math_reply(replace(verified, canonical_fence=None), query) is None
+    assert maybe_direct_physics_reply(verified, query) is not None
+    assert maybe_direct_physics_reply(replace(verified, canonical_answer="999 N"), query) is None
+    assert maybe_direct_physics_reply(replace(verified, canonical_fence=None), query) is None
 
 
 def test_direct_guard_does_not_solve_again() -> None:
     query = _CASES[0][0]
     verified = _verified(query)
     with patch("app.modules.physics.solver.solve_physics", side_effect=AssertionError("re-solved")):
-        assert maybe_direct_math_reply(verified, query) is not None
+        assert maybe_direct_physics_reply(verified, query) is not None
 
 
 def test_post_impact_request_does_not_gain_a_verified_direct_answer() -> None:
     query = _DROP.format("speed").replace("1 second", "3 seconds")
-    intent = extract_math_intent(query)
+    intent = extract_physics_intent(query)
     assert intent is not None
-    assert _build_verified_block(intent, _SETTINGS) is None
+    assert build_verified_physics_block(intent, _SETTINGS) is None

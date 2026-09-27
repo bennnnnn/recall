@@ -15,6 +15,7 @@ from app.modules.billing import plan as plan_service
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
+from app.services.chat.prompt_constants import active_lesson_step
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_prep.attachments import _process_attachments
 from app.services.chat.turn_prep.context import (
@@ -91,6 +92,7 @@ async def prepare_chat_turn(
     image_math_extract = attachments.image_math_extract
     gateway = attachments.gateway
     attachment_bytes_by_key = attachments.bytes_by_key
+    lesson_active = active_lesson_step(recent_messages) is not None
 
     overlap = (
         user is not None
@@ -130,6 +132,7 @@ async def prepare_chat_turn(
                     settings,
                     prior_user=prior_user,
                     prior_model=prior_model,
+                    lesson_active=lesson_active,
                 )
             if _should_use_vision_chat(
                 settings=settings,
@@ -203,6 +206,7 @@ async def prepare_chat_turn(
                 settings,
                 prior_user=prior_user,
                 prior_model=prior_model,
+                lesson_active=lesson_active,
             )
         if _should_use_vision_chat(
             settings=settings,

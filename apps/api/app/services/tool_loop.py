@@ -688,8 +688,15 @@ def turn_needs_tool_loop(
         return True
     if lightweight:
         return False
-    if has_verified_math and not leftover_math_after_verified(text):
+    has_leftover_math = leftover_math_after_verified(text)
+    if has_verified_math and not has_leftover_math:
         return False
+    # A compound graph+solve request still needs the tool loop even when the
+    # complete-request audit correctly declined the partial deterministic
+    # intent. Requiring a second extraction here would turn that safe decline
+    # into a silent "no tools" result.
+    if has_leftover_math:
+        return True
 
     from app.modules.images.gen_intent import extract_image_gen_prompt
     from app.modules.images.lookup_intent import extract_image_lookup_query
@@ -752,6 +759,7 @@ async def run_tool_rounds(
     redis: Redis | None = None,
     chat_id: UUID | None = None,
     web_search: bool | None = None,
+    user_timezone: str | None = None,
 ) -> tuple[
     list[dict[str, Any]],
     VerifiedMathBlock | None,
@@ -782,7 +790,13 @@ async def run_tool_rounds(
             return [*messages, _job_tool_unavailable_message()], None, None, []
 
     with (
-        bind_search_quota_context(user=user, redis=redis, settings=settings),
+        bind_search_quota_context(
+            user=user,
+            redis=redis,
+            settings=settings,
+            query=_last_user_content(messages),
+            user_timezone=user_timezone,
+        ),
         bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
         bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
         bind_calendar_context(user=user, redis=redis, settings=settings),

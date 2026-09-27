@@ -6,6 +6,7 @@
  * fallback for Expo Go and stale dev clients.
  */
 import { GestureDetector } from "react-native-gesture-handler";
+import { StyleSheet } from "react-native";
 import {
   Canvas,
   Circle,
@@ -21,15 +22,16 @@ import {
 import { runOnJS, useAnimatedReaction, useDerivedValue } from "react-native-reanimated";
 
 import type { DrawnSeries } from "@/hooks/useInteractiveGraph";
+import type { GraphHoleMarker } from "@/components/rich/GraphCanvas";
 import type { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { selection } from "@/lib/haptics";
 import {
   axisTicksW,
+  dockAxisW,
   formatShortW,
   formatTickW,
   mapPointW,
-  nearestSampleW,
-  unmapPointW,
+  nearestTraceSampleW,
   type GraphViewW,
 } from "@/lib/math/graphWorklets";
 import type { Theme } from "@/lib/theme";
@@ -42,6 +44,7 @@ const MONO_CHAR_PX = 6.7;
 const MARKER_RADIUS = 4;
 const SLOT_INDICES = Array.from({ length: AXIS_SLOTS }, (_, i) => i);
 const SERIES_INDICES = Array.from({ length: MAX_SERIES_PATHS }, (_, i) => i);
+const HOLE_INDICES = Array.from({ length: 16 }, (_, i) => i);
 
 type Viewport = ReturnType<typeof useSkiaGraphViewport>;
 
@@ -161,6 +164,13 @@ function computeChrome(
   const grid = Skia.Path.Make();
   const axes = Skia.Path.Make();
   const origin = mapPointW(0, 0, b, width, height, pad);
+  const xOriginInView = b.xMin <= 0 && b.xMax >= 0;
+  const yOriginInView = b.yMin <= 0 && b.yMax >= 0;
+  const xTickLabelY = dockAxisW(
+    origin.py + 16,
+    pad + TICK_FONT_SIZE,
+    height - pad - 4,
+  );
 
   const xLabels: TickLabel[] = [];
   for (const n of axisTicksW(b.xMin, b.xMax)) {
@@ -170,7 +180,7 @@ function computeChrome(
     grid.lineTo(px, height - pad);
     if (xLabels.length < AXIS_SLOTS) {
       const text = formatTickW(n);
-      xLabels.push({ px: px - measure(text) / 2, py: origin.py + 16, text });
+      xLabels.push({ px: px - measure(text) / 2, py: xTickLabelY, text });
     }
   }
   const yLabels: TickLabel[] = [];
@@ -181,16 +191,25 @@ function computeChrome(
     grid.lineTo(width - pad, py);
     if (py >= pad + 12 && yLabels.length < AXIS_SLOTS) {
       const text = formatTickW(n);
-      yLabels.push({ px: Math.max(4, origin.px - 6 - measure(text)), py: py + 4, text });
+      const textWidth = measure(text);
+      yLabels.push({
+        px: dockAxisW(origin.px - 6 - textWidth, 4, width - textWidth - 4),
+        py: py + 4,
+        text,
+      });
     }
   }
 
-  axes.moveTo(origin.px, pad);
-  axes.lineTo(origin.px, height - pad);
-  axes.moveTo(pad, origin.py);
-  axes.lineTo(width - pad, origin.py);
+  if (xOriginInView) {
+    axes.moveTo(origin.px, pad);
+    axes.lineTo(origin.px, height - pad);
+  }
+  if (yOriginInView) {
+    axes.moveTo(pad, origin.py);
+    axes.lineTo(width - pad, origin.py);
+  }
 
-  const originInView = b.xMin <= 0 && b.xMax >= 0 && b.yMin <= 0 && b.yMax >= 0;
+  const originInView = xOriginInView && yOriginInView;
   return {
     grid,
     axes,
@@ -198,8 +217,14 @@ function computeChrome(
     yLabels,
     origin,
     originInView,
-    xNamePos: { px: width - pad, py: origin.py - 8 },
-    yNamePos: { px: Math.max(origin.px + 8, 4), py: pad + 4 },
+    xNamePos: {
+      px: width - pad,
+      py: dockAxisW(origin.py - 8, pad + TICK_FONT_SIZE, height - pad - 4),
+    },
+    yNamePos: {
+      px: dockAxisW(origin.px + 8, 4, width - pad - TICK_FONT_SIZE),
+      py: pad + 4,
+    },
   };
 }
 
@@ -224,6 +249,7 @@ function TickText({
 
 export function SkiaGraphCanvas({
   drawn,
+  holes = [],
   verticalX,
   xName = "x",
   yName = "y",
@@ -236,6 +262,7 @@ export function SkiaGraphCanvas({
   testID = "skia-graph-canvas",
 }: {
   drawn: DrawnSeries[];
+  holes?: GraphHoleMarker[];
   verticalX?: number;
   xName?: string;
   yName?: string;
@@ -282,6 +309,22 @@ export function SkiaGraphCanvas({
     () => buildMarkerPath(drawn, bounds.value, width, height, pad),
     [drawn, width, height, pad],
   );
+  const holeXs = HOLE_INDICES.map((i) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
+    useDerivedValue(() => {
+      const marker = holes[i];
+      if (!marker) return -1000;
+      return mapPointW(marker.point[0], marker.point[1], bounds.value, width, height, pad).px;
+    }, [holes, width, height, pad]),
+  );
+  const holeYs = HOLE_INDICES.map((i) =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- fixed-length loop
+    useDerivedValue(() => {
+      const marker = holes[i];
+      if (!marker) return -1000;
+      return mapPointW(marker.point[0], marker.point[1], bounds.value, width, height, pad).py;
+    }, [holes, width, height, pad]),
+  );
   const verticalPath = useDerivedValue(() => {
     const path = Skia.Path.Make();
     if (verticalX == null) return path;
@@ -293,18 +336,22 @@ export function SkiaGraphCanvas({
 
   const trace = useDerivedValue(() => {
     if (!traceActive.value) return null;
-    const b = bounds.value;
-    const finger = unmapPointW(tracePos.value.px, tracePos.value.py, b, width, height, pad);
-    const row = drawn.find((r) => r.visible && r.points.length > 1);
-    if (!row) return null;
-    const snap = nearestSampleW(row.points, finger.x);
-    if (!snap) return null;
-    const { px, py } = mapPointW(snap.x, snap.y, b, width, height, pad);
-    return { px, py, x: snap.x, y: snap.y, index: snap.index, color: row.color };
+    return nearestTraceSampleW(
+      drawn,
+      tracePos.value.px,
+      tracePos.value.py,
+      bounds.value,
+      width,
+      height,
+      pad,
+    );
   }, [drawn, width, height, pad]);
 
   useAnimatedReaction(
-    () => trace.value?.index ?? -1,
+    () =>
+      trace.value == null
+        ? -1
+        : trace.value.seriesIndex * 1_000_000 + trace.value.index,
     (index, previous) => {
       if (index >= 0 && index !== previous) runOnJS(selection)();
     },
@@ -401,14 +448,32 @@ export function SkiaGraphCanvas({
             </Path>
           ))}
           <Path path={markerPath} color={drawn[0]?.color ?? theme.primary} style="fill" />
+          {HOLE_INDICES.map((i) => (
+            <Group key={`hole-${i}`}>
+              <Circle
+                cx={holeXs[i]}
+                cy={holeYs[i]}
+                r={5}
+                color={theme.elevated}
+              />
+              <Circle
+                cx={holeXs[i]}
+                cy={holeYs[i]}
+                r={5}
+                color={holes[i]?.color ?? theme.primary}
+                style="stroke"
+                strokeWidth={2.25}
+              />
+            </Group>
+          ))}
           <Path
             path={traceLine}
             color={theme.textTertiary}
             style="stroke"
-            strokeWidth={1}
+            strokeWidth={StyleSheet.hairlineWidth}
           />
           <Circle cx={traceX} cy={traceY} r={5.5} color={traceColor} />
-          <Circle cx={traceX} cy={traceY} r={2.5} color={theme.bg} />
+          <Circle cx={traceX} cy={traceY} r={2.5} color={theme.surface} />
         </Group>
         {font
           ? SLOT_INDICES.map((i) => (

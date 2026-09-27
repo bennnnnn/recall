@@ -502,6 +502,8 @@ IMAGE_GEN_SPEND_USD = 0.03
 WEB_SEARCH_CLASSIFIER_SPEND_USD = 0.001
 # Tavily image search + one SSRF-safe fetch (cheaper than image-gen, still billed).
 IMAGE_SEARCH_SPEND_USD = 0.01
+# One scan read-back: Mathpix, plus a vision call when the page needs it.
+MATH_SCAN_READ_SPEND_USD = 0.005
 
 
 # ── Reference-photo lookup caps (free + pro; not Pro-gated like generation) ──

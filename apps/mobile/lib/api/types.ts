@@ -75,6 +75,8 @@ export type Message = {
 export type Memory = {
   id: string;
   type: string;
+  /** The memory document this fact belongs to (profile, tech-stack, area:recall, …). */
+  topic?: string;
   text: string;
   confidence: number | null;
   status?: "active" | "muted" | "superseded";

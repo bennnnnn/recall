@@ -101,6 +101,7 @@ from app.modules.learning.schemas import (
     VocabStatus,
 )
 from app.modules.memory.schemas import (
+    MEMORY_REPLY_MAX_LENGTH,
     MemoryFactOp,
     MemoryFactUpdateResult,
     MemoryOut,
@@ -121,6 +122,7 @@ from app.modules.todos.schemas import (
 )
 
 __all__ = [
+    "MEMORY_REPLY_MAX_LENGTH",
     "AppleAuthRequest",
     "ArchiveUpdate",
     "AttachmentListItemOut",

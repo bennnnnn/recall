@@ -27,6 +27,12 @@ const FROM_USER =
 
 const DISTANCE_BETWEEN = /\bdistance\b.+\bbetween\b/i;
 
+// “distance from A to B” names its origin and does not need the device's
+// location. This also keeps geometry questions such as “distance from center
+// to chord” out of the GPS shortcut. Only an explicit user-relative origin
+// (“from me/here/my location”) may use device geo.
+const FIXED_DISTANCE_FROM = /\bdistance\s+from\b/i;
+
 const AMBIGUOUS_NEARBY_SUBJECT =
   /\b(house|houses|home|homes|property|properties|building|buildings|apartment|apartments|condo|condos|flat|flats|unit|units)\b/i;
 
@@ -117,6 +123,7 @@ export function isDistanceQuery(text: string): boolean {
   if (!cleaned || !DISTANCE_INTENT.test(cleaned)) return false;
   if (MOTION_HOMEWORK.test(cleaned)) return false;
   if (DISTANCE_BETWEEN.test(cleaned) && !FROM_USER.test(cleaned)) return false;
+  if (FIXED_DISTANCE_FROM.test(cleaned) && !FROM_USER.test(cleaned)) return false;
   return true;
 }
 

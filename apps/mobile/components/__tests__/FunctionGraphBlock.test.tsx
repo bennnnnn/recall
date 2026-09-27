@@ -26,6 +26,37 @@ describe("FunctionGraphBlock", () => {
     expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
   });
 
+  it("outlines only the plot, not the surrounding function inputs", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: [
+        [-1, 1],
+        [0, 0],
+        [1, 1],
+      ],
+    });
+    const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+    const card = StyleSheet.flatten(getByTestId("graph-card").props.style);
+    const plot = StyleSheet.flatten(getByTestId("graph-expand").props.style);
+    const expandCue = StyleSheet.flatten(getByTestId("graph-expand-cue").props.style);
+
+    expect(card.backgroundColor).toBeUndefined();
+    expect(card.borderWidth).toBeUndefined();
+    expect(card.borderRadius).toBeUndefined();
+    expect(card.padding).toBe(12);
+    expect(card.shadowOpacity).toBeUndefined();
+    expect(card.elevation).toBeUndefined();
+    expect(plot.borderColor).toBe("#E4E6FF");
+    expect(plot.borderWidth).toBe(1);
+    expect(plot.borderRadius).toBeGreaterThanOrEqual(12);
+    expect(plot.backgroundColor).toBe("#F7F7F8");
+    expect(expandCue.backgroundColor).toBeUndefined();
+    expect(expandCue.borderWidth).toBeUndefined();
+    expect(expandCue.width).toBe(28);
+    expect(expandCue.height).toBe(28);
+  });
+
   it("renders even ticks for y = x², not padded −12 / 108 / −8", async () => {
     const content = JSON.stringify({
       type: "function",
@@ -158,13 +189,15 @@ describe("FunctionGraphBlock", () => {
       label: "y = x^2",
       label2: "y = 2x",
     });
-    const { getByDisplayValue, getByTestId, toJSON } = await render(
+    const { getByDisplayValue, getByTestId, queryByTestId, toJSON } = await render(
       <FunctionGraphBlock content={content} />,
     );
 
     expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
     expect(getByDisplayValue("y = 2*x")).toBeOnTheScreen();
     expect(getByTestId("graph-expand")).toBeOnTheScreen();
+    expect(queryByTestId("graph-hide-1")).toBeNull();
+    expect(queryByTestId("graph-remove-1")).toBeNull();
     // Polyline renders as RNSVGPath in this native mock (see the segmented
     // discontinuity test above) — one per curve.
     const pathCount = (JSON.stringify(toJSON()).match(/"RNSVGPath"/g) ?? []).length;
@@ -313,7 +346,13 @@ describe("FunctionGraphBlock", () => {
     expect(queryByTestId("graph-close")).toBeNull();
     await fireEvent.press(getByTestId("graph-expand"));
     expect(getByTestId("graph-close")).toBeOnTheScreen();
-    expect(getByLabelText("rich.graph_plot_a11y")).toBeOnTheScreen();
+    const expandedPlot = getByLabelText("rich.graph_plot_a11y");
+    expect(expandedPlot).toBeOnTheScreen();
+    const expandedPlotStyle = StyleSheet.flatten(expandedPlot.props.style);
+    expect(expandedPlotStyle.backgroundColor).toBe("#F7F7F8");
+    expect(expandedPlotStyle.borderWidth).toBeGreaterThan(0);
+    expect(expandedPlotStyle.borderRadius).toBeGreaterThanOrEqual(12);
+    expect(expandedPlotStyle.marginHorizontal).toBe(12);
     expect(getByTestId("graph-expr-input")).toBeOnTheScreen();
   });
 
@@ -332,6 +371,21 @@ describe("FunctionGraphBlock", () => {
     await fireEvent.press(getByTestId("graph-expand"));
     expect(getByTestId("graph-sheet-handle")).toBeOnTheScreen();
     expect(getByTestId("graph-close")).toBeOnTheScreen();
+    const backdrop = StyleSheet.flatten(getByTestId("graph-modal-backdrop").props.style);
+    const keyboardHost = StyleSheet.flatten(
+      getByTestId("graph-modal-keyboard-host").props.style,
+    );
+    const sheet = StyleSheet.flatten(getByTestId("graph-modal-sheet").props.style);
+    const handle = StyleSheet.flatten(
+      getByTestId("graph-sheet-handle").children[0].props.style,
+    );
+    expect(backdrop.backgroundColor).toBe("rgba(0,0,0,0.40)");
+    expect(keyboardHost.backgroundColor).toBeUndefined();
+    expect(sheet.marginTop).toBeGreaterThan(0);
+    expect(sheet.borderTopLeftRadius).toBeGreaterThanOrEqual(24);
+    expect(sheet.borderTopRightRadius).toBeGreaterThanOrEqual(24);
+    expect(handle.width).toBeGreaterThanOrEqual(44);
+    expect(handle.height).toBeGreaterThanOrEqual(5);
     const list = getByTestId("graph-series-scroll");
     expect(list).toBeOnTheScreen();
     const pad = StyleSheet.flatten(list.props.contentContainerStyle);

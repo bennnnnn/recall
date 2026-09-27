@@ -31,6 +31,25 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("optimize this query", "smart-chat"),
         ("trade-off between latency and throughput", "smart-chat"),
         ("what is the complexity of this", "smart-chat"),
+        # Tutoring has a strict format/state contract and uses the low-latency
+        # teaching lane; live QA showed the reasoning tier added 10-20s TTFT.
+        ("Teach me python dictionaries", "gemini-flash"),
+        ("Teach me python dictionaries step by step", "gemini-flash"),
+        ("Help me learn SQL joins", "gemini-flash"),
+        ("Give me a 70-day Python mastery plan", "gemini-flash"),
+        ("70 days mastering python from beginner to senior level plan", "gemini-flash"),
+        ("Create a 70-day Python plan", "gemini-flash"),
+        ("70-day roadmap for Python", "gemini-flash"),
+        ("Give me a daily Python curriculum for 70 days", "gemini-flash"),
+        ("Teach me Python over the next 70 days", "gemini-flash"),
+        # Ordinary non-learning plans stay fast.
+        ("Give me a 30-day workout plan", "gemini-flash"),
+        ("Create a 12-week business plan", "gemini-flash"),
+        (
+            "Create a 4-column markdown table with a Main tradeoff column, then show a code block",
+            "gemini-flash",
+        ),
+        ("I studied Python for 70 days and now plan to apply for jobs", "gemini-flash"),
         # Comparison cues → smart-chat (previously classifier-only web search
         # with no model upgrade; a weak model answered "X vs Y" questions).
         ("kenya vs ethiopia", "smart-chat"),
@@ -53,14 +72,15 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("check this out:\n```\nprint(1)\n```", "smart-chat"),
         ("run this:\n```bash\necho hi\n```", "smart-chat"),
         ("what's wrong here:\n```html\n<div></div>\n```", "smart-chat"),
-        # Math / structured turns → smart-chat (a weak model on a math ask
-        # produced wrong worked steps even with SymPy-verified fences).
-        ("solve 2x + 3 = 7", "smart-chat"),
-        ("graph y = x^2", "smart-chat"),
-        ("2x+3=7", "smart-chat"),
-        ("find the area of a circle radius 4", "smart-chat"),
-        ("integrate x^2 from 0 to 1", "smart-chat"),
-        ("standard deviation of 1, 2, 3, 4, 5", "smart-chat"),
+        # Math / structured turns → the low-latency strong math model (a weak
+        # fast model disagreed with verified results, while R1 repeatedly
+        # returned empty visible streams in live QA).
+        ("solve 2x + 3 = 7", "glm-5.2"),
+        ("graph y = x^2", "glm-5.2"),
+        ("2x+3=7", "glm-5.2"),
+        ("find the area of a circle radius 4", "glm-5.2"),
+        ("integrate x^2 from 0 to 1", "glm-5.2"),
+        ("standard deviation of 1, 2, 3, 4, 5", "glm-5.2"),
         # Verified closed-form arithmetic stays free-chat — R1 used to dump a
         # live Reasoning essay ("the user just wrote 4!") on these.
         ("4!", "gemini-flash"),
@@ -70,7 +90,7 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         ("7*8", "gemini-flash"),
         ("8-8*2", "gemini-flash"),
         # Arithmetic next to a hard question is not a fast-path whole message.
-        ("what is 1+1 and also graph y = x^2", "smart-chat"),
+        ("what is 1+1 and also graph y = x^2", "glm-5.2"),
         # A recognized physics template stays on the fast model; the verifier
         # owns the number. Homework the templates miss still goes to smart-chat.
         (
@@ -144,6 +164,29 @@ def test_route_chat_model_inherits_smart_from_prior_turn_model() -> None:
         route_chat_model("fix it", prior_user="add tests", prior_model="smart-chat") == "smart-chat"
     )
     assert route_chat_model("fix it", prior_user="add tests") == "gemini-flash"
+
+
+def test_route_chat_model_keeps_math_followup_on_low_latency_strong_model() -> None:
+    prior = "solve 3x^2 + x^0 = 3"
+    assert route_chat_model("how?", prior_user=prior) == "glm-5.2"
+    assert route_chat_model("Why is x = -1 rejected?", prior_user=prior) == "glm-5.2"
+    assert route_chat_model("How did you factor that?", prior_user=prior) == "glm-5.2"
+    assert (
+        route_chat_model("show the next step", prior_user="try again", prior_model="glm-5.2")
+        == "glm-5.2"
+    )
+
+
+@pytest.mark.parametrize(
+    "reaction",
+    ["A", "red", "I'm confused", "why?", "next", "Bad bdbd head hdjjd jdjdd"],
+)
+def test_route_chat_model_keeps_active_tutor_turns_on_low_latency_lane(reaction: str) -> None:
+    assert route_chat_model(reaction, lesson_active=True) == "gemini-flash"
+
+
+def test_route_chat_model_does_not_treat_short_text_as_a_lesson_without_state() -> None:
+    assert route_chat_model("red") == "gemini-flash"
 
 
 def test_last_user_content_returns_newest_user_line() -> None:

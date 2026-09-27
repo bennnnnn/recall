@@ -24,8 +24,8 @@ from __future__ import annotations
 import pytest
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.tools import extract_math_intent
 from app.modules.physics.solver import _PARAM_SI_DIMENSIONS
+from app.tests.modules.physics.support import extract_physics_intent
 
 # Genuinely dimensionless, or converted before `_to_si` ever sees them.
 # `angle`/`angle2` are turned from degrees into radians by `_params_in_si`.
@@ -70,7 +70,7 @@ def test_the_corpus_is_not_empty() -> None:
 
 @pytest.mark.parametrize("text", _verified_questions(), ids=lambda t: t[:44])
 def test_every_emitted_param_declares_a_dimension(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent), f"no intent for {text!r}"
     undeclared = [
         key

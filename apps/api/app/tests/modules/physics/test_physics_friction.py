@@ -17,7 +17,9 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block as build_math_block
+from app.modules.math.tools import extract_math_intent as extract_real_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {"kinematics", "projectile", "force", "energy", "momentum", "friction"}
 
@@ -27,10 +29,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -73,7 +75,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_friction_phrasings_reach_a_verified_answer(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None, "no intent extracted"
     assert intent.kind == "friction"
     assert intent.physics_op == op
@@ -163,16 +165,17 @@ NOT_PHYSICS = [
 
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_friction_cues_do_not_steal_other_subjects(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
 def test_slope_between_two_points_is_still_coordinate_geometry() -> None:
     """The single most likely casualty of a careless cue, pinned explicitly."""
-    intent = extract_math_intent("find the slope of the line through (1, 2) and (3, 8)")
+    intent = extract_real_math_intent("find the slope of the line through (1, 2) and (3, 8)")
 
     assert intent is not None and intent.kind == "coord"
-    assert _verified_answer("find the slope of the line through (1, 2) and (3, 8)") == "3"
+    block = build_math_block(intent, _settings())
+    assert block is not None and block.canonical_answer == "3"
 
 
 def test_a_net_force_question_is_not_answered_with_the_friction_force() -> None:
@@ -195,16 +198,16 @@ def test_friction_without_a_given_does_not_engage_the_math_path() -> None:
     nothing here can answer it — and firing the tool path to discover that
     costs a round for nothing.
     """
-    from app.modules.math.tools import needs_symbolic_math
+    from app.tests.modules.physics.support import needs_physics
 
-    assert not needs_symbolic_math("find the friction on a 5 kg block")
+    assert not needs_physics("find the friction on a 5 kg block")
     # With a coefficient it is solvable, so it should engage.
-    assert needs_symbolic_math("find the friction force on a 5 kg block with coefficient 0.2")
+    assert needs_physics("find the friction force on a 5 kg block with coefficient 0.2")
 
 
 def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:
     """Friction runs *before* force, so it must not swallow ordinary F = ma."""
-    intent = extract_math_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
+    intent = extract_physics_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
 
     assert intent is not None and intent.kind == "force"
     assert _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10 N"

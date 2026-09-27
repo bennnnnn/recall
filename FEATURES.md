@@ -106,8 +106,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
   Opening another thread restores that draft and clears attachment and in-progress
   dictation so they cannot send into the wrong conversation.
+- ✅ **Teach-me lessons** — “teach me X”, “help me learn X”, “I want to learn X” (and
+  the teach verbs in the other app languages) run as a lesson, not a how-to list: a
+  short outline, then one step at a time (`### Step 1/6 — …`, a plain explanation,
+  one small example), each ending with one low-pressure question or optional check.
+  Checks are diagnostic, never gates: a plausible wrong answer gets a brief targeted
+  correction and then advances, explicit confusion gets a fresh explanation on the same
+  step, and accidental/random input is not graded or used to restart the lesson. The last
+  step ends with a short recap. “Everything at once” / a cheat sheet still gets the full
+  reference, and procedures (“teach me how to install Docker” / “walk me through changing
+  a tire”) keep the how-to steps. No tappable quiz chips in chat.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
-  not a greeting. “One sentence” / briefly beats chart, compare, and how-to
+  not a greeting. A short answer (“no”, “got it”) to a question or lesson step
+  loads the recent messages and continues the thread. “One sentence” / briefly beats chart, compare, and how-to
   layout. Sequence diagrams use `sequenceDiagram`, not a flowchart. Bare
   “write me an email” asks one purpose question; a named purpose still drafts
   now. Real/my chart data without numbers asks once instead of inventing a
@@ -168,7 +179,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 4. Formatting & rendering
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
   inline code, horizontal rules.
-- ✅ **Code blocks** — dark card, language badge, copy button, horizontal scroll.
+- ✅ **Code blocks** — a clean rounded card with the copy button floating in its
+  corner (no header bar or language label), syntax colors, horizontal scroll.
   Fenced bodies stay opaque to math/table beautification (`$$` in a Python string,
   a quoted GFM table, ASCII boxes in ` ```text `).
 - ✅ **Syntax highlighting** — **Prism.js** token coloring for 40+ languages (comments, strings,
@@ -187,7 +199,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Now Playing UI). Pro + daily cap. Catalog alias + gateway (provider TBD); reuse
   `expo-audio` / attachment URLs. Do not start until image-gen’s storage/cap path is the
   template. Not TTS / not humming into the mic.
-- ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
+- ✅ **Math / LaTeX** — inline `$...$` renders in dedicated KaTeX Computer Modern faces (italic variables, upright digits/operators, superscripts, scalable continuous radicals, tight stacked fractions);
   display ` ```math` renders as **MathJax-SVG** (`MathSvgView` + `mathjax-full`, lazy-loaded
   and LRU-cached, themed via `currentColor`) on every build — no WebView — with a readable
   `MathText` fallback if conversion fails. Native builds use **Skia** for inline function
@@ -196,12 +208,40 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   supplied — the renderer does not invent exponents. Composer keypad OCR still maps
   `x2` → `x^2`. Server-side **SymPy** solves equations and samples graphs. Closed
   verified answers (`1+1=x`, factor a quadratic) return directly without an LLM
-  turn. Linear / pure-power / quadratic **lessons** are server-rendered from
-  verified `key_steps` when the style is Detailed, the user asks for steps, or
-  Balanced with two or more operations; other explanations still stream. Recall attaches geometry, graph, and
+  turn. **Lessons** are server-rendered from verified `key_steps` for every
+  supported equation/system/inequality unless the user explicitly asks for
+  “just the answer”; an adjacent “how?” replays that same checked trace instead
+  of asking the model to invent steps. Coverage includes equations (linear,
+  pure-power, quadratic), linear and compound inequalities,
+  2×2 linear systems, derivatives rule by rule, and indefinite integrals by
+  method (u-substitution and integration by parts included). SymPy checks every
+  line before it is shown; other explanations still stream.
+- ✅ **Primary-school written arithmetic** — the API owns exact column traces for
+  addition carries, subtraction regrouping across zeros, multiplication carries
+  and partial products, and long division with bring-down rows/remainders. Decimal
+  operands stay exact and terminating division shows placeholder zeros. Mobile
+  renders the canonical trace in a dedicated Computer Modern card; “show steps”
+  and an adjacent “how?” reuse it, while answer-only and hint turns cannot leak it.
+- ✅ **Check my work** — “check my work”, “where did I go wrong” or a bare column of
+  worked lines: each line is checked against line 1 with SymPy (one unknown,
+  polynomial sides up to degree 2). The reply marks every line, names the first
+  slip (a sign lost moving a term, one side only, multiplying where dividing undoes,
+  an inequality not reversed, a half-expanded bracket, a lost root, …) and
+  continues from the corrected line with verified steps. “Don't finish it for me”
+  / “just a hint” names the slip as a question and never shows the fix or answer.
+- ✅ **Word problems** — ages, sums and differences, tickets and prices, consecutive
+  integers: one structured call (`title-model`, flag `math_word_problems_enabled`)
+  translates the problem into unknowns and equations. It is used only when every
+  number is stated in the problem and SymPy finds exactly one solution in the
+  stated domain; the reply shows the setup, the verified steps and the answer. Recall attaches geometry, graph, and
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
   LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
   result into the draft). See [docs/math.md](./docs/math.md).
+- ✅ **Recurring pay through a date** — questions such as “I make $3,400 every two
+  weeks; how much by December 11?” use the device-local date and a deterministic
+  calendar calculator, not a chat model or web search. The reply shows complete
+  periods, remainder days, payment dates, the today-is-a-payday alternative, and
+  daily proration so the counting assumption is never hidden.
 - ✅ **Physics (twenty verified kinds)** — server-side SymPy. Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar
@@ -306,8 +346,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
   No open settings tool. Daily learning goal lives on the lesson map ⋯ menu.
 - ✅ **Auto routing** — an **Auto** option (Settings → Models) picks Flash vs Pro per message via a
-  fast heuristic (length, code fences, reasoning keywords). Short follow-ups of a hard turn inherit
-  that turn’s tier; a new topic drops back to Flash. No extra LLM call.
+  fast heuristic (length, code fences, reasoning keywords). Explicit chat tutoring and substantive
+  learning roadmaps use the low-latency Gemini Flash lane with strict step/day and tagged-example
+  contracts; hard reasoning remains on Pro. Short follow-ups of a hard turn inherit that turn’s tier;
+  a new topic drops back to Flash. No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
   key, base URL, and pricing per entry. All chat aliases route through **OpenRouter** via LiteLLM
   (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
@@ -327,10 +369,34 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   user messages not processed by the previous pass (per-chat extract cursor), so a fact
   on turn 2 is not dropped if the chat ends there. Explicit “remember this” / “forget that”
   still extract when N>1. No remember/forget chip or confirmation sheet.
-- ✅ **Extraction hygiene** — only user-stated/confirmed facts; transcript is the **user
-  line only** (assistant restatements dropped), capped ~4k (head+tail); attachment OCR /
-  untrusted blocks stripped before extract; memory wrapped as first-party notes (fence kept);
-  account email injected only for email/draft/inbox intents.
+- ✅ **Extraction hygiene** — only what the user's own lines state or clearly show (the
+  projects they build, the stack they build with, their job, goals, routines, recurring
+  interests); never assistant restatements. Transcript is the **user line only**, capped ~4k
+  (head+tail); attachment OCR / untrusted blocks stripped before extract; memory wrapped as
+  first-party notes (fence kept); account email injected only for email/draft/inbox intents.
+- ✅ **Extraction reliability (2026-09)** — name, job, employer, school, city, home country and
+  languages are `normal` sensitivity (the `identity` label means gender identity, immigration
+  status or disability), and a dating-app project is not a relationship fact. A failed model
+  pass keeps the chat's extract cursor and retries on the next turn (3 tries, then moves on);
+  a small-talk-only batch moves the cursor so it cannot hide later lines; failures log
+  `memory_extract_model_failed`.
+- ✅ **Memory documents (Claude-style)** — each fact has a `topic` that files it into a page:
+  **You** (Profile, Preferences), **Topics** (Interests, Tech stack, Schedule, Recent work,
+  Goals, Side projects, Other) and **Areas** — one page per major project or part of life
+  (`area:<slug>`, title and one-line summary in `memory_areas`, named by the model). Facts
+  stay atomic rows; `type` follows the topic and still drives prompt priority.
+- ✅ **Reads your recent chats once** — the first time the Memory screen opens, a
+  `memory_history_scan` job reads the user lines of the 20 most recent non-quiz chats and
+  records `users.memory_history_scanned_at`; the screen shows "Reading your recent chats…"
+  until it finishes. Chats are read newest first and a pass only adds facts memory is
+  missing, so an old line never overrules a newer fact. Lines written before the user's last
+  hand edit (`users.memory_edited_at`: a delete, edit, mute, clear, or a "forget …" or
+  plain-words edit that changed saved facts) are skipped, so a deleted fact cannot come back.
+  A chat the model or database could not read is retried on a later pass (30 minutes apart,
+  3 passes at most); the chats already read are skipped.
+- ✅ **Plain-words edits** — a box under the pages ("You can disagree with me more", "Keep
+  lists under five things") calls `POST /memories/instruct`; the model turns it into fact
+  edits (saved like "remember this") and replies in a sentence. 30 edits per hour per user.
 - ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (grouping
   categories, not a 20-type taxonomy). Each row is one atomic fact (the old one-paragraph-per-type
   unique constraint is gone). Cap **150 active** facts per user.
@@ -346,10 +412,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
   falls back to scored packing when embeddings are missing).
-- ✅ **Memory screen** — facts grouped by type, each with a real id, **last confirmed** and
-  source chat title (not confidence %). Edit, delete, or mute (“Don’t mention this”).
-  `PATCH /memories/{id}` updates text or status; `DELETE /memories/{id}` deletes one fact;
-  `DELETE /memories` clears all.
+- ✅ **Memory screen** — `GET /memories/documents`: You / Topics / Areas rows with a summary
+  and the last-updated date. A page shows its title, last updated, summary and each fact as a
+  bullet; tap a fact to edit or delete it, **Delete** removes the page
+  (`DELETE /memories/documents/{topic}`). `PATCH /memories/{id}` updates text or status;
+  `DELETE /memories/{id}` deletes one fact; `DELETE /memories` clears all.
 - ✅ **Memory toggle** — turn learning on/off in Settings (stops new learning; saved facts
   remain until deleted). Opt-in **include sensitive topics**. **Delete and turn off** is one API.
 - 🔜 **Temporary Chat** — a thread that does not extract or inject long-term memory. Deferred;
@@ -856,7 +923,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** sends the cropped image to chat (no pre-send OCR). Mathpix/`vision-chat` still run on the chat turn when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** → **I read this as** (`POST /math/scan/read`: Mathpix, then `vision-chat`, no solve). The student edits the reading if needed and taps **Solve**, which sends it as text through the full math pipeline, or **Send photo**, which sends the crop at once with the checked reading so the turn does not read it again. Physics and biology scans send the crop directly. Mathpix runs when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).

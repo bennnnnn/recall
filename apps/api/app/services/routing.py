@@ -109,6 +109,7 @@ _FOLLOWUP_CUES = (
     "the tests",
     "the error",
     "keep going",
+    "next step",
     "make it",
     "change it",
     "do that",
@@ -236,7 +237,7 @@ def _alias_is_smart_tier(alias: str | None) -> bool:
 
 
 def _prior_was_smart(prior_user: str, prior_model: str | None) -> bool:
-    if _route_current_line(prior_user) == model_catalog.auto_smart_alias():
+    if _alias_is_smart_tier(_route_current_line(prior_user)):
         return True
     return _alias_is_smart_tier(prior_model)
 
@@ -275,6 +276,17 @@ def _looks_like_smart_continuation(content: str) -> bool:
     cleaned = collapse_ws(content)
     if len(cleaned) > _FOLLOWUP_MAX_CHARS:
         return False
+    lowered = cleaned.lower().rstrip(" .,!?:;")
+    # These are lightweight as standalone chat, but after a hard answer they
+    # explicitly ask for its reasoning. Keep them on the same strong lane.
+    if lowered in {"how", "how so", "why", "why not", "show me how", "explain how"}:
+        return True
+    # A learner normally names the exact disputed step after the question
+    # word ("why is x=-1 rejected?", "how did you factor that?"). Requiring
+    # the whole message to equal bare ``why``/``how`` dropped these natural
+    # follow-ups onto the lightweight lane.
+    if lowered.startswith(("why ", "how ")):
+        return True
     # yes / go / sure inherit; hi / thanks do not (those are lightweight acks).
     if is_short_confirmation(content):
         return True
@@ -310,21 +322,42 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
         return smart
     if _CODE_FENCE.search(content):
         return smart
+    # Tutoring is structured by a strict prompt contract and is latency-sensitive:
+    # a learner should not wait on a silent reasoning model before every small
+    # step. Gemini Flash followed the lesson state/output contract in live QA at
+    # a fraction of the TTFT, so keep this classifier shared with the prompt
+    # layer and deliberately use the fast lane. Hard coding/math still reaches
+    # the smart checks below when it is not an explicit tutor/roadmap request.
+    from app.services.chat.prompt_constants.teaching import (
+        is_learning_plan_request,
+        is_teaching_request,
+    )
+
+    if is_learning_plan_request(content) or is_teaching_request(content):
+        return fast
+    # A request whose task is to *format* a small example as a Markdown table
+    # is not a deep architecture/trade-off analysis. The column label
+    # "Main tradeoff" previously tripped the generic smart cue and sent this
+    # UI/layout stress case to R1, which could sit silent for tens of seconds.
+    if "markdown table" in text and any(
+        cue in text for cue in ("create ", "show ", "give me ", "make ")
+    ):
+        return fast
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
     if physics_alias is not None:
         return physics_alias
     # Math / structured turns (equations, graphs, geometry, calculus, stats,
-    # …) route to the smart model up front. A weak model on a math ask used to
-    # produce wrong worked steps even with SymPy-verified fences injected, so
-    # the verified answer and the prose disagreed. needs_symbolic is the same
-    # gate the math pipeline uses, so routing and augmentation agree on what
-    # "a math turn" is. Lazy import keeps routing import-time cheap.
+    # …) route to the math-tuned strong model up front. A weak fast model used
+    # to produce worked steps that disagreed with the verified answer, while
+    # the generic R1 route repeatedly emitted only hidden reasoning and then
+    # fell back. needs_symbolic is the same gate the math pipeline uses, so
+    # routing and augmentation agree on what "a math turn" is.
     from app.modules.math.match import needs_symbolic
 
     if needs_symbolic(content) and not _verified_math_stays_fast(content):
-        return smart
+        return model_catalog.auto_math_alias()
     return fast
 
 
@@ -333,14 +366,18 @@ def route_chat_model(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
     settings: Settings | None = None,
 ) -> str:
     """Return a preferred chat alias for an auto-routed message (before pool filter).
 
-    Scores the current line first. A short continuation of a prior smart user
-    turn inherits Pro; a new topic does not pin the rest of the chat.
+    Active lessons stay on the low-latency teaching tier. Otherwise, score the
+    current line first: a short continuation of a prior smart turn inherits Pro,
+    while a new topic does not pin the rest of the chat.
     """
     smart = model_catalog.auto_smart_alias()
+    if lesson_active:
+        return model_catalog.auto_fast_alias()
     preferred = _route_current_line(content, settings)
     if preferred == smart:
         return smart
@@ -349,17 +386,20 @@ def route_chat_model(
         and prior_user.strip()
         and _should_inherit_smart(content, prior_user, prior_model)
     ):
+        math = model_catalog.auto_math_alias()
+        if prior_model == math or _route_current_line(prior_user, settings) == math:
+            return math
         return smart
     return preferred
 
 
 def _physics_intent_solves(intent: Any) -> bool:
     from app.modules.physics import solve_physics
-    from app.services.solving import MathServiceError
+    from app.services.solving import SolveServiceError
 
     try:
         solve_physics(intent)
-    except MathServiceError:
+    except SolveServiceError:
         return False
     return True
 
@@ -377,14 +417,13 @@ def _physics_route(
     only while math tools are on. Otherwise the strong model answers it.
     """
     homework = _looks_like_physics_homework(content)
-    from app.modules.math.match import needs_symbolic
+    from app.modules.physics import extract_physics_intent, needs_physics
 
-    if not homework and not needs_symbolic(content):
+    if not homework and not needs_physics(content):
         return None
     from app.models.schemas.physics.intent import PhysicsIntent
-    from app.modules.math.tools.extract import extract_math_intent
 
-    intent = extract_math_intent(content)
+    intent = extract_physics_intent(content)
     if isinstance(intent, PhysicsIntent):
         tools_on = settings is None or settings.math_tools_enabled
         if tools_on and _physics_intent_solves(intent):
@@ -402,7 +441,11 @@ def _verified_math_stays_fast(content: str) -> bool:
     "what is 1+1" style arithmetic stay on the fast model.
     """
     from app.modules.math.match.discrete import combinatorics_signal
-    from app.modules.math.match.scan import bare_arithmetic_expr, prepare
+    from app.modules.math.match.scan import (
+        bare_arithmetic_expr,
+        prepare,
+        written_arithmetic_request,
+    )
 
     cleaned = prepare(content)
     if not cleaned:
@@ -412,7 +455,9 @@ def _verified_math_stays_fast(content: str) -> bool:
         return True
     # Same whole-message helper as the SymPy gate — a lone "1+1" inside a
     # harder question must not keep the turn on the fast model.
-    return bare_arithmetic_expr(cleaned) is not None
+    return (
+        bare_arithmetic_expr(cleaned) is not None or written_arithmetic_request(cleaned) is not None
+    )
 
 
 def resolve_alias(
@@ -421,11 +466,17 @@ def resolve_alias(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
 ) -> str:
     """Resolve ``auto`` / ``fast`` / ``smart`` without a pool (legacy/tests)."""
     all_ids = [m.id for m in model_catalog.selectable_models()]
     return resolve_alias_in_pool(
-        alias, content, all_ids, prior_user=prior_user, prior_model=prior_model
+        alias,
+        content,
+        all_ids,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
     )
 
 
@@ -437,6 +488,7 @@ def resolve_alias_in_pool(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
 ) -> str:
     """Resolve a model mode or alias within an allowed pool."""
     if not pool:
@@ -447,6 +499,7 @@ def resolve_alias_in_pool(
             content,
             prior_user=prior_user,
             prior_model=prior_model,
+            lesson_active=lesson_active,
             settings=settings,
         )
         return _pick_preferred_tier(preferred, pool)

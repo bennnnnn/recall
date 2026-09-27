@@ -76,7 +76,13 @@ async def execute_tool(
             elif not settings.web_search_enabled or is_lightweight_chat_turn(query):
                 result = {"content": "Web search is unavailable or unnecessary for this question."}
             else:
-                with bind_search_quota_context(settings=settings, user=user, redis=redis):
+                with bind_search_quota_context(
+                    settings=settings,
+                    user=user,
+                    redis=redis,
+                    query=query,
+                    user_timezone=getattr(user, "timezone", None),
+                ):
                     found = await WebSearchAdapter(settings).invoke({"query": query})
                 result = {
                     "content": found.content[:8000],

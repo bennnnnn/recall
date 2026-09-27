@@ -634,6 +634,77 @@ async def test_stream_chat_completion_retries_fallback_alias():
 
 
 @pytest.mark.asyncio
+async def test_reasoning_primary_gets_visible_content_deadline_when_fallback_exists():
+    """Hidden reasoning must not keep the user waiting before a healthy fallback."""
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        chat_stream_first_content_timeout_seconds=0.05,
+    )
+    calls: list[tuple[str, float | None]] = []
+
+    async def fake_stream_once(**kwargs):
+        alias = kwargs["model_alias"]
+        timeout = kwargs["first_content_timeout_seconds"]
+        calls.append((alias, timeout))
+        if alias == "smart-chat":
+            raise ModelUnavailableError("silent", failed_alias=alias)
+        yield "ready"
+
+    with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
+        tokens = [
+            token
+            async for token in litellm_gateway.stream_chat_completion(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "solve x^2 = 4"}],
+                max_tokens=20,
+                fallback_aliases=["free-chat"],
+            )
+        ]
+
+    assert tokens == ["ready"]
+    assert calls == [("smart-chat", 0.05), ("free-chat", None)]
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_once_times_out_reasoning_without_visible_content():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+
+    class HiddenReasoningStream:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            await asyncio.sleep(0.01)
+            delta = MagicMock()
+            delta.content = ""
+            delta.reasoning_content = "still thinking"
+            choice = MagicMock()
+            choice.delta = delta
+            chunk = MagicMock()
+            chunk.choices = [choice]
+            chunk.usage = None
+            return chunk
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=HiddenReasoningStream()),
+    ):
+        with pytest.raises(litellm_gateway.ModelUnavailableError):
+            async for _ in litellm_gateway._stream_chat_once(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "solve x^2 = 4"}],
+                max_tokens=20,
+                first_content_timeout_seconds=0.05,
+            ):
+                pass
+
+
+@pytest.mark.asyncio
 async def test_stream_chat_completion_no_fallback_after_tokens_started():
     """Mid-stream ModelUnavailableError must not concatenate partial + fallback."""
     from app.gateways.litellm_gateway import ModelUnavailableError

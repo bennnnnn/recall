@@ -51,7 +51,8 @@ def test_complete_calculus_request_preserves_the_full_verified_answer(query, ans
     assert block.canonical_answer == answer
     assert calculus_direct_request(query) is True
     reply = maybe_direct_math_reply(block, query)
-    assert reply == f"```answer\n{answer}\n```\n"
+    assert reply is not None
+    assert f"```answer\n{answer}\n```" in reply
     assert validate_math_fences(reply, verified=block).strip() == reply.strip()
 
 
@@ -68,7 +69,6 @@ def test_extra_asks_domains_and_teaching_never_disappear(query, answer, suffix):
     "query",
     [
         "Find the fourth derivative of x^4",
-        "Find the second derivative of x^4 at x=2",
         "Find twice the second derivative of x^4",
         "Differentiate x^3!",
         "Differentiate x^3; 2+2",
@@ -95,16 +95,27 @@ def test_unsupported_or_partial_calculus_cannot_use_generic_prose_fallback(query
     assert maybe_direct_math_reply(_verified("Differentiate x^3"), query) is None
 
 
-@pytest.mark.parametrize(
-    "query",
-    [
-        "Find the limit of 1/x as x approaches 0",
-        "Sum (-1)^n from n=0 to infinity",
-        "Find the critical points of x^3-3x",
-    ],
-)
+@pytest.mark.parametrize("query", ["Find the critical points of x^3-3x"])
 def test_outcomes_without_complete_answer_or_method_presentation_keep_model(query):
     assert maybe_direct_math_reply(_verified(query), query) is None
+
+
+def test_two_sided_nonexistent_limit_and_derivative_at_point_are_direct() -> None:
+    limit_query = "Find the limit of 1/x as x approaches 0"
+    assert maybe_direct_math_reply(_verified(limit_query), limit_query) == (
+        "The two-sided limit does not exist because the one-sided limits disagree."
+    )
+
+    derivative_query = "Find the second derivative of x^4 at x=2"
+    reply = maybe_direct_math_reply(_verified(derivative_query), derivative_query)
+    assert reply is not None and "both equal 32" in reply
+
+
+def test_divergent_series_returns_a_complete_direct_explanation() -> None:
+    query = "Sum (-1)^n from n=0 to infinity"
+    assert maybe_direct_math_reply(_verified(query), query) == (
+        "This series diverges; it has no ordinary sum."
+    )
 
 
 def test_existing_simple_ode_keeps_its_constant_and_direct_behavior():
@@ -130,7 +141,10 @@ def test_existing_simple_ode_keeps_its_constant_and_direct_behavior():
 def test_nonfixture_variables_bounds_and_centers_are_preserved(query):
     block = _verified(query)
     assert calculus_direct_request(query) is True
-    assert maybe_direct_math_reply(block, query) == f"```answer\n{block.canonical_answer}\n```\n"
+    reply = maybe_direct_math_reply(block, query)
+    assert reply is not None
+    assert f"```answer\n{block.canonical_answer}\n```" in reply
+    assert validate_math_fences(reply, verified=block).strip() == reply.strip()
 
 
 @pytest.mark.parametrize(
@@ -199,9 +213,15 @@ def test_accumulation_bounds_are_not_a_closed_scalar_limit(query):
 def test_undefined_or_divergent_improper_integrals_keep_explanation(query):
     block = _verified(query)
     if "1/x^2" in query:
-        assert block.canonical_answer == r"\infty"
+        assert block.canonical_answer is None
         assert "diverges to positive infinity" in block.text
+        assert maybe_direct_math_reply(block, query) == (
+            "This improper integral diverges to +∞; it does not converge to a finite value."
+        )
     else:
         assert block.canonical_answer is None
         assert "did not establish a defined value" in block.text
-    assert maybe_direct_math_reply(block, query) is None
+        assert maybe_direct_math_reply(block, query) == (
+            "This ordinary improper integral does not converge. "
+            "A Cauchy principal value is a separate convention and was not requested."
+        )

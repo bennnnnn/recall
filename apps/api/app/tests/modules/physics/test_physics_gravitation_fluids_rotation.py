@@ -25,8 +25,11 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.match.needs import needs_symbolic
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.tests.modules.physics.support import (
+    build_verified_physics_block,
+    extract_physics_intent,
+    needs_physics,
+)
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -54,10 +57,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -175,8 +178,8 @@ VERIFIED: list[tuple[str, str, str, str]] = [
 
 @pytest.mark.parametrize("text,kind,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_round_three_second_wave_phrasings(text: str, kind: str, op: str, answer: str) -> None:
-    assert needs_symbolic(text), "dropped by the pre-filter before extraction"
-    intent = extract_math_intent(text)
+    assert needs_physics(text), "dropped by the pre-filter before extraction"
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent), "no intent extracted"
     assert intent.kind == kind
     assert intent.physics_op == op
@@ -210,7 +213,7 @@ def test_an_altitude_is_converted_before_it_is_added_to_a_radius() -> None:
 
 def test_a_question_with_no_digits_still_reaches_the_solver() -> None:
     """The numbers are the body's own, so the pre-filter's digit rule missed it."""
-    assert needs_symbolic("what is the escape velocity from earth")
+    assert needs_physics("what is the escape velocity from earth")
     assert _verified_answer("what is the escape velocity from earth") == "11186.17 m/s"
 
 
@@ -303,7 +306,7 @@ NOT_PHYSICS = [
 
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_the_new_cues_do_not_steal_ordinary_english(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 

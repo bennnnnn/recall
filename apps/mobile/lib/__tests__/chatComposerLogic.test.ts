@@ -1,9 +1,14 @@
 import {
   buildModelOptions,
   CHAT_ACTION_ROW_HEIGHT,
+  COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
+  composerGapFadeHeight,
   composerInputFrameHeight,
+  composerInputMetrics,
+  composerInputTextBoxHeight,
+  composerSoftWrapLineCount,
   retainedComposerContentHeight,
   composerNativeInputTraits,
   composerShowsMic,
@@ -33,6 +38,77 @@ describe("composerInputFrameHeight", () => {
       height: COMPOSER_INPUT_MAX_HEIGHT,
       overflows: true,
     });
+  });
+
+  it("grows when a line is wider than the field, without a Return", () => {
+    expect(composerSoftWrapLineCount("hello", 200)).toBe(1);
+    expect(composerSoftWrapLineCount("a".repeat(40), 200)).toBe(2);
+    expect(composerSoftWrapLineCount("ab\ncd", 200)).toBe(2);
+    expect(composerSoftWrapLineCount("hello", 0)).toBe(1);
+    const wrapped = composerInputFrameHeight("a".repeat(40), 0, 200);
+    expect(wrapped.height).toBe(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT);
+    expect(wrapped.overflows).toBe(false);
+    expect(composerInputFrameHeight("a".repeat(40), 0).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    // A native content size larger than the text must not keep growing the field.
+    expect(composerInputFrameHeight("hello", 400, 220).height).toBe(COMPOSER_INPUT_MIN_HEIGHT);
+    expect(composerInputFrameHeight("a".repeat(40), 400, 200).height).toBe(
+      COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT,
+    );
+  });
+
+  it("keeps centering slack out of the text box so the caret stays on the last line", () => {
+    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT)).toBe(
+      COMPOSER_INPUT_LINE_HEIGHT,
+    );
+    expect(
+      composerInputTextBoxHeight(COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT),
+    ).toBe(COMPOSER_INPUT_LINE_HEIGHT * 2);
+    expect(composerInputTextBoxHeight(COMPOSER_INPUT_MAX_HEIGHT)).toBe(
+      COMPOSER_INPUT_LINE_HEIGHT * 6,
+    );
+    expect(composerInputTextBoxHeight(112)).toBe(112);
+  });
+
+  it("scales the field with the system text size", () => {
+    // The default size keeps the fixed field.
+    expect(composerInputMetrics(1)).toEqual({
+      line: COMPOSER_INPUT_LINE_HEIGHT,
+      min: COMPOSER_INPUT_MIN_HEIGHT,
+      max: COMPOSER_INPUT_MAX_HEIGHT,
+      slack: COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT,
+    });
+    // 1.5x: a 36 pt line still fits the 44 pt buttons, 4 pt above and below.
+    expect(composerInputMetrics(1.5)).toEqual({ line: 36, min: 44, max: 224, slack: 8 });
+    expect(composerInputFrameHeight("", 0, 0, 1.5).height).toBe(44);
+    expect(composerInputTextBoxHeight(44, 1.5)).toBe(36);
+    expect(composerInputFrameHeight("\n", 0, 0, 1.5).height).toBe(80);
+    expect(composerInputTextBoxHeight(80, 1.5)).toBe(72);
+    // 2x: one line is taller than the buttons.
+    expect(composerInputFrameHeight("", 0, 0, 2).height).toBe(48);
+    expect(composerInputTextBoxHeight(48, 2)).toBe(48);
+    expect(composerInputTextBoxHeight(96, 2)).toBe(96);
+    // Fractional lines (iOS XXXL) still land on the line grid.
+    const xxxl = composerInputMetrics(1.353);
+    expect(composerInputTextBoxHeight(xxxl.min + xxxl.line * 2, 1.353)).toBeCloseTo(
+      xxxl.line * 3,
+    );
+    // Accessibility sizes stop growing sooner, so the field stays on screen.
+    expect(composerInputMetrics(3.5).max).toBeLessThanOrEqual(240);
+    expect(composerInputFrameHeight("line\n".repeat(12), 0, 0, 3.5)).toEqual({
+      height: composerInputMetrics(3.5).max,
+      overflows: true,
+    });
+  });
+
+  it("wraps sooner at a larger text size", () => {
+    expect(composerSoftWrapLineCount("a".repeat(20), 200)).toBe(1);
+    expect(composerSoftWrapLineCount("a".repeat(20), 200, 1.5)).toBe(2);
+    expect(composerInputFrameHeight("a".repeat(20), 0, 200, 1.5).height).toBe(80);
+  });
+
+  it("covers the home-indicator gap under the pill", () => {
+    expect(composerGapFadeHeight(0)).toBe(0);
+    expect(composerGapFadeHeight(34)).toBeGreaterThan(34 * 2);
   });
 
   it("keeps a wrap height while the same draft changes and drops it on reset", () => {

@@ -19,9 +19,14 @@ import { useTranslation } from "react-i18next";
 
 import { MathScannerChrome } from "@/components/mathScanner/MathScannerChrome";
 import { MathScannerCropOverlay } from "@/components/mathScanner/MathScannerCropOverlay";
+import {
+  ScanReadingReview,
+  type ScanReadingState,
+} from "@/components/mathScanner/ScanReadingReview";
 import { ScannerSubjectGuide } from "@/components/mathScanner/ScannerSubjectGuide";
 import { useMathScannerCrop } from "@/hooks/useMathScannerCrop";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
+import type { MathScanReading } from "@/lib/api";
 import {
   HeicUnsupportedError,
   NativePickerBusyError,
@@ -54,8 +59,19 @@ import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
+  /** Send the photo; ``confirmedReading`` when the student checked the read. */
+  onCaptured: (
+    pending: PendingAttachment,
+    subject: ScannerSubject,
+    confirmedReading?: string,
+  ) => void;
+  /** Math only: read the crop back before solving. Null means it failed. */
+  onReadScan?: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
+  /** Math only: solve the confirmed reading as typed text. */
+  onSolveReading?: (reading: string) => void;
 };
+
+type Review = { shot: PendingAttachment; state: ScanReadingState };
 
 type ScanShot = PendingAttachment & { width: number; height: number };
 
@@ -65,9 +81,16 @@ const LIGHT_RECHECK_MS = 10_000;
 
 /**
  * Capture the unobstructed camera frame, then let the user crop the still.
- * Solve sends only that crop to chat — no separate OCR round-trip.
+ * A math crop is read back ("I read this as") so a misread digit can be
+ * fixed before solving; the photo can still be sent without waiting.
  */
-export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
+export function MathEquationScanner({
+  visible,
+  onClose,
+  onCaptured,
+  onReadScan,
+  onSolveReading,
+}: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -83,6 +106,12 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const [torchOn, setTorchOn] = useState(false);
   const [lowLight, setLowLight] = useState(false);
   const [subject, setSubject] = useState<ScannerSubject>("math");
+  const [review, setReview] = useState<Review | null>(null);
+  const readAbortRef = useRef<AbortController | null>(null);
+  const stopReading = useCallback(() => {
+    readAbortRef.current?.abort();
+    readAbortRef.current = null;
+  }, []);
   const [zoom, setZoom] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const lightSampleRef = useRef<Promise<void> | null>(null);
@@ -116,6 +145,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     if (visible) {
       setHosted(true);
       setPreview(null);
+      setReview(null);
       setError(null);
       setTorchOn(false);
       setLowLight(false);
@@ -132,6 +162,10 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   }, [visible]);
 
   useEffect(() => stopScannerSwitchCue, []);
+  useEffect(() => {
+    if (!visible) stopReading();
+  }, [stopReading, visible]);
+  useEffect(() => stopReading, [stopReading]);
 
   useEffect(() => {
     if (!visible || preview || !cameraReady || busy || torchOn) {
@@ -236,13 +270,57 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     setError(null);
     try {
       const cropped = await cropShotToRegion(preview, crop.readRegion(), windowWidth, windowHeight, previewFrame);
+      if (subject === "math" && onReadScan && onSolveReading) {
+        stopReading();
+        const controller = new AbortController();
+        readAbortRef.current = controller;
+        setReview({ shot: cropped, state: { status: "reading" } });
+        void onReadScan(cropped, controller.signal)
+          .catch(() => null)
+          .then((result) => {
+            if (controller.signal.aborted) return;
+            readAbortRef.current = null;
+            setReview((current) => {
+              if (!current || current.shot !== cropped) return current;
+              const reading = result?.reading.trim() ?? "";
+              return {
+                shot: cropped,
+                state: reading
+                  ? { status: "ready", reading, uncertain: Boolean(result?.uncertain) }
+                  : { status: "failed" },
+              };
+            });
+          });
+        return;
+      }
       onCaptured(cropped, subject);
     } catch {
       setError(t("chat.math_scan_failed"));
     } finally {
       setBusy(false);
     }
-  }, [busy, crop, onCaptured, preview, previewFrame, subject, t, windowWidth, windowHeight]);
+  }, [
+    busy,
+    crop,
+    onCaptured,
+    onReadScan,
+    onSolveReading,
+    preview,
+    previewFrame,
+    stopReading,
+    subject,
+    t,
+    windowWidth,
+    windowHeight,
+  ]);
+
+  const retakeFromReview = useCallback(() => {
+    stopReading();
+    setReview(null);
+    crop.resetRegion();
+    setPreview(null);
+    setError(null);
+  }, [crop, stopReading]);
 
   const changeSubject = useCallback((next: ScannerSubject) => {
     if (next === subject) return;
@@ -411,6 +489,22 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           }}
           onSolve={() => void confirmPreview()}
         />
+        {review ? (
+          <ScanReadingReview
+            photoUri={review.shot.localUri}
+            state={review.state}
+            insets={insets}
+            onSolve={(reading) => {
+              stopReading();
+              onSolveReading?.(reading);
+            }}
+            onSendPhoto={(reading) => {
+              stopReading();
+              onCaptured(review.shot, "math", reading || undefined);
+            }}
+            onRetake={retakeFromReview}
+          />
+        ) : null}
       </GestureHandlerRootView>
     </FullScreenModal>
   );

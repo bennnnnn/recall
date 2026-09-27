@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from redis.asyncio import Redis
 
 from app.core.config import Settings
@@ -22,7 +24,11 @@ from app.modules.web_search.geo_intent import _geo_is_active, _places_list_is_ac
 from app.modules.web_search.query_builders import (
     _extract_team_subject,
     _prioritize_team_hits,
+    anchor_news_query_to_today,
     build_search_queries,
+    filter_hits_to_today,
+    is_current_news_request,
+    is_news_today_request,
 )
 from app.modules.web_search.search_cache import _run_search
 from app.modules.web_search.subject import (
@@ -30,9 +36,11 @@ from app.modules.web_search.subject import (
     last_assistant_content,
     resolve_search_subject,
 )
-from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import wrap_untrusted
+
+if TYPE_CHECKING:
+    from app.services.chat.stream_status import StreamStatusFn
 
 
 async def build_search_augmentation(
@@ -96,7 +104,14 @@ async def build_search_augmentation(
 
     subject = resolve_search_subject(user_content, prior_user_messages=prior_user)
     if classifier_query:
-        queries = [classifier_query]
+        # Classifier-written queries otherwise erase the concrete date from a
+        # "today" request and search engines return evergreen home pages or
+        # older headlines. Keep the classifier's subject, but anchor it to the
+        # user's actual local date.
+        if is_current_news_request(user_content):
+            queries = [anchor_news_query_to_today(classifier_query, user_timezone)]
+        else:
+            queries = [classifier_query]
     else:
         queries = build_search_queries(
             user_content,
@@ -109,9 +124,15 @@ async def build_search_augmentation(
 
     if on_status is not None:
         # Surface what we're searching for so the client label is specific.
+        # Local import avoids making the web-search package initialize the
+        # eager chat package while web-search itself is still importing.
+        from app.services.chat.stream_status import clip_status_detail
+
         await on_status("searching", clip_status_detail(queries[0] if queries else None))
 
     hits, tried = await _run_search(settings, queries, user=user, redis=redis)
+    if is_news_today_request(user_content):
+        hits = filter_hits_to_today(hits, user_timezone)
     team = _extract_team_subject(user_content.strip())
     if not team and prior_user:
         for prior in reversed(prior_user):

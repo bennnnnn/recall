@@ -49,12 +49,6 @@ class TestNeedsSymbolic:
             "x > 4",
             "1 < x < 5",
             "2x - 1 > 5",
-            # Supported verified physics templates must reach extraction.
-            "A ball is dropped from 20m. How long until it hits the ground?",
-            "A projectile is launched at 20 m/s at 45 degrees. Find its range.",
-            "What net force accelerates a 5 kg mass at 3 m/s^2?",
-            "A 5 kg mass is accelerated at 2 m/s². What is the force.",
-            "Calculate the kinetic energy of a 2 kg object moving at 10 m/s.",
             "Draw a right triangle with legs 3 and 4. Label the sides including the hypotenuse.",
             "area of a right triangle with legs 3 and 4",
             "8-8*2",
@@ -111,6 +105,13 @@ class TestNeedsSymbolic:
             "y'all coming to class",
             "Where is the teachers' lounge?",
             "Who was Newton",
+            # Supported physics is deliberately detected by the peer physics
+            # gate rather than being smuggled through the math matcher.
+            "A ball is dropped from 20m. How long until it hits the ground?",
+            "A projectile is launched at 20 m/s at 45 degrees. Find its range.",
+            "What net force accelerates a 5 kg mass at 3 m/s^2?",
+            "A 5 kg mass is accelerated at 2 m/s². What is the force.",
+            "Calculate the kinetic energy of a 2 kg object moving at 10 m/s.",
         ],
     )
     def test_needs_symbolic_math_does_not_trigger(self, text):
@@ -320,6 +321,18 @@ class TestGraphExpr:
     def test_graph_expr_none_without_trigger(self):
         assert mtm.graph_expr("x^2") is None
         assert mtm.graph_expr("write a paragraph about trees") is None
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Solve x^2 < 4. Just the answer; no graph and no steps.",
+            "Solve x^2 < 4 without a plot.",
+            "Do not graph x^2 < 4; solve it.",
+            "Don't plot x^2 < 4; just answer.",
+        ],
+    )
+    def test_graph_expr_ignores_negated_presentation_cues(self, text):
+        assert mtm.graph_expr(text) is None
 
     def test_soft_plot_prefix_skips_geometry_and_vega(self):
         assert mtm.graph_expr("draw a triangle") is None

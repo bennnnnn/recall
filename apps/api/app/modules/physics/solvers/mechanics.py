@@ -15,7 +15,7 @@ from app.modules.physics.solvers.common import (
     _latex_num,
     _params_in_si,
 )
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _free_body_scene(
@@ -140,11 +140,11 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
     if op == "tension":
         m = p["m"]
         if m <= 0:
-            raise MathServiceError("mass must be positive")
+            raise SolveServiceError("mass must be positive")
         g = p.get("g", 9.81)
         a = p.get("a", 0.0)
         if a <= -g:
-            raise MathServiceError("the rope goes slack at or beyond free fall")
+            raise SolveServiceError("the rope goes slack at or beyond free fall")
         t_val = m * (g + a)
         return PhysicsResult(
             answer=(
@@ -240,7 +240,7 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
     if op == "atwood":
         m1, m2 = p["m1"], p["m2"]
         if m1 <= 0 or m2 <= 0:
-            raise MathServiceError("masses must be positive")
+            raise SolveServiceError("masses must be positive")
         g = p.get("g", 9.81)
         a_val = (m1 - m2) * g / (m1 + m2)
         t_val = 2 * m1 * m2 * g / (m1 + m2)
@@ -279,7 +279,7 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
         )
         answer_value = f"{f_val:.2f} N"
     else:
-        raise MathServiceError("force solve needs exactly two of F, m, a")
+        raise SolveServiceError("force solve needs exactly two of F, m, a")
 
     # F = ma is a push and the motion it produces, drawn the same way round.
     # Both point right by convention — the question states no direction, and
@@ -312,7 +312,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         supplied = p["E_in"]
         output = p["E_out"]
         if supplied <= 0 or output < 0:
-            raise MathServiceError("efficiency needs positive input and nonnegative output")
+            raise SolveServiceError("efficiency needs positive input and nonnegative output")
         eta = output / supplied
         answer_latex = (
             rf"\eta = \frac{{E_{{out}}}}{{E_{{in}}}} = "
@@ -346,7 +346,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
             # P = W / t — the other school form, when no force/velocity pair
             # was given ("100 J of work in 5 s").
             if p["t"] == 0:
-                raise MathServiceError("power needs a nonzero time")
+                raise SolveServiceError("power needs a nonzero time")
             power_val = p["W"] / p["t"]
             answer_latex = (
                 rf"P = \frac{{W}}{{t}} = \frac{{{p['W']:g}}}{{{p['t']:g}}} "
@@ -360,7 +360,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
             )
         answer_value = f"{power_val:.2f} W"
     else:
-        raise MathServiceError(f"unsupported energy op: {op}")
+        raise SolveServiceError(f"unsupported energy op: {op}")
 
     # Only where there is something spatial to show. A block with a "3 m/s"
     # arrow beside it tells you nothing the sentence did not — the height in
@@ -420,7 +420,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
     if op == "center_of_mass":
         total_mass = p["m1"] + p["m2"]
         if p["m1"] <= 0 or p["m2"] <= 0 or total_mass <= 0:
-            raise MathServiceError("center of mass needs positive masses")
+            raise SolveServiceError("center of mass needs positive masses")
         center = (p["m1"] * p["x1"] + p["m2"] * p["x2"]) / total_mass
         return PhysicsResult(
             answer=(
@@ -461,7 +461,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
         m1, m2, v1, v2 = p["m1"], p["m2"], p["v1"], p["v2"]
         total = m1 + m2
         if total == 0:
-            raise MathServiceError("colliding masses sum to zero")
+            raise SolveServiceError("colliding masses sum to zero")
         # The extractor refuses an unstated collision type, so this flag is
         # always something the user actually wrote.
         if p.get("elastic", 0.0) >= 0.5:
@@ -486,7 +486,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
             simulation_specs=[_collision_scene(m1, m2, v1, v2, u1, u2)],
         )
 
-    raise MathServiceError(f"unsupported momentum op: {op}")
+    raise SolveServiceError(f"unsupported momentum op: {op}")
 
 
 def _collision_scene(
@@ -563,17 +563,17 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
     mu = p.get("mu", 0.0)
     theta = p.get("angle", 0.0)  # radians
     if g <= 0:
-        raise MathServiceError("gravity must be positive")
+        raise SolveServiceError("gravity must be positive")
     if mu < 0:
-        raise MathServiceError("coefficient of friction cannot be negative")
+        raise SolveServiceError("coefficient of friction cannot be negative")
     if not -math.pi / 2 < theta < math.pi / 2:
-        raise MathServiceError("incline angle must be between -90 and 90 degrees")
+        raise SolveServiceError("incline angle must be between -90 and 90 degrees")
 
     deg = math.degrees(theta)
     # Mass cancels out of the incline acceleration, so it is optional there and
     # only these two branches require it.
     if op in ("normal_force", "friction_force") and "m" not in p:
-        raise MathServiceError(f"{op} needs a mass")
+        raise SolveServiceError(f"{op} needs a mass")
     normal = p.get("m", 0.0) * g * math.cos(theta)
     m = p.get("m", 0.0)
 
@@ -645,7 +645,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             answer_value=f"{f_val:.2f} N",
         )
 
-    raise MathServiceError(f"unsupported friction op: {op}")
+    raise SolveServiceError(f"unsupported friction op: {op}")
 
 
 # The slope's own length is never stated, so it is a display choice and the

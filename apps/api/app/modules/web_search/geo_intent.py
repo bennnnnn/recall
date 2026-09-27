@@ -7,6 +7,7 @@ import re
 from app.modules.web_search.patterns import (
     _AMBIGUOUS_NEARBY_SUBJECT,
     _DISTANCE_INTENT,
+    _FIXED_DISTANCE_FROM,
     _FROM_USER,
     _IMPLICIT_LOCAL,
     _MOTION_HOMEWORK,
@@ -16,6 +17,13 @@ from app.modules.web_search.patterns import (
     best_near_phrase,
     distance_between_phrase,
     non_geographic_nearest,
+)
+
+_LOCATIONLESS_WEATHER = re.compile(
+    r"^\s*(?:what(?:'s|\s+is)\s+(?:the\s+)?weather(?:\s+like)?"
+    r"|weather(?:\s+(?:today|tomorrow|tonight|now))?"
+    r"|(?:the\s+)?forecast(?:\s+(?:today|tomorrow|tonight))?)\s*[?.!]*\s*$",
+    re.IGNORECASE,
 )
 
 
@@ -49,12 +57,18 @@ def is_distance_query(text: str) -> bool:
         return False
     if distance_between_phrase(cleaned) and not _FROM_USER.search(cleaned):
         return False
+    if _FIXED_DISTANCE_FROM.search(cleaned) and not _FROM_USER.search(cleaned):
+        return False
     return True
 
 
 def is_geo_query(text: str) -> bool:
     """Any query that needs the user's location — places OR distance. Venue-agnostic."""
-    return is_proximity_query(text) or is_distance_query(text)
+    return (
+        is_proximity_query(text)
+        or is_distance_query(text)
+        or _LOCATIONLESS_WEATHER.fullmatch(text) is not None
+    )
 
 
 def is_places_list_query(text: str) -> bool:

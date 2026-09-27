@@ -85,7 +85,8 @@ def web_search_skip(
     if len(cleaned) < 4 and not (is_short_confirmation(cleaned) and follow_up):
         return True
     confirming = is_short_confirmation(cleaned) and follow_up
-    if not confirming and is_lightweight_chat_turn(cleaned, prior_assistant=prior_assistant):
+    # Only a yes to an offer may search; "no" / "got it" never do, question or not.
+    if not confirming and is_lightweight_chat_turn(cleaned):
         return True
     if is_vocab_quiz_answer(cleaned):
         return True

@@ -45,6 +45,7 @@ jestGlobals.mock("react-native-reanimated", () => {
     },
     runOnJS: (fn) => fn,
     runOnUI: (fn) => (...args) => fn(...args),
+    useAnimatedKeyboard: () => ({ height: { value: 0 }, state: { value: 0 } }),
     useAnimatedStyle: (factory) => (typeof factory === "function" ? factory() : {}),
     useAnimatedProps: (factory) => (typeof factory === "function" ? factory() : {}),
     // Evaluate once so tests see the initial derived value (no UI thread here).
@@ -89,6 +90,7 @@ jestGlobals.mock("react-native-gesture-handler", () => {
       Tap: () => chain(),
       LongPress: () => chain(),
       Simultaneous: () => chain(),
+      Race: () => chain(),
       Exclusive: () => chain(),
     },
     GestureDetector: ({ children }) => children,

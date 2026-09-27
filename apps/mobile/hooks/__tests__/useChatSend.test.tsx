@@ -58,6 +58,10 @@ jest.mock("@/features/attachments/model/attachments", () => ({
     needsSettings = false;
   },
 }));
+const mockReadMathScan = jest.fn();
+jest.mock("@/lib/api", () => ({
+  api: { readMathScan: (...args: unknown[]) => mockReadMathScan(...args) },
+}));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   notifyWarning: jest.fn(),
@@ -735,3 +739,84 @@ describe("rejected attachment composer recovery", () => {
     } }));
   });
 });
+
+describe("useChatSend math scans", () => {
+  const scan = {
+    localUri: "file:///crop.jpg",
+    contentType: "image/jpeg",
+    fileName: "math-scan.jpg",
+    kind: "image" as const,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    inputRef.current = "";
+    needsGeo.mockReturnValue(false);
+    resolveGeo.mockResolvedValue({ ok: true, clientGeo: null });
+  });
+
+  async function settle() {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  it("solves a confirmed reading as typed text, with no photo", async () => {
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      current.handleMathScanSolve("x + y = 5\nx - y = 1");
+      await settle();
+    });
+    expect(sendMessage).toHaveBeenCalledWith("Show steps: x + y = 5, x - y = 1", expect.anything());
+    expect(uploadAttachment).not.toHaveBeenCalled();
+    expect(current.mathScannerOpen).toBe(false);
+  });
+
+  it("keeps a typed draft after the scan's text", async () => {
+    inputRef.current = "please explain";
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      current.handleMathScanSolve("2x = 4");
+      await settle();
+    });
+    expect(sendMessage).toHaveBeenCalledWith("Show steps: 2x = 4\n\nplease explain", expect.anything());
+  });
+
+  it("sends the photo with the reading the student checked", async () => {
+    uploadAttachment.mockResolvedValue("att-1");
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      current.handleMathScanCaptured(scan, "math", "2x = 4");
+      await settle();
+    });
+    expect(uploadAttachment).toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith(
+      "Solve the math problem in this image step by step.\n\nI read this as: 2x = 4",
+      expect.anything(),
+    );
+  });
+
+  it("reads a scan through the API and turns a failure into null", async () => {
+    await act(async () => {
+      render(<Probe chatId="chat-1" />);
+    });
+    const controller = new AbortController();
+    mockReadMathScan.mockResolvedValueOnce({ reading: "2x = 4", uncertain: false, source: "mathpix" });
+    await expect(current.readMathScan(scan, controller.signal)).resolves.toEqual({
+      reading: "2x = 4",
+      uncertain: false,
+      source: "mathpix",
+    });
+    expect(mockReadMathScan).toHaveBeenCalledWith("token", scan, controller.signal);
+    mockReadMathScan.mockRejectedValueOnce(new Error("offline"));
+    await expect(current.readMathScan(scan, controller.signal)).resolves.toBeNull();
+  });
+});
+

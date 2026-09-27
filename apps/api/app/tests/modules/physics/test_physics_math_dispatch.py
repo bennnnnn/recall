@@ -1,17 +1,20 @@
-"""Physics preflight must not reject mathematical uses of its broad cues."""
+"""Broad subject words never send a request through the wrong peer pipeline."""
 
 from __future__ import annotations
 
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
-from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block as build_math_block
+from app.modules.math.tools import extract_math_intent
+from app.modules.physics import build_verified_physics_block, extract_physics_intent
+from app.services.subject_solving import detect_subject
+
+_SETTINGS = Settings(math_tools_enabled=True)
 
 
 @pytest.mark.parametrize(
-    "text,expected",
+    "text, expected",
     [
         ("range of 1,2,3,4", [1, 2, 3, 4]),
         ("find the range of 1, 2, 3, 4", [1, 2, 3, 4]),
@@ -20,38 +23,38 @@ from app.modules.math.tools import _build_verified_block, extract_math_intent
         ("range of -.5,.5", [-0.5, 0.5]),
     ],
 )
-def test_statistical_range_keeps_its_data_grammar(text: str, expected: list[float]) -> None:
+def test_statistical_range_stays_in_math(text: str, expected: list[float]) -> None:
+    assert detect_subject(text) == "math"
+    assert extract_physics_intent(text) is None
     intent = extract_math_intent(text)
-    assert isinstance(intent, MathIntent)
-    assert intent.kind == "statistics"
-    assert intent.stats_op == "range"
-    assert intent.stats_numbers == expected
-    block = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert intent is not None and intent.kind == "statistics"
+    assert intent.stats_op == "range" and intent.stats_numbers == expected
+    block = build_math_block(intent, _SETTINGS)
     assert block is not None and block.canonical_answer is not None
     assert float(block.canonical_answer) == pytest.approx(max(expected) - min(expected))
 
 
 @pytest.mark.parametrize("order", [1, 2, 3])
-def test_find_f_primes_is_a_derivative_not_a_force(order: int) -> None:
+def test_function_derivatives_stay_in_math(order: int) -> None:
     primes = "'" * order
     text = f"f(x) = x^3 - 3x, find f{primes}(x)"
+    assert detect_subject(text) == "math"
+    assert extract_physics_intent(text) is None
     intent = extract_math_intent(text)
-    assert isinstance(intent, MathIntent)
-    assert intent.kind == "calculus"
-    assert intent.operation == "differentiate"
-    assert intent.derivative_order == order
-    block = _build_verified_block(intent, Settings(math_tools_enabled=True))
-    assert block is not None and block.canonical_answer is not None
+    assert intent is not None and intent.kind == "calculus"
+    block = build_math_block(intent, _SETTINGS)
+    assert block is not None
     assert block.canonical_answer == {1: "3 x^{2} - 3", 2: "6 x", 3: "6"}[order]
 
 
-def test_find_f_without_primes_still_normalizes_physics_quantities() -> None:
+def test_force_symbol_routes_directly_to_physics() -> None:
     text = "find f for a .5 kg object with acceleration 2 m/s^2"
-    intent = extract_math_intent(text)
-    assert isinstance(intent, PhysicsIntent)
-    assert intent.kind == "force"
+    assert detect_subject(text) == "physics"
+    assert extract_math_intent(text) is None
+    intent = extract_physics_intent(text)
+    assert intent is not None and intent.kind == "force"
     assert intent.physics_params == {"m": 0.5, "a": 2.0}
-    block = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    block = build_verified_physics_block(intent, _SETTINGS)
     assert block is not None and block.canonical_answer == "1 N"
 
 
@@ -64,7 +67,8 @@ def test_find_f_without_primes_still_normalizes_physics_quantities() -> None:
         "range of a projectile launched at 1e+ m/s at 30 degrees",
     ],
 )
-def test_shared_words_do_not_bypass_malformed_physics_rejection(text: str) -> None:
+def test_malformed_physics_never_falls_through_to_math(text: str) -> None:
+    assert extract_physics_intent(text) is None
     assert extract_math_intent(text) is None
 
 
@@ -76,5 +80,6 @@ def test_shared_words_do_not_bypass_malformed_physics_rejection(text: str) -> No
         "kinetic energy of a 1/2 kg object at 2 m/s; range of 1,2,3,4",
     ],
 )
-def test_math_fragments_do_not_override_physics_refusals(text: str) -> None:
-    assert extract_math_intent(text) is None
+def test_mixed_subject_fragments_fail_closed(text: str) -> None:
+    assert detect_subject(text) == "physics"
+    assert extract_physics_intent(text) is None

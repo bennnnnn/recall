@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import re
-
 from app.modules.math.match.calculus import (
     calc_op,
     parse_limit,
@@ -40,6 +38,7 @@ from app.modules.math.match.scan import (
     number_after,
     prepare,
     two_numbers_after,
+    written_arithmetic_request,
 )
 from app.modules.math.match.statistics import bivariate_stats_signal
 from app.services.text_match import has_equation, word_index
@@ -112,6 +111,8 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # ``8-8*2`` as a rectangle size, extract returned None, and the reply
     # stamped *Couldn't verify this with SymPy.* under a correct -8.
     if bare_arithmetic_expr(cleaned) is not None:
+        return True
+    if written_arithmetic_request(cleaned) is not None:
         return True
     if "=" in cleaned:
         from app.modules.math.tools.helpers import substituted_eval_expr
@@ -223,56 +224,9 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if matrix_signal(cleaned) is not None:
         return True
-    if supported_physics_cue(cleaned):
-        return True
     if school_homework_cue(cleaned):
         return True
     return has_math_keyword(lower) and has_equation(cleaned)
-
-
-# A handful of verified questions carry no number at all, because the numbers
-# are the body's own: "what is the escape velocity from earth". The digit rule
-# below is what keeps the physics cues cheap, so this is an explicit short list
-# rather than a relaxation of it - each phrase is unambiguous physics, and the
-# extractor still refuses anything it cannot resolve.
-_DIGIT_FREE_PHYSICS_RE = re.compile(
-    r"\b(?:escape velocity|escape speed|orbital velocity|orbital speed|"
-    r"surface gravity|gravitational field strength)\b"
-    r"[^.?!]{0,60}?\b(?:earth|moon|mars|jupiter|sun)\b"
-    r"|\b(?:earth|moon|mars|jupiter|sun)\b[^.?!]{0,60}?"
-    r"\b(?:escape velocity|escape speed|orbital velocity|orbital speed|"
-    r"surface gravity|gravitational field strength)\b",
-    re.IGNORECASE,
-)
-
-# Advanced physics still belongs on the math/physics prompt path even when it
-# cannot be reduced to one safe scalar template. This prevents a Hamiltonian,
-# Schrödinger, Maxwell, or Lagrangian problem from being mistaken for an app
-# action (the calendar misroute), while `turn_needs_tool_loop` still refuses a
-# symbolic tool round when no exact extractor exists.
-_ADVANCED_PHYSICS_RE = re.compile(
-    r"\b(?:schr[oö]dinger|hamilton(?:ian|'s equations?)?|lagrang(?:ian|e)|"
-    r"maxwell(?:'s)? equations?|gauss(?:'s)? law|kirchhoff(?:'s)? laws?|"
-    r"quantum harmonic oscillator|wave ?function|probability density|"
-    r"diffraction grating|poiseuille|capillary rise|inductor|rl circuit|"
-    r"ac circuit|impedance|reactance|transformer|nuclear reaction|binding energy|"
-    r"mass defect|rydberg|blackbody distribution|planck distribution|gear ratio)\b",
-    re.IGNORECASE,
-)
-
-
-def supported_physics_cue(cleaned: str) -> bool:
-    """A verified numeric template or an unmistakable advanced-physics ask."""
-    if _ADVANCED_PHYSICS_RE.search(cleaned) is not None:
-        return True
-    if not any(ch.isdigit() for ch in cleaned):
-        return _DIGIT_FREE_PHYSICS_RE.search(cleaned) is not None
-    from app.modules.physics import has_supported_physics_cue
-
-    # Not lowercased: a few physics cues mean the SI symbols `V` and `A` and
-    # are case-sensitive on purpose. Lowercasing here made them dead in the
-    # pre-filter while the extractor kept honouring them.
-    return has_supported_physics_cue(cleaned)
 
 
 def _has_ordinal_term_cue(lower: str) -> bool:
@@ -453,13 +407,6 @@ def school_homework_cue(cleaned: str) -> bool:
         return True
     if "area" in lower and "triangle" in lower and "angle" in lower and "sides" in lower:
         return True
-    # The complete speed law includes its distance and time rearrangements;
-    # let the strict extractor decide rather than keying only on the words
-    # "average speed" and accidentally sending the other two forms to the LLM.
-    from app.modules.math.tools.school import extract_average_speed_intent
-
-    if extract_average_speed_intent(cleaned) is not None:
-        return True
     if "convert" in lower and " to " in lower and any(ch.isdigit() for ch in cleaned):
         return True
     if any(w in lower for w in ("midpoint", "distance between", "slope of")) and "(" in cleaned:
@@ -467,6 +414,8 @@ def school_homework_cue(cleaned: str) -> bool:
     if any(w in lower for w in ("dot product", "cross product", "magnitude of <")):
         return True
     if "binomial" in lower or "expected value" in lower:
+        return True
+    if "z-score" in lower or "z score" in lower:
         return True
     if "taylor of " in lower or "maclaurin" in lower or ("taylor" in lower and "series" in lower):
         return True
@@ -477,6 +426,8 @@ def school_homework_cue(cleaned: str) -> bool:
     if "modulus" in lower or "imaginary" in lower or "complex number" in lower:
         return True
     if bare_arithmetic_expr(cleaned) is not None:
+        return True
+    if written_arithmetic_request(cleaned) is not None:
         return True
     has_trig_call = any(f"{fn}(" in lower or f"{fn} " in lower for fn in ("sin", "cos", "tan"))
     if has_trig_call and ("\u00b0" in cleaned or any(ch.isdigit() for ch in cleaned)):

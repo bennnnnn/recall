@@ -29,9 +29,13 @@ from app.models.schemas.physics import (
     SimulationBody,
     SimulationVector,
 )
-from app.modules.math.fence import _spec_fence_kind, validate_math_fences
-from app.modules.math.tools import _build_verified_block, extract_math_intent
 from app.modules.physics.solver import solve_physics
+from app.tests.modules.physics.support import (
+    _spec_fence_kind,
+    build_verified_physics_block,
+    extract_physics_intent,
+    validate_physics_fences,
+)
 
 PROJECTILE_Q = "a ball is thrown at 20 m/s at 30 degrees, what is the range"
 CIRCULAR_Q = (
@@ -44,7 +48,7 @@ def _settings() -> Settings:
 
 
 def _scene(text: str) -> SimulationBlockSpec:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent)
     specs = solve_physics(intent).simulation_specs
     assert len(specs) == 1
@@ -53,9 +57,9 @@ def _scene(text: str) -> SimulationBlockSpec:
 
 def _fence_body(text: str, reply: str = "Here you go.") -> dict | None:
     """The scene as it actually reaches the client, through the real pipeline."""
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None
-    out = validate_math_fences(reply, verified=_build_verified_block(intent, _settings()))
+    out = validate_physics_fences(reply, verified=build_verified_physics_block(intent, _settings()))
     if "```simulation" not in out:
         return None
     return json.loads(out.split("```simulation")[1].split("```")[0].strip())
@@ -71,7 +75,7 @@ def test_a_projectile_answer_carries_a_scene_as_well_as_its_graph() -> None:
     moving, and what is pulling on it". They are different questions and the
     reply can afford both.
     """
-    intent = extract_math_intent(PROJECTILE_Q)
+    intent = extract_physics_intent(PROJECTILE_Q)
     assert isinstance(intent, PhysicsIntent)
     result = solve_physics(intent)
 
@@ -85,7 +89,7 @@ def test_the_scene_and_the_graph_share_one_sampled_path() -> None:
     Handing the renderer a second, separately derived path is how a picture
     starts disagreeing with itself.
     """
-    intent = extract_math_intent(PROJECTILE_Q)
+    intent = extract_physics_intent(PROJECTILE_Q)
     assert isinstance(intent, PhysicsIntent)
     result = solve_physics(intent)
 
@@ -190,9 +194,11 @@ def test_canvas_labels_drop_redundant_decimal_zeros() -> None:
 
 def test_a_circular_answer_gets_a_scene_and_no_graph() -> None:
     """Circular motion has no curve to plot — its picture is the scene."""
-    intent = extract_math_intent(CIRCULAR_Q)
+    intent = extract_physics_intent(CIRCULAR_Q)
     assert intent is not None
-    out = validate_math_fences("Here you go.", verified=_build_verified_block(intent, _settings()))
+    out = validate_physics_fences(
+        "Here you go.", verified=build_verified_physics_block(intent, _settings())
+    )
 
     assert "```simulation" in out
     assert "```graph" not in out
@@ -211,12 +217,12 @@ def test_a_clarifying_reply_gets_no_scene_either() -> None:
 def test_an_invented_scene_is_never_passed_through() -> None:
     """Server-owned, like geometry and graph. A model that writes its own
     physics animation gets it replaced by the verified one."""
-    intent = extract_math_intent(PROJECTILE_Q)
+    intent = extract_physics_intent(PROJECTILE_Q)
     assert intent is not None
     invented = '```simulation\n{"type":"orbit","bodies":[{"path":[[0,0],[1,1]]}]}\n```'
-    out = validate_math_fences(
+    out = validate_physics_fences(
         f"Here you go.\n\n{invented}",
-        verified=_build_verified_block(intent, _settings()),
+        verified=build_verified_physics_block(intent, _settings()),
     )
 
     assert '"orbit"' not in out
@@ -224,7 +230,7 @@ def test_an_invented_scene_is_never_passed_through() -> None:
 
 
 def test_an_invented_scene_with_no_verified_block_is_struck_out() -> None:
-    out = validate_math_fences('```simulation\n{"type":"orbit","bodies":[]}\n```')
+    out = validate_physics_fences('```simulation\n{"type":"orbit","bodies":[]}\n```')
 
     assert "```simulation" not in out
     assert "Could not render that diagram" in out
@@ -319,10 +325,10 @@ HELD_Q = (
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -496,7 +502,7 @@ def test_a_flat_surface_gets_no_incline_scene() -> None:
     """Weight down and normal up is a true picture and an empty one, and with
     no slope there is no friction direction to draw — the block is not going
     anywhere for friction to oppose."""
-    intent = extract_math_intent("what is the normal force on a 5 kg block")
+    intent = extract_physics_intent("what is the normal force on a 5 kg block")
     assert isinstance(intent, PhysicsIntent)
 
     assert solve_physics(intent).simulation_specs == []
@@ -745,9 +751,9 @@ def test_a_picture_does_not_grant_a_direct_reply() -> None:
     Attaching a scene routes through the diagram branch of the block builder,
     which is how that permission nearly flipped silently.
     """
-    intent = extract_math_intent(FMA_Q)
+    intent = extract_physics_intent(FMA_Q)
     assert intent is not None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
 
     assert block is not None
     assert block.allow_direct is False
@@ -791,7 +797,7 @@ def test_energy_without_a_spatial_quantity_draws_nothing(text: str) -> None:
     """A block with a "3 m/s" arrow beside it tells you nothing the sentence
     did not. A speed is not a thing you can point at, so these get no picture
     rather than a decorative one."""
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent)
 
     assert solve_physics(intent).simulation_specs == []

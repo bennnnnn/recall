@@ -13,7 +13,9 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block as build_math_block
+from app.modules.math.tools import extract_math_intent as extract_real_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -31,10 +33,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -75,7 +77,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_circular_phrasings_reach_a_verified_answer(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None, "no intent extracted"
     assert intent.kind == "circular"
     assert intent.physics_op == op
@@ -148,7 +150,7 @@ NOT_PHYSICS = [
 
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_circular_cues_do_not_steal_other_subjects(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
@@ -165,14 +167,15 @@ def test_circle_geometry_is_untouched(text: str, kind: str, answer: str) -> None
     Geometry extractors run *after* physics, so either word would have taken
     these outright rather than losing a tie-break.
     """
-    intent = extract_math_intent(text)
+    intent = extract_real_math_intent(text)
 
     assert intent is not None and intent.kind == kind
-    assert _verified_answer(text) == answer
+    block = build_math_block(intent, _settings())
+    assert block is not None and block.canonical_answer == answer
 
 
 def test_the_period_of_a_function_is_still_trigonometry() -> None:
     """ "period" only counts beside a radius; on its own it belongs to trig."""
-    intent = extract_math_intent("what is the period of the function sin(2x)")
+    intent = extract_physics_intent("what is the period of the function sin(2x)")
 
     assert intent is None or intent.kind not in PHYSICS_KINDS

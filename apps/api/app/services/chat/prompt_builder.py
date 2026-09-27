@@ -19,14 +19,12 @@ from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
-from app.modules.math import tools as math_tools_service
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
     readable_standalone_answer,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.modules.math.tools import VerifiedMathBlock
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import locale as locale_service
@@ -52,6 +50,7 @@ from app.services.chat.prompt_constants import (
     EMAIL_DRAFT_HINT,
     FORMAT_CONTRACT,
     HOWTO_FORMAT_HINT,
+    LEARNING_PLAN_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
     MATH_INTENT_HINT,
@@ -72,11 +71,15 @@ from app.services.chat.prompt_constants import (
     SHORT_RESPONSE_FORMAT_HINT,
     SOCIAL_DRAFT_HINT,
     STYLE_HINTS,
+    TEACHING_HINT,
+    TEACHING_SHORT_NOTE,
     TONE_FORMAT_GUARD,
     TRANSLATION_FORMAT_HINT,
     UNIVERSAL_FORMAT_BASELINE,
+    VERIFIED_SOLVE_SAFETY_HINT,
     VISUALIZATION_HINTS,
     WRITING_LINE_HINT,
+    active_lesson_step,
     is_bare_writing_line,
     is_brevity_request,
     is_broad_self_question,
@@ -85,6 +88,7 @@ from app.services.chat.prompt_constants import (
     is_chart_question,
     is_email_or_message_request,
     is_howto_question,
+    is_learning_plan_request,
     is_learning_progress_question,
     is_mermaid_question,
     is_personal_disclosure_turn,
@@ -92,7 +96,11 @@ from app.services.chat.prompt_constants import (
     is_sequence_diagram_question,
     is_short_confirmation,
     is_structured_comparison_question,
+    is_teaching_request,
     is_underspecified_writing_request,
+    learning_plan_daily_contract,
+    lesson_continue_hint,
+    programming_lesson_contract,
     recalls_earlier_conversation,
     writing_request_kind,
 )
@@ -119,6 +127,8 @@ from app.services.prompt_safety import (
     wrap_untrusted,
     wrap_user_preferences,
 )
+from app.services.solving import VerifiedSolveBlock
+from app.services.subject_solving import build_subject_augmentation, detect_subject
 
 _PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places")
 _SLIM_MEMORY_MAX_CHARS = 1000
@@ -177,25 +187,21 @@ def _strip_prompt_owned_fences(content: str) -> str:
     return out
 
 
-def _math_viz_intent(query_text: str | None) -> tuple[bool, bool]:
+def _subject_viz_intent(query_text: str | None) -> tuple[str | None, bool]:
     if not query_text or not query_text.strip():
-        return False, False
-    math_intent = math_tools_service.needs_symbolic_math(query_text)
+        return None, False
+    subject = detect_subject(query_text)
     viz_intent = (
         is_chart_question(query_text)
         or is_mermaid_question(query_text)
         or is_html_ui_question(query_text)
     )
-    return math_intent, viz_intent
+    return subject, viz_intent
 
 
 def _physics_turn(query_text: str | None) -> bool:
-    """A physics template, so the turn must not be labeled as math."""
-    if not query_text or not query_text.strip():
-        return False
-    from app.modules.physics import has_supported_physics_cue
-
-    return has_supported_physics_cue(query_text)
+    """Compatibility helper for callers/tests; detection is subject-neutral."""
+    return bool(query_text and detect_subject(query_text) == "physics")
 
 
 def _custom_instructions_block(user: User) -> str | None:
@@ -295,29 +301,41 @@ async def fetch_web_and_tools(
     prior_user_messages: list[str] | None = None,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
+    math_followup_problem: str | None = None,
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
-) -> tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None]:
+) -> tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None]:
     """Fetch web-search and SymPy augmentation blocks WITHOUT mutating prompt_messages.
 
     Web search (network) and SymPy (subprocess) are independent — gather both.
     Returns ``(web_block, math_block, search_sources, verified_math)``; injection
     is a separate step so this fetch can run concurrently with integration fetches.
     """
-    # Compute the math-intent signal ONCE: it gates the "calculating" status
-    # below AND build_math_augmentation's own needs_symbolic_math check, so
-    # passing it through avoids re-scanning the same message twice per turn
-    # (needs_symbolic_math runs ~30 substring/matcher passes over the text).
-    needs_math = settings.math_tools_enabled and math_tools_service.needs_symbolic_math(
-        user_content, has_image_attachment=has_image_attachment
+    math_user_content = math_followup_problem or user_content
+    subject = (
+        "math"
+        if math_followup_problem is not None
+        else detect_subject(
+            user_content,
+            has_image_attachment=has_image_attachment,
+            image_math_extract=image_math_extract,
+        )
     )
-    if needs_math and on_status is not None:
-        phase = "physics" if _physics_turn(user_content) else "calculating"
-        await on_status(phase)
+    needs_subject = settings.math_tools_enabled and subject is not None
+    if needs_subject and on_status is not None:
+        await on_status("physics" if subject == "physics" else "calculating")
 
-    (web_block, search_sources), (math_block, verified_math) = await asyncio.gather(
-        web_search_service.build_search_augmentation(
+    async def _web_for_turn() -> tuple[str | None, list[WebSearchHit]]:
+        # Closed symbolic/statistical work is self-contained. Do not ask the
+        # web classifier (or a search provider) whether a z-score, equation,
+        # derivative, etc. needs live sources. Explicit/current-data requests
+        # still pass the ordinary synchronous live-data gate below.
+        if needs_subject and not web_search_service.web_search_fast_yes(
+            user_content, prior_user_messages=prior_user_messages
+        ):
+            return None, []
+        return await web_search_service.build_search_augmentation(
             user_content,
             settings,
             messages=prompt_messages,
@@ -329,17 +347,22 @@ async def fetch_web_and_tools(
             on_status=on_status,
             user=user,
             redis=redis,
-        ),
-        math_tools_service.build_math_augmentation(
+        )
+
+    (web_block, search_sources), subject_result = await asyncio.gather(
+        _web_for_turn(),
+        build_subject_augmentation(
             user_content,
             settings,
+            math_user_content=math_user_content,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
-            needs_math=needs_math,
             prior_user_messages=prior_user_messages,
+            response_intent_text=user_content if math_followup_problem is not None else None,
+            detected_subject=subject,
         ),
     )
-    return web_block, math_block, search_sources, verified_math
+    return web_block, subject_result.prompt_block, search_sources, subject_result.verified
 
 
 async def inject_web_and_tools(
@@ -392,11 +415,12 @@ async def _augment_web_and_tools(
     prior_user_messages: list[str] | None = None,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
+    math_followup_problem: str | None = None,
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
     has_calendar_write: bool = False,
-) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedMathBlock | None]:
+) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedSolveBlock | None]:
     """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
     web_block, math_block, search_sources, verified_math = await fetch_web_and_tools(
         user_content,
@@ -409,6 +433,7 @@ async def _augment_web_and_tools(
         prior_user_messages=prior_user_messages,
         has_image_attachment=has_image_attachment,
         image_math_extract=image_math_extract,
+        math_followup_problem=math_followup_problem,
         on_status=on_status,
         user=user,
         redis=redis,
@@ -672,6 +697,13 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return SEQUENCE_FORMAT_HINT
     if is_mermaid_question(query_text):
         return MERMAID_FORMAT_HINT
+    # Explicit "teach me" intent owns the interaction shape. A topic may also
+    # contain "vs" / "difference between", but the user asked for a lesson, not
+    # a one-shot comparison table. Explicit visual requests above still win.
+    if is_learning_plan_request(query_text):
+        return LEARNING_PLAN_HINT
+    if is_teaching_request(query_text):
+        return TEACHING_HINT
     if is_structured_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
     if is_quote_question(query_text):
@@ -711,8 +743,12 @@ def _style_format_hints(
     minimal_personal_context: bool,
     compact: bool = False,
     image_generation_enabled: bool = True,
+    lesson: tuple[int, int] | None = None,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
+
+    ``lesson`` is the (step, total) the previous reply taught, when it was a
+    lesson step: this turn answers its check question, so the lesson goes on.
 
     ``compact`` is for greetings and pasted fragments only — not for
     "no personal data". Ordinary questions get FORMAT_CONTRACT; math/viz
@@ -730,10 +766,11 @@ def _style_format_hints(
             CAPABILITIES_FORMAT_HINT,
             MATH_FENCE_SAFETY_HINT,
         ]
-    if query_text and is_personal_disclosure_turn(query_text):
+    if query_text and is_personal_disclosure_turn(query_text) and not lesson:
         # A first-person update is not an invitation to generate a guide. Keep
         # the contract small and decisive so the general rich-format pack
         # cannot turn "I work at Uber..." into an unsolicited career plan.
+        # Mid-lesson, "I'm confused" answers the check question instead.
         return [
             CLARIFICATION_HINT,
             PRIVACY_HINT,
@@ -745,9 +782,27 @@ def _style_format_hints(
         ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
     writing = _writing_format_hint(query_text)
+    learning_plan = bool(
+        query_text
+        and writing is None
+        and not is_brevity_request(query_text)
+        and is_learning_plan_request(query_text)
+    )
+    teaching = bool(
+        query_text
+        and writing is None
+        and not is_brevity_request(query_text)
+        and is_teaching_request(query_text)
+    )
+    # A new "teach me" starts its own lesson; otherwise the last step goes on.
+    lesson_hint = (
+        lesson_continue_hint(*lesson)
+        if lesson and not teaching and not learning_plan and not writing
+        else None
+    )
     if query_text and writing is None:
         parts.append(NON_DRAFT_TURN_HINT)
-    math_intent, viz_intent = _math_viz_intent(query_text)
+    subject, viz_intent = _subject_viz_intent(query_text)
     if query_text and is_short_confirmation(query_text):
         parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
     if query_text and is_day_planning_question(query_text):
@@ -762,8 +817,20 @@ def _style_format_hints(
         parts.append(BROAD_SELF_ANSWER_HINT)
     if style == "short":
         parts.append(UNIVERSAL_FORMAT_BASELINE)
-        # Explicit draft/prose still wins over "plain text, skip fences".
-        parts.append(writing if writing else SHORT_RESPONSE_FORMAT_HINT)
+        # Explicit draft/prose still wins over "plain text, skip fences". A lesson
+        # keeps its step headings, only smaller.
+        if writing:
+            parts.append(writing)
+        elif learning_plan:
+            # An explicit multi-day roadmap needs enough room to be actionable;
+            # account-level short style must not collapse it into a vague paragraph.
+            parts.append(LEARNING_PLAN_HINT)
+        elif teaching:
+            parts.extend([TEACHING_HINT, TEACHING_SHORT_NOTE])
+        elif lesson_hint:
+            parts.append(TEACHING_SHORT_NOTE)
+        else:
+            parts.append(SHORT_RESPONSE_FORMAT_HINT)
     elif is_day_plan:
         # Day-plan used to miss math guardrails. Keep a short fence-safety
         # line so incidental `$...$` still renders; keep FORMAT_CONTRACT so
@@ -792,16 +859,20 @@ def _style_format_hints(
         layout = _layout_format_hint(query_text)
         if layout:
             parts.append(layout)
+    if lesson_hint:
+        parts.append(lesson_hint)
     if query_text and is_image_generation_mention(query_text):
         parts.append(
             IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT
         )
-    if math_intent and _physics_turn(query_text):
+    if subject == "physics":
+        parts.append(VERIFIED_SOLVE_SAFETY_HINT)
         if style == "short" or compact:
             parts.append(PHYSICS_SHORT_HINT)
         else:
             parts.append(PHYSICS_INTENT_HINT)
-    elif math_intent:
+    elif subject == "math":
+        parts.append(VERIFIED_SOLVE_SAFETY_HINT)
         if style == "short" or compact:
             parts.append(SHORT_MATH_SAFETY_HINT)
             parts.append(MATH_SHORT_RESPONSE_HINT)
@@ -818,11 +889,22 @@ def _style_format_hints(
         parts.append(COPY_DELIVERABLE_HINT)
     if query_text and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
-    if math_intent and _physics_turn(query_text):
+    if subject == "physics":
         parts.append(PHYSICS_REPLY_POLICY)
-    elif math_intent:
+    elif subject == "math":
         # Keep requested detail last, after general layout and tutoring hints.
         parts.append(MATH_REPLY_POLICY)
+    # Turn-derived hard contracts come after generic format/math/copy guidance
+    # so smaller models cannot treat exact day coverage or a tagged example as
+    # an optional style preference.
+    if learning_plan and query_text:
+        daily_contract = learning_plan_daily_contract(query_text)
+        if daily_contract:
+            parts.append(daily_contract)
+    if teaching and query_text:
+        code_contract = programming_lesson_contract(query_text)
+        if code_contract:
+            parts.append(code_contract)
     return parts
 
 
@@ -1061,6 +1143,7 @@ async def build_prompt_messages(
     ):
         followup_exchange = recent[:-1]
     math_followup = is_math_followup(query_text, followup_exchange)
+    lesson = active_lesson_step(followup_exchange)
     chat_history_rag_block = ""
     # The context gather already attempted the history embed. None means no
     # chunks or a failed/timed-out embed; do not repeat that work serially.
@@ -1097,6 +1180,9 @@ async def build_prompt_messages(
     compact_format = bool(query_text and is_bare_writing_line(query_text))
     if query_text and is_short_confirmation(query_text) and not lightweight:
         compact_format = True
+    if lesson:
+        # "ok" / "yes" to a lesson step asks for the next step, not a casual reply.
+        compact_format = False
     if lightweight:
         system_parts.append(LIGHTWEIGHT_REPLY_HINT)
         system_parts.append(SHORT_RESPONSE_FORMAT_HINT)
@@ -1113,6 +1199,7 @@ async def build_prompt_messages(
                 minimal_personal_context=minimal_personal_context,
                 compact=compact_format,
                 image_generation_enabled=settings.image_generation_enabled,
+                lesson=lesson,
             )
         )
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
@@ -1184,4 +1271,18 @@ async def build_prompt_messages(
             )
             content = prior_result or _strip_prompt_owned_fences(content)
         messages.append({"role": msg.role, "content": content})
+    # Repeat only the machine-checkable turn contract immediately before the
+    # current user message. Smaller low-latency models follow nearby system
+    # constraints more reliably than a clause inside the large base prompt.
+    nearby_contracts: list[str] = []
+    if query_text and is_learning_plan_request(query_text):
+        daily_contract = learning_plan_daily_contract(query_text)
+        if daily_contract:
+            nearby_contracts.append(daily_contract)
+    if query_text and is_teaching_request(query_text):
+        code_contract = programming_lesson_contract(query_text)
+        if code_contract:
+            nearby_contracts.append(code_contract)
+    if nearby_contracts:
+        messages = inject_before_last_user(messages, "\n\n".join(nearby_contracts))
     return messages

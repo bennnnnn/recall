@@ -70,7 +70,14 @@ _RELATIONSHIP_NEEDLES = (
     "wife",
     "spouse",
     "affair",
-    "dating",
+    # The user's own dating life, not a dating app they build or use for work.
+    "is dating",
+    "am dating",
+    "are dating",
+    "been dating",
+    "started dating",
+    "dating someone",
+    "went on a date",
 )
 _HIGHLY_SENSITIVE_NEEDLES = (
     "ethnicity",

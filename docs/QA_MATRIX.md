@@ -41,6 +41,9 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 2.5 | New chat created on first message | ☐ | ☐ | No empty chat rows |
 | 2.6 | Offline banner when API unreachable | ☐ | ☐ | |
 | 2.7 | Quota exceeded shows plan-aware alert | ☐ | ☐ | Free vs Pro copy |
+| 2.8 | Teach-me lesson, one step at a time | ☐ | ☐ | “Teach me python dictionary step by step”: one line on how it will go, a complete short outline, then only `Step 1/N` with a plain explanation, one small code example, and a low-pressure question/optional check. Right / “ok” / “next” → `Step 2/N`. Plausible wrong → targeted correction with a fresh example, then `Step 2/N` (no retry gate). “I’m confused” / “why?” → keep `Step 1/N`, explain differently, preserve the step heading. Keyboard smash → brief acknowledgment and `Step 2/N`, never replay Step 1. Last step → short recap. “Just give me everything” → full reference. “How to install python step by step” / “Walk me through changing a tire” stay numbered how-tos. |
+| 2.9 | Full named-duration learning roadmap | ☐ | ☐ | Try “Create a 70-day Python plan”, “70-day roadmap for Python”, and “Teach me Python over the next 70 days.” Result is a complete mobile-scannable progression (`Foundations → Core skills → Projects`) with explicit ordered `Day 1` through `Day 70` entries, compact `Topic → Practice/build → Done when` lines, 4–6 tagged runnable examples across phases, checkpoints, milestones, and an honest production-experience caveat. First useful text should normally arrive in the app’s under-6-second telemetry bands. “I studied Python for 70 days and now plan to apply for jobs” must not trigger a new roadmap. |
+| 2.10 | Composer typing | ☐ | ☐ | Empty: “Reply to Recall”, caret level with the middle of + and send. Type a long message: at each wrap the box grows upward by one line and the line being typed stays level with the buttons, with no up-and-down jumps. Delete back to one line, or send: the box returns to one line. Largest text size: nothing clips. |
 
 ---
 
@@ -49,7 +52,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|
 | 3.1 | Markdown (bold, lists, tables) | ☐ | ☐ | |
-| 3.2 | Code blocks + syntax highlight | ☐ | ☐ | |
+| 3.2 | Code blocks + syntax highlight | ☐ | ☐ | Rounded card, no header bar or language label; copy icon floats top-right and turns into ✓. A long line scrolls sideways and does not run under the copy icon at the end. HTML fence: play button sits beside copy. Light and dark. |
 | 3.3 | Math / LaTeX | ☐ | ☐ | |
 | 3.4 | Geometry / graph SVG | ☐ | ☐ | Works in Expo Go |
 | 3.5 | HTML preview (WebView) | ☐ | ☐ | Dev build only |
@@ -141,7 +144,11 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 10.2 | Image gen intent detected from plain prompt (no attach-menu row) | ☐ | ☐ | Intent → `/images/generate`; no second modal |
 | 10.3 | Web search — source chips under reply, open source URL | ☐ | ☐ | `WEB_SEARCH_ENABLED=true`; MCP tool path wraps hits + chips; one Tavily reservation per turn; Redis reserve fail → DuckDuckGo (uncapped); no Tavily key → DDG |
 | 10.4 | Math scanner — open, torch, pinch-zoom, tap-focus, photos, corner-resize, pan | ☐ | ☐ | Dev build (camera). Close + cancel work. Tap inside the crop to focus. No front camera. |
-| 10.5 | Math scanner — capture → adjust crop → Solve | ☐ | ☐ | Crop overlay stays on the captured photo; Solve sends the cropped image (no “Reading the problem” OCR). Retake works. |
+| 10.5 | Math scanner — capture → adjust crop → Solve → “I read this as” | ☐ | ☐ | “Reading the problem…” shows at once; the reading lands in an editable field (a hint line when it was hard to read). Edit a digit → **Solve** sends `Show steps: …` as text and the reply solves the edited problem. **Send photo** works before the read finishes and sends the crop. **Retake** returns to the camera. iOS: the field stays above the keyboard. |
+| 10.6 | Math scanner — unreadable photo, and physics | ☐ | ☐ | Blank paper or airplane mode: “Couldn't read that…”, Solve disabled, **Send photo** still sends. Physics subject: Solve sends the crop directly, no read-back. |
+| 10.7 | Math lessons — steps for each traced kind | ☐ | ☐ | Balanced style: `solve 2x+3<7`, `solve -3x+2>=8` (flip when dividing by −3), `-2 < 3x+1 <= 7`, `solve 2x+3y=12, x-y=1`, `differentiate x^2 sin(x) step by step` (product rule), `integrate x(x^2+1)^5` (u-substitution), `integrate x e^x` (by parts). Numbered steps render, `$…$` labels typeset, answer chip last; inequalities keep the number line. Short style: chip only. |
+| 10.8 | Check my work | ☐ | ☐ | `check my work` + lines `2x + 3 = 11`, `2x = 14`, `x = 7`: line 2 ✗ with the sign explanation and a fixed continuation ending in `x = 4`. Same with “don't give me the answer”: only the hint question, no fix, no chip. All-correct lines: ✓ on each, “Every step checks out.”, check line, chip. |
+| 10.9 | Word problems | ☐ | ☐ | “Maria is three times as old as her son. Together their ages add up to 48. How old is her son?” → **Let** / **Equations** (with the quoted words) / steps / “her son's age: 12 years”. A problem the model misreads or cannot close falls back to a normal streamed reply without a verified claim. |
 
 ---
 
@@ -246,6 +253,23 @@ Rebuild the dev client once first: the native date/time picker module was remove
 | 17.9 | Chat ⋮ → Share | ☐ | ☐ | Share sheet appears, the OS share menu opens on top; after closing it, Copy shows a check and PDF exports. |
 | 17.10 | TalkBack / VoiceOver on the clock dial | ☐ | ☐ | One adjustable control; swipe up/down changes the value; the time is read out. |
 | 17.11 | Light and dark mode on the pickers, share sheet, menus and header plates | ☐ | ☐ | Dial and boxes stand out from the dialog in dark mode. |
+
+## 18. Memory pages (Claude-style)
+
+Use a real model (not `MOCK_LLM_ENABLED`). Memory must be on in Settings.
+
+| # | Test | iOS | Android | Notes |
+|---|------|-----|---------|-------|
+| 18.1 | In a new chat say your job, city, a project you are building by name, and "keep answers short" | ☐ | ☐ | Within a minute Memory shows Profile, Preferences and an Area named after the project, each with a summary and today's date. |
+| 18.2 | Open Memory for the first time on an account with older chats | ☐ | ☐ | "Reading your recent chats…" shows, then pages from those chats appear without leaving the screen. |
+| 18.3 | Type "You can disagree with me more" in the box and send | ☐ | ☐ | A toast repeats what changed; Preferences shows the new line; the box clears. |
+| 18.4 | Open a page, tap a fact | ☐ | ☐ | Edit and Delete appear at the finger; Edit saves new text; Delete asks first. |
+| 18.5 | Delete a whole page | ☐ | ☐ | Confirm dialog, then back to the list without the page. |
+| 18.6 | Say "I have a peanut allergy", then "I'm building a dating app" | ☐ | ☐ | The allergy is not saved unless you said "remember" or turned on sensitive topics; the dating app is saved as a project. |
+| 18.7 | Composer with the keyboard open | ☐ | ☐ | The box sits above the keyboard (iOS) and the list still scrolls; Android resizes. |
+| 18.8 | Switch accounts with Memory open | ☐ | ☐ | The next account never shows the previous account's pages. |
+| 18.9 | While "Reading your recent chats…" shows, delete a fact you said in an older chat | ☐ | ☐ | The fact stays deleted after the banner goes away. |
+| 18.10 | Turn on airplane mode, delete two facts, then turn it off | ☐ | ☐ | Both deletes fail and both facts come back; nothing else on the page changes. |
 
 ---
 

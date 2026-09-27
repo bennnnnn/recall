@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 
@@ -21,6 +21,24 @@ describe("native math graphs", () => {
     const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
 
     expect(getByTestId("skia-graph-card")).toBeOnTheScreen();
+  });
+
+  it("lets the expanded Skia canvas receive pinch and pan touches", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: [
+        [-2, 4],
+        [0, 0],
+        [2, 4],
+      ],
+    });
+    const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
+
+    await fireEvent.press(getByTestId("graph-expand"));
+
+    expect(getByTestId("graph-interaction-surface").props.pointerEvents).toBe("box-only");
+    expect(getByTestId("skia-graph-canvas")).toBeOnTheScreen();
   });
 
   it("uses Skia for a number-line solution", async () => {

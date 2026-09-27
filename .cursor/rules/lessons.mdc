@@ -12,6 +12,22 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Adding a second arithmetic grammar made dates and phone numbers look solvable again.** The original bare-expression gate rejected ambiguous `9/9`, `2026-09`, and `555-1234`, but the new school-method matcher ran afterward and accepted them. Every new extractor must preserve the gate’s ambiguity rules; only a calculation/long-division cue may admit a bare ASCII slash.
+
+- **A math answer chip followed by “how?” drifted to model-written steps.** Short style suppressed verified `key_steps`, and the terse follow-up never re-entered math augmentation. Always render supported equation/system/inequality traces unless the user says “just the answer”; adjacency-gate working follow-ups and solve the prior problem again. Native `√` plus a separate border cannot enclose `\frac{x}{y}`—draw one scalable SVG radical path, and keep fraction-bar padding to a minimal overhang.
+
+- **Composer caret jumps onto the previous line when the field wraps.** `paddingTop` on the multiline `TextInput` makes iOS draw the caret a line too high. Size the text box to the lines and keep the button-centering slack on the wrapper. Do not reset `contentOffset` on each keystroke — that scrolls the caret up a line and then snaps it back.
+
+- **Expo Go aborts on the chat screen (SIGABRT in a Reanimated frame).** `useAnimatedStyle` called `composerGapFadeHeight` from another module. That runs on the UI runtime, throws, and the display-link callback abort-traps the app. Keep the height math inline in the worklet.
+
+- **Composer text clips at the end of a line until Return.** `inputSingleLine` locks the field at 44pt, and iOS skips `onContentSizeChange` for a soft wrap that does not grow the box, so the next line never appears. Grow from the field width (`composerSoftWrapLineCount`) on that keystroke. Do not trust that content size once the width is known — iOS echoes the height you just set and the pill ratchets, and do not push list padding for a soft wrap or the thread jumps with every line.
+
+- **The line under the composer stayed sharp.** The scrim used `bottom: 0`, which sits on the pill, above the bottom padding where the thread actually shows. Hang it at `bottom: -bottomPad`, and start the veil already mostly opaque so that line is not clear.
+
+- **Chat titles vanish under the drawer header.** `topOverlay` was an opaque page color painted over the fade, so rows hit a hard edge under Recall and search. Keep that overlay transparent and dissolve the fade across the title row.
+
+- **Message text stays sharp in the gap under the composer.** The composer block is transparent through the home-indicator pad, so the thread paints there in full. The bottom scrim stays clear for about one line, then solid to the screen edge.
+
 - **A choice list inside the to-do sheet pushes the form up.** An in-modal overlay still joins that sheet’s layout. Keep the editor as an embedded sheet (not a Modal) and open choices in a popup that floats in its own layer (`ui/overlay` Menu / SelectMenu / Dialog — `FullWindowOverlay` on iOS), so the form does not move. iOS will not present a second RN Modal over an open one; the overlay layer avoids that limit.
 
 - **The first direct math answer still paid a multi-second SymPy cold start.** Startup warmed one of three isolated slots, then returned that slot to the back of the free queue, so the first real solve selected an untouched process. Warm every configured slot concurrently before the API reports ready.
@@ -249,8 +265,22 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   before the dash). Even hairline — no left stripe. Never ` ```quote `.
 - **4-week Spanish plan became a clipped 3-column table.** FORMAT_CONTRACT
   allows pipe tables for "schedules," so a learning plan looked like a grid.
-  `HOWTO_FORMAT_HINT` wins on N-week/roadmap/how-do-I asks: `##` + lists, never
-  a table. Say timetable, not schedule, for real grids.
+  Full learning roadmaps now use `LEARNING_PLAN_HINT`: match the requested duration,
+  give concrete outcomes/examples/practice/projects/milestones, and do not collapse
+  a named 70-day plan into ten vague weekly bullets. Procedural how-tos still use
+  `HOWTO_FORMAT_HINT`.
+- **Tutor replayed Step 1 after a wrong/random reply.** The old teach-me policy treated
+  every check as a gate: wrong/confused meant re-teach and refuse to advance. Tutor
+  checks are diagnostic, never gates. Correct/next → advance; plausible wrong/partial
+  → correct the misconception briefly with a fresh example, then advance unless the
+  learner explicitly says they are confused; confusion → explain differently; keyboard
+  smash/accidental input is not graded. Never replay an already-delivered step verbatim
+  unless the learner asks to see it again. Auto model routing uses Gemini Flash for
+  interactive tutoring, its answer/confusion/random-input follow-ups, and full learning
+  roadmaps: live QA measured ~1-3s first-token latency versus 10-20s on the reasoning
+  route. Preserve quality with explicit step/day contracts, tagged programming examples,
+  and compact daily entries that fit the output budget. Derive active lesson state from the
+  latest assistant `Step N/M` reply rather than guessing from the user's short text.
 - **Study tips were a jokey essay, no Tip/Warning cards.** Slim turns get
   `COMPACT_RESPONSE_FORMAT_HINT` (plain prose) and never see FORMAT_CONTRACT's
   callout line, so "include a warning" became `## A Friendly Warning`. Swap

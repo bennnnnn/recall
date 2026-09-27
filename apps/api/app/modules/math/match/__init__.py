@@ -51,6 +51,7 @@ from app.modules.math.match.scan import (
 )
 from app.modules.math.match.scan import (
     bare_arithmetic_expr,
+    division_answer_mode,
     first_dim_pair,
     first_dim_triple,
     geometry_dim_context,
@@ -61,6 +62,8 @@ from app.modules.math.match.scan import (
     number_after,
     prepare,
     two_numbers_after,
+    written_addition_request,
+    written_arithmetic_request,
 )
 from app.modules.math.match.types import (
     CombinatoricsOp,
@@ -82,6 +85,7 @@ __all__ = [
     "classify_solid_shape",
     "combinatorics_signal",
     "crt_signal",
+    "division_answer_mode",
     "first_dim_pair",
     "first_dim_triple",
     "geometry_deferred_for_algebra",
@@ -111,4 +115,6 @@ __all__ = [
     "triangle_sides_signal",
     "two_numbers_after",
     "vertical_line_x",
+    "written_addition_request",
+    "written_arithmetic_request",
 ]

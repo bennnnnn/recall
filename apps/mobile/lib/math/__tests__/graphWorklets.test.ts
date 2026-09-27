@@ -8,10 +8,12 @@ import {
 import {
   axisTicksW,
   clampGraphViewW,
+  dockAxisW,
   formatShortW,
   formatTickW,
   mapPointW,
   nearestSampleW,
+  nearestTraceSampleW,
   panGraphViewW,
   unmapPointW,
   zoomGraphViewW,
@@ -48,6 +50,15 @@ describe("graphWorklets parity", () => {
     );
   });
 
+  it("regenerates visible tick values after a pan and zoom", () => {
+    const panned = axisTicksW(14, 26);
+    const zoomedOut = axisTicksW(-60, 60);
+
+    expect(panned.every((tick) => tick >= 14 && tick <= 26)).toBe(true);
+    expect(panned).not.toContain(0);
+    expect(zoomedOut).toEqual(expect.arrayContaining([-60, -30, 0, 30, 60]));
+  });
+
   it("map/unmap round-trips", () => {
     const b = { xMin: -6, xMax: 6, yMin: -4, yMax: 4 };
     const { px, py } = mapPointW(2.5, -1.5, b, 360, 220, 28);
@@ -75,7 +86,52 @@ describe("nearestSampleW", () => {
   });
 });
 
+describe("nearestTraceSampleW", () => {
+  const bounds = { xMin: -6, xMax: 6, yMin: -4, yMax: 4 };
+  const width = 360;
+  const height = 220;
+  const pad = 28;
+
+  it("snaps to the touched curve when multiple curves share the same x", () => {
+    const greenPoint = mapPointW(1, 2, bounds, width, height, pad);
+    const hit = nearestTraceSampleW(
+      [
+        { visible: true, color: "blue", points: [[1, 1]] as [number, number][] },
+        { visible: true, color: "green", points: [[1, 2]] as [number, number][] },
+      ],
+      greenPoint.px,
+      greenPoint.py,
+      bounds,
+      width,
+      height,
+      pad,
+    );
+
+    expect(hit).toMatchObject({ x: 1, y: 2, seriesIndex: 1, color: "green" });
+  });
+
+  it("does not show a trace when the touch is away from every curve", () => {
+    expect(
+      nearestTraceSampleW(
+        [{ visible: true, color: "blue", points: [[1, 1], [2, 4]] }],
+        pad,
+        pad,
+        bounds,
+        width,
+        height,
+        pad,
+      ),
+    ).toBeNull();
+  });
+});
+
 describe("worklet tick formatting", () => {
+  it("docks off-screen axes to the nearest visible chart edge", () => {
+    expect(dockAxisW(-50, 28, 332)).toBe(28);
+    expect(dockAxisW(180, 28, 332)).toBe(180);
+    expect(dockAxisW(500, 28, 332)).toBe(332);
+  });
+
   it("formatTickW keeps integers short and fractions precise", () => {
     expect(formatTickW(3)).toBe("3");
     expect(formatTickW(-0)).toBe("0");

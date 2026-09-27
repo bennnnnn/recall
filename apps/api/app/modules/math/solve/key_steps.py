@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -9,11 +10,14 @@ from sympy import (
     Abs,
     Eq,
     Poly,
+    S,
     Symbol,
     expand,
     factor,
     im,
     latex,
+    log,
+    prod,
     simplify,
     solve,
     sqrt,
@@ -31,17 +35,45 @@ class KeyStep:
     branch: str | None = None
 
 
+_PLAIN_LABEL_TEX = re.compile(r"^[\w .,-]*$")
+
+
+def label_tex(value: Any) -> str:
+    """A value inside a step label: ``3`` stays plain, ``\\frac{3}{2}`` gets ``$``.
+
+    Labels render as bold text, so LaTeX markup needs math delimiters to show
+    as math; plain numbers and terms read the same either way.
+    """
+    tex = str(latex(value))
+    return tex if _PLAIN_LABEL_TEX.match(tex) else f"${tex}$"
+
+
 def stringify_key_steps(steps: list[KeyStep]) -> list[str]:
     return [f"{step.label}: {step.formula}" for step in steps]
 
 
-def equation_key_steps(lhs: Any, rhs: Any, variable: str) -> list[KeyStep]:
+def equation_key_steps(
+    lhs: Any,
+    rhs: Any,
+    variable: str,
+    *,
+    force_quadratic_formula: bool = False,
+) -> list[KeyStep]:
     """Structured working from the original sides. Empty when the shape is unsupported."""
     symbols = getattr(lhs, "free_symbols", set()) | getattr(rhs, "free_symbols", set())
     var = next((symbol for symbol in symbols if str(symbol) == variable), Symbol(variable))
+    logarithm_steps = _logarithm_key_steps(lhs, rhs, var)
+    if logarithm_steps is not None:
+        return logarithm_steps
     absolute_steps = _absolute_value_key_steps(lhs, rhs, var)
     if absolute_steps is not None:
         return absolute_steps
+    radical_steps = _radical_equation_key_steps(lhs, rhs, var)
+    if radical_steps is not None:
+        return radical_steps
+    fractional_power_steps = _fractional_power_key_steps(lhs, rhs, var)
+    if fractional_power_steps is not None:
+        return fractional_power_steps
     rational_steps = _rational_equation_key_steps(lhs, rhs, var)
     if rational_steps is not None:
         return rational_steps
@@ -53,8 +85,193 @@ def equation_key_steps(lhs: Any, rhs: Any, variable: str) -> list[KeyStep]:
     if degree == 1:
         return _linear_key_steps(lhs, rhs, var, poly)
     if degree == 2:
-        return _quadratic_key_steps(lhs, rhs, var, poly)
+        return _quadratic_key_steps(
+            lhs,
+            rhs,
+            var,
+            poly,
+            force_formula=force_quadratic_formula,
+        )
     return []
+
+
+def _radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+    """Trace one or two square roots, including the extraneous-root check."""
+    two_radicals = _two_radical_equation_key_steps(lhs, rhs, var)
+    if two_radicals is not None:
+        return two_radicals
+    radical, other = lhs, rhs
+    if not (getattr(radical, "is_Pow", False) and radical.exp == S.Half):
+        if getattr(rhs, "is_Pow", False) and rhs.exp == S.Half:
+            radical, other = rhs, lhs
+        else:
+            return None
+    radicand = radical.base
+    if var not in getattr(radicand, "free_symbols", set()):
+        return None
+    try:
+        squared = Eq(radicand, expand(other**2))
+        candidates = solve(squared, var)
+        valid = [
+            value
+            for value in candidates
+            if _expr_equal(radical.subs(var, value), other.subs(var, value))
+        ]
+    except Exception:
+        return []
+    if not candidates or not valid:
+        return []
+    domain = rf"{latex(radicand)} \ge 0 \quad\text{{and}}\quad {latex(other)} \ge 0"
+    return [
+        KeyStep(label="Domain restrictions", formula=domain),
+        KeyStep(label="Square both sides", formula=_eq_tex(radicand, expand(other**2))),
+        KeyStep(
+            label="Solve the squared equation",
+            formula=_canonical_root_formula(var, candidates),
+        ),
+        KeyStep(
+            label="Check and reject extraneous roots",
+            formula=_canonical_root_formula(var, valid),
+        ),
+    ]
+
+
+def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+    """Verified repeated-squaring trace for ``sqrt(a)+sqrt(b)=constant``."""
+    radical_side, target = lhs, rhs
+    terms = radical_side.args if getattr(radical_side, "is_Add", False) else ()
+    radicals = [term for term in terms if getattr(term, "is_Pow", False) and term.exp == S.Half]
+    if len(terms) != 2 or len(radicals) != 2:
+        radical_side, target = rhs, lhs
+        terms = radical_side.args if getattr(radical_side, "is_Add", False) else ()
+        radicals = [term for term in terms if getattr(term, "is_Pow", False) and term.exp == S.Half]
+    if len(terms) != 2 or len(radicals) != 2:
+        return None
+    if var in getattr(target, "free_symbols", set()) or simplify(target) == 0:
+        return None
+    first, second = radicals
+    first_base, second_base = first.base, second.base
+    try:
+        isolated = simplify((target**2 + second_base - first_base) / (2 * target))
+        candidates = solve(Eq(second_base, isolated**2), var)
+        valid = [
+            value
+            for value in candidates
+            if _expr_equal(radical_side.subs(var, value), target.subs(var, value))
+        ]
+    except Exception:
+        return []
+    if not candidates or not valid:
+        return []
+    domain = (
+        rf"{latex(first_base)} \ge 0,\quad {latex(second_base)} \ge 0,"
+        rf"\quad {latex(target)} \ge 0"
+    )
+    return [
+        KeyStep(label="Domain restrictions", formula=domain),
+        KeyStep(
+            label="Isolate one radical",
+            formula=_eq_tex(first, target - second),
+        ),
+        KeyStep(
+            label="Square and isolate the remaining radical",
+            formula=_eq_tex(2 * target * second, target**2 + second_base - first_base),
+        ),
+        KeyStep(
+            label="Square again",
+            formula=_eq_tex(second_base, isolated**2),
+        ),
+        KeyStep(
+            label="Check in the original equation",
+            formula=_canonical_root_formula(var, valid),
+        ),
+    ]
+
+
+def _fractional_power_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+    power, target = lhs, rhs
+    if not (getattr(power, "is_Pow", False) and power.base == var):
+        if getattr(rhs, "is_Pow", False) and rhs.base == var:
+            power, target = rhs, lhs
+        else:
+            return None
+    exponent = power.exp
+    if not (getattr(exponent, "is_Rational", False) and exponent.q != 1 and exponent.q % 2 == 1):
+        return None
+    from app.modules.math.solve.algebra import _real_fractional_power_solutions
+
+    solutions = _real_fractional_power_solutions(power, target, var)
+    if not solutions:
+        return []
+    equivalent = Eq(var ** int(exponent.p), simplify(target ** int(exponent.q)))
+    return [
+        KeyStep(
+            label="Use the real odd-root interpretation",
+            formula=(
+                rf"{latex(power)} = \left(\sqrt[{exponent.q}]{{{latex(var)}}}\right)"
+                rf"^{{{exponent.p}}}"
+            ),
+        ),
+        KeyStep(
+            label=f"Raise both sides to the {exponent.q}rd power"
+            if exponent.q == 3
+            else f"Raise both sides to the {exponent.q}th power",
+            formula=latex(equivalent),
+        ),
+        KeyStep(label="Solve over the reals", formula=_canonical_root_formula(var, solutions)),
+    ]
+
+
+def _logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+    """Verified trace for a sum of same-base logarithms."""
+    if var in getattr(rhs, "free_symbols", set()):
+        return None
+    terms = lhs.args if getattr(lhs, "is_Add", False) else (lhs,)
+    arguments: list[Any] = []
+    base: Any | None = None
+    for term in terms:
+        numerator, denominator = term.as_numer_denom()
+        if getattr(numerator, "func", None) is not log:
+            return None
+        if getattr(denominator, "func", None) is not log or len(denominator.args) != 1:
+            return None
+        candidate_base = denominator.args[0]
+        if base is not None and not _expr_equal(base, candidate_base):
+            return None
+        base = candidate_base
+        arguments.append(numerator.args[0])
+    if base is None or not arguments:
+        return None
+    try:
+        combined = prod(arguments)
+        target = simplify(base**rhs)
+        candidates = solve(Eq(combined, target), var)
+        valid = [
+            value
+            for value in candidates
+            if all(bool(simplify(argument.subs(var, value)) > 0) for argument in arguments)
+        ]
+    except Exception:
+        return []
+    if not candidates or not valid:
+        return []
+    domain = r" \text{ and } ".join(rf"{latex(argument)} > 0" for argument in arguments)
+    candidate_formula = _canonical_root_formula(var, candidates)
+    answer = _canonical_root_formula(var, valid)
+    base_tex = latex(base)
+    return [
+        KeyStep(label="Domain restriction", formula=domain),
+        KeyStep(
+            label="Combine logarithms",
+            formula=rf"\log_{{{base_tex}}}\left({latex(combined)}\right) = {latex(rhs)}",
+        ),
+        KeyStep(
+            label="Convert to exponential form",
+            formula=rf"{latex(combined)} = {latex(target)}",
+        ),
+        KeyStep(label="Solve the resulting equation", formula=candidate_formula),
+        KeyStep(label="Reject values outside the domain", formula=answer),
+    ]
 
 
 def _rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
@@ -62,21 +279,19 @@ def _rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] 
     right_num, right_den = getattr(rhs, "as_numer_denom", lambda: (rhs, 1))()
     left_has_variable_denominator = var in getattr(left_den, "free_symbols", set())
     right_has_variable_denominator = var in getattr(right_den, "free_symbols", set())
-    if left_has_variable_denominator == right_has_variable_denominator:
+    if not left_has_variable_denominator and not right_has_variable_denominator:
         return None
     try:
-        if left_has_variable_denominator:
-            cleared_lhs = left_num
-            cleared_rhs = simplify(rhs * left_den)
-            denominator = left_den
-            multiplied = f"{latex(left_num)} = {latex(rhs)} \\left({latex(left_den)}\\right)"
-        else:
-            cleared_lhs = simplify(lhs * right_den)
-            cleared_rhs = right_num
-            denominator = right_den
-            multiplied = f"{latex(lhs)} \\left({latex(right_den)}\\right) = {latex(right_num)}"
+        from sympy import Mul
+
+        denominator = simplify(left_den * right_den)
+        cleared_lhs = simplify(lhs * denominator)
+        cleared_rhs = simplify(rhs * denominator)
+        display_lhs = left_num if right_den == 1 else Mul(left_num, right_den, evaluate=False)
+        display_rhs = right_num if left_den == 1 else Mul(right_num, left_den, evaluate=False)
+        multiplied = _eq_tex(display_lhs, display_rhs)
         poly = Poly(simplify(cleared_lhs - cleared_rhs), var)
-        if poly.degree() != 1:
+        if poly.degree() < 1:
             return []
         den_poly = denominator.as_poly(var) if hasattr(denominator, "as_poly") else None
         den_degree = den_poly.degree() if den_poly is not None else None
@@ -84,7 +299,7 @@ def _rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] 
 
         degree_cap = get_settings().math_max_poly_degree
         high_denominator = den_degree is None or int(den_degree) > degree_cap
-        candidates = solve(Eq(lhs, rhs), var)
+        candidates = solve(Eq(cleared_lhs, cleared_rhs), var)
         if high_denominator:
             # Do not ask SymPy for every root of a huge denominator.
             # A plain int has no .subs; the variable-denominator path is an expression.
@@ -105,41 +320,38 @@ def _rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] 
             ]
     except Exception:
         return []
-    if not solutions:
-        return []
-    condition = ""
+    condition = r"\text{denominator} \ne 0"
     if high_denominator:
-        condition = r", \quad \text{denominator} \ne 0"
+        exclusions_tex = condition
     elif excluded:
-        exclusions = r",\; ".join(rf"{latex(var)} \ne {latex(value)}" for value in excluded)
-        condition = rf", \quad {exclusions}"
-    steps = [
-        KeyStep(
-            label=f"Multiply both sides by {latex(denominator)}",
-            formula=f"{multiplied}{condition}",
-        )
-    ]
-    steps.append(KeyStep(label="Expand", formula=_eq_tex(cleared_lhs, cleared_rhs)))
-    linear_steps = _linear_key_steps(cleared_lhs, cleared_rhs, var, poly)
-    index = 0
-    while index < len(linear_steps):
-        step = linear_steps[index]
-        if index + 1 < len(linear_steps) and linear_steps[index + 1].label == "Simplify":
-            step = KeyStep(
-                label=step.label,
-                formula=linear_steps[index + 1].formula,
-                reason=step.reason,
-                conditions=step.conditions,
-                branch=step.branch,
-            )
-            index += 1
-        steps.append(step)
-        index += 1
-    final = r" \text{ or } ".join(f"{latex(var)} = {latex(solution)}" for solution in solutions)
-    if steps[-1].label.startswith(("Divide both sides", "Multiply both sides")):
-        steps[-1] = KeyStep(label=steps[-1].label, formula=final, reason=steps[-1].reason)
+        exclusions_tex = r",\; ".join(rf"{latex(var)} \ne {latex(value)}" for value in excluded)
     else:
-        steps.append(KeyStep(label="Simplify", formula=final))
+        exclusions_tex = condition
+    steps = [
+        KeyStep(label="Domain restrictions", formula=exclusions_tex),
+        KeyStep(
+            label=f"Multiply both sides by {label_tex(denominator)}",
+            formula=multiplied,
+        ),
+    ]
+    if candidates:
+        steps.append(
+            KeyStep(
+                label="Solve the resulting equation",
+                formula=_canonical_root_formula(var, candidates),
+            )
+        )
+    if solutions:
+        final = _canonical_root_formula(var, solutions)
+        if len(solutions) != len(candidates):
+            steps.append(KeyStep(label="Reject excluded values", formula=final))
+    else:
+        steps.append(
+            KeyStep(
+                label="Reject the excluded candidate",
+                formula=r"\text{no solution}",
+            )
+        )
     return steps
 
 
@@ -306,7 +518,7 @@ def _divide_both_sides_step(
     branch: str | None = None,
 ) -> KeyStep:
     return KeyStep(
-        label=label or f"Divide both sides by {latex(coeff)}",
+        label=label or f"Divide both sides by {label_tex(coeff)}",
         formula=(f"{_cancelled_side_tex(cur_l, coeff)} = {_cancelled_side_tex(cur_r, coeff)}"),
         reason=f"this undoes multiplication by {latex(coeff)}",
         branch=branch,
@@ -323,11 +535,11 @@ def _remove_term_step(
 ) -> KeyStep:
     if _is_negative_number(term):
         addend = -term
-        label = f"Add {latex(addend)} to both sides"
+        label = f"Add {label_tex(addend)} to both sides"
         formula = f"{latex(cur_l)} + {latex(addend)} = {latex(cur_r)} + {latex(addend)}"
         reason = f"this cancels the subtracted {latex(addend)}"
     else:
-        label = f"Subtract {latex(term)} from both sides"
+        label = f"Subtract {label_tex(term)} from both sides"
         formula = f"{latex(cur_l)} - {latex(term)} = {latex(cur_r)} - {latex(term)}"
         reason = f"this removes the added {latex(term)}"
     if which is not None:
@@ -382,7 +594,7 @@ def _linear_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
         if multiplier is not None:
             steps.append(
                 KeyStep(
-                    label=f"Multiply both sides by {latex(multiplier)}",
+                    label=f"Multiply both sides by {label_tex(multiplier)}",
                     formula=(
                         f"{latex(multiplier)} \\cdot ({latex(cur_l)}) = "
                         f"{latex(multiplier)} \\cdot ({latex(cur_r)})"
@@ -405,7 +617,14 @@ def _linear_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
     return steps
 
 
-def _quadratic_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
+def _quadratic_key_steps(
+    lhs: Any,
+    rhs: Any,
+    var: Any,
+    poly: Any,
+    *,
+    force_formula: bool = False,
+) -> list[KeyStep]:
     c2 = poly.coeff_monomial(var**2)
     c1 = poly.coeff_monomial(var)
     c0 = poly.coeff_monomial(1)
@@ -415,7 +634,7 @@ def _quadratic_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeySte
         return _pure_power_key_steps(lhs, rhs, var, c2, c0)
     expr = simplify(lhs - rhs)
     factored = factor(expr)
-    if factored != expr and (factored.is_Mul or factored.is_Pow):
+    if not force_formula and factored != expr and (factored.is_Mul or factored.is_Pow):
         return _factor_trace(lhs, rhs, var, expr, factored)
     return _quadratic_formula_steps(var, c2, c1, c0)
 
@@ -547,9 +766,9 @@ def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> lis
                     -indep,
                     coeff,
                     label=(
-                        f"Divide both sides of the {which} equation by {latex(coeff)}"
+                        f"Divide both sides of the {which} equation by {label_tex(coeff)}"
                         if which
-                        else f"Divide both sides by {latex(coeff)}"
+                        else f"Divide both sides by {label_tex(coeff)}"
                     ),
                     branch=branch,
                 )

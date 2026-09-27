@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Literal, cast
 
 from app.core.config import Settings
@@ -10,17 +11,23 @@ from app.models.schemas.math import (
     MathImageExtract,
     MathIntent,
 )
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.math import solve as math_solve
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.response_intent import (
+    MathResponseIntent,
+    classify_math_response_intent,
+    response_intent_prompt,
+)
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.extract import (
     extract_math_intent,
     resolve_graph_followup,
     trig_domain_would_be_dropped,
 )
+from app.modules.math.tools.helpers import has_assignment_evaluation_request
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
 from app.services.prompt_inject import inject_before_last_user
+from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +40,42 @@ VERIFIED_MATH_REPLY_HINT = (
 )
 
 
+def _withhold_hint_answer(
+    verified: VerifiedMathBlock,
+    response_intent: MathResponseIntent,
+) -> VerifiedMathBlock:
+    """Remove every answer-bearing channel before a hint reaches the model/UI."""
+    if verified.canonical_answer is None:
+        return replace(verified, response_intent=response_intent)
+    next_move = (
+        verified.key_steps[0].label
+        if verified.key_steps
+        else "Identify one reversible operation you can apply next"
+    )
+    hint = f"{next_move}. Try only that move, then send me your next line."
+    safe_text = (
+        f"{VERIFIED_MATH_BEGIN}\n"
+        "Hint-only request: the verified final result and answer-bearing formulas are withheld.\n"
+        f"Permitted next-move hint: {next_move}.\n"
+        f"{VERIFIED_MATH_END}"
+    )
+    return replace(
+        verified,
+        text=safe_text,
+        canonical_fence=None,
+        canonical_fences=[],
+        canonical_answer=None,
+        display_answer=None,
+        key_step=None,
+        key_steps=(),
+        check_latex=None,
+        alternate_method_note=None,
+        direct_reply=f"**Hint:** {hint}",
+        direct_answer_binding=None,
+        response_intent=response_intent,
+    )
+
+
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
     from app.modules.math import match as math_match
     from app.modules.math.tools.lesson import strip_lesson_prefixes
@@ -43,13 +86,22 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     # a shrinking string once per occurrence.
     if len(text) > _MAX_SYMBOLIC_INPUT:
         return False
+    from app.modules.math.tools.word_problem import word_problem_candidate
+    from app.modules.math.tools.work_request import parse_work_request
+
+    if parse_work_request(text) is not None:
+        return True
 
     # Teaching / answer-style wrappers are response metadata, not part of the
     # expression. The extractor already removes them, so the cheaper routing
     # gate must inspect the same underlying math or it will skip SymPy before
     # extraction ever runs (for example, ``Show steps: 2x+3=11``).
     math_text = strip_lesson_prefixes(text)
-    return math_match.needs_symbolic(math_text, has_image_attachment=has_image_attachment)
+    if math_match.needs_symbolic(math_text, has_image_attachment=has_image_attachment):
+        return True
+    # An algebra word problem states no equation; the translation is tried
+    # only after every extractor has passed on it.
+    return not has_image_attachment and word_problem_candidate(text)
 
 
 def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
@@ -156,6 +208,7 @@ async def build_math_augmentation(
     image_math_extract: MathImageExtract | None = None,
     needs_math: bool | None = None,
     prior_user_messages: list[str] | None = None,
+    response_intent_text: str | None = None,
 ) -> tuple[str | None, VerifiedMathBlock | None]:
     """Compute the verified-math system block (or None) without mutating messages.
 
@@ -193,7 +246,7 @@ async def build_math_augmentation(
         # OCR already produced a Pydantic-validated extract — map it straight
         # to MathIntent (do not re-parse through the text regex, which mangles
         # unicode ops / abs bars a photographed problem can contain).
-        intent: MathIntent | PhysicsIntent | None = _intent_from_image_extract(image_math_extract)
+        intent: MathIntent | None = _intent_from_image_extract(image_math_extract)
         if (
             intent is not None
             and intent.kind == "equation"
@@ -227,6 +280,26 @@ async def build_math_augmentation(
                 f"{MATH_REPLY_POLICY}",
                 None,
             )
+    if (
+        intent is None
+        and image_math_extract is None
+        and has_assignment_evaluation_request(user_content)
+    ):
+        # The deterministic substitution parser saw an assignment followed by
+        # an evaluation request, but could not parse the requested expression.
+        # Do not let a word-problem or LLM fallback certify only the easy
+        # binding (for example x=-5) while silently dropping malformed x^2.
+        return (
+            "The assignment was readable, but the expression to evaluate was not. "
+            "Ask the user to rewrite the expression; do not solve only the given "
+            "assignment or claim a verified result.\n\n"
+            f"{MATH_REPLY_POLICY}",
+            None,
+        )
+    if intent is None and image_math_extract is None:
+        from app.modules.math.tools.word_problem import word_problem_intent
+
+        intent = await word_problem_intent(user_content, settings)
     if intent is None:
         # The gate fired but no regex extractor matched (the "Couldn't verify
         # under a correct ∫ x²" class). One bounded structured-extraction call
@@ -256,10 +329,23 @@ async def build_math_augmentation(
         # Intent matched but SymPy timed out / rejected / had no builder result.
         # Inject honesty so the model does not reuse the same "verified" UX.
         return _unverified_math_note(intent.kind), None
+    # A terse follow-up is solved from the prior mathematical problem, but its
+    # own wording still controls presentation.  Otherwise the final fence pass
+    # sees the original answer-only request and removes the freshly requested
+    # working from “Show me” / “Do it again”.
+    response_intent = classify_math_response_intent(response_intent_text or user_content)
+    verified = (
+        _withhold_hint_answer(verified, response_intent)
+        if not response_intent.reveal_answer
+        else replace(verified, response_intent=response_intent)
+    )
     # Keep presentation guidance adjacent to the result, after any worked
     # steps, so the model does not treat solver data as a tutorial request.
     # The canonical block remains data-only for direct replies/fence validation.
-    return f"{verified.text}\n\n{VERIFIED_MATH_REPLY_HINT}", verified
+    return (
+        f"{verified.text}\n\n{response_intent_prompt(response_intent)}\n{VERIFIED_MATH_REPLY_HINT}",
+        verified,
+    )
 
 
 def _unverified_math_note(kind: str) -> str:
@@ -300,7 +386,7 @@ async def augment_prompt_messages(
 
 
 async def _build_verified_block_async(
-    intent: MathIntent | PhysicsIntent, settings: Settings
+    intent: MathIntent, settings: Settings
 ) -> VerifiedMathBlock | None:
     """Run the sync, CPU-bound SymPy work in a bounded subprocess with a
     hard timeout + SIGTERM on timeout.

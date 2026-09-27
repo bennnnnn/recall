@@ -6,12 +6,9 @@ footprint on the old shared model was narrow — ``kind`` (twenty of its forty-n
 ``MathIntent`` (``lhs``/``rhs``, ``school_op``, geometry dimensions, ...) is genuinely
 math's, not physics's, and stays there.
 
-``PhysicsIntent`` flows through the same generic dispatch as ``MathIntent`` — the extractor
-registry (``modules/math/tools/extract.py``) and the block-builder registry
-(``modules/math/tools/block/__init__.py``) both accept ``MathIntent | PhysicsIntent`` and
-route by ``.kind``, which exists on both. No conversion between the two types happens
-anywhere: a physics extractor constructs a ``PhysicsIntent`` once and it flows unchanged
-all the way to the physics solver.
+``PhysicsIntent`` flows only through the physics-owned extractor, block builder, solver,
+and presentation boundary. The subject-neutral chat dispatcher may carry either a math
+or physics result, but neither subject imports or registers the other's algorithms.
 """
 
 from __future__ import annotations
@@ -61,6 +58,10 @@ class PhysicsIntent(BaseModel):
             "velocity",
             "speed",
             "acceleration",
+            "average_speed",
+            "rate_speed",
+            "rate_distance",
+            "rate_time",
             "time_to_ground",
             "range",
             "max_height",

@@ -21,7 +21,7 @@ from app.modules.chemistry import context as chemistry_context_service
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
-from app.modules.math.tools import VerifiedMathBlock, needs_symbolic_math
+from app.modules.math.followup import math_working_followup_problem
 from app.modules.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
 )
@@ -29,6 +29,7 @@ from app.modules.web_search.subject import last_assistant_content
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
 from app.services import profile as profile_service
+from app.services import recurring_pay as recurring_pay_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_builder import (
@@ -55,8 +56,21 @@ from app.services.chat.turn_prep.mode import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.settings_intent import extract_settings_changes
+from app.services.solving import VerifiedSolveBlock
+from app.services.subject_solving import detect_subject, maybe_direct_subject_reply
 
 logger = logging.getLogger(__name__)
+
+
+def _last_recent_assistant_content(recent_messages: list[Any] | None) -> str | None:
+    if not recent_messages:
+        return None
+    for message in reversed(recent_messages):
+        role = getattr(message, "role", None)
+        content = getattr(message, "content", None)
+        if role == "assistant" and isinstance(content, str) and content.strip():
+            return content.strip()
+    return None
 
 
 @dataclass
@@ -89,6 +103,10 @@ class StreamContext:
     user_message_content: str
     reserved_tokens: int
     max_output_tokens: int
+    # Effective timezone for this request (profile preference overridden by
+    # the current client timezone). Finalization must use the same zone that
+    # prompt construction used for relative dates and reminder clocks.
+    user_timezone: str | None = None
     user: User | None = None
     # Pre-assigned id for the assistant row so `done` can be sent to the client
     # before the background DB insert commits.
@@ -104,9 +122,12 @@ class StreamContext:
     chat_project_id: UUID | None = None
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
-    verified_math: VerifiedMathBlock | None = None
+    # Compatibility field name; the value is the neutral math-or-physics
+    # transport and subject ownership is carried by ``verified_math.subject``.
+    verified_math: VerifiedSolveBlock | None = None
     # Camera/solver fall-through: surface an honest "couldn't verify" note.
     math_unverified: bool = False
+    subject_unverified: str | None = None
     timing: TurnTimingTracker | None = None
     lightweight_turn: bool = False
     # False = casual chat (skip memory/todos/projects). Status theater
@@ -141,8 +162,9 @@ class TurnPromptBundle:
     rich_context: bool
     geo: ClientGeoContext
     local_tz: str
-    verified_math: VerifiedMathBlock | None = None
+    verified_math: VerifiedSolveBlock | None = None
     math_unverified: bool = False
+    subject_unverified: str | None = None
     web_search_classified: bool | None = None
 
 
@@ -178,6 +200,7 @@ def stream_context_from_bundle(
         user_message_content=user_message_content,
         reserved_tokens=reserved_tokens,
         max_output_tokens=bundle.max_out,
+        user_timezone=getattr(bundle, "local_tz", None),
         user=user,
         recalled_count=int(bundle.meta.get("recalled") or 0),
         memory_hints=list(bundle.meta.get("memory_hints") or []),
@@ -192,6 +215,7 @@ def stream_context_from_bundle(
         fallback_models=bundle.fallback_models,
         verified_math=bundle.verified_math,
         math_unverified=getattr(bundle, "math_unverified", False) is True,
+        subject_unverified=getattr(bundle, "subject_unverified", None),
         timing=timing,
         # Trust turn-mode: re-running is_lightweight_chat_turn without the
         # prior assistant would mark "yes"/"go" as greetings again.
@@ -337,6 +361,30 @@ async def build_stream_prompt_context(
             )
             local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
+    # A recurring-pay estimate is fully owned by local date arithmetic. Do not
+    # build memory/RAG context or probe model health for a reply that will never
+    # call a model; that work added roughly a second before the first token.
+    if not has_image_attachment:
+        pay_reply = recurring_pay_service.maybe_recurring_pay_reply(content, local_tz)
+        if pay_reply is not None:
+            if timing is not None:
+                timing.mark_phase("prompt_assembled")
+                timing.mark_phase("augment_done")
+                timing.mark_prompt_ready()
+            return TurnPromptBundle(
+                prompt_messages=[{"role": "user", "content": content}],
+                meta=meta,
+                instant_reply=pay_reply,
+                search_sources=[],
+                local_places=geo.local_places,
+                max_out=settings.max_output_tokens,
+                fallback_models=[],
+                lightweight=mode.lightweight,
+                rich_context=mode.rich_context,
+                geo=geo,
+                local_tz=local_tz,
+            )
+
     # No outer session during prompt gather (RAG/memory embeds use short-lived
     # sessions inside build_prompt_messages). Do not emit preparing/remembering
     # theater — casual chat should look like TTS: tap, then tokens. Real work
@@ -366,7 +414,10 @@ async def build_stream_prompt_context(
                 )
                 await session.commit()
         if reply is None:
-            settings_changes = extract_settings_changes(content)
+            settings_changes = extract_settings_changes(
+                content,
+                prior_assistant=_last_recent_assistant_content(recent_messages),
+            )
             if settings_changes:
                 reply = await settings_proposal_service.materialize_settings_reply(
                     redis, user, settings, settings_changes
@@ -413,15 +464,32 @@ async def build_stream_prompt_context(
     if timing is not None:
         timing.mark_phase("prompt_assembled")
 
+    # A terse "how?" after a completed equation must go back through the
+    # verified solver, not ask the language model to invent a fresh method.
+    # build_prompt_messages has already loaded and adjacency-checked the recent
+    # exchange; drop the current user row before reading that pair.
+    followup_history: list[dict[str, str]] = prompt_messages
+    if (
+        prompt_messages
+        and prompt_messages[-1].get("role") == "user"
+        and prompt_messages[-1].get("content") == content
+    ):
+        followup_history = prompt_messages[:-1]
+    math_followup_problem = math_working_followup_problem(content, followup_history)
+
     # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
         instant_reply = web_search_service.format_location_not_set_answer()
 
     is_external_calendar = calendar_service.is_external_calendar_question(content)
     is_external_email = email_service.is_external_email_question(content)
-    needs_math = (
-        needs_symbolic_math(content, has_image_attachment=has_image_attachment)
-        or image_math_extract is not None
+    detected_subject = detect_subject(
+        content,
+        has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
+    )
+    needs_math = settings.math_tools_enabled and (
+        detected_subject is not None or math_followup_problem is not None
     )
     needs_search = web_search_service.needs_web_search(
         content,
@@ -460,7 +528,7 @@ async def build_stream_prompt_context(
 
     local_places = geo.local_places
     search_sources: list[WebSearchHit] = []
-    verified_math: VerifiedMathBlock | None = None
+    verified_math: VerifiedSolveBlock | None = None
 
     # Phase B: gather independent fetches. Priors only when augmenting (web
     # search subject). Calendar-write loads inside the integration gather
@@ -486,7 +554,7 @@ async def build_stream_prompt_context(
         Awaitable[
             tuple[
                 list[str],
-                tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None],
+                tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None],
             ]
         ]
         | None
@@ -497,7 +565,7 @@ async def build_stream_prompt_context(
 
         async def _fetch_web_with_priors() -> tuple[
             list[str],
-            tuple[str | None, str | None, list[WebSearchHit], VerifiedMathBlock | None],
+            tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None],
         ]:
             priors = await _load_prior_user_messages(chat.id)
             result = await fetch_web_and_tools(
@@ -511,6 +579,7 @@ async def build_stream_prompt_context(
                 prior_user_messages=priors,
                 has_image_attachment=has_image_attachment,
                 image_math_extract=image_math_extract,
+                math_followup_problem=math_followup_problem,
                 on_status=on_status,
                 user=user,
                 redis=redis,
@@ -639,14 +708,16 @@ async def build_stream_prompt_context(
     math_unverified = (
         math_block is not None and verified_math is None and math_block.startswith("Math note:")
     )
+    subject_unverified = (
+        detected_subject if math_block is not None and verified_math is None else None
+    )
     if instant_reply is None and verified_math is not None:
-        from app.modules.math.tools.direct import maybe_direct_math_reply
-
-        instant_reply = maybe_direct_math_reply(
+        instant_reply = maybe_direct_subject_reply(
             verified_math,
             content,
             has_image_attachment=has_image_attachment,
             response_style=getattr(user, "response_style", None) or "balanced",
+            verified_request_text=math_followup_problem,
         )
     if instant_reply is None and verified_chemistry is not None:
         from app.modules.chemistry.direct import maybe_direct_chemistry_reply
@@ -669,5 +740,6 @@ async def build_stream_prompt_context(
         local_tz=local_tz,
         verified_math=verified_math,
         math_unverified=math_unverified,
+        subject_unverified=subject_unverified,
         web_search_classified=web_search_classified,
     )

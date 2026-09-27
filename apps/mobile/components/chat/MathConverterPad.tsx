@@ -6,6 +6,12 @@ import { useTranslation } from "react-i18next";
 import { MathConverterUnitSheet } from "@/components/chat/MathConverterUnitSheet";
 import { selection as hapticSelection } from "@/lib/haptics";
 import { converterResultSpec, type MathKeyboardSymbol } from "@/lib/math/keyboardSymbols";
+import {
+  CONVERTER_HEADER_HEIGHT,
+  CONVERTER_UNIT_HEIGHT,
+  CONVERTER_VALUE_HEIGHT,
+  PAD_GAP,
+} from "@/lib/math/keyboardPad";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
@@ -20,20 +26,6 @@ import {
   type UnitCategory,
 } from "@/lib/unitConverter";
 import { IconSize } from "@/ui/icons/sizes";
-
-/** Number above a full-width unit menu. Keys shrink so both rows stay in the pad. */
-const CONVERTER_VALUE_HEIGHT = 28;
-const CONVERTER_UNIT_HEIGHT = 44;
-export const CONVERTER_HEADER_HEIGHT = CONVERTER_VALUE_HEIGHT + 6 + CONVERTER_UNIT_HEIGHT;
-export const CONVERTER_ROWS = 4;
-const CONVERTER_GAP = 6;
-
-export function converterKeyHeight(keysHeight: number): number {
-  const chrome = CONVERTER_HEADER_HEIGHT + CONVERTER_ROWS * CONVERTER_GAP;
-  const room = keysHeight - chrome;
-  if (room <= 0) return 0;
-  return Math.floor(room / CONVERTER_ROWS);
-}
 
 type Props = {
   keyHeight: number;
@@ -278,7 +270,7 @@ function Key({
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
-    wrap: { gap: CONVERTER_GAP },
+    wrap: { gap: PAD_GAP },
     io: {
       height: CONVERTER_HEADER_HEIGHT,
       flexDirection: "row",
@@ -317,10 +309,11 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
       justifyContent: "center",
     },
-    pad: { gap: CONVERTER_GAP },
-    row: { flexDirection: "row", alignItems: "stretch", gap: CONVERTER_GAP },
+    pad: { gap: PAD_GAP },
+    row: { flexDirection: "row", alignItems: "stretch", gap: PAD_GAP },
     key: {
       flex: 1,
+      minHeight: Space.minTouch,
       borderRadius: Radius.xs,
       alignItems: "center",
       justifyContent: "center",

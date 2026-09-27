@@ -26,7 +26,7 @@ from app.modules.physics.solvers.mechanics import (
 from app.modules.physics.solvers.motion import solve_kinematics, solve_projectile, solve_suvat
 from app.modules.physics.solvers.oscillations_waves import solve_spring, solve_waves
 from app.modules.physics.solvers.rotation import solve_circular, solve_rotation, solve_torque
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 __all__ = [
     "_PARAM_SI_DIMENSIONS",
@@ -99,4 +99,4 @@ def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
         return solve_materials(intent)
     if intent.kind == "modern":
         return solve_modern(intent)
-    raise MathServiceError(f"not a physics kind: {intent.kind}")
+    raise SolveServiceError(f"not a physics kind: {intent.kind}")

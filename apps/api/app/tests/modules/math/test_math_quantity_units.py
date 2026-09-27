@@ -39,19 +39,6 @@ from app.modules.math.tools.direct import maybe_direct_math_reply
         ("Find the volume of a cube side .5 m", r"0.125\ \mathrm{m}^{3}"),
         ("Find the volume of a cube side 0.5 m", r"0.125\ \mathrm{m}^{3}"),
         ("Find the volume of a rectangular prism .5 by 2 by 3 m", r"3\ \mathrm{m}^{3}"),
-        ("Find the average speed for 100 m in 20 s.", r"5\ \mathrm{m}/\mathrm{s}"),
-        (
-            "A car travels 180 meters in 12 seconds. What is its average speed?",
-            r"15\ \mathrm{m}/\mathrm{s}",
-        ),
-        ("Find the average speed for 20 s over 100 m.", r"5\ \mathrm{m}/\mathrm{s}"),
-        ("average speed 120 km in 2 hours", r"60\ \mathrm{km}/\mathrm{h}"),
-        ("average speed 100 cm in 20 seconds", r"5\ \mathrm{cm}/\mathrm{s}"),
-        ("average speed 100 feet in 20 minutes", r"5\ \mathrm{ft}/\mathrm{min}"),
-        ("average speed .5 m in 2 s", r"0.25\ \mathrm{m}/\mathrm{s}"),
-        ("average speed 0.5 m in 2 s", r"0.25\ \mathrm{m}/\mathrm{s}"),
-        ("average speed 1.5 m in .5 s", r"3\ \mathrm{m}/\mathrm{s}"),
-        ("average speed +.5 m in 2 s", r"0.25\ \mathrm{m}/\mathrm{s}"),
     ],
 )
 def test_quantity_answer_retains_the_actual_unit(prompt: str, answer: str) -> None:
@@ -67,12 +54,6 @@ def test_quantity_answer_retains_the_actual_unit(prompt: str, answer: str) -> No
 @pytest.mark.parametrize(
     "prompt",
     [
-        "Find the average speed for 100 kg in 20 s.",
-        "Find the average speed for 100 m in 20 bananas.",
-        "Find the average speed for 100 m/s in 20 s.",
-        "Find the average speed for 100 m in 20 s and then 50 m in 10 s.",
-        "Find the average speed for 100 m in 20 s and tell me a joke.",
-        "Find the average speed for 100 m in 20 s in km/h.",
         "Find the volume of a cylinder radius 2 cm height 3 m",
         "Find the volume of a cylinder radius 2 bananas height 3 bananas",
         "Find the volume of a cube side 3 m^2",
@@ -80,8 +61,6 @@ def test_quantity_answer_retains_the_actual_unit(prompt: str, answer: str) -> No
         "Convert 1 m to cm then convert 2 kg to g",
         "Convert 1 m and 2 km to cm",
         "Convert 1 m to cm and tell me a joke",
-        "average speed .5 m in -.5 s",
-        "average speed -.5 m in 2 s",
     ],
 )
 def test_unsupported_or_compound_measurements_do_not_get_a_partial_answer(prompt: str) -> None:

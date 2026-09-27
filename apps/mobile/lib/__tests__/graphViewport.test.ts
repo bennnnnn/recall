@@ -75,6 +75,28 @@ describe("interactive graph viewport", () => {
     expect(moved.xMax - moved.xMin).toBeCloseTo(start.xMax - start.xMin);
   });
 
+  it("pans vertically with the finger without changing either scale", () => {
+    const start = defaultInteractiveBounds(1.75);
+    const movedDown = panGraphView(start, 0, 80, 360, 220, 28);
+    const movedUp = panGraphView(start, 0, -80, 360, 220, 28);
+
+    expect(movedDown.yMin).toBeGreaterThan(start.yMin);
+    expect(movedUp.yMin).toBeLessThan(start.yMin);
+    expect(movedDown.xMax - movedDown.xMin).toBeCloseTo(start.xMax - start.xMin);
+    expect(movedDown.yMax - movedDown.yMin).toBeCloseTo(start.yMax - start.yMin);
+  });
+
+  it("relabels both axes for panned and zoomed windows", () => {
+    const initialX = graphAxisTicks(-6, 6, graphTickCount(-6, 6), true);
+    const pannedX = graphAxisTicks(14, 26, graphTickCount(14, 26), true);
+    const zoomedY = graphAxisTicks(-60, 60, graphTickCount(-60, 60), true);
+
+    expect(initialX).toContain(0);
+    expect(pannedX.every((tick) => tick >= 14 && tick <= 26)).toBe(true);
+    expect(pannedX).not.toContain(0);
+    expect(zoomedY).toEqual(expect.arrayContaining([-60, -30, 0, 30, 60]));
+  });
+
   it("expandGraphView widens around the center", () => {
     const view = { xMin: -2, xMax: 4, yMin: -1, yMax: 5 };
     const wide = expandGraphView(view, 3);

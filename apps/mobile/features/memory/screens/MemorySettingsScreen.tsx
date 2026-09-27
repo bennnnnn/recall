@@ -15,6 +15,7 @@ import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useMemoryToggle } from "@/features/memory/hooks/useMemoryToggle";
+import { invalidateMemoryDocuments } from "@/features/memory/model/memoryDocumentsCache";
 import { api } from "@/lib/api";
 import {
   fetchMemories,
@@ -92,6 +93,7 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
         setBusy(true);
         try {
           await api.clearMemories(token);
+          invalidateMemoryDocuments();
           if (!isCurrentView()) return;
           notifyDestructive();
           setMemoriesCache([]);

@@ -111,6 +111,21 @@ def format_direct_geometry_working(
                 ],
             )
         given = [_given("Length", "l", height, unit), _given("Width", "w", width, unit)]
+        if quantity == "area_and_perimeter":
+            area = _number(spec.get("area"))
+            perimeter = _number(spec.get("perimeter"))
+            if area is None or perimeter is None:
+                return None
+            return _section(
+                given,
+                "Area ($A$) and perimeter ($P$)",
+                "Rectangle formulas",
+                [r"A = l \times w", r"P = 2(l+w)"],
+                [
+                    rf"A = {_display(height)} \times {_display(width)} = {_display(area)}",
+                    rf"P = 2({_display(height)}+{_display(width)}) = {_display(perimeter)}",
+                ],
+            )
         if quantity == "area":
             return _section(
                 given,

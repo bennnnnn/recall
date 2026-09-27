@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -37,10 +37,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -86,7 +86,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_torque_phrasings_reach_a_verified_answer(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None, "no intent extracted"
     assert intent.kind == "torque"
     assert intent.physics_op == op
@@ -170,7 +170,7 @@ NOT_PHYSICS = [
 @pytest.mark.parametrize("text", NOT_PHYSICS)
 def test_moment_alone_is_not_a_torque_cue(text: str) -> None:
     """It is ordinary English, so it counts only beside a pivot word."""
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
@@ -188,7 +188,7 @@ def test_moment_of_inertia_is_not_confused_with_torque() -> None:
     text = "what is the moment of inertia of a 5 kg disc of radius 2 m"
     assert _extract_torque_intent(text) is None
 
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None
     assert intent.kind == "rotation"
     assert intent.physics_op == "moment_of_inertia"
@@ -206,7 +206,7 @@ def test_a_shapeless_moment_of_inertia_is_still_refused() -> None:
 
 def test_plain_newtons_second_law_still_reaches_the_force_extractor() -> None:
     """Torque runs before force, so it must not swallow ordinary F = ma."""
-    intent = extract_math_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
+    intent = extract_physics_intent("a 5 kg mass accelerates at 2 m/s^2, what is the net force")
 
     assert intent is not None and intent.kind == "force"
     assert _verified_answer("a 5 kg mass accelerates at 2 m/s^2, what is the net force") == "10 N"

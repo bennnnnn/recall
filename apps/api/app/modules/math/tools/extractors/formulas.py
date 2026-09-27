@@ -7,7 +7,7 @@ import re
 
 from app.models.schemas.math import MathIntent
 from app.modules.math import match as mtm
-from app.modules.math.tools.helpers import math_expr_or_none
+from app.modules.math.tools.helpers import _strip_trailing_filler, math_expr_or_none
 from app.services.text_match import word_index
 
 
@@ -44,6 +44,45 @@ def _exactly_n_numbers(cleaned: str, count: int) -> list[float] | None:
             return None
         values.append(value)
     return values
+
+
+_NAMED_PROBABILITY_NUMBER = r"([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(%|percent(?:age)?)?"
+
+
+def _named_probability(cleaned: str, name: str) -> float | None:
+    """Read ``sensitivity 95%`` and ``95% sensitivity`` as probabilities."""
+    escaped = re.escape(name)
+    after = re.search(
+        rf"\b{escaped}\b\s*(?:(?:is|was|of)\s+|[=:]\s*)?{_NAMED_PROBABILITY_NUMBER}",
+        cleaned,
+        re.IGNORECASE,
+    )
+    before = re.search(
+        rf"{_NAMED_PROBABILITY_NUMBER}\s*\b{escaped}\b",
+        cleaned,
+        re.IGNORECASE,
+    )
+    match = after or before
+    if match is None:
+        return None
+    try:
+        value = float(match.group(1))
+    except (TypeError, ValueError, OverflowError):
+        return None
+    percent_marked = match.group(2) is not None
+    if percent_marked or value > 1:
+        value /= 100.0
+    return value if math.isfinite(value) and 0 <= value <= 1 else None
+
+
+def _medical_bayes_values(cleaned: str) -> list[float] | None:
+    """Return Bayes inputs as prior, true-positive rate, false-positive rate."""
+    prevalence = _named_probability(cleaned, "prevalence")
+    sensitivity = _named_probability(cleaned, "sensitivity")
+    specificity = _named_probability(cleaned, "specificity")
+    if prevalence is None or sensitivity is None or specificity is None:
+        return None
+    return [prevalence, sensitivity, 1.0 - specificity]
 
 
 def _extract_discount(cleaned: str, lower: str) -> MathIntent | None:
@@ -393,6 +432,14 @@ def extract_sas_area(cleaned: str) -> MathIntent | None:
 
 def extract_probability_formulas(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
+    medical_bayes = _medical_bayes_values(cleaned)
+    if medical_bayes is not None:
+        return MathIntent(
+            kind="probability",
+            school_op="bayes",
+            vec_a=medical_bayes,
+            operation="solve",
+        )
     compact = lower.replace(" ", "")
     if "geometric" in lower:
         k_at = compact.find("k=")
@@ -670,19 +717,27 @@ def extract_implicit_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "implicit" not in lower:
         return None
-    if "differentiate" not in lower and "derivative" not in lower and "dy/dx" not in lower:
+    # iOS autocorrect can expand the compact token ``dy`` to ``day`` in an
+    # otherwise unambiguous "implicitly" request. Accept that scoped spelling
+    # so algebra cannot append a solve-for-x footer to a derivative answer.
+    if not any(cue in lower for cue in ("differentiate", "derivative", "dy/dx", "day/dx")):
         return None
     eq = cleaned.find("=")
     if eq <= 0:
         return None
     raw_lhs = cleaned[:eq]
+    # Natural homework phrasing puts the requested derivative before the
+    # equation: "Find dy/dx implicitly for x² + xy + y² = 7".
+    implicit_for = lower.find("implicitly for ")
+    if implicit_for != -1:
+        raw_lhs = cleaned[implicit_for + len("implicitly for ") : eq]
     for cue in ("implicitly differentiate", "implicit differentiate", "implicit derivative of"):
         idx = lower.find(cue)
         if idx != -1:
             raw_lhs = cleaned[idx + len(cue) : eq]
             break
     lhs = math_expr_or_none(raw_lhs.strip())
-    rhs = math_expr_or_none(cleaned[eq + 1 :].strip())
+    rhs = math_expr_or_none(_strip_trailing_filler(cleaned[eq + 1 :].strip()))
     if not lhs or not rhs:
         return None
     return MathIntent(

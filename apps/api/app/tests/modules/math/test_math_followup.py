@@ -11,14 +11,15 @@ from app.models.orm import User
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
+    math_working_followup_problem,
     open_math_problem,
     readable_standalone_answer,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.services.chat.prompt_builder import _PromptContextBlocks, build_prompt_messages
 
-_SPEED_ASK = "Find the average speed for 100 m in 20 s."
-_SPEED_RESULT = r"5.0\ \mathrm{m}/\mathrm{s}"
+_EQUATION_ASK = "Solve 2x + 7 = 19"
+_EQUATION_RESULT = "x = 6"
 _TAYLOR_ASK = "Find the Taylor series of exp(x) at 1 order 2"
 _TAYLOR_RESULT = r"\frac{e \left(x - 1\right)^{2}}{2} + e \left(x - 1\right) + e"
 
@@ -35,7 +36,9 @@ def test_short_fragment_reopens_the_equation_in_progress() -> None:
     assert open_math_problem("2x + 1 = 7", prior) is None
 
 
-def _exchange(question: str = _SPEED_ASK, result: str = _SPEED_RESULT) -> list[SimpleNamespace]:
+def _exchange(
+    question: str = _EQUATION_ASK, result: str = _EQUATION_RESULT
+) -> list[SimpleNamespace]:
     return [_message("user", question), _message("assistant", f"```answer\n{result}\n```")]
 
 
@@ -54,10 +57,48 @@ def _exchange(question: str = _SPEED_ASK, result: str = _SPEED_RESULT) -> list[S
         "give me a hint",
         "give examples",
         "explain with an example",
+        "What?",
+        "Do it again",
     ],
 )
 def test_short_referential_request_uses_immediate_math_exchange(query: str) -> None:
     assert is_math_followup(query, _exchange())
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "how",
+        "How?",
+        "why?",
+        "please explain it",
+        "can you show the steps?",
+        "What?",
+        "Do it again",
+    ],
+)
+def test_working_followup_returns_the_adjacent_problem_for_verified_replay(query: str) -> None:
+    recent = _exchange("3x^2 + 3 = 5", r"x = \pm \frac{\sqrt{6}}{3}")
+    assert math_working_followup_problem(query, recent) == "3x^2 + 3 = 5"
+    as_dicts = [{"role": item.role, "content": item.content} for item in recent]
+    assert math_working_followup_problem(query, as_dicts) == "3x^2 + 3 = 5"
+
+
+@pytest.mark.parametrize("query", ["hint only", "prove it", "give examples"])
+def test_scoped_followups_do_not_replay_the_full_verified_working(query: str) -> None:
+    assert is_math_followup(query, _exchange())
+    assert math_working_followup_problem(query, _exchange()) is None
+
+
+def test_referential_chain_keeps_the_original_verified_problem() -> None:
+    recent = [
+        *_exchange("456/56", r"8\text{ remainder }8"),
+        _message("user", "What?"),
+        _message("assistant", "Here is the verified long division."),
+        _message("user", "Show me"),
+        _message("assistant", "Here is the written method again."),
+    ]
+    assert math_working_followup_problem("Do it again", recent) == "456/56"
 
 
 @pytest.mark.parametrize(
@@ -86,7 +127,7 @@ def test_unrelated_or_additional_request_does_not_inherit_math(query: str | None
     [
         [],
         [_message("assistant", "5")],
-        [_message("user", _SPEED_ASK)],
+        [_message("user", _EQUATION_ASK)],
         [
             *_exchange(),
             _message("user", "Tell me about dogs"),
@@ -94,8 +135,8 @@ def test_unrelated_or_additional_request_does_not_inherit_math(query: str | None
         ],
         [*_exchange(), _message("user", "hi"), _message("assistant", "Hello")],
         [*_exchange(), _message("user", "how")],
-        [_message("user", _SPEED_ASK), _message("assistant", "")],
-        [_message("assistant", "5"), _message("user", _SPEED_ASK)],
+        [_message("user", _EQUATION_ASK), _message("assistant", "")],
+        [_message("assistant", "5"), _message("user", _EQUATION_ASK)],
     ],
 )
 def test_no_lookback_through_an_incomplete_or_unrelated_exchange(
@@ -105,7 +146,7 @@ def test_no_lookback_through_an_incomplete_or_unrelated_exchange(
 
 
 @pytest.mark.parametrize(
-    "body", [_SPEED_RESULT, _TAYLOR_RESULT, r"x = 2 \pi k,\quad k\in\mathbb{Z}"]
+    "body", [_EQUATION_RESULT, _TAYLOR_RESULT, r"x = 2 \pi k,\quad k\in\mathbb{Z}"]
 )
 def test_standalone_answer_preserves_full_math_without_an_owned_fence(body: str) -> None:
     assert (
@@ -179,7 +220,7 @@ async def _prompt(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "question,result", [(_SPEED_ASK, _SPEED_RESULT), (_TAYLOR_ASK, _TAYLOR_RESULT)]
+    "question,result", [(_EQUATION_ASK, _EQUATION_RESULT), (_TAYLOR_ASK, _TAYLOR_RESULT)]
 )
 @pytest.mark.parametrize("style", ["balanced", "short", "detailed"])
 async def test_actual_how_examples_keep_prior_result_and_final_scoped_policy(
@@ -249,7 +290,7 @@ async def test_regenerated_how_keeps_prior_result_and_persisted_current_user() -
     assert prepared[0]["content"].endswith(MATH_FOLLOWUP_HINT)
     assert prepared[-2] == {
         "role": "assistant",
-        "content": f"Previous result:\n\\[\n{_SPEED_RESULT}\n\\]",
+        "content": f"Previous result:\n\\[\n{_EQUATION_RESULT}\n\\]",
     }
     assert prepared[-1] == {"role": "user", "content": "how"}
     assert all("Old explanation" not in item["content"] for item in prepared)
@@ -270,7 +311,7 @@ async def test_explicit_current_user_id_keeps_the_previous_completed_math_exchan
     recent = [*_exchange(), _message("user", "how")]
     prepared = await _prompt("how", recent, current_user_message_id=recent[-1].id)
     assert prepared[0]["content"].endswith(MATH_FOLLOWUP_HINT)
-    assert prepared[-2]["content"] == f"Previous result:\n\\[\n{_SPEED_RESULT}\n\\]"
+    assert prepared[-2]["content"] == f"Previous result:\n\\[\n{_EQUATION_RESULT}\n\\]"
     assert prepared[-1] == {"role": "user", "content": "how"}
 
 

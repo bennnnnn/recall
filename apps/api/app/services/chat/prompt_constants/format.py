@@ -113,6 +113,7 @@ _BREVITY_MARKERS = (
     "briefly",
     "keep it short",
     "keep it brief",
+    "shorter",
     "tldr",
     "tl;dr",
 )
@@ -120,7 +121,9 @@ _BREVITY_MARKERS = (
 BREVITY_REQUEST_HINT = (
     "The user asked for a one-sentence, one-word, or brief answer. "
     "Ignore decorative table/heading layout and match the length they asked. Preserve a "
-    "draft/code/visual container only when that container is the requested deliverable."
+    "draft/code/visual container only when that container is the requested deliverable. "
+    "When shortening existing text, never drop or blur factual details such as units, "
+    "quantities, dates, names, or commitments."
 )
 
 
@@ -324,6 +327,7 @@ _HOWTO_TURN = re.compile(
     r"\bplan\s+to\s+learn\b|"
     r"\bfrom scratch\b|"
     r"\bhow (?:do i|to) (?:set up|setup|install|configure|build)\b|"
+    r"\bwalk\s+me\s+through\b|"
     r"\bstep[\s-]?by[\s-]?step\b|"
     r"\bplan\s+de\s+\d+[\s-]?(?:semana|semanas|semaine|semaines)\b|"
     r"\b\d+[\s-]?wochen[\s-]?plan\b|"
@@ -442,6 +446,9 @@ FORMAT_CONTRACT = (
     "then a tagged code fence (```python, ```javascript, etc.). Add notes only when they "
     "help the user run, understand, or safely change it. Never put source code in an untagged "
     "fence.\n"
+    "  - For a bug or snippet question, inspect the literal snippet first and lead with its "
+    "concrete syntax/runtime issue. Prior conversation may explain the likely intent, but it "
+    "must not replace the explicit current question or hide a more immediate bug.\n"
     "\n"
     "Decision / compare (ONLY when the user asks X vs Y, A vs B vs C, or a "
     "feature comparison — not for tips, roadmaps, or how-tos):\n"
@@ -473,7 +480,10 @@ STYLE_HINTS = {
         "Answer in 1-3 sentences or at most 4-5 tight bullets. No preamble, no recap of the question, "
         "no closing offers to help further. Skip sections, headings, tables, diagrams, and HTML unless "
         "the user explicitly asked for them. Explicit prose/draft/code format requests still win. "
-        "Math follows this brevity preference too; provide a full derivation when explicitly asked."
+        "Math follows this brevity preference too; provide a full derivation when explicitly asked. "
+        "An explicit named-duration learning roadmap (for example, a 30-day or 12-week plan) is "
+        "also a requested output shape: keep each unit concise, but cover the requested progression "
+        "instead of collapsing it to 4-5 bullets."
     ),
     "balanced": (
         "Response length: BALANCED. Be clear and complete without rambling — use short headings and "

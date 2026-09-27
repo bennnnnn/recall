@@ -1,12 +1,25 @@
 import { useState } from "react";
-import { StyleSheet } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/components/chat/ChatComposer";
-import { CONVERTER_HEADER_HEIGHT, converterKeyHeight } from "@/components/chat/MathConverterPad";
+import {
+  CONVERTER_HEADER_HEIGHT,
+  CONVERTER_ROWS,
+  KEY_HEIGHT_MIN,
+  PAD_GAP,
+  PAD_PADDING_V,
+  converterKeyHeight,
+  mathPadHeight,
+} from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
+
+jest.mock("expo-linear-gradient", () => {
+  const { View } = jest.requireActual("react-native") as typeof import("react-native");
+  return { LinearGradient: View };
+});
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "t",
@@ -57,6 +70,17 @@ jest.mock("@/features/speech/components/LiveTalkButton", () => {
 jest.mock("@/features/attachments/components/ComposerAttachmentPreview", () => ({
   ComposerAttachmentPreview: () => null,
 }));
+
+// The RN jest preset reports a 2x text size. Sizes here are at the default
+// unless a test raises it; the preset's other window metrics stay.
+const presetDimensionsGet = Dimensions.get.bind(Dimensions);
+let windowFontScale = 1;
+jest
+  .spyOn(Dimensions, "get")
+  .mockImplementation((dim) => ({ ...presetDimensionsGet(dim), fontScale: windowFontScale }));
+beforeEach(() => {
+  windowFontScale = 1;
+});
 
 const baseProps = {
   visible: true,
@@ -218,13 +242,13 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent(composerInput, "contentSizeChange", {
       nativeEvent: { contentSize: { width: 240, height: 112 } },
     });
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 112, paddingTop: 0 });
 
     await fireEvent.press(getByLabelText("chat.send_a11y"));
 
     await waitFor(() => {
       expect(getByTestId("chat-composer-input").props.value).toBe("");
-      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 44 });
+      expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
     });
   });
 
@@ -247,8 +271,24 @@ describe("ChatComposer math keyboard", () => {
 
     expect(getByTestId("chat-composer-input").props.value).toBe("\n");
     expect(getByTestId("chat-composer-input").props.placeholder).toBe("chat.placeholder");
-    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 68 });
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 48, paddingTop: 0 });
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("grows to the next line when text reaches the end of the field", async () => {
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"a".repeat(40)} />,
+    );
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 24 });
+
+    await fireEvent(getByTestId("chat-composer-input"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 44 } },
+    });
+
+    expect(getByTestId("chat-composer-input")).toHaveStyle({
+      height: 48,
+      paddingTop: 0,
+    });
   });
 
   it("preserves leading indentation while typing a code block", async () => {
@@ -291,7 +331,7 @@ describe("ChatComposer math keyboard", () => {
       nativeEvent: { contentSize: { width: 240, height: 190 } },
     });
 
-    expect(composerInput).toHaveStyle({ height: 164 });
+    expect(composerInput).toHaveStyle({ height: 144, paddingTop: 0 });
     expect(getByTestId("composer-expand").props.accessibilityState).toEqual({
       expanded: false,
     });
@@ -422,14 +462,25 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("math-key-caret-right")).toBeNull();
     expect(getByTestId("math-keyboard-abc")).toHaveStyle({ minHeight: 44 });
 
+    await fireEvent.press(getByTestId("math-keyboard-tab-calc"));
+    const calcStyle = getByTestId("math-key-partial-x").props.style;
+    const calcKey = StyleSheet.flatten(
+      typeof calcStyle === "function" ? calcStyle({ pressed: false }) : calcStyle,
+    );
+    expect(calcKey.height).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
+    expect(calcKey.minHeight).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
+
     await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
-    const rowHeight = converterKeyHeight(320 - 20 - 44 - 6);
+    const keysBox = mathPadHeight(320) - PAD_PADDING_V - KEY_HEIGHT_MIN - PAD_GAP;
+    const rowHeight = converterKeyHeight(keysBox);
     const flatKey = (id: string) => {
       const style = getByTestId(id).props.style;
       return StyleSheet.flatten(typeof style === "function" ? style({ pressed: false }) : style);
     };
-    expect(rowHeight).toBeGreaterThan(0);
-    expect(CONVERTER_HEADER_HEIGHT + 24 + rowHeight * 4).toBeLessThanOrEqual(320 - 20 - 44 - 6);
+    expect(rowHeight).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
+    expect(CONVERTER_HEADER_HEIGHT + CONVERTER_ROWS * PAD_GAP + rowHeight * CONVERTER_ROWS).toBeLessThanOrEqual(
+      keysBox,
+    );
     expect(getByTestId("math-converter-from-unit")).toHaveStyle({ alignSelf: "stretch", height: 44 });
     for (const id of ["math-converter-0", "math-converter-dot", "math-converter-insert", "math-converter-ask"]) {
       expect(flatKey(id).height).toBe(rowHeight);
@@ -476,6 +527,8 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+    expect(StyleSheet.flatten(getByTestId("chat-composer").props.style).top).toBe(0);
+    expect(StyleSheet.flatten(getByTestId("math-keyboard-dismiss").props.style).flex).toBe(1);
     await fireEvent.press(getByTestId("math-keyboard-dismiss"));
     expect(queryByTestId("math-keyboard-pad")).toBeNull();
     await fireEvent(getByTestId("chat-composer-input"), "focus");
@@ -1071,5 +1124,54 @@ describe("ChatComposer math keyboard", () => {
     );
     expect(queryByTestId("live-talk-mute")).toBeTruthy();
     expect(queryByTestId("live-talk-close")).toBeTruthy();
+  });
+});
+
+describe("ChatComposer at a larger text size", () => {
+  it.each([
+    [1.5, 36, 4],
+    [2, 48, 0],
+  ])("keeps one line level with the buttons at %sx", async (scale, line, spaceBelow) => {
+    windowFontScale = scale;
+    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
+
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: line });
+    expect(getByTestId("chat-composer-field")).toHaveStyle({ paddingBottom: spaceBelow });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
+  });
+
+  it("grows by a scaled line per Return", async () => {
+    windowFontScale = 1.5;
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"First line\nSecond line"} />,
+    );
+
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 72 });
+    expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "flex-end" });
+  });
+
+  it("wraps sooner than at the default size", async () => {
+    windowFontScale = 1.5;
+    const { getByTestId } = await render(
+      <ChatComposer {...baseProps} input={"a".repeat(20)} />,
+    );
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 36 });
+
+    await fireEvent(getByTestId("chat-composer-input"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 44 } },
+    });
+
+    // Twenty glyphs fit 200 pt at the default size; at 1.5x they take two lines.
+    expect(getByTestId("chat-composer-input")).toHaveStyle({ height: 72 });
+  });
+
+  it("moves the thread up when one line is taller than the buttons", async () => {
+    windowFontScale = 2;
+    const onInputFrameExtraChange = jest.fn();
+    await render(
+      <ChatComposer {...baseProps} onInputFrameExtraChange={onInputFrameExtraChange} />,
+    );
+
+    expect(onInputFrameExtraChange).toHaveBeenLastCalledWith(4);
   });
 });

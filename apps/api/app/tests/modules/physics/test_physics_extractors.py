@@ -82,6 +82,34 @@ def test_kinematics_thrown_upward() -> None:
     assert intent.physics_params["v0"] == 15.0
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A ball is thrown upward at 20 m/s. How high does it go?",
+        "A ball is thrown up at 20 m/s. What maximum height will it reach?",
+        "A stone is launched upward at 20 m/s. What is its highest point?",
+    ],
+)
+def test_kinematics_vertical_launch_asks_for_maximum_height(text: str) -> None:
+    intent = _extract_kinematics_intent(text)
+
+    assert intent is not None
+    assert intent.kind == "kinematics"
+    assert intent.physics_op == "max_height"
+    assert intent.physics_params is not None
+    assert intent.physics_params["v0"] == 20.0
+    assert intent.physics_params["g"] == 9.81
+
+
+def test_kinematics_downward_launch_does_not_use_upward_maximum_height_formula() -> None:
+    assert (
+        _extract_kinematics_intent(
+            "A ball is thrown downward at 20 m/s from 30 m. How high does it go?"
+        )
+        is None
+    )
+
+
 def test_kinematics_free_fall_distance_without_from_keyword() -> None:
     """``free fall 20 m`` has no from/height keyword; still a drop height."""
     intent = _extract_kinematics_intent("How long does an object free fall 20 m?")
@@ -318,19 +346,21 @@ def test_projectile_missing_speed_returns_none() -> None:
 
 def test_projectile_wall_distance_is_not_launch_height() -> None:
     from app.core.config import Settings
-    from app.modules.math import tools as math_tools
-    from app.modules.math.tools.extract import extract_math_intent
+    from app.tests.modules.physics.support import (
+        build_verified_physics_block,
+        extract_physics_intent,
+    )
 
     text = (
         "A projectile is launched at 20 m/s at 30 degrees. The wall is 15 m away. "
         "What is its range?"
     )
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None
     assert intent.kind == "projectile"
     assert intent.physics_params is not None
     assert "h0" not in intent.physics_params
-    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
     answer = block.canonical_answer or ""
     assert "52.72" not in answer
@@ -338,14 +368,16 @@ def test_projectile_wall_distance_is_not_launch_height() -> None:
 
 def test_projectile_without_wall_still_verifies() -> None:
     from app.core.config import Settings
-    from app.modules.math import tools as math_tools
-    from app.modules.math.tools.extract import extract_math_intent
+    from app.tests.modules.physics.support import (
+        build_verified_physics_block,
+        extract_physics_intent,
+    )
 
     text = "A projectile is launched at 20 m/s at 30 degrees. What is its range?"
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None
     assert intent.kind == "projectile"
-    block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
     assert block.canonical_answer
 
@@ -360,17 +392,19 @@ def test_miles_per_hour_is_not_parsed_as_metres() -> None:
 
 def test_downward_throw_mph_does_not_verify_as_five_metres_per_second() -> None:
     from app.core.config import Settings
-    from app.modules.math import tools as math_tools
-    from app.modules.math.tools.extract import extract_math_intent
+    from app.tests.modules.physics.support import (
+        build_verified_physics_block,
+        extract_physics_intent,
+    )
 
     text = "A ball is thrown down at 5 miles per hour from 20 m, how long to hit the ground?"
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if isinstance(intent, PhysicsIntent):
         units = intent.physics_units or {}
         params = intent.physics_params or {}
         if "v0" in params:
             assert units.get("v0", "").lower() not in {"m", "meter", "meters", "metres"}
-        block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+        block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
         if block is not None:
             assert "1.57" not in (block.canonical_answer or "")
 

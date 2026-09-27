@@ -30,3 +30,24 @@ export function composerTextAfterMathScanConfirm(reading: string): string {
   if (!trimmed) return MATH_CAMERA_PROMPT;
   return `${MATH_CAMERA_PROMPT}\n\n${MATH_CAMERA_CONFIRMED_PREFIX} ${trimmed}`;
 }
+
+/** The steps ask a confirmed scan is sent with; the API lessons read it. */
+export const MATH_SCAN_SOLVE_PREFIX = "Show steps:";
+
+const RELATION = /[=<>\u2264\u2265]/;
+
+/**
+ * The message a confirmed scan sends as ordinary text, so the whole text
+ * pipeline (lessons, systems, word problems) sees it. Relations on separate
+ * lines join with commas ("x+y=5, x-y=1") so a system reads as one problem;
+ * any other lines join with spaces.
+ */
+export function mathScanSolveMessage(reading: string): string {
+  const lines = reading
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return "";
+  const joined = lines.every((line) => RELATION.test(line)) ? lines.join(", ") : lines.join(" ");
+  return `${MATH_SCAN_SOLVE_PREFIX} ${joined}`;
+}

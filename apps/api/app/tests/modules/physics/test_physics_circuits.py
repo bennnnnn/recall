@@ -17,7 +17,9 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools import _build_verified_block as build_math_block
+from app.modules.math.tools import extract_math_intent as extract_real_math_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {
     "kinematics",
@@ -37,10 +39,10 @@ def _settings() -> Settings:
 
 
 def _verified_answer(text: str) -> str | None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     if intent is None:
         return None
-    block = _build_verified_block(intent, _settings())
+    block = build_verified_physics_block(intent, _settings())
     return None if block is None else block.canonical_answer
 
 
@@ -80,7 +82,7 @@ VERIFIED: list[tuple[str, str, str]] = [
 
 @pytest.mark.parametrize("text,op,answer", VERIFIED, ids=[row[0][:44] for row in VERIFIED])
 def test_circuit_phrasings_reach_a_verified_answer(text: str, op: str, answer: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None, "no intent extracted"
     assert intent.kind == "circuit"
     assert intent.physics_op == op
@@ -153,7 +155,7 @@ def test_mechanical_power_is_untouched() -> None:
     so it is a separate op that fires only on electrical units. The ticket
     called this out specifically: the two must not collide silently.
     """
-    intent = extract_math_intent("what is the power of a force of 10 N moving at 3 m/s")
+    intent = extract_physics_intent("what is the power of a force of 10 N moving at 3 m/s")
 
     assert intent is not None and intent.kind == "energy"
     assert intent.physics_op == "power"
@@ -173,20 +175,21 @@ def test_series_and_parallel_are_not_cues(text: str) -> None:
 
     They qualify a question that already names resistors; they never start one.
     """
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
 def test_parallelogram_geometry_is_untouched() -> None:
-    intent = extract_math_intent("area of a parallelogram with base 4 and height 6")
+    intent = extract_real_math_intent("area of a parallelogram with base 4 and height 6")
 
     assert intent is not None and intent.kind == "parallelogram"
-    assert _verified_answer("area of a parallelogram with base 4 and height 6") == "24"
+    block = build_math_block(intent, _settings())
+    assert block is not None and block.canonical_answer == "24"
 
 
 def test_the_current_date_is_not_a_circuit() -> None:
     """ "current" is left out of the cue list for this reason."""
-    intent = extract_math_intent("what is the current date")
+    intent = extract_physics_intent("what is the current date")
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
@@ -195,7 +198,7 @@ def test_bare_letters_are_matched_case_sensitively() -> None:
 
     Matching case-insensitively would read "3 a piece" as three amps.
     """
-    intent = extract_math_intent("I bought 12 v cards and 3 a piece was the price")
+    intent = extract_physics_intent("I bought 12 v cards and 3 a piece was the price")
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
@@ -218,8 +221,8 @@ def test_circuits_missing_a_given_are_refused(text: str) -> None:
 # Round 3. Three defects and four new ops.
 #
 # The first defect was invisible from inside this file: every test above calls
-# `extract_math_intent` directly, and the extractor reads the original casing.
-# `needs_symbolic` lowercases before testing the same cues, so a question
+# `extract_physics_intent` directly, and the extractor reads the original casing.
+# `needs_physics` lowercases before testing the same cues, so a question
 # carried only by the SI symbols was dropped by the pre-filter and never
 # reached the extractor in production - while these tests passed. Every round-3
 # case below therefore asserts the pre-filter too.
@@ -227,9 +230,9 @@ def test_circuits_missing_a_given_are_refused(text: str) -> None:
 
 
 def _reaches_the_tool_path(text: str) -> bool:
-    from app.modules.math.match.needs import needs_symbolic
+    from app.tests.modules.physics.support import needs_physics
 
-    return needs_symbolic(text)
+    return needs_physics(text)
 
 
 UNIT_ONLY = [
@@ -245,7 +248,7 @@ def test_a_question_carried_only_by_its_units_reaches_the_solver(
 ) -> None:
     """The pre-filter assertion is the point; the answer was already right."""
     assert _reaches_the_tool_path(text), "dropped before extraction"
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == op
     assert _verified_answer(text) == answer
 
@@ -268,7 +271,7 @@ def test_lowercase_bare_letters_are_still_not_units(text: str) -> None:
     case-sensitive and the pre-filter stopped lowercasing instead.
     """
     assert not _reaches_the_tool_path(text)
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
 
 
@@ -319,7 +322,7 @@ NETWORKS: list[tuple[str, str, str]] = [
 @pytest.mark.parametrize("text,op,answer", NETWORKS, ids=[row[0][:44] for row in NETWORKS])
 def test_resistor_networks_use_every_resistance(text: str, op: str, answer: str) -> None:
     assert _reaches_the_tool_path(text)
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == op
     assert _verified_answer(text) == answer
 
@@ -360,7 +363,7 @@ NEW_OPS: list[tuple[str, str, str]] = [
 @pytest.mark.parametrize("text,op,answer", NEW_OPS, ids=[row[0][:44] for row in NEW_OPS])
 def test_round_three_circuit_ops(text: str, op: str, answer: str) -> None:
     assert _reaches_the_tool_path(text), "dropped before extraction"
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == op
     assert _verified_answer(text) == answer
 
@@ -380,7 +383,7 @@ def test_a_cell_with_internal_resistance_is_ohms_law_unless_the_ask_says_termina
     Choosing between them on the reader's behalf is the kind of guess a
     verified block must not make.
     """
-    intent = extract_math_intent(
+    intent = extract_physics_intent(
         "a 12 V cell with 0.5 ohm internal resistance supplies 2 A, what is the voltage"
     )
     assert getattr(intent, "physics_op", None) != "terminal_voltage"
@@ -396,5 +399,5 @@ ROUND_THREE_DECOYS = [
 
 @pytest.mark.parametrize("text", ROUND_THREE_DECOYS)
 def test_the_new_circuit_cues_do_not_steal_ordinary_english(text: str) -> None:
-    intent = extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS

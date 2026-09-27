@@ -70,7 +70,9 @@ export function seedGraphSeries(
       id: String(i),
       expr: formatSeriesExpr(raw),
       visible: true,
-      locked: i === 0,
+      // Every server-seeded curve is part of the verified answer. Only rows
+      // created later through "Add function" are disposable overlays.
+      locked: true,
       seedExpr: formatSeriesExpr(raw),
       fallback: fallbacks[i],
     });
@@ -152,13 +154,14 @@ type ViewportArgs = {
   width: number;
   height: number;
   pad: number;
+  initialView?: GraphView;
 };
 
-export function useGraphViewport({ width, height, pad }: ViewportArgs) {
+export function useGraphViewport({ width, height, pad, initialView: requestedInitialView }: ViewportArgs) {
   const plotAspect = (width - pad * 2) / (height - pad * 2 || 1);
   const initialView = useMemo(
-    () => defaultInteractiveBounds(plotAspect),
-    [plotAspect],
+    () => clampGraphView(requestedInitialView ?? defaultInteractiveBounds(plotAspect)),
+    [plotAspect, requestedInitialView],
   );
   const [bounds, setBounds] = useState<GraphView>(initialView);
   const boundsRef = useRef(bounds);

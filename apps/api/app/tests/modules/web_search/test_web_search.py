@@ -1,3 +1,4 @@
+import re
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -83,6 +84,13 @@ def test_is_local_places_query():
     assert is_distance_query("how long is the drive")
     assert is_geo_query("how far is the airport")
     assert not is_geo_query("distance between NYC and LA")
+    assert not is_geo_query(
+        "A circle has radius 3 and a chord of length 8. Find distance from center to chord."
+    )
+    assert is_geo_query("distance from here to the airport")
+    assert is_geo_query("What's the weather?")
+    assert is_geo_query("weather tomorrow")
+    assert not is_geo_query("What's the weather in London?")
     kinematics = (
         "A car starts from rest and accelerates at a constant rate of 1.2 m/s^2. "
         "How long does it take the car to travel a distance of 500 meters?"
@@ -272,7 +280,67 @@ def test_build_search_query_team_yesterday_not_world_cup():
 
 
 def test_build_search_query_news_defaults():
-    assert build_search_query("what's happening in the world today") == "top news today"
+    query = build_search_query("what's happening in the world today", user_timezone="UTC")
+
+    assert query.startswith("top news today ")
+    assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", query)
+
+
+def test_build_search_query_specific_today_news_keeps_subject_and_date():
+    query = build_search_query(
+        "What's happening in the U.S. today? Give me three major developments with dates.",
+        user_timezone="America/Los_Angeles",
+    )
+
+    assert "U.S." in query
+    assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", query)
+
+
+def test_curly_apostrophe_today_news_is_date_anchored():
+    query = build_search_query(
+        "What’s happening in the U.S. today?",
+        user_timezone="America/Los_Angeles",
+    )
+
+    assert "U.S." in query
+    assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", query)
+
+
+def test_filter_hits_to_today_removes_other_dates():
+    from app.modules.web_search.query_builders import _today_label, filter_hits_to_today
+
+    today = _today_label("America/Los_Angeles")
+    hits = [
+        WebSearchHit(
+            title="Verified today",
+            url="https://example.com/today",
+            snippet=f"Published {today}.",
+        ),
+        WebSearchHit(
+            title="Older result",
+            url="https://example.com/older",
+            snippet="Published September 22, 2026.",
+        ),
+    ]
+
+    assert filter_hits_to_today(hits, "America/Los_Angeles") == [hits[0]]
+
+
+def test_ai_developments_today_is_treated_as_same_day_news():
+    from app.modules.web_search.query_builders import (
+        is_current_news_request,
+        is_news_today_request,
+    )
+
+    query = "What are the three most important AI developments today?"
+    assert is_current_news_request(query) is True
+    assert is_news_today_request(query) is True
+
+
+def test_polite_current_date_question_never_needs_web_search():
+    query = "Please tell me the current date."
+    assert web_search_skip(query) is True
+    assert needs_web_search(query) is False
 
 
 def test_build_search_query_follow_up_uses_prior():

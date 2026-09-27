@@ -10,6 +10,8 @@ from pydantic import ValidationError
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
 from app.modules.math import tools as math_tools
+from app.modules.physics import build_verified_physics_block, extract_physics_intent
+from app.modules.physics.prompt import build_physics_augmentation
 
 
 def test_math_intent_has_no_dead_expression_kind() -> None:
@@ -469,16 +471,16 @@ async def test_augment_prompt_injects_system_solve_block() -> None:
 
 
 @pytest.mark.asyncio
-async def test_build_math_augmentation_verifies_kinematics_trajectory() -> None:
+async def test_physics_augmentation_verifies_kinematics_trajectory() -> None:
     settings = Settings(math_tools_enabled=True)
-    note, verified = await math_tools.build_math_augmentation(
+    note, verified = await build_physics_augmentation(
         "A ball is dropped from 20m. How long until it hits the ground?",
         settings,
     )
 
     assert verified is not None
     assert note is not None and note.startswith(verified.text + "\n\n")
-    assert "Reply guidance for this request:" in note
+    assert "Physics reply policy for this request:" in note
     assert verified.canonical_answer == "2.02 s"
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "trajectory"
@@ -957,12 +959,10 @@ def test_verified_block_integral_of_2x_sentence_period() -> None:
 
 def test_verified_block_force_accelerated_phrasing() -> None:
     settings = Settings(math_tools_enabled=True)
-    intent = math_tools.extract_math_intent(
-        "A 5 kg mass is accelerated at 2 m/s^2. What is the force."
-    )
+    intent = extract_physics_intent("A 5 kg mass is accelerated at 2 m/s^2. What is the force.")
     assert intent is not None
     assert intent.kind == "force"
-    block = math_tools._build_verified_block(intent, settings)
+    block = build_verified_physics_block(intent, settings)
     assert block is not None
     assert block.canonical_answer is not None
     assert "10" in block.canonical_answer
@@ -981,12 +981,12 @@ def test_verified_block_force_math_keyboard_units(text: str) -> None:
     """Unicode / LaTeX s² from the math keyboard used to miss extract, then
     the bubble still said Couldn't verify this with SymPy."""
     settings = Settings(math_tools_enabled=True)
-    intent = math_tools.extract_math_intent(text)
+    intent = extract_physics_intent(text)
     assert intent is not None
     assert intent.kind == "force"
     assert intent.physics_params is not None
     assert intent.physics_params["a"] == 2.0
-    block = math_tools._build_verified_block(intent, settings)
+    block = build_verified_physics_block(intent, settings)
     assert block is not None
     assert block.canonical_answer is not None
     assert "10" in block.canonical_answer
@@ -1286,12 +1286,9 @@ async def test_graph_it_without_prior_does_not_stamp_unverified() -> None:
 
 
 def test_graph_and_solve_does_not_become_vertical_line() -> None:
-    """``3x=9`` after a graph cue is not ``x=9``; first-match vertical must lose."""
+    """A graph plus a second solve is atomic and must not verify either half."""
     text = "graph y=x**2 and also solve 3x=9"
-    intent = math_tools.extract_math_intent(text)
-    assert isinstance(intent, MathIntent)
-    assert intent.kind != "vertical"
-    assert intent.point_x != 9.0
+    assert math_tools.extract_math_intent(text) is None
 
 
 @pytest.mark.parametrize(
@@ -2000,6 +1997,7 @@ async def test_augment_graph_uses_user_named_domain() -> None:
     xs = [p[0] for p in pts]
     assert min(xs) >= 0
     assert max(xs) <= 100
+    assert verified.canonical_fence["domain_explicit"] is True
 
 
 @pytest.mark.parametrize(

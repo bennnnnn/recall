@@ -33,7 +33,9 @@ _BOUND = (
     r"|\d+(?:\.\d+)?\s*/\s*\d+(?:\.\d+)?"
     r"|pi|π|e"
     r"|\d+(?:\.\d+)?|\.\d+"
-    r")(?![\w.*])"
+    # Reject a partial decimal (``3`` from ``3.5``), but allow the ordinary
+    # sentence-ending period after a complete bound (``to x=3.``).
+    r")(?![\w*]|\.\d)"
 )
 _FROM_TO_RE = re.compile(
     rf"\bfrom\s+(?:x\s*=\s*)?({_BOUND})\s+to\s+(?:x\s*=\s*)?({_BOUND})\b", re.IGNORECASE
@@ -43,6 +45,9 @@ _ON_INTERVAL_RE = re.compile(
 )
 _BETWEEN_BOUNDS_RE = re.compile(
     rf"\bbetween\s+x\s*=\s*({_BOUND})\s+and\s+x\s*=\s*({_BOUND})\b", re.IGNORECASE
+)
+_CHAIN_BOUNDS_RE = re.compile(
+    rf"({_BOUND})\s*(?:<=|≤|<)\s*x\s*(?:<=|≤|<)\s*({_BOUND})", re.IGNORECASE
 )
 
 
@@ -54,7 +59,7 @@ def _clean(raw: str) -> str | None:
 
 
 def _bounds(cleaned: str) -> tuple[str, str, int] | None:
-    for pattern in (_FROM_TO_RE, _ON_INTERVAL_RE, _BETWEEN_BOUNDS_RE):
+    for pattern in (_FROM_TO_RE, _ON_INTERVAL_RE, _BETWEEN_BOUNDS_RE, _CHAIN_BOUNDS_RE):
         match = pattern.search(cleaned)
         if match is not None:
             return (
@@ -148,9 +153,13 @@ def _extract_volume_intent(cleaned: str) -> MathIntent | None:
         return None
 
     start = lower.find("of ", lower.find("volume"))
+    offset = 3
+    if start == -1:
+        start = lower.find("when ", lower.find("volume"))
+        offset = len("when ")
     if start == -1 or start >= bounds_at:
         return None
-    body = cleaned[start + 3 : bounds_at].strip(" ,;")
+    body = cleaned[start + offset : bounds_at].strip(" ,;")
     body = re.sub(
         r"^(?:revolution|the\s+region)\s+(?:of|under|bounded\s+by)\s+",
         "",

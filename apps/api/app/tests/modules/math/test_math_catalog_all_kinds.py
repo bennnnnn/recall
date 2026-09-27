@@ -7,7 +7,7 @@ from typing import get_args
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
+from app.models.schemas.math import MathIntent, WordProblemSetup
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.extract import extract_math_intent
 
@@ -70,13 +70,45 @@ _CASES = [
     ("probability", "binomial n=5 k=2 p=0.5", "0.3125", "answer"),
     ("complex", "modulus of 3+4i", "5", "answer"),
     ("unit", "convert 1 km to m", r"1000\ \mathrm{m}", "answer"),
+    ("work_check", "check my work: 2x+3=11, 2x=8, x=4", "x = 4", "answer"),
 ]
+
+
+# Kinds only a structured model translation produces (no regex extractor
+# claims them): one prebuilt intent each, still closed by the SymPy builder.
+_STRUCTURED_CASES: dict[str, tuple[MathIntent, str]] = {
+    "word_problem": (
+        MathIntent(
+            kind="word_problem",
+            operation="solve",
+            word_problem=WordProblemSetup.model_validate(
+                {
+                    "found": True,
+                    "unknowns": [{"symbol": "n", "meaning": "the number"}],
+                    "equations": [{"equation": "n + 7 = 19"}],
+                    "targets": [{"expr": "n", "meaning": "the number"}],
+                }
+            ),
+        ),
+        "12",
+    ),
+}
 
 
 def test_catalog_has_one_case_for_every_math_intent_kind() -> None:
     declared = set(get_args(MathIntent.model_fields["kind"].annotation))
-    covered = {kind for kind, *_ in _CASES}
+    covered = {kind for kind, *_ in _CASES} | set(_STRUCTURED_CASES)
     assert covered == declared
+
+
+@pytest.mark.parametrize("kind", sorted(_STRUCTURED_CASES))
+def test_every_structured_kind_builds_a_verified_result(kind: str) -> None:
+    intent, answer = _STRUCTURED_CASES[kind]
+    verified = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert verified is not None
+    assert verified.canonical_answer == answer
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "answer"
 
 
 @pytest.mark.parametrize("kind,query,answer,fence_type", _CASES)

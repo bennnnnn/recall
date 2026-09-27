@@ -166,6 +166,15 @@ class Settings(BaseSettings):
     # retry: bounded latency beats best-effort on a best-effort path.
     math_llm_extract_enabled: bool = True
     math_llm_extract_timeout_seconds: float = 2.5
+    # Algebra word problems ("three times as old", "tickets cost $5 and $8"):
+    # one structured call translates them into unknowns and equations, which
+    # reach the user only when every number is stated in the problem and
+    # SymPy finds exactly one solution in the stated domain.
+    math_word_problems_enabled: bool = True
+    math_word_problem_timeout_seconds: float = 3.0
+    # POST /math/scan/read runs OCR (Mathpix, then vision) so the student can
+    # confirm what the camera read before it is solved. Per user, per hour.
+    math_scan_read_rate_limit_per_hour: int = 60
     # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
     # Images always send metadata.improve_mathpix=false — student homework is
     # not opted into Mathpix QA storage.
@@ -360,6 +369,10 @@ class Settings(BaseSettings):
     chat_stream_max_seconds: int = 600
     # Fail fast when the provider never opens an SSE stream (separate from read timeout).
     chat_stream_connect_timeout_seconds: int = 15
+    # Reasoning models can keep sending hidden chain-of-thought while never
+    # producing a user-visible token. When a fallback exists, stop that silent
+    # attempt and move on rather than making the chat bubble wait indefinitely.
+    chat_stream_first_content_timeout_seconds: float = 8.0
 
     # Prefer Neon's `-pooler` host when DATABASE_URL points at a direct Neon endpoint.
     database_prefer_neon_pooler: bool = True

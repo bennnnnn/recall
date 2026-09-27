@@ -19,7 +19,7 @@ from app.services.chat.prompt_constants import (
     is_capabilities_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
-    is_short_confirmation,
+    is_short_reply,
     needs_rich_context,
 )
 
@@ -131,14 +131,14 @@ async def _classify_turn_mode(
     an in-chat vocab quiz, so this skips the assistant quiz lookback even when
     a Learning project is linked.
 
-    Short yes/go confirmations load the last assistant only when needed so
-    ``hi`` / ``thanks`` never pay that round trip.
+    Short replies (yes / no / got it) load the last assistant only when
+    needed so ``hi`` / ``thanks`` never pay that round trip.
     """
     minimal_personal = is_broad_self_question(content)
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
     prior_assistant: str | None = None
-    if is_short_confirmation(content):
+    if is_short_reply(content):
         prior = await messages_repo.get_last_assistant(session, chat.id)
         if prior is not None:
             prior_assistant = prior.content

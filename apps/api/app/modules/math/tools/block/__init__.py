@@ -9,7 +9,6 @@ from typing import Any
 
 from app.core.config import Settings
 from app.models.schemas.math import MathIntent
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.math import solve as math_solve
 from app.modules.math.tools.block.algebra import (
     _verified_block_equation,
@@ -50,6 +49,8 @@ from app.modules.math.tools.block.graph import (
     _verified_block_point,
     _verified_block_vertical,
 )
+from app.modules.math.tools.block.word import _verified_block_word_problem
+from app.modules.math.tools.block.work import _verified_block_work_check
 from app.services.solving import (
     VerifiedMathBlock as VerifiedMathBlock,
 )
@@ -65,14 +66,8 @@ from app.services.solving import (
 
 logger = logging.getLogger(__name__)
 
-# Any, not MathIntent | PhysicsIntent: each concrete builder below is typed
-# against its own narrower intent (MathIntent for the math builders,
-# PhysicsIntent for _build_physics_block) at its own definition, which is
-# where a real type error should be caught. Callable parameters are
-# contravariant, so a registry typed to the union would require every
-# math-only builder to also declare it accepts a PhysicsIntent it never
-# receives — Any at the registry boundary avoids that without losing
-# precision at any actual call site.
+# ``Any`` is limited to this declarative registry boundary. Every concrete
+# builder and the public dispatcher remain math-only and precisely typed.
 _BlockBuilder = Callable[[Any, Settings, list[str]], VerifiedMathBlock | None]
 
 _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
@@ -101,52 +96,41 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
     "combinatorics": _verified_block_combinatorics,
     "number_theory": _verified_block_number_theory,
     "matrix": _verified_block_matrix,
+    "work_check": _verified_block_work_check,
+    "word_problem": _verified_block_word_problem,
 }
 
 
-def _build_verified_block(
-    intent: MathIntent | PhysicsIntent, settings: Settings
-) -> VerifiedMathBlock | None:
+def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
     lines: list[str] = []
 
-    # Deferred: physics.block imports this package's shared block primitives, so
-    # importing it at module level would close an import cycle whenever physics
-    # is imported first. Same reason SCHOOL_BLOCK_BUILDERS is imported below.
-    from app.modules.physics import PHYSICS_BLOCK_BUILDERS
-
     try:
-        # Explicit _BlockBuilder annotation on first assignment: SCHOOL_BLOCK_BUILDERS
-        # and PHYSICS_BLOCK_BUILDERS have their own, independently-inferred value
-        # types (the former all-MathIntent, the latter all-PhysicsIntent) — without
-        # this, mypy would infer `builder`'s type fresh at each reassignment below
-        # instead of checking each against one declared type.
         builder: _BlockBuilder | None = _BLOCK_BUILDERS.get(intent.kind)
         if builder is None:
             from app.modules.math.tools.school import SCHOOL_BLOCK_BUILDERS
 
             builder = SCHOOL_BLOCK_BUILDERS.get(intent.kind)
         if builder is None:
-            builder = PHYSICS_BLOCK_BUILDERS.get(intent.kind)
-        if builder is None:
             return None
         block = builder(intent, settings, lines)
         if block is None:
             return None
-        from app.services.solving import wrap_verified_math, wrap_verified_physics
+        from app.services.solving import wrap_verified_math
 
-        physics_intent = None
-        is_speed_formula = getattr(intent, "school_op", None) in {
-            "average_speed",
-            "speed_formula_speed",
-            "speed_formula_distance",
-            "speed_formula_time",
-        }
-        if intent.kind in PHYSICS_BLOCK_BUILDERS or is_speed_formula:
-            physics_intent = intent.model_copy(deep=True)
-        wrapper = (
-            wrap_verified_physics if intent.kind in PHYSICS_BLOCK_BUILDERS else wrap_verified_math
+        return replace(
+            block,
+            text=wrap_verified_math(block.text),
+            direct_request_text=(intent._request_text if block.direct_reply is not None else None),
+            direct_requires_calculus_guard=bool(
+                block.direct_reply is not None
+                and intent.kind == "calculus"
+                and intent.school_op is None
+                and intent.operation in {"differentiate", "integrate"}
+            ),
+            direct_answer_binding=(
+                block.canonical_answer if block.direct_reply is not None else None
+            ),
         )
-        return replace(block, text=wrapper(block.text), physics_intent=physics_intent)
     except math_solve.MathServiceError as exc:
         logger.info("math_tools skipped: %s", exc)
         return None

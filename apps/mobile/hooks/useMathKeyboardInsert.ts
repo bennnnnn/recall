@@ -24,8 +24,7 @@ import {
   normalizePastedMath,
 } from "@/lib/math/pasteNormalize";
 import { spliceMathBackspace } from "@/lib/math/draftSlots";
-
-export const MATH_PAD_FALLBACK_HEIGHT = 320;
+import { mathPadHeight } from "@/lib/math/keyboardPad";
 
 function hasEditableMath(text: string): boolean {
   return text.includes("$") && !isMostlyProsePaste(text);
@@ -40,7 +39,7 @@ export function useMathKeyboardInsert(options: {
   const { input, setInput, onImageOnlyPaste, draftRevision = 0 } = options;
   const [mathBarOpen, setMathBarOpen] = useState(false);
   const [mathGroup, setMathGroup] = useState<MathKeyboardGroup>("basics");
-  const [padHeight, setPadHeight] = useState(MATH_PAD_FALLBACK_HEIGHT);
+  const [padHeight, setPadHeight] = useState(() => mathPadHeight(0));
   const [selection, setSelection] = useState<TextSelection>({ start: 0, end: 0 });
   const [forcedSelection, setForcedSelection] = useState<TextSelection | undefined>();
   const [previewEnabled, setPreviewEnabled] = useState(false);
@@ -144,7 +143,7 @@ export function useMathKeyboardInsert(options: {
     if (mathBarOpenRef.current) return;
     const measured = Keyboard.metrics()?.height ?? 0;
     if (hasEditableMath(textRef.current)) enablePreview();
-    if (measured >= 200) setPadHeight(measured);
+    setPadHeight(mathPadHeight(measured >= 200 ? measured : 0));
     Keyboard.dismiss();
     resumeMathRef.current = true;
     setResumeMathOnFocus(true);

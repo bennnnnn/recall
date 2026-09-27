@@ -62,6 +62,7 @@ import { IconSize } from "@/ui/icons/sizes";
 type StyleMap = Record<string, object>;
 
 const CHECK_TICK_RE = /([✓✔✅])/u;
+const TRAILING_CHECK_TICK_RE = /[ \t]*([✓✔✅])[ \t]*$/u;
 
 function withGreenTicks(
   text: string,
@@ -104,7 +105,7 @@ function unwrapSingle(node: AstNode): AstNode {
 /** A generated lesson heading, optionally followed by its formula on a new line. */
 function lessonStepParts(
   node: AstNode,
-): { n: string; label: string; formula: string | null } | null {
+): { n: string; label: string; reason: string | null; formula: string | null } | null {
   const kids = unwrapSingle(node).children ?? [];
   const first = kids[0];
   if (!first || first.type !== "strong") return null;
@@ -115,14 +116,23 @@ function lessonStepParts(
     .slice(1)
     .map((kid) => astTextWithBreaks(kid))
     .join("");
-  if (!tail.trim()) return { n: match[1], label: match[2], formula: null };
+  if (!tail.trim()) {
+    return { n: match[1], label: match[2], reason: null, formula: null };
+  }
 
   // The API emits exactly a soft break followed by one formula. Anything
   // inline after the bold heading (links, code, prose, or inline math) is
   // ordinary Markdown and must keep its original rendered children.
-  const formulaMatch = /^\s*\n+\s*\$([^$\n]+)\$\s*$/.exec(tail);
-  const formula = formulaMatch?.[1]?.trim();
-  return formula ? { n: match[1], label: match[2], formula } : null;
+  const formulaMatch = /^\s*(?:—\s*([^\n]+))?\n+\s*\$([^$\n]+)\$\s*$/.exec(tail);
+  const formula = formulaMatch?.[2]?.trim();
+  return formula
+    ? {
+        n: match[1],
+        label: match[2],
+        reason: formulaMatch?.[1]?.trim() || null,
+        formula,
+      }
+    : null;
 }
 
 /**
@@ -163,10 +173,21 @@ function renderTextWithMath(
   // "leads to the next line" marker. It strands as a lone "two dots" between
   // a label and the formula on the next line. Drop it for all content, not
   // just nested-math paragraphs.
-  const content = replaceHtmlBreaks(node.content)
+  let content = replaceHtmlBreaks(node.content)
     .split("\n")
     .filter((line) => line.trim() !== ":")
     .join("\n");
+  // A stacked fraction/root is a native View rather than a text glyph. When
+  // a verification tick follows it, iOS can wrap that tiny final Text onto a
+  // detached line (or the far edge of the bubble). Put the status first for
+  // tall math so it stays visibly attached while the equation may scroll.
+  const trailingTick = TRAILING_CHECK_TICK_RE.exec(content);
+  if (trailingTick) {
+    const withoutTick = content.slice(0, trailingTick.index).trimEnd();
+    if (latexHasNestedMathView(withoutTick)) {
+      content = `${trailingTick[1]} ${withoutTick}`;
+    }
+  }
   const parts = splitInlineMath(content);
   const runHeight = parts.reduce<number | undefined>((acc, p) => {
     if (p.type !== "math") return acc;
@@ -522,6 +543,7 @@ function makeSharedRules(
       }
       const step = lessonStepParts(node);
       if (step) {
+        const stepLabelParts = splitInlineMath(step.label);
         return (
           <View key={node.key} testID="lesson-step" style={styles.paragraphRun}>
             <View
@@ -551,15 +573,66 @@ function makeSharedRules(
                   {step.n}
                 </Text>
               </View>
-              <Text
-                style={[styles.body, styles.text, { flexShrink: 1, color: t.assistantText }]}
-                selectable
+              <View
+                testID="lesson-step-label"
+                style={{
+                  flex: 1,
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
               >
-                {step.label}
-              </Text>
+                {stepLabelParts.map((part, i) =>
+                  part.type === "math" ? (
+                    <MathText
+                      scrollOverflow
+                      key={`${node.key}-label-m-${i}`}
+                      latex={part.value}
+                      textColor={t.assistantText}
+                    />
+                  ) : (
+                    <Text
+                      key={`${node.key}-label-t-${i}`}
+                      style={[styles.body, styles.text, { color: t.assistantText }]}
+                      selectable
+                    >
+                      {part.value}
+                    </Text>
+                  ),
+                )}
+              </View>
             </View>
             {step.formula ? (
               <View testID="lesson-step-formula" style={{ paddingLeft: Space.xl }}>
+                {step.reason ? (
+                  <View
+                    testID="lesson-step-reason"
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                    }}
+                  >
+                    {splitInlineMath(step.reason).map((part, i) =>
+                      part.type === "math" ? (
+                        <MathText
+                          scrollOverflow
+                          key={`${node.key}-reason-m-${i}`}
+                          latex={part.value}
+                          textColor={t.textSecondary}
+                        />
+                      ) : (
+                        <Text
+                          key={`${node.key}-reason-t-${i}`}
+                          style={[styles.body, styles.text, { color: t.textSecondary }]}
+                          selectable
+                        >
+                          {part.value}
+                        </Text>
+                      ),
+                    )}
+                  </View>
+                ) : null}
                 <MathText latex={step.formula} />
               </View>
             ) : null}
@@ -637,18 +710,15 @@ function makeSharedRules(
       children: ReactNode,
       parent: unknown,
       styles: StyleMap,
-    ) => (
-      <Text
-        key={node.key}
-        style={[
+    ) => wrapInlineChildren(
+      node,
+      children,
+      [
           styles.body,
           styles.strong,
           inTableHeader(parent) && mdTable.headerText,
-        ]}
-        selectable
-      >
-        {children}
-      </Text>
+      ],
+      mdMath.inlineWrap,
     ),
     em: (node: { key: string }, children: ReactNode, _p: unknown, styles: StyleMap) => (
       <Text key={node.key} style={[styles.body, styles.em]} selectable>

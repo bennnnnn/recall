@@ -131,3 +131,47 @@ async def test_apply_memory_facts_bounds_embed_concurrency_and_backfill():
 
     assert peak <= 3
     assert memories.update_embedding_if_current.await_count == 5
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("op", "manual_edit", "stamped"),
+    [
+        ("delete", True, True),
+        ("update", True, True),
+        ("add", True, False),
+        ("delete", False, False),
+    ],
+)
+async def test_apply_memory_facts_stamps_a_hand_edit_in_the_same_commit(op, manual_edit, stamped):
+    session = AsyncMock()
+    memories = AsyncMock()
+    memories.apply_writes = AsyncMock(return_value=[])
+    memories.list_for_user = AsyncMock(return_value=[])
+    user_id = uuid4()
+
+    def session_factory() -> _SessionContext:
+        return _SessionContext(session)
+
+    with (
+        patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.modules.home.invalidate_home_cache", AsyncMock()),
+    ):
+        await apply_memory_facts(
+            Settings(),
+            user_id=user_id,
+            writes=[
+                MemoryFactWrite(
+                    op=op, type="fact", text="User likes chess", confidence=0.9, match_text="chess"
+                )
+            ],
+            session_factory=session_factory,
+            memories=memories,
+            manual_edit=manual_edit,
+        )
+
+    if stamped:
+        memories.note_manual_edit.assert_awaited_once_with(session, user_id)
+    else:
+        memories.note_manual_edit.assert_not_awaited()
+    session.commit.assert_awaited_once()

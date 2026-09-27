@@ -28,7 +28,7 @@ import type {
 } from "@/components/chat/ChatScreenBody";
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
-import type { Message } from "@/lib/api";
+import type { MathScanReading, Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
@@ -101,7 +101,13 @@ export type UseChatScreenBodyPropsParams = {
     handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
     mathScannerOpen: boolean;
     closeMathScanner: () => void;
-    handleMathScanCaptured: (pending: PendingAttachment, subject: ScannerSubject) => void;
+    handleMathScanCaptured: (
+      pending: PendingAttachment,
+      subject: ScannerSubject,
+      confirmedReading?: string,
+    ) => void;
+    readMathScan: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
+    handleMathScanSolve: (reading: string) => void;
     onOpenMathScanner?: () => void;
     onMathChromeHeightChange?: (height: number) => void;
     onInputFrameExtraChange?: (extra: number) => void;
@@ -182,6 +188,8 @@ export function useChatScreenBodyProps({
     mathScannerOpen,
     closeMathScanner,
     handleMathScanCaptured,
+    readMathScan,
+    handleMathScanSolve,
     onOpenMathScanner,
     onMathChromeHeightChange,
     onInputFrameExtraChange,
@@ -486,6 +494,8 @@ export function useChatScreenBodyProps({
       mathScannerOpen,
       onCloseMathScanner: closeMathScanner,
       onMathScanCaptured: handleMathScanCaptured,
+      onReadMathScan: readMathScan,
+      onMathScanSolve: handleMathScanSolve,
       upgradeVisible,
       onCloseUpgrade,
     }),
@@ -496,6 +506,8 @@ export function useChatScreenBodyProps({
       mathScannerOpen,
       closeMathScanner,
       handleMathScanCaptured,
+      readMathScan,
+      handleMathScanSolve,
       upgradeVisible,
       onCloseUpgrade,
     ],

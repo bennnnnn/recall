@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (S1-S4, S7-S10 shipped: `PhysicsIntent` split from `MathIntent`; S5-S6 open). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md) (tutoring roadmap: [docs/MATH_TUTORING_TICKETS.md](./docs/MATH_TUTORING_TICKETS.md)). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (S1-S4, S7-S10 shipped: `PhysicsIntent` split from `MathIntent`; S5-S6 open). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -30,7 +30,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `pro`) is driven by RevenueCat.
 - **chat** — a conversation; has an auto-generated title.
 - **message** — one turn (`user` | `assistant` | `system`).
-- **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`), cap 150 active. `type` (`profile` | `preference` | `project` | `fact` | `focus`) is UI grouping. Sensitive topics are not auto-stored unless the user said “remember” or opted in. Extraction is post-turn.
+- **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`), cap 150 active. `topic` files each fact into a Claude-style page (`modules/memory/topics.py`: You = profile, preferences; Topics = interests, tech-stack, schedule, recent-work, goals, side-projects, notes; Areas = `area:<slug>` with a title row in `memory_areas`); `type` (`profile` | `preference` | `project` | `fact` | `focus`) follows the topic and sets prompt priority. Sensitive topics are not auto-stored unless the user said “remember” or opted in. Extraction is post-turn; a one-time `memory_history_scan` reads recent chats, only adds missing facts, and skips lines older than the user's last hand edit (`users.memory_edited_at`).
 - **model alias** — product-level model name mapped to a provider by the gateway.
 - **quota** — per-user daily token budget (free tier 100k/day).
 - **todo** — a lightweight task the user tracks; optionally linked to a chat.
@@ -124,7 +124,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | My Job | `modules/job_search/` | `features/job-search/`; `app/my-job/` routes only |
 | Chat history | `modules/chat/` (HTTP `/chats`) | drawer history; `lib/api/chats.ts` until the mobile chat move |
 | Chat stream | `routers/ws.py`, `chat_stream.py`; `services/chat/` | `app/index.tsx`, `hooks/useChat*.ts`, `components/chat/` |
-| Memory | `modules/memory/` (HTTP `/memories`) | `features/memory/`; `app/memory.tsx` route only |
+| Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `settings/models.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Suggestions | `modules/suggestions/` (HTTP `/suggestions`) | `features/suggestions/`; follow-up chips |
@@ -137,7 +137,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`) | `features/images/`; checked before image-gen intent in `useChatSend` |
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |
-| Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`) | `MathText` / `MathView` / `geometry` / `graph` |
+| Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`; HTTP `/math/scan/read`). Lessons, check my work (`work_check`), word problems (`word_problem`) | `MathText` / `MathView` / `geometry` / `graph`; scanner review `components/mathScanner/` |
 | Physics (20 verified kinds) | `modules/physics/` (`extract.py`, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/`, `models/schemas/chemistry/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Calendar / Gmail | `modules/integrations/` (HTTP `/integrations/google-calendar`, `/integrations/google-gmail`) | `features/integrations/`; `app/settings/integrations.tsx` route only |
@@ -148,7 +148,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned My Job, Learning, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, and Speech APIs plus the legacy health, legal, auth, admin, webhooks, users, link_preview, chat_stream, models, analytics, and ws routers.
+**HTTP surfaces registered in** `main.py`: the module-owned My Job, Learning, Math, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, and Speech APIs plus the legacy health, legal, auth, admin, webhooks, users, link_preview, chat_stream, models, analytics, and ws routers.
 
 **Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
 
@@ -171,7 +171,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 | i18n string | `lib/i18n/*.json` | Key in `en.json` + locales | Delete key from all locale files |
 | Banned UX | `.cursor/rules/chat-ux-bans.mdc` | — | If replacing UX, **delete** the old path |
 
-**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `chemistry_enabled` (on), `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
+**Flags (defaults in `core/config.py`):** `mcp_tool_loop_enabled` (on), `mcp_tools_enabled` (off, legacy), `math_tools_enabled`, `chemistry_enabled` (on), `math_word_problems_enabled` (on), `web_search_enabled`, `attachments_enabled`, `attachment_rag_enabled`, `attachment_ocr_enabled` (on), `chat_history_rag_enabled` (on), `image_generation_enabled`, `image_search_enabled` (on; real reference-photo lookup, separate from AI generation), `speech_*_enabled`, `gmail_enabled`, `google_calendar_enabled`, `push_enabled`, `email_enabled`, `semantic_memory_enabled`, `history_compression_enabled`, `dev_auth_enabled`, `mock_llm_enabled`.
 
 ## The chat loop
 
@@ -189,7 +189,7 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
 
-**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `todos`, `projects`, `language_path`, `compress`, `suggestions`, `gmail_sync`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
+**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `todos`, `projects`, `language_path`, `compress`, `suggestions`, `gmail_sync`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
 
 **Worker** (`worker_main.py`): consumes that stream and runs schedulers (push, email reminders, Gmail periodic, attachment orphan reaper).
 

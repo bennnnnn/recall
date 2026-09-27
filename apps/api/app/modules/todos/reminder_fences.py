@@ -66,6 +66,20 @@ _OK_PREFIX = {
     "clear_due": "Date removed",
 }
 
+_DECLINES_REMINDER_CREATE_RE = re.compile(
+    r"\b(?:do\s+not|don(?:'|\u2019)?t|dont|never)\s+"
+    r"(?:(?:create|set|add|make|save|schedule)\s+(?:me\s+)?(?:a\s+|the\s+|any\s+)?reminder"
+    r"|remind\s+me)\b"
+    r"|\bwithout\s+(?:creating|setting|adding|making|saving|scheduling)\s+"
+    r"(?:a\s+|the\s+|any\s+)?reminder\b",
+    re.IGNORECASE,
+)
+
+
+def explicitly_declines_reminder_creation(user_text: str | None) -> bool:
+    """True when this turn explicitly asks Recall not to save a reminder."""
+    return bool(user_text and _DECLINES_REMINDER_CREATE_RE.search(user_text))
+
 
 class _ReminderFence(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
@@ -328,6 +342,8 @@ def parse_spoken_remind(
     """
     if not user_text:
         return None
+    if explicitly_declines_reminder_creation(user_text):
+        return None
     lowered = user_text.lower()
     remind_at = _find_phrase(lowered, "remind me")
     if remind_at < 0:
@@ -546,6 +562,20 @@ async def materialize_reminder_fences(
     today/tomorrow at 6pm" (clock required) is applied so the dated To-do is saved.
     """
     spans = _find_reminder_fences(assistant_text)
+    # The user's explicit restraint outranks an LLM-emitted write fence. This
+    # is the last boundary before an external state change, so fail closed even
+    # when the model misunderstood "don't create a reminder".
+    if explicitly_declines_reminder_creation(user_text):
+        if not spans:
+            return assistant_text, 0
+        restraint_parts: list[str] = []
+        last = 0
+        for start, end, _body in spans:
+            restraint_parts.append(assistant_text[last:start])
+            last = end
+        restraint_parts.append(assistant_text[last:])
+        updated = re.sub(r"\n{3,}", "\n\n", "".join(restraint_parts)).strip()
+        return updated, 0
     if not spans:
         draft = _explicit_user_remind(user_text, user_timezone)
         if draft is None:

@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.math import MathImageExtract
+from app.modules.math.response_intent import response_intent_prompt
 from app.modules.math.tools.prompt import (
     VERIFIED_MATH_REPLY_HINT,
     augment_prompt_messages,
@@ -28,9 +29,13 @@ async def test_live_inequality_injects_concise_guidance_nearest_result_and_user(
         {"start": -2.0, "end": 2.0, "start_inclusive": False, "end_inclusive": False}
     ]
     assert updated[-1] == messages[-1]
+    assert verified.response_intent is not None
     assert updated[-2] == {
         "role": "system",
-        "content": f"{verified.text}\n\n{VERIFIED_MATH_REPLY_HINT}",
+        "content": (
+            f"{verified.text}\n\n{response_intent_prompt(verified.response_intent)}\n"
+            f"{VERIFIED_MATH_REPLY_HINT}"
+        ),
     }
     assert verified.text.endswith("[END VERIFIED MATH]")
     assert VERIFIED_MATH_REPLY_HINT not in verified.text
@@ -69,7 +74,11 @@ async def test_verified_camera_math_uses_same_result_adjacent_guidance() -> None
         image_math_extract=MathImageExtract(kind="inequality", lhs="x**2", rhs="4", comparator="<"),
     )
     assert verified is not None and note is not None
-    assert note == f"{verified.text}\n\n{VERIFIED_MATH_REPLY_HINT}"
+    assert verified.response_intent is not None
+    assert note == (
+        f"{verified.text}\n\n{response_intent_prompt(verified.response_intent)}\n"
+        f"{VERIFIED_MATH_REPLY_HINT}"
+    )
 
 
 @pytest.mark.asyncio

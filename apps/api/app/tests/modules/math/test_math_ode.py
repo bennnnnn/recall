@@ -14,6 +14,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.tools import _build_verified_block, extract_math_intent
+from app.modules.math.tools.direct import maybe_direct_math_reply
 
 
 def _settings() -> Settings:
@@ -80,3 +81,26 @@ def test_derivative_ask_is_not_mistaken_for_an_ode() -> None:
 def test_solve_ode_rejects_an_equation_with_no_derivative() -> None:
     with pytest.raises(math_school.MathServiceError):
         math_school.solve_ode("y + 1 = 0")
+
+
+def test_first_order_growth_ode_uses_verified_separation_steps() -> None:
+    query = "Solve y’ = y with y(0)=1. Show the steps."
+    intent = extract_math_intent(query)
+    assert intent is not None
+    block = _build_verified_block(intent, _settings())
+    assert block is not None and block.canonical_answer is not None
+    reply = maybe_direct_math_reply(block, query)
+    assert reply is not None
+    assert "Separate variables" in reply
+    assert r"\frac{1}{y}\,dy = 1\,dx" in reply
+    assert "Use the initial condition" in reply
+    assert block.canonical_answer in reply
+
+
+def test_answer_only_overrides_a_builder_worked_reply() -> None:
+    query = "Solve y'=y with y(0)=1. Just the answer."
+    intent = extract_math_intent(query)
+    assert intent is not None
+    block = _build_verified_block(intent, _settings())
+    assert block is not None and block.canonical_answer is not None
+    assert maybe_direct_math_reply(block, query) == (f"```answer\n{block.canonical_answer}\n```\n")

@@ -77,6 +77,7 @@ def resolve_user_model(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
 ) -> str:
     """Pick a concrete model from the user's Settings preferences."""
     pool = model_pool(user, settings)
@@ -88,6 +89,7 @@ def resolve_user_model(
             settings,
             prior_user=prior_user,
             prior_model=prior_model,
+            lesson_active=lesson_active,
         )
     if len(pool) == 1:
         return pool[0]
@@ -114,6 +116,7 @@ def resolve_user_model_override(
     *,
     prior_user: str | None = None,
     prior_model: str | None = None,
+    lesson_active: bool = False,
 ) -> str:
     """Pick a concrete model, honoring a per-message override when allowed.
 
@@ -127,7 +130,12 @@ def resolve_user_model_override(
             raise UnknownModelOverrideError(model_alias)
         return model_alias
     return resolve_user_model(
-        user, content, settings, prior_user=prior_user, prior_model=prior_model
+        user,
+        content,
+        settings,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
     )
 
 

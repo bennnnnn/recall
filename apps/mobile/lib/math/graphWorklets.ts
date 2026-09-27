@@ -17,6 +17,13 @@ export type GraphViewW = {
 const MIN_SPAN_W = 0.002;
 const MAX_SPAN_W = 1e4;
 
+/** Keep axis chrome visible when panning moves the mathematical origin off-screen. */
+export function dockAxisW(value: number, low: number, high: number): number {
+  "worklet";
+  if (!Number.isFinite(value)) return low;
+  return Math.min(high, Math.max(low, value));
+}
+
 export function clampGraphViewW(view: GraphViewW): GraphViewW {
   "worklet";
   let { xMin, xMax, yMin, yMax } = view;
@@ -191,6 +198,53 @@ export function nearestSampleW(
       bestDist = dist;
       best = { x: px, y: py, index: i };
     }
+  }
+  return best;
+}
+
+/** Pick the curve sample nearest the finger in screen space. */
+export function nearestTraceSampleW(
+  series: readonly { visible: boolean; color: string; points: [number, number][] }[],
+  fingerPx: number,
+  fingerPy: number,
+  bounds: GraphViewW,
+  width: number,
+  height: number,
+  pad: number,
+  maxDistancePx = 28,
+): {
+  px: number;
+  py: number;
+  x: number;
+  y: number;
+  index: number;
+  seriesIndex: number;
+  color: string;
+} | null {
+  "worklet";
+  const finger = unmapPointW(fingerPx, fingerPy, bounds, width, height, pad);
+  let best: {
+    px: number;
+    py: number;
+    x: number;
+    y: number;
+    index: number;
+    seriesIndex: number;
+    color: string;
+  } | null = null;
+  let bestDistanceSquared = maxDistancePx * maxDistancePx;
+  for (let seriesIndex = 0; seriesIndex < series.length; seriesIndex += 1) {
+    const row = series[seriesIndex];
+    if (!row.visible || row.points.length === 0) continue;
+    const snap = nearestSampleW(row.points, finger.x);
+    if (!snap) continue;
+    const { px, py } = mapPointW(snap.x, snap.y, bounds, width, height, pad);
+    const dx = px - fingerPx;
+    const dy = py - fingerPy;
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared > bestDistanceSquared) continue;
+    bestDistanceSquared = distanceSquared;
+    best = { ...snap, px, py, seriesIndex, color: row.color };
   }
   return best;
 }

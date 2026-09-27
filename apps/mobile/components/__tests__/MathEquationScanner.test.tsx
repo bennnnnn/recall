@@ -3,7 +3,7 @@ import { Dimensions, Image } from "react-native";
 import * as ImageManipulator from "expo-image-manipulator";
 
 import { pickImageDocument } from "@/features/attachments/model/attachments";
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, within } from "@testing-library/react-native";
 
 import { MathEquationScanner } from "@/components/MathEquationScanner";
 import { selection } from "@/lib/haptics";
@@ -245,6 +245,118 @@ describe("imported math scanner photos", () => {
     expect(onCaptured).toHaveBeenCalledWith(
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
       "math",
+    );
+  });
+
+  async function cropForReview(
+    read: jest.Mock,
+    extra: Partial<React.ComponentProps<typeof MathEquationScanner>> = {},
+  ) {
+    const onCaptured = jest.fn();
+    const onSolveReading = jest.fn();
+    const view = await render(
+      <MathEquationScanner
+        visible
+        onClose={jest.fn()}
+        onCaptured={onCaptured}
+        onReadScan={read}
+        onSolveReading={onSolveReading}
+        {...extra}
+      />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_photos_a11y"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    return { ...view, onCaptured, onSolveReading };
+  }
+
+  it("reads a math crop back and solves the confirmed text", async () => {
+    const read = jest.fn(async () => ({ reading: "2x + 3 = 7", uncertain: false, source: "mathpix" }));
+    const view = await cropForReview(read);
+    expect(read).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      expect.anything(),
+    );
+    const review = within(view.getByTestId("math-scan-review"));
+    await act(async () => {
+      fireEvent.changeText(review.getByTestId("math-scan-reading"), "2x + 3 = 11");
+    });
+    await act(async () => {
+      fireEvent.press(review.getByText("chat.math_scan_solve"));
+    });
+    expect(view.onSolveReading).toHaveBeenCalledWith("2x + 3 = 11");
+    expect(view.onCaptured).not.toHaveBeenCalled();
+  });
+
+  it("sends the photo with the reading the student checked", async () => {
+    const read = jest.fn(async () => ({ reading: "x^2 = 9", uncertain: true, source: "vision" }));
+    const view = await cropForReview(read);
+    const review = within(view.getByTestId("math-scan-review"));
+    expect(review.getByText("chat.math_scan_uncertain")).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(review.getByText("chat.math_scan_send_photo"));
+    });
+    expect(view.onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "math",
+      "x^2 = 9",
+    );
+  });
+
+  it("falls back to the photo when the read fails", async () => {
+    const read = jest.fn(async () => null);
+    const view = await cropForReview(read);
+    const review = within(view.getByTestId("math-scan-review"));
+    expect(review.getByText("chat.math_scan_read_failed")).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(review.getByText("chat.math_scan_send_photo"));
+    });
+    expect(view.onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "math",
+      undefined,
+    );
+  });
+
+  it("retakes from the review back to the camera", async () => {
+    const read = jest.fn(async () => ({ reading: "2x = 4", uncertain: false, source: "mathpix" }));
+    const view = await cropForReview(read);
+    await act(async () => {
+      fireEvent.press(within(view.getByTestId("math-scan-review")).getByText("chat.math_scan_retake"));
+    });
+    expect(view.queryByTestId("math-scan-review")).toBeNull();
+    expect(view.queryByTestId("math-scanner-preview")).toBeNull();
+    expect(view.onCaptured).not.toHaveBeenCalled();
+  });
+
+  it("sends physics photos straight through without a read", async () => {
+    const read = jest.fn(async () => ({ reading: "v = 3", uncertain: false, source: "mathpix" }));
+    const onCaptured = jest.fn();
+    const view = await render(
+      <MathEquationScanner
+        visible
+        onClose={jest.fn()}
+        onCaptured={onCaptured}
+        onReadScan={read}
+        onSolveReading={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByTestId("scanner-subject-physics"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_photos_a11y"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    expect(read).not.toHaveBeenCalled();
+    expect(onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "physics",
     );
   });
 

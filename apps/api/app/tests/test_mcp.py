@@ -1,6 +1,7 @@
 """MCP adapter tests."""
 
 import asyncio
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -58,6 +59,93 @@ async def test_web_search_adapter_uses_cached_search_with_quota_context(fake_red
     assert result.data["hits"] == [
         {"title": "T", "url": "https://example.com", "snippet": "s"},
     ]
+
+
+@pytest.mark.asyncio
+async def test_web_search_adapter_date_anchors_current_news(fake_redis):
+    from app.gateways.web_search_gateway import WebSearchHit
+    from app.modules.web_search import bind_search_quota_context
+    from app.modules.web_search.query_builders import _today_label
+
+    adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
+    today = _today_label("America/Los_Angeles")
+    hit = WebSearchHit(title="T", url="https://example.com", snippet=f"Reported {today}.")
+    cached = AsyncMock(return_value=([hit], ["q"]))
+
+    with (
+        patch("app.modules.web_search.tool.run_cached_search", cached),
+        bind_search_quota_context(
+            redis=fake_redis,
+            query="What's happening in the U.S. today?",
+            user_timezone="America/Los_Angeles",
+        ),
+    ):
+        result = await adapter.invoke({"query": "major U.S. news today"})
+
+    searched = cached.await_args.args[1][0]
+    assert searched.startswith("major U.S. news today ")
+    assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", searched)
+    assert "Only 1 matching result(s) were verified" in result.content
+    assert "do not invent extra items" in result.content
+
+
+@pytest.mark.asyncio
+async def test_web_search_adapter_rejects_old_results_for_ai_developments_today(fake_redis):
+    from app.gateways.web_search_gateway import WebSearchHit
+    from app.modules.web_search import bind_search_quota_context
+
+    adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
+    stale = WebSearchHit(
+        title="Meta releases Llama 3",
+        url="https://example.com/old",
+        snippet="Published April 18, 2024.",
+    )
+    cached = AsyncMock(return_value=([stale], ["q"]))
+
+    with (
+        patch("app.modules.web_search.tool.run_cached_search", cached),
+        bind_search_quota_context(
+            redis=fake_redis,
+            query="What are the three most important AI developments today?",
+            user_timezone="America/Los_Angeles",
+        ),
+    ):
+        result = await adapter.invoke({"query": "AI developments today"})
+
+    searched = cached.await_args.args[1][0]
+    assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", searched)
+    assert "Only 0 independently dated same-day result(s) were found" in result.content
+    assert result.data is None
+
+
+@pytest.mark.asyncio
+async def test_web_search_adapter_does_not_expand_one_today_source_into_three_items(fake_redis):
+    from app.gateways.web_search_gateway import WebSearchHit
+    from app.modules.web_search import bind_search_quota_context
+    from app.modules.web_search.query_builders import _today_label
+
+    adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
+    today = _today_label("America/Los_Angeles")
+    one_hit = WebSearchHit(
+        title="AI roundup",
+        url="https://example.com/today",
+        snippet=f"Updated {today}.",
+    )
+    cached = AsyncMock(return_value=([one_hit], ["q"]))
+
+    with (
+        patch("app.modules.web_search.tool.run_cached_search", cached),
+        bind_search_quota_context(
+            redis=fake_redis,
+            query="What are the three most important AI developments today?",
+            user_timezone="America/Los_Angeles",
+        ),
+    ):
+        result = await adapter.invoke({"query": "AI developments today"})
+
+    assert "Only 1 independently dated same-day result(s) were found" in result.content
+    assert "split one source into multiple developments" in result.content
+    assert result.data is None
 
 
 @pytest.mark.asyncio

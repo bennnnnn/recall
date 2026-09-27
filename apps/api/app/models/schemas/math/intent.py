@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
+
+from app.models.schemas.math.word_problem import WordProblemSetup
 
 
 class MathIntent(BaseModel):
+    # Original user request that produced this deterministic intent. It is
+    # runtime guard metadata, not part of the tool schema or persisted model.
+    # Direct replies compare it with the current turn so a worked answer built
+    # for one request cannot be reused for a different or compound request.
+    _request_text: str | None = PrivateAttr(default=None)
     kind: Literal[
         "equation",
         "rectangle",
@@ -41,6 +48,8 @@ class MathIntent(BaseModel):
         "probability",
         "complex",
         "unit",
+        "work_check",
+        "word_problem",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -58,6 +67,8 @@ class MathIntent(BaseModel):
     base: float | None = None
     side: float | None = None
     radius: float | None = None
+    chord_length: float | None = None
+    wants_center_distance: bool = False
     point_x: float | None = None
     point_y: float | None = None
     unit: str = "cm"
@@ -82,6 +93,9 @@ class MathIntent(BaseModel):
     ) = None
     # 1 = first derivative (default). "second derivative" sets 2, etc.
     derivative_order: int = 1
+    # Optional point for "differentiate f(x) at x=a". Kept separate from a
+    # limit point because derivative existence requires a two-sided quotient.
+    evaluation_point: str | None = None
     # Limit/series bounds — strings, not float, since "infinity"/"oo" is a
     # valid bound alongside a plain number (see
     # math_solve._parse_infinity_aware_point).
@@ -213,6 +227,12 @@ class MathIntent(BaseModel):
     wants_surface_area: bool = False
     # School extras (arithmetic / coord / vectors / probability / units).
     school_op: str | None = None
+    arithmetic_operands: list[str] | None = None
+    division_answer_mode: (
+        Literal["remainder", "fraction", "decimal", "round_up", "discard"] | None
+    ) = None
+    fraction_operands: list[str] | None = None
+    fraction_target: int | None = None
     x2: float | None = None
     y2: float | None = None
     vec_a: list[float] | None = None
@@ -221,4 +241,17 @@ class MathIntent(BaseModel):
     percent_base: float | None = None
     unit_from: str | None = None
     unit_to: str | None = None
+    temperature_compare_value: float | None = None
+    temperature_compare_unit: str | None = None
     taylor_n: int | None = None
+    # Initial condition for a first/second-order ODE, when supplied.
+    initial_x: str | None = None
+    initial_y: str | None = None
+    # kind == "work_check": the student's lines, one relation each, as written
+    # ("2x+3=11", "2x=8", "x=4"); line 1 is the problem they are checked against.
+    work_lines: list[str] | None = None
+    # "Don't finish it for me": name the slip, never the fixed line or answer.
+    work_hint_only: bool = False
+    # kind == "word_problem": the model's translation into unknowns and
+    # equations, checked for numbers the problem never states before SymPy.
+    word_problem: WordProblemSetup | None = None

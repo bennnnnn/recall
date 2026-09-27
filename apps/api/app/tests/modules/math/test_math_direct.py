@@ -147,6 +147,10 @@ def test_can_direct_skips_geometry_and_camera() -> None:
         "graph it",
         "plot this equation",
         "please graph it",
+        "graph y=x^3 and let me explore it",
+        "graph y=x^3 and make it interactive",
+        "graph y=x^3 with pinch and pan controls",
+        "graph y=x^3 that I can zoom and drag around",
     ],
 )
 def test_plain_explicit_graph_returns_complete_canonical_fence(query: str) -> None:
@@ -171,6 +175,13 @@ def test_plain_explicit_graph_returns_complete_canonical_fence(query: str) -> No
         "graph y=x^3 and 1+1",
         "graph y=x^3 then factor x^2-1",
         "graph y=x^3 and tell me a joke",
+        "graph y=x^3 and let me explore it and solve x+1=2",
+        "graph y=x^3 with interactive steps explaining the curve",
+        "graph y=x^3 and move the graph up",
+        "graph y=x^3 and move it up",
+        "graph y=x^3 and drag it left",
+        "graph y=x^3 and pan right",
+        "graph y=x^3 and zoom in",
         "graph y=x^3, describe its shape",
         "graph y=x^3; 2+2",
         "graph y=x^3\nshow your work",
@@ -311,12 +322,36 @@ async def test_one_plus_one_returns_direct_reply(thread_sympy_executor: None) ->
 
 
 @pytest.mark.asyncio
-async def test_explain_keeps_llm_path(thread_sympy_executor: None) -> None:
+async def test_explain_every_step_uses_verified_lesson(thread_sympy_executor: None) -> None:
     settings = Settings(math_tools_enabled=True)
     content = "Solve 1+1=x and explain every step"
     _block, verified = await build_math_augmentation(content, settings)
     assert verified is not None
-    assert maybe_direct_math_reply(verified, content) is None
+    reply = maybe_direct_math_reply(verified, content)
+    assert reply is not None
+    assert "**1." in reply
+    assert "```answer" in reply
+
+
+@pytest.mark.asyncio
+async def test_reported_quadratic_with_presentation_constraints_uses_verified_lesson(
+    thread_sympy_executor: None,
+) -> None:
+    settings = Settings(math_tools_enabled=True)
+    content = (
+        "Solve 3x^2 + 3 = 30. Show every step, explain why each step is valid, "
+        "and keep x lowercase in the final answer."
+    )
+    _block, verified = await build_math_augmentation(content, settings)
+    assert verified is not None
+
+    reply = maybe_direct_math_reply(verified, content)
+
+    assert reply is not None
+    assert "**1." in reply
+    assert "```answer" in reply
+    assert "x" in reply
+    assert "X" not in reply
 
 
 @pytest.mark.asyncio

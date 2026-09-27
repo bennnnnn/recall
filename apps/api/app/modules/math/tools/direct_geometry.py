@@ -51,11 +51,25 @@ def can_direct_rectangle(
             or geometry.get("unit") != named.unit
             or geometry.get("show_angle") is not False
             or geometry.get("show_diagonal") is not (named.quantity == "diagonal")
-            or geometry.get("show_perimeter") is not (named.quantity == "perimeter")
+            or geometry.get("show_perimeter")
+            is not (named.quantity in {"perimeter", "area_and_perimeter"})
             or geometry.get("show_area")
-            is not (named.quantity == "area" or named.given_area is not None)
+            is not (
+                named.quantity in {"area", "area_and_perimeter"} or named.given_area is not None
+            )
         ):
             return False
+        if named.quantity == "area_and_perimeter":
+            area = _finite_number(geometry.get("area"))
+            perimeter = _finite_number(geometry.get("perimeter"))
+            answer = (verified.canonical_answer or "").strip()
+            return (
+                area is not None
+                and perimeter is not None
+                and answer
+                == rf"A = {area:g}\ \mathrm{{{named.unit}}}^{{2}},\quad "
+                rf"P = {perimeter:g}\ \mathrm{{{named.unit}}}"
+            )
         field = named.target or named.quantity
         field = "height" if field == "length" else field
         value = _finite_number(geometry.get(field))

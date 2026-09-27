@@ -154,6 +154,7 @@ async def run_tool_loop_path(
         redis=redis,
         chat_id=ctx.chat_id,
         web_search=web_search_flag,
+        user_timezone=ctx.user_timezone,
     )
     if tool_verified is not None:
         ctx.verified_math = tool_verified
@@ -273,17 +274,25 @@ async def enrich_final_content(
                     user_id=ctx.user_id,
                     chat_id=ctx.chat_id,
                     assistant_text=assistant_text,
-                    user_timezone=getattr(user, "timezone", None),
+                    user_timezone=ctx.user_timezone or getattr(user, "timezone", None),
                     user_text=ctx.user_message_content,
                 )
 
         from app.modules.math.sympy_executor import run_sympy
+        from app.services.solving import VerifiedPhysicsBlock
 
         try:
+            if isinstance(ctx.verified_math, VerifiedPhysicsBlock):
+                from app.modules.physics.fence import validate_physics_fences
+
+                assistant_text = validate_physics_fences(
+                    assistant_text,
+                    verified=ctx.verified_math,
+                )
             # Direct verified replies already carry ```answer. Running that
             # rewrite on the SymPy pool can queue behind an integral for no
             # benefit — keep it in-process.
-            if ctx.instant_reply is not None and ctx.verified_math is not None:
+            elif ctx.instant_reply is not None and ctx.verified_math is not None:
                 assistant_text = seams.math_fence_service.validate_math_fences_worker(
                     assistant_text, ctx.verified_math
                 )
@@ -309,15 +318,15 @@ async def enrich_final_content(
                 assistant_text, canonical
             )
 
-        if ctx.math_unverified is True:
+        if ctx.subject_unverified == "math" or ctx.math_unverified is True:
             assistant_text = seams.math_fence_service.append_unverified_math_note(assistant_text)
 
         # Prompt scaffolding must never survive into the reply. The model is
         # told not to mention a system block, but instruction is not
         # enforcement — this is the enforcement.
-        from app.services.solving import strip_verified_math_markers
+        from app.services.solving import strip_verified_solve_markers
 
-        assistant_text = strip_verified_math_markers(assistant_text)
+        assistant_text = strip_verified_solve_markers(assistant_text)
 
         from app.modules.learning import strip_learning_chat_fences
 
@@ -364,13 +373,20 @@ async def enrich_final_content(
         # Prose artifact cleanup — runs last so it never interferes with
         # fence parsing. Strips orphan colon lines and collapses 3+ blank
         # lines.
-        from app.services.chat.prose_normalizer import normalize_prose_artifacts, prose_changed
+        from app.services.chat.prose_normalizer import (
+            normalize_prose_artifacts,
+            prose_changed,
+            strip_unrequested_recipient_placeholders,
+        )
         from app.services.md_fence_scan import close_unclosed_fences
 
         # A provider can report a normal finish while still omitting a fence
         # closer. Always repair odd fence parity so settled rendering never
         # leaves raw backticks or an open streaming-style block behind.
         assistant_text = close_unclosed_fences(assistant_text)
+        assistant_text = strip_unrequested_recipient_placeholders(
+            assistant_text, ctx.user_message_content
+        )
 
         normalized = normalize_prose_artifacts(assistant_text)
         if prose_changed(assistant_text, normalized):

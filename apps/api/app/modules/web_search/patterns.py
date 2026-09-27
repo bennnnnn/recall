@@ -83,6 +83,9 @@ def has_recency(text: str) -> bool:
             if i == -1:
                 return False
             before_ok = i == 0 or not low[i - 1].isalnum()
+            if phrase in {"score", "scores"} and i > 0 and low[i - 1] == "-":
+                # ``z-score`` is a stable statistics term, not a live sports score.
+                before_ok = False
             after = i + len(phrase)
             after_ok = after >= len(low) or not low[after].isalnum()
             if before_ok and after_ok:
@@ -111,12 +114,12 @@ def has_recency(text: str) -> bool:
 
 _NEWS = re.compile(
     r"\b("
-    r"what(?:'s| is) (?:happening|going on|new|in the news)"
+    r"what(?:['\u2019]s| is) (?:happening|going on|new|in the news)"
     r"|top (?:news|stories|headlines)"
     r"|news (?:today|this week|stories)"
     r"|in the world(?: today)?"
     r"|world news|current events"
-    r"|what(?:'s| is) cookin(?:'|g)?(?: in the world)?"
+    r"|what(?:['\u2019]s| is) cookin(?:['\u2019]|g)?(?: in the world)?"
     r")\b",
     re.IGNORECASE,
 )
@@ -356,6 +359,8 @@ _FROM_USER = re.compile(
     r"\b(?:from\s+(?:me|here|my\s+(?:location|place))|to\s+me|where\s+i\s+am)\b",
     re.IGNORECASE,
 )
+
+_FIXED_DISTANCE_FROM = re.compile(r"\bdistance\s+from\b", re.IGNORECASE)
 
 
 def distance_between_phrase(text: str) -> bool:

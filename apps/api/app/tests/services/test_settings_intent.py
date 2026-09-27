@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.settings_intent import extract_settings_changes
+from app.services.settings_intent import SettingsChange, extract_settings_changes
 
 
 @pytest.mark.parametrize(
@@ -56,3 +56,27 @@ def test_can_extract_two_allowlisted_changes() -> None:
     fields = {item.field: item.value for item in changes}
     assert fields["appearance"] == "dark"
     assert fields["response_tone"] == "professional"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Make it less formal.",
+        "Now make it professional.",
+        "Make this version casual.",
+    ],
+)
+def test_referential_tone_change_revises_prior_message_draft(text: str) -> None:
+    prior = "```message\nHi Sam, I will be 20 minutes late.\n```"
+
+    assert extract_settings_changes(text, prior_assistant=prior) == []
+
+
+def test_explicit_setting_change_still_wins_after_message_draft() -> None:
+    prior = "```message\nHi Sam, I will be 20 minutes late.\n```"
+
+    changes = extract_settings_changes(
+        "Set my app preference to professional.", prior_assistant=prior
+    )
+
+    assert changes == [SettingsChange("response_tone", "professional")]

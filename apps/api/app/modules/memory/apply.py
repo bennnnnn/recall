@@ -27,8 +27,14 @@ async def apply_memory_facts(
     session_factory: MemorySessionFactory = SessionLocal,
     memories: Any = memories_repo,
     expected_facts: dict[UUID, str] | None = None,
+    manual_edit: bool = False,
 ) -> None:
-    """Persist fact ops, (re)embed stale rows, then invalidate caches."""
+    """Persist fact ops, (re)embed stale rows, then invalidate caches.
+
+    ``manual_edit`` marks writes the user asked for (a plain-words edit, a
+    "forget ..."). When they change or remove saved facts, the edit is stamped
+    in the same transaction so the history scan cannot bring the old facts back.
+    """
     if not writes:
         return
 
@@ -49,6 +55,8 @@ async def apply_memory_facts(
                 active_cap=settings.memory_active_fact_cap,
                 commit=False,
             )
+            if manual_edit and any(write.op != "add" for write in writes):
+                await memories.note_manual_edit(session, user_id)
             updated = await memories.list_for_user(
                 session, user_id, include_muted=False, include_superseded=False
             )
