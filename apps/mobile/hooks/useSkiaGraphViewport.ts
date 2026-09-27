@@ -12,6 +12,8 @@ import {
 } from "@/lib/math/graphWorklets";
 import type { GraphView } from "@/lib/math/graphViewport";
 
+const TRACE_PRESS_DELAY_MS = 80;
+
 type Args = {
   width: number;
   height: number;
@@ -74,7 +76,7 @@ export function useSkiaGraphViewport({
     });
 
   const longPress = Gesture.LongPress()
-    .minDuration(220)
+    .minDuration(TRACE_PRESS_DELAY_MS)
     .onStart((e) => {
       "worklet";
       traceActive.value = true;

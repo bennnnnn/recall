@@ -201,3 +201,50 @@ export function nearestSampleW(
   }
   return best;
 }
+
+/** Pick the curve sample nearest the finger in screen space. */
+export function nearestTraceSampleW(
+  series: readonly { visible: boolean; color: string; points: [number, number][] }[],
+  fingerPx: number,
+  fingerPy: number,
+  bounds: GraphViewW,
+  width: number,
+  height: number,
+  pad: number,
+  maxDistancePx = 28,
+): {
+  px: number;
+  py: number;
+  x: number;
+  y: number;
+  index: number;
+  seriesIndex: number;
+  color: string;
+} | null {
+  "worklet";
+  const finger = unmapPointW(fingerPx, fingerPy, bounds, width, height, pad);
+  let best: {
+    px: number;
+    py: number;
+    x: number;
+    y: number;
+    index: number;
+    seriesIndex: number;
+    color: string;
+  } | null = null;
+  let bestDistanceSquared = maxDistancePx * maxDistancePx;
+  for (let seriesIndex = 0; seriesIndex < series.length; seriesIndex += 1) {
+    const row = series[seriesIndex];
+    if (!row.visible || row.points.length === 0) continue;
+    const snap = nearestSampleW(row.points, finger.x);
+    if (!snap) continue;
+    const { px, py } = mapPointW(snap.x, snap.y, bounds, width, height, pad);
+    const dx = px - fingerPx;
+    const dy = py - fingerPy;
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared > bestDistanceSquared) continue;
+    bestDistanceSquared = distanceSquared;
+    best = { ...snap, px, py, seriesIndex, color: row.color };
+  }
+  return best;
+}

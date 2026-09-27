@@ -6,6 +6,7 @@
  * fallback for Expo Go and stale dev clients.
  */
 import { GestureDetector } from "react-native-gesture-handler";
+import { StyleSheet } from "react-native";
 import {
   Canvas,
   Circle,
@@ -29,8 +30,7 @@ import {
   formatShortW,
   formatTickW,
   mapPointW,
-  nearestSampleW,
-  unmapPointW,
+  nearestTraceSampleW,
   type GraphViewW,
 } from "@/lib/math/graphWorklets";
 import type { Theme } from "@/lib/theme";
@@ -316,18 +316,22 @@ export function SkiaGraphCanvas({
 
   const trace = useDerivedValue(() => {
     if (!traceActive.value) return null;
-    const b = bounds.value;
-    const finger = unmapPointW(tracePos.value.px, tracePos.value.py, b, width, height, pad);
-    const row = drawn.find((r) => r.visible && r.points.length > 1);
-    if (!row) return null;
-    const snap = nearestSampleW(row.points, finger.x);
-    if (!snap) return null;
-    const { px, py } = mapPointW(snap.x, snap.y, b, width, height, pad);
-    return { px, py, x: snap.x, y: snap.y, index: snap.index, color: row.color };
+    return nearestTraceSampleW(
+      drawn,
+      tracePos.value.px,
+      tracePos.value.py,
+      bounds.value,
+      width,
+      height,
+      pad,
+    );
   }, [drawn, width, height, pad]);
 
   useAnimatedReaction(
-    () => trace.value?.index ?? -1,
+    () =>
+      trace.value == null
+        ? -1
+        : trace.value.seriesIndex * 1_000_000 + trace.value.index,
     (index, previous) => {
       if (index >= 0 && index !== previous) runOnJS(selection)();
     },
@@ -428,10 +432,10 @@ export function SkiaGraphCanvas({
             path={traceLine}
             color={theme.textTertiary}
             style="stroke"
-            strokeWidth={1}
+            strokeWidth={StyleSheet.hairlineWidth}
           />
           <Circle cx={traceX} cy={traceY} r={5.5} color={traceColor} />
-          <Circle cx={traceX} cy={traceY} r={2.5} color={theme.bg} />
+          <Circle cx={traceX} cy={traceY} r={2.5} color={theme.surface} />
         </Group>
         {font
           ? SLOT_INDICES.map((i) => (

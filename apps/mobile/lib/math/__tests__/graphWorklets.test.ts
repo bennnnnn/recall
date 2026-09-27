@@ -13,6 +13,7 @@ import {
   formatTickW,
   mapPointW,
   nearestSampleW,
+  nearestTraceSampleW,
   panGraphViewW,
   unmapPointW,
   zoomGraphViewW,
@@ -82,6 +83,45 @@ describe("nearestSampleW", () => {
 
   it("returns null for an empty series", () => {
     expect(nearestSampleW([], 1)).toBeNull();
+  });
+});
+
+describe("nearestTraceSampleW", () => {
+  const bounds = { xMin: -6, xMax: 6, yMin: -4, yMax: 4 };
+  const width = 360;
+  const height = 220;
+  const pad = 28;
+
+  it("snaps to the touched curve when multiple curves share the same x", () => {
+    const greenPoint = mapPointW(1, 2, bounds, width, height, pad);
+    const hit = nearestTraceSampleW(
+      [
+        { visible: true, color: "blue", points: [[1, 1]] as [number, number][] },
+        { visible: true, color: "green", points: [[1, 2]] as [number, number][] },
+      ],
+      greenPoint.px,
+      greenPoint.py,
+      bounds,
+      width,
+      height,
+      pad,
+    );
+
+    expect(hit).toMatchObject({ x: 1, y: 2, seriesIndex: 1, color: "green" });
+  });
+
+  it("does not show a trace when the touch is away from every curve", () => {
+    expect(
+      nearestTraceSampleW(
+        [{ visible: true, color: "blue", points: [[1, 1], [2, 4]] }],
+        pad,
+        pad,
+        bounds,
+        width,
+        height,
+        pad,
+      ),
+    ).toBeNull();
   });
 });
 

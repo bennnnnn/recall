@@ -127,4 +127,35 @@ describe("useSkiaGraphViewport gestures", () => {
     expect(result.current.bounds.value).toEqual(INITIAL);
     expect(onCommit).toHaveBeenLastCalledWith(INITIAL);
   });
+
+  it("turns a brief touch into a movable trace without panning the graph", async () => {
+    const onCommit = jest.fn();
+    const onTraceTick = jest.fn();
+    const { result } = await renderHook(() =>
+      useSkiaGraphViewport({
+        width: 360,
+        height: 220,
+        pad: 28,
+        initialView: INITIAL,
+        onCommit,
+        onTraceTick,
+      }),
+    );
+
+    await act(() => {
+      mockHandlers.longPress.onStart?.({ x: 140, y: 90 });
+      mockHandlers.pan.onUpdate?.({ translationX: 30, translationY: 20, x: 170, y: 110 });
+    });
+
+    expect(result.current.traceActive.value).toBe(true);
+    expect(result.current.tracePos.value).toEqual({ px: 170, py: 110 });
+    expect(result.current.bounds.value).toEqual(INITIAL);
+    expect(onTraceTick).toHaveBeenCalledTimes(1);
+
+    await act(() => {
+      mockHandlers.pan.onEnd?.();
+    });
+    expect(result.current.traceActive.value).toBe(false);
+    expect(onCommit).not.toHaveBeenCalled();
+  });
 });
