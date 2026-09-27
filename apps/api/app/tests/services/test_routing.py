@@ -45,6 +45,10 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
         # Ordinary non-learning plans stay fast.
         ("Give me a 30-day workout plan", "gemini-flash"),
         ("Create a 12-week business plan", "gemini-flash"),
+        (
+            "Create a 4-column markdown table with a Main tradeoff column, then show a code block",
+            "gemini-flash",
+        ),
         ("I studied Python for 70 days and now plan to apply for jobs", "gemini-flash"),
         # Comparison cues → smart-chat (previously classifier-only web search
         # with no model upgrade; a weak model answered "X vs Y" questions).

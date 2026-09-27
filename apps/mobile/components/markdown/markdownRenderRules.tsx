@@ -104,7 +104,7 @@ function unwrapSingle(node: AstNode): AstNode {
 /** A generated lesson heading, optionally followed by its formula on a new line. */
 function lessonStepParts(
   node: AstNode,
-): { n: string; label: string; formula: string | null } | null {
+): { n: string; label: string; reason: string | null; formula: string | null } | null {
   const kids = unwrapSingle(node).children ?? [];
   const first = kids[0];
   if (!first || first.type !== "strong") return null;
@@ -115,14 +115,23 @@ function lessonStepParts(
     .slice(1)
     .map((kid) => astTextWithBreaks(kid))
     .join("");
-  if (!tail.trim()) return { n: match[1], label: match[2], formula: null };
+  if (!tail.trim()) {
+    return { n: match[1], label: match[2], reason: null, formula: null };
+  }
 
   // The API emits exactly a soft break followed by one formula. Anything
   // inline after the bold heading (links, code, prose, or inline math) is
   // ordinary Markdown and must keep its original rendered children.
-  const formulaMatch = /^\s*\n+\s*\$([^$\n]+)\$\s*$/.exec(tail);
-  const formula = formulaMatch?.[1]?.trim();
-  return formula ? { n: match[1], label: match[2], formula } : null;
+  const formulaMatch = /^\s*(?:—\s*([^\n]+))?\n+\s*\$([^$\n]+)\$\s*$/.exec(tail);
+  const formula = formulaMatch?.[2]?.trim();
+  return formula
+    ? {
+        n: match[1],
+        label: match[2],
+        reason: formulaMatch?.[1]?.trim() || null,
+        formula,
+      }
+    : null;
 }
 
 /**
@@ -560,6 +569,15 @@ function makeSharedRules(
             </View>
             {step.formula ? (
               <View testID="lesson-step-formula" style={{ paddingLeft: Space.xl }}>
+                {step.reason ? (
+                  <Text
+                    testID="lesson-step-reason"
+                    style={[styles.body, styles.text, { color: t.textSecondary }]}
+                    selectable
+                  >
+                    {step.reason}
+                  </Text>
+                ) : null}
                 <MathText latex={step.formula} />
               </View>
             ) : null}

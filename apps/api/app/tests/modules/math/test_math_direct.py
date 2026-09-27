@@ -311,12 +311,36 @@ async def test_one_plus_one_returns_direct_reply(thread_sympy_executor: None) ->
 
 
 @pytest.mark.asyncio
-async def test_explain_keeps_llm_path(thread_sympy_executor: None) -> None:
+async def test_explain_every_step_uses_verified_lesson(thread_sympy_executor: None) -> None:
     settings = Settings(math_tools_enabled=True)
     content = "Solve 1+1=x and explain every step"
     _block, verified = await build_math_augmentation(content, settings)
     assert verified is not None
-    assert maybe_direct_math_reply(verified, content) is None
+    reply = maybe_direct_math_reply(verified, content)
+    assert reply is not None
+    assert "**1." in reply
+    assert "```answer" in reply
+
+
+@pytest.mark.asyncio
+async def test_reported_quadratic_with_presentation_constraints_uses_verified_lesson(
+    thread_sympy_executor: None,
+) -> None:
+    settings = Settings(math_tools_enabled=True)
+    content = (
+        "Solve 3x^2 + 3 = 30. Show every step, explain why each step is valid, "
+        "and keep x lowercase in the final answer."
+    )
+    _block, verified = await build_math_augmentation(content, settings)
+    assert verified is not None
+
+    reply = maybe_direct_math_reply(verified, content)
+
+    assert reply is not None
+    assert "**1." in reply
+    assert "```answer" in reply
+    assert "x" in reply
+    assert "X" not in reply
 
 
 @pytest.mark.asyncio

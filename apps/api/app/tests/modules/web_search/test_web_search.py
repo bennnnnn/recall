@@ -322,6 +322,17 @@ def test_filter_hits_to_today_removes_other_dates():
     assert filter_hits_to_today(hits, "America/Los_Angeles") == [hits[0]]
 
 
+def test_ai_developments_today_is_treated_as_same_day_news():
+    from app.modules.web_search.query_builders import (
+        is_current_news_request,
+        is_news_today_request,
+    )
+
+    query = "What are the three most important AI developments today?"
+    assert is_current_news_request(query) is True
+    assert is_news_today_request(query) is True
+
+
 def test_build_search_query_follow_up_uses_prior():
     queries = build_search_queries(
         "Look it up",

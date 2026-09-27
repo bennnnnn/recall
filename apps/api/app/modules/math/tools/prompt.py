@@ -19,6 +19,7 @@ from app.modules.math.tools.extract import (
     resolve_graph_followup,
     trig_domain_would_be_dropped,
 )
+from app.modules.math.tools.helpers import has_assignment_evaluation_request
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
 from app.services.prompt_inject import inject_before_last_user
 
@@ -236,6 +237,22 @@ async def build_math_augmentation(
                 f"{MATH_REPLY_POLICY}",
                 None,
             )
+    if (
+        intent is None
+        and image_math_extract is None
+        and has_assignment_evaluation_request(user_content)
+    ):
+        # The deterministic substitution parser saw an assignment followed by
+        # an evaluation request, but could not parse the requested expression.
+        # Do not let a word-problem or LLM fallback certify only the easy
+        # binding (for example x=-5) while silently dropping malformed x^2.
+        return (
+            "The assignment was readable, but the expression to evaluate was not. "
+            "Ask the user to rewrite the expression; do not solve only the given "
+            "assignment or claim a verified result.\n\n"
+            f"{MATH_REPLY_POLICY}",
+            None,
+        )
     if intent is None and image_math_extract is None:
         from app.modules.math.tools.word_problem import word_problem_intent
 

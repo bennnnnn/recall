@@ -323,6 +323,14 @@ def _route_current_line(content: str, settings: Settings | None = None) -> str:
 
     if is_learning_plan_request(content) or is_teaching_request(content):
         return fast
+    # A request whose task is to *format* a small example as a Markdown table
+    # is not a deep architecture/trade-off analysis. The column label
+    # "Main tradeoff" previously tripped the generic smart cue and sent this
+    # UI/layout stress case to R1, which could sit silent for tens of seconds.
+    if "markdown table" in text and any(
+        cue in text for cue in ("create ", "show ", "give me ", "make ")
+    ):
+        return fast
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
     physics_alias = _physics_route(content, fast=fast, smart=smart, settings=settings)
