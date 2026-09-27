@@ -55,9 +55,7 @@ def extract_rate_intent(cleaned: str) -> PhysicsIntent | None:
                 ("distance", float(number.group(0)), LENGTH_UNITS[unit], None, unit_hit[1])
             )
         elif unit in TIME_UNITS:
-            measures.append(
-                ("time", float(number.group(0)), TIME_UNITS[unit], None, unit_hit[1])
-            )
+            measures.append(("time", float(number.group(0)), TIME_UNITS[unit], None, unit_hit[1]))
         else:
             return None
 

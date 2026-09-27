@@ -959,9 +959,7 @@ def test_verified_block_integral_of_2x_sentence_period() -> None:
 
 def test_verified_block_force_accelerated_phrasing() -> None:
     settings = Settings(math_tools_enabled=True)
-    intent = extract_physics_intent(
-        "A 5 kg mass is accelerated at 2 m/s^2. What is the force."
-    )
+    intent = extract_physics_intent("A 5 kg mass is accelerated at 2 m/s^2. What is the force.")
     assert intent is not None
     assert intent.kind == "force"
     block = build_verified_physics_block(intent, settings)

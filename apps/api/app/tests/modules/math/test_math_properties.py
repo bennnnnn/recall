@@ -91,7 +91,10 @@ def test_written_addition_trace_preserves_sum(values: list[int]) -> None:
     assert all(len(column.addends) == len(values) for column in spec.addition_columns)
 
 
-@given(top=st.integers(min_value=0, max_value=999_999), bottom=st.integers(min_value=0, max_value=999_999))
+@given(
+    top=st.integers(min_value=0, max_value=999_999),
+    bottom=st.integers(min_value=0, max_value=999_999),
+)
 @settings(max_examples=60, deadline=None, derandomize=True)
 def test_written_subtraction_trace_preserves_difference(top: int, bottom: int) -> None:
     larger, smaller = max(top, bottom), min(top, bottom)
@@ -113,7 +116,10 @@ def test_written_multiplication_partial_products_sum_to_product(left: int, right
     assert int(spec.answer) == left * right
 
 
-@given(dividend=st.integers(min_value=0, max_value=999_999), divisor=st.integers(min_value=1, max_value=999))
+@given(
+    dividend=st.integers(min_value=0, max_value=999_999),
+    divisor=st.integers(min_value=1, max_value=999),
+)
 @settings(max_examples=80, deadline=None, derandomize=True)
 def test_long_division_trace_preserves_euclidean_invariant(dividend: int, divisor: int) -> None:
     spec = build_written_arithmetic_operands(

@@ -140,6 +140,8 @@ _ENERGY = (
         ),
     ),
 )
+
+
 def _request(text: str) -> tuple[str, float, bool] | None:
     if len(text) > 1000:
         return None
@@ -988,9 +990,14 @@ def maybe_direct_physics_reply(
         parts.append(f"```{language}\n{json.dumps(fence, separators=(',', ':'))}\n```")
     reply = "\n\n".join(parts) + "\n"
     intent = verified.physics_intent
-    if intent is not None and intent.kind == "kinematics" and intent.physics_op in {
-        "velocity",
-        "acceleration",
-    }:
+    if (
+        intent is not None
+        and intent.kind == "kinematics"
+        and intent.physics_op
+        in {
+            "velocity",
+            "acceleration",
+        }
+    ):
         return f"Upward is positive.\n\n{reply}"
     return reply

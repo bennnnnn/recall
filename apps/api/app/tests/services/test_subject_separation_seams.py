@@ -20,9 +20,7 @@ _PHYSICS_DIR = _APP_DIR / "modules" / "physics"
 
 # Physics trajectories reuse the same native graph transport as mathematical
 # plots. This is a renderer primitive, not math extraction or solving logic.
-_ALLOWED_PHYSICS_IMPORTS_FROM_MATH = frozenset(
-    {("app.models.schemas.math", "GraphBlockSpec")}
-)
+_ALLOWED_PHYSICS_IMPORTS_FROM_MATH = frozenset({("app.models.schemas.math", "GraphBlockSpec")})
 
 
 def _imports_below(path: Path, package: str) -> set[tuple[str, str]]:

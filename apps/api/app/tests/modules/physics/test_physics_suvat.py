@@ -318,7 +318,9 @@ def test_free_fall_still_belongs_to_kinematics() -> None:
     Order settles it: kinematics runs first and keeps everything it already
     answered.
     """
-    intent = extract_physics_intent("a ball is dropped from 20 m, how long until it hits the ground")
+    intent = extract_physics_intent(
+        "a ball is dropped from 20 m, how long until it hits the ground"
+    )
 
     assert intent is not None and intent.kind == "kinematics"
     assert (

@@ -120,9 +120,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         return replace(
             block,
             text=wrap_verified_math(block.text),
-            direct_request_text=(
-                intent._request_text if block.direct_reply is not None else None
-            ),
+            direct_request_text=(intent._request_text if block.direct_reply is not None else None),
             direct_requires_calculus_guard=bool(
                 block.direct_reply is not None
                 and intent.kind == "calculus"

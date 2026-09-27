@@ -197,6 +197,7 @@ def build_verified_physics_block(
         return None
     return replace(block, text=wrap_verified_physics(block.text))
 
+
 PHYSICS_BLOCK_BUILDERS: dict[
     str,
     Callable[[PhysicsIntent, Settings, list[str]], VerifiedPhysicsBlock | None],

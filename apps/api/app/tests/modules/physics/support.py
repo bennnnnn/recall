@@ -20,6 +20,7 @@ def _spec_fence_kind(spec: dict[str, object]) -> str | None:
         return "answer"
     return None
 
+
 __all__ = [
     "_spec_fence_kind",
     "build_verified_physics_block",

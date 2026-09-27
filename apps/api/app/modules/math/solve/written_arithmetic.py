@@ -51,9 +51,7 @@ def _column_digits(value: int, width: int) -> list[int]:
     return [int(ch) for ch in str(value).zfill(width)][::-1]
 
 
-def _addition(
-    values: list[Decimal], scales: list[int], expression: str
-) -> ArithmeticWorkSpec:
+def _addition(values: list[Decimal], scales: list[int], expression: str) -> ArithmeticWorkSpec:
     scale = max(scales)
     integers, operands = _aligned_operands(values, scale)
     total = sum(integers)

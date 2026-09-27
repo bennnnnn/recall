@@ -121,9 +121,7 @@ def build_long_division(
     integer_digits = len(working_text.partition(".")[0])
     numerator = int(digits or "0")
     denominator = divisor * (10 ** max(0, len(digits) - integer_digits))
-    requested_mode = answer_mode or (
-        "decimal" if left_scale or right_scale else "remainder"
-    )
+    requested_mode = answer_mode or ("decimal" if left_scale or right_scale else "remainder")
     if requested_mode not in {"remainder", "fraction", "decimal", "round_up", "discard"}:
         return None
     places = _terminating_places(numerator, denominator)

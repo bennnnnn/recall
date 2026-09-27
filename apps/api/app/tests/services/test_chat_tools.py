@@ -167,9 +167,7 @@ async def test_closed_math_does_not_run_web_search() -> None:
         ) as web_mock,
         patch(
             "app.services.chat.prompt_builder.build_subject_augmentation",
-            AsyncMock(
-                return_value=SubjectAugmentation("math", "math", None, unverified=True)
-            ),
+            AsyncMock(return_value=SubjectAugmentation("math", "math", None, unverified=True)),
         ),
     ):
         updated, hits, _verified = await _augment_web_and_tools(messages, query, settings)

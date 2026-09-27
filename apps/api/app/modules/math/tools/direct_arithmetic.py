@@ -71,9 +71,9 @@ def can_direct_fraction(
         "of_quantity": "of_quantity",
     }.get(operation, operation)
     request_operands = intent.fraction_operands or []
-    return operation == spec.operation and request_operands == spec.operands[
-        : len(request_operands)
-    ]
+    return (
+        operation == spec.operation and request_operands == spec.operands[: len(request_operands)]
+    )
 
 
 def format_direct_written_arithmetic(spec: ArithmeticWorkSpec, user_text: str) -> str:

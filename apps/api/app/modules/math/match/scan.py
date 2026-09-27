@@ -652,11 +652,12 @@ def _strip_written_method_cues(value: str) -> tuple[str, frozenset[str] | None]:
                 continue
             if word_index(stripped[index + len(phrase) :], phrase) != -1:
                 return value, frozenset()
-            stripped = collapse_ws(
-                f"{stripped[:index]} {stripped[index + len(phrase):]}"
-            ).strip(" :?.!")
+            stripped = collapse_ws(f"{stripped[:index]} {stripped[index + len(phrase) :]}").strip(
+                " :?.!"
+            )
             compatible = allowed if compatible is None else compatible & allowed
     return stripped, compatible
+
 
 _DIVISION_MODE_PHRASES: tuple[tuple[str, str], ...] = (
     ("quotient and remainder", "remainder"),
@@ -723,9 +724,7 @@ def division_answer_mode(
     lower = collapse_ws(text).lower()
     for phrase, mode in _DIVISION_MODE_PHRASES:
         if phrase in lower:
-            return cast(
-                Literal["remainder", "fraction", "decimal", "round_up", "discard"], mode
-            )
+            return cast(Literal["remainder", "fraction", "decimal", "round_up", "discard"], mode)
     return "decimal" if "." in left or "." in right else "remainder"
 
 

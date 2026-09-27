@@ -50,9 +50,7 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         # MathIntent currently represents one statistics operation. Until a
         # typed multi-stat result exists, declining is the only atomic answer.
         leftovers.append("additional requested statistic")
-    if _AREA_AND_PERIMETER.search(text) and not (
-        intent.wants_area and intent.wants_perimeter
-    ):
+    if _AREA_AND_PERIMETER.search(text) and not (intent.wants_area and intent.wants_perimeter):
         # Supported geometry intents retain both requested flags and their
         # canonical diagram contains both values. Direct output stays off for
         # those multipart cases, but the model receives both verified facts.

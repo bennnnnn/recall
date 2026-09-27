@@ -82,9 +82,7 @@ def _binary(intent: MathIntent) -> FractionWorkSpec | None:
             )
         )
         combined = (
-            left_scaled + right_scaled
-            if op == "fraction_add"
-            else left_scaled - right_scaled
+            left_scaled + right_scaled if op == "fraction_add" else left_scaled - right_scaled
         )
         if combined < 0:
             return None
@@ -156,8 +154,7 @@ def build_fraction_work(intent: MathIntent) -> FractionWorkSpec | None:
                 FractionStep(
                     kind="gcd",
                     explanation=(
-                        f"The greatest common divisor is {divisor}; "
-                        "divide both parts by it."
+                        f"The greatest common divisor is {divisor}; divide both parts by it."
                     ),
                     expression=(
                         rf"\frac{{{numerator}\div {divisor}}}"

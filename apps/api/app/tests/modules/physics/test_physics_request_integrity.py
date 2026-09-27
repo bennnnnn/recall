@@ -237,7 +237,8 @@ def test_pipeline_rejects_missing_collision_conditions() -> None:
 
     assert extract_physics_intent("a 2 kg ball at 3 m/s hits a 1 kg ball elastically") is None
     assert (
-        extract_physics_intent("a 2 kg ball at 3 m/s hits a 1 kg ball at rest inelastically") is None
+        extract_physics_intent("a 2 kg ball at 3 m/s hits a 1 kg ball at rest inelastically")
+        is None
     )
 
 

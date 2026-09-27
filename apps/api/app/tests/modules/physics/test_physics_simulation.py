@@ -196,7 +196,9 @@ def test_a_circular_answer_gets_a_scene_and_no_graph() -> None:
     """Circular motion has no curve to plot — its picture is the scene."""
     intent = extract_physics_intent(CIRCULAR_Q)
     assert intent is not None
-    out = validate_physics_fences("Here you go.", verified=build_verified_physics_block(intent, _settings()))
+    out = validate_physics_fences(
+        "Here you go.", verified=build_verified_physics_block(intent, _settings())
+    )
 
     assert "```simulation" in out
     assert "```graph" not in out
