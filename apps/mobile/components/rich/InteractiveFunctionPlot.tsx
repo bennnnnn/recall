@@ -45,7 +45,7 @@ import { shadowRaised } from "@/lib/shadow";
 import { IconSize } from "@/ui/icons/sizes";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
-import { Theme } from "@/lib/theme";
+import { Theme, withAlpha } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 import { HeaderButton } from "@/ui/controls/HeaderButton";
@@ -245,8 +245,12 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
             verticalX={verticalX}
           />
         )}
-        <View style={explorerStyles.expandBadge} pointerEvents="none">
-          <Icon name="expand" size={IconSize.xs} color={theme.onPrimary} />
+        <View
+          style={explorerStyles.expandBadge}
+          pointerEvents="none"
+          testID="graph-expand-cue"
+        >
+          <Icon name="expand" size={IconSize.xs} color={theme.textSecondary} />
           <Text style={explorerStyles.expandText}>{t("rich.expand")}</Text>
         </View>
       </Pressable>
@@ -587,18 +591,20 @@ const makeExplorerStyles = (theme: Theme) =>
       position: "absolute",
       bottom: 8,
       right: 8,
-      minHeight: 32,
-      paddingHorizontal: Space.sm,
+      minHeight: 28,
+      paddingHorizontal: Space.xs,
       borderRadius: Radius.full,
-      backgroundColor: theme.primary,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      backgroundColor: withAlpha(theme.elevated, 0.82),
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 6,
+      gap: Space.xxs,
     },
     expandText: {
-      color: theme.onPrimary,
-      fontSize: 13,
+      color: theme.textSecondary,
+      fontSize: 12,
       fontWeight: "700",
     },
     modalRoot: {

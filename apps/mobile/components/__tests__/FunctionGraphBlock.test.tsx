@@ -39,6 +39,7 @@ describe("FunctionGraphBlock", () => {
     const { getByTestId, getByText } = await render(<FunctionGraphBlock content={content} />);
     const card = StyleSheet.flatten(getByTestId("graph-card").props.style);
     const plot = StyleSheet.flatten(getByTestId("graph-expand").props.style);
+    const expandCue = StyleSheet.flatten(getByTestId("graph-expand-cue").props.style);
 
     expect(card.backgroundColor).toBe("#FFFFFF");
     expect(card.borderWidth).toBeUndefined();
@@ -49,6 +50,8 @@ describe("FunctionGraphBlock", () => {
     expect(plot.borderColor).toBe("#E4E6FF");
     expect(plot.borderWidth).toBe(1);
     expect(plot.borderRadius).toBeGreaterThanOrEqual(12);
+    expect(expandCue.backgroundColor).toBe("rgba(255, 255, 255, 0.82)");
+    expect(expandCue.minHeight).toBeLessThanOrEqual(28);
     expect(getByText("rich.expand")).toBeOnTheScreen();
   });
 
