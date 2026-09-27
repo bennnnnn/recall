@@ -26,7 +26,7 @@ describe("FunctionGraphBlock", () => {
     expect(getByDisplayValue("y = x^2")).toBeOnTheScreen();
   });
 
-  it("renders the graph on a distinct raised surface", async () => {
+  it("outlines only the plot, not the surrounding function inputs", async () => {
     const content = JSON.stringify({
       type: "function",
       expr: "x**2",
@@ -41,12 +41,12 @@ describe("FunctionGraphBlock", () => {
     const plot = StyleSheet.flatten(getByTestId("graph-expand").props.style);
     const expandCue = StyleSheet.flatten(getByTestId("graph-expand-cue").props.style);
 
-    expect(card.backgroundColor).toBe("#FFFFFF");
+    expect(card.backgroundColor).toBeUndefined();
     expect(card.borderWidth).toBeUndefined();
-    expect(card.borderRadius).toBeGreaterThanOrEqual(12);
+    expect(card.borderRadius).toBeUndefined();
     expect(card.padding).toBe(12);
-    expect(card.shadowOpacity).toBeGreaterThan(0);
-    expect(card.elevation).toBeGreaterThan(0);
+    expect(card.shadowOpacity).toBeUndefined();
+    expect(card.elevation).toBeUndefined();
     expect(plot.borderColor).toBe("#E4E6FF");
     expect(plot.borderWidth).toBe(1);
     expect(plot.borderRadius).toBeGreaterThanOrEqual(12);

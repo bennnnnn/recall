@@ -41,7 +41,6 @@ import { CODE_FONT } from "@/lib/fonts";
 import { formatGraphExpr, type GraphSpec } from "@/lib/math/graphBlock";
 import { defaultInteractiveBounds, expandGraphView } from "@/lib/math/graphViewport";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
-import { shadowRaised } from "@/lib/shadow";
 import { IconSize } from "@/ui/icons/sizes";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
@@ -575,9 +574,6 @@ const makeExplorerStyles = (theme: Theme) =>
       alignItems: "stretch",
       width: "100%",
       padding: GRAPH_CARD_INSET,
-      borderRadius: Radius.xl,
-      backgroundColor: theme.elevated,
-      ...shadowRaised(theme),
     },
     plotPress: {
       position: "relative",
