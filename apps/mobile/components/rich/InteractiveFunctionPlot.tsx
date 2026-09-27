@@ -44,7 +44,7 @@ import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { IconSize } from "@/ui/icons/sizes";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
-import { Theme, withAlpha } from "@/lib/theme";
+import { Theme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 import { HeaderButton } from "@/ui/controls/HeaderButton";
@@ -250,7 +250,6 @@ export function InteractiveFunctionPlot({ spec, chartWidth, styles, theme }: Pro
           testID="graph-expand-cue"
         >
           <Icon name="expand" size={IconSize.xs} color={theme.textSecondary} />
-          <Text style={explorerStyles.expandText}>{t("rich.expand")}</Text>
         </View>
       </Pressable>
       {open ? null : seriesEditor(cardDrawn, "card")}
@@ -587,21 +586,10 @@ const makeExplorerStyles = (theme: Theme) =>
       position: "absolute",
       bottom: 8,
       right: 8,
-      minHeight: 28,
-      paddingHorizontal: Space.xs,
-      borderRadius: Radius.full,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      backgroundColor: withAlpha(theme.elevated, 0.82),
-      flexDirection: "row",
+      width: 28,
+      height: 28,
       alignItems: "center",
       justifyContent: "center",
-      gap: Space.xxs,
-    },
-    expandText: {
-      color: theme.textSecondary,
-      fontSize: 12,
-      fontWeight: "700",
     },
     modalRoot: {
       flex: 1,

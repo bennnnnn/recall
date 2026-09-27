@@ -36,7 +36,7 @@ describe("FunctionGraphBlock", () => {
         [1, 1],
       ],
     });
-    const { getByTestId, getByText } = await render(<FunctionGraphBlock content={content} />);
+    const { getByTestId } = await render(<FunctionGraphBlock content={content} />);
     const card = StyleSheet.flatten(getByTestId("graph-card").props.style);
     const plot = StyleSheet.flatten(getByTestId("graph-expand").props.style);
     const expandCue = StyleSheet.flatten(getByTestId("graph-expand-cue").props.style);
@@ -50,9 +50,10 @@ describe("FunctionGraphBlock", () => {
     expect(plot.borderColor).toBe("#E4E6FF");
     expect(plot.borderWidth).toBe(1);
     expect(plot.borderRadius).toBeGreaterThanOrEqual(12);
-    expect(expandCue.backgroundColor).toBe("rgba(255, 255, 255, 0.82)");
-    expect(expandCue.minHeight).toBeLessThanOrEqual(28);
-    expect(getByText("rich.expand")).toBeOnTheScreen();
+    expect(expandCue.backgroundColor).toBeUndefined();
+    expect(expandCue.borderWidth).toBeUndefined();
+    expect(expandCue.width).toBe(28);
+    expect(expandCue.height).toBe(28);
   });
 
   it("renders even ticks for y = x², not padded −12 / 108 / −8", async () => {
