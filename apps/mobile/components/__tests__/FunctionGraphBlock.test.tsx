@@ -50,6 +50,7 @@ describe("FunctionGraphBlock", () => {
     expect(plot.borderColor).toBe("#E4E6FF");
     expect(plot.borderWidth).toBe(1);
     expect(plot.borderRadius).toBeGreaterThanOrEqual(12);
+    expect(plot.backgroundColor).toBe("#F7F7F8");
     expect(expandCue.backgroundColor).toBeUndefined();
     expect(expandCue.borderWidth).toBeUndefined();
     expect(expandCue.width).toBe(28);

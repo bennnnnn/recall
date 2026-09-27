@@ -580,6 +580,7 @@ const makeExplorerStyles = (theme: Theme) =>
       borderWidth: 1,
       borderColor: theme.isDark ? theme.border : theme.primaryLight,
       borderRadius: Radius.md,
+      backgroundColor: theme.surface,
       overflow: "hidden",
     },
     expandBadge: {
