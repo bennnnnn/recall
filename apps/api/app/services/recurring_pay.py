@@ -194,8 +194,8 @@ def _parse_target_date(text: str, start: date) -> date | None:
 
     slash = _SLASH_DATE.search(text)
     if slash is not None:
-        month, day, raw_year = slash.groups()
-        return _year_or_next(int(month), int(day), raw_year, start)
+        slash_month, slash_day, raw_year = slash.groups()
+        return _year_or_next(int(slash_month), int(slash_day), raw_year, start)
     return None
 
 
