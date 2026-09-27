@@ -50,6 +50,7 @@ def _requested_news_count(text: str) -> int | None:
                 return count
     return None
 
+
 # Request-scoped quota/cache identity for concurrent chat turns sharing the
 # process-global adapter registry. Set by the tool loop before invoke().
 _search_user: ContextVar[User | None] = ContextVar("mcp_web_search_user", default=None)

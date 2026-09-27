@@ -195,9 +195,7 @@ async def test_year_date_time_instant_reply_skipped_when_image_attached(fake_red
     ],
 )
 @pytest.mark.asyncio
-async def test_recurring_pay_reply_skips_prompt_model_health_and_web_search(
-    fake_redis, content
-):
+async def test_recurring_pay_reply_skips_prompt_model_health_and_web_search(fake_redis, content):
     user = _make_user()
     user.timezone = "America/Los_Angeles"
     chat = _make_chat()
@@ -205,9 +203,7 @@ async def test_recurring_pay_reply_skips_prompt_model_health_and_web_search(
     with (
         patch("app.services.chat.turn_prep.context.build_prompt_messages", build_prompt),
         patch("app.services.model_health.enrich_models_health", AsyncMock()) as health,
-        patch(
-            "app.services.chat.turn_prep.context.fetch_web_and_tools", AsyncMock()
-        ) as web_search,
+        patch("app.services.chat.turn_prep.context.fetch_web_and_tools", AsyncMock()) as web_search,
     ):
         bundle = await build_stream_prompt_context(
             user.id,
