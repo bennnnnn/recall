@@ -55,6 +55,8 @@ def _exchange(question: str = _SPEED_ASK, result: str = _SPEED_RESULT) -> list[S
         "give me a hint",
         "give examples",
         "explain with an example",
+        "What?",
+        "Do it again",
     ],
 )
 def test_short_referential_request_uses_immediate_math_exchange(query: str) -> None:
@@ -63,7 +65,15 @@ def test_short_referential_request_uses_immediate_math_exchange(query: str) -> N
 
 @pytest.mark.parametrize(
     "query",
-    ["how", "How?", "why?", "please explain it", "can you show the steps?"],
+    [
+        "how",
+        "How?",
+        "why?",
+        "please explain it",
+        "can you show the steps?",
+        "What?",
+        "Do it again",
+    ],
 )
 def test_working_followup_returns_the_adjacent_problem_for_verified_replay(query: str) -> None:
     recent = _exchange("3x^2 + 3 = 5", r"x = \pm \frac{\sqrt{6}}{3}")
@@ -76,6 +86,17 @@ def test_working_followup_returns_the_adjacent_problem_for_verified_replay(query
 def test_scoped_followups_do_not_replay_the_full_verified_working(query: str) -> None:
     assert is_math_followup(query, _exchange())
     assert math_working_followup_problem(query, _exchange()) is None
+
+
+def test_referential_chain_keeps_the_original_verified_problem() -> None:
+    recent = [
+        *_exchange("456/56", r"8\text{ remainder }8"),
+        _message("user", "What?"),
+        _message("assistant", "Here is the verified long division."),
+        _message("user", "Show me"),
+        _message("assistant", "Here is the written method again."),
+    ]
+    assert math_working_followup_problem("Do it again", recent) == "456/56"
 
 
 @pytest.mark.parametrize(

@@ -36,6 +36,7 @@ def _work(question: str):
         ("23 multiplied by 14", "column_multiplication", "322"),
         ("Use long division to calculate 1,572 ÷ 12", "long_division", "131"),
         ("437 divided by 6", "long_division", r"72\text{ remainder }5"),
+        ("456/56", "long_division", r"8\text{ remainder }8"),
     ],
 )
 def test_written_arithmetic_extracts_on_existing_kind(
@@ -202,5 +203,12 @@ def test_written_grammar_rejects_compound_or_malformed_requests() -> None:
     assert math_match.written_arithmetic_request("12,34 + 1") is None
     assert math_match.written_arithmetic_request("-5 + 2") is None
     assert math_match.written_arithmetic_request("9/9") is None
+    assert math_match.written_arithmetic_request("2026/09") is None
+    assert math_match.written_arithmetic_request("456/56") == (
+        "456",
+        "56",
+        "/",
+        "long_division",
+    )
     assert math_match.written_arithmetic_request("2026-09") is None
     assert math_match.written_arithmetic_request("555-1234") is None

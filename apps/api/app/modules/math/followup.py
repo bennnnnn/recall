@@ -36,7 +36,12 @@ def _referenced_math_problem(
     *,
     working_only: bool,
 ) -> str | None:
-    """Return the problem from one complete adjacent math exchange."""
+    """Return the problem from an adjacent chain of math follow-ups.
+
+    A learner may naturally say ``What?`` → ``Show me`` → ``Do it again``.
+    Walk backward only through those short, explicitly referential exchanges;
+    any unrelated or incomplete exchange still stops the lookup immediately.
+    """
     response = classify_math_response_intent(query or "")
     if not response.referential or len(recent) < 2:
         return None
@@ -46,20 +51,30 @@ def _referenced_math_problem(
         MathResponseMode.DETAILED,
     }:
         return None
-    question, answer = recent[-2:]
-    if _message_field(question, "role") != "user" or _message_field(answer, "role") != "assistant":
-        return None
-    prior = _message_field(question, "content")
-    reply = _message_field(answer, "content")
-    if not (
-        isinstance(prior, str)
-        and prior.strip()
-        and isinstance(reply, str)
-        and reply.strip()
-        and needs_symbolic_math(prior)
-    ):
-        return None
-    return prior
+    # Four complete exchanges are enough for a natural clarification chain
+    # without turning this into a search over stale chat history.
+    cursor = len(recent) - 2
+    checked = 0
+    while cursor >= 0 and checked < 4:
+        question, answer = recent[cursor : cursor + 2]
+        if (
+            _message_field(question, "role") != "user"
+            or _message_field(answer, "role") != "assistant"
+        ):
+            return None
+        prior = _message_field(question, "content")
+        reply = _message_field(answer, "content")
+        if not (
+            isinstance(prior, str) and prior.strip() and isinstance(reply, str) and reply.strip()
+        ):
+            return None
+        if needs_symbolic_math(prior):
+            return prior
+        if not classify_math_response_intent(prior).referential:
+            return None
+        cursor -= 2
+        checked += 1
+    return None
 
 
 def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str | None:

@@ -129,6 +129,7 @@ _REFERENTIAL_VOCAB = frozenset(
         "with",
         "without",
         "work",
+        "what",
         "would",
         "you",
         "your",
@@ -271,6 +272,7 @@ def classify_math_response_intent(text: str) -> MathResponseIntent:
             )
         )
         or ("show" in tokens and set(tokens) <= _REFERENTIAL_VOCAB)
+        or ("do" in tokens and "again" in tokens and set(tokens) <= _REFERENTIAL_VOCAB)
     ):
         mode = MathResponseMode.STEPS
     elif (
@@ -278,6 +280,7 @@ def classify_math_response_intent(text: str) -> MathResponseIntent:
         or "explain" in tokens
         or "why" in tokens
         or ("how" in tokens and not quantitative_how)
+        or set(tokens) == {"what"}
         or (
             ("example" in tokens or "examples" in tokens) and ("give" in tokens or "show" in tokens)
         )

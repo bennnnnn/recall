@@ -532,6 +532,32 @@ def _looks_like_date_or_phone(compact: str) -> bool:
     return all_minus and len(groups) >= 4 and sum(groups) >= 7
 
 
+def _unambiguous_single_slash(compact: str) -> bool:
+    """True for a two-number division that cannot reasonably be a date.
+
+    A bare ``9/9`` remains ambiguous, as do year/month forms such as
+    ``2026/09``.  Values such as ``456/56`` are not calendar-shaped and should
+    reach the arithmetic solver instead of leaving a model to improvise long
+    division in plain text.
+    """
+    if compact.count("/") != 1 or any(ch in compact for ch in "+-*^()"):
+        return False
+    left, right = compact.split("/", 1)
+    if not left or not right:
+        return False
+    if "." in left or "." in right:
+        return all(part.replace(".", "", 1).isdigit() for part in (left, right))
+    if not left.isdigit() or not right.isdigit():
+        return False
+    first, second = int(left), int(right)
+    if len(left) == 4 and 1 <= second <= 12:
+        return False
+    could_be_month_day = (1 <= first <= 12 and 1 <= second <= 31) or (
+        1 <= second <= 12 and 1 <= first <= 31
+    )
+    return not could_be_month_day
+
+
 def _count_binary_arith_ops(compact: str) -> int:
     """Binary ``+ - * / ^`` in an ASCII expression. Leading/unary ``-`` is not an op."""
     ops = 0
@@ -574,7 +600,8 @@ def bare_arithmetic_expr(text: str) -> str | None:
     Shared by the SymPy gate and the arithmetic extractor so ``8-8*2`` cannot
     be gated as a dimension pair (``8*2``) and then fail extract.
 
-    Bare subtraction is arithmetic; a single ``/`` still needs a cue.
+    Bare subtraction is arithmetic; a single ``/`` needs a cue unless its
+    values cannot reasonably be a date (for example ``456/56``).
     Auto-accept with a single subtraction, ``*``, ``^``, times/divide glyphs, two or
     more operators, or a cue word (``what is``, ``calculate``, ...).
     Uncued ``-``/``/`` chains that look like a date or phone are rejected;
@@ -606,6 +633,7 @@ def bare_arithmetic_expr(text: str) -> str | None:
         return None
     unambiguous = has_root or any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)
     unambiguous = unambiguous or "**" in normalized
+    unambiguous = unambiguous or _unambiguous_single_slash(compact)
     subtraction = ops == 1 and "-" in compact and not any(ch in "+*/^" for ch in compact)
     if not (unambiguous or subtraction or ops >= 2 or had_cue):
         return None
@@ -708,7 +736,9 @@ def written_arithmetic_request(text: str) -> tuple[str, str, str, str] | None:
     if left is None or right is None:
         return None
     compact = f"{left}{operator}{right}"
-    if alias == "/" and not (had_cue or had_long_division_cue):
+    if alias == "/" and not (
+        had_cue or had_long_division_cue or _unambiguous_single_slash(compact)
+    ):
         return None
     if alias == "-" and not had_cue and _looks_like_date_or_phone(compact):
         return None

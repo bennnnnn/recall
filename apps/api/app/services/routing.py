@@ -427,7 +427,11 @@ def _verified_math_stays_fast(content: str) -> bool:
     "what is 1+1" style arithmetic stay on the fast model.
     """
     from app.modules.math.match.discrete import combinatorics_signal
-    from app.modules.math.match.scan import bare_arithmetic_expr, prepare
+    from app.modules.math.match.scan import (
+        bare_arithmetic_expr,
+        prepare,
+        written_arithmetic_request,
+    )
 
     cleaned = prepare(content)
     if not cleaned:
@@ -437,7 +441,9 @@ def _verified_math_stays_fast(content: str) -> bool:
         return True
     # Same whole-message helper as the SymPy gate — a lone "1+1" inside a
     # harder question must not keep the turn on the fast model.
-    return bare_arithmetic_expr(cleaned) is not None
+    return (
+        bare_arithmetic_expr(cleaned) is not None or written_arithmetic_request(cleaned) is not None
+    )
 
 
 def resolve_alias(
