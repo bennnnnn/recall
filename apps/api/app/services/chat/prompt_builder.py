@@ -362,6 +362,7 @@ async def fetch_web_and_tools(
             image_math_extract=image_math_extract,
             needs_math=needs_math,
             prior_user_messages=prior_user_messages,
+            response_intent_text=user_content if math_followup_problem is not None else None,
         ),
     )
     return web_block, math_block, search_sources, verified_math

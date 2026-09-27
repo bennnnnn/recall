@@ -159,6 +159,24 @@ def test_referential_how_replays_the_verified_school_method() -> None:
     assert reply.rstrip().endswith("```answer\n225\n```")
 
 
+def test_followup_presentation_intent_keeps_canonical_long_division() -> None:
+    question = "456/56"
+    _intent, block, _spec = _work(question)
+    block = replace(block, response_intent=classify_math_response_intent("Show me"))
+
+    reply = maybe_direct_math_reply(
+        block,
+        "Show me",
+        verified_request_text=question,
+    )
+
+    assert reply is not None
+    assert "```arithmetic" in reply
+    cleaned = validate_math_fences(reply, verified=block)
+    assert "```arithmetic" in cleaned
+    assert '"answer":"8\\\\text{ remainder }8"' in cleaned
+
+
 def test_fence_rewriter_uses_only_canonical_written_work() -> None:
     question = "Show steps: 478 + 356"
     _intent, block, spec = _work(question)

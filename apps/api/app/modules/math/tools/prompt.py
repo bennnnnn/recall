@@ -209,6 +209,7 @@ async def build_math_augmentation(
     image_math_extract: MathImageExtract | None = None,
     needs_math: bool | None = None,
     prior_user_messages: list[str] | None = None,
+    response_intent_text: str | None = None,
 ) -> tuple[str | None, VerifiedMathBlock | None]:
     """Compute the verified-math system block (or None) without mutating messages.
 
@@ -329,7 +330,11 @@ async def build_math_augmentation(
         # Intent matched but SymPy timed out / rejected / had no builder result.
         # Inject honesty so the model does not reuse the same "verified" UX.
         return _unverified_math_note(intent.kind), None
-    response_intent = classify_math_response_intent(user_content)
+    # A terse follow-up is solved from the prior mathematical problem, but its
+    # own wording still controls presentation.  Otherwise the final fence pass
+    # sees the original answer-only request and removes the freshly requested
+    # working from “Show me” / “Do it again”.
+    response_intent = classify_math_response_intent(response_intent_text or user_content)
     verified = (
         _withhold_hint_answer(verified, response_intent)
         if not response_intent.reveal_answer
