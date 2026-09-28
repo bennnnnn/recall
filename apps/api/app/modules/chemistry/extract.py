@@ -11,6 +11,7 @@ import re
 
 from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
 from app.modules.chemistry.equations import balance_equation
+from app.modules.chemistry.extractors import EXTENDED_EXTRACTORS
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 
 _N = r"-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?"
@@ -97,15 +98,28 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
             )
         }
         balanced = balance_equation(equation)
-        required = set(balanced.reactants) | set(balanced.products) if balanced.balanced else set()
-        if required and required <= concentrations.keys():
+        from app.modules.chemistry.species import counts_in_mass_action
+
+        normalized: dict[str, float] = {}
+        if balanced.balanced:
+            for species in (*balanced.reactants, *balanced.products):
+                if not counts_in_mass_action(species):
+                    continue
+                value = concentrations.get(species)
+                if value is None and "(" in species:
+                    value = concentrations.get(species[: species.rfind("(")])
+                if value is None:
+                    normalized = {}
+                    break
+                normalized[species] = value
+        if normalized:
             op: ChemistryOp = (
                 "reaction_quotient"
                 if re.search(r"\b(?:reaction quotient|Qc)\b", text, re.IGNORECASE)
                 else "equilibrium_constant"
             )
             return ChemistryIntent(
-                kind="equilibrium", chemistry_op=op, equation=equation, species=concentrations
+                kind="equilibrium", chemistry_op=op, equation=equation, species=normalized
             )
     if re.search(
         r"\b(?:how much|how many|moles? of|limiting reagent|stoichiometr)\b", text, re.IGNORECASE
@@ -122,7 +136,15 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
             )
         reactants = balance_equation(equation).reactants
         known = {formula: amount for formula, amount in amounts.items() if formula in reactants}
-        if target and len(known) == 1:
+        if (
+            target
+            and len(known) == 1
+            and not re.search(
+                r"\b(?:grams?|molecules|particles|atoms|liters?|litres?)\b",
+                text,
+                re.IGNORECASE,
+            )
+        ):
             return ChemistryIntent(
                 kind="stoichiometry",
                 chemistry_op="stoichiometry",
@@ -307,14 +329,45 @@ def _extract_solutions(text: str) -> ChemistryIntent | None:
     return None
 
 
+def _gas_pressure(text: str) -> float | None:
+    from app.modules.chemistry.quantity import to_atm
+
+    matches = re.findall(rf"({_N})\s*(kPa|Pa|mmHg|torr|atm|bar)\b", text, re.IGNORECASE)
+    if len(matches) != 1:
+        return None
+    value, unit = matches[0]
+    return to_atm(float(value), unit)
+
+
+def _gas_volume(text: str) -> float | None:
+    from app.modules.chemistry.quantity import to_liters
+
+    matches = re.findall(rf"({_N})\s*(mL|liters?|litres?|L)\b", text, re.IGNORECASE)
+    if len(matches) != 1:
+        return None
+    value, unit = matches[0]
+    return to_liters(float(value), unit)
+
+
+def _gas_temperature(text: str) -> float | None:
+    from app.modules.chemistry.quantity import to_kelvin
+
+    matches = re.findall(rf"({_N})\s*(°C|degC|celsius|K|C)\b", text)
+    if len(matches) != 1:
+        return None
+    value, unit = matches[0]
+    normalized = "celsius" if unit.lower() in {"celsius", "c"} else unit
+    return to_kelvin(float(value), normalized)
+
+
 def _extract_gas(text: str) -> ChemistryIntent | None:
     if not re.search(r"\b(?:PV\s*=\s*nRT|ideal gas|gas law)\b", text, re.IGNORECASE):
         return None
     values = {
-        "pressure": _search(rf"({_N})\s*atm\b", text),
-        "volume": _search(rf"({_N})\s*(?:L|liters?|litres?)\b", text),
+        "pressure": _gas_pressure(text),
+        "volume": _gas_volume(text),
         "moles": _search(rf"({_N})\s*mol(?:e|es)?\b", text),
-        "temperature": _search(rf"({_N})\s*K\b", text, flags=0),
+        "temperature": _gas_temperature(text),
     }
     if sum(value is None for value in values.values()) != 1:
         return None
@@ -499,13 +552,11 @@ def _extract_spectroscopy(text: str) -> ChemistryIntent | None:
     }
     if sum(value is None for value in values.values()) != 1:
         return None
-    if values["absorbance"] is None or values["concentration"] is None:
-        return ChemistryIntent(
-            kind="spectroscopy",
-            chemistry_op="beer_lambert",
-            params={key: value for key, value in values.items() if value is not None},
-        )
-    return None
+    return ChemistryIntent(
+        kind="spectroscopy",
+        chemistry_op="beer_lambert",
+        params={key: value for key, value in values.items() if value is not None},
+    )
 
 
 EXTRACTORS = (
@@ -519,6 +570,7 @@ EXTRACTORS = (
     _extract_solutions,
     _extract_gas,
     _extract_amounts,
+    *EXTENDED_EXTRACTORS,
 )
 
 

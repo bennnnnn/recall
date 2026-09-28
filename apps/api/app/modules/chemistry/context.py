@@ -129,8 +129,14 @@ def _element_context(content: str) -> str | None:
         lines.append(f"Group: {info['group']}")
     if "period" in info:
         lines.append(f"Period: {info['period']}")
+    if "number" in info:
+        lines.append(f"Atomic number: {info['number']}")
+    if "configuration" in info:
+        lines.append(f"Electron configuration: {info['configuration']}")
     if "electronegativity" in info:
         lines.append(f"Electronegativity: {info['electronegativity']}")
+    if "mass_note" in info:
+        lines.append(f"Mass note: {info['mass_note']}")
     lines.append("Use these values verbatim in your answer.")
     return "\n".join(lines)
 
