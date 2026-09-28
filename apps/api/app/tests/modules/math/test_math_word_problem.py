@@ -143,6 +143,7 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         BOOKS,
         "A shop had some notebooks, received 8, sold 3, and now has 20. How many did it start with?",
         "Jane has 8 apples and gives 3 to Joe. How many does she have now?",
+        "Jane has 10 apples and gives 3 away. What is left?",
         "Jane has 8 apples and receives 3 from Joe. How many does she have now?",
         "Marta had 12 blue beads and some red beads, lost 4 red beads, and has 15 left. "
         "How many red beads did she start with?",

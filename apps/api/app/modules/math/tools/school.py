@@ -1635,9 +1635,38 @@ def _verified_block_arithmetic(
         answer = math_solve.simplify_expression(intent.expr, intent.variable).latex
         lines.append(f"Power notation: {answer}")
         block = _finish_with_answer(lines, answer)
+        base, separator, exponent_text = intent.expr.rpartition("^")
+        if not separator or not exponent_text.isdigit():
+            return block
+        exponent = int(exponent_text)
+        if exponent == 0:
+            working = (
+                "**Power notation**\n\n"
+                f"The zero-exponent law says that, for ${base} \\ne 0$,\n\n"
+                f"${base}^0 = 1$"
+            )
+        elif exponent == 1:
+            working = (
+                f"**Power notation**\n\nA first power is the base itself:\n\n${base}^1 = {answer}$"
+            )
+        elif exponent <= 8:
+            factors = r" \times ".join(base for _ in range(exponent))
+            working = (
+                "**Power notation**\n\n"
+                f"An exponent of {exponent} means using ${base}$ as a factor "
+                f"{exponent} times:\n\n"
+                f"${base}^{exponent} = {factors} = {answer}$"
+            )
+        else:
+            working = (
+                "**Power notation**\n\n"
+                f"${base}^{exponent}$ means multiplying ${base}$ by itself "
+                f"{exponent} times.\n\n"
+                f"So the result remains ${answer}$."
+            )
         return replace(
             block,
-            direct_reply=(f"**Power notation**\n\n${answer}$\n\n```answer\n{answer}\n```\n"),
+            direct_reply=f"{working}\n\n```answer\n{answer}\n```\n",
         )
     answer = math_school.evaluate_arithmetic(intent.expr)
     if intent.school_op == "eval_exact_decimal":

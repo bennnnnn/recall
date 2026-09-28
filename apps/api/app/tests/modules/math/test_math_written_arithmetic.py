@@ -141,6 +141,16 @@ def test_whole_number_division_honors_requested_answer_mode(
     assert spec.answer == answer
 
 
+def test_large_repeating_division_does_not_depend_on_decimal_context_precision() -> None:
+    numerator = "10000000000000000000000000000"
+    _intent, block, spec = _work(f"{numerator} divided by 3")
+
+    assert spec.quotient == "3333333333333333333333333333.333"
+    assert block.canonical_answer == (
+        rf"\frac{{{numerator}}}{{3}}\approx 3333333333333333333333333333.33"
+    )
+
+
 def test_division_interpretations_are_explicit_and_preserve_the_invariant() -> None:
     for question, mode, answer in (
         ("437 divided by 6 with a remainder", "remainder", "72 R5"),

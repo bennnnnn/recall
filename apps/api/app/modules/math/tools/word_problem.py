@@ -78,6 +78,7 @@ _HOW_MANY_MATH_CONTEXT = re.compile(
 )
 _PRONOUN_REQUEST = re.compile(
     r"\b(?:what\s+(?:is|are|was|were)\s+(?:it|that|this|they|those|these)"
+    r"|what\s+(?:is|was)\s+(?:left|remaining)"
     r"|(?:find|determine)\s+(?:it|that|this|them|those|these)"
     r"|what\s+(?:does|did)\s+(?:[a-z][a-z'-]*\s+){1,3}have)\b",
     re.IGNORECASE,
@@ -85,7 +86,8 @@ _PRONOUN_REQUEST = re.compile(
 _PRONOUN_MATH_CONTEXT = re.compile(
     rf"\b{_MATH_TARGET}\b|\b(?:times\s+as|twice|double|triple|thrice|half|"
     r"more\s+than|less\s+than|fewer\s+than|greater\s+than|older|younger|"
-    r"together|altogether|combined|consecutive|equally|years\s+old|percent)\b|%",
+    rf"together|altogether|combined|consecutive|equally|years\s+old|percent|"
+    rf"{_QUANTITATIVE_CHANGE}|left|remain(?:s|ing)?)\b|%",
     re.IGNORECASE,
 )
 _RELATION = re.compile(

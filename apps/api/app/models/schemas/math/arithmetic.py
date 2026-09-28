@@ -76,7 +76,9 @@ class ArithmeticWorkSpec(BaseModel):
         "exact"
     )
     division_steps: list[LongDivisionStep] = Field(default_factory=list)
-    explanations: list[str] = Field(min_length=1, max_length=32)
+    # A bounded 64-digit long-division trace can add one explanation per
+    # quotient digit plus setup and rounding notes.
+    explanations: list[str] = Field(min_length=1, max_length=72)
 
     @model_validator(mode="after")
     def trace_matches_operation(self) -> ArithmeticWorkSpec:

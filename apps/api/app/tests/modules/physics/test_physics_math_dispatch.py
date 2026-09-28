@@ -7,6 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.math.tools import _build_verified_block as build_math_block
 from app.modules.math.tools import extract_math_intent
+from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.services.subject_solving import detect_subject
 
@@ -90,6 +91,20 @@ def test_symbolic_power_request_is_not_stolen_by_physics_unit_symbols(symbol: st
     assert block is not None
     assert block.canonical_answer == f"{symbol.lower()}^{{3}}"
     assert block.direct_reply is not None and "**Power notation**" in block.direct_reply
+
+
+def test_symbolic_power_steps_explain_the_exponent_before_the_answer() -> None:
+    text = "Show steps: the third power of x"
+    intent = extract_math_intent(text)
+    assert intent is not None and intent.school_op == "symbolic_power"
+    block = build_math_block(intent, _SETTINGS)
+    assert block is not None
+
+    reply = maybe_direct_math_reply(block, text)
+
+    assert reply is not None
+    assert "$x^3 = x \\times x \\times x = x^{3}$" in reply
+    assert reply.rstrip().endswith("```answer\nx^{3}\n```")
 
 
 @pytest.mark.parametrize(

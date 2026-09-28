@@ -9,6 +9,7 @@ from typing import Literal, cast
 from app.models.schemas.math import ArithmeticWorkSpec, LongDivisionStep
 from app.modules.math.solve.written_arithmetic_common import (
     MAX_DECIMAL_PLACES,
+    MAX_DIVISION_DIGITS,
     format_scaled,
     number_parts,
     scaled_integer,
@@ -44,12 +45,25 @@ def _fixed_decimal(
     *,
     rounding: str,
 ) -> str:
-    quantum = Decimal(1).scaleb(-places)
-    value = (Decimal(numerator) / Decimal(denominator)).quantize(
-        quantum,
-        rounding=rounding,
-    )
-    return format(value, f".{places}f")
+    """Format a non-negative rational without depending on Decimal precision.
+
+    The school arithmetic grammar accepts integers wider than Decimal's
+    process-wide 28 significant digits.  Scaling the numerator and rounding
+    the integer quotient keeps the calculation exact for every accepted
+    operand size and avoids ``InvalidOperation`` during ``quantize``.
+    """
+    scale = 10**places
+    scaled, remainder = divmod(numerator * scale, denominator)
+    if rounding == ROUND_HALF_UP:
+        if remainder * 2 >= denominator:
+            scaled += 1
+    elif rounding != ROUND_DOWN:
+        raise ValueError(f"Unsupported division rounding mode: {rounding}")
+    digits = str(scaled)
+    if places == 0:
+        return digits
+    digits = digits.zfill(places + 1)
+    return f"{digits[:-places]}.{digits[-places:]}"
 
 
 def _division_steps(
@@ -104,7 +118,8 @@ def build_long_division(
     *,
     answer_mode: str | None = None,
 ) -> ArithmeticWorkSpec | None:
-    left_parts, right_parts = number_parts(left_token), number_parts(right_token)
+    left_parts = number_parts(left_token, max_digits=MAX_DIVISION_DIGITS)
+    right_parts = number_parts(right_token, max_digits=MAX_DIVISION_DIGITS)
     if left_parts is None or right_parts is None:
         return None
     left, left_scale = left_parts
@@ -158,8 +173,16 @@ def build_long_division(
         answer_places = 0
         resolved_mode = requested_mode
     elif places is not None:
-        quotient_decimal = Decimal(numerator) / Decimal(denominator)
-        quotient = _plain_decimal(quotient_decimal)
+        quotient = _plain_decimal(
+            Decimal(
+                _fixed_decimal(
+                    numerator,
+                    denominator,
+                    places,
+                    rounding=ROUND_DOWN,
+                )
+            )
+        )
         target_extra = max(0, places - existing_fraction_places)
         answer = quotient
         answer_places = places
