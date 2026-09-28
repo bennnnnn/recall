@@ -16,7 +16,8 @@ from app.modules.physics.extractors.common import (
     _strip_param_assignments,
 )
 from app.modules.physics.extractors.matter_thermal import _AREA_PATTERN
-from app.modules.physics.extractors.mechanics import _MASS_UNITS
+from app.modules.physics.extractors.mechanics import _MASS_UNITS, _stated_angle
+from app.modules.physics.extractors.school_extensions import blocks_circuit, blocks_field
 from app.services.text_match import has_equation
 
 _MAGNETISM_CUES = (
@@ -48,6 +49,8 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
     # The tesla signature is case-sensitive (a bare lowercase t is a tonne), so
     # this gate reads the original casing the way the pre-filter now does.
     if not _has_cue_either_case(cleaned, _MAGNETISM_CUES, _MAGNETISM_CUE_RES):
+        return None
+    if blocks_field(cleaned):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -124,40 +127,60 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
 
     # F = q v B, checked before F = B I L: a moving charge names both.
     if charge is not None and speed is not None:
+        params = {"Q": charge[0], "v": speed[0], "b_field": field[0]}
+        units = {
+            "Q": charge[1] or "C",
+            "v": speed[1] or "m/s",
+            "b_field": field[1] or "T",
+        }
         return PhysicsIntent(
             kind="magnetism",
             physics_op="magnetic_force_charge",
-            physics_params={"Q": charge[0], "v": speed[0], "b_field": field[0]},
-            physics_units={
-                "Q": charge[1] or "C",
-                "v": speed[1] or "m/s",
-                "b_field": field[1] or "T",
-            },
+            physics_params=_with_stated_angle(cleaned, params),
+            physics_units=_with_stated_angle_unit(cleaned, units),
             operation="solve",
         )
 
     if current is not None and length is not None:
+        params = {"I": current[0], "wire_L": length[0], "b_field": field[0]}
+        units = {
+            "I": current[1] or "A",
+            "wire_L": length[1] or "m",
+            "b_field": field[1] or "T",
+        }
         return PhysicsIntent(
             kind="magnetism",
             physics_op="magnetic_force_wire",
-            physics_params={"I": current[0], "wire_L": length[0], "b_field": field[0]},
-            physics_units={
-                "I": current[1] or "A",
-                "wire_L": length[1] or "m",
-                "b_field": field[1] or "T",
-            },
+            physics_params=_with_stated_angle(cleaned, params),
+            physics_units=_with_stated_angle_unit(cleaned, units),
             operation="solve",
         )
 
     if area is not None:
+        params = {"area": area[0], "b_field": field[0]}
+        units = {"area": area[1] or "m^2", "b_field": field[1] or "T"}
         return PhysicsIntent(
             kind="magnetism",
             physics_op="magnetic_flux",
-            physics_params={"area": area[0], "b_field": field[0]},
-            physics_units={"area": area[1] or "m^2", "b_field": field[1] or "T"},
+            physics_params=_with_stated_angle(cleaned, params),
+            physics_units=_with_stated_angle_unit(cleaned, units),
             operation="solve",
         )
     return None
+
+
+def _with_stated_angle(text: str, params: dict[str, float]) -> dict[str, float]:
+    angle = _stated_angle(text)
+    if angle is None:
+        return params
+    return {**params, "angle": angle[0]}
+
+
+def _with_stated_angle_unit(text: str, units: dict[str, str]) -> dict[str, str]:
+    angle = _stated_angle(text)
+    if angle is None:
+        return units
+    return {**units, "angle": angle[1]}
 
 
 _CIRCUIT_CUES = (
@@ -264,6 +287,8 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     # The same check the pre-filter runs, so the two cannot disagree about
     # whether this question is a circuit question.
     if not _has_cue_either_case(cleaned, _CIRCUIT_CUES, _CIRCUIT_CUE_RES):
+        return None
+    if blocks_circuit(cleaned):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -466,6 +491,8 @@ _ELECTROSTATICS_CUE_RES: tuple[re.Pattern[str], ...] = (_TWO_CHARGES_RE,)
 
 def _extract_electrostatics_intent(cleaned: str) -> PhysicsIntent | None:
     if not _has_cue_either_case(cleaned, _ELECTROSTATICS_CUES, _ELECTROSTATICS_CUE_RES):
+        return None
+    if blocks_field(cleaned):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
         return None

@@ -500,6 +500,19 @@ def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
         base = r"W = Fd\cos\theta"
     elif operation == "power" and "angle" in params:
         base = r"P = Fv\cos\theta"
+    elif operation == "magnetic_force_charge" and "angle" in params:
+        base = r"F = qvB\sin\theta"
+    elif operation == "magnetic_force_wire" and "angle" in params:
+        base = r"F = BIL\sin\theta"
+    elif operation == "magnetic_flux" and "angle" in params:
+        base = r"\Phi = BA\cos\theta"
+    elif operation == "doppler_frequency" and "v_obs" in params:
+        base = r"f' = f\frac{v+v_o}{v-v_s}"
+    elif operation == "bernoulli_pressure" and "h1" in params:
+        base = (
+            r"P_1 + \frac{1}{2}\rho v_1^2 + \rho gh_1 = "
+            r"P_2 + \frac{1}{2}\rho v_2^2 + \rho gh_2"
+        )
     if operation == "resonance_frequency":
         # A pipe closed at one end has a 4L fundamental; an open pipe or a
         # string has 2L. Show the actual universal law for the apparatus rather

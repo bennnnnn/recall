@@ -26,6 +26,7 @@ from app.modules.physics.solvers.mechanics import (
 from app.modules.physics.solvers.motion import solve_kinematics, solve_projectile, solve_suvat
 from app.modules.physics.solvers.oscillations_waves import solve_spring, solve_waves
 from app.modules.physics.solvers.rotation import solve_circular, solve_rotation, solve_torque
+from app.modules.physics.solvers.school_extensions import solve_school_extension
 from app.services.solving import SolveServiceError
 
 __all__ = [
@@ -59,6 +60,11 @@ __all__ = [
 
 def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     """Dispatch to the right solver by intent kind."""
+    # Closed school templates share kinds with older solvers. Claim them first
+    # so an unknown-op error in the kind solver cannot hide a real answer.
+    extension = solve_school_extension(intent)
+    if extension is not None:
+        return extension
     if intent.kind == "kinematics":
         return solve_kinematics(intent)
     if intent.kind == "suvat":

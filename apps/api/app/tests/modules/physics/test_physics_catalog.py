@@ -21,13 +21,6 @@ from app.tests.modules.physics.support import (
 _SETTINGS = Settings(math_tools_enabled=True)
 
 _FEATURES_MARKERS = (
-    "Kirchhoff's laws",
-    "Gauss's law",
-    "Faraday's law",
-    "inductors",
-    "RL circuits",
-    "AC impedance",
-    "Poiseuille",
     "Schrödinger",
     "quantum harmonic oscillator",
     "Rydberg",
@@ -272,6 +265,12 @@ def test_open_mechanics_requests_stay_unverified(text: str) -> None:
             "what is the force on a charge of 2 C moving at 10 m/s in a 0.4 T magnetic field",
             "velocity is perpendicular to the field",
             None,
+        ),
+        (
+            "what is the force on a charge of 2 C moving at 10 m/s "
+            "in a 0.4 T magnetic field at 30 degrees",
+            None,
+            "velocity is perpendicular to the field",
         ),
     ],
 )

@@ -101,6 +101,7 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "wavelength": "meter",
     "v_wave": "meter / second",
     "v_src": "meter / second",
+    "v_obs": "meter / second",
     "v_sound": "meter / second",
     "tension": "newton",
     "linear_density": "kilogram / meter",
@@ -126,7 +127,10 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "Q_in": "joule",
     "pres": "pascal",
     "pres1": "pascal",
+    "pres2": "pascal",
     "volume": "meter ** 3",
+    "vol1": "meter ** 3",
+    "vol2": "meter ** 3",
     "moles": "mole",
     # Round 3 gravitation. "M" beside "m" is case-only, but it is how the
     # formula is written and the pair always appears together.
@@ -188,6 +192,20 @@ _PARAM_SI_DIMENSIONS: dict[str, str] = {
     "u": "meter / second",
     # Pendulum length.
     "L": "meter",
+    "i_enter": "ampere",
+    "i_leave": "ampere",
+    "inductance": "henry",
+    "delta_i": "ampere",
+    "I0": "ampere",
+    "turns": "dimensionless",
+    "delta_flux": "weber",
+    "b1": "tesla",
+    "b2": "tesla",
+    "lambda_line": "coulomb / meter",
+    "sigma_charge": "coulomb / meter ** 2",
+    "gamma_gas": "dimensionless",
+    "reactance_l": "ohm",
+    "reactance_c": "ohm",
     # "mu" and "angle" are intentionally absent: mu is dimensionless and angle
     # is converted by _params_in_si before any unit check runs.
 }
@@ -212,6 +230,11 @@ _UNIT_ALIASES = {
     "watts": "watt",
     "kw": "kilowatt",
     "kilowatts": "kilowatt",
+    "c/m": "coulomb / meter",
+    "c/m^2": "coulomb / meter ** 2",
+    "c/m2": "coulomb / meter ** 2",
+    "uc/m": "microcoulomb / meter",
+    "uc/m^2": "microcoulomb / meter ** 2",
     "c": "coulomb",
     "coulombs": "coulomb",
     "uc": "microcoulomb",

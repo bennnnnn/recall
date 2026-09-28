@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **RL decay was answered as an inductor emf, and a refrigerator COP used one temperature twice.** Keyword search was a substring, so `in` matched `inductor` and bound the only seconds value. Nearest-either-side then preferred `300 K` over the `250 K` that follows `cold`, because the earlier number is fewer characters away. School cues are whole words, and a named reservoir is the temperature after that word.
+
+- **School E&M, fluids, and Doppler answered a narrower law than the sentence.** Perpendicular force, horizontal Bernoulli, and source-only Doppler are the special cases. Use the general form only when the angle, both heights, or observer motion is stated; otherwise decline. An incomplete Kirchhoff loop must return nothing so the circuit extractor cannot answer it as Ohm's law.
+
 - **Relations and blackboard bold fell back to the UI font.** `≠`, `∉`, `ℝ`, and `·` are not in KaTeX_Main or KaTeX_AMS. Routing every relation to AMS painted missing glyphs with the system face. Keep a glyph on the face that contains it: Main for `≤` `∈` and the not-slash overlay, AMS Latin capitals for `\mathbb`, U+22C5 for `\cdot`.
 
 - **Radical bars and overlines missed the ink, and superscripts fell back to the UI font.** Width was a flat 9px per character, and `\overline` / `^2` were Unicode combining marks and superscripts that KaTeX's faces do not contain. Measure from the layout tree (`lib/math/layout.ts`); draw rules from the child ink; raise KaTeX glyphs instead of Unicode scripts. Do not set a horizontal `ScrollView`'s width to the formula — `maxWidth: 100%` is the viewport, `minWidth` is the math.

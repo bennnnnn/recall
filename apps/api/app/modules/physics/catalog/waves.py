@@ -18,7 +18,14 @@ SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "wave_period", "waves", "Frequency-period relation", "T", base_latex="f = \\frac{1}{T}"
     ),
-    formula("doppler_frequency", "waves", "Doppler-effect equation", "f'"),
+    formula(
+        "doppler_frequency",
+        "waves",
+        "Doppler-effect equation",
+        "f'",
+        base_latex=r"f' = f\frac{v}{v - v_s}",
+        assumptions=("the observer is stationary",),
+    ),
     formula(
         "string_wave_speed",
         "waves",
