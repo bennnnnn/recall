@@ -66,20 +66,23 @@ _DOMAIN_ADJECTIVE = (
 )
 _DOMAIN_CUE = (
     r"(?:(?:for|where|also|with|and|if)\b|"
-    r"(?:assuming|given|provided)(?:\s+that)?\b|such\s+that\b|subject\s+to\b|"
+    r"(?:assum(?:e|ing)|suppos(?:e|ing)|given|provided)(?:\s+that)?\b|"
+    r"(?:let|take|consider)\b|such\s+that\b|subject\s+to\b|"
     r"(?:under|on)\s+(?:the\s+)?condition\s+that\b|[,;])"
 )
 _EQUALITY_DOMAIN_CUE = (
-    r"(?:where\b|(?:assuming|given|provided)(?:\s+that)?\b|such\s+that\b|"
-    r"subject\s+to\b|(?:under|on)\s+(?:the\s+)?condition\s+that\b)"
+    r"(?:where\b|(?:assum(?:e|ing)|suppos(?:e|ing)|given|provided)"
+    r"(?:\s+that)?\b|(?:let|take|consider)\b|such\s+that\b|subject\s+to\b|"
+    r"(?:under|on)\s+(?:the\s+)?condition\s+that\b)"
 )
 _NONDEFAULT_DOMAIN = re.compile(
     rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}"
     rf"|[a-z]\s*(?:∈|\\in\b)\s*(?!{_REAL_NUMBER_SET}(?:$|[\s,;.:)\]]))"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+in\s*[\[(]"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
-    rf"|{_DOMAIN_CUE}\s+[a-z]\s+(?:(?:must\s+(?:not\s+)?(?:be|equal)|is|are|"
-    r"was|were|equals?|cannot\s+(?:be|equal)|being|belongs?\s+to|lies?\s+in)\b)"
+    rf"|{_DOMAIN_CUE}\s+[a-z]\s+(?:(?:must\s+(?:not\s+)?(?:be|equal)|is|are|be|"
+    r"to\s+be|was|were|equals?|cannot\s+(?:be|equal)|being|belongs?\s+to|"
+    r"lies?\s+in)\b)"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+"
     rf"(?:{_DOMAIN_ADJECTIVE}|(?:an?\s+)?{_NUMBER_SET_DOMAIN})"
     rf"|{_DOMAIN_CUE}\s+(?:an?\s+)?(?:{_DOMAIN_ADJECTIVE}|{_NUMBER_SET_DOMAIN})"
@@ -87,7 +90,7 @@ _NONDEFAULT_DOMAIN = re.compile(
     re.IGNORECASE,
 )
 _LINKED_EQUALITY_DOMAIN = re.compile(
-    rf"{_EQUALITY_DOMAIN_CUE}\s+[a-z]\s*={{1,2}}(?!=)",
+    rf"{_EQUALITY_DOMAIN_CUE}\s+(?P<variable>[a-z])\s*={{1,2}}(?!=)",
     re.IGNORECASE,
 )
 _SIGNED_OUTPUT_RESTRICTION = re.compile(
@@ -106,6 +109,39 @@ _DOMAIN_BLIND_KINDS = frozenset(
 class ConsumptionAudit:
     complete: bool
     leftovers: tuple[str, ...] = ()
+
+
+def _side_pattern(side: str) -> str:
+    """Match one extracted equation side while allowing source whitespace."""
+    compact = re.sub(r"\s+", "", side)
+    return r"\s*".join(re.escape(char) for char in compact)
+
+
+def _linked_equality_would_be_dropped(text: str, intent: MathIntent) -> bool:
+    """Return true only when a linked equality is absent from a typed system."""
+    matches = list(_LINKED_EQUALITY_DOMAIN.finditer(text))
+    if not matches:
+        return False
+    represented_equations = intent.system_equations or []
+    if intent.kind == "equation" and intent.lhs is not None and intent.rhs is not None:
+        represented_equations = [(intent.lhs, intent.rhs)]
+    if not represented_equations:
+        return True
+    for match in matches:
+        source_equation = text[match.start("variable") :]
+        represented = any(
+            re.match(
+                rf"^{_side_pattern(lhs)}\s*={{1,2}}\s*{_side_pattern(rhs)}"
+                r"(?=$|[\s,;.?!])",
+                source_equation,
+                re.IGNORECASE,
+            )
+            is not None
+            for lhs, rhs in represented_equations
+        )
+        if not represented:
+            return True
+    return False
 
 
 def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
@@ -150,7 +186,7 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         # graph result. Never certify whichever extractor happened to run first.
         leftovers.append("multiple requested function outputs")
     has_unrepresented_domain = bool(_NONDEFAULT_DOMAIN.search(text))
-    if _LINKED_EQUALITY_DOMAIN.search(text):
+    if _linked_equality_would_be_dropped(text, intent):
         has_unrepresented_domain = True
     if _SIGNED_OUTPUT_RESTRICTION.search(text):
         has_unrepresented_domain = True

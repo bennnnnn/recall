@@ -83,6 +83,10 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Solve x^2=4; solutions that are nonnegative",
         "Solve x^2=4 such that x>0",
         "Solve x^2=4 under the condition that x is negative",
+        "Assume x is positive. Solve x^2=4",
+        "Let x be positive. Solve x^2=4",
+        "Suppose that x is negative. Solve x^2=4",
+        "Take x to be nonnegative. Solve x^2=4",
     ],
 )
 def test_unsupported_multipart_request_fails_closed(question: str) -> None:
@@ -102,11 +106,20 @@ def test_supported_geometry_multipart_retains_both_requested_values() -> None:
     assert maybe_direct_math_reply(block, question) is None
 
 
-def test_system_equation_is_not_mistaken_for_a_domain_constraint() -> None:
-    intent = extract_math_intent("Solve x+y=3, y=1")
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Solve x+y=3, y=1",
+        "Solve x+y=3 given y=1",
+        "Solve x+y=3 where y=1",
+        "Let y=1. Solve x+y=3",
+    ],
+)
+def test_system_equation_is_not_mistaken_for_a_domain_constraint(question: str) -> None:
+    intent = extract_math_intent(question)
     assert intent is not None
     assert intent.kind == "system"
-    assert intent.system_equations == [("x+y", "3"), ("y", "1")]
+    assert set(intent.system_equations or []) == {("x+y", "3"), ("y", "1")}
 
 
 def test_system_with_an_extra_inequality_constraint_fails_closed() -> None:
