@@ -309,8 +309,6 @@ _THERMAL_CUE_RES: tuple[re.Pattern[str], ...] = (
 
 _WATER_SPECIFIC_HEAT = 4186.0
 
-_GAS_CONSTANT = 8.314462618
-
 
 def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     """A temperature with an explicit scale, or nothing.

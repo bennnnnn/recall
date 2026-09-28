@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.solvers.common import _RESISTOR_KEY_RE, PhysicsResult
+from app.modules.physics.solvers.common import _RESISTOR_KEY_RE, PhysicsResult, QuantityResult
 from app.modules.physics.solvers.school_common import positive, result
 from app.services.solving import SolveServiceError
 
@@ -21,13 +21,21 @@ def _junction(params: dict[str, float]) -> PhysicsResult:
         side = "leaving"
     else:
         side = "entering"
-    shown = f"{value:.4g}"
     return PhysicsResult(
         answer=(
             rf"\sum I_{{\mathrm{{in}}}} = \sum I_{{\mathrm{{out}}}} "
-            rf"\Rightarrow I = |{entering:g} - {leaving:g}| \approx {shown} \text{{ A}}"
+            rf"\Rightarrow I = |{entering:g} - {leaving:g}| \approx {value:.4g} \text{{ A}}"
         ),
-        answer_value=f"{shown} A {side}",
+        quantities=(
+            QuantityResult(
+                "I",
+                value,
+                "A",
+                detail=side,
+                number_format=".4g",
+                detail_style="suffix",
+            ),
+        ),
     )
 
 

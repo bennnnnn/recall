@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.solvers.common import PhysicsResult
+from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, solved
 from app.services.solving import SolveServiceError
 
 
@@ -15,7 +15,9 @@ def positive(params: dict[str, float], *keys: str) -> None:
 def result(symbol: str, formula: str, numeric: str, value: float, unit: str) -> PhysicsResult:
     shown = f"{value:.4g}"
     unit_text = rf" \text{{ {unit}}}" if unit else ""
-    return PhysicsResult(
+    return solved(
+        QuantityResult(symbol, value, unit, number_format=".4g"),
+        formula=f"{symbol} = {formula}",
+        substitution=f"{symbol} = {numeric}",
         answer=rf"{symbol} = {formula} = {numeric} \approx {shown}{unit_text}",
-        answer_value=f"{shown} {unit}".strip(),
     )

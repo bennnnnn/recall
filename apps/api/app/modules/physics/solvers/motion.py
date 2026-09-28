@@ -14,6 +14,7 @@ from app.models.schemas.physics import (
 )
 from app.modules.physics.solvers.common import (
     PhysicsResult,
+    QuantityResult,
     _latex_num,
     _params_in_si,
 )
@@ -27,6 +28,43 @@ def _rate_number(value: float) -> str:
     if not math.isfinite(value):
         raise SolveServiceError("rate result must be finite")
     return f"{value:.12g}"
+
+
+def _projectile_max_height_substitution(intent: PhysicsIntent) -> str:
+    """Peak height with the launch angle in degrees, not the SI radian."""
+    from app.modules.physics.working import display_number
+
+    params = intent.physics_params or {}
+    h0 = display_number(params.get("h0", 0.0))
+    return (
+        rf"H_{{max}} = {h0} + "
+        rf"\frac{{{display_number(params['v0'])}^2 "
+        rf"\sin^2({display_number(params['angle'])}^\circ)}}"
+        rf"{{2 \cdot {display_number(params['g'])}}}"
+    )
+
+
+def _rate_substitution(intent: PhysicsIntent) -> str:
+    """Plugged-in rate row, with the units the question used."""
+    from app.modules.physics.working import display_number, given_unit_suffix
+
+    params = intent.physics_params or {}
+    units = intent.physics_units or {}
+    op = intent.physics_op
+    if op in {"average_speed", "rate_speed"}:
+        return (
+            rf"v = \frac{{{display_number(params['d'])}{given_unit_suffix(units.get('d'))}}}"
+            rf"{{{display_number(params['t'])}{given_unit_suffix(units.get('t'))}}}"
+        )
+    if op == "rate_distance":
+        return (
+            rf"d = {display_number(params['v'])}{given_unit_suffix(units.get('v'))} \cdot "
+            rf"{display_number(params['t'])}{given_unit_suffix(units.get('t'))}"
+        )
+    return (
+        rf"t = \frac{{{display_number(params['d'])}{given_unit_suffix(units.get('d'))}}}"
+        rf"{{{display_number(params['v'])}{given_unit_suffix(units.get('v'))}}}"
+    )
 
 
 def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
@@ -105,7 +143,8 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
         raise SolveServiceError(f"unsupported rate operation: {op}")
     return PhysicsResult(
         answer=working,
-        answer_value=f"{_rate_number(value)} {answer_unit}",
+        quantities=(QuantityResult("", value, answer_unit, number_format=".12g"),),
+        substitutions=(_rate_substitution(intent),),
     )
 
 
@@ -150,7 +189,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             rf"{{{g:g}}} "
             rf"\approx {t_val:.2f} \text{{ s}}"
         )
-        answer_value = f"{t_val:.2f} s"
+        quantity = QuantityResult("", t_val, "s", number_format=".2f")
     elif op in ("velocity", "speed"):
         # Need a time — look for a time param, else use time_to_ground.
         t_param = p.get("t")
@@ -184,7 +223,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"v = v_0 - g t = {_latex_num(v0)} - {g:g} \cdot {t_val:g} "
                 rf"\approx {v_val:.2f} \text{{ m/s}}"
             )
-        answer_value = f"{v_val:.2f} m/s"
+        quantity = QuantityResult("", v_val, "m/s", number_format=".2f")
     elif op == "position":
         t_param = p.get("t")
         if t_param is None:
@@ -197,8 +236,8 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)} "
             rf"\approx {h_val:.2f} \text{{ m}}"
         )
-        answer_value = f"{h_val:.2f} m"
-    elif op == "max_height":
+        quantity = QuantityResult("", h_val, "m", number_format=".2f")
+    elif op == "vertical_max_height":
         if v0 <= 0:
             raise SolveServiceError("maximum height for a vertical launch requires v0 > 0")
         h_val = h0 + v0**2 / (2 * g)
@@ -207,7 +246,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             rf"{h0:g} + \frac{{{_latex_num(v0, square=True)}}}{{2 \cdot {g:g}}} "
             rf"\approx {h_val:.2f} \text{{ m}}"
         )
-        answer_value = f"{h_val:.2f} m"
+        quantity = QuantityResult("", h_val, "m", number_format=".2f")
         # The visual shows the complete trip back to the landing plane while
         # the scalar answer remains the requested peak height.
         landed = _time_to_ground()
@@ -219,8 +258,10 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         # None unless a gravity-motion cue is present — do not use this
         # for two-point velocity acceleration.
         answer_latex = rf"a = -g = -{g:g} \text{{ m/s}}^2"
-        answer_value = f"{-g:g} m/s^2"
-        return PhysicsResult(answer=answer_latex, answer_value=answer_value)
+        return PhysicsResult(
+            answer=answer_latex,
+            quantities=(QuantityResult("", -g, "m/s^2", number_format="g"),),
+        )
     else:
         raise SolveServiceError(f"unsupported kinematics op: {op}")
 
@@ -235,7 +276,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         # from an unstated height, which is exactly the case h(t) cannot plot.
         # Only a zero-length window is degenerate.
         if t_val <= 0:
-            return PhysicsResult(answer=answer_latex, answer_value=answer_value)
+            return PhysicsResult(answer=answer_latex, quantities=(quantity,))
         t_max = t_val * 1.05
         dt = t_max / (n_points - 1)
         v_points: list[list[float]] = []
@@ -248,7 +289,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         is_speed = op == "speed"
         return PhysicsResult(
             answer=answer_latex,
-            answer_value=answer_value,
+            quantities=(quantity,),
             graph_specs=[
                 GraphBlockSpec(
                     type="trajectory",
@@ -270,7 +311,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     # be entirely below ground and clamp to a flat line at zero, which reads
     # as "it never moved". The answer is still exact.
     if h0 <= 0 and v0 == 0:
-        return PhysicsResult(answer=answer_latex, answer_value=answer_value)
+        return PhysicsResult(answer=answer_latex, quantities=(quantity,))
 
     t_max = t_val * 1.05  # small pad so the curve doesn't end exactly at ground
     dt = t_max / (n_points - 1)
@@ -298,7 +339,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     )
     return PhysicsResult(
         answer=answer_latex,
-        answer_value=answer_value,
+        quantities=(quantity,),
         graph_specs=[graph_spec],
     )
 
@@ -517,7 +558,7 @@ def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
     graphs = _suvat_graph(op, p, {solved: value} if solved else {})
     return PhysicsResult(
         answer=rf"{workings} \approx {value:.2f} \text{{ {unit} }}",
-        answer_value=f"{value:.2f} {unit}",
+        quantities=(QuantityResult("", value, unit, number_format=".2f"),),
         graph_specs=graphs,
     )
 
@@ -559,7 +600,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\tfrac{{1}}{{2}} \arcsin\!\left(\frac{{{r_target:g} \cdot {g:g}}}"
                 rf"{{{_latex_num(v0, square=True)}}}\right) \approx {deg_val:.2f}^\circ"
             ),
-            answer_value=f"{deg_val:.2f} deg",
+            quantities=(QuantityResult("", deg_val, "deg", number_format=".2f"),),
         )
 
     theta = p["angle"]  # radians (converted by _params_in_si)
@@ -592,14 +633,16 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             if h0 <= 0
             else rf"R = v_0 \cos(\theta)\, t \approx {r_val:.2f} \text{{ m}}"
         )
-        answer_value = f"{r_val:.2f} m"
+        quantity = QuantityResult("", r_val, "m", number_format=".2f")
+        substitutions: tuple[str, ...] = ()
     elif op == "max_height":
         h_val = h0 + v0**2 * math.sin(theta) ** 2 / (2 * g)
         answer_latex = (
             rf"H = h_0 + \frac{{v_0^2 \sin^2(\theta)}}{{2g}} = "
             rf"{h_val:.2f} \text{{ m}}"
         )
-        answer_value = f"{h_val:.2f} m"
+        quantity = QuantityResult("", h_val, "m", number_format=".2f")
+        substitutions = (_projectile_max_height_substitution(intent),)
     elif op == "time_of_flight":
         # t_flight is already in hand — both branches above compute it to build
         # the trajectory, whatever the question asked for.
@@ -611,7 +654,8 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             else rf"\tfrac{{1}}{{2}} g t^2 - v_0 \sin(\theta) t - h_0 = 0 "
             rf"\Rightarrow t \approx {t_flight:.2f} \text{{ s}}"
         )
-        answer_value = f"{t_flight:.2f} s"
+        quantity = QuantityResult("", t_flight, "s", number_format=".2f")
+        substitutions = ()
     elif op == "impact_speed":
         v_x = v0 * math.cos(theta)
         v_y = v0 * math.sin(theta) - g * t_flight
@@ -621,7 +665,8 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             rf"\sqrt{{{v_x:.2f}^2 + ({v_y:.2f})^2}} "
             rf"\approx {speed_val:.2f} \text{{ m/s}}"
         )
-        answer_value = f"{speed_val:.2f} m/s"
+        quantity = QuantityResult("", speed_val, "m/s", number_format=".2f")
+        substitutions = ()
     else:
         raise SolveServiceError(f"unsupported projectile op: {op}")
 
@@ -670,7 +715,8 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
     )
     return PhysicsResult(
         answer=answer_latex,
-        answer_value=answer_value,
+        quantities=(quantity,),
+        substitutions=substitutions,
         graph_specs=[graph_spec],
         simulation_specs=[scene],
     )

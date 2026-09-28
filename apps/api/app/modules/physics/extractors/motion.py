@@ -232,9 +232,14 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         return None
 
     # Decide what the user is asking for.
-    op: Literal["position", "velocity", "speed", "acceleration", "time_to_ground", "max_height"] = (
-        "time_to_ground"
-    )
+    op: Literal[
+        "position",
+        "velocity",
+        "speed",
+        "acceleration",
+        "time_to_ground",
+        "vertical_max_height",
+    ] = "time_to_ground"
     if asks_speed:
         op = "speed"
     elif asks_velocity:
@@ -247,7 +252,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         # the upward-launch formula for a negative initial velocity.
         if v0 <= 0:
             return None
-        op = "max_height"
+        op = "vertical_max_height"
     elif "acceleration" in lower:
         if not any(cue in lower for cue in _GRAVITY_MOTION_CUES):
             return None

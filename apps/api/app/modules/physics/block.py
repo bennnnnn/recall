@@ -16,6 +16,7 @@ from typing import Any
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult, solve_physics
+from app.modules.physics.solvers.common import QuantityResult
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
 
 logger = logging.getLogger(__name__)
@@ -59,21 +60,33 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
     # Validate even a model_copy-constructed intent before trusting its parts.
     intent = PhysicsIntent.model_validate(intent.model_dump())
     results: list[PhysicsResult] = []
-    answers: list[str] = []
+    labeled: list[QuantityResult] = []
     for op in intent.requested_ops:
         part = PhysicsIntent.model_validate(
             {**intent.model_dump(), "physics_op": op, "requested_ops": []}
         )
         result = solve_physics(part)
-        value, separator, unit = result.answer_value.partition(" ")
-        if not separator or unit not in {"s", "m", "m/s"}:
+        if len(result.quantities) != 1:
             raise SolveServiceError("unexpected projectile result representation")
-        answers.append(rf"{_PROJECTILE_LABELS[op]} = {value}\,\mathrm{{{unit}}}")
+        item = result.quantities[0]
+        if item.unit not in {"s", "m", "m/s"}:
+            raise SolveServiceError("unexpected projectile result representation")
+        labeled.append(
+            QuantityResult(
+                _PROJECTILE_LABELS[op],
+                item.value,
+                item.unit,
+                number_format=item.number_format,
+            )
+        )
         results.append(result)
     first = results[0]
     return PhysicsResult(
         answer=r";\quad ".join(result.answer for result in results),
-        answer_value=r";\quad ".join(answers),
+        quantities=tuple(labeled),
+        formulas=tuple(formula for result in results for formula in result.formulas),
+        substitutions=tuple(row for result in results for row in result.substitutions),
+        joiner="projectile",
         graph_specs=first.graph_specs,
         simulation_specs=first.simulation_specs,
     )
@@ -147,6 +160,8 @@ def _build_physics_block(
             allow_direct=False,
             physics_intent=intent.model_copy(deep=True),
             physics_working=result.answer,
+            physics_formulas=result.formulas,
+            physics_substitutions=result.substitutions,
         )
 
     if result.graph_specs:
@@ -159,6 +174,8 @@ def _build_physics_block(
             canonical_answer=visible_answer,
             physics_intent=intent.model_copy(deep=True),
             physics_working=result.answer,
+            physics_formulas=result.formulas,
+            physics_substitutions=result.substitutions,
         )
     else:
         # A scene attached to a scalar answer is decoration, not a second
@@ -173,6 +190,8 @@ def _build_physics_block(
             allow_direct=False,
             physics_intent=intent.model_copy(deep=True),
             physics_working=result.answer,
+            physics_formulas=result.formulas,
+            physics_substitutions=result.substitutions,
         )
 
     # Extras only. Every reader of `canonical_fences` already prepends

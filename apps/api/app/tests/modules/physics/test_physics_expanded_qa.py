@@ -10,7 +10,7 @@ from app.modules.integrations.calendar import (
     is_calendar_create_request,
     should_inject_calendar_block,
 )
-from app.modules.physics.direct import _FORMULA_LAW_NAMES, _RESULT_SYMBOLS
+from app.modules.physics.catalog import CATALOG
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,
@@ -189,14 +189,16 @@ def test_audit_prompts_are_verified_instant_structured_physics(
     assert [reply.index(heading) for heading in _HEADINGS] == sorted(
         reply.index(heading) for heading in _HEADINGS
     )
-    assert f"**Formula**\n\n{_FORMULA_LAW_NAMES[op]}:" in reply
+    assert f"**Formula**\n\n{CATALOG[op].law_name}:" in reply
     assert not is_calendar_create_request(query)
     assert not should_inject_calendar_block(query)
 
 
 def test_every_supported_physics_operation_has_a_named_governing_law() -> None:
-    assert set(_FORMULA_LAW_NAMES) == set(_RESULT_SYMBOLS)
-    assert all(name.strip() and name != "Physics formula" for name in _FORMULA_LAW_NAMES.values())
+    assert all(
+        spec.law_name.strip() and spec.law_name != "Physics formula" for spec in CATALOG.values()
+    )
+    assert all(spec.result_symbol.strip() for spec in CATALOG.values())
 
 
 def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> None:

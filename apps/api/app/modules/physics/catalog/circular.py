@@ -2,11 +2,50 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula
+from app.modules.physics.catalog.spec import FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
-    formula("centripetal_force", "circular", "Circular-motion equation", "F_c"),
-    formula("centripetal_acceleration", "circular", "Circular-motion equation", "a_c"),
-    formula("orbital_period", "circular", "Orbital-motion equation", "T"),
-    formula("angular_velocity", "circular", "Circular-motion equation", "\\omega"),
+    formula(
+        "centripetal_force",
+        "circular",
+        "Circular-motion equation",
+        "F_c",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("omega", "omega", "radian / second"),
+            var("r", "r", "meter"),
+            var("v", "v", "meter / second"),
+        ),
+    ),
+    formula(
+        "centripetal_acceleration",
+        "circular",
+        "Circular-motion equation",
+        "a_c",
+        variables=(
+            var("r", "r", "meter"),
+            var("v", "v", "meter / second"),
+        ),
+    ),
+    formula(
+        "orbital_period",
+        "circular",
+        "Orbital-motion equation",
+        "T",
+        variables=(
+            var("r", "r", "meter"),
+            var("v", "v", "meter / second"),
+        ),
+    ),
+    formula(
+        "angular_velocity",
+        "circular",
+        "Circular-motion equation",
+        "\\omega",
+        variables=(
+            var("r", "r", "meter"),
+            var("rpm", "rpm", dimensionless=True),
+            var("v", "v", "meter / second"),
+        ),
+    ),
 )

@@ -1,0 +1,117 @@
+"""The catalog owns an operation, and a solve returns quantities rather than text."""
+
+from __future__ import annotations
+
+import pytest
+from pydantic import ValidationError
+
+from app.core.config import Settings
+from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.block import _solve_requested_quantities
+from app.modules.physics.catalog import CATALOG, select_formula
+from app.modules.physics.solver import PHYSICS_SOLVERS, solve_physics
+from app.modules.physics.solvers.common import (
+    _BIG_G,
+    _COULOMB_K,
+    _ELECTRON_MASS,
+    _ELEMENTARY_CHARGE,
+    _EPSILON_0,
+    _GAS_CONSTANT,
+    _HBAR,
+    _MU_0,
+    _PLANCK_H,
+    _SPEED_OF_LIGHT,
+    _STEFAN_BOLTZMANN,
+    _WIEN_B,
+    render_chip,
+)
+from app.tests.modules.physics.support import (
+    build_verified_physics_block,
+    extract_physics_intent,
+)
+
+
+def test_intent_rejects_an_operation_from_another_kind() -> None:
+    with pytest.raises(ValidationError, match="rotation does not define angular_velocity"):
+        PhysicsIntent(
+            kind="rotation",
+            physics_op="angular_velocity",
+            physics_params={"theta": 10.0, "t": 2.0},
+            physics_units={"theta": "rad", "t": "s"},
+        )
+
+
+def test_circular_and_rotation_angular_speeds_stay_separate() -> None:
+    circular = extract_physics_intent(
+        "what is the angular velocity of a car going 10 m/s around a 20 m radius track"
+    )
+    rotation = extract_physics_intent(
+        "what is the angular velocity of a wheel turning 10 radians in 2 s"
+    )
+    assert circular is not None and rotation is not None
+    assert (circular.kind, circular.physics_op) == ("circular", "angular_velocity")
+    assert (rotation.kind, rotation.physics_op) == ("rotation", "angular_displacement_rate")
+
+    circular_result = solve_physics(circular)
+    rotation_result = solve_physics(rotation)
+    assert circular_result.quantities[0].value == pytest.approx(0.5)
+    assert circular_result.quantities[0].unit == "rad/s"
+    assert rotation_result.quantities[0].value == pytest.approx(5.0)
+    assert rotation_result.quantities[0].unit == "rad/s"
+
+
+def test_multipart_projectile_reads_each_quantity() -> None:
+    text = (
+        "A projectile is launched at 20 m/s at 30 degrees. Find the total time of flight, "
+        "maximum height, and horizontal range. Use g = 9.8 m/s^2."
+    )
+    intent = extract_physics_intent(text)
+    assert isinstance(intent, PhysicsIntent)
+    result = _solve_requested_quantities(intent)
+    assert [item.unit for item in result.quantities] == ["s", "m", "m"]
+    assert [item.symbol for item in result.quantities] == [
+        r"t_{\mathrm{flight}}",
+        r"H_{\mathrm{max}}",
+        "R",
+    ]
+    assert result.answer_value == render_chip(result.quantities, "projectile")
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None and block.canonical_answer is not None
+    for value in ("2.04", "5.1", "35.35"):
+        assert value in block.canonical_answer
+
+
+def test_work_at_an_angle_selects_the_angle_variant() -> None:
+    latex, _lines, assumptions = select_formula(
+        CATALOG["work"], {"F": 10.0, "d": 2.0, "angle": 60.0}
+    )
+    assert latex == r"W = Fd\cos\theta"
+    assert assumptions == ()
+
+
+def test_bernoulli_with_height_selects_the_full_equation() -> None:
+    latex, _lines, assumptions = select_formula(
+        CATALOG["bernoulli_pressure"],
+        {"pres1": 100000.0, "rho": 1000.0, "v1": 2.0, "v2": 2.0, "h1": 5.0, "h2": 1.0},
+    )
+    assert latex is not None and r"\rho gh_1" in latex
+    assert assumptions == ("steady incompressible flow with no viscosity",)
+
+
+def test_every_catalog_operation_has_one_solver() -> None:
+    assert set(PHYSICS_SOLVERS) == set(CATALOG)
+
+
+def test_codata_constants_stay_at_the_pinned_registry_values() -> None:
+    assert _GAS_CONSTANT == 8.314462618153241
+    assert _BIG_G == 6.6743e-11
+    assert _PLANCK_H == 6.626070150000001e-34
+    assert _SPEED_OF_LIGHT == 299792458.0
+    assert _ELEMENTARY_CHARGE == 1.602176634e-19
+    assert _EPSILON_0 == 8.854187812764727e-12
+    assert _MU_0 == 1.2566370621250601e-06
+    assert _HBAR == 1.0545718176461565e-34
+    assert _ELECTRON_MASS == 9.1093837015e-31
+    assert _STEFAN_BOLTZMANN == 5.670374419184431e-08
+    assert _WIEN_B == 0.002897771955185173
+    assert _COULOMB_K == 8987551792.296976

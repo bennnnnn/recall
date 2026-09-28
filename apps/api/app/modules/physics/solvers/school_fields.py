@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.solvers.common import _COULOMB_K, _EPSILON_0, PhysicsResult
+from app.modules.physics.solvers.common import _COULOMB_K, _EPSILON_0, PhysicsResult, QuantityResult
 from app.modules.physics.solvers.school_common import positive, result
 from app.services.solving import SolveServiceError
 
@@ -25,7 +25,9 @@ def _gauss_shell(params: dict[str, float]) -> PhysicsResult:
         raise SolveServiceError("the point is not inside the shell")
     return PhysicsResult(
         answer=r"E = 0 \text{ inside a charged spherical shell}",
-        answer_value="0 N/C",
+        quantities=(QuantityResult("E", 0.0, "N/C", number_format=".4g"),),
+        formulas=(r"E = 0",),
+        substitutions=(r"E = 0",),
     )
 
 

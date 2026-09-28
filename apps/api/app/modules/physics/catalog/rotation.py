@@ -2,12 +2,51 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula
+from app.modules.physics.catalog.spec import FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
-    formula("moment_of_inertia", "rotation", "Moment-of-inertia formula", "I"),
-    formula("angular_momentum", "rotation", "Angular-momentum formula", "L"),
-    formula("rotational_kinetic_energy", "rotation", "Rotational kinetic-energy formula", "E_k"),
+    formula(
+        "angular_displacement_rate",
+        "rotation",
+        "Angular-velocity definition",
+        r"\omega",
+        base_latex=r"\omega = \frac{\theta}{t}",
+        variables=(
+            var("t", "t", "second"),
+            var("theta", "theta", "radian"),
+        ),
+    ),
+    formula(
+        "moment_of_inertia",
+        "rotation",
+        "Moment-of-inertia formula",
+        "I",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("r", "r", "meter"),
+            var("shape_factor", "shape_factor", dimensionless=True),
+        ),
+    ),
+    formula(
+        "angular_momentum",
+        "rotation",
+        "Angular-momentum formula",
+        "L",
+        variables=(
+            var("inertia", "I", "kilogram * meter ** 2"),
+            var("omega", "omega", "radian / second"),
+        ),
+    ),
+    formula(
+        "rotational_kinetic_energy",
+        "rotation",
+        "Rotational kinetic-energy formula",
+        "E_k",
+        variables=(
+            var("inertia", "I", "kilogram * meter ** 2"),
+            var("omega", "omega", "radian / second"),
+        ),
+    ),
     formula(
         "rotational_omega",
         "rotation",
@@ -15,6 +54,11 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"\omega",
         base_latex=r"\omega = \omega_0 + \alpha t",
         assumptions=("constant angular acceleration",),
+        variables=(
+            var("ang_alpha", r"\alpha", "radian / second ** 2"),
+            var("omega0", r"\omega_0", "radian / second"),
+            var("t", "t", "second"),
+        ),
     ),
     formula(
         "rotational_theta",
@@ -23,6 +67,11 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"\theta",
         base_latex=r"\theta = \theta_0 + \omega_0 t + \frac{1}{2}\alpha t^2",
         assumptions=("constant angular acceleration",),
+        variables=(
+            var("ang_alpha", r"\alpha", "radian / second ** 2"),
+            var("omega0", r"\omega_0", "radian / second"),
+            var("t", "t", "second"),
+        ),
     ),
     formula(
         "rotational_alpha",
@@ -31,6 +80,11 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"\alpha",
         base_latex=r"\omega = \omega_0 + \alpha t",
         assumptions=("constant angular acceleration",),
+        variables=(
+            var("omega", "omega", "radian / second"),
+            var("omega0", r"\omega_0", "radian / second"),
+            var("t", "t", "second"),
+        ),
     ),
     formula(
         "torque_inertia",
@@ -38,6 +92,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Rotational Newton's second law",
         r"\alpha",
         base_latex=r"\tau = I\alpha",
+        variables=(
+            var("inertia", "I", "kilogram * meter ** 2"),
+            var("tau", "tau", "newton * meter"),
+        ),
     ),
     formula(
         "torque_angular_impulse",
@@ -46,6 +104,11 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"\tau",
         base_latex=r"\tau = \frac{\Delta L}{\Delta t}",
         assumptions=("torque is the average torque over the interval",),
+        variables=(
+            var("L_f", "L_f", "kilogram * meter ** 2 / second"),
+            var("L_i", "L_i", "kilogram * meter ** 2 / second"),
+            var("t", "t", "second"),
+        ),
     ),
     formula(
         "angular_momentum_conservation",
@@ -54,6 +117,11 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"\omega_f",
         base_latex=r"I_i\omega_i = I_f\omega_f",
         assumptions=("the system is isolated",),
+        variables=(
+            var("inertia_f", "I_f", "kilogram * meter ** 2"),
+            var("inertia_i", "I_i", "kilogram * meter ** 2"),
+            var("omega_i", r"\omega_i", "radian / second"),
+        ),
     ),
     formula(
         "rolling_speed",
@@ -62,6 +130,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "v",
         base_latex=r"v = R\omega",
         assumptions=("rolling without slipping",),
+        variables=(
+            var("omega", "omega", "radian / second"),
+            var("r", "r", "meter"),
+        ),
     ),
     formula(
         "rolling_acceleration",
@@ -70,6 +142,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "a",
         base_latex=r"a = R\alpha",
         assumptions=("rolling without slipping",),
+        variables=(
+            var("a", "a", "meter / second ** 2"),
+            var("r", "r", "meter"),
+        ),
     ),
     formula(
         "rolling_kinetic_energy",
@@ -78,6 +154,12 @@ SPECS: tuple[FormulaSpec, ...] = (
         "K",
         base_latex=r"K = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2",
         assumptions=("rolling without slipping",),
+        variables=(
+            var("inertia", "I", "kilogram * meter ** 2"),
+            var("m", "m", "kilogram"),
+            var("r", "r", "meter"),
+            var("v", "v", "meter / second"),
+        ),
     ),
     formula(
         "parallel_axis",
@@ -86,5 +168,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "I",
         base_latex=r"I = I_{cm} + Md^2",
         assumptions=("the axis is parallel to an axis through the center of mass",),
+        variables=(
+            var("d", "d", "meter"),
+            var("inertia_cm", "I_{cm}", "kilogram * meter ** 2"),
+            var("m", "m", "kilogram"),
+        ),
     ),
 )
