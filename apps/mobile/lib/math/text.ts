@@ -3,6 +3,17 @@
 import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 
+export type MathAccentKind =
+  | "overline"
+  | "underline"
+  | "hat"
+  | "tilde"
+  | "vec"
+  | "vecLeft"
+  | "bar"
+  | "dot"
+  | "ddot";
+
 export type MathSegment =
   | { type: "text"; value: string }
   | { type: "upright"; value: string }
@@ -10,7 +21,8 @@ export type MathSegment =
   | { type: "sub"; value: string }
   | { type: "frac"; num: MathSegment[]; den: MathSegment[] }
   | { type: "sqrt"; body: MathSegment[]; degree?: string }
-  | { type: "cancel"; body: MathSegment[] };
+  | { type: "cancel"; body: MathSegment[] }
+  | { type: "accent"; kind: MathAccentKind; body: MathSegment[]; span?: boolean };
 
 /**
  * Placeholder for a backslash inside `$...$` / `\(...\)` math that
@@ -64,7 +76,8 @@ const TEXT_STYLE_COMMANDS = new Set([
  * Stacked frac/sqrt need a taller parent `lineHeight` than body prose (16/23).
  * Nested RN Text often keeps the outer line box, so the vinculum kisses the
  * line above unless both MathText and the wrapping markdown Text use this.
- * Must stay ≥ MathText's 44px simple frac stack or the numerator is clipped.
+ * The math view sizes itself from the layout tree. This floor is only the
+ * markdown line box beside a stacked atom.
  */
 export const MATH_TALL_LINE_HEIGHT = 46;
 /** Superscripts (`a^2`, a²) need more leading than body 23 or they clip the line above. */
@@ -100,9 +113,55 @@ export function latexHasStackedFrac(latex: string): boolean {
   return /\\(?:d|t|c)?frac/.test(restoreMathEscapes(latex));
 }
 
+export type ScriptAttachment = {
+  segment: MathSegment;
+  index: number;
+  sup: Extract<MathSegment, { type: "sup" }> | null;
+  sub: Extract<MathSegment, { type: "sub" }> | null;
+};
+
+/** A base with both a superscript and a subscript is one script column.
+ * A lone script stays attached to the text run so it can live inside Text. */
+export function attachScripts(segments: MathSegment[]): ScriptAttachment[] {
+  const out: ScriptAttachment[] = [];
+  for (let i = 0; i < segments.length; i += 1) {
+    const segment = segments[i];
+    if (!segment) continue;
+    if (segment.type === "sup" || segment.type === "sub") {
+      out.push({ segment, index: i, sup: null, sub: null });
+      continue;
+    }
+    let sup: ScriptAttachment["sup"] = null;
+    let sub: ScriptAttachment["sub"] = null;
+    let j = i + 1;
+    while (j < segments.length) {
+      const next = segments[j];
+      if (next?.type === "sup" && !sup) sup = next;
+      else if (next?.type === "sub" && !sub) sub = next;
+      else break;
+      j += 1;
+    }
+    if (sup && sub) {
+      out.push({ segment, index: i, sup, sub });
+      i = j - 1;
+    } else {
+      out.push({ segment, index: i, sup: null, sub: null });
+    }
+  }
+  return out;
+}
+
+export function hasSimultaneousScripts(segments: MathSegment[]): boolean {
+  return attachScripts(segments).some((atom) => atom.sup != null && atom.sub != null);
+}
+
 export function latexHasNestedMathView(latex: string): boolean {
-  return latexHasStackedFrac(latex)
-    || /\\sqrt|\^\{[^{}]*\/[^{}]*\}|\\(?:x|b)?cancel/.test(restoreMathEscapes(latex));
+  const source = restoreMathEscapes(latex);
+  return latexHasStackedFrac(source)
+    || /\\(?:sqrt|xcancel|bcancel|cancel|overline|underline|widehat|widetilde|overrightarrow|overleftarrow|hat|vec|bar|ddot|dot|tilde)(?![A-Za-z])|\^\{[^{}]*\/[^{}]*\}/.test(
+      source,
+    )
+    || hasSimultaneousScripts(parseSimpleLatex(source));
 }
 
 const CMD_REPLACEMENTS: [RegExp, string][] = [
@@ -115,7 +174,8 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\cdots(?![a-zA-Z])/g, "⋯"],
   [/\\ldots(?![a-zA-Z])/g, "…"],
   [/\\dots(?![a-zA-Z])/g, "…"],
-  [/\\cdot(?![a-zA-Z])/g, "·"],
+  // U+22C5 is the KaTeX_Main dot. U+00B7 middle dot is not in that face.
+  [/\\cdot(?![a-zA-Z])/g, "⋅"],
   // Function composition (f ∘ g) — without this, "$ (f \circ g)(2) $" leaks
   // the literal backslash command in MathText / compact answer pills.
   [/\\circ(?![a-zA-Z])/g, "∘"],
@@ -291,12 +351,17 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\rangle(?![a-zA-Z])/g, "⟩"],
   [/\\lvert(?![a-zA-Z])/g, "|"],
   [/\\rvert(?![a-zA-Z])/g, "|"],
+  [/\\lceil(?![a-zA-Z])/g, "⌈"],
+  [/\\rceil(?![a-zA-Z])/g, "⌉"],
+  [/\\lfloor(?![a-zA-Z])/g, "⌊"],
+  [/\\rfloor(?![a-zA-Z])/g, "⌋"],
   // Conditional probability / set-builder separator. Without an explicit
   // native mapping the generic command fallback rendered ``\mid`` as the
   // literal word "mid" (for example P(D mid +)).
   [/\\mid(?![a-zA-Z])/g, "∣"],
   [/\\lVert(?![a-zA-Z])/g, "‖"],
   [/\\rVert(?![a-zA-Z])/g, "‖"],
+  [/\\Vert(?![a-zA-Z])/g, "‖"],
   // Vertical / bidirectional arrows (rightward/implies already handled).
   [/\\uparrow(?![a-zA-Z])/g, "↑"],
   [/\\downarrow(?![a-zA-Z])/g, "↓"],
@@ -306,44 +371,48 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\Downarrow(?![a-zA-Z])/g, "⇓"],
 ];
 
-// Accent commands, mapped to the Unicode combining mark that reproduces them
-// in plain text — applied to EVERY character of the group (not just the
-// last) so a multi-character span like "714285" gets a continuous line
-// across it ("7̅1̅4̅2̅8̅5̅"), matching how \overline actually typesets rather
-// than accenting only the final digit. \hat/\vec/\bar/\dot conventionally
-// accent a single symbol, but combining marks compose fine over more.
-// Longest-alias-first so `\widehat`/`\widetilde` aren't cut short by a
-// naive `\hat`/`\tilde` prefix match.
-const ACCENT_COMMANDS: [RegExp, string][] = [
-  [/\\overline\{([^{}]+)\}/g, "̅"], // combining overline
-  [/\\underline\{([^{}]+)\}/g, "̲"], // combining low line
-  [/\\widehat\{([^{}]+)\}/g, "̂"], // combining circumflex accent
-  [/\\hat\{([^{}]+)\}/g, "̂"],
-  [/\\widetilde\{([^{}]+)\}/g, "̃"], // combining tilde
-  [/\\tilde\{([^{}]+)\}/g, "̃"],
-  [/\\overrightarrow\{([^{}]+)\}/g, "⃗"],
-  [/\\overleftarrow\{([^{}]+)\}/g, "⃖"],
-  [/\\vec\{([^{}]+)\}/g, "⃗"], // combining right arrow above
-  [/\\ddot\{([^{}]+)\}/g, "̈"], // combining diaeresis (double dot)
-  [/\\dot\{([^{}]+)\}/g, "̇"], // combining dot above
-  [/\\bar\{([^{}]+)\}/g, "̄"], // combining macron
+// Copy and read-aloud still spell an accent as a combining mark. The screen
+// draws a measured rule from the accent segment; these marks are not painted.
+const ACCENT_MARK: Record<MathAccentKind, string> = {
+  overline: "̅",
+  underline: "̲",
+  hat: "̂",
+  tilde: "̃",
+  vec: "⃗",
+  vecLeft: "⃖",
+  bar: "̄",
+  ddot: "̈",
+  dot: "̇",
+};
+
+const ACCENT_SPAN = new Set([
+  "\\overrightarrow",
+  "\\overleftarrow",
+  "\\widehat",
+  "\\widetilde",
+]);
+
+const ACCENT_OPENERS: { cmd: string; kind: MathAccentKind }[] = [
+  { cmd: "\\overrightarrow", kind: "vec" },
+  { cmd: "\\overleftarrow", kind: "vecLeft" },
+  { cmd: "\\overline", kind: "overline" },
+  { cmd: "\\underline", kind: "underline" },
+  { cmd: "\\widehat", kind: "hat" },
+  { cmd: "\\widetilde", kind: "tilde" },
+  { cmd: "\\ddot", kind: "ddot" },
+  { cmd: "\\hat", kind: "hat" },
+  { cmd: "\\vec", kind: "vec" },
+  { cmd: "\\bar", kind: "bar" },
+  { cmd: "\\dot", kind: "dot" },
+  { cmd: "\\tilde", kind: "tilde" },
 ];
 
-/** Combining mark applied per-character (see ACCENT_COMMANDS above for why
- * per-character, not just the last). Shared with the \sqrt rendering below —
- * a radical's bar has to span its whole radicand the same way \overline's does. */
+/** Combining mark applied per-character so copy spells the whole accented
+ * run. The screen draws one measured rule; these marks are not painted. */
 function markEachChar(text: string, mark: string): string {
   return Array.from(text)
     .map((ch) => (ch === " " ? ch : `${ch}${mark}`))
     .join("");
-}
-
-function applyAccentCommands(latex: string): string {
-  let s = latex;
-  for (const [re, mark] of ACCENT_COMMANDS) {
-    s = s.replace(re, (_m, group: string) => markEachChar(group, mark));
-  }
-  return s;
 }
 
 function readGroup(input: string, start: number): { value: string; next: number } | null {
@@ -393,16 +462,10 @@ function splitEnvRows(body: string): string[][] {
 }
 
 /**
- * BUG FIX: `\begin{cases}`/`\begin{matrix}`/… have no entry anywhere in this
- * module — MathBlock deliberately renders the whole environment through this
- * native parser (not KaTeX) whenever the preview WebView is unavailable
- * (Expo Go / no dev build), so a piecewise function or a system written as a
- * matrix rendered as literal "\begin{cases}2x+y=5\\x-y=1\end{cases}" raw
- * text instead of a readable block. Expand each environment into plain,
- * readable text BEFORE any other substitution runs, so the raw "\\"/"&"
- * structural separators are still intact to split on — everything inside a
- * cell (\frac, Greek letters, …) is left untouched here and still gets
- * processed normally by the rest of preprocessLatex afterward.
+ * Native MathText flattens environments into readable rows. Display math
+ * does not take this path: MathBlock sends the original LaTeX to MathJax-SVG,
+ * which scales the brackets. This fallback exists so a matrix still reads
+ * as rows if MathJax cannot parse it.
  */
 function expandLatexEnvironments(latex: string): string {
   return latex.replace(ENV_RE, (_match, env: string, body: string) => {
@@ -634,14 +697,8 @@ function preprocessLatex(latex: string): string {
   // \pmod{x} → "(mod x)" (KaTeX renders parenthesized mod). Must run after
   // \pm → ± (in CMD_REPLACEMENTS) so \pm's word boundary lets \pmod survive.
   s = s.replace(/\\pmod\{([^{}]+)\}/g, "(mod $1)");
-  // \overline{714285} etc. (repeating decimals, line segments, vectors, …)
-  // had no entry anywhere in this table — they fell through to the generic
-  // \cmd fallback below, which only consumes the command NAME, leaving the
-  // "{714285}" group behind as literal visible text (e.g. the raw
-  // "0.\overline{714285}" seen in production). Map to the matching Unicode
-  // combining mark instead, same "real glyph over raw command" preference
-  // superscript/subscript already use.
-  s = applyAccentCommands(s);
+  // Accents stay as commands. parseAccent builds a segment whose rule is
+  // measured from the child; combining marks are only the copy/speech form.
   s = s.replace(/\\,/g, " ");
   // Two real alternatives, not one merged character class: the previous
   // `/\\left[\(\[\{|\\right[\)\]\}.]/` compiled everything after the first
@@ -748,11 +805,41 @@ function parseCancel(
   };
 }
 
+function parseAccent(
+  input: string,
+  start: number,
+  depth: number,
+): { seg: MathSegment; next: number } | null {
+  const rest = input.slice(start);
+  const opener = ACCENT_OPENERS.find((item) => {
+    if (!rest.startsWith(item.cmd)) return false;
+    const next = rest[item.cmd.length] ?? "";
+    return !/[A-Za-z]/.test(next);
+  });
+  if (!opener) return null;
+  let i = start + opener.cmd.length;
+  while (input[i] === " ") i += 1;
+  const group = readGroup(input, i);
+  if (!group) return null;
+  return {
+    seg: {
+      type: "accent",
+      kind: opener.kind,
+      span: ACCENT_SPAN.has(opener.cmd),
+      body: parseSimpleLatex(group.value, depth + 1),
+    },
+    next: group.next,
+  };
+}
+
 function segmentToPlain(seg: MathSegment): string {
   if (seg.type === "text" || seg.type === "upright") return seg.value;
   if (seg.type === "sup") return `^${seg.value}`;
   if (seg.type === "sub") return `_${seg.value}`;
   if (seg.type === "cancel") return segmentsToPlain(seg.body);
+  if (seg.type === "accent") {
+    return markEachChar(segmentsToPlain(seg.body), ACCENT_MARK[seg.kind]);
+  }
   if (seg.type === "sqrt") {
     // Radicand under a combining overline ("4̅"), not "(4)" in parens — the
     // bar itself delimits what's under the root, closer to how it's drawn
@@ -833,6 +920,13 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
     if (cancel) {
       out.push(cancel.seg);
       i = cancel.next;
+      continue;
+    }
+
+    const accent = parseAccent(input, i, depth);
+    if (accent) {
+      out.push(accent.seg);
+      i = accent.next;
       continue;
     }
 
@@ -945,6 +1039,13 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
         } else {
           pushText(cmd);
         }
+        continue;
+      }
+      // `\|` is a norm bar. U+2016 is not in KaTeX_Main; the renderer draws
+      // two `|` glyphs. A single escaped bar stays one `|`.
+      if (rest[0] === "|") {
+        pushText("‖");
+        i += 2;
         continue;
       }
       // `\{` `\%` `\_` — emit the escaped character, not a stray backslash.

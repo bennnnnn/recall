@@ -106,7 +106,7 @@ describe("AnswerBlock", () => {
       <AnswerBlock content={"x = -2 or x = 2\n```"} />,
     );
     expect(queryByText("```")).toBeNull();
-    expect(queryByText(/x = -2/)).toBeOnTheScreen();
+    expect(queryByText(/x = −2/)).toBeOnTheScreen();
   });
 
   it("routes heavy \\begin{…} answers to the MathJax-SVG display path", async () => {

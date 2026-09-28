@@ -148,7 +148,7 @@ describe("parseSimpleLatex", () => {
     );
     expect(segmentsToPlain(parseSimpleLatex(String.raw`1, 2, \ldots, n`))).toBe("1, 2, …, n");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`1, 2, \dots, n`))).toBe("1, 2, …, n");
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \cdot b`))).toBe("a · b");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \cdot b`))).toBe("a ⋅ b");
   });
 
   it("BUG FIX regression: renders known function names without the leading backslash", () => {

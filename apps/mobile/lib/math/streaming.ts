@@ -16,7 +16,10 @@ export function hasIncompleteStreamingLatex(body: string): boolean {
   }
   const begins = body.match(/\\begin\{[\w*]+\}/g)?.length ?? 0;
   const ends = body.match(/\\end\{[\w*]+\}/g)?.length ?? 0;
-  if (braces !== 0 || begins > ends || /\\[A-Za-z]*$/.test(body.trimEnd())) return true;
+  const trimmed = body.trimEnd();
+  if (braces !== 0 || begins > ends || /\\[A-Za-z]*$/.test(trimmed)) return true;
+  // A trailing script marker or an unclosed root index is not a formula yet.
+  if (/[\^_]$/.test(trimmed) || /\\sqrt\[[^\]]*$/.test(trimmed)) return true;
   // A balanced numerator alone is still only half of a fraction.
   for (const match of body.matchAll(/\\(?:[dtc]?frac)(?![A-Za-z])/g)) {
     let at = match.index + match[0].length;

@@ -110,6 +110,7 @@ export default function RootLayout() {
     SpaceMono: SpaceMono_400Regular,
     KaTeX_Main: require("katex/dist/fonts/KaTeX_Main-Regular.ttf"),
     KaTeX_MathItalic: require("katex/dist/fonts/KaTeX_Math-Italic.ttf"),
+    KaTeX_AMS: require("katex/dist/fonts/KaTeX_AMS-Regular.ttf"),
     [UI_FONT.regular]: require("@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf"),
     [UI_FONT.medium]: require("@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf"),
     [UI_FONT.semibold]: require("@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf"),

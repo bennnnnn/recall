@@ -45,14 +45,17 @@ describe("native derivative and function notation", () => {
   it.each([false, true])("renders C14 primes without Markdown quotation marks, streaming=%s", async (streaming) => {
     const { getAllByText, queryByText } = await render(<MarkdownContent content={C14_RESPONSE} streaming={streaming} />);
     expect(getAllByText(/f′\(x\)/).length).toBeGreaterThan(0);
-    expect(getAllByText(/f″\(x\)/).length).toBeGreaterThan(0);
+    expect(getAllByText(/f′′\(x\)/).length).toBeGreaterThan(0);
     expect(queryByText(/f[‘’]|[\uE000-\uE005]/)).toBeNull();
   });
   it("renders the exact C18 standalone answer with ordinary function arguments", async () => {
-    const { getByText, queryByText } = await render(<AnswerBlock content={String.raw`y{\left(x \right)} = C_{1} + x^{2}`} />);
+    const { getByText, getAllByTestId, queryByText } = await render(
+      <AnswerBlock content={String.raw`y{\left(x \right)} = C_{1} + x^{2}`} />,
+    );
     expect(getByText("y(x) = C")).toBeOnTheScreen();
-    expect(getByText("₁")).toBeOnTheScreen();
-    expect(getByText("²")).toBeOnTheScreen();
+    expect(getAllByTestId("math-script").map((node) => [].concat(node.props.children).join(""))).toEqual(["1", "2"]);
+    expect(queryByText("₁")).toBeNull();
+    expect(queryByText("²")).toBeNull();
     expect(queryByText(/[{}]/)).toBeNull();
   });
 });

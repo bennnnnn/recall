@@ -68,7 +68,7 @@ export function SkiaNumberLineChart({
   surfaceColor,
 }: Props) {
   const font = useFont(
-    require("../../../assets/fonts/SpaceMono-Regular.ttf"),
+    require("../../../assets/fonts/KaTeX_Main-Regular.ttf"),
     TICK_FONT_SIZE,
   );
   const intervals = useMemo(() => spec.intervals ?? [], [spec.intervals]);

@@ -1,17 +1,38 @@
 import { useMemo, type ReactNode } from "react";
-import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
-import { MATH_FONT, MATH_VARIABLE_FONT } from "@/lib/fonts";
+import { MATH_FONT, MATH_SYMBOL_FONT, MATH_VARIABLE_FONT } from "@/lib/fonts";
+import {
+  BODY_LINE_AT_16,
+  FRAC_LINE_AT_16,
+  FRAC_SIZE_RATIO,
+  inlineMathNeedsScroll,
+  layoutMath,
+  radicalStroke,
+  SCRIPT_RATIO,
+  splitOperatorPads,
+  SQRT_LINE_AT_16,
+  type MathLayout,
+} from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import {
+  AMS_ONLY_CHARS,
+  BLACKBOARD_LATIN,
+  MATH_NOT_GLYPH,
+  NEGATED_RELATION,
+  NOT_ADVANCE_EM,
+  NORM_ADVANCE_EM,
+  primeRun,
+} from "@/lib/math/glyphs";
+import {
+  attachScripts,
+  hasSimultaneousScripts,
   parseSimpleLatex,
   readableLatexFallback,
   type MathSegment,
 } from "@/lib/math/text";
-import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
-import { Space } from "@/lib/space";
 
 type Props = {
   latex: string;
@@ -27,34 +48,6 @@ type Props = {
 };
 
 type Styles = ReturnType<typeof makeStyles>;
-
-const FRAC_CHAR_PX = 9;
-/** Fraction text is 14px when the math size is 16. Widths below are in that
- * unscaled space and get multiplied by layoutScale. */
-const FRAC_EM = 14;
-const BASE_EM = 16;
-/** A real vinculum only overhangs its widest glyph slightly. The old 14px
- * padding added seven pixels per side, making 1/2 look like a blank rule. */
-const FRAC_PAD_PX = 4;
-const FRAC_STACK_HEIGHT = 44;
-const FRAC_LINE_HEIGHT = 18;
-const FRACTIONAL_SCRIPT_HEIGHT = 30;
-/** Math glyph layout needs a numeric line box; unlike prose Type roles, this
- * scales with the requested math size and React Native's system font scale. */
-const MATH_BODY_LINE_HEIGHT = 25;
-/** Simple radicands use this tight line box. The radical path adds only its
- * small top inset; nested fractions contribute their full measured height. */
-const SQRT_LINE_HEIGHT = 20;
-const RADICAL_MIN_LEAD_PX = 13;
-const RADICAL_BODY_TOP_PX = 2;
-const RADICAL_STROKE_PX = 1.35;
-const RADICAL_SIDE_MARGIN_PX = 2;
-const RADICAL_PLAIN_LEFT_MARGIN_PX = 6;
-
-/** SpaceMono has no (or a broken) U+2260 — fallback looks like slashed ≡. */
-const MATH_OPERATOR_CHARS = new Set(
-  Array.from("≠≤≥≈∞±∓×÷∈⊂⊆⊃≡∝∼∀∃∅∠⊥∥⟨⟩∘∨∧∖"),
-);
 
 /** Named operators are words, not products of variables, so they stay
  * upright in the same way KaTeX renders `sin`, `log`, and `mod`. */
@@ -74,16 +67,55 @@ function renderNonVariableRun(
   value: string,
   key: string,
   glyphStyle: object,
+  metrics: { em: number; fontScale: number },
 ): ReactNode[] {
-  return Array.from(value).map((ch, i) =>
-    MATH_OPERATOR_CHARS.has(ch) ? (
-      <Text key={`${key}-g${i}`} style={glyphStyle}>
+  return Array.from(value).map((ch, i) => renderMathGlyph(ch, `${key}-g${i}`, glyphStyle, metrics));
+}
+
+function renderMathGlyph(
+  ch: string,
+  key: string,
+  glyphStyle: object,
+  metrics: { em: number; fontScale: number },
+): ReactNode {
+  const negated = NEGATED_RELATION[ch];
+  if (negated) {
+    const shift = NOT_ADVANCE_EM * metrics.em * metrics.fontScale;
+    return (
+      <Text key={key} testID="math-negated" accessibilityLabel={ch}>
+        <Text style={{ letterSpacing: -shift }}>{MATH_NOT_GLYPH}</Text>
+        {negated.base}
+      </Text>
+    );
+  }
+  const blackboard = BLACKBOARD_LATIN[ch];
+  if (blackboard) {
+    return (
+      <Text key={key} testID="math-blackboard" style={glyphStyle}>
+        {blackboard}
+      </Text>
+    );
+  }
+  if (AMS_ONLY_CHARS.has(ch)) {
+    return (
+      <Text key={key} style={glyphStyle}>
         {ch}
       </Text>
-    ) : (
-      ch
-    ),
-  );
+    );
+  }
+  const primes = primeRun(ch);
+  if (primes) return primes;
+  if (ch === "-") return "−";
+  if (ch === "·") return "⋅";
+  if (ch === "‖") {
+    const pull = (0.8 - NORM_ADVANCE_EM) * metrics.em * metrics.fontScale;
+    return (
+      <Text key={key} testID="math-norm" style={{ letterSpacing: -pull / 2 }}>
+        ||
+      </Text>
+    );
+  }
+  return ch;
 }
 
 function renderMathRun(
@@ -92,164 +124,98 @@ function renderMathRun(
   textStyle: object,
   glyphStyle: object,
   variableStyle: object,
+  testID?: string,
+  pad?: { em: number; fontScale: number; leadingAtom: boolean; space?: boolean },
 ): ReactNode {
-  const children: ReactNode[] = [];
-  let cursor = 0;
-  let variableIndex = 0;
-  for (const match of value.matchAll(MATH_LETTER_RUN)) {
-    const start = match.index ?? 0;
-    if (start > cursor) {
+  const pieces = pad && pad.space !== false
+    ? splitOperatorPads(value, pad.leadingAtom)
+    : [{ text: value, leftEm: 0, rightEm: 0 }];
+  const runs = pieces.map((piece, pieceIndex) => {
+    const pieceKey = pieces.length === 1 ? key : `${key}-p${pieceIndex}`;
+    const children: ReactNode[] = [];
+    let cursor = 0;
+    let variableIndex = 0;
+    for (const match of piece.text.matchAll(MATH_LETTER_RUN)) {
+      const start = match.index ?? 0;
+      if (start > cursor) {
+        children.push(
+          ...renderNonVariableRun(
+            piece.text.slice(cursor, start),
+            `${pieceKey}-t${cursor}`,
+            glyphStyle,
+            { em: pad?.em ?? 16, fontScale: pad?.fontScale ?? 1 },
+          ),
+        );
+      }
+      const word = match[0];
+      children.push(
+        isUprightWord(word) ? word : (
+          <Text
+            key={`${pieceKey}-v${variableIndex}`}
+            testID="math-variable"
+            style={[textStyle, variableStyle]}
+          >
+            {word}
+          </Text>
+        ),
+      );
+      variableIndex += 1;
+      cursor = start + word.length;
+    }
+    if (cursor < piece.text.length) {
       children.push(
         ...renderNonVariableRun(
-          value.slice(cursor, start),
-          `${key}-t${cursor}`,
+          piece.text.slice(cursor),
+          `${pieceKey}-t${cursor}`,
           glyphStyle,
+          { em: pad?.em ?? 16, fontScale: pad?.fontScale ?? 1 },
         ),
       );
     }
-    const word = match[0];
-    children.push(
-      isUprightWord(word) ? word : (
-        <Text
-          key={`${key}-v${variableIndex}`}
-          testID="math-variable"
-          style={[textStyle, variableStyle]}
-        >
-          {word}
-        </Text>
-      ),
+    // Padding, not margin: nested Text on iOS ignores margin, so the
+    // measured operator space would never appear.
+    const margin = pad
+      ? {
+          paddingLeft: piece.leftEm * pad.em * pad.fontScale,
+          paddingRight: piece.rightEm * pad.em * pad.fontScale,
+        }
+      : null;
+    return (
+      <Text key={pieceKey} style={[textStyle, margin]} testID={pieces.length === 1 ? testID : undefined}>
+        {children}
+      </Text>
     );
-    variableIndex += 1;
-    cursor = start + word.length;
-  }
-  if (cursor < value.length) {
-    children.push(
-      ...renderNonVariableRun(value.slice(cursor), `${key}-t${cursor}`, glyphStyle),
-    );
-  }
-  return (
-    <Text key={key} style={textStyle}>
-      {children}
-    </Text>
-  );
-}
-
-function visualLength(s: string): number {
-  let n = 0;
-  for (const ch of s) {
-    if (!isCombiningMark(ch)) n += 1;
-  }
-  return n;
-}
-
-function isCombiningMark(ch: string): boolean {
-  const c = ch.charCodeAt(0);
-  return c >= 0x0300 && c <= 0x036f;
-}
-
-/** Computer Modern is proportional. m/w are about one em, so the old
- * one-width estimate (SpaceMono) clips a long numerator and its scroll. */
-function isWideFormulaGlyph(ch: string): boolean {
-  return ch === "m" || ch === "w" || ch === "M" || ch === "W" || ch === "%" || ch === "@";
-}
-
-function advancePx(text: string, em: number): number {
-  let width = 0;
-  let counted = false;
-  for (const ch of text) {
-    if (isCombiningMark(ch)) continue;
-    counted = true;
-    // Narrow glyphs keep the old monospace advance so digit fractions stay put.
-    width += isWideFormulaGlyph(ch) ? em : FRAC_CHAR_PX;
-  }
-  return counted ? width : FRAC_CHAR_PX;
-}
-
-function estimateSegmentsSize(segments: MathSegment[], inFrac = false): { width: number; height: number } {
-  let width = 0;
-  let height = inFrac ? FRAC_LINE_HEIGHT : SQRT_LINE_HEIGHT;
-  for (const seg of segments) {
-    if (seg.type === "frac") {
-      const box = fracStackSize(seg.num, seg.den);
-      width += box.width + 6;
-      height = Math.max(height, box.height);
-    } else if (seg.type === "sqrt") {
-      const box = radicalBoxSize(seg.body, inFrac, seg.degree);
-      // sqrtRow's margins sit outside its explicit width. Include them in the
-      // parent attachment or the next term can paint past the measured frame.
-      width += box.width + radicalOuterMarginWidth(seg.degree);
-      height = Math.max(height, box.height);
-    } else if (seg.type === "cancel") {
-      const inner = estimateSegmentsSize(seg.body, inFrac);
-      width += inner.width;
-      height = Math.max(height, inner.height);
-    } else {
-      width += advancePx(seg.value, inFrac ? FRAC_EM : BASE_EM);
-      if (isFractionalScript(seg)) height = Math.max(height, FRACTIONAL_SCRIPT_HEIGHT);
-    }
-  }
-  return { width, height };
-}
-
-function radicalBoxSize(
-  segments: MathSegment[],
-  inFrac: boolean,
-  degree?: string,
-): { width: number; height: number; lead: number; body: { width: number; height: number } } {
-  const body = estimateSegmentsSize(segments, inFrac);
-  const indexLead = degree ? visualLength(degree) * 7 + 5 : 0;
-  const lead = Math.max(RADICAL_MIN_LEAD_PX, indexLead);
-  return {
-    width: lead + body.width,
-    height: Math.max(SQRT_LINE_HEIGHT, body.height + RADICAL_BODY_TOP_PX),
-    lead,
-    body,
-  };
-}
-
-function radicalOuterMarginWidth(degree?: string): number {
-  const left = degree ? RADICAL_SIDE_MARGIN_PX : RADICAL_PLAIN_LEFT_MARGIN_PX;
-  return left + RADICAL_SIDE_MARGIN_PX;
-}
-
-function fracStackSize(num: MathSegment[], den: MathSegment[]): { width: number; height: number } {
-  // The vinculum already groups each complete side. Only parentheses in the
-  // source belong here; invented ones also inflate the inline attachment.
-  const numerator = estimateSegmentsSize(num, true);
-  const denominator = estimateSegmentsSize(den, true);
-  return {
-    width: Math.max(numerator.width, denominator.width, FRAC_CHAR_PX) + FRAC_PAD_PX,
-    // Nested fractions must contribute their full height to the outer stack.
-    height: Math.max(FRAC_STACK_HEIGHT, numerator.height + denominator.height + 6),
-  };
+  });
+  if (runs.length === 1) return runs[0];
+  return runs;
 }
 
 function isFractionalScript(seg: MathSegment): boolean {
-  return seg.type === "sup" && seg.value.includes("/");
-}
-
-function estimateMathTextSize(segments: MathSegment[]): { width: number; height: number } {
-  const { width, height } = estimateSegmentsSize(segments);
-  return { width: Math.max(width, 24), height };
+  if (seg.type !== "sup") return false;
+  const slash = seg.value.indexOf("/");
+  return slash > 0 && slash < seg.value.length - 1 && !seg.value.includes(" ");
 }
 
 function hasTallMath(segments: MathSegment[]): boolean {
   for (const seg of segments) {
-    if (seg.type === "frac" || seg.type === "sqrt" || seg.type === "cancel" || isFractionalScript(seg)) {
+    if (
+      seg.type === "frac" || seg.type === "sqrt" || seg.type === "cancel"
+      || seg.type === "accent" || isFractionalScript(seg)
+    ) {
       return true;
     }
   }
-  return false;
+  return hasSimultaneousScripts(segments);
 }
 
 type RenderCtx = {
   styles: Styles;
   color: string;
-  /** Fraction-sized run — numerator/denominator content stays small. */
   inFrac?: boolean;
-  /** Overrides the run style for the whole subtree (radicand line box). */
   textStyle?: object;
-  layoutScale: number;
+  /** Device font scale only. Layout pixels are already at `em`. */
+  fontScale: number;
+  em: number;
 };
 
 function runStyle(ctx: RenderCtx): object {
@@ -259,22 +225,24 @@ function runStyle(ctx: RenderCtx): object {
 
 function renderFracSide(
   segments: MathSegment[],
+  layout: MathLayout | undefined,
   keyPrefix: string,
   ctx: RenderCtx,
 ): ReactNode {
   const { styles } = ctx;
-  // Nested fraction OR a radical: keep real Views. Flattening `\sqrt{b^2 - 4ac}`
+  const sideCtx = { ...ctx, inFrac: true, em: ctx.inFrac ? ctx.em : ctx.em * FRAC_SIZE_RATIO };
+  // Nested fraction OR a radical: keep real Views. Flattening a radicand
   // to combining overlines made the minus look like `=` and inflated the bar.
   if (hasTallMath(segments)) {
     return (
       <View style={styles.fracSideRow}>
-        {renderSegments(segments, keyPrefix, { ...ctx, inFrac: true })}
+        {renderSegments(segments, layout?.children ?? [], keyPrefix, sideCtx)}
       </View>
     );
   }
   return (
     <Text style={styles.fracPart}>
-      {renderSegments(segments, keyPrefix, { ...ctx, inFrac: true })}
+      {renderSegments(segments, layout?.children ?? [], keyPrefix, sideCtx)}
     </Text>
   );
 }
@@ -287,94 +255,260 @@ function renderFracSide(
  */
 function renderRadicand(
   segments: MathSegment[],
+  layout: MathLayout | undefined,
   keyPrefix: string,
   ctx: RenderCtx,
 ): ReactNode {
   const { styles } = ctx;
   const nested = hasTallMath(segments);
   if (nested) {
-    return <View style={styles.fracSideRow}>{renderSegments(segments, keyPrefix, ctx)}</View>;
+    return (
+      <View style={styles.fracSideRow}>
+        {renderSegments(segments, layout?.children ?? [], keyPrefix, ctx)}
+      </View>
+    );
   }
   const bodyStyle = ctx.inFrac ? styles.fracPart : styles.sqrtBody;
   return (
     <Text style={bodyStyle}>
-      {renderSegments(segments, keyPrefix, {
+      {renderSegments(segments, layout?.children ?? [], keyPrefix, {
         ...ctx,
-        inFrac: ctx.inFrac,
         textStyle: bodyStyle,
       })}
     </Text>
   );
 }
 
+function scriptTextStyle(node: MathLayout | undefined, ctx: RenderCtx, placed = false): object {
+  const fontSize = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
+  const shift = placed
+    ? 0
+    : ((node?.raise ?? 0) > 0 ? -(node?.raise ?? 0) : (node?.drop ?? 0)) * ctx.fontScale;
+  return {
+    fontFamily: MATH_FONT,
+    fontSize,
+    lineHeight: node?.lineHeight ?? fontSize * 1.15,
+    color: ctx.color,
+    transform: [{ translateY: shift }],
+  };
+}
+
+function scaled(px: number, fontScale: number): number {
+  return px * fontScale;
+}
+
+function renderAccentMark(node: MathLayout, ctx: RenderCtx): ReactNode {
+  const rule = scaled(node.ruleWidth ?? node.inkWidth, ctx.fontScale);
+  const thick = Math.max(1, scaled(ctx.em * 0.06, ctx.fontScale));
+  const kind = node.accentKind;
+  if (kind === "dot" || kind === "ddot") {
+    const dot = (
+      <View
+        testID="math-accent-rule"
+        style={{ width: thick, height: thick, borderRadius: thick, backgroundColor: ctx.color }}
+      />
+    );
+    return (
+      <View style={{ flexDirection: "row", gap: thick, alignSelf: "center" }}>
+        {dot}
+        {kind === "ddot" ? dot : null}
+      </View>
+    );
+  }
+  if (kind === "hat" || kind === "vec" || kind === "vecLeft" || kind === "tilde") {
+    const w = rule;
+    const h = scaled(ctx.em * 0.18, ctx.fontScale);
+    const d = kind === "hat"
+      ? `M 0 ${h} L ${w / 2} 0 L ${w} ${h}`
+      : kind === "tilde"
+        ? `M 0 ${h * 0.7} Q ${w * 0.25} 0 ${w * 0.5} ${h * 0.55} T ${w} ${h * 0.2}`
+        : kind === "vecLeft"
+          ? `M ${w} ${h * 0.5} L 0 ${h * 0.5} M 0 ${h * 0.5} L ${w * 0.28} 0 M 0 ${h * 0.5} L ${w * 0.28} ${h}`
+          : `M 0 ${h * 0.5} L ${w} ${h * 0.5} M ${w} ${h * 0.5} L ${w * 0.72} 0 M ${w} ${h * 0.5} L ${w * 0.72} ${h}`;
+    return (
+      <Svg testID="math-accent-rule" width={w} height={h} viewBox={`0 0 ${Math.max(w, 1)} ${Math.max(h, 1)}`}>
+        <Path d={d} fill="none" stroke={ctx.color} strokeWidth={Math.max(1, thick * 0.8)} strokeLinecap="round" />
+      </Svg>
+    );
+  }
+  return (
+    <View
+      testID="math-accent-rule"
+      style={{ width: rule, height: thick, backgroundColor: ctx.color, alignSelf: "center" }}
+    />
+  );
+}
+
+function renderScriptColumn(
+  sup: Extract<MathSegment, { type: "sup" }>,
+  sub: Extract<MathSegment, { type: "sub" }>,
+  node: MathLayout | undefined,
+  key: string,
+  ctx: RenderCtx,
+): ReactNode {
+  const pad = { em: ctx.em, fontScale: ctx.fontScale, leadingAtom: true };
+  return (
+    <View
+      key={key}
+      testID="math-script-column"
+      style={{
+        width: scaled(node?.width ?? 0, ctx.fontScale),
+        height: scaled(node?.height ?? 0, ctx.fontScale),
+        paddingTop: scaled(node?.padTop ?? 0, ctx.fontScale),
+        paddingBottom: scaled(node?.padBottom ?? 0, ctx.fontScale),
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
+      {renderOneSegment(sup, node?.children[0], `${key}-sup`, ctx, pad, true)}
+      {renderOneSegment(sub, node?.children[1], `${key}-sub`, ctx, pad, true)}
+    </View>
+  );
+}
+
 function renderSegments(
   segments: MathSegment[],
+  layouts: MathLayout[],
   keyPrefix: string,
   ctx: RenderCtx,
 ): ReactNode[] {
-  const { styles, inFrac } = ctx;
-  return segments.map((seg, i) => {
-    const key = `${keyPrefix}-${i}`;
-    if (seg.type === "sup") {
-      if (isFractionalScript(seg)) {
-        // Unicode ¹⁄⁶ uses miniature glyphs even at body size. A genuinely
-        // raised 14px run keeps both digits and the fraction slash readable.
+  const nodes: ReactNode[] = [];
+  let leadingAtom = false;
+  let layoutIndex = 0;
+  for (const atom of attachScripts(segments)) {
+    const key = `${keyPrefix}-${atom.index}`;
+    const node = layouts[layoutIndex];
+    layoutIndex += 1;
+    const pad = { em: ctx.em, fontScale: ctx.fontScale, leadingAtom };
+    leadingAtom = true;
+    const rendered = renderOneSegment(atom.segment, node, key, ctx, pad, false);
+    if (atom.sup && atom.sub) {
+      const column = layouts[layoutIndex];
+      layoutIndex += 1;
+      nodes.push(
+        <View key={key} style={{ flexDirection: "row", alignItems: "center" }}>
+          {rendered}
+          {renderScriptColumn(atom.sup, atom.sub, column, `${key}-col`, ctx)}
+        </View>,
+      );
+    } else if (rendered != null) {
+      nodes.push(rendered);
+    }
+  }
+  return nodes;
+}
+
+function renderOneSegment(
+  seg: MathSegment,
+  node: MathLayout | undefined,
+  key: string,
+  ctx: RenderCtx,
+  pad: { em: number; fontScale: number; leadingAtom: boolean },
+  placed: boolean,
+): ReactNode {
+  const { styles } = ctx;
+  if (seg.type === "sup" || seg.type === "sub") {
+      if (seg.type === "sup" && isFractionalScript(seg)) {
+        const slash = seg.value.indexOf("/");
+        const scriptSize = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
+        const raise = node?.raise ?? ctx.em * 0.42;
+        const scriptStyle = {
+          fontFamily: MATH_FONT,
+          fontSize: scriptSize,
+          lineHeight: scriptSize * 1.1,
+          color: ctx.color,
+        };
         return (
-          <View key={key} style={styles.fractionalSup} testID="math-fractional-sup">
-            <Text style={styles.scriptText}>{seg.value}</Text>
+          <View
+            key={key}
+            testID="math-fractional-sup"
+            style={{
+              width: scaled(node?.width ?? scriptSize * 2, ctx.fontScale),
+              height: scaled(node?.height ?? scriptSize * 2, ctx.fontScale),
+              paddingBottom: scaled(raise, ctx.fontScale),
+              alignItems: "center",
+              justifyContent: "flex-start",
+            }}
+          >
+            {renderMathRun(
+              seg.value.slice(0, slash),
+              `${key}-sn`,
+              scriptStyle,
+              styles.glyph,
+              styles.variable,
+              undefined,
+              { em: scriptSize, fontScale: ctx.fontScale, leadingAtom: false, space: false },
+            )}
+            <View
+              testID="math-script-bar"
+              style={[styles.vinculum, { alignSelf: "stretch", marginVertical: 0 }]}
+            />
+            {renderMathRun(
+              seg.value.slice(slash + 1),
+              `${key}-sd`,
+              scriptStyle,
+              styles.glyph,
+              styles.variable,
+              undefined,
+              { em: scriptSize, fontScale: ctx.fontScale, leadingAtom: false, space: false },
+            )}
           </View>
         );
       }
-      const uni = toSuperscript(seg.value);
-      const node = uni ?? seg.value;
-      return (
-        <Text key={key} style={uni ? runStyle(ctx) : styles.sup}>
-          {node}
-        </Text>
-      );
-    }
-    if (seg.type === "sub") {
-      const uni = toSubscript(seg.value);
-      const node = uni ?? seg.value;
-      return (
-        <Text key={key} style={uni ? runStyle(ctx) : styles.sub}>
-          {node}
-        </Text>
+      return renderMathRun(
+        seg.value,
+        key,
+        scriptTextStyle(node, ctx, placed),
+        styles.glyph,
+        styles.variable,
+        "math-script",
+        {
+          em: node?.fontSize ?? ctx.em * SCRIPT_RATIO,
+          fontScale: ctx.fontScale,
+          leadingAtom: false,
+          space: false,
+        },
       );
     }
     if (seg.type === "frac") {
-      // True stacked fraction with a vinculum. Sized View — the paragraph
-      // Text treats it as a character. Do not wrap this in another Text.
-      const box = fracStackSize(seg.num, seg.den);
       return (
         <View
           key={key}
-          style={[styles.fracStack, { width: box.width * ctx.layoutScale, height: box.height * ctx.layoutScale }]}
+          style={[styles.fracStack, {
+            width: scaled(node?.width ?? 0, ctx.fontScale),
+            height: scaled(node?.height ?? 0, ctx.fontScale),
+            marginHorizontal: scaled((node?.outer ?? 0) / 2, ctx.fontScale),
+            paddingTop: scaled(node?.padTop ?? 0, ctx.fontScale),
+            paddingBottom: scaled(node?.padBottom ?? 0, ctx.fontScale),
+          }]}
           testID="math-frac"
           collapsable={false}
         >
-          {renderFracSide(seg.num, `${key}-n`, ctx)}
-          <View style={styles.vinculum} testID="math-vinculum" />
-          {renderFracSide(seg.den, `${key}-d`, ctx)}
+          {renderFracSide(seg.num, node?.children[0], `${key}-n`, ctx)}
+          <View
+            style={[styles.vinculum, { height: Math.max(1, ctx.fontScale), marginVertical: 0 }]}
+            testID="math-vinculum"
+          />
+          {renderFracSide(seg.den, node?.children[1], `${key}-d`, ctx)}
         </View>
       );
     }
     if (seg.type === "sqrt") {
-      const box = radicalBoxSize(seg.body, Boolean(inFrac), seg.degree);
-      const width = box.width * ctx.layoutScale;
-      const height = box.height * ctx.layoutScale;
-      const top = 1;
-      const hook = Math.max(top + 7, box.height * 0.56);
-      const bottom = box.height - 1;
-      const rise = box.lead - 1;
+      if (!node) return <View key={key} testID="math-sqrt" />;
+      const stroke = radicalStroke(node);
+      const width = scaled(node.width, ctx.fontScale);
+      const height = scaled(node.height, ctx.fontScale);
+      const padLeft = node.padLeft ?? 0;
+      const padRight = Math.max(0, node.outer - padLeft);
       return (
         <View
           key={key}
-          style={[
-            styles.sqrtRow,
-            !seg.degree && styles.sqrtAfterCoeff,
-            { width, height },
-          ]}
+          style={[styles.sqrtRow, {
+            width,
+            height,
+            marginLeft: scaled(padLeft, ctx.fontScale),
+            marginRight: scaled(padRight, ctx.fontScale),
+          }]}
           testID="math-sqrt"
           collapsable={false}
         >
@@ -382,44 +516,76 @@ function renderSegments(
             testID="math-radical-glyph"
             width={width}
             height={height}
-            viewBox={`0 0 ${box.width} ${box.height}`}
+            viewBox={`0 0 ${node.width} ${node.height}`}
             style={styles.radicalGlyph}
             pointerEvents="none"
             accessible={false}
           >
             <Path
-              d={`M 0 ${hook} L 3 ${hook} L 5.5 ${bottom} L ${rise} ${top} L ${box.width} ${top}`}
+              d={stroke.d}
               fill="none"
               stroke={ctx.color}
-              strokeWidth={RADICAL_STROKE_PX}
+              strokeWidth={Math.max(0.9, (node.em ?? ctx.em) * 0.075)}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </Svg>
-          {seg.degree ? (
-            <Text style={styles.sqrtIndex}>{seg.degree}</Text>
+          {seg.degree && node.index ? (
+            <Text
+              style={[styles.sqrtIndex, {
+                left: scaled(node.index.left, ctx.fontScale),
+                top: scaled(node.index.top, ctx.fontScale),
+                fontSize: node.index.fontSize,
+                lineHeight: node.index.lineHeight,
+                transform: [],
+              }]}
+            >
+              {seg.degree}
+            </Text>
           ) : null}
           <View
-            style={[
-              styles.sqrtRadicand,
-              {
-                marginLeft: box.lead * ctx.layoutScale,
-                marginTop: RADICAL_BODY_TOP_PX * ctx.layoutScale,
-                width: box.body.width * ctx.layoutScale,
-                height: box.body.height * ctx.layoutScale,
-              },
-            ]}
+            style={[styles.sqrtRadicand, {
+              marginLeft: scaled(node.lead ?? 0, ctx.fontScale),
+              marginTop: scaled(node.bodyTop ?? 0, ctx.fontScale),
+              width: scaled(node.children[0]?.width ?? node.bodyWidth ?? 0, ctx.fontScale),
+              height: scaled(node.bodyHeight ?? 0, ctx.fontScale),
+            }]}
             testID="math-sqrt-radicand"
           >
-            {renderRadicand(seg.body, `${key}-b`, ctx)}
+            {renderRadicand(seg.body, node.children[0], `${key}-b`, ctx)}
           </View>
+        </View>
+      );
+    }
+    if (seg.type === "accent") {
+      if (!node) return <View key={key} testID="math-accent" />;
+      const mark = renderAccentMark(node, ctx);
+      const head = seg.kind === "underline" ? 0 : scaled(node.padTop ?? 0, ctx.fontScale);
+      const foot = seg.kind === "underline" ? scaled(node.padBottom ?? 0, ctx.fontScale) : 0;
+      return (
+        <View
+          key={key}
+          testID="math-accent"
+          collapsable={false}
+          style={{
+            width: scaled(node.width, ctx.fontScale),
+            height: scaled(node.height, ctx.fontScale),
+            alignItems: "center",
+            justifyContent: "flex-start",
+          }}
+        >
+          {seg.kind === "underline" ? null : mark}
+          <View style={[styles.fracSideRow, { marginTop: head, marginBottom: foot }]}>
+            {renderSegments(seg.body, node.children[0]?.children ?? [], `${key}-a`, ctx)}
+          </View>
+          {seg.kind === "underline" ? mark : null}
         </View>
       );
     }
     if (seg.type === "cancel") {
       return (
         <View key={key} testID="math-cancel" style={styles.cancelWrap} collapsable={false}>
-          {renderSegments(seg.body, `${key}-c`, ctx)}
+          {renderSegments(seg.body, node?.children[0]?.children ?? [], `${key}-c`, ctx)}
           <View style={styles.cancelSlashHit} pointerEvents="none" accessible={false}>
             <View testID="math-cancel-slash" style={styles.cancelSlash} />
           </View>
@@ -429,26 +595,19 @@ function renderSegments(
     if (seg.type === "upright") {
       return (
         <Text key={key} style={runStyle(ctx)} testID="math-upright-run">
-          {renderNonVariableRun(seg.value, `${key}-u`, styles.glyph)}
+          {renderNonVariableRun(seg.value, `${key}-u`, styles.glyph, { em: ctx.em, fontScale: ctx.fontScale })}
         </Text>
       );
     }
-    return renderMathRun(
-      seg.value,
-      key,
-      runStyle(ctx),
-      styles.glyph,
-      styles.variable,
-    );
-  });
+  if (seg.type !== "text") return null;
+  return renderMathRun(seg.value, key, runStyle(ctx), styles.glyph, styles.variable, undefined, pad);
 }
 
 /** Native math: simple runs stay Text; stacked or raised structures own their bounds. */
 export function MathText({ latex, textColor, compact = false, fontSize = 16, scrollOverflow = false }: Props) {
   const theme = useTheme();
   const color = textColor ?? theme.text;
-  const { fontScale } = useWindowDimensions();
-  const layoutScale = (fontSize / 16) * fontScale;
+  const { fontScale, width: windowWidth } = useWindowDimensions();
   const styles = useMemo(
     () => makeStyles(theme, textColor, compact, fontSize, fontScale),
     [theme, textColor, compact, fontSize, fontScale],
@@ -457,30 +616,36 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16, scr
     () => parseSimpleLatex(fixImplicitExponents(latex.trim())),
     [latex],
   );
+  const layout = useMemo(() => layoutMath(segments, fontSize), [segments, fontSize]);
   const tall = useMemo(() => hasTallMath(segments), [segments]);
+  const ctx: RenderCtx = { styles, color, fontScale, em: fontSize };
 
   if (!latex.trim()) return null;
 
-  // Stacked frac is a View. It must be the MathText root (not wrapped in
-  // Text) so the paragraph Text can treat it as a sized character. Text >
-  // Text > View is what iOS lays out as 0×0 and paints over the next line.
+  const contentWidth = scaled(layout.width, fontScale);
+  const contentHeight = scaled(layout.height, fontScale);
+  const label = readableLatexFallback(latex);
+  const scroll = scrollOverflow && (tall || inlineMathNeedsScroll(contentWidth, windowWidth));
+  const runs = renderSegments(segments, layout.children, "m", ctx);
+
+  // Stacked structures are a View root. Text > Text > View is what iOS lays
+  // out as 0×0 and paints over the next line.
   if (tall) {
-    const size = estimateMathTextSize(segments);
     const content = (
       <View
         testID="math-text-tall"
         collapsable={false}
         style={[styles.tallRoot, {
-          ...(scrollOverflow ? { minWidth: size.width * layoutScale } : { width: size.width * layoutScale }),
-          height: size.height * layoutScale,
+          ...(scroll ? { minWidth: contentWidth } : { width: contentWidth }),
+          height: contentHeight,
         }]}
       >
-        {renderSegments(segments, "m", { styles, color, layoutScale })}
+        {runs}
       </View>
     );
-    if (!scrollOverflow) return content;
-    // Keep short fractions at their intrinsic size. A longer run is limited
-    // by its actual paragraph/list width, while its inner row never shrinks.
+    if (!scroll) return content;
+    // The viewport is the paragraph width. The formula keeps its measured
+    // width and scrolls; it is not shrunk to fit.
     return (
       <ScrollView
         testID="math-text-scroll"
@@ -492,20 +657,43 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16, scr
         contentInsetAdjustmentBehavior="never"
         accessible
         accessibilityRole="text"
-        accessibilityLabel={readableLatexFallback(latex)}
-        style={[
-          styles.inlineViewport,
-          { width: size.width * layoutScale, height: size.height * layoutScale },
-        ]}
+        accessibilityLabel={label}
+        style={[styles.inlineViewport, { height: contentHeight }]}
       >
         {content}
       </ScrollView>
     );
   }
 
+  const lineHeight = Math.max(styles.base.lineHeight ?? 0, layout.height);
+  if (scroll) {
+    return (
+      <ScrollView
+        testID="math-text-scroll"
+        horizontal
+        nestedScrollEnabled
+        directionalLockEnabled
+        showsHorizontalScrollIndicator
+        bounces={false}
+        contentInsetAdjustmentBehavior="never"
+        accessible
+        accessibilityRole="text"
+        accessibilityLabel={label}
+        style={[styles.inlineViewport, { height: contentHeight }]}
+      >
+        <Text
+          testID="math-text-wide"
+          style={[styles.base, { lineHeight, minWidth: contentWidth, flexShrink: 0 }]}
+        >
+          {runs}
+        </Text>
+      </ScrollView>
+    );
+  }
+
   return (
-    <Text style={styles.base}>
-      {renderSegments(segments, "m", { styles, color, layoutScale })}
+    <Text style={[styles.base, { lineHeight }]}>
+      {runs}
     </Text>
   );
 }
@@ -520,16 +708,11 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       fontSize,
       // Match body rhythm. 28 made nested `$m$` / `$y=mx+b$` Text
       // wrap onto its own line inside list items ("Slope (" / "m" / "): 3").
-      lineHeight: (compact ? SQRT_LINE_HEIGHT : MATH_BODY_LINE_HEIGHT) * scale,
+      lineHeight: (compact ? SQRT_LINE_AT_16 : BODY_LINE_AT_16) * scale,
       color,
     },
     glyph: {
-      // KaTeX Main does not carry every Unicode relation symbol.
-      fontFamily: Platform.select({
-        ios: "Helvetica Neue",
-        android: "sans-serif",
-        default: undefined,
-      }),
+      fontFamily: MATH_SYMBOL_FONT,
     },
     variable: {
       fontFamily: MATH_VARIABLE_FONT,
@@ -546,32 +729,10 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       flexShrink: 0,
       overflow: "visible",
     },
-    sup: {
-      fontFamily: MATH_FONT,
-      fontSize: 11,
-      lineHeight: 14,
-      color,
-    },
-    sub: {
-      fontFamily: MATH_FONT,
-      fontSize: 11,
-      lineHeight: 14,
-      color,
-    },
-    fractionalSup: {
-      paddingBottom: Space.sm * layoutScale,
-    },
-    scriptText: {
-      fontFamily: MATH_FONT,
-      fontSize: 14 * scale,
-      lineHeight: FRAC_LINE_HEIGHT * scale,
-      color,
-    },
     fracStack: {
       alignItems: "center",
       alignSelf: "flex-start",
-      justifyContent: "center",
-      marginHorizontal: 3 * layoutScale,
+      justifyContent: "space-between",
       overflow: "visible",
       flexShrink: 0,
     },
@@ -582,7 +743,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
     fracPart: {
       fontFamily: MATH_FONT,
       fontSize: 14 * scale,
-      lineHeight: FRAC_LINE_HEIGHT * scale,
+      lineHeight: FRAC_LINE_AT_16 * scale,
       color,
       textAlign: "center",
     },
@@ -591,11 +752,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
     sqrtRow: {
       flexDirection: "row",
       alignItems: "flex-start",
-      marginHorizontal: RADICAL_SIDE_MARGIN_PX * layoutScale,
       overflow: "visible",
-    },
-    sqrtAfterCoeff: {
-      marginLeft: RADICAL_PLAIN_LEFT_MARGIN_PX * layoutScale,
     },
     sqrtIndex: {
       position: "absolute",
@@ -605,12 +762,11 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       fontSize: 12 * scale,
       lineHeight: 14 * scale,
       color,
-      transform: [{ translateY: -4 * layoutScale }],
     },
     sqrtBody: {
       fontFamily: MATH_FONT,
       fontSize,
-      lineHeight: SQRT_LINE_HEIGHT * scale,
+      lineHeight: SQRT_LINE_AT_16 * scale,
       color,
     },
     sqrtRadicand: {
@@ -625,8 +781,8 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
     },
     vinculum: {
       alignSelf: "stretch",
-      height: StyleSheet.hairlineWidth * 2,
-      marginVertical: 2 * layoutScale,
+      height: 1,
+      marginVertical: 0,
       backgroundColor: color,
     },
     cancelWrap: {

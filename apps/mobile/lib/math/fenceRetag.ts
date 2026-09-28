@@ -118,9 +118,9 @@ export function looksLikeLatexFence(content: string): boolean {
 }
 
 /**
- * True when inline `$...$` math needs the KaTeX WebView: a LaTeX
- * environment (`\begin{matrix}`, cases, aligned, …) or a large operator
- * (`\sum` / `\prod` / `\int` / `\binom`) that native MathText paints tiny.
+ * True when inline `$...$` math is sent to MathJax-SVG (display), not the
+ * native inline renderer: a LaTeX environment (`\begin{matrix}`, cases,
+ * aligned, …) or a large operator (`\sum` / `\prod` / `\int` / `\binom`).
  */
 export function isHeavyInlineMath(latex: string): boolean {
   const source = restoreMathEscapes(latex);
