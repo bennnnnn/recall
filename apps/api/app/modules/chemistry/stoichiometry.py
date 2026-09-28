@@ -4,8 +4,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.modules.chemistry.elements import PERIODIC_TABLE, get_element_info
 from app.modules.chemistry.equations import _parse_formula_atoms, balance_equation
 from app.modules.chemistry.smiles import validate_smiles
+
+__all__ = [
+    "PERIODIC_TABLE",
+    "LimitingReagentResult",
+    "StoichiometryResult",
+    "get_element_info",
+    "limiting_reagent",
+    "molar_mass",
+    "stoichiometry",
+]
 
 
 @dataclass(frozen=True)
@@ -109,80 +120,6 @@ def molar_mass(formula_or_smiles: str) -> float:
         if mass is not None:
             return mass
     raise ValueError(f"cannot compute molar mass for {formula_or_smiles}")
-
-
-PERIODIC_TABLE: dict[str, dict[str, float | int | str]] = {
-    "H": {"mass": 1.008, "electronegativity": 2.20, "group": 1, "period": 1, "name": "Hydrogen"},
-    "He": {"mass": 4.003, "group": 18, "period": 1, "name": "Helium"},
-    "Li": {"mass": 6.941, "electronegativity": 0.98, "group": 1, "period": 2, "name": "Lithium"},
-    "Be": {"mass": 9.012, "electronegativity": 1.57, "group": 2, "period": 2, "name": "Beryllium"},
-    "B": {"mass": 10.811, "electronegativity": 2.04, "group": 13, "period": 2, "name": "Boron"},
-    "C": {"mass": 12.011, "electronegativity": 2.55, "group": 14, "period": 2, "name": "Carbon"},
-    "N": {"mass": 14.007, "electronegativity": 3.04, "group": 15, "period": 2, "name": "Nitrogen"},
-    "O": {"mass": 15.999, "electronegativity": 3.44, "group": 16, "period": 2, "name": "Oxygen"},
-    "F": {"mass": 18.998, "electronegativity": 3.98, "group": 17, "period": 2, "name": "Fluorine"},
-    "Ne": {"mass": 20.180, "group": 18, "period": 2, "name": "Neon"},
-    "Na": {"mass": 22.990, "electronegativity": 0.93, "group": 1, "period": 3, "name": "Sodium"},
-    "Mg": {"mass": 24.305, "electronegativity": 1.31, "group": 2, "period": 3, "name": "Magnesium"},
-    "Al": {
-        "mass": 26.982,
-        "electronegativity": 1.61,
-        "group": 13,
-        "period": 3,
-        "name": "Aluminum",
-    },
-    "Si": {"mass": 28.085, "electronegativity": 1.90, "group": 14, "period": 3, "name": "Silicon"},
-    "P": {
-        "mass": 30.974,
-        "electronegativity": 2.19,
-        "group": 15,
-        "period": 3,
-        "name": "Phosphorus",
-    },
-    "S": {"mass": 32.06, "electronegativity": 2.58, "group": 16, "period": 3, "name": "Sulfur"},
-    "Cl": {"mass": 35.45, "electronegativity": 3.16, "group": 17, "period": 3, "name": "Chlorine"},
-    "Ar": {"mass": 39.948, "group": 18, "period": 3, "name": "Argon"},
-    "K": {"mass": 39.098, "electronegativity": 0.82, "group": 1, "period": 4, "name": "Potassium"},
-    "Ca": {"mass": 40.078, "electronegativity": 1.00, "group": 2, "period": 4, "name": "Calcium"},
-    "Ti": {"mass": 47.867, "electronegativity": 1.54, "group": 4, "period": 4, "name": "Titanium"},
-    "Cr": {"mass": 51.996, "electronegativity": 1.66, "group": 6, "period": 4, "name": "Chromium"},
-    "Mn": {"mass": 54.938, "electronegativity": 1.55, "group": 7, "period": 4, "name": "Manganese"},
-    "Fe": {"mass": 55.845, "electronegativity": 1.83, "group": 8, "period": 4, "name": "Iron"},
-    "Co": {"mass": 58.933, "electronegativity": 1.88, "group": 9, "period": 4, "name": "Cobalt"},
-    "Ni": {"mass": 58.693, "electronegativity": 1.91, "group": 10, "period": 4, "name": "Nickel"},
-    "Cu": {"mass": 63.546, "electronegativity": 1.90, "group": 11, "period": 4, "name": "Copper"},
-    "Zn": {"mass": 65.38, "electronegativity": 1.65, "group": 12, "period": 4, "name": "Zinc"},
-    "Ga": {"mass": 69.723, "electronegativity": 1.81, "group": 13, "period": 4, "name": "Gallium"},
-    "Ge": {"mass": 72.63, "electronegativity": 2.01, "group": 14, "period": 4, "name": "Germanium"},
-    "As": {"mass": 74.922, "electronegativity": 2.18, "group": 15, "period": 4, "name": "Arsenic"},
-    "Se": {"mass": 78.96, "electronegativity": 2.55, "group": 16, "period": 4, "name": "Selenium"},
-    "Br": {"mass": 79.904, "electronegativity": 2.96, "group": 17, "period": 4, "name": "Bromine"},
-    "Rb": {"mass": 85.468, "electronegativity": 0.82, "group": 1, "period": 5, "name": "Rubidium"},
-    "Sr": {"mass": 87.62, "electronegativity": 0.95, "group": 2, "period": 5, "name": "Strontium"},
-    "Mo": {"mass": 95.95, "electronegativity": 2.16, "group": 6, "period": 5, "name": "Molybdenum"},
-    "Cd": {"mass": 112.41, "electronegativity": 1.69, "group": 12, "period": 5, "name": "Cadmium"},
-    "Sn": {"mass": 118.71, "electronegativity": 1.96, "group": 14, "period": 5, "name": "Tin"},
-    "Sb": {"mass": 121.76, "electronegativity": 2.05, "group": 15, "period": 5, "name": "Antimony"},
-    "I": {"mass": 126.904, "electronegativity": 2.66, "group": 17, "period": 5, "name": "Iodine"},
-    "Cs": {"mass": 132.91, "electronegativity": 0.79, "group": 1, "period": 6, "name": "Cesium"},
-    "Ba": {"mass": 137.327, "electronegativity": 0.89, "group": 2, "period": 6, "name": "Barium"},
-    "W": {"mass": 183.84, "electronegativity": 2.36, "group": 6, "period": 6, "name": "Tungsten"},
-    "Pt": {"mass": 195.08, "electronegativity": 2.28, "group": 10, "period": 6, "name": "Platinum"},
-    "Au": {"mass": 196.967, "electronegativity": 2.54, "group": 11, "period": 6, "name": "Gold"},
-    "Hg": {"mass": 200.59, "electronegativity": 2.00, "group": 12, "period": 6, "name": "Mercury"},
-    "Pb": {"mass": 207.2, "electronegativity": 2.33, "group": 14, "period": 6, "name": "Lead"},
-    "Bi": {"mass": 208.98, "electronegativity": 2.02, "group": 15, "period": 6, "name": "Bismuth"},
-    "U": {"mass": 238.03, "electronegativity": 1.38, "group": 3, "period": 7, "name": "Uranium"},
-    "Ag": {"mass": 107.868, "electronegativity": 1.93, "group": 11, "period": 5, "name": "Silver"},
-}
-
-
-def get_element_info(symbol: str) -> dict[str, float | int | str] | None:
-    """Get periodic table data for an element by symbol.
-
-    Returns None if the element is not in our data.
-    """
-    return PERIODIC_TABLE.get(symbol)
 
 
 @dataclass(frozen=True)

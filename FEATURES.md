@@ -285,17 +285,26 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
   whole-token match (`marsh` stays Earth). See [docs/math.md](./docs/math.md).
 - ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction plus grouped
-  deterministic solvers cover balancing; amount conversions; composition/yield;
-  stoichiometry/limiting reagent; solution concentration; pH/pOH and buffers; ideal gas;
-  heat/Gibbs; simple Kc/Qc; first-order/Arrhenius kinetics; cell/Nernst/electrolysis;
-  half-life decay; and Beer–Lambert. Complete typed questions return the same compact
-  Given / Find / named Formula / Substitution / Answer layout as Physics, with no
-  unnecessary trailing zeros. RDKit / SymPy + PubChem still verify structures,
-  descriptors, elements, and compounds. Structures use ` ```smiles ` (alias
-  ` ```chemistry `); the server attaches ` ```molecule3d ` for the first two valid
-  molecules. Chemically aware 2D layout remains smiles-drawer; interactive 3D now
-  renders on a native Skia canvas, with an SVG fallback for Expo Go or a stale native
-  client. See [docs/chemistry.md](./docs/chemistry.md).
+  deterministic solvers share one species model: formula, composition, charge, and phase.
+  The local table is all 118 elements. Verified work covers atom-and-charge balancing
+  (including redox half-equations); amount conversions; empirical and molecular formulas;
+  mass, solution, and gas stoichiometry with limiting reagent; solution concentration and
+  colligative properties; strong/weak acid–base pH, `Ka`/`Kb`, buffers after addition, and
+  titration regions; ideal, combined, Boyle, Charles, Dalton, and wet-gas laws; calorimetry,
+  Hess, formation, and bond enthalpy; phase-aware `Kc`/`Kp`, ICE, `Ksp`, and precipitation;
+  zero/first/second-order kinetics and two-point Arrhenius; cell, Nernst, electrolysis, and
+  a school galvanic cell; nuclear decay and one-missing-product nuclear equations;
+  Beer–Lambert; oxidation state, formal charge, and single-center VSEPR; RDKit functional
+  groups, CIP stereochemistry, and isomer class; coordination names from a fixed ligand
+  table; and calibration, gravimetric, and standard-addition arithmetic. Complete typed
+  questions return the same compact Given / Find / named Formula / Substitution / Answer
+  layout as Physics, with no unnecessary trailing zeros. Mechanisms, IUPAC names,
+  IR/NMR/MS interpretation, crystal-field/MO theory, mass defect, and biochemical pathways
+  stay model-only. RDKit / SymPy + PubChem still verify structures, descriptors, elements,
+  and compounds. Structures use ` ```smiles ` (alias ` ```chemistry `); the server attaches
+  ` ```molecule3d ` for the first two valid molecules. Chemically aware 2D layout remains
+  smiles-drawer; interactive 3D renders on a native Skia canvas, with an SVG fallback for
+  Expo Go or a stale native client. See [docs/chemistry.md](./docs/chemistry.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
   triangle, trapezoid, sector, …) via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays

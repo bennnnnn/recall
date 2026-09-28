@@ -1,0 +1,67 @@
+"""Normalize chemistry quantities with the shared Pint registry.
+
+Bare ``pa`` is a petayear and bare ``c`` is the speed of light, so every
+chemistry unit goes through this alias table before Pint sees it.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from app.services.units import get_unit_registry
+
+_ALIASES = {
+    "atm": "atm",
+    "pa": "pascal",
+    "kpa": "kilopascal",
+    "bar": "bar",
+    "mmhg": "mmHg",
+    "torr": "torr",
+    "l": "liter",
+    "ml": "milliliter",
+    "liter": "liter",
+    "liters": "liter",
+    "litre": "liter",
+    "litres": "liter",
+    "k": "kelvin",
+    "c": "degC",
+    "°c": "degC",
+    "degc": "degC",
+    "celsius": "degC",
+}
+
+
+@dataclass(frozen=True)
+class Quantity:
+    """A numeric chemistry measurement before it is converted."""
+
+    value: float
+    unit: str
+
+
+def _pint_unit(unit: str) -> str:
+    key = unit.strip().replace(" ", "").lower()
+    try:
+        return _ALIASES[key]
+    except KeyError as exc:
+        raise ValueError(f"unsupported chemistry unit: {unit}") from exc
+
+
+def convert(value: float, unit: str, target: str) -> float:
+    """Convert ``value`` from a chemistry alias into ``target`` Pint units."""
+    registry = get_unit_registry()
+    # Offset units such as degC cannot be multiplied; Quantity handles 25 °C → K.
+    quantity = registry.Quantity(value, _pint_unit(unit))
+    return float(quantity.to(target).magnitude)
+
+
+def to_atm(value: float, unit: str) -> float:
+    return convert(value, unit, "atm")
+
+
+def to_liters(value: float, unit: str) -> float:
+    return convert(value, unit, "liter")
+
+
+def to_kelvin(value: float, unit: str) -> float:
+    return convert(value, unit, "kelvin")

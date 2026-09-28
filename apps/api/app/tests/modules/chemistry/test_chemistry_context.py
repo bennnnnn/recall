@@ -321,6 +321,8 @@ async def test_build_chemistry_context_element() -> None:
     assert block is not None
     assert "Verified element data" in block
     assert "55.845" in block
+    assert "Atomic number: 26" in block
+    assert "Electron configuration:" in block
     assert "Verified molar mass" not in block
 
 

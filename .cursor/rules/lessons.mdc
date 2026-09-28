@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Ionic `+` was read as another reactant, and `25 °C` never became kelvin.** A glued sign (`Fe2+`, `MnO4-`) is charge only when the next character is space, end, or another sign; `H2 + O2` stays a separator. Pint cannot multiply an offset unit, so Celsius goes through `registry.Quantity`. Pure solids and liquids leave `Kc`/`Kp` only when the phase is explicit — an unlabeled species still counts, or homogeneous equilibria change.
+
 - **Adding a second arithmetic grammar made dates and phone numbers look solvable again.** The original bare-expression gate rejected ambiguous `9/9`, `2026-09`, and `555-1234`, but the new school-method matcher ran afterward and accepted them. Every new extractor must preserve the gate’s ambiguity rules; only a calculation/long-division cue may admit a bare ASCII slash.
 
 - **A math answer chip followed by “how?” drifted to model-written steps.** Short style suppressed verified `key_steps`, and the terse follow-up never re-entered math augmentation. Always render supported equation/system/inequality traces unless the user says “just the answer”; adjacency-gate working follow-ups and solve the prior problem again. Native `√` plus a separate border cannot enclose `\frac{x}{y}`—draw one scalable SVG radical path, and keep fraction-bar padding to a minimal overhang.
