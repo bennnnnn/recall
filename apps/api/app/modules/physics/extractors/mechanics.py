@@ -649,7 +649,6 @@ _ENERGY_CUES = (
     "work is done",
     "how much work",
     "work of",
-    "power of",
     "what is the power",
     "what is its power",
     "what's the power",
@@ -672,7 +671,20 @@ _KE_ABBREV_RE = re.compile(r"\bk\.?\s?e\.?\s+of\b")
 
 _PE_ABBREV_RE = re.compile(r"\bp\.?\s?e\.?\s+of\b")
 
-_ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (_KE_ABBREV_RE, _PE_ABBREV_RE)
+# ``power of`` is also ordinary exponent language.  Treat it as physics only
+# when its bounded object names a physical quantity or unit; broad keyword
+# matching used to steal requests such as "the third power of 5" from math.
+_PHYSICAL_POWER_OF_RE = re.compile(
+    r"\bpower\s+of\b[^.?!]{0,80}\b(?:force|work|energy|joules?|kilojoules?|"
+    r"watts?|newtons?|k?J|W|N)\b",
+    re.IGNORECASE,
+)
+
+_ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (
+    _KE_ABBREV_RE,
+    _PE_ABBREV_RE,
+    _PHYSICAL_POWER_OF_RE,
+)
 
 
 def _has_work_angle(text: str) -> bool:

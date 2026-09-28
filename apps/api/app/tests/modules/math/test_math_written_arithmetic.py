@@ -35,9 +35,9 @@ def _work(question: str):
         ("Show every step for 503 - 278", "column_subtraction", "225"),
         ("23 multiplied by 14", "column_multiplication", "322"),
         ("Use long division to calculate 1,572 ÷ 12", "long_division", "131"),
-        ("437 divided by 6", "long_division", "72 R5"),
-        ("456/56", "long_division", "8 R8"),
-        ("59595 devided by 54", "long_division", "1103 R33"),
+        ("437 divided by 6", "long_division", r"\frac{437}{6}\approx 72.83"),
+        ("456/56", "long_division", r"\frac{57}{7}\approx 8.14"),
+        ("59595 devided by 54", "long_division", r"\frac{19865}{18}\approx 1103.61"),
     ],
 )
 def test_written_arithmetic_extracts_on_existing_kind(
@@ -123,8 +123,8 @@ def test_decimal_long_division_appends_visible_placeholder_zeros() -> None:
 @pytest.mark.parametrize(
     "question, quotient, answer",
     [
-        ("1 divided by 4", "0", "0 R1"),
-        ("1 divided by 6", "0", "0 R1"),
+        ("1 divided by 4", "0.25", "0.25"),
+        ("1 divided by 6", "0.166", r"\frac{1}{6}\approx 0.17"),
         ("1 divided by 4 as a decimal", "0.25", "0.25"),
         ("1 divided by 6 as a decimal", "0.166", r"\frac{1}{6}\approx 0.17"),
         ("437 divided by 6 as a fraction", "72", r"\frac{437}{6}"),
@@ -170,21 +170,20 @@ def test_long_division_preserves_significant_trailing_zeros(
     assert spec.answer == answer
 
 
-def test_direct_reply_shows_division_working_by_default_and_respects_answer_only() -> None:
+def test_direct_reply_separates_division_answer_mode_from_working_visibility() -> None:
     _intent, plain_block, _spec = _work("478 + 356")
     assert maybe_direct_math_reply(plain_block, "478 + 356") == "```answer\n834\n```\n"
 
     _intent, division_block, _spec = _work("59595 devided by 54")
     division_reply = maybe_direct_math_reply(division_block, "59595 devided by 54")
-    assert division_reply is not None and "```arithmetic" in division_reply
-    assert "```arithmetic" in validate_math_fences(
-        division_reply,
-        verified=division_block,
-    )
+    assert division_reply == "```answer\n\\frac{19865}{18}\\approx 1103.61\n```\n"
+    assert "```arithmetic" not in validate_math_fences(division_reply, verified=division_block)
 
     answer_only = "Just the answer: 59595 divided by 54"
     _intent, answer_block, _spec = _work(answer_only)
-    assert maybe_direct_math_reply(answer_block, answer_only) == "```answer\n1103 R33\n```\n"
+    assert maybe_direct_math_reply(answer_block, answer_only) == (
+        "```answer\n\\frac{19865}{18}\\approx 1103.61\n```\n"
+    )
 
     _intent, steps_block, _spec = _work("Show steps: 478 + 356")
     reply = maybe_direct_math_reply(steps_block, "Show steps: 478 + 356")
@@ -233,7 +232,7 @@ def test_followup_presentation_intent_keeps_canonical_long_division() -> None:
     assert "```arithmetic" in reply
     cleaned = validate_math_fences(reply, verified=block)
     assert "```arithmetic" in cleaned
-    assert '"answer":"8 R8"' in cleaned
+    assert '"answer":"\\\\frac{57}{7}\\\\approx 8.14"' in cleaned
 
 
 def test_fence_rewriter_uses_only_canonical_written_work() -> None:

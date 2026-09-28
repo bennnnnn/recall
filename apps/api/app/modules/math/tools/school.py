@@ -1038,6 +1038,14 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
             extracted = _extract_arithmetic_intent(base)
             if extracted is not None and extracted.expr:
                 return extracted.model_copy(update={"school_op": "eval_exact_decimal"})
+    spoken_power = mtm.spoken_power_request(cleaned)
+    if spoken_power is not None:
+        return MathIntent(
+            kind="arithmetic",
+            school_op="eval",
+            expr=spoken_power,
+            operation="solve",
+        )
     addition = mtm.written_addition_request(cleaned)
     if addition is not None:
         return MathIntent(

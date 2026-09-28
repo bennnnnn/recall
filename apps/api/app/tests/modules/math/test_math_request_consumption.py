@@ -34,6 +34,16 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Simplify 8/12 and solve 2x=4",
         "Graph y=x^2 and solve 3x=9",
         "Find the mean and standard deviation of 1,2,3,4",
+        "Find the mean and median of 1,2,3,4",
+        "Find the median and mode of 1,1,2,3",
+        "Solve 2x=4; also x must be positive",
+        "Solve x²=4 for x > 0",
+        "Differentiate x² and evaluate it at x=3",
+        "Find the derivative and second derivative of x³",
+        "Graph x² and tell me its roots",
+        "Find the area, perimeter and diagonal of a 3×4 rectangle",
+        "Find sin(30°), cos(60°), and tan(45°)",
+        "Solve x²=4 in the integers",
     ],
 )
 def test_unsupported_multipart_request_fails_closed(question: str) -> None:

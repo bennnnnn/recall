@@ -121,7 +121,10 @@ def build_long_division(
     integer_digits = len(working_text.partition(".")[0])
     numerator = int(digits or "0")
     denominator = divisor * (10 ** max(0, len(digits) - integer_digits))
-    requested_mode = answer_mode or ("decimal" if left_scale or right_scale else "remainder")
+    # The solver's neutral default is the numerical quotient.  Callers that
+    # need Euclidean quotient/remainder semantics must request them explicitly;
+    # integer operands alone do not change what division means.
+    requested_mode = answer_mode or "decimal"
     if requested_mode not in {"remainder", "fraction", "decimal", "round_up", "discard"}:
         return None
     places = _terminating_places(numerator, denominator)

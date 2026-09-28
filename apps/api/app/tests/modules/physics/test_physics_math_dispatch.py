@@ -59,6 +59,35 @@ def test_force_symbol_routes_directly_to_physics() -> None:
 
 
 @pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("What is 2 to the power of 3?", "8"),
+        ("what is the third power of 5?", "125"),
+        ("2 raised to the third power", "8"),
+    ],
+)
+def test_complete_math_power_request_beats_physics_keyword(text: str, answer: str) -> None:
+    assert extract_physics_intent(text) is None
+    assert detect_subject(text) == "math"
+    intent = extract_math_intent(text)
+    assert intent is not None and intent.kind == "arithmetic"
+    block = build_math_block(intent, _SETTINGS)
+    assert block is not None and block.canonical_answer == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A 60 W bulb runs for 2 hours. How much energy does it use?",
+        "A 2 kg object accelerates at 3 m/s². What force acts on it?",
+    ],
+)
+def test_complete_physics_request_still_beats_incidental_math(text: str) -> None:
+    assert detect_subject(text) == "physics"
+    assert extract_physics_intent(text) is not None
+
+
+@pytest.mark.parametrize(
     "text",
     [
         "find f for a 1/2 kg object with acceleration 2 m/s^2",

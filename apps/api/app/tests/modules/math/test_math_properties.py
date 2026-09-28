@@ -128,7 +128,10 @@ def test_long_division_trace_preserves_euclidean_invariant(dividend: int, diviso
     assert spec is None
 
     spec = build_written_arithmetic_operands(
-        [str(dividend), str(divisor)], "long_division", f"{dividend}/{divisor}"
+        [str(dividend), str(divisor)],
+        "long_division",
+        f"{dividend}/{divisor}",
+        division_answer_mode="remainder",
     )
     assert spec is not None
     quotient = int(spec.quotient or "0")

@@ -694,6 +694,78 @@ def _school_number(token: str) -> str | None:
     return whole + (f".{fraction}" if dot else "")
 
 
+_POWER_ORDINALS = {
+    "first": 1,
+    "second": 2,
+    "third": 3,
+    "fourth": 4,
+    "fifth": 5,
+    "sixth": 6,
+    "seventh": 7,
+    "eighth": 8,
+    "ninth": 9,
+    "tenth": 10,
+}
+
+
+def _power_atom(token: str) -> str | None:
+    number = _school_number(token)
+    if number is not None:
+        return number
+    return token.lower() if len(token) == 1 and token.isascii() and token.isalpha() else None
+
+
+def _power_exponent(token: str) -> int | None:
+    lower = token.lower()
+    if lower in _POWER_ORDINALS:
+        return _POWER_ORDINALS[lower]
+    ordinal = re.fullmatch(r"(\d+)(?:st|nd|rd|th)", lower)
+    raw = ordinal.group(1) if ordinal is not None else lower
+    if not raw.isdigit():
+        return None
+    value = int(raw)
+    return value if value <= 1000 else None
+
+
+def spoken_power_request(text: str) -> str | None:
+    """Return canonical ``base^exponent`` for one complete spoken power ask.
+
+    This is a bounded grammar, not a physics keyword exception.  It accepts
+    both base-first (``2 to the power of 3``) and exponent-first (``the third
+    power of 5``) forms only when the entire remaining request is consumed.
+    """
+    if not text or len(text) > _MAX:
+        return None
+    value, _had_cue = _strip_arith_cues(collapse_ws(text).lower())
+    tokens = value.split()
+    if tokens[:1] == ["the"]:
+        tokens = tokens[1:]
+
+    # 2 to the power of 3 / 2 raised to the third power
+    base = _power_atom(tokens[0]) if tokens else None
+    tail = tokens[1:]
+    exponent_token: str | None = None
+    if tail[:4] == ["to", "the", "power", "of"] and len(tail) == 5:
+        exponent_token = tail[4]
+    elif tail[:5] == ["raised", "to", "the", "power", "of"] and len(tail) == 6:
+        exponent_token = tail[5]
+    elif len(tail) == 4 and tail[:2] == ["to", "the"] and tail[3] == "power":
+        exponent_token = tail[2]
+    elif len(tail) == 5 and tail[:3] == ["raised", "to", "the"] and tail[4] == "power":
+        exponent_token = tail[3]
+    if base is not None and exponent_token is not None:
+        exponent = _power_exponent(exponent_token)
+        return f"{base}^{exponent}" if exponent is not None else None
+
+    # the third power of 5
+    if len(tokens) == 4 and tokens[1:3] == ["power", "of"]:
+        exponent = _power_exponent(tokens[0])
+        base = _power_atom(tokens[3])
+        if exponent is not None and base is not None:
+            return f"{base}^{exponent}"
+    return None
+
+
 def written_addition_request(text: str) -> list[str] | None:
     """Return every addend for one closed two-to-six-addend school sum."""
     if not text or len(text) > _MAX:
@@ -720,12 +792,20 @@ def written_addition_request(text: str) -> list[str] | None:
 def division_answer_mode(
     text: str, left: str, right: str
 ) -> Literal["remainder", "fraction", "decimal", "round_up", "discard"]:
-    """Select the requested interpretation without asking presentation code."""
+    """Select answer representation independently from response detail.
+
+    Ordinary division means the ordinary numerical quotient.  Remainder form
+    is a distinct interpretation and is selected only when the learner asks
+    for it or explicitly asks to use school long division with whole numbers.
+    Whether the working is displayed is decided later by response intent.
+    """
     lower = collapse_ws(text).lower()
     for phrase, mode in _DIVISION_MODE_PHRASES:
         if phrase in lower:
             return cast(Literal["remainder", "fraction", "decimal", "round_up", "discard"], mode)
-    return "decimal" if "." in left or "." in right else "remainder"
+    if "long division" in lower and "." not in left and "." not in right:
+        return "remainder"
+    return "decimal"
 
 
 def written_arithmetic_request(text: str) -> tuple[str, str, str, str] | None:

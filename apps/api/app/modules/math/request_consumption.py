@@ -27,6 +27,25 @@ _AREA_AND_PERIMETER = re.compile(
     r"perimeter\b[^.?!]{0,30}\band\b[^.?!]{0,20}\barea)\b",
     re.IGNORECASE,
 )
+_MULTIPLE_REQUESTED_STATISTICS = re.compile(
+    r"\b(?:find|calculate|compute|determine|give|what\s+(?:is|are))\b"
+    r"[^.?!]{0,50}\b(?:arithmetic\s+mean|mean|median|mode|range|variance|"
+    r"standard\s+deviation|stdev)\b[^.?!]{0,30}\b(?:and|plus)\b"
+    r"[^.?!]{0,30}\b(?:arithmetic\s+mean|mean|median|mode|range|variance|"
+    r"standard\s+deviation|stdev)\b",
+    re.IGNORECASE,
+)
+_GRAPH_OR_ROOTS = re.compile(
+    r"\b(?:graph|plot|sketch|roots?|zeros?)\b",
+    re.IGNORECASE,
+)
+_NONDEFAULT_DOMAIN = re.compile(
+    r"\b(?:in|over)\s+(?:the\s+)?(?:integers?|natural\s+numbers?|rationals?|"
+    r"complex\s+numbers?)\b"
+    r"|\b(?:for|where|also)\s+[a-z]\s+(?:must\s+be\s+)?"
+    r"(?:positive|negative|nonnegative|nonpositive|[<>≤≥])",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -50,6 +69,12 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         # MathIntent currently represents one statistics operation. Until a
         # typed multi-stat result exists, declining is the only atomic answer.
         leftovers.append("additional requested statistic")
+    if _MULTIPLE_REQUESTED_STATISTICS.search(text):
+        # One MathIntent carries one statistical result. Different requested
+        # summaries must be represented together or declined together. Input
+        # labels such as "mean 72 and standard deviation 8" are deliberately
+        # excluded: they are givens for a z-score, not requested outputs.
+        leftovers.append("multiple requested statistics")
     if _AREA_AND_PERIMETER.search(text) and not (intent.wants_area and intent.wants_perimeter):
         # Supported geometry intents retain both requested flags and their
         # canonical diagram contains both values. Direct output stays off for
@@ -62,6 +87,18 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     )
     if source_trig_calls > len(_TRIG_CALL.findall(intent_text)):
         leftovers.append("unconsumed trigonometric term")
+    graph_root_requests = {
+        "roots" if match.group(0).lower().startswith(("root", "zero")) else "graph"
+        for match in _GRAPH_OR_ROOTS.finditer(text)
+    }
+    if graph_root_requests == {"graph", "roots"}:
+        # A graph intent has no typed roots result and a roots intent has no
+        # graph result. Never certify whichever extractor happened to run first.
+        leftovers.append("multiple requested function outputs")
+    if intent.kind == "equation" and _NONDEFAULT_DOMAIN.search(text):
+        # Equation intents currently solve over their default real domain.
+        # A sign or number-set restriction must not be silently discarded.
+        leftovers.append("unconsumed equation domain")
     return ConsumptionAudit(complete=not leftovers, leftovers=tuple(leftovers))
 
 
