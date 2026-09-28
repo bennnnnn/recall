@@ -50,7 +50,7 @@ _QUANTITATIVE_CHANGE = (
     r"loses?|lost|adds?|added|removes?|removed|takes?|took)"
 )
 _MATH_REQUEST = re.compile(
-    r"\b(?:calculate|compute|work\s+out)\b"
+    r"\b(?:calculate|compute)\b"
     r"|\bhow\s+(?:old|long|far|fast|tall|wide)\b"
     rf"|\bhow\s+much\b[^.?!]{{0,50}}\b{_HOW_MUCH_TARGET}\b"
     r"|\bhow\s+much\s+(?:is|are|was|were)\s+each\b"
@@ -58,6 +58,11 @@ _MATH_REQUEST = re.compile(
     rf"|\bwhat\s+(?:is|are|was|were)\b[^.?!]{{0,50}}\b{_MATH_TARGET}\b"
     rf"|\b(?:what|which)\s+{_MATH_TARGET}\s+(?:is|are|was|were)\b"
     r"|\bwhat\s+(?:does|did)\b[^.?!]{0,50}\b(?:cost|weigh|measure|equal)\b",
+    re.IGNORECASE,
+)
+_WORK_OUT_REQUEST = re.compile(
+    rf"\bwork\s+out\b[^.?!]{{0,60}}(?:\bhow\s+(?:many|much|old|long|far|fast|"
+    rf"tall|wide)\b|\b{_MATH_TARGET}\b)",
     re.IGNORECASE,
 )
 _HOW_MANY_REQUEST = re.compile(
@@ -192,6 +197,8 @@ def word_problem_candidate(text: str) -> bool:
     if not _MIN_CHARS <= len(text) <= _MAX_CHARS or "=" in text:
         return False
     request = _MATH_REQUEST.search(text)
+    if request is None:
+        request = _WORK_OUT_REQUEST.search(text)
     if request is None:
         how_many = _HOW_MANY_REQUEST.search(text)
         if (

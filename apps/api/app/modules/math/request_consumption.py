@@ -63,11 +63,12 @@ _DOMAIN_CUE = (
 )
 _NONDEFAULT_DOMAIN = re.compile(
     rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}\b"
-    rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
+    rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:={1, 2}|!=|≠|[<>≤≥])"
+    rf"|{_DOMAIN_CUE}\s+[a-z]\s+(?:(?:must\s+(?:not\s+)?(?:be|equal)|is|are|"
+    r"was|were|equals?|cannot\s+(?:be|equal)|being|belongs?\s+to|lies?\s+in)\b)"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+"
-    r"(?:(?:must\s+be|is|are|was|were)\s+)?"
-    rf"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|not\s+equal\s+to|"
-    rf"non[-\s]?zero|not\s+zero|(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
+    rf"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|non[-\s]?zero|"
+    rf"odd|even|prime|composite|(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
     re.IGNORECASE,
 )
 _DOMAIN_BLIND_KINDS = frozenset(

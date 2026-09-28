@@ -133,6 +133,7 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         CONSECUTIVE,
         PENCIL,
         "A number plus 7 is 19. What is the number?",
+        "A number plus 7 is 19. Work out the number.",
         "A number plus 7 is 19. What is it?",
         "If a number plus 5 equals 12, find it.",
         "Tom and Ana have 10 apples together. Tom has 3. What does Ana have?",
@@ -170,6 +171,7 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "I got 3 cats and 2 dogs. How many should I adopt?",
         "I got 3 cats and 2 dogs. How many total would you recommend I adopt?",
         "I bought 3 books and 2 games. How many did you enjoy?",
+        "I bought 3 books and 2 games. Can you work out which I should play first?",
         "solve 2x+3=11",
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
@@ -194,6 +196,7 @@ def test_candidate_declines(text: str) -> None:
         "I got 3 cats and 2 dogs. How many should I adopt?",
         "I got 3 cats and 2 dogs. How many total would you recommend I adopt?",
         "I bought 3 books and 2 games. How many did you enjoy?",
+        "I bought 3 books and 2 games. Can you work out which I should play first?",
     ],
 )
 def test_non_math_possession_question_does_not_enter_math_pipeline(text: str) -> None:
