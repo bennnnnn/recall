@@ -152,6 +152,8 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         "A number plus 5 equals 12. Solve for the number?",
         "Maria spent $5 and has $10 left. How much did she have initially?",
         "A shop spent $5 and has $10 left. How much did it start with?",
+        "Maria spent $5 and has $10 left. How much did she have before?",
+        "Maria spent $5 and has $10 left. How much did she have previously?",
     ],
 )
 def test_candidate_fires_for_algebra_word_problems(text: str) -> None:

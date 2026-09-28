@@ -66,9 +66,13 @@ _DOMAIN_ADJECTIVE = (
 )
 _DOMAIN_CUE = (
     r"(?:(?:for|where|also|with|and|if)\b|"
-    r"(?:assuming|given|provided)(?:\s+that)?\b|subject\s+to\b|[,;])"
+    r"(?:assuming|given|provided)(?:\s+that)?\b|such\s+that\b|subject\s+to\b|"
+    r"(?:under|on)\s+(?:the\s+)?condition\s+that\b|[,;])"
 )
-_EQUALITY_DOMAIN_CUE = r"(?:where\b|(?:assuming|given|provided)(?:\s+that)?\b|subject\s+to\b)"
+_EQUALITY_DOMAIN_CUE = (
+    r"(?:where\b|(?:assuming|given|provided)(?:\s+that)?\b|such\s+that\b|"
+    r"subject\s+to\b|(?:under|on)\s+(?:the\s+)?condition\s+that\b)"
+)
 _NONDEFAULT_DOMAIN = re.compile(
     rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}"
     rf"|[a-z]\s*(?:∈|\\in\b)\s*(?!{_REAL_NUMBER_SET}(?:$|[\s,;.:)\]]))"

@@ -69,7 +69,10 @@ _WORK_OUT_REQUEST = re.compile(
     rf"tall|wide)\b|\b{_MATH_TARGET}\b)",
     re.IGNORECASE,
 )
-_INITIAL_STATE = r"(?:initially|originally|at\s+(?:first|the\s+(?:start|beginning)))"
+_INITIAL_STATE = (
+    r"(?:initially|originally|previously|before(?:hand)?|"
+    r"at\s+(?:first|the\s+(?:start|beginning)))"
+)
 _HOW_MUCH_INITIAL_REQUEST = re.compile(
     r"\bhow\s+much\s+(?:"
     rf"(?:do|does|did)\b[^.?!]{{0,45}}\b(?:have|has|had)\b[^.?!]{{0,16}}{_INITIAL_STATE}"

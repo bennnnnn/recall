@@ -81,6 +81,8 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Solve x^2=4, positive solutions only",
         "Solve x^2=4. Give only the negative root",
         "Solve x^2=4; solutions that are nonnegative",
+        "Solve x^2=4 such that x>0",
+        "Solve x^2=4 under the condition that x is negative",
     ],
 )
 def test_unsupported_multipart_request_fails_closed(question: str) -> None:
