@@ -79,9 +79,10 @@ def can_direct_fraction(
 def format_direct_written_arithmetic(spec: ArithmeticWorkSpec, user_text: str) -> str:
     response = classify_math_response_intent(user_text)
     answer = f"```answer\n{spec.answer}\n```\n"
-    if response.mode == MathResponseMode.ANSWER_ONLY or (
-        not response.wants_explanation and spec.operation != "division"
-    ):
+    # Operation chooses the mathematical procedure; response intent alone
+    # chooses whether that procedure is visible.  Division is not implicitly
+    # a request for a tutorial.
+    if response.mode == MathResponseMode.ANSWER_ONLY or not response.wants_explanation:
         return answer
     body = json.dumps(spec.model_dump(), separators=(",", ":"))
     return f"```arithmetic\n{body}\n```\n\n{answer}"

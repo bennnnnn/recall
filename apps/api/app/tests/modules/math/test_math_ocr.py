@@ -14,6 +14,7 @@ def test_extract_from_confirmed_reading_equation():
     assert parsed.kind == "equation"
     assert "x" in parsed.lhs
     assert parsed.rhs.strip() == "15"
+    assert parsed.source_text == "2*x+7 = 15"
 
 
 def test_extract_from_confirmed_reading_system():
@@ -22,6 +23,7 @@ def test_extract_from_confirmed_reading_system():
     assert parsed.kind == "system"
     assert parsed.equations is not None
     assert len(parsed.equations) == 2
+    assert parsed.source_text == "x+y=5\nx-y=1"
 
 
 def test_transcription_needs_vision_for_prose():
@@ -63,7 +65,41 @@ async def test_extract_math_uses_mathpix_when_high_confidence_equation():
     assert result.source == "mathpix"
     assert result.extract is not None
     assert result.extract.kind == "equation"
+    assert result.extract.source_text == "2x+7=15"
     vision.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_mathpix_preserves_plain_text_constraint_missing_from_latex():
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="test-key",
+        mathpix_app_id="id",
+        mathpix_app_key="key",
+        mathpix_enabled=True,
+        mathpix_confidence_min=0.72,
+    )
+    with (
+        patch(
+            "app.gateways.mathpix_gateway.ocr_image",
+            AsyncMock(
+                return_value=MathpixOcrResult(
+                    text="x^2=2, x∈ℤ",
+                    latex="x^2=2",
+                    confidence=0.95,
+                )
+            ),
+        ),
+        patch(
+            "app.modules.math.image_extract.vision_extract_equation",
+            AsyncMock(side_effect=AssertionError("vision should be skipped")),
+        ),
+    ):
+        result = await math_ocr.extract_math_from_image(
+            settings, content_type="image/jpeg", data=b"fake"
+        )
+    assert result.extract is not None
+    assert result.extract.source_text == "x^2=2, x∈ℤ"
 
 
 @pytest.mark.asyncio
@@ -99,6 +135,48 @@ async def test_extract_math_falls_back_to_vision_for_word_problem():
         )
     vision.assert_awaited_once()
     assert result.source == "vision"
-    assert result.extract == vision_extract
+    assert result.extract is not None
+    assert result.extract.source_text is not None
+    assert "Sarah" in result.extract.source_text
     hint = vision.await_args.kwargs.get("ocr_hint") or ""
     assert "Sarah" in hint
+
+
+@pytest.mark.asyncio
+async def test_low_confidence_mathpix_reading_is_retained_beside_vision():
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="test-key",
+        mathpix_app_id="id",
+        mathpix_app_key="key",
+        mathpix_enabled=True,
+        mathpix_confidence_min=0.72,
+    )
+    vision_extract = MathImageExtract(
+        lhs="x^2",
+        rhs="2",
+        variables=["x"],
+        source_text="x^2=2",
+    )
+    with (
+        patch(
+            "app.gateways.mathpix_gateway.ocr_image",
+            AsyncMock(
+                return_value=MathpixOcrResult(
+                    text="x^2=2, x∈ℤ",
+                    latex="x^2=2",
+                    confidence=0.4,
+                )
+            ),
+        ),
+        patch(
+            "app.modules.math.image_extract.vision_extract_equation",
+            AsyncMock(return_value=vision_extract),
+        ),
+    ):
+        result = await math_ocr.extract_math_from_image(
+            settings, content_type="image/jpeg", data=b"fake"
+        )
+    assert result.extract is not None
+    assert result.extract.source_text == "x^2=2"
+    assert result.extract.alternate_source_text == "x^2=2, x∈ℤ"

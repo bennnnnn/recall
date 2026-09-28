@@ -13,7 +13,8 @@ from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.web_search.formatting import format_sources_fence
 from app.services import web_search as web_search_service
-from app.services.chat.stream_pipeline import enrich_final_content
+from app.services.chat.stream_pipeline import _replace_failed_subject_fences, enrich_final_content
+from app.services.solving import VerifiedPhysicsBlock
 
 
 def _passthrough_math(content: str, verified: object = None) -> str:
@@ -73,6 +74,26 @@ def _ctx(
     ctx.instant_reply = None
     ctx.user_message_content = "what's the news"
     return ctx
+
+
+def test_exception_fallback_dispatches_to_physics_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seams = _seams()
+    math_safe = MagicMock(return_value="math-safe")
+    seams.math_fence_service.replace_unclosed_graph_fence_safe = math_safe
+    verified = VerifiedPhysicsBlock(text="verified", canonical_answer="10 N")
+    safe = MagicMock(return_value="physics-safe")
+    monkeypatch.setattr(
+        "app.modules.physics.fence.replace_unclosed_physics_fences_safe",
+        safe,
+    )
+
+    result = _replace_failed_subject_fences(seams, "raw", verified)
+
+    assert result == "physics-safe"
+    safe.assert_called_once_with("raw", verified)
+    math_safe.assert_not_called()
 
 
 @pytest.mark.asyncio

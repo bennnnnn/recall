@@ -156,6 +156,277 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
         "beer_lambert",
         "A = 2",
     ),
+    (
+        "Find the empirical formula from 40.0% C, 6.7% H, and 53.3% O",
+        "empirical_formula",
+        "CH2O",
+    ),
+    (
+        "Find the molecular formula from 40.0% C, 6.7% H, and 53.3% O when molar mass=180",
+        "molecular_formula",
+        "C6H12O6",
+    ),
+    (
+        "10 g of H2 reacts with excess O2 in H2 + O2 -> H2O. How many grams of H2O form?",
+        "mass_stoichiometry",
+        "H2O = 89.2079 g",
+    ),
+    (
+        "0.50 L of 0.20 M HCl reacts with excess NaOH in HCl + NaOH -> NaCl + H2O. "
+        "How many moles of NaCl form?",
+        "solution_stoichiometry",
+        "NaCl = 0.1 mol",
+    ),
+    (
+        "Chemistry: 2.0 L of H2 at 1 atm and 273.15 K reacts with excess O2 in "
+        "H2 + O2 -> H2O. How many liters of H2O gas form?",
+        "gas_stoichiometry",
+        "H2O = 2 L",
+    ),
+    (
+        "Find the limiting reagent from masses 10 g H2 and 10 g O2 in H2 + O2 -> H2O",
+        "limiting_mass",
+        "Limiting reagent = O2; 11.2625 g H2O",
+    ),
+    (
+        "Find the limiting solution reagent and grams of NaCl: HCl=0.050 L (0.10 M) and "
+        "NaOH=0.020 L (0.10 M) in HCl + NaOH -> NaCl + H2O",
+        "limiting_solution",
+        "Limiting reagent = NaOH; 0.11688 g NaCl",
+    ),
+    ("Find the strong acid pH of 0.010 M HCl", "strong_acid_ph", "pH = 2"),
+    ("Find the strong base pH of 0.010 M NaOH", "strong_base_ph", "pH = 12"),
+    (
+        "Find the weak acid pH of 0.10 M HA when Ka=1.8e-5",
+        "weak_acid_ph",
+        "pH = 2.87528",
+    ),
+    (
+        "Find the weak base pH of 0.10 M B when Kb=1.8e-5",
+        "weak_base_ph",
+        "pH = 11.1247",
+    ),
+    ("Find Kb from Ka=1.8e-5", "ka_kb", "Kb = 5.5556 × 10^-10"),
+    (
+        "Strong acid strong base titration: Ma=0.10, Va=0.050 L, Mb=0.10, Vb=0.020 L, find pH",
+        "titration_strong",
+        "pH = 1.36798",
+    ),
+    (
+        "Weak acid strong base titration: Ma=0.10, Va=0.050 L, Mb=0.10, Vb=0.025 L, "
+        "Ka=1.8e-5, find pH",
+        "titration_weak",
+        "pH = 4.74473",
+    ),
+    (
+        "Buffer after adding acid: pKa=4.76, HA=0.10 mol, A-=0.10 mol, added=0.02 mol acid",
+        "buffer_addition",
+        "pH = 4.58391",
+    ),
+    (
+        "Find the polyprotic pH of 0.10 M HA when Ka1=4.3e-7",
+        "polyprotic_ph",
+        "pH = 3.68372",
+    ),
+    (
+        "Use the combined gas law: P1=1 atm, V1=2 L, T1=300 K, V2=4 L, T2=300 K, find P2",
+        "combined_gas",
+        "p2 = 0.5 atm",
+    ),
+    ("Use Boyle's law: P1=2 atm, V1=3 L, V2=6 L, find P2", "boyle", "p2 = 1 atm"),
+    (
+        "Use Charles's law: V1=2 L, T1=300 K, T2=600 K, find V2",
+        "charles",
+        "v2 = 4 L",
+    ),
+    (
+        "Use Dalton's law: P(N2)=0.8 atm and P(O2)=0.2 atm",
+        "dalton",
+        "Ptotal = 1 atm",
+    ),
+    (
+        "Find the partial pressure when mole fraction=0.25 and total pressure=2 atm",
+        "partial_pressure",
+        "Pi = 0.5 atm",
+    ),
+    (
+        "Gas collected over water at 25 C with total pressure=760 mmHg",
+        "gas_over_water",
+        "Pdry = 736.24 mmHg",
+    ),
+    (
+        "Find calorimetry heat when calorimeter constant Ccal=200 J/C and ΔT=2 C",
+        "calorimetry",
+        "q_rxn = -400 J",
+    ),
+    (
+        "Use Hess's law: ΔH1=-200 kJ, multiplier1=1, ΔH2=50 kJ, multiplier2=2",
+        "hess",
+        "ΔH = -100 kJ",
+    ),
+    (
+        "Find the formation enthalpy for C + O2 -> CO2 when ΔHf(CO2)=-393.5 kJ/mol",
+        "formation_enthalpy",
+        "ΔH° = -393.5 kJ/mol",
+    ),
+    (
+        "Find the bond enthalpy when bonds broken=800 kJ and bonds formed=1000 kJ",
+        "bond_enthalpy",
+        "ΔH = -200 kJ",
+    ),
+    (
+        "Find the molar solubility from Ksp=1.8e-10 for AgCl(s) -> Ag+ + Cl-",
+        "ksp",
+        "s = 1.3416 × 10^-5 mol/L",
+    ),
+    (
+        "Compare precipitation when Qsp=2e-10 and Ksp=1.8e-10",
+        "precipitation",
+        "precipitate forms (Qsp > Ksp)",
+    ),
+    (
+        "Common-ion solubility: Ksp=1.8e-10 for AgCl(s) -> Ag+ + Cl- when [Cl-]=0.01",
+        "common_ion",
+        "[Ag+] = 1.8 × 10^-8 mol/L",
+    ),
+    (
+        "Find Kp for CaCO3(s) -> CaO(s) + CO2(g) when P(CO2)=0.2 atm",
+        "kp",
+        "Kp = 0.2",
+    ),
+    (
+        "Convert Kc to Kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3",
+        "kc_kp",
+        "Kp = 8.3618 × 10^-4",
+    ),
+    (
+        "Solve the ICE equilibrium for N2O4 -> NO2 when K=4 and [N2O4]=1",
+        "ice_equilibrium",
+        "x = 0.618034; [N2O4] = 0.381966 mol/L; [NO2] = 1.23607 mol/L",
+    ),
+    (
+        "For a zero-order reaction [A]0=1, k=0.1, t=2 s, find [A]",
+        "zero_order",
+        "[A]ₜ = 0.8 mol/L",
+    ),
+    (
+        "For a second-order reaction [A]0=1, k=0.1, t=10 s, find [A]",
+        "second_order",
+        "[A]ₜ = 0.5 mol/L",
+    ),
+    (
+        "For a zero-order reaction [A]0=1, k=0.1, find the half-life",
+        "zero_order_half_life",
+        "t₁/₂ = 5 s",
+    ),
+    (
+        "For a second-order reaction [A]0=1, k=0.1, find the half-life",
+        "second_order_half_life",
+        "t₁/₂ = 10 s",
+    ),
+    (
+        "Find the rate law from experiments a1=0.1, rate1=0.02, a2=0.2, rate2=0.08",
+        "rate_law",
+        "rate = 2 [A]^2",
+    ),
+    (
+        "Use the two-temperature Arrhenius equation with k1=0.1, T1=300 K, k2=0.4, T2=320 K",
+        "arrhenius_two_point",
+        "Ea = 55.3262 kJ/mol",
+    ),
+    (
+        "Find the cell potential when cathode=0.34 V and anode=-0.76 V",
+        "cell_potential",
+        "E°cell = 1.1 V",
+    ),
+    (
+        "Find the galvanic cell for Zn and Cu",
+        "galvanic_cell",
+        "E°cell = 1.1 V; anode Zn; cathode Cu; n = 2; Zn + Cu2+ → Zn2+ + Cu; spontaneous",
+    ),
+    ("Find the decay constant when half-life=5 s", "decay_constant", "λ = 0.138629 s⁻¹"),
+    (
+        "Find the exponential decay when N0=100, decay constant=0.1, and t=10 s",
+        "exponential_decay",
+        "N = 36.7879",
+    ),
+    (
+        "Find the nuclear activity when decay constant=0.1 and N=1000",
+        "nuclear_activity",
+        "A = 100",
+    ),
+    (
+        "Balance the nuclear equation 238U -> 234Th + ?",
+        "nuclear_equation",
+        "238U → 234Th + 4He",
+    ),
+    (
+        "Find the oxidation state of each element in FeSO4",
+        "oxidation_state",
+        "Fe = +2, S = +6, O = -2",
+    ),
+    (
+        "Find the VSEPR shape of H2O",
+        "vsepr",
+        "bent, 109.5°, polar, sp3, central formal charge 0",
+    ),
+    (
+        "Find the formal charge when valence=4, nonbonding=0, bonding=8",
+        "formal_charge",
+        "FC = 0",
+    ),
+    ("Identify functional groups in SMILES CCO", "functional_groups", "alcohol"),
+    (
+        "Find the stereochemistry of SMILES C[C@H](N)C(=O)O",
+        "stereochemistry",
+        "C1=S",
+    ),
+    (
+        "What is the isomer relationship between SMILES CCO and COC?",
+        "isomers",
+        "constitutional isomers",
+    ),
+    (
+        "Name the coordination complex [Co(NH3)6]Cl3",
+        "coordination_complex",
+        "Co oxidation state +3, coordination number 6, hexaamminecobalt(III) chloride",
+    ),
+    (
+        "Find the boiling point elevation when i=1, Kb=0.512, and molality=0.5",
+        "boiling_elevation",
+        "ΔTb = 0.256 °C",
+    ),
+    (
+        "Find the freezing point depression when i=1, Kf=1.86, and molality=0.5",
+        "freezing_depression",
+        "ΔTf = 0.93 °C",
+    ),
+    (
+        "Find the osmotic pressure when i=1, molarity=0.1, and T=298 K",
+        "osmotic_pressure",
+        "Π = 2.44531 atm",
+    ),
+    (
+        "Use Raoult's law when mole fraction=0.8 and pure pressure=100",
+        "raoult",
+        "P = 80",
+    ),
+    (
+        "Use the calibration curve slope=2, intercept=0.1, signal=1.1, find concentration",
+        "calibration",
+        "c = 0.5",
+    ),
+    (
+        "Gravimetric analysis: precipitate mass=0.5 g and factor=0.2",
+        "gravimetric",
+        "mass = 0.1 g",
+    ),
+    (
+        "Standard addition: sample signal=0.2, spiked signal=0.6, "
+        "standard concentration=0.01, standard volume=0.001 L, sample volume=0.01 L",
+        "standard_addition",
+        "c = 5 × 10^-4",
+    ),
 ]
 
 

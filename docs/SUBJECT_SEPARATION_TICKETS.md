@@ -90,7 +90,9 @@ neutral solve-safety prompt. It is not duplicated or hidden inside either subjec
 Math fence finalization knows math answer, arithmetic, geometry, graph, and number-line contracts.
 Physics fence finalization knows physics answers, formula working, trajectories, and simulations.
 The neutral stream pipeline selects the correct finalizer from the result type. A model cannot
-replace a subject's canonical answer or invent a canonical visual after solving.
+replace a subject's canonical answer or invent a canonical visual after solving. Timeout and
+exception recovery follows the same ownership rule: a physics turn uses the physics-safe fence
+fallback and never enters math graph recovery.
 
 ## Rate/time/distance ownership
 
@@ -101,6 +103,9 @@ grammar.
 
 Pure numeric ratios and unit conversions remain math. The subject detector uses the request's
 physical quantities and units to select physics, rather than routing all division to physics.
+Likewise, exponent wording such as “the third power of 5” is a complete math grammar. Physics
+recognizes “power of …” only when the bounded phrase names a physical quantity or unit, so a broad
+word collision cannot steal the request before math extraction.
 
 ## Architecture guards
 

@@ -22,7 +22,7 @@ import {
   simulationViewportHeight,
   tangentAt,
   worldToScreen,
-} from "@/lib/math/simulation";
+} from "@/lib/physics/simulation";
 
 const PROJECTILE = {
   type: "projectile_motion",

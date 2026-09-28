@@ -37,6 +37,7 @@ from app.modules.math.match.scan import (
     inequality_signal,
     number_after,
     prepare,
+    spoken_power_request,
     two_numbers_after,
     written_arithmetic_request,
 )
@@ -113,6 +114,8 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if bare_arithmetic_expr(cleaned) is not None:
         return True
     if written_arithmetic_request(cleaned) is not None:
+        return True
+    if spoken_power_request(cleaned) is not None:
         return True
     if "=" in cleaned:
         from app.modules.math.tools.helpers import substituted_eval_expr

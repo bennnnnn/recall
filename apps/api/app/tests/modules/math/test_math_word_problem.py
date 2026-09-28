@@ -74,6 +74,35 @@ PENCIL_SETUP: dict[str, Any] = {
     "targets": [{"expr": "p", "meaning": "the pencil costs", "unit": "$"}],
     "positive": True,
 }
+BOOKS = (
+    "If Abebe has 10 red books and some green books, then gives away 5 green books "
+    "and has 10 books left, how many green books did Abebe have at first?"
+)
+BOOKS_SETUP: dict[str, Any] = {
+    "found": True,
+    "unknowns": [
+        {
+            "symbol": "g",
+            "meaning": "green books Abebe had at first",
+            "unit": "books",
+        }
+    ],
+    "equations": [
+        {
+            "equation": "10 + g - 5 = 10",
+            "source": "10 red books, gives away 5 green books, and has 10 books left",
+        }
+    ],
+    "targets": [
+        {
+            "expr": "g",
+            "meaning": "green books Abebe had at first",
+            "unit": "books",
+        }
+    ],
+    "whole_numbers": True,
+    "positive": True,
+}
 
 
 def _setup(base: dict[str, Any], **overrides: Any) -> WordProblemSetup:
@@ -104,8 +133,27 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         CONSECUTIVE,
         PENCIL,
         "A number plus 7 is 19. What is the number?",
+        "A number plus 7 is 19. Work out the number.",
+        "A number plus 7 is 19. What is it?",
+        "If a number plus 5 equals 12, find it.",
+        "Tom and Ana have 10 apples together. Tom has 3. What does Ana have?",
+        "What number is 5 more than 7?",
+        "Which integer is 9 less than 20?",
         "The sum of two numbers is 30 and their difference is 6. What are the numbers?",
         "John has 5 more apples than Sam. Together they have 23 apples. How many does Sam have?",
+        BOOKS,
+        "A shop had some notebooks, received 8, sold 3, and now has 20. How many did it start with?",
+        "Jane has 8 apples and gives 3 to Joe. How many does she have now?",
+        "Jane has 10 apples and gives 3 away. What is left?",
+        "Jane has 8 apples and receives 3 from Joe. How many does she have now?",
+        "Marta had 12 blue beads and some red beads, lost 4 red beads, and has 15 left. "
+        "How many red beads did she start with?",
+        "24 candies are shared equally among 6 children. How much will each child get?",
+        "A number plus 5 equals 12. Solve for the number?",
+        "Maria spent $5 and has $10 left. How much did she have initially?",
+        "A shop spent $5 and has $10 left. How much did it start with?",
+        "Maria spent $5 and has $10 left. How much did she have before?",
+        "Maria spent $5 and has $10 left. How much did she have previously?",
     ],
 )
 def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
@@ -118,6 +166,18 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "How many people live in Paris?",
         "How many calories are in two eggs and three slices of bacon in total?",
         "I have 3 cats and 2 dogs, what should I name them?",
+        "I got 3 cats and 2 dogs, what should I name them?",
+        "I got 3 cats and 2 dogs. What does that make me?",
+        "I got 3 cats and 2 dogs. What is a good name for them?",
+        "I got 3 cats and 2 dogs. Find names for them.",
+        "I bought 3 books and 2 games. How much did you enjoy them?",
+        "I got 3 cats and 2 dogs. What is it?",
+        "I got 3 cats and 2 dogs. Find them.",
+        "I got 3 cats and 2 dogs. What does Ana have?",
+        "I got 3 cats and 2 dogs. How many should I adopt?",
+        "I got 3 cats and 2 dogs. How many total would you recommend I adopt?",
+        "I bought 3 books and 2 games. How many did you enjoy?",
+        "I bought 3 books and 2 games. Can you work out which I should play first?",
         "solve 2x+3=11",
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
@@ -126,6 +186,28 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
 )
 def test_candidate_declines(text: str) -> None:
     assert not word_problem_candidate(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I got 3 cats and 2 dogs, what should I name them?",
+        "I got 3 cats and 2 dogs. What does that make me?",
+        "I got 3 cats and 2 dogs. What is a good name for them?",
+        "I got 3 cats and 2 dogs. Find names for them.",
+        "I bought 3 books and 2 games. How much did you enjoy them?",
+        "I got 3 cats and 2 dogs. What is it?",
+        "I got 3 cats and 2 dogs. Find them.",
+        "I got 3 cats and 2 dogs. What does Ana have?",
+        "I got 3 cats and 2 dogs. How many should I adopt?",
+        "I got 3 cats and 2 dogs. How many total would you recommend I adopt?",
+        "I bought 3 books and 2 games. How many did you enjoy?",
+        "I bought 3 books and 2 games. Can you work out which I should play first?",
+    ],
+)
+def test_non_math_possession_question_does_not_enter_math_pipeline(text: str) -> None:
+    assert not word_problem_candidate(text)
+    assert not mt.needs_symbolic_math(text)
 
 
 def test_gate_opens_for_a_word_problem() -> None:
@@ -295,6 +377,17 @@ def test_money_answer_reads_as_dollars() -> None:
     assert "**2. Subtract $\\frac{3}{2}$ from both sides**" in reply
 
 
+def test_inventory_change_problem_shows_equation_working_and_check() -> None:
+    reply = _reply(BOOKS_SETUP, BOOKS)
+
+    assert reply is not None
+    assert "$10 + g - 5 = 10$" in reply
+    assert "**Solve**" in reply
+    assert "$g = 5$" in reply
+    assert "Check: $" in reply
+    assert "**Answer:** green books Abebe had at first: $5$ books" in reply
+
+
 def test_reply_strips_markup_from_the_translation() -> None:
     payload = {
         **AGES_SETUP,
@@ -336,7 +429,9 @@ async def test_intent_makes_no_call_when_off_or_not_a_word_problem(
 
 
 @pytest.mark.asyncio
-async def test_intent_uses_one_bounded_call(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_intent_uses_resilient_bounded_structured_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     seen: dict[str, Any] = {}
 
     async def fake(**kwargs: Any) -> WordProblemSetup:
@@ -346,9 +441,27 @@ async def test_intent_uses_one_bounded_call(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
     intent = await word_problem_intent(AGES, _settings())
     assert intent is not None and intent.kind == "word_problem"
-    assert seen["model_alias"] == "title-model"
+    assert seen["model_alias"] == "gemini-flash"
     assert seen["schema"] is WordProblemSetup
     assert seen["allow_fallback"] is False
+
+
+@pytest.mark.asyncio
+async def test_intent_retries_semantic_decline_on_independent_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    aliases: list[str] = []
+
+    async def fake(**kwargs: Any) -> WordProblemSetup:
+        aliases.append(kwargs["model_alias"])
+        payload = {"found": False} if len(aliases) == 1 else AGES_SETUP
+        return WordProblemSetup.model_validate(payload)
+
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
+    intent = await word_problem_intent(AGES, _settings())
+
+    assert intent is not None and intent.kind == "word_problem"
+    assert aliases == ["gemini-flash", "fallback-memory-model"]
 
 
 @pytest.mark.asyncio
@@ -376,6 +489,15 @@ async def test_intent_survives_a_gateway_error(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(litellm_gateway, "complete_structured", raises)
     assert await word_problem_intent(AGES, _settings()) is None
+
+
+@pytest.mark.asyncio
+async def test_intent_rejects_an_unrepresented_second_operation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(litellm_gateway, "complete_structured", _gateway(AGES_SETUP))
+    text = f"{AGES} Then graph it."
+    assert await word_problem_intent(text, _settings()) is None
 
 
 @pytest.mark.asyncio

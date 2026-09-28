@@ -2,24 +2,23 @@
 
 from __future__ import annotations
 
-from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_UP
 from math import gcd
 from typing import Literal, cast
 
 from app.models.schemas.math import ArithmeticWorkSpec, LongDivisionStep
 from app.modules.math.solve.written_arithmetic_common import (
     MAX_DECIMAL_PLACES,
+    MAX_DIVISION_DIGITS,
     format_scaled,
-    number_parts,
-    scaled_integer,
+    scaled_number_parts,
 )
 
 _APPROX_DECIMAL_PLACES = 2
 _ROUNDING_GUARD_PLACES = 1
 
 
-def _plain_decimal(value: Decimal) -> str:
-    raw = format(value, "f")
+def _plain_decimal(raw: str) -> str:
     return (raw.rstrip("0").rstrip(".") if "." in raw else raw) or "0"
 
 
@@ -44,12 +43,25 @@ def _fixed_decimal(
     *,
     rounding: str,
 ) -> str:
-    quantum = Decimal(1).scaleb(-places)
-    value = (Decimal(numerator) / Decimal(denominator)).quantize(
-        quantum,
-        rounding=rounding,
-    )
-    return format(value, f".{places}f")
+    """Format a non-negative rational without depending on Decimal precision.
+
+    The school arithmetic grammar accepts integers wider than Decimal's
+    process-wide 28 significant digits.  Scaling the numerator and rounding
+    the integer quotient keeps the calculation exact for every accepted
+    operand size and avoids ``InvalidOperation`` during ``quantize``.
+    """
+    scale = 10**places
+    scaled, remainder = divmod(numerator * scale, denominator)
+    if rounding == ROUND_HALF_UP:
+        if remainder * 2 >= denominator:
+            scaled += 1
+    elif rounding != ROUND_DOWN:
+        raise ValueError(f"Unsupported division rounding mode: {rounding}")
+    digits = str(scaled)
+    if places == 0:
+        return digits
+    digits = digits.zfill(places + 1)
+    return f"{digits[:-places]}.{digits[-places:]}"
 
 
 def _division_steps(
@@ -83,17 +95,19 @@ def _division_steps(
             )
         )
     if not steps:
+        # No partial dividend reached the divisor, so every column, including
+        # appended placeholder zeros, folds into one zero step at the last
+        # working column. Its remainder is the running value, not the bare input.
         steps.append(
             LongDivisionStep(
                 index=0,
-                column_end=max(0, len(digits) - 1),
-                partial_dividend=str(int(digits or "0")),
+                column_end=max(0, len(working_digits) - 1),
+                partial_dividend=str(remainder),
                 quotient_digit=0,
                 product="0",
-                remainder=str(int(digits or "0")),
+                remainder=str(remainder),
             )
         )
-        remainder = int(digits or "0")
     return steps, remainder
 
 
@@ -104,7 +118,8 @@ def build_long_division(
     *,
     answer_mode: str | None = None,
 ) -> ArithmeticWorkSpec | None:
-    left_parts, right_parts = number_parts(left_token), number_parts(right_token)
+    left_parts = scaled_number_parts(left_token, max_digits=MAX_DIVISION_DIGITS)
+    right_parts = scaled_number_parts(right_token, max_digits=MAX_DIVISION_DIGITS)
     if left_parts is None or right_parts is None:
         return None
     left, left_scale = left_parts
@@ -112,16 +127,20 @@ def build_long_division(
     if right == 0:
         return None
     shift = right_scale
-    working_left = left.scaleb(shift)
-    divisor = scaled_integer(right, shift)
+    working_scale = max(0, left_scale - shift)
+    working_left = left * (10 ** max(0, shift - left_scale))
+    divisor = right
     if divisor <= 0:
         return None
-    working_text = _plain_decimal(working_left)
+    working_text = _plain_decimal(format_scaled(working_left, working_scale))
     digits = working_text.replace(".", "")
     integer_digits = len(working_text.partition(".")[0])
     numerator = int(digits or "0")
     denominator = divisor * (10 ** max(0, len(digits) - integer_digits))
-    requested_mode = answer_mode or ("decimal" if left_scale or right_scale else "remainder")
+    # The solver's neutral default is the numerical quotient.  Callers that
+    # need Euclidean quotient/remainder semantics must request them explicitly;
+    # integer operands alone do not change what division means.
+    requested_mode = answer_mode or "decimal"
     if requested_mode not in {"remainder", "fraction", "decimal", "round_up", "discard"}:
         return None
     places = _terminating_places(numerator, denominator)
@@ -155,8 +174,14 @@ def build_long_division(
         answer_places = 0
         resolved_mode = requested_mode
     elif places is not None:
-        quotient_decimal = Decimal(numerator) / Decimal(denominator)
-        quotient = _plain_decimal(quotient_decimal)
+        quotient = _plain_decimal(
+            _fixed_decimal(
+                numerator,
+                denominator,
+                places,
+                rounding=ROUND_DOWN,
+            )
+        )
         target_extra = max(0, places - existing_fraction_places)
         answer = quotient
         answer_places = places
@@ -239,8 +264,8 @@ def build_long_division(
         operator="÷",
         expression=expression,
         operands=[
-            format_scaled(scaled_integer(left, left_scale), left_scale),
-            format_scaled(scaled_integer(right, right_scale), right_scale),
+            format_scaled(left, left_scale),
+            format_scaled(right, right_scale),
         ],
         working_operands=[division_display, str(divisor)],
         answer=answer,

@@ -58,6 +58,15 @@ _GRAVITY = re.compile(
     re.IGNORECASE,
 )
 _ANGLE = re.compile(rf"{_NUMBER}\s*(?:degrees?|deg|°|radians?|rad)(?![A-Za-z0-9])", re.IGNORECASE)
+_MATH_POWER_REQUEST = re.compile(
+    r"\b(?:raised\s+to|to)\s+(?:the\s+)?"
+    r"(?:\d+(?:st|nd|rd|th)?|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)"
+    r"\s+power\b"
+    r"|\bto\s+the\s+power\s+of\s*[+-]?\d"
+    r"|\b(?:\d+(?:st|nd|rd|th)|first|second|third|fourth|fifth|sixth|seventh|"
+    r"eighth|ninth|tenth)\s+power\s+of\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -190,6 +199,11 @@ def prepare_physics_request(text: str) -> PhysicsRequest:
     normalized = normalize_physics_numbers(unit_normalized)
     if normalized is None:
         return PhysicsRequest(text, rejected=True)
+    if _MATH_POWER_REQUEST.search(normalized):
+        # Do not use earlier physical work/time data to answer a separate
+        # exponent request later in the message. The subject layer may decline
+        # the compound turn, but it must never certify the unrelated 20 W.
+        return PhysicsRequest(normalized, rejected=True)
     if _COLLISION_SUBJECT_RE.search(normalized) and len(list(_MASS.finditer(normalized))) >= 2:
         collision = _collision_intent(normalized)
         return PhysicsRequest(normalized, rejected=collision is None, collision=collision)

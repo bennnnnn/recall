@@ -242,10 +242,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   calendar calculator, not a chat model or web search. The reply shows complete
   periods, remainder days, payment dates, the today-is-a-payday alternative, and
   daily proration so the counting assumption is never hidden.
-- ✅ **Physics (twenty verified kinds)** — server-side SymPy. Mechanics:
+- ✅ **Physics (twenty kinds)** — server-side SymPy. Verified operations are the
+  formula catalog, one entry per `physics_op`, not twenty formulas. Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar
-  F=ma with resultants and components, KE / PE / work / power, momentum /
+  F=ma with resultants and components, KE / PE / work / power (including
+  `W = Fd cos θ` and `P = Fv cos θ` when an angle is stated, the work-energy
+  theorem, and mechanical-energy conservation for gravity or a spring), momentum /
   impulse / 1D collisions, friction (`f = μN`, incline acceleration, `μ = tanθ`
   at the slipping angle, minimum force to move), circular motion
   (`a_c`, `F_c`, period, RPM and `ω = v/r`), springs and SHM (`F = kx`, `U`, spring and
@@ -257,7 +260,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   angle), **thermal** (`Q = mcΔT`, `PV = nRT`, efficiency), **gravitation**
   (`F = GMm/r²`, orbital and escape velocity, surface gravity, with a named-body
   table), **fluids** (`P = F/A`, `ρgh`, upthrust, density, continuity, flow
-  rate), **rotation** (`ω = θ/t`, moment of inertia, `L = Iω`, rotational KE),
+  rate), **rotation** (`ω = θ/t`, moment of inertia, `L = Iω`, rotational KE,
+  constant-α kinematics, `τ = Iα`, `τ = ΔL/Δt`, isolated `Iω` conservation,
+  rolling without slipping, and the parallel-axis theorem),
   **magnetism** (`F = BIL`, `F = qvB`, `Φ = BA`), **materials** (`σ = F/A`,
   `ε = ΔL/L`, `E = σ/ε`) and **modern** (`E = hf` or `hc/λ`, de Broglie, half-life,
   `E = mc²`).
@@ -268,11 +273,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   direction, a moment of inertia for a "wheel" (the shape *is* the answer), a
   planet described but not named, and buoyancy without a submerged volume — all
   return no verified block rather than a plausible wrong number. Depth pressure
-  says "gauge"; the magnetic force on a charge says it assumes a perpendicular
-  field. The system prompt names the verified list and states plainly that
-  anything outside it (relativity, quantum states, alternating current, entropy,
-  interference) is **not** checked, and a test ties that list to the solver
-  registry so it cannot drift. Every complete, single-request verified physics
+  says "gauge"; the magnetic force on a charge says the velocity is perpendicular
+  to the field; a pendulum period states the small-angle approximation; a
+  level-ground range states equal launch and landing height; work and power
+  state a parallel force when no angle is given. Those assumptions appear once,
+  in the Formula section. Special relativity (Lorentz factor, time dilation,
+  length contraction), entropy change, double-slit interference, Malus, Brewster,
+  the infinite square well, hydrogen levels, and the Heisenberg relation are in
+  the catalog. Still unverified, and answered without a verified block:
+  Kirchhoff's laws, Gauss's law, Faraday's law, inductors, RL circuits, AC
+  impedance, Poiseuille flow, the Schrödinger equation and the quantum
+  harmonic oscillator, the Rydberg formula, Planck's distribution, nuclear binding
+  energy, mass defect, and general relativity. A test keeps that list off the
+  catalog. Every complete, single-request verified physics
   answer returns directly with Given / Find / Formula / Substitution / Answer,
   without waiting on the language model. Trajectory ` ```graph ` fences only for
   kinematics/SUVAT (height or velocity against time), projectile (x-y path) and
@@ -285,17 +298,26 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
   whole-token match (`marsh` stays Earth). See [docs/math.md](./docs/math.md).
 - ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction plus grouped
-  deterministic solvers cover balancing; amount conversions; composition/yield;
-  stoichiometry/limiting reagent; solution concentration; pH/pOH and buffers; ideal gas;
-  heat/Gibbs; simple Kc/Qc; first-order/Arrhenius kinetics; cell/Nernst/electrolysis;
-  half-life decay; and Beer–Lambert. Complete typed questions return the same compact
-  Given / Find / named Formula / Substitution / Answer layout as Physics, with no
-  unnecessary trailing zeros. RDKit / SymPy + PubChem still verify structures,
-  descriptors, elements, and compounds. Structures use ` ```smiles ` (alias
-  ` ```chemistry `); the server attaches ` ```molecule3d ` for the first two valid
-  molecules. Chemically aware 2D layout remains smiles-drawer; interactive 3D now
-  renders on a native Skia canvas, with an SVG fallback for Expo Go or a stale native
-  client. See [docs/chemistry.md](./docs/chemistry.md).
+  deterministic solvers share one species model: formula, composition, charge, and phase.
+  The local table is all 118 elements. Verified work covers atom-and-charge balancing
+  (including redox half-equations); amount conversions; empirical and molecular formulas;
+  mass, solution, and gas stoichiometry with limiting reagent; solution concentration and
+  colligative properties; strong/weak acid–base pH, `Ka`/`Kb`, buffers after addition, and
+  titration regions; ideal, combined, Boyle, Charles, Dalton, and wet-gas laws; calorimetry,
+  Hess, formation, and bond enthalpy; phase-aware `Kc`/`Kp`, ICE, `Ksp`, and precipitation;
+  zero/first/second-order kinetics and two-point Arrhenius; cell, Nernst, electrolysis, and
+  a school galvanic cell; nuclear decay and one-missing-product nuclear equations;
+  Beer–Lambert; oxidation state, formal charge, and single-center VSEPR; RDKit functional
+  groups, CIP stereochemistry, and isomer class; coordination names from a fixed ligand
+  table; and calibration, gravimetric, and standard-addition arithmetic. Complete typed
+  questions return the same compact Given / Find / named Formula / Substitution / Answer
+  layout as Physics, with no unnecessary trailing zeros. Mechanisms, IUPAC names,
+  IR/NMR/MS interpretation, crystal-field/MO theory, mass defect, and biochemical pathways
+  stay model-only. RDKit / SymPy + PubChem still verify structures, descriptors, elements,
+  and compounds. Structures use ` ```smiles ` (alias ` ```chemistry `); the server attaches
+  ` ```molecule3d ` for the first two valid molecules. Chemically aware 2D layout remains
+  smiles-drawer; interactive 3D renders on a native Skia canvas, with an SVG fallback for
+  Expo Go or a stale native client. See [docs/chemistry.md](./docs/chemistry.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
   triangle, trapezoid, sector, …) via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays

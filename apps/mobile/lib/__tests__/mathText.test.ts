@@ -61,6 +61,12 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(segs)).toContain("√4̅");
   });
 
+  it("treats TeX grouping braces as invisible while preserving escaped set braces", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\left|{x}\right|`))).toBe("|x|");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a{b}`))).toBe("ab");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\{x\}`))).toBe("{x}");
+  });
+
   it("parses fractions", () => {
     const segs = parseSimpleLatex(String.raw`\frac{a}{b}`);
     expect(segs).toEqual([

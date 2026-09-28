@@ -336,8 +336,28 @@ def solve_beer_lambert(intent: ChemistryIntent) -> ChemistryResult:
         substitution = (
             f"c = {format_number(absorbance)} / [({format_number(epsilon)})({format_number(path)})]"
         )
+    elif unknown == "epsilon":
+        absorbance = _value(intent, "absorbance")
+        path = _value(intent, "path", positive=True)
+        concentration = _value(intent, "concentration", positive=True)
+        result = absorbance / (path * concentration)
+        answer, unit = "ε", "L/(mol·cm)"
+        rearranged = "ε = A / (bc)"
+        substitution = (
+            f"ε = {format_number(absorbance)} / "
+            f"[({format_number(path)})({format_number(concentration)})]"
+        )
     else:
-        raise MathServiceError("this Beer–Lambert rearrangement is not exposed yet")
+        absorbance = _value(intent, "absorbance")
+        epsilon = _value(intent, "epsilon", positive=True)
+        concentration = _value(intent, "concentration", positive=True)
+        result = absorbance / (epsilon * concentration)
+        answer, unit = "b", "cm"
+        rearranged = "b = A / (εc)"
+        substitution = (
+            f"b = {format_number(absorbance)} / "
+            f"[({format_number(epsilon)})({format_number(concentration)})]"
+        )
     value = f"{format_number(result)}{f' {unit}' if unit else ''}"
     given_names = {"epsilon": "ε", "path": "b", "concentration": "c", "absorbance": "A"}
     given = tuple(

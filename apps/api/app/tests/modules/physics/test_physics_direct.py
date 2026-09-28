@@ -11,6 +11,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.physics.block import _format_visible_answer
 from app.modules.physics.direct import _expected_intent
+from app.modules.physics.fence import replace_unclosed_physics_fences_safe
 from app.modules.physics.prompt import build_physics_augmentation as build_math_augmentation
 from app.services.chat.stream_pipeline import stream_and_finalize
 from app.services.chat.turn_prep.context import StreamContext
@@ -64,6 +65,17 @@ def _verified(query: str) -> VerifiedPhysicsBlock:
     verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
     return verified
+
+
+def test_physics_failure_recovery_never_uses_math_graph_semantics() -> None:
+    verified = _verified(_PROJECTILE.format("range"))
+    truncated = 'The trajectory is shown below.\n```simulation\n{"type":"projectile"'
+
+    recovered = replace_unclosed_physics_fences_safe(truncated, verified)
+
+    assert '{"type":"projectile"' not in recovered
+    assert f"```answer\n{verified.canonical_answer}\n```" in recovered
+    assert "```graph" in recovered
 
 
 def test_electric_force_uses_textbook_scientific_notation() -> None:
@@ -363,7 +375,6 @@ def test_teaching_suffix_uses_the_same_verified_physics_working(suffix: str) -> 
         "Find the force on a 5 kg object with acceleration 1000001 m/s^2.",
         "Find the force on a 0 kg object with acceleration 2 m/s^2.",
         "Find the mass of an object with force 20 N and acceleration -4 m/s^2.",
-        "Find the work done by a force of 10 N at 60 degrees over a distance of 3 m.",
         "Find the kinetic energy of a 2 kg object moving at 3/2 m/s.",
         "Find the kinetic energy of a 2 kg object moving at 3 m/s and at 4 m/s.",
         "Find the potential energy of a 2 kg object at height 5 m relative to a 2 m platform.",

@@ -145,6 +145,10 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # Must have a kinematics cue AND at least one number.
     if not _has_cue(lower, _KINEMATICS_CUES, _KINEMATICS_CUE_RES):
         return None
+    # rad/s is not a linear speed. "Find the angular velocity" shares the
+    # word velocity with free fall, and answering it as v = v0 + gt is wrong.
+    if re.search(r"\bangular\b|\brad(?:ians?)?\s*/\s*s", cleaned, re.IGNORECASE):
+        return None
     # Constant acceleration that is not gravity belongs to SUVAT, which runs
     # next. Claiming it here does not merely answer a different question — it
     # answers with the wrong acceleration.

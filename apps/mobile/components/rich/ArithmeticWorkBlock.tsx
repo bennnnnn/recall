@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { CardShell } from "@/components/rich/CardShell";
 import { MathText } from "@/components/rich/MathText";
 import { StepList } from "@/components/rich/StepList";
 import { MATH_FONT } from "@/lib/fonts";
@@ -322,9 +321,8 @@ export function ArithmeticWorkBlock({ content }: { content: string }) {
     ) : (
       <DivisionWork spec={spec} />
     );
-  const label = spec.operands.join(` ${spec.operator} `);
   return (
-    <CardShell label={label} copyText={`${label} = ${spec.answer}`} accent={false}>
+    <View style={styles.arithmeticWork} testID="arithmetic-work-inline">
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -337,32 +335,30 @@ export function ArithmeticWorkBlock({ content }: { content: string }) {
       <View style={styles.steps}>
         <StepList steps={spec.explanations} />
       </View>
-    </CardShell>
+    </View>
   );
 }
 
 function FractionWork({ spec }: { spec: FractionWorkSpec }) {
   const theme = useTheme();
-  const label = spec.operands.join(" • ");
   return (
-    <CardShell label={label} copyText={spec.answer} accent={false}>
-      <View style={styles.fractionSteps}>
-        {spec.steps.map((step, index) => (
-          <View key={`${index}-${step.kind}`} style={styles.fractionStep}>
-            <Text style={[styles.fractionExplanation, { color: theme.textSecondary }]}>
-              {`${index + 1}. ${step.explanation}`}
-            </Text>
-            <View testID={`fraction-step-${index}`}>
-              <MathText latex={`${step.expression} = ${step.result}`} textColor={theme.text} />
-            </View>
+    <View style={styles.fractionWork} testID="fraction-work-inline">
+      {spec.steps.map((step, index) => (
+        <View key={`${index}-${step.kind}`} style={styles.fractionStep}>
+          <Text style={[styles.fractionExplanation, { color: theme.textSecondary }]}>
+            {`${index + 1}. ${step.explanation}`}
+          </Text>
+          <View testID={`fraction-step-${index}`}>
+            <MathText latex={`${step.expression} = ${step.result}`} textColor={theme.text} />
           </View>
-        ))}
-      </View>
-    </CardShell>
+        </View>
+      ))}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  arithmeticWork: { alignSelf: "stretch", marginVertical: Space.xs },
   workScroll: { alignSelf: "stretch" },
   workScrollContent: {
     minWidth: "100%",
@@ -370,7 +366,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.xs,
   },
   steps: { marginTop: Space.sm },
-  fractionSteps: { gap: Space.sm },
+  fractionWork: { alignSelf: "stretch", gap: Space.md, marginVertical: Space.xs },
   fractionStep: { gap: Space.xs },
   fractionExplanation: Type.secondary,
 });

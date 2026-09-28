@@ -39,6 +39,9 @@ const NATIVE_LITERAL_APOSTROPHE_MARKER = String.fromCharCode(0xe005);
 // dedicated math font was introduced.
 const NATIVE_UPRIGHT_START_MARKER = String.fromCharCode(0xe006);
 const NATIVE_UPRIGHT_END_MARKER = String.fromCharCode(0xe007);
+// Literal set braces must survive the generic TeX-group unwrapping below.
+const NATIVE_LITERAL_LEFT_BRACE_MARKER = String.fromCharCode(0xe008);
+const NATIVE_LITERAL_RIGHT_BRACE_MARKER = String.fromCharCode(0xe009);
 
 /** Restore source characters after markdown tokenization, before math parsing. */
 export function restoreMathEscapes(latex: string): string {
@@ -347,6 +350,12 @@ function readGroup(input: string, start: number): { value: string; next: number 
   if (input[start] !== "{") return null;
   let depth = 0;
   for (let i = start; i < input.length; i += 1) {
+    // An escaped brace is visible content, not TeX group structure. Skipping
+    // the escaped character also handles odd/even backslash runs correctly.
+    if (input[i] === "\\" && i + 1 < input.length) {
+      i += 1;
+      continue;
+    }
     if (input[i] === "{") depth += 1;
     else if (input[i] === "}") {
       depth -= 1;
@@ -367,7 +376,7 @@ const ENV_BRACKETS: Record<string, [string, string]> = {
   vmatrix: ["|", "|"],
   Vmatrix: ["‖", "‖"],
   smallmatrix: ["", ""],
-  Bmatrix: ["{", "}"],
+  Bmatrix: [NATIVE_LITERAL_LEFT_BRACE_MARKER, NATIVE_LITERAL_RIGHT_BRACE_MARKER],
 };
 
 const ENV_RE =
@@ -550,6 +559,21 @@ function unwrapSympyFunctionArguments(source: string): string {
 function preprocessLatex(latex: string): string {
   let s = normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(restoreMathEscapes(latex.trim())));
   s = preserveNativeUprightRuns(s);
+  // Protect visible set delimiters before command replacement turns `\{`
+  // into an ordinary `{`, which is otherwise indistinguishable from an
+  // invisible TeX grouping brace. Sized set delimiters are visible too.
+  s = s.replace(/\\left\\\{/g, NATIVE_LITERAL_LEFT_BRACE_MARKER);
+  s = s.replace(/\\right\\\}/g, NATIVE_LITERAL_RIGHT_BRACE_MARKER);
+  s = s.replace(
+    /\\[Bb]ig(?:gl|gr|l|r|g)?\\\{/g,
+    NATIVE_LITERAL_LEFT_BRACE_MARKER,
+  );
+  s = s.replace(
+    /\\[Bb]ig(?:gl|gr|l|r|g)?\\\}/g,
+    NATIVE_LITERAL_RIGHT_BRACE_MARKER,
+  );
+  s = s.replace(/\\\{/g, NATIVE_LITERAL_LEFT_BRACE_MARKER);
+  s = s.replace(/\\\}/g, NATIVE_LITERAL_RIGHT_BRACE_MARKER);
   // Undo markdownPreprocess.ts's PROTECTED_ESCAPE_MARKER substitution first,
   // before any command table below runs — see the marker's own doc comment.
   s = rewriteSolutionSeparatorBars(s);
@@ -777,8 +801,13 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
   const out: MathSegment[] = [];
   let i = 0;
 
+  const restoreNativeLiterals = (value: string) => value
+    .split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'")
+    .split(NATIVE_LITERAL_LEFT_BRACE_MARKER).join("{")
+    .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER).join("}");
+
   const pushText = (value: string) => {
-    value = value.split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'");
+    value = restoreNativeLiterals(value);
     if (!value) return;
     const last = out[out.length - 1];
     if (last?.type === "text") last.value += value;
@@ -809,15 +838,44 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
 
     const ch = input[i];
 
+    if (ch === NATIVE_LITERAL_LEFT_BRACE_MARKER) {
+      pushText("{");
+      i += 1;
+      continue;
+    }
+    if (ch === NATIVE_LITERAL_RIGHT_BRACE_MARKER) {
+      pushText("}");
+      i += 1;
+      continue;
+    }
+
+    // Unescaped braces are TeX grouping syntax, not visible glyphs. SymPy
+    // emits them around atoms inside scalable delimiters (for example
+    // `\\left|{x}\\right|`). Parse their contents recursively so every such
+    // expression renders as normal math, while escaped `\\{` / `\\}` still
+    // take the literal-character path below for sets.
+    if (ch === "{") {
+      const group = readGroup(input, i);
+      if (group) {
+        for (const seg of parseSimpleLatex(group.value, depth + 1)) {
+          if (seg.type === "text") pushText(seg.value);
+          else out.push(seg);
+        }
+        i = group.next;
+        continue;
+      }
+    }
+    if (ch === "}") {
+      i += 1;
+      continue;
+    }
+
     if (ch === NATIVE_UPRIGHT_START_MARKER) {
       const end = input.indexOf(NATIVE_UPRIGHT_END_MARKER, i + 1);
       if (end >= 0) {
         out.push({
           type: "upright",
-          value: input
-            .slice(i + 1, end)
-            .split(NATIVE_LITERAL_APOSTROPHE_MARKER)
-            .join("'"),
+          value: restoreNativeLiterals(input.slice(i + 1, end)),
         });
         i = end + 1;
         continue;

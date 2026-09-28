@@ -8,9 +8,13 @@ from __future__ import annotations
 
 import re
 
+# Charge and phase are part of the species, not a second formula. The charge
+# suffix is not nested, so it does not add another ambiguous quantifier.
 CHEMICAL_FORMULA = (
-    r"[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]*)*"
-    r"(?:[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]*)?)*"
+    r"(?:e-|[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]*)*"
+    r"(?:[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]*)?)*)"
+    r"(?:\^(?:\{\d*[+-]\}|\d*[+-])|\d*[+-])?"
+    r"(?:\((?:aq|s|l|g)\))?"
 )
 EQUATION_RE = re.compile(
     rf"((?:{CHEMICAL_FORMULA}\s*\+\s*)*{CHEMICAL_FORMULA}\s*(?:->|→)\s*"
@@ -18,13 +22,22 @@ EQUATION_RE = re.compile(
 )
 
 _CHEMISTRY_CUE = re.compile(
-    r"\b(?:chemistry|stoichiometr|molar|mol(?:e|es)?|molecules?|formula units?|molality|"
+    r"\b(?:chemistry|stoichiometr\w*|molar|mol(?:e|es)?|molecules?|formula units?|molality|"
     r"molarity|dilut\w*|M1V1|mass percent|pH|pOH|"
     r"buffer|acid|base|equilibrium|reaction quotient|thermochem|enthalpy|entropy|"
     r"gibbs|specific heat|calorimetr|kinetic|rate constant|first[- ]order|arrhenius|half[- ]life|"
     r"electrochem|nernst|electrolysis|cell potential|faraday|radioactive|nuclear|"
     r"beer[- ]lambert|absorbance|percent yield|percent composition|avogadro|pv\s*=\s*nrt|"
-    r"ideal gas|gas law|molecular descriptor|logp|tpsa|periodic table|atomic mass)\b",
+    r"ideal gas|gas law|molecular descriptor|logp|tpsa|periodic table|atomic mass|"
+    r"empirical|molecular formula|titration|ksp|hess|vsepr|lewis|oxidation|formal charge|"
+    r"boyle|charles|dalton|partial pressure|functional group|isomer|coordination|"
+    r"zero[- ]order|second[- ]order|rate law|galvanic|decay constant|"
+    r"nuclear equation|calibration|gravimetric|standard addition|polyprotic|"
+    r"common[- ]ion|bond enthalpy|formation enthalpy|ice table|ice equilibrium|"
+    r"weak acid|weak base|"
+    r"strong acid|strong base|electron capture|boiling|freezing|osmotic|raoult|"
+    r"combined gas|over water|precipitation|stereochemistry|kp|"
+    r"\bKa\b|\bKb\b|calorimeter constant)\b",
     re.IGNORECASE,
 )
 _BALANCE_CUE = re.compile(r"\b(?:balance|balanced|coefficient)\b", re.IGNORECASE)

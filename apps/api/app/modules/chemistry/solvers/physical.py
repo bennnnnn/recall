@@ -75,7 +75,20 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
     raise MathServiceError(f"unsupported thermochemistry operation: {intent.chemistry_op}")
 
 
-def _equilibrium_expression(intent: ChemistryIntent) -> tuple[float, str, str]:
+def _stored_concentration(intent: ChemistryIntent, species: str) -> float | None:
+    """Read a concentration stored under the species label or its unphased formula."""
+    if species in intent.species:
+        return intent.species[species]
+    if "(" in species:
+        bare = species[: species.rfind("(")]
+        if bare in intent.species:
+            return intent.species[bare]
+    return None
+
+
+def _equilibrium_expression(
+    intent: ChemistryIntent, *, pressure: bool = False
+) -> tuple[float, str, str]:
     equation = intent.equation
     if not equation or "->" not in equation.replace("→", "->"):
         raise MathServiceError("a simple reaction equation is required")
@@ -84,29 +97,43 @@ def _equilibrium_expression(intent: ChemistryIntent) -> tuple[float, str, str]:
     balanced = balance_equation(equation)
     if not balanced.balanced:
         raise MathServiceError(balanced.error or "reaction could not be balanced")
+    from app.modules.chemistry.species import counts_in_mass_action
+
     numerator = 1.0
     denominator = 1.0
     numerator_terms: list[str] = []
     denominator_terms: list[str] = []
     substitutions_top: list[str] = []
     substitutions_bottom: list[str] = []
+
+    def _accumulate(species: str, coefficient: int, *, product: bool) -> None:
+        nonlocal numerator, denominator
+        if not counts_in_mass_action(species):
+            return
+        concentration = _stored_concentration(intent, species)
+        if concentration is None or concentration <= 0:
+            raise MathServiceError(f"positive concentration required for {species}")
+        label = f"P({species})" if pressure else f"[{species}]"
+        if product:
+            numerator *= concentration**coefficient
+            numerator_terms.append(f"{label}^{coefficient}")
+            substitutions_top.append(f"({format_number(concentration)})^{coefficient}")
+        else:
+            denominator *= concentration**coefficient
+            denominator_terms.append(f"{label}^{coefficient}")
+            substitutions_bottom.append(f"({format_number(concentration)})^{coefficient}")
+
     for species, coefficient in balanced.products.items():
-        if species not in intent.species or intent.species[species] <= 0:
-            raise MathServiceError(f"positive concentration required for {species}")
-        concentration = intent.species[species]
-        numerator *= concentration**coefficient
-        numerator_terms.append(f"[{species}]^{coefficient}")
-        substitutions_top.append(f"({format_number(concentration)})^{coefficient}")
+        _accumulate(species, coefficient, product=True)
     for species, coefficient in balanced.reactants.items():
-        if species not in intent.species or intent.species[species] <= 0:
-            raise MathServiceError(f"positive concentration required for {species}")
-        concentration = intent.species[species]
-        denominator *= concentration**coefficient
-        denominator_terms.append(f"[{species}]^{coefficient}")
-        substitutions_bottom.append(f"({format_number(concentration)})^{coefficient}")
-    expression = f"({' × '.join(numerator_terms)}) / ({' × '.join(denominator_terms)})"
-    substitution = f"({' × '.join(substitutions_top)}) / ({' × '.join(substitutions_bottom)})"
-    return numerator / denominator, expression, substitution
+        _accumulate(species, coefficient, product=False)
+    if not numerator_terms and not denominator_terms:
+        raise MathServiceError("the equilibrium expression has no concentration terms")
+    top = " × ".join(numerator_terms) if numerator_terms else "1"
+    bottom = " × ".join(denominator_terms) if denominator_terms else "1"
+    top_sub = " × ".join(substitutions_top) if substitutions_top else "1"
+    bottom_sub = " × ".join(substitutions_bottom) if substitutions_bottom else "1"
+    return numerator / denominator, f"({top}) / ({bottom})", f"({top_sub}) / ({bottom_sub})"
 
 
 def solve_equilibrium(intent: ChemistryIntent) -> ChemistryResult:

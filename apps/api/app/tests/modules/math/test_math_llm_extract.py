@@ -88,8 +88,9 @@ async def test_llm_extract_disabled_by_flag(monkeypatch: pytest.MonkeyPatch) -> 
 @pytest.mark.asyncio
 async def test_llm_extract_returns_mapped_intent(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake(**kwargs: object) -> LLMMathExtract:
-        assert kwargs["model_alias"] == "title-model"
-        assert kwargs["allow_fallback"] is False
+        assert kwargs["model_alias"] == "gemini-flash"
+        assert kwargs["allow_fallback"] is True
+        assert kwargs["fallback_on_invalid"] is True
         return LLMMathExtract(found=True, kind="equation", lhs="3*x+5", rhs="17")
 
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
@@ -170,6 +171,7 @@ async def test_fallback_verifies_spoken_math_regex_missed(
     )
     assert verified is not None
     assert verified.canonical_answer is not None
+    assert verified.canonical_answer is not None
     assert "x" in verified.canonical_answer and "3" in verified.canonical_answer
     assert note is not None and "Couldn't verify" not in note
 
@@ -231,6 +233,70 @@ async def test_fallback_equation_with_restricted_trig_domain_is_dropped(
 
 
 @pytest.mark.asyncio
+async def test_fallback_equation_with_nondefault_domain_is_dropped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The structured fallback must obey the same whole-request audit as regex extraction."""
+    monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
+
+    async def fake(**kwargs: object) -> LLMMathExtract:
+        return LLMMathExtract(found=True, kind="equation", lhs="x^2", rhs="4")
+
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve x^2=4 where x is positive", _settings(), needs_math=True
+    )
+    assert verified is None
+    assert note is not None and "No verified solver result is available" in note
+
+
+@pytest.mark.asyncio
+async def test_fallback_system_with_nondefault_domain_is_dropped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
+
+    async def fake(**kwargs: object) -> LLMMathExtract:
+        return LLMMathExtract(
+            found=True,
+            kind="system",
+            equations=[("x+y", "1"), ("x-y", "0")],
+            variables=["x", "y"],
+        )
+
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve x+y=1, x-y=0 over the integers", _settings(), needs_math=True
+    )
+    assert verified is None
+    assert note is not None and "No verified solver result is available" in note
+
+
+@pytest.mark.asyncio
+async def test_fallback_inequality_with_nondefault_domain_is_dropped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
+
+    async def fake(**kwargs: object) -> LLMMathExtract:
+        return LLMMathExtract(
+            found=True,
+            kind="inequality",
+            lhs="x^2",
+            rhs="4",
+            comparator="<",
+            variable="x",
+        )
+
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve x^2 < 4 over the integers", _settings(), needs_math=True
+    )
+    assert verified is None
+    assert note is not None and "No verified solver result is available" in note
+
+
+@pytest.mark.asyncio
 async def test_fallback_not_used_for_image_extracts(monkeypatch: pytest.MonkeyPatch) -> None:
     """Image extracts already have a structured path; the text fallback must not run."""
     from app.models.schemas.math import MathImageExtract
@@ -247,4 +313,62 @@ async def test_fallback_not_used_for_image_extracts(monkeypatch: pytest.MonkeyPa
         needs_math=True,
     )
     assert verified is not None
-    assert verified.canonical_answer is not None
+
+
+@pytest.mark.asyncio
+async def test_image_intent_with_nondefault_domain_is_dropped() -> None:
+    """OCR-derived intents obey the same whole-request audit as text extractors."""
+    from app.models.schemas.math import MathImageExtract
+
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve this over the integers",
+        _settings(),
+        has_image_attachment=True,
+        image_math_extract=MathImageExtract(lhs="x^2", rhs="2", variables=["x"], found=True),
+        needs_math=True,
+    )
+    assert verified is None
+    assert note is not None and "Do NOT claim SymPy verification" in note
+
+
+@pytest.mark.asyncio
+async def test_image_source_domain_is_audited_when_caption_has_no_constraint() -> None:
+    """A condition printed in the image cannot be lost by the OCR structure."""
+    from app.models.schemas.math import MathImageExtract
+
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve this",
+        _settings(),
+        has_image_attachment=True,
+        image_math_extract=MathImageExtract(
+            lhs="x^2",
+            rhs="2",
+            variables=["x"],
+            found=True,
+            source_text="x^2=2, x∈ℤ",
+        ),
+        needs_math=True,
+    )
+    assert verified is None
+    assert note is not None and "Do NOT claim SymPy verification" in note
+
+
+@pytest.mark.asyncio
+async def test_every_independent_image_reading_is_audited() -> None:
+    from app.models.schemas.math import MathImageExtract
+
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve this",
+        _settings(),
+        has_image_attachment=True,
+        image_math_extract=MathImageExtract(
+            lhs="x^2",
+            rhs="2",
+            variables=["x"],
+            source_text="x^2=2",
+            alternate_source_text="x^2=2, x∈ℤ",
+        ),
+        needs_math=True,
+    )
+    assert verified is None
+    assert note is not None and "Do NOT claim SymPy verification" in note

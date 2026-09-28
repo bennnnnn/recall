@@ -6,7 +6,7 @@ import json
 import re
 
 from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
-from app.services.md_fence_scan import strip_closed_fences
+from app.services.md_fence_scan import close_unclosed_fences, strip_closed_fences
 from app.services.solving import VerifiedPhysicsBlock
 
 
@@ -51,6 +51,30 @@ def validate_physics_fences(
         language = "simulation" if spec_type in SIMULATION_SPEC_TYPES else "graph"
         extras.append(f"```{language}\n{json.dumps(spec, separators=(',', ':'))}\n```")
     return "\n\n".join(part for part in (cleaned, *extras) if part).strip()
+
+
+def replace_unclosed_physics_fences_safe(
+    content: str,
+    verified: VerifiedPhysicsBlock | None,
+) -> str:
+    """Physics-owned, no-solver fallback after finalization fails.
+
+    Close a truncated rich fence, then make one ordinary canonical pass.  If
+    even that fails, strip every physics/result fence and keep only prose;
+    never send a physics turn through math's graph recovery semantics.
+    """
+    closed = close_unclosed_fences(content)
+    try:
+        return validate_physics_fences(closed, verified=verified)
+    except Exception:
+        cleaned = closed
+        had_visual = any(
+            f"```{language}" in cleaned for language in ("graph", "simulation", "geometry")
+        )
+        for language in ("answer", "result", "final", "graph", "simulation", "geometry"):
+            cleaned = strip_closed_fences(cleaned, language)
+        cleaned = cleaned.strip()
+        return cleaned or ("*Could not render that diagram.*" if had_visual else "")
 
 
 def needs_physics_fence_validate(
