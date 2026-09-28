@@ -59,6 +59,10 @@ _NUMBER_SET_DOMAIN = (
     r"complex(?:\s+numbers?)?)\b|[\u2124\u2115\u211A\u2102\u211D]|"
     r"\\mathbb\s*\{\s*[ZNQCR]\s*\})"
 )
+_DOMAIN_ADJECTIVE = (
+    r"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|non[-\s]?zero|"
+    r"odd|even|prime|composite)"
+)
 _DOMAIN_CUE = (
     r"(?:(?:for|where|also|with|and|assuming|given)\b|"
     r"provided(?:\s+that)?\b|subject\s+to\b|[,;])"
@@ -72,8 +76,9 @@ _NONDEFAULT_DOMAIN = re.compile(
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+(?:(?:must\s+(?:not\s+)?(?:be|equal)|is|are|"
     r"was|were|equals?|cannot\s+(?:be|equal)|being|belongs?\s+to|lies?\s+in)\b)"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+"
-    rf"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|non[-\s]?zero|"
-    rf"odd|even|prime|composite|(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
+    rf"(?:{_DOMAIN_ADJECTIVE}|(?:an?\s+)?{_NUMBER_SET_DOMAIN})"
+    rf"|{_DOMAIN_CUE}\s+(?:an?\s+)?(?:{_DOMAIN_ADJECTIVE}|{_NUMBER_SET_DOMAIN})"
+    r"\s+[a-z]\b",
     re.IGNORECASE,
 )
 _LINKED_EQUALITY_DOMAIN = re.compile(

@@ -541,6 +541,15 @@ def test_energy_what_is_the_power_without_power_of() -> None:
     assert intent.physics_params["v"] == 3.0
 
 
+def test_energy_power_of_physical_object_with_work_and_time() -> None:
+    intent = _extract_energy_intent(
+        "A motor does 100 J of work in 5 s. Determine the power of the motor."
+    )
+    assert intent is not None
+    assert intent.physics_op == "power"
+    assert intent.physics_params == {"W": 100.0, "t": 5.0}
+
+
 @pytest.mark.parametrize(
     "text, unit_prefix",
     [

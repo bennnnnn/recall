@@ -72,6 +72,9 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         r"Solve x^2=2, x\in\mathbb{Z}",
         "Solve x^2=4 for x in [0,∞)",
         "Solve x^2=4 over ℤ",
+        "Solve x^2=4 for positive x",
+        "Solve x^2=4 assuming nonnegative x",
+        "Solve x^2=2 for integer x",
     ],
 )
 def test_unsupported_multipart_request_fails_closed(question: str) -> None:

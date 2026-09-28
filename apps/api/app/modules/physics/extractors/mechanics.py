@@ -677,7 +677,8 @@ _PE_ABBREV_RE = re.compile(r"\bp\.?\s?e\.?\s+of\b")
 # matching used to steal requests such as "the third power of 5" from math.
 _PHYSICAL_POWER_OF_RE = re.compile(
     r"(?i:\bpower\s+of\b)[^.?!]{0,80}\b(?:"
-    rf"(?i:force|work|energy|joules?|kilojoules?|watts?|newtons?)|"
+    rf"(?i:force|work|energy|joules?|kilojoules?|watts?|newtons?|"
+    r"motors?|machines?|engines?|devices?|pumps?|cranes?|winches?|generators?)|"
     rf"{_NUMBER}\s*(?:k?J|W|N))\b"
 )
 
