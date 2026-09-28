@@ -63,6 +63,19 @@ def test_supported_geometry_multipart_retains_both_requested_values() -> None:
     assert maybe_direct_math_reply(block, question) is None
 
 
+def test_z_score_input_labels_are_not_mistaken_for_requested_statistics() -> None:
+    question = (
+        "Find the z-score for x=88 where the population mean is 72 "
+        "and standard deviation is 8"
+    )
+    intent = extract_math_intent(question)
+    assert intent is not None
+    assert intent.school_op == "z_score"
+    block = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None and block.direct_reply is not None
+    assert r"\frac{88 - 72}{8} = 2" in block.direct_reply
+
+
 def test_square_root_in_graph_expression_is_not_a_roots_request() -> None:
     intent = extract_math_intent("Graph the square root of x")
     assert intent is not None

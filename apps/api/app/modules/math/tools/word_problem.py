@@ -34,8 +34,8 @@ _TRANSLATOR_MODEL_ALIAS = "gemini-flash"
 _MIN_CHARS = 25
 _MAX_CHARS = 600
 
-_QUESTION = re.compile(
-    r"\?|\b(?:find|determine|calculate|work\s+out|what\s+(?:is|are|was|were)"
+_MATH_REQUEST = re.compile(
+    r"\b(?:find|determine|calculate|work\s+out|what\s+(?:is|are|was|were|does|did)"
     r"|how\s+(?:many|much|old|long|far|fast|tall|wide))\b",
     re.IGNORECASE,
 )
@@ -135,10 +135,10 @@ Rules:
 
 
 def word_problem_candidate(text: str) -> bool:
-    """A question over at least two stated quantities (one in digits) with a relation word."""
+    """A math request over at least two stated quantities and a relation word."""
     if not _MIN_CHARS <= len(text) <= _MAX_CHARS or "=" in text:
         return False
-    if not _QUESTION.search(text) or not _RELATION.search(text):
+    if not _MATH_REQUEST.search(text) or not _RELATION.search(text):
         return False
     digits = len(_DIGITS.findall(text))
     words = sum(1 for word in _WORD.findall(text.lower()) if word in _NUMBER_WORDS)

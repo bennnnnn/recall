@@ -795,8 +795,13 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
   const out: MathSegment[] = [];
   let i = 0;
 
+  const restoreNativeLiterals = (value: string) => value
+    .split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'")
+    .split(NATIVE_LITERAL_LEFT_BRACE_MARKER).join("{")
+    .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER).join("}");
+
   const pushText = (value: string) => {
-    value = value.split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'");
+    value = restoreNativeLiterals(value);
     if (!value) return;
     const last = out[out.length - 1];
     if (last?.type === "text") last.value += value;
@@ -864,10 +869,7 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
       if (end >= 0) {
         out.push({
           type: "upright",
-          value: input
-            .slice(i + 1, end)
-            .split(NATIVE_LITERAL_APOSTROPHE_MARKER)
-            .join("'"),
+          value: restoreNativeLiterals(input.slice(i + 1, end)),
         });
         i = end + 1;
         continue;

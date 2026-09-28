@@ -65,14 +65,15 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     hide another requested operation, statistic, trig term, or measurement.
     """
     leftovers: list[str] = []
+    is_z_score = intent.school_op == "z_score"
     additional = _ADDITIONAL_OPERATION.search(text)
     if additional is not None and _prior_math_request(text[: additional.start()]):
         leftovers.append("additional requested operation")
-    if _MEAN_AND_SPREAD.search(text):
+    if not is_z_score and _MEAN_AND_SPREAD.search(text):
         # MathIntent currently represents one statistics operation. Until a
         # typed multi-stat result exists, declining is the only atomic answer.
         leftovers.append("additional requested statistic")
-    if _MULTIPLE_REQUESTED_STATISTICS.search(text):
+    if not is_z_score and _MULTIPLE_REQUESTED_STATISTICS.search(text):
         # One MathIntent carries one statistical result. Different requested
         # summaries must be represented together or declined together. Input
         # labels such as "mean 72 and standard deviation 8" are deliberately

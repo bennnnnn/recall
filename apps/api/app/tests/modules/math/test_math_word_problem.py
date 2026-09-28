@@ -151,6 +151,7 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "How many people live in Paris?",
         "How many calories are in two eggs and three slices of bacon in total?",
         "I have 3 cats and 2 dogs, what should I name them?",
+        "I got 3 cats and 2 dogs, what should I name them?",
         "solve 2x+3=11",
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
@@ -159,6 +160,12 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
 )
 def test_candidate_declines(text: str) -> None:
     assert not word_problem_candidate(text)
+
+
+def test_non_math_possession_question_does_not_enter_math_pipeline() -> None:
+    text = "I got 3 cats and 2 dogs, what should I name them?"
+    assert not word_problem_candidate(text)
+    assert not mt.needs_symbolic_math(text)
 
 
 def test_gate_opens_for_a_word_problem() -> None:
