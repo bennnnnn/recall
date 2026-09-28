@@ -64,6 +64,9 @@ _NONDEFAULT_DOMAIN = re.compile(
     rf"(?:positive|negative|nonnegative|nonpositive|[<>≤≥]|(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
     re.IGNORECASE,
 )
+_DOMAIN_BLIND_KINDS = frozenset(
+    {"equation", "system", "inequality", "calculus", "limit", "graph", "graph_pair"}
+)
 
 
 @dataclass(frozen=True)
@@ -113,10 +116,11 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         # A graph intent has no typed roots result and a roots intent has no
         # graph result. Never certify whichever extractor happened to run first.
         leftovers.append("multiple requested function outputs")
-    if intent.kind in {"equation", "system"} and _NONDEFAULT_DOMAIN.search(text):
-        # Equation and system intents currently solve over their default real domain.
-        # A sign or number-set restriction must not be silently discarded.
-        leftovers.append("unconsumed equation or system domain")
+    if intent.kind in _DOMAIN_BLIND_KINDS and _NONDEFAULT_DOMAIN.search(text):
+        # These symbolic intents currently use their default real domain and
+        # cannot encode an extra sign or number-set assumption. Never certify
+        # a partial interpretation that silently discards that restriction.
+        leftovers.append("unconsumed symbolic domain")
     return ConsumptionAudit(complete=not leftovers, leftovers=tuple(leftovers))
 
 

@@ -272,6 +272,30 @@ async def test_fallback_system_with_nondefault_domain_is_dropped(
 
 
 @pytest.mark.asyncio
+async def test_fallback_inequality_with_nondefault_domain_is_dropped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
+
+    async def fake(**kwargs: object) -> LLMMathExtract:
+        return LLMMathExtract(
+            found=True,
+            kind="inequality",
+            lhs="x^2",
+            rhs="4",
+            comparator="<",
+            variable="x",
+        )
+
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve x^2 < 4 over the integers", _settings(), needs_math=True
+    )
+    assert verified is None
+    assert note is not None and "No verified solver result is available" in note
+
+
+@pytest.mark.asyncio
 async def test_fallback_not_used_for_image_extracts(monkeypatch: pytest.MonkeyPatch) -> None:
     """Image extracts already have a structured path; the text fallback must not run."""
     from app.models.schemas.math import MathImageExtract

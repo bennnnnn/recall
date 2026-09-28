@@ -43,6 +43,8 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Solve x^2=2 where x is an integer",
         "Solve x^2=2 where x is integer",
         "Solve x+y=1, x-y=0 over the integers",
+        "Solve x^2 < 4 over the integers",
+        "Simplify sqrt(x^2) where x is positive",
         "Differentiate x² and evaluate it at x=3",
         "Find the derivative and second derivative of x³",
         "Graph x² and tell me its roots",
