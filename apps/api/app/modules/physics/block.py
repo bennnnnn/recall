@@ -140,8 +140,17 @@ def _build_physics_block(
             "and do not emit a simulation fence yourself."
         )
     visible_answer = _format_visible_answer(result.answer_value)
-    # Append the verified answer to the hint lines.
-    lines.append(f"Verified answer: ${result.answer}$ ({visible_answer})")
+    # The model sees the same rows the direct reply formats. The combined
+    # solver chain stays on result.answer for internal checks.
+    verified_lines = [
+        "Verified formula:",
+        *(f"${row}$" for row in result.formulas),
+        "Verified substitution:",
+        *(f"${row}$" for row in result.substitutions),
+        f"Verified result: {visible_answer}",
+    ]
+    lines.extend(verified_lines)
+    structured_working = "\n".join(verified_lines)
 
     # A solve may produce both a plot and a scene — a projectile's parabola and
     # the ball flying along it. `canonical_fences` is what carries more than one
@@ -159,7 +168,7 @@ def _build_physics_block(
             canonical_answer=visible_answer,
             allow_direct=False,
             physics_intent=intent.model_copy(deep=True),
-            physics_working=result.answer,
+            physics_working=structured_working,
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
         )
@@ -173,7 +182,7 @@ def _build_physics_block(
             canonical_fence=specs[0],
             canonical_answer=visible_answer,
             physics_intent=intent.model_copy(deep=True),
-            physics_working=result.answer,
+            physics_working=structured_working,
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
         )
@@ -189,7 +198,7 @@ def _build_physics_block(
             canonical_answer=visible_answer,
             allow_direct=False,
             physics_intent=intent.model_copy(deep=True),
-            physics_working=result.answer,
+            physics_working=structured_working,
             physics_formulas=result.formulas,
             physics_substitutions=result.substitutions,
         )

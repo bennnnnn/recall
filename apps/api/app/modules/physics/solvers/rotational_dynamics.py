@@ -75,7 +75,10 @@ def _omega(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow \omega",),
-            substitutions=(r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow \omega",),
+            substitutions=(
+                rf"\omega = \sqrt{{{params['omega0']:g}^2 + 2 \cdot {params['ang_alpha']:g}"
+                rf" \cdot {params['theta']:g}}}",
+            ),
             quantities=(QuantityResult("", value, "rad/s", number_format=".2f"),),
         )
     raise SolveServiceError("angular velocity needs omega0, alpha, and time or angle")
@@ -115,7 +118,10 @@ def _theta(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow \theta",),
-            substitutions=(r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow \theta",),
+            substitutions=(
+                rf"\theta = \frac{{{params['omega']:g}^2 - {params['omega0']:g}^2}}"
+                rf"{{2 \cdot {params['ang_alpha']:g}}}",
+            ),
             quantities=(QuantityResult("", value, "rad", number_format=".2f"),),
         )
     raise SolveServiceError("angular displacement needs the constant-acceleration givens")
@@ -150,7 +156,10 @@ def _alpha(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"\alpha = \frac{\omega^2 - \omega_0^2}{2\Delta\theta}",),
-            substitutions=(r"\alpha = \frac{\omega^2 - \omega_0^2}{2\Delta\theta}",),
+            substitutions=(
+                rf"\alpha = \frac{{{params['omega']:g}^2 - {params['omega0']:g}^2}}"
+                rf"{{2 \cdot {params['theta']:g}}}",
+            ),
             quantities=(QuantityResult("", value, "rad/s^2", number_format=".2f"),),
         )
     raise SolveServiceError("angular acceleration needs two angular velocities and time or angle")
@@ -231,7 +240,7 @@ def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"L_f = L_i + \tau\Delta t",),
-            substitutions=(r"L_f = L_i + \tau\Delta t",),
+            substitutions=(rf"L_f = {params['L_i']:g} + {params['tau']:g} \cdot {params['t']:g}",),
             quantities=(QuantityResult("", value, "kg*m^2/s", number_format=".2f"),),
         )
     if unknown == "L_i":
@@ -243,7 +252,7 @@ def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"L_i = L_f - \tau\Delta t",),
-            substitutions=(r"L_i = L_f - \tau\Delta t",),
+            substitutions=(rf"L_i = {params['L_f']:g} - {params['tau']:g} \cdot {params['t']:g}",),
             quantities=(QuantityResult("", value, "kg*m^2/s", number_format=".2f"),),
         )
     if params["tau"] == 0:
@@ -253,7 +262,9 @@ def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
     return PhysicsResult(
         answer=answer,
         formulas=(r"\Delta t = \frac{\Delta L}{\tau}",),
-        substitutions=(r"\Delta t = \frac{\Delta L}{\tau}",),
+        substitutions=(
+            rf"\Delta t = \frac{{{params['L_f']:g} - {params['L_i']:g}}}{{{params['tau']:g}}}",
+        ),
         quantities=(QuantityResult("", value, "s", number_format=".2f"),),
     )
 
@@ -266,29 +277,44 @@ def _angular_momentum(params: dict[str, float]) -> PhysicsResult:
     if unknown == "omega_f":
         value = params["inertia_i"] * params["omega_i"] / params["inertia_f"]
         shown = r"\omega_f"
+        plugged = (
+            rf"\omega_f = \frac{{{params['inertia_i']:g} \cdot {params['omega_i']:g}}}"
+            rf"{{{params['inertia_f']:g}}}"
+        )
     elif unknown == "omega_i":
         value = params["inertia_f"] * params["omega_f"] / params["inertia_i"]
         shown = r"\omega_i"
+        plugged = (
+            rf"\omega_i = \frac{{{params['inertia_f']:g} \cdot {params['omega_f']:g}}}"
+            rf"{{{params['inertia_i']:g}}}"
+        )
     elif unknown == "inertia_f":
         if params["omega_f"] == 0:
             raise SolveServiceError("final angular velocity must be nonzero")
         value = params["inertia_i"] * params["omega_i"] / params["omega_f"]
         shown = "I_f"
+        plugged = (
+            rf"I_f = \frac{{{params['inertia_i']:g} \cdot {params['omega_i']:g}}}"
+            rf"{{{params['omega_f']:g}}}"
+        )
     else:
         if params["omega_i"] == 0:
             raise SolveServiceError("initial angular velocity must be nonzero")
         value = params["inertia_f"] * params["omega_f"] / params["omega_i"]
         shown = "I_i"
+        plugged = (
+            rf"I_i = \frac{{{params['inertia_f']:g} \cdot {params['omega_f']:g}}}"
+            rf"{{{params['omega_i']:g}}}"
+        )
     if unknown.startswith("inertia") and value <= 0:
         raise SolveServiceError("moment of inertia must be positive")
     unit = r"\text{ rad/s}" if unknown.startswith("omega") else r"\text{ kg}\,\text{m}^2"
     readable = "rad/s" if unknown.startswith("omega") else "kg*m^2"
     answer = rf"I_i\omega_i = I_f\omega_f \Rightarrow {shown} \approx {value:.2f} {unit}"
-    row = rf"I_i\omega_i = I_f\omega_f \Rightarrow {shown}"
     return PhysicsResult(
         answer=answer,
-        formulas=(row,),
-        substitutions=(row,),
+        formulas=(rf"I_i\omega_i = I_f\omega_f \Rightarrow {shown}",),
+        substitutions=(plugged,),
         quantities=(QuantityResult("", value, readable, number_format=".2f"),),
     )
 
@@ -330,7 +356,7 @@ def _rolling_speed(params: dict[str, float]) -> PhysicsResult:
     return PhysicsResult(
         answer=answer,
         formulas=(r"R = \frac{v}{\omega}",),
-        substitutions=(r"R = \frac{v}{\omega}",),
+        substitutions=(rf"R = \frac{{{params['v']:g}}}{{{params['omega']:g}}}",),
         quantities=(QuantityResult("", value, "m", number_format=".2f"),),
     )
 
@@ -372,7 +398,7 @@ def _rolling_acceleration(params: dict[str, float]) -> PhysicsResult:
     return PhysicsResult(
         answer=answer,
         formulas=(r"R = \frac{a}{\alpha}",),
-        substitutions=(r"R = \frac{a}{\alpha}",),
+        substitutions=(rf"R = \frac{{{params['a']:g}}}{{{params['ang_alpha']:g}}}",),
         quantities=(QuantityResult("", value, "m", number_format=".2f"),),
     )
 
@@ -401,7 +427,10 @@ def _rolling_energy(params: dict[str, float]) -> PhysicsResult:
     return PhysicsResult(
         answer=answer,
         formulas=(r"K = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2",),
-        substitutions=(r"K = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2",),
+        substitutions=(
+            rf"K = \frac{{1}}{{2}} \cdot {params['m']:g} \cdot {speed:g}^2 + "
+            rf"\frac{{1}}{{2}} \cdot {params['inertia']:g} \cdot {omega:g}^2",
+        ),
         quantities=(QuantityResult("", value, "J", number_format=".2f"),),
     )
 
@@ -432,7 +461,10 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"I_{cm} = I - Md^2",),
-            substitutions=(r"I_{cm} = I - Md^2",),
+            substitutions=(
+                rf"I_{{cm}} = {params['inertia']:g} - {params['m']:g} \cdot "
+                rf"{_latex_num(params['d'], square=True)}",
+            ),
             quantities=(QuantityResult("", value, "kg*m^2", number_format=".2f"),),
         )
     if unknown == "m":
@@ -445,7 +477,10 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"M = \frac{I - I_{cm}}{d^2}",),
-            substitutions=(r"M = \frac{I - I_{cm}}{d^2}",),
+            substitutions=(
+                rf"M = \frac{{{params['inertia']:g} - {params['inertia_cm']:g}}}"
+                rf"{{{_latex_num(params['d'], square=True)}}}",
+            ),
             quantities=(QuantityResult("", value, "kg", number_format=".2f"),),
         )
     square = (params["inertia"] - params["inertia_cm"]) / params["m"]
@@ -456,6 +491,9 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
     return PhysicsResult(
         answer=answer,
         formulas=(r"d = \sqrt{\frac{I - I_{cm}}{M}}",),
-        substitutions=(r"d = \sqrt{\frac{I - I_{cm}}{M}}",),
+        substitutions=(
+            rf"d = \sqrt{{\frac{{{params['inertia']:g} - {params['inertia_cm']:g}}}"
+            rf"{{{params['m']:g}}}}}",
+        ),
         quantities=(QuantityResult("", value, "m", number_format=".2f"),),
     )

@@ -58,6 +58,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("ang_alpha", r"\alpha", "radian / second ** 2"),
             var("omega0", r"\omega_0", "radian / second"),
             var("t", "t", "second"),
+            var("theta", r"\theta", "radian"),
         ),
     ),
     formula(
@@ -72,6 +73,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             var("ang_alpha", r"\alpha", "radian / second ** 2"),
+            var("omega", r"\omega", "radian / second"),
             var("omega0", r"\omega_0", "radian / second"),
             var("t", "t", "second"),
         ),
@@ -87,6 +89,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("omega", r"\omega", "radian / second"),
             var("omega0", r"\omega_0", "radian / second"),
             var("t", "t", "second"),
+            var("theta", r"\theta", "radian"),
         ),
     ),
     formula(
@@ -180,6 +183,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("inertia", "I", "kilogram * meter ** 2"),
             var("m", "m", "kilogram"),
+            var("omega", r"\omega", "radian / second"),
             var("r", "r", "meter"),
             var("v", "v", "meter / second"),
         ),

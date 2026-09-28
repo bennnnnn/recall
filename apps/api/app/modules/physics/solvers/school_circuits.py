@@ -26,7 +26,7 @@ def _junction(params: dict[str, float]) -> PhysicsResult:
             rf"\sum I_{{\mathrm{{in}}}} = \sum I_{{\mathrm{{out}}}} "
             rf"\Rightarrow I = |{entering:g} - {leaving:g}| \approx {value:.4g} \text{{ A}}"
         ),
-        formulas=(rf"I = |{entering:g} - {leaving:g}|",),
+        formulas=(r"\sum I_{\mathrm{in}} = \sum I_{\mathrm{out}}",),
         substitutions=(rf"I = |{entering:g} - {leaving:g}|",),
         quantities=(
             QuantityResult(
