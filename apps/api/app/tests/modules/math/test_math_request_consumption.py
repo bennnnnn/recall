@@ -65,8 +65,7 @@ def test_supported_geometry_multipart_retains_both_requested_values() -> None:
 
 def test_z_score_input_labels_are_not_mistaken_for_requested_statistics() -> None:
     question = (
-        "Find the z-score for x=88 where the population mean is 72 "
-        "and standard deviation is 8"
+        "Find the z-score for x=88 where the population mean is 72 and standard deviation is 8"
     )
     intent = extract_math_intent(question)
     assert intent is not None
