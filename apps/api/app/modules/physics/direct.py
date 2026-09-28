@@ -14,6 +14,7 @@ from typing import Any
 from app.models.schemas.physics import PhysicsIntent
 from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics.block import _format_visible_answer
+from app.modules.physics.catalog import CATALOG, formula_spec, visible_assumptions
 from app.modules.physics.extract import (
     _LENGTH_UNIT_PATTERN,
     _VELOCITY_UNIT_PATTERN,
@@ -373,358 +374,23 @@ _SYMBOLS = {
     "surface_tension": r"\gamma",
     "q1": "q_1",
     "q2": "q_2",
+    "omega0": r"\omega_0",
+    "ang_alpha": r"\alpha",
+    "theta0": r"\theta_0",
+    "inertia_i": "I_i",
+    "inertia_f": "I_f",
+    "inertia_cm": "I_{cm}",
+    "omega_i": r"\omega_i",
+    "omega_f": r"\omega_f",
+    "L_i": "L_i",
+    "L_f": "L_f",
+    "h1": "h_1",
+    "h2": "h_2",
+    "k": "k",
 }
 
-_RESULT_SYMBOLS = {
-    "position": "h",
-    "velocity": "v",
-    "time_to_ground": "t",
-    "speed": "v",
-    "acceleration": "a",
-    "average_speed": "v",
-    "rate_speed": "v",
-    "rate_distance": "d",
-    "rate_time": "t",
-    "range": "R",
-    "max_height": "H_{max}",
-    "time_of_flight": "t_{flight}",
-    "impact_speed": "v_{impact}",
-    "launch_angle": r"\theta",
-    "net_force": "F",
-    "tension": "T",
-    "atwood": r"a,\ T",
-    "resultant_force": "R",
-    "resolve_force": r"F_x,\ F_y",
-    "kinetic_energy": "KE",
-    "potential_energy": "PE",
-    "work": "W",
-    "power": "P",
-    "mechanical_efficiency": r"\eta",
-    "momentum": "p",
-    "impulse": "J",
-    "final_velocity": "v_f",
-    "center_of_mass": "x_{cm}",
-    "friction_force": "f",
-    "normal_force": "N",
-    "incline_acceleration": "a",
-    "friction_coefficient": r"\mu",
-    "minimum_force": "F_{min}",
-    "centripetal_force": "F_c",
-    "centripetal_acceleration": "a_c",
-    "orbital_period": "T",
-    "angular_velocity": r"\omega",
-    "spring_force": "F",
-    "spring_energy": "E_s",
-    "shm_period": "T",
-    "pendulum_period": "T",
-    "shm_frequency": "f",
-    "shm_max_speed": "v_{max}",
-    "voltage": "V",
-    "current": "I",
-    "resistance": "R",
-    "electrical_power": "P",
-    "series_resistance": "R_s",
-    "parallel_resistance": "R_p",
-    "charge": "Q",
-    "electrical_energy": "E",
-    "capacitance": "C",
-    "parallel_plate_capacitance": "C",
-    "capacitor_energy": "U",
-    "rc_time_constant": r"\tau",
-    "terminal_voltage": "V_{terminal}",
-    "torque": r"\tau",
-    "moment_balance": "d_2",
-    "suvat_velocity": "v",
-    "suvat_distance": "s",
-    "suvat_time": "t",
-    "suvat_acceleration": "a",
-    "wave_speed": "v",
-    "wavelength": r"\lambda",
-    "wave_frequency": "f",
-    "wave_frequency_from_period": "f",
-    "wave_period": "T",
-    "doppler_frequency": "f'",
-    "string_wave_speed": "v",
-    "resonance_frequency": "f_n",
-    "sound_intensity": "I",
-    "beat_frequency": "f_b",
-    "image_distance": "v",
-    "magnification": "m",
-    "refractive_index": "n",
-    "critical_angle": r"\theta_c",
-    "lens_power": "P",
-    "double_slit_fringe_spacing": r"\Delta y",
-    "diffraction_central_width": "w",
-    "malus_intensity": "I",
-    "brewster_angle": r"\theta_B",
-    "heat_energy": "Q",
-    "ideal_gas_pressure": "P",
-    "thermal_efficiency": r"\eta",
-    "linear_expansion": r"\Delta L",
-    "latent_heat": "Q",
-    "first_law_internal_energy": r"\Delta U",
-    "carnot_efficiency": r"\eta_C",
-    "entropy_change": r"\Delta S",
-    "heat_conduction_rate": r"Q/t",
-    "gravitational_force": "F",
-    "orbital_velocity": "v",
-    "escape_velocity": "v_e",
-    "surface_gravity": "g",
-    "pressure_from_force": "P",
-    "pressure_at_depth": "P",
-    "upthrust": "F_b",
-    "density": r"\rho",
-    "continuity_velocity": "v_2",
-    "flow_rate": "Q",
-    "hydraulic_force": "F_2",
-    "bernoulli_pressure": "P_2",
-    "mass_flow_rate": r"\dot{m}",
-    "torricelli_speed": "v",
-    "stokes_drag": "F_d",
-    "reynolds_number": "Re",
-    "surface_tension": r"\gamma",
-    "laplace_pressure": r"\Delta P",
-    "moment_of_inertia": "I",
-    "angular_momentum": "L",
-    "rotational_kinetic_energy": "E_k",
-    "magnetic_force_wire": "F",
-    "magnetic_force_charge": "F",
-    "electric_force": "F_e",
-    "magnetic_flux": r"\Phi",
-    "electric_field": "E",
-    "electric_potential": "V",
-    "electric_potential_energy": "U",
-    "charged_particle_radius": "r",
-    "motional_emf": r"\mathcal{E}",
-    "magnetic_field_wire": "B",
-    "stress": r"\sigma",
-    "strain": r"\varepsilon",
-    "youngs_modulus": "E",
-    "half_life_remaining": "N",
-    "mass_energy": "E",
-    "photon_energy": "E",
-    "de_broglie_wavelength": r"\lambda",
-    "lorentz_factor": r"\gamma",
-    "time_dilation": r"\Delta t",
-    "length_contraction": "L",
-    "photoelectric_kinetic_energy": "K_{max}",
-    "uncertainty_momentum": r"\Delta p_{min}",
-    "particle_box_energy": "E_n",
-    "hydrogen_energy_level": "E_n",
-    "compton_shift": r"\Delta\lambda",
-    "wien_peak": r"\lambda_{max}",
-    "stefan_boltzmann_power": "P",
-    "lever_arm": "d",
-    "net_torque": r"\tau_{net}",
-}
-
-_FORMULA_LAW_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    (
-        "Distance-speed-time equation",
-        ("average_speed", "rate_speed", "rate_distance", "rate_time"),
-    ),
-    (
-        "Constant-acceleration equation",
-        ("position", "velocity", "time_to_ground", "speed", "acceleration"),
-    ),
-    (
-        "Projectile-motion equation",
-        ("range", "max_height", "time_of_flight", "impact_speed", "launch_angle"),
-    ),
-    ("Newton's second law", ("net_force", "tension", "atwood")),
-    ("Vector addition and components", ("resultant_force", "resolve_force")),
-    ("Kinetic-energy formula", ("kinetic_energy",)),
-    ("Gravitational potential-energy formula", ("potential_energy",)),
-    ("Work formula", ("work",)),
-    ("Power formula", ("power",)),
-    ("Mechanical-efficiency formula", ("mechanical_efficiency",)),
-    ("Linear-momentum formula", ("momentum",)),
-    ("Impulse-momentum theorem", ("impulse",)),
-    ("Conservation of linear momentum", ("final_velocity",)),
-    ("Center-of-mass equation", ("center_of_mass",)),
-    ("Friction law", ("friction_force", "friction_coefficient", "minimum_force")),
-    ("Normal-force balance", ("normal_force",)),
-    ("Inclined-plane force equation", ("incline_acceleration",)),
-    (
-        "Circular-motion equation",
-        ("centripetal_force", "centripetal_acceleration", "orbital_period", "angular_velocity"),
-    ),
-    ("Hooke's law", ("spring_force",)),
-    ("Elastic potential-energy formula", ("spring_energy",)),
-    (
-        "Simple-harmonic-motion equation",
-        ("shm_period", "pendulum_period", "shm_frequency", "shm_max_speed"),
-    ),
-    ("Ohm's law", ("voltage", "current", "resistance")),
-    ("Electrical-power formula", ("electrical_power",)),
-    ("Series-resistance law", ("series_resistance",)),
-    ("Parallel-resistance law", ("parallel_resistance",)),
-    ("Charge-current relation", ("charge",)),
-    ("Electrical-energy formula", ("electrical_energy",)),
-    ("Capacitance formula", ("capacitance",)),
-    ("Parallel-plate capacitance", ("parallel_plate_capacitance",)),
-    ("Capacitor energy", ("capacitor_energy",)),
-    ("RC time constant", ("rc_time_constant",)),
-    ("Terminal-voltage equation", ("terminal_voltage",)),
-    ("Torque formula", ("torque", "lever_arm")),
-    ("Principle of moments", ("moment_balance",)),
-    ("Net-torque equation", ("net_torque",)),
-    (
-        "SUVAT constant-acceleration equation",
-        ("suvat_velocity", "suvat_distance", "suvat_time", "suvat_acceleration"),
-    ),
-    ("Wave equation", ("wave_speed", "wavelength", "wave_frequency")),
-    ("Frequency-period relation", ("wave_frequency_from_period", "wave_period")),
-    ("Doppler-effect equation", ("doppler_frequency",)),
-    ("Wave speed on a string", ("string_wave_speed",)),
-    ("Standing-wave resonance", ("resonance_frequency",)),
-    ("Spherical-wave intensity", ("sound_intensity",)),
-    ("Beat-frequency relation", ("beat_frequency",)),
-    ("Thin-lens and mirror equation", ("image_distance",)),
-    ("Magnification formula", ("magnification",)),
-    ("Snell's law", ("refractive_index",)),
-    ("Critical-angle equation", ("critical_angle",)),
-    ("Lens-power formula", ("lens_power",)),
-    ("Double-slit interference", ("double_slit_fringe_spacing",)),
-    ("Single-slit diffraction", ("diffraction_central_width",)),
-    ("Malus's law", ("malus_intensity",)),
-    ("Brewster's law", ("brewster_angle",)),
-    ("Specific-heat equation", ("heat_energy",)),
-    ("Ideal-gas law", ("ideal_gas_pressure",)),
-    ("Thermal-efficiency formula", ("thermal_efficiency",)),
-    ("Linear thermal-expansion law", ("linear_expansion",)),
-    ("Latent-heat equation", ("latent_heat",)),
-    ("First law of thermodynamics", ("first_law_internal_energy",)),
-    ("Carnot-efficiency equation", ("carnot_efficiency",)),
-    ("Entropy-change equation", ("entropy_change",)),
-    ("Fourier heat-conduction law", ("heat_conduction_rate",)),
-    ("Newton's law of gravitation", ("gravitational_force",)),
-    ("Orbital-motion equation", ("orbital_velocity", "orbital_period")),
-    ("Escape-velocity equation", ("escape_velocity",)),
-    ("Surface-gravity equation", ("surface_gravity",)),
-    ("Pressure formula", ("pressure_from_force",)),
-    ("Hydrostatic-pressure equation", ("pressure_at_depth",)),
-    ("Archimedes' principle", ("upthrust",)),
-    ("Density formula", ("density",)),
-    ("Continuity equation", ("continuity_velocity",)),
-    ("Volume-flow-rate formula", ("flow_rate",)),
-    ("Pascal's principle", ("hydraulic_force",)),
-    ("Bernoulli's equation", ("bernoulli_pressure",)),
-    ("Mass-flow-rate equation", ("mass_flow_rate",)),
-    ("Torricelli's law", ("torricelli_speed",)),
-    ("Stokes' drag law", ("stokes_drag",)),
-    ("Reynolds-number equation", ("reynolds_number",)),
-    ("Surface-tension definition", ("surface_tension",)),
-    ("Young-Laplace equation", ("laplace_pressure",)),
-    ("Moment-of-inertia formula", ("moment_of_inertia",)),
-    ("Angular-momentum formula", ("angular_momentum",)),
-    ("Rotational kinetic-energy formula", ("rotational_kinetic_energy",)),
-    ("Magnetic force on a wire", ("magnetic_force_wire",)),
-    ("Lorentz magnetic-force law", ("magnetic_force_charge",)),
-    ("Coulomb's law", ("electric_force",)),
-    ("Magnetic-flux formula", ("magnetic_flux",)),
-    ("Electric field of a point charge", ("electric_field",)),
-    ("Electric potential of a point charge", ("electric_potential",)),
-    ("Electric potential-energy equation", ("electric_potential_energy",)),
-    ("Charged-particle magnetic radius", ("charged_particle_radius",)),
-    ("Motional-emf equation", ("motional_emf",)),
-    ("Magnetic field of a straight wire", ("magnetic_field_wire",)),
-    ("Stress formula", ("stress",)),
-    ("Strain formula", ("strain",)),
-    ("Young's modulus formula", ("youngs_modulus",)),
-    ("Radioactive-decay law", ("half_life_remaining",)),
-    ("Mass-energy equivalence", ("mass_energy",)),
-    ("Photon-energy relation", ("photon_energy",)),
-    ("de Broglie relation", ("de_broglie_wavelength",)),
-    ("Lorentz-factor equation", ("lorentz_factor",)),
-    ("Relativistic time dilation", ("time_dilation",)),
-    ("Relativistic length contraction", ("length_contraction",)),
-    ("Photoelectric equation", ("photoelectric_kinetic_energy",)),
-    ("Heisenberg uncertainty principle", ("uncertainty_momentum",)),
-    ("Infinite-square-well energy", ("particle_box_energy",)),
-    ("Hydrogen energy-level equation", ("hydrogen_energy_level",)),
-    ("Compton-scattering equation", ("compton_shift",)),
-    ("Wien's displacement law", ("wien_peak",)),
-    ("Stefan-Boltzmann law", ("stefan_boltzmann_power",)),
-)
-
-_FORMULA_LAW_NAMES = {
-    operation: name for name, operations in _FORMULA_LAW_GROUPS for operation in operations
-}
-
-_BASE_FORMULAS = {
-    "average_speed": r"v = \frac{d}{t}",
-    "rate_speed": r"v = \frac{d}{t}",
-    "rate_distance": r"v = \frac{d}{t}",
-    "rate_time": r"v = \frac{d}{t}",
-    "net_force": r"F = ma",
-    "voltage": r"V = IR",
-    "current": r"V = IR",
-    "resistance": r"V = IR",
-    "electrical_power": r"P = VI",
-    "parallel_plate_capacitance": r"C = \frac{\epsilon_0A}{d}",
-    "capacitor_energy": r"U = \frac{1}{2}CV^2",
-    "rc_time_constant": r"\tau = RC",
-    "mechanical_efficiency": r"\eta = \frac{E_{out}}{E_{in}}",
-    "center_of_mass": r"x_{cm} = \frac{m_1x_1 + m_2x_2}{m_1 + m_2}",
-    "torque": r"\tau = Fd\sin(\theta)",
-    "lever_arm": r"\tau = Fd\sin(\theta)",
-    "moment_balance": r"F_1d_1 = F_2d_2",
-    "suvat_velocity": r"v = u + at",
-    "suvat_time": r"v = u + at",
-    "suvat_acceleration": r"v = u + at",
-    "suvat_distance": r"s = ut + \frac{1}{2}at^2",
-    "wave_speed": r"v = f\lambda",
-    "wavelength": r"v = f\lambda",
-    "wave_frequency": r"v = f\lambda",
-    "wave_frequency_from_period": r"f = \frac{1}{T}",
-    "wave_period": r"f = \frac{1}{T}",
-    "string_wave_speed": r"v = \sqrt{\frac{T}{\mu}}",
-    "resonance_frequency": r"f_n = \frac{nv}{kL}",
-    "sound_intensity": r"I = \frac{P}{4\pi r^2}",
-    "beat_frequency": r"f_b = \lvert f_1 - f_2 \rvert",
-    "lens_power": r"P = \frac{1}{f}",
-    "double_slit_fringe_spacing": r"\Delta y = \frac{\lambda L}{d}",
-    "diffraction_central_width": r"w = \frac{2\lambda L}{a}",
-    "malus_intensity": r"I = I_0\cos^2\theta",
-    "brewster_angle": r"\tan\theta_B = \frac{n_2}{n_1}",
-    "image_distance": r"\frac{1}{f} = \frac{1}{u} + \frac{1}{v}",
-    "ideal_gas_pressure": r"PV = nRT",
-    "linear_expansion": r"\Delta L = \alpha L_0\Delta T",
-    "latent_heat": r"Q = mL",
-    "first_law_internal_energy": r"\Delta U = Q - W",
-    "carnot_efficiency": r"\eta_C = 1 - \frac{T_C}{T_H}",
-    "entropy_change": r"\Delta S = \frac{Q_{rev}}{T}",
-    "heat_conduction_rate": r"\frac{Q}{t} = kA\frac{\Delta T}{L}",
-    "pressure_from_force": r"P = \frac{F}{A}",
-    "electric_force": r"F_e = k_e \frac{\lvert q_1q_2\rvert}{r^2}",
-    "density": r"\rho = \frac{m}{V}",
-    "continuity_velocity": r"A_1v_1 = A_2v_2",
-    "hydraulic_force": r"\frac{F_1}{A_1} = \frac{F_2}{A_2}",
-    "bernoulli_pressure": (r"P_1 + \frac{1}{2}\rho v_1^2 = P_2 + \frac{1}{2}\rho v_2^2"),
-    "mass_flow_rate": r"\dot{m} = \rho Av",
-    "torricelli_speed": r"v = \sqrt{2gh}",
-    "stokes_drag": r"F_d = 6\pi\eta rv",
-    "reynolds_number": r"Re = \frac{\rho vL}{\eta}",
-    "surface_tension": r"\gamma = \frac{F}{L}",
-    "laplace_pressure": r"\Delta P = \frac{k\gamma}{r}",
-    "electric_field": r"E = k_e\frac{\lvert Q\rvert}{r^2}",
-    "electric_potential": r"V = k_e\frac{Q}{r}",
-    "electric_potential_energy": r"U = k_e\frac{q_1q_2}{r}",
-    "charged_particle_radius": r"r = \frac{mv}{\lvert q\rvert B}",
-    "motional_emf": r"\mathcal{E} = BLv",
-    "magnetic_field_wire": r"B = \frac{\mu_0I}{2\pi r}",
-    "lorentz_factor": r"\gamma = \frac{1}{\sqrt{1-v^2/c^2}}",
-    "time_dilation": r"\Delta t = \gamma\Delta t_0",
-    "length_contraction": r"L = \frac{L_0}{\gamma}",
-    "photoelectric_kinetic_energy": r"K_{max} = hf - \phi",
-    "uncertainty_momentum": r"\Delta p_{min} = \frac{\hbar}{2\Delta x}",
-    "particle_box_energy": r"E_n = \frac{n^2h^2}{8mL^2}",
-    "hydrogen_energy_level": r"E_n = -\frac{13.6\,\mathrm{eV}}{n^2}",
-    "compton_shift": r"\Delta\lambda = \frac{h}{m_ec}(1-\cos\theta)",
-    "wien_peak": r"\lambda_{max}T = b",
-    "stefan_boltzmann_power": r"P = \epsilon\sigma AT^4",
-}
+_FORMULA_LAW_NAMES = {spec.id: spec.law_name for spec in CATALOG.values()}
+_RESULT_SYMBOLS = {spec.id: spec.result_symbol for spec in CATALOG.values()}
 
 
 def _display_number(value: float) -> str:
@@ -771,13 +437,51 @@ def _result_symbol(intent: PhysicsIntent, params: dict[str, float]) -> str | Non
         return "F_2"
     if intent.physics_op == "final_velocity" and params.get("elastic") == 1.0:
         return r"v_1',\ v_2'"
+    chosen = _missing_result_symbol(intent.physics_op or "", params)
+    if chosen is not None:
+        return chosen
     return _RESULT_SYMBOLS.get(intent.physics_op or "")
+
+
+# Operations that solve for whichever one of these quantities was left out.
+_ONE_UNKNOWN: dict[str, tuple[tuple[str, str], ...]] = {
+    "work_energy": (("W", "W_{net}"), ("m", "m"), ("v1", "v_1"), ("v2", "v_2")),
+    "mechanical_energy_gravity": (("v1", "v_1"), ("h1", "h_1"), ("v2", "v_2"), ("h2", "h_2")),
+    "mechanical_energy_spring": (("v1", "v_1"), ("x1", "x_1"), ("v2", "v_2"), ("x2", "x_2")),
+    "torque_inertia": (("tau", r"\tau"), ("inertia", "I"), ("ang_alpha", r"\alpha")),
+    "torque_angular_impulse": (
+        ("tau", r"\tau"),
+        ("L_i", "L_i"),
+        ("L_f", "L_f"),
+        ("t", r"\Delta t"),
+    ),
+    "angular_momentum_conservation": (
+        ("inertia_i", "I_i"),
+        ("omega_i", r"\omega_i"),
+        ("inertia_f", "I_f"),
+        ("omega_f", r"\omega_f"),
+    ),
+    "rolling_speed": (("v", "v"), ("omega", r"\omega"), ("r", "R")),
+    "rolling_acceleration": (("a", "a"), ("ang_alpha", r"\alpha"), ("r", "R")),
+    "parallel_axis": (("inertia", "I"), ("inertia_cm", "I_{cm}"), ("m", "M"), ("d", "d")),
+}
+
+
+def _missing_result_symbol(operation: str, params: dict[str, float]) -> str | None:
+    slots = _ONE_UNKNOWN.get(operation)
+    if slots is None:
+        return None
+    missing = [symbol for key, symbol in slots if key not in params]
+    if len(missing) == 1:
+        return missing[0]
+    return None
 
 
 def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
     """Name the governing law, show its base form, then any rearrangement."""
     operation = intent.physics_op or ""
-    name = _FORMULA_LAW_NAMES.get(operation, "Physics formula")
+    spec = formula_spec(operation)
+    name = spec.law_name if spec is not None else "Physics formula"
     if operation == "final_velocity":
         if (intent.physics_params or {}).get("elastic") == 1.0:
             return [
@@ -790,7 +494,12 @@ def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
             r"$m_1v_1 + m_2v_2 = (m_1+m_2)v_f$",
             r"$v_f = \frac{m_1v_1 + m_2v_2}{m_1+m_2}$",
         ]
-    base = _BASE_FORMULAS.get(operation)
+    params = intent.physics_params or {}
+    base = None if spec is None else spec.base_latex
+    if operation == "work" and "angle" in params:
+        base = r"W = Fd\cos\theta"
+    elif operation == "power" and "angle" in params:
+        base = r"P = Fv\cos\theta"
     if operation == "resonance_frequency":
         # A pipe closed at one end has a 4L fundamental; an open pipe or a
         # string has 2L. Show the actual universal law for the apparatus rather
@@ -949,6 +658,11 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     find_symbol = result_symbol or formulas[0].split(" = ", 1)[0]
     rows = ["**Given**", *given_rows, "**Find**", f"${find_symbol}$", "**Formula**"]
     rows.extend(_formula_rows(intent, formulas))
+    spec = formula_spec(intent.physics_op or "")
+    if spec is not None:
+        rows.extend(
+            f"Assumption: {assumption}." for assumption in visible_assumptions(spec, params)
+        )
     rows.append("**Substitution**")
     rows.extend(f"${substitution}$" for substitution in substitutions)
     rows.append("**Answer**")

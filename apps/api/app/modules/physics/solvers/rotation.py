@@ -292,6 +292,22 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
 
 
 def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
+    from app.modules.physics.solvers.rotational_dynamics import solve_rotational_dynamics
+
+    if intent.physics_op in {
+        "rotational_omega",
+        "rotational_theta",
+        "rotational_alpha",
+        "torque_inertia",
+        "torque_angular_impulse",
+        "angular_momentum_conservation",
+        "rolling_speed",
+        "rolling_acceleration",
+        "rolling_kinetic_energy",
+        "parallel_axis",
+    }:
+        return solve_rotational_dynamics(intent)
+
     p = _params_in_si(intent)
     op = intent.physics_op or ""
 

@@ -375,7 +375,6 @@ def test_teaching_suffix_uses_the_same_verified_physics_working(suffix: str) -> 
         "Find the force on a 5 kg object with acceleration 1000001 m/s^2.",
         "Find the force on a 0 kg object with acceleration 2 m/s^2.",
         "Find the mass of an object with force 20 N and acceleration -4 m/s^2.",
-        "Find the work done by a force of 10 N at 60 degrees over a distance of 3 m.",
         "Find the kinetic energy of a 2 kg object moving at 3/2 m/s.",
         "Find the kinetic energy of a 2 kg object moving at 3 m/s and at 4 m/s.",
         "Find the potential energy of a 2 kg object at height 5 m relative to a 2 m platform.",

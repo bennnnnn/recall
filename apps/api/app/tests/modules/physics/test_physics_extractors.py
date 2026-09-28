@@ -512,11 +512,23 @@ def test_energy_work() -> None:
     [
         "How much work is done by a 10 N force at an angle of 30 degrees over 4 m?",
         "How much work is done by a 10 N force at 30° over a distance of 4 m?",
-        "How much work is done by a 10 N force at an angle over 4 m?",
     ],
 )
-def test_energy_work_at_angle_is_not_verified(text: str) -> None:
-    assert _extract_energy_intent(text) is None
+def test_energy_work_at_stated_angle_is_verified(text: str) -> None:
+    intent = _extract_energy_intent(text)
+    assert intent is not None
+    assert intent.physics_op == "work"
+    assert intent.physics_params is not None
+    assert intent.physics_params["angle"] == 30.0
+    assert intent.physics_units is not None
+    assert intent.physics_units["angle"] == "deg"
+
+
+def test_energy_work_at_unstated_angle_is_not_verified() -> None:
+    assert (
+        _extract_energy_intent("How much work is done by a 10 N force at an angle over 4 m?")
+        is None
+    )
 
 
 def test_energy_no_knowns_returns_none() -> None:

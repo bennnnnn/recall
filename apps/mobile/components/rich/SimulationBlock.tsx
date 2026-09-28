@@ -38,7 +38,7 @@ import {
   type SimulationTransform,
   type SimulationVector,
   type ScreenPoint,
-} from "@/lib/math/simulation";
+} from "@/lib/physics/simulation";
 import {
   playbackStart,
   remainingPlaybackDuration,
