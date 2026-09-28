@@ -36,6 +36,7 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Find the mean and standard deviation of 1,2,3,4",
         "Find the mean and median of 1,2,3,4",
         "Find the median and mode of 1,1,2,3",
+        "Find median of 1,2,3 and z-score for x=88, mean 72, standard deviation 8",
         "Solve 2x=4; also x must be positive",
         "Solve x²=4 for x > 0",
         "Differentiate x² and evaluate it at x=3",

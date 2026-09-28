@@ -27,12 +27,19 @@ _AREA_AND_PERIMETER = re.compile(
     r"perimeter\b[^.?!]{0,30}\band\b[^.?!]{0,20}\barea)\b",
     re.IGNORECASE,
 )
+_STATISTIC_NAME = (
+    r"(?:z[-\s]?score|arithmetic\s+mean|mean|median|mode|range|variance|"
+    r"standard\s+deviation|stdev)"
+)
 _MULTIPLE_REQUESTED_STATISTICS = re.compile(
     r"\b(?:find|calculate|compute|determine|give|what\s+(?:is|are))\b"
-    r"[^.?!]{0,50}\b(?:arithmetic\s+mean|mean|median|mode|range|variance|"
-    r"standard\s+deviation|stdev)\b[^.?!]{0,30}\b(?:and|plus)\b"
-    r"[^.?!]{0,30}\b(?:arithmetic\s+mean|mean|median|mode|range|variance|"
-    r"standard\s+deviation|stdev)\b",
+    rf"[^.?!]{{0,50}}\b{_STATISTIC_NAME}\b[^.?!]{{0,30}}\b(?:and|plus)\b"
+    rf"[^.?!]{{0,30}}\b{_STATISTIC_NAME}\b",
+    re.IGNORECASE,
+)
+_LABELED_Z_SCORE_OPERAND = re.compile(
+    r"\b(?:mean(?:\s+score)?|standard\s+deviation|std(?:\s+dev)?|stdev)"
+    r"(?:\s+is|\s*=)?\s+[+-]?(?:\d+(?:\.\d+)?|\.\d+)\b",
     re.IGNORECASE,
 )
 _GRAPH_REQUEST = re.compile(r"\b(?:graph|plot|sketch)\b", re.IGNORECASE)
@@ -65,15 +72,17 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     hide another requested operation, statistic, trig term, or measurement.
     """
     leftovers: list[str] = []
-    is_z_score = intent.school_op == "z_score"
+    statistics_text = (
+        _LABELED_Z_SCORE_OPERAND.sub("", text) if intent.school_op == "z_score" else text
+    )
     additional = _ADDITIONAL_OPERATION.search(text)
     if additional is not None and _prior_math_request(text[: additional.start()]):
         leftovers.append("additional requested operation")
-    if not is_z_score and _MEAN_AND_SPREAD.search(text):
+    if _MEAN_AND_SPREAD.search(statistics_text):
         # MathIntent currently represents one statistics operation. Until a
         # typed multi-stat result exists, declining is the only atomic answer.
         leftovers.append("additional requested statistic")
-    if not is_z_score and _MULTIPLE_REQUESTED_STATISTICS.search(text):
+    if _MULTIPLE_REQUESTED_STATISTICS.search(statistics_text):
         # One MathIntent carries one statistical result. Different requested
         # summaries must be represented together or declined together. Input
         # labels such as "mean 72 and standard deviation 8" are deliberately

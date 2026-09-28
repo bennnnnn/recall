@@ -677,7 +677,8 @@ _PE_ABBREV_RE = re.compile(r"\bp\.?\s?e\.?\s+of\b")
 # matching used to steal requests such as "the third power of 5" from math.
 _PHYSICAL_POWER_OF_RE = re.compile(
     r"(?i:\bpower\s+of\b)[^.?!]{0,80}\b(?:"
-    r"(?i:force|work|energy|joules?|kilojoules?|watts?|newtons?)|k?J|W|N)\b"
+    rf"(?i:force|work|energy|joules?|kilojoules?|watts?|newtons?)|"
+    rf"{_NUMBER}\s*(?:k?J|W|N))\b"
 )
 
 _ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (

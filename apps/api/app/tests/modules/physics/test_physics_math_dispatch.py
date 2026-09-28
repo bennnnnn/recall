@@ -76,13 +76,14 @@ def test_complete_math_power_request_beats_physics_keyword(text: str, answer: st
     assert block is not None and block.canonical_answer == answer
 
 
-def test_symbolic_power_request_is_not_stolen_by_physics_unit_symbols() -> None:
-    text = "What is the 3rd power of n?"
+@pytest.mark.parametrize("symbol", ["n", "W", "N", "J"])
+def test_symbolic_power_request_is_not_stolen_by_physics_unit_symbols(symbol: str) -> None:
+    text = f"What is the 3rd power of {symbol}?"
     assert extract_physics_intent(text) is None
     assert detect_subject(text) == "math"
     intent = extract_math_intent(text)
     assert intent is not None and intent.kind == "arithmetic"
-    assert intent.expr == "n^3"
+    assert intent.expr == f"{symbol.lower()}^3"
 
 
 @pytest.mark.parametrize(
