@@ -65,6 +65,7 @@ def test_force_symbol_routes_directly_to_physics() -> None:
         ("what is the third power of 5?", "125"),
         ("Find the third power of 5", "125"),
         ("2 raised to the third power", "8"),
+        ("Show steps: 2 to the power of 3", "8"),
     ],
 )
 def test_complete_math_power_request_beats_physics_keyword(text: str, answer: str) -> None:

@@ -55,6 +55,16 @@ _MATH_REQUEST = re.compile(
     r"|\bwhat\s+(?:does|did)\b[^.?!]{0,50}\b(?:cost|weigh|measure|equal)\b",
     re.IGNORECASE,
 )
+_PRONOUN_REQUEST = re.compile(
+    r"\bwhat\s+(?:is|are|was|were)\s+(?:it|that|this|they|those|these)\b",
+    re.IGNORECASE,
+)
+_PRONOUN_MATH_CONTEXT = re.compile(
+    rf"\b{_MATH_TARGET}\b|\b(?:times\s+as|twice|double|triple|thrice|half|"
+    r"more\s+than|less\s+than|fewer\s+than|greater\s+than|older|younger|"
+    r"together|altogether|combined|consecutive|equally|years\s+old|percent)\b|%",
+    re.IGNORECASE,
+)
 _RELATION = re.compile(
     r"\b(?:times\s+as|twice|double|triple|thrice|half|more\s+than|less\s+than|fewer\s+than"
     r"|greater\s+than|older|younger|sum|total|together|altogether|combined|difference"
@@ -154,7 +164,12 @@ def word_problem_candidate(text: str) -> bool:
     """A math request over at least two stated quantities and a relation word."""
     if not _MIN_CHARS <= len(text) <= _MAX_CHARS or "=" in text:
         return False
-    if not _MATH_REQUEST.search(text) or not _RELATION.search(text):
+    request = _MATH_REQUEST.search(text)
+    if request is None:
+        pronoun = _PRONOUN_REQUEST.search(text)
+        if pronoun is None or _PRONOUN_MATH_CONTEXT.search(text[: pronoun.start()]) is None:
+            return False
+    if not _RELATION.search(text):
         return False
     digits = len(_DIGITS.findall(text))
     words = sum(1 for word in _WORD.findall(text.lower()) if word in _NUMBER_WORDS)

@@ -736,7 +736,9 @@ def spoken_power_request(text: str) -> str | None:
     """
     if not text or len(text) > _MAX:
         return None
-    value, _had_cue = _strip_arith_cues(collapse_ws(text).lower())
+    from app.modules.math.response_intent import strip_math_response_wrappers
+
+    value, _had_cue = _strip_arith_cues(collapse_ws(strip_math_response_wrappers(text)).lower())
     tokens = value.split()
     if tokens[:1] == ["find"]:
         tokens = tokens[1:]
