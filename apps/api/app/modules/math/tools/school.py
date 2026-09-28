@@ -1040,11 +1040,13 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
                 return extracted.model_copy(update={"school_op": "eval_exact_decimal"})
     spoken_power = mtm.spoken_power_request(cleaned)
     if spoken_power is not None:
+        variable = next((char for char in spoken_power if char.isalpha()), "x")
         return MathIntent(
             kind="arithmetic",
-            school_op="eval",
+            school_op="symbolic_power" if any(char.isalpha() for char in spoken_power) else "eval",
             expr=spoken_power,
             operation="solve",
+            variable=variable,
         )
     addition = mtm.written_addition_request(cleaned)
     if addition is not None:
@@ -1627,6 +1629,16 @@ def _verified_block_arithmetic(
         return _finish_with_answer(lines, answer)
     if not intent.expr:
         return None
+    if intent.school_op == "symbolic_power":
+        from app.modules.math import solve as math_solve
+
+        answer = math_solve.simplify_expression(intent.expr, intent.variable).latex
+        lines.append(f"Power notation: {answer}")
+        block = _finish_with_answer(lines, answer)
+        return replace(
+            block,
+            direct_reply=(f"**Power notation**\n\n${answer}$\n\n```answer\n{answer}\n```\n"),
+        )
     answer = math_school.evaluate_arithmetic(intent.expr)
     if intent.school_op == "eval_exact_decimal":
         from app.modules.math import solve as math_solve

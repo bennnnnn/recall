@@ -85,6 +85,11 @@ def test_symbolic_power_request_is_not_stolen_by_physics_unit_symbols(symbol: st
     intent = extract_math_intent(text)
     assert intent is not None and intent.kind == "arithmetic"
     assert intent.expr == f"{symbol.lower()}^3"
+    assert intent.school_op == "symbolic_power"
+    block = build_math_block(intent, _SETTINGS)
+    assert block is not None
+    assert block.canonical_answer == f"{symbol.lower()}^{{3}}"
+    assert block.direct_reply is not None and "**Power notation**" in block.direct_reply
 
 
 @pytest.mark.parametrize(

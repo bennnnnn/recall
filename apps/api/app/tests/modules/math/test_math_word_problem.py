@@ -135,6 +135,7 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         "A number plus 7 is 19. What is the number?",
         "A number plus 7 is 19. What is it?",
         "If a number plus 5 equals 12, find it.",
+        "Tom and Ana have 10 apples together. Tom has 3. What does Ana have?",
         "What number is 5 more than 7?",
         "Which integer is 9 less than 20?",
         "The sum of two numbers is 30 and their difference is 6. What are the numbers?",
@@ -162,6 +163,7 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "I bought 3 books and 2 games. How much did you enjoy them?",
         "I got 3 cats and 2 dogs. What is it?",
         "I got 3 cats and 2 dogs. Find them.",
+        "I got 3 cats and 2 dogs. What does Ana have?",
         "solve 2x+3=11",
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
@@ -182,6 +184,7 @@ def test_candidate_declines(text: str) -> None:
         "I bought 3 books and 2 games. How much did you enjoy them?",
         "I got 3 cats and 2 dogs. What is it?",
         "I got 3 cats and 2 dogs. Find them.",
+        "I got 3 cats and 2 dogs. What does Ana have?",
     ],
 )
 def test_non_math_possession_question_does_not_enter_math_pipeline(text: str) -> None:
