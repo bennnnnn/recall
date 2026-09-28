@@ -12,6 +12,7 @@ from app.modules.physics.extractors.common import (
     _detect_gravity,
     _find_value_with_specific_unit,
     _has_cue,
+    _has_cue_either_case,
     _ordered_values,
     _strip_param_assignments,
 )
@@ -675,9 +676,8 @@ _PE_ABBREV_RE = re.compile(r"\bp\.?\s?e\.?\s+of\b")
 # when its bounded object names a physical quantity or unit; broad keyword
 # matching used to steal requests such as "the third power of 5" from math.
 _PHYSICAL_POWER_OF_RE = re.compile(
-    r"\bpower\s+of\b[^.?!]{0,80}\b(?:force|work|energy|joules?|kilojoules?|"
-    r"watts?|newtons?|k?J|W|N)\b",
-    re.IGNORECASE,
+    r"(?i:\bpower\s+of\b)[^.?!]{0,80}\b(?:"
+    r"(?i:force|work|energy|joules?|kilojoules?|watts?|newtons?)|k?J|W|N)\b"
 )
 
 _ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (
@@ -695,7 +695,7 @@ def _has_work_angle(text: str) -> bool:
 
 def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _ENERGY_CUES, _ENERGY_CUE_RES):
+    if not _has_cue_either_case(cleaned, _ENERGY_CUES, _ENERGY_CUE_RES):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
         return None

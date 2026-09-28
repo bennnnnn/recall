@@ -738,6 +738,8 @@ def spoken_power_request(text: str) -> str | None:
         return None
     value, _had_cue = _strip_arith_cues(collapse_ws(text).lower())
     tokens = value.split()
+    if tokens[:1] == ["find"]:
+        tokens = tokens[1:]
     if tokens[:1] == ["the"]:
         tokens = tokens[1:]
 
