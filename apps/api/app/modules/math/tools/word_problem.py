@@ -34,9 +34,18 @@ _TRANSLATOR_MODEL_ALIAS = "gemini-flash"
 _MIN_CHARS = 25
 _MAX_CHARS = 600
 
+_MATH_TARGET = (
+    r"(?:amounts?|numbers?|integers?|values?|totals?|sums?|differences?|products?|"
+    r"quotients?|remainders?|costs?|prices?|ages?|distances?|lengths?|widths?|"
+    r"heights?|areas?|perimeters?|volumes?|speeds?|times?|rates?|percentages?|"
+    r"shares?|counts?|weights?|masses?|coordinates?|solutions?|roots?)"
+)
 _MATH_REQUEST = re.compile(
-    r"\b(?:find|determine|calculate|work\s+out|what\s+(?:is|are|was|were|does|did)"
-    r"|how\s+(?:many|much|old|long|far|fast|tall|wide))\b",
+    r"\b(?:calculate|compute|work\s+out)\b"
+    r"|\bhow\s+(?:many|much|old|long|far|fast|tall|wide)\b"
+    rf"|\b(?:find|determine)\b[^.?!]{{0,50}}\b{_MATH_TARGET}\b"
+    rf"|\bwhat\s+(?:is|are|was|were)\b[^.?!]{{0,50}}\b{_MATH_TARGET}\b"
+    r"|\bwhat\s+(?:does|did)\b[^.?!]{0,50}\b(?:cost|weigh|measure|equal)\b",
     re.IGNORECASE,
 )
 _RELATION = re.compile(

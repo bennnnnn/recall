@@ -152,6 +152,9 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "How many calories are in two eggs and three slices of bacon in total?",
         "I have 3 cats and 2 dogs, what should I name them?",
         "I got 3 cats and 2 dogs, what should I name them?",
+        "I got 3 cats and 2 dogs. What does that make me?",
+        "I got 3 cats and 2 dogs. What is a good name for them?",
+        "I got 3 cats and 2 dogs. Find names for them.",
         "solve 2x+3=11",
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
@@ -162,8 +165,16 @@ def test_candidate_declines(text: str) -> None:
     assert not word_problem_candidate(text)
 
 
-def test_non_math_possession_question_does_not_enter_math_pipeline() -> None:
-    text = "I got 3 cats and 2 dogs, what should I name them?"
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I got 3 cats and 2 dogs, what should I name them?",
+        "I got 3 cats and 2 dogs. What does that make me?",
+        "I got 3 cats and 2 dogs. What is a good name for them?",
+        "I got 3 cats and 2 dogs. Find names for them.",
+    ],
+)
+def test_non_math_possession_question_does_not_enter_math_pipeline(text: str) -> None:
     assert not word_problem_candidate(text)
     assert not mt.needs_symbolic_math(text)
 
