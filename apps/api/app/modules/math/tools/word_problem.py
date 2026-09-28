@@ -3,7 +3,10 @@
 "Maria is three times as old as her son; together they are 48" has no
 equation for the regex extractors to find. When the gate below fires and no
 extractor matched, one bounded call on the fast alias translates the problem
-into unknowns and equations (``WordProblemSetup``). Before SymPy sees it,
+into unknowns and equations (``WordProblemSetup``). The existing secondary
+structured-model route is used when the primary provider times out or returns
+invalid JSON, so a transient extractor failure does not silently downgrade a
+school problem to an unverified one-line chat answer. Before SymPy sees it,
 every number in those equations must be one the problem states, in digits or
 in words, so a translation cannot smuggle in a value the student never gave.
 SymPy then has to find exactly one solution in the stated domain
@@ -23,6 +26,11 @@ from app.models.schemas.math.word_problem import WordProblemSetup
 
 logger = logging.getLogger(__name__)
 
+# The user-facing fast route has materially lower latency and follows informal
+# school wording more reliably than the background title model. Its output is
+# still only a candidate: number grounding and SymPy remain the trust boundary.
+_TRANSLATOR_MODEL_ALIAS = "gemini-flash"
+
 _MIN_CHARS = 25
 _MAX_CHARS = 600
 
@@ -35,6 +43,8 @@ _RELATION = re.compile(
     r"\b(?:times\s+as|twice|double|triple|thrice|half|more\s+than|less\s+than|fewer\s+than"
     r"|greater\s+than|older|younger|sum|total|together|altogether|combined|difference"
     r"|product|consecutive|each|per|costs?|paid|spent|earns?|left|remain(?:s|ing)?|shared?"
+    r"|gives?|gave|receives?|received|gets?|got|buys?|bought|sells?|sold|loses?|lost"
+    r"|adds?|added|removes?|removed|takes?|took"
     r"|split|equally|ages?|years\s+old|numbers?|integers?|percent)\b|%",
     re.IGNORECASE,
 )
@@ -109,6 +119,12 @@ Return JSON only:
 Rules:
 - One lowercase letter per unknown (not e or i). At most 3 unknowns, 4 equations.
 - Each equation has exactly one "=", in plain ASCII math: * for times, ^ for powers.
+- The quantity the question asks you to find is an unknown, not "missing data".
+- Accept informal grammar, misspellings, and singular/plural mistakes when the
+  quantities and relationships still determine one answer.
+- Preserve quantity changes as one balance equation. For example: "Lina has
+  12 blue beads and some red beads, gives away 4 red beads, and has 15 beads
+  left" becomes `12 + r - 4 = 15` when `r` is the initial red-bead count.
 - Use only numbers the problem states. Spelled numbers are fine ("twice" is 2,
   "half" is 1/2, "15%" is 15/100). Never compute, round, or add a number.
 - "source" quotes the words of the problem that equation says.
@@ -183,25 +199,30 @@ def grounded(setup: WordProblemSetup, text: str) -> bool:
 
 
 async def word_problem_intent(text: str, settings: Settings) -> MathIntent | None:
-    """One bounded structured call. Never raises into the chat path."""
+    """Translate on independent bounded routes, then accept only verified input."""
     if not settings.math_word_problems_enabled or not word_problem_candidate(text):
         return None
-    try:
-        setup = await litellm_gateway.complete_structured(
-            settings=settings,
-            model_alias="title-model",
-            messages=[
-                {"role": "system", "content": _PROMPT},
-                {"role": "user", "content": text.strip()},
-            ],
-            schema=WordProblemSetup,
-            max_tokens=500,
-            timeout_seconds=settings.math_word_problem_timeout_seconds,
-            allow_fallback=False,
-        )
-    except Exception:
-        logger.warning("word problem extract failed", exc_info=True)
-        return None
-    if setup is None or not setup.found or not grounded(setup, text):
-        return None
-    return MathIntent(kind="word_problem", word_problem=setup, operation="solve")
+    aliases = [_TRANSLATOR_MODEL_ALIAS]
+    fallback = settings.memory_fallback_model_alias.strip()
+    if fallback and fallback not in aliases:
+        aliases.append(fallback)
+    for alias in aliases:
+        try:
+            setup = await litellm_gateway.complete_structured(
+                settings=settings,
+                model_alias=alias,
+                messages=[
+                    {"role": "system", "content": _PROMPT},
+                    {"role": "user", "content": text.strip()},
+                ],
+                schema=WordProblemSetup,
+                max_tokens=500,
+                timeout_seconds=settings.math_word_problem_timeout_seconds,
+                allow_fallback=False,
+            )
+        except Exception:
+            logger.warning("word problem extract failed on %s", alias, exc_info=True)
+            continue
+        if setup is not None and setup.found and grounded(setup, text):
+            return MathIntent(kind="word_problem", word_problem=setup, operation="solve")
+    return None

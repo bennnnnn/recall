@@ -74,6 +74,35 @@ PENCIL_SETUP: dict[str, Any] = {
     "targets": [{"expr": "p", "meaning": "the pencil costs", "unit": "$"}],
     "positive": True,
 }
+BOOKS = (
+    "If Abebe has 10 red books and some green books, then gives away 5 green books "
+    "and has 10 books left, how many green books did Abebe have at first?"
+)
+BOOKS_SETUP: dict[str, Any] = {
+    "found": True,
+    "unknowns": [
+        {
+            "symbol": "g",
+            "meaning": "green books Abebe had at first",
+            "unit": "books",
+        }
+    ],
+    "equations": [
+        {
+            "equation": "10 + g - 5 = 10",
+            "source": "10 red books, gives away 5 green books, and has 10 books left",
+        }
+    ],
+    "targets": [
+        {
+            "expr": "g",
+            "meaning": "green books Abebe had at first",
+            "unit": "books",
+        }
+    ],
+    "whole_numbers": True,
+    "positive": True,
+}
 
 
 def _setup(base: dict[str, Any], **overrides: Any) -> WordProblemSetup:
@@ -106,6 +135,10 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         "A number plus 7 is 19. What is the number?",
         "The sum of two numbers is 30 and their difference is 6. What are the numbers?",
         "John has 5 more apples than Sam. Together they have 23 apples. How many does Sam have?",
+        BOOKS,
+        "A shop had some notebooks, received 8, sold 3, and now has 20. How many did it start with?",
+        "Marta had 12 blue beads and some red beads, lost 4 red beads, and has 15 left. "
+        "How many red beads did she start with?",
     ],
 )
 def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
@@ -295,6 +328,17 @@ def test_money_answer_reads_as_dollars() -> None:
     assert "**2. Subtract $\\frac{3}{2}$ from both sides**" in reply
 
 
+def test_inventory_change_problem_shows_equation_working_and_check() -> None:
+    reply = _reply(BOOKS_SETUP, BOOKS)
+
+    assert reply is not None
+    assert "$10 + g - 5 = 10$" in reply
+    assert "**Solve**" in reply
+    assert "$g = 5$" in reply
+    assert "Check: $" in reply
+    assert "**Answer:** green books Abebe had at first: $5$ books" in reply
+
+
 def test_reply_strips_markup_from_the_translation() -> None:
     payload = {
         **AGES_SETUP,
@@ -336,7 +380,9 @@ async def test_intent_makes_no_call_when_off_or_not_a_word_problem(
 
 
 @pytest.mark.asyncio
-async def test_intent_uses_one_bounded_call(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_intent_uses_resilient_bounded_structured_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     seen: dict[str, Any] = {}
 
     async def fake(**kwargs: Any) -> WordProblemSetup:
@@ -346,9 +392,27 @@ async def test_intent_uses_one_bounded_call(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
     intent = await word_problem_intent(AGES, _settings())
     assert intent is not None and intent.kind == "word_problem"
-    assert seen["model_alias"] == "title-model"
+    assert seen["model_alias"] == "gemini-flash"
     assert seen["schema"] is WordProblemSetup
     assert seen["allow_fallback"] is False
+
+
+@pytest.mark.asyncio
+async def test_intent_retries_semantic_decline_on_independent_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    aliases: list[str] = []
+
+    async def fake(**kwargs: Any) -> WordProblemSetup:
+        aliases.append(kwargs["model_alias"])
+        payload = {"found": False} if len(aliases) == 1 else AGES_SETUP
+        return WordProblemSetup.model_validate(payload)
+
+    monkeypatch.setattr(litellm_gateway, "complete_structured", fake)
+    intent = await word_problem_intent(AGES, _settings())
+
+    assert intent is not None and intent.kind == "word_problem"
+    assert aliases == ["gemini-flash", "fallback-memory-model"]
 
 
 @pytest.mark.asyncio

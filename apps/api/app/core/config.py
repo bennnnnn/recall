@@ -162,14 +162,16 @@ class Settings(BaseSettings):
     # extraction call on a fast alias before the honesty note (the "Couldn't
     # verify under a correct ∫ x²" path). Only that already-failing path pays;
     # gate-miss and regex-hit turns make no LLM call. The result is never
-    # trusted — it reaches the user only when SymPy verifies it. No fallback
-    # retry: bounded latency beats best-effort on a best-effort path.
+    # trusted — it reaches the user only when SymPy verifies it. If the primary
+    # structured provider times out or returns invalid JSON, the configured
+    # secondary provider gets one bounded attempt before the path declines.
     math_llm_extract_enabled: bool = True
     math_llm_extract_timeout_seconds: float = 2.5
     # Algebra word problems ("three times as old", "tickets cost $5 and $8"):
-    # one structured call translates them into unknowns and equations, which
-    # reach the user only when every number is stated in the problem and
-    # SymPy finds exactly one solution in the stated domain.
+    # a bounded structured call translates them into unknowns and equations,
+    # with one provider-independent retry on timeout or invalid JSON. Results
+    # reach the user only when every number is stated in the problem and SymPy
+    # finds exactly one solution in the stated domain.
     math_word_problems_enabled: bool = True
     math_word_problem_timeout_seconds: float = 3.0
     # POST /math/scan/read runs OCR (Mathpix, then vision) so the student can

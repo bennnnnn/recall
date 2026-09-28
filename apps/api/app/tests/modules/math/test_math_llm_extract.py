@@ -88,8 +88,9 @@ async def test_llm_extract_disabled_by_flag(monkeypatch: pytest.MonkeyPatch) -> 
 @pytest.mark.asyncio
 async def test_llm_extract_returns_mapped_intent(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake(**kwargs: object) -> LLMMathExtract:
-        assert kwargs["model_alias"] == "title-model"
-        assert kwargs["allow_fallback"] is False
+        assert kwargs["model_alias"] == "gemini-flash"
+        assert kwargs["allow_fallback"] is True
+        assert kwargs["fallback_on_invalid"] is True
         return LLMMathExtract(found=True, kind="equation", lhs="3*x+5", rhs="17")
 
     monkeypatch.setattr(litellm_gateway, "complete_structured", fake)

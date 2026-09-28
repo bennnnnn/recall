@@ -321,6 +321,31 @@ async def test_complete_structured_no_retry_on_bad_output():
 
 
 @pytest.mark.asyncio
+async def test_complete_structured_can_retry_invalid_output_for_verified_paths():
+    """Correctness-sensitive paths can retry malformed structured output."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    payload = '{"actions": [{"action": "add", "topic": "T", "content": "C"}]}'
+    calls: list[str] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs["model"])
+        return _fake_completion("not valid json {{{" if len(calls) == 1 else payload)
+
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
+        result = await litellm_gateway.complete_structured(
+            settings=settings,
+            model_alias="title-model",
+            messages=[{"role": "user", "content": "x"}],
+            schema=TodoExtractionResult,
+            fallback_on_invalid=True,
+        )
+    assert result is not None
+    assert len(result.actions) == 1
+    assert calls[0].endswith("deepseek-chat")
+    assert calls[1].endswith("qwen-plus")
+
+
+@pytest.mark.asyncio
 async def test_complete_structured_returns_none_when_both_fail():
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
     calls: list[str] = []
