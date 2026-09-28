@@ -171,6 +171,7 @@ async def test_fallback_verifies_spoken_math_regex_missed(
     )
     assert verified is not None
     assert verified.canonical_answer is not None
+    assert verified.canonical_answer is not None
     assert "x" in verified.canonical_answer and "3" in verified.canonical_answer
     assert note is not None and "Couldn't verify" not in note
 
@@ -312,4 +313,19 @@ async def test_fallback_not_used_for_image_extracts(monkeypatch: pytest.MonkeyPa
         needs_math=True,
     )
     assert verified is not None
-    assert verified.canonical_answer is not None
+
+
+@pytest.mark.asyncio
+async def test_image_intent_with_nondefault_domain_is_dropped() -> None:
+    """OCR-derived intents obey the same whole-request audit as text extractors."""
+    from app.models.schemas.math import MathImageExtract
+
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve this over the integers",
+        _settings(),
+        has_image_attachment=True,
+        image_math_extract=MathImageExtract(lhs="x^2", rhs="2", variables=["x"], found=True),
+        needs_math=True,
+    )
+    assert verified is None
+    assert note is not None and "Do NOT claim SymPy verification" in note

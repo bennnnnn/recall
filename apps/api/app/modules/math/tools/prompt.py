@@ -41,6 +41,16 @@ VERIFIED_MATH_REPLY_HINT = (
 )
 
 
+def _intent_preserves_request(user_content: str, intent: MathIntent) -> bool:
+    """Apply whole-request guards to intents produced outside the regex seam."""
+    if not request_consumption_complete(user_content, intent):
+        return False
+    return not (
+        intent.kind == "equation"
+        and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
+    )
+
+
 def _withhold_hint_answer(
     verified: VerifiedMathBlock,
     response_intent: MathResponseIntent,
@@ -248,11 +258,7 @@ async def build_math_augmentation(
         # to MathIntent (do not re-parse through the text regex, which mangles
         # unicode ops / abs bars a photographed problem can contain).
         intent: MathIntent | None = _intent_from_image_extract(image_math_extract)
-        if (
-            intent is not None
-            and intent.kind == "equation"
-            and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
-        ):
+        if intent is not None and not _intent_preserves_request(user_content, intent):
             intent = None
     else:
         intent = extract_math_intent(user_content)
@@ -308,15 +314,7 @@ async def build_math_augmentation(
         # Only this already-failing path pays — gate-miss and regex-hit turns
         # never make this call.
         intent = await llm_extract_math_intent(user_content, settings)
-        if intent is not None and (
-            not request_consumption_complete(user_content, intent)
-            or (
-                intent.kind == "equation"
-                and trig_domain_would_be_dropped(
-                    f"{intent.lhs or ''} {intent.rhs or ''}", user_content
-                )
-            )
-        ):
+        if intent is not None and not _intent_preserves_request(user_content, intent):
             intent = None
 
     if intent is None:

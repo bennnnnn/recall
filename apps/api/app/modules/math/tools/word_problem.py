@@ -45,6 +45,10 @@ _HOW_MUCH_TARGET = (
     r"received|left|remain|more|less|share|weight|mass|distance|time|length|"
     r"width|height|area|perimeter|volume|speed|rate|percentage|percent)"
 )
+_QUANTITATIVE_CHANGE = (
+    r"(?:paid|spent|earns?|gives?|gave|receives?|received|buys?|bought|sells?|sold|"
+    r"loses?|lost|adds?|added|removes?|removed|takes?|took)"
+)
 _MATH_REQUEST = re.compile(
     r"\b(?:calculate|compute|work\s+out)\b"
     r"|\bhow\s+(?:old|long|far|fast|tall|wide)\b"
@@ -57,14 +61,18 @@ _MATH_REQUEST = re.compile(
     re.IGNORECASE,
 )
 _HOW_MANY_REQUEST = re.compile(
-    r"\bhow\s+many\b(?!\s+(?:should|could|would|can|may|might)\b)",
+    r"\bhow\s+many\b",
+    re.IGNORECASE,
+)
+_HOW_MANY_ADVICE = re.compile(
+    r"\bhow\s+many\b[^.?!]{0,80}\b(?:should|could|would|can|may|might|recommend|suggest)\b",
     re.IGNORECASE,
 )
 _HOW_MANY_MATH_CONTEXT = re.compile(
     rf"\b{_MATH_TARGET}\b|\b(?:times\s+as|twice|double|triple|thrice|half|"
     r"more\s+than|less\s+than|fewer\s+than|greater\s+than|sum|total|together|"
     r"altogether|combined|difference|product|consecutive|each|per|equally|"
-    r"received|sold|lost|added|removed|gave|left|remain(?:s|ing)?|split|percent|"
+    rf"{_QUANTITATIVE_CHANGE}|left|remain(?:s|ing)?|split|percent|"
     r"there\s+(?:are|were))\b|%",
     re.IGNORECASE,
 )
@@ -83,9 +91,8 @@ _PRONOUN_MATH_CONTEXT = re.compile(
 _RELATION = re.compile(
     r"\b(?:times\s+as|twice|double|triple|thrice|half|more\s+than|less\s+than|fewer\s+than"
     r"|greater\s+than|older|younger|sum|total|together|altogether|combined|difference"
-    r"|product|consecutive|each|per|costs?|paid|spent|earns?|left|remain(?:s|ing)?|shared?"
-    r"|gives?|gave|receives?|received|gets?|got|buys?|bought|sells?|sold|loses?|lost"
-    r"|adds?|added|removes?|removed|takes?|took"
+    rf"|product|consecutive|each|per|costs?|left|remain(?:s|ing)?|shared?"
+    rf"|{_QUANTITATIVE_CHANGE}|gets?|got"
     r"|split|equally|ages?|years\s+old|numbers?|integers?|percent)\b|%",
     re.IGNORECASE,
 )
@@ -182,7 +189,11 @@ def word_problem_candidate(text: str) -> bool:
     request = _MATH_REQUEST.search(text)
     if request is None:
         how_many = _HOW_MANY_REQUEST.search(text)
-        if how_many is not None and _HOW_MANY_MATH_CONTEXT.search(text) is not None:
+        if (
+            how_many is not None
+            and _HOW_MANY_ADVICE.search(text) is None
+            and _HOW_MANY_MATH_CONTEXT.search(text) is not None
+        ):
             request = how_many
     if request is None:
         pronoun = _PRONOUN_REQUEST.search(text)

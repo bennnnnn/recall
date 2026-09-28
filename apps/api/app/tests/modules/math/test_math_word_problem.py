@@ -142,6 +142,8 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         "John has 5 more apples than Sam. Together they have 23 apples. How many does Sam have?",
         BOOKS,
         "A shop had some notebooks, received 8, sold 3, and now has 20. How many did it start with?",
+        "Jane has 8 apples and gives 3 to Joe. How many does she have now?",
+        "Jane has 8 apples and receives 3 from Joe. How many does she have now?",
         "Marta had 12 blue beads and some red beads, lost 4 red beads, and has 15 left. "
         "How many red beads did she start with?",
     ],
@@ -165,6 +167,7 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "I got 3 cats and 2 dogs. Find them.",
         "I got 3 cats and 2 dogs. What does Ana have?",
         "I got 3 cats and 2 dogs. How many should I adopt?",
+        "I got 3 cats and 2 dogs. How many total would you recommend I adopt?",
         "solve 2x+3=11",
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
@@ -187,6 +190,7 @@ def test_candidate_declines(text: str) -> None:
         "I got 3 cats and 2 dogs. Find them.",
         "I got 3 cats and 2 dogs. What does Ana have?",
         "I got 3 cats and 2 dogs. How many should I adopt?",
+        "I got 3 cats and 2 dogs. How many total would you recommend I adopt?",
     ],
 )
 def test_non_math_possession_question_does_not_enter_math_pipeline(text: str) -> None:

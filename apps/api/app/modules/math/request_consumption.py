@@ -62,7 +62,7 @@ _NONDEFAULT_DOMAIN = re.compile(
     r"|\b(?:for|where|also)\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
     r"|\b(?:for|where|also)\s+[a-z]\s+"
     r"(?:(?:must\s+be|is|are|was|were)\s+)?"
-    rf"(?:positive|negative|nonnegative|nonpositive|not\s+equal\s+to|"
+    rf"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|not\s+equal\s+to|"
     rf"(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
     re.IGNORECASE,
 )

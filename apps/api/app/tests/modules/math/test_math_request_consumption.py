@@ -40,6 +40,8 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Solve 2x=4; also x must be positive",
         "Solve x²=4 for x > 0",
         "Solve x^2=4 where x is positive",
+        "Solve x^2=4 where x is non-negative",
+        "Solve x^2=4 where x is non-positive",
         "Solve x^2=4 for x != -2",
         "Solve x^2=4 for x>=0",
         "Solve x^2=4 where x!= -2",
