@@ -53,7 +53,7 @@ function visibleText(node: RenderNode): string {
 describe("scanner calculation lines", () => {
   it.each([false, true])("renders actual scanner steps on separate native lines, streaming=%s", async (streaming) => {
     const { toJSON, queryByText } = await render(<MarkdownContent content={SCANNER_RESPONSE} streaming={streaming} />);
-    expect(visibleText(toJSON())).toContain("2x + 3 - 3 = 5 - 3\n2x = 2");
+    expect(visibleText(toJSON())).toContain("2x + 3 − 3 = 5 − 3\n2x = 2");
     expect(visibleText(toJSON())).toContain("\nx = 1");
     expect(queryByText(/`|\\frac|\$/)).toBeNull();
   });

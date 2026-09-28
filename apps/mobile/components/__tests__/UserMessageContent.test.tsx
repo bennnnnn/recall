@@ -71,14 +71,14 @@ function userMessage(content: string): Message {
 
 describe("UserMessageContent math/markdown rendering", () => {
   it("renders a bare equation as typeset math, not literal text", async () => {
-    const { getByText, queryByText } = await render(
+    const { getByText, getByTestId, queryByText } = await render(
       <UserMessageContent message={userMessage("x^2 + 2 = 6")} />,
     );
 
-    // Superscript renders as a real Unicode superscript char via the same
-    // no-WebView MathText fallback assistant content uses.
-    expect(getByText("x² + 2 = 6")).toBeOnTheScreen();
+    expect(getByTestId("math-script")).toHaveTextContent("2");
+    expect(getByText(/\+ 2 = 6/)).toBeOnTheScreen();
     expect(queryByText("x^2 + 2 = 6")).toBeNull();
+    expect(queryByText("x² + 2 = 6")).toBeNull();
   });
 
   it("keeps grouped slash fractions unambiguous in a sent user bubble", async () => {

@@ -49,8 +49,8 @@ describe('C04 multiline inline math rendering', () => {
     expect(getByTestId('math-frac')).toBeOnTheScreen();
     expect(getByText('∂')).toBeOnTheScreen();
     expect(getByText('∂ y')).toBeOnTheScreen();
-    expect(getByTestId('math-text-scroll').props.accessibilityLabel).toBe('∂/∂ y(x^2 y) = x^2 · 1 = x^2.');
-    expect(getByText(' · 1 = x')).toBeOnTheScreen();
+    expect(getByTestId('math-text-scroll').props.accessibilityLabel).toBe('∂/∂ y(x^2 y) = x^2 ⋅ 1 = x^2.');
+    expect(getByText(' ⋅ 1 = x')).toBeOnTheScreen();
     expect(queryByText(/\\frac|\\partial|\$/)).toBeNull();
   });
 });

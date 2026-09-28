@@ -2,7 +2,15 @@ import { Dimensions, StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
+import { findLayouts, layoutMath, layoutProblems } from "@/lib/math/layout";
+import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
+import { parseSimpleLatex } from "@/lib/math/text";
 import { lightTheme } from "@/lib/theme";
+
+function laidOut(latex: string, fontSize = 16) {
+  const layout = layoutMath(parseSimpleLatex(fixImplicitExponents(latex.trim())), fontSize);
+  return { layout, problems: layoutProblems(layout, fontSize) };
+}
 
 describe("MathText", () => {
   beforeEach(() => {
@@ -67,12 +75,19 @@ describe("MathText", () => {
     expect(JSON.stringify(rendered.toJSON())).not.toMatch(/[\uE005-\uE009]/);
   });
 
-  it("renders a superscript digit as a real Unicode superscript char", async () => {
-    // "2" has a Unicode superscript mapping (unicodeSupSub.ts) — MathText
-    // prefers that over the styled-smaller-Text fallback so it reads raised
-    // in plain text with no WebView.
-    const { getByText } = await render(<MathText latex="x^2" />);
-    expect(getByText("x²")).toBeOnTheScreen();
+  it("raises a superscript in the math face instead of a unicode fallback glyph", async () => {
+    const { getByTestId, queryByText } = await render(<MathText latex="x^2" />);
+    const { layout, problems } = laidOut("x^2");
+    const script = findLayouts(layout, "script")[0];
+    expect(problems).toEqual([]);
+    expect(getByTestId("math-script")).toHaveTextContent("2");
+    expect(getByTestId("math-script")).toHaveStyle({
+      fontFamily: "KaTeX_Main",
+      fontSize: script.fontSize,
+      transform: [{ translateY: -(script.raise ?? 0) }],
+    });
+    expect(queryByText("x²")).toBeNull();
+    expect(queryByText("²")).toBeNull();
   });
 
   it("renders nothing for empty latex", async () => {
@@ -108,8 +123,13 @@ describe("MathText", () => {
     // Root is a sized View (not Text wrapping a View) so the paragraph Text
     // can treat it as a character. Nested Text>View was 0×0 on iOS and the
     // next sentence painted on top of this one (live: part (b) smudge).
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 24, height: 44 });
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 13, height: 44 });
+    const { layout, problems } = laidOut("\\frac{1}{2}");
+    const frac = findLayouts(layout, "frac")[0];
+    expect(problems).toEqual([]);
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: layout.width, height: layout.height });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: frac.width, height: frac.height });
+    expect(frac.width).toBeGreaterThanOrEqual(frac.contentWidth ?? 0);
+    expect(frac.pad ?? 0).toBeLessThanOrEqual(16 * 0.5);
     expect(getByText("1")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
   });
 
@@ -126,7 +146,8 @@ describe("MathText", () => {
     const narrow = await render(<MathText latex={String.raw`\frac{111111111111}{1}`} />);
     const wideWidth = StyleSheet.flatten(wide.getByTestId("math-frac").props.style).width as number;
     const narrowWidth = StyleSheet.flatten(narrow.getByTestId("math-frac").props.style).width as number;
-    expect(narrowWidth).toBe(12 * 9 + 4);
+    const narrowLayout = findLayouts(laidOut(String.raw`\frac{111111111111}{1}`).layout, "frac")[0];
+    expect(narrowWidth).toBe(narrowLayout.width);
     expect(wideWidth).toBeGreaterThan(narrowWidth + 40);
   });
 
@@ -157,15 +178,18 @@ describe("MathText", () => {
     expect(getByText("π")).toBeOnTheScreen();
     expect(getByText("2")).toBeOnTheScreen();
     expect(queryByText(/[()]/)).toBeNull();
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 13, height: 44 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 24, height: 44 });
+    const { layout } = laidOut(String.raw`\frac{\pi}{2}`);
+    const frac = findLayouts(layout, "frac")[0];
+    expect(getByTestId("math-frac")).toHaveStyle({ width: frac.width, height: frac.height });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: layout.width, height: layout.height });
   });
 
   it("groups sums and scripts using the fraction bar without adding source characters", async () => {
     const { getByText, queryByText, getByTestId } = await render(
       <MathText latex={String.raw`\frac{x^2+1}{a+b}`} />,
     );
-    expect(getByText("²")).toBeOnTheScreen();
+    expect(getByTestId("math-script")).toHaveTextContent("2");
+    expect(queryByText("²")).toBeNull();
     expect(getByText("a+b")).toBeOnTheScreen();
     expect(queryByText(/[()]/)).toBeNull();
     expect(getByTestId("math-vinculum")).toBeOnTheScreen();
@@ -174,7 +198,7 @@ describe("MathText", () => {
   it("preserves parentheses explicitly included on either fraction side", async () => {
     const { getByText } = await render(<MathText latex={String.raw`\frac{(a+b)}{(c-d)}`} />);
     expect(getByText("(a+b)")).toBeOnTheScreen();
-    expect(getByText("(c-d)")).toBeOnTheScreen();
+    expect(getByText("(c−d)")).toBeOnTheScreen();
   });
 
   it("BUG FIX regression: sqrt inside a fraction keeps one bar over b^2 - 4ac", async () => {
@@ -215,12 +239,13 @@ describe("MathText", () => {
     expect(screen.getByText(/m = ±/)).toBeOnTheScreen();
   });
 
-  it("BUG FIX regression: \\neq / \\ne render as ≠, not ≡ or the word ne", async () => {
+  it("composes ≠ from the KaTeX not-glyph, which is the face that contains the slash", async () => {
     const neq = await render(<MathText latex={String.raw`a \neq 0`} />);
-    expect(neq.getByText(/≠/)).toBeOnTheScreen();
+    expect(neq.getByTestId("math-negated").props.accessibilityLabel).toBe("≠");
+    expect(neq.getByTestId("math-negated")).toHaveTextContent(`${"\uE020"}=`);
     expect(neq.queryByText(/≡/)).toBeNull();
     const ne = await render(<MathText latex={String.raw`a \ne 0`} />);
-    expect(ne.getByText(/≠/)).toBeOnTheScreen();
+    expect(ne.getByTestId("math-negated").props.accessibilityLabel).toBe("≠");
     expect(ne.queryByText(/\bne\b/)).toBeNull();
   });
 
@@ -248,15 +273,20 @@ describe("MathText", () => {
     // 16px √, so `\sqrt{8}` read as "√ subscript 8" with the bar floating in
     // the sign's leading.
     const { getByTestId } = await render(<MathText latex={String.raw`\sqrt{8}`} />);
+    const { layout, problems } = laidOut(String.raw`\sqrt{8}`);
+    const radical = findLayouts(layout, "sqrt")[0];
+    expect(problems).toEqual([]);
     expect(getByTestId("math-sqrt")).toHaveStyle({ alignItems: "flex-start" });
-    expect(getByTestId("math-sqrt")).toHaveStyle({ width: 22, height: 22 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 30, height: 22 });
+    expect(getByTestId("math-sqrt")).toHaveStyle({ width: radical.width, height: radical.height });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: layout.width, height: layout.height });
     expect(getByTestId("math-sqrt-radicand")).toHaveStyle({
-      marginLeft: 13,
-      marginTop: 2,
-      width: 9,
-      height: 20,
+      marginLeft: radical.lead,
+      marginTop: radical.bodyTop,
+      width: radical.children[0]?.width,
+      height: radical.bodyHeight,
     });
+    const bar = (radical.barEnd ?? 0) - (radical.barStart ?? 0);
+    expect(bar - (radical.bodyWidth ?? 0)).toBeLessThanOrEqual(16 * 0.28);
     expect(screen.getByText("8")).toHaveStyle({ fontSize: 16, lineHeight: 20 });
   });
 
@@ -264,17 +294,21 @@ describe("MathText", () => {
     const { getByTestId, getByText } = await render(
       <MathText latex={String.raw`\sqrt{\frac{x}{y}}`} />,
     );
-    expect(getByTestId("math-sqrt")).toHaveStyle({ width: 32, height: 46 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 40, height: 46 });
+    const { layout, problems } = laidOut(String.raw`\sqrt{\frac{x}{y}}`);
+    const radical = findLayouts(layout, "sqrt")[0];
+    const frac = findLayouts(layout, "frac")[0];
+    expect(problems).toEqual([]);
+    expect(getByTestId("math-sqrt")).toHaveStyle({ width: radical.width, height: radical.height });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: layout.width, height: layout.height });
     expect(getByTestId("math-sqrt-radicand")).toHaveStyle({
-      marginLeft: 13,
-      marginTop: 2,
-      width: 19,
-      height: 44,
+      marginLeft: radical.lead,
+      marginTop: radical.bodyTop,
+      width: radical.children[0]?.width,
+      height: radical.bodyHeight,
     });
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 13, height: 44 });
-    expect(getByTestId("math-radical-glyph")).toHaveProp("width", 32);
-    expect(getByTestId("math-radical-glyph")).toHaveProp("height", 46);
+    expect(getByTestId("math-frac")).toHaveStyle({ width: frac.width, height: frac.height });
+    expect(getByTestId("math-radical-glyph")).toHaveProp("width", radical.width);
+    expect(getByTestId("math-radical-glyph")).toHaveProp("height", radical.height);
     expect(getByText("x")).toBeOnTheScreen();
     expect(getByText("y")).toBeOnTheScreen();
   });
@@ -285,7 +319,8 @@ describe("MathText", () => {
     const { queryByText } = await render(<MathText latex={String.raw`\sqrt{8^3}`} />);
     expect(queryByText(/\^/)).toBeNull();
     expect(screen.getByText("8")).toBeOnTheScreen();
-    expect(screen.getByText("³")).toBeOnTheScreen();
+    expect(screen.getByTestId("math-script")).toHaveTextContent("3");
+    expect(screen.queryByText("³")).toBeNull();
   });
 
   it("renders an nth-root index without \\sqrt[n] brackets", async () => {
@@ -302,18 +337,32 @@ describe("MathText", () => {
     "keeps fractional exponent %s readable and raised in a sized native View",
     async (latex) => {
       const { getByTestId, getByText, queryByText } = await render(<MathText latex={latex} />);
-      expect(getByText("1/6")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
-      expect(getByTestId("math-fractional-sup")).toHaveStyle({ paddingBottom: 12 });
-      expect(getByTestId("math-text-tall")).toHaveStyle({ height: 30 });
+      const { layout, problems } = laidOut(latex);
+      const script = findLayouts(layout, "script")[0];
+      expect(problems).toEqual([]);
+      expect(queryByText("1/6")).toBeNull();
+      expect(getByText("1")).toBeOnTheScreen();
+      expect(getByText("6")).toBeOnTheScreen();
+      expect(getByTestId("math-script-bar")).toBeOnTheScreen();
+      expect(getByTestId("math-fractional-sup")).toHaveStyle({
+        height: script.height,
+        paddingBottom: script.raise,
+      });
+      expect(getByTestId("math-text-tall")).toHaveStyle({ height: layout.height });
       expect(queryByText("¹⁄⁶")).toBeNull();
     },
   );
 
   it("preserves scripts in fraction sides instead of flattening to literal carets", async () => {
-    const { queryByText, getByText } = await render(<MathText latex={String.raw`\frac{x^2}{y_1}`} />);
+    const { queryByText, getByText, getAllByTestId } = await render(
+      <MathText latex={String.raw`\frac{x^2}{y_1}`} />,
+    );
     expect(queryByText(/\^|_/)).toBeNull();
-    expect(getByText("²")).toBeOnTheScreen();
-    expect(getByText("₁")).toBeOnTheScreen();
+    expect(queryByText("²")).toBeNull();
+    expect(queryByText("₁")).toBeNull();
+    expect(getByText("2")).toBeOnTheScreen();
+    expect(getByText("1")).toBeOnTheScreen();
+    expect(getAllByTestId("math-script")).toHaveLength(2);
   });
 
   it("reserves the full height of nested fraction stacks", async () => {
@@ -332,21 +381,84 @@ describe("MathText", () => {
       <MathText latex={String.raw`\frac{1}{2}`} fontSize={24} />,
     );
     expect(getByText("1")).toHaveStyle({ fontSize: 21, lineHeight: 27 });
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 19.5, height: 66 });
+    const { layout } = laidOut(String.raw`\frac{1}{2}`, 24);
+    const frac = findLayouts(layout, "frac")[0];
+    expect(getByTestId("math-frac")).toHaveStyle({ width: frac.width, height: frac.height });
+    expect(frac.width / findLayouts(laidOut(String.raw`\frac{1}{2}`).layout, "frac")[0].width).toBeCloseTo(1.5, 5);
   });
 
   it("reserves more space when the device increases its font scale", async () => {
     jest.spyOn(Dimensions, "get").mockReturnValue({
       width: 390, height: 844, scale: 3, fontScale: 1.5,
     });
-    const { getByTestId } = await render(<MathText latex={String.raw`\frac{1}{2}`} />);
-    expect(getByTestId("math-frac")).toHaveStyle({ width: 19.5, height: 66 });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 36, height: 66 });
+    const { getByTestId, getByText } = await render(<MathText latex={String.raw`\frac{1}{2}`} />);
+    const { layout } = laidOut(String.raw`\frac{1}{2}`);
+    const frac = findLayouts(layout, "frac")[0];
+    expect(getByTestId("math-frac")).toHaveStyle({ width: frac.width * 1.5, height: frac.height * 1.5 });
+    expect(getByTestId("math-text-tall")).toHaveStyle({
+      width: layout.width * 1.5,
+      height: layout.height * 1.5,
+    });
+    expect(getByText("1")).toHaveStyle({ fontSize: 14 });
   });
 
   it("raises the root degree above the hook without shrinking the radicand", async () => {
     const { getByText } = await render(<MathText latex={String.raw`\sqrt[6]{9}`} />);
-    expect(getByText("6")).toHaveStyle({ fontSize: 12, transform: [{ translateY: -4 }] });
+    const radical = findLayouts(laidOut(String.raw`\sqrt[6]{9}`).layout, "sqrt")[0];
+    expect(radical.index).toBeDefined();
+    expect(getByText("6")).toHaveStyle({
+      fontSize: radical.index?.fontSize,
+      lineHeight: radical.index?.lineHeight,
+      left: radical.index?.left,
+      top: radical.index?.top,
+    });
+    expect((radical.index?.top ?? 0) + (radical.index?.lineHeight ?? 0))
+      .toBeLessThanOrEqual((radical.bodyTop ?? 0) + 0.01);
     expect(getByText("9")).toHaveStyle({ fontSize: 16 });
+  });
+
+  it("draws an overline from the ink width, not the container", async () => {
+    const { getByTestId, queryByText } = await render(
+      <MathText latex={String.raw`\overline{AB}`} />,
+    );
+    const { layout, problems } = laidOut(String.raw`\overline{AB}`);
+    const accent = findLayouts(layout, "accent")[0];
+    expect(problems).toEqual([]);
+    expect(getByTestId("math-accent")).toHaveStyle({ width: accent.width, height: accent.height });
+    expect(getByTestId("math-accent-rule")).toHaveStyle({ width: accent.ruleWidth });
+    expect(Math.abs((accent.ruleWidth ?? 0) - accent.inkWidth)).toBeLessThanOrEqual(16 * 0.2);
+    expect(queryByText(/̅/)).toBeNull();
+  });
+
+  it("paints blackboard bold with the AMS face, not a missing unicode glyph", async () => {
+    const { getByTestId, queryByText } = await render(
+      <MathText latex={String.raw`x \in \mathbb{R}`} />,
+    );
+    expect(getByTestId("math-blackboard")).toHaveTextContent("R");
+    expect(getByTestId("math-blackboard")).toHaveStyle({ fontFamily: "KaTeX_AMS" });
+    expect(queryByText("ℝ")).toBeNull();
+  });
+
+  it("stacks a subscript and superscript in one column", async () => {
+    const { getByTestId } = await render(<MathText latex="x_i^2" />);
+    const column = getByTestId("math-script-column");
+    const { layout } = laidOut("x_i^2");
+    const box = findLayouts(layout, "script").find((item) => item.children.length === 2);
+    expect(box).toBeDefined();
+    expect(column).toHaveStyle({ width: box?.width, height: box?.height });
+    expect(getByTestId("math-script-column")).toBeOnTheScreen();
+    expect(screen.getByText("i")).toBeOnTheScreen();
+    expect(screen.getByText("2")).toBeOnTheScreen();
+  });
+
+  it("stretches a wide hat across the letters it covers", async () => {
+    const { getByTestId } = await render(<MathText latex={String.raw`\widehat{ABC}`} />);
+    const { layout, problems } = laidOut(String.raw`\widehat{ABC}`);
+    const accent = findLayouts(layout, "accent")[0];
+    expect(problems).toEqual([]);
+    expect(accent.spanAccent).toBe(true);
+    expect(Math.abs((accent.ruleWidth ?? 0) - accent.inkWidth)).toBeLessThanOrEqual(16 * 0.2);
+    const rule = getByTestId("math-accent-rule");
+    expect(rule.props.width ?? StyleSheet.flatten(rule.props.style).width).toBe(accent.ruleWidth);
   });
 });

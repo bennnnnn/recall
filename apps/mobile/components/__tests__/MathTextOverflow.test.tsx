@@ -2,6 +2,13 @@ import { render, within } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 
 import { MathText } from "@/components/rich/MathText";
+import { layoutMath } from "@/lib/math/layout";
+import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
+import { parseSimpleLatex } from "@/lib/math/text";
+
+function contentWidth(latex: string, fontSize = 16): number {
+  return layoutMath(parseSimpleLatex(fixImplicitExponents(latex.trim())), fontSize).width;
+}
 
 const slantHeight = String.raw`\text{Slant Height} = \sqrt{ \left( \frac{6}{2} \right)^2 + 4^2 } = \sqrt{3^2 + 4^2} = \sqrt{9 + 16} = \sqrt{25} = 5\text{.}`;
 
@@ -22,12 +29,12 @@ describe("inline tall math overflow", () => {
     expect(viewport.props.bounces).toBe(false);
     expect(frameStyle).toMatchObject({ maxWidth: "100%", flexGrow: 0, flexShrink: 1 });
     expect(contentStyle.flexShrink).toBe(0);
-    // A 300px list column constrains the viewport, never the math row. The
-    // complete width remains scrollable, including the final equality.
+    // The viewport is only maxWidth 100%. Setting width to the formula
+    // made the scroll frame as wide as the math, so the tail could not move.
     expect(contentStyle.width).toBeUndefined();
-    expect(contentStyle.minWidth).toBeGreaterThan(500);
-    expect(frameStyle.width).toBe(contentStyle.minWidth);
-    expect(contentStyle.minWidth - Math.min(300, frameStyle.width)).toBeGreaterThan(200);
+    expect(frameStyle.width).toBeUndefined();
+    expect(contentStyle.minWidth).toBe(contentWidth(slantHeight));
+    expect(contentStyle.minWidth).toBeGreaterThan(390);
     const uprightRuns = within(viewport).getAllByTestId("math-upright-run");
     expect(uprightRuns[0]).toHaveTextContent("Slant Height");
     expect(uprightRuns[0]).toHaveStyle({ fontFamily: "KaTeX_Main", fontSize: 16 });
@@ -44,9 +51,9 @@ describe("inline tall math overflow", () => {
     );
     const formula = getByTestId("math-text-tall");
     const style = StyleSheet.flatten(formula.props.style);
-    // The 20-digit radicand plus radical/margins is wider than 198px.
-    // A fixed child frame would hide its final digits outside contentSize.
-    expect(style.minWidth).toBe(201);
+    const latex = String.raw`\sqrt{99999999999999999999}`;
+    expect(style.minWidth).toBe(contentWidth(latex));
+    expect(style.minWidth).toBeGreaterThan(160);
     expect(style.width).toBeUndefined();
     expect(style.maxWidth).toBeUndefined();
     expect(style.flexShrink).toBe(0);
@@ -55,17 +62,33 @@ describe("inline tall math overflow", () => {
   });
 
   it("keeps a short fraction's original width, height, and type size", async () => {
-    const { getByTestId, getByText } = await render(<MathText latex={String.raw`\frac{1}{2}`} scrollOverflow />);
-    expect(getByTestId("math-text-scroll")).toHaveStyle({ width: 24, height: 44, maxWidth: "100%" });
-    expect(getByTestId("math-text-tall")).toHaveStyle({ minWidth: 24, height: 44 });
+    const latex = String.raw`\frac{1}{2}`;
+    const { getByTestId, getByText } = await render(<MathText latex={latex} scrollOverflow />);
+    const width = contentWidth(latex);
+    const height = layoutMath(parseSimpleLatex(fixImplicitExponents(latex)), 16).height;
+    expect(StyleSheet.flatten(getByTestId("math-text-scroll").props.style).width).toBeUndefined();
+    expect(getByTestId("math-text-scroll")).toHaveStyle({ height, maxWidth: "100%" });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ minWidth: width, height });
     expect(getByText("1")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
   });
 
   it("does not change ordinary prose/script wrapping or other math hosts", async () => {
-    const { rerender, queryByTestId, getByText } = await render(<MathText latex="x^2 + 1" scrollOverflow />);
+    const { rerender, queryByTestId, getByTestId } = await render(<MathText latex="x^2 + 1" scrollOverflow />);
     expect(queryByTestId("math-text-scroll")).toBeNull();
-    expect(getByText("x² + 1")).toBeOnTheScreen();
+    expect(getByTestId("math-script")).toHaveTextContent("2");
     await rerender(<MathText latex={slantHeight} />);
     expect(queryByTestId("math-text-scroll")).toBeNull();
+  });
+
+  it("scrolls a long unstacked equation instead of wrapping it mid-formula", async () => {
+    const latex = `${"x+1+".repeat(30)}x`;
+    const { getByTestId } = await render(<MathText latex={latex} scrollOverflow />);
+    const frame = StyleSheet.flatten(getByTestId("math-text-scroll").props.style);
+    const formula = StyleSheet.flatten(getByTestId("math-text-wide").props.style);
+    expect(frame.width).toBeUndefined();
+    expect(frame.maxWidth).toBe("100%");
+    expect(formula.minWidth).toBe(contentWidth(latex));
+    expect(formula.flexShrink).toBe(0);
+    expect(formula.minWidth).toBeGreaterThan(390);
   });
 });

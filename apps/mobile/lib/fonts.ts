@@ -10,3 +10,9 @@ export { UI_FONT, uiFontFamily } from "@/lib/uiFont";
  */
 export const MATH_FONT = "KaTeX_Main";
 export const MATH_VARIABLE_FONT = "KaTeX_MathItalic";
+/**
+ * AMS relations that KaTeX_Main does not carry (`∴`, `∵`) and the
+ * double-struck capitals KaTeX draws from this face. Most relations (`≤`,
+ * `∈`, `∞`) are in KaTeX_Main and must stay there.
+ */
+export const MATH_SYMBOL_FONT = "KaTeX_AMS";
