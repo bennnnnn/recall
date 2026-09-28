@@ -60,11 +60,29 @@ _NUMBER_SET_DOMAIN = (
     r"\\mathbb\s*\{\s*[ZNQC]\s*\})"
 )
 _REAL_NUMBER_SET = r"(?:\u211D|\\mathbb\s*\{\s*R\s*\})"
-_REAL_PROSE_DOMAIN_END = r"\s+(?:an?\s+)?real(?:\s+numbers?)?\s*(?:$|[,.!?;)])"
+_REAL_PROSE_DOMAIN_END = r"\s+(?:(?:an?|any)\s+)?real(?:\s+numbers?)?\s*(?:$|[,.!?;)])"
 _DOMAIN_ADJECTIVE = (
     r"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|non[-\s]?zero|"
     r"odd|even|prime|composite)"
 )
+# Restriction verbs are composed (optional modal, adverbs, linking verb) so
+# rephrasings such as "has to be" or "can only be" also fail closed. A negated
+# phrase never takes the real-domain exemption: "x cannot be real" restricts.
+_LINK_AUXILIARY = (
+    r"(?:must|should|shall|will|would|can|could|may|might|"
+    r"ha(?:s|ve)(?:\s+got)?\s+to|needs?\s+to|ought\s+to|do(?:es)?)"
+)
+_LINK_ADVERB = r"(?:only|always|ever|strictly|also|still|necessarily)"
+_LINK_VERB = (
+    r"(?:is|are|was|were|be|being|to\s+be|equals?|remains?|stays?|"
+    r"belongs?\s+to|lies?\s+(?:in|between|within))"
+)
+_AFFIRMATIVE_LINK = rf"(?:{_LINK_AUXILIARY}\s+)?(?:{_LINK_ADVERB}\s+){{0,2}}{_LINK_VERB}"
+_NEGATED_LINK = (
+    rf"(?:(?:(?:{_LINK_AUXILIARY}\s+)?(?:{_LINK_ADVERB}\s+)?(?:not|never)|cannot|"
+    rf"[a-z]+n['\u2019]t)\s+(?:{_LINK_ADVERB}\s+)?{_LINK_VERB}|(?:is|are|was|were)n['\u2019]t)"
+)
+_LINKING_PHRASE = rf"(?:{_NEGATED_LINK}|{_AFFIRMATIVE_LINK})"
 _DOMAIN_CUE = (
     r"(?:(?:for|where|also|with|and|if)\b|"
     r"(?:assum(?:e|ing)|suppos(?:e|ing)|given|provided)(?:\s+that)?\b|"
@@ -81,9 +99,8 @@ _NONDEFAULT_DOMAIN = re.compile(
     rf"|[a-z]\s*(?:∈|\\in\b)\s*(?!{_REAL_NUMBER_SET}(?:$|[\s,;.:)\]]))"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+in\s*[\[(]"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
-    rf"|{_DOMAIN_CUE}\s+[a-z]\s+(?:(?:must\s+(?:not\s+)?(?:be|equal)|is|are|be|"
-    r"to\s+be|was|were|equals?|cannot\s+(?:be|equal)|being|belongs?\s+to|"
-    rf"lies?\s+in)\b)(?!{_REAL_PROSE_DOMAIN_END})"
+    rf"|{_DOMAIN_CUE}\s+[a-z]\s+{_NEGATED_LINK}\b"
+    rf"|{_DOMAIN_CUE}\s+[a-z]\s+{_AFFIRMATIVE_LINK}\b(?!{_REAL_PROSE_DOMAIN_END})"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+"
     rf"(?:{_DOMAIN_ADJECTIVE}|(?:an?\s+)?{_NUMBER_SET_DOMAIN})"
     rf"|{_DOMAIN_CUE}\s+(?:an?\s+)?(?:{_DOMAIN_ADJECTIVE}|{_NUMBER_SET_DOMAIN})"
@@ -97,8 +114,8 @@ _LINKED_EQUALITY_DOMAIN = re.compile(
 _SIGNED_OUTPUT_RESTRICTION = re.compile(
     rf"\b(?:(?:the|only)\s+){{0,2}}{_DOMAIN_ADJECTIVE}\s+"
     r"(?:real\s+)?(?:roots?|solutions?)\b(?:\s+only)?"
-    rf"|\b(?:roots?|solutions?)\s+(?:that\s+(?:are|must\s+be)\s+)?"
-    rf"{_DOMAIN_ADJECTIVE}\b",
+    rf"|\b(?:roots?|solutions?)\s+(?:that\s+)?(?:{_LINKING_PHRASE}\s+)?"
+    rf"(?:(?:not|never|{_LINK_ADVERB})\s+)?{_DOMAIN_ADJECTIVE}\b",
     re.IGNORECASE,
 )
 _DOMAIN_BLIND_KINDS = frozenset(

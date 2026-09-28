@@ -95,17 +95,19 @@ def _division_steps(
             )
         )
     if not steps:
+        # No partial dividend reached the divisor, so every column, including
+        # appended placeholder zeros, folds into one zero step at the last
+        # working column. Its remainder is the running value, not the bare input.
         steps.append(
             LongDivisionStep(
                 index=0,
-                column_end=max(0, len(digits) - 1),
-                partial_dividend=str(int(digits or "0")),
+                column_end=max(0, len(working_digits) - 1),
+                partial_dividend=str(remainder),
                 quotient_digit=0,
                 product="0",
-                remainder=str(int(digits or "0")),
+                remainder=str(remainder),
             )
         )
-        remainder = int(digits or "0")
     return steps, remainder
 
 

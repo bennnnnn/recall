@@ -87,6 +87,21 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Let x be positive. Solve x^2=4",
         "Suppose that x is negative. Solve x^2=4",
         "Take x to be nonnegative. Solve x^2=4",
+        "Solve x^2=4 where x has to be positive",
+        "Solve x^2=4 where x should be positive",
+        "Solve x^2=4 where x needs to be positive",
+        "Solve x^2=4 where x can only be positive",
+        "Solve x^2=4 where x must always be positive",
+        "Solve x^2=4 where x has to be greater than 0",
+        "Solve x^2=4 where x lies between 0 and 5",
+        "Solve x^2=4 where x has to be real and positive",
+        "Solve x^2=4 where x cannot be real",
+        "Solve x^2=4 where x must not be real",
+        "Solve x^2=4 where x should never be real",
+        "Solve x^2=4; the solutions must be positive",
+        "Solve x^2=4; the roots have to be positive",
+        "Solve x^2=4; the roots must be strictly positive",
+        "Solve x^2=4; the solutions are not negative",
     ],
 )
 def test_unsupported_multipart_request_fails_closed(question: str) -> None:
@@ -135,6 +150,8 @@ def test_system_with_an_extra_inequality_constraint_fails_closed() -> None:
         "Solve x^2=4 where x is real",
         "Solve x^2=4 assuming x is a real number",
         "Let x be real. Solve x^2=4",
+        "Solve x^2=4 where x has to be real",
+        "Solve x^2=4 where x can be any real number",
     ],
 )
 def test_explicit_real_domain_is_already_represented(question: str) -> None:

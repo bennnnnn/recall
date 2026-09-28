@@ -120,6 +120,36 @@ def test_decimal_long_division_appends_visible_placeholder_zeros() -> None:
     assert [step.column_end for step in spec.division_steps] == [1, 2]
 
 
+def test_division_below_the_divisor_keeps_appended_zeros_in_its_step() -> None:
+    _intent, _block, spec = _work("Show steps: 1 divided by 3000")
+    assert spec.quotient == "0.000"
+    assert spec.working_operands == ["1.000", "3000"]
+    assert [step.partial_dividend for step in spec.division_steps] == ["1000"]
+    assert [step.column_end for step in spec.division_steps] == [3]
+    assert spec.remainder == "1000"
+    assert "1000 ÷ 3000 gives 0." in spec.explanations[1]
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Show steps: 1 divided by 3000",
+        "Show steps: 5 divided by 7000",
+        "Show steps: 2 divided by 3",
+        "Show steps: 1 divided by 6",
+    ],
+)
+def test_repeating_division_trace_accounts_for_every_working_column(question: str) -> None:
+    _intent, _block, spec = _work(question)
+    dividend, divisor = spec.working_operands
+    dividend_digits = dividend.replace(".", "")
+    quotient_digits = (spec.quotient or "").replace(".", "")
+    last = spec.division_steps[-1]
+    assert last.column_end == len(dividend_digits) - 1
+    assert last.remainder == spec.remainder
+    assert int(dividend_digits) == int(divisor) * int(quotient_digits) + int(spec.remainder or "0")
+
+
 @pytest.mark.parametrize(
     "question, quotient, answer",
     [
