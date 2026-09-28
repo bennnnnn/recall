@@ -132,12 +132,19 @@ def test_system_with_an_extra_inequality_constraint_fails_closed() -> None:
         "Solve x^2=4, x∈ℝ",
         r"Solve x^2=4, x\in\mathbb{R}",
         r"Solve x^2=4, x in \mathbb{R}",
+        "Solve x^2=4 where x is real",
+        "Solve x^2=4 assuming x is a real number",
+        "Let x be real. Solve x^2=4",
     ],
 )
 def test_explicit_real_domain_is_already_represented(question: str) -> None:
     intent = extract_math_intent(question)
     assert intent is not None
     assert intent.kind == "equation"
+
+
+def test_real_domain_plus_an_extra_sign_constraint_still_fails_closed() -> None:
+    assert extract_math_intent("Solve x^2=4 where x is real and positive") is None
 
 
 def test_z_score_input_labels_are_not_mistaken_for_requested_statistics() -> None:

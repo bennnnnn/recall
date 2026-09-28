@@ -492,6 +492,15 @@ async def test_intent_survives_a_gateway_error(monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.mark.asyncio
+async def test_intent_rejects_an_unrepresented_second_operation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(litellm_gateway, "complete_structured", _gateway(AGES_SETUP))
+    text = f"{AGES} Then graph it."
+    assert await word_problem_intent(text, _settings()) is None
+
+
+@pytest.mark.asyncio
 async def test_turn_verifies_and_replies_directly(
     monkeypatch: pytest.MonkeyPatch, thread_sympy_executor: None
 ) -> None:

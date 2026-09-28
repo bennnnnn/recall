@@ -23,6 +23,7 @@ from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.models.schemas.math import MathIntent
 from app.models.schemas.math.word_problem import WordProblemSetup
+from app.modules.math.request_consumption import request_consumption_complete
 
 logger = logging.getLogger(__name__)
 
@@ -318,5 +319,7 @@ async def word_problem_intent(text: str, settings: Settings) -> MathIntent | Non
             logger.warning("word problem extract failed on %s", alias, exc_info=True)
             continue
         if setup is not None and setup.found and grounded(setup, text):
-            return MathIntent(kind="word_problem", word_problem=setup, operation="solve")
+            intent = MathIntent(kind="word_problem", word_problem=setup, operation="solve")
+            if request_consumption_complete(text, intent):
+                return intent
     return None

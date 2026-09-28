@@ -60,6 +60,7 @@ _NUMBER_SET_DOMAIN = (
     r"\\mathbb\s*\{\s*[ZNQC]\s*\})"
 )
 _REAL_NUMBER_SET = r"(?:\u211D|\\mathbb\s*\{\s*R\s*\})"
+_REAL_PROSE_DOMAIN_END = r"\s+(?:an?\s+)?real(?:\s+numbers?)?\s*(?:$|[,.!?;)])"
 _DOMAIN_ADJECTIVE = (
     r"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|non[-\s]?zero|"
     r"odd|even|prime|composite)"
@@ -82,7 +83,7 @@ _NONDEFAULT_DOMAIN = re.compile(
     rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+(?:(?:must\s+(?:not\s+)?(?:be|equal)|is|are|be|"
     r"to\s+be|was|were|equals?|cannot\s+(?:be|equal)|being|belongs?\s+to|"
-    r"lies?\s+in)\b)"
+    rf"lies?\s+in)\b)(?!{_REAL_PROSE_DOMAIN_END})"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+"
     rf"(?:{_DOMAIN_ADJECTIVE}|(?:an?\s+)?{_NUMBER_SET_DOMAIN})"
     rf"|{_DOMAIN_CUE}\s+(?:an?\s+)?(?:{_DOMAIN_ADJECTIVE}|{_NUMBER_SET_DOMAIN})"
