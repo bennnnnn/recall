@@ -86,6 +86,13 @@ _LINKED_EQUALITY_DOMAIN = re.compile(
     rf"{_EQUALITY_DOMAIN_CUE}\s+[a-z]\s*={{1,2}}(?!=)",
     re.IGNORECASE,
 )
+_SIGNED_OUTPUT_RESTRICTION = re.compile(
+    rf"\b(?:(?:the|only)\s+){{0,2}}{_DOMAIN_ADJECTIVE}\s+"
+    r"(?:real\s+)?(?:roots?|solutions?)\b(?:\s+only)?"
+    rf"|\b(?:roots?|solutions?)\s+(?:that\s+(?:are|must\s+be)\s+)?"
+    rf"{_DOMAIN_ADJECTIVE}\b",
+    re.IGNORECASE,
+)
 _DOMAIN_BLIND_KINDS = frozenset(
     {"equation", "system", "inequality", "calculus", "limit", "graph", "graph_pair"}
 )
@@ -140,6 +147,8 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         leftovers.append("multiple requested function outputs")
     has_unrepresented_domain = bool(_NONDEFAULT_DOMAIN.search(text))
     if _LINKED_EQUALITY_DOMAIN.search(text):
+        has_unrepresented_domain = True
+    if _SIGNED_OUTPUT_RESTRICTION.search(text):
         has_unrepresented_domain = True
     if intent.kind in _DOMAIN_BLIND_KINDS and has_unrepresented_domain:
         # These symbolic intents currently use their default real domain and

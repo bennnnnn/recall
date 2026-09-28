@@ -150,6 +150,8 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         "How many red beads did she start with?",
         "24 candies are shared equally among 6 children. How much will each child get?",
         "A number plus 5 equals 12. Solve for the number?",
+        "Maria spent $5 and has $10 left. How much did she have initially?",
+        "A shop spent $5 and has $10 left. How much did it start with?",
     ],
 )
 def test_candidate_fires_for_algebra_word_problems(text: str) -> None:

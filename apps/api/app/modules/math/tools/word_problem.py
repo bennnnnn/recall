@@ -69,6 +69,15 @@ _WORK_OUT_REQUEST = re.compile(
     rf"tall|wide)\b|\b{_MATH_TARGET}\b)",
     re.IGNORECASE,
 )
+_INITIAL_STATE = r"(?:initially|originally|at\s+(?:first|the\s+(?:start|beginning)))"
+_HOW_MUCH_INITIAL_REQUEST = re.compile(
+    r"\bhow\s+much\s+(?:"
+    rf"(?:do|does|did)\b[^.?!]{{0,45}}\b(?:have|has|had)\b[^.?!]{{0,16}}{_INITIAL_STATE}"
+    r"|(?:do|does|did)\b[^.?!]{0,45}\bstart(?:ed)?\s+with\b"
+    rf"|(?:was|were)\b[^.?!]{{0,45}}{_INITIAL_STATE}"
+    r")",
+    re.IGNORECASE,
+)
 _HOW_MANY_REQUEST = re.compile(
     r"\bhow\s+many\b",
     re.IGNORECASE,
@@ -203,6 +212,8 @@ def word_problem_candidate(text: str) -> bool:
     request = _MATH_REQUEST.search(text)
     if request is None:
         request = _WORK_OUT_REQUEST.search(text)
+    if request is None:
+        request = _HOW_MUCH_INITIAL_REQUEST.search(text)
     if request is None:
         how_many = _HOW_MANY_REQUEST.search(text)
         if (
