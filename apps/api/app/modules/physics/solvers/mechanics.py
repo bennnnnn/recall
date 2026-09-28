@@ -578,6 +578,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
         # The extractor refuses an unstated collision type, so this flag is
         # always something the user actually wrote.
         quantities: tuple[QuantityResult, ...]
+        formulas: tuple[str, ...]
         if p.get("elastic", 0.0) >= 0.5:
             u1 = ((m1 - m2) * v1 + 2 * m2 * v2) / total
             u2 = ((m2 - m1) * v2 + 2 * m1 * v1) / total
