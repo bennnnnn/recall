@@ -58,6 +58,15 @@ describe("MathText", () => {
     expect(JSON.stringify(rendered.toJSON())).not.toMatch(/[\uE005-\uE009]/);
   });
 
+  it.each([
+    [String.raw`\text{\}}`, "}"],
+    [String.raw`\mathrm{\{}`, "{"],
+  ])("renders a one-sided escaped brace in an upright group", async (latex, brace) => {
+    const rendered = await render(<MathText latex={latex} />);
+    expect(rendered.getByTestId("math-upright-run")).toHaveTextContent(brace);
+    expect(JSON.stringify(rendered.toJSON())).not.toMatch(/[\uE005-\uE009]/);
+  });
+
   it("renders a superscript digit as a real Unicode superscript char", async () => {
     // "2" has a Unicode superscript mapping (unicodeSupSub.ts) — MathText
     // prefers that over the styled-smaller-Text fallback so it reads raised

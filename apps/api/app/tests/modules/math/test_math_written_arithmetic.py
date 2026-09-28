@@ -151,6 +151,15 @@ def test_large_repeating_division_does_not_depend_on_decimal_context_precision()
     )
 
 
+def test_large_exact_division_preserves_every_input_digit() -> None:
+    numerator = "12345678901234567890123456789"
+    _intent, block, spec = _work(f"{numerator} divided by 7")
+
+    assert spec.operands == [numerator, "7"]
+    assert spec.quotient == "1763668414462081127160493827"
+    assert block.canonical_answer == "1763668414462081127160493827"
+
+
 def test_division_interpretations_are_explicit_and_preserve_the_invariant() -> None:
     for question, mode, answer in (
         ("437 divided by 6 with a remainder", "remainder", "72 R5"),

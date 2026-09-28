@@ -40,6 +40,26 @@ def number_parts(token: str, *, max_digits: int = MAX_DIGITS) -> tuple[Decimal, 
     return value, scale
 
 
+def scaled_number_parts(token: str, *, max_digits: int = MAX_DIGITS) -> tuple[int, int] | None:
+    """Parse a non-negative plain decimal into an exact coefficient and scale."""
+    raw = token.replace(",", "")
+    if not raw or raw.startswith(("+", "-")):
+        return None
+    whole, point, fraction = raw.partition(".")
+    if point and (not fraction or "." in fraction):
+        return None
+    if (whole and not whole.isdigit()) or (fraction and not fraction.isdigit()):
+        return None
+    if not whole and not fraction:
+        return None
+    digits = f"{whole or '0'}{fraction}"
+    significant = digits.lstrip("0") or "0"
+    scale = len(fraction)
+    if len(significant) > max_digits or scale > MAX_DECIMAL_PLACES:
+        return None
+    return int(digits), scale
+
+
 def scaled_integer(value: Decimal, scale: int) -> int:
     return int(value.scaleb(scale).to_integral_exact())
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_UP
 from math import gcd
 from typing import Literal, cast
 
@@ -11,16 +11,14 @@ from app.modules.math.solve.written_arithmetic_common import (
     MAX_DECIMAL_PLACES,
     MAX_DIVISION_DIGITS,
     format_scaled,
-    number_parts,
-    scaled_integer,
+    scaled_number_parts,
 )
 
 _APPROX_DECIMAL_PLACES = 2
 _ROUNDING_GUARD_PLACES = 1
 
 
-def _plain_decimal(value: Decimal) -> str:
-    raw = format(value, "f")
+def _plain_decimal(raw: str) -> str:
     return (raw.rstrip("0").rstrip(".") if "." in raw else raw) or "0"
 
 
@@ -118,8 +116,8 @@ def build_long_division(
     *,
     answer_mode: str | None = None,
 ) -> ArithmeticWorkSpec | None:
-    left_parts = number_parts(left_token, max_digits=MAX_DIVISION_DIGITS)
-    right_parts = number_parts(right_token, max_digits=MAX_DIVISION_DIGITS)
+    left_parts = scaled_number_parts(left_token, max_digits=MAX_DIVISION_DIGITS)
+    right_parts = scaled_number_parts(right_token, max_digits=MAX_DIVISION_DIGITS)
     if left_parts is None or right_parts is None:
         return None
     left, left_scale = left_parts
@@ -127,11 +125,12 @@ def build_long_division(
     if right == 0:
         return None
     shift = right_scale
-    working_left = left.scaleb(shift)
-    divisor = scaled_integer(right, shift)
+    working_scale = max(0, left_scale - shift)
+    working_left = left * (10 ** max(0, shift - left_scale))
+    divisor = right
     if divisor <= 0:
         return None
-    working_text = _plain_decimal(working_left)
+    working_text = _plain_decimal(format_scaled(working_left, working_scale))
     digits = working_text.replace(".", "")
     integer_digits = len(working_text.partition(".")[0])
     numerator = int(digits or "0")
@@ -174,13 +173,11 @@ def build_long_division(
         resolved_mode = requested_mode
     elif places is not None:
         quotient = _plain_decimal(
-            Decimal(
-                _fixed_decimal(
-                    numerator,
-                    denominator,
-                    places,
-                    rounding=ROUND_DOWN,
-                )
+            _fixed_decimal(
+                numerator,
+                denominator,
+                places,
+                rounding=ROUND_DOWN,
             )
         )
         target_extra = max(0, places - existing_fraction_places)
@@ -265,8 +262,8 @@ def build_long_division(
         operator="÷",
         expression=expression,
         operands=[
-            format_scaled(scaled_integer(left, left_scale), left_scale),
-            format_scaled(scaled_integer(right, right_scale), right_scale),
+            format_scaled(left, left_scale),
+            format_scaled(right, right_scale),
         ],
         working_operands=[division_display, str(divisor)],
         answer=answer,

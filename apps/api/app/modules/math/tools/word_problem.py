@@ -68,12 +68,15 @@ _HOW_MANY_ADVICE = re.compile(
     r"\bhow\s+many\b[^.?!]{0,80}\b(?:should|could|would|can|may|might|recommend|suggest)\b",
     re.IGNORECASE,
 )
-_HOW_MANY_MATH_CONTEXT = re.compile(
-    rf"\b{_MATH_TARGET}\b|\b(?:times\s+as|twice|double|triple|thrice|half|"
-    r"more\s+than|less\s+than|fewer\s+than|greater\s+than|sum|total|together|"
-    r"altogether|combined|difference|product|consecutive|each|per|equally|"
-    rf"{_QUANTITATIVE_CHANGE}|left|remain(?:s|ing)?|split|percent|"
-    r"there\s+(?:are|were))\b|%",
+_HOW_MANY_NAMED_TARGET = re.compile(
+    r"\bhow\s+many\s+(?!do\b|does\b|did\b|is\b|are\b|was\b|were\b|"
+    r"should\b|could\b|would\b|can\b|may\b|might\b)[a-z][a-z'-]*\b",
+    re.IGNORECASE,
+)
+_HOW_MANY_ELLIPSIS_TARGET = re.compile(
+    r"\bhow\s+many\s+(?:(?:do|does|did)\b[^.?!]{0,40}\b"
+    r"(?:have|has|had|start(?:ed)?\s+with|remain(?:s|ed|ing)?|left)\b"
+    r"|(?:is|are|was|were)\s+(?:left|remaining|there)\b)",
     re.IGNORECASE,
 )
 _PRONOUN_REQUEST = re.compile(
@@ -194,7 +197,10 @@ def word_problem_candidate(text: str) -> bool:
         if (
             how_many is not None
             and _HOW_MANY_ADVICE.search(text) is None
-            and _HOW_MANY_MATH_CONTEXT.search(text) is not None
+            and (
+                _HOW_MANY_NAMED_TARGET.search(text, how_many.start()) is not None
+                or _HOW_MANY_ELLIPSIS_TARGET.search(text, how_many.start()) is not None
+            )
         ):
             request = how_many
     if request is None:

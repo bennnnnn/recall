@@ -57,13 +57,17 @@ _NAMED_RADICAL = re.compile(
 _NUMBER_SET_DOMAIN = (
     r"(?:integers?|natural\s+numbers?|rationals?(?:\s+numbers?)?|complex(?:\s+numbers?)?)"
 )
+_DOMAIN_CUE = (
+    r"(?:(?:for|where|also|with|and|assuming|given)\b|"
+    r"provided(?:\s+that)?\b|subject\s+to\b|[,;])"
+)
 _NONDEFAULT_DOMAIN = re.compile(
     rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}\b"
-    r"|\b(?:for|where|also)\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
-    r"|\b(?:for|where|also)\s+[a-z]\s+"
+    rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
+    rf"|{_DOMAIN_CUE}\s+[a-z]\s+"
     r"(?:(?:must\s+be|is|are|was|were)\s+)?"
     rf"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|not\s+equal\s+to|"
-    rf"(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
+    rf"non[-\s]?zero|not\s+zero|(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
     re.IGNORECASE,
 )
 _DOMAIN_BLIND_KINDS = frozenset(

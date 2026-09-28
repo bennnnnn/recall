@@ -350,6 +350,12 @@ function readGroup(input: string, start: number): { value: string; next: number 
   if (input[start] !== "{") return null;
   let depth = 0;
   for (let i = start; i < input.length; i += 1) {
+    // An escaped brace is visible content, not TeX group structure. Skipping
+    // the escaped character also handles odd/even backslash runs correctly.
+    if (input[i] === "\\" && i + 1 < input.length) {
+      i += 1;
+      continue;
+    }
     if (input[i] === "{") depth += 1;
     else if (input[i] === "}") {
       depth -= 1;
