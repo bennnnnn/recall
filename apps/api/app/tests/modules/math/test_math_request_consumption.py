@@ -63,6 +63,12 @@ def test_supported_geometry_multipart_retains_both_requested_values() -> None:
     assert maybe_direct_math_reply(block, question) is None
 
 
+def test_square_root_in_graph_expression_is_not_a_roots_request() -> None:
+    intent = extract_math_intent("Graph the square root of x")
+    assert intent is not None
+    assert intent.kind == "graph"
+
+
 def test_named_rectangle_multipart_is_verified_and_rendered_atomically() -> None:
     question = "A rectangle is 8 cm long and 3 cm wide. Find both its area and perimeter."
     intent = extract_math_intent(question)

@@ -35,8 +35,11 @@ _MULTIPLE_REQUESTED_STATISTICS = re.compile(
     r"standard\s+deviation|stdev)\b",
     re.IGNORECASE,
 )
-_GRAPH_OR_ROOTS = re.compile(
-    r"\b(?:graph|plot|sketch|roots?|zeros?)\b",
+_GRAPH_REQUEST = re.compile(r"\b(?:graph|plot|sketch)\b", re.IGNORECASE)
+_ROOT_OUTPUT_REQUEST = re.compile(
+    r"\b(?:roots|zeros)\b"
+    r"|\b(?:find|tell\s+me|give|determine|calculate|compute|what\s+is)\b"
+    r"[^.?!]{0,40}\b(?:the|a|its)?\s*(?:root|zero)\b",
     re.IGNORECASE,
 )
 _NONDEFAULT_DOMAIN = re.compile(
@@ -87,11 +90,7 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     )
     if source_trig_calls > len(_TRIG_CALL.findall(intent_text)):
         leftovers.append("unconsumed trigonometric term")
-    graph_root_requests = {
-        "roots" if match.group(0).lower().startswith(("root", "zero")) else "graph"
-        for match in _GRAPH_OR_ROOTS.finditer(text)
-    }
-    if graph_root_requests == {"graph", "roots"}:
+    if _GRAPH_REQUEST.search(text) and _ROOT_OUTPUT_REQUEST.search(text):
         # A graph intent has no typed roots result and a roots intent has no
         # graph result. Never certify whichever extractor happened to run first.
         leftovers.append("multiple requested function outputs")
