@@ -117,4 +117,45 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
             },
             units={"known": "L", "find": "L"},
         )
+    counted = _one_amount(
+        text,
+        rf"({_N})\s*mol(?:e|es)?(?:\s+of)?\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+    )
+    if counted is not None:
+        amount, formula = counted
+        return _chain(equation, target, formula, amount, "mol", _find_unit(text))
+    counted = _one_amount(
+        text,
+        rf"({_N})\s*(?:molecules|particles|atoms)(?:\s+of)?\s+"
+        rf"({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+    )
+    if counted is not None:
+        amount, formula = counted
+        return _chain(equation, target, formula, amount, "particles", _find_unit(text))
     return None
+
+
+def _one_amount(text: str, pattern: str) -> tuple[float, str] | None:
+    matches = re.findall(pattern, text, re.IGNORECASE)
+    if len(matches) != 1:
+        return None
+    amount, formula = matches[0]
+    return float(amount), formula
+
+
+def _chain(
+    equation: str,
+    target: str,
+    formula: str,
+    amount: float,
+    known: str,
+    find: str,
+) -> ChemistryIntent:
+    return ChemistryIntent(
+        kind="stoichiometry",
+        chemistry_op="mass_stoichiometry",
+        equation=equation,
+        target=target,
+        species={formula: amount},
+        units={"known": known, "find": find},
+    )

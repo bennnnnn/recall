@@ -9,8 +9,6 @@ from app.modules.chemistry.solvers.acid import (
     solve_polyprotic,
     solve_strong_acid,
     solve_strong_base,
-    solve_titration_strong,
-    solve_titration_weak,
     solve_weak_acid,
     solve_weak_base,
 )
@@ -97,6 +95,7 @@ from app.modules.chemistry.solvers.thermo_ext import (
     solve_formation,
     solve_hess,
 )
+from app.modules.chemistry.solvers.titration import solve_titration_strong, solve_titration_weak
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import MathServiceError
 

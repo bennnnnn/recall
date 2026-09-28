@@ -165,6 +165,35 @@ def test_vsepr_for_a_unique_central_atom(
     assert structure.central_formal_charge == 0
 
 
+def test_stoichiometry_chain_converts_moles_and_particles_and_reports_excess() -> None:
+    grams = extract_chemistry_intent("How many grams of H2O from 2 mol H2 in H2 + O2 -> H2O?")
+    particles = extract_chemistry_intent(
+        "How many grams of H2O from 1.2044e24 molecules of H2 in H2 + O2 -> H2O?"
+    )
+    limiting = extract_chemistry_intent(
+        "Find the limiting reagent from masses 10 g H2 and 10 g O2 in H2 + O2 -> H2O"
+    )
+    assert grams is not None and particles is not None and limiting is not None
+    assert grams.chemistry_op == "mass_stoichiometry"
+    assert particles.chemistry_op == "mass_stoichiometry"
+    assert solve_chemistry(grams).answer == "H2O = 36.04 g"
+    assert solve_chemistry(particles).answer == "H2O = 36.0392 g"
+    limited = solve_chemistry(limiting)
+    assert any(line.startswith("excess H2 =") for line in limited.substitution)
+    moles = extract_chemistry_intent("How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?")
+    assert moles is not None and moles.chemistry_op == "stoichiometry"
+
+
+def test_weak_base_titration_half_equivalence() -> None:
+    intent = extract_chemistry_intent(
+        "Weak base strong acid titration: Ma=0.10, Va=0.025 L, Mb=0.10, "
+        "Vb=0.050 L, Kb=1.8e-5, find pH"
+    )
+    assert intent is not None
+    assert intent.chemistry_op == "titration_weak"
+    assert solve_chemistry(intent).answer == "pH = 9.25527"
+
+
 def test_two_central_atoms_are_not_a_verified_lewis_structure() -> None:
     assert lewis_structure("HCN") is None
 

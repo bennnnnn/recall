@@ -96,6 +96,10 @@ def _extract_titration(text: str) -> ChemistryIntent | None:
     if vb is not None:
         params["vb_l"] = vb
     ka = _search(rf"\bKa\s*=\s*({_N})", text, flags=0)
+    kb = _search(rf"\bKb\s*=\s*({_N})", text, flags=0)
+    if kb is not None and ka is None:
+        params["kb"] = kb
+        return ChemistryIntent(kind="acid_base", chemistry_op="titration_weak", params=params)
     if ka is not None or re.search(r"\bweak\b", text, re.IGNORECASE):
         if ka is None:
             return None

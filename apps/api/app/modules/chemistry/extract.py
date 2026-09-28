@@ -136,7 +136,15 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
             )
         reactants = balance_equation(equation).reactants
         known = {formula: amount for formula, amount in amounts.items() if formula in reactants}
-        if target and len(known) == 1:
+        if (
+            target
+            and len(known) == 1
+            and not re.search(
+                r"\b(?:grams?|molecules|particles|atoms|liters?|litres?)\b",
+                text,
+                re.IGNORECASE,
+            )
+        ):
             return ChemistryIntent(
                 kind="stoichiometry",
                 chemistry_op="stoichiometry",
