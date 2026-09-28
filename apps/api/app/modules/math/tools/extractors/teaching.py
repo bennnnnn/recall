@@ -53,7 +53,9 @@ _ROUND_NAME = {
     "thousand": "thousands",
     "thousands": "thousands",
 }
-_SIGNED_MOVE = re.compile(r"(-\d{1,2})\s*([+-])\s*(\d{1,2})$")
+# A rightward jump that starts negative. Bare subtraction, including a
+# unicode minus, stays on the arithmetic chip path.
+_SIGNED_MOVE = re.compile(r"(-\d{1,2})\s*\+\s*(\d{1,2})$")
 _DIVIDE = re.compile(
     r"(synthetic division|polynomial long division|long division|divide) (?:of )?(.+) by (.+)$"
 )
@@ -87,7 +89,10 @@ def closed_teaching_declined(cleaned: str) -> bool:
     if matched is None:
         return False
     operation, payload = matched
-    return build_teaching(operation, payload) is None
+    if build_teaching(operation, payload) is not None:
+        return False
+    # A signed jump that does not fit the picture is still ordinary arithmetic.
+    return operation != "number_line_move"
 
 
 def extract_teaching_intent(cleaned: str) -> MathIntent | None:
@@ -95,14 +100,18 @@ def extract_teaching_intent(cleaned: str) -> MathIntent | None:
     if matched is None or closed_teaching_declined(cleaned):
         return None
     operation, payload = matched
-    return MathIntent.model_validate(
-        {
-            "kind": "arithmetic",
-            "teaching_op": operation,
-            "teaching_payload": payload,
-            "operation": "solve",
-        }
-    )
+    if build_teaching(operation, payload) is None:
+        return None
+    fields: dict[str, object] = {
+        "kind": "arithmetic",
+        "teaching_op": operation,
+        "teaching_payload": payload,
+        "operation": "solve",
+    }
+    if operation == "number_line_move":
+        start, change = payload.split("|", 1)
+        fields["expr"] = f"({start})+({change})"
+    return MathIntent.model_validate(fields)
 
 
 def _matched(cleaned: str) -> tuple[str, str] | None:
@@ -147,8 +156,7 @@ def _match(text: str) -> tuple[str, str] | None:
     if (found := _ROUND.fullmatch(text)) is not None:
         return "round_place", f"{found.group(1)}|{_ROUND_NAME[found.group(2)]}"
     if (found := _SIGNED_MOVE.fullmatch(text)) is not None:
-        change = found.group(3) if found.group(2) == "+" else f"-{found.group(3)}"
-        return "number_line_move", f"{found.group(1)}|{change}"
+        return "number_line_move", f"{found.group(1)}|{found.group(2)}"
     if (found := _DIVIDE.fullmatch(text)) is not None:
         operation = (
             "synthetic_division"

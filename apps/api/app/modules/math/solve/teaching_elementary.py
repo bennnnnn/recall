@@ -203,12 +203,12 @@ def number_line_move(start: int, change: int, answer: str) -> NumberLineMoveSpec
     end = start + change
     if abs(start) > 20 or abs(change) > 20 or abs(end) > 24:
         return None
-    if start >= 0 and end >= 0 and change > 0:
+    # Bonds and columns own a non-negative start. Bare subtraction stays a chip.
+    if start >= 0 or change <= 0:
         return None
     low = min(start, end) - 1
     high = max(start, end) + 1
-    direction = "right" if change > 0 else "left"
-    speech = f"Start at {start} and move {abs(change)} to the {direction}. You land on {end}."
+    speech = f"Start at {start} and move {change} to the right. You land on {end}."
     return NumberLineMoveSpec(
         start=start,
         change=change,
@@ -239,8 +239,6 @@ def number_line_for_expr(expr: str, answer: str) -> NumberLineMoveSpec | None:
         return None
     start = int(left)
     change = int(right) if compact[sign_at] == "+" else -int(right)
-    if start >= 0 and change > 0:
-        return None
     return number_line_move(start, change, answer)
 
 

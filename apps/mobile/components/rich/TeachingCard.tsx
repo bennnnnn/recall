@@ -2,8 +2,10 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import type { TeachingSpec } from "@/lib/math/teachingBlock";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 
 function records(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value)
@@ -283,18 +285,18 @@ function makeStyles(theme: Theme) {
     card: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
-      borderRadius: 12,
-      padding: 12,
-      gap: 8,
+      borderRadius: Radius.md,
+      padding: Space.sm,
+      gap: Space.xs,
     },
-    row: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", gap: 6 },
+    row: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", gap: Space.xs },
     cell: { minWidth: 52, alignItems: "center" },
     body: { color: theme.text, ...Type.body },
-    strong: { color: theme.text, ...Type.body, fontWeight: "600" },
+    strong: { color: theme.text, ...Type.body, ...Weight.semibold },
     muted: { color: theme.textSecondary, ...Type.caption },
     flat: { width: 18, height: 18, backgroundColor: theme.accent, borderRadius: 2 },
     rod: { width: 6, height: 18, backgroundColor: theme.accent, borderRadius: 2 },
-    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.accent },
+    dot: { width: 8, height: 8, borderRadius: Radius.row, backgroundColor: theme.accent },
     frame: { width: 180, flexDirection: "row", flexWrap: "wrap" },
     frameCell: {
       width: 28,
@@ -302,14 +304,14 @@ function makeStyles(theme: Theme) {
       margin: 2,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
-      borderRadius: 4,
+      borderRadius: Radius.row,
     },
     filled: { backgroundColor: theme.accent },
     added: { backgroundColor: theme.textSecondary },
     circle: {
       width: 112,
       height: 112,
-      borderRadius: 56,
+      borderRadius: Radius.full,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.text,
     },

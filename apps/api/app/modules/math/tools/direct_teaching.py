@@ -21,7 +21,9 @@ def attach_teaching(
     if not direct:
         return replace(block, canonical_fences=fences)
     body = json.dumps(data, separators=(",", ":"))
-    reply = f"```arithmetic\n{body}\n```\n\n```answer\n{spec.answer}\n```\n"
+    # The answer chip leads so a single-digit fact stays a verified chip.
+    # The picture follows and does not change that answer.
+    reply = f"```answer\n{spec.answer}\n```\n\n```arithmetic\n{body}\n```\n"
     return replace(
         block,
         canonical_fences=fences,
